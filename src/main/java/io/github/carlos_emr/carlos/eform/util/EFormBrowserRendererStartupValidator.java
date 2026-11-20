@@ -78,15 +78,18 @@ public class EFormBrowserRendererStartupValidator {
             // probed here because Tomcat is not serving yet, so this validates format and the launch
             // probe validates the browser.
             eFormBrowserPdfService.verifyConfiguredBaseUrl();
+            // Kept separate from the base-URL check on purpose: the two properties have different
+            // operator remediations, and one message covering both is one nobody can act on.
+            eFormBrowserPdfService.verifyConfiguredServiceUrl();
             eFormBrowserPdfService.verifyRendererReady();
             logger.info("eForm browser renderer startup check passed.");
         } catch (PDFGenerationException | RuntimeException e) {
             // This lifecycle boundary is deliberately advisory. Catch unexpected runtime failures
             // as well as the probe's declared exception so an ordinary renderer fault cannot abort
-            // the Spring context. Do not log the throwable: Selenium failures may contain local
+            // the Spring context. Do not log the throwable: render-browser failures may contain local
             // paths or URLs, so retain only redacted diagnostic text.
             logger.warn("eForm browser renderer is NOT ready; CARLOS startup will continue, but eForm "
-                            + "print/fax/archive will fail until the renderer is fixed. type={} error={}",
+                            + "print/fax/archive and measurement graphs will fail until the renderer is fixed. type={} error={}",
                     e.getClass().getName(),
                     RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())));
         }

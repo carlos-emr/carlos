@@ -144,7 +144,7 @@
                 return false;
                 //} else if(document.forms[0].xml_provider.options[0].selected){
             } else if (document.forms[0].xml_provider.value == "000000") {
-                alert("Please select a providers.");
+                alert("Please select a provider.");
                 return false;
             }
             <c:if test="${!shortcutPg1Model.rmaEnabled}">
@@ -324,7 +324,7 @@
         <c:forEach var="__st" items="${shortcutPg1Model.serviceTypes}" varStatus="__stStatus">
             <tr bgcolor="${__stStatus.count % 2 == 0 ? '#FFFFFF' : '#EEEEFF'}">
                 <td colspan="2"><b><font size="-2" color="#7A388D"><a
-                        href="${ctx}/billing/CA/ON/billingShortcutPg1View?billForm=${carlos:forUriComponent(__st.code)}&hotclick=&appointment_no=${carlos:forUriComponent(shortcutPg1Model.requestParamEchoes['appointment_no'])}&demographic_name=${carlos:forUriComponent(shortcutPg1Model.demoName)}&demographic_no=${carlos:forUriComponent(shortcutPg1Model.requestParamEchoes['demographic_no'])}&user_no=${carlos:forUriComponent(shortcutPg1Model.userProviderNo)}&apptProvider_no=${carlos:forUriComponent(shortcutPg1Model.requestParamEchoes['apptProvider_no'])}&providerview=${carlos:forUriComponent(shortcutPg1Model.providerView)}&appointment_date=${carlos:forUriComponent(shortcutPg1Model.requestParamEchoes['appointment_date'])}&status=${carlos:forUriComponent(shortcutPg1Model.requestParamEchoes['status'])}&start_time=${carlos:forUriComponent(shortcutPg1Model.requestParamEchoes['start_time'])}&bNewForm=1"
+                        href="${ctx}/billing/CA/ON/billingShortcutPg1View?billForm=${carlos:forUriComponent(__st.code)}&hotclick=&appointment_no=${carlos:forUriComponent(shortcutPg1Model.requestParamEchoes['appointment_no'])}&demographic_no=${carlos:forUriComponent(shortcutPg1Model.requestParamEchoes['demographic_no'])}&user_no=${carlos:forUriComponent(shortcutPg1Model.userProviderNo)}&apptProvider_no=${carlos:forUriComponent(shortcutPg1Model.requestParamEchoes['apptProvider_no'])}&providerview=${carlos:forUriComponent(shortcutPg1Model.providerView)}&appointment_date=${carlos:forUriComponent(shortcutPg1Model.requestParamEchoes['appointment_date'])}&status=${carlos:forUriComponent(shortcutPg1Model.requestParamEchoes['status'])}&start_time=${carlos:forUriComponent(shortcutPg1Model.requestParamEchoes['start_time'])}&bNewForm=1"
                         onClick="showHideLayers('Layer1','','hide');"><carlos:encode value="${__st.name}" context="html"/>
                 </a></font></b></td>
             </tr>
@@ -368,9 +368,11 @@
                 <table border="0" cellspacing="0" cellpadding="0" width="100%">
                     <tr>
                         <td><b><fmt:message key="billing.hospitalBilling.formOscarBilling"/> </b></td>
-                        <td align="right"><input type="submit" name="submit"
-                                                 value="<fmt:message key="billing.hospitalBilling.btnNext"/>"
-                                                 style="width: 120px;"/> <input type="button"
+                        <%-- A <button>, so the label is translated while the value posted stays
+                             "Next": BillingShortcutPg2Service only calculates and saves for that
+                             value, and an <input> posted its label ("Suivant", ...) (#5055). --%>
+                        <td style="text-align: right;"><button type="submit" name="submit" value="Next"
+                                                  style="width: 120px;"><fmt:message key="billing.hospitalBilling.btnNext"/></button> <input type="button"
                                                                                 name="button"
                                                                                 value="<fmt:message key="global.btnExit"/>"
                                                                                 style="width: 120px;"

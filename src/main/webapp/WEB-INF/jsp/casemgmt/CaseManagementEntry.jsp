@@ -28,6 +28,12 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Classic case-management note entry page with issue selection and soft-wrapped clinical text.
+    Uses the caseManagementEntryForm model and showResolved request parameter; preserves
+    patient/provider scope and typed line breaks when editing and saving.
+    @since 2026-09-27 (soft-wrap and save-order documentation)
+--%>
 
 
 
@@ -35,15 +41,19 @@
 <%-- Updated by Eugene Petruhin on 09 jan 2009 while fixing #2482832 & #2494061 --%>
 
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean"%>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
-<%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProp" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
+
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:message var="draftSavingLabel" key="encounter.draftSaving.msg"/>
+<fmt:message var="draftSaveFailedLabel" key="encounter.draftSaveFailed.msg"/>
+<fmt:message var="draftSaveConflictLabel" key="encounter.draftSaveConflict.msg"/>
+<fmt:message var="draftSavedLabel" key="encounter.draftSaved.msg"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 
@@ -53,7 +63,6 @@
     } catch (NullPointerException e) {
         // do nothing it's okay to not have this parameter
     }
-    int count_issues_display = 0;
 %>
 <html>
 <head>
@@ -68,20 +77,20 @@
         <%
 
             String demographicNo = request.getParameter("demographicNo");
-            String sessionFrmName = "caseManagementEntryForm" + demographicNo;
+            String sessionFrmName = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.formKey(request, demographicNo);
             CaseManagementEntryFormBean form=(CaseManagementEntryFormBean) session.getAttribute(sessionFrmName);
             request.setAttribute("caseManagementEntryForm", form);
 
         int size = (form.getIssueCheckList() != null) ? form.getIssueCheckList().size() : 0;
 
-        if (session.getAttribute("newNote")!=null && "true".equalsIgnoreCase((String)session.getAttribute("newNote")))
+        if (request.getAttribute("newNote")!=null && "true".equalsIgnoreCase((String)request.getAttribute("newNote")))
         {%>
         var newNote = true;
         <%}else{%>
         var newNote = false;
         <%}
 
-        if (session.getAttribute("issueStatusChanged")!=null && "true".equalsIgnoreCase((String)session.getAttribute("issueStatusChanged")))
+        if (request.getAttribute("issueStatusChanged")!=null && "true".equalsIgnoreCase((String)request.getAttribute("issueStatusChanged")))
         {%>
         var issueChanged = true;
         <%}else{%>
@@ -115,16 +124,12 @@
             }
         }
 
-        function validateIssuecheck(issueSize) {
-            for (let i = 0; i < issueSize; i++) {
-                //alert("checked="+document.caseManagementEntryForm.elements["issueCheckList["+i+"].checked"].checked);
-                if (document.caseManagementEntryForm.elements["issueCheckList[" + i + "].checked"].checked) {
-                    //alert("issue check return true");
-                    return true;
-                }
-            }
-            return false;
-
+        function validateIssuecheck() {
+            return Array.prototype.some.call(document.caseManagementEntryForm.elements, function (field) {
+                return field.type === 'checkbox' &&
+                    /^(?:selected(?:Case|Catalog)IssueId|issueCheckList\[\d+\]\.checked)$/.test(field.name)
+                    && field.checked;
+            });
         }
 
         function validateEnounter() {
@@ -155,7 +160,7 @@
                 return false;
         }
 
-        function validateSave(count_issues_display) {
+        function validateSave() {
 
             var str1 = "You cannot save a note when there is no issue checked, please add an issue or check a currently available issue before save.";
             var str2 = "Are you sure that you want to sign and save without changing the status of any of the issues?";
@@ -165,7 +170,7 @@
                 alert(str3);
                 return false;
             }
-            if (!validateIssuecheck(count_issues_display)) {
+            if (!validateIssuecheck()) {
                 alert(str1);
                 return false;
             }
@@ -185,31 +190,94 @@
         }
 
         var XMLHttpRequestObject = false;
+        var legacyAutosaveTimer = null;
+        var legacyAutosavePending = false;
+        var legacyAutosaveStopped = false;
+        var legacyAutosaveSuspended = false;
 
-        if (window.XMLHttpRequest) {
-            XMLHttpRequestObject = new XMLHttpRequest();
-        } else if (window.ActiveXObject) {
-            XMLHttpRequestObject = new ActiveXObject("Microsoft.XMLHTTP");
+        function showLegacyAutosaveStatus(state, text) {
+            var status = document.getElementById('legacyAutosaveStatus');
+            if (!status) return;
+            status.setAttribute('data-autosave-state', state);
+            status.textContent = text;
+        }
+
+        function legacyAutosaveAcknowledged(response, requestUrl) {
+            if (!(response.status >= 200 && response.status < 300)
+                    || typeof response.responseText !== 'string' || response.responseText.trim() !== '') return false;
+            if (!response.responseURL) return true;
+            try {
+                var expected = new URL(requestUrl, window.location.href);
+                var actual = new URL(response.responseURL, window.location.href);
+                return actual.origin === expected.origin && actual.pathname === expected.pathname && actual.search === expected.search;
+            } catch (invalidUrl) {
+                return false;
+            }
         }
 
         function autoSave() {
+            clearTimeout(legacyAutosaveTimer);
+            if (legacyAutosavePending || legacyAutosaveStopped) return;
+            XMLHttpRequestObject = window.XMLHttpRequest ? new XMLHttpRequest()
+                : window.ActiveXObject ? new ActiveXObject("Microsoft.XMLHTTP") : false;
             if (XMLHttpRequestObject) {
                 var obj = document.getElementById('caseNote_note');
-                XMLHttpRequestObject.open("POST", '<%=request.getContextPath() %>/CaseManagementEntry', true);
+                var xhr = XMLHttpRequestObject;
+                var autosaveUrl = '<%=request.getContextPath() %>/CaseManagementEntry';
+                var completed = false;
+                legacyAutosavePending = true;
+                showLegacyAutosaveStatus('pending', '${carlos:forJavaScriptBlock(draftSavingLabel)}');
+                function finish() {
+                    if (completed) return;
+                    completed = true;
+                    legacyAutosavePending = false;
+                    if (legacyAutosaveStopped) return;
+                    if (legacyAutosaveAcknowledged(xhr, autosaveUrl)) {
+                        showLegacyAutosaveStatus('saved', '${carlos:forJavaScriptBlock(draftSavedLabel)}');
+                    } else if (xhr.status === 409) {
+                        legacyAutosaveStopped = true;
+                        showLegacyAutosaveStatus('conflict', '${carlos:forJavaScriptBlock(draftSaveConflictLabel)}');
+                    } else {
+                        showLegacyAutosaveStatus('failed', '${carlos:forJavaScriptBlock(draftSaveFailedLabel)}');
+                    }
+                    setTimer();
+                }
+                xhr.onreadystatechange = function () { if (xhr.readyState === 4) finish(); };
+                xhr.onerror = finish;
+                xhr.ontimeout = finish;
+                xhr.onabort = finish;
+                XMLHttpRequestObject.open("POST", autosaveUrl, true);
+                XMLHttpRequestObject.timeout = 45000;
                 XMLHttpRequestObject.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
 
                 var demographicNo = '${carlos:forJavaScript(param.demographicNo)}';
-                var noteId = '<carlos:encode value='<%= request.getParameter("noteId") != null ? request.getParameter("noteId") : request.getAttribute("noteId") != null ? (String) request.getAttribute("noteId") : "" %>' context="javaScriptBlock"/>';<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
-                var programId = '${carlos:forJavaScript(case_program_id)}';
-                XMLHttpRequestObject.send("method=autosave&demographicNo=" + demographicNo + "&programId=" + programId + "&note_id=" + noteId + "&note=" + escape(obj.value));
+                var noteId = '<carlos:encode value='<%= String.valueOf(form.getCaseNote().getId() == null || form.getCaseNote().getId() <= 0 ? 0 : form.getCaseNote().getId()) %>' context="javaScriptBlock"/>';<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+                var programId = '<%= SafeEncode.forJavaScript(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.resolve(request)) %>';
+                var chartContext = '<%= SafeEncode.forJavaScript(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>';
+                XMLHttpRequestObject.send((chartContext ? "chartContext=" + encodeURIComponent(chartContext) + "&" : "") + "method=autosave&demographicNo=" + demographicNo + "&programId=" + programId + "&note_id=" + noteId + "&note=" + encodeURIComponent(obj.value));
+            } else {
+                showLegacyAutosaveStatus('failed', '${carlos:forJavaScriptBlock(draftSaveFailedLabel)}');
+                setTimer();
             }
-
-            setTimer();
         }
 
         function setTimer() {
-            setTimeout("autoSave()", 60000);
+            clearTimeout(legacyAutosaveTimer);
+            if (!legacyAutosaveStopped) legacyAutosaveTimer = setTimeout(autoSave, 60000);
         }
+
+        window.addEventListener('pagehide', function () {
+            if (!legacyAutosaveStopped) legacyAutosaveSuspended = true;
+            legacyAutosaveStopped = true;
+            clearTimeout(legacyAutosaveTimer);
+            if (legacyAutosavePending && XMLHttpRequestObject) XMLHttpRequestObject.abort();
+        });
+        window.addEventListener('pageshow', function (event) {
+            if (!event.persisted || !legacyAutosaveSuspended) return;
+            legacyAutosaveSuspended = false;
+            legacyAutosaveStopped = false;
+            setTimer();
+        });
 
         function init() {
             setTimer();
@@ -229,26 +297,31 @@
 <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.notes" rights="u">
     <%
         //get programId
-        String pId = (String) session.getAttribute("case_program_id");
+        String pId = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.resolve(request);
         if (pId == null) pId = "";
     %>
-    <form action="<%=request.getContextPath() %>/CaseManagementEntry" method="post">
+    <form name="caseManagementEntryForm" id="caseManagementEntryForm" action="<%=request.getContextPath() %>/CaseManagementEntry" method="post">
+        <% if (io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) != null) { %>
+        <input type="hidden" name="chartContext" value="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>"/>
+        <% } %>
         <input type="hidden" name="chain" id="chain"/>
-        <input type="hidden" name="demographicNo" id="demographicNo"/>
+        <input type="hidden" name="demographicNo" id="demographicNo" value="${carlos:forHtmlAttribute(param.demographicNo)}"/>
         <c:if test="${param.providerNo==null}">
             <input type="hidden" name="providerNo" value="<carlos:encode value='<%= StringUtils.noNull((String)session.getAttribute("user")) %>' context="htmlAttribute"/>">
         </c:if>
         <c:if test="${param.providerNo!=null}">
-            <input type="hidden" name="providerNo" id="providerNo"/>
+            <input type="hidden" name="providerNo" id="providerNo" value="${carlos:forHtmlAttribute(param.providerNo)}"/>
         </c:if>
         <input type="hidden" name="caseNote.program_no" value="<carlos:encode value='<%= pId %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="method" value="save"/>
+        <input type="hidden" name="noteId" value="<carlos:encode value='<%= String.valueOf(form.getCaseNote().getId() == null || form.getCaseNote().getId() <= 0 ? 0 : form.getCaseNote().getId()) %>' context="htmlAttribute"/>"/>
         <c:if test="${param.from=='casemgmt'||requestScope.from=='casemgmt'}">
             <input type="hidden" name="from" value="casemgmt"/>
         </c:if>
-        <input type="hidden" name="lineId" value="0"/>
         <input type="hidden" name="addIssue" value="null"/>
-        <input type="hidden" name="deleteId" value="0"/>
+        <%-- Patient issue (casemgmt_issue id) a Delete or Change Issue button targets; never a row position (#6090). --%>
+        <input type="hidden" name="caseIssueId" value=""/>
+        <input type="hidden" name="issueSelectionById" value="true"/>
 
         <b><fmt:message key="casemanagementEntry.clientname"/>
             <I>
@@ -304,12 +377,12 @@
     <c:set var="resolved" value="${cbb.issueDisplay.resolved eq 'resolved'}" />
 
     <c:if test="${!resolved or showResolved}">
-        <c:set var="countIssuesDisplay" value="${countIssuesDisplay + 1}" />
         <c:set var="counter" value="${status.count}" />
 
         <tr style="background-color: ${counter % 2 == 0 ? '#EEEEFF' : 'white'}; text-align: center;">
             <td>
-                <input type="checkbox" name="issueCheckList[${status.index}].checked"
+                <input type="checkbox" name="${cbb.issue.id > 0 ? 'selectedCaseIssueId' : 'selectedCatalogIssueId'}"
+                       value="<carlos:encode value='${cbb.issue.id > 0 ? cbb.issue.id : cbb.issue.issue_id}' context='htmlAttribute'/>"
                        onchange="setChangeFlag(true);"
                        ${checkBoxDisabled ? 'disabled' : ''} />
             </td>
@@ -348,12 +421,14 @@
                 <c:if test="${cbb.issueDisplay.location eq 'local'}">
                     <c:if test="${!cbb.used}">
                         <button type="submit" 
-                                onclick="this.form.method.value='issueDelete'; this.form.deleteId.value='${status.index}';">
+                                onclick="this.form.method.value='issueDelete'; this.form.caseIssueId.value=this.getAttribute('data-case-issue-id');"
+                                data-case-issue-id="<carlos:encode value='${cbb.issue.id}' context='htmlAttribute'/>">
                             Delete
                         </button>
                     </c:if>
                     <button type="submit" 
-                            onclick="this.form.method.value='changeDiagnosis'; this.form.deleteId.value='${status.index}';">
+                            onclick="this.form.method.value='changeDiagnosis'; this.form.caseIssueId.value=this.getAttribute('data-case-issue-id');"
+                            data-case-issue-id="<carlos:encode value='${cbb.issue.id}' context='htmlAttribute'/>">
                         Change Issue
                     </button>
                 </c:if>
@@ -378,7 +453,7 @@
         } else {
         %>
         <input id="showResolved" type="button" value="Show Resolved Issues"
-               onclick="document.location='CaseManagementEntry?method=edit&note_edit=new&from=casemgmt&demographicNo=<carlos:encode value='<%= request.getParameter("demographicNo") != null ? request.getParameter("demographicNo") : "" %>' context="uriComponent"/>&providerNo=<carlos:encode value='<%= request.getParameter("providerNo") != null ? request.getParameter("providerNo") : "" %>' context="uriComponent"/>&showResolved=true'"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+               onclick="document.location='CaseManagementEntry?method=edit&note_edit=new&from=casemgmt&demographicNo=<carlos:encode value='<%= request.getParameter("demographicNo") != null ? request.getParameter("demographicNo") : "" %>' context="uriComponent"/>&providerNo=<carlos:encode value='<%= request.getParameter("providerNo") != null ? request.getParameter("providerNo") : "" %>' context="uriComponent"/>&showResolved=true<%= io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) == null ? "" : "&chartContext=" + SafeEncode.forUriComponent(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>'"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
         <%
             }
         %>
@@ -399,14 +474,18 @@
             </c:if>
 	    </span>
         <%} %>
+        <div id="legacyAutosaveStatus" role="status" aria-live="polite" aria-atomic="true"></div>
 
         <p>
         <table>
             <tr>
                 <td class="fieldValue" colspan="1">
-                    <textarea name="caseNote_note" id="caseNote_note" cols="60" rows="20" wrap="hard"
-                              onchange="setChangeFlag(true);">${caseNote.note}
-                            </textarea>
+                    <%-- wrap="soft": a hard-wrapped textarea submits a CRLF at every visual wrap
+                         point, which the server stores as part of the note (#3955). The closing
+                         tag follows the value directly: any whitespace between them is textarea
+                         content and would be appended to the note on every save. --%>
+                    <textarea name="caseNote_note" id="caseNote_note" cols="60" rows="20" wrap="soft" aria-label="<fmt:message key='encounter.noteBrowser.encounterNote'/>"
+                              onchange="setChangeFlag(true);">${carlos:forHtmlContent(caseManagementEntryForm.caseNote.note)}</textarea>
                 </td>
                 <td class="fieldTitle"></td>
 
@@ -435,7 +514,7 @@
 
             <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
                 <c:if test="${param.from=='casemgmt' || requestScope.from=='casemgmt'}">
-                    <c:url value="${sessionScope.billing_url}" var="url"/>
+                    <c:url value="${requestScope.billing_url}" var="url"/>
                     <caisirole:SecurityAccess accessName="billing" accessType="access"
                                               providerNo="${carlos:forHtmlAttribute(param.providerNo)}"
                                               demoNo="${carlos:forHtmlAttribute(param.demographicNo)}" programId="<%=pId%>">
@@ -443,9 +522,9 @@
                             <td class="fieldTitle"><fmt:message key="casemanagementEntry.billing"/></td>
 
                             <td class="fieldValue">
-                                ${carlos:forHtml(caseNote.billing_code)}
+                                ${carlos:forHtml(caseManagementEntryForm.caseNote.billing_code)}
                                 <input type="button" value="add billing"
-                                       onclick="self.open('<carlos:encode value='<%= StringUtils.noNull((String)session.getAttribute("billing_url")) %>' context="javaScriptAttribute"/>','','scrollbars=yes,menubars=no,toolbars=no,resizable=yes');return false;">
+                                       onclick="self.open('<carlos:encode value='<%= StringUtils.noNull((String)request.getAttribute("billing_url")) %>' context="javaScriptAttribute"/>','','scrollbars=yes,menubars=no,toolbars=no,resizable=yes');return false;">
                             </td>
                         </tr>
                     </caisirole:SecurityAccess>
@@ -455,10 +534,10 @@
             <tr>
                 <td class="fieldValue" colspan="2">
                     <input type="submit" value="Save"
-                           onclick="this.form.method.value='save';return validateSave(<%=count_issues_display%>);">
+                           onclick="this.form.method.value='save';return validateSave();">
                     <input type="submit"
                            value="Save and Exit"
-                           onclick="this.form.method.value='saveAndExit';if (validateSave(<%=count_issues_display%>)) {return true;}else return false;">
+                           onclick="this.form.method.value='saveAndExit';if (validateSave()) {return true;}else return false;">
                     <input type="submit"
                            value="cancel" onclick="this.form.method.value='cancel';return true;">
                 </td>

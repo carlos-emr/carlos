@@ -55,8 +55,12 @@ public class EctMeasurementTypesBean {
     String lastComments = null;
     String lastDateObserved = null;
     String lastDateEntered = null;
-    @XmlElement(name = "validationRule")
-    Vector validationRules = new Vector();
+    // The element type must be declared: a raw Vector gives JAXB nothing to bind each
+    // <validationRule> to, so it unmarshalled them as DOM elements and the first cast to
+    // EctValidationsBean (EctFindMeasurementTypeUtil.addMeasurementType) failed for every form
+    // definition with a validation rule, the Vascular Tracker's included.
+    @XmlElement(name = "validationRule", type = EctValidationsBean.class)
+    Vector<EctValidationsBean> validationRules = new Vector<>();
     private String validationName = null;
 
     //for forms connecting to miles, determine whether to prefill the data or not when a new form is opened
@@ -146,7 +150,7 @@ public class EctMeasurementTypesBean {
         this.validation = validation;
     }
 
-    public Vector getValidationRules() {
+    public Vector<EctValidationsBean> getValidationRules() {
         return this.validationRules;
     }
 

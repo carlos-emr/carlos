@@ -74,8 +74,9 @@ public class AppointmentManagerImpl implements AppointmentManager {
 
 
     public List<Appointment> getAppointmentHistoryWithoutDeleted(LoggedInInfo loggedInInfo, Integer demographicNo, Integer offset, Integer limit) {
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "r", null)) {
-            throw new RuntimeException("Access Denied");
+        if (demographicNo == null
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "r", demographicNo)) {
+            throw new SecurityException("missing required sec object (_appointment)");
         }
 
         List<Appointment> result = new ArrayList<Appointment>();
@@ -152,11 +153,13 @@ public class AppointmentManagerImpl implements AppointmentManager {
      * @param loggedInInfo logged in provider information
      * @param appointment appointment data to add
      */
+    @org.springframework.transaction.annotation.Transactional
     public void addAppointment(LoggedInInfo loggedInInfo, Appointment appointment) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "w", null)) {
             throw new RuntimeException("Access Denied");
         }
 
+        AppointmentPatientAccess.require(loggedInInfo, securityInfoManager, appointment.getDemographicNo(), "w");
         appointmentDao.persist(appointment);
 
         LogAction.addLogSynchronous(loggedInInfo, "AppointmentManager.saveAppointment", "id=" + appointment.getId());
@@ -178,12 +181,14 @@ public class AppointmentManagerImpl implements AppointmentManager {
 
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public void deleteAppointment(LoggedInInfo loggedInInfo, int apptNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "d", null)) {
             throw new RuntimeException("Access Denied");
         }
-        Appointment existing = appointmentDao.find(apptNo);
+        Appointment existing = appointmentDao.findForUpdate(apptNo);
         if (existing != null) {
+            AppointmentPatientAccess.require(loggedInInfo, securityInfoManager, existing.getDemographicNo(), "d");
             appointmentArchiveDao.archiveAppointment(existing);
         }
 
@@ -200,6 +205,7 @@ public class AppointmentManagerImpl implements AppointmentManager {
 
 
         Appointment appt = appointmentDao.find(apptNo);
+        if (appt != null) AppointmentPatientAccess.require(loggedInInfo, securityInfoManager, appt.getDemographicNo(), "r");
 
         LogAction.addLogSynchronous(loggedInInfo, "AppointmentManager.getAppointment", "id=" + apptNo);
 

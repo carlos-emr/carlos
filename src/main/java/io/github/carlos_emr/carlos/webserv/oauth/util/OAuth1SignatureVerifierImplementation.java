@@ -60,6 +60,9 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
     // ★ NEW: configurable clock skew (seconds)
     private static final long ALLOWED_SKEW_SECONDS = 300L;
 
+    /** Media type whose body params join the OAuth1 signature base string (RFC 5849 s3.4.1.3.1). */
+    private static final String FORM_URLENCODED = "application/x-www-form-urlencoded";
+
     // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     @Override
@@ -96,16 +99,16 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
             if (isAccessEndpoint || hasVerifier) {
                 tokenSecret = dataProvider.getRequestTokenSecret(token);
             } else {
-                tokenSecret = dataProvider.getAccessTokenSecret(token);
+                tokenSecret = dataProvider.getAccessTokenSecret(token, cfg.getConsumerKey());
             }
         }
         if (tokenSecret == null) {
-            throw new IllegalArgumentException("Unknown or expired token: " + token);
+            throw new IllegalArgumentException("Unknown or expired token");
         }
 
         // --- 3) Base URL
-        final String scheme = req.getScheme().toLowerCase();
-        final String host   = req.getServerName().toLowerCase();
+        final String scheme = req.getScheme().toLowerCase(Locale.ROOT);
+        final String host   = req.getServerName().toLowerCase(Locale.ROOT);
         final int    port   = req.getServerPort();
         final boolean defaultPort =
                 ("http".equals(scheme) && port == 80) || ("https".equals(scheme) && port == 443);
@@ -116,11 +119,12 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
         // --- 4) Collect ALL signature params ---
         final java.util.List<NameValue> all = new java.util.ArrayList<>();
 
-        // a) oauth_* from header (percent-decoded once)
+        // The parser has already decoded header values; servlet parameters are decoded too.
+        // Internal URI escapes (for example a callback's %26) are part of the signed value.
         for (Map.Entry<String, String> e : oauth.entrySet()) {
             String k = e.getKey();
             if ("oauth_signature".equals(k) || "realm".equalsIgnoreCase(k)) continue;
-            all.add(new NameValue(k, pctDecode(e.getValue())));
+            all.add(new NameValue(k, e.getValue()));
         }
 
         // b) Query string
@@ -137,7 +141,7 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
 
         // c) Body params (x-www-form-urlencoded)
         String ctype = req.getContentType();
-        if (ctype != null && ctype.toLowerCase().startsWith("application/x-www-form-urlencoded")) {
+        if (ctype != null && ctype.regionMatches(true, 0, FORM_URLENCODED, 0, FORM_URLENCODED.length())) {
             req.getParameterMap().forEach((k, vals) -> {
                 if (!k.startsWith("oauth_")) for (String v : vals) all.add(new NameValue(k, v));
             });
@@ -156,14 +160,13 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
 
         // --- 6) Base string & HMAC-SHA1 ---
         final String baseString =
-                req.getMethod().toUpperCase() + '&' + pct(baseUrl) + '&' + pct(norm.toString());
+                req.getMethod().toUpperCase(Locale.ROOT) + '&' + pct(baseUrl) + '&' + pct(norm.toString());
         final String signingKey =
                 pct(cfg.getConsumerSecret()) + '&' + pct(tokenSecret == null ? "" : tokenSecret);
         final String computed = base64(hmacSha1(baseString, signingKey));
 
-        // --- 7) Compare (percent-decode first)
-        final String incoming = pctDecode(incomingSig);
-        if (!constantTimeEquals(incoming, computed)) {
+        // --- 7) Compare the already decoded signature.
+        if (!constantTimeEquals(incomingSig, computed)) {
             throw new IllegalArgumentException("Invalid OAuth1 signature");
         }
 
@@ -183,8 +186,7 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
         }
         // Always enforced (no null-guard) so replay protection cannot silently
         // fail open if the dependency is ever unset.
-        dataProvider.consumeNonce(pctDecode(consumerKey),
-                token == null ? null : pctDecode(token), pctDecode(nonce),
+        dataProvider.consumeNonce(consumerKey, token, nonce,
                 ts, 2L * ALLOWED_SKEW_SECONDS);
 
         return token; // unchanged contract
@@ -207,7 +209,7 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
                 out.append((char) c);
             } else {
                 out.append('%');
-                String hex = Integer.toHexString(c).toUpperCase();
+                String hex = Integer.toHexString(c).toUpperCase(Locale.ROOT);
                 if (hex.length() == 1) out.append('0');
                 out.append(hex);
             }
@@ -242,26 +244,33 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
         return r == 0 && a.length() == b.length();
     }
 
-    // NOTE: this decodes each %XX as one char (byte-as-char), so a multi-byte
-    // UTF-8 escape such as %C3%A9 yields "Ã©" rather than "é". This is a
-    // pre-existing trait of the signature base-string normalisation, not added
-    // by the nonce-replay work. Replay protection stays correct regardless: the
-    // nonce key is decoded with this same function, and pct() (the re-encoder)
-    // is injective, so the replay-key equivalence classes match the signature's
-    // exactly. Making this RFC 3986 UTF-8-aware would change the base string for
-    // every OAuth1 client and so is deferred to a dedicated, signature-tested
-    // change rather than bundled here.
+    // Raw non-OAuth query parameters require strict UTF-8 decoding and retain literal +.
+    // Parsed OAuth protocol fields bypass this helper because they are already decoded.
     private static String pctDecode(String s) {
         if (s == null || s.isEmpty()) return s;
-        int n = s.length(); StringBuilder out = new StringBuilder(n);
-        for (int i = 0; i < n; i++) {
-            char c = s.charAt(i);
-            if (c == '%' && i + 2 < n) {
+        StringBuilder out = new StringBuilder(s.length());
+        for (int i = 0; i < s.length();) {
+            if (s.charAt(i) != '%' || i + 2 >= s.length()
+                    || Character.digit(s.charAt(i + 1), 16) < 0
+                    || Character.digit(s.charAt(i + 2), 16) < 0) {
+                out.append(s.charAt(i++));
+                continue;
+            }
+            // Decode the full escaped byte sequence together; a UTF-8 character may span
+            // several percent escapes. Do not replace malformed bytes and sign altered text.
+            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+            while (i + 2 < s.length() && s.charAt(i) == '%') {
                 int hi = Character.digit(s.charAt(i + 1), 16);
                 int lo = Character.digit(s.charAt(i + 2), 16);
-                if (hi >= 0 && lo >= 0) { out.append((char) ((hi << 4) + lo)); i += 2; continue; }
+                if (hi < 0 || lo < 0) break;
+                bytes.write((hi << 4) + lo);
+                i += 3;
             }
-            out.append(c);
+            try {
+                out.append(UTF8.newDecoder().decode(java.nio.ByteBuffer.wrap(bytes.toByteArray())));
+            } catch (java.nio.charset.CharacterCodingException invalid) {
+                throw new IllegalArgumentException("Invalid percent-encoded UTF-8");
+            }
         }
         return out.toString();
     }

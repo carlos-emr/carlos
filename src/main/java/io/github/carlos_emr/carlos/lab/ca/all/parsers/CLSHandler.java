@@ -28,6 +28,8 @@
  */
 package io.github.carlos_emr.carlos.lab.ca.all.parsers;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -40,6 +42,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import ca.uhn.hl7v2.HL7Exception;
+import io.github.carlos_emr.carlos.lab.ca.all.util.Hl7Utils;
 import ca.uhn.hl7v2.model.Segment;
 import ca.uhn.hl7v2.model.v23.datatype.FT;
 import ca.uhn.hl7v2.model.v23.datatype.XCN;
@@ -88,7 +91,7 @@ public class CLSHandler implements MessageHandler {
         try {
             return (formatDateTime(msg.getRESPONSE().getORDER_OBSERVATION(0).getOBR().getObservationDateTime().getTimeOfAnEvent().getValue()));
         } catch (Exception e) {
-            logger.error("Could not retrieve message date", e);
+            logger.error("Could not retrieve message date: {}", LogSafe.exceptionTrace(e));
             return ("");
         }
     }
@@ -99,7 +102,7 @@ public class CLSHandler implements MessageHandler {
             Date dateTime = UtilDateUtilities.StringToDate(get("/.MSH-7"), dateFormat);
             return dateTime;
         } catch (Exception e) {
-            logger.error("Could not retrieve message date", e);
+            logger.error("Could not retrieve message date: {}", LogSafe.exceptionTrace(e));
             return null;
         }
     }
@@ -113,30 +116,50 @@ public class CLSHandler implements MessageHandler {
     }
 
     public ORU_R01_ORDER_OBSERVATION getOBR(int i) throws HL7Exception {
-        return msg.getRESPONSE().getORDER_OBSERVATION(i);
+        try {
+            return msg.getRESPONSE().getORDER_OBSERVATION(i);
+        } catch (RuntimeException e) {
+            throw Hl7Utils.unwrapHl7AccessFailure(e);
+        }
     }
 
     public ORC getORC(int i) throws HL7Exception {
-        return msg.getRESPONSE().getORDER_OBSERVATION(i).getORC();
+        try {
+            return msg.getRESPONSE().getORDER_OBSERVATION(i).getORC();
+        } catch (RuntimeException e) {
+            throw Hl7Utils.unwrapHl7AccessFailure(e);
+        }
     }
 
     public OBX getOBX(int i, int ii) throws HL7Exception {
-        return msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(ii).getOBX();
+        try {
+            return msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(ii).getOBX();
+        } catch (RuntimeException e) {
+            throw Hl7Utils.unwrapHl7AccessFailure(e);
+        }
     }
 
     public NTE getNTE(int i, int j, int k) throws HL7Exception {
-        return msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getNTE(k);
+        try {
+            return msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getNTE(k);
+        } catch (RuntimeException e) {
+            throw Hl7Utils.unwrapHl7AccessFailure(e);
+        }
     }
 
     public NTE getOBRNTE(int i, int j) throws HL7Exception {
-        return msg.getRESPONSE().getORDER_OBSERVATION(i).getNTE(j);
+        try {
+            return msg.getRESPONSE().getORDER_OBSERVATION(i).getNTE(j);
+        } catch (RuntimeException e) {
+            throw Hl7Utils.unwrapHl7AccessFailure(e);
+        }
     }
 
     public void insertOBR(ORU_R01_ORDER_OBSERVATION newOBR) {
         try {
             msg.getRESPONSE().insertORDER_OBSERVATION(newOBR, getOBRCount());
         } catch (HL7Exception e) {
-            logger.error("Error Adding OBR segment.", e);
+            logger.error("Error Adding OBR segment.: {}", LogSafe.exceptionTrace(e));
         }
     }
 
@@ -230,6 +253,12 @@ public class CLSHandler implements MessageHandler {
         }
     }
 
+    /** The OBX segment for the {@link MessageHandler} ED.5/ED.4 accessors; see {@link EdObservationValue}. */
+    @Override
+    public Segment getOBXSegment(int i, int j) throws Exception {
+        return msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getOBX();
+    }
+
     public String getOBXResult(int i, int j) {
         try {
             return (getString(Terser.get(msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getOBX(), 5, 0, 1, 1)));
@@ -269,7 +298,7 @@ public class CLSHandler implements MessageHandler {
             }
             // TODO find out about "Cancelled" status
         } catch (Exception e) {
-            logger.error("Error retrieving obx result status", e);
+            logger.error("Error retrieving obx result status: {}", LogSafe.exceptionTrace(e));
             return status;
         }
         return status;
@@ -349,7 +378,7 @@ public class CLSHandler implements MessageHandler {
             }
 
         } catch (Exception e) {
-            logger.error("Error retrieving obx comment count", e);
+            logger.error("Error retrieving obx comment count: {}", LogSafe.exceptionTrace(e));
         }
         return count;
     }
@@ -439,7 +468,7 @@ public class CLSHandler implements MessageHandler {
             java.util.Date date = formatter.parse(dob);
             age = UtilDateUtilities.calcAge(date);
         } catch (ParseException e) {
-            logger.error("Could not get age", e);
+            logger.error("Could not get age: {}", LogSafe.exceptionTrace(e));
 
         }
         return age;
@@ -513,7 +542,7 @@ public class CLSHandler implements MessageHandler {
             }
             return (docNum);
         } catch (Exception e) {
-            logger.error("Could not return doctor id numbers", e);
+            logger.error("Could not return doctor id numbers: {}", LogSafe.exceptionTrace(e));
             return ("");
         }
     }
@@ -532,7 +561,7 @@ public class CLSHandler implements MessageHandler {
             }
             return (docName);
         } catch (Exception e) {
-            logger.error("Could not return doctor names", e);
+            logger.error("Could not return doctor names: {}", LogSafe.exceptionTrace(e));
             return ("");
         }
     }
@@ -551,7 +580,7 @@ public class CLSHandler implements MessageHandler {
             }
             return (docName);
         } catch (Exception e) {
-            logger.error("Could not return cc'ed doctors", e);
+            logger.error("Could not return cc'ed doctors: {}", LogSafe.exceptionTrace(e));
             return ("");
         }
     }
@@ -571,7 +600,7 @@ public class CLSHandler implements MessageHandler {
                 i++;
             }
         } catch (Exception e) {
-            logger.error("Could not return doctor nums", e);
+            logger.error("Could not return doctor nums: {}", LogSafe.exceptionTrace(e));
 
         }
 
@@ -649,7 +678,7 @@ public class CLSHandler implements MessageHandler {
         try {
             return terser.get(path);
         } catch (HL7Exception e) {
-            logger.warn("Unable to get field at " + path, e);
+            logger.warn("Unable to get field: {}", LogSafe.exceptionTrace(e));
             return null;
         }
     }

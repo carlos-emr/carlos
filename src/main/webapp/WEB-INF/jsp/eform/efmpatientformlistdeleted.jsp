@@ -39,10 +39,10 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar"%>
-<%@ taglib uri="jakarta.tags.core" prefix="c"%>
+
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -86,6 +86,7 @@
 		<script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
 
 		<script src="${pageContext.request.contextPath}/share/javascript/Oscar.js"></script>
+		<script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
 
 		<script>
 
@@ -104,11 +105,19 @@
 
 			function updateAjax() {
 				let parentAjaxId = "<carlos:encode value='<%= parentAjaxId %>' context="javaScriptBlock"/>";
-				if( parentAjaxId !== "null" ) {
-					window.opener.document.forms['encForm'].elements['reloadDiv'].value = parentAjaxId;
-					window.opener.updateNeeded = true;
+				// Same guard as efmpatientformlist.jsp: reached from the master record this
+				// page has no opener, an absent parentAjaxId encodes to "" (not "null"), and
+				// the unguarded access threw a TypeError on unload -- including during the
+				// Restore submission itself (issue #4130).
+				try {
+					if (parentAjaxId && parentAjaxId !== "null" && window.opener && !window.opener.closed
+							&& window.opener.document && window.opener.document.forms['encForm']) {
+						window.opener.document.forms['encForm'].elements['reloadDiv'].value = parentAjaxId;
+						window.opener.updateNeeded = true;
+					}
+				} catch (e) {
+					// Cross-origin or closed opener — nothing to update; ignore.
 				}
-
 			}
 
 			$(document).ready(function() {
@@ -125,10 +134,13 @@
 			});
 		</script>
 		<style>
+			html {
+			    overscroll-behavior: none;
+			}
+
 			:root *:not(h2, .h2) {
 				font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
 				font-size: 12px;
-				overscroll-behavior: none;
 				-webkit-font-smoothing: antialiased;
 				-moz-osx-font-smoothing: grayscale;
 			}
@@ -161,23 +173,16 @@
 		</style>
 		<script>
 			function unRemoveEForm(fdid, demographicNo, parentAjaxId) {
-				var form = document.createElement('form');
-				form.method = 'post';
-				form.action = '${pageContext.request.contextPath}/eform/unRemoveEForm';
-				var fields = {fdid: fdid, demographic_no: demographicNo, parentAjaxId: parentAjaxId};
-				for (var key in fields) {
-					var input = document.createElement('input');
-					input.type = 'hidden';
-					input.name = key;
-					input.value = fields[key];
-					form.appendChild(input);
-				}
-				document.body.appendChild(form);
-				form.submit();
+				// appointment/orderby: list state the post-restore redirect restores (UnRemEForm2Action#getRedirectTarget).
+				// carlosPostForm attaches the CSRF token, which CSRFGuard cannot
+				// inject into a runtime-built form in time (#4130).
+				carlosPostForm('${carlos:forJavaScript(pageContext.request.contextPath)}/eform/unRemoveEForm', {fdid: fdid, demographic_no: demographicNo, parentAjaxId: parentAjaxId,
+					appointment: '<carlos:encode value='<%= appointment %>' context="javaScript"/>', orderby: '<carlos:encode value='<%= orderByRequest %>' context="javaScript"/>'});
 			}
 		</script>
 	</head>
 	<body onunload="updateAjax()" >
+	<%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
 	<div class="container">
 	<div id="heading">
 		<h2>

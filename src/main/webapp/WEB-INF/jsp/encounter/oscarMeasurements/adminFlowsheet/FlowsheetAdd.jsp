@@ -31,9 +31,9 @@
 <!DOCTYPE html>
 
 <%@page import="io.github.carlos_emr.carlos.commn.model.FlowSheetUserCreated" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetUserCreatedDao" %>
+
+
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -50,10 +50,10 @@
 %>
 
 
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 
@@ -182,7 +182,7 @@
                         <option value="<%=FlowSheetUserCreated.SCOPE_CLINIC %>" <%="clinic".equals(scope) ? "selected=\"selected\" " : "" %>>
                             Clinic
                         </option>
-                        <option value="<%=FlowSheetUserCreated.SCOPE_PROVIDER %>" <%="providers".equals(scope) ? "selected=\"selected\" " : "" %>>
+                        <option value="<%=FlowSheetUserCreated.SCOPE_PROVIDER %>" <%=FlowSheetUserCreated.isProviderScope(scope) ? "selected=\"selected\" " : "" %>>
                             Provider
                         </option>
                         <option value="<%=FlowSheetUserCreated.SCOPE_PATIENT %>" <%="patient".equals(scope) ? "selected=\"selected\" " : "" %>>

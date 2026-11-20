@@ -52,8 +52,8 @@
 %>
 
 
-<%@ page import="java.util.*,io.github.carlos_emr.carlos.report.reportByTemplate.*" %>
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ page import="java.util.*" %>
+
 
 <%@ page import="java.io.InputStream" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
@@ -96,7 +96,12 @@
             }
         } catch (Exception e) {
             MiscUtils.getLogger().error("Failed to upload flowsheet definition", e);
-            session.setAttribute("flashError", "Flowsheet upload failed: " + e.getMessage());
+            // Do not put e.getMessage() on screen. This page is also the "input" result for a
+            // multipart rejection, where it re-reads an already-consumed request body and the
+            // exception text is a raw container parse message -- internal detail the operator
+            // cannot act on. The stack trace is in the log above, which is where it belongs.
+            session.setAttribute("flashError",
+                    "Flowsheet upload failed. The file was not accepted; see the server log for details.");
         }
     }
 

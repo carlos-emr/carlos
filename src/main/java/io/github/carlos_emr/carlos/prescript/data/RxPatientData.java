@@ -48,10 +48,16 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 public class RxPatientData {
     private static Logger logger = MiscUtils.getLogger();
-    private static final DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
+    // Resolve against the active Spring context for each operation. A cached static bean
+    // can outlive its context and send later requests/tests to a stale manager instance.
+    private static DemographicManager demographicManager() {
+        return SpringUtils.getBean(DemographicManager.class);
+    }
 
     private RxPatientData() {
         // prevent instantiation
@@ -63,7 +69,7 @@ public class RxPatientData {
 
         Patient[] arr = {};
         List<Patient> patients = new ArrayList<Patient>();
-        List<Demographic> demographics = demographicManager.searchDemographic(loggedInInfo, surname + "," + firstName);
+        List<Demographic> demographics = demographicManager().searchDemographic(loggedInInfo, surname + "," + firstName);
         for (Demographic demographic : demographics) {
             Patient p = new Patient(demographic);
             patients.add(p);
@@ -74,12 +80,12 @@ public class RxPatientData {
     /* Patient Information */
 
     public static Patient getPatient(LoggedInInfo loggedInInfo, int demographicNo) {
-        Demographic demographic = demographicManager.getDemographic(loggedInInfo, demographicNo);
+        Demographic demographic = demographicManager().getDemographic(loggedInInfo, demographicNo);
         return new Patient(demographic);
     }
 
     public static Patient getPatient(LoggedInInfo loggedInInfo, String demographicNo) {
-        Demographic demographic = demographicManager.getDemographic(loggedInInfo, demographicNo);
+        Demographic demographic = demographicManager().getDemographic(loggedInInfo, demographicNo);
         return new Patient(demographic);
     }
 
@@ -228,9 +234,45 @@ public class RxPatientData {
         }
 
         public void addAllergy(java.util.Date entryDate, Allergy allergy) {
+            // One transaction: the two DAOs commit separately otherwise, and a failure of the
+            // partial-date write would leave a committed allergy row that an idempotent retry
+            // (#3488) would then insert a second time.
+            new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class))
+                    .executeWithoutResult(status -> persistAllergy(entryDate, allergy));
+        }
+
+        /** Writes the allergy and its partial date; callers supply the transaction. */
+        private void persistAllergy(java.util.Date entryDate, Allergy allergy) {
             allergy.setEntryDate(entryDate);
             allergyDao.persist(allergy);
             partialDateDao.setPartialDate(PartialDate.ALLERGIES, allergy.getId(), PartialDate.ALLERGIES_STARTDATE, allergy.getStartDateFormat());
+        }
+
+        /**
+         * Records {@code replacement} as the amendment of this patient's allergy {@code originalId}:
+         * the original is archived and the replacement added in one transaction, and only while the
+         * original is still active. A form opened before someone else amended or inactivated the
+         * same allergy therefore cannot add a second active version of it (issue #4410); the caller
+         * is told so instead, and nothing is written.
+         *
+         * @param entryDate the replacement's entry date
+         * @param replacement the new version of the allergy, not yet persisted
+         * @param originalId the allergy being amended
+         * @return true when the original was archived and the replacement added; false, with
+         *         nothing written, when the original is no longer an active allergy of this patient
+         */
+        public boolean amendActiveAllergy(java.util.Date entryDate, Allergy replacement, int originalId) {
+            Boolean amended = new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class))
+                    .execute(status -> {
+                        // Archive first: the conditional UPDATE is the arbiter between two
+                        // concurrent amendments, and losing it must leave no replacement behind.
+                        if (allergyDao.archiveIfActive(originalId, getDemographicNo()) != 1) {
+                            return Boolean.FALSE;
+                        }
+                        persistAllergy(entryDate, replacement);
+                        return Boolean.TRUE;
+                    });
+            return Boolean.TRUE.equals(amended);
         }
 
         private boolean setAllergyArchive(int allergyId, boolean archive) {

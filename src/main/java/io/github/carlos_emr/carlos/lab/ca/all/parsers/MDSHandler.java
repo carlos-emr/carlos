@@ -39,6 +39,8 @@
 
 package io.github.carlos_emr.carlos.lab.ca.all.parsers;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -159,12 +161,12 @@ public class MDSHandler implements MessageHandler {
                                 obxList.add(obxPath);
                             }
                         } catch (Exception e) {
-                            logger.debug("Could not find OBX for OBR index " + obrIdx + " using direct path", e);
+                            logger.debug("Could not find OBX for OBR index {} using direct path: {}", obrIdx, LogSafe.exceptionTrace(e));
                         }
                     }
                 }
             } catch (Exception e) {
-                logger.error("Error grouping OBX segments with OBR segments", e);
+                logger.error("Error grouping OBX segments with OBR segments: {}", LogSafe.exceptionTrace(e));
 
                 // Fallback: try the old sequential approach if group structure fails
                 try {
@@ -184,15 +186,15 @@ public class MDSHandler implements MessageHandler {
                                 globalObxIndex++;
                             }
                         } catch (Exception ex) {
-                            logger.debug("Fallback OBX access failed for OBR " + obrIdx, ex);
+                            logger.debug("Fallback OBX access failed for OBR  {}" + obrIdx, LogSafe.exceptionTrace(ex));
                         }
                     }
                 } catch (Exception ex2) {
-                    logger.error("Fallback OBX grouping also failed", ex2);
+                    logger.error("Fallback OBX grouping also failed: {}", LogSafe.exceptionTrace(ex2));
                 }
             }
         } catch (Exception e) {
-            logger.error("Could not parse MDS message", e);
+            logger.error("Could not parse MDS message: {}", LogSafe.exceptionTrace(e));
         }
     }
 
@@ -222,7 +224,7 @@ public class MDSHandler implements MessageHandler {
             value = terser.get(flatPath);
             return (value != null) ? value : "";
         } catch (Exception e) {
-            logger.debug("Error getting OBR field " + field + " for index " + obrIndex, e);
+            logger.debug("Error getting OBR field  {}" + field + " for index " + obrIndex, LogSafe.exceptionTrace(e));
             return "";
         }
     }
@@ -289,7 +291,7 @@ public class MDSHandler implements MessageHandler {
                     i = i - 1;
                 }
             } catch (Exception e) {
-                logger.debug("Error counting OBR segments", e);
+                logger.debug("Error counting OBR segments: {}", LogSafe.exceptionTrace(e));
             }
             return i;
         }
@@ -368,6 +370,12 @@ public class MDSHandler implements MessageHandler {
     @Override
     public String getOBXNameLong(int i, int j) {
         return (getOBXField("3-3", i, j));
+    }
+
+    /** The OBX segment for the {@link MessageHandler} ED.5/ED.4 accessors; see {@link EdObservationValue}. */
+    @Override
+    public Segment getOBXSegment(int i, int j) throws Exception {
+        return terser.getSegment((String) ((ArrayList<?>) obrGroups.get(i)).get(j));
     }
 
     public String getOBXResult(int i, int j) {
@@ -532,7 +540,7 @@ public class MDSHandler implements MessageHandler {
             }
 
         } catch (Exception e) {
-            logger.error("Error parsing headers from ZRG segments", e);
+            logger.error("Error parsing headers from ZRG segments: {}", LogSafe.exceptionTrace(e));
         }
 
         return headers;
@@ -591,11 +599,11 @@ public class MDSHandler implements MessageHandler {
                 return 0;
             } catch (Exception e) {
                 // If we can't parse the structure, return 0
-                logger.debug("Error counting comments", e);
+                logger.debug("Error counting comments: {}", LogSafe.exceptionTrace(e));
                 return 0;
             }
         } catch (Exception e) {
-            logger.error("Unexpected error in getOBXCommentCount", e);
+            logger.error("Unexpected error in getOBXCommentCount: {}", LogSafe.exceptionTrace(e));
             return 0;
         }
     }
@@ -716,7 +724,7 @@ public class MDSHandler implements MessageHandler {
 
             return allComments.toString();
         } catch (Exception e) {
-            logger.error("Unexpected error in getOBXComment", e);
+            logger.error("Unexpected error in getOBXComment: {}", LogSafe.exceptionTrace(e));
             return "";
         }
     }
@@ -761,7 +769,7 @@ public class MDSHandler implements MessageHandler {
         try {
             return (formatDateTime(getString(terser.get("/.PID-7-1"))).substring(0, 10));
         } catch (Exception e) {
-            logger.error("Error retrieving date of birth", e);
+            logger.error("Error retrieving date of birth: {}", LogSafe.exceptionTrace(e));
             return ("");
         }
     }
@@ -775,7 +783,7 @@ public class MDSHandler implements MessageHandler {
             java.util.Date date = formatter.parse(dob);
             age = UtilDateUtilities.calcAge(date);
         } catch (ParseException e) {
-            logger.error("Could not get age", e);
+            logger.error("Could not get age: {}", LogSafe.exceptionTrace(e));
 
         }
         return age;
@@ -913,9 +921,9 @@ public class MDSHandler implements MessageHandler {
         } catch (HL7Exception e) {
             // ZFR segments may not be found if they were moved to end of message
             // This is expected with official HAPI - default to Final status
-            logger.debug("Could not retrieve ZFR segments for order status - defaulting to Final", e);
+            logger.debug("Could not retrieve ZFR segments for order status - defaulting to Final: {}", LogSafe.exceptionTrace(e));
         } catch (Exception e) {
-            logger.warn("Unexpected exception retrieving order status - defaulting to Final", e);
+            logger.warn("Unexpected exception retrieving order status - defaulting to Final: {}", LogSafe.exceptionTrace(e));
         }
         return ret;
     }
@@ -985,7 +993,7 @@ public class MDSHandler implements MessageHandler {
                 docs = docs + ", " + getFullDocName("/.PV1-17-");
             return (docs);
         } catch (Exception e) {
-            logger.debug("Error retrieving CC docs", e);
+            logger.debug("Error retrieving CC docs: {}", LogSafe.exceptionTrace(e));
             return ("");
         }
     }
@@ -1004,7 +1012,7 @@ public class MDSHandler implements MessageHandler {
                 nums.add(docNum.replace("-", ""));
             }
         } catch (Exception e) {
-            logger.error("Could not retrieve doctor numbers", e);
+            logger.error("Could not retrieve doctor numbers: {}", LogSafe.exceptionTrace(e));
         }
         return (nums);
     }
@@ -1041,7 +1049,7 @@ public class MDSHandler implements MessageHandler {
             }
 
         } catch (Exception e) {
-            logger.error("Could not retrieve form type", e);
+            logger.error("Could not retrieve form type: {}", LogSafe.exceptionTrace(e));
 
         }
 
@@ -1122,7 +1130,7 @@ public class MDSHandler implements MessageHandler {
             }
 
         } catch (Exception e) {
-            logger.error("Error retrieving header", e);
+            logger.error("Error retrieving header: {}", LogSafe.exceptionTrace(e));
         }
 
         return headerMaps.get(headerNum);
@@ -1149,7 +1157,7 @@ public class MDSHandler implements MessageHandler {
                 }
             }
         } catch (Exception e) {
-            logger.error("Unexpected Error.", e);
+            logger.error("Unexpected Error.: {}", LogSafe.exceptionTrace(e));
         }
 
         return (docName);
@@ -1276,7 +1284,7 @@ public class MDSHandler implements MessageHandler {
                 logger.debug("No ZPD segment found - lab result is not blocked");
             } else {
                 // Other HL7 exceptions are unexpected and should be logged
-                logger.warn("Unexpected error retrieving ZPD segment", e);
+                logger.warn("Unexpected error retrieving ZPD segment: {}", LogSafe.exceptionTrace(e));
             }
             return false;
         }
@@ -1290,7 +1298,7 @@ public class MDSHandler implements MessageHandler {
             }
         } catch (HL7Exception e) {
             // Error parsing ZPD structure - log as warning since segment exists but is malformed
-            logger.warn("Error parsing ZPD segment for blocked status", e);
+            logger.warn("Error parsing ZPD segment for blocked status: {}", LogSafe.exceptionTrace(e));
         }
         return false;
     }

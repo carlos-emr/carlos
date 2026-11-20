@@ -1,7 +1,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ReceivePayment2Action" %>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <%@taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -40,9 +40,9 @@
             <%
                 ReceivePayment2Action frm = (ReceivePayment2Action) request.getAttribute("receivePaymentActionForm");
             %> <%=java.text.NumberFormat.getCurrencyInstance().format(new Double(frm.getAmountReceived()))%>
-            <fmt:message key="oscar.billing.CA.BC.credit"/> &nbsp; <fmt:message key="oscar.billing.CA.BC.invoice"/> 
-            ${carlos:forHtml(receivePaymentActionForm.billNo)} &nbsp; <fmt:message key="oscar.billing.CA.BC.lineNo"/> 
-            ${carlos:forHtml(receivePaymentActionForm.billingmasterNo)}</div>
+            <fmt:message key="oscar.billing.CA.BC.credit"/> &nbsp; <fmt:message key="oscar.billing.CA.BC.invoice"/>
+            ${carlos:forHtmlContent(receivePaymentActionForm.billNo)} &nbsp; <fmt:message key="oscar.billing.CA.BC.lineNo"/>
+            ${carlos:forHtmlContent(receivePaymentActionForm.billingmasterNo)}</div>
         <div align="center">
             <button
                     onclick="opener.window.location.reload();self.close();return false;">Close
@@ -52,25 +52,30 @@
 </c:if>
 <c:if test="${not receivePaymentActionForm.paymentReceived}">
     <form action="${pageContext.request.contextPath}/billing/CA/BC/receivePaymentAction" method="post">
-        <input type="hidden" name="billingmasterNo" id="billingmasterNo"/>
-        <input type="hidden" name="billNo" id="billNo"/>
+        <input type="hidden" name="billingmasterNo" id="billingmasterNo"
+               value="<carlos:encode value='${receivePaymentActionForm.billingmasterNo}' context="htmlAttribute"/>"/>
+        <input type="hidden" name="billNo" id="billNo"
+               value="<carlos:encode value='${receivePaymentActionForm.billNo}' context="htmlAttribute"/>"/>
 
         <fieldset>
             <legend><fmt:message key="oscar.billing.CA.BC.title"/></legend>
+            <c:forEach var="err" items="${receivePaymentActionForm.actionErrors}">
+                <p class="msgDisplay" id="receivePaymentError"><carlos:encode value="${err}"/></p>
+            </c:forEach>
             <div class="msgDisplay">
-                <p><fmt:message key="oscar.billing.CA.BC.invoice"/> 
-                    ${carlos:forHtml(receivePaymentActionForm.billNo)}</p>
-                <p><fmt:message key="oscar.billing.CA.BC.lineNo"/> 
-                    ${carlos:forHtml(receivePaymentActionForm.billingmasterNo)}</p>
+                <p><fmt:message key="oscar.billing.CA.BC.invoice"/>
+                    ${carlos:forHtmlContent(receivePaymentActionForm.billNo)}</p>
+                <p><fmt:message key="oscar.billing.CA.BC.lineNo"/>
+                    ${carlos:forHtmlContent(receivePaymentActionForm.billingmasterNo)}</p>
             </div>
             <p><label> <fmt:message key="oscar.billing.CA.BC.amount"/>
-                <input type="text" maxlength="6" name="amountReceived" /><!--&nbsp;<input type="checkbox" name="isRefund" value="true"/>-->
+                <input type="text" maxlength="7" name="amountReceived" /><!--&nbsp;<input type="checkbox" name="isRefund" value="true"/>-->
             </label></p>
             <p>
                 <label> <fmt:message key="oscar.billing.CA.BC.method"/>
                     <select name="paymentMethod" id="paymentMethod">
                         <c:forEach var="method" items="${receivePaymentActionForm.paymentMethodList}">
-                            <option value="${method.id}">${method.paymentType}</option>
+                            <option value="<carlos:encode value='${method.id}' context="htmlAttribute"/>"><carlos:encode value="${method.paymentType}"/></option>
                         </c:forEach>
                     </select>
                 </label>

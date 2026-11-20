@@ -45,8 +45,9 @@
 --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
+<%@ taglib prefix="s" uri="/struts-tags" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.issueList" var="i18nIssueList"/>
 <fmt:message key="global.disease" var="i18nDiseaseRegistry"/>
@@ -155,6 +156,7 @@
 
     <body onload="setfocus()">
     <div class="container pt-2">
+        <s:actionerror cssClass="alert alert-danger"/>
 
         <%-- Page header matching search.jsp / report.jsp pattern --%>
         <div class="page-header-bar">

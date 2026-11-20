@@ -25,10 +25,12 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: enforce CDS maintenance and disclosure compatibility.
  */
 
 package io.github.carlos_emr.carlos.webserv;
 
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
@@ -49,20 +51,40 @@ import org.springframework.stereotype.Component;
 @Component
 @GZIP(threshold = AbstractWs.GZIP_THRESHOLD)
 public class MeasurementWs extends AbstractWs {
+    private static final String MEASUREMENT_OBJECT = "_measurement";
+
     @Autowired
     private MeasurementManager measurementManager;
 
+    private io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService projections;
+
+    /** Keeps the framework's public no-argument endpoint lifecycle and requires its projection guard. */
+    @Autowired
+    @jakarta.jws.WebMethod(exclude = true)
+    public void setCdsLegacyProjectionService(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService service) {
+        this.projections = java.util.Objects.requireNonNull(service);
+    }
+
     public MeasurementTransfer getMeasurement(Integer measurementId) {
+        requirePrivilege(MEASUREMENT_OBJECT, "r");
         Measurement measurement = measurementManager.getMeasurement(getLoggedInInfo(), measurementId);
+        if (measurement != null) {
+            requirePrivilege(MEASUREMENT_OBJECT, "r",
+                    measurement.getDemographicId() != null ? String.valueOf(measurement.getDemographicId()) : null);
+        }
+        if (measurement!=null) projections.requireSoapSupported(measurement.getDemographicId(), java.util.Set.of("CareElements"));
         return (MeasurementTransfer.toTransfer(measurement));
     }
 
     public MeasurementTransfer[] getMeasurementsCreatedAfterDate(Date updatedAfterThisDateExclusive, int itemsToReturn) {
+        requirePrivilege(MEASUREMENT_OBJECT, "r");
         List<Measurement> results = measurementManager.getCreatedAfterDate(getLoggedInInfo(), updatedAfterThisDateExclusive, itemsToReturn);
-        return (MeasurementTransfer.toTransfers(results));
+        projections.requireSoapFeedSupported(java.util.Set.of("CareElements"));
+        return (MeasurementTransfer.toTransfers(filterReadableMeasurements(results)));
     }
 
     public MeasurementMapTransfer[] getMeasurementMaps() {
+        requirePrivilege(MEASUREMENT_OBJECT, "r");
         List<MeasurementMap> measurementMaps = measurementManager.getMeasurementMaps();
         return (MeasurementMapTransfer.toTransfers(measurementMaps));
     }
@@ -71,6 +93,7 @@ public class MeasurementWs extends AbstractWs {
      * @return the ID of the added measurement
      */
     public Integer addMeasurement(MeasurementTransfer measurementTransfer) {
+        requirePrivilege(MEASUREMENT_OBJECT, "w", measurementTransfer.getDemographicId() != null ? measurementTransfer.getDemographicId().toString() : null);
         Measurement measurement = new Measurement();
         measurementTransfer.copyTo(measurement);
         measurementManager.addMeasurement(getLoggedInInfo(), measurement);
@@ -78,13 +101,35 @@ public class MeasurementWs extends AbstractWs {
     }
 
     public MeasurementTransfer[] getMeasurementsByProgramProviderDemographicDate(Integer programId, String providerNo, Integer demographicId, Calendar updatedAfterThisDateExclusive, int itemsToReturn) {
+        requirePrivilege(MEASUREMENT_OBJECT, "r", demographicId != null ? String.valueOf(demographicId) : null);
         List<Measurement> measurements = measurementManager.getMeasurementsByProgramProviderDemographicDate(getLoggedInInfo(), programId, providerNo, demographicId, updatedAfterThisDateExclusive, itemsToReturn);
+        if (demographicId==null) projections.requireSoapFeedSupported(java.util.Set.of("CareElements"));
+        else projections.requireSoapSupported(demographicId, java.util.Set.of("CareElements"));
         return (MeasurementTransfer.toTransfers(measurements));
     }
 
     public MeasurementTransfer[] getMeasurementsByDemographicIdAfter(@WebParam(name = "lastUpdate") Calendar lastUpdate, @WebParam(name = "demographicId") Integer demographicId) {
+        requirePrivilege(MEASUREMENT_OBJECT, "r", demographicId != null ? String.valueOf(demographicId) : null);
         List<Measurement> measurements = measurementManager.getMeasurementByDemographicIdAfter(getLoggedInInfo(), demographicId, lastUpdate.getTime());
+        projections.requireSoapSupported(demographicId, java.util.Set.of("CareElements"));
         return (MeasurementTransfer.toTransfers(measurements));
     }
 
+    /**
+     * Drops measurements whose patient the caller may not read. Used by the bulk sync endpoint,
+     * where failing the whole call on one restricted patient would both deny the caller the records
+     * they may see and confirm that the restricted patient has measurements in the window.
+     */
+    private List<Measurement> filterReadableMeasurements(List<Measurement> measurements) {
+        List<Measurement> readable = new ArrayList<Measurement>();
+        if (measurements == null) {
+            return readable;
+        }
+        for (Measurement measurement : measurements) {
+            if (measurement != null && hasPrivilege(MEASUREMENT_OBJECT, "r", measurement.getDemographicId())) {
+                readable.add(measurement);
+            }
+        }
+        return readable;
+    }
 }

@@ -28,7 +28,13 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ taglib uri="http://displaytag.sf.net" prefix="display" %>
+<%--
+    Purpose: Edit the four-page Rourke Baby Record 2017.
+    Features: Visit date shortcuts, measurement imports, validation, autosave and explicit Save.
+    Parameters: demographic_no and formId select the patient and form; provNo and appointmentNo supply context.
+    @since 2026-07-07
+--%>
+
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -51,7 +57,7 @@
 
 <%@ page import="io.github.carlos_emr.carlos.form.*" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
@@ -353,7 +359,7 @@
 
         function wtEnglish2Metric(obj) {
 //if(isNumber(document.forms[0].c_ppWt) ) {
-//	weight = document.forms[0].c_ppWt.value;
+//  weight = document.forms[0].c_ppWt.value;
             if (isNumber(obj)) {
                 weight = obj.value;
                 weightM = Math.round(weight * 10 * 0.4536) / 10;
@@ -387,6 +393,12 @@
 
         //Remove date from textbox
         function resetDate(textbox) {
+            if (textbox._flatpickr) {
+                // Keep the selected date in sync so blur and reopening preserve the shortcut.
+                textbox._flatpickr.setDate(textbox.value ? null : new Date(), true);
+                textbox._flatpickr.close();
+                return;
+            }
             if (textbox.value.length > 0)
                 textbox.value = "";
             else {
@@ -698,6 +710,15 @@
 
     </script>
     <style>
+        @media screen {
+            /* Rourke reserves input double-clicks for its date shortcut. */
+            #frmP1 [id$="_cal"] {
+                display: inline-block;
+                cursor: pointer;
+                vertical-align: middle;
+            }
+        }
+
         .panel-page {
             display: flex;
             flex-direction: row;

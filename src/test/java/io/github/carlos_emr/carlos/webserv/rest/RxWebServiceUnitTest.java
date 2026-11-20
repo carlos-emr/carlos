@@ -82,6 +82,62 @@ class RxWebServiceUnitTest {
         service = new TestableRxWebService();
     }
 
+    @Test
+    void shouldPreserveUnicodeText_whenPrintingPrescriptionPdf() throws Exception {
+        var bytes = new java.io.ByteArrayOutputStream();
+        prescriptionPdf("Nguyễn Łukasz İstanbul ≥ 5 ≤ 9").write(bytes);
+        try (var pdf = org.apache.pdfbox.Loader.loadPDF(bytes.toByteArray())) {
+            org.assertj.core.api.Assertions.assertThat(new org.apache.pdfbox.text.PDFTextStripper().getText(pdf))
+                    .contains("Nguyễn Łukasz İstanbul ≥ 5 ≤ 9");
+            for (var name : pdf.getPage(0).getResources().getFontNames()) {
+                org.assertj.core.api.Assertions.assertThat(pdf.getPage(0).getResources().getFont(name).isEmbedded()).isTrue();
+            }
+        }
+    }
+
+    @Test
+    void shouldPropagateWriteFailure_whenPrescriptionOutputFails() throws Exception {
+        var stream = prescriptionPdf("Synthetic prescription");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> stream.write(new java.io.OutputStream() {
+            @Override public void write(int value) throws java.io.IOException { throw new java.io.IOException("write failed"); }
+        })).isInstanceOf(java.io.IOException.class).hasMessage("Prescription PDF could not be generated");
+    }
+
+    private jakarta.ws.rs.core.StreamingOutput prescriptionPdf(String text) {
+        service.prescriptionManager = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.PrescriptionManager.class);
+        var script = new Prescription();
+        script.setDemographicId(1);
+        org.mockito.Mockito.when(service.prescriptionManager.getPrescription(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(1))).thenReturn(script);
+        org.mockito.Mockito.when(service.prescriptionManager.getDrugsByScriptNo(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(1), org.mockito.ArgumentMatchers.isNull())).thenReturn(java.util.List.of());
+        service.demographicManager = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.DemographicManager.class);
+        var request = new io.github.carlos_emr.carlos.webserv.rest.to.model.PrintRxTo1();
+        request.setWidth(612f);
+        request.setHeight(792f);
+        var point = new io.github.carlos_emr.carlos.webserv.rest.to.model.PrintPointTo1();
+        point.setText(text);
+        point.setX(36);
+        point.setY(720);
+        point.setFontSize(10);
+        request.setPrintPoints(java.util.List.of(point));
+        try (var log = org.mockito.Mockito.mockStatic(io.github.carlos_emr.carlos.log.LogAction.class)) {
+            return service.print(1, 1, new org.springframework.mock.web.MockHttpServletRequest(), request);
+        }
+    }
+
+    @Test
+    void shouldPreserveLegacyVersionOmission_whenNoCxfOptInIsPresent() throws Exception {
+        var drugs = service.rxManager.getDrugs(null, 1, RxStatus.ALL);
+        drugs.get(0).setRowVersion(31L);
+        drugs.get(1).setRowVersion(32L);
+        var legacy = service.getAllDrugs(1).getContent();
+        assertThat(legacy).allSatisfy(drug -> assertThat(drug.getRowVersion()).isNull());
+        assertThat(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(legacy)).doesNotContain("rowVersion");
+        var context = jakarta.xml.bind.JAXBContext.newInstance(DrugTo1.class);
+        var xml = new java.io.StringWriter();
+        context.createMarshaller().marshal(legacy.get(0), xml);
+        assertThat(xml.toString()).doesNotContain("rowVersion");
+    }
+
     private DrugTo1 createTestTransferObject() {
         DrugTo1 t = new DrugTo1();
         Date startDate = new Date();
@@ -357,6 +413,19 @@ class RxWebServiceUnitTest {
     class Prescribe {
 
         @Test
+        void shouldPreserveFailureResponse_afterTransactionalWriteFailure() {
+            service.rxManager = new MockRxManager(RxWebServiceUnitTest.this) {
+                @Override
+                public PrescriptionDrugs prescribe(LoggedInInfo info, List<Drug> drugs, Integer demoNo) {
+                    throw new io.github.carlos_emr.carlos.managers.PrescriptionWriteException();
+                }
+            };
+            PrescriptionResponse response = service.prescribe(List.of(createTestTransferObject()), 1);
+            assertThat(response.isSuccess()).isFalse();
+            assertThat(response.getMessage()).isEqualTo("Failed to prescribe drugs");
+        }
+
+        @Test
         @DisplayName("should succeed with single valid drug")
         void shouldSucceed_withSingleValidDrug() {
             List<DrugTo1> toPrescribe = new ArrayList<>();
@@ -627,6 +696,8 @@ class RxWebServiceUnitTest {
 
         TestableRxWebService() {
             super();
+            this.legacyProjection = org.mockito.Mockito.mock(
+                    io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class);
             this.rxManager = new MockRxManager(RxWebServiceUnitTest.this);
             this.drugConverter = new MockDrugConverter();
             this.securityInfoManager = new TestMockSecurityInfoManager();

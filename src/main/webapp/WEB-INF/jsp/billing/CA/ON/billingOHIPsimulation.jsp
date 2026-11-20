@@ -21,10 +21,14 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Purpose: Supports billingOHIPsimulation in the Ontario billing workflow.
-  Expected request model data includes: simulationModel.
+  Purpose: Display the Ontario billing simulation form in administration.
+  Features: Provider/date selection, simulation options and fragment-local form
+  submission without registering handlers on the administration shell's links.
+  Parameters: simulationModel is supplied by the paired action; the form submits
+  provider, xml_vdate, xml_appointment_date and simulation options.
   Keep request setup in the paired action and use CARLOS encoding helpers
   for dynamic output rendered by the page.
+  @since 2026-09-17
 --%>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -51,7 +55,7 @@
         function checkData() {
             var b = true;
             if (document.forms[0].provider.value == "000000") {
-                alert("Please select a providers!");
+                alert("Please select a provider!");
                 b = false;
             } else if (document.forms[0].xml_vdate.value == "") {
                 alert("Please give a date!");
@@ -240,13 +244,9 @@
         }
     }
 
-    document.querySelectorAll(".xlink").forEach(function (el) {
-        el.addEventListener('click', function (e) {
-            var source = this.getAttribute('rel');
-            // Existing pattern: creates iframe from server-set rel attribute
-            document.getElementById("dynamic-content").innerHTML = '<iframe id="myFrame" name="myFrame" frameborder="0" width="950" height="1000" src="' + source + '">';
-        });
-    });
+    // The administration shell owns navigation, including POST-only reports.
+    // This fragment must not attach GET iframe handlers to its persistent links.
+
 
 </script>
 </body>

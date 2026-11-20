@@ -24,11 +24,12 @@ package io.github.carlos_emr.carlos.eform.util;
 /**
  * PHI-safe redaction for the eForm browser-render diagnostics.
  *
- * <p>The render surfaces (the loopback render-page servlet and the Selenium/CDP renderer) log
- * third-party error text — WebDriver/chromedriver messages, settle-script errors, container
+ * <p>The render surfaces (the loopback render-page servlet and the WebDriver/CDP renderer) log
+ * third-party error text — chromedriver messages, settle-script errors, container
  * exceptions — that can embed the tokenized render URL (which carries the {@code fdid} and the live
- * render token) or a bare filesystem path. All four render surfaces — the Selenium/CDP renderer
- * ({@link EFormBrowserPdfService}), the render-page servlet ({@link EFormBrowserRenderPageServlet}),
+ * render token) or a bare filesystem path. All four render surfaces — the WebDriver/CDP renderer
+ * ({@link EFormBrowserPdfService}, over {@link RenderBrowser}'s JDK HTTP transport), the render-page
+ * servlet ({@link EFormBrowserRenderPageServlet}),
  * and the asset-image and signature servlets that stream render assets — route that text through here
  * before it reaches the logs, so every render-surface catch block shares one redaction contract and
  * cannot drift.</p>
@@ -39,6 +40,17 @@ final class RenderLogRedaction {
 
     /** Placeholder substituted for filesystem paths in redacted diagnostics (SonarCloud S1192). */
     private static final String REDACTED_PATH = "[redacted-path]";
+
+    // Precompiled once: redactUrls runs on hot paths (per severe console entry during a render,
+    // inside the render deadline), and String.replaceAll compiles its pattern on every call.
+    private static final java.util.regex.Pattern SCHEME_URL =
+            java.util.regex.Pattern.compile("(?i)[a-z][a-z0-9+.-]*://[^\\s'\"<>]+");
+    private static final java.util.regex.Pattern UNC_PATH =
+            java.util.regex.Pattern.compile("\\\\\\\\[^\\s'\"<>]+");
+    private static final java.util.regex.Pattern DRIVE_PATH =
+            java.util.regex.Pattern.compile("(?i)(?<![\\w:])[a-z]:[\\\\/][^\\s'\"<>]*");
+    private static final java.util.regex.Pattern BARE_PATH =
+            java.util.regex.Pattern.compile("(?<![\\w./])/[\\w./~%-]{2,}");
 
     private RenderLogRedaction() {
     }
@@ -52,11 +64,14 @@ final class RenderLogRedaction {
         // UNC) that a WebDriver/settle error could embed, so no URL or local path reaches the logs.
         // Order matters: the scheme://... rule runs first so a c://… URL is consumed before the
         // drive-letter rule can see it.
-        return text
-                .replaceAll("(?i)[a-z][a-z0-9+.-]*://[^\\s'\"<>]+", "[redacted-url]")
-                .replaceAll("\\\\\\\\[^\\s'\"<>]+", REDACTED_PATH)
-                .replaceAll("(?i)(?<![\\w:])[a-z]:[\\\\/][^\\s'\"<>]*", REDACTED_PATH)
-                .replaceAll("(?<![\\w./])/[\\w./-]{2,}", REDACTED_PATH);
+        String redacted = SCHEME_URL.matcher(text).replaceAll("[redacted-url]");
+        redacted = UNC_PATH.matcher(redacted).replaceAll(REDACTED_PATH);
+        redacted = DRIVE_PATH.matcher(redacted).replaceAll(REDACTED_PATH);
+        // BARE_PATH includes ~ and % because the --url-base capability-token grammar
+        // (validateBrowserServiceUrl: A-Za-z0-9._~-) permits ~, and percent-escapes appear
+        // in path segments — a token containing either must not survive a bare-path (no
+        // scheme) appearance in a third-party error message.
+        return BARE_PATH.matcher(redacted).replaceAll(REDACTED_PATH);
     }
 
     /**
@@ -84,9 +99,10 @@ final class RenderLogRedaction {
 
     /**
      * Redacted {@code caused-by} chain: for each nested cause, its type and URL/path-redacted message.
-     * {@link #stackSummary} only reports the top throwable's frames, so the root cause that Selenium
-     * and WebDriver routinely wrap (e.g. {@code WebDriverException} around a {@code TimeoutException} /
-     * {@code ConnectException}) was otherwise unrecoverable at any log level. Cause types and redacted
+     * {@link #stackSummary} only reports the top throwable's frames, so the root cause the render
+     * transport wraps (e.g. {@link RenderBrowser}'s {@code IllegalStateException} around an
+     * {@code HttpTimeoutException} / {@code ConnectException}) was otherwise unrecoverable at any log
+     * level. Cause types and redacted
      * messages are as safe to log as the top-level one. Returns {@code ""} when there is no cause.
      */
     static String causeChain(Throwable throwable) {

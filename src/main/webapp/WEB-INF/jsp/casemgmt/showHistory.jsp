@@ -38,11 +38,11 @@
 
     @since 2026-08-13
 --%>
-<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
+
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -58,7 +58,7 @@
 %>
 
 <%@ page
-        import="org.springframework.web.context.*,org.springframework.web.context.support.*, io.github.carlos_emr.carlos.PMmodule.service.ProviderManager, io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
+        import="org.springframework.web.context.*, org.springframework.web.context.support.*, io.github.carlos_emr.carlos.PMmodule.service.ProviderManager" %>
 <%
     WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(getServletContext());
     ProviderManager pMgr = (ProviderManager) ctx.getBean(ProviderManager.class);
@@ -71,8 +71,11 @@
     <title>Note History</title>
 </head>
 <body>
-    <h3 style="text-align: center;">${title}</h3>
-    <h3 style="text-align: center;">${demoName}</h3>
+    <%-- Both headings carry stored text: the issue-history title is built from the issue
+         catalogue's descriptions and demoName from the patient's first and last name. Neither
+         is markup, so both go through the null-safe HTML encoder like the note text below. --%>
+    <h3 style="text-align: center;">${carlos:forHtmlContent(title)}</h3>
+    <h3 style="text-align: center;">${carlos:forHtmlContent(demoName)}</h3>
     <c:if test="${empty history}">
         <p style="text-align: center;"><fmt:message key="casemgmt.showHistory.msgNoHistory"/></p>
     </c:if>
@@ -80,7 +83,7 @@
         <div style="width: 99%; background-color: #EFEFEF; font-size: 12px; border-left: thin groove #000000; border-bottom: thin groove #000000; border-right: thin groove #000000;">
             <div>
                 <p>
-                ${note.note}
+                ${carlos:forHtmlContentWithBreaks(note.note)}
                 </p>
             </div>
             <div style="color: #0000FF;">
@@ -99,12 +102,23 @@
                 </c:if>
     
                 <c:if test="${note.signed != true}">
-                    Saved by
-                    ${carlos:forHtml(note.provider.formattedName)}:
+                    <fmt:message key="casemgmt.showHistory.recordedProvider"/>:
+                    ${carlos:forHtml(note.provider.formattedName)}
                 </c:if>
-    
+
+                <br /><fmt:message key="casemgmt.showHistory.nativeRevisionTime"/>:
                 <fmt:formatDate value="${note.update_date}" pattern="dd-MMM-yyyy H:mm" />
             </div>
+            <%-- In-place edits retain earlier versions in history, not separate note rows.
+                 Only expand the latest row: older rows may contain cumulative copies.
+                 Keep that stored prose intact and encoded. The metadata above describes
+                 this saved row; do not invent dates or authors for embedded versions. --%>
+            <c:if test="${showStoredNoteHistory and idx.last and not empty note.history and note.history ne note.note}">
+                <details class="note-text-history" open>
+                    <summary><fmt:message key="casemgmt.showHistory.textHistory"/></summary>
+                    <div class="note-text-history-content">${carlos:forHtmlContentWithBreaks(note.history)}</div>
+                </details>
+            </c:if>
         </div>
     </c:forEach>    
 </body>

@@ -33,10 +33,12 @@ package io.github.carlos_emr.carlos.encounter.pageUtil;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import io.github.carlos_emr.carlos.provider.web.CppPreferencesUIBean;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.Prescription;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
-import org.owasp.encoder.Encode;
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTemporalReadService;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
@@ -45,10 +47,14 @@ import java.util.Locale;
 
 public class EctDisplayRx2Action extends EctDisplayAction {
     private String cmd = "Rx";
+    private final transient CdsTemporalReadService medicationDates;
+
+    public EctDisplayRx2Action() { this(SpringUtils.getBean(CdsTemporalReadService.class)); }
+    EctDisplayRx2Action(CdsTemporalReadService medicationDates) { this.medicationDates = medicationDates; }
 
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
 
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LoggedInInfo loggedInInfo = getLoggedInInfo(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", null)) {
             return true; //Prescription link won't show up on new CME screen.
@@ -57,6 +63,8 @@ public class EctDisplayRx2Action extends EctDisplayAction {
             //set lefthand module heading and link
             String winName = "Rx" + bean.demographicNo;
             String rxPath = request.getContextPath() + "/rx/choosePatient?providerNo=" + bean.providerNo + "&demographicNo=" + bean.demographicNo;
+            String chartContext = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request);
+            if (chartContext != null) rxPath += "&chartContext=" + SafeEncode.forUriComponent(chartContext);
             Dao.setLeftHeading(getText("encounter.NavBar.Medications"));
             Dao.setLeftPopup(580, 1027, winName, rxPath);
 
@@ -99,31 +107,29 @@ public class EctDisplayRx2Action extends EctDisplayAction {
                     }
 
                     if (prefsBean != null && "on".equals(prefsBean.getMedicationStartDate())) {
-                        descr += " Start Date:" + DateUtils.formatDate(drug.getRxDate(), locale);
+                        descr += " Start Date:" + startDateDisplay(drug, locale);
                     }
                     if (prefsBean != null && "on".equals(prefsBean.getMedicationEndDate()) && !drug.isLongTerm()) {
-                        descr += " End Date:" + DateUtils.formatDate(drug.getEndDate(), locale);
+                        descr += " End Date:" + (drug.getCdsCurrentness() != null && drug.getEndDate() == null
+                                ? "Unknown" : DateUtils.formatDate(drug.getEndDate(), locale));
                     }
                     String tmp = "";
                     if (drug.getFullOutLine() != null)
                         tmp = drug.getFullOutLine().replaceAll(";", " ");
-                    tmp = stripQtyRepeats(tmp);
+                    if (drug.getCdsCurrentness() == null) tmp = stripQtyRepeats(tmp);
 
-                    descr = "<span " + getClassColour(drug, now, month) + ">" + descr + "</span>";
-
-                    item.setTitle(descr);
-                    item.setLinkTitle(Encode.forHtml(tmp));
+                    item.setTitle(titleSpan(getClassColour(drug, now, month), descr));
+                    item.setLinkTitle(tmp);
 
                 } else {
                     String tmp = "";
                     if (drug.getFullOutLine() != null)
                         tmp = drug.getFullOutLine().replaceAll(";", " ");
-                    tmp = stripQtyRepeats(tmp);
+                    if (drug.getCdsCurrentness() == null) tmp = stripQtyRepeats(tmp);
 
                     String strTitle = StringUtils.maxLenString(tmp, MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
-                    strTitle = "<span " + getClassColour(drug, now, month) + ">" + strTitle + "</span>";
-                    item.setTitle(strTitle);
-                    item.setLinkTitle(Encode.forHtml(tmp));
+                    item.setTitle(titleSpan(getClassColour(drug, now, month), strTitle));
+                    item.setLinkTitle(tmp);
                 }
 
                 item.setURL("return false;");
@@ -132,6 +138,27 @@ public class EctDisplayRx2Action extends EctDisplayAction {
 
             return true;
         }
+    }
+
+    String startDateDisplay(Prescription medication, Locale locale) {
+        if (medication.getCdsCurrentness() == null) return DateUtils.formatDate(medication.getRxDate(), locale);
+        return medicationDates.medicationStart(medication.getDrugId(), medication.getRxDate(),
+                medication.getStartDateUnknown()).display();
+    }
+
+    /**
+     * Builds a navbar item title: the colour span is markup, the stored drug text inside it is not.
+     *
+     * <p>LeftNavBarDisplay.jsp prints titles as built, so the drug name and outline (stored raw,
+     * #3952) are HTML-encoded here; the link title is passed raw because the JSP encodes it for its
+     * attribute, and encoding it here as well showed {@code CHILDREN&#39;S} in the tooltip.
+     *
+     * @param classColour the span's class attribute from {@link #getClassColour}
+     * @param storedText the drug text as stored, already cropped for display
+     * @return the title markup with {@code storedText} encoded
+     */
+    static String titleSpan(String classColour, String storedText) {
+        return "<span " + classColour + ">" + SafeEncode.forHtmlContent(storedText) + "</span>";
     }
 
     private static String stripQtyRepeats(String text) {

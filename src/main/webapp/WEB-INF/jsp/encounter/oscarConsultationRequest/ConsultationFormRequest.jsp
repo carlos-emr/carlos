@@ -57,18 +57,18 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
+
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
-<%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
+
 <!-- end -->
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 
 <%@page import="java.util.ArrayList, java.util.List, java.util.*, io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.lab.ca.on.*" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager,io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote,io.github.carlos_emr.carlos.casemgmt.model.Issue,io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO,org.springframework.web.context.support.*,org.springframework.web.context.*" %>
+<%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager, io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote, io.github.carlos_emr.carlos.casemgmt.model.Issue, io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO, org.springframework.web.context.support.*" %>
 
 <%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
@@ -89,28 +89,28 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FaxConfigDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ContactSpecialtyDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicContactDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.ConsultationRequestExtKey" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ConsultationRequestExtDao" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.ConsultationManager" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.PathValidationUtils" %>
 <%@ page import="java.io.File" %>
-<%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
+
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType" %>
-<%@ page import="io.github.carlos_emr.carlos.demographic.data.EctInformation" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CppTextLoader" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.RxInformation" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.LabResultData" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SignatureReference" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.ConsultationSignatureService" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
@@ -204,6 +204,24 @@
             return;
         }
         boolean canWriteConsult = securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, consultSecurityTarget);
+        Integer consultPatientId = null;
+        if (consultSecurityTarget != null) {
+            try {
+                consultPatientId = Integer.valueOf(consultSecurityTarget);
+                if (consultPatientId <= 0) consultPatientId = null;
+            } catch (NumberFormatException invalidPatientId) {
+                // Reject malformed/overflowing IDs before patient loading or any fax controls.
+            }
+            if (consultPatientId == null) {
+                response.sendError(jakarta.servlet.http.HttpServletResponse.SC_BAD_REQUEST);
+                return;
+            }
+        }
+        boolean canFaxConsult = canWriteConsult && CarlosProperties.getInstance().isConsultationFaxEnabled()
+                && consultPatientId != null
+                && securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, consultPatientId)
+                && securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.WRITE, null)
+                && securityInfoManager.hasPrivilege(loggedInInfo, "_fax", SecurityInfoManager.READ, null);
 
         // Check if the selected providers is currently active. If it is not active, add it to the prList, as the list only contains active providers.
         Boolean isProviderActive = false;
@@ -214,9 +232,11 @@
             }
         }
 
-        if (!isProviderActive && consultUtil.providerNo != null) {
+        // A saved consult with no provider has providerNo "", not null. getProvider builds a Provider with
+        // no number for "" or for a provider who no longer exists, and the provider list below needs a number.
+        if (!isProviderActive && !StringUtils.isNullOrEmpty(consultUtil.providerNo)) {
             Provider inactiveProvider = rx.getProvider(consultUtil.providerNo);
-            if (inactiveProvider != null) {
+            if (inactiveProvider != null && inactiveProvider.getProviderNo() != null) {
                 prList.add(inactiveProvider);
             }
         }
@@ -245,7 +265,16 @@
         if (request.getParameter("error") != null) {
             String errorMessage = (String) request.getAttribute("errorMessage");
             if (StringUtils.isNullOrEmpty(errorMessage)) {
-                errorMessage = "The form could not be printed due to an error. Please refer to the server logs for more details.";
+                // The "error" result is shared by the save, print and fax actions on this form, so the
+                // fallback must not name printing: a failed Submit landed here too and told the clinician
+                // the form "could not be printed" when it had not been saved.
+                errorMessage = "The consultation request could not be saved or printed due to an error. Please refer to the server logs for more details.";
+            }
+            // When the "error" result was reached through an uncaught exception, the interceptor
+            // left the incident id that names the log entry; give the clinician that to quote.
+            Object incidentId = request.getAttribute("carlosIncidentId");
+            if (incidentId != null) {
+                errorMessage = errorMessage + " Reference: " + incidentId + ".";
             }
     %>
     <SCRIPT LANGUAGE="JavaScript">
@@ -272,9 +301,12 @@
             CommonLabResultData commonLabResultData = new CommonLabResultData();
             List<LabResultData> attachedLabs = commonLabResultData.populateLabResultsData(loggedInInfo, demo, requestId, CommonLabResultData.ATTACHED);
             ConsultationManager consultationManager = SpringUtils.getBean(ConsultationManager.class);
-            List<EctFormData.PatientForm> attachedForms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(requestId), Integer.parseInt(demo));
+            // Share the stored relationships between the visible panels and the omission notice.
+            List<ConsultDocs> storedForms = consultationManager.getAttachedDocumentsByType(loggedInInfo, Integer.parseInt(requestId), ConsultDocs.DOCTYPE_FORM);
+            List<ConsultDocs> storedHRMDocuments = consultationManager.getAttachedDocumentsByType(loggedInInfo, Integer.parseInt(requestId), ConsultDocs.DOCTYPE_HRM);
+            List<EctFormData.PatientForm> attachedForms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(requestId), Integer.parseInt(demo), storedForms);
             List<EFormData> attachedEForms = consultationManager.getAttachedEForms(requestId);
-            ArrayList<HashMap<String, ? extends Object>> attachedHRMDocuments = consultationManager.getAttachedHRMDocuments(loggedInInfo, demo, requestId);
+            ArrayList<HashMap<String, ? extends Object>> attachedHRMDocuments = consultationManager.getAttachedHRMDocuments(loggedInInfo, demo, requestId, storedHRMDocuments);
 
             Collections.sort(attachedLabs);
             List<LabResultData> attachedLabsSortedByVersions = new ArrayList<>();
@@ -282,14 +314,21 @@
                 if (attachedLabsSortedByVersions.contains(attachedLab1)) {
                     continue;
                 }
-                String[] matchingLabIds = Hl7textResultsData.getMatchingLabs(attachedLab1.getSegmentID()).split(",");
+                // Version chains exist for HL7 labs only, and segment ids are only unique within a
+                // source: the chain is walked for HL7 labs and matched on source and id, so an
+                // MDS/CML/BCP lab sharing an id with an HL7 version is never pulled into its place.
+                boolean hl7Lab = !attachedLab1.isAttachmentUnavailable() && LabResultData.HL7TEXT.equals(attachedLab1.getLabType());
+                String[] matchingLabIds = hl7Lab
+                        ? Hl7textResultsData.getMatchingLabs(attachedLab1.getSegmentID()).split(",")
+                        : new String[]{attachedLab1.getSegmentID()};
                 if (matchingLabIds.length == 1) {
                     attachedLabsSortedByVersions.add(attachedLab1);
                     continue;
                 }
                 for (int i = matchingLabIds.length - 1; i >= 0; i--) {
                     for (LabResultData attachedLab2 : attachedLabs) {
-                        if (!attachedLab2.getSegmentID().equals(matchingLabIds[i])) {
+                        if (!attachedLab2.getSegmentID().equals(matchingLabIds[i])
+                                || !LabResultData.HL7TEXT.equals(attachedLab2.getLabType())) {
                             continue;
                         }
                         if (i != matchingLabIds.length - 1) {
@@ -306,6 +345,10 @@
             pageContext.setAttribute("attachedForms", attachedForms);
             pageContext.setAttribute("attachedEForms", attachedEForms);
             pageContext.setAttribute("attachedHRMDocuments", attachedHRMDocuments);
+            request.setAttribute(io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationAttachmentsNotIncluded.REQUEST_ATTRIBUTE,
+                io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationAttachmentsNotIncluded.describe(
+                    storedForms, storedHRMDocuments, attachedForms, attachedHRMDocuments,
+                    io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request)));
 
         }
     %>
@@ -327,7 +370,6 @@
         // A null demo varialbe means that this iteration is a postback. This script need not be run on postback.
         if (demo != null && "true".equals(props.getProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS"))) {
 
-            ContactSpecialtyDao contactSpecialtyDao = SpringUtils.getBean(ContactSpecialtyDao.class);
             List<DemographicContact> demographicContacts = demographicManager.getHealthCareTeam(loggedInInfo, Integer.parseInt(demo));
             HashSet<ConsultationServices> consultationServices = new HashSet<ConsultationServices>();
             List<DemographicContact> healthCareTeam = new ArrayList<DemographicContact>();
@@ -365,21 +407,9 @@
             } else if (currentSpecialistIdInt < 0) {
 
                 // this ProfessionalSpecialist needs to have a DemographicContact created.
-                String service = consultUtil.getService();
-
-                ContactSpecialty contactSpecialty = contactSpecialtyDao.findBySpecialty(service);
-
-                if (contactSpecialty == null) {
-                    contactSpecialty = contactSpecialtyDao.findBySpecialty("other");
-                }
-
-                service = contactSpecialty.getId() + "";
-
-                if (service == null) {
-                    service = "";
-                }
-
-                DemographicContact demographicContact = addDemographicContact(loggedInInfo, demo, (currentSpecialistIdInt * -1), service);
+                String role = consultUtil.getHealthCareTeamRole();
+                DemographicContact demographicContact = addDemographicContact(
+                        loggedInInfo, demo, (currentSpecialistIdInt * -1), role);
 
                 demographicContactDao.persist(demographicContact);
                 demographicContacts = demographicManager.getHealthCareTeam(loggedInInfo, Integer.parseInt(demo));
@@ -426,7 +456,10 @@
             for (DemographicContact demographicContact : demographicContacts) {
                 // ensure consent has been given to contact this specialist.
                 // ensure that this specialist has a cpso (specialist, msp, or college id)
-                if (demographicContact.isConsentToContact() &&
+                if (!demographicContact.isDeleted() && demographicContact.isActive()
+                        && demographicContact.isConsentToContact()
+                        && demographicContact.getDetails() instanceof ProfessionalContact
+                        && !demographicContact.getDetails().isDeleted() &&
                         (((ProfessionalContact) demographicContact.getDetails()).getCpso() != null) &&
                         (!((ProfessionalContact) demographicContact.getDetails()).getCpso().isEmpty())
                 ) {
@@ -1068,6 +1101,10 @@
                 };
             }
 
+            // Editing the visible name invalidates the previous hidden directory id.
+            jQuery('#specialistInput').on('input', function() {
+                jQuery('#specialist').val('');
+            });
             jQuery('#specialistInput').on('click', function() {
                 jQuery(this).autocomplete('search', '');
             });
@@ -1084,7 +1121,7 @@
             form.address.value = '';
             document.getElementById('annotation').value = '';
             document.getElementById('eFormButton').style.display = 'none';
-            <%if (props.isConsultationFaxEnabled()) {%>
+            <%if (canFaxConsult) {%>
             specialistFaxNumber = '';
             updateFaxButton();
             <%}%>
@@ -1106,7 +1143,7 @@
 
             document.getElementById('consult-disclaimer').style.display = 'none';
 
-            <%if (props.isConsultationFaxEnabled()) {%>
+            <%if (canFaxConsult) {%>
             specialistFaxNumber = specData.fax ? specData.fax.trim() : '';
             updateFaxButton();
             <%}%>
@@ -1509,7 +1546,7 @@
                 if (savedFax) form.fax.value = savedFax;
                 if (savedAddress) form.address.value = savedAddress;
 
-                <%if (props.isConsultationFaxEnabled()) {%>
+                <%if (canFaxConsult) {%>
                 if (savedFax) { specialistFaxNumber = savedFax.trim(); updateFaxButton(); }
                 <%}%>
 
@@ -1540,7 +1577,7 @@
                 document.getElementById("annotation").value = "";
 
                 <%
-		if (props.isConsultationFaxEnabled()) {//
+		if (canFaxConsult) {//
 		%>
                 specialistFaxNumber = "";
                 updateFaxButton();
@@ -1573,7 +1610,7 @@
                     document.getElementById("consult-disclaimer").style.display = 'none';
 
                     <%
-        		if (props.isConsultationFaxEnabled()) {//
+                if (canFaxConsult) {//
 				%>
                     specialistFaxNumber = aSpeci.specFax.trim();
                     updateFaxButton();
@@ -1622,7 +1659,7 @@
                     document.EctConsultationFormRequest2Form.fax.value = (aSpeci.specFax);					// load the text fields with phone fax and address
                     document.EctConsultationFormRequest2Form.address.value = (aSpeci.specAddress);
                     <%
-        		if (props.isConsultationFaxEnabled()) {//
+                if (canFaxConsult) {//
 				%>
                     specialistFaxNumber = aSpeci.specFax.trim();
                     updateFaxButton();
@@ -1720,9 +1757,44 @@
         </script>
     </oscar:oscarPropertiesCheck>
 
+    <fmt:message var="consultRefDateLabel" key="encounter.oscarConsultationRequest.ConsultationFormRequest.formRefDate"/>
+    <fmt:message var="consultApptDateLabel" key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnAppointmentDate"/>
+    <fmt:message var="consultFollowUpLabel" key="encounter.oscarConsultationRequest.ConsultationFormRequest.formLastFollowup"/>
+    <fmt:message var="consultInvalidDateMessage" key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgInvalidDate">
+        <fmt:param value="__FIELD__"/>
+    </fmt:message>
     <script type="text/javascript">
+        var consultDateLabels = {
+            referalDate: '${carlos:forJavaScript(consultRefDateLabel)}',
+            appointmentDate: '${carlos:forJavaScript(consultApptDateLabel)}',
+            followUpDate: '${carlos:forJavaScript(consultFollowUpLabel)}'
+        };
+        var consultDateMessage = '${carlos:forJavaScript(consultInvalidDateMessage)}';
 
         function checkForm(submissionVal, formName) {
+            // A typed name is not a directory selection. Validate the posted id on both pickers.
+            var consultant = document.getElementById('specialist');
+            if (/^(Submit|Update)/.test(submissionVal) && consultant && !/^[1-9][0-9]*$/.test(consultant.value)) {
+                alert('Please select an active consultant from the consultant directory before saving.');
+                (document.getElementById('specialistInput') || consultant).focus();
+                return false;
+            }
+            // A date the browser cannot read (an impossible day such as 30 February) posts as an
+            // empty value, which would save the referral without that date or, on Update, clear the
+            // stored one, and an unsaved Print Preview would print without it. Refuse it and name the
+            // field instead (issue #5272).
+            if (/^(Submit|Update)/.test(submissionVal) || submissionVal === 'And Print Preview') {
+                var unreadableDate = ['referalDate', 'appointmentDate', 'followUpDate'].map(function (id) {
+                    return document.getElementById(id);
+                }).filter(function (input) {
+                    return input && !input.disabled && input.validity && input.validity.badInput;
+                })[0];
+                if (unreadableDate) {
+                    alert(consultDateMessage.replace('__FIELD__', consultDateLabels[unreadableDate.id]));
+                    unreadableDate.focus();
+                    return false;
+                }
+            }
             ShowSpin(true);
             var success = true;
             var isEReferral = document.getElementById('isOceanEReferral') !== null;
@@ -1982,8 +2054,23 @@ if (CarlosProperties.getInstance().getBooleanProperty("consultation_program_lett
         }
 
         <%
-String signatureRequestId=DigitalSignatureUtils.generateSignatureRequestId(loggedInInfo.getLoggedInProviderNo());
-String imageUrl=request.getContextPath()+"/imageRenderingServlet?source="+ImageRenderingServlet.Source.signature_preview.name()+"&"+DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY+"="+signatureRequestId;
+// Signature controls are rendered separately from the form bean. Keep the rejected
+// POST's capture key so correcting the consultant cannot silently discard a drawing.
+boolean signatureRetry = request.getAttribute("consultationSubmittedValues") != null;
+boolean retryManualSignature = signatureRetry && "true".equalsIgnoreCase(request.getParameter("newSignature"));
+String signatureImgValue = signatureRetry ? StringUtils.noNull(request.getParameter("signatureImg")).trim()
+        : StringUtils.noNull(consultUtil.signatureImg).trim();
+String signatureRequestId = signatureRetry
+        ? SignatureReference.parse(true, signatureImgValue, request.getParameter("newSignatureImg")).value() : "";
+if (signatureRequestId.isEmpty() || !signatureRequestId.matches("[a-zA-Z0-9]+")) {
+    signatureRequestId = DigitalSignatureUtils.generateSignatureRequestId(loggedInInfo.getLoggedInProviderNo());
+}
+ConsultationSignatureService consultationSignatureService = SpringUtils.getBean(ConsultationSignatureService.class);
+if (retryManualSignature) {
+    signatureImgValue = consultationSignatureService.wasManualSignatureCaptured(signatureRequestId)
+            ? signatureRequestId : "";
+}
+String imageUrl=request.getContextPath()+"/imageRenderingServlet?source="+ImageRenderingServlet.Source.signature_preview.name()+"&"+DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY+"="+SafeEncode.forUriComponent(signatureRequestId);
 String storedImgUrl=request.getContextPath()+"/imageRenderingServlet?source="+ImageRenderingServlet.Source.signature_stored.name()+"&digitalSignatureId=";
 %>
 
@@ -1996,11 +2083,11 @@ String storedImgUrl=request.getContextPath()+"/imageRenderingServlet?source="+Im
             if (signatureImgTag) {
                 signatureImgTag.onload = null;
                 signatureImgTag.onerror = null;
-                signatureImgTag.src = '<%=imageUrl%>&rand=' + counter;
+                signatureImgTag.src = '<%=SafeEncode.forJavaScript(imageUrl)%>&rand=' + counter;
             }
             var signatureImg = document.getElementById('signatureImg');
             if (signatureImg) {
-                signatureImg.value = '<%=signatureRequestId%>';
+                signatureImg.value = '<%=SafeEncode.forJavaScript(signatureRequestId)%>';
             }
         }
 
@@ -2051,7 +2138,31 @@ String storedImgUrl=request.getContextPath()+"/imageRenderingServlet?source="+Im
 
         function showSignatureImage() {
             var signatureImg = document.getElementById('signatureImg');
-            if (signatureImg != null && isStoredSignatureId(signatureImg.value)) {
+            if (hasPendingManualSignature()) {
+                var signatureImgTag = document.getElementById('signatureImgTag');
+                var signatureFrame = document.getElementById('signatureFrame');
+                var signatureShow = document.getElementById('signatureShow');
+                signatureImgTag.onload = function() {
+                    // The preview servlet returns a 1x1 placeholder when no drawing exists.
+                    if (signatureImgTag.naturalWidth === 1 && signatureImgTag.naturalHeight === 1) {
+                        signatureImgTag.onerror();
+                        return;
+                    }
+                    isSignatureSaved = true;
+                    signatureFrame.style.display = 'none';
+                    signatureShow.style.display = 'block';
+                };
+                signatureImgTag.onerror = function() {
+                    isSignatureSaved = false;
+                    signatureShow.style.display = 'none';
+                    signatureFrame.style.display = 'block';
+                };
+                signatureImgTag.src = '<%=SafeEncode.forJavaScript(imageUrl)%>';
+            } else if (<%=retryManualSignature%>) {
+                // No capture yet: retain manual intent without requesting a nonexistent preview.
+                document.getElementById('signatureShow').style.display = 'none';
+                document.getElementById('signatureFrame').style.display = 'block';
+            } else if (signatureImg != null && isStoredSignatureId(signatureImg.value)) {
                 var signatureImgTag = document.getElementById('signatureImgTag');
                 var newSignature = document.getElementById('newSignature');
                 var signatureFrame = document.getElementById('signatureFrame');
@@ -2073,6 +2184,10 @@ String storedImgUrl=request.getContextPath()+"/imageRenderingServlet?source="+Im
                 };
                 signatureImgTag.src = "<%=storedImgUrl %>" + encodeURIComponent(signatureImg.value);
             } else if (!hasPendingManualSignature()) {
+                var signatureImgTag = document.getElementById('signatureImgTag');
+                if (!signatureImgTag || !signatureImgTag.getAttribute('src')) {
+                    return true;
+                }
                 var signatureProviderNo = document.getElementById('signatureProviderNo');
                 if (signatureProviderNo) {
                     updateSignatureProvider(signatureProviderNo.value);
@@ -2095,13 +2210,13 @@ if (userAgent != null) {
 %>
 
         var isSignatureDirty = false;
-        var isSignatureSaved = <%= consultUtil.signatureImg != null && !"".equals(consultUtil.signatureImg) ? "true" : "false" %>;
+        var isSignatureSaved = <%= SignatureReference.isStoredId(signatureImgValue) ? "true" : "false" %>;
 
         function signatureHandler(e) {
             isSignatureDirty = e.isDirty;
             isSignatureSaved = e.isSave;
             <%
-	if (props.isConsultationFaxEnabled()) { //
+	if (canFaxConsult) { //
 	%>
             updateFaxButton();
             <% } %>
@@ -2119,7 +2234,7 @@ if (userAgent != null) {
             }
         }
 
-        var requestIdKey = "<%=signatureRequestId %>";
+        var requestIdKey = "<%=SafeEncode.forJavaScript(signatureRequestId)%>";
 
         function AddOtherFaxProvider() {
             var name = jQuery("#searchHealthCareTeamInput").val();
@@ -2190,13 +2305,19 @@ if (userAgent != null) {
             if (btn) btn.disabled = disabled;
         }
 
+        <fmt:message key="consultation.attachments.previewConfirm" var="previewAttachmentsUnavailableMessage"/>
+        <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgPreviewRequestFailed" var="previewRequestFailedMessage"/>
+
         // If the user clicks the 'Print Preview' button, ensure that their unsaved changes are preserved, allowing them to stay on the same page. Achieve this by making an AJAX call.
-        function getConsultFormPrintPreview(form) {
-            form.submission.value = "And Print Preview";
+	        function getConsultFormPrintPreview(form, approvalToken) {
+	            var previewAttachmentsUnavailableMessage = '${carlos:forJavaScript(previewAttachmentsUnavailableMessage)}';
+	            var previewRequestFailedMessage = '${carlos:forJavaScript(previewRequestFailedMessage)}';
+	            form.submission.value = "And Print Preview";
             jQuery.ajax({
                 type: "POST",
                 url: "${ pageContext.request.contextPath }/encounter/RequestConsultation",
-                data: jQuery(form).serialize(),
+                data: jQuery(form).serialize() + (approvalToken
+                    ? '&confirmAttachmentOmissions=true&consultAttachmentApproval=' + encodeURIComponent(approvalToken) : ''),
                 dataType: "json",
                 success: function (data) {
                     HideSpin();
@@ -2213,19 +2334,37 @@ if (userAgent != null) {
                         if (newSignature) {
                             newSignature.value = 'false';
                         }
-                        isSignatureSaved = true;
-                    }
-                    showPreview(data.consultPDF, data.consultPDFName);
-                    if (data.warningMessage) {
-                        alert(data.warningMessage.replace(/\\n/g, '\n'));
-                    }
-                },
-                error: function (xhr, status, error) {
-                    HideSpin();
-                    alert("Preview request failed: " + status + ", " + error);
-                }
-            });
-        }
+	                        isSignatureSaved = true;
+	                    }
+	                    if (data.warningMessage) {
+	                        alert(data.warningMessage.replace(/\\n/g, '\n'));
+	                    }
+                        if (data.attachmentReviewRequired) {
+                            if (window.confirm(formatPreviewMessage(previewAttachmentsUnavailableMessage, data.attachmentWarnings.join("\n")))) {
+                                getConsultFormPrintPreview(form, data.consultAttachmentApproval);
+                            }
+                            return;
+                        }
+                        showPreview(data.consultPDF, data.consultPDFName);
+	                },
+	                error: function (xhr, status, error) {
+	                    HideSpin();
+	                    alert(formatPreviewMessage(previewRequestFailedMessage, status, error));
+	                }
+	            });
+	        }
+
+	        function formatPreviewMessage(template) {
+	            var formatted = template;
+	            for (var i = 1; i < arguments.length; i++) {
+	                var value = arguments[i];
+	                if (value === null || typeof value === 'undefined') {
+	                    value = '';
+	                }
+	                formatted = formatted.split('{' + (i - 1) + '}').join(value);
+	            }
+	            return formatted.replace(/\\n/g, '\n');
+	        }
 
         function showPreview(base64PDF, pdfName) {
             const pdfData = new Uint8Array(atob(base64PDF).split('').map(char => char.charCodeAt(0)));
@@ -2308,7 +2447,7 @@ if (userAgent != null) {
                     thisForm.setSiteName(consultUtil.siteName);
                     defaultSiteName = consultUtil.siteName;
 
-                } else if (request.getAttribute("validateError") == null) {
+                } else {
                     //  new request
                     if (demo != null) {
                         RxInformation RxInfo = new RxInformation();
@@ -2321,8 +2460,18 @@ if (userAgent != null) {
 
                         if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_MEDICATIONS", "true"))) {
                             if (props.getProperty("currentMedications", "").equalsIgnoreCase("otherMedications")) {
-                                EctInformation EctInfo = new EctInformation(loggedInInfo, demo);
-                                thisForm.setCurrentMedications(EctInfo.getFamilyHistory());
+                                if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, Integer.valueOf(demo))) {
+                                    throw new SecurityException("Patient record access denied");
+                                }
+                                if (securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", demo)
+                                        && securityInfoManager.hasPrivilege(loggedInInfo, "_eChart", "r", demo)
+                                        && securityInfoManager.hasPrivilege(loggedInInfo, "_casemgmt.notes", "r", demo)) {
+                                    String otherMedications = new CppTextLoader(SpringUtils.getBean(CaseManagementManager.class), securityInfoManager)
+                                            .load(request, loggedInInfo, demo, CaseManagementManager.IssueType.OMEDS);
+                                    thisForm.setCurrentMedications(otherMedications);
+                                } else {
+                                    request.setAttribute("consultationCppUnavailable", Boolean.TRUE);
+                                }
                             } else {
                                 thisForm.setCurrentMedications(RxInfo.getCurrentMedication(demo));
                             }
@@ -2341,6 +2490,15 @@ if (userAgent != null) {
                 }
             }
 
+            if (request.getAttribute("consultationSubmittedValues") != null) {
+                // Overlay posted fields after loading patient/legacy metadata and defaults.
+                new org.springframework.beans.BeanWrapperImpl(thisForm).setPropertyValues((Map) request.getAttribute("consultationSubmittedValues"));
+                thisForm.setSpecialist(""); // force a fresh active directory selection
+                if (bMultisites && thisForm.getSiteName() != null && !thisForm.getSiteName().isEmpty()) {
+                    defaultSiteName = thisForm.getSiteName(); // redisplay the site the clinician chose
+                }
+            }
+
             if (thisForm.iseReferral()) {
         %>
         <script>
@@ -2350,7 +2508,7 @@ if (userAgent != null) {
             }
         %>
 
-        <% if (!props.isConsultationFaxEnabled() || !CarlosProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) { %>
+        <% if (!canFaxConsult || !CarlosProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) { %>
         <input type="hidden" name="providerNo" value="<%=providerNo%>">
         <% } %>
         <input type="hidden" name="demographicNo" id="demographicNo" value="<carlos:encode value='<%= demo %>' context="htmlAttribute"/>">
@@ -2427,6 +2585,7 @@ if (userAgent != null) {
                     </div>
 
                     <div class="card mb-2 consult-attachments">
+                        <%@ include file="/WEB-INF/jsp/encounter/oscarConsultationRequest/attachmentsNotIncludedNotice.jspf" %>
                         <div class="card-body p-2">
                                 <table id="attachedDocumentTable" style="border:none;background:transparent;">
                                     <tr>
@@ -2511,16 +2670,26 @@ if (userAgent != null) {
                                                 </tr>
                                                 <fmt:message var="unlabelledLabel" key="encounter.oscarConsultationRequest.ConsultationFormRequest.labelUnlabelled"/>
                                                 <c:forEach items="${ attachedLabs }" var="attachedLab">
-                                                    <tr id="entry_labNo${ attachedLab.segmentID }">
+                                                    <%-- Row and delegate ids follow the picker checkbox id, which for labs
+                                                         carries the source (labNoHL7123); the dialog adds and removes rows
+                                                         by that key. --%>
+                                                    <tr id="entry_labNo${ attachedLab.labType }${ attachedLab.segmentID }">
                                                         <td>
                                                             <c:set var="labName"
                                                                    value="${ fn:trim(attachedLab.label) != '' ? attachedLab.label : attachedLab.discipline}"/>
                                                             <c:if test="${empty labName}"><c:set var="labName"
                                                                                                  value="${unlabelledLabel}"/></c:if>
                                                             ${carlos:forHtml(attachedLab.description)} ${carlos:forHtml(labName)}
-                                                            <input name="labNo" value="${ attachedLab.segmentID }"
-                                                                   id="delegate_labNo${ attachedLab.segmentID }"
+                                                            <%-- The picker's lab checkbox id carries the lab source
+                                                                 (labNoHL7123), and the pre-check looks the box up by
+                                                                 this delegate id minus its delegate_ prefix. --%>
+                                                            <input name="labNo" value="${carlos:forHtmlAttribute(attachedLab.attachmentKey)}"
+                                                                   id="delegate_labNo${ attachedLab.labType }${ attachedLab.segmentID }"
                                                                    class="delegateAttachment" type="hidden">
+                                                            <c:if test="${attachedLab.attachmentUnavailable}">
+                                                                <button type="button" class="removeUnavailableLab"
+                                                                        onclick="this.closest('tr').remove()"><fmt:message key="admin.eformReportTool.remove"/></button>
+                                                            </c:if>
                                                         </td>
                                                     </tr>
                                                 </c:forEach>
@@ -2591,7 +2760,7 @@ if (userAgent != null) {
                              When creating a new request (id == null): show Submit/Print/Fax buttons. --%>
                         <% if (canWriteConsult && thisForm.geteReferralId() == null) { %>
                                 <div class="consult-control-panel consult-control-panel-sticky mb-2">
-                                <% if (request.getAttribute("id") != null) { %>
+                                <% if (requestId != null && !requestId.isEmpty()) { %>
                                 <input name="update" type="button" class="btn btn-primary btn-sm"
                                        value="<fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnUpdate"/>"
                                        onclick="return checkForm('Update Consultation Request','EctConsultationFormRequest2Form');"/>
@@ -2602,11 +2771,12 @@ if (userAgent != null) {
                                        value="<fmt:message key="global.btnPrint"/>"
                                        onclick="return checkForm('And Print Preview','EctConsultationFormRequest2Form');"/>
 
-                                <oscar:oscarPropertiesCheck value="yes" property="consultation_fax_enabled">
+                                <%-- Boolean check (true/false, also yes/on) via CarlosProperties; the raw tag compared the literal "yes" only. --%>
+                                <% if (canFaxConsult) { %>
                                     <input id="fax_button" name="updateAndFax" type="button" class="btn btn-primary btn-sm"
                                            value="<fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnUpdateAndFax"/>"
                                            onclick="return checkForm('Update And Fax','EctConsultationFormRequest2Form');"/>
-                                </oscar:oscarPropertiesCheck>
+                                <% } %>
 
                                 <% } else { %>
                                 <input name="submitSaveOnly" type="button" class="btn btn-primary btn-sm"
@@ -2616,11 +2786,12 @@ if (userAgent != null) {
                                        value="<fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnSubmitAndPrint"/>"
                                        onclick="return checkForm('Submit Consultation Request And Print Preview','EctConsultationFormRequest2Form'); "/>
 
-                                <oscar:oscarPropertiesCheck value="yes" property="consultation_fax_enabled">
+                                <%-- Boolean check (true/false, also yes/on) via CarlosProperties; the raw tag compared the literal "yes" only. --%>
+                                <% if (canFaxConsult) { %>
                                     <input id="fax_button" name="submitAndFax" type="button" class="btn btn-primary btn-sm"
                                            value="<fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnSubmitAndFax"/>"
                                            onclick="return checkForm('Submit And Fax','EctConsultationFormRequest2Form');"/>
-                                </oscar:oscarPropertiesCheck>
+                                <% } %>
 
                                 <% } %>
                                 </div>
@@ -2650,7 +2821,7 @@ if (userAgent != null) {
                                             <div class="col-md-4">
                                                 <small class="text-muted"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgBirthDate"/></small>: <carlos:encode value='<%= thisForm.getPatientDOB() %>' context="html"/><br>
                                                 <small class="text-muted"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgSex"/></small>: <carlos:encode value='<%= thisForm.getPatientSex() %>' context="html"/><br>
-                                                <small class="text-muted"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgHealthCard"/></small>: <carlos:encode value='<%= thisForm.getPatientHealthNum() %>' context="html"/><carlos:encode value='<%= thisForm.getPatientHealthCardVersionCode() %>' context="html"/><carlos:encode value='<%= thisForm.getPatientHealthCardType() %>' context="html"/>
+                                                <small class="text-muted"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgHealthCard"/></small>: <carlos:encode value='<%= thisForm.getFormattedHealthCard() %>' context="html"/>
                                             </div>
                                         </div>
                                     </div>
@@ -2667,7 +2838,7 @@ if (userAgent != null) {
                                 %>
 
                                 <table>
-                                    <% if (props.isConsultationFaxEnabled() && CarlosProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) { %>
+                                    <% if (canFaxConsult && CarlosProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) { %>
                                     <tr>
                                         <td class="consult-form-label" style="width:30%"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgAssociated2"/></td>
                                         <td class="consult-form-value" style="width:70%">
@@ -2677,7 +2848,10 @@ if (userAgent != null) {
                                                     for (Provider p : prList) {
                                                         if (p.getProviderNo().compareTo("-1") != 0) {
                                                 %>
-                                                <option value="<%=p.getProviderNo() %>" <%=((consultUtil.providerNo != null && consultUtil.providerNo.equalsIgnoreCase(p.getProviderNo())) || (consultUtil.providerNo == null && referringProviderDefault.equalsIgnoreCase(p.getProviderNo())) ? "selected" : "") %>>
+                                                <%-- A consult saved with no referring provider has providerNo "" (EctConsultationFormRequestUtil
+                                                     normalizes null), so blank and null both take the default, as at the other two sites. The default
+                                                     itself is null when it should be the patient's MRP and there is none. --%>
+                                                <option value="<%=p.getProviderNo() %>" <%=((!StringUtils.isNullOrEmpty(consultUtil.providerNo) && consultUtil.providerNo.equalsIgnoreCase(p.getProviderNo())) || (StringUtils.isNullOrEmpty(consultUtil.providerNo) && p.getProviderNo().equalsIgnoreCase(referringProviderDefault)) ? "selected" : "") %>>
                                                     <carlos:encode value='<%= p.getFirstName().replace("Dr.", "") %>' context="html"/>&nbsp;<carlos:encode value='<%= p.getSurname() %>' context="html"/>
                                                 </option>
                                                 <% }
@@ -2739,6 +2913,13 @@ if (userAgent != null) {
                                                 <carlos:encode value='<%= thisForm.geteReferralService() %>' context="html"/>
                                                 <% } else { %>
                                                 <input type="hidden" id="service" name="service" value=""/>
+                                                <%-- Marks the EDITABLE service picker. The health-care-team variant of this
+                                                     row posts a hidden name="service" fixed at "0" instead, so "a service was
+                                                     posted" does not mean "the clinician could choose one" -- without this
+                                                     marker the print preview would overlay that 0 onto a referral that has a
+                                                     real saved service and print a blank service. See
+                                                     ConsultationPreviewOverlay. --%>
+                                                <input type="hidden" name="serviceRendered" value="1"/>
                                                 <input type="text" id="serviceInput" class="form-control form-control-sm"
                                                        autocomplete="off"
                                                        placeholder="<fmt:message key='consultationList.header.service'/>"/>
@@ -2876,8 +3057,17 @@ if (userAgent != null) {
                                     <oscar:oscarPropertiesCheck defaultVal="false" value="true"
                                                                 property="CONSULTATION_PATIENT_WILL_BOOK">
                                         <tr>
-                                            <td class="consult-form-label"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formPatientBook"/></td>
-                                            <td class="consult-form-value"><input type="checkbox" name="patientWillBook" value="1" onclick="disableDateFields()" /></td>
+                                            <td class="consult-form-label"><label for="patientWillBook"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formPatientBook"/></label></td>
+                                            <td class="consult-form-value"><input type="checkbox" id="patientWillBook" name="patientWillBook" value="1" onclick="disableDateFields()" <%="1".equals(consultUtil.pwb) ? "checked" : ""%> />
+                                                <%-- The checked state must come from the stored record: an unchecked box posts
+                                                     nothing, so a box that rendered blank for an already-booked referral reads
+                                                     back as "unchecked" -- clearing pwb in the preview here, and in the database
+                                                     on save (EctConsultationFormRequest2Action defaults pWillBook to false).
+                                                     The marker below is the other half of that contract: this row is only
+                                                     rendered when CONSULTATION_PATIENT_WILL_BOOK is on (it is off by default),
+                                                     and the marker is what lets the print preview tell "the clinician unchecked
+                                                     it" from "this deployment never showed it". See ConsultationPreviewOverlay. --%>
+                                                <input type="hidden" name="patientWillBookRendered" value="1" /></td>
                                         </tr>
                                     </oscar:oscarPropertiesCheck>
 
@@ -2918,17 +3108,32 @@ if (userAgent != null) {
                                             <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.siteName"/>
                                         </td>
                                         <td>
+                                            <%-- The saved site (or, for a new request, the site of the appointment
+                                                 the chart was opened from) must render selected. A plain <select>
+                                                 does not pick it from the form bean the way the old Struts
+                                                 html:select did, so without "selected" every request reopened on
+                                                 the first site and its next Update silently moved it there
+                                                 (issue #5274). A saved site this login is not linked to, or that
+                                                 is no longer active, is kept as an option rather than replaced. --%>
                                             <select name="siteName" id="siteName" class="form-select form-select-sm">
-                                                <% for (int i = 0; i < vecAddressName.size(); i++) {
+                                                <% boolean savedSiteOffered = defaultSiteName == null || defaultSiteName.isEmpty();
+                                                   for (int i = 0; i < vecAddressName.size(); i++) {
                                                     String te = vecAddressName.get(i);
                                                     String bg = bgColor.get(i);
-                                                    if (te.equals(defaultSiteName))
+                                                    boolean selectedSite = te.equals(defaultSiteName);
+                                                    if (selectedSite) {
                                                         defaultSiteId = siteIds.get(i);
+                                                        savedSiteOffered = true;
+                                                    }
                                                 %>
                                                 <option value="<carlos:encode value='<%= te %>' context="htmlAttribute"/>"
-                                                             style="background-color:<carlos:encode value='<%= bg %>' context="cssString"/>"><carlos:encode value='<%= te %>' context="html"/>
+                                                             style="background-color:<carlos:encode value='<%= bg %>' context="cssString"/>"<%= selectedSite ? " selected" : "" %>><carlos:encode value='<%= te %>' context="html"/>
                                                 </option>
-                                                <% }%>
+                                                <% }
+                                                   if (!savedSiteOffered) { %>
+                                                <option value="<carlos:encode value='<%= defaultSiteName %>' context="htmlAttribute"/>" selected><carlos:encode value='<%= defaultSiteName %>' context="html"/>
+                                                </option>
+                                                <% } %>
                                             </select>
                                         </td>
                                     </tr>
@@ -3036,7 +3241,7 @@ if (userAgent != null) {
                                                 <% }
                                                 }%>
                                             </select>
-                                            <%if (props.isConsultationFaxEnabled()) {%>
+                                            <%if (canFaxConsult) {%>
                                             <div>
                                                 <input type="checkbox" id="ext_letterheadTitle"
                                                        name="ext_letterheadTitle"
@@ -3108,7 +3313,7 @@ if (userAgent != null) {
 							</td>
 						</tr>
 					</table>
-				<% if (props.isConsultationFaxEnabled()) { %>
+				<% if (canFaxConsult) { %>
                         <div class="consult-section-heading">Fax Account</div>
                                 <table class="w-100">
 								<tr>
@@ -3123,6 +3328,7 @@ if (userAgent != null) {
 										<select name="faxAccount" id="faxAccount" class="form-select form-select-sm">
 								<%
                                     for (FaxConfig faxConfig : faxConfigs) {
+                                        if (!faxConfig.isActive() || faxConfig.getFaxNumber() == null) continue;
                                 %>
 										<option value="<carlos:encode value='<%= faxConfig.getFaxNumber() %>' context="htmlAttribute"/>" <%=faxConfig.getFaxNumber().equalsIgnoreCase(consultUtil.letterheadFax) ? "selected" : ""%>><carlos:encode value='<%= faxConfig.getAccountName() %>' context="html"/></option>
 								<%
@@ -3244,6 +3450,9 @@ if (userAgent != null) {
                                 </div>
                         </div>
                                 <div class="collapse show" id="collapseMedications">
+                                <c:if test="${requestScope.consultationCppUnavailable}">
+                                    <output class="alert alert-warning d-block"><fmt:message key="encounter.oscarConsultationRequest.cppPrefillUnavailable"/></output>
+                                </c:if>
                                 <textarea rows="6" id="currentMedications" class="form-control"
                                                name="currentMedications"><carlos:encode value='<%= thisForm.getCurrentMedications() %>' context="html"/></textarea>
                                 </div>
@@ -3267,12 +3476,17 @@ if (userAgent != null) {
                         <%
                             if (props.isConsultationSignatureEnabled()) {
                                 String signatureProviderNo = providerNo;
-                                if (props.isConsultationFaxEnabled() && CarlosProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) {
+                                if (canFaxConsult && CarlosProperties.getInstance().isPropertyActive("consultation_dynamic_labelling_enabled")) {
                                     if (consultUtil.providerNo != null && !consultUtil.providerNo.trim().isEmpty()) {
                                         signatureProviderNo = consultUtil.providerNo.trim();
                                     } else if (referringProviderDefault != null && !referringProviderDefault.trim().isEmpty()) {
                                         signatureProviderNo = referringProviderDefault.trim();
                                     }
+                                }
+                                if (signatureRetry) {
+                                    signatureProviderNo = consultationSignatureService
+                                            .resolveSignatureProviderNo(request.getParameter("signatureProviderNo"),
+                                                    thisForm.getProviderNo(), signatureProviderNo);
                                 }
                                 boolean hasStampSignature = false;
                                 try {
@@ -3286,13 +3500,13 @@ if (userAgent != null) {
                         <div class="consult-section-heading"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formSignature"/></div>
                         <div>
                                 <% if (canWriteConsult) { %>
-                                <input type="hidden" name="newSignature" id="newSignature" value="<%= hasStampSignature ? "false" : "true" %>"/>
+                                <input type="hidden" name="newSignature" id="newSignature" value="<%= signatureRetry ? (retryManualSignature ? "true" : "false") : (hasStampSignature ? "false" : "true") %>"/>
                                 <input type="hidden" name="signatureProviderNo" id="signatureProviderNo"
                                        value="<%=SafeEncode.forHtmlAttribute(signatureProviderNo)%>"/>
                                 <input type="hidden" name="signatureImg" id="signatureImg"
-                                       value="<%=(consultUtil.signatureImg != null ? SafeEncode.forHtmlAttribute(consultUtil.signatureImg) : "") %>"/>
+                                       value="<%=SafeEncode.forHtmlAttribute(signatureImgValue)%>"/>
                                 <input type="hidden" name="newSignatureImg" id="newSignatureImg"
-                                       value="<%=signatureRequestId %>"/>
+                                       value="<%=SafeEncode.forHtmlAttribute(signatureRequestId)%>"/>
 
                                 <% if (hasStampSignature) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.altProviderSig" var="providerSigAlt"/>
@@ -3302,12 +3516,7 @@ if (userAgent != null) {
                                 </div>
                                 <div id="signatureFrame" style="display: none;">
                                     <iframe style="width:500px; height:132px;"
-                                        src="<%= request.getContextPath() %>/signature_pad/tabletSignature?inWindow=true&<%=DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY%>=<%=signatureRequestId%>&<%=ModuleType.class.getSimpleName()%>=<%=ModuleType.CONSULTATION%>" ></iframe>
-                                </div>
-                                <div style="margin-top:5px;">
-                                    <a href="javascript:void(0)" onclick="document.getElementById('signatureShow').style.display='none';document.getElementById('signatureFrame').style.display='block';document.getElementById('newSignature').value='true';">
-                                        <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.linkResignManually"/>
-                                    </a>
+                                        src="<%= request.getContextPath() %>/signature_pad/tabletSignature?inWindow=true&<%=DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY%>=<%=SafeEncode.forUriComponent(signatureRequestId)%>&<%=ModuleType.class.getSimpleName()%>=<%=ModuleType.CONSULTATION%>" ></iframe>
                                 </div>
                                 <% } else { %>
                                 <div id="signatureShow" style="display: none;">
@@ -3315,8 +3524,13 @@ if (userAgent != null) {
                                 </div>
 
                                 <iframe style="width:500px; height:132px;" id="signatureFrame"
-							src="<%= request.getContextPath() %>/signature_pad/tabletSignature?inWindow=true&<%=DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY%>=<%=signatureRequestId%>&<%=ModuleType.class.getSimpleName()%>=<%=ModuleType.CONSULTATION%>" ></iframe>
+							src="<%= request.getContextPath() %>/signature_pad/tabletSignature?inWindow=true&<%=DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY%>=<%=SafeEncode.forUriComponent(signatureRequestId)%>&<%=ModuleType.class.getSimpleName()%>=<%=ModuleType.CONSULTATION%>" ></iframe>
                                 <% } %>
+                                <div style="margin-top:5px;">
+                                    <a href="javascript:void(0)" onclick="document.getElementById('signatureShow').style.display='none';document.getElementById('signatureFrame').style.display='block';document.getElementById('newSignature').value='true';">
+                                        <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.linkResignManually"/>
+                                    </a>
+                                </div>
                                 <% } else if (SignatureReference.isStoredId(consultUtil.signatureImg)) { %>
                                 <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.altProviderSig" var="providerSigAlt"/>
                                 <div id="signatureReadOnlyShow" style="display: block;">
@@ -3348,11 +3562,14 @@ if (userAgent != null) {
                                         initSpecialistAutocomplete();
                                         // Resolve text entered while either asynchronous lookup was loading.
                                         // Existing consultations are restored from their saved IDs immediately below.
-                                        jQuery('#serviceInput').trigger('input');
+                                        var restoredService = '<carlos:encode value='<%= thisForm.getService() %>' context="javaScriptBlock"/>';
+                                        if (!restoredService || restoredService === 'null' || restoredService === '-1') {
+                                            jQuery('#serviceInput').trigger('input');
+                                        }
                                         initializeConsultation(
-                                            '<carlos:encode value='<%= String.valueOf(consultUtil.service) %>' context="javaScriptBlock"/>',
-                                            '<%=((consultUtil.service==null)?"":SafeEncode.forJavaScript(consultUtil.getServiceName(consultUtil.service.toString())))%>',
-                                            '<carlos:encode value='<%= String.valueOf(consultUtil.specialist) %>' context="javaScriptBlock"/>',
+                                            restoredService,
+                                            '<carlos:encode value='<%= consultUtil.getServiceName(thisForm.getService()) %>' context="javaScriptBlock"/>',
+                                            '<carlos:encode value='<%= request.getAttribute("consultationSubmittedValues") == null ? consultUtil.specialist : thisForm.getSpecialist() %>' context="javaScriptBlock"/>',
                                             '<%=((consultUtil.specialist==null)?"":SafeEncode.forJavaScript(consultUtil.getSpecailistsName(consultUtil.specialist.toString())))%>',
                                             '<carlos:encode value='<%= consultUtil.specPhone %>' context="javaScriptBlock"/>',
                                             '<carlos:encode value='<%= consultUtil.specFax %>' context="javaScriptBlock"/>',
@@ -3368,13 +3585,13 @@ if (userAgent != null) {
                                                     property="ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS"
                                                     defaultVal="false">
                             <script type="text/javascript">
-                                const specialist = "${carlos:forJavaScript(consultUtil.specialist)}";
-                                const servicevalue = "${carlos:forJavaScript(consultUtil.service)}";
+                                const specialist = "${carlos:forJavaScript(empty consultationSubmittedValues ? consultUtil.specialist : EctConsultationFormRequest2Form.specialist)}";
+                                const servicevalue = "${carlos:forJavaScript(EctConsultationFormRequest2Form.service)}";
 
                                 document.EctConsultationFormRequest2Form.specialist.value = specialist;
                                 document.EctConsultationFormRequest2Form.service.value = servicevalue;
 
-                                if (typeof healthCareTeam !== 'undefined' && healthCareTeam !== null) {
+                                if (typeof healthCareTeam !== 'undefined' && healthCareTeam !== null && healthCareTeam[specialist]) {
                                     document.EctConsultationFormRequest2Form.annotation.value = healthCareTeam[specialist].note;
                                     document.EctConsultationFormRequest2Form.phone.value = healthCareTeam[specialist].phoneNum;
                                     document.EctConsultationFormRequest2Form.fax.value = healthCareTeam[specialist].specFax;
@@ -3388,6 +3605,51 @@ if (userAgent != null) {
         </div><%-- end row --%>
         </div><%-- end container-fluid --%>
         <div id="attachDocumentDisplay" style="display:none;"></div>
+    <% if (request.getAttribute("consultationSubmittedValues") != null) { %>
+    <script>
+        // Keep attachment additions/removals on the retry form without writing them to the database.
+        (function() {
+            var form = document.getElementById('EctConsultationFormRequest2Form');
+            function retainAttachments(field, values, tableId, label) {
+                form.querySelectorAll('input[name="' + field + '"]').forEach(function(input) {
+                    if (values.indexOf(input.value) < 0) input.closest('tr').remove();
+                });
+                values.forEach(function(value) {
+                    if (Array.from(form.querySelectorAll('input[name="' + field + '"]')).some(function(input) {
+                        return input.value === value;
+                    })) return;
+                    var key = field + String(value).replace(':', '');
+                    var row = document.getElementById(tableId).insertRow();
+                    row.id = 'entry_' + key;
+                    var cell = row.insertCell();
+                    cell.textContent = label + ' ' + value;
+                    var input = document.createElement('input');
+                    input.type = 'hidden'; input.name = field; input.value = value;
+                    input.id = 'delegate_' + key;
+                    input.className = 'delegateAttachment';
+                    cell.appendChild(input);
+                });
+            }
+            <% for (String[] attachment : new String[][] {
+                    {"docNo", "attachedDocumentsTable", "Document"}, {"labNo", "attachedLabsTable", "Lab"},
+                    {"formNo", "attachedFormsTable", "Form"}, {"eFormNo", "attachedEFormsTable", "eForm"},
+                    {"hrmNo", "attachedHRMDocumentsTable", "HRM report"}}) {
+                String[] selected = request.getParameterValues(attachment[0]); %>
+                retainAttachments('<carlos:encode value='<%= attachment[0] %>' context="javaScriptBlock"/>', [
+                    <% if (selected != null) { for (String value : selected) { %>
+                    '<carlos:encode value='<%= value %>' context="javaScriptBlock"/>',
+                    <% } } %>
+                ], '<carlos:encode value='<%= attachment[1] %>' context="javaScriptBlock"/>',
+                   '<carlos:encode value='<%= attachment[2] %>' context="javaScriptBlock"/>');
+            <% } %>
+            // The extension checkbox is separate from the typed form bean.
+            var title = document.getElementById('ext_letterheadTitle');
+            if (title) title.checked = <c:choose><c:when test="${not empty param.ext_letterheadTitle}">true</c:when><c:otherwise>false</c:otherwise></c:choose>;
+            var willBook = document.getElementById('patientWillBook');
+            if (willBook) willBook.checked = '<carlos:encode value='<%= thisForm.getPatientWillBook() %>' context="javaScriptBlock"/>' === '1';
+        })();
+    </script>
+    <% } %>
     </form>
     </body>
 
@@ -3448,10 +3710,26 @@ if (userAgent != null) {
             *  3 : Clinic address.
             * Clinic address is set if no selection is detected.
             */
+            <% if (request.getAttribute("consultationSubmittedValues") != null) { %>
+            // Defaults must not overwrite the letterhead selected on a rejected submission.
+            var retryLetterhead = {
+                letterheadName: '<carlos:encode value='<%= thisForm.getLetterheadName() %>' context="javaScriptBlock"/>',
+                letterheadAddress: '<carlos:encode value='<%= thisForm.getLetterheadAddress() %>' context="javaScriptBlock"/>',
+                letterheadPhone: '<carlos:encode value='<%= thisForm.getLetterheadPhone() %>' context="javaScriptBlock"/>',
+                letterheadFax: '<carlos:encode value='<%= thisForm.getLetterheadFax() %>' context="javaScriptBlock"/>',
+                faxAccount: '<carlos:encode value='<%= thisForm.getFaxAccount() %>' context="javaScriptBlock"/>'
+            };
+            Object.keys(retryLetterhead).forEach(function(field) {
+                var input = document.getElementById(field);
+                if (input) input.value = retryLetterhead[field];
+                var span = document.getElementById(field + 'Span');
+                if (span) span.textContent = retryLetterhead[field];
+            });
+            <% } else { %>
             if("${empty pageScope.consultUtil.letterheadName}" === "true") {
                 // New consultation - set default letterhead
                 if("${pageScope.lhndType eq 'providers'}" === "true"){
-                    switchProvider("${pageScope.providerDefault}");
+                    switchProvider("${carlos:forJavaScriptBlock(pageScope.providerDefault)}");
                 } else if("${pageScope.lhndType eq 'clinic'}" === "true"){
                     switchProvider("<carlos:encode value='<%= clinic.getClinicName() %>' context="javaScriptBlock"/>");
                 } else {
@@ -3459,8 +3737,9 @@ if (userAgent != null) {
                 }
             } else {
                 // Existing consultation - load saved letterhead
-                switchProvider("${pageScope.consultUtil.letterheadName}");
+                switchProvider("${carlos:forJavaScriptBlock(pageScope.consultUtil.letterheadName)}");
             }
+            <% } %>
         })
     </script>
 
@@ -3579,7 +3858,10 @@ if (userAgent != null) {
                         jQuery('#attachDocumentsForm').find(".document_check:checked:not(input[disabled='disabled']), .lab_check:checked:not(input[disabled='disabled']), .form_check:checked:not(input[disabled='disabled']), .eForm_check:checked:not(input[disabled='disabled']), .hrm_check:checked:not(input[disabled='disabled'])"
                         ).each(function (index, data) {
                             var element = jQuery(this);
-                            var rowId = "entry_" + element.attr("name") + element.val();
+                            // Keyed by the checkbox id (not name + value) so a lab row carries
+                            // its source like the unchecked-row removal below and the
+                            // server-rendered rows do.
+                            var rowId = "entry_" + element.attr("id");
 
                             // skip if this entry was already added (e.g. dialog opened/closed multiple times)
                             if (jQuery('#EctConsultationFormRequest2Form').find("#" + rowId).length > 0) {
@@ -3589,7 +3871,8 @@ if (userAgent != null) {
                             var input = jQuery("<input />", {
                                 type: 'hidden',
                                 name: element.attr('name'),
-                                value: element.val(),
+                                value: element.attr('name') === 'labNo'
+                                    ? element.attr('data-lab-type') + ':' + element.val() : element.val(),
                                 id: "delegate_" + element.attr('id'),
                                 class: 'delegateAttachment'
                             });

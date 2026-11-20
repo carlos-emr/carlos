@@ -29,13 +29,13 @@
 
 --%>
 <!DOCTYPE html>
-<%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <html>
@@ -83,18 +83,28 @@
         <c:if test="${param.scheduleNav eq '1'}">
             <input type="hidden" name="scheduleNav" value="1"/>
         </c:if>
-        <div class="alert alert-danger" style="display:none"><% 
+<%--
+    Upload rejections land here through this action's "input" result, and this
+    is the only place they can be seen. The alert used to carry a hardcoded
+    style="display:none" wrapped around the whole block, so the message was
+    built and then hidden -- a rejected eForm upload looked like nothing had
+    happened. Render the alert only when there is something to say, and let it
+    be visible when there is.
+
+    The messages come from the multipart layer and can embed the submitted
+    filename, so they are encoded rather than written raw.
+--%><%
     java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
     if (actionErrors != null && !actionErrors.isEmpty()) {
 %>
-    <div class="action-errors">
-        <ul>
-            <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
-            <% } %>
-        </ul>
-    </div>
-<% } %></div>
+        <div class="alert alert-danger" role="alert">
+            <ul class="action-errors mb-0">
+                <% for (String error : actionErrors) { %>
+                    <li><carlos:encode value='<%= error %>' context="html"/></li>
+                <% } %>
+            </ul>
+        </div>
+<% } %>
 
         <div class='uploadEformTitle'>
             <fmt:message key="eform.uploadhtml.formName"/> <span class="text-danger textExists" style='display:none;'>Name already exists</span><br>
@@ -110,11 +120,12 @@
             <fmt:message key="eform.uploadhtml.btnRoleType"/><br>
             <select name="roleType">
                 <option value="">- select one -</option>
-                <% ArrayList roleList = EFormUtil.listSecRole();
+                <% ArrayList<String> roleList = EFormUtil.listSecRole();
                     for (int i = 0; i < roleList.size(); i++) {
                 %>
 
-                <option value="<%=roleList.get(i) %>"><%=roleList.get(i) %>
+                <%-- Role names are administrator-entered text: encode them for each context (#4184). --%>
+                <option value="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(roleList.get(i)) %>"><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(roleList.get(i)) %>
                 </option>
 
                 <%} %>

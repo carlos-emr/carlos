@@ -45,6 +45,8 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import java.lang.reflect.Field;
+import jakarta.ws.rs.WebApplicationException;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -152,11 +154,14 @@ class EFormServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should return error response when eForm id does not exist")
-        void shouldReturnErrorResponse_whenEFormIdDoesNotExist() {
+        @DisplayName("should return 404 with error response when eForm id does not exist")
+        void shouldReturn404WithError_whenEFormIdDoesNotExist() {
             when(mockEFormDao.findById(999)).thenReturn(null);
 
-            RestResponse<EFormTo1> response = service.loadEForm(999);
+            WebApplicationException failure = assertThrows(WebApplicationException.class,
+                    () -> service.loadEForm(999));
+            assertThat(failure.getResponse().getStatus()).isEqualTo(404);
+            RestResponse<?> response = (RestResponse<?>) failure.getResponse().getEntity();
 
             assertThat(response.getStatus()).isEqualTo(ResponseStatus.ERROR);
             assertThat(response.getError().getMessage()).isEqualTo("Failed to find EForm");

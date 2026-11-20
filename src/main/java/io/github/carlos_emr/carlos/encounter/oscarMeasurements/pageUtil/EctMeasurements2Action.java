@@ -48,11 +48,15 @@ import io.github.carlos_emr.carlos.commn.model.FlowSheetCustomization;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.commn.model.SecRole;
 import io.github.carlos_emr.carlos.commn.model.Validations;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PatientRecordAccess;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 import io.github.carlos_emr.carlos.encounter.data.EctProgram;
@@ -103,6 +107,16 @@ public class EctMeasurements2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_measurement)");
         }
 
+        String demographicNo;
+        try {
+            demographicNo = EncounterPatientContext.requireDemographicNo(request);
+        } catch (IllegalArgumentException invalidPatient) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
+            return NONE;
+        }
+        PatientRecordAccess.require(securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request),
+                demographicNo, "_measurement", "w");
+
         boolean ajax = (request.getParameter("ajax") != null) ? Boolean.valueOf(request.getParameter("ajax")) : false;
         boolean skipCreateNote = (request.getParameter("skipCreateNote") != null)
                 ? Boolean.valueOf(request.getParameter("skipCreateNote"))
@@ -110,7 +124,6 @@ public class EctMeasurements2Action extends ActionSupport {
 
         HttpSession session = request.getSession();
 
-        String demographicNo = request.getParameter("demographicNo");
         String providerNo = (String) session.getAttribute("user");
 
         String template = request.getParameter("template");
@@ -280,6 +293,11 @@ public class EctMeasurements2Action extends ActionSupport {
                         m.setDateObserved(ConversionUtils.fromDateString(dateObserved));
                         m.setAppointmentNo(0);
                         dao.persist(m);
+                        // One audit row per reading stored, filed under the patient and named by the
+                        // reading's id. The value, its type and the comment are clinical content and
+                        // stay in the measurements table (this overload has no data column for them).
+                        LogAction.addLog(providerNo, LogConst.ADD, LogConst.CON_MEASUREMENT, String.valueOf(m.getId()),
+                                request.getRemoteAddr(), demographicNo);
 
                         // prepare input values for writing to the encounter form
                         if (mFlowsheet == null) {

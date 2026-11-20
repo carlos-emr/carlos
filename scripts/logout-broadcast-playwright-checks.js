@@ -14,7 +14,11 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
+const { validateBaseUrl } = require('./lib/playwright-harness');
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 
 function requireEnv(name) {
   const value = process.env[name];
@@ -29,22 +33,6 @@ const chromePath = process.env.CHROME_PATH || '';
 const testUser = requireEnv('TEST_USER');
 const testPassword = requireEnv('TEST_PASSWORD');
 const testPin = requireEnv('TEST_PIN');
-
-function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-
-  const host = parsed.hostname.toLowerCase();
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
-  if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
-  return parsed;
-}
 
 function appUrl(appPath) {
   if (!appPath.startsWith('/') || appPath.startsWith('//')) {
@@ -141,7 +129,8 @@ async function waitForClosedOrLoginRedirect(page, label, timeoutMs = 5000) {
   throw new Error(`${label} did not close or redirect after logout; final URL: ${page.url()}`);
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('logout-broadcast',async context=>{
+  await (async({cancellation})=>{
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
@@ -150,35 +139,48 @@ async function waitForClosedOrLoginRedirect(page, label, timeoutMs = 5000) {
     launchOptions.executablePath = chromePath;
   }
 
-  const browser = await chromium.launch(launchOptions);
-  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  const browser = await chromium.launch({...(launchOptions),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+  const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
 
   try {
     const primary = await context.newPage();
+    cancellation?.throwIfCancelled();
     await login(primary);
+    cancellation?.throwIfCancelled();
 
     const popup = await openScriptOwnedAppWindow(primary, 'script-owned popup');
+    cancellation?.throwIfCancelled();
     const secondPopup = await openScriptOwnedAppWindow(primary, 'second script-owned popup');
+    cancellation?.throwIfCancelled();
 
     const tab = await context.newPage();
+    cancellation?.throwIfCancelled();
     await safeGoto(tab, '/provider/providercontrol', { waitUntil: 'domcontentloaded' });
+    cancellation?.throwIfCancelled();
     await tab.waitForURL(/provider\/(providercontrol|ViewAppointmentAdminDay)/, { timeout: 20000 });
+    cancellation?.throwIfCancelled();
     await assertAuthenticatedPage(tab, 'same-session tab');
+    cancellation?.throwIfCancelled();
 
     await safeGoto(primary, '/logoutPage', { waitUntil: 'domcontentloaded' });
+    cancellation?.throwIfCancelled();
     await Promise.all([
       waitForClosed(popup, 'script-owned popup'),
       waitForClosed(secondPopup, 'second script-owned popup'),
     ]);
+    cancellation?.throwIfCancelled();
     const tabResult = await waitForClosedOrLoginRedirect(tab, 'same-session tab');
+    cancellation?.throwIfCancelled();
     await primary.waitForURL(/\/index|\/logout|login/i, { timeout: 10000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
 
     console.log(`PASS logout broadcast closed script-owned windows and ${tabResult} same-session tab`);
   } finally {
     await context.close().catch(() => {});
     await browser.close().catch(() => {});
   }
-})().catch((error) => {
+})(context).catch((error) => {
   console.error(error && error.stack ? error.stack : error);
-  process.exit(1);
+  {process.exitCode=1;return;}
+});
 });

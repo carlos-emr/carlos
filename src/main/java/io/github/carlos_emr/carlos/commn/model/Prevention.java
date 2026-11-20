@@ -28,12 +28,17 @@
 package io.github.carlos_emr.carlos.commn.model;
 
 import java.io.Serializable;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.time.format.ResolverStyle;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.regex.Pattern;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -50,8 +55,11 @@ import jakarta.persistence.TemporalType;
 import jakarta.persistence.Transient;
 
 import org.apache.commons.lang3.StringUtils;
+import org.hibernate.annotations.BatchSize;
+import org.apache.logging.log4j.Logger;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.integration.fhir.interfaces.ImmunizationInterface;
 
@@ -59,7 +67,17 @@ import io.github.carlos_emr.carlos.integration.fhir.interfaces.ImmunizationInter
 @Table(name = "preventions")
 public class Prevention extends AbstractModel<Integer> implements Serializable, ImmunizationInterface, DemographicData {
 
-    private static SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+    /*
+     * An immunization's expiry date is kept as yyyy-MM-dd text in its extension rows and read in
+     * the clinic's zone (the JVM default). These formatters are immutable and safe to share between
+     * concurrent requests; the shared SimpleDateFormat they replaced crossed one request's expiry
+     * date into another's (issue #5301).
+     */
+    private static final DateTimeFormatter EXPIRY_DATE_FORMAT = DateTimeFormatter.ofPattern("uuuu-MM-dd", Locale.ROOT);
+    // The text field also takes hand-typed dates such as 2026-5-1, which the legacy parser accepted.
+    private static final DateTimeFormatter EXPIRY_DATE_PARSER = DateTimeFormatter.ofPattern("uuuu-M-d", Locale.ROOT)
+            .withResolverStyle(ResolverStyle.STRICT);
+    private static final Pattern EXPIRY_DATE_TEXT = Pattern.compile("\\d{4}-\\d{1,2}-\\d{1,2}");
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -95,8 +113,17 @@ public class Prevention extends AbstractModel<Integer> implements Serializable, 
 
     private Date lastUpdateDate = null;
 
-    // This is a bi-directional relationship
-    @OneToMany(mappedBy = "prevention", fetch = FetchType.EAGER)
+    // This is a bi-directional relationship.
+    //
+    // LAZY: bulk Prevention queries (chart print, RTL eForm lookups, FHIR bundles, REST lists)
+    // must not pay one extension SELECT per row. Entities leave the DAO transaction detached,
+    // so consumers that need the extensions must obtain them through a DAO/manager path that
+    // initializes this collection in-transaction (see PreventionDao#findUniqueByDemographicId)
+    // or read PreventionExt rows directly; touching this collection on a detached entity throws
+    // LazyInitializationException. @BatchSize lets an in-transaction initialization of a list
+    // load extensions for up to 25 preventions per SELECT instead of one SELECT per prevention.
+    @OneToMany(mappedBy = "prevention", fetch = FetchType.LAZY)
+    @BatchSize(size = 25)
     private List<PreventionExt> preventionExts;
 
     @Transient
@@ -260,6 +287,13 @@ public class Prevention extends AbstractModel<Integer> implements Serializable, 
         return this.preventionExts;
     }
 
+    /** The importer's explicit precision marker distinguishes imported history from native rows. */
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    public boolean isCdsImported() {
+        return preventionExts != null && preventionExts.stream()
+                .anyMatch(property -> "cdsDatePrecision".equals(property.getkeyval()));
+    }
+
     public void setPreventionExts(List<PreventionExt> preventionExts) {
         this.preventionExts = preventionExts;
     }
@@ -297,6 +331,12 @@ public class Prevention extends AbstractModel<Integer> implements Serializable, 
      * There is no listener for this method.
      * This method needs to be invoked "manually" after this entity is instantiated and loaded
      * ie: Prevention.setPreventionExtendedProperties()
+     *
+     * <p>{@code preventionExts} is lazily fetched. On an entity that has left its loading
+     * transaction this only works when the collection was initialized before the entity was
+     * detached (for example via {@code PreventionDao#findUniqueByDemographicId}) or was replaced
+     * with {@link #setPreventionExts(List)}; otherwise Hibernate throws
+     * {@code LazyInitializationException}.</p>
      */
     public void setPreventionExtendedProperties() {
         if (this.getPreventionExts() != null) {
@@ -477,29 +517,67 @@ public class Prevention extends AbstractModel<Integer> implements Serializable, 
         setCompletedExternally(!truefalse);
     }
 
+    /**
+     * Reads the stored expiry date as the clinic's midnight on that date.
+     *
+     * <p>Empty text, which {@link #setExpiryDate} stores for a cleared date, reads as no date.
+     * Text that is not a {@code yyyy-MM-dd} calendar date also reads as no date, with a warning:
+     * a date that does not exist, such as 30 February, is not read as a date in the following
+     * month, and trailing text is not ignored, as the lenient legacy parser did.</p>
+     *
+     * @return Date the expiry date, or {@code null} when none is recorded or it is not a calendar date
+     */
     @Override
     public java.util.Date getExpiryDate() {
         String datestring = getImmunizationProperty(ImmunizationProperty.expiryDate);
-        Date date = null;
-
-        if (datestring != null) {
-            try {
-                date = dateFormat.parse(datestring);
-            } catch (ParseException e) {
-                MiscUtils.getLogger().warn("Given Immunization expiry date [" + datestring + "] was not parsable into a Date object");
-            }
+        if (datestring == null || datestring.isBlank()) {
+            return null;
         }
 
-        return date;
+        LocalDate expiry = parseExpiryDate(datestring.trim());
+        if (expiry == null) {
+            Logger logger = MiscUtils.getLogger();
+            if (logger.isWarnEnabled()) {
+                logger.warn("Immunization expiry date [{}] is not a yyyy-MM-dd calendar date; reading it as no date",
+                        LogSafe.sanitize(datestring));
+            }
+            return null;
+        }
+        return Date.from(expiry.atStartOfDay(ZoneId.systemDefault()).toInstant());
     }
 
+    /**
+     * Stores the clinic's calendar date of {@code expiryDate} as {@code yyyy-MM-dd} text, or empty
+     * text when it is {@code null}.
+     *
+     * @param expiryDate Date the expiry date; may be {@code null}
+     */
     @Override
     public void setExpiryDate(java.util.Date expiryDate) {
         String datestring = "";
         if (expiryDate != null) {
-            datestring = dateFormat.format(expiryDate);
+            // The epoch milliseconds rather than toInstant(), which a java.sql.Date refuses.
+            datestring = EXPIRY_DATE_FORMAT.format(Instant.ofEpochMilli(expiryDate.getTime()).atZone(ZoneId.systemDefault()));
         }
         addPreventionExt(ImmunizationProperty.expiryDate, datestring);
+    }
+
+    /**
+     * Parses trimmed expiry text strictly.
+     *
+     * @param text String the trimmed expiry text
+     * @return LocalDate the calendar date, or {@code null} when the text is not a {@code yyyy-MM-dd} date
+     */
+    private static LocalDate parseExpiryDate(String text) {
+        if (!EXPIRY_DATE_TEXT.matcher(text).matches()) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(text, EXPIRY_DATE_PARSER);
+        } catch (DateTimeParseException _) {
+            // Well-formed but not on the calendar, such as 2026-02-30 or 2026-13-01.
+            return null;
+        }
     }
 
     /**

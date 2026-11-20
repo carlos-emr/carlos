@@ -16,11 +16,12 @@
 package io.github.carlos_emr.carlos.lab.ca.on;
 
 import java.util.*;
+import java.util.function.Predicate;
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMReport;
+import io.github.carlos_emr.carlos.hospitalReportManager.HRMReportAccess;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMReportParser;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
@@ -29,11 +30,13 @@ import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToProvider;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+/** Supplies inbox HRM results with provider, patient, date and review-status filters. */
 public class HRMResultsData {
 
     private static Logger logger = MiscUtils.getLogger();
@@ -42,19 +45,61 @@ public class HRMResultsData {
     private HRMDocumentToDemographicDao hrmDocumentToDemographicDao = (HRMDocumentToDemographicDao) SpringUtils.getBean(HRMDocumentToDemographicDao.class);
     private DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
 
+    /** Creates a result reader backed by the configured HRM and demographic services. */
     public HRMResultsData() {
     }
 
+    /**
+     * Loads HRM results without patient-name or demographic restrictions.
+     *
+     * @param loggedInInfo authenticated caller used for demographic access
+     * @param providerNo provider identifier, empty/null for all or "0" for unassigned
+     * @param status empty for all, null/N for unsigned, A/F for signed-off reports
+     * @param newestDate optional newest received-date bound
+     * @param oldestDate optional oldest received-date bound
+     * @param isPaged whether to limit the DAO result page
+     * @param page requested page number
+     * @param pageSize maximum results per page
+     * @return HRM results keyed internally by report identity
+     */
     public Collection<LabResultData> populateHRMdocumentsResultsData(LoggedInInfo loggedInInfo, String providerNo, String status, Date newestDate, Date oldestDate,
                                                                      boolean isPaged, Integer page, Integer pageSize) {
         return populateHRMdocumentsResultsData(loggedInInfo, providerNo, "", "", "", null, status, newestDate, oldestDate, isPaged, page, pageSize);
     }
 
 
+    /**
+     * Loads HRM results while keeping sign-off status independent of viewing.
+     *
+     * @param loggedInInfo authenticated caller used for demographic access
+     * @param providerNo provider identifier, empty/null for all or "0" for unassigned
+     * @param firstName optional patient given-name search
+     * @param lastName optional patient surname search
+     * @param hin optional patient health-number search
+     * @param demographicNumber optional specific patient identifier
+     * @param status empty for all, null/N for unsigned, A/F for signed-off reports
+     * @param newestDate optional newest received-date bound
+     * @param oldestDate optional oldest received-date bound
+     * @param isPaged whether to limit the DAO result page
+     * @param page requested page number
+     * @param pageSize maximum results per page
+     * @return HRM results keyed internally by report identity
+     */
+    public Collection<LabResultData> populateHRMdocumentsResultsData(LoggedInInfo loggedInInfo, String providerNo, String firstName, String lastName, String hin, String demographicNumber, String status, Date newestDate, Date oldestDate,
+                                                                     boolean isPaged, Integer page, Integer pageSize) {
+        return populateHRMdocumentsResultsData(loggedInInfo, providerNo, firstName, lastName, hin, demographicNumber, status, newestDate, oldestDate, isPaged, page, pageSize, null);
+    }
+
+    /**
+     * As above, additionally keeping only reports signed off at or after {@code signedOffSince}.
+     *
+     * @param signedOffSince inclusive lower bound on the sign-off time, or null for none; the
+     *                       Inbox Hub sets it to list the reports signed off today
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public Collection<LabResultData> populateHRMdocumentsResultsData(LoggedInInfo loggedInInfo, String providerNo, String firstName, String lastName, String hin, String demographicNumber, String status, Date newestDate, Date oldestDate,
-                                                                     boolean isPaged, Integer page, Integer pageSize) {
+                                                                     boolean isPaged, Integer page, Integer pageSize, Date signedOffSince) {
         String firstNameSearch = firstName != null ? firstName.toUpperCase() : "";
         String lastNameSearch = lastName != null ? lastName.toUpperCase() : "";
         String hinSearch = hin != null ? hin.toUpperCase() : "";
@@ -65,7 +110,9 @@ public class HRMResultsData {
             providerNo = "-1";
         }
 
-        int viewed = 1;
+        // Viewing and signing off are independent. A report can be signed off
+        // without first being opened here, and must remain in the review filters.
+        int viewed = 2;
         int signedOff = 0;
         if (status == null || status.equalsIgnoreCase("N")) {
             viewed = 2;
@@ -94,14 +141,31 @@ public class HRMResultsData {
         }
 
 		List<HRMDocumentToProvider> hrmDocResultsProvider = hrmDocumentToProviderDao.findByProviderNoLimit(providerNo, demographicNumbers, patientSearch, newestDate, oldestDate, viewed, signedOff,
-                isPaged, page, pageSize);
+                isPaged, page, pageSize, signedOffSince);
 
         // the key = SendingFacility+':'+ReportNumber+':'+DeliverToUserID as per HRM spec can be used to signify duplicate report
         HashMap<String, LabResultData> labResults = new HashMap<String, LabResultData>();
         HashMap<String, HRMReport> labReports = new HashMap<String, HRMReport>();
+        Set<Integer> seenDocumentIds = new HashSet<>();
+
+        // A report routed to this provider can be filed to a patient they are locked out of. Its
+        // row is the patient's name, sex and health number, so it is left out, decided from the
+        // link alone before the report or the patient is read. (The patient lookup below refuses
+        // such a patient by throwing, which used to fail the whole list.) The module right is not
+        // part of this decision: the inbox has always listed a routed report without it.
+        Predicate<Collection<HRMDocumentToDemographic>> listable = HRMReportAccess.listFilter(
+                SpringUtils.getBean(SecurityInfoManager.class), loggedInInfo, false);
 
         for (HRMDocumentToProvider hrmDocResult : hrmDocResultsProvider) {
             Integer id = hrmDocResult.getHrmDocumentId();
+            // A report can have several provider routes; only distinct documents are versions.
+            if (!seenDocumentIds.add(id)) {
+                continue;
+            }
+            List<HRMDocumentToDemographic> hrmDocResultsDemographic = hrmDocumentToDemographicDao.findByHrmDocumentId(id);
+            if (!listable.test(hrmDocResultsDemographic)) {
+                continue;
+            }
             LabResultData lbData = new LabResultData(LabResultData.HRM);
 
             List<HRMDocument> hrmDocument = hrmDocumentDao.findById(id);
@@ -113,8 +177,7 @@ public class HRMResultsData {
             lbData.setDateObj(hrmDocument.get(0).getReportDate());
             lbData.patientName = "Not, Assigned";
 
-            // check if patient is matched
-            List<HRMDocumentToDemographic> hrmDocResultsDemographic = hrmDocumentToDemographicDao.findByHrmDocumentId(hrmDocument.get(0).getId());
+            // check if patient is matched (the links were read above, for the access decision)
             HRMReport hrmReport = HRMReportParser.parseReport(loggedInInfo, hrmDocument.get(0).getReportFile());
             if (hrmReport == null) continue;
 
@@ -142,8 +205,10 @@ public class HRMResultsData {
             lbData.resultStatus = hrmReport.getResultStatus();
 
             String duplicateKey = hrmReport.getSendingFacilityId() + ':' + hrmReport.getSendingFacilityReportNo() + ':' + hrmReport.getDeliverToUserId();
-            String[] patientName = lbData.patientName.split(",");
-            if (lbData.healthNumber.contains(hinSearch) || patientName[0].contains(lastNameSearch) || patientName[1].contains(firstNameSearch)) {
+            String[] patientName = Objects.toString(lbData.patientName, "").split(",", 2);
+            String givenName = patientName.length > 1 ? patientName[1] : "";
+            if (Objects.toString(lbData.healthNumber, "").contains(hinSearch)
+                    || patientName[0].contains(lastNameSearch) || givenName.contains(firstNameSearch)) {
                 // if no duplicate
                 if (!labResults.containsKey(duplicateKey)) {
                     labResults.put(duplicateKey, lbData);
@@ -172,12 +237,7 @@ public class HRMResultsData {
 
         }
 
-        if (logger.isDebugEnabled()) {
-            for (LabResultData temp : labResults.values()) {
-                logger.debug("------------------");
-                logger.debug(ReflectionToStringBuilder.toString(temp));
-            }
-        }
+        logger.debug("HRM result count: {}", labResults.size());
 
         return labResults.values();
     }

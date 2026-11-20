@@ -23,6 +23,8 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ *
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 package io.github.carlos_emr.carlos.commn.model;
@@ -35,6 +37,9 @@ import java.util.GregorianCalendar;
 import java.util.Locale;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
+import io.github.carlos_emr.carlos.commn.model.converter.LegacyFalseFlagConverter;
+import io.github.carlos_emr.carlos.commn.model.converter.LegacyZeroFloatConverter;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -47,7 +52,6 @@ import jakarta.persistence.TemporalType;
 import jakarta.persistence.Transient;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.builder.ToStringBuilder;
 
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import io.github.carlos_emr.carlos.prescript.util.RxUtil;
@@ -57,6 +61,14 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 @Entity
 @Table(name = "drugs")
 public class Drug extends AbstractModel<Integer> implements Serializable {
+
+    @jakarta.persistence.Version
+    @Column(name = "row_version", nullable = false)
+    @org.hibernate.annotations.ColumnDefault("0")
+    private Long rowVersion;
+
+    public Long getRowVersion() { return rowVersion; }
+    public void setRowVersion(Long version) { this.rowVersion = version; }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -81,8 +93,10 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
 	private String gcnSeqNo = "0";
     private String customName = null;
     @Column(name = "takemin")
+    @Convert(converter = LegacyZeroFloatConverter.class)
     private float takeMin = 0;
     @Column(name = "takemax")
+    @Convert(converter = LegacyZeroFloatConverter.class)
     private float takeMax = 0;
     @Column(name = "freqcode")
     private String freqCode = null;
@@ -96,7 +110,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     @Temporal(TemporalType.DATE)
     private Date lastRefillDate = null;
     @Column(name = "nosubs")
-    private boolean noSubs;
+    private Boolean noSubs = Boolean.FALSE;
     private boolean prn;
     private String special = null;
     private String special_instruction = null;
@@ -124,6 +138,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     private Date createDate = new Date();
     private String dosage = null;
     @Column(name = "custom_instructions")
+    @Convert(converter = LegacyFalseFlagConverter.class)
     private boolean customInstructions;
     private String unitName = null;
     @Column(name = "long_term")
@@ -139,6 +154,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     @Column(name = "outside_provider_ohip")
     private String outsideProviderOhip = null;
     @Column(name = "hide_from_drug_profile")
+    @org.hibernate.annotations.OptimisticLock(excluded = true)
     private Boolean hideFromDrugProfile;
     @Column(name = "custom_note")
     private Boolean customNote = false;
@@ -149,7 +165,21 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     private Date pickupDateTime;
     private String eTreatmentType = null;
     private String rxStatus = null;
+
+    /** Imported currentness is independent from archive state and prescription lifecycle. */
+    @Column(name = "cds_currentness", length = 16)
+    private String cdsCurrentness;
+
+    /** Exact imported dose text, including fractions/ranges that cannot be represented by float. */
+    @Column(name = "cds_dose_text", length = 120)
+    private String cdsDoseText;
+
+    /** NULL identifies untouched native records; imported incomplete projections require clinical reconciliation. */
+    @Column(name = "cds_projection_incomplete")
+    private Boolean cdsProjectionIncomplete;
     @Column(name = "hide_cpp")
+    @Convert(converter = LegacyFalseFlagConverter.class)
+    @org.hibernate.annotations.OptimisticLock(excluded = true)
     private boolean hideFromCpp;
     @Column(name = "refill_duration")
     private Integer refillDuration;
@@ -158,12 +188,15 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     @Column(name = "dispense_interval")
     private String dispenseInterval;
     @Column(name = "position")
+    @org.hibernate.annotations.OptimisticLock(excluded = true)
     private Integer position;
     @Column(name = "start_date_unknown")
+    @Convert(converter = LegacyFalseFlagConverter.class)
     private boolean startDateUnknown;
     private String comment;
 
     @Temporal(TemporalType.TIMESTAMP)
+    @org.hibernate.annotations.OptimisticLock(excluded = true)
     private Date lastUpdateDate;
 
     private Boolean dispenseInternal = false;
@@ -216,10 +249,14 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
         this.quantity = drug.getQuantity();
         this.repeat = drug.getRepeat();
         this.lastRefillDate = drug.getLastRefillDate();
-        this.noSubs = drug.getNosubs();
+        this.noSubs = drug.getCdsCurrentness() == null
+                ? Boolean.valueOf(drug.getNosubs()) : drug.getCdsSubstitutionNotAllowed();
         this.prn = drug.getPrn();
         this.special = drug.getSpecial();
         this.special_instruction = drug.getSpecialInstruction();
+        this.cdsCurrentness = drug.getCdsCurrentness();
+        this.cdsDoseText = drug.getCdsDoseText();
+        this.cdsProjectionIncomplete = drug.getCdsProjectionIncomplete();
         this.archived = drug.isArchived();
         this.archivedReason = drug.getLastArchReason();
         this.archivedDate = drug.getArchivedDate();
@@ -244,6 +281,10 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
         this.outsideProviderOhip = drug.getOutsideProviderOhip();
         this.hideFromDrugProfile = false;
         this.customNote = drug.isCustomNote();
+        if (drug.getCdsCurrentness() != null) {
+            this.nonAuthoritative = drug.getCdsNonAuthoritative();
+            this.comment = drug.getComment();
+        }
         this.eTreatmentType = drug.getETreatmentType();
         this.rxStatus = drug.getRxStatus();
         this.refillDuration = drug.getRefillDuration();
@@ -295,6 +336,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public String getDosageDisplay() {
+        if (cdsDoseText != null) return cdsDoseText;
         String ret = "";
         if (this.getTakeMin() != this.getTakeMax()) {
             ret += RxUtil.FloatToString(this.getTakeMin()) + "-" + RxUtil.FloatToString(this.getTakeMax());
@@ -325,6 +367,29 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
         return nonAuthoritative;
     }
 
+    /** Nullable source value; absence is not electronic dispensing authority. */
+    public Boolean getNonAuthoritative() { return nonAuthoritative; }
+
+    public String getCdsCurrentness() { return cdsCurrentness; }
+
+    public void setCdsCurrentness(String currentness) {
+        if (currentness != null && !java.util.Set.of("CURRENT", "HISTORICAL", "SUSPENDED", "NEW", "UNKNOWN").contains(currentness)) {
+            throw new IllegalArgumentException("Invalid CDS medication currentness");
+        }
+        this.cdsCurrentness = currentness;
+    }
+
+    public String getCdsDoseText() { return cdsDoseText; }
+
+    public Boolean getCdsProjectionIncomplete() { return cdsProjectionIncomplete; }
+
+    public void setCdsProjectionIncomplete(Boolean value) { this.cdsProjectionIncomplete = value; }
+
+    public void setCdsDoseText(String value) {
+        if (value != null && value.codePointCount(0, value.length()) > 120) throw new IllegalArgumentException("Imported dose exceeds target capacity");
+        this.cdsDoseText = value;
+    }
+
     public void setNonAuthoritative(Boolean nonAuthoritative) {
         this.nonAuthoritative = nonAuthoritative;
     }
@@ -337,11 +402,21 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
         this.refillDuration = refillDuration;
     }
 
+    /** Retains an absent imported refill duration independently of refill quantity. */
+    public void setImportedRefillDuration(Integer refillDuration) {
+        this.refillDuration = refillDuration;
+    }
+
     public Integer getRefillQuantity() {
         return refillQuantity;
     }
 
     public void setRefillQuantity(int refillQuantity) {
+        this.refillQuantity = refillQuantity;
+    }
+
+    /** Retains an absent imported refill quantity independently of refill duration. */
+    public void setImportedRefillQuantity(Integer refillQuantity) {
         this.refillQuantity = refillQuantity;
     }
 
@@ -383,6 +458,16 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
 
     public void setProviderNo(String providerNo) {
         this.providerNo = StringUtils.trimToNull(providerNo);
+    }
+
+    /** Empty means the imported original prescriber is not a resolved local provider, never the importer. */
+    public void setImportedPrescriberNo(String providerNo) {
+        if (providerNo != null && !providerNo.isEmpty() && (providerNo.isBlank()
+                || providerNo.codePointCount(0, providerNo.length()) > 6
+                || providerNo.chars().anyMatch(c -> c < 32 || c == 127))) {
+            throw new IllegalArgumentException("Invalid imported prescriber reference");
+        }
+        this.providerNo = providerNo == null ? "" : providerNo;
     }
 
     public Integer getDemographicId() {
@@ -507,8 +592,13 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public boolean isNoSubs() {
-        return noSubs;
+        return Boolean.TRUE.equals(noSubs);
     }
+
+    /** Nullable native value for source-unknown substitution; boolean display helpers are not evidence. */
+    public Boolean getNoSubs() { return noSubs; }
+
+    public void setNoSubs(Boolean noSubs) { this.noSubs = noSubs; }
 
     public void setNoSubs(boolean noSubs) {
         this.noSubs = noSubs;
@@ -737,6 +827,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public boolean isCurrent() {
+        if (cdsCurrentness != null) return !archived && "CURRENT".equals(cdsCurrentness);
         boolean b = false;
 
         try {
@@ -780,9 +871,10 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
         return (id != null ? id.hashCode() : 0);
     }
 
+    /** Uses the base model diagnostic without formatting medication data. */
     @Override
     public String toString() {
-        return ToStringBuilder.reflectionToString(this);
+        return super.toString();
     }
 
     /**
@@ -874,6 +966,14 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
 
     public void setComment(String comment) {
         this.comment = StringUtils.trimToNull(comment);
+    }
+
+    /** Preserve XML text whitespace for imported provider-only Notes, without changing native edit defaults. */
+    public void setImportedProviderNotes(String notes) {
+        if (notes != null && notes.codePointCount(0, notes.length()) > 32768) {
+            throw new IllegalArgumentException("Imported provider notes exceed target capacity");
+        }
+        this.comment = notes;
     }
 
     public Date getLastUpdateDate() {

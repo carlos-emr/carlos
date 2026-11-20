@@ -106,12 +106,14 @@ import org.springframework.stereotype.Service;
 @Service
 public class FaxImporter {
 
+    private final FaxPollBackoff pollBackoff;
+
     /**
      * Resolved once per instance rather than once per class. CarlosProperties remains a read-once
      * singleton (property changes still require a Tomcat restart), so behaviour is unchanged in
      * production — but an instance field is settable from a test, which a {@code static final}
      * initialized at class load is not. That was the sole reason the import-failure test coverage in
-     * {@code FaxImporterCriticalGapsTest} sat {@code @Disabled}.
+     * {@code FaxImporterCriticalGapsUnitTest} sat {@code @Disabled}.
      */
     private final String documentDir;
 
@@ -154,12 +156,20 @@ public class FaxImporter {
     FaxImporter(FaxConfigDao faxConfigDao, FaxJobDao faxJobDao, QueueDocumentLinkDao queueDocumentLinkDao,
             ProviderLabRoutingDao providerLabRoutingDao, FaxProviderClientFactory faxProviderClientFactory,
             String documentDir) {
+        this(faxConfigDao, faxJobDao, queueDocumentLinkDao, providerLabRoutingDao, faxProviderClientFactory,
+                documentDir, java.time.Clock.systemUTC());
+    }
+
+    FaxImporter(FaxConfigDao faxConfigDao, FaxJobDao faxJobDao, QueueDocumentLinkDao queueDocumentLinkDao,
+            ProviderLabRoutingDao providerLabRoutingDao, FaxProviderClientFactory faxProviderClientFactory,
+            String documentDir, java.time.Clock clock) {
         this.faxConfigDao = faxConfigDao;
         this.faxJobDao = faxJobDao;
         this.queueDocumentLinkDao = queueDocumentLinkDao;
         this.providerLabRoutingDao = providerLabRoutingDao;
         this.faxProviderClientFactory = faxProviderClientFactory;
         this.documentDir = documentDir;
+        this.pollBackoff = new FaxPollBackoff(clock);
     }
 
     /**
@@ -196,14 +206,14 @@ public class FaxImporter {
             Files.createDirectories(resolvedDir);
             faxIncomingDir = resolvedDir;
             initialized = true;
-            log.info("Fax incoming directory initialized: {}", faxIncomingDir);
+            log.info("Fax incoming directory initialized");
         } catch (IOException | RuntimeException e) {
             // Log as error but do NOT throw — fax is optional and must not bring down the app.
             // Catches IOException (permission/disk errors), InvalidPathException (bad path strings),
             // and SecurityException (security manager rejection) to ensure startup is never blocked.
-            log.error("FaxImporter: Cannot create fax incoming directory: {}. Fax import is disabled. "
+            log.error("FaxImporter: Cannot create fax incoming directory ({}). Fax import is disabled. "
                     + "Check permissions and disk space. Set FAX_INCOMING_DIR in carlos.properties "
-                    + "to a directory writable by the application server.", incomingDirPath, e);
+                    + "to a directory writable by the application server.", e.getClass().getSimpleName());
         }
     }
 
@@ -225,7 +235,7 @@ public class FaxImporter {
      *
      * @since 2014-08-29
      */
-    public void poll() {
+    public synchronized void poll() {
 
         if (!initialized) {
             if (!pollInitializationWarningLogged) {
@@ -240,6 +250,9 @@ public class FaxImporter {
         log.info("CHECKING REMOTE FOR INCOMING FAXES");
 
         List<FaxConfig> faxConfigList = faxConfigDao.findAll(null, null);
+        pollBackoff.retainAccounts(faxConfigList.stream()
+                .filter(fc -> fc.isActive() && fc.isDownload())
+                .map(FaxConfig::getId).collect(java.util.stream.Collectors.toSet()));
 
         if (faxConfigList.isEmpty()) {
             log.warn("No fax accounts configured - scheduler running but nothing to poll");
@@ -260,14 +273,26 @@ public class FaxImporter {
         }
 
         for (FaxConfig faxConfig : faxConfigList) {
-            if (!faxConfig.isActive() || !faxConfig.isDownload()) {
+            if (!faxConfig.isActive() || !faxConfig.isDownload() || !pollBackoff.isDue(faxConfig.getId())) {
                 continue;
             }
 
+            FaxProviderClient providerClient;
+            List<FaxJob> faxList;
             try {
-                FaxProviderClient providerClient = faxProviderClientFactory.getClient(faxConfig);
-                List<FaxJob> faxList = providerClient.listInboundFaxes(faxConfig);
+                providerClient = faxProviderClientFactory.getClient(faxConfig);
+                faxList = providerClient.listInboundFaxes(faxConfig);
+            } catch (FaxProviderException | RuntimeException e) {
+                recordPollFailure(faxConfig, e);
+                continue;
+            }
+            if (pollBackoff.recovered(faxConfig.getId())) {
+                log.warn("Inbound fax polling recovered for account {} ({})", faxConfig.getId(), faxConfig.getProviderType());
+            }
 
+            // Only account setup/listing failures back off the account. A local document failure
+            // must not delay the next provider poll or turn a healthy connection into an outage.
+            try {
                 for (FaxJob receivedFax : faxList) {
 
                     receivedFax.setDirection(FaxJob.Direction.IN);
@@ -294,7 +319,8 @@ public class FaxImporter {
                         try {
                             providerClient.markFaxAsRead(faxConfig, receivedFax);
                         } catch (FaxProviderException e) {
-                            log.warn("Failed to mark already-imported fax as read - will retry next poll", e);
+                            log.warn("Failed to mark already-imported fax as read - will retry next poll (HTTP {}, type={})",
+                                    e.getHttpStatus(), e.getClass().getSimpleName());
                         }
                         // Acknowledge per provider policy, mirroring the main import path: SRFax
                         // acknowledges via mark-as-read (deleteFax is its no-op) while the middleware
@@ -304,7 +330,8 @@ public class FaxImporter {
                         try {
                             providerClient.deleteFax(faxConfig, receivedFax);
                         } catch (FaxProviderException e) {
-                            log.warn("Failed to acknowledge already-imported fax at provider - will retry next poll", e);
+                            log.warn("Failed to acknowledge already-imported fax at provider - will retry next poll (HTTP {}, type={})",
+                                    e.getHttpStatus(), e.getClass().getSimpleName());
                         }
                         continue;
                     }
@@ -315,10 +342,10 @@ public class FaxImporter {
                         try {
                             faxFile = providerClient.downloadFax(faxConfig, receivedFax);
                         } catch (FaxProviderException e) {
-                            log.error("Failed to download incoming fax from provider {} - marking as ERROR",
-                                    faxConfig.getProviderType(), e);
+                            log.error("Failed to download incoming fax from provider {} - marking as ERROR (HTTP {}, type={})",
+                                    faxConfig.getProviderType(), e.getHttpStatus(), e.getClass().getSimpleName());
                             receivedFax.setStatus(FaxJob.STATUS.ERROR);
-                            receivedFax.setStatusString("Download failed: " + e.getMessage());
+                            receivedFax.setStatusString("Incoming fax download failed. Check the fax service configuration and retry.");
                             saveFaxJob(new FaxJob(receivedFax));
                             continue;
                         }
@@ -348,7 +375,8 @@ public class FaxImporter {
                     try {
                         providerClient.markFaxAsRead(faxConfig, receivedFax);
                     } catch (FaxProviderException e) {
-                        log.warn("Failed to mark fax as read on provider - may re-download on next poll", e);
+                        log.warn("Failed to mark fax as read on provider - may re-download on next poll (HTTP {}, type={})",
+                                e.getHttpStatus(), e.getClass().getSimpleName());
                     }
 
                     // Phase 3: Import from incoming directory into EMR
@@ -363,14 +391,14 @@ public class FaxImporter {
                             int docId = Integer.parseInt(edoc.getDocId());
                             providerRouting(docId);
                         } catch (NumberFormatException e) {
-                            log.error("Invalid document ID: {} - document saved but routing failed",
-                                    edoc.getDocId(), e);
+                            log.error("Invalid document ID - document saved but routing failed ({})",
+                                    e.getClass().getSimpleName());
                             receivedFax.setStatus(FaxJob.STATUS.ERROR);
                             receivedFax.setStatusString("Imported but routing failed - manual assignment required");
                             // Fall through to deleteFax - content is imported, routing is a separate concern
                         } catch (RuntimeException e) {
-                            log.error("Provider routing failed for doc_no={} - document exists but not in provider inbox",
-                                    edoc.getDocId(), e);
+                            log.error("Provider routing failed - document exists but not in provider inbox ({})",
+                                    e.getClass().getSimpleName());
                             receivedFax.setStatus(FaxJob.STATUS.ERROR);
                             receivedFax.setStatusString("IMPORTED BUT ROUTING FAILED - NEEDS MANUAL ASSIGNMENT");
                             // Fall through to deleteFax
@@ -380,7 +408,8 @@ public class FaxImporter {
                         try {
                             providerClient.deleteFax(faxConfig, receivedFax);
                         } catch (FaxProviderException e) {
-                            log.error("Failed to delete remote fax - duplicate may occur on next poll", e);
+                            log.error("Failed to delete remote fax - duplicate may occur on next poll (HTTP {}, type={})",
+                                    e.getHttpStatus(), e.getClass().getSimpleName());
                         }
                     } else {
                         // Import failed but file is safe in incoming directory for retry
@@ -398,20 +427,41 @@ public class FaxImporter {
                     saveFaxJob(new FaxJob(receivedFax));
                 }
 
-            } catch (FaxProviderException e) {
-                log.error("Fax provider error for account {} ({}): {}",
-                        faxConfig.getFaxUser(), faxConfig.getProviderType(), e.getMessage(), e);
-            } catch (IllegalStateException e) {
-                log.error("Credential decryption failed for fax account {} ({}) - re-enter password in "
-                        + "Administration > Faxes > Configure Fax. Skipping this account.",
-                        faxConfig.getFaxUser(), faxConfig.getProviderType(), e);
             } catch (RuntimeException e) {
-                log.error("Unexpected error processing faxes for account {} ({}) - continuing with next account: {}",
-                        faxConfig.getFaxUser(), faxConfig.getProviderType(), e.getMessage(), e);
+                log.error("Unexpected error processing faxes for account {} ({}) - continuing with next account ({})",
+                        faxConfig.getId(), faxConfig.getProviderType(), e.getClass().getSimpleName());
             }
         }
 
     }
+
+    private void recordPollFailure(FaxConfig faxConfig, Exception failure) {
+        if (pollBackoff.failed(faxConfig.getId())) {
+            String httpStatus = failure instanceof FaxProviderException providerFailure && providerFailure.getHttpStatus() > 0
+                    ? Integer.toString(providerFailure.getHttpStatus()) : "n/a";
+            log.warn("Inbound fax polling failed for account {} ({}, HTTP {}, type={}); retries will back off up to one hour. "
+                            + "Check credentials and configuration in Administration > Faxes > Configure Fax.",
+                    faxConfig.getId(), faxConfig.getProviderType(), httpStatus, failure.getClass().getSimpleName());
+        }
+    }
+
+    /**
+     * Returns failing inbound accounts for the privileged fax administration view. Resets on application restart.
+     *
+     * @return immutable {@code Map<Integer, PollingFailure>} keyed by persisted fax account ID
+     */
+    public Map<Integer, PollingFailure> getPollingFailures() {
+        return pollBackoff.snapshot();
+    }
+
+    /**
+     * Safe operational metadata; never contains credentials or provider response text.
+     *
+     * @param attempts int number of consecutive failed polls
+     * @param firstFailure Instant when the current failure streak began
+     * @param nextRetry Instant at or after which the next poll may be attempted
+     */
+    public record PollingFailure(int attempts, java.time.Instant firstFailure, java.time.Instant nextRetry) { }
 
     /**
      * Saves a downloaded fax to the incoming directory (quarantine) with validation.
@@ -427,6 +477,7 @@ public class FaxImporter {
      */
     private Path saveToIncoming(FaxConfig faxConfig, FaxJob receivedFax, FaxJob faxFile) {
         File tempFile = null;
+        Path downloadedPath = faxFile.getDocumentPath();
 
         try {
             // Create config-specific subdirectory
@@ -440,20 +491,19 @@ public class FaxImporter {
             File validatedPathFile = PathValidationUtils.validatePath(uniqueFilename, configDir.toFile());
             Path targetFile = validatedPathFile.toPath();
 
-            // Decode to temp file first (atomic write pattern)
+            // The final rename always publishes from this same-filesystem temporary file.
             tempFile = Files.createTempFile(configDir, "fax-tmp-", ".pdf").toFile();
-
-            try {
+            if (downloadedPath != null) {
+                stageDownloadedSpool(downloadedPath, tempFile.toPath());
+            } else {
                 String document = faxFile.getDocument();
                 if (document == null) {
-                    throw new FaxProviderException("Base64 decode failed: missing fax document payload");
+                    log.warn("Incoming fax Base64 document payload is missing");
+                    receivedFax.setStatus(FaxJob.STATUS.ERROR);
+                    receivedFax.setStatusString("Base64 decode failed: missing fax document payload");
+                    return null;
                 }
-                // Use getMimeDecoder() to tolerate MIME-formatted (line-wrapped) Base64
-                // payloads that fax providers may return per RFC 2045
-                byte[] decodedBytes = java.util.Base64.getMimeDecoder().decode(document);
-                Files.write(tempFile.toPath(), decodedBytes);
-            } catch (IllegalArgumentException e) {
-                throw new FaxProviderException("Base64 decode failed", e);
+                decodeLegacyDocument(document, tempFile.toPath());
             }
 
             if (tempFile.length() == 0) {
@@ -466,32 +516,78 @@ public class FaxImporter {
             }
 
             // Atomic move to final location within incoming directory
-            moveFile(tempFile.toPath(), targetFile);
+            Files.move(tempFile.toPath(), targetFile, StandardCopyOption.ATOMIC_MOVE);
             tempFile = null; // Moved successfully
-            log.info("Fax saved to incoming directory: {}/{}", faxConfig.getId(), uniqueFilename);
+            log.info("Fax saved to incoming directory for account {}", faxConfig.getId());
             return targetFile;
 
         } catch (FaxProviderException e) {
-            log.error("Fax validation failed: {}", e.getMessage(), e);
+            log.error("Fax validation failed ({})", e.getClass().getSimpleName());
             receivedFax.setStatus(FaxJob.STATUS.ERROR);
-            receivedFax.setStatusString("PDF validation failed: " + e.getMessage());
+            receivedFax.setStatusString("Incoming fax content validation failed (Base64 or PDF).");
             return null;
         } catch (IOException e) {
-            log.error("File I/O error saving fax to incoming directory: {}", e.getMessage(), e);
+            log.error("File I/O error saving fax to incoming directory ({})", e.getClass().getSimpleName());
             receivedFax.setStatus(FaxJob.STATUS.ERROR);
-            receivedFax.setStatusString("File system error: " + e.getMessage());
+            receivedFax.setStatusString("Unable to save the incoming fax file.");
             return null;
         } catch (SecurityException e) {
-            log.error("SECURITY: Path validation failed for fax: {}", e.getMessage(), e);
+            log.error("SECURITY: Path validation failed for fax ({})", e.getClass().getSimpleName());
             receivedFax.setStatus(FaxJob.STATUS.ERROR);
             receivedFax.setStatusString("Security validation failed - suspicious filename");
             return null;
         } finally {
-            if (tempFile != null && tempFile.exists()) {
-                if (!tempFile.delete()) {
-                    log.warn("Failed to delete temp file: {}", tempFile.getAbsolutePath());
+            faxFile.setDocumentPath(null);
+            deleteDownloadedSpool(downloadedPath);
+            deleteStagingFile(tempFile);
+        }
+    }
+
+    private void stageDownloadedSpool(Path source, Path target) throws IOException {
+        File spoolFile = source.toFile();
+        if (!PathValidationUtils.isInAllowedTempDirectory(spoolFile)) {
+            throw new SecurityException("Fax spool is outside the temporary directory");
+        }
+        PathValidationUtils.validateExistingPath(spoolFile, new File(System.getProperty("java.io.tmpdir")));
+        // A cross-filesystem copy/delete fallback targets a name the retry scanner ignores.
+        moveFile(source, target);
+    }
+
+    private void decodeLegacyDocument(String document, Path target) throws IOException, FaxProviderException {
+        try (var text = org.apache.commons.io.input.ReaderInputStream.builder()
+                    .setReader(new java.io.StringReader(document))
+                    .setCharset(java.nio.charset.StandardCharsets.US_ASCII).get();
+                var decoded = java.util.Base64.getMimeDecoder().wrap(text);
+                var output = Files.newOutputStream(target)) {
+            byte[] buffer = new byte[8192];
+            while (true) {
+                int read;
+                try {
+                    read = decoded.read(buffer);
+                } catch (IOException e) {
+                    throw new FaxProviderException("Base64 decode failed", e);
                 }
+                if (read < 0) {
+                    break;
+                }
+                output.write(buffer, 0, read);
             }
+        }
+    }
+
+    private void deleteDownloadedSpool(Path path) {
+        if (path != null && PathValidationUtils.isInAllowedTempDirectory(path.toFile())) {
+            try {
+                Files.deleteIfExists(path);
+            } catch (IOException _) {
+                log.warn("Failed to delete incoming fax spool file");
+            }
+        }
+    }
+
+    private void deleteStagingFile(File file) {
+        if (file != null && file.exists() && !file.delete()) {
+            log.warn("Failed to delete temporary incoming fax file");
         }
     }
 
@@ -545,14 +641,15 @@ public class FaxImporter {
                 // document row, no fax row, and (mark-as-read having already run) no re-download —
                 // the fax would become permanently invisible. Move the file back so
                 // retryPendingImports can recover it next cycle.
-                log.error("Failed to persist document record for fax - moving file back to incoming directory", e);
+                log.error("Failed to persist document record for fax - moving file back to incoming directory ({})",
+                        e.getClass().getSimpleName());
                 receivedFax.setStatus(FaxJob.STATUS.ERROR);
                 receivedFax.setStatusString("Downloaded but import failed - pending retry from incoming directory");
                 try {
                     moveFile(finalFile.toPath(), incomingFile);
                 } catch (IOException moveBackEx) {
-                    log.error("CRITICAL: Cannot move fax back to incoming directory. File at: {}",
-                            finalFile.getAbsolutePath(), moveBackEx);
+                    log.error("CRITICAL: Cannot move fax back to incoming directory; manual recovery required ({})",
+                            moveBackEx.getClass().getSimpleName());
                 }
                 return null;
             }
@@ -564,12 +661,11 @@ public class FaxImporter {
                 try {
                     moveFile(finalFile.toPath(), incomingFile);
                 } catch (IOException moveBackEx) {
-                    log.error("CRITICAL: Cannot move fax back to incoming directory. File at: {}",
-                            finalFile.getAbsolutePath(), moveBackEx);
+                    log.error("CRITICAL: Cannot move fax back to incoming directory; manual recovery required ({})",
+                            moveBackEx.getClass().getSimpleName());
                 }
                 return null;
             }
-            log.info("Registered fax in EMR: doc_id={}, pages={}", doc_no, numberOfPages);
 
             // Add to document queue for staff review
             Integer queueId = faxConfig.getQueue();
@@ -581,7 +677,7 @@ public class FaxImporter {
             try {
                 docNum = Integer.parseInt(doc_no);
             } catch (NumberFormatException e) {
-                log.error("Invalid document ID from EDocUtil: {}", doc_no, e);
+                log.error("Invalid document ID from EDocUtil ({})", e.getClass().getSimpleName());
                 receivedFax.setStatus(FaxJob.STATUS.ERROR);
                 receivedFax.setStatusString("Internal error: invalid document ID format");
                 return null;
@@ -599,8 +695,8 @@ public class FaxImporter {
                 // the remaining faxes. Record the partial import instead, and keep the document — an
                 // imported-but-unqueued fax is recoverable by an operator; a lost one is not.
                 log.error("Fax document {} was imported but could not be linked to queue {}; "
-                        + "it will not appear in the queue until linked manually",
-                        docNum, queueId, e);
+                        + "it will not appear in the queue until linked manually ({})",
+                        docNum, queueId, e.getClass().getSimpleName());
                 receivedFax.setStatus(FaxJob.STATUS.ERROR);
                 receivedFax.setStatusString("IMPORTED BUT NOT QUEUED - link document " + docNum
                         + " to queue " + queueId + " manually");
@@ -610,17 +706,17 @@ public class FaxImporter {
             return newDoc;
 
         } catch (FaxProviderException e) {
-            log.error("PDF validation failed during import: {}", e.getMessage(), e);
+            log.error("PDF validation failed during import ({})", e.getClass().getSimpleName());
             receivedFax.setStatus(FaxJob.STATUS.ERROR);
-            receivedFax.setStatusString("PDF validation failed on import: " + e.getMessage());
+            receivedFax.setStatusString("Incoming fax PDF validation failed during import.");
             return null;
         } catch (IOException e) {
-            log.error("File I/O error during import from incoming: {}", e.getMessage(), e);
+            log.error("File I/O error during import from incoming ({})", e.getClass().getSimpleName());
             receivedFax.setStatus(FaxJob.STATUS.ERROR);
             receivedFax.setStatusString("File system error during import - pending retry");
             return null;
         } catch (SecurityException e) {
-            log.error("SECURITY: Path validation failed during import: {}", e.getMessage(), e);
+            log.error("SECURITY: Path validation failed during import ({})", e.getClass().getSimpleName());
             receivedFax.setStatus(FaxJob.STATUS.ERROR);
             receivedFax.setStatusString("Security validation failed during import");
             return null;
@@ -674,7 +770,7 @@ public class FaxImporter {
                             continue;
                         }
 
-                        log.info("Retrying import of pending fax: {}/{}", configId, pdfFile.getFileName());
+                        log.info("Retrying import of pending fax for account {}", configId);
 
                         // Per-file isolation: an unchecked failure on one pending fax must not abort
                         // the sweep for every fax behind it in the directory. The enclosing catch only
@@ -699,8 +795,8 @@ public class FaxImporter {
                                 try {
                                     providerRouting(Integer.parseInt(edoc.getDocId()));
                                 } catch (RuntimeException e) {
-                                    log.error("Routing failed for retried fax import doc_no={}: {}",
-                                            edoc.getDocId(), e.getMessage(), e);
+                                    log.error("Routing failed for retried fax import ({})",
+                                            e.getClass().getSimpleName());
                                     retryFax.setStatus(FaxJob.STATUS.ERROR);
                                     retryFax.setStatusString("IMPORTED ON RETRY BUT ROUTING FAILED - NEEDS MANUAL ASSIGNMENT");
                                 }
@@ -711,20 +807,20 @@ public class FaxImporter {
                                 retryFax.setFile_name(edoc.getFileName());
                                 saveFaxJob(retryFax);
                                 resolvePendingRetryRows(pdfFile.getFileName().toString(), edoc.getFileName());
-                                log.info("Successfully imported pending fax on retry: {}", pdfFile.getFileName());
+                                log.info("Successfully imported pending fax on retry for account {}", configId);
                             } else {
                                 // Still failing - leave for next cycle, don't create duplicate FaxJob records
-                                log.warn("Retry import still failing for: {}/{}", configId, pdfFile.getFileName());
+                                log.warn("Retry import still failing for account {}", configId);
                             }
                         } catch (RuntimeException e) {
-                            log.error("Unexpected failure retrying pending fax {}/{}; continuing with the "
-                                    + "remaining pending faxes", configId, pdfFile.getFileName(), e);
+                            log.error("Unexpected failure retrying pending fax for account {}; continuing with the "
+                                    + "remaining pending faxes ({})", configId, e.getClass().getSimpleName());
                         }
                     }
                 }
             }
         } catch (IOException e) {
-            log.error("Error scanning incoming fax directory for retry: {}", e.getMessage(), e);
+            log.error("Error scanning incoming fax directory for retry ({})", e.getClass().getSimpleName());
         }
     }
 
@@ -769,7 +865,7 @@ public class FaxImporter {
                             entry.put("sizeBytes", Files.size(pdfFile));
                             entry.put("lastModifiedMs", Files.getLastModifiedTime(pdfFile).toMillis());
                         } catch (IOException e) {
-                            log.debug("Cannot read file metadata for pending fax {}: {}", pdfFile.getFileName(), e.getMessage());
+                            log.debug("Cannot read file metadata for pending fax ({})", e.getClass().getSimpleName());
                             entry.put("sizeBytes", 0L);
                             entry.put("lastModifiedMs", 0L);
                         }
@@ -778,7 +874,7 @@ public class FaxImporter {
                 }
             }
         } catch (IOException e) {
-            log.error("Error listing pending incoming faxes: {}", e.getMessage(), e);
+            log.error("Error listing pending incoming faxes ({})", e.getClass().getSimpleName());
         }
 
         return pending;
@@ -791,12 +887,12 @@ public class FaxImporter {
      * @param target target path
      * @throws IOException if the move fails
      */
-    private void moveFile(Path source, Path target) throws IOException {
+    // Package-private seam for simulating a failed cross-filesystem staging copy.
+    void moveFile(Path source, Path target) throws IOException {
         try {
             Files.move(source, target, StandardCopyOption.ATOMIC_MOVE);
         } catch (AtomicMoveNotSupportedException e) {
-            log.warn("Atomic move not supported from {} to {} - falling back to copy+delete (cross-filesystem?)",
-                    source.getParent(), target.getParent());
+            log.warn("Atomic move not supported - falling back to copy+delete (cross-filesystem?)");
             Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
             Files.delete(source);
         }
@@ -860,9 +956,10 @@ public class FaxImporter {
      * @throws FaxProviderException if PDF is corrupted, password-protected, or has 0 pages
      */
     private int validateAndCountPages(File pdfFile) throws FaxProviderException {
-        PdfReader reader = null;
-        try {
-            reader = new PdfReader(pdfFile.getAbsolutePath());
+        // Keep the file scoped even if PdfReader's constructor rejects a corrupt PDF.
+        // Partial reading prevents validation from materializing the streamed document.
+        try (var file = new org.openpdf.text.pdf.RandomAccessFileOrArray(pdfFile.getAbsolutePath(), false, true);
+                var reader = new PdfReader(file, null)) {
             int pages = reader.getNumberOfPages();
 
             if (pages == 0) {
@@ -875,11 +972,7 @@ public class FaxImporter {
         } catch (org.openpdf.text.exceptions.BadPasswordException e) {
             throw new FaxProviderException("PDF is password-protected - cannot process");
         } catch (IOException e) {
-            throw new FaxProviderException("Cannot read PDF file: " + e.getMessage());
-        } finally {
-            if (reader != null) {
-                reader.close();
-            }
+            throw new FaxProviderException("Cannot read PDF file for incoming fax");
         }
     }
 
@@ -1005,8 +1098,8 @@ public class FaxImporter {
                 }
             }
         } catch (RuntimeException e) {
-            log.warn("Could not resolve pending-retry fax rows for {} - queue view may show a stale retry row",
-                    quarantinedFileName, e);
+            log.warn("Could not resolve pending-retry fax rows - queue view may show a stale retry row ({})",
+                    e.getClass().getSimpleName());
         }
     }
 

@@ -41,9 +41,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Date;
-import java.util.Hashtable;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.ResourceBundle;
 
@@ -58,17 +59,20 @@ import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
+import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.DocumentExtraReviewerDao;
 import io.github.carlos_emr.carlos.commn.dao.DocumentStorageDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
 import io.github.carlos_emr.carlos.commn.dao.SecRoleDao;
+import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.DocumentExtraReviewer;
 import io.github.carlos_emr.carlos.commn.model.DocumentStorage;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.SecRole;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
@@ -76,8 +80,12 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
+import io.github.carlos_emr.carlos.utility.ScheduleNav;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 
@@ -122,6 +130,9 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
     private static final byte[] PDF_HEADER = new byte[] {'%', 'P', 'D', 'F', '-'};
     private static final String ERROR_NO_WRITE_KEY = "dms.addDocument.errorNoWrite";
     private static final String ERROR_ZERO_SIZE_KEY = "dms.addDocument.errorZeroSize";
+    private static final String ERROR_DUPLICATE_KEY = "dms.addDocument.errorDuplicate";
+    private static final String ERROR_DESCRIPTION_TOO_LONG = "desctoolong";
+    private static final String ERROR_DESCRIPTION_TOO_LONG_KEY = "dms.error.descriptionTooLong";
     private static final String PARAM_FUNCTION = "function";
     private static final String PARAM_FUNCTION_ID = "functionid";
     private static final String PARAM_CUR_USER = "curUser";
@@ -166,7 +177,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         try {
             validatedSource = PathValidationUtils.validateUpload(uploadedDocFile);
         } catch (SecurityException e) {
-            MiscUtils.getLogger().error("Invalid uploaded document file", e);
+            MiscUtils.getLogger().error("Invalid uploaded document file ({})", e.getClass().getSimpleName());
             sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
             return NONE;
         }
@@ -197,7 +208,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         try {
             expectedFileSize = validatedUploadSize(validatedSource);
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Failed to determine uploaded document file size", e);
+            MiscUtils.getLogger().error("Failed to determine uploaded document file size ({})", e.getClass().getSimpleName());
             sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
             return NONE;
         }
@@ -211,8 +222,29 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         File file;
         try {
             file = writeValidatedUpload(validatedSource, storedFileName, false);
-        } catch (IOException e) {
-            MiscUtils.getLogger().error("Failed to write uploaded document file", e);
+        } catch (FileAlreadyExistsException e) {
+            // The stored name is the upload's own name prefixed with yyyyMMddHHmmss, so its
+            // resolution is one second: two uploads of the same file inside the same second --
+            // a double-clicked button, a browser retry -- collide. That is the user's situation
+            // to resolve, not a server fault, so it gets 409 and a message that says what to do
+            // instead of the generic "File could not be saved" behind a 500.
+            //
+            // Logged WITHOUT the exception: its message is the destination path, which ends in
+            // the uploader's own filename, and scanned clinical documents are routinely named
+            // after the patient. A collision is a user-recoverable condition with a single
+            // possible cause, so the stack trace adds nothing that would justify writing a
+            // potential patient name into the log.
+            MiscUtils.getLogger().warn("Uploaded document name already taken; asking the user to retry");
+            sendHtml5UploadError(props, HttpServletResponse.SC_CONFLICT, ERROR_DUPLICATE_KEY);
+            return NONE;
+        } catch (IOException | RuntimeException e) {
+            // RuntimeException belongs here too, now that writeValidatedUpload rethrows
+            // unwrapped instead of laundering everything into IOException. Without it a
+            // FileValidationException -- which extends SecurityException -- escapes to the
+            // global securityError mapping, and securityError.jsp sets no status. The XHR
+            // client treats anything under 400 as success, so a rejected upload would be
+            // reported to the user as "Upload complete".
+            MiscUtils.getLogger().error("Failed to write uploaded document file ({})", e.getClass().getSimpleName());
             sendHtml5UploadError(props, ERROR_NO_WRITE_KEY);
             return NONE;
         }
@@ -270,7 +302,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         try {
             validatedFile = PathValidationUtils.validatePath(fileName, documentDir);
         } catch (SecurityException e) {
-            MiscUtils.getLogger().error("Invalid PDF page count file path", e);
+            MiscUtils.getLogger().error("Invalid PDF page count file path ({})", e.getClass().getSimpleName());
             return numOfPage;
         }
 
@@ -282,7 +314,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
         try (PdfReader reader = new PdfReader(filePath.toString())) {
             numOfPage = reader.getNumberOfPages();
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Failed to count document pages", e);
+            MiscUtils.getLogger().error("Failed to count document pages ({})", e.getClass().getSimpleName());
         }
         return numOfPage;
     }
@@ -310,7 +342,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
      * @throws SecurityException if the user lacks _edoc write privilege
      */
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
-    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
+    @SuppressFBWarnings(value = {"UNVALIDATED_REDIRECT", "IMPROPER_UNICODE"}, justification = "Redirects are same-origin application paths; Locale.ROOT module folding uses a closed ASCII allowlist and rejects all non-matching tokens")
     public String execute2() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
@@ -318,27 +350,27 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
 
         if (this.getMode().equals("") && this.getFunction().equals("") && this.getFunctionId().equals("")) {
             // file size exceeds the upload limit
-            Hashtable errors = new Hashtable();
+            Map<String, String> errors = new HashMap<>();
             errors.put("uploaderror", "dms.error.uploadError");
             request.setAttribute("docerrors", errors);
             request.setAttribute("editDocumentNo", "");
             return "failEdit";
         } else if (this.getMode().equals("add")) {
-            // if add/edit success then send redirect, if failed send a forward (need the formdata and errors hashtables while trying to avoid POSTDATA messages)
+            // Match the report's closed module allowlist, preventing database
+            // collation aliases from bypassing the demographic authorization branch.
+            String module = this.getFunction() == null ? "" : this.getFunction().trim().toLowerCase(Locale.ROOT);
+            if (!List.of("demographic", "provider", "providers").contains(module)) {
+                throw new SecurityException("Invalid document target module");
+            }
+            this.setFunction(module);
+            if ("demographic".equals(module)) {
+                IncomingDocumentCapacityResponse.requirePatientDocumentWriteAccess(securityInfoManager,
+                        LoggedInInfo.getLoggedInInfoFromSession(request), this.getFunctionId() == null ? null : this.getFunctionId().trim());
+            }
+            // if add/edit success then send redirect, if failed send a forward (need the formdata and errors maps while trying to avoid POSTDATA messages)
             if (addDocument(request)) { // if success
-                String contextPath = request.getContextPath();
-                StringBuilder redirect = new StringBuilder(contextPath + "/documentManager/ViewDocumentReport");
-                redirect.append("?docerrors=docerrors"); // Allows the JSP to check if the document was just submitted
-                appendQueryParameter(redirect, PARAM_FUNCTION, this.getFunction());
-                appendQueryParameter(redirect, PARAM_FUNCTION_ID, this.getFunctionId());
-                appendQueryParameter(redirect, PARAM_APPOINTMENT_NO, this.getAppointmentNo());
-                // if we're called with parent ajax id inform jsp that parent needs to be updated
-                if (filled(this.getParentAjaxId())) {
-                    appendQueryParameter(redirect, PARAM_PARENT_AJAX_ID, this.getParentAjaxId());
-                    appendQueryParameter(redirect, "updateParent", "true");
-                }
                 try {
-                    response.sendRedirect(redirect.toString());
+                    response.sendRedirect(buildAddSuccessRedirect());
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
@@ -357,6 +389,36 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
     }
 
     /**
+     * Builds the post-add redirect back to the document report.
+     *
+     * <p>Extracted from {@link #execute2()} to keep that method's cognitive complexity within the
+     * project's limit; the query it assembles is unchanged. Every value goes through
+     * {@link #appendQueryParameter} so it is URI-component encoded.
+     *
+     * @return an application-relative redirect target
+     */
+    private String buildAddSuccessRedirect() {
+        StringBuilder redirect = new StringBuilder(
+                request.getContextPath() + "/documentManager/ViewDocumentReport");
+        redirect.append("?docerrors=docerrors"); // Allows the JSP to check if the document was just submitted
+        appendQueryParameter(redirect, PARAM_FUNCTION, this.getFunction());
+        appendQueryParameter(redirect, PARAM_FUNCTION_ID, this.getFunctionId());
+        appendQueryParameter(redirect, PARAM_APPOINTMENT_NO, this.getAppointmentNo());
+        // if we're called with parent ajax id inform jsp that parent needs to be updated
+        if (filled(this.getParentAjaxId())) {
+            appendQueryParameter(redirect, PARAM_PARENT_AJAX_ID, this.getParentAjaxId());
+            appendQueryParameter(redirect, "updateParent", "true");
+        }
+        // A redirect starts a new request, so the schedule-shell flag the add form posted is gone
+        // unless it is re-appended here. Without it the provider lands back on the document list
+        // with the navigation header tabs missing.
+        if (ScheduleNav.isActive(request)) {
+            appendQueryParameter(redirect, ScheduleNav.PARAM, ScheduleNav.ENABLED);
+        }
+        return redirect.toString();
+    }
+
+    /**
      * Adds a new document: validates required fields, saves the uploaded file locally,
      * persists the EDoc record, creates audit log entries, and generates a case management
      * note when the document is linked to a patient demographic.
@@ -367,11 +429,18 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private boolean addDocument(HttpServletRequest request) {
+        if (rejectOverlongDescription()) {
+            return false;
+        }
 
-        Hashtable errors = new Hashtable();
+        Map<String, String> errors = new HashMap<>();
         try {
             if ((this.getDocDesc().length() == 0) || (this.getDocDesc().equals("Enter Title"))) {
                 errors.put("descmissing", "dms.error.descriptionInvalid");
+                throw new Exception();
+            }
+            if (!descriptionFits()) {
+                errors.put(ERROR_DESCRIPTION_TOO_LONG, ERROR_DESCRIPTION_TOO_LONG_KEY);
                 throw new Exception();
             }
             if (this.getDocType().length() == 0) {
@@ -415,7 +484,12 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             File writtenFile;
             try {
                 writtenFile = writeValidatedUpload(validatedDocFile, fileName2, false);
-            } catch (IOException e) {
+            } catch (IOException | RuntimeException e) {
+                // RuntimeException too, not just IOException: writeValidatedUpload now rethrows
+                // RuntimeException (e.g. a SecurityException from the path validator) unwrapped
+                // rather than laundering it into IOException, so without this the form path would
+                // land in the trailing catch(Exception) with an EMPTY errors map and render
+                // failAdd with no message. This method converts every failure to failAdd anyway.
                 errors.put("uploaderror", "dms.error.uploadError");
                 addActionError(getText("dms.error.uploadError"));
                 throw e;
@@ -428,7 +502,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             }
             newDoc.setContentType(this.docFileContentType);
 
-            if (fileName2.toLowerCase().endsWith(".pdf")) {
+            if (fileName2 != null && fileName2.regionMatches(true, fileName2.length() - 4, ".pdf", 0, 4)) {
                 newDoc.setContentType("application/pdf");
                 int numberOfPages = countNumOfPages(fileName2);
                 newDoc.setNumberOfPages(numberOfPages);
@@ -459,10 +533,15 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
 
             // ---
             String doc_no = EDocUtil.addDocumentSQL(newDoc);
-            LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
             // add note if document is added under a patient
             String module = this.getFunction().trim();
             String moduleId = this.getFunctionId().trim();
+            if (module.equals("demographic")) {
+                // Filed onto a chart: the audit row names the patient, so the upload can be found from it.
+                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr(), moduleId);
+            } else {
+                LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, request.getRemoteAddr());
+            }
             if (module.equals("demographic")) {// doc is uploaded under a patient, moduleId become demo no.
 
                 Date now = EDocUtil.getDmsDateTimeAsDate();
@@ -520,13 +599,23 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             request.setAttribute("docerrors", errors);
             return false;
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to add uploaded document", e);
+            MiscUtils.getLogger().error("Failed to add uploaded document ({})", e.getClass().getSimpleName());
             // ActionRedirect redirect = new ActionRedirect(mapping.findForward("failAdd"));
             request.setAttribute("docerrors", errors);
             return false;
         }
 
         return true;
+    }
+
+    /**
+     * Whether the posted description fits {@code document.docdesc} as it is stored ({@link EDoc}
+     * trims it). The packaged database cuts a longer one off without an error, so add and edit
+     * refuse it with a {@code docerrors} message before anything is written; the page's
+     * {@code maxlength} and its submit check are only the visible half.
+     */
+    private boolean descriptionFits() {
+        return Document.descriptionFits(this.getDocDesc().trim());
     }
 
     /**
@@ -539,15 +628,27 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String editDocument(HttpServletRequest request) {
-        Hashtable errors = new Hashtable();
+        Map<String, String> errors = new HashMap<>();
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
+        }
+        // Outside the form-error catch: a denied source must never render its edit
+        // JSP or reach content, reviewer, audit or metadata mutations.
+        IncomingDocumentCapacityResponse.requireStoredDocumentWriteAccess(securityInfoManager,
+                LoggedInInfo.getLoggedInInfoFromSession(request), this.getMode());
+        if (rejectOverlongDescription()) {
+            request.setAttribute("editDocumentNo", this.getMode());
+            return "failEdit";
         }
 
         try {
             if (this.getDocDesc().length() == 0) {
                 errors.put("descmissing", "dms.error.descriptionInvalid");
+                throw new Exception();
+            }
+            if (!descriptionFits()) {
+                errors.put(ERROR_DESCRIPTION_TOO_LONG, ERROR_DESCRIPTION_TOO_LONG_KEY);
                 throw new Exception();
             }
             if (this.getDocType().length() == 0) {
@@ -557,6 +658,11 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             String fileName = "";
             boolean updateFileContent = false;
             File validatedDocFile = null;
+            // Refuse a document that is gone before any replacement content is written. The
+            // locked save below checks again, because the row can still vanish after this read.
+            if (SpringUtils.getBean(DocumentDao.class).find(Integer.parseInt(this.getMode())) == null) {
+                throw new StoredDocumentMissingException();
+            }
 
             if (CarlosProperties.getInstance().getBooleanProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", "true"))
             {
@@ -577,21 +683,13 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 }
             }
 
+            // The posted reviewer fields describe the page as it was loaded and are never stored:
+            // saveStoredEdit sets the reviewer from the stored row and the signed-in provider.
             String reviewerId = filled(this.getReviewerId()) ? this.getReviewerId() : "";
             String reviewDateTime = filled(this.getReviewDateTime()) ? this.getReviewDateTime() : "";
-
-            if (!filled(reviewerId) && this.getReviewDoc()) {
-                LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-                reviewerId = loggedInInfo.getLoggedInProviderNo();
-                reviewDateTime = UtilDateUtilities.DateToString(new Date(), EDocUtil.REVIEW_DATETIME_FORMAT);
-                if (this.getFunction() != null && this.getFunction().equals("demographic")) {
-                    LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.REVIEWED, LogConst.CON_DOCUMENT, this.getMode(),
-request.getRemoteAddr(), this.getFunctionId());
-                } else {
-                    LogAction.addLog(loggedInInfo.getLoggedInProviderNo(), LogConst.REVIEWED, LogConst.CON_DOCUMENT, this.getMode(),
-request.getRemoteAddr());
-                }
-            }
+            // Either flag asks for a review by the signed-in provider. Whether it is the first or an
+            // additional review is decided from the stored document, not from which flag the page set.
+            boolean reviewRequested = this.getReviewDoc() || this.isExtraReviewDoc();
 
             EDoc newDoc = new EDoc(this.getDocDesc(), this.getDocType(), fileName, "", this.getDocCreator(), this.getResponsibleId(),
 this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, this.getFunction(), this.getFunctionId());
@@ -624,7 +722,9 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
                 File writtenFile;
                 try {
                     writtenFile = writeValidatedUpload(uploadForUpdate, fileName);
-                } catch (IOException e) {
+                } catch (IOException | RuntimeException e) {
+                    // See addDocument: RuntimeException must set the error before it reaches the
+                    // trailing catch(Exception), or the edit form re-renders with no message.
                     errors.put("uploaderror", "dms.error.uploadError");
                     addActionError(getText("dms.error.uploadError"));
                     throw e;
@@ -635,31 +735,24 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
                     addActionError(getText("dms.error.uploadError"));
                     throw new IOException("Failed to write uploaded document");
                 }
-                if (fileName.toLowerCase().endsWith(".pdf")) {
+                if (fileName != null && fileName.regionMatches(true, fileName.length() - 4, ".pdf", 0, 4)) {
                     newDoc.setContentType("application/pdf");
                     int numberOfPages = countNumOfPages(fileName);
                     newDoc.setNumberOfPages(numberOfPages);
                 }
             }
-            if (this.getReviewDoc()) {
-                newDoc.setReviewDateTime(UtilDateUtilities.DateToString(new Date(), EDocUtil.REVIEW_DATETIME_FORMAT));
+
+            String actor = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
+            ReviewOutcome review = saveStoredEdit(newDoc, reviewRequested, actor);
+
+            if (review == ReviewOutcome.FIRST || review == ReviewOutcome.ADDITIONAL) {
+                // Logged only after the review is committed, so the audit never claims a review that failed to save.
+                if ("demographic".equals(this.getFunction())) {
+                    LogAction.addLog(actor, LogConst.REVIEWED, LogConst.CON_DOCUMENT, this.getMode(), request.getRemoteAddr(), this.getFunctionId());
+                } else {
+                    LogAction.addLog(actor, LogConst.REVIEWED, LogConst.CON_DOCUMENT, this.getMode(), request.getRemoteAddr());
+                }
             }
-
-            if (this.isExtraReviewDoc()) {
-                DocumentExtraReviewer der = new DocumentExtraReviewer();
-                der.setDocumentNo(Integer.parseInt(newDoc.getDocId()));
-                der.setReviewDateTime(new Date());
-                der.setReviewerProviderNo(this.getExtraReviewerId());
-
-                DocumentExtraReviewerDao derDao = SpringUtils.getBean(DocumentExtraReviewerDao.class);
-                derDao.persist(der);
-
-                //don't lose the initial review
-                this.setReviewDoc(true);
-                newDoc.setReviewDateTime(this.getReviewDateTime());
-            }
-
-            EDocUtil.editDocumentSQL(newDoc, this.getReviewDoc());
 
             if (this.getFunction() != null && this.getFunction().equals("demographic")) {
                 LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.UPDATE, LogConst.CON_DOCUMENT, this.getMode(), request.getRemoteAddr(), this.getFunctionId());
@@ -668,6 +761,12 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
             }
 
+        } catch (StoredDocumentMissingException _) {
+            // The document was removed by someone else; say so rather than re-render a silent form.
+            errors.put("documentmissing", "dms.error.documentMissing");
+            request.setAttribute("docerrors", errors);
+            request.setAttribute("editDocumentNo", this.getMode());
+            return "failEdit";
         } catch (FileValidationException e) {
             request.setAttribute("docerrors", errors);
             request.setAttribute("editDocumentNo", this.getMode());
@@ -679,12 +778,103 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         } catch (Exception e) {
             request.setAttribute("docerrors", errors);
             request.setAttribute("editDocumentNo", this.getMode());
-            MiscUtils.getLogger().error("Failed to edit document", e);
+            MiscUtils.getLogger().error("Failed to edit document ({})", e.getClass().getSimpleName());
             return "failEdit";
         }
         return "successEdit";
     }
 
+
+    /** How a save recorded the signed-in provider's review of the stored document. */
+    enum ReviewOutcome {
+        /** No review was requested (a plain "Update", which clears any stored review). */
+        NONE,
+        /** The document had no reviewer; the signed-in provider is now its reviewer. */
+        FIRST,
+        /** The document was already reviewed by someone else; an additional reviewer row was added. */
+        ADDITIONAL,
+        /** The signed-in provider had already reviewed it (a repeated click); nothing new was recorded. */
+        ALREADY_REVIEWED
+    }
+
+    /** The edited document no longer exists. */
+    static final class StoredDocumentMissingException extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+
+        StoredDocumentMissingException() {
+            super("Edited document no longer exists");
+        }
+    }
+
+    /**
+     * Saves the edited metadata and, when asked, the signed-in provider's review, in one
+     * transaction that holds the document row lock.
+     *
+     * <p>Whether a review is the first or an additional one is decided here from the stored
+     * reviewer, read under the lock, and never from the flag the page chose when it was loaded:
+     * the page cannot know that another user's "Update" cleared the review, or that another
+     * provider reviewed it first, after it was rendered (issue #6081). A blank stored reviewer
+     * makes the actor the reviewer. A present one keeps that first review and adds the actor as an
+     * additional reviewer, unless the actor has already reviewed it.</p>
+     *
+     * @param newDoc the metadata to store; its reviewer fields are set here
+     * @param reviewRequested whether the page asked for a review by the actor
+     * @param actor the signed-in provider number
+     * @return how the review was recorded
+     * @throws StoredDocumentMissingException if the document no longer exists
+     */
+    private ReviewOutcome saveStoredEdit(EDoc newDoc, boolean reviewRequested, String actor) {
+        TransactionTemplate transaction = new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class));
+        // Its own transaction, as the other document metadata writers use: the review must be
+        // committed before the action writes the REVIEWED audit event.
+        transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
+        return transaction.execute(status -> {
+            Integer documentNo = Integer.valueOf(newDoc.getDocId());
+            Document stored = SpringUtils.getBean(DocumentDao.class).findForPageMutation(documentNo);
+            if (stored == null) {
+                throw new StoredDocumentMissingException();
+            }
+            ReviewOutcome outcome = reviewRequested ? recordReview(stored, documentNo, newDoc, actor) : ReviewOutcome.NONE;
+            EDocUtil.editDocumentSQL(newDoc, reviewRequested);
+            return outcome;
+        });
+    }
+
+    /**
+     * Records the actor's review against the stored row that {@link #saveStoredEdit} holds locked,
+     * and sets the reviewer fields {@code newDoc} will store. Runs inside that transaction.
+     *
+     * @return {@link ReviewOutcome#FIRST} when the stored reviewer was blank,
+     *         {@link ReviewOutcome#ADDITIONAL} when an extra-reviewer row was added, or
+     *         {@link ReviewOutcome#ALREADY_REVIEWED} when the actor had already reviewed it
+     */
+    private ReviewOutcome recordReview(Document stored, Integer documentNo, EDoc newDoc, String actor) {
+        Date now = new Date();
+        String storedReviewer = stored.getReviewer();
+        if (!filled(storedReviewer)) {
+            newDoc.setReviewerId(actor);
+            newDoc.setReviewDateTime(UtilDateUtilities.DateToString(now, EDocUtil.REVIEW_DATETIME_FORMAT));
+            return ReviewOutcome.FIRST;
+        }
+        // Keep the first review exactly as stored.
+        newDoc.setReviewerId(storedReviewer);
+        newDoc.setReviewDateTime(stored.getReviewdatetime() == null ? ""
+                : UtilDateUtilities.DateToString(stored.getReviewdatetime(), EDocUtil.REVIEW_DATETIME_FORMAT));
+        DocumentExtraReviewerDao extraReviewers = SpringUtils.getBean(DocumentExtraReviewerDao.class);
+        boolean alreadyReviewed = storedReviewer.equals(actor) || extraReviewers.findByDocumentNo(documentNo).stream()
+                .anyMatch(existing -> Objects.equals(actor, existing.getReviewerProviderNo()));
+        if (alreadyReviewed) {
+            return ReviewOutcome.ALREADY_REVIEWED;
+        }
+        DocumentExtraReviewer additional = new DocumentExtraReviewer();
+        additional.setDocumentNo(documentNo);
+        additional.setReviewDateTime(now);
+        // A review attests to the authenticated actor, never a hidden form field.
+        additional.setReviewerProviderNo(actor);
+        extraReviewers.persist(additional);
+        return ReviewOutcome.ADDITIONAL;
+    }
 
     /**
      * Writes an uploaded file to the local document storage directory. The destination
@@ -790,7 +980,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             documentStorageDao.persist(docStor);
             ret = docStor.getId();
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Failed to store document file in database", e);
+            MiscUtils.getLogger().error("Failed to store document file in database ({})", e.getClass().getSimpleName());
         } finally {
             IOUtils.closeQuietly(fin);
         }
@@ -843,7 +1033,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             } catch (FileValidationException e) {
                 // Filename rejected at bind time. Store the error key so execute methods can
                 // surface a user-friendly form error rather than leaving docFile null silently.
-                MiscUtils.getLogger().warn("Rejected upload binding: invalid filename", e);
+                MiscUtils.getLogger().warn("Rejected upload binding: invalid filename ({})", e.getClass().getSimpleName());
                 this.docFileBindErrorKey = "filenameinvalid";
             }
             // SecurityException from validateUpload is intentionally not caught — a source file
@@ -925,7 +1115,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             }
             return true;
         } catch (IOException e) {
-            MiscUtils.getLogger().warn("Failed to read validated upload for PDF header check", e);
+            MiscUtils.getLogger().warn("Failed to read validated upload for PDF header check ({})", e.getClass().getSimpleName());
             return false;
         }
     }
@@ -952,9 +1142,27 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         return writeValidatedUpload(validatedUpload, fileName, true);
     }
 
+    /**
+     * Writes the validated upload into the document store.
+     *
+     * <p>writeLocalFile is declared {@code throws Exception}, so something has to narrow it here.
+     * This used to be a blanket {@code catch (Exception)} that rewrapped everything as
+     * {@code IOException("Failed to write uploaded document")}, which erased the distinction
+     * between a name collision, a permissions problem and a missing directory — every one of them
+     * reached the browser as the same opaque 500 and the same "File could not be saved" text, so a
+     * report could only ever say "upload gives a 500". The specific types are now preserved for the
+     * caller to act on: {@link java.nio.file.FileAlreadyExistsException} in particular is a
+     * user-recoverable condition, not a server fault.</p>
+     */
     private File writeValidatedUpload(File validatedUpload, String fileName, boolean replaceExisting) throws IOException {
         try (InputStream inputStream = PathValidationUtils.openValidatedUploadInputStream(validatedUpload)) {
             return writeLocalFile(inputStream, fileName, replaceExisting);
+        } catch (IOException | RuntimeException e) {
+            // IOException subtypes (FileAlreadyExistsException, AccessDeniedException,
+            // NoSuchFileException) carry the diagnosis; SecurityException from the path validator
+            // is a security violation the caller must not see as a write failure. Both pass
+            // through untouched.
+            throw e;
         } catch (Exception e) {
             throw new IOException("Failed to write uploaded document", e);
         }
@@ -1017,7 +1225,11 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
     private void sendHtml5UploadError(ResourceBundle props, int statusCode, String errorKey) throws IOException {
         String message = props.getString(errorKey);
-        response.setHeader("oscar_error", message);
+        // Servlet response headers are ISO-8859-1, so a localized message reaches the browser
+        // mangled the moment it leaves Latin-1 -- the Polish and Portuguese bundles do. Strip the
+        // header copy to printable ASCII (which also removes CR/LF, so nothing in the message can
+        // inject a header) and leave the body, which the client shows, intact.
+        response.setHeader("oscar_error", message.replaceAll("[^\\x20-\\x7E]", "?"));
         response.sendError(statusCode, message);
     }
 
@@ -1050,6 +1262,20 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     private String docType = "";
     private String docClass = "";
     private String docSubClass = "";
+    private static final int MAX_DESCRIPTION_LENGTH = 255;
+
+    /** Refuse before file, metadata, reviewer, note or audit writes; SQL VARCHAR counts code points. */
+    private boolean rejectOverlongDescription() {
+        if (docDesc == null || docDesc.codePointCount(0, docDesc.length()) <= MAX_DESCRIPTION_LENGTH) {
+            return false;
+        }
+        Map<String, String> errors = new HashMap<>();
+        errors.put("descmissing", "dms.error.descriptionTooLong");
+        request.setAttribute("docerrors", errors);
+        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        return true;
+    }
+
     private String docDesc = "";
     private String docCreator = "";
     private String responsibleId = "";
@@ -1095,6 +1321,26 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     @StrutsParameter
     public void setFunctionId(String functionId) {
         this.functionId = functionId;
+    }
+
+    /**
+     * Lowercase binding alias for {@code functionid}, and it is load-bearing — without it the
+     * eDocs upload silently loses the patient.
+     *
+     * <p>addDocument.jsp posts BOTH {@code functionId} and {@code functionid} (a long-standing
+     * duplication), and Struts 7's {@code HttpParameters} keys parameters case-insensitively, so
+     * the two collapse into a single entry whose surviving key is the lowercase spelling. The
+     * {@code @StrutsParameter} annotation lookup is case-sensitive, found no member named
+     * {@code functionid}, and dropped the value — verified live on a packaged install:
+     * "No matching annotated method found for property [functionid]". The document then saved
+     * with {@code module_id=0} (attached to no patient, invisible in every chart) and the
+     * post-save redirect carried an empty {@code functionid}, which the ViewDocumentReport gate
+     * rejects with 400. The operator sees an error page, the chart shows nothing, and the
+     * document exists orphaned.</p>
+     */
+    @StrutsParameter
+    public void setFunctionid(String functionId) {
+        setFunctionId(functionId);
     }
 
     public String getDocType() {
@@ -1335,7 +1581,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
     private String docFileFileName;
     private String docFileContentType;
-    /** Error hashtable key set when filename validation fails during bind; checked by execute methods. */
+    /** Error map key set when filename validation fails during bind; checked by execute methods. */
     private String docFileBindErrorKey;
 
     public String getDocFileFileName() {

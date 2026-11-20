@@ -36,6 +36,17 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
 
 public interface BillingServiceDao extends AbstractDao<BillingService> {
+
+    record TimeRule(String serviceCode, String timeRange) { }
+    record ConditionRule(String serviceCode, String conditionCode) { }
+    record CodeDescription(String code, String description) { }
+
+    List<TimeRule> findTimeRules();
+    List<ConditionRule> findAllConditionRules();
+    List<ConditionRule> findConditionRules(String serviceCode);
+    List<String> findVisitTypes();
+    List<CodeDescription> findCodeDescriptions(String descriptionPrefix);
+    String findFirstPrice(String serviceCode);
     static public final String BC = "BC";
 
     List<BillingService> getBillingCodeAttr(String serviceCode);
@@ -45,6 +56,13 @@ public interface BillingServiceDao extends AbstractDao<BillingService> {
     List<BillingService> findBillingCodesByCode(String code, String region);
 
     List<BillingService> findByServiceCode(String code);
+
+    /**
+     * Adds a new private code only if none exists, serializing private-code additions in this database
+     * until the caller's transaction completes. Existing fee-history rows are left unchanged.
+     * @return false when the code is already present
+     */
+    boolean persistPrivateCodeIfAbsent(BillingService code);
 
     List<BillingService> findByServiceCodeAndDate(String code, Date date);
 
@@ -90,6 +108,9 @@ public interface BillingServiceDao extends AbstractDao<BillingService> {
 
     List<Object[]> findSomethingByBillingId(Integer billingNo);
 
+    /** Loads only the form, avoiding nullable primitive invoice fields in the legacy tuple query. */
+    List<io.github.carlos_emr.carlos.billing.CA.BC.model.Wcb> findOpenWcbFormsByBillingId(Integer billingNo);
+
     List<BillingService> findGst(String code, Date date);
 
     List<BillingService> search_service_code(String code, String code1, String code2, String desc, String desc1, String desc2);
@@ -98,7 +119,25 @@ public interface BillingServiceDao extends AbstractDao<BillingService> {
 
     List<io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceCodeMagicRow> findBillingServiceAndCtlBillingServiceByMagic(String serviceType, String serviceGroup, Date billReferenceDate);
 
-    List<Object> findBillingCodesByCodeAndTerminationDate(String serviceCode, Date terminationDate);
+    /**
+     * Returns the distinct service code when {@code serviceCode} is billable on
+     * {@code serviceDate}: the row in effect on that date (the latest
+     * {@code billingserviceDate} on or before it, the same rule the billing form's code
+     * lookups apply) must terminate after it.
+     *
+     * <p>A code whose earliest row takes effect after {@code serviceDate} has no row in effect
+     * and is therefore not returned, so a stale or crafted submission of a fee dated before its
+     * effective date (e.g. the 2026 OMA uninsured fees) is rejected the same way as an unknown
+     * code.</p>
+     *
+     * <p>This is an equality match, not {@code LIKE}: pass the code as stored. Do not escape
+     * {@code _} or {@code %}; private codes start with {@code _} (e.g. {@code _OMA_A003}).</p>
+     *
+     * @param serviceCode the literal service code
+     * @param serviceDate the bill's service date; the row in effect on it must terminate after it
+     * @return the matching code, or an empty list
+     */
+    List<Object> findBillingCodesByCodeAndTerminationDate(String serviceCode, Date serviceDate);
 
     String getCodeDescription(String val, String billReferalDate);
 }

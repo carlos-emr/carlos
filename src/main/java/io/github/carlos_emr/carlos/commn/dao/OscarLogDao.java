@@ -38,6 +38,21 @@ import io.github.carlos_emr.carlos.commn.model.OscarLog;
 
 public interface OscarLogDao extends AbstractDao<OscarLog> {
 
+    /**
+     * Inserts an audit entry in a transaction of its own, which commits before this method returns.
+     *
+     * <p>Unlike {@link #persist}, which joins a transaction the caller has open, the entry does not
+     * depend on that transaction: it is kept when the caller's transaction rolls back, and it is not
+     * written on the caller's connection, which may be read-only. A failure here rolls back only the
+     * entry and leaves the caller's transaction usable. Use it for an audit record that must survive
+     * the failure it reports; use {@link #persist} where the record and the audited change must
+     * commit or roll back together.</p>
+     *
+     * @param oscarLog the entry to insert
+     * @since 2026-11-12
+     */
+    void persistInNewTransaction(OscarLog oscarLog);
+
     public List<OscarLog> findByDemographicId(Integer demographicId);
 
     public List<OscarLog> findByProviderNo(String providerNo);
@@ -52,8 +67,25 @@ public interface OscarLogDao extends AbstractDao<OscarLog> {
 
     public List<Integer> getDemographicIdsOpenedSinceTime(Date value);
 
+    /**
+     * Lists existing, unmerged patients accessed by the provider, newest access first.
+     * Repeated accesses are grouped by patient; equal latest timestamps are ordered
+     * by demographic ID. Missing patients, soft-deleted (DE) patients and active
+     * merge-source records are excluded before pagination without changing their
+     * retained audit history. Existing patients with a NULL status remain eligible.
+     *
+     * @param providerNo provider whose access history is selected
+     * @param startPosition zero-based offset into the filtered patient list
+     * @param itemsToReturn maximum number of patients to return
+     * @return ordered patient identifiers after applying the offset and limit
+     * @throws IllegalArgumentException if the offset/limit is negative or the limit exceeds the configured maximum
+     */
     public List<Integer> getRecentDemographicsAccessedByProvider(String providerNo, int startPosition,
                                                                  int itemsToReturn);
+
+    /** Request-scoped patient exclusions are applied before the recent-patient page limit. */
+    List<Integer> getRecentDemographicsAccessedByProvider(String providerNo, int startPosition,
+            int itemsToReturn, java.util.Set<Integer> deniedPatients);
 
     public List<Object[]> getRecentDemographicsViewedByProvider(String providerNo, int startPosition,
                                                                 int itemsToReturn);
@@ -75,7 +107,7 @@ public interface OscarLogDao extends AbstractDao<OscarLog> {
      * keep the plan simple.</p>
      *
      * @param startDate Date inclusive lower bound for the log timestamp
-     * @param endDate Date inclusive upper bound for the log timestamp
+     * @param endDateExclusive Date exclusive upper bound, normally midnight after the selected end date
      * @param content String raw SQL LIKE parameter for the content column, bound exactly as supplied by the caller;
      *                plain values such as {@code admin} and {@code login} therefore behave as exact matches,
      *                while callers may pass wildcards such as {@code %}
@@ -84,7 +116,7 @@ public interface OscarLogDao extends AbstractDao<OscarLog> {
      *                        an empty list short-circuits to an empty result (fail-closed for site-restricted users)
      * @return List<OscarLog> matching log entries ordered by newest first
      */
-    public List<OscarLog> findForReport(Date startDate, Date endDate, String content, String providerNo,
+    public List<OscarLog> findForReport(Date startDate, Date endDateExclusive, String content, String providerNo,
                                         List<String> siteProviderNos);
 
     public int purgeLogEntries(Date maxDateToRemove);

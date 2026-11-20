@@ -73,7 +73,8 @@ function initProviderAutocomplete(inputSelector, contextPath, onSelect, options)
     var instance = $el.autocomplete("instance");
     if (instance) {
         instance._renderItem = function (ul, item) {
-            return jQuery("<li>").append(jQuery("<div>").text(item.label)).appendTo(ul);
+            // resultFormatter3 escapes every dynamic value; its only markup is the match span.
+            return jQuery("<li>").append(jQuery("<div>").html(item.label)).appendTo(ul);
         };
     }
 }
@@ -144,7 +145,8 @@ function initDemographicAutocomplete(inputSelector, contextPath, onSelect, optio
     var instance = $el.autocomplete("instance");
     if (instance) {
         instance._renderItem = function (ul, item) {
-            return jQuery("<li>").append(jQuery("<div>").text(item.label)).appendTo(ul);
+            // resultFormatter2 escapes names, dates, status, and the highlighted query text.
+            return jQuery("<li>").append(jQuery("<div>").html(item.label)).appendTo(ul);
         };
     }
 }

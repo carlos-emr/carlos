@@ -42,6 +42,38 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public class DemographicContactDaoImpl extends AbstractDaoImpl<DemographicContact> implements DemographicContactDao {
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column> readCdsExportReceiptColumns() {
+        return CdsExportNativeMetadataReadSupport.read(entityManager, CdsExportNativeMetadataReadSupport.Table.DEMOGRAPHIC_CONTACT);
+    }
+
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportSourceSchema() {
+        return CdsExportPatientTableReadSupport.schema(entityManager, CdsExportPatientTableReadSupport.Plan.DEMOGRAPHIC_CONTACT);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public long countCdsExportRows(int patient) {
+        return CdsExportPatientTableReadSupport.count(entityManager, CdsExportPatientTableReadSupport.Plan.DEMOGRAPHIC_CONTACT, patient);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> findCdsExportRowsAfter(int patient, Long afterId, int limit) {
+        return CdsExportPatientTableReadSupport.page(entityManager, CdsExportPatientTableReadSupport.Plan.DEMOGRAPHIC_CONTACT, patient, afterId, limit);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public byte[] readCdsExportValueChunk(int patient, long rowId, String column, long offset, int length) {
+        return CdsExportPatientTableReadSupport.chunk(entityManager, CdsExportPatientTableReadSupport.Plan.DEMOGRAPHIC_CONTACT, patient, rowId, column, offset, length);
+    }
+
+
 
     public DemographicContactDaoImpl() {
         super(DemographicContact.class);
@@ -90,6 +122,26 @@ public class DemographicContactDaoImpl extends AbstractDaoImpl<DemographicContac
         @SuppressWarnings("unchecked")
         List<DemographicContact> dContacts = query.getResultList();
         return dContacts;
+    }
+
+    /**
+     * Finds non-deleted personal demographic links for reciprocal-identity checks.
+     * Inactive links remain included to prevent duplicate reciprocal rows.
+     *
+     * @param demographicNo association owner demographic number
+     * @param contactId linked demographic number
+     * @return matching personal demographic associations, including inactive links
+     */
+    @Override
+    public List<DemographicContact> findPersonalPatientLinks(int demographicNo, int contactId) {
+        var query = entityManager.createQuery("select x from DemographicContact x"
+                + " where x.demographicNo=?1 and x.contactId=?2 and x.deleted=false"
+                + " and x.category=?3 and x.type=?4", DemographicContact.class);
+        query.setParameter(1, demographicNo);
+        query.setParameter(2, Integer.toString(contactId));
+        query.setParameter(3, DemographicContact.CATEGORY_PERSONAL);
+        query.setParameter(4, DemographicContact.TYPE_DEMOGRAPHIC);
+        return query.getResultList();
     }
 
     @Override

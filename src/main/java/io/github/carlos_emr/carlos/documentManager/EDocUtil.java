@@ -29,6 +29,8 @@
 
 package io.github.carlos_emr.carlos.documentManager;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -49,10 +51,10 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
+import java.util.Set;
 
 import io.github.carlos_emr.carlos.commn.dao.*;
 import org.owasp.encoder.Encode;
-import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.pdfbox.Loader;
@@ -66,6 +68,7 @@ import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao.Module;
+import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDocumentGuard;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.commn.model.CtlDocType;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
@@ -76,9 +79,10 @@ import io.github.carlos_emr.carlos.commn.model.EFormDocs;
 import io.github.carlos_emr.carlos.commn.model.PartialDate;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
-import io.github.carlos_emr.carlos.commn.model.TicklerLink;
+import io.github.carlos_emr.carlos.commn.model.TicklerDocs;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -230,12 +234,14 @@ public final class EDocUtil {
     private static ProgramManager programManager() { return SpringUtils.getBean(ProgramManager.class); }
     private static CaseManagementNoteLinkDAO caseManagementNoteLinkDao() { return SpringUtils.getBean(CaseManagementNoteLinkDAO.class); }
     private static CaseManagementNoteDAO caseManagementNoteDao() { return SpringUtils.getBean(CaseManagementNoteDAO.class); }
-    private static TicklerLinkDao ticklerLinkDao() { return SpringUtils.getBean(TicklerLinkDao.class); }
+    private static TicklerDocsDao ticklerDocsDao() { return SpringUtils.getBean(TicklerDocsDao.class); }
     private static TicklerManager ticklerManager() { return SpringUtils.getBean(TicklerManager.class); }
+    private static SecurityInfoManager securityInfoManager() { return SpringUtils.getBean(SecurityInfoManager.class); }
     private static ProviderDao providerDao() { return SpringUtils.getBean(ProviderDao.class); }
     private static CtlDocTypeDao ctldoctypedao() { return SpringUtils.getBean(CtlDocTypeDao.class); }
     private static DemographicManager demographicManager() { return SpringUtils.getBean(DemographicManager.class); }
     private static CtlDocumentDao ctlDocumentDao() { return SpringUtils.getBean(CtlDocumentDao.class); }
+    private static OutboundEmailArchiveDao outboundEmailArchiveDao() { return SpringUtils.getBean(OutboundEmailArchiveDao.class); }
 
     public static String getProviderName(String providerNo) {
         if (providerNo == null || providerNo.length() == 0) {
@@ -302,6 +308,10 @@ public final class EDocUtil {
      * @return the new documentId
      */
     public static String addDocumentSQL(EDoc newDocument) {
+        if (newDocument == null) {
+            throw new IllegalArgumentException("Document is required");
+        }
+        assertNotOutboundEmailArchiveFileName(newDocument.getFileName());
         Document doc = new Document();
         doc.setDoctype(newDocument.getType());
         doc.setDocClass(newDocument.getDocClass());
@@ -315,6 +325,7 @@ public final class EDocUtil {
         doc.setResponsible(newDocument.getResponsibleId());
         doc.setProgramId(newDocument.getProgramId());
         doc.setUpdatedatetime(newDocument.getDateTimeStampAsDate());
+        doc.setCdsContentPrecision(newDocument.getCdsContentPrecision());
         doc.setContentdatetime(newDocument.getContentDateTime());
         doc.setStatus(newDocument.getStatus());
         doc.setContenttype(newDocument.getContentType());
@@ -367,6 +378,7 @@ public final class EDocUtil {
     }
 
     public static void detachDocConsult(String docNo, String consultId) {
+        assertNotOutboundEmailArchiveDocument(docNo);
         List<ConsultDocs> consultDocs = getConsultDocsDao().findByRequestIdDocNoDocType(ConversionUtils.fromIntString(consultId), ConversionUtils.fromIntString(docNo), ConsultDocs.DOCTYPE_DOC);
         for (ConsultDocs consultDoc : consultDocs) {
             consultDoc.setDeleted("Y");
@@ -375,6 +387,7 @@ public final class EDocUtil {
     }
 
     public static void detachDocEForm(String docNo, String consultId) {
+        assertNotOutboundEmailArchiveDocument(docNo);
         List<EFormDocs> eformDocs = getEformDocsDao().findByFdidIdDocNoDocType(ConversionUtils.fromIntString(consultId), ConversionUtils.fromIntString(docNo), EFormDocs.DOCTYPE_DOC);
         for (EFormDocs eformDoc : eformDocs) {
             eformDoc.setDeleted("Y");
@@ -383,6 +396,7 @@ public final class EDocUtil {
     }
 
     public static void attachDocConsult(String providerNo, String docNo, String consultId) {
+        assertNotOutboundEmailArchiveDocument(docNo);
         ConsultDocs consultDoc = new ConsultDocs();
         consultDoc.setRequestId(ConversionUtils.fromIntString(consultId));
         consultDoc.setDocumentNo(ConversionUtils.fromIntString(docNo));
@@ -393,6 +407,7 @@ public final class EDocUtil {
     }
 
     public static void attachDocEForm(String providerNo, String docNo, String consultId) {
+        assertNotOutboundEmailArchiveDocument(docNo);
         EFormDocs eformDoc = new EFormDocs();
         eformDoc.setFdid(ConversionUtils.fromIntString(consultId));
         eformDoc.setDocumentNo(ConversionUtils.fromIntString(docNo));
@@ -403,6 +418,11 @@ public final class EDocUtil {
     }
 
     public static void editDocumentSQL(EDoc newDocument, boolean doReview) {
+        if (newDocument == null) {
+            throw new IllegalArgumentException("Document is required");
+        }
+        assertNotOutboundEmailArchiveDocument(newDocument.getDocId());
+        assertNotOutboundEmailArchiveFileName(newDocument.getFileName());
 
         Document doc = getDocumentDao().find(ConversionUtils.fromIntString(newDocument.getDocId()));
         if (doc != null) {
@@ -430,7 +450,12 @@ public final class EDocUtil {
             if (newDocument.getFileName().length() > 0) {
                 doc.setDocfilename(newDocument.getFileName());
                 doc.setContenttype(newDocument.getContentType());
-                doc.setContentdatetime(newDocument.getContentDateTime());
+                // Content time is read-only in this metadata editor. Preserve the imported
+                // source value even when an EDoc constructor populated an upload-time default.
+                if (doc.getCdsContentPrecision()==null) doc.setContentdatetime(newDocument.getContentDateTime());
+                // The replacement's page count, as adding a document stores it (0 when it is not a PDF);
+                // the inbox view, the document display and Split read it.
+                doc.setNumberofpages(newDocument.getNumberOfPages());
             }
 
             doc.setAbnormal(Boolean.parseBoolean(newDocument.getAbnormal()));
@@ -450,7 +475,8 @@ public final class EDocUtil {
         if (!attached) {
             ctlDocs = getDocumentDao().findCtlDocsAndDocsByModuleAndModuleId(Module.DEMOGRAPHIC, ConversionUtils.fromIntString(demoNo));
         }
-        return documentProgramFiltering(loggedInInfo, listDocs(loggedInInfo, attached, docs, ctlDocs));
+        return withoutOutboundEmailArchiveDocuments(
+                documentProgramFiltering(loggedInInfo, listDocs(loggedInInfo, attached, docs, ctlDocs)));
     }
 
     public static ArrayList<EDoc> listDocsAttachedToEForm(LoggedInInfo loggedInInfo, String demoNo, String requestId, boolean attached) {
@@ -462,7 +488,8 @@ public final class EDocUtil {
         if (!attached) {
             ctlDocs = getDocumentDao().findCtlDocsAndDocsByModuleAndModuleId(Module.DEMOGRAPHIC, ConversionUtils.fromIntString(demoNo));
         }
-        return documentProgramFiltering(loggedInInfo, listDocs(loggedInInfo, attached, docs, ctlDocs));
+        return withoutOutboundEmailArchiveDocuments(
+                documentProgramFiltering(loggedInInfo, listDocs(loggedInInfo, attached, docs, ctlDocs)));
     }
 
     //Consultation Response fetch documents
@@ -472,7 +499,8 @@ public final class EDocUtil {
         if (!attached) {
             ctlDocs = getDocumentDao().findCtlDocsAndDocsByModuleAndModuleId(Module.DEMOGRAPHIC, ConversionUtils.fromIntString(demoNo));
         }
-        return documentProgramFiltering(loggedInInfo, listDocs(loggedInInfo, attached, docs, ctlDocs));
+        return withoutOutboundEmailArchiveDocuments(
+                documentProgramFiltering(loggedInInfo, listDocs(loggedInInfo, attached, docs, ctlDocs)));
     }
 
     private static ArrayList<EDoc> listDocs(LoggedInInfo loggedInInfo, boolean attached, List<Object[]> docs, List<Object[]> ctlDocs) {
@@ -503,6 +531,7 @@ public final class EDocUtil {
             currentdoc.setReviewerId(d.getReviewer());
             currentdoc.setReviewDateTime(ConversionUtils.toTimestampString(d.getReviewdatetime()));
             currentdoc.setReviewDateTimeDate(d.getReviewdatetime());
+            currentdoc.setCdsContentPrecision(d.getCdsContentPrecision());
             currentdoc.setContentDateTime(d.getContentdatetime());
 
             if (d.isRestrictToProgram() != null) {
@@ -539,6 +568,7 @@ public final class EDocUtil {
                 currentdoc.setReviewerId(d.getReviewer());
                 currentdoc.setReviewDateTime(ConversionUtils.toTimestampString(d.getReviewdatetime()));
                 currentdoc.setReviewDateTimeDate(d.getReviewdatetime());
+                currentdoc.setCdsContentPrecision(d.getCdsContentPrecision());
                 currentdoc.setContentDateTime(d.getContentdatetime());
                 currentdoc.setRestrictToProgram(d.isRestrictToProgram());
 
@@ -563,12 +593,14 @@ public final class EDocUtil {
     }
 
     public static EDoc getEDocFromDocId(String docId) {
-        DocumentDao dao = SpringUtils.getBean(DocumentDao.class);
         EDoc currentdoc = new EDoc();
+        assertNotOutboundEmailArchiveDocument(docId);
+        DocumentDao dao = SpringUtils.getBean(DocumentDao.class);
 
         for (Object[] o : dao.findCtlDocsAndDocsByDocNo(ConversionUtils.fromIntString(docId))) {
             Document d = (Document) o[0];
             CtlDocument c = (CtlDocument) o[1];
+            assertNotOutboundEmailArchiveFileName(d.getDocfilename());
 
             currentdoc.setModule(c.getId().getModule());
             currentdoc.setModuleId("" + c.getId().getModuleId());
@@ -596,6 +628,7 @@ public final class EDocUtil {
             currentdoc.setReviewerId(d.getReviewer());
             currentdoc.setReviewDateTime(ConversionUtils.toTimestampString(d.getReviewdatetime()));
             currentdoc.setReviewDateTimeDate(d.getReviewdatetime());
+            currentdoc.setCdsContentPrecision(d.getCdsContentPrecision());
             currentdoc.setContentDateTime(d.getContentdatetime());
             currentdoc.setAbnormal(String.valueOf(d.isAbnormal()));
         }
@@ -607,11 +640,14 @@ public final class EDocUtil {
 
         ArrayList<EDoc> resultDocs = new ArrayList<EDoc>();
         for (String docId : docIds) {
+            if (isOutboundEmailArchiveDocumentId(docId)) {
+                continue;
+            }
             EDoc currentdoc = new EDoc();
             currentdoc = getEDocFromDocId(docId);
             resultDocs.add(currentdoc);
         }
-        return resultDocs;
+        return withoutOutboundEmailArchiveDocuments(resultDocs);
     }
 
     public static ArrayList<EDoc> listDocs(LoggedInInfo loggedInInfo, String module, String moduleid, String docType, String publicDoc, EDocSort sort, String viewstatus) {
@@ -635,7 +671,7 @@ public final class EDocUtil {
         //filter by program.
         resultDocs = documentProgramFiltering(loggedInInfo, resultDocs);
 
-        return resultDocs;
+        return withoutOutboundEmailArchiveDocuments(resultDocs);
     }
 
     public static List<EDoc> listAllDemographicDocsSince(LoggedInInfo loggedInInfo, int demographicNo, Date since) {
@@ -652,7 +688,7 @@ public final class EDocUtil {
             edocList = documentFacilityFiltering(loggedInInfo, edocList);
         }
 
-        return edocList;
+        return withoutOutboundEmailArchiveDocuments(edocList);
     }
 
     public static ArrayList<EDoc> listDocsSince(LoggedInInfo loggedInInfo, String module, String moduleid, String docType, String publicDoc, EDocSort sort, String viewstatus, Date since) {
@@ -675,7 +711,7 @@ public final class EDocUtil {
             resultDocs = documentFacilityFiltering(loggedInInfo, resultDocs);
         }
 
-        return resultDocs;
+        return withoutOutboundEmailArchiveDocuments(resultDocs);
     }
 
     public static ArrayList<Integer> listDemographicIdsSince(Date since) {
@@ -705,6 +741,7 @@ public final class EDocUtil {
         currentdoc.setDateTimeStampAsDate(d.getUpdatedatetime());
         currentdoc.setDocClass(d.getDocClass());
         currentdoc.setDocSubClass(d.getDocSubClass());
+        currentdoc.setCdsContentPrecision(d.getCdsContentPrecision());
         currentdoc.setContentDateTime(d.getContentdatetime());
         if (d.isRestrictToProgram() != null && d.isRestrictToProgram()) {
             currentdoc.setRestrictToProgram(true);
@@ -743,12 +780,13 @@ public final class EDocUtil {
             currentdoc.setStatus(d.getStatus());
             currentdoc.setContentType(d.getContenttype());
             currentdoc.setObservationDate(d.getObservationdate());
+            currentdoc.setCdsContentPrecision(d.getCdsContentPrecision());
             currentdoc.setContentDateTime(d.getContentdatetime());
 
             list.add(currentdoc);
         }
 
-        return list;
+        return withoutOutboundEmailArchiveDocuments(list);
     }
 
     private static ArrayList<EDoc> documentFacilityFiltering(LoggedInInfo loggedInInfo, List<EDoc> eDocs) {
@@ -816,6 +854,7 @@ public final class EDocUtil {
             currentdoc.setReviewerId(d.getReviewer());
             currentdoc.setReviewDateTime(ConversionUtils.toTimestampString(d.getReviewdatetime()));
             currentdoc.setReviewDateTimeDate(d.getReviewdatetime());
+            currentdoc.setCdsContentPrecision(d.getCdsContentPrecision());
             currentdoc.setContentDateTime(d.getContentdatetime());
             resultDocs.add(currentdoc);
         }
@@ -824,7 +863,7 @@ public final class EDocUtil {
             resultDocs = documentFacilityFiltering(loggedInInfo, resultDocs);
         }
 
-        return resultDocs;
+        return withoutOutboundEmailArchiveDocuments(resultDocs);
     }
 
     public static List<String> listModules() {
@@ -833,14 +872,14 @@ public final class EDocUtil {
     }
 
     public static EDoc getDoc(String documentNo) {
-
-        DocumentDao dao = SpringUtils.getBean(DocumentDao.class);
-
         EDoc currentdoc = new EDoc();
+        assertNotOutboundEmailArchiveDocument(documentNo);
+        DocumentDao dao = SpringUtils.getBean(DocumentDao.class);
 
         for (Object[] o : dao.findCtlDocsAndDocsByDocNo(ConversionUtils.fromIntString(documentNo))) {
             Document d = (Document) o[0];
             CtlDocument c = (CtlDocument) o[1];
+            assertNotOutboundEmailArchiveFileName(d.getDocfilename());
 
             currentdoc.setModule("" + c.getId().getModule());
             currentdoc.setModuleId("" + c.getId().getModuleId());
@@ -864,7 +903,8 @@ public final class EDocUtil {
             currentdoc.setHtml(d.getDocxml());
             currentdoc.setStatus(d.getStatus());
             currentdoc.setContentType(d.getContenttype());
-            currentdoc.setNumberOfPages(d.getNumberofpages());
+            currentdoc.setNumberOfPages(d.getNumberofpages()==null?0:d.getNumberofpages());
+            currentdoc.setCdsContentPrecision(d.getCdsContentPrecision());
             currentdoc.setContentDateTime(d.getContentdatetime());
 
             currentdoc.setReceivedDate(d.getReceivedDate());
@@ -879,14 +919,17 @@ public final class EDocUtil {
     }
 
     public String getDocumentName(String id) {
+        assertNotOutboundEmailArchiveDocument(id);
         Document d = getDocumentDao().find(ConversionUtils.fromIntString(id));
         if (d != null) {
+            assertNotOutboundEmailArchiveFileName(d.getDocfilename());
             return d.getDocfilename();
         }
         return null;
     }
 
     public static void undeleteDocument(String documentNo) {
+        assertNotOutboundEmailArchiveDocument(documentNo);
         CtlDocument cd = ctlDocumentDao().getCtrlDocument(ConversionUtils.fromIntString(documentNo));
         String status = "";
         if (cd != null) {
@@ -894,14 +937,16 @@ public final class EDocUtil {
         }
 
         Document d = getDocumentDao().find(ConversionUtils.fromIntString(documentNo));
-        if (d != null) {
-            d.setStatus(status.toCharArray()[0]);
+        // A missing or blank control-row status cannot be indexed; leave the document as is.
+        if (d != null && status != null && !status.isEmpty()) {
+            d.setStatus(status.charAt(0));
             d.setUpdatedatetime(MyDateFormat.getSysDate(getDmsDateTime()));
             getDocumentDao().merge(d);
         }
     }
 
     public static void deleteDocument(String documentNo) {
+        assertNotOutboundEmailArchiveDocument(documentNo);
         Document d = getDocumentDao().find(ConversionUtils.fromIntString(documentNo));
         if (d != null) {
             d.setStatus('D');
@@ -940,10 +985,12 @@ public final class EDocUtil {
 
         File sourceBaseDir = new File(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
         int parsedDocumentNo = parsePositiveId(documentNo, "documentNo");
+        assertNotOutboundEmailArchiveDocument(parsedDocumentNo);
         Document d = getDocumentDao().find(parsedDocumentNo);
         if (d == null) {
             throw new FileNotFoundException("Document not found");
         }
+        assertNotOutboundEmailArchiveFileName(d.getDocfilename());
         if (d.getDocfilename() == null || d.getDocfilename().trim().isEmpty()) {
             // HTML-only documents have no stored file, so there is nothing to refile.
             throw new FileNotFoundException("Document has no stored file");
@@ -1028,6 +1075,7 @@ public final class EDocUtil {
     }
 
     public static int addDocument(String demoNo, String docFileName, String docDesc, String docType, String docClass, String docSubClass, String contentType, String contentDateTime, String observationDate, String updateDateTime, String docCreator, String responsible, String reviewer, String reviewDateTime, String source, String sourceFacility, String receivedDate) {
+        assertNotOutboundEmailArchiveFileName(docFileName);
 
         Document doc = new Document();
         doc.setDoctype(docType);
@@ -1082,9 +1130,12 @@ public final class EDocUtil {
 
     public static String getLastDocumentDesc() {
         String docNumber = EDocUtil.getLastDocumentNo();
+        if (isOutboundEmailArchiveDocumentId(docNumber)) {
+            return null;
+        }
         DocumentDao dao = SpringUtils.getBean(DocumentDao.class);
         Document d = dao.find(ConversionUtils.fromIntString(docNumber));
-        if (d != null) {
+        if (d != null && !isOutboundEmailArchiveFileName(d.getDocfilename())) {
             return d.getDocdesc();
         }
         return null;
@@ -1104,20 +1155,20 @@ public final class EDocUtil {
             fis.read(fdata);
 
         } catch (NullPointerException ex) {
-            logger.error("Error", ex);
+            logger.error("Error: {}", LogSafe.exceptionTrace(ex));
         } catch (FileNotFoundException ex) {
-            logger.error("Error", ex);
+            logger.error("Error: {}", LogSafe.exceptionTrace(ex));
         } catch (IOException ex) {
-            logger.error("Error", ex);
+            logger.error("Error: {}", LogSafe.exceptionTrace(ex));
         } catch (SecurityException ex) {
             // PathValidationUtils rejecting a malformed document path leaves fdata null, matching the
             // existing return-null contract instead of throwing an unchecked exception at the caller.
-            logger.error("Error", ex);
+            logger.error("Error: {}", LogSafe.exceptionTrace(ex));
         } finally {
             try {
                 if (fis != null) fis.close();
             } catch (IOException e) {
-                logger.error("error", e);
+                logger.error("error: {}", LogSafe.exceptionTrace(e));
             }
         }
 
@@ -1160,10 +1211,13 @@ public final class EDocUtil {
         Long docIdL = getTableIdFromNoteId(noteId);
         if (docIdL > 0L) {
             Integer docId = docIdL.intValue();
+            if (OutboundEmailArchiveDocumentGuard.isArchiveDocument(outboundEmailArchiveDao(), docId)) {
+                return doc;
+            }
 
             DocumentDao dao = SpringUtils.getBean(DocumentDao.class);
             Document d = dao.find(docId);
-            if (d != null) {
+            if (d != null && !isOutboundEmailArchiveFileName(d.getDocfilename())) {
                 doc.setDocId("" + d.getDocumentNo());
                 doc.setFileName(d.getDocfilename());
                 doc.setStatus(d.getStatus());
@@ -1174,6 +1228,7 @@ public final class EDocUtil {
     }
 
     public static void subtractOnePage(String docId) {
+        assertNotOutboundEmailArchiveDocument(docId);
         Document doc = getDocumentDao().find(ConversionUtils.fromIntString(docId));
         doc.setNumberofpages(doc.getNumberofpages() - 1);
 
@@ -1181,23 +1236,44 @@ public final class EDocUtil {
     }
 
     public static String getHtmlTicklers(LoggedInInfo loggedInInfo, String docId) {
+        assertNotOutboundEmailArchiveDocument(docId);
 
-        Long table_id = Long.valueOf(docId);
-        List<TicklerLink> linkList = ticklerLinkDao().getLinkByTableId("DOC", table_id);
+        // Attachments live in ticklerdocs (#3984); the legacy tickler_link rows were backfilled.
+        Integer documentNo = Integer.valueOf(docId);
+        List<TicklerDocs> attachments = ticklerDocsDao().findByDocument(documentNo, TicklerDocs.DOCTYPE_DOC);
         String HtmlTickler = "";
-        Integer ticklerNo;
 
-        if (linkList != null) {
-            for (TicklerLink tl : linkList) {
-                ticklerNo = tl.getTicklerNo();
-                Tickler t = ticklerManager().getTickler(loggedInInfo, ticklerNo);
-                HtmlTickler += "<br>" + Encode.forHtml(t.getMessage());
+        if (attachments != null && !attachments.isEmpty()) {
+            // The document's patients now: a tickler attached before the document was re-filed
+            // belongs to another patient and is not this document's tickler any more.
+            java.util.Set<Integer> documentPatients = new java.util.HashSet<Integer>();
+            List<CtlDocument> filings = ctlDocumentDao().findByDocumentNoAndModule(documentNo, "demographic");
+            if (filings != null) {
+                for (CtlDocument filing : filings) {
+                    if (filing.getId() != null) {
+                        documentPatients.add(filing.getId().getModuleId());
+                    }
+                }
+            }
+            for (TicklerDocs attachment : attachments) {
+                Tickler t = ticklerManager().getTickler(loggedInInfo, attachment.getTicklerId());
+                if (t == null || !documentPatients.contains(t.getDemographicNo())) {
+                    continue;
+                }
+                // getTickler proves the global _tickler right only; this is reached from an
+                // _edoc-gated page, and a patient-specific denial takes precedence, so the
+                // message is only rendered when the caller may read ticklers for that patient.
+                if (securityInfoManager().hasPrivilege(loggedInInfo, "_tickler", SecurityInfoManager.READ,
+                        String.valueOf(t.getDemographicNo()))) {
+                    HtmlTickler += "<br>" + Encode.forHtml(t.getMessage());
+                }
             }
         }
         return HtmlTickler;
     }
 
     public static String getHtmlAcknowledgement(Locale locale, String docId) {
+        assertNotOutboundEmailArchiveDocument(docId);
 
         ArrayList<ReportStatus> ackList = AcknowledgementData.getAcknowledgements("DOC", docId);
         String HtmlAcknowledgement = "";
@@ -1230,6 +1306,7 @@ public final class EDocUtil {
     }
 
     public static String getHtmlAnnotation(String docId) {
+        assertNotOutboundEmailArchiveDocument(docId);
 
         Long tableId = 0L;
         String note = "";
@@ -1268,7 +1345,11 @@ public final class EDocUtil {
         InputStream is = null;
         try {
             is = new BufferedInputStream(new FileInputStream(validateResolvedDocumentOrTempFile(fileName)));
-            return IOUtils.toByteArray(is);
+            return is.readAllBytes();
+        } catch (OutboundEmailArchiveSecurityException e) {
+            // Not folded into IOException below: an archive refusal is an authorization outcome, not a
+            // missing file. A caller seeing IOException would report and audit the wrong thing.
+            throw e;
         } catch (SecurityException e) {
             // Honour the declared throws IOException: a rejected document path surfaces as a checked
             // IOException rather than an unchecked SecurityException callers are not expecting. Throwing
@@ -1278,7 +1359,7 @@ public final class EDocUtil {
             try {
                 if (is != null) is.close();
             } catch (IOException e) {
-                logger.error("Unable to close output stream", e);
+                logger.error("Unable to close output stream: {}", LogSafe.exceptionTrace(e));
             }
         }
     }
@@ -1289,14 +1370,19 @@ public final class EDocUtil {
         File resolvedFile = new File(resolvePath(fileName));
         File documentDir = PathValidationUtils.resolveConfiguredDirectory(
                 CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
-        try {
-            return PathValidationUtils.validateExistingPath(resolvedFile, documentDir);
-        } catch (SecurityException e) {
-            if (PathValidationUtils.isInAllowedTempDirectory(resolvedFile)) {
-                return PathValidationUtils.resolveTrustedPath(resolvedFile);
-            }
-            throw e;
+        File trustedFile;
+        // resolvePath has already canonicalized the target. Check the allowed-temp branch
+        // before the document-only validator, which logs every containment rejection.
+        if (PathValidationUtils.isInAllowedTempDirectory(resolvedFile)) {
+            trustedFile = PathValidationUtils.resolveTrustedPath(resolvedFile);
+        } else {
+            trustedFile = PathValidationUtils.validateExistingPath(resolvedFile, documentDir);
         }
+        // Guarded here rather than in each caller: this resolver is the single point every raw
+        // document-file read passes through, and the name is only trustworthy once it has been
+        // resolved and containment-checked above.
+        assertNotOutboundEmailArchiveFileName(trustedFile.getName());
+        return trustedFile;
     }
 
     /**
@@ -1311,9 +1397,14 @@ public final class EDocUtil {
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public static void writeDocContent(String fileName, byte[] content) throws IOException {
+        assertNotOutboundEmailArchiveFileName(fileName);
         String docDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         File docDirFile = new File(docDir);
         File file = PathValidationUtils.validatePath(fileName, docDirFile);
+        // validatePath intentionally strips path components from legacy caller input. Check the
+        // resolved basename as well, otherwise "ignored-directory/<archive-name>" misses the
+        // check above and then resolves to the protected archive file in DOCUMENT_DIR.
+        assertNotOutboundEmailArchiveFileName(file.getName());
         writeContent(file.getAbsolutePath(), content);
     }
 
@@ -1346,23 +1437,21 @@ public final class EDocUtil {
             }
 
             // Get the canonical path to resolve any symbolic links or relative paths
-            String canonicalPath = inputFile.getCanonicalPath();
+            File canonicalFile = inputFile.getCanonicalFile();
 
-            // Use PathValidationUtils for validation
-            // First try document directory
+            // Preserve the existing allowed-temp policy, checking its canonical target before
+            // the document-only validator logs a rejection. Operate on that same canonical file.
+            if (PathValidationUtils.isInAllowedTempDirectory(canonicalFile)) {
+                return canonicalFile.getPath();
+            }
             try {
-                inputFile = PathValidationUtils.validateExistingPath(inputFile, documentDir);
-                return canonicalPath;
+                return PathValidationUtils.validateExistingPath(canonicalFile, documentDir).getPath();
             } catch (SecurityException e) {
-                // Not in document directory, check temp directories
-                if (PathValidationUtils.isInAllowedTempDirectory(inputFile)) {
-                    return canonicalPath;
-                }
                 logger.error("Security violation: Attempted to access file outside allowed directory");
                 throw new SecurityException("Access denied: File is outside the allowed directories");
             }
         } catch (IOException e) {
-            logger.error("Error resolving file path: " + fileName, e);
+            logger.error("Error resolving file path (exceptionType={})", e.getClass().getSimpleName());
             throw new SecurityException("Unable to resolve file path securely", e);
         }
     }
@@ -1413,7 +1502,7 @@ public final class EDocUtil {
                 try {
                     os.close();
                 } catch (IOException e) {
-                    logger.error("Unable to close output stream", e);
+                    logger.error("Unable to close output stream: {}", LogSafe.exceptionTrace(e));
                 }
             }
         }
@@ -1445,7 +1534,7 @@ public final class EDocUtil {
             // This handles stale data from different environments gracefully
             Path inputPath = Paths.get(fileName);
             if (inputPath.isAbsolute() && !Files.exists(inputPath)) {
-                logger.debug("File not found (may be from different environment): " + fileName);
+                logger.debug("File not found (may be from different environment)");
                 return 0;
             }
             // resolvePath validates the path is within allowed directories, including temp directories.
@@ -1456,16 +1545,16 @@ public final class EDocUtil {
                 try (PDDocument pdf = Loader.loadPDF(path.toFile())) {
                     pagecount = pdf.getNumberOfPages();
                 } catch (IOException e) {
-                    logger.error("Could not read PDF file: " + fileName, e);
+                    logger.error("Could not read PDF file (exceptionType={})", e.getClass().getSimpleName());
                 }
             } else {
-                logger.warn("File " + fileName + " not found for page count.");
+                logger.warn("File not found for page count.");
             }
         } catch (SecurityException e) {
-            logger.error("Security violation: Attempted to access file outside allowed directory: " + fileName, e);
+            logger.error("Security violation: Attempted to access file outside allowed directory (exceptionType={})", e.getClass().getSimpleName());
             // Return 0 to indicate error without exposing security details
         } catch (IllegalArgumentException e) {
-            logger.error("Invalid file name provided: " + fileName, e);
+            logger.error("Invalid file name provided (exceptionType={})", e.getClass().getSimpleName());
             // Return 0 to indicate error
         }
 
@@ -1526,5 +1615,102 @@ public final class EDocUtil {
 			return false;
 		}
 	}
+
+    // --- outbound email archive guard -----------------------------------------------------------
+    // EDocUtil is the legacy static gateway to nearly every eDoc operation, so an archived patient
+    // email is reachable from most of it. These helpers let the operations below refuse one.
+
+    private static final String OUTBOUND_ARCHIVE_MESSAGE =
+            OutboundEmailArchiveDocumentGuard.REFUSAL_MESSAGE;
+
+    /**
+     * Marks an archive refusal so it survives handlers that translate SecurityException.
+     *
+     * <p>{@link #readContent(String)} historically converts a rejected filesystem path from
+     * SecurityException into IOException. An archive refusal must not be folded into that: it is
+     * an authorization outcome, not a missing file, and a caller that sees IOException would
+     * report the wrong thing to the user and log the wrong thing for audit. The distinct subtype
+     * lets that handler rethrow this while still converting genuine path rejections.</p>
+     */
+    private static final class OutboundEmailArchiveSecurityException extends SecurityException {
+        private static final long serialVersionUID = 1L;
+
+        private OutboundEmailArchiveSecurityException(String message) {
+            super(message);
+        }
+    }
+
+    private static void assertNotOutboundEmailArchiveDocument(Integer documentNo) {
+        if (OutboundEmailArchiveDocumentGuard.isArchiveDocument(outboundEmailArchiveDao(), documentNo)) {
+            throw new OutboundEmailArchiveSecurityException(OUTBOUND_ARCHIVE_MESSAGE);
+        }
+    }
+
+    private static void assertNotOutboundEmailArchiveDocument(String documentId) {
+        if (OutboundEmailArchiveDocumentGuard.isArchiveDocument(outboundEmailArchiveDao(), documentId)) {
+            throw new OutboundEmailArchiveSecurityException(OUTBOUND_ARCHIVE_MESSAGE);
+        }
+    }
+
+    private static void assertNotOutboundEmailArchiveFileName(String fileName) {
+        if (isOutboundEmailArchiveFileName(fileName)) {
+            throw new OutboundEmailArchiveSecurityException(OUTBOUND_ARCHIVE_MESSAGE);
+        }
+    }
+
+    private static boolean isOutboundEmailArchiveFileName(String fileName) {
+        return OutboundEmailArchiveDocumentGuard.isArchiveFileName(outboundEmailArchiveDao(), fileName);
+    }
+
+    private static boolean isOutboundEmailArchiveDocumentId(String documentId) {
+        return OutboundEmailArchiveDocumentGuard.isArchiveDocument(outboundEmailArchiveDao(), documentId);
+    }
+
+    /**
+     * Removes archive-owned eDocs from legacy listings in one batch query.
+     *
+     * <p>The JSP document browser, consultation picker, eForm picker and several REST summaries
+     * still list through this static utility rather than {@code DocumentManager}. Filtering here
+     * keeps those surfaces from presenting an archive as an ordinary clinical document, while a
+     * per-document guard remains the backstop for callers that name an id directly.</p>
+     */
+    static ArrayList<EDoc> withoutOutboundEmailArchiveDocuments(List<EDoc> documents) {
+        if (documents == null || documents.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<Integer> documentNos = new ArrayList<>();
+        for (EDoc document : documents) {
+            Integer documentNo = archiveListingDocumentNo(document);
+            if (documentNo != null) {
+                documentNos.add(documentNo);
+            }
+        }
+
+        Set<Integer> archiveDocumentNos = outboundEmailArchiveDao().findExistingDocumentNos(documentNos);
+        if (archiveDocumentNos == null || archiveDocumentNos.isEmpty()) {
+            return new ArrayList<>(documents);
+        }
+
+        ArrayList<EDoc> filtered = new ArrayList<>();
+        for (EDoc document : documents) {
+            Integer documentNo = archiveListingDocumentNo(document);
+            if (documentNo == null || !archiveDocumentNos.contains(documentNo)) {
+                filtered.add(document);
+            }
+        }
+        return filtered;
+    }
+    /** Malformed legacy listing IDs remain visible for their normal caller validation. */
+    private static Integer archiveListingDocumentNo(EDoc document) {
+        if (document == null || document.getDocId() == null) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(document.getDocId().trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
 
 }

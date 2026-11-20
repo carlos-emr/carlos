@@ -28,9 +28,18 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    billingReportCenter.jsp - British Columbia billing report selection.
+    Features: provider/date filters and independent, default-off No-Show and
+    Cancelled opt-ins for unbilled appointments. Lowercase custom statuses remain eligible.
+    Request parameters: reportAction, providerview, xml_vdate, xml_appointment_date,
+    includeNoShow and includeCancelled. Each status opt-in requires one true value;
+    missing or repeated values preserve the exclusion default.
+    @since 2026-09-26 (status opt-ins)
+--%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -56,9 +65,9 @@
     if (request.getParameter("limit2") != null) strLimit2 = request.getParameter("limit2");
     String providerview = request.getParameter("providerview") == null ? "all" : request.getParameter("providerview");
 %>
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ page import="java.util.*, java.sql.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.ReportProvider" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ReportProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.projection.ReporterRow" %>
@@ -199,6 +208,17 @@
                     href="#"
                     onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCalendarPopup?type=&returnItem=xml_appointment_date&returnForm=serviceform&year=<%=curYear%>&month=<%=curMonth%>','','width=300,height=300')">End:</a></font>
             </td>
+        </tr>
+        <tr>
+            <%-- Unbilled report only: No-Show / Cancelled visits stay excluded unless
+                 opted in (issue #3960; filter UI from open-osp/Open-O PR #134/#186). --%>
+            <td style="width:30%;text-align:right;font-size:small;color:#333;font-family:Verdana,Arial,Helvetica,sans-serif">
+                <b><fmt:message key="billing.unbilled.label"/>:</b>
+                <label><input type="checkbox" name="includeNoShow" value="true"><fmt:message key="billing.unbilled.includeNoShow"/></label>
+                <label><input type="checkbox" name="includeCancelled" value="true"><fmt:message key="billing.unbilled.includeCancelled"/></label>
+            </td>
+            <td></td>
+            <td></td>
         </tr>
     </form>
 </table>

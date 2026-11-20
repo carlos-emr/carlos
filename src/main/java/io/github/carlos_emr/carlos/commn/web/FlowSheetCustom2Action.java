@@ -93,7 +93,7 @@ public class FlowSheetCustom2Action extends ActionSupport {
             this.scope = scope;
             this.providerNo = providerNo;
             this.isClinicScope = "clinic".equals(scope);
-            this.isPatientScope = demographicNo != null && !"0".equals(demographicNo);
+            this.isPatientScope = demographicNo != null && !demographicNo.isBlank() && !"0".equals(demographicNo);
         }
 
         /**
@@ -118,7 +118,8 @@ public class FlowSheetCustom2Action extends ActionSupport {
         String demographicNo;
         String providerNo;
         boolean isClinicScope = "clinic".equals(scope);
-        boolean isPatientScope = !isClinicScope && demographicNoParam != null && !"0".equals(demographicNoParam);
+        boolean isPatientScope = !isClinicScope && demographicNoParam != null
+                && !demographicNoParam.isBlank() && !"0".equals(demographicNoParam);
 
         if (isClinicScope) {
             demographicNo = "0";

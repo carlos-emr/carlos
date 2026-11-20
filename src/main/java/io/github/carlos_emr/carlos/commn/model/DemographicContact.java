@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: preserve unknown imported consent.
  */
 
 
@@ -225,11 +226,19 @@ public class DemographicContact extends AbstractModel<Integer> {
         this.setUpdateDate(new Date());
     }
 
+    /** Only an explicit recorded grant permits contact; absence is not permission. */
     public boolean isConsentToContact() {
-        return consentToContact;
+        return Boolean.TRUE.equals(consentToContact);
     }
 
+    /** Nullable recorded assertion for display and edit round trips. */
+    public Boolean getConsentToContact() { return consentToContact; }
+
     public void setConsentToContact(boolean consentToContact) {
+        this.consentToContact = consentToContact;
+    }
+
+    public void setConsentToContact(Boolean consentToContact) {
         this.consentToContact = consentToContact;
     }
 

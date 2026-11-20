@@ -38,7 +38,171 @@ function checkFields() {
         }
     })
 
+    $("#ticklerAddForm .date-picker, #ticklerAddForm .time-picker").each(function () {
+        var format = this.name === 'serviceDate' ? 'Y-m-d' : 'h:i K';
+        if (!parseTicklerValue(this.value, format)) {
+            this.setCustomValidity(ticklerFormatMessage(format));
+            this.reportValidity();
+            paintErrorField($(this));
+            verified = false;
+        }
+    });
     return verified;
+}
+
+/** Return localized field guidance shared by the picker and save-time validation. */
+function ticklerFormatMessage(format) {
+    var form = document.getElementById?.('ticklerAddForm');
+    if (form) return form.getAttribute(format === 'Y-m-d' ? 'data-date-error' : 'data-time-error');
+    return format === 'Y-m-d'
+        ? 'Invalid service date. Use yyyy-MM-dd (for example 2030-12-31).'
+        : 'Invalid service time. Use hh:mm AM/PM or 24-hour HH:mm (for example 14:30).';
+}
+
+/** Parse only complete 12-hour AM/PM or 24-hour times, returning hours/minutes or undefined. */
+function parseTicklerTime(value) {
+    var match = /^(0?[1-9]|1[0-2]):([0-5]\d) (AM|PM)$/i.exec(value);
+    if (match) return [+match[1] % 12 + (match[3].toUpperCase() === 'PM' ? 12 : 0), +match[2]];
+    match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value);
+    return match ? [+match[1], +match[2]] : undefined;
+}
+
+/** Parse exact calendar dates or supported times, rejecting partial values and date rollover. */
+function parseTicklerValue(value, format) {
+    var match;
+    var date = new Date(2000, 0, 1);
+    if (format === 'Y-m-d') {
+        match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+        if (!match || +match[1] === 0) return undefined;
+        date.setHours(0, 0, 0, 0);
+        date.setFullYear(+match[1], +match[2] - 1, +match[3]);
+        if (date.getFullYear() !== +match[1] || date.getMonth() !== +match[2] - 1
+                || date.getDate() !== +match[3]) return undefined;
+    } else if (format === 'h:i K') {
+        var time = parseTicklerTime(value);
+        if (!time) return undefined;
+        date.setHours(time[0], time[1], 0, 0);
+    } else {
+        return undefined;
+    }
+    return date;
+}
+
+/**
+ * Start the Service Date / Time pickers inside the Assign Tickler modal. Must run after the modal body is
+ * inserted: AssignTickler.jsp cannot carry its own script because DOMPurify strips it. The formats are
+ * accepted by TicklerRequest (yyyy-MM-dd; hh:mm AM/PM).
+ */
+function initTicklerPickers() {
+    if (typeof flatpickr === 'undefined') return;
+    $('#ticklerAddForm .date-picker, #ticklerAddForm .time-picker').each(function () {
+        var input = this;
+        var isTime = input.name === 'serviceTime';
+        var format = isTime ? 'h:i K' : 'Y-m-d';
+        var message = ticklerFormatMessage(format);
+        var feedback = document.createElement('div');
+        feedback.className = 'text-danger';
+        feedback.id = input.id + 'Error';
+        feedback.hidden = true;
+        feedback.textContent = message;
+        input.parentNode.parentNode.appendChild(feedback);
+        input.setAttribute('aria-describedby', feedback.id);
+        function clearError() {
+            input.setCustomValidity('');
+            input.removeAttribute('aria-invalid');
+            input.style.border = '';
+            feedback.hidden = true;
+        }
+        function showError() {
+            input.setCustomValidity(message);
+            input.setAttribute('aria-invalid', 'true');
+            feedback.hidden = false;
+        }
+        // Flatpickr recognizes "today" before calling parseDate. Check raw text before any
+        // commit event, including outside pointer presses (which precede blur).
+        var invalidText = null;
+        var interactingWithPicker = false;
+        /** Preserve refused raw input and close the picker on commit while allowing a calendar interaction to correct it. */
+        function rejectInvalidText(event) {
+            if (input.value && !parseTicklerValue(input.value, format)) {
+                // Stop Flatpickr's commit handler from clearing/reinterpreting raw input.
+                if (event) {
+                    event.stopImmediatePropagation();
+                    // A pointer press inside the calendar blurs this input before
+                    // its arrow/day handler runs. Keep the picker open for correction.
+                    if (event.type === 'blur' && interactingWithPicker) {
+                        showError();
+                        return;
+                    }
+                }
+                invalidText = input.value;
+                if (event) {
+                    if (event.type === 'keydown' && event.key === 'Enter') event.preventDefault();
+                    // Closing explicitly also retires the popup after a refused Tab/Enter.
+                    // Flatpickr's own commit handler would clear or reinterpret this text.
+                    input._flatpickr.close();
+                }
+                showError();
+            }
+        }
+        /** Apply strict validation before Enter or Tab lets Flatpickr normalize incomplete input. */
+        function rejectOnCommitKey(event) {
+            if (event.key === 'Enter' || event.key === 'Tab') rejectInvalidText(event);
+        }
+        /** Distinguish calendar correction clicks from outside commits so raw invalid text survives popup closure. */
+        function rejectOnOutsidePress(event) {
+            interactingWithPicker = input._flatpickr.calendarContainer.contains(event.target);
+            if (interactingWithPicker) invalidText = null;
+            if (event.target !== input && !input._flatpickr.calendarContainer.contains(event.target)) {
+                // Let Flatpickr close its popup; onClose restores the refused text.
+                rejectInvalidText();
+            }
+        }
+        input.addEventListener('blur', rejectInvalidText, true);
+        input.addEventListener('keydown', rejectOnCommitKey, true);
+        document.addEventListener('pointerdown', rejectOnOutsidePress, true);
+        document.addEventListener('mousedown', rejectOnOutsidePress, true);
+        document.addEventListener('touchstart', rejectOnOutsidePress, true);
+        /** Clear field errors only after the current text parses completely; retain invalid text for subsequent commits. */
+        function clearIfValid() {
+            invalidText = input.value && !parseTicklerValue(input.value, format) ? input.value : null;
+            if (!invalidText) clearError();
+        }
+        input.addEventListener('input', clearIfValid);
+        flatpickr(input, {
+            dateFormat: format,
+            enableTime: isTime,
+            noCalendar: isTime,
+            monthSelectorType: isTime ? 'static' : 'dropdown',
+            allowInput: true,
+            disableMobile: true,
+            parseDate: parseTicklerValue,
+            // Preserve refused text when Flatpickr closes after an outside press.
+            // Do not log flatpickr's error: it includes the user's input.
+            errorHandler: showError,
+            onDestroy: function () {
+                document.removeEventListener('pointerdown', rejectOnOutsidePress, true);
+                document.removeEventListener('mousedown', rejectOnOutsidePress, true);
+                document.removeEventListener('touchstart', rejectOnOutsidePress, true);
+                input.removeEventListener('input', clearIfValid);
+                input.removeEventListener('blur', rejectInvalidText, true);
+                input.removeEventListener('keydown', rejectOnCommitKey, true);
+                feedback.remove();
+            },
+            onClose: function () {
+                if (invalidText !== null) { input.value = invalidText; showError(); }
+            },
+            onChange: function (dates) {
+                if (dates.length && invalidText === null) clearError();
+            }
+        });
+    });
+}
+
+function destroyTicklerPickers() {
+    $('#ticklerAddForm .date-picker, #ticklerAddForm .time-picker').each(function () {
+        if (this._flatpickr) this._flatpickr.destroy();
+    });
 }
 
 //paint a red border around missing fields
@@ -48,18 +212,25 @@ function paintErrorField(fieldobject) {
 
 
 //*--> MASTER AJAX METHOD <--*//
-function sendData(path, param, target) {
+function sendData(path, param, target, button) {
     if (target == "close" || target == "modal") {
+        if (button && button.disabled) return;
+        if (button) button.disabled = true;
         // AJAX for modal interactions — sanitize HTML before DOM insertion
         $.ajax({
             url: ctx + path,
             type: 'POST',
             data: param,
-            dataType: 'html',
+            dataType: target === 'close' ? 'json' : 'html',
             success: function (data) {
                 if (target == "close") {
-                    bootstrap.Modal.getOrCreateInstance(document.getElementById('assignTickler')).toggle();
+                    if (data && (data.success === true || data.success === 'true')) {
+                        bootstrap.Modal.getOrCreateInstance(document.getElementById('assignTickler')).hide();
+                    } else {
+                        alert('Ticklers could not all be saved. Some may already have been created; review the selected patients before trying again.');
+                    }
                 } else if (target == "modal") {
+                    destroyTicklerPickers();
                     if (typeof DOMPurify !== 'undefined') {
                         // DOMPurify sanitization with defaults plus form elements. Event handlers are stripped by DOMPurify defaults.
                         try {
@@ -72,16 +243,28 @@ function sendData(path, param, target) {
                         console.error('DOMPurify is required but not loaded. Modal content blocked to prevent XSS.');
                         $('#assignTickler').find('.modal-body').html('<p style="color:red">Unable to display content safely. Please reload the page.</p>');
                     }
+                    initTicklerPickers();
                     bootstrap.Modal.getOrCreateInstance(document.getElementById('assignTickler')).show();
                 }
             },
             error: function (xhr, status, error) {
-                console.error('Drilldown request failed:', status, error);
+                if (target === 'close' && xhr.status === 400 && xhr.responseJSON && xhr.responseJSON.message) {
+                    // Validation refused the request before anything was written; say what to fix.
+                    alert('Nothing was saved. ' + xhr.responseJSON.message);
+                } else if (target === 'close') {
+                    alert('The tickler save could not be confirmed. Review the selected patients before trying again.');
+                } else {
+                    console.error('Drilldown request failed:', status, error);
+                }
                 if (target == "modal") {
+                    destroyTicklerPickers();
                     $('#assignTickler').find('.modal-body').html(
                         '<p style="color:red">Request failed. Please reload the page.</p>');
                     bootstrap.Modal.getOrCreateInstance(document.getElementById('assignTickler')).show();
                 }
+            },
+            complete: function () {
+                if (button) button.disabled = false;
             }
         });
     } else {
@@ -358,7 +541,7 @@ $(document).ready(function () {
         var param = "demographics=" + demographics;
 
         if (demographics.length > 0) {
-            sendData($(this).attr('href'), param, "modal");
+            sendData("/web/dashboard/display/AssignTickler", param, "modal");
         } else {
             alert("Select at least 1 row to assign a Tickler.");
         }
@@ -368,7 +551,13 @@ $(document).ready(function () {
     $("#saveTicklerBtn").on('click', function (event) {
         event.preventDefault();
         if (checkFields()) {
-            sendData("/web/dashboard/display/AssignTickler", $("#ticklerAddForm").serialize(), "close")
+            // DOMPurify removes name="method" to prevent form-property clobbering.
+            // Supply this fixed operation explicitly without relaxing sanitization.
+            var data = $("#ticklerAddForm").serializeArray().filter(function (field) {
+                return field.name !== 'method';
+            });
+            data.push({name: 'method', value: 'saveTickler'});
+            sendData("/web/dashboard/display/AssignTickler", data, "close", this);
         }
     });
 
@@ -396,27 +585,37 @@ $(document).ready(function () {
         });
     });
 
-    $("#confirmAddToDiseaseRegistry").on('click', function (event) {
+    /** Preserve each confirmation form's route, operation and CSRF fields in one POST path. */
+    function submitSelectedPatientForm(button, event, modalId) {
         event.preventDefault();
-
+        if (button.disabled) return;
         var patientIds = getSelectedPatientIds();
-
         if (patientIds.length < 1) {
             alert("At least one patient must be selected to perform this action.");
             return;
         }
-
-        var url = $(this).attr("href");
-        var data = "patientIds=" + patientIds;
-
+        var form = $(button).closest('form');
+        var data = form.serializeArray();
+        data.push({name: 'patientIds', value: patientIds.join(',')});
+        button.disabled = true;
         $.ajax({
             type: 'POST',
-            url: url,
+            url: form.attr('action'),
             data: data,
-            success: function (data) {
-                bootstrap.Modal.getOrCreateInstance(document.getElementById('modalConfirmAddToDiseaseRegistry')).toggle();
+            success: function () {
+                bootstrap.Modal.getOrCreateInstance(document.getElementById(modalId)).hide();
+            },
+            error: function () {
+                alert('The selected-patient action could not be confirmed. Review the patients before trying again.');
+            },
+            complete: function () {
+                button.disabled = false;
             }
         });
+    }
+
+    $("#confirmAddToDiseaseRegistry").on('click', function (event) {
+        submitSelectedPatientForm(this, event, "modalConfirmAddToDiseaseRegistry");
     });
 
     $("#excludePatientsChecked").on('click', function (event) {
@@ -433,23 +632,7 @@ $(document).ready(function () {
     });
 
     $("#confirmPatientExclusion").on('click', function (event) {
-        event.preventDefault();
-
-        var patientIds = getSelectedPatientIds();
-        // Note that indicatorId is already placed in the href
-        // querystring by the JSP code.
-
-        var url = $(this).attr("href");
-        var data = "patientIds=" + patientIds;
-
-        $.ajax({
-            type: 'POST',
-            url: url,
-            data: data,
-            success: function (data) {
-                bootstrap.Modal.getOrCreateInstance(document.getElementById('modalConfirmPatientExclusion')).toggle();
-            }
-        });
+        submitSelectedPatientForm(this, event, "modalConfirmPatientExclusion");
     });
 
     $("#patientStatusUpdateChecked").on('click', function (event) {
@@ -467,23 +650,7 @@ $(document).ready(function () {
     });
 
     $("#confirmPatientStatusUpdate").on('click', function (event) {
-        event.preventDefault();
-
-        var patientIds = getSelectedPatientIds();
-        // Note that indicatorId is already placed in the href
-        // querystring by the JSP code.
-
-        var url = $(this).attr("href");
-        var data = "patientIds=" + patientIds;
-
-        $.ajax({
-            type: 'POST',
-            url: url,
-            data: data,
-            success: function (data) {
-                bootstrap.Modal.getOrCreateInstance(document.getElementById('modalConfirmPatientStatusUpdate')).toggle();
-            }
-        });
+        submitSelectedPatientForm(this, event, "modalConfirmPatientStatusUpdate");
     });
 
 })

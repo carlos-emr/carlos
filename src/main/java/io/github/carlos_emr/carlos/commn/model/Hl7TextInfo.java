@@ -91,6 +91,7 @@ public class Hl7TextInfo extends AbstractModel<Integer> implements Serializable 
     @Column(name = "sending_facility")
     private String sendingFacility;
 
+    @Column(name = "label", columnDefinition = "TEXT")
     private String label;
 
     @Override
@@ -194,6 +195,10 @@ public class Hl7TextInfo extends AbstractModel<Integer> implements Serializable 
         //report_status may not be null
         this.reportStatus = StringUtils.trimToEmpty(reportStatus);
     }
+
+    /** Imported CDS text is whitespace-preserving; ordinary upload normalization remains unchanged. */
+    public void setImportedReportStatus(String value) { this.reportStatus=value==null?"":value; }
+    public void setImportedAccessionNumber(String value) { this.accessionNumber=value; }
 
     public String getAccessionNumber() {
         return accessionNumber;

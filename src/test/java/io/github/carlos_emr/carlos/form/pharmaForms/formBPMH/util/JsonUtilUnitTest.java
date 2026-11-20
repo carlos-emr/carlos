@@ -117,4 +117,17 @@ class JsonUtilUnitTest {
         assertThat(drug.getWhy()).isEqualTo("This is a description.");
         assertThat(drug.getHow()).isEqualTo("this is how one");
     }
+
+    @Test
+    @DisplayName("should read a stored list that carries fields with no setter")
+    @SuppressWarnings("unchecked")
+    void shouldSkipUnknownFields_whenReadingStoredList() {
+        // A saved form's allergy list holds computed getters such as Allergy.getAuditString() (#4731).
+        String stored = "[{\"genericName\":\"GENERIC DRUG\",\"auditString\":\"computed, no setter\"}]";
+
+        List<BpmhDrug> drugList = (List<BpmhDrug>) JsonUtil.jsonToPojoList(stored, BpmhDrug.class);
+
+        assertThat(drugList).hasSize(1);
+        assertThat(drugList.get(0).getGenericName()).isEqualTo("GENERIC DRUG");
+    }
 }

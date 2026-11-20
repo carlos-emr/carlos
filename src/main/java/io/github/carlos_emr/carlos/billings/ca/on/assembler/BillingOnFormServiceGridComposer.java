@@ -180,6 +180,15 @@ public class BillingOnFormServiceGridComposer {
         // a second time during the same render.
         List<io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow> serviceTypeRows =
                 ctlBillingServiceDao.findServiceTypesByStatus("A");
+        // The shared default_view=GP belongs to the BC catalogue. Ontario's
+        // shipped General Practice form is MFP. Preserve a clinic's actual GP
+        // form when present; never choose an unrelated form or billing type.
+        if ("GP".equals(ctlBillForm)
+                && serviceTypeRows.stream().noneMatch(row -> "GP".equals(row.serviceType()))
+                && serviceTypeRows.stream().anyMatch(row -> "MFP".equals(row.serviceType()))) {
+            ctlBillForm = "MFP";
+            b.ctlBillForm(ctlBillForm);
+        }
         for (io.github.carlos_emr.carlos.billings.ca.on.dto.ServiceTypeRow typeRow : serviceTypeRows) {
             // Skip rows where the code column is empty — would render id="" in
             // the DOM and billForm= in click-through URLs.

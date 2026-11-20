@@ -24,32 +24,55 @@ const leakPatterns = [
   /clearReferencesThreads[^\n]+\bQueueCache\b/,
   /clearReferencesThreads[^\n]+mysql-cj-abandoned-connection-cleanup/,
   /clearReferencesThreads[^\n]+AbandonedConnectionCleanupThread/,
+  /clearReferencesThreads[^\n]+HikariPool-/,
+  /clearReferencesThreads[^\n]+\bMariaDb-timeout\b/,
   /clearReferencesJdbc[^\n]+registered the JDBC driver/,
   /clearReferencesThreads[^\n]+ForkJoinPool-\d+-worker/,
+  /clearReferencesThreads[^\n]+ForkJoinPool\.commonPool-delayScheduler/,
   /clearReferencesThreads[^\n]+drools-worker-\d+/,
   /clearReferencesThreadLocals[^\n]+com\.github\.javaparser\.ParserConfiguration/,
   /clearReferencesThreadLocals[^\n]+StaticJavaParser/,
 ];
 
+function shutdownLeakFindings(output, targetUrl) {
+  const context = new URL(targetUrl).pathname.replace(/^\/|\/$/g, '');
+  const owned = [];
+  const otherApplications = [];
+  for (const line of output.split('\n')) {
+    if (!leakPatterns.some(pattern => pattern.test(line))) continue;
+    const application = line.match(/The web application \[([^\]]*)\]/);
+    // An unfamiliar warning format must fail conservatively, not disappear as
+    // an assumed warning from another deployment.
+    if (!application || application[1] === context) owned.push(line);
+    else otherApplications.push(line);
+  }
+  return { owned, otherApplications };
+}
+
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function waitForStartup(child, output) {
+function waitForStartup(child, output, {timeoutMs=startupTimeoutMs,pollMs=250}={}) {
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error('Timed out waiting for Tomcat startup')), startupTimeoutMs);
-    const interval = setInterval(() => {
+    let settled=false,timeout,interval;
+    const finish=error=>{
+      if(settled)return;
+      settled=true;clearTimeout(timeout);clearInterval(interval);
+      error?reject(error):resolve();
+    };
+    const inspect=()=>{
+      if(output.launchError||child.exitCode!==null||child.signalCode!=null) {
+        finish(output.launchError||new Error(`Tomcat exited before startup with code ${child.exitCode} signal ${child.signalCode}`));
+        return;
+      }
       if (/Server startup in \[\d+\] milliseconds/i.test(output.text)) {
-        clearTimeout(timeout);
-        clearInterval(interval);
-        resolve();
+        finish();
       }
-      if (child.exitCode !== null) {
-        clearTimeout(timeout);
-        clearInterval(interval);
-        reject(new Error(`Tomcat exited before startup with code ${child.exitCode}`));
-      }
-    }, 250);
+    };
+    timeout=setTimeout(()=>finish(new Error('Timed out waiting for Tomcat startup')),timeoutMs);
+    interval=setInterval(inspect,pollMs);
+    inspect();
   });
 }
 
@@ -61,44 +84,59 @@ async function checkHealth() {
   }
 }
 
-function stopTomcat(child, output) {
+function stopTomcat(child, closed) {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       child.kill('SIGKILL');
       reject(new Error('Timed out waiting for Tomcat shutdown'));
     }, shutdownTimeoutMs);
-    child.once('exit', () => {
+    closed.then(() => {
       clearTimeout(timeout);
       resolve();
     });
-    child.kill('SIGINT');
+    if (child.exitCode === null && child.signalCode === null) child.kill('SIGINT');
   });
 }
 
 async function main() {
   const output = { text: '' };
   const child = spawn(catalina, ['run'], { env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
+  // Observe close at spawn time, including an exit before health/finally. It
+  // fires only after stdout/stderr drain, unlike exit.
+  const closed = new Promise(resolve => child.once('close', resolve));
+  child.once('error', error => { output.launchError = error; });
   child.stdout.on('data', (chunk) => { output.text += chunk.toString(); process.stdout.write(chunk); });
   child.stderr.on('data', (chunk) => { output.text += chunk.toString(); process.stderr.write(chunk); });
 
+  let primary;
   try {
     await waitForStartup(child, output);
     await wait(1000);
     await checkHealth();
-  } finally {
-    if (child.exitCode === null) {
-      await stopTomcat(child, output);
-    }
+  } catch (error) { primary = error; }
+  try { await stopTomcat(child, closed); }
+  catch (shutdown) {
+    if (primary) throw new AggregateError([primary, shutdown],
+      `Tomcat check failed: ${primary.message}; shutdown failed: ${shutdown.message}`, {cause: primary});
+    throw shutdown;
   }
+  if (primary) throw primary;
 
-  const leaks = leakPatterns.filter((pattern) => pattern.test(output.text));
-  if (leaks.length > 0) {
-    throw new Error(`Tomcat shutdown leak smoke failed; matched ${leaks.map(String).join(', ')}`);
+  const leaks = shutdownLeakFindings(output.text, baseUrl);
+  if (leaks.otherApplications.length) {
+    console.warn(`Other deployed applications reported ${leaks.otherApplications.length} shutdown warnings; see the captured Tomcat log`);
+  }
+  if (leaks.owned.length > 0) {
+    throw new Error(`Tomcat shutdown leak smoke failed: ${leaks.owned.length} target-webapp warning(s)\n${leaks.owned.join('\n')}`);
   }
   console.log('Tomcat shutdown leak smoke passed');
 }
 
-main().catch((error) => {
-  console.error(error.stack || error.message);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error.stack || error.message);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { shutdownLeakFindings, waitForStartup };

@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingPaymentType;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -88,7 +89,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("BillingCorrectionService validation throws")
 @Tag("unit")
 @Tag("billing")
-class BillingCorrectionServiceValidationThrowsUnitTest {
+class BillingCorrectionServiceValidationThrowsUnitTest extends CarlosUnitTestBase {
 
     private BillingONCHeader1Dao bCh1Dao;
     private BillingONPaymentDao bPaymentDao;
@@ -185,7 +186,9 @@ class BillingCorrectionServiceValidationThrowsUnitTest {
     void shouldThrowBillingValidationException_whenStatusParamMissing() {
         BillingCorrectionService service = newService();
         mockRequest.setParameter("xml_billing_no", "42");
-        when(bCh1Dao.findWithItems(Integer.valueOf(42))).thenReturn(new BillingONCHeader1());
+        BillingONCHeader1 bill = new BillingONCHeader1();
+        when(bCh1Dao.findForUpdate(Integer.valueOf(42))).thenReturn(bill);
+        when(bCh1Dao.findWithItems(Integer.valueOf(42))).thenReturn(bill);
 
         assertThatThrownBy(() -> service.updateInvoice(loggedInInfo, mockRequest))
                 .isInstanceOf(BillingValidationException.class)

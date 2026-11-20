@@ -48,14 +48,14 @@
 * <OSCAR TEAM>
 */
 -->
-<%@ page import="java.util.*,java.sql.*, java.net.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="java.util.*" %>
+
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
-<%@ page import="org.apache.commons.text.WordUtils" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@ include file="/taglibs.jsp" %>
@@ -180,7 +180,7 @@
                 %>
                 <tr align="center" bgcolor="<%=bgColor%>" align="center"
                     onMouseOver="this.style.cursor='hand';this.style.backgroundColor='pink';"
-                    onMouseout="this.style.backgroundColor='<%=bgColor%>';" onClick="<carlos:encode value='<%= strOnClick %>' context="javaScriptAttribute"/>">
+                    onMouseout="this.style.backgroundColor='<%=bgColor%>';" onClick="<carlos:encode value='<%= strOnClick %>' context="htmlAttribute"/>">
                     <td>${carlos:forHtml(contact.lastName)}</td>
                     <td>${carlos:forHtml(contact.firstName)}</td>
                     <td>${carlos:forHtml(contact.phoneNumber)}</td>

@@ -38,6 +38,14 @@ import io.github.carlos_emr.carlos.commn.model.CaseManagementTmpSave;
 public interface CaseManagementTmpSaveDao extends AbstractDao<CaseManagementTmpSave> {
     void remove(String providerNo, Integer demographicNo, Integer programId);
 
+    /**
+     * Removes only the captured persisted draft; a concurrent replacement is retained.
+     * @param id Integer identity read before the encounter note was saved
+     * @return int number of rows removed, with zero normal after a concurrent replacement
+     * @since 2026-10-24
+     */
+    int removeCaptured(Integer id);
+
     CaseManagementTmpSave find(String providerNo, Integer demographicNo, Integer programId);
 
     CaseManagementTmpSave find(String providerNo, Integer demographicNo, Integer programId, Date date);

@@ -32,6 +32,7 @@ import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import io.github.carlos_emr.carlos.commn.dao.DigitalSignatureDao;
@@ -84,6 +85,40 @@ class DigitalSignatureUtilsUnitTest extends CarlosUnitTestBase {
         for (Path p : writtenFiles) {
             Files.deleteIfExists(p);
         }
+    }
+
+    @Test
+    @DisplayName("should start generated request ID with provider number")
+    void shouldStartGeneratedRequestId_withProviderNumber() {
+        String result = DigitalSignatureUtils.generateSignatureRequestId("999998");
+        assertThat(result).startsWith("999998");
+    }
+
+    @Test
+    @DisplayName("should include timestamp component in generated request ID")
+    void shouldIncludeTimestampComponent_inGeneratedRequestId() {
+        String result = DigitalSignatureUtils.generateSignatureRequestId("111");
+        assertThat(result.length()).isGreaterThan(3);
+    }
+
+    @Test
+    @DisplayName("should include signature request ID in temp filename")
+    void shouldIncludeRequestId_inTempFilename() {
+        String result = DigitalSignatureUtils.getTempFilePath("abc123");
+        assertThat(result).contains("signature_abc123.jpg");
+    }
+
+    @Test
+    @DisplayName("should use system temp directory for signature temp path")
+    void shouldUseSystemTempDir_forSignatureTempPath() {
+        String result = DigitalSignatureUtils.getTempFilePath("test");
+        assertThat(result).startsWith(System.getProperty("java.io.tmpdir"));
+    }
+
+    @Test
+    @DisplayName("should expose expected signature request ID key")
+    void shouldExposeExpectedSignatureRequestIdKey() {
+        assertThat(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY).isEqualTo("signatureRequestId");
     }
 
     @Test

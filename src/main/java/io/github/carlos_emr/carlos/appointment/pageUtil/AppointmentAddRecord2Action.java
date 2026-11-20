@@ -39,6 +39,8 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver;
+import io.github.carlos_emr.carlos.appt.location.AppointmentLocationUnavailableException;
 import io.github.carlos_emr.carlos.commn.OtherIdManager;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.dao.WaitingListDao;
@@ -48,13 +50,18 @@ import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.demographic.data.DemographicMerged;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.event.EventService;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import io.github.carlos_emr.carlos.utility.FormSubmissionGuard;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.waitinglist.WaitingList;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Struts 2 action that handles appointment creation (migrated from appointmentaddarecord.jsp).
@@ -107,16 +114,21 @@ public final class AppointmentAddRecord2Action extends ActionSupport {
             demographicNoStr = "0";
         }
 
+        AppointmentTextBounds.Values text = AppointmentTextBounds.submitted(request, appointmentName, null);
+        AppointmentTextBounds.Violation invalidText = AppointmentTextBounds.validate(text, null);
+        if (invalidText != null) {
+            return AppointmentTextBounds.refuse(request, response, invalidText);
+        }
+
         Appointment a = new Appointment();
         a.setProviderNo(request.getParameter("provider_no"));
         a.setAppointmentDate(ConversionUtils.fromDateString(request.getParameter("appointment_date")));
         a.setStartTime(ConversionUtils.fromTimeStringNoSeconds(request.getParameter("start_time")));
         a.setEndTime(ConversionUtils.fromTimeStringNoSeconds(request.getParameter("end_time")));
-        a.setName(appointmentName);
-        a.setNotes(request.getParameter("notes"));
-        a.setReason(request.getParameter("reason"));
-        a.setLocation(request.getParameter("location"));
-        a.setResources(request.getParameter("resources"));
+        a.setName(text.name());
+        a.setNotes(text.notes());
+        a.setReason(text.reason());
+        a.setResources(text.resources());
         a.setType(request.getParameter("type"));
         a.setStyle(request.getParameter("style"));
         a.setBilling(request.getParameter("billing"));
@@ -138,16 +150,82 @@ public final class AppointmentAddRecord2Action extends ActionSupport {
             a.setReasonCode(ConversionUtils.fromIntString(rc));
         }
 
-        appointmentDao.persist(a);
-
-        // Use the persisted ID directly; avoids a secondary lookup and prevents race conditions
-        int apptId = a.getId();
-        if (apptId > 0) {
-            String mcNumber = request.getParameter("appt_mc_number");
-            OtherIdManager.saveIdAppointment(apptId, "appt_mc_number", mcNumber);
-            eventService.appointmentCreated(this, String.valueOf(apptId), request.getParameter("provider_no"));
+        // One rendered Add Appointment form books once (issue #4225): a double click, double Enter
+        // or a re-click while a slow save is out repeats the same token, and the repeat ends as the
+        // first booking did instead of booking the slot a second time. A post without a token
+        // keeps the previous behaviour.
+        FormSubmissionGuard.Attempt attempt = FormSubmissionGuard.attempt(request.getSession(),
+                request.getParameter(FormSubmissionGuard.PARAMETER), FormSubmissionGuard.Scope.APPOINTMENT_ADD,
+                null, FormSubmissionGuard.DEFAULT_WAIT_MILLIS);
+        switch (attempt.verdict()) {
+            case PROCEED, ABSENT -> { /* Continue with a new or legacy submission. */ }
+            case ALREADY_SAVED -> {
+                return showAdded(request, ConversionUtils.fromIntString(attempt.result()), demographicNo, demographicNoStr);
+            }
+            default -> {
+                return FormSubmissionGuard.refuse(request, response, attempt.verdict());
+            }
         }
 
+        int apptId;
+        try (FormSubmissionGuard.Claim claim = attempt.claim()) {
+            // A repeated, already-saved token returns above even if the selected location was
+            // subsequently disabled. A new booking must reject a stale choice before any write.
+            try {
+                AppointmentLocationResolver.applyPostedLocation(a, request);
+            } catch (AppointmentLocationUnavailableException _) {
+                return refuseUnavailableLocation(request, response);
+            }
+            String mcNumber = request.getParameter("appt_mc_number");
+            // The appointment and its MC number commit together, so the claim learns whether
+            // anything was stored and a failed booking can be retried from the same form.
+            new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class)).executeWithoutResult(status -> {
+                if (claim != null) {
+                    claim.storageStarted();
+                }
+                appointmentDao.persist(a);
+                // Use the persisted ID directly; avoids a secondary lookup and prevents race conditions
+                if (a.getId() != null && a.getId() > 0) {
+                    OtherIdManager.saveIdAppointment(a.getId(), "appt_mc_number", mcNumber);
+                }
+            });
+            apptId = a.getId() == null ? 0 : a.getId();
+            if (claim != null && apptId > 0) {
+                claim.saved(String.valueOf(apptId));
+            }
+            if (apptId > 0) {
+                eventService.appointmentCreated(this, String.valueOf(apptId), request.getParameter("provider_no"));
+                // Audit the booking against the appointment and its patient; never the reason or notes.
+                LogAction.addLog(loggedInInfo, LogConst.ADD, LogConst.CON_APPT, String.valueOf(apptId),
+                        demographicNo > 0 ? String.valueOf(demographicNo) : null, null);
+            }
+        }
+
+        return showAdded(request, apptId, demographicNo, demographicNoStr);
+    }
+
+    private String refuseUnavailableLocation(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        if (!AppointmentTextBounds.canRedisplay(request)) {
+            io.github.carlos_emr.carlos.utility.ErrorPageMessage.sendError(request, response,
+                    HttpServletResponse.SC_CONFLICT, AppointmentLocationUnavailableException.MESSAGE_KEY);
+            return NONE;
+        }
+        response.setStatus(HttpServletResponse.SC_CONFLICT);
+        request.setAttribute("appointmentValidationErrors", java.util.List.of(
+                io.github.carlos_emr.carlos.utility.LocaleUtils.getMessage(request,
+                        AppointmentLocationUnavailableException.MESSAGE_KEY)));
+        return INPUT;
+    }
+
+    /**
+     * The result page for appointment {@code apptId}: the success message that refreshes the day
+     * sheet and closes the popup, the optional receipt, and the waiting-list removal prompt. A
+     * repeated submission of an already-booked form ends here too, so the user sees the same page
+     * whichever of the two responses the browser kept.
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    private String showAdded(HttpServletRequest request, int apptId, int demographicNo, String demographicNoStr) {
         boolean printReceipt = "1".equals(request.getParameter("printReceipt"));
         request.setAttribute("success", true);
         request.setAttribute("apptId", apptId);

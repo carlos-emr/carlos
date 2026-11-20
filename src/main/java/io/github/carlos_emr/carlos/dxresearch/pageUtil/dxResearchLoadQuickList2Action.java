@@ -56,7 +56,7 @@ public class dxResearchLoadQuickList2Action extends ActionSupport {
     public String execute()
             throws ServletException, IOException {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dxresearch", "r", null)) {
-            throw new RuntimeException("missing required sec object (_dxresearch)");
+            throw new SecurityException("missing required sec object (_dxresearch)");
         }
 
         dxQuickListBeanHandler quicklistHd = new dxQuickListBeanHandler();

@@ -64,7 +64,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for {@link ManageFaxes2Action}: the GET/HEAD 405 gate on the mutator
+ * Unit tests for {@link ManageFaxes2Action}: the exact-POST 405 gate on the mutator
  * dispatch targets (CancelFax/ResendFax/SetCompleted), the {@code _admin.fax}
  * privilege gates, the provider-abstracted CancelFax flow, and the null-safe
  * fetchFaxStatus filter handling.
@@ -134,12 +134,19 @@ class ManageFaxes2ActionUnitTest extends CarlosUnitTestBase {
         return faxConfig;
     }
 
-    @ParameterizedTest(name = "GET method={0} is rejected with 405 before dispatch")
-    @ValueSource(strings = {"CancelFax", "ResendFax", "SetCompleted"})
-    @DisplayName("should send 405 on GET with a mutator method before any side effect")
-    void shouldSend405_onGetWithMutatorMethod(String mutatorMethod) {
+    private static java.util.stream.Stream<org.junit.jupiter.params.provider.Arguments> rejectedMutationMethods() {
+        return java.util.stream.Stream.of("CancelFax", "ResendFax", "SetCompleted")
+                .flatMap(mutator -> java.util.stream.Stream.of("GET", "HEAD", "PUT", "PATCH", "DELETE",
+                        "OPTIONS", "TRACE", "post", "PoSt", "POſT")
+                        .map(verb -> org.junit.jupiter.params.provider.Arguments.of(mutator, verb)));
+    }
+
+    @ParameterizedTest(name = "{1} method={0} is rejected with 405 before dispatch")
+    @org.junit.jupiter.params.provider.MethodSource("rejectedMutationMethods")
+    @DisplayName("should send 405 on non-POST with a mutator method before any side effect")
+    void shouldSend405_onNonPostWithMutatorMethod(String mutatorMethod, String verb) {
         setUpCommonMocks();
-        request.setMethod("GET");
+        request.setMethod(verb);
         request.setParameter("method", mutatorMethod);
         request.setParameter("jobId", "5");
 
@@ -151,10 +158,11 @@ class ManageFaxes2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            assertThat(response.getHeader("Allow")).isEqualTo("POST");
             assertThat(response.getErrorMessage()).isEqualTo("Method not allowed");
             // The verb gate must fire before any DAO lookup or provider call.
-            verifyNoInteractions(faxJobDao);
-            verifyNoInteractions(faxProviderClientFactory);
+            verifyNoInteractions(faxJobDao, faxConfigDao, faxClientLogDao, faxManager,
+                    faxProviderClientFactory, securityInfoManager, documentAttachmentManager);
         }
     }
 
@@ -400,7 +408,7 @@ class ManageFaxes2ActionUnitTest extends CarlosUnitTestBase {
         FaxProviderClient providerClient = mock(FaxProviderClient.class);
         when(faxProviderClientFactory.getClient(faxConfig)).thenReturn(providerClient);
         when(providerClient.cancelFax(faxConfig, faxJob))
-                .thenThrow(new FaxProviderException("Unable to Cancel Fax"));
+                .thenThrow(new FaxProviderException("PRIVATE_PROVIDER_MESSAGE", new IllegalStateException("PRIVATE_PROVIDER_CAUSE")));
 
         request.setMethod("POST");
         request.setParameter("method", "CancelFax");
@@ -410,13 +418,19 @@ class ManageFaxes2ActionUnitTest extends CarlosUnitTestBase {
             servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
             servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
 
-            new ManageFaxes2Action().execute();
+            try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(ManageFaxes2Action.class)) {
+                new ManageFaxes2Action().execute();
+                assertThat(logs.messages()).anyMatch(message -> message.contains("cancel could not be confirmed"));
+                assertThat(logs.messages().toString()).doesNotContain("PRIVATE_PROVIDER");
+                assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+            }
 
             // A failed provider cancel must not rewrite the job's state.
             verify(faxJobDao, never()).merge(any());
             assertThat(response.getContentAsString())
                     .contains("\"success\":false")
-                    .contains("Unable to Cancel Fax");
+                    .contains("Unable to confirm fax cancellation. Check the fax status before retrying.")
+                    .doesNotContain("PRIVATE_PROVIDER");
         }
     }
 
@@ -504,9 +518,10 @@ class ManageFaxes2ActionUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    @Test
-    @DisplayName("should treat absent filter parameters as null filters without an NPE on fetchFaxStatus")
-    void shouldReturnFaxstatus_whenFilterParametersAbsent() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @DisplayName("should safely treat absent or invalid date filters as null without exposing submitted text")
+    void shouldReturnFaxstatus_whenFilterParametersAbsentOrInvalid(boolean invalidDates) {
         setUpCommonMocks();
         when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.fax"), eq("r"), isNull()))
                 .thenReturn(true);
@@ -517,16 +532,25 @@ class ManageFaxes2ActionUnitTest extends CarlosUnitTestBase {
 
         request.setMethod("POST");
         request.setParameter("method", "fetchFaxStatus");
+        if (invalidDates) {
+            request.setParameter("dateBegin", "PRIVATE_DATE_BEGIN\nforged-log-entry");
+            request.setParameter("dateEnd", "PRIVATE_DATE_END\nforged-log-entry");
+        }
         // Deliberately no status/team/oscarUser/demographic_no/date params: the
         // constant-first comparisons must treat them all as null filters.
 
-        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class)) {
+        try (MockedStatic<ServletActionContext> servletActionContextMock = mockStatic(ServletActionContext.class);
+             var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(ManageFaxes2Action.class)) {
             servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
             servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
 
             String result = new ManageFaxes2Action().execute();
 
             assertThat(result).isEqualTo("faxstatus");
+            if (invalidDates) {
+                assertThat(logs.messages().stream().filter(message -> message.contains("Unparseable fax status")).toList()).hasSize(2);
+            }
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_DATE", "forged-log-entry");
             verify(faxJobDao).getFaxStatusByDateDemographicProviderStatusTeam(
                     isNull(), isNull(), isNull(), isNull(), isNull(), isNull());
         }

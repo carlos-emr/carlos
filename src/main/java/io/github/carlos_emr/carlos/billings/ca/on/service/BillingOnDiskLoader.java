@@ -106,6 +106,25 @@ public class BillingOnDiskLoader {
     }
 
     /**
+     * Whether an existing disk already holds this OHIP claim file name (an
+     * earlier year's disk of the same month letter, for example).
+     *
+     * @param ohipFilename the complete claim file name, for example {@code HJ123456.001}
+     * @return {@code true} when the name is taken
+     */
+    public boolean isOhipFilenameInUse(String ohipFilename) {
+        return diskNameDao.existsByOhipFilename(ohipFilename);
+    }
+
+    /**
+     * Whether a filename row already holds this HTML companion name; see
+     * {@link BillingONFilenameDao#existsByHtmlFilename(String)}.
+     */
+    public boolean isHtmlFilenameInUse(String htmlFilename) {
+        return filenameDao.existsByHtmlFilename(htmlFilename);
+    }
+
+    /**
 
      * Returns prev disk create date.
 
@@ -162,11 +181,21 @@ public class BillingOnDiskLoader {
 
      */
 
+    private static java.util.Date parseBound(String value) throws java.text.ParseException {
+        // Local formatters: SimpleDateFormat is mutable, and the MRI page is served
+        // concurrently from this singleton.
+        return value != null && value.trim().length() > "yyyy-MM-dd".length()
+                ? new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse(value.trim())
+                : new SimpleDateFormat("yyyy-MM-dd").parse(value);
+    }
+
     public List getMRIList(String sDate, String eDate, String status) {
         List retval = new ArrayList();
         try {
+            // OSCAR 19 parsed the end bound as a timestamp (yyyy-MM-dd HH:mm:ss); a plain
+            // date parse keeps the day at 00:00:00 and hides the last day of the range.
             List<BillingONDiskName> results = diskNameDao.findByCreateDateRangeAndStatus(
-                    dateformatter.parse(sDate), dateformatter.parse(eDate), status);
+                    parseBound(sDate), parseBound(eDate), status);
 
             for (BillingONDiskName b : results) {
                 BillingDiskNameDto obj = new BillingDiskNameDto();

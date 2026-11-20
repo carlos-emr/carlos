@@ -112,7 +112,7 @@ public class SimpleXmlRpcClient {
         HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
         if (response.statusCode() != 200) {
             throw new IOException("DrugRef XML-RPC server returned HTTP " + response.statusCode()
-                    + " for '" + methodName + "' at " + serverUrl);
+                    + " for '" + methodName + "'");
         }
         return parseResponse(response.body());
     }

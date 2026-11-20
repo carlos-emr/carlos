@@ -41,6 +41,10 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
 import io.github.carlos_emr.carlos.commn.dao.PreventionDao;
 import io.github.carlos_emr.carlos.commn.dao.PreventionExtDao;
+import io.github.carlos_emr.carlos.commn.interfaces.Immunization.ImmunizationProperty;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionSourceUnavailableException;
 import io.github.carlos_emr.carlos.managers.DHIRSubmissionManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -63,20 +67,69 @@ public class PreventionData {
         // prevent instantiation
     }
 
-    private static Date stringToDate(String date) {
-        if (date == null)
-            return null;
-        Date ret = UtilDateUtilities.StringToDate(date, "yyyy-MM-dd HH:mm");
-        if (ret != null) {
-            return ret;
+    private static PreventionSourceUnavailableException sourceUnavailable(Exception failure) {
+        if (failure instanceof PreventionSourceUnavailableException alreadyReported) {
+            // One reader calling another (the extension lookup reads each record by id): the
+            // failure was wrapped and logged where it happened, so it is passed on as it is.
+            return alreadyReported;
         }
-        ret = UtilDateUtilities.StringToDate(date, "yyyy-MM-dd");
+        log.error("{} {}", PreventionSourceUnavailableException.MESSAGE,
+                io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace(failure));
+        return new PreventionSourceUnavailableException(failure);
+    }
 
-        return ret;
+    /**
+     * Records which caller answered a failed prevention read with its "could not be read" result,
+     * and for which chart. The failure and its stack trace are logged once where the read failed
+     * (see {@link PreventionSourceUnavailableException}), so this line carries identifiers only.
+     *
+     * @param caller        a fixed name for the page, report or service that shows the result
+     * @param demographicNo the chart the read was for, or {@code null} when the caller has none
+     */
+    public static void logUnreadable(String caller, Object demographicNo) {
+        log.warn("{} shown as unreadable by {} for demographicNo={}", PreventionSourceUnavailableException.MESSAGE,
+                io.github.carlos_emr.carlos.utility.LogSafe.sanitize(caller),
+                io.github.carlos_emr.carlos.utility.LogSafe.sanitizeObject(demographicNo));
+    }
 
+    private static PreventionDateDTO dateOf(Prevention prevention) {
+        return PreventionDateDTO.from(prevention.getPreventionDate(), prevention.getId() == null ? null
+                : partialDateDao.getFormat(PartialDate.PREVENTION, prevention.getId(), PartialDate.PREVENTION_PREVENTIONDATE));
+    }
+
+    /** Legacy authorized patient boundary; population SQL does not gate unrelated charts. */
+    public static void requireExactDates(Integer demographicNo) {
+        if (demographicNo != null && preventionDao.hasUncertainPreventionDates(demographicNo)) throw new PreventionDatePrecisionException();
+    }
+
+    /** Date-only callers must opt into refusal before parsing the list's display text. */
+    public static void requireExactDateMaps(List<Map<String, Object>> rows) {
+        for (Map<String, Object> row : rows) {
+            if (Boolean.TRUE.equals(row.get("cds_imported"))
+                    && row.get("prevention_date_info") instanceof PreventionDateDTO date) date.requireExact();
+        }
+    }
+
+    private static Date stringToDate(String date) {
+        if (date == null || date.isBlank()) return null;
+        try {
+            java.time.LocalDateTime value = date.length() == 10
+                    ? java.time.LocalDate.parse(date).atStartOfDay()
+                    : java.time.LocalDateTime.parse(date, java.time.format.DateTimeFormatter
+                        .ofPattern("uuuu-MM-dd HH:mm").withResolverStyle(java.time.format.ResolverStyle.STRICT));
+            return Date.from(value.atZone(java.time.ZoneId.systemDefault()).toInstant());
+        } catch (java.time.format.DateTimeParseException invalidDate) {
+            throw new IllegalArgumentException("Invalid prevention date", invalidDate);
+        }
     }
 
     private static PartialDate setPreventionDate(Prevention prevention, String date) {
+        // CDS imports may explicitly omit an unknown clinical date. The interactive action
+        // separately requires a date; preserve undated imports without inventing one.
+        if (date == null || date.isBlank()) {
+            prevention.setPreventionDate(null);
+            return null;
+        }
         PartialDate pd = null;
         if (date.length() == 4) {
             pd = new PartialDate();
@@ -100,15 +153,14 @@ public class PreventionData {
     }
 
     public static Integer insertPreventionData(String creator, String demoNo, String date, String providerNo, String providerName, String preventionType, String refused, String nextDate, String neverWarn, ArrayList<Map<String, String>> list, String snomedId, String din) {
-        Integer insertId = -1;
-        try {
+        return preventionTransaction().execute(status -> {
             Prevention prevention = new Prevention();
             prevention.setCreatorProviderNo(creator);
             prevention.setDemographicId(Integer.valueOf(demoNo));
             PartialDate pd = setPreventionDate(prevention, date);
             prevention.setProviderNo(providerNo);
             prevention.setPreventionType(preventionType);
-            prevention.setNextDate(UtilDateUtilities.StringToDate(nextDate, "yyyy-MM-dd"));
+            prevention.setNextDate(stringToDate(nextDate));
             prevention.setNever(neverWarn.trim().equals("1"));
             if (refused.trim().equals("1")) prevention.setRefused(true);
             else if (refused.trim().equals("2")) prevention.setIneligible(true);
@@ -119,9 +171,9 @@ public class PreventionData {
                 pd.setTableId(prevention.getId());
                 partialDateDao.persist(pd);
             }
-            if (prevention.getId() == null) return insertId;
+            if (prevention.getId() == null) throw new IllegalStateException("Prevention was not persisted");
 
-            insertId = prevention.getId();
+            Integer insertId = prevention.getId();
             for (int i = 0; i < list.size(); i++) {
                 Map<String, String> h = list.get(i);
                 for (Map.Entry<String, String> entry : h.entrySet()) {
@@ -130,23 +182,21 @@ public class PreventionData {
                     }
                 }
             }
-        } catch (Exception e) {
-            log.error(e.getMessage(), e);
-        }
-        return insertId;
+            return insertId;
+        });
+    }
+
+    private static org.springframework.transaction.support.TransactionTemplate preventionTransaction() {
+        return new org.springframework.transaction.support.TransactionTemplate(
+                SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
     }
 
     public static void addPreventionKeyValue(String preventionId, String keyval, String val) {
-        try {
-            PreventionExt preventionExt = new PreventionExt();
-            preventionExt.setPreventionId(Integer.valueOf(preventionId));
-            preventionExt.setKeyval(keyval);
-            preventionExt.setVal(val);
-
-            preventionExtDao.persist(preventionExt);
-        } catch (Exception e) {
-            log.error(e.getMessage(), e);
-        }
+        PreventionExt preventionExt = new PreventionExt();
+        preventionExt.setPreventionId(Integer.valueOf(preventionId));
+        preventionExt.setKeyval(keyval);
+        preventionExt.setVal(val);
+        preventionExtDao.persist(preventionExt);
     }
 
     public static Map<String, String> getPreventionKeyValues(String preventionId) {
@@ -167,14 +217,21 @@ public class PreventionData {
     }
 
     public static void deletePreventionData(String id) {
-        try {
+        preventionTransaction().executeWithoutResult(status -> {
             Prevention prevention = preventionDao.find(Integer.valueOf(id));
+            if (prevention == null || prevention.isDeleted()) {
+                throw new IllegalArgumentException("Prevention record not found");
+            }
             prevention.setDeleted(true);
-
             preventionDao.merge(prevention);
-        } catch (Exception e) {
-            log.error(e.getMessage(), e);
-        }
+        });
+    }
+
+    public static void deletePreventionData(String id, String demographicNo) {
+        preventionTransaction().executeWithoutResult(status -> {
+            requirePreventionInChart(Integer.parseInt(id), Integer.parseInt(demographicNo));
+            deletePreventionData(id);
+        });
     }
 
     public static void setNextPreventionDate(String date, String id) {
@@ -202,8 +259,39 @@ public class PreventionData {
     }
 
     public static Integer updatetPreventionData(String id, String creator, String demoNo, String date, String providerNo, String providerName, String preventionType, String refused, String nextDate, String neverWarn, ArrayList<Map<String, String>> list, String snomedId) {
-        deletePreventionData(id);
-        return insertPreventionData(creator, demoNo, date, providerNo, providerName, preventionType, refused, nextDate, neverWarn, list, snomedId, null);
+        return preventionTransaction().execute(status -> {
+            requirePreventionInChart(Integer.parseInt(id), Integer.parseInt(demoNo));
+            deletePreventionData(id);
+            return insertPreventionData(creator, demoNo, date, providerNo, providerName,
+                    preventionType, refused, nextDate, neverWarn, list, snomedId, null);
+        });
+    }
+
+    /** Reject unrelated or deleted records while preserving access from a merged parent chart. */
+    public static void requirePreventionInChart(int id, int demographicNo) {
+        Prevention prevention = preventionDao.find(id);
+        if (prevention == null || prevention.isDeleted()
+                || (!Objects.equals(prevention.getDemographicId(), demographicNo)
+                    && !SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class)
+                        .getMergedDemographics(demographicNo).contains(prevention.getDemographicId()))) {
+            throw new IllegalArgumentException("Prevention record not found in this patient chart");
+        }
+    }
+
+    /**
+     * Throws unless prevention {@code id} is recorded as {@code preventionType}. prevention/AddPrevention
+     * accepts the RH form's type though no Preventions-page item lists it (issue #4992); an RH edit or
+     * delete must reach only an RH record, never another type's record in the same chart.
+     *
+     * @param id             int: the prevention record id
+     * @param preventionType String: the type the request was posted as
+     * @throws IllegalArgumentException when the record is missing or of another type
+     */
+    public static void requirePreventionType(int id, String preventionType) {
+        Prevention prevention = preventionDao.find(id);
+        if (prevention == null || !Objects.equals(prevention.getPreventionType(), preventionType)) {
+            throw new IllegalArgumentException("Prevention record is not of the posted type");
+        }
     }
 
     public static ArrayList<Map<String, Object>> getPreventionDataFromExt(String extKey, String extVal) {
@@ -212,13 +300,23 @@ public class PreventionData {
         try {
             List<PreventionExt> preventionExts = preventionExtDao.findByKeyAndValue(extKey, extVal);
             for (PreventionExt preventionExt : preventionExts) {
-                Map<String, Object> hash = getPreventionById(preventionDao.find(preventionExt.getPreventionId()).toString());
-                if (hash.get("deleted") != null && ((String) hash.get("deleted")).equals("0")) {
+                // Pass the identifier, never the entity's reflection-based toString(): parsing that
+                // clinical content as an id both hid the RH injections and wrote it into an error log
+                // (issue #4992).
+                Integer preventionId = preventionExt.getPreventionId();
+                if (preventionId == null) continue;
+                Map<String, Object> hash = getPreventionById(preventionId.toString());
+                // An old extension can outlive its prevention. It must not hide later live records.
+                if (hash != null && "0".equals(hash.get("deleted"))) {
                     list.add(hash);
                 }
             }
+        } catch (PreventionDatePrecisionException unsafeDate) {
+            // A date that needs review is a refusal of its own, as in getPreventionById: it must
+            // reach callers that handle it, not be reported as an unavailable source.
+            throw unsafeDate;
         } catch (Exception e) {
-            log.error(e.getMessage(), e);
+            throw sourceUnavailable(e);
         }
         return list;
     }
@@ -251,6 +349,8 @@ public class PreventionData {
         List<Prevention> preventions = preventionDao.findByTypeAndDate(injectionType, startDate, endDate);
         for (Prevention prevention : preventions) {
 
+            if (prevention.isCdsImported()) dateOf(prevention).requireExact();
+
             List<PreventionExt> preventionExts = preventionExtDao.findByPreventionIdAndKey(prevention.getId(), keyVal);
             try {
                 for (PreventionExt preventionExt : preventionExts) {
@@ -282,16 +382,94 @@ public class PreventionData {
         return getPreventionData(loggedInInfo, null, demoNo);
     }
 
+    /**
+     * Returns the value of a single prevention extension key, or {@code null} when absent.
+     * Used where a detached Prevention needs one extension without initializing the lazy
+     * {@code preventionExts} collection.
+     */
+    private static String getPreventionExtValue(Integer preventionId, String key) {
+        List<PreventionExt> preventionExts = preventionExtDao.findByPreventionIdAndKey(preventionId, key);
+        if (preventionExts == null || preventionExts.isEmpty()) {
+            return null;
+        }
+        return preventionExts.get(0).getVal();
+    }
+
     public static List<Prevention> getPrevention(LoggedInInfo loggedInInfo, String preventionType, Integer demographicId) {
         return preventionDao.findByTypeAndDemoNo(preventionType, demographicId);
     }
 
-	@Nonnull
+    /** Legacy clinical calculations require exact imported timing and preserve native Date semantics. */
+    public static List<Prevention> getExactPrevention(LoggedInInfo loggedInInfo, String preventionType, Integer demographicId) {
+        List<Prevention> records = getPrevention(loggedInInfo, preventionType, demographicId);
+        for (Prevention record : records) if (record.isCdsImported()) dateOf(record).requireExact();
+        return records;
+    }
+
+    public static ArrayList<Map<String, Object>> getExactPreventionData(LoggedInInfo loggedInInfo,
+            String preventionType, Integer demographicId) {
+        ArrayList<Map<String, Object>> rows = getPreventionData(loggedInInfo, preventionType, demographicId);
+        requireExactDateMaps(rows);
+        return rows;
+    }
+
+    /**
+     * Lists the patient's preventions of one type, or of every type when {@code preventionType}
+     * is {@code null}, for a caller who may read the chart.
+     *
+     * <p>The patient is looked up first, for the date of birth and, through
+     * {@link DemographicManager}, for the caller's right to read the chart. That lookup can end
+     * in two ways that must not be confused:
+     * <ul>
+     * <li><b>The caller may not read the chart</b> (a {@link SecurityException} for a missing
+     * {@code _demographic} privilege, or a
+     * {@link io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException}): the result
+     * is an empty list, as it has always been. A denial is not an error page and is never
+     * answered with data. It is logged as a warning with the chart number only, without a stack
+     * trace: it is an expected outcome, not a fault.</li>
+     * <li><b>The lookup itself failed</b> (the database, for example): the read is refused with
+     * {@link PreventionSourceUnavailableException}, like a failed read of the preventions. This
+     * used to return an empty list too, which reads as "this patient has no preventions".</li>
+     * </ul>
+     *
+     * @param loggedInInfo the logged-in user
+     * @param preventionType the prevention type's name, or {@code null} for every type
+     * @param demographicId the patient's demographic number
+     * @return the preventions, oldest first; empty when there are none or the caller may not
+     *         read the chart; never {@code null}
+     * @throws PreventionSourceUnavailableException if the patient or the preventions could not
+     *         be read; the caller must show that preventions could not be read
+     * @throws PreventionDatePrecisionException if a record's date needs review
+     */
+    @Nonnull
     public static ArrayList<Map<String, Object>> getPreventionData(LoggedInInfo loggedInInfo, String preventionType, Integer demographicId) {
+        Date dob;
+        try {
+            dob = getDemographicDateOfBirth(loggedInInfo, demographicId);
+        } catch (SecurityException | io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException denied) {
+            log.warn("Prevention read refused for demographicNo={}: the caller may not read the chart ({})",
+                    io.github.carlos_emr.carlos.utility.LogSafe.sanitizeObject(demographicId), denied.getClass().getSimpleName());
+            return new ArrayList<Map<String, Object>>();
+        } catch (Exception e) {
+            throw sourceUnavailable(e);
+        }
+        return listForCheckedPatient(preventionType, demographicId, dob);
+    }
+
+    /**
+     * Lists the patient's preventions of one type, or of every type when
+     * {@code preventionType} is {@code null}, as
+     * {@link #getPreventionData(LoggedInInfo, String, Integer)} does, for a date of birth the
+     * caller has already looked up. It makes no privilege check of its own, so it stays
+     * package-private, and its name says so: call it only for a patient the caller has already
+     * looked up through a privilege-checked call. {@link PreventionPageData} calls it after its own
+     * checked lookup of the same patient.
+     */
+    @Nonnull
+    static ArrayList<Map<String, Object>> listForCheckedPatient(String preventionType, Integer demographicId, Date dob) {
         ArrayList<Map<String, Object>> list = new ArrayList<Map<String, Object>>();
 
         try {
-            Date dob = getDemographicDateOfBirth(loggedInInfo, demographicId);
             List<Prevention> preventions = preventionType == null ? preventionDao.findNotDeletedByDemographicId(demographicId) : preventionDao.findByTypeAndDemoNo(preventionType, demographicId);
             for (Prevention prevention : preventions) {
 
@@ -310,36 +488,41 @@ public class PreventionData {
                 h.put("provider_no", prevention.getProviderNo());
                 if (!StringUtils.isEmpty(prevention.getProviderNo())) {
                     if ("-1".equals(prevention.getProviderNo())) {
-                        prevention.setPreventionExtendedProperties();
-                        h.put("provider_name", prevention.getPreventionExtendedProperties().get("providerName"));
+                        // External provider: the name lives in PreventionExt. A targeted lookup is
+                        // used because this entity is detached and its preventionExts collection is lazy.
+                        h.put("provider_name", getPreventionExtValue(prevention.getId(),
+                                ImmunizationProperty.providerName.name()));
                     } else {
                         h.put("provider_name", ProviderData.getProviderName(prevention.getProviderNo()));
                     }
                 }
 
 
-                Date pDate = prevention.getPreventionDate();
-                String d1 = UtilDateUtilities.DateToString(pDate, "yyyy-MM-dd HH:mm");
-                String d2 = UtilDateUtilities.DateToString(pDate, "yyyy-MM-dd");
-
-                d1 = partialDateDao.getDatePartial(d1, PartialDate.PREVENTION, prevention.getId(), PartialDate.PREVENTION_PREVENTIONDATE);
-                d2 = partialDateDao.getDatePartial(d2, PartialDate.PREVENTION, prevention.getId(), PartialDate.PREVENTION_PREVENTIONDATE);
+                PreventionDateDTO date = dateOf(prevention);
+                Date pDate = !prevention.isCdsImported() || date.isExact() ? prevention.getPreventionDate() : null;
+                String d1 = date.isExact() ? UtilDateUtilities.DateToString(pDate, "yyyy-MM-dd HH:mm")
+                        : date.getOriginalValue() == null ? "Unknown" : date.getOriginalValue();
+                String d2 = date.getOriginalValue() == null ? "Unknown" : date.getOriginalValue();
 
 
                 h.put("prevention_date", blankIfNull(d1));
                 h.put("prevention_date_asDate", pDate);
                 h.put("prevention_date_no_time", blankIfNull(d2));
+                h.put("prevention_date_info", date);
+                h.put("cds_imported", prevention.isCdsImported());
 
                 h.put("comments", "");
-                String age = "N/A";
+                String age = date.isExact() ? "N/A" : "Unknown";
                 if (pDate != null) {
                     age = UtilDateUtilities.calcAgeAtDate(dob, pDate);
                 }
                 h.put("age", age);
                 list.add(h);
             }
+        } catch (PreventionDatePrecisionException unsafeDate) {
+            throw unsafeDate;
         } catch (Exception e) {
-            log.error(e.getMessage(), e);
+            throw sourceUnavailable(e);
         }
         return list;
     }
@@ -377,7 +560,7 @@ public class PreventionData {
 
         PreventionDao dao = SpringUtils.getBean(PreventionDao.class);
         for (Prevention pp : dao.findActiveByDemoId(demoNo)) {
-            PreventionItem pi = new PreventionItem(pp);
+            PreventionItem pi = new PreventionItem(pp, dateOf(pp));
             p.addPreventionItem(pi);
         }
         return p;
@@ -385,6 +568,7 @@ public class PreventionData {
 
     public static class PreventionsComparator implements Comparator<Map<String, Object>> {
         public int compare(Map<String, Object> o1, Map<String, Object> o2) {
+            requireExactDateMaps(List.of(o1, o2));
             Comparable date1 = (Comparable) o1.get("prevention_date_asDate");
             Comparable date2 = (Comparable) o2.get("prevention_date_asDate");
 
@@ -406,6 +590,8 @@ public class PreventionData {
 
     public static class PreventionComparator implements Comparator<Prevention> {
         public int compare(Prevention o1, Prevention o2) {
+            dateOf(o1).requireExact();
+            dateOf(o2).requireExact();
             Date date1 = o1.getPreventionDate();
             Date date2 = o2.getPreventionDate();
 
@@ -421,10 +607,22 @@ public class PreventionData {
     public static Map<String, Object> getPreventionById(String id) {
         Map<String, Object> h = null;
 
+        Integer preventionId;
         try {
-            Prevention prevention = preventionDao.find(Integer.valueOf(id));
+            preventionId = Integer.valueOf(id == null ? "" : id.trim());
+        } catch (NumberFormatException e) {
+            // The value is not echoed: a caller that passed an entity's toString() here wrote the
+            // patient's prevention, lot and reason into the error log (issue #4992).
+            log.warn("Refused a prevention lookup by a value that is not a numeric id");
+            return null;
+        }
+
+        try {
+            Prevention prevention = preventionDao.find(preventionId);
             if (prevention != null) {
                 Map<String, String> ext = getPreventionKeyValues(prevention.getId().toString());
+                // Use the complete projection already loaded, without touching a detached lazy collection.
+                boolean imported = ext.containsKey("cdsDatePrecision");
 
                 h = new HashMap<String, Object>();
                 String providerName = null;
@@ -434,18 +632,23 @@ public class PreventionData {
                     providerName = ext.get("providerName") != null ? ext.get("providerName") : "";
                 }
 
-                String preventionDate = UtilDateUtilities.DateToString(prevention.getPreventionDate(), "yyyy-MM-dd HH:mm");
+                PreventionDateDTO date = dateOf(prevention);
+                String preventionDate = date.isExact()
+                        ? UtilDateUtilities.DateToString(prevention.getPreventionDate(), "yyyy-MM-dd HH:mm")
+                        : date.getOriginalValue() == null ? "Unknown" : date.getOriginalValue();
                 String lastUpdateDate = UtilDateUtilities.DateToString(prevention.getLastUpdateDate(), "yyyy-MM-dd");
                 @SuppressWarnings("deprecation")
                 String creatorName = ProviderData.getProviderName(prevention.getCreatorProviderNo());
 
                 addToHashIfNotNull(h, "id", prevention.getId().toString());
-                addToHashIfNotNull(h, "demographicNo", prevention.getDemographicId().toString());
+                addToHashIfNotNull(h, "demographicNo", prevention.getDemographicId() == null ? null : prevention.getDemographicId().toString());
                 addToHashIfNotNull(h, "provider_no", prevention.getProviderNo());
                 addToHashIfNotNull(h, "providerName", providerName);
                 addToHashIfNotNull(h, "creationDate", UtilDateUtilities.DateToString(prevention.getCreationDate(), "yyyy-MM-dd"));
                 addToHashIfNotNull(h, "preventionDate", preventionDate);
-                addToHashIfNotNull(h, "prevention_date_asDate", prevention.getPreventionDate());
+                addToHashIfNotNull(h, "prevention_date_asDate", !imported || date.isExact() ? prevention.getPreventionDate() : null);
+                h.put("prevention_date_info", date);
+                h.put("cds_imported", imported);
                 addToHashIfNotNull(h, "preventionType", prevention.getPreventionType());
                 addToHashIfNotNull(h, "deleted", prevention.isDeleted() ? "1" : "0");
                 addToHashIfNotNull(h, "refused", prevention.isRefused() ? "1" : prevention.isIneligible() ? "2" : prevention.isCompletedExternally() ? "3" : "0");
@@ -458,48 +661,50 @@ public class PreventionData {
 
                 addToHashIfNotNull(h, "brandSnomedId", ext.get("brandSnomedId"));
 
+                // preventionsExt.val is nullable (OSCAR 19 migrations store NULL name, lot or
+                // reason): every filled-value test is null-safe so a NULL never fails the read.
                 if (ext.containsKey("result")) { //This is a preventive Test
                     addToHashIfNotNull(h, "result", ext.get("result"));
-                    summary += "\nResult: " + ext.get("result");
-                    if (ext.containsKey("reason") && !ext.get("reason").equals("")) {
+                    summary += "\nResult: " + StringUtils.defaultString(ext.get("result"));
+                    if (StringUtils.isNotEmpty(ext.get("reason"))) {
                         addToHashIfNotNull(h, "reason", ext.get("reason"));
                         summary += "\nReason: " + ext.get("reason");
                     }
                 } else { //This is an immunization
-                    if (ext.containsKey("name") && !ext.get("name").equals("")) {
+                    if (StringUtils.isNotEmpty(ext.get("name"))) {
                         addToHashIfNotNull(h, "name", ext.get("name"));
                         summary += "\nName: " + ext.get("name");
                     }
-                    if (ext.containsKey("location") && !ext.get("location").equals("")) {
+                    if (StringUtils.isNotEmpty(ext.get("location"))) {
                         addToHashIfNotNull(h, "location", ext.get("location"));
                         summary += "\nLocation: " + ext.get("location");
                     }
-                    if (ext.containsKey("expiryDate") && !ext.get("expiryDate").equals("")) {
+                    if (StringUtils.isNotEmpty(ext.get("expiryDate"))) {
                         addToHashIfNotNull(h, "expiryDate", ext.get("expiryDate"));
                         summary += "\nExpiryDate: " + ext.get("expiryDate");
                     }
-                    if (ext.containsKey("route") && !ext.get("route").equals("")) {
+                    if (StringUtils.isNotEmpty(ext.get("route"))) {
                         addToHashIfNotNull(h, "route", ext.get("route"));
                         summary += "\nRoute: " + ext.get("route");
                     }
-                    if (ext.containsKey("dose") && !ext.get("dose").equals("")) {
+                    if (StringUtils.isNotEmpty(ext.get("dose"))) {
                         addToHashIfNotNull(h, "dose", ext.get("dose"));
                         summary += "\nDose: " + ext.get("dose");
                     }
-                    if (ext.containsKey("lot") && !ext.get("lot").equals("")) {
+                    if (StringUtils.isNotEmpty(ext.get("lot"))) {
                         addToHashIfNotNull(h, "lot", ext.get("lot"));
                         summary += "\nLot: " + ext.get("lot");
                     }
-                    if (ext.containsKey("manufacture") && !ext.get("manufacture").equals("")) {
+                    if (StringUtils.isNotEmpty(ext.get("manufacture"))) {
                         addToHashIfNotNull(h, "manufacture", ext.get("manufacture"));
                         summary += "\nManufacturer: " + ext.get("manufacture");
                     }
-                    if (ext.containsKey("din") && !ext.get("din").equals("")) {
+                    if (StringUtils.isNotEmpty(ext.get("din"))) {
                         addToHashIfNotNull(h, "din", ext.get("din"));
                         summary += "\nDIN: " + ext.get("din");
                     }
                 }
-                if (ext.containsKey("comments") && !ext.get("comments").equals("")) {
+                if (StringUtils.isNotEmpty(ext.get("comments"))) {
                     addToHashIfNotNull(h, "comments", ext.get("comments"));
                     summary += "\nComments: " + ext.get("comments");
                 }
@@ -515,8 +720,10 @@ public class PreventionData {
                 log.debug("id" + h.get("id"));
 
             }
+        } catch (PreventionDatePrecisionException unsafeDate) {
+            throw unsafeDate;
         } catch (Exception e) {
-            log.error(e.getMessage(), e);
+            throw sourceUnavailable(e);
         }
         return h;
     }

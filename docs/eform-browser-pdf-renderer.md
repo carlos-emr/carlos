@@ -1,9 +1,9 @@
-# eForm Browser PDF Renderer (Selenium + Headless Chromium)
+# eForm Browser PDF Renderer (JDK + Headless Chromium)
 
 CARLOS renders saved eForms to PDF with a real browser engine because eForms are CSS- and
 JavaScript-dependent documents — absolutely-positioned fields over scanned background images,
 clinic-authored layout scripts, APCache-populated content, `@media print` rules — that pure-Java HTML
-renderers cannot reproduce faithfully. The renderer is driven entirely from the JVM by Selenium —
+renderers cannot reproduce faithfully. The renderer is driven entirely from the JVM by a bounded JDK HTTP client —
 **no Node.js runtime is installed, bundled, or executed anywhere on the server**.
 
 The render surface is a *passive* snapshot: the WYSIWYG editor and the other interactive control
@@ -17,7 +17,7 @@ EformDataManagerImpl.createEformPDF
   └─ EFormBrowserPdfService.renderSavedEformPdf(loggedInInfo, fdid)
        ├─ loads the saved eForm and checks _eform READ for its demographic
        ├─ mints a render-scoped render token (EFormRenderTokenService, 2-min TTL)
-       ├─ launches headless Chromium via Selenium ChromeDriver (fresh browser per render)
+       ├─ asks the separately confined chromedriver to launch headless Chromium (fresh browser per render)
        ├─ navigates over loopback to /EFormViewForPdfGenerationServlet?fdid=…&browserRender=true&renderToken=…
        │    ├─ servlet exchanges the one-time bootstrap token for a host-only,
        │    │    HttpOnly, SameSite=Strict CARLOS_EFORM_RENDER cookie
@@ -79,12 +79,24 @@ This preserves the legacy per-page geometry contract the form corpus depends on 
 text-layer PDF. (The previous implementation screenshotted each `pageN` region via
 `Page.captureScreenshot` and glued the PNGs with PDFBox `LosslessFactory`, which produced image-only
 PDFs with no extractable text — and clipped pages whose background image was smaller than their
-content.) Equivalence is pinned by the Selenium smoke test
+content.) Equivalence is pinned by the browser smoke test
 (`EFormBrowserPdfServiceSeleniumSmokeIntegrationTest`): the page-div fixture prints to a 2-page PDF
 whose page count matches the authored divs and whose text layer contains the form's text, and the
 free-flow fixture prints to a text-layer PDF with no injected `@page` size.
 
 ## Deployment requirements
+
+> **Memory footprint is deliberately bounded.** The launch options cap each renderer's V8 heap
+> (`--js-flags=--max-old-space-size=256`) and the renderer-process fan-out
+> (`--renderer-process-limit=4`, all render content is same-origin loopback), and drop the GPU
+> process (`--disable-gpu`; headless print rasters in software). On the `.deb`, the
+> `carlos-emr-render-browser` unit additionally carries a cgroup ceiling for the whole browser tree
+> (`MemoryHigh=1G`, `MemoryMax=1536M`): under pressure the kernel throttles and, at the limit,
+> OOM-kills **inside the unit** — a runaway form's render fails (retryably, via the normal
+> fail-closed render error, with `Restart=always` recycling the driver) instead of the browser
+> squeezing the EMR beside it. Size hosts for steady state: up to `MAX_CONCURRENT_RENDERS` (2)
+> concurrent Chromium instances of roughly 150–300 MB each, plus chromedriver (~20 MB), on top of
+> the Tomcat JVM. Deployments that raise concurrency must raise the unit ceiling to match.
 
 > **Containerized deployments MUST run an init process (zombie reaping).** Each render launches a
 > Chromium process tree; on an abnormal teardown (a killed chromedriver, a deploy mid-render, an
@@ -95,9 +107,10 @@ free-flow fixture prints to a text-layer PDF with no injected `@page` size.
 > container with `docker run --init` (or tini/dumb-init as PID 1, or a systemd-managed service) so
 > orphans are reaped.
 
-> **Runbook: provision the browser before using eForm PDF workflows.** Install Chromium and a
-> matching chromedriver (and set `eform_pdf_browser_chromium_path` /
-> `eform_pdf_browser_chromedriver_path`) before the webapp deploys. CARLOS probes the renderer at
+> **Runbook: provision the browser before using eForm PDF workflows.** Run a chromedriver as its
+> own service and point `eform_pdf_browser_service_url` at it (the `carlos-emr` `.deb` does
+> both; before 2026.08.0-alpha14 that was the separate `carlos-emr-eform-renderer` package); set `eform_pdf_browser_chromium_path` to the browser binary the
+> driver should launch. CARLOS never spawns a chromedriver itself. It probes the renderer at
 > startup and logs a warning if it is unavailable, but continues deploying so other application
 > workflows remain available. Confirm `eForm browser renderer startup check passed.` in the log
 > before relying on eForm print/fax/archive.
@@ -117,21 +130,32 @@ free-flow fixture prints to a text-layer PDF with no injected `@page` size.
 > | `required` | Legacy compatibility value; behaves like `warn` and no longer aborts startup. |
 > | `off` | Skip the probe entirely. Integration-test Spring contexts set this so the gate never launches Chromium in the test JVM. |
 >
-> Before upgrading, install Chromium/Chrome and a matching `chromedriver` (or confirm the host can
-> reach Selenium Manager to download one), and configure `eform_pdf_browser_chromium_path` /
-> `eform_pdf_browser_chromedriver_path` per the bullets below. The renderer is unsandboxed by default
+> Before upgrading, install Chromium/Chrome and a matching `chromedriver` running as a service,
+> and configure `eform_pdf_browser_service_url` / `eform_pdf_browser_chromium_path` per the
+> bullets below — `eform_pdf_browser_chromedriver_path` is retired and ignored (a startup WARN
+> names it if still set). The renderer is unsandboxed by default
 > (see "Security operations note"), so the readiness probe launches Chromium with `--no-sandbox` and
 > does not fail merely because the host lacks user namespaces. If you have opted into the OS sandbox
 > with `EFORM_RENDER_SANDBOX=true` and it cannot start, the readiness probe fails the same as a real
 > render would — review that setting before assuming the deployment is broken.
 
 - **Chromium** (or Chrome) on the server. Point the renderer at it with
-  `eform_pdf_browser_chromium_path`; without the property, Selenium looks for a system Chrome.
-- **chromedriver matching the browser's major version.** Recommended for production (and
-  required for air-gapped hosts): install it alongside Chromium and pin
-  `eform_pdf_browser_chromedriver_path`. Without the property, Selenium Manager downloads a
-  matching chromedriver at first use — acceptable for dev/CI, not recommended for clinics.
-- **No Node.js.** The renderer runs entirely in the JVM (Selenium driving Chromium); no Node
+  `eform_pdf_browser_chromium_path`; without the property, chromedriver looks for a system Chrome.
+- **A RUNNING chromedriver, matching the browser's major version.** CARLOS connects to it over
+  loopback (`eform_pdf_browser_service_url`); it does not launch one, and there is no
+  Selenium Manager fallback to download a driver at first use. On the .deb this is the
+  `carlos-emr-render-browser` service, which the `carlos-emr` package installs and starts (it
+  carries the pinned Chromium, which is why that package is amd64-only). Elsewhere, run one yourself before the webapp deploys.
+
+  **Why it is a separate process and not a child of the JVM.** Chromium sandboxes its
+  renderers with an unprivileged user namespace. A chromedriver the application spawns
+  inherits the application service's cgroup and confinement, and `carlos-emr.service` denies
+  namespace creation because it runs a PHI-handling Tomcat. Measured on a clean 26.04 VM:
+  sandboxed Chromium started directly as an unprivileged user works in about a second;
+  spawned by the JVM under that unit it fails every boot on the 30s startup budget. Moving
+  the browser to its own unit is what lets it be sandboxed without loosening the EMR's own
+  hardening.
+- **No Node.js.** The renderer runs entirely in the JVM (the JDK client driving Chromium); no Node
   runtime or npm modules are required on the host. (The dev/CI Playwright check scripts under
   `scripts/` are separate test tooling, not part of the renderer.)
 - **Managed eForm assets update themselves.** `EFormAssetDeployer` keeps `editControl2.js`, the
@@ -148,9 +172,10 @@ free-flow fixture prints to a text-layer PDF with no injected `@page` size.
 
 | Property | Default | Meaning |
 |---|---|---|
-| `eform_pdf_browser_base_url` | derived | Loopback base URL the renderer navigates to. Derived from the active request (`scheme://127.0.0.1:localPort/context`), downgrading a proxied `https` scheme to `http` when a TLS-terminating reverse proxy is detected (see "Base URL behind a TLS-terminating proxy" below), or from `project_home` when no request is available. Must resolve to a loopback host — anything else is rejected. |
+| `eform_pdf_browser_base_url` | derived | Loopback base URL the renderer navigates to. Derived from the active request (`scheme://127.0.0.1:localPort/context`), downgrading a proxied `https` scheme to `http` when a TLS-terminating reverse proxy is detected (see "Base URL behind a TLS-terminating proxy" below), or, for a render with no request (the CDS export worker), from the servlet container's own configuration: `http://127.0.0.1:<port>/<context>` with the port of the single plain-HTTP, non-AJP Tomcat connector that 127.0.0.1 reaches and the deployed context path (see "Base URL for renders without a request" below). Must resolve to a loopback host — anything else is rejected. |
 | `eform_pdf_browser_chromium_path` | unset | Absolute path to the Chromium/Chrome binary. |
-| `eform_pdf_browser_chromedriver_path` | unset | Absolute path to a pinned chromedriver. Set this in production. |
+| `eform_pdf_browser_service_url` | `http://127.0.0.1:9515` | URL of an **already-running** chromedriver. CARLOS connects to it and never launches one. Must be `http` (chromedriver serves plaintext only) with an explicit port on a loopback host — anything else is rejected at startup. A path component is permitted and is the chromedriver `--url-base` prefix, which the .deb uses as a capability token. Unreachable fails the render closed; there is no fallback to launching a browser. |
+| ~~`eform_pdf_browser_chromedriver_path`~~ | — | **Removed.** CARLOS no longer spawns chromedriver, so a path to one has nothing to launch. See `eform_pdf_browser_service_url`. |
 | `eform_pdf_browser_startup_check` | `warn` | Startup readiness mode: `warn` probes and logs without aborting startup, legacy `required` behaves the same way, and `off` skips the probe (test contexts). See the upgrade notice above. |
 | `eform_pdf_browser_strict_network_gate` | `false` | When `true`, restores the original fail-closed posture where any observed off-origin HTTP request, failed render-critical subresource, or severe page-script console error aborts the whole render. The default (`false`) treats those three as advisory (logged, render proceeds) so the legacy eForm corpus — which routinely references off-origin assets, 404s optional helper scripts/images, and emits benign JS errors — still produces a PDF of what painted. Physical egress containment is unaffected: the dead proxy still blocks off-origin HTTP, and the WebSocket/WebTransport gate, the same-origin main-document requirement, and the unparseable-network-evidence gate stay hard fail-closed regardless of this switch. |
 | `eform_pdf_browser_saved_view_profile_enabled` | `true` | Enables the saved-view dependency profile and renderer-only APCache bridge. Set `false` only as a temporary compatibility rollback while investigating a clinic form; capability/session isolation and all browser containment remain enabled. |
@@ -186,6 +211,20 @@ deployments should set it explicitly** —
 `eform_pdf_browser_base_url=http://127.0.0.1:<tomcatPort>/<context>` — rather than relying on the
 heuristic.
 
+### Base URL for renders without a request
+
+A render started outside an HTTP request (the CDS export worker renders every listed eForm of a
+chart) has no request to take a port or context path from. It used to fall back to
+`http://127.0.0.1:8080/<project_home>`, which the packaged install does not serve (its only
+connector is `127.0.0.1:18080`). `RendererLoopbackOrigin` now reads the port from Tomcat's own
+connector configuration, as Tomcat publishes it over JMX: the one connector that is not AJP, whose
+scheme is plain `http`, that is not marked `secure`, and that is bound to every interface or to
+127.0.0.1. The context path is the one the servlet container deployed the application at
+(`EFormBrowserPdfService` is `ServletContextAware`), else `project_home`. Nothing comes from a
+client: the host is always `127.0.0.1`. When no single connector qualifies (none, several, TLS only,
+bound to another address) the legacy default is kept, and `eform_pdf_browser_base_url` overrides
+every derivation. The base URL derived this way is logged once, origin only.
+
 ## Security model
 
 - **Loopback-only egress, enforced twice — scoped to the exact render origin.** Chromium
@@ -206,7 +245,7 @@ heuristic.
   DevTools is a parent-process pipe rather than a localhost TCP port another local process could
   connect to.
 - **No local file access.** A malicious eForm cannot read server files (`file:///etc/passwd`,
-  `/var/lib/OscarDocument/...`) into the rendered PDF. Two layers: Chromium's default cross-scheme
+  `/var/lib/CarlosDocument/...`) into the rendered PDF. Two layers: Chromium's default cross-scheme
   policy blocks `file://` subresources from the http render origin, and the renderer's request
   gate classifies any non-web scheme (`file:`, `filesystem:`, `chrome:`, `view-source:`, …)
   **other than** the non-network pseudo-schemes `data:`/`blob:`/`about:` as a disallowed request
@@ -240,7 +279,12 @@ heuristic.
   caller-owned chromedriver service is stopped afterwards as a backstop
   when quit times out.
 - **Bounded concurrency.** At most 2 concurrent renders (30s slot wait, then a clean failure)
-  so rendering can never saturate Tomcat's request workers. Every WebDriver/CDP HTTP command is
+  so rendering can never saturate Tomcat's request workers. The CDS export is the one caller that
+  waits longer: it renders one form at a time, so it never holds more than one slot, and it keeps
+  its place in the queue for as long as a slot takes, checking about once a second outside the
+  queue's lock whether its job was cancelled (`renderSavedEformPdf` with a slot-wait check,
+  `RenderAdmission.acquire(Kind, Runnable)`). A full queue is still refused at once for every
+  caller. Every WebDriver/CDP HTTP command is
   additionally client-bounded at 90s (vs Selenium's ~180s default), which sharply cuts down —
   but does not eliminate — how long a wedged Chromium can hold one of the 2 render slots; see
   "Known limitations and tracked follow-ups" for the honest worst-case shape.
@@ -280,6 +324,44 @@ RCE in Chromium's renderer). Because the renderer processes clinic-authored cont
 pinned Chromium and chromedriver like any other security-patched dependency: keep them updated.
 The token design means the render browser holds no session cookies or credentials, so a
 compromised render exposes only the content of the form being rendered.
+
+### The render browser runs out of process, as its own account
+
+CARLOS connects to a chromedriver it does not own. Two consequences worth stating plainly.
+
+**A new local attack surface.** chromedriver listens on a loopback TCP port with **no
+authentication**, and a WebDriver new-session request can name the browser binary and its arguments.
+An exposed chromedriver is therefore an arbitrary-code-execution service running as whatever account
+started it. Three mitigations, in the order they actually matter:
+
+1. **A dedicated, group-less account.** On the .deb the browser runs as `carlos-render`, which is in
+   no group — deliberately not `carlos`. Reaching the port yields a browser owning nothing: no
+   patient documents, no database credentials, no read on `carlos.properties`. Running it as the
+   application account would instead hand over the uid that owns the document store. This is only
+   possible because the rendered PDF returns inline over CDP, so the two sides share no filesystem.
+2. **`--url-base` as a speed bump — and not more than that.** A random path prefix generated at
+   install. Be clear about its limits: systemd expands it into the process's `argv`, and
+   `/proc/<pid>/cmdline` is world-readable, so **any local uid can read the token**. It raises the
+   bar against blind scanning; it does not bound the port. Anyone reasoning about this design should
+   treat control 1 as the boundary and this as hygiene. The service does refuse to start without one,
+   because an empty `--url-base` silently moves every endpoint to the bare root.
+
+   If a site needs the port genuinely closed to other local accounts, the available control is a
+   firewall owner-match (e.g. an nftables rule on `lo` dport matching `meta skuid`), not anything
+   chromedriver offers. AppArmor cannot express it on this kernel (`af_unix` only, no `af_inet`).
+3. **chromedriver's loopback-only default, left alone.** `--allowed-ips` and `--allowed-origins` are
+   deliberately NOT passed: the defaults are already correct, and passing either with an empty value
+   historically means "allow everything".
+
+AppArmor cannot help here. On this kernel it mediates only `af_unix`, not `af_inet`, so there is no
+rule expressing "deny this port to that user" — only "deny all inet sockets", which is useless for a
+web server. The account split is the control.
+
+**Teardown changed.** The application can no longer kill the browser process, because it does not own
+it. A wedged session is ended by `quit()`, escalating to a targeted `DELETE` of that exact session id
+over a fresh short-deadline connection; the id is captured at session creation because
+`RemoteWebDriver.quit()` clears its own even when the quit fails. The backstop of last resort is now
+`systemctl stop carlos-emr-render-browser`, which tears down the driver and every browser it launched.
 
 **Selenium is not an isolation layer.** It only launches `chromedriver` → `chrome`; the
 chroot / namespace / seccomp confinement is Chromium's *own* sandbox (or the container). By default
@@ -375,13 +457,15 @@ would mint preview/write state on a read-only path).
 
 ### Optional assets that are referenced but not deployed
 
-`eformGenerator.jsp` injects a `stamps.js` tag into **every generated eForm**, while
-`EFormAssetDeployer` intentionally never deploys `stamps.js` (it holds clinic-specific signature-image
-mappings administrators create themselves). On a fresh install that tag 404s, and `Script` is a
-content-critical resource type — so the completeness gate blocked the PDF over an asset that is
-absent by design. `removeAbsentOptionalStamps` drops the tag only when the file is genuinely absent
-from the eForm image directory; if the directory cannot be read, the tag is left in place so the
-browser gate still reports the real failure rather than silently hiding it.
+`eformGenerator.jsp` injects a `stamps.js` tag into **every generated eForm**, and the Rich Text
+Letter loads one too. `stamps.js` holds clinic-specific signature-image mappings administrators
+create themselves, so `EFormAssetDeployer` seeds only a comment-only placeholder, once, when the
+file is absent, and never overwrites it. An install that removed it, or that predates the
+placeholder, has no file there; that tag 404s, and `Script` is a content-critical resource type —
+so the completeness gate blocked the PDF over an asset that is absent by design.
+`removeAbsentOptionalStamps` drops the tag only when the file is genuinely absent from the eForm
+image directory; if the directory cannot be read, the tag is left in place so the browser gate still
+reports the real failure rather than silently hiding it.
 
 ### Stored letters are decoded before they are spliced
 
@@ -391,6 +475,15 @@ so text a clinician actually typed as `&lt;` stays text. Diverging from that ord
 the on-screen editor disagree about the same stored letter; change both together or neither. Without
 the decode the PDF prints the clinician's own markup as visible text (`<h3>Consultation Letter</h3>`
 instead of a heading) — a clean render, gate-green, and clinically useless.
+
+The same encoding decides which signatures the render may fetch. A drawing from the letter's
+signature pad is an `<img>` whose `src` names `digitalSignatureId=<id>`; the editor serializes its
+`&` as `&amp;` and `saveRTL()` escapes the serialized letter again, so the stored `Letter` value
+carries `&amp;amp;digitalSignatureId=<id>`. `EFormSignatureViewForPdfGenerationServlet` streams only
+a signature the render's eForm references in its stored values (and only one that belongs to that
+eForm's patient, the authoritative check), and it accepts the reference raw, escaped once and
+escaped twice. Until it accepted the last form, every letter signed on the pad was refused its
+signature (403) and the render blocked as incomplete.
 
 Decoding turns previously-inert markup into live markup on a surface that permits
 `'unsafe-inline'`, so `hardenLetterHtml` strips event-handler attributes and `javascript:` URLs
@@ -436,7 +529,10 @@ provided; a production corpus is likely worse, since these control scripts are w
 `eformGenerator.jsp` emits for generated forms. An earlier attempt to fix this by mirroring the
 viewer's chrome (injecting jQuery) made renders get *further* and still produce nothing — the editor
 then booted and its XHRs hit `connect-src`. Stripping the editor is the fix; the saved-view
-dependency profile (jQuery, jQuery UI, Bootstrap) remains for clinic form code that expects it.
+dependency profile (jQuery, jQuery UI, the Bootstrap script bundle) remains for clinic form code that
+expects it. It carries no Bootstrap *stylesheet*: Bootstrap's reboot restyles legacy eForm content,
+and the interactive viewer applies only a scoped copy to its own chrome, which this surface removes,
+so the PDF matches the screen (see [eForm chrome styling](eform-chrome-bootstrap-scope.md), #3944).
 
 ## What the render gates cannot see
 
@@ -458,6 +554,37 @@ encoding:
 Neither is detectable from network evidence, console errors, or `%PDF-` plus a byte count. The
 smoke-test runbook therefore requires opening the produced PDF and looking at it — see
 `docs/ui-tests/eform-pdf-render-smoke-test.md`, "Open the produced PDF and look at it".
+
+### Off-page content is blocking unless the form marks it as decoration
+
+Content authored **outside** every `<div id="pageN">` — before the first page div or after the last —
+cannot be printed by the authored-page geometry, so the geometry pass hides it
+(`.carlos-render-nonpage`) and records it. How it is recorded decides whether a clinician ever finds
+out:
+
+- **Blocking** (`excludedContentElements`): counted, measured, and fed to `withholdsDocument`, so the
+  document is withheld pending informed approval.
+- **Advisory** (`decorativeExcludedElements`): disclosed in the completeness report and logged at
+  INFO, but it never withholds anything.
+
+Classification is **opt-in**. An off-page element is treated as decoration only when it carries an
+explicit marker:
+
+```html
+<div class="carlos-print-decoration">College of ... — license #12345</div>
+<div data-carlos-print-decoration>Printed from CARLOS EMR</div>
+```
+
+Anything unmarked stays blocking, including plain text. This is deliberate: position in the document
+cannot establish that content is non-clinical. An earlier heuristic inferred decoration from the mere
+absence of a control or media element, with no length or content test, so a `<div>` of clinical prose
+placed outside the page divs was silently dropped from every printed, faxed and archived PDF with
+only an advisory note. If a form legitimately carries an off-page badge, masthead or boilerplate
+disclaimer, mark it; do not rely on its position.
+
+A marker is an assertion about boilerplate, not a licence to drop a field. A marked element that
+still contains a control (`input, textarea, select, button, [contenteditable]`) or a media element
+(`img, canvas, svg, video, iframe, object, embed`) stays blocking regardless.
 
 ## Saved-letter round trip (interactive viewer)
 
@@ -507,11 +634,11 @@ operational configuration matter:
   ever appears, the fix is provenance tracking (record the digest CARLOS deployed; replace only when
   the on-disk copy still matches it), not a return to skip-if-exists, which silently pinned every
   install to whatever version it first received.
-- **`stamps.js` is still referenced by every generated eForm.** `removeAbsentOptionalStamps` hides
-  the consequence on the render path only; the interactive viewer still requests it and still logs a
-  404 in the browser console on a fresh install. Shipping a default empty `stamps.js` would not
-  clobber clinic files (the deployer's exists-guard already protects them), and not emitting the tag
-  when no stamps exist is the other option; neither is done here.
+- **`stamps.js` is still referenced by every generated eForm.** The deployer now seeds a
+  comment-only placeholder (its exists-guard keeps a clinic's own file), so a stock install no
+  longer logs a 404 for it. An install whose placeholder was removed still does in the interactive
+  viewer; `removeAbsentOptionalStamps` covers the render path only. Not emitting the tag when no
+  stamps exist would remove the request altogether; that is not done here.
 - **Viewer-relative URLs built inside JavaScript strings are not re-anchored.**
   `EForm.rewriteViewerRelativeAssetReferences` re-anchors `../` references in element attributes, but
   a URL assembled in a script literal (`var url = "../eform/displayAttachedFiles"`) resolves against
@@ -567,8 +694,7 @@ preview flows. Each cycle sweeps two locations:
   `PathValidationUtils.APPLICATION_TEMP_ROOT_NAME`) — every direct child (file or directory,
   regardless of name) older than the max age is removed. This root is exclusively CARLOS-owned
   (`NioFileManagerImpl.saveTempFile`'s `tempPDF*` subdirectories and `createTempFile`'s
-  `tempDirectory*` subdirectories, the latter used by `ImportDemographicDataAction42Action` to
-  stage multi-patient demographic import files), so there is no name-prefix gate — any old-enough
+  `tempDirectory*` subdirectories for generated working files), so there is no name-prefix gate — any old-enough
   direct child is a purgeable orphan.
 - **Document preview cache** (`document_cache`, see
   `NioFileManagerImpl.resolveDocumentCacheDirectory()`) — stale `*.png` files older than the max
@@ -595,6 +721,114 @@ directory is treated as "nothing to sweep yet," and `runCycle()` catches every `
 category so one bad cycle (a transient I/O failure, a JVM error) never cancels the timer for
 subsequent cycles.
 
+## Reading the logs
+
+The renderer spans two services, so a render failure can leave nothing at all in the application
+log. Check both, in this order:
+
+```
+# 1. Did the application manage to drive the browser?
+sudo carlos-ctl logs | grep -i renderer
+
+# 2. What did the browser itself say? Separate unit, separate journal.
+sudo systemctl status carlos-emr-render-browser
+sudo journalctl -u carlos-emr-render-browser -n 50
+```
+
+At startup the application probes the browser exactly once and reports the outcome. That report is
+visible at default verbosity **only because `log4j2.xml` gives this package its own INFO level** —
+the root logger defaults to WARN (`LOG_VERBOSITY`; it was ERROR in builds before 2026.09), and
+either default hid a passing probe entirely because the probe reports at INFO. If you are reading
+logs from a build that predates the per-package level, raise `LOG_VERBOSITY` to `info` before
+concluding the probe did not run.
+
+The line to look for is:
+
+```
+eForm browser renderer startup check passed.
+```
+
+Anything else is a real finding. The two worth recognising:
+
+| What you see | What it means |
+|---|---|
+| `Chromium session creation exceeded the 30s startup budget` | The application reached chromedriver but could not get a usable session. Usually the browser cannot start — check its own journal, not this one. |
+| `The eForm render browser service is unavailable.` | Nothing was listening. `systemctl status carlos-emr-render-browser`, and check `eform_pdf_browser_service_url`. |
+| `eForm browser renderer startup check is OFF` | The probe is disabled (`eform_pdf_browser_startup_check=off`). Expected in test contexts; on a deployment it means failures will surface at first print instead. |
+
+Two things the messages deliberately will **not** tell you, so do not go looking for them there. The
+service URL never appears in an operator- or clinician-facing message, because it carries the
+`--url-base` capability token — the log line names the *property* instead. And the underlying
+WebDriver exception is never chained into the thrown error, because a downstream handler that logged
+the chain would re-emit whatever the message embedded; the redacted `causedBy=` detail line at the
+failure site is the diagnostic record.
+
+Nothing here is PHI-safe by accident: raising a log level for troubleshooting is fine, but put it
+back, because DEBUG on this application can put request parameters into the log.
+
+### The configured confidentiality statement
+
+`PrivacyStatementAppendingFilter` appends the configured
+`confidentiality_statement.*` to every printable page. The renderer measures
+under print-media emulation, where that paragraph is `display:block`, so it is a
+substantive off-page element and — once `bb5320b3` made decoration opt-in — it
+withheld **every** eForm download on any install with a statement configured.
+It now carries `carlos-print-decoration`, the gate's own opt-in for platform
+boilerplate.
+
+Two consequences worth knowing before reading a report:
+
+- On those installs `Off-page decoration removed: 1` is the **normal** state,
+  and the render is logged as not-strictly-complete on every request. That is
+  expected noise, not a fault.
+- The marker classifies the paragraph, not its contents. If a clinic's
+  configured statement contains an `<img>` — a letterhead or logo — the
+  decoration predicate rejects it and the withhold returns. A statement that
+  must carry an image needs the image marked as decoration too, or the
+  statement reduced to text.
+
+### Diagnosing a withheld render ("Some eForm content could not be loaded")
+
+When the completeness gate withholds a PDF, the operator-facing page reports **counts**:
+
+```
+Failed content resources: 0
+Excluded visible elements: 1
+Off-page decoration removed: 0
+```
+
+`EFormRenderCompletenessReport` is counts and booleans by construction, so that is all it can say.
+It is enough to withhold a document and not enough to fix one — nobody can act on "1 element"
+without knowing which. The identity is available in one place only, because the scan runs inside the
+render browser against a URL the front door cannot reach (`wasForwarded()` rejects any request
+carrying `X-Forwarded-*`, and nginx sets all of them).
+
+Raise the root level to DEBUG for one render:
+
+```
+# The shipped env file has no LOG_VERBOSITY line, so sed alone matches nothing and
+# is a silent no-op -- add the line if absent, otherwise rewrite it in place.
+grep -q '^LOG_VERBOSITY=' /etc/carlos-emr/carlos-emr.env \
+  && sudo sed -i 's/^LOG_VERBOSITY=.*/LOG_VERBOSITY=debug/' /etc/carlos-emr/carlos-emr.env \
+  || echo 'LOG_VERBOSITY=debug' | sudo tee -a /etc/carlos-emr/carlos-emr.env
+sudo carlos-ctl restart
+# reproduce the download, then:
+sudo carlos-ctl logs | grep 'renderer excluded element'
+```
+
+```
+Browser eForm renderer excluded element(s): fdid=5 elements=[DIV#footer.legal h=42px chars=137]
+```
+
+Each entry is `TAG#id.class h=<height>px chars=<n>`. That is deliberately **structure only** — the
+character *count* of the element's text, never the text, because an off-page block is exactly where
+clinical prose ends up and this line goes to the application log. The count is what separates a
+spacer from a paragraph, which is all the diagnosis needs. `renderer decoration element(s)` is the
+same for the advisory bucket, so an author can confirm the right things carry the decoration marker.
+
+**Put `LOG_VERBOSITY` back afterwards.** DEBUG on this application can put request parameters into
+the log.
+
 ## Verification
 
 Three layers, in increasing cost. **All three are required** — the first two are structurally blind
@@ -612,9 +846,16 @@ key extraction), the render servlet and token service, the capability cookie and
 authorization, the image/signature/APCache servlets, `LoginFilter` least-privilege, and the
 mutator/GET contract.
 
-End-to-end smoke, which skips cleanly on a host without a browser:
+Opt-in end-to-end smoke with a matching chromedriver and browser binary. The legacy
+`SeleniumSmokeIntegrationTest` class name is retained for existing operator commands; its implementation
+uses the JDK transport. Give it either a chromedriver binary (`CARLOS_SMOKE_CHROMEDRIVER`, started on a
+free loopback port and stopped after the class) or a running service (`CARLOS_SMOKE_DRIVER_URL`, which
+wins when both are set). Runs without a driver or browser skip cleanly; a configured driver that does
+not start fails:
 
 ```bash
+CARLOS_SMOKE_CHROMEDRIVER=/path/to/chromedriver \
+CARLOS_SMOKE_CHROMIUM=/path/to/chrome \
 mvn test -Dtest=EFormBrowserPdfServiceSeleniumSmokeIntegrationTest
 ```
 
@@ -633,14 +874,36 @@ npm run test:eform-admin-playwright
 npm run test:eform-render-playwright
 npm run test:eform-saved-render-playwright
 npm run test:eform-test-pattern-playwright
+npm run test:eform-apcache-renderer-playwright
 npm run test:eform-rtl-attachment-routes-playwright
 npm run test:eform-rtl-attachment-types-playwright
 npm run test:eform-rtl-attachment-behavior-playwright
+npm run test:eform-rtl-attachment-pdf-playwright
 ```
 
 `eform-rtl-attachment-behavior` is the highest-value one: it exercises a saved Rich Text Letter
 through attachment selection and a merged eForm+attachment PDF download, which is the flow that the
-editor-on-the-render-surface bug blocked entirely.
+editor-on-the-render-surface bug blocked entirely. `eform-rtl-attachment-pdf` extends it per
+attachment family: a document, a lab result, an HRM report, another eForm, and an encounter form
+are each attached to their own letter and must show on the saved letter and add pages to the PDF
+from both download paths (toolbar Download and the form's `print=true` PDF button). It needs the
+demo document files and the HRM report fixture described in the smoke-test runbook.
+
+`eform-apcache-renderer` is the one that exercises the capability-scoped APCache bridge
+(`EFormApCacheForPdfGenerationServlet`) end to end rather than through the servlet's unit tests. Its
+fixture fills fields through `APCache.js` lookups, so the headless render must fetch the values
+through the bridge: the check asserts the PDF text carries them, and that a form which also looks up
+an AP key the server does not configure is withheld behind the missing-content approval page (with
+a non-zero "Failed content resources" count and no key name) rather than rendered with a blank
+field. On a packaged install, `APCACHE_JOURNAL_UNIT=carlos-emr` additionally pins the servlet's
+WARN line (key and reason, no fdid, no throwable, no values) and `APCACHE_PROBE_URL=http://127.0.0.1:18080/carlos`
+probes the servlet without a grant (401 on loopback, 403/405 on POST, refused through the front door).
+It also pins the save result view: the form action `EForm` writes carries
+`efmfid`/`efmdemographic_no` rather than `fid`/`demographic_no`, and the interactive lookup route
+(`eform/efmformapconfig_lookup`, via `ApCacheLookupParameterResolver`) accepts both spellings, so
+the lookups a form re-runs after a save-and-download resolve instead of answering "Invalid fid". Patient-independent
+forms may omit both patient parameters; their AP queries retain an absent patient context.
+When a patient is supplied, the existing patient-scoped prevention precision check still applies.
 
 ### 3. Look at the PDF
 

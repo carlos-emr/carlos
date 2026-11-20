@@ -59,7 +59,7 @@ public class ServiceSpecialistsDaoImpl extends AbstractDaoImpl<ServiceSpecialist
     @SuppressWarnings("unchecked")
     @Override
     public List<Object[]> findSpecialists(Integer servId) {
-        String sql = "SELECT ser, pro FROM ServiceSpecialists ser, " + ProfessionalSpecialist.class.getSimpleName() + " pro WHERE pro.id = ser.id.specId and ser.id.serviceId = ?1 ORDER BY pro.lastName";
+        String sql = "SELECT ser, pro FROM ServiceSpecialists ser, " + ProfessionalSpecialist.class.getSimpleName() + " pro WHERE pro.deleted = false and pro.id = ser.id.specId and ser.id.serviceId = ?1 ORDER BY pro.lastName";
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, servId);
         return query.getResultList();
@@ -68,7 +68,42 @@ public class ServiceSpecialistsDaoImpl extends AbstractDaoImpl<ServiceSpecialist
     @SuppressWarnings("unchecked")
     @Override
     public List<Object[]> findAllSpecialistsWithService() {
-        Query query = entityManager.createQuery("SELECT ser, pro, cs FROM ServiceSpecialists ser, ProfessionalSpecialist pro, ConsultationServices cs WHERE pro.id = ser.id.specId AND cs.serviceId = ser.id.serviceId ORDER BY pro.lastName, cs.serviceDesc");
+        Query query = entityManager.createQuery("SELECT ser, pro, cs FROM ServiceSpecialists ser, ProfessionalSpecialist pro, ConsultationServices cs WHERE pro.deleted = false AND pro.id = ser.id.specId AND cs.serviceId = ser.id.serviceId ORDER BY pro.lastName, cs.serviceDesc");
         return query.getResultList();
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public List<Object[]> searchSpecialistsWithService(String keyword, int maxResults) {
+        // Escape LIKE metacharacters before wrapping: without this a term containing % or _ is
+        // treated as a wildcard, so "a_" matches far more than the user typed and "%" matches the
+        // whole specialist directory.
+        String lk = "%" + escapeLike(keyword.toLowerCase(java.util.Locale.ROOT)) + "%";
+        // Projects the service DESCRIPTION, not the ConsultationServices entity. That entity's
+        // specialists collection is @ManyToMany(fetch = EAGER), HQL never join-fetches an eager
+        // collection, and the second-level cache is off — so selecting `cs` issued one extra
+        // select per row and hydrated the whole specialist roster of every matched service, none
+        // of which is read. The caller only ever wanted getServiceDesc(). `ser` was projected and
+        // never referenced at all, so it is gone too.
+        Query query = entityManager.createQuery(
+            "SELECT pro, cs.serviceDesc FROM ServiceSpecialists ser, ProfessionalSpecialist pro, ConsultationServices cs " +
+            "WHERE pro.id = ser.id.specId AND cs.serviceId = ser.id.serviceId " +
+            "AND pro.deleted = false AND pro.hideFromView = false " +
+            // A specialist with no fax number cannot be a fax recipient. Filtering them here
+            // rather than in the caller matters because setMaxResults caps the rows the database
+            // returns: leaving them in let a run of fax-less rows consume the whole limit and
+            // hide faxable specialists that sorted after them.
+            "AND pro.faxNumber IS NOT NULL AND TRIM(pro.faxNumber) <> '' " +
+            "AND (LOWER(pro.lastName) LIKE :kw ESCAPE '!' OR LOWER(pro.firstName) LIKE :kw ESCAPE '!' "
+            + "OR LOWER(cs.serviceDesc) LIKE :kw ESCAPE '!') " +
+            "ORDER BY pro.lastName, cs.serviceDesc");
+        query.setParameter("kw", lk);
+        query.setMaxResults(maxResults);
+        return query.getResultList();
+    }
+
+    /** Neutralises LIKE metacharacters so a typed % or _ matches itself. */
+    private static String escapeLike(String raw) {
+        return raw.replace("!", "!!").replace("%", "!%").replace("_", "!_");
     }
 }

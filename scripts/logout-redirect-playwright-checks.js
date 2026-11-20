@@ -51,11 +51,17 @@
  *   GRAPH_MEASUREMENT_TYPE=ALT to override the default seeded measurement graph
  *   GRAPH_PATH=/encounter/GraphMeasurements?method=ChartMeds&demographic_no=1&drug=...
  *   CARLOS_LOG_FILE=/path/to/catalina.out
+ *   CARLOS_LOG_JOURNAL_UNIT=carlos-emr.service instead of CARLOS_LOG_FILE on Debian installs
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
+const { validateBaseUrl } = require('./lib/playwright-harness');
 const fs = require('fs');
+const { createJournalLogSource } = require('./logout-journal-log');
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -67,6 +73,11 @@ const graphMeasurementType = process.env.GRAPH_MEASUREMENT_TYPE || 'ALT';
 const graphPath = process.env.GRAPH_PATH
   || `/encounter/GraphMeasurements?demographic_no=${encodeURIComponent(graphDemographicNo)}&type=${encodeURIComponent(graphMeasurementType)}`;
 const carlosLogFile = process.env.CARLOS_LOG_FILE || '';
+const journalUnit = process.env.CARLOS_LOG_JOURNAL_UNIT;
+if (carlosLogFile && journalUnit !== undefined) {
+  throw new Error('Choose either CARLOS_LOG_FILE or CARLOS_LOG_JOURNAL_UNIT');
+}
+const journalLog = journalUnit === undefined ? null : createJournalLogSource(journalUnit);
 const timeout = parseTimeout(process.env.PLAYWRIGHT_TIMEOUT, 30000);
 
 const findings = [];
@@ -74,7 +85,7 @@ const visited = [];
 
 const pageRoutes = [
   { label: 'dms-index', path: '/documentManager/inboxManage?method=prepareForIndexPage' },
-  { label: 'dms-content', path: '/documentManager/inboxManage?method=prepareForContentPage&page=1&pageSize=20&view=all&status=N' },
+  { label: 'dms-content', path: '/documentManager/inboxManage?method=prepareForContentPage&page=1&pageSize=20&view=all&status=N', fragment: true },
   { label: 'dms-queues', path: '/documentManager/inboxManage?method=getDocumentsInQueues' },
 ];
 
@@ -82,22 +93,6 @@ const affectedRoutes = [
   ...pageRoutes,
   { label: 'measurement-graph', path: graphPath, graph: true },
 ];
-
-function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-
-  const host = parsed.hostname.toLowerCase();
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
-  if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
-  return parsed;
-}
 
 function parseTimeout(rawTimeout, fallback) {
   if (rawTimeout === undefined || rawTimeout === '') {
@@ -148,14 +143,29 @@ function safeGoto(page, label, appPath, options = {}) {
 }
 
 function isExpectedMissingAsset(status, responseUrl) {
-  return status === 404 && (/\/imageRenderingServlet\?/.test(responseUrl) || /\/favicon\.ico$/.test(responseUrl));
+  return status === 404 && (
+    /\/imageRenderingServlet\?/.test(responseUrl)
+    || responseUrl === `${baseUrl.origin}/favicon.ico`
+  );
 }
 
 function isExpectedConsoleNoise(message) {
   const text = message.text();
+  const location = message.location ? message.location() : {};
+  // Chromium can omit the location but include the resource URL in the text.
+  // Accept only a single, exact origin favicon URL in that case; an anonymous
+  // 404, a URL prefix match, or a message naming multiple resources still fails.
+  const textUrls = text.match(/https?:\/\/[^\s"'<>]+/g) || [];
+  const resourceUrl = location.url || (
+    textUrls.length === 1 && textUrls[0] === `${baseUrl.origin}/favicon.ico`
+      ? textUrls[0] : ''
+  );
   return /Content Security Policy.*report-only/i.test(text)
     || /Master token \[CSRF-TOKEN\]/.test(text)
-    || /Hidden token fields .* were updated with new token value/.test(text);
+    || /Hidden token fields .* were updated with new token value/.test(text)
+    || (message.type() === 'error'
+      && /Failed to load resource.*404/i.test(text)
+      && isExpectedMissingAsset(404, resourceUrl));
 }
 
 function isSevereConsoleMessage(message) {
@@ -164,7 +174,7 @@ function isSevereConsoleMessage(message) {
   }
   const text = message.text();
   if (message.type() === 'error') {
-    return !/imageRenderingServlet\?|favicon\.ico/i.test(text);
+    return true;
   }
   return /(ReferenceError|TypeError|SyntaxError|DataTable is not a function|Cannot read|Cannot set|is not defined)/i.test(text);
 }
@@ -259,6 +269,30 @@ async function login(context) {
 }
 
 async function checkAuthenticatedPageRoute(context, route) {
+  if (route.fragment) {
+    // The DMS content endpoint returns an HTML fragment whose scripts use
+    // jQuery supplied by the DMS index. Navigating directly to the fragment
+    // executes those scripts outside their host page and invents a pageerror.
+    // The index is opened separately above; verify this endpoint as a response.
+    const response = await context.request.get(appUrl(route.path));
+    const body = await response.text();
+    visited.push({ label: `authenticated:${route.label}`, url: safeUrl(response.url()) });
+    if (!response.ok()) {
+      findings.push({ label: `authenticated:${route.label}`, type: 'bad-navigation-status',
+        status: response.status(), url: safeUrl(response.url()) });
+    }
+    // The request follows redirects, so an expired session arrives as a 200 login/logout page.
+    // Judge by URL only: the fragment's own text may legitimately mention a login or session.
+    if (isLoginOrLogoutPage('', response.url())) {
+      findings.push({ label: `authenticated:${route.label}`, type: 'unexpected-auth-redirect',
+        url: safeUrl(response.url()), ...summarizeText(body) });
+    }
+    if (!body.trim() || isErrorPageText(body)) {
+      findings.push({ label: `authenticated:${route.label}`, type: 'invalid-fragment',
+        url: safeUrl(response.url()), ...summarizeText(body) });
+    }
+    return;
+  }
   const page = await context.newPage();
   wirePage(page, `authenticated:${route.label}`);
   const response = await safeGoto(page, `authenticated:${route.label}`, route.path);
@@ -279,7 +313,7 @@ async function checkAuthenticatedPageRoute(context, route) {
 }
 
 async function checkUnauthenticatedRoute(browser, route) {
-  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
   const page = await context.newPage();
   const label = `unauthenticated:${route.label}`;
   wirePage(page, label);
@@ -301,7 +335,9 @@ async function checkUnauthenticatedRoute(browser, route) {
 }
 
 function captureLogSnapshot() {
+  if (journalLog) return { journal: journalLog.capture() };
   if (!carlosLogFile) {
+    visited.push({ label: 'log-scan', source: 'none', checked: false });
     return null;
   }
   try {
@@ -314,6 +350,11 @@ function captureLogSnapshot() {
 }
 
 function readLogDelta(snapshot) {
+  if (snapshot && snapshot.journal) {
+    const delta = journalLog.readDelta(snapshot.journal);
+    visited.push({ label: 'log-scan', source: 'journal', checked: true, entries: delta.entries, bytes: Buffer.byteLength(delta.text, 'utf8') });
+    return delta.text;
+  }
   if (!snapshot) {
     return '';
   }
@@ -358,14 +399,15 @@ function checkLogDelta(snapshot) {
     findings.push({
       label: 'log-scan',
       type: 'affected-route-log-failure',
-      file: snapshot.file,
+      ...(snapshot.journal ? { source: 'journal' } : { file: snapshot.file }),
       signals,
       ...summarizeText(delta),
     });
   }
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('logout-redirect',async context=>{
+  await (async({cancellation})=>{
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
@@ -375,21 +417,27 @@ function checkLogDelta(snapshot) {
   }
 
   const logSnapshot = captureLogSnapshot();
-  const browser = await chromium.launch(launchOptions);
+  const browser = await chromium.launch({...(launchOptions),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   try {
     for (const route of affectedRoutes) {
       await checkUnauthenticatedRoute(browser, route);
+    cancellation?.throwIfCancelled();
     }
 
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1000 } });
+    cancellation?.throwIfCancelled();
     const landingPage = await login(context);
+    cancellation?.throwIfCancelled();
     if (!findings.some((finding) => finding.label === 'post-login' && finding.type === 'login-failed')) {
       for (const route of pageRoutes) {
         await checkAuthenticatedPageRoute(context, route);
+    cancellation?.throwIfCancelled();
       }
     }
     await landingPage.close();
+    cancellation?.throwIfCancelled();
     await context.close();
+    cancellation?.throwIfCancelled();
   } finally {
     await browser.close();
   }
@@ -403,11 +451,12 @@ function checkLogDelta(snapshot) {
   }
 
   console.log('PASS logout redirect surfaces rendered without auth, HTTP, browser, or response-commit failures');
-})().catch((error) => {
+})(context).catch((error) => {
   console.error('FAIL logout redirect Playwright check');
   console.error(error.stack || error.message);
   if (findings.length) {
     console.error(`Findings: ${JSON.stringify(findings, null, 2)}`);
   }
-  process.exit(1);
+  {process.exitCode=1;return;}
+});
 });

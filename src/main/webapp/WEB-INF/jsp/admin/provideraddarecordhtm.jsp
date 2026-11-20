@@ -28,10 +28,20 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+  Purpose: Administration > Add a Provider Record form (admin.provider add).
+  Features: captures the provider identity, contact, billing (OHIP number,
+    specialty code, four-character OHIP group number: letters or digits,
+    0000 for solo billing) and security settings, then posts to
+    /admin/ProviderAddARecord.
+  Parameters: none on entry; the form fields are read by the add action.
+  @since 2026-08-04
+--%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.providers.data.*" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
@@ -361,7 +371,8 @@
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formBillingGroupNo"/>:
                         </td>
-                        <td><input type="text" name="xml_p_billinggroup_no"></td>
+                        <td><input type="text" name="xml_p_billinggroup_no" maxlength="4" pattern="[A-Za-z0-9]{4}"
+                                   title="OHIP group number: 4 letters or digits (0000 for solo billing)"></td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formCPSIDType"/>:
@@ -374,8 +385,9 @@
                                     LookupList ll = lookupListManager.findLookupListByName(LoggedInInfo.getLoggedInInfoFromSession(request), "practitionerNoType");
                                     if (ll != null) {
                                         for (LookupListItem llItem : ll.getItems()) {
+                                            if (!Boolean.TRUE.equals(llItem.isActive())) continue;
                                 %>
-                                <option value="<%=llItem.getValue()%>"><%=llItem.getLabel()%>
+                                <option value="<carlos:encode value='<%= llItem.getValue() == null ? "" : llItem.getValue() %>' context="htmlAttribute"/>"><carlos:encode value='<%= llItem.getLabel() == null ? "" : llItem.getLabel() %>' context="html"/>
                                 </option>
                                 <%
                                         }

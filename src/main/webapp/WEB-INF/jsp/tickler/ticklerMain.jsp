@@ -21,9 +21,14 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Page role: Renders `ticklerMain.jsp` for the CARLOS EMR workflow.
-  Keep request setup in the paired action and use CARLOS encoding helpers
-  for dynamic output rendered by the page.
+  Purpose: Displays the filtered provider or patient tickler queue.
+  Features: Filters and updates ticklers, opens attachments, and edits linked
+  clinical notes. Note saves POST to CaseManagementEntry; a failed save keeps
+  the editor open and displays the localized failure message.
+  Parameters: demoview selects a patient; providerview, assignedTo, mrpview,
+  ticklerview, xml_vdate and xml_appointment_date filter the queue.
+  scheduleNav preserves navigation from the appointment schedule.
+  @since 2026-10-24 (POST note-save recovery)
 --%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -39,15 +44,15 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
 <%@ page import="java.util.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
@@ -299,15 +304,19 @@
             <fmt:message key="tickler.ticklerMain.tooltipEdit" var="msgTooltipEdit"/>
             <fmt:message key="tickler.ticklerMain.tooltipAddNote" var="msgTooltipAddNote"/>
             <fmt:message key="tickler.ticklerMain.tooltipViewAttachment" var="msgTooltipViewAttachment"/>
+            <fmt:message key="tickler.attachments.restricted" var="msgAttachmentRestricted"/>
             <fmt:message key="encounter.LeftNavBar.AllLabs" var="msgAllLabs"/>
             <fmt:message key="tickler.ticklerMain.errorLoadFailed" var="msgErrorLoadFailed"/>
             <fmt:message key="tickler.ticklerMain.errorSaveViewFailed" var="msgErrorSaveViewFailed"/>
+            <fmt:message key="tickler.ticklerMain.msgConfirmDelete" var="msgConfirmDelete"/>
+            const i18nConfirmDelete = '<carlos:encode value='<%= (String) pageContext.getAttribute("msgConfirmDelete") %>' context="javaScriptBlock"/>';
             const i18nAllLabs = '<carlos:encode value='<%= (String) pageContext.getAttribute("msgAllLabs") %>' context="javaScriptBlock"/>';
             const i18nErrorLoadFailed = '<carlos:encode value='<%= (String) pageContext.getAttribute("msgErrorLoadFailed") %>' context="javaScriptBlock"/>';
             const i18nErrorSaveViewFailed = '<carlos:encode value='<%= (String) pageContext.getAttribute("msgErrorSaveViewFailed") %>' context="javaScriptBlock"/>';
             const i18nEditTickler = '<carlos:encode value='<%= (String) pageContext.getAttribute("msgTooltipEdit") %>' context="javaScriptBlock"/>';
             const i18nAddNote = '<carlos:encode value='<%= (String) pageContext.getAttribute("msgTooltipAddNote") %>' context="javaScriptBlock"/>';
             const i18nViewAttachment = '<carlos:encode value='<%= (String) pageContext.getAttribute("msgTooltipViewAttachment") %>' context="javaScriptBlock"/>';
+            const i18nAttachmentRestricted = '<carlos:encode value='<%= (String) pageContext.getAttribute("msgAttachmentRestricted") %>' context="javaScriptBlock"/>';
             let ticklerResultsTable;
             document.addEventListener('DOMContentLoaded', function () {
                 jQuery("#note-form").dialog({
@@ -338,6 +347,7 @@
                         url: ctx + '/tickler/ListTicklers',
                         type: 'GET',
                         error: function(xhr, error, thrown) {
+                            syncStatusActions();
                             console.error('[ticklerMain] DataTables AJAX error (HTTP ' + xhr.status + '):', error, thrown);
                             jQuery('#ticklerResults_wrapper').prepend(
                                 '<div class="alert alert-danger alert-dismissible">' +
@@ -346,6 +356,8 @@
                             );
                         },
                         data: function(d) {
+                            // Keep checked rows from the previous result set inert until this request draws.
+                            syncStatusActions();
                             d.status = document.getElementById('ticklerview').value || 'A';
                             d.provider = document.getElementById('providerview') ? document.getElementById('providerview').value : '';
                             d.assignee = document.getElementById('assignedTo') ? document.getElementById('assignedTo').value : '';
@@ -367,8 +379,10 @@
                         {
                             data: 'id',
                             orderable: false,
-                            render: function(data) {
-                                return '<input type="checkbox" name="checkbox" value="' + escapeHtml(String(data)) + '" class="noprint">';
+                            render: function(data, type, row) {
+                                // data-rendered-status: what this row showed, posted with a bulk action so a task
+                                // someone else has changed since is not overwritten (ticklerStaleSelection.jspf).
+                                return '<input type="checkbox" name="checkbox" value="' + escapeHtml(String(data)) + '" data-rendered-status="' + escapeHtml(String((row && row.status) || '')) + '" class="noprint">';
                             }
                         },
                         {
@@ -433,7 +447,7 @@
                                 var html = '<span style="white-space:pre-wrap">' + escapeHtml(data.message || '') + '</span>';
                                 if (data.links && data.links.length > 0) {
                                     for (var i = 0; i < data.links.length; i++) {
-                                        html += buildAttachmentLink(data.links[i].tableName, data.links[i].tableId);
+                                        html += buildAttachmentLink(data.links[i], data);
                                     }
                                 }
                                 return html;
@@ -480,12 +494,15 @@
                         });
 
                         localStorage.setItem('ticklerPageLength', api.page.len());
+                        syncStatusActions(settings);
                     }
                 });
 
                 document.getElementById('ticklerview').addEventListener('change', function () {
+                    syncStatusActions();
                     ticklerResultsTable.ajax.reload();
                 });
+                syncStatusActions();
 
                 jQuery("#formSubmitBtn").off('click').on('click', function(e) {
                     e.preventDefault();
@@ -493,6 +510,21 @@
                 });
 
             });
+
+            /**
+             * Only offers Complete/Delete after the latest request draws for the selected status.
+             * Loading or failed requests leave the previous rows on screen, so those rows must not
+             * become actionable when leaving Deleted. Deleted tasks have no further deletion action.
+             */
+            function syncStatusActions(settings) {
+                var status = document.getElementById('ticklerview').value || 'A';
+                var request = settings && settings.oAjaxData;
+                var response = settings && settings.json;
+                var ready = request && response && !response.error && !response.sError
+                    && Number(response.draw) === settings.iDraw
+                    && Number(request.draw) === settings.iDraw && request.status === status;
+                jQuery('.status-action-live').each(function () { this.hidden = !ready || status === 'D'; });
+            }
 
             /**
              * Opens the tickler edit popup and toggles the row's pencil icon to a
@@ -515,11 +547,24 @@
                 return div.innerHTML;
             }
 
-            function buildAttachmentLink(tableName, tableId) {
-                var encodedId = encodeURIComponent(tableId);
+            // encodeURIComponent leaves "'" alone, and these URLs sit inside a javascript: href's
+            // string literal; %27 is its percent-encoding.
+            function encodeUrlParam(value) {
+                return encodeURIComponent(value).replace(/'/g, '%27');
+            }
+
+            // link.tableName carries the legacy viewer code (lab source, DOC, HRM) plus EFORM and
+            // FORM for the two attachment types the ticklerdocs store added (#3984).
+            function buildAttachmentLink(link, row) {
+                if (link.restricted) {
+                    // The server withheld the id: the reader lacks read on this attachment type.
+                    return ' <i class="fas fa-paperclip text-muted attachment-restricted" title="' + i18nAttachmentRestricted + '"></i>';
+                }
+                var tableName = link.tableName;
+                var encodedId = encodeUrlParam(link.tableId);
                 var url = '';
                 if (tableName === 'MDS') {
-                    url = 'javascript:reportWindow(\'SegmentDisplay.jsp?segmentID=' + encodedId + '\')';
+                    url = 'javascript:reportWindow(\'' + ctx + '/oscarMDS/ViewSegmentDisplay?segmentID=' + encodedId + '\')';
                 } else if (tableName === 'CML') {
                     url = 'javascript:reportWindow(\'' + ctx + '/lab/CA/ON/ViewCMLDisplay?segmentID=' + encodedId + '\')';
                 } else if (tableName === 'HL7') {
@@ -528,6 +573,16 @@
                     url = 'javascript:reportWindow(\'' + ctx + '/documentManager/ManageDocument?method=display&doc_no=' + encodedId + '\')';
                 } else if (tableName === 'HRM') {
                     url = 'javascript:reportWindow(\'' + ctx + '/hospitalReportManager/Display?id=' + encodedId + '&segmentID=' + encodedId + '\')';
+                } else if (tableName === 'EFORM') {
+                    url = 'javascript:reportWindow(\'' + ctx + '/eform/efmshowform_data?fdid=' + encodedId + '\')';
+                } else if (tableName === 'FORM') {
+                    // Encounter forms span many tables, so the id alone cannot address one; without
+                    // the server-resolved name there is no URL to build.
+                    if (!link.formName) {
+                        return ' <i class="fas fa-paperclip" title="' + i18nViewAttachment + '"></i>';
+                    }
+                    url = 'javascript:reportWindow(\'' + ctx + '/form/forwardshortcutname?formname=' + encodeUrlParam(link.formName)
+                        + '&demographic_no=' + encodeUrlParam(row.demographicNo) + '&formId=' + encodedId + '\')';
                 } else {
                     url = 'javascript:reportWindow(\'' + ctx + '/lab/CA/BC/ViewLabDisplay?segmentID=' + encodedId + '\')';
                 }
@@ -562,6 +617,7 @@
 
             function saveNoteDialog() {
                 jQuery.ajax({
+                    method: "POST",
                     url: ctx + '/CaseManagementEntry',
                     data: {
                         method: "ticklerSaveNote",
@@ -636,6 +692,21 @@
                 }
             }
 
+            /**
+             * Asks before Delete changes the status of the ticked tasks (#5683). Returns false when the
+             * clinician dismisses the prompt, so the caller must not submit. With nothing ticked the
+             * server only redirects back (DbTicklerMain2Action), so there is nothing to confirm.
+             */
+            function confirmDeleteSelected() {
+                var ml = document.ticklerform;
+                var len = ml.elements.length;
+                for (var i = 0; i < len; i++) {
+                    var e = ml.elements[i];
+                    if (e.name === "checkbox" && e.checked) return confirm(i18nConfirmDelete);
+                }
+                return true;
+            }
+
             function saveView() {
                 let url = ctx + "/saveWorkView";
                 let params = {
@@ -658,20 +729,25 @@
                     });
             }
 
-            // Listen for tickler refresh broadcasts from ticklerAdd/ticklerEdit popup windows
+            // Listen for tickler refresh broadcasts from ticklerAdd/ticklerEdit popup windows.
+            // The popups post to the patient-scoped channel and to the shared "all" channel. The
+            // provider-wide list (demoview 0) spans every patient, so it listens on "all"; a
+            // patient-scoped list keeps its own channel. Each list listens on exactly one, so a
+            // save reloads it once (#4993).
             var ticklerChannel = null;
-            try {
-                ticklerChannel = new BroadcastChannel('carlos_tickler_refresh_<carlos:encode value='<%= demographic_no %>' context="javaScript"/>');
-                ticklerChannel.onmessage = function(event) {
-                    var data = event.data;
-                    if (data && (data === 'refresh' || data.action === 'refresh')) {
-                        if (typeof ticklerResultsTable !== 'undefined' && ticklerResultsTable) {
-                            ticklerResultsTable.ajax.reload(null, false);
-                        } else {
-                            location.reload();
-                        }
+            function onTicklerRefresh(event) {
+                var data = event.data;
+                if (data && (data === 'refresh' || data.action === 'refresh')) {
+                    if (typeof ticklerResultsTable !== 'undefined' && ticklerResultsTable) {
+                        ticklerResultsTable.ajax.reload(null, false);
+                    } else {
+                        location.reload();
                     }
-                };
+                }
+            }
+            try {
+                ticklerChannel = new BroadcastChannel('carlos_tickler_refresh_<carlos:encode value='<%= isDemoView ? demographic_no : "all" %>' context="javaScript"/>');
+                ticklerChannel.onmessage = onTicklerRefresh;
                 ticklerChannel.onmessageerror = function(event) {
                     console.error('[ticklerMain] BroadcastChannel message deserialization error:', event);
                 };
@@ -853,8 +929,8 @@
                             _providers["<%=SafeEncode.forJavaScript(String.valueOf(sites.get(i).getSiteId()))%>"] = "<%Iterator<Provider> iter = sites.get(i).getProviders().iterator();
                             while (iter.hasNext()) {
                                 Provider p=iter.next();
-                                if ("1".equals(p.getStatus())) {%><option value='<%=SafeEncode.forJavaScript(SafeEncode.forHtmlAttribute(p.getProviderNo()))%>'><%=SafeEncode.forJavaScript(SafeEncode.forHtml(p.getLastName()))%>, <%=SafeEncode.forJavaScript(SafeEncode.forHtml(p.getFirstName()))%></option><%}%>";
-                            <%}}%>
+                                if ("1".equals(p.getStatus())) {%><option value='<%=SafeEncode.forJavaScript(SafeEncode.forHtmlAttribute(p.getProviderNo()))%>'><%=SafeEncode.forJavaScript(SafeEncode.forHtml(p.getLastName()))%>, <%=SafeEncode.forJavaScript(SafeEncode.forHtml(p.getFirstName()))%></option><%}}%>";
+                            <%}%>
 
                             function changeSite(sel) {
                                 sel.form.assignedTo.innerHTML = sel.value == "none" ? "" : _providers[sel.value];
@@ -940,12 +1016,19 @@
             </c:if>
         </form>
 
+        <c:if test="${not empty param.conflictCount}">
+            <div id="tickler-status-conflict" class="alert alert-warning" role="alert">
+                <fmt:message key="tickler.ticklerMain.msgStatusConflict" var="statusConflictMessage"/>
+                ${carlos:forHtml(statusConflictMessage)}
+            </div>
+        </c:if>
         <form name="ticklerform" method="post" action="DbTicklerMain">
             <input type="hidden" name="parentAjaxId" value="${carlos:forHtmlAttribute(param.parentAjaxId)}"/>
             <% if (showScheduleNav) { %>
             <%-- Complete/delete posts also reload this view, so preserve the schedule shell flag there too. --%>
             <input type="hidden" name="scheduleNav" value="1">
             <% } %>
+            <%@ include file="/WEB-INF/jsp/tickler/ticklerStaleSelection.jspf" %>
             <table id="ticklerResults" class="table table-striped table-sm" style="width:100%">
                 <thead>
                 <tr>
@@ -973,24 +1056,16 @@
                                          href="javascript:CheckAll();"><fmt:message key="tickler.ticklerMain.btnCheckAll"/></a> - <a href="javascript:ClearAll();"><fmt:message key="tickler.ticklerMain.btnClearAll"/></a>
 
                         <input type="hidden" name="submit_form" value="">
-                        <%
-                            if (ticklerview.compareTo("D") == 0) {
-                        %>
-                        <input type="button" class="btn btn-secondary"
-                               value="<fmt:message key="tickler.ticklerMain.btnEraseCompletely"/>" class="sbttn"
-                               onclick="document.forms['ticklerform'].submit_form.value='Erase Completely'; document.forms['ticklerform'].submit();">
-                        <%
-                        } else {
-                        %>
-                        <input type="button" class="btn btn-secondary" value="<fmt:message key="tickler.ticklerMain.btnComplete"/>"
-                               class="sbttn"
+                        <%-- Actions stay hidden until the first matching draw, and while requests are pending.
+                             Deleted tasks remain part of the clinical record (#4993). --%>
+                        <input type="button" class="btn btn-secondary status-action-live" id="completeButton"
+                               value="<fmt:message key="tickler.ticklerMain.btnComplete"/>"
+                               hidden
                                onclick="document.forms['ticklerform'].submit_form.value='Complete'; document.forms['ticklerform'].submit();">
-                        <input type="button" class="btn btn-danger"
-                               value="<fmt:message key="tickler.ticklerMain.btnDelete"/>" class="sbttn"
-                               onclick="document.forms['ticklerform'].submit_form.value='Delete'; document.forms['ticklerform'].submit();">
-                        <%
-                            }
-                        %>
+                        <input type="button" class="btn btn-danger status-action-live" id="deleteButton"
+                               value="<fmt:message key="tickler.ticklerMain.btnDelete"/>"
+                               hidden
+                               onclick="if (!confirmDeleteSelected()) return false; document.forms['ticklerform'].submit_form.value='Delete'; document.forms['ticklerform'].submit();">
                         <input type="button" class="btn btn-primary"
                                value="<fmt:message key='tickler.ticklerMain.btnAddTickler'/>"
                                onClick="popupPage('500','800', '<%= request.getContextPath() %>/tickler/ViewAddTickler?updateParent=true&parentAjaxId=<carlos:encode value='<%= parentAjaxId != null ? parentAjaxId : "" %>' context="uriComponent"/>&bFirstDisp=false&messageID=null&demographic_no=<carlos:encode value='<%= demoviewParam != null ? demoviewParam : "" %>' context="uriComponent"/>')">

@@ -32,7 +32,20 @@ import io.github.carlos_emr.carlos.commn.model.DxRegistedPTInfo;
 import io.github.carlos_emr.carlos.commn.model.Dxresearch;
 import io.github.carlos_emr.carlos.dxresearch.bean.dxCodeSearchBean;
 
-public interface DxresearchDAO extends AbstractDao<Dxresearch> {
+/**
+ * Disease Registry entries. The CDS export reads a patient's entries through
+ * {@link CdsExportPatientTableReadSupport.Plan#DISEASE_REGISTRY} and the public code-table
+ * descriptions they name through {@link CdsExportDiagnosisCodeReadSupport}.
+ */
+public interface DxresearchDAO extends AbstractDao<Dxresearch>, CdsExportPatientTableReadDao {
+
+    /** The allowlisted code-table rows this patient's current entries and episodes name. */
+    List<io.github.carlos_emr.carlos.commn.dto.CdsExportDiagnosisCodeReferenceDto>
+            readCdsExportDiagnosisCodeReferences(int patient);
+
+    record CdmPatientRow(String demographicNo, String providerNo, String diagnosisCode) { }
+
+    List<CdmPatientRow> findActiveCdmPatients(List<String> codes);
     List<DxRegistedPTInfo> getPatientRegisted(List<Dxresearch> dList, List<String> doctorList);
 
     List<DxRegistedPTInfo> patientRegistedDistincted(List<dxCodeSearchBean> searchItems, List<String> doctorList);
@@ -58,6 +71,9 @@ public interface DxresearchDAO extends AbstractDao<Dxresearch> {
     boolean entryExists(int demographicNo, String codeType, String code);
 
     boolean activeEntryExists(int demographicNo, String codeType, String code);
+
+    /** Atomically inserts an active diagnosis, returning null for an existing diagnosis or missing patient. */
+    Integer persistActiveIfAbsent(Dxresearch diagnosis);
 
     void removeAllAssociationEntries();
 

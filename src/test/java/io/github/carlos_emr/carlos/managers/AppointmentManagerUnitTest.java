@@ -104,6 +104,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
      */
     @BeforeEach
     void setUp() {
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(),eq(TEST_DEMO_NO))).thenReturn(true);
         // Register DAO mocks for SpringUtils
         registerMock(OscarAppointmentDao.class, mockAppointmentDao);
         registerMock(AppointmentStatusDao.class, mockAppointmentStatusDao);
@@ -112,6 +113,8 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
 
         // Security manager returns true for all privilege checks by default
         when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any()))
+            .thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyInt()))
             .thenReturn(true);
 
         // Create manager and inject dependencies
@@ -141,6 +144,8 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
         @BeforeEach
         void denyAllPrivileges() {
             when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any()))
+                .thenReturn(false);
+            when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyInt()))
                 .thenReturn(false);
         }
 
@@ -189,8 +194,8 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
         void shouldThrowException_whenGetHistoryWithoutDeletedWithoutReadPrivilege() {
             assertThatThrownBy(() ->
                 appointmentManager.getAppointmentHistoryWithoutDeleted(mockLoggedInInfo, TEST_DEMO_NO, 0, 10))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("Access Denied");
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_appointment)");
         }
 
         @Test
@@ -456,7 +461,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
         void shouldArchiveAndRemove_whenDeleting() {
             // Given
             Appointment existing = createTestAppointmentWithId(TEST_APPOINTMENT_ID);
-            when(mockAppointmentDao.find((int) TEST_APPOINTMENT_ID)).thenReturn(existing);
+            when(mockAppointmentDao.findForUpdate((int) TEST_APPOINTMENT_ID)).thenReturn(existing);
 
             // When
             appointmentManager.deleteAppointment(mockLoggedInInfo, TEST_APPOINTMENT_ID);
@@ -470,7 +475,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
         @DisplayName("should skip archive when existing appointment not found")
         void shouldSkipArchive_whenExistingNotFound() {
             // Given
-            when(mockAppointmentDao.find((int) TEST_APPOINTMENT_ID)).thenReturn(null);
+            when(mockAppointmentDao.findForUpdate((int) TEST_APPOINTMENT_ID)).thenReturn(null);
 
             // When
             appointmentManager.deleteAppointment(mockLoggedInInfo, TEST_APPOINTMENT_ID);
@@ -484,7 +489,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
         @DisplayName("should check delete privilege on _appointment")
         void shouldCheckDeletePrivilege_whenDeleting() {
             // Given
-            when(mockAppointmentDao.find(anyInt())).thenReturn(null);
+            when(mockAppointmentDao.findForUpdate(anyInt())).thenReturn(null);
 
             // When
             appointmentManager.deleteAppointment(mockLoggedInInfo, TEST_APPOINTMENT_ID);
@@ -497,7 +502,7 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
         @DisplayName("should remove by appointment number even when existing is null")
         void shouldRemoveByNumber_whenExistingIsNull() {
             // Given
-            when(mockAppointmentDao.find(77)).thenReturn(null);
+            when(mockAppointmentDao.findForUpdate(77)).thenReturn(null);
 
             // When
             appointmentManager.deleteAppointment(mockLoggedInInfo, 77);
@@ -519,6 +524,18 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
     @Tag("read")
     @Tag("query")
     class GetAppointmentHistoryWithoutDeleted {
+
+        @Test
+        @DisplayName("should reject missing demographic before checking appointment privilege")
+        void shouldRejectMissingDemographic_beforeCheckingPrivilege() {
+            assertThatThrownBy(() -> appointmentManager.getAppointmentHistoryWithoutDeleted(
+                    mockLoggedInInfo, null, 0, 10))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_appointment)");
+
+            verifyNoInteractions(mockSecurityInfoManager);
+            verify(mockAppointmentDao, never()).getAppointmentHistory(any(), any(), any());
+        }
 
         @Test
         @DisplayName("should return non-deleted appointments from DAO")
@@ -582,7 +599,8 @@ public class AppointmentManagerUnitTest extends AppointmentUnitTestBase {
                 mockLoggedInInfo, TEST_DEMO_NO, 0, 10);
 
             // Then
-            verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_appointment", "r", null);
+            verify(mockSecurityInfoManager).hasPrivilege(
+                mockLoggedInInfo, "_appointment", "r", TEST_DEMO_NO);
         }
     }
 

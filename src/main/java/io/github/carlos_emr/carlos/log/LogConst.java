@@ -41,6 +41,7 @@ public class LogConst {
     public static final String LOGOUT = "log out";
     public static final String READ = "read";
     public static final String ADD = "add";
+    public static final String SAVE_ATTEMPT = "SAVE_ATTEMPT";
     public static final String UPDATE = "update";
     public static final String DELETE = "delete";
     public static final String DISCONTINUE = "discontinue";
@@ -56,13 +57,33 @@ public class LogConst {
     public static final String UNLINK = "unlink";
     public static final String SENT = "sent";
     public static final String EXPORT = "export";
+    /** A CDS import wrote a unit of the patient's chart (see cds_import_event for its outcome). */
+    public static final String IMPORT = "import";
+    /**
+     * A CDS import of the patient's chart was abandoned before it completed and its hold was
+     * released; the chart keeps only the units committed before the stop.
+     */
+    public static final String IMPORT_ABANDONED = "import abandoned";
+    // OHIP file generation and simulation (Ontario billing), as OSCAR 19 audited them.
+    public static final String SIMULATE = "simulate";
+    public static final String GENERATE = "generate";
 
     public static final String CON_LOGIN_AGREEMENT = "login agreement";
+    public static final String CON_OHIP = "ohip file";
+    // An invoice (contentId = the invoice number) and a patient's billing history page (contentId = the patient).
+    public static final String CON_BILLING = "billing";
+    public static final String CON_BILLING_HISTORY = "billing_history";
     public static final String CON_LOGIN = "login";
     public static final String CON_APPT = "appointment";
     public static final String CON_ECHART = "eChart";
     public static final String CON_DEMOGRAPHIC = "demographic";
     public static final String CON_DEMOGRAPHIC_RELATION = "demographic_relations";
+    /** A CDS import job as a whole (its submission); contentId is the run id. */
+    public static final String CON_CDS_IMPORT = "cds import";
+    // A listing of patients produced by the Demographic Report Tool (one row per run, not per patient).
+    public static final String CON_DEMOGRAPHIC_REPORT = "demographic_report";
+    // One run of Query by Example, whatever its outcome (one row per run; the query hash, never the SQL).
+    public static final String CON_QUERY_BY_EXAMPLE = "query_by_example";
     public static final String CON_ROLE = "role";
     public static final String CON_PRIVILEGE = "privilege";
     public static final String CON_FORM = "form";
@@ -72,6 +93,8 @@ public class LogConst {
     public static final String CON_DRUGS = "drugs";
     public static final String CON_DRUGREASON = "drugReason";
     public static final String CON_ALLERGY = "allergy";
+    public static final String CON_PREVENTION = "prevention";
+    public static final String CON_MEASUREMENT = "measurement";
     public static final String CON_JASPERREPORTLETER = "jr_letter";
     public static final String CON_TICKLER = "tickler";
     public static final String CON_CME_NOTE = "CME note";

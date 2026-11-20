@@ -1,0 +1,164 @@
+/* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
+'use strict';
+/*
+ * Shared plumbing for the authz-read-* checks: sign a restricted-role login in through the real
+ * login form, issue GET (and HEAD) requests through that login's browser context, and classify
+ * what came back.
+ *
+ * Classification (the application's own refusal vocabulary):
+ *   refused  401/403/405 carrying the application's own response header (`fromApp`: the WAF's
+ *            block page does not), a redirect to securityError / noRights, or the "Security Exception"
+ *            page (securityError.jsp is what every SecurityException ends in, delivered as HTTP 403)
+ *   error    5xx, the generic "Error Page" (CARLOS error page), an unmarked 401/403/405 (WAF/proxy) or any
+ *            other redirect (a login or session-timeout bounce): nothing was served, but the refusal is not deliberate, so a
+ *            check that pins a refusal accepts only `refused`
+ *   served   2xx whose body is real content (not an error page). A caller that wants proof of WHICH
+ *            data was served also passes `needles` (strings only that data contains).
+ *
+ * GET/HEAD probes use routes the caller has verified cannot write on GET. A POST
+ * refusal probe requires explicit allowPost: true for a read-only print preview
+ * and carries the session's CSRF token. Requests run through context.request
+ * (a negative probe, never the positive path of a workflow).
+ */
+const crypto = require('node:crypto');
+const { execFileSync } = require('node:child_process');
+const h = require('./playwright-harness');
+const {authenticatedProbe,authenticationStateProbe}=require('./authenticated-probe');
+
+const APPLICATION_HEADER = 'x-permitted-cross-domain-policies';
+
+/** One request through a login's browser context; never follows redirects. */
+async function probeWithTransport(context, url, { method = 'GET', allowPost = false, needles = [], baseUrl = h.validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos') } = {}, transport) {
+  try {
+    const response = await transport({context,config:{baseUrl}},url,
+      {method,allowPost,timeout:40000,allowSecurityErrorRedirect:true});
+    const body = method === 'HEAD' ? Buffer.alloc(0) : await response.body();
+    const headers = response.headers();
+    const type = (headers['content-type'] || '').split(';')[0];
+    let text = body.toString('utf8');
+    if (/pdf/i.test(type) && body.length > 0) {
+      try {
+        text = execFileSync('pdftotext', ['-', '-'], { input: body, encoding: 'utf8', timeout: 20000, maxBuffer: 8 << 20 });
+      } catch (error) { text = ''; }
+    }
+    const title = (/<title[^>]*>([\s\S]*?)<\/title>/i.exec(text) || [])[1] || '';
+    const plain = text.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    return {
+      status: response.status(), type, length: body.length, location: headers.location || '',
+      pdf: body.subarray(0, 5).toString() === '%PDF-',
+      // Positive evidence that CARLOS (not the nginx/ModSecurity front door) wrote this answer: its own
+      // filters add this header to every response and the WAF's error page lacks it (see
+      // scripts/lib/get-reject-probe.js). Works for HEAD, where there is no body to recognise a WAF page by.
+      fromApp: Object.prototype.hasOwnProperty.call(headers, APPLICATION_HEADER),
+      lead: (title || plain).replace(/\s+/g, ' ').trim().slice(0, 60),
+      found: needles.filter(needle => text.includes(needle)),
+      // diagnostic response fingerprint only; not used for authentication or integrity decisions.
+      // nosemgrep: javascript.node-stdlib.cryptography.crypto-weak-algorithm.crypto-weak-algorithm
+      hash: crypto.createHash('sha1').update(body).digest('hex').slice(0, 10),
+    };
+  } catch (error) {
+    // Playwright call logs can embed several patient-bearing request URLs.
+    // Redact the whole diagnostic before truncating; callers print this cause
+    // alongside HTTP 0 and must not archive patient query parameters with it.
+    return { status: 0, error: h.withoutQueryStrings(error.message).slice(0, 80), found: [], lead: '' };
+  }
+}
+
+function probe(context,url,options){return probeWithTransport(context,url,options,authenticatedProbe);}
+// Only login/facility/logout protocol checks use this deliberately unauthenticated read.
+function probeAuthenticationState(context,url,options){return probeWithTransport(context,url,options,authenticationStateProbe);}
+
+/** 'refused' | 'error' | 'served' | 'empty' (a 2xx with no body, e.g. a HEAD or an unconfigured fragment). */
+function classify(result) {
+  const { status } = result;
+  const lead = result.lead || '';
+  // A 401/403/405 is the application's refusal only with proof the application answered; an unmarked one
+  // (a WAF block, a proxy page) decided nothing about the role, so it reads as an error.
+  if (status === 405) return result.fromApp === true ? 'refused' : 'error';
+  if ([401, 403].includes(status)) return result.fromApp ? 'refused' : 'error';
+  // Only the application's own refusal destinations count; a login or session-timeout redirect is
+  // an error (the session was lost, nothing was decided about the role).
+  if (status >= 300 && status < 400) return /securityError|noRights/i.test(result.location || '') ? 'refused' : 'error';
+  if (/^Security Exception/i.test(lead)) return 'refused';
+  if (status === 0 || status >= 400 || /^Error Page/i.test(lead)) return 'error';
+  if (status >= 200 && status < 300) return result.length > 0 || result.pdf ? 'served' : 'empty';
+  return 'error';
+}
+
+/** HTTP 403 that CARLOS itself wrote (application header present); a WAF/proxy 403 is not an authorization decision. */
+function forbiddenByApp(result) {
+  return result.status === 403 && result.fromApp === true;
+}
+
+/**
+ * The application's deliberate refusal: HTTP 403 ("Security Exception") carrying the application's
+ * own response header, or the redirect a <security:oscarSec> block in a view sends to
+ * /securityError?type=_object or /noRights.html. A bare 3xx (a login redirect, a session timeout)
+ * and an unmarked 403 (WAF block) are NOT refusals here.
+ */
+function refusedByApp(result) {
+  if (forbiddenByApp(result)) return true;
+  return result.status >= 300 && result.status < 400 && /securityError|noRights/i.test(result.location || '');
+}
+
+/** The refusal expected for HEAD: the application's refusal, or its own 405 where the route is GET-only. */
+function refusedHead(result) {
+  return refusedByApp(result) || (result.status === 405 && result.fromApp === true);
+}
+
+/** Absolute URL for an application path (`route?query`), validated by the harness. */
+function urlFor(config, route) {
+  return h.appUrl(config.baseUrl, `/${route.replace(/^\//, '')}`);
+}
+
+/**
+ * Sign a throwaway login (from authzReadFixture.addLogin) in through the login form.
+ * Its fixture records whether its sole role holds schedule access; validate that
+ * landing centrally so an expected 403 neither fails every caller nor hides an
+ * unexpected refusal for a role allowed to see the schedule.
+ */
+async function signIn(session, login) {
+  const context = await h.newContext(session.context.browser(), session.config);
+  context.setDefaultTimeout(20000);
+  const { failureMark, consumeExpectedFailure } = require('./concurrency-support');
+  const mark = failureMark(session.recorder);
+  try {
+    const page = await h.login(context, { ...session.config, testUser: login.username }, session.recorder);
+    if (typeof login.scheduleAccess === 'boolean') {
+      const url = new URL(page.url());
+      h.assert(url.origin === session.config.baseUrl.origin
+        && url.pathname === new URL(h.appUrl(session.config.baseUrl, '/provider/providercontrol')).pathname,
+      'Role login failed outside the schedule landing');
+      const proof = await authenticatedProbe({ ...session, context }, url.href);
+      const expectedStatus = login.scheduleAccess ? 200 : 403;
+      try {
+        h.assert(proof.status() === expectedStatus && Object.hasOwn(proof.headers(), h.APPLICATION_HEADER)
+          && !h.isWafPage(proof.status(), await proof.text()),
+        `Role schedule landing is not an authenticated application ${login.scheduleAccess ? 'page' : 'refusal'} `
+          + `(expected HTTP ${expectedStatus}, got ${proof.status()})`);
+      } finally { await proof.dispose(); }
+      if (!login.scheduleAccess) {
+        consumeExpectedFailure(session.recorder, mark, { status: 403, method: 'GET', path: /\/provider\/providercontrol$/ });
+      }
+    }
+    return { context, page, login };
+  } catch (error) {
+    await context.close();
+    throw error;
+  }
+}
+
+/**
+ * Accumulate findings and assert them together in the LAST step, so one open route does not
+ * hide the others. entries: {pair, detail}.
+ */
+function ledger() {
+  const open = [];
+  return {
+    add(pair, detail) { open.push(`${pair}${detail ? ` (${detail})` : ''}`); },
+    get open() { return open.slice(); },
+    assertEmpty(message) { h.assert(open.length === 0, `${message}: ${open.join('; ')}`); },
+  };
+}
+
+module.exports = { probe, probeAuthenticationState, classify, forbiddenByApp, refusedByApp, refusedHead, urlFor, signIn, ledger };

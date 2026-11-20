@@ -30,14 +30,17 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
-    boolean authed = true;
+    boolean authed = false;
 %>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin" rights="*" reverse="<%=true%>">
-    <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.userAdmin");%>
+<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="w">
+    <%authed = true; %>
+</security:oscarSec>
+<security:oscarSec roleName="<%=roleName$%>" objectName="_admin.userAdmin" rights="w">
+    <%authed = true; %>
 </security:oscarSec>
 <%
     if (!authed) {
+        response.sendRedirect(request.getContextPath() + "/securityError?type=_admin&type=_admin.userAdmin");
         return;
     }
 %>
@@ -45,10 +48,10 @@
 
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="java.util.*" %>
-<%@ page import="java.sql.BatchUpdateException" %>
+
 <%@ page import="java.sql.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.*" %>
-<%@ page import="io.github.carlos_emr.carlos.login.*" %>
+
 <%@ page import="io.github.carlos_emr.carlos.log.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.SecRole" %>
@@ -66,16 +69,16 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.RecycleBin" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.RecycleBinDao" %>
 <%@ page import="org.springframework.dao.DataIntegrityViolationException" %>
-<%@ page import="org.springframework.web.util.HtmlUtils" %>
+
 
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -325,27 +328,12 @@
             form.submit();
         }
 
-        newBrowser = (document.getElementById) ? 1 : 0;
-
         function onChangeSelect() {
-            if (newBrowser) {
-                //me.style.backgroundColor='red';
-                if (document.myform2.roleUserGroup.selectedIndex == 0) {
-                    document.myform2.roleUserGroup1.style.backgroundColor = 'white';
-                    document.myform2.roleUserGroup1.style.color = 'black';
-                    //document.myform2.roleUserGroup1.style.visibility = 'hidden';
-                } else {
-                    document.myform2.roleUserGroup1.style.backgroundColor = 'silver';
-                    document.myform2.roleUserGroup1.style.color = 'silver';
-                }
-                if (document.myform2.objectName.selectedIndex == 0) {
-                    document.myform2.objectName1.style.backgroundColor = 'white';
-                    document.myform2.objectName1.style.color = 'black';
-                } else {
-                    document.myform2.objectName1.style.backgroundColor = 'silver';
-                    document.myform2.objectName1.style.color = 'silver';
-                }
-            }
+            const fields = document.forms.namedItem('myform2').elements;
+            const roleSelected = fields.namedItem('roleUserGroup').value !== '';
+            const provider = fields.namedItem('roleUserGroup1');
+            provider.style.backgroundColor = roleSelected ? 'silver' : 'white';
+            provider.style.color = roleSelected ? 'silver' : 'black';
         }
 
         // -->

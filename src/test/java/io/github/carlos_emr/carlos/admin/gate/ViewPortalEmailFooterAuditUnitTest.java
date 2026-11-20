@@ -1,0 +1,197 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.admin.gate;
+
+import io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService;
+import io.github.carlos_emr.carlos.email.core.EmailFooterLogoService;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalEmailFooterAuditPage;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalEmailFooterAuditService;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalConfigurationException;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.struts2.ServletActionContext;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import org.springframework.mock.web.MockHttpServletRequest;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+@Tag("unit")
+class ViewPortalEmailFooterAuditUnitTest {
+    private final SecurityInfoManager security=mock(SecurityInfoManager.class);
+    private final EmailFooterLogoService logo=mock(EmailFooterLogoService.class);
+    private final ClinicEmailFooterService clinic=mock(ClinicEmailFooterService.class);
+    private final PortalEmailFooterAuditService audit=mock(PortalEmailFooterAuditService.class);
+    private MockHttpServletRequest request;
+    private MockedStatic<ServletActionContext> context;
+    private LoggedInInfo user;
+    @BeforeEach void setup() {
+        request=new MockHttpServletRequest("GET","/admin/ViewConfigureEmail");
+        user=new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(),user);
+        context=mockStatic(ServletActionContext.class);
+        context.when(ServletActionContext::getRequest).thenReturn(request);
+        when(clinic.clinicFooter()).thenReturn("FAKE Current Clinic");
+    }
+    @AfterEach void cleanup(){context.close();}
+    private ViewConfigureEmail2Action action(){return new ViewConfigureEmail2Action(security,logo,clinic,audit,()->true);}
+    private void authorize(){when(security.hasPrivilege(any(),eq("_admin"),eq("r"),isNull())).thenReturn(true);}
+    @Test void shouldDenyNonAdmin_beforeConfigurationOrHistoricalLookup() {
+        AtomicInteger checks=new AtomicInteger();
+        var a=new ViewConfigureEmail2Action(security,logo,clinic,audit,()->{checks.incrementAndGet();
+            return true;
+        });
+        assertThatThrownBy(a::execute).isInstanceOf(SecurityException.class);
+        assertThat(checks).hasValue(0);
+        verifyNoInteractions(audit,clinic,logo);
+    }
+    @Test void shouldRenderSavedHistoricalPage_withoutSubstitutingCurrentClinic() throws Exception {
+        authorize();
+        request.addParameter("portalFooterDate","2026-10-09");
+        var row=new PortalEmailFooterAuditPage.Attempt("01791547200000000000-00000000000000000000000000000001",
+                "mfa",java.time.Instant.parse("2026-10-09T01:00:00Z"),"unknown",
+                java.time.Instant.parse("2026-10-09T01:00:01Z"),"a".repeat(64),"FAKE Saved Old Clinic",null,null);
+        var history=new PortalEmailFooterAuditPage(LocalDate.of(2026,10,9),List.of(row),null);
+        when(audit.read(any(),eq(history.date()),isNull())).thenReturn(history);
+        assertThat(action().execute()).isEqualTo("success");
+        assertThat(request.getAttribute("portalFooterAudit")).isSameAs(history);
+        assertThat(request.getAttribute("clinicFooter")).isEqualTo("FAKE Current Clinic");
+    }
+    @Test void shouldRefuseInvalidOrDuplicateDateAndCursor_beforePortal() throws Exception {
+        authorize();
+        for(String invalid:List.of("2026-02-30","2026-1-01","0000-01-01","2026-10-09&limit=100")){
+            request.setParameter("portalFooterDate",invalid);
+            action().execute();
+            assertThat(request.getAttribute("portalFooterAuditError")).isEqualTo("invalid");
+        }
+        request.setParameter("portalFooterDate",new String[]{"2026-10-09","2026-10-08"});
+        action().execute();
+        request.setParameter("portalFooterDate","2026-10-09");
+        request.setParameter("portalFooterBefore","../../private");
+        action().execute();
+        verifyNoInteractions(audit);
+    }
+    @Test void shouldShowUnavailable_withoutTurningFailureIntoEmptyHistory() throws Exception {
+        authorize();
+        request.addParameter("portalFooterDate","2026-10-09");
+        when(audit.read(any(),any(),isNull())).thenThrow(new PatientPortalConfigurationException("missing configuration"));
+        assertThat(action().execute()).isEqualTo("success");
+        assertThat(request.getAttribute("portalFooterAuditError")).isEqualTo("unavailable");
+        assertThat(request.getAttribute("portalFooterAudit")).isNull();
+    }
+    @Test void shouldLogWhyHistoryIsUnavailable_whenPortalReplyIsMalformed() throws Exception {
+        authorize();
+        request.addParameter("portalFooterDate","2026-10-09");
+        when(audit.read(any(),any(),isNull())).thenThrow(PatientPortalException.ofMalformedResponse(200,
+                "/internal/carlos/email-footer-attempts",new IllegalStateException("FAKE remote detail")));
+        try (LogCapture logs=LogCapture.forLogger(ViewConfigureEmail2Action.class)) {
+            assertThat(action().execute()).isEqualTo("success");
+            // One line for the operator with the fixed refusal, never remote text.
+            assertThat(logs.messages()).hasSize(1);
+            assertThat(logs.messages().get(0)).contains("footer history refused","portal response is not valid JSON")
+                    .doesNotContain("FAKE remote detail");
+        }
+        assertThat(request.getAttribute("portalFooterAuditError")).isEqualTo("unavailable");
+        // A Portal that cannot be reached is not a refused reply: nothing extra is logged.
+        request.removeAttribute("portalFooterAuditError");
+        // doThrow: the mock already throws from read(), so it cannot be re-stubbed with when(read(...)).
+        doThrow(PatientPortalException.ofTransportFailure("/internal/carlos/email-footer-attempts",
+                new java.io.IOException("FAKE connect failure"))).when(audit).read(any(),any(),isNull());
+        try (LogCapture logs=LogCapture.forLogger(ViewConfigureEmail2Action.class)) {
+            action().execute();
+            assertThat(logs.messages()).isEmpty();
+        }
+        assertThat(request.getAttribute("portalFooterAuditError")).isEqualTo("unavailable");
+    }
+    @Test void shouldOmitHistory_whenPortalIsOff_withoutClientLookup() throws Exception {
+        authorize();
+        var a=new ViewConfigureEmail2Action(security,logo,clinic,audit,()->false);
+        a.execute();
+        assertThat(request.getAttribute("portalFooterAuditEnabled")).isNull();
+        verifyNoInteractions(audit);
+    }
+    @Test void shouldShowSkippedReasonLabel_insteadOfFooterText() throws Exception {
+        String jsp=activeJsp();
+        int start=jsp.indexOf("<c:when test=\"${not empty attempt.footerSkipped}\">");
+        assertThat(start).isPositive();
+        String skipped=jsp.substring(start,jsp.indexOf("</c:when>",start));
+        String otherwise=jsp.substring(jsp.indexOf("<c:otherwise>",start),jsp.indexOf("</c:otherwise>",start));
+        // A send without the footer shows the localized sentence with the reason's localized label,
+        // encoded, and never a footer or the raw reason.
+        assertThat(skipped).contains(
+                "<fmt:message var=\"portalFooterSkippedReason\" key=\"admin.configureEmail.portalFooter.skippedReason.${attempt.footerSkipped}\"/>",
+                "<fmt:message key=\"admin.configureEmail.portalFooter.skipped\"><fmt:param><carlos:encode value=\"${portalFooterSkippedReason}\"/></fmt:param></fmt:message>")
+                .doesNotContain("<pre","footerText","value=\"${attempt.footerSkipped}\"","escapeXml");
+        // Every other attempt shows its saved footer text, encoded, as before.
+        assertThat(otherwise).contains("<pre class=\"mt-2\" style=\"white-space:pre-wrap;\"><carlos:encode value=\"${attempt.footerText}\"/></pre>");
+        assertThat(org.jsoup.Jsoup.parse(jsp).select("pre")).hasSize(1);
+    }
+    // JSP comments render nothing, so every source check below looks only at the active page.
+    private static final java.util.regex.Pattern JSP_COMMENT=java.util.regex.Pattern.compile("<%--.*?--%>",java.util.regex.Pattern.DOTALL);
+    private static String activeJsp() throws java.io.IOException {
+        return JSP_COMMENT.matcher(Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/admin/portalFooterAudit.jspf"))).replaceAll("");
+    }
+    private static final String SKIPPED_MARKER="<c:if test=\"${not empty attempt.footerSkipped}\">&#8212; "
+            +"<fmt:message key=\"admin.configureEmail.portalFooter.skippedMarker\"/></c:if>";
+    private static String attemptSummary(String jsp){
+        int row=jsp.indexOf("<details class=\"portal-footer-attempt");
+        assertThat(row).isPositive();
+        return jsp.substring(jsp.indexOf("<summary>",row),jsp.indexOf("</summary>",row));
+    }
+    @Test void shouldEndSkippedRowsCollapsedLine_withTheMarker() throws Exception {
+        String jsp=activeJsp();
+        // A row sent without the footer says so on its collapsed line, after its status, so it is
+        // found without opening each row. The key is used nowhere else on the page.
+        String summary=attemptSummary(jsp);
+        assertThat(summary).contains(SKIPPED_MARKER);
+        assertThat(summary.indexOf(SKIPPED_MARKER)).isGreaterThan(summary.indexOf("status.${attempt.status}"));
+        assertThat(jsp.split("portalFooter\\.skippedMarker",-1)).hasSize(2);
+    }
+    @Test void shouldLeaveOrdinaryRowsCollapsedLine_unchanged() throws Exception {
+        String jsp=activeJsp();
+        // An ordinary row has no footerSkipped (the page parser leaves it null), so the marker's
+        // condition is false and its line is time, kind and status only, as before.
+        String ordinary=attemptSummary(jsp).replace(SKIPPED_MARKER,"");
+        assertThat(ordinary).contains("<carlos:encode value=\"${attempt.preparedAt}\"/> &#8212;",
+                "<fmt:message key=\"admin.configureEmail.portalFooter.kind.${attempt.kind}\"/> &#8212;",
+                "<fmt:message key=\"admin.configureEmail.portalFooter.status.${attempt.status}\"/>")
+                .doesNotContain("footerSkipped","skipped","<c:");
+    }
+    @Test void shouldUseNativeCollapsedDetails_andEscapedSavedPlaintext() throws Exception {
+        String jsp=activeJsp();
+        var doc=org.jsoup.Jsoup.parse(jsp);
+        assertThat(doc.select("details")).hasSize(2);
+        assertThat(doc.select("details[open]")).isEmpty();
+        assertThat(jsp).contains("<carlos:encode value=\"${attempt.footerText}\"/>")
+                .doesNotContain("<c:out", "escapeXml=\"false\"", "innerHTML", "${clinicFooter}", "<img");
+    }
+}

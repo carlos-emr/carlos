@@ -39,9 +39,12 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
+import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -98,7 +101,9 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationResponseSea
 import io.github.carlos_emr.carlos.webserv.rest.to.model.OtnEconsult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -163,8 +168,16 @@ public class ConsultationManagerImpl implements ConsultationManager {
     DocumentManager documentManager;
     @Autowired
     private DocumentAttachmentManager documentAttachmentManager;
+    private AttachmentOwnershipService attachmentOwnershipService;
 
     private final Logger logger = MiscUtils.getLogger();
+
+    // Setter-injected: the older collaborators above are still field-injected, and the tests
+    // build this class through its no-arg constructor.
+    @Autowired
+    public void setAttachmentOwnershipService(AttachmentOwnershipService attachmentOwnershipService) {
+        this.attachmentOwnershipService = attachmentOwnershipService;
+    }
 
     public final String CON_REQUEST_ENABLED = "consultRequestEnabled";
     public final String CON_RESPONSE_ENABLED = "consultResponseEnabled";
@@ -180,7 +193,7 @@ public class ConsultationManagerImpl implements ConsultationManager {
         for (Object[] items : result) {
             ConsultationRequest consultRequest = (ConsultationRequest) items[0];
             LogAction.addLogSynchronous(loggedInInfo, "ConsultationManager.searchRequest", "id=" + consultRequest.getId());
-            r.add(convertToRequestSearchResult(items));
+            r.add(convertToRequestSearchResult(loggedInInfo, items));
         }
         return r;
     }
@@ -195,7 +208,7 @@ public class ConsultationManagerImpl implements ConsultationManager {
         for (Object[] items : result) {
             ConsultationResponse consultResponse = (ConsultationResponse) items[0];
             LogAction.addLogSynchronous(loggedInInfo, "ConsultationManager.searchResponse", "id=" + consultResponse.getId());
-            r.add(convertToResponseSearchResult(items));
+            r.add(convertToResponseSearchResult(loggedInInfo, items));
         }
         return r;
     }
@@ -234,22 +247,46 @@ public class ConsultationManagerImpl implements ConsultationManager {
         return outstanding;
     }
 
+    /**
+     * Loads a request with associations initialized for detached detail rendering.
+     * Audits the read only when the request exists.
+     *
+     * @param loggedInInfo authenticated caller whose consultation read privilege is checked
+     * @param id consultation request identifier
+     * @return the populated request, or {@code null} when absent
+     * @throws SecurityException if the caller lacks consultation read privilege
+     */
     @Override
     public ConsultationRequest getRequest(LoggedInInfo loggedInInfo, Integer id) {
         checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
 
-        ConsultationRequest request = consultationRequestDao.find(id);
-        LogAction.addLogSynchronous(loggedInInfo, "ConsultationManager.getRequest", "id=" + request.getId());
+        ConsultationRequest request = consultationRequestDao.findWithAssociations(id);
+        // An unknown id returns null to the caller; it is not audited as a successful read.
+        if (request != null) {
+            LogAction.addLogSynchronous(loggedInInfo, "ConsultationManager.getRequest", "id=" + request.getId());
+        }
 
         return request;
     }
 
+    /**
+     * Retrieves a consultation response and audits the read when the response exists.
+     *
+     * @param loggedInInfo current authenticated session information
+     * @param id consultation response identifier
+     * @return the consultation response, or {@code null} when it does not exist; missing responses
+     * are not recorded as successful reads
+     * @since 2026-01-24
+     */
     @Override
     public ConsultationResponse getResponse(LoggedInInfo loggedInInfo, Integer id) {
         checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
 
         ConsultationResponse response = consultationResponseDao.find(id);
-        LogAction.addLogSynchronous(loggedInInfo, "ConsultationManager.getResponse", "id=" + response.getId());
+        // An unknown id returns null to the caller; it is not audited as a successful read.
+        if (response != null) {
+            LogAction.addLogSynchronous(loggedInInfo, "ConsultationManager.getResponse", "id=" + response.getId());
+        }
 
         return response;
     }
@@ -278,6 +315,7 @@ public class ConsultationManagerImpl implements ConsultationManager {
     }
 
     @Override
+    @Transactional
     public void saveConsultationRequest(LoggedInInfo loggedInInfo, ConsultationRequest request) {
         if (request.getId() == null) { //new consultation request
             checkPrivilege(loggedInInfo, SecurityInfoManager.WRITE);
@@ -446,16 +484,35 @@ public class ConsultationManagerImpl implements ConsultationManager {
     @Override
     public List<ConsultationAttachment> getEReferAttachments(LoggedInInfo loggedInInfo, HttpServletRequest request, HttpServletResponse response, Integer demographicNo) throws PDFGenerationException {
         checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
+        // The patient number comes from the REST caller, so the role-level check above is not
+        // enough: the caller must also be allowed to read this patient's consultations and chart
+        // before any queued attachment is loaded or rendered.
+        if (demographicNo == null
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, demographicNo)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
+            throw new SecurityException("missing required sec object (_con)");
+        }
 
         Calendar calendar = Calendar.getInstance();
         calendar.add(Calendar.HOUR_OF_DAY, -1);
         EReferAttachment eReferAttachment = eReferAttachmentDao.getRecentByDemographic(demographicNo, calendar.getTime());
+        LogAction.addLogSynchronous(loggedInInfo, "ConsultationManager.getEReferAttachments",
+                "demographicNo=" + demographicNo);
         if (eReferAttachment == null) {
             return Collections.emptyList();
         }
 
+        Set<String> ownedAttachmentKeys = findOwnedEReferAttachmentKeys(eReferAttachment, demographicNo);
+
         List<ConsultationAttachment> consultationAttachments = new ArrayList<>();
+        int droppedAttachments = 0;
         for (EReferAttachmentData eReferAttachmentData : eReferAttachment.getAttachments()) {
+            if (!ownedAttachmentKeys.contains(eReferAttachmentKey(eReferAttachmentData.getLabType(), eReferAttachmentData.getLabId()))) {
+                // Defence in depth for issue #3867: never render and send a record that is not this
+                // patient's, including rows queued before ERefer2Action verified ownership.
+                droppedAttachments++;
+                continue;
+            }
             try {
                 ConsultationAttachment consultationAttachment = null;
                 switch (eReferAttachmentData.getLabType()) {
@@ -496,11 +553,57 @@ public class ConsultationManagerImpl implements ConsultationManager {
             }
         }
 
+        if (droppedAttachments > 0) {
+            logger.warn("Dropped {} Ocean eReferral attachment(s) not owned by the requested patient", droppedAttachments);
+        }
+
         // Archives the retrieved attachments so they can't be retrieved again
         eReferAttachment.setArchived(true);
         eReferAttachmentDao.merge(eReferAttachment);
 
         return consultationAttachments;
+    }
+
+    /**
+     * Returns the {@code type:id} keys of the queued eReferral attachments that belong to the
+     * requested patient, with one batched ownership lookup per attachment type.
+     *
+     * <p>The queued row must itself be for the requested patient; otherwise nothing is owned.
+     * Types without an ownership source (forms, unknown codes) are never owned; the renderer
+     * skips those anyway.</p>
+     */
+    private Set<String> findOwnedEReferAttachmentKeys(EReferAttachment eReferAttachment, Integer demographicNo) {
+        if (demographicNo == null || !demographicNo.equals(eReferAttachment.getDemographicNo())
+                || eReferAttachment.getAttachments() == null) {
+            return Collections.emptySet();
+        }
+        Map<DocumentType, Set<Integer>> idsByType = new EnumMap<>(DocumentType.class);
+        for (EReferAttachmentData data : eReferAttachment.getAttachments()) {
+            DocumentType type = documentTypeForCode(data.getLabType());
+            if (type != null && data.getLabId() != null) {
+                idsByType.computeIfAbsent(type, k -> new HashSet<>()).add(data.getLabId());
+            }
+        }
+        Set<String> owned = new HashSet<>();
+        for (Map.Entry<DocumentType, Set<Integer>> entry : idsByType.entrySet()) {
+            for (Integer id : attachmentOwnershipService.findOwnedIds(entry.getKey(), demographicNo, entry.getValue())) {
+                owned.add(eReferAttachmentKey(entry.getKey().getType(), id));
+            }
+        }
+        return owned;
+    }
+
+    private static DocumentType documentTypeForCode(String code) {
+        for (DocumentType type : DocumentType.values()) {
+            if (type.getType().equals(code)) {
+                return type;
+            }
+        }
+        return null;
+    }
+
+    private static String eReferAttachmentKey(String typeCode, Integer id) {
+        return typeCode + ":" + id;
     }
 
     /**
@@ -511,7 +614,7 @@ public class ConsultationManagerImpl implements ConsultationManager {
      * @param items Object[] the JPA projection row
      * @return ConsultationRequestSearchResult the populated DTO
      */
-    private ConsultationRequestSearchResult convertToRequestSearchResult(Object[] items) {
+    private ConsultationRequestSearchResult convertToRequestSearchResult(LoggedInInfo loggedInInfo, Object[] items) {
         ConsultationRequestSearchResult result = new ConsultationRequestSearchResult();
 
         ConsultationRequest consultRequest = (ConsultationRequest) items[0];
@@ -522,11 +625,11 @@ public class ConsultationManagerImpl implements ConsultationManager {
 
 
         result.setAppointmentDate(joinDateAndTime(consultRequest.getAppointmentDate(), consultRequest.getAppointmentTime()));
-        result.setConsultant(professionalSpecialist);
-        result.setDemographic(demographic);
+        result.setConsultantSnapshot(io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.professionalSpecialist(loggedInInfo, professionalSpecialist));
+        result.setDemographicSnapshot(io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.demographic(loggedInInfo, demographic));
         result.setId(consultRequest.getId());
         result.setLastFollowUp(consultRequest.getFollowUpDate());
-        result.setMrp(provider);
+        result.setMrpSnapshot(io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.provider(loggedInInfo, provider));
         result.setReferralDate(consultRequest.getReferralDate());
         result.setServiceName(consultationServices.getServiceDesc());
         result.setStatus(consultRequest.getStatus());
@@ -547,7 +650,7 @@ public class ConsultationManagerImpl implements ConsultationManager {
      * @param items Object[] the JPA projection row
      * @return ConsultationResponseSearchResult the populated DTO
      */
-    private ConsultationResponseSearchResult convertToResponseSearchResult(Object[] items) {
+    private ConsultationResponseSearchResult convertToResponseSearchResult(LoggedInInfo loggedInInfo, Object[] items) {
         ConsultationResponseSearchResult result = new ConsultationResponseSearchResult();
 
         ConsultationResponse consultResponse = (ConsultationResponse) items[0];
@@ -557,11 +660,11 @@ public class ConsultationManagerImpl implements ConsultationManager {
 
 
         result.setAppointmentDate(joinDateAndTime(consultResponse.getAppointmentDate(), consultResponse.getAppointmentTime()));
-        result.setReferringDoctor(professionalSpecialist);
-        result.setDemographic(demographic);
+        result.setReferringDoctorSnapshot(io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.professionalSpecialist(loggedInInfo, professionalSpecialist));
+        result.setDemographicSnapshot(io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.demographic(loggedInInfo, demographic));
         result.setId(consultResponse.getId());
         result.setLastFollowUp(consultResponse.getFollowUpDate());
-        result.setProvider(provider);
+        result.setProviderSnapshot(io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.provider(loggedInInfo, provider));
         result.setReferralDate(consultResponse.getReferralDate());
         result.setResponseDate(consultResponse.getResponseDate());
         result.setStatus(consultResponse.getStatus());
@@ -658,7 +761,32 @@ public class ConsultationManagerImpl implements ConsultationManager {
 
     @Override
     public List<EctFormData.PatientForm> getAttachedForms(LoggedInInfo loggedInInfo, int consultRequestId, int demographicNo) {
-        List<ConsultDocs> attachedForms = getAttachedDocumentsByType(loggedInInfo, consultRequestId, ConsultDocs.DOCTYPE_FORM);
+        // Consultation readers may not be allowed to read clinical forms. All consultation
+        // screens and packet builders use this filtered list; the omission notice compares it
+        // with the stored relationships without exposing or rendering those forms.
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ,
+                Integer.toString(demographicNo))) {
+            return Collections.emptyList();
+        }
+        return filterAttachedForms(loggedInInfo, demographicNo,
+                getAttachedDocumentsByType(loggedInInfo, consultRequestId, ConsultDocs.DOCTYPE_FORM));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<EctFormData.PatientForm> getAttachedForms(LoggedInInfo loggedInInfo, int consultRequestId,
+            int demographicNo, List<ConsultDocs> attachedForms) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ,
+                Integer.toString(demographicNo))) {
+            return Collections.emptyList();
+        }
+        return filterAttachedForms(loggedInInfo, demographicNo, attachedForms);
+    }
+
+    private List<EctFormData.PatientForm> filterAttachedForms(LoggedInInfo loggedInInfo, int demographicNo,
+            List<ConsultDocs> attachedForms) {
         List<EctFormData.PatientForm> filteredForms = new ArrayList<>(attachedForms.size());
         /*
          * Sure wish we didn't have to do this.  It's the only option without having to refactor a
@@ -687,7 +815,16 @@ public class ConsultationManagerImpl implements ConsultationManager {
 
     @Override
     public ArrayList<HashMap<String, ? extends Object>> getAttachedHRMDocuments(LoggedInInfo loggedInInfo, String demographicNo, String requestId) {
-        List<ConsultDocs> attachedHRMDocuments = getAttachedDocumentsByType(loggedInInfo, Integer.parseInt(requestId), ConsultDocs.DOCTYPE_HRM);
+        return getAttachedHRMDocuments(loggedInInfo, demographicNo, requestId,
+                getAttachedDocumentsByType(loggedInInfo, Integer.parseInt(requestId), ConsultDocs.DOCTYPE_HRM));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public ArrayList<HashMap<String, ? extends Object>> getAttachedHRMDocuments(LoggedInInfo loggedInInfo,
+            String demographicNo, String requestId, List<ConsultDocs> attachedHRMDocuments) {
         //TODO: refactor HRMUtil so that it's possible to call a function, pass in a particular HRM ID, and return the same information for that HRM that listHRMDocuments does
         //		once this is done, would be possible to simply iterate over attachedHRMDocuments
         //		In the absence of the above refactoring, the following gets the full listHRMDocuments and then filters for only the items that are actually attached to the consult
@@ -739,8 +876,9 @@ public class ConsultationManagerImpl implements ConsultationManager {
     }
 
     @Override
+    @Transactional
     public void archiveConsultationRequest(Integer requestId) {
-        ConsultationRequest c = consultationRequestDao.find(requestId);
+        ConsultationRequest c = consultationRequestDao.findWithAssociations(requestId);
         if (c != null) {
             List<ConsultationRequestExt> exts = consultationRequestExtDao.getConsultationRequestExts(requestId);
 

@@ -1,4 +1,4 @@
-FROM tomcat:11.0.24-jdk21-temurin@sha256:543dd74d992458d558875de8493399a718270b361b16e4ea6750371a13dda077
+FROM tomcat:11.0.27-jdk25-temurin@sha256:5f639b0943621fabc57de055c8789a2813692f3b25322379900ffac00958baea
 
 # bash with pipefail, not the default /bin/sh (dash), for EVERY RUN below.
 #
@@ -14,11 +14,18 @@ FROM tomcat:11.0.24-jdk21-temurin@sha256:543dd74d992458d558875de8493399a718270b3
 # steps here use the same `curl | ...` shape and were masked the same way.
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
+# Compose selects amd64 for the browser/driver pair, including on Apple Silicon.
+# Fail direct native ARM64 builds before downloading tools with misleading path errors.
+RUN test "$(dpkg --print-architecture)" = amd64 || { \
+      echo "ERROR: the CARLOS development browser requires linux/amd64; build with --platform=linux/amd64 or use .devcontainer/docker-compose.yml." >&2; \
+      exit 1; \
+    }
+
 # Set environment variables for Tomcat
 ENV CATALINA_HOME /usr/local/tomcat
 ENV PATH $CATALINA_HOME/bin:$PATH
 # ENV CATALINA_OPTS="--add-opens java.base/java.net=ALL-UNNAMED -agentlib:jdwp=transport=dt_socket,address=8000,server=y,suspend=n"
-ENV CATALINA_OPTS="--add-opens java.base/java.net=ALL-UNNAMED -Djava.awt.headless=true -Dcarlos_override_properties=/root/carlos.properties"
+ENV CATALINA_OPTS="--add-opens java.base/java.net=ALL-UNNAMED -Djava.awt.headless=true -Dcarlos_override_properties=/root/carlos.properties -Djavamelody.system-actions-enabled=true"
 # The eForm browser PDF renderer runs headless Chromium unsandboxed by default (Tomcat runs as root
 # here and Chromium refuses to start its OS-level sandbox as root); this container IS the isolation
 # boundary. No env var is needed for that default. To exercise Chromium's OS sandbox in a container
@@ -29,7 +36,7 @@ ENV JPDA_ADDRESS=8000
 ENV JPDA_TRANSPORT=dt_socket
 
 # Copy Tomcat installation from the official Tomcat image
-COPY --from=tomcat:11.0.24-jdk21-temurin@sha256:543dd74d992458d558875de8493399a718270b361b16e4ea6750371a13dda077 /usr/local/tomcat $CATALINA_HOME
+COPY --from=tomcat:11.0.27-jdk25-temurin@sha256:5f639b0943621fabc57de055c8789a2813692f3b25322379900ffac00958baea /usr/local/tomcat $CATALINA_HOME
 
 # Labels
 LABEL author="CARLOS EMR Project" \
@@ -38,10 +45,10 @@ LABEL author="CARLOS EMR Project" \
 
 ARG TOMCAT_PATH=/usr/local/tomcat
 ARG DOCS_PATH='/home/oscar/development/volumes'
-ARG OSCAR_DOCUMENT="${DOCS_PATH}/OscarDocument"
+ARG OSCAR_DOCUMENT="${DOCS_PATH}/CarlosDocument"
 ARG DB_DOCS="/db-data/documents"
-ARG DOCS_DEST="/var/lib/OscarDocument/oscar/document"
-ARG EFORM_IMAGES_DIR="/var/lib/OscarDocument/oscar/eform/images"
+ARG DOCS_DEST="/var/lib/CarlosDocument/carlos/document"
+ARG EFORM_IMAGES_DIR="/var/lib/CarlosDocument/carlos/eform/images"
 
 WORKDIR /workspace
 
@@ -100,11 +107,10 @@ RUN /usr/local/bin/apt-install \
 # .tar.gz, not .tar.xz: extracting xz needs the `xz` binary, which is not in this base image's
 # default package set. A dry run of these exact commands failed on "xz: Cannot exec" — gzip is
 # always present, so the gz tarball removes a dependency rather than adding one to apt.
-# The archive is selected from the Docker build target architecture so native ARM64 builds
-# (e.g. Apple Silicon) get arm64 binaries instead of failing on x64 executables.
-ENV NODE_VERSION=22.11.0
-ENV NODE_SHA256_X64=4f862bab52039835efbe613b532238b6e4dde98d139a34e6923193e073438b13
-ENV NODE_SHA256_ARM64=27453f7a0dd6b9e6738f1f6ea6a09b102ec7aa484de1e39d6a1c3608ad47aa6a
+# Keep the Node archive selection tied to the Docker build target architecture.
+ENV NODE_VERSION=22.22.1
+ENV NODE_SHA256_X64=07c8aafa60644fb81adefa1ee7da860eb1920851ffdc9a37020ab0be47fbc10e
+ENV NODE_SHA256_ARM64=1d1690e9aba47e887a275abc6d8f7317e571a0700deaef493f768377e99155f5
 RUN arch="$(dpkg --print-architecture)" \
     && case "$arch" in \
          amd64) node_arch=x64; node_sha256="${NODE_SHA256_X64}" ;; \
@@ -120,6 +126,11 @@ RUN arch="$(dpkg --print-architecture)" \
          v${NODE_VERSION}) : ;; \
          *) echo "ERROR: expected Node v${NODE_VERSION}, got $(node --version)." >&2; exit 1 ;; \
        esac
+
+# npm 10 resolves the pinned aliases and local argparse compatibility override.
+# Keep this aligned with package.json and the script-regressions workflow.
+RUN npm install --global npm@10.9.9 --ignore-scripts --no-audit --no-fund \
+    && test "$(npm --version)" = 10.9.9
 
 # Install GitHub CLI
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
@@ -155,7 +166,7 @@ ARG CODEX_CLI_VERSION=0.142.2
 # Retry the npm fetch because CI occasionally hits transient ECONNRESET errors.
 RUN for attempt in 1 2 3; do         npm install -g "@openai/codex@${CODEX_CLI_VERSION}" && break;         if [ "$attempt" -eq 3 ]; then exit 1; fi;         echo "Retrying @openai/codex install after transient npm failure (attempt $attempt)...";         sleep 5;     done &&     echo "✅ OpenAI Codex CLI installed: $(codex --version)"
 
-ARG PLAYWRIGHT_VERSION=1.60.0
+ARG PLAYWRIGHT_VERSION=1.61.1
 
 # Install Playwright globally first to ensure it's available.
 # Keep this in sync with package.json, .mcp.json, and .devcontainer/PLAYWRIGHT_SETUP.md.
@@ -163,20 +174,97 @@ RUN npm install -g "playwright@${PLAYWRIGHT_VERSION}" && \
     echo "✅ Playwright CLI installed: $(playwright --version)"
 
 # Install Playwright browsers (Chromium, Firefox) with system dependencies
-# Note: Chrome excluded - no ARM64 Linux builds (breaks Apple Silicon). Chromium is equivalent.
-# Version 1.60.0 uses the current Playwright browser bundles and Ubuntu 24.04 t64 package names.
+# The CARLOS service uses amd64 so Playwright's Chrome for Testing and chromedriver match.
+# Playwright 1.61+ supports the Ubuntu 26.04 base and its browser dependencies.
 RUN playwright install --with-deps chromium firefox && \
     echo "✅ Playwright browsers installed (Chromium, Firefox)"
 
-# Install pipx and Aider AI coding assistant
+# chromedriver for the eForm PDF and measurement-chart renderer. CARLOS connects to a RUNNING
+# chromedriver over loopback (eform_pdf_browser_service_url, default 127.0.0.1:9515) and no longer
+# ships Selenium Manager to fetch one, so the devcontainer installs the driver that matches the
+# Chrome for Testing build Playwright installed above (same version, same CDN) and `server start`
+# runs it beside Tomcat. The browser path is config/shared/volumes/carlos.properties
+# (eform_pdf_browser_chromium_path); keep its chromium-<revision> in step with PLAYWRIGHT_VERSION.
+# The driver is pinned by version and SHA-256 like the Node archive above; Playwright 1.61.1 installs
+# Chrome for Testing 149.0.7827.55. A Playwright bump fails here until both pins are updated.
+ARG CHROMEDRIVER_VERSION=149.0.7827.55
+ARG CHROMEDRIVER_SHA256=8684a9cb079391352021e93e6ddb2f2afa66feb327526f7c3ed316b5b1028aaf
+RUN set -eu; \
+    chrome="$(ls -d /root/.cache/ms-playwright/chromium-*/chrome-linux64/chrome | head -n 1)"; \
+    version="$("$chrome" --version | grep -oE '[0-9]+(\.[0-9]+){3}')"; \
+    if [ "$version" != "$CHROMEDRIVER_VERSION" ]; then \
+      echo "ERROR: Playwright installed Chrome for Testing ${version}; set CHROMEDRIVER_VERSION and CHROMEDRIVER_SHA256 for it." >&2; \
+      exit 1; \
+    fi; \
+    curl -fsSLo /tmp/chromedriver.zip "https://storage.googleapis.com/chrome-for-testing-public/${version}/linux64/chromedriver-linux64.zip"; \
+    echo "${CHROMEDRIVER_SHA256}  /tmp/chromedriver.zip" | sha256sum -c -; \
+    python3 -c "import zipfile; zipfile.ZipFile('/tmp/chromedriver.zip').extractall('/tmp/chromedriver')"; \
+    install -m 0755 /tmp/chromedriver/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver; \
+    rm -rf /tmp/chromedriver /tmp/chromedriver.zip; \
+    case "$(chromedriver --version)" in \
+      "ChromeDriver ${version} "*) echo "✅ chromedriver ${version} installed" ;; \
+      *) echo "ERROR: chromedriver does not match Chrome for Testing ${version}: $(chromedriver --version)" >&2; exit 1 ;; \
+    esac
+
+# Aider requires Python <3.13; Ubuntu 26.04 supplies Python 3.14. Let uv
+# provide an isolated Python 3.12 instead of pip selecting an obsolete Aider.
+ARG UV_VERSION=0.13.6
+ARG AIDER_VERSION=0.86.2
 RUN /usr/local/bin/apt-install pipx && \
-    pipx install aider-chat && \
+    pipx install "uv==${UV_VERSION}" && \
+    uv tool install --python 3.12 "aider-chat==${AIDER_VERSION}" && \
+    aider --version && \
     pipx ensurepath
 
-# Install Postfix for mail testing with default values
-RUN /usr/local/bin/apt-install postfix
+# Install Postfix and flock for local mail capture testing with default values.
+RUN /usr/local/bin/apt-install postfix util-linux
 
-# Configure Postfix for simple localhost operation
+# Give the Postfix pipe a dedicated identity and a tightly permissioned capture
+# layout. The root-owned parent prevents the delivery user from replacing the
+# lock or capture file; its private spool remains writable for atomic capture.
+RUN groupadd --system carlos-mail && \
+    useradd --system --gid carlos-mail --home-dir /nonexistent \
+      --shell /usr/sbin/nologin carlos-mail && \
+    install -d -o root -g carlos-mail -m 0750 /var/log/carlos-mail-capture && \
+    install -d -o carlos-mail -g carlos-mail -m 0770 \
+      /var/log/carlos-mail-capture/.spool && \
+    install -o carlos-mail -g carlos-mail -m 0660 /dev/null \
+      /var/log/carlos-mail-capture/messages.eml && \
+    install -o carlos-mail -g carlos-mail -m 0660 /dev/null \
+      /var/log/carlos-mail-capture/.lock
+
+# Register a custom pipe transport that streams every accepted message to the
+# capture script. ${sender}/${recipient} pass envelope metadata; the raw
+# message body arrives on stdin.
+RUN printf '%s\n%s\n' \
+    'devcapture unix  -       n       n       -       -       pipe' \
+    '  flags=q user=carlos-mail argv=/scripts/postfix-capture-mail ${sender} ${recipient}' \
+    >> /etc/postfix/master.cf
+
+# Route every recipient to the capture transport.
+RUN printf '/.*/ devcapture:\n' > /etc/postfix/carlos-transport-regexp
+
+# Opt-in real-delivery allowlist (see docs/postfix-mail-server.md). Recipients
+# listed here are delivered for REAL, but ONLY when the container is started with
+# CARLOS_MAIL_ALLOW_SEND=1 (the 'mail' helper wires the allowlist into
+# transport_maps in that case). It ships EMPTY, so the env flag alone sends
+# nothing — every message stays captured until an address is added here.
+RUN printf '%s\n' \
+    '# CARLOS dev mail allowlist (regexp transport map).' \
+    '# Recipients matched here are delivered EXTERNALLY when the devcontainer is' \
+    '# started with CARLOS_MAIL_ALLOW_SEND=1. Everything not matched is still' \
+    '# captured locally. NEVER add a real patient address here — use only your own' \
+    '# test inbox. Example (uncomment and edit):' \
+    '# /^me@my-test-inbox\.example\.com$/  smtp:' \
+    '# After editing, rerun CARLOS_MAIL_ALLOW_SEND=1 mail start to apply changes.' \
+    > /etc/postfix/carlos-send-allowlist
+
+# `mail start` renders the user-maintained allowlist above into this runtime
+# transport map, adding CARLOS_MAIL_RELAYHOST to bare `smtp:` results.
+RUN install -o root -g root -m 0644 /dev/null \
+    /etc/postfix/carlos-send-allowlist.effective
+
+# Configure Postfix for localhost-only operation with capture-everything delivery.
 RUN postconf -e 'myhostname=openo-dev.local' && \
     postconf -e 'mydestination=openo-dev.local, localhost' && \
     postconf -e 'mynetworks=127.0.0.0/8' && \
@@ -187,7 +275,19 @@ RUN postconf -e 'myhostname=openo-dev.local' && \
     postconf -e 'smtpd_use_tls=no' && \
     postconf -e 'smtpd_tls_security_level=none' && \
     # Allow local connections without auth
-    postconf -e 'smtpd_client_restrictions=permit_mynetworks,reject'
+    postconf -e 'smtpd_client_restrictions=permit_mynetworks,reject' && \
+    # Defense in depth: route ALL mail to the capture transport so no accepted
+    # message can ever use Postfix's normal outbound smtp delivery. The regexp
+    # map matches every recipient; the *_transport overrides catch anything the
+    # map somehow misses.
+    postconf -e 'transport_maps=regexp:/etc/postfix/carlos-transport-regexp' && \
+    postconf -e 'default_transport=devcapture:' && \
+    postconf -e 'relay_transport=devcapture:' && \
+    postconf -e 'local_transport=devcapture:' && \
+    # Deliver one recipient per pipe invocation so the capture script's
+    # ${recipient} (and the Envelope-To metadata) is always the single correct
+    # address even when Postfix batches multiple recipients for a message.
+    postconf -e 'devcapture_destination_recipient_limit=1'
 
 # Create custom bashrc with tool reminders
 COPY ./config/bashrc /root/.bashrc
@@ -202,8 +302,12 @@ RUN rm -rf $TOMCAT_PATH/webapps/ROOT/* \
 # Create ROOT folder
 RUN mkdir -p /usr/local/tomcat/webapps/ROOT
 
-# NOTE: DrugRef2 runs in a separate Java 11 container (see .devcontainer/drugref/)
-# Open-Drugref requires Java 11 while Open-O uses Java 21
+# NOTE: DrugRef2 runs in a separate container (see .devcontainer/drugref/).
+# It is a separate container because it is a separate webapp with its own
+# lifecycle, NOT because it needs a different JDK: since the Java 25 migration
+# both images are built from the same tomcat:11.0.27-jdk25-temurin base.
+# DrugRef's own sources still COMPILE at a Java 21 language level, which is a
+# floor on its pom, not a constraint on the runtime here.
 
 # Copy scripts and config files
 COPY ./scripts /scripts
@@ -211,6 +315,19 @@ COPY ./setup/setup.sh /setup-dir/setup.sh
 COPY ./setup/setup-hot-reload.sh /setup-dir/setup-hot-reload.sh
 COPY ./config/tomcat/conf/server.xml $TOMCAT_PATH/conf/server.xml
 COPY ./config/shared/volumes/*.properties /root/
+
+# Generate a self-signed certificate for the development-only HTTPS connector.
+RUN keytool -genkeypair -noprompt \
+    -alias localhost \
+    -keyalg RSA \
+    -keysize 2048 \
+    -validity 3650 \
+    -dname "CN=localhost, OU=Development, O=CARLOS, C=CA" \
+    -ext "SAN=dns:localhost,ip:127.0.0.1" \
+    -storetype PKCS12 \
+    -keystore "$TOMCAT_PATH/conf/dev-localhost.p12" \
+    -storepass changeit \
+    -keypass changeit
 
 # Copy configuration files
 COPY ./openosp_files/index.jsp $TOMCAT_PATH/webapps/ROOT/index.jsp
@@ -221,17 +338,17 @@ COPY ./openosp_files/tomcat-users.xml $TOMCAT_PATH/conf/tomcat-users.xml
 
 # Set up document directories, including seeded document data for the database and the destination
 # of all documents
-RUN mkdir -p $OSCAR_DOCUMENT/oscar/document \
-    $OSCAR_DOCUMENT/oscar/billing/download \
-    $OSCAR_DOCUMENT/oscar/billing/invoices \
-    $OSCAR_DOCUMENT/oscar/form/records \
-    $OSCAR_DOCUMENT/oscar/onEDTDocs/inbox \
-    $OSCAR_DOCUMENT/oscar/onEDTDocs/outbox \
-    $OSCAR_DOCUMENT/oscar/onEDTDocs/sent \
-    $OSCAR_DOCUMENT/oscar/onEDTDocs/archive \
-    $OSCAR_DOCUMENT/oscar/encounter/oscarMeasurements/styles \
-    $OSCAR_DOCUMENT/oscar/incomingdocs \
-    $OSCAR_DOCUMENT/oscar/export \
+RUN mkdir -p $OSCAR_DOCUMENT/carlos/document \
+    $OSCAR_DOCUMENT/carlos/billing/download \
+    $OSCAR_DOCUMENT/carlos/billing/invoices \
+    $OSCAR_DOCUMENT/carlos/form/records \
+    $OSCAR_DOCUMENT/carlos/onEDTDocs/inbox \
+    $OSCAR_DOCUMENT/carlos/onEDTDocs/outbox \
+    $OSCAR_DOCUMENT/carlos/onEDTDocs/sent \
+    $OSCAR_DOCUMENT/carlos/onEDTDocs/archive \
+    $OSCAR_DOCUMENT/carlos/encounter/oscarMeasurements/styles \
+    $OSCAR_DOCUMENT/carlos/incomingdocs \
+    $OSCAR_DOCUMENT/carlos/export \
     $DB_DOCS \
     $DOCS_DEST \
     $EFORM_IMAGES_DIR \
@@ -257,8 +374,8 @@ RUN dos2unix /scripts/* /setup-dir/*.sh \
     && /setup-dir/setup.sh
 ENV PATH="/scripts:${PATH}"
 
-# Expose Tomcat port
-EXPOSE 8080
+# Expose Tomcat HTTP and development HTTPS ports
+EXPOSE 8080 8443
 
 # Clean up
 RUN apt-get autoclean && apt-get clean && apt-get autoremove

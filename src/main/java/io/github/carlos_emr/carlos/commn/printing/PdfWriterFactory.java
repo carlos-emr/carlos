@@ -34,6 +34,7 @@ import java.util.Date;
 
 import io.github.carlos_emr.carlos.casemgmt.service.PageNumberStamper;
 import io.github.carlos_emr.carlos.casemgmt.service.PromoTextStamper;
+import io.github.carlos_emr.carlos.casemgmt.service.WrappedFooterStamper;
 
 import io.github.carlos_emr.CarlosProperties;
 import org.openpdf.text.Document;
@@ -122,6 +123,30 @@ public final class PdfWriterFactory {
         result.setPageEvent(pageEvents);
 
         return result;
+    }
+
+    /**
+     * Writer for flowing reports whose complete footer must wrap inside printable
+     * margins. Finalize page size and horizontal margins before calling this;
+     * space for the full footer is reserved before the first page is opened.
+     * Fixed-coordinate templates continue to use the existing factory method.
+     */
+    public static PdfWriter newInstanceWithWrappedFooter(Document document, OutputStream stream,
+                                                         FontSettings settings) throws DocumentException {
+        java.util.Objects.requireNonNull(document, "document must not be null");
+        java.util.Objects.requireNonNull(stream, "stream must not be null");
+        java.util.Objects.requireNonNull(settings, "settings must not be null");
+        String branding = promoText == null || promoText.isBlank() ? null
+                : promoText + " " + new SimpleDateFormat("yyyy-MM-dd").format(new Date());
+        WrappedFooterStamper footer = new WrappedFooterStamper(document, settings, confidentialityStatement, branding);
+        PdfWriter writer = PdfWriter.getInstance(document, stream);
+        PdfPageEventForwarder events = new PdfPageEventForwarder();
+        events.addPageEvent(footer);
+        PageNumberStamper numbers = new PageNumberStamper(10);
+        numbers.applyFont(settings);
+        events.addPageEvent(numbers);
+        writer.setPageEvent(events);
+        return writer;
     }
 
 }

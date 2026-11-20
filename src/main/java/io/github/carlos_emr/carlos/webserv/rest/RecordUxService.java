@@ -40,7 +40,9 @@ import java.util.Map;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.utility.SafeEncode;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -52,9 +54,9 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.StreamingOutput;
 
-import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementPrint;
+import io.github.carlos_emr.carlos.casemgmt.service.ChartPrintDateRange;
 import io.github.carlos_emr.carlos.commn.dao.EncounterTemplateDao;
 import io.github.carlos_emr.carlos.commn.model.EncounterTemplate;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
@@ -121,41 +123,40 @@ public class RecordUxService extends AbstractServiceImpl {
     @Path("/{demographicNo}/recordMenu")
     @Produces("application/json")
     public List<MenuItemTo1> getRecordMenu(@PathParam("demographicNo") Integer demographicNo) {
+        io.github.carlos_emr.carlos.webserv.rest.util.PatientApiAccess.requireChart(getLoggedInInfo(), securityInfoManager, demographicNo);
         logger.error("getRecordMenu getting called for demo " + demographicNo);
         LoggedInInfo loggedInInfo = getLoggedInInfo();
 
         int idCounter = 0;
 
         List<MenuItemTo1> menulist = new ArrayList<MenuItemTo1>();
-        if (securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
+        if (securityInfoManager.hasPrivilegeReadOnly(loggedInInfo, "_demographic", "r", demographicNo.toString())) {
             menulist.add(MenuItemTo1.generateStateMenuItem(idCounter, "Details", "record.details"));
         }
 
-        if (securityInfoManager.hasPrivilege(loggedInInfo, "_eChart", "r", null)) {
+        if (securityInfoManager.hasPrivilegeReadOnly(loggedInInfo, "_eChart", "r", demographicNo.toString())) {
             menulist.add(MenuItemTo1.generateStateMenuItem(idCounter++, "Summary", "record.summary"));
         }
 
-        if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.forms", "r", null) || securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.eforms", "r", null)) {
+        if (securityInfoManager.hasPrivilegeReadOnly(loggedInInfo, "_newCasemgmt.forms", "r", demographicNo.toString()) || securityInfoManager.hasPrivilegeReadOnly(loggedInInfo, "_newCasemgmt.eforms", "r", demographicNo.toString())) {
             menulist.add(MenuItemTo1.generateStateMenuItem(idCounter++, "Forms", "record.forms"));
         }
 
-        if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.viewTickler", "r", null)) {
+        if (securityInfoManager.hasPrivilegeReadOnly(loggedInInfo, "_newCasemgmt.viewTickler", "r", demographicNo.toString())) {
             menulist.add(MenuItemTo1.generateStateMenuItem(idCounter++, "Tickler", "record.tickler"));
         }
 
         //Remove until available
-        //if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.documents", "r", null) || securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.labResult", "r", null) ) {
+        //if (securityInfoManager.hasPrivilegeReadOnly(loggedInInfo, "_newCasemgmt.documents", "r", demographicNo.toString()) || securityInfoManager.hasPrivilegeReadOnly(loggedInInfo, "_newCasemgmt.labResult", "r", demographicNo.toString()) ) {
         //	menulist.add(MenuItemTo1.generateStateMenuItem(idCounter++, "Labs/Docs", "record.labsdocs"));
         //}
 
-        if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.prescriptions", "r", null)) {
+        if (securityInfoManager.hasPrivilegeReadOnly(loggedInInfo, "_newCasemgmt.prescriptions", "r", demographicNo.toString())) {
             menulist.add(new MenuItemTo1(idCounter++, "Rx", "../rx/choosePatient?demographicNo=" + demographicNo));
+            menulist.add(MenuItemTo1.generateStateMenuItem(idCounter++, "Rx", "record.prescript"));
         }
 
-
-        menulist.add(MenuItemTo1.generateStateMenuItem(idCounter++, "Rx", "record.prescript"));
-
-        if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.consultations", "r", null)) {
+        if (securityInfoManager.hasPrivilegeReadOnly(loggedInInfo, "_newCasemgmt.consultations", "r", demographicNo.toString())) {
 
             //add notification if patient has outstanding consultation requests (incomplete requests > 1 month)
             String outstanding = consultationManager.hasOutstandingConsultations(loggedInInfo, demographicNo) ? "outstanding" : null;
@@ -182,11 +183,11 @@ public class RecordUxService extends AbstractServiceImpl {
 
         List<MenuItemTo1> morelist = new ArrayList<MenuItemTo1>();
 		
-		/*if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.preventions", "r", null)) {
+		/*if (securityInfoManager.hasPrivilegeReadOnly(loggedInInfo, "_newCasemgmt.preventions", "r", demographicNo.toString())) {
 			morelist.add(new MenuItemTo1(idCounter++, "Preventions", "../prevention/ViewPreventionIndex?demographic_no="+demographicNo));
 		}*/
 		
-		/*if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.viewTickler", "r", null)) {
+		/*if (securityInfoManager.hasPrivilegeReadOnly(loggedInInfo, "_newCasemgmt.viewTickler", "r", demographicNo.toString())) {
 			if ( org.oscarehr.commons.IsPropertiesOn.isTicklerPlusEnable()) {
 				morelist.add(new MenuItemTo1(idCounter++, "Tickler", "../Tickler?filter.demographicNo="+demographicNo));
 			}else {
@@ -194,15 +195,15 @@ public class RecordUxService extends AbstractServiceImpl {
 			}
 		}*/
 
-        if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.DxRegistry", "r", null)) {
+        if (securityInfoManager.hasPrivilegeReadOnly(loggedInInfo, "_newCasemgmt.DxRegistry", "r", demographicNo.toString())) {
             morelist.add(new MenuItemTo1(idCounter++, "Disease Registry", "../oscarResearch/dxresearch/setupDxResearch?quickList=&demographicNo=" + demographicNo));
         }
 
-        if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.oscarMsg", "r", null)) {
+        if (securityInfoManager.hasPrivilegeReadOnly(loggedInInfo, "_newCasemgmt.oscarMsg", "r", demographicNo.toString())) {
             morelist.add(new MenuItemTo1(idCounter++, "Messenger", "../messenger/DisplayDemographicMessages?orderby=date&boxType=3&demographic_no=" + demographicNo));
         }
 
-        if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.oscarMsg", "r", null)) {
+        if (securityInfoManager.hasPrivilegeReadOnly(loggedInInfo, "_newCasemgmt.oscarMsg", "r", demographicNo.toString())) {
             morelist.add(new MenuItemTo1(idCounter++, "Create Message", "../messenger/SendDemoMessage?demographic_no=" + demographicNo));
         }
         // Requires EctSession bean to open the window.  I think it's best to just redo measurements in a better interface in the record with angular
@@ -210,11 +211,11 @@ public class RecordUxService extends AbstractServiceImpl {
         //	morelist.add(new MenuItemTo1(2, "Measurements", "../encounter/oscarMeasurements/SetupHistoryIndex?demographic_no="+demographicNo));
         //}
 
-        if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.documents", "r", null)) {
+        if (securityInfoManager.hasPrivilegeReadOnly(loggedInInfo, "_newCasemgmt.documents", "r", demographicNo.toString())) {
             morelist.add(new MenuItemTo1(idCounter++, "Documents", "../documentManager/ViewDocumentReport?function=demographic&doctype=lab&functionid=" + SafeEncode.forUriComponent(String.valueOf(demographicNo))));
         }
 
-        if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.decisionSupportAlerts", "r", null)) {
+        if (securityInfoManager.hasPrivilegeReadOnly(loggedInInfo, "_newCasemgmt.decisionSupportAlerts", "r", demographicNo.toString())) {
             morelist.add(new MenuItemTo1(idCounter++, "DS Guidelines", "../encounter/decisionSupport/guidelineAction?method=list&provider_no=" + loggedInInfo.getLoggedInProviderNo() + "&demographic_no=" + demographicNo));
         }
 
@@ -244,31 +245,32 @@ public class RecordUxService extends AbstractServiceImpl {
     @Path("/{demographicNo}/summary/{summaryName}") //@Path("/leftsideSummary")
     @Produces("application/json")
     public List<SummaryTo1> getSummary(@PathParam("demographicNo") Integer demographicNo, @PathParam("summaryName") String summaryName) {
+        io.github.carlos_emr.carlos.webserv.rest.util.PatientApiAccess.requireChart(getLoggedInInfo(), securityInfoManager, demographicNo);
         LoggedInInfo loggedInInfo = getLoggedInInfo(); // LoggedInInfo.loggedInInfo.get();
-        logger.debug("getting summary:" + summaryName + " for demo " + demographicNo + "  loggedInInfo " + loggedInInfo);
+        logger.debug("Getting record summary");
         List<SummaryTo1> summaryList = null;
         int count = 0;
 
         if ("right".equals(summaryName)) {
             summaryList = new ArrayList<SummaryTo1>();
-            if ((securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.documents", "r", null) || securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.labResult", "r", null)) && preferenceManager.displaySummaryItem(loggedInInfo, PreferenceManagerImpl.INCOMING_POS)) {
+            if ((securityInfoManager.hasPrivilegeReadOnly(loggedInInfo, "_newCasemgmt.documents", "r", demographicNo.toString()) || securityInfoManager.hasPrivilegeReadOnly(loggedInInfo, "_newCasemgmt.labResult", "r", demographicNo.toString())) && preferenceManager.displaySummaryItem(loggedInInfo, PreferenceManagerImpl.INCOMING_POS)) {
                 summaryList.add(new SummaryTo1("Incoming", count++, SummaryTo1.INCOMING_CODE));
             }
 
-            if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.decisionSupportAlerts", "r", null) && preferenceManager.displaySummaryItem(loggedInInfo, PreferenceManagerImpl.DS_SUPPORT_POS)) {
+            if (securityInfoManager.hasPrivilegeReadOnly(loggedInInfo, "_newCasemgmt.decisionSupportAlerts", "r", demographicNo.toString()) && preferenceManager.displaySummaryItem(loggedInInfo, PreferenceManagerImpl.DS_SUPPORT_POS)) {
                 summaryList.add(new SummaryTo1("Decision Support", count++, SummaryTo1.DECISIONSUPPORT_CODE));
             }
         } else if ("left".equals(summaryName)) {
             summaryList = new ArrayList<SummaryTo1>();
-            if (securityInfoManager.hasPrivilege(loggedInInfo, "_prevention", "r", null) && preferenceManager.displaySummaryItem(loggedInInfo, PreferenceManagerImpl.PREVENTION_POS)) {
+            if (securityInfoManager.hasPrivilegeReadOnly(loggedInInfo, "_prevention", "r", demographicNo.toString()) && preferenceManager.displaySummaryItem(loggedInInfo, PreferenceManagerImpl.PREVENTION_POS)) {
                 summaryList.add(new SummaryTo1("Preventions", count++, SummaryTo1.PREVENTIONS));
             }
 
-            if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.prescriptions", "r", null) && preferenceManager.displaySummaryItem(loggedInInfo, PreferenceManagerImpl.MEDS_POS)) {
+            if (securityInfoManager.hasPrivilegeReadOnly(loggedInInfo, "_newCasemgmt.prescriptions", "r", demographicNo.toString()) && preferenceManager.displaySummaryItem(loggedInInfo, PreferenceManagerImpl.MEDS_POS)) {
                 summaryList.add(new SummaryTo1("Medications", count++, SummaryTo1.MEDICATIONS_CODE));
             }
 
-            if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.otherMeds", "r", null) && preferenceManager.displaySummaryItem(loggedInInfo, PreferenceManagerImpl.OTHER_MEDS_POS)) {
+            if (securityInfoManager.hasPrivilegeReadOnly(loggedInInfo, "_newCasemgmt.otherMeds", "r", demographicNo.toString()) && preferenceManager.displaySummaryItem(loggedInInfo, PreferenceManagerImpl.OTHER_MEDS_POS)) {
                 summaryList.add(new SummaryTo1("Other Meds", count++, SummaryTo1.OTHERMEDS_CODE));
             }
 
@@ -276,7 +278,7 @@ public class RecordUxService extends AbstractServiceImpl {
                 summaryList.add(new SummaryTo1("Ongoing Concerns", count++, SummaryTo1.ONGOINGCONCERNS_CODE));
             }
 
-            if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.medicalHistory", "r", null) && preferenceManager.displaySummaryItem(loggedInInfo, PreferenceManagerImpl.MED_HX_POS)) {
+            if (securityInfoManager.hasPrivilegeReadOnly(loggedInInfo, "_newCasemgmt.medicalHistory", "r", demographicNo.toString()) && preferenceManager.displaySummaryItem(loggedInInfo, PreferenceManagerImpl.MED_HX_POS)) {
                 summaryList.add(new SummaryTo1("Medical History", count++, SummaryTo1.MEDICALHISTORY_CODE));
             }
 
@@ -285,7 +287,7 @@ public class RecordUxService extends AbstractServiceImpl {
                 summaryList.add(new SummaryTo1("Social History", count++, SummaryTo1.SOCIALHISTORY_CODE));
             }
 
-            if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.familyHistory", "r", null) && preferenceManager.displaySummaryItem(loggedInInfo, PreferenceManagerImpl.FAM_HX_POS)) {
+            if (securityInfoManager.hasPrivilegeReadOnly(loggedInInfo, "_newCasemgmt.familyHistory", "r", demographicNo.toString()) && preferenceManager.displaySummaryItem(loggedInInfo, PreferenceManagerImpl.FAM_HX_POS)) {
                 summaryList.add(new SummaryTo1("Family History", count++, SummaryTo1.FAMILYHISTORY_CODE));
             }
 
@@ -301,7 +303,7 @@ public class RecordUxService extends AbstractServiceImpl {
                 summaryList.add(new SummaryTo1("Allergies", count++, SummaryTo1.ALLERGIES));
             }
 
-            if ((securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.forms", "r", null) || securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.eforms", "r", null)) && preferenceManager.displaySummaryItem(loggedInInfo, PreferenceManagerImpl.ASSESSMENTS_POS)) {
+            if ((securityInfoManager.hasPrivilegeReadOnly(loggedInInfo, "_newCasemgmt.forms", "r", demographicNo.toString()) || securityInfoManager.hasPrivilegeReadOnly(loggedInInfo, "_newCasemgmt.eforms", "r", demographicNo.toString())) && preferenceManager.displaySummaryItem(loggedInInfo, PreferenceManagerImpl.ASSESSMENTS_POS)) {
                 summaryList.add(new SummaryTo1("Assessments", count++, SummaryTo1.ASSESSMENTS_CODE));
             }
             //summaryList[9] = new SummaryTo1("Outgoing", 7,"outgoing");
@@ -315,7 +317,7 @@ public class RecordUxService extends AbstractServiceImpl {
         } else if ("rxRight".equals(summaryName)) {
             summaryList = new ArrayList<SummaryTo1>();
 
-            if (securityInfoManager.hasPrivilege(loggedInInfo, "_newCasemgmt.decisionSupportAlerts", "r", null) && preferenceManager.displaySummaryItem(loggedInInfo, PreferenceManagerImpl.DS_SUPPORT_POS)) {
+            if (securityInfoManager.hasPrivilegeReadOnly(loggedInInfo, "_newCasemgmt.decisionSupportAlerts", "r", demographicNo.toString()) && preferenceManager.displaySummaryItem(loggedInInfo, PreferenceManagerImpl.DS_SUPPORT_POS)) {
                 summaryList.add(new SummaryTo1("Decision Support", count++, SummaryTo1.DECISIONSUPPORT_CODE));
             }
         }
@@ -353,12 +355,15 @@ public class RecordUxService extends AbstractServiceImpl {
     @Produces("application/json")
     public SummaryTo1 getFullSummmary(@PathParam("demographicNo") Integer demographicNo, @PathParam(value = "summaryCode") String summaryCode) {
         LoggedInInfo loggedInInfo = getLoggedInInfo();
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eChart", "r", demographicNo)) {
+            throw new SecurityException("missing required sec object (_eChart)");
+        }
         SummaryTo1 summary = null;
 
         Summary summaryInterface = (Summary) SpringUtils.getBean(MY_MAP.get(summaryCode));
         summary = summaryInterface.getSummary(loggedInInfo, demographicNo, summaryCode);
 
-        logger.debug("outgoing summary object:" + summary);
+        logger.debug("Record summary prepared");
         return summary;
     }
 
@@ -434,20 +439,39 @@ public class RecordUxService extends AbstractServiceImpl {
     }
 
 
+    /**
+     * Streams the selected chart sections as a PDF. Date fields apply only to the dates print
+     * mode, which requires both bounds; selected/all modes ignore optional stale date fields.
+     *
+     * <p>The caller must hold patient-scoped demographic, chart and note read privileges and access
+     * to the requested patient's record. The PDF carries notes, CPP, medications, labs, preventions
+     * and allergies. These checks run before the print options are parsed.</p>
+     * <p>When the returned stream is written, inaccessible selected notes and invalid chart contexts
+     * raise {@link ForbiddenException} before output; rendering failures remain HTTP 500.</p>
+     *
+     * @param demographicNo patient identifier
+     * @param jsonString JSON print options including printType, selectedList and section flags
+     * @param request authenticated servlet request used for chart headers
+     * @return StreamingOutput whose write performs note/context authorization and PDF generation;
+     *         inaccessible notes or contexts produce HTTP 403 and rendering failures HTTP 500
+     * @throws ForbiddenException before returning the stream if patient-scoped {@code _eChart},
+     *         {@code _demographic} or {@code _casemgmt.notes} read, or patient-record access, is denied
+     * @throws BadRequestException before returning the stream if the patient identifier is not positive,
+     *         or dates mode has missing, invalid or reversed bounds
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @GET
     @Path("/{demographicNo}/print")
     @Produces("application/pdf")
     public StreamingOutput print(@PathParam("demographicNo") Integer demographicNo, @QueryParam("printOps") String jsonString, @Context HttpServletRequest request) {
+        requirePrintRead(demographicNo);
 
-
-        logger.debug("jsonobject " + jsonString);
         ObjectNode jsonobject = null;
         try {
             jsonobject = (ObjectNode) objectMapper.readTree(jsonString);
         } catch (Exception e) {
-            logger.error("Error parsing JSON", e);
+            logger.error("Unable to parse chart print options ({})", e.getClass().getSimpleName());
         }
         //{"printType":"all","cpp":true,"prescript":true,"selectedList":[]}
 
@@ -459,19 +483,18 @@ public class RecordUxService extends AbstractServiceImpl {
         Calendar startCal = null;
         Calendar endCal = null;
         if (printDateRangeNotes) {
-            if (jsonobject.has("dates")) {
-                ObjectNode datesJson = (ObjectNode) jsonobject.get("dates");
-                if (datesJson.has("start")) {
-                    startCal = jakarta.xml.bind.DatatypeConverter.parseDateTime(datesJson.get("start") != null ? datesJson.get("start").asText() : null);
-                }
-                if (datesJson.has("end")) {
-                    endCal = jakarta.xml.bind.DatatypeConverter.parseDateTime(datesJson.get("end") != null ? datesJson.get("end").asText() : null);
-                }
+            if (!(jsonobject.get("dates") instanceof ObjectNode datesJson)
+                    || !datesJson.hasNonNull("start") || !datesJson.hasNonNull("end")) {
+                throw new BadRequestException("Both print date boundaries are required");
             }
-            if (startCal != null && endCal != null) {
-                printAllNotesType = true;
+            try {
+                startCal = jakarta.xml.bind.DatatypeConverter.parseDateTime(datesJson.get("start").asText());
+                endCal = jakarta.xml.bind.DatatypeConverter.parseDateTime(datesJson.get("end").asText());
+                ChartPrintDateRange.from(startCal, endCal);
+            } catch (IllegalArgumentException _) {
+                throw new BadRequestException("Invalid print date range");
             }
-
+            printAllNotesType = true;
         }
         final Calendar startCalf = startCal;
         final Calendar endCalf = endCal;
@@ -484,7 +507,7 @@ public class RecordUxService extends AbstractServiceImpl {
         final boolean printLabs = getBoolean(jsonobject, "labs");
         final boolean printPreventions = getBoolean(jsonobject, "preventions");
         final boolean printAllergies = getBoolean(jsonobject, "allergies");
-        final boolean useDates = jsonobject.has("dates");
+        final boolean useDates = printDateRangeNotes;
 
         final ArrayNode keyArray = (ArrayNode) jsonobject.get("selectedList");
         final String[] noteIds = new String[keyArray.size()];
@@ -500,14 +523,49 @@ public class RecordUxService extends AbstractServiceImpl {
                 try {
                     CaseManagementPrint cmp = new CaseManagementPrint();
                     cmp.doPrint(loggedInInfo, demographicNof, printAllNotes, noteIds, printCPP, printRx, printLabs, printPreventions, printAllergies, useDates, startCalf, endCalf, requestf, os);
+                } catch (CaseManagementPrint.NoteAccessDeniedException deniedNote) {
+                    throw new ForbiddenException("Chart print access denied", deniedNote);
                 } catch (Exception e) {
-                    logger.error("error streaming", e);
-                } finally {
-                    IOUtils.closeQuietly(os);
+                    logger.error("Chart print failed ({})", e.getClass().getSimpleName());
+                    throw new WebApplicationException("Unable to generate the chart print", e, 500);
                 }
 
             }
         };
+    }
+
+    /**
+     * Requires the same patient-specific module and record access as the web chart print paths.
+     *
+     * @throws BadRequestException when the patient identifier is not positive
+     * @throws ForbiddenException when a print module or patient record is inaccessible
+     */
+    private void requirePrintRead(Integer demographicNo) {
+        if (demographicNo == null || demographicNo <= 0) {
+            throw new BadRequestException("Invalid demographicNo");
+        }
+        LoggedInInfo login = getLoggedInInfo();
+        for (String module : new String[]{"_eChart", "_demographic", "_casemgmt.notes"}) {
+            if (login == null || !securityInfoManager.hasPrivilege(login, module, SecurityInfoManager.READ, demographicNo)) {
+                throw new ForbiddenException("missing required sec object (" + module + ")");
+            }
+        }
+        if (!securityInfoManager.isAllowedAccessToPatientRecord(login, demographicNo)) {
+            throw new ForbiddenException("Patient record access denied");
+        }
+    }
+
+    /**
+     * Fails closed with HTTP 403 unless the caller may read encounter templates. This is the right
+     * the classic encounter's template picker ({@code EctInsertTemplate2Action}) enforces; template
+     * administration is separately gated on {@code _newCasemgmt.templates} write (#2798).
+     *
+     * @throws ForbiddenException when the privilege is missing
+     */
+    private void requireTemplateRead() {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_newCasemgmt.templates", SecurityInfoManager.READ, null)) {
+            throw new ForbiddenException("missing required sec object (_newCasemgmt.templates)");
+        }
     }
 
     @POST
@@ -515,6 +573,7 @@ public class RecordUxService extends AbstractServiceImpl {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public EncounterTemplateResponse getEncounterTemplates(ObjectNode obj, @QueryParam("startIndex") Integer startIndex, @QueryParam("itemsToReturn") Integer itemsToReturn) {
+        requireTemplateRead();
 
         String name = obj.get("name") != null ? obj.get("name").asText() : null;
 
@@ -533,6 +592,7 @@ public class RecordUxService extends AbstractServiceImpl {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public EncounterTemplateResponse getEncounterTemplate(ObjectNode obj) {
+        requireTemplateRead();
 
         String name = obj.get("name") != null ? obj.get("name").asText() : null;
 

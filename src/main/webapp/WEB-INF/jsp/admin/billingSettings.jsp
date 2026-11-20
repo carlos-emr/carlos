@@ -30,7 +30,7 @@
 --%>
 <!DOCTYPE HTML>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     boolean authed = true;
@@ -49,7 +49,7 @@
 
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib prefix="c" uri="jakarta.tags.core" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.PropertyDao" %>
@@ -81,7 +81,7 @@
      * TODO: not really the best method, but will work until there is time to refactor.
      */
     if (request.getParameter("dboperation") != null && !request.getParameter("dboperation").isEmpty() && request.getParameter("dboperation").equals("Save")
-            && "POST".equalsIgnoreCase(request.getMethod())) {
+            && "POST".equals(request.getMethod()) && "BC".equals(billRegion)) {
 
         request.setAttribute("success", false);
 
@@ -271,9 +271,11 @@
             </oscar:oscarPropertiesCheck>
             </tbody>
         </table>
+        <oscar:oscarPropertiesCheck property="billregion" value="BC">
         <input type="button"
                onclick="document.forms['billingSettingsForm'].dboperation.value='Save'; document.forms['billingSettingsForm'].submit();"
                name="saveBillingSettings" value="<fmt:message key='global.save'/>"/>
+        </oscar:oscarPropertiesCheck>
         <%
             Boolean success = (Boolean) request.getAttribute("success");
             if (success != null && success) {

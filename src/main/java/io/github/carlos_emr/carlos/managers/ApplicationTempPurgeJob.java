@@ -48,6 +48,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 
 /**
  * Spring-managed background sweeper that removes orphaned PHI-bearing temporary artifacts left
@@ -58,8 +59,7 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
  *   <li><b>Application temp root</b> ({@code <java.io.tmpdir>/carlos-temp}, see
  *       {@link PathValidationUtils#APPLICATION_TEMP_ROOT_NAME}) &mdash; the root
  *       {@code NioFileManagerImpl.saveTempFile} (which writes {@code tempPDF*} subdirectories) and
- *       {@code createTempFile} (which writes {@code tempDirectory*} subdirectories, used by
- *       {@code ImportDemographicDataAction42Action} to stage multi-patient demographic import files)
+ *       {@code createTempFile} (which writes {@code tempDirectory*} working subdirectories)
  *       write generated output under. This root is exclusively CARLOS-owned, so every direct child
  *       (file or directory, regardless of name) older than the configured max age is removed.</li>
  *   <li><b>Document preview cache</b> ({@code document_cache}, see
@@ -141,7 +141,7 @@ public class ApplicationTempPurgeJob {
         try {
             intervalMs = readIntervalMs();
         } catch (RuntimeException e) {
-            logger.warn("Could not read {}; ApplicationTempPurgeJob will use the default interval", INTERVAL_MS_PROPERTY_KEY, e);
+            logger.warn("Could not read {}; ApplicationTempPurgeJob will use the default interval {}", INTERVAL_MS_PROPERTY_KEY, LogSafe.exceptionTrace(e));
             intervalMs = DEFAULT_INTERVAL_MS;
         }
 
@@ -198,7 +198,7 @@ public class ApplicationTempPurgeJob {
             try {
                 maxAgeHours = readMaxAgeHours();
             } catch (RuntimeException e) {
-                logger.warn("Could not read {}; using default max age", MAX_AGE_HOURS_PROPERTY_KEY, e);
+                logger.warn("Could not read {}; using default max age {}", MAX_AGE_HOURS_PROPERTY_KEY, LogSafe.exceptionTrace(e));
                 maxAgeHours = DEFAULT_MAX_AGE_HOURS;
             }
             Instant cutoff = Instant.now().minus(maxAgeHours, ChronoUnit.HOURS);
@@ -216,13 +216,13 @@ public class ApplicationTempPurgeJob {
                         failed, failed == 1 ? "y" : "ies");
             }
         } catch (OutOfMemoryError e) {
-            logger.error("ApplicationTempPurgeJob cycle aborted due to out of memory", e);
+            logger.error("ApplicationTempPurgeJob cycle aborted due to out of memory: {}", LogSafe.exceptionTrace(e));
         } catch (Error e) {
-            logger.error("ApplicationTempPurgeJob cycle aborted due to a JVM error", e);
+            logger.error("ApplicationTempPurgeJob cycle aborted due to a JVM error: {}", LogSafe.exceptionTrace(e));
         } catch (RuntimeException e) {
-            logger.error("ApplicationTempPurgeJob cycle failed with a runtime exception", e);
+            logger.error("ApplicationTempPurgeJob cycle failed with a runtime exception: {}", LogSafe.exceptionTrace(e));
         } catch (Exception e) {
-            logger.error("ApplicationTempPurgeJob cycle failed with an unexpected checked exception", e);
+            logger.error("ApplicationTempPurgeJob cycle failed with an unexpected checked exception: {}", LogSafe.exceptionTrace(e));
         }
     }
 
@@ -242,8 +242,7 @@ public class ApplicationTempPurgeJob {
         // the TARGET would then be handed to deleteEntry. Deleting is not recoverable; refusing to
         // sweep merely leaves temp files for an operator to notice.
         if (Files.isSymbolicLink(tempRoot)) {
-            logger.error("Application temp root is a symbolic link; refusing to purge through it: {}",
-                    LogSafe.sanitize(String.valueOf(tempRoot)));
+            logger.error("Application temp root is a symbolic link; refusing to purge through it");
             return PurgeOutcome.EMPTY;
         }
         return purgeExpiredEntries(tempRoot, cutoff);
@@ -258,7 +257,7 @@ public class ApplicationTempPurgeJob {
             // ServletContext and configured document root; if either is unavailable (e.g. very early
             // in a non-web bootstrap) this must degrade to "nothing to sweep" rather than derail the
             // temp-root sweep that already ran above.
-            logger.warn("Could not resolve preview cache directory for purge", e);
+            logger.warn("Could not resolve preview cache directory for purge: {}", LogSafe.exceptionTrace(e));
             // Count as a failed target (not EMPTY): the entire preview-cache sweep — the flush-race PHI
             // backstop — was skipped because of an error, so the cycle summary must not read failed=0
             // (healthy) when a whole target could not be swept.
@@ -281,7 +280,11 @@ public class ApplicationTempPurgeJob {
      * {@code cutoff}, regardless of name. This covers both {@code NioFileManagerImpl.saveTempFile}'s
      * {@code tempPDF*} output and {@code createTempFile}'s {@code tempDirectory*} output, plus any
      * stray file, without gating on a name prefix: since the root is exclusively application-owned,
-     * any direct child old enough to be expired is a purgeable orphan.
+     * any direct child old enough to be expired is a purgeable orphan. Email-compose directories
+     * are the exception while they have a live in-process owner or their short-lived on-disk lease
+     * is valid; this prevents an unusually aggressive configured cutoff from deleting files still
+     * owned by a live compose or send operation. A crashed process cannot leave a permanent
+     * exemption because the process-local registry disappears and the on-disk lease expires.
      *
      * <p>Symlinked children are never followed or deleted &mdash; they are counted as
      * {@link PurgeOutcome#skipped()} and logged at WARN, regardless of age, since a symlink under an
@@ -298,7 +301,16 @@ public class ApplicationTempPurgeJob {
      * @return counts of entries removed, skipped (symlinks), and failed (validation/deletion errors)
      */
     static PurgeOutcome purgeExpiredEntries(Path root, Instant cutoff) {
-        return sweep(root, cutoff, ApplicationTempPurgeJob::isTempRootCandidate);
+        return purgeExpiredEntries(root, cutoff, EmailComposeWorkingDirectory::isActivelyOwned);
+    }
+
+    /** Package-private seam for verifying active-owner behavior without widening temp-root creation. */
+    static PurgeOutcome purgeExpiredEntries(
+            Path root,
+            Instant cutoff,
+            Predicate<Path> activeEmailComposeDirectory
+    ) {
+        return sweep(root, cutoff, entry -> isTempRootCandidate(entry, activeEmailComposeDirectory));
     }
 
     /**
@@ -314,14 +326,42 @@ public class ApplicationTempPurgeJob {
         return sweep(cacheDir, cutoff, ApplicationTempPurgeJob::isCacheImageCandidate);
     }
 
-    private static boolean isTempRootCandidate(Path entry) {
+    private static boolean isTempRootCandidate(
+            Path entry,
+            Predicate<Path> activeEmailComposeDirectory
+    ) {
         // carlos-temp is exclusively application-owned (see PathValidationUtils.APPLICATION_TEMP_ROOT_NAME):
         // NioFileManagerImpl.saveTempFile writes tempPDF* subdirectories and createTempFile writes
         // tempDirectory* subdirectories, both directly under this root, with no other legitimate writer.
         // Gating directories on a name prefix therefore only creates purge blind spots for other
         // CARLOS-owned output shapes; every direct child (file or directory) older than the cutoff is a
         // purgeable orphan regardless of name.
-        return Files.isRegularFile(entry) || Files.isDirectory(entry);
+        return (Files.isRegularFile(entry) || Files.isDirectory(entry))
+                && !activeEmailComposeDirectory.test(entry)
+                && !hasUnexpiredEmailComposeLease(entry);
+    }
+
+    private static boolean hasUnexpiredEmailComposeLease(Path entry) {
+        if (!Files.isDirectory(entry)
+                || !entry.getFileName().toString().startsWith(EmailComposeWorkingDirectory.DIRECTORY_PREFIX)) {
+            return false;
+        }
+        Path lease = entry.resolve(EmailComposeWorkingDirectory.ACTIVE_LEASE_FILE_NAME);
+        if (Files.isSymbolicLink(lease)
+                || !Files.isRegularFile(lease, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+            return false;
+        }
+        try {
+            if (Files.size(lease) > 32) {
+                return false;
+            }
+            long expiresAtMillis = Long.parseLong(Files.readString(lease).trim());
+            long now = System.currentTimeMillis();
+            long maximumValidExpiry = now + EmailComposeWorkingDirectory.ACTIVE_LEASE_MILLIS;
+            return now < expiresAtMillis && expiresAtMillis <= maximumValidExpiry;
+        } catch (IOException | NumberFormatException e) {
+            return false;
+        }
     }
 
     private static boolean isCacheImageCandidate(Path entry) {
@@ -343,10 +383,9 @@ public class ApplicationTempPurgeJob {
 
         try (DirectoryStream<Path> entries = Files.newDirectoryStream(root)) {
             for (Path entry : entries) {
-                String safeName = LogSafe.sanitize(entry.getFileName().toString());
                 try {
                     if (Files.isSymbolicLink(entry)) {
-                        logger.warn("Skipping symlink found in purge-swept directory: {}", safeName);
+                        logger.warn("Skipping symlink found in purge-swept directory");
                         skipped++;
                         continue;
                     }
@@ -362,7 +401,7 @@ public class ApplicationTempPurgeJob {
                     try {
                         validatedTarget = PathValidationUtils.validateExistingPath(entry.toFile(), root.toFile());
                     } catch (SecurityException e) {
-                        logger.warn("Refusing to purge entry that failed containment validation: {}", safeName);
+                        logger.warn("Refusing to purge entry that failed containment validation: {}", LogSafe.exceptionTrace(e));
                         failed++;
                         continue;
                     }
@@ -375,20 +414,20 @@ public class ApplicationTempPurgeJob {
                     }
                 } catch (IOException e) {
                     failed++;
-                    logger.warn("Error evaluating temp entry for purge: {}", safeName, e);
+                    logger.warn("Error evaluating temp entry for purge: {}", LogSafe.exceptionTrace(e));
                 }
             }
         } catch (IOException e) {
             // A scan that could not even list the directory must count as failed work: a cycle
             // summary of failed=0 would otherwise read as healthy for a sweep that swept nothing.
             failed++;
-            logger.warn("Error scanning directory for purge: {}", LogSafe.sanitize(root.toString(), 1024), e);
+            logger.warn("Error scanning directory for purge: {}", LogSafe.exceptionTrace(e));
         } catch (DirectoryIteratorException e) {
             // The DirectoryStream iterator wraps mid-iteration I/O errors in this
             // RuntimeException; without this arm it escaped to runCycle, skipped the remaining
             // sweeps and the cycle summary, and repeated every cycle at the same entry.
             failed++;
-            logger.warn("Error iterating directory for purge: {}", LogSafe.sanitize(root.toString(), 1024), e.getCause());
+            logger.warn("Error iterating directory for purge: {}", LogSafe.exceptionTrace(e.getCause()));
         }
 
         return new PurgeOutcome(removed, skipped, failed);
@@ -413,15 +452,13 @@ public class ApplicationTempPurgeJob {
         } catch (IOException e) {
             // Log the cause here, at the failure site: why a PHI-bearing temp entry cannot be
             // deleted (permissions, immutable attribute, read-only mount) is the actionable part.
-            logger.warn("Failed to purge expired temp entry: {}",
-                    LogSafe.sanitize(path.getFileName() == null ? "" : path.getFileName().toString()), e);
+            logger.warn("Failed to purge expired temp entry: {}", LogSafe.exceptionTrace(e));
             return false;
         } catch (UncheckedIOException e) {
             // Files.walk throws this (not IOException) when a nested directory becomes unopenable
             // mid-traversal; letting it escape aborted the whole sweep and turned the failed
             // subtree into a permanent purge blind spot for every entry sorted after it.
-            logger.warn("Failed to purge expired temp entry: {}",
-                    LogSafe.sanitize(path.getFileName() == null ? "" : path.getFileName().toString()), e.getCause());
+            logger.warn("Failed to purge expired temp entry: {}", LogSafe.exceptionTrace(e.getCause()));
             return false;
         }
     }
@@ -430,8 +467,7 @@ public class ApplicationTempPurgeJob {
         try {
             Files.deleteIfExists(path);
         } catch (IOException e) {
-            logger.warn("Failed to delete nested entry while purging temp directory: {}",
-                    LogSafe.sanitize(path.getFileName() == null ? "" : path.getFileName().toString()), e);
+            logger.warn("Failed to delete nested entry while purging temp directory: {}", LogSafe.exceptionTrace(e));
         }
     }
 

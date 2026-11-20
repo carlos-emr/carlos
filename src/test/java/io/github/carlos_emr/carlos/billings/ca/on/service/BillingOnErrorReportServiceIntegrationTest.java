@@ -22,6 +22,10 @@
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.util.Date;
+import java.util.List;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingErrorReportDto;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import io.github.carlos_emr.carlos.commn.dao.BillingONEAReportDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONEAReport;
@@ -71,6 +75,71 @@ public class BillingOnErrorReportServiceIntegrationTest extends CarlosTestBase {
     @BeforeEach
     void setUp() {
         service = new BillingOnErrorReportService(billingONEAReportDao);
+    }
+
+    @Test
+    @DisplayName("should retain compact report dates and replace the matching import on retry")
+    void shouldRetainReportDatesAndReplaceMatchingRows_whenImportIsRetried() {
+        BillingErrorReportDto dto = new BillingErrorReportDto();
+        dto.setProviderohip_no("123456");
+        dto.setGroup_no("0000");
+        dto.setSpecialty("00");
+        dto.setProcess_date("20260101");
+        dto.setBilling_no("876543");
+        dto.setHin("1234567890");
+        dto.setVer("AA");
+        dto.setDob("19800102");
+        dto.setStatus("N");
+        dto.setCode("A001A");
+        dto.setReport_name("date-retry.err");
+        dto.setExp("01|Explanation");
+        int original = service.addErrorReportRecord(dto);
+        entityManager.flush();
+        entityManager.clear();
+        BillingONEAReport stored = entityManager.find(BillingONEAReport.class, original);
+        assertThat(ConversionUtils.toDateString(stored.getProcessDate())).isEqualTo("2026-01-01");
+        assertThat(ConversionUtils.toDateString(stored.getDob())).isEqualTo("1980-01-02");
+        assertThat(stored.getExp()).isEqualTo("01|Explanation");
+
+        dto.setProcess_date("20260102");
+        int otherDate = service.addErrorReportRecord(dto);
+        dto.setProcess_date("20260101");
+        assertThat(service.deleteErrorReport(dto)).isTrue();
+        int replacement = service.addErrorReportRecord(dto);
+        entityManager.flush();
+        entityManager.clear();
+        assertThat(entityManager.find(BillingONEAReport.class, original)).isNull();
+        assertThat(entityManager.find(BillingONEAReport.class, otherDate)).isNotNull();
+        assertThat(entityManager.find(BillingONEAReport.class, replacement)).isNotNull();
+    }
+
+    @Test
+    @DisplayName("should delete a returned report DTO while preserving another process date")
+    void shouldDeleteMatchingRows_whenReturnedReportDtoIsPassedBack() {
+        BillingONEAReport original = persistEAReport('N');
+        original.setProcessDate(ConversionUtils.fromDateString("2026-01-01"));
+        original.setCodeDate(ConversionUtils.fromDateString("2025-12-31"));
+        original.setReportName("returned-date.err");
+        BillingONEAReport otherDate = persistEAReport('N');
+        otherDate.setProcessDate(ConversionUtils.fromDateString("2026-01-02"));
+        otherDate.setCodeDate(ConversionUtils.fromDateString("2025-12-31"));
+        otherDate.setReportName("other-date.err");
+        entityManager.flush();
+        entityManager.clear();
+
+        BillingProviderDto provider = new BillingProviderDto();
+        provider.setOhipNo("999998");
+        provider.setBillingGroupNo("0000");
+        provider.setSpecialtyCode("00");
+        List<BillingErrorReportDto> reports = service.getErrorRecords(
+                provider, "2025-12-01", "2026-01-31", "returned-date.err");
+        assertThat(reports).hasSize(1);
+        assertThat(reports.get(0).getProcess_date()).isEqualTo("2026-01-01");
+        assertThat(service.deleteErrorReport(reports.get(0))).isTrue();
+        entityManager.flush();
+        entityManager.clear();
+        assertThat(entityManager.find(BillingONEAReport.class, original.getId())).isNull();
+        assertThat(entityManager.find(BillingONEAReport.class, otherDate.getId())).isNotNull();
     }
 
     @Test

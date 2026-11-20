@@ -42,7 +42,7 @@
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin,_report" rights="r" reverse="<%=true%>">
@@ -69,6 +69,7 @@
         <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
         <script src="${pageContext.servletContext.contextPath}/library/jquery/jquery-compat.js"></script>
         <script src="${pageContext.request.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
+        <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
         <script>
             function checkform(formobj) {
                 if (!validDateFieldsByClass('datefield', formobj)) {
@@ -93,19 +94,9 @@
         <script>
             function deleteTemplate(templateId) {
                 if (confirm('Are you sure you want to delete this report template?')) {
-                    var form = document.createElement('form');
-                    form.method = 'post';
-                    form.action = 'addEditTemplatesAction';
-                    var fields = {templateid: templateId, action: 'delete'};
-                    for (var key in fields) {
-                        var input = document.createElement('input');
-                        input.type = 'hidden';
-                        input.name = key;
-                        input.value = fields[key];
-                        form.appendChild(input);
-                    }
-                    document.body.appendChild(form);
-                    form.submit();
+                    // carlosPostForm attaches the CSRF token, which CSRFGuard
+                    // cannot inject into a runtime-built form in time (#4130).
+                    carlosPostForm('addEditTemplatesAction', {templateid: templateId, action: 'delete'});
                 }
             }
         </script>
@@ -137,7 +128,12 @@
     <c:if test="${ not empty errormsg }">
     <div class="alert alert-danger">
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        ${carlos:forHtml(errormsg)}
+        <%-- A limit refusal names its limit in the user's language (#5849) and, while an administrator can still
+             raise that limit, the carlos.properties setting to change; other errors keep their English text. --%>
+        <c:choose>
+            <c:when test="${not empty errormsgKey}"><fmt:message key="${errormsgKey}"><fmt:param value="${errormsgArg}"/></fmt:message><c:if test="${not empty errormsgSetting}"> <fmt:message key="report.limit.administratorCanRaise"><fmt:param value="${errormsgSetting}"/></fmt:message></c:if></c:when>
+            <c:otherwise>${carlos:forHtml(errormsg)}</c:otherwise>
+        </c:choose>
     </div>
     </c:if>
 
@@ -244,11 +240,14 @@
 
     <div id="optionsDiv" class="form-actions">
         <a href="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewViewTemplate?templateid=<carlos:encode value='<%= curreport.getTemplateId() %>' context="uriComponent"/>" class="link">View Template XML</a>
+        <%-- Template changes need _report write (ManageTemplates2Action); readers do not get controls that would only end in a security error. --%>
+        <security:oscarSec roleName="<%=roleName$%>" objectName="_report" rights="w">
         <a href="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewAddEditTemplate?templateid=<carlos:encode value='<%= curreport.getTemplateId() %>' context="uriComponent"/>&amp;opentext=1" class="link">Edit
             Template</a>
         <a href="javascript:void(0);" onclick="deleteTemplate('<carlos:encode value='<%= curreport.getTemplateId() %>' context="javaScriptAttribute"/>');" class="link">
             Delete Template
         </a>
+        </security:oscarSec>
     </div>
 
 </html>

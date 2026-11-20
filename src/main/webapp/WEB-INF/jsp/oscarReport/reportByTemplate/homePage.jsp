@@ -33,13 +33,15 @@
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.report.reportByTemplate.*,io.github.carlos_emr.carlos.managers.RBTGroupManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.RBTGroup" %>
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportManager" %>
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportObject" %>
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+
 
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin,_report" rights="r" reverse="<%=true%>">
@@ -92,7 +94,7 @@
                             }
                     %>
 
-                    <option value="<%=value%>"><%=templateGroups.get(i)%>
+                    <option value="<%=value%>"><%=SafeEncode.forHtmlContent(templateGroups.get(i))%>
                     </option>
                     <% }%>
                 </select>
@@ -126,11 +128,11 @@
                 <td align="center"><%=String.valueOf(i + 1)%>
                 </td>
                 <td><a style="display:block;outline:none;"
-                       href="<%= request.getContextPath() %>/oscarReport/reportByTemplate/ViewReportConfiguration?templateid=<%=curReport.getTemplateId()%>"><%=curReport.getTitle()%>
+                       href="<carlos:encode value='<%= request.getContextPath() %>' context="htmlAttribute"/>/oscarReport/reportByTemplate/ViewReportConfiguration?templateid=<carlos:encode value='<%= curReport.getTemplateId() %>' context="uriComponent"/>"><carlos:encode value='<%= curReport.getTitle() %>'/>
                 </a></td>
-                <td><%=curReport.getDescription()%>
+                <td><carlos:encode value='<%= curReport.getDescription() %>'/>
                 </td>
-                <td style="display:none;" id="<%=curReport.getTemplateId()%>"></td>
+                <td style="display:none;" id="<carlos:encode value='<%= curReport.getTemplateId() %>' context="htmlAttribute"/>"></td>
             </tr>
             <% } %>
 

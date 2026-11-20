@@ -44,7 +44,19 @@ import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementSearchBean;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.EncounterUtil;
 
-public interface CaseManagementNoteDAO {
+public interface CaseManagementNoteDAO extends io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadDao {
+
+    int replaceUnassignedReporterRole(int roleId);
+
+    /** Actual physical association schema. The caller owns an authorized read-only snapshot. */
+    io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportIssueLinkSchema();
+    /** Actual ordered driver metadata for the importer's composite association receipt. */
+    List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column> readCdsExportIssueLinkReceiptColumns();
+    /** Complete association count; cross-patient/dangling or duplicate links refuse the read. */
+    long countCdsExportIssueLinks(int patient);
+    /** Strict composite-key page, at most 32 rows; no note or issue payload is loaded. */
+    List<io.github.carlos_emr.carlos.casemgmt.dto.CdsExportNoteIssueLinkDto> findCdsExportIssueLinksAfter(
+            int patient, io.github.carlos_emr.carlos.casemgmt.dto.CdsExportNoteIssueLinkDto after, int limit);
 
     /**
      * Retrieves all case management notes.
@@ -89,12 +101,21 @@ public interface CaseManagementNoteDAO {
      */
     public CaseManagementNote getNote(Long id);
 
+    /**
+     * Loads the current row under a write lock for legacy chain initialization.
+     * Detaches any cached copy first so an edited draft cannot be flushed into the historical row.
+     */
+    CaseManagementNote getNoteForUpdate(Long id);
+
     public List<CaseManagementNote> getNotes(List<Long> ids);
 
     /**
      * Retrieves the most recent case management note for the specified UUID.
      */
     public CaseManagementNote getMostRecentNote(String uuid);
+
+    /** Locks a revision chain until the caller's transaction completes. */
+    CaseManagementNote getMostRecentNoteForUpdate(String uuid);
 
     /**
      * Retrieves a list of case management notes associated with the specified UUID.
@@ -168,7 +189,12 @@ public interface CaseManagementNoteDAO {
                                                                              String[] issueCodes);
 
     /**
-     * Retrieves case management notes based on demographic and date range.
+     * Finds latest note versions observed at or after startDate and strictly before endDate.
+     *
+     * @param demographic_no patient identifier
+     * @param startDate inclusive observation timestamp
+     * @param endDate exclusive observation timestamp
+     * @return matching note versions
      */
     public List<CaseManagementNote> getNotesByDemographicDateRange(String demographic_no, Date startDate, Date endDate);
 

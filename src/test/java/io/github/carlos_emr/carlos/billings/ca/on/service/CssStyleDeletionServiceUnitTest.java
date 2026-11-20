@@ -49,7 +49,7 @@ import static org.mockito.Mockito.when;
  * <ul>
  *   <li>null styleId → false, no DAO writes</li>
  *   <li>no matching style → false, no DAO writes</li>
- *   <li>case-insensitive match → soft-delete + null every referencing
+ *   <li>database ID match → soft-delete + null every referencing
  *       billing_service.display_style → true</li>
  *   <li>mid-cascade failure → propagates so the @Transactional proxy can
  *       roll back the partial cascade</li>
@@ -89,10 +89,10 @@ class CssStyleDeletionServiceUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldReturnFalse_whenNoMatchingStyleFound() {
         CssStyle other = mock(CssStyle.class, "other");
-        when(other.getStyle()).thenReturn("blue-glow");
+        when(other.getId()).thenReturn(43);
         when(cssStylesDao.findAll()).thenReturn(List.of(other));
 
-        boolean result = svc.deleteByStyleId("red-flash");
+        boolean result = svc.deleteByStyleId("42");
 
         assertThat(result).isFalse();
         verify(cssStylesDao, never()).merge(org.mockito.ArgumentMatchers.any(CssStyle.class));
@@ -100,9 +100,8 @@ class CssStyleDeletionServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldSoftDeleteAndNullReferencingBillingServices_whenStyleMatchesCaseInsensitive() {
+    void shouldSoftDeleteAndNullReferencingBillingServices_whenDatabaseIdMatches() {
         CssStyle target = mock(CssStyle.class, "target");
-        when(target.getStyle()).thenReturn("RED-FLASH");
         when(target.getId()).thenReturn(42);
         when(cssStylesDao.findAll()).thenReturn(List.of(target));
 
@@ -112,7 +111,7 @@ class CssStyleDeletionServiceUnitTest extends CarlosUnitTestBase {
         b2.setDisplayStyle(42);
         when(billingServiceDao.findBillingCodesByFontStyle(42)).thenReturn(List.of(b1, b2));
 
-        boolean result = svc.deleteByStyleId("red-flash");  // lowercase
+        boolean result = svc.deleteByStyleId("42");
 
         assertThat(result).isTrue();
         verify(target).setStatus(CssStyle.DELETED);
@@ -127,7 +126,6 @@ class CssStyleDeletionServiceUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldPropagate_whenBillingServiceMergeThrowsMidCascade() {
         CssStyle target = mock(CssStyle.class, "target");
-        when(target.getStyle()).thenReturn("red-flash");
         when(target.getId()).thenReturn(42);
         when(cssStylesDao.findAll()).thenReturn(List.of(target));
 
@@ -139,7 +137,7 @@ class CssStyleDeletionServiceUnitTest extends CarlosUnitTestBase {
         doThrow(new RuntimeException("merge-fail-on-b2"))
                 .when(billingServiceDao).merge(same(b2));
 
-        assertThatThrownBy(() -> svc.deleteByStyleId("red-flash"))
+        assertThatThrownBy(() -> svc.deleteByStyleId("42"))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("merge-fail-on-b2");
 
@@ -147,6 +145,29 @@ class CssStyleDeletionServiceUnitTest extends CarlosUnitTestBase {
         // for rolling them back, NOT the service.
         verify(cssStylesDao).merge(same(target));
         verify(billingServiceDao).merge(same(b1));
+    }
+
+    @Test
+    void shouldDeleteOnlyTheSelectedStyle_whenDeclarationsAreIdentical() {
+        CssStyle first = new CssStyle();
+        first.setId(42);
+        first.setStatus(CssStyle.ACTIVE);
+        first.setStyle("color:red;");
+        CssStyle selected = new CssStyle();
+        selected.setId(43);
+        selected.setStatus(CssStyle.ACTIVE);
+        selected.setStyle("color:red;");
+        when(cssStylesDao.findAll()).thenReturn(List.of(first, selected));
+        BillingService selectedCode = new BillingService();
+        selectedCode.setDisplayStyle(43);
+        when(billingServiceDao.findBillingCodesByFontStyle(43)).thenReturn(List.of(selectedCode));
+        assertThat(svc.deleteByStyleId("43")).isTrue();
+        assertThat(first.getStatus()).isEqualTo(CssStyle.ACTIVE);
+        assertThat(selected.getStatus()).isEqualTo(CssStyle.DELETED);
+        assertThat(selectedCode.getDisplayStyle()).isNull();
+        verify(cssStylesDao).merge(selected);
+        verify(cssStylesDao, never()).merge(first);
+        verify(billingServiceDao, never()).findBillingCodesByFontStyle(42);
     }
 
     private static <T> T mock(Class<T> type, String name) {

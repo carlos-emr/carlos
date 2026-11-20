@@ -31,15 +31,20 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.Query;
 import jakarta.persistence.TemporalType;
+import jakarta.persistence.TypedQuery;
 
 import io.github.carlos_emr.carlos.commn.model.Consent;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 public class ConsentDaoImpl extends AbstractDaoImpl<Consent> implements ConsentDao {
@@ -49,35 +54,78 @@ public class ConsentDaoImpl extends AbstractDaoImpl<Consent> implements ConsentD
     }
 
     /**
-     * This query should never return more than one consentType. Returns consents
-     * that are not deleted only.
+     * Returns the deciding live record. The table has no unique key on patient and type, so
+     * several live records can exist (#3845).
      *
      * @param demographic_no the demographic ID
      * @param consentTypeId the consent type ID
-     * @return the consent record, or null if not found
+     * @return the deciding record per {@link ConsentRecords#effective}, or null if not found
      */
     @Override
     public Consent findByDemographicAndConsentTypeId(int demographic_no, int consentTypeId) {
-        String sql = "select x from " + modelClass.getSimpleName()
-                + " x where x.demographicNo=?1 and x.consentTypeId=?2 AND x.deleted=false";
-        Query query = entityManager.createQuery(sql);
-        query.setParameter(1, demographic_no);
-        query.setParameter(2, consentTypeId);
-
-        Consent consent = getSingleResultOrNull(query);
-        return consent;
+        return ConsentRecords.effective(findLiveByDemographicAndConsentTypeId(demographic_no, consentTypeId));
     }
 
     @Override
+    public List<Consent> findLiveByDemographicAndConsentTypeId(int demographic_no, int consentTypeId) {
+        return mostRecentFirst(liveQuery(demographic_no, consentTypeId));
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void lockPatientForConsentChange(int demographic_no) {
+        // Native and scalar, so no Demographic entity or its eager associations are loaded or locked.
+        entityManager.createNativeQuery("SELECT demographic_no FROM demographic WHERE demographic_no = ?1 FOR UPDATE")
+                .setParameter(1, demographic_no)
+                .getResultList();
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public List<Consent> findLiveByDemographicAndConsentTypeIdForUpdate(int demographic_no, int consentTypeId) {
+        TypedQuery<Consent> query = liveQuery(demographic_no, consentTypeId);
+        query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
+        List<Consent> locked = mostRecentFirst(query);
+        // A locking query hands back an entity this transaction already loaded with the state it
+        // read before the lock. Re-read each, so the caller edits what the locked row now holds.
+        for (Consent consent : locked) {
+            entityManager.refresh(consent);
+        }
+        // Again, now on what the rows hold: a re-read may have changed an edit date.
+        locked.sort(ConsentRecords.MOST_RECENT_FIRST);
+        return locked;
+    }
+
+    private TypedQuery<Consent> liveQuery(int demographic_no, int consentTypeId) {
+        TypedQuery<Consent> query = entityManager.createQuery(
+                "select x from Consent x where x.demographicNo=?1 and x.consentTypeId=?2 AND x.deleted=false",
+                Consent.class);
+        query.setParameter(1, demographic_no);
+        query.setParameter(2, consentTypeId);
+        return query;
+    }
+
+    /**
+     * Deleted records and inactive types are excluded, as in the manager's lookups by id: DHIR
+     * immunization submissions use this lookup, and neither may authorize one.
+     */
+    @Override
     public Consent findByDemographicAndConsentType(int demographic_no, String consentType) {
-        String sql = "select x from " + modelClass.getSimpleName()
-                + " x where x.demographicNo=?1 and x.consentType.type=?2";
-        Query query = entityManager.createQuery(sql);
+        TypedQuery<Consent> query = entityManager.createQuery(
+                "select x from Consent x where x.demographicNo=?1 and x.consentType.type=?2"
+                        + " AND x.consentType.active=true AND x.deleted=false", Consent.class);
         query.setParameter(1, demographic_no);
         query.setParameter(2, consentType);
+        return ConsentRecords.effective(query.getResultList());
+    }
 
-        Consent consent = getSingleResultOrNull(query);
-        return consent;
+    private static List<Consent> mostRecentFirst(TypedQuery<Consent> query) {
+        List<Consent> consents = new ArrayList<>(query.getResultList());
+        // Newest first, for display and for callers that walk the list. The deciding record is
+        // chosen by ConsentRecords.effective, which also weighs opt-out and explicit: it is not
+        // necessarily the first element here.
+        consents.sort(ConsentRecords.MOST_RECENT_FIRST);
+        return consents;
     }
 
     @Override
@@ -109,18 +157,20 @@ public class ConsentDaoImpl extends AbstractDaoImpl<Consent> implements ConsentD
 
     /**
      * Returns all demographic ids that have consented (opt-in) to the given consent
-     * type id.
+     * type id. Each patient appears once, and a patient with a live opt-out on any record of the
+     * type is left out, as in {@link ConsentRecords#effective}.
      *
-     * @param consentTypeId
-     * @return
+     * @param consentTypeId the consent type id
+     * @return the ids of the consented patients; empty when there are none
      */
     @Override
     public List<Integer> findAllDemoIdsConsentedToType(int consentTypeId) {
-        String sql = "SELECT x.demographicNo FROM "
-                + modelClass.getSimpleName()
-                + " x WHERE x.consentTypeId = ?1"
-                + " AND x.optout = false "
-                + " AND x.deleted = false";
+        String sql = "SELECT DISTINCT x.demographicNo FROM Consent x WHERE x.consentTypeId = ?1"
+                + " AND x.optout = false AND x.deleted = false"
+                // A live opt-out on a duplicate record wins, as in ConsentRecords.effective.
+                + " AND NOT EXISTS (SELECT y FROM Consent y"
+                + " WHERE y.demographicNo = x.demographicNo AND y.consentTypeId = ?1"
+                + " AND y.optout = true AND y.deleted = false)";
 
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, consentTypeId);

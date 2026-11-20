@@ -38,18 +38,20 @@
  *   TEST_USER=carlosdoc
  *   TEST_PASSWORD=carlos2026
  *   TEST_PIN=2026
- *   MYSQL_HOST=db MYSQL_USER=root MYSQL_PASSWORD=password MYSQL_DATABASE=oscar
+ *   MYSQL_HOST=db MYSQL_USER=root MYSQL_PASSWORD=password MYSQL_DATABASE=carlos
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  *   ALLOW_NON_LOCAL_MYSQL_HOST=true only when intentionally targeting a non-local test database
  *   A non-local BASE_URL also requires an explicit MYSQL_HOST for that same disposable test environment
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('node:child_process');
 const { randomBytes } = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING } = require('./lib/playwright-harness');
 
 const LOCAL_HOSTS = new Set([
   'localhost',
@@ -82,7 +84,7 @@ if (!baseUrlIsLocal && !process.env.MYSQL_HOST) {
 const mysqlHost = validateMysqlHost(process.env.MYSQL_HOST || 'db');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
-const mysqlDatabase = process.env.MYSQL_DATABASE || 'oscar';
+const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 const displayName = `PW Flowsheet 3400 ${Date.now()} ${randomBytes(4).toString('hex')}`;
 
 const mysqlDefaults = createMysqlDefaultsFile();
@@ -100,38 +102,15 @@ function normalizedHostname(url) {
 }
 
 function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not contain embedded credentials');
-  }
-  const host = normalizedHostname(parsed);
-  const localHost = LOCAL_HOSTS.has(host);
-  if (!localHost && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-  if (!localHost && parsed.protocol !== 'https:') {
-    throw new Error('Non-local BASE_URL targets must use https');
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
+  // Delegate host/protocol/credential rules; this legacy caller retains its return shape.
+  const parsed = require('./lib/playwright-harness').validateCredentialBaseUrl(rawBaseUrl);
   parsed.search = '';
   parsed.hash = '';
   return parsed;
 }
 
 function validateMysqlHost(rawMysqlHost) {
-  const host = rawMysqlHost.trim().toLowerCase();
-  if (!host) {
-    throw new Error('MYSQL_HOST must not be empty');
-  }
-  if (!LOCAL_MYSQL_HOSTS.has(host) && process.env.ALLOW_NON_LOCAL_MYSQL_HOST !== 'true') {
-    throw new Error(
-      `Refusing non-local MYSQL_HOST ${host}; set ALLOW_NON_LOCAL_MYSQL_HOST=true for an intentional test database`
-    );
-  }
-  return host;
+  return require('./lib/playwright-harness').validateMysqlHost(rawMysqlHost);
 }
 
 function appUrl(appPath) {
@@ -340,7 +319,7 @@ async function installNavigationGuard(context) {
 
 function wirePage(page) {
   page.on('response', (response) => {
-    if (expectedErrorUrls.has(response.url()) && response.status() === 500) {
+    if (expectedErrorUrls.has(response.url()) && response.status() === 404) {
       confirmedExpectedErrorUrls.add(response.url());
       return;
     }
@@ -384,6 +363,17 @@ async function assertEditor(page, label, response) {
   }
   if (!/Edit Flowsheet/.test(body) || /CARLOS Error:|unexpected error/i.test(body)) {
     throw new Error(`${label} did not render the flowsheet editor`);
+  }
+  // The heading is written before the export; require the end of the page too
+  // so a JSP failure after the heading cannot pass as a rendered editor (#5188).
+  const exportTextarea = page.locator('textarea');
+  if (await page.locator('#scrollToTop').count() !== 1
+      || await exportTextarea.count() !== 1
+      || !await exportTextarea.evaluate((textarea) => {
+        const xml = new DOMParser().parseFromString(textarea.value, 'application/xml');
+        return xml.documentElement.tagName === 'flowsheet' && !xml.querySelector('parsererror');
+      })) {
+    throw new Error(`${label} did not finish rendering the flowsheet editor and XML export`);
   }
   checks.push({ label, status: response.status(), url: page.url() });
 }
@@ -510,9 +500,11 @@ async function verifyMeasurementVisibilityToggle(page) {
   await row.getByTitle('Hide this measurement').waitFor({ state: 'visible', timeout: 30000 });
 }
 
-async function verifyEditorFailureStatus(page) {
+async function verifyMissingEditorStatus(page, flowsheet) {
   const target = new URL(appUrl('/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet'));
-  target.searchParams.set('flowsheet', `missing-${Date.now()}`);
+  if (flowsheet !== null) {
+    target.searchParams.set('flowsheet', flowsheet);
+  }
   target.searchParams.set('displayName', 'Missing test flowsheet');
   expectedErrorUrls.add(target.toString());
   let response;
@@ -522,13 +514,14 @@ async function verifyEditorFailureStatus(page) {
     expectedErrorUrls.delete(target.toString());
   }
   const body = await page.locator('body').innerText();
-  if (!response || response.status() !== 500) {
-    throw new Error(`Invalid editor render returned HTTP ${response ? response.status() : 'unknown'}, expected 500`);
+  if (!response || response.status() !== 404) {
+    throw new Error(`Missing editor returned HTTP ${response ? response.status() : 'unknown'}, expected 404`);
   }
-  if (!/CARLOS Error:\s*500/.test(body) || /CARLOS Error:\s*0/.test(body)) {
-    throw new Error('Invalid editor render did not display CARLOS Error: 500');
+  if (!/CARLOS Error:\s*404/.test(body) || /CARLOS Error:\s*(0|500)\b/.test(body)
+      || await page.locator('#measurementTbl').count() !== 0) {
+    throw new Error('Missing editor did not display a complete CARLOS Error: 404 page');
   }
-  checks.push({ label: 'editor-error-status', status: response.status(), url: page.url() });
+  checks.push({ label: 'editor-not-found-status', status: response.status(), url: page.url() });
 }
 
 let browser;
@@ -586,21 +579,17 @@ function cleanupResources() {
   return cleanupPromise;
 }
 
-function installSignalHandler(signal, exitCode) {
-  process.once(signal, () => {
-    cleanupResources()
-      .catch((error) => console.error(`Cleanup after ${signal} failed: ${error.message}`))
-      .finally(() => process.exit(exitCode));
-  });
-}
+// cleanupResources() memoises its in-flight promise, so the finally block and a signal
+// cannot run it twice (issue #3600).
+installCleanupSignalHandlers(cleanupResources);
 
-installSignalHandler('SIGINT', 130);
-installSignalHandler('SIGTERM', 143);
-
-(async () => {
+const legacyHarness = require('./lib/legacy-check');
+legacyHarness.runLegacyCheck('flowsheet-admin', async () => {
+  await (async () => {
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    ...NO_PLAYWRIGHT_SIGNAL_HANDLING,
   };
   if (chromePath) {
     launchOptions.executablePath = chromePath;
@@ -609,7 +598,7 @@ installSignalHandler('SIGTERM', 143);
     cleanupCreatedRows();
     browser = await chromium.launch(launchOptions);
     browserContext = await browser.newContext({
-      ignoreHTTPSErrors: baseUrlIsLocal,
+      ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl),
       viewport: { width: 1440, height: 1000 },
     });
     await installNavigationGuard(browserContext);
@@ -621,7 +610,9 @@ installSignalHandler('SIGTERM', 143);
     await editFromManager(page, 'Periodic Health Visit', 'system-edit');
     await verifyMeasurementVisibilityToggle(page);
     await editFromManager(page, displayName, 'user-edit');
-    await verifyEditorFailureStatus(page);
+    for (const missingFlowsheet of [`missing-${Date.now()}`, '', null]) {
+      await verifyMissingEditorStatus(page, missingFlowsheet);
+    }
 
     const blockingFindings = findings;
     if (blockingFindings.length) {
@@ -637,5 +628,6 @@ installSignalHandler('SIGTERM', 143);
 })().catch((error) => {
   console.error('FAIL CARLOS EMR flowsheet admin Playwright checks');
   console.error(error.stack || error.message);
-  process.exit(1);
+  process.exitCode = 1;
 });
+}, {existingSignalHandlers:true});

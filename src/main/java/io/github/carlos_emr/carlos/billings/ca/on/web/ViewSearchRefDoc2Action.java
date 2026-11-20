@@ -165,9 +165,9 @@ public class ViewSearchRefDoc2Action extends ActionSupport {
                 .build();
     }
 
-    /** Builds a single-quoted JS string literal with proper JS-attribute encoding. */
+    /** Builds a JS string literal; the JSP HTML-attribute-encodes the complete handler once. */
     private static String jsLit(String s) {
-        return "'" + SafeEncode.forJavaScriptAttribute(s) + "'";
+        return "'" + SafeEncode.forJavaScript(s) + "'";
     }
 
     /**

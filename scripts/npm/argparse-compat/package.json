@@ -1,0 +1,11 @@
+{
+  "name": "@carlos/argparse-compat",
+  "version": "2.0.1-carlos.1",
+  "private": true,
+  "description": "Preserve the js-yaml 3 version option while removing argparse 1's sprintf-js dependency",
+  "main": "index.js",
+  "license": "GPL-2.0-or-later",
+  "dependencies": {
+    "argparse-upstream": "npm:argparse@2.0.1"
+  }
+}

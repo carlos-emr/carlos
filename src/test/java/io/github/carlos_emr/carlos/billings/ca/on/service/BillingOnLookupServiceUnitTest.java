@@ -30,6 +30,7 @@ import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONFilenameDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONFavourite;
 import io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao;
 import io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao;
+import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao;
@@ -37,6 +38,8 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import io.github.carlos_emr.carlos.commn.model.Appointment;
+import java.util.ArrayList;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -54,21 +57,28 @@ import static org.mockito.Mockito.when;
 class BillingOnLookupServiceUnitTest {
 
     private BillingONFavouriteDao favouriteDao;
+    private ProviderDao providerDao;
+    private OscarAppointmentDao appointmentDao;
+    private AppointmentArchiveDao appointmentArchiveDao;
     private BillingOnLookupService service;
 
     @BeforeEach
     void setUp() {
         favouriteDao = mock(BillingONFavouriteDao.class);
+        providerDao = mock(ProviderDao.class);
+        appointmentDao = mock(OscarAppointmentDao.class);
+        appointmentArchiveDao = mock(AppointmentArchiveDao.class);
         service = new BillingOnLookupService(
-                mock(OscarAppointmentDao.class),
+                appointmentDao,
                 mock(ProfessionalSpecialistDao.class),
                 mock(ClinicLocationDao.class),
-                mock(ProviderDao.class),
+                providerDao,
                 mock(BillingPaymentTypeDao.class),
                 favouriteDao,
                 mock(DemographicManager.class),
                 mock(BillingONFilenameDao.class),
-                mock(ProviderSiteDao.class));
+                mock(ProviderSiteDao.class),
+                appointmentArchiveDao);
     }
 
     @Test
@@ -126,5 +136,90 @@ class BillingOnLookupServiceUnitTest {
         assertThat(result.formFields()).containsEntry("name", "Morning");
         assertThat(favourite.getDeleted()).isEqualTo(1);
         verify(favouriteDao).merge(favourite);
+    }
+
+    // ---- billing group number normalization (issue #4277) ----------------
+
+    private static io.github.carlos_emr.carlos.commn.model.Provider billableProvider(String providerNo, String storedGroup) {
+        var p = new io.github.carlos_emr.carlos.commn.model.Provider();
+        p.setProviderNo(providerNo);
+        p.setLastName("Fixture");
+        p.setFirstName("Group");
+        p.setOhipNo("0" + providerNo + "0");
+        p.setStatus("1");
+        p.setComments("<xml_p_billinggroup_no>" + storedGroup + "</xml_p_billinggroup_no>"
+                + "<xml_p_specialty_code>00</xml_p_specialty_code>");
+        return p;
+    }
+
+    @Test
+    void shouldZeroPadShortNumericGroup_whenReadingProviderObject() {
+        when(providerDao.getProvider("1234")).thenReturn(billableProvider("1234", "123"));
+
+        assertThat(service.getProviderObj("1234").getBillingGroupNo()).isEqualTo("0123");
+    }
+
+    @Test
+    void shouldClassifyProvidersByNormalizedGroup_whenListingSoloAndGroupProviders() {
+        when(providerDao.getBillableProviders()).thenReturn(List.of(
+                billableProvider("1001", "123"),
+                billableProvider("1002", "000"),
+                billableProvider("1003", ""),
+                billableProvider("1004", " 12a4 ")));
+
+        assertThat(service.getCurGrpProvider())
+                .extracting(dto -> dto.getProviderNo() + "=" + dto.getBillingGroupNo())
+                .containsExactly("1001=0123", "1004=12A4");
+        assertThat(service.getCurSoloProvider())
+                .extracting(dto -> dto.getProviderNo() + "=" + dto.getBillingGroupNo())
+                .containsExactly("1002=0000", "1003=0000");
+    }
+
+    @Test
+    void shouldNormalizeGroup_inProviderDropdownEntries() {
+        when(providerDao.getBillableProviders()).thenReturn(List.of(billableProvider("1001", "123")));
+
+        assertThat(service.getCurProviderStr())
+                .extracting(io.github.carlos_emr.carlos.billings.ca.on.dto.ProviderDropdownEntry::billingGroupNo)
+                .containsExactly("0123");
+    }
+
+    @Test
+    void shouldKeepUnnormalizableGroup_forDownstreamRejection() {
+        // The lookup does not guess: a five-digit value stays ill-formed so the
+        // generation flow can name the provider instead of billing under "".
+        when(providerDao.getProvider("1234")).thenReturn(billableProvider("1234", "12345"));
+
+        assertThat(service.getProviderObj("1234").getBillingGroupNo()).isEqualTo("12345");
+    }
+
+    @Test
+    void shouldArchiveReplacedStatus_beforeApplyingBilledStatus() {
+        Appointment appt = new Appointment();
+        appt.setId(77);
+        appt.setStatus("t");
+        when(appointmentDao.find(Integer.valueOf(77))).thenReturn(appt);
+        List<String> archivedStatuses = new ArrayList<>();
+        when(appointmentArchiveDao.archiveAppointment(any(Appointment.class))).thenAnswer(invocation -> {
+            archivedStatuses.add(((Appointment) invocation.getArgument(0)).getStatus());
+            return null;
+        });
+
+        boolean updated = service.updateApptStatus("77", "B", "999998");
+
+        assertThat(updated).isTrue();
+        assertThat(archivedStatuses).containsExactly("t");
+        assertThat(appt.getStatus()).isEqualTo("B");
+        verify(appointmentDao).merge(appt);
+    }
+
+    @Test
+    void shouldNotArchive_whenAppointmentNotFound() {
+        when(appointmentDao.find(Integer.valueOf(78))).thenReturn(null);
+
+        boolean updated = service.updateApptStatus("78", "B", "999998");
+
+        assertThat(updated).isFalse();
+        org.mockito.Mockito.verifyNoInteractions(appointmentArchiveDao);
     }
 }

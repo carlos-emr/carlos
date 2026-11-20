@@ -21,8 +21,9 @@
  */
 package io.github.carlos_emr.carlos.fax.provider;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Date;
@@ -32,13 +33,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
-import org.apache.cxf.common.util.Base64Utility;
+import org.apache.hc.client5.http.config.ConnectionConfig;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.entity.UrlEncodedFormEntity;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
 import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.HttpStatus;
 import org.apache.hc.core5.http.NameValuePair;
@@ -82,25 +84,7 @@ public class SRFaxProviderClient implements FaxProviderClient {
 
     private static final Logger logger = MiscUtils.getLogger();
 
-    private final ObjectMapper objectMapper = buildObjectMapper();
-
-    /**
-     * SRFax returns the inbound document as one base64 String inside JSON.
-     * Jackson caps a single string at 20,000,000 chars by default (~14 MiB
-     * of PDF after base64), which would reject a large fax LONG before the
-     * fax.max_response_mb transport cap — and with a raw StreamConstraints
-     * error, not the actionable FaxProviderException. Lift the parser limit
-     * so the documented ceiling is the one that actually governs; the
-     * BoundedResponseReader cap and the JVM heap remain the real bounds.
-     */
-    private static ObjectMapper buildObjectMapper() {
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.getFactory().setStreamReadConstraints(
-                com.fasterxml.jackson.core.StreamReadConstraints.builder()
-                        .maxStringLength(Integer.MAX_VALUE)
-                        .build());
-        return mapper;
-    }
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
      * Test-only endpoint override. Production resolution stays in {@link #getSrfaxApiUrl()},
@@ -144,8 +128,7 @@ public class SRFaxProviderClient implements FaxProviderClient {
                     return trimmed;
                 }
             } catch (java.net.URISyntaxException e) {
-                logger.warn("Configured srfax.api.url '{}' is not a valid URI: {} - using default",
-                        trimmed, e.getMessage());
+                logger.warn("Configured SRFax API URL is invalid; using default: {}", LogSafe.exceptionTrace(e));
                 return DEFAULT_SRFAX_API_URL;
             }
             logger.warn("Configured srfax.api.url '{}' is not a valid srfax.com HTTPS endpoint - using default", trimmed);
@@ -181,20 +164,6 @@ public class SRFaxProviderClient implements FaxProviderClient {
                 throw new FaxProviderException("Caller ID (fax number) is required but was not configured");
             }
 
-            if (filePath != null) {
-                if (!Files.exists(filePath)) {
-                    throw new FaxProviderException("Fax document file not found");
-                }
-                if (!Files.isReadable(filePath)) {
-                    throw new FaxProviderException("Fax document file is not readable (check permissions)");
-                }
-                faxJob.setDocument(Base64Utility.encode(Files.readAllBytes(filePath)));
-            }
-
-            if (faxJob.getDocument() == null || faxJob.getDocument().isEmpty()) {
-                throw new FaxProviderException("Fatal error locating document. Not found in filesystem or database backup");
-            }
-
             // Log at DEBUG level with masked destination to avoid PHI exposure
             if (logger.isDebugEnabled()) {
                 String maskedDestination = faxJob.getDestination().length() > 4
@@ -212,12 +181,7 @@ public class SRFaxProviderClient implements FaxProviderClient {
             params.add(new BasicNameValuePair("sFaxType", "SINGLE"));
             params.add(new BasicNameValuePair("sToFaxNumber", toDialableNumber(faxJob.getDestination())));
             params.add(new BasicNameValuePair("sFileName_1", faxJob.getFile_name()));
-            params.add(new BasicNameValuePair("sFileContent_1", faxJob.getDocument()));
-
-            // Free memory now that request params are built
-            faxJob.setDocument(null);
-
-            JsonNode root = postForm(getSrfaxApiUrl(), params);
+            JsonNode root = postDocument(getSrfaxApiUrl(), params, filePath, faxJob.getDocument());
             ensureSuccess(root, "Failed to queue fax with SRFax");
 
             // SRFax returns the FaxDetailsID directly as a flat string in the Result field.
@@ -250,8 +214,8 @@ public class SRFaxProviderClient implements FaxProviderClient {
                 result.setStatusString("Queued with SRFax");
             }
             return result;
-        } catch (IOException e) {
-            throw new FaxProviderException("Failed to read fax document file: " + e.getMessage(), e);
+        } finally {
+            faxJob.setDocument(null);
         }
     }
 
@@ -303,7 +267,7 @@ public class SRFaxProviderClient implements FaxProviderClient {
                         try {
                             faxJob.setJobId(Long.parseLong(faxDetailsId));
                         } catch (NumberFormatException e) {
-                            logger.debug("SRFax FileName pipe segment is non-numeric: {}", faxDetailsId);
+                            logger.debug("SRFax FileName pipe segment is non-numeric");
                         }
                     }
                 }
@@ -316,6 +280,52 @@ public class SRFaxProviderClient implements FaxProviderClient {
             logger.info("SRFax inbox listed unreadCount={}", result.size());
         }
         return result;
+    }
+
+    /**
+     * Verifies the SRFax account number / password pair with a read-only inbox probe.
+     *
+     * <p>Issues the same {@code Get_Fax_Inbox} (unread-only) call the scheduler poll uses, which
+     * SRFax rejects with a failed {@code Status} when {@code access_id}/{@code access_pwd} are
+     * wrong. Nothing is downloaded or marked read, so the probe is safe to repeat from the
+     * admin page. Credentials are never logged.</p>
+     */
+    @Override
+    public void verifyConnection(FaxConfig faxConfig) throws FaxProviderException {
+        requireMatchingProviderType(faxConfig);
+        validateCredentials(faxConfig);
+
+        List<NameValuePair> params = createAuthParams(faxConfig);
+        params.add(new BasicNameValuePair("action", ACTION_GET_INBOX));
+        params.add(new BasicNameValuePair("sViewedStatus", "UNREAD"));
+
+        JsonNode root;
+        try {
+            root = postForm(getSrfaxApiUrl(), params);
+        } catch (FaxProviderException e) {
+            // SRFax answers a wrong access_id/access_pwd pair with a bare HTTP 401/403 rather
+            // than a JSON "Failed" body. Branch on the status carried by postForm(), not on the
+            // message text. A 403 is also what an egress proxy, an SRFax-side IP block, or a
+            // wrong API URL produce, so say so rather than sending the admin back to the
+            // credentials alone.
+            if (e.getHttpStatus() == 401) {
+                throw new FaxProviderException(
+                        "SRFax rejected the account number or password (" + e.getMessage()
+                                + "). Check both values in your SRFax portal.", e, 401);
+            }
+            if (e.getHttpStatus() == 403) {
+                throw new FaxProviderException(
+                        "SRFax rejected the account number or password (" + e.getMessage()
+                                + "). Check both values in your SRFax portal; a proxy or firewall blocking"
+                                + " the SRFax API produces the same response.", e, 403);
+            }
+            throw e;
+        }
+        // A JSON "Failed" body carries SRFax's own reason (an invalid access code/password,
+        // but also account-state or request problems), so keep the prefix neutral and let the
+        // provider text say what went wrong. Only the bare 401/403 above is a credential verdict.
+        ensureSuccess(root, "SRFax connection test failed");
+        logger.info("SRFax connection test succeeded");
     }
 
     /**
@@ -339,22 +349,19 @@ public class SRFaxProviderClient implements FaxProviderClient {
         params.add(new BasicNameValuePair("sFaxFormat", "PDF")); // Explicit format request (API defaults to PDF)
         // Mark-as-read is deferred to markFaxAsRead() after successful local import (three-phase strategy).
 
-        JsonNode root = postForm(getSrfaxApiUrl(), params);
-        ensureSuccess(root, "Failed to download SRFax document");
-
-        // SRFax returns the base64-encoded document directly in the Result field.
-        // Example success response: {"Status":"Success","Result":"<base64 content>"}
-        String base64Doc = textAt(root, "Result");
-        if (base64Doc == null || base64Doc.isEmpty()) {
-            throw new FaxProviderException("SRFax download response did not include document content");
+        try (FaxDownload download = downloadDocument(getSrfaxApiUrl(), params)) {
+            ensureSuccess(download.metadata(), "Failed to download SRFax document");
+            FaxJob downloaded = new FaxJob(fax);
+            downloaded.setDocument(null);
+            downloaded.setDocumentPath(download.release());
+            downloaded.setStatus(FaxJob.STATUS.RECEIVED);
+            downloaded.setStatusString("Downloaded from SRFax");
+            logger.info("SRFax download completed");
+            return downloaded;
+        } catch (IOException e) {
+            throw new FaxProviderException("SRFax document download failed", e,
+                    FaxProviderException.isTransientNetworkCause(e));
         }
-
-        FaxJob downloaded = new FaxJob(fax);
-        downloaded.setDocument(base64Doc);
-        downloaded.setStatus(FaxJob.STATUS.RECEIVED);
-        downloaded.setStatusString("Downloaded from SRFax");
-        logger.info("SRFax download completed");
-        return downloaded;
     }
 
     /**
@@ -524,6 +531,16 @@ public class SRFaxProviderClient implements FaxProviderClient {
      * @throws FaxProviderException when the value cannot be normalized to a dialable number
      */
     String toDialableNumber(String rawNumber) throws FaxProviderException {
+        return normalizeDestinationNumber(rawNumber);
+    }
+
+    /**
+     * Validates and normalizes a destination using the same rules as transmission.
+     * @param rawNumber formatted domestic or explicit international destination
+     * @return provider-ready dial string
+     * @throws FaxProviderException if the destination cannot be dialed by SRFax
+     */
+    public static String normalizeDestinationNumber(String rawNumber) throws FaxProviderException {
         String trimmed = rawNumber == null ? "" : rawNumber.trim();
         boolean explicitInternational = trimmed.startsWith("+");
         String digits = trimmed.replaceAll("\\D", "");
@@ -616,24 +633,68 @@ public class SRFaxProviderClient implements FaxProviderClient {
      * without sockets; production callers stay within this class.</p>
      */
     protected JsonNode postForm(String endpoint, List<NameValuePair> params) throws FaxProviderException {
+        return execute(endpoint, new UrlEncodedFormEntity(params),
+                this::readMetadata);
+    }
+
+    protected JsonNode postDocument(String endpoint, List<NameValuePair> params, Path file, String legacyDocument)
+            throws FaxProviderException {
+        String prefix = org.apache.hc.core5.net.WWWFormCodec.format(params, java.nio.charset.StandardCharsets.UTF_8)
+                + "&sFileContent_1=";
+        HttpEntity request = new FaxDocumentEntity(prefix, "",
+                org.apache.hc.core5.http.ContentType.APPLICATION_FORM_URLENCODED, file, legacyDocument, true);
+        return execute(endpoint, request, this::readMetadata);
+    }
+
+    protected FaxDownload downloadDocument(String endpoint, List<NameValuePair> params) throws FaxProviderException {
+        return execute(endpoint, new UrlEncodedFormEntity(params),
+                entity -> FaxDownload.read(entity, objectMapper, "Result"));
+    }
+
+    private JsonNode readMetadata(HttpEntity entity) throws IOException {
+        try (FaxResponseStream input = FaxResponseStream.open(entity)) {
+            return objectMapper.readTree(input);
+        }
+    }
+
+    @FunctionalInterface
+    private interface ResponseParser<T> {
+        T read(HttpEntity entity) throws IOException, FaxProviderException;
+    }
+
+    private <T> T execute(String endpoint, HttpEntity request, ResponseParser<T> parser) throws FaxProviderException {
         RequestConfig requestConfig = RequestConfig.custom()
                 .setConnectionRequestTimeout(Timeout.ofSeconds(30))
                 .setResponseTimeout(Timeout.ofSeconds(60))
+                .build();
+
+        // RequestConfig no longer carries the TCP connect timeout (httpclient5 >= 5.2); without
+        // this the connect phase falls back to the 3-minute default, which would pin a scheduler
+        // thread or an admin's connection test on an unreachable host far longer than the
+        // 30s/60s budget above suggests.
+        ConnectionConfig connectionConfig = ConnectionConfig.custom()
+                .setConnectTimeout(Timeout.ofSeconds(30))
                 .build();
 
         HttpPost httpPost = new HttpPost(endpoint);
         httpPost.setConfig(requestConfig);
 
         try (CloseableHttpClient client = HttpClients.custom()
+                // Fax jobs own retries; internal 503 retries drain uncapped bodies before returning.
+                .disableAutomaticRetries()
+                .setConnectionManager(PoolingHttpClientConnectionManagerBuilder.create()
+                        .setDefaultConnectionConfig(connectionConfig)
+                        .build())
                 .setDefaultRequestConfig(requestConfig)
                 .build()) {
-            httpPost.setEntity(new UrlEncodedFormEntity(params));
+            httpPost.setEntity(request);
 
             try (CloseableHttpResponse response = client.execute(httpPost)) {
+                FaxResponseStream.abortOnClose(response);
                 int statusCode = response.getCode();
                 if (statusCode != HttpStatus.SC_OK) {
                     throw new FaxProviderException("SRFax API returned HTTP " + statusCode +
-                            ": " + response.getReasonPhrase());
+                            ": " + response.getReasonPhrase(), statusCode);
                 }
 
                 HttpEntity entity = response.getEntity();
@@ -641,8 +702,7 @@ public class SRFaxProviderClient implements FaxProviderClient {
                     throw new FaxProviderException("SRFax API returned null response entity");
                 }
 
-                String payload = BoundedResponseReader.read(entity);
-                return objectMapper.readTree(payload);
+                return parser.read(entity);
             }
         } catch (IOException e) {
             throw new FaxProviderException("SRFax API communication failure", e, FaxProviderException.isTransientNetworkCause(e));
@@ -655,7 +715,7 @@ public class SRFaxProviderClient implements FaxProviderClient {
      */
     private void validateCredentials(FaxConfig faxConfig) throws FaxProviderException {
         if (faxConfig.getFaxUser() == null || faxConfig.getFaxUser().trim().isEmpty()) {
-            throw new FaxProviderException("SRFax username (faxUser) is not configured for this fax account");
+            throw new FaxProviderException("SRFax account number (faxUser) is not configured for this fax account");
         }
         if (faxConfig.getFaxPasswd() == null || faxConfig.getFaxPasswd().trim().isEmpty()) {
             throw new FaxProviderException("SRFax password is not configured for this fax account");

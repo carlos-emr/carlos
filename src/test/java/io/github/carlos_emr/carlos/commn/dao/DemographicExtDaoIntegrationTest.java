@@ -65,7 +65,10 @@ public class DemographicExtDaoIntegrationTest extends CarlosTestBase {
 
     @BeforeEach
     void createParentDemographics() {
-        String sql = "MERGE INTO demographic (demographic_no, first_name, last_name, sex, year_of_birth, month_of_birth, date_of_birth) KEY(demographic_no) VALUES (?, 'Test', 'Patient', 'M', '1990', '01', '15')";
+        String sql = "INSERT INTO demographic (demographic_no, first_name, last_name, sex, year_of_birth, month_of_birth, date_of_birth) "
+                + "VALUES (?, 'Test', 'Patient', 'M', '1990', '01', '15') ON DUPLICATE KEY UPDATE "
+                + "first_name=VALUES(first_name), last_name=VALUES(last_name), sex=VALUES(sex), "
+                + "year_of_birth=VALUES(year_of_birth), month_of_birth=VALUES(month_of_birth), date_of_birth=VALUES(date_of_birth)";
         for (int demoNo : new int[]{DEMO_1, DEMO_2}) {
             entityManager.createNativeQuery(sql)
                     .setParameter(1, demoNo)
@@ -200,4 +203,44 @@ public class DemographicExtDaoIntegrationTest extends CarlosTestBase {
             assertThat(found.getValue()).isEqualTo("test_value");
         }
     }
+    @Test
+    void shouldSkipCurrentExclusion_forTheSamePatientProviderAndIndicator() {
+        java.util.Date since = new java.util.Date(System.currentTimeMillis() - 86400000L);
+        assertThat(demographicExtDao.addKeyIfAbsentSince("999998", DEMO_1, "excludeIndicator", "owned", since)).isTrue();
+        assertThat(demographicExtDao.addKeyIfAbsentSince("999998", DEMO_1, "excludeIndicator", "owned", since)).isFalse();
+        assertThat(demographicExtDao.addKeyIfAbsentSince("999999", DEMO_1, "excludeIndicator", "owned", since)).isTrue();
+        assertThat(demographicExtDao.addKeyIfAbsentSince("999998", DEMO_2, "excludeIndicator", "owned", since)).isTrue();
+        assertThat(demographicExtDao.addKeyIfAbsentSince("999998", DEMO_1, "excludeIndicator", "different", since)).isTrue();
+        assertThat(demographicExtDao.getDemographicExtByKeyAndValue("excludeIndicator", "owned")).hasSize(3);
+    }
+
+    @Test
+    void shouldKeepHistoricalExclusion_whenAReplacementIsCreated() {
+        DemographicExt old = createExt(DEMO_1, "excludeIndicator", "owned");
+        entityManager.flush();
+        // Entity lifecycle callbacks refresh dateCreated on every entity update.
+        // Seed a historical database row directly, as it would exist from a prior year.
+        entityManager.createNativeQuery("UPDATE demographicExt SET date_time=?1 WHERE id=?2")
+                .setParameter(1, new java.sql.Timestamp(0))
+                .setParameter(2, old.getId()).executeUpdate();
+        entityManager.clear();
+        java.util.Date since = new java.util.Date(System.currentTimeMillis() - 86400000L);
+        assertThat(demographicExtDao.addKeyIfAbsentSince("999998", DEMO_1, "excludeIndicator", "owned", since)).isTrue();
+        assertThat(demographicExtDao.getDemographicExtByKeyAndValue("excludeIndicator", "owned")).hasSize(2);
+    }
+
+    @Test
+    void shouldMatchNullProvider_whenAnUnassignedExclusionAlreadyExists() {
+        java.util.Date since = new java.util.Date(System.currentTimeMillis() - 86400000L);
+        assertThat(demographicExtDao.addKeyIfAbsentSince(null, DEMO_1, "excludeIndicator", "owned", since)).isTrue();
+        assertThat(demographicExtDao.addKeyIfAbsentSince(null, DEMO_1, "excludeIndicator", "owned", since)).isFalse();
+    }
+
+    @Test
+    void shouldSkipMissingPatient_whenAddingACurrentExclusion() {
+        assertThat(demographicExtDao.addKeyIfAbsentSince("999998", Integer.MAX_VALUE,
+                "excludeIndicator", "owned", new java.util.Date(0))).isFalse();
+        assertThat(demographicExtDao.getDemographicExtByKeyAndValue("excludeIndicator", "owned")).isEmpty();
+    }
+
 }

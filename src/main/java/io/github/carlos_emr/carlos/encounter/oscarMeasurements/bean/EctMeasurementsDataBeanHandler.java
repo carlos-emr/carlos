@@ -35,16 +35,21 @@ import java.util.Calendar;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Hashtable;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Vector;
 
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
+import io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao;
 import io.github.carlos_emr.carlos.commn.dao.ValidationsDao;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
+import io.github.carlos_emr.carlos.commn.model.MeasurementsExt;
 import io.github.carlos_emr.carlos.commn.model.MeasurementType;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Validations;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.lab.service.LabPatientAccess;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.MeasurementTypes;
@@ -63,6 +68,11 @@ public class EctMeasurementsDataBeanHandler {
         init(demo, type);
     }
 
+    /** A flowsheet defers provenance loading until it has collected readings from all its types. */
+    public EctMeasurementsDataBeanHandler(Integer demo, String type, boolean loadSourceLabs) {
+        init(demo, type, loadSourceLabs);
+    }
+
     public boolean init(Integer demo) {
         MeasurementDao dao = SpringUtils.getBean(MeasurementDao.class);
         for (MeasurementType mt : dao.findMeasurementsTypes(demo)) {
@@ -78,9 +88,13 @@ public class EctMeasurementsDataBeanHandler {
         return true;
     }
 
+    public boolean init(Integer demo, String type) {
+        return init(demo, type, true);
+    }
+
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    public boolean init(Integer demo, String type) {
+    private boolean init(Integer demo, String type, boolean loadSourceLabs) {
         MeasurementTypes mt = MeasurementTypes.getInstance();
         EctMeasurementTypesBean mBean = mt.getByType(type);
         if (mBean != null) {
@@ -132,6 +146,9 @@ public class EctMeasurementsDataBeanHandler {
                 measurementsDataVector.add(data);
 
             }
+            if (loadSourceLabs) {
+                populateSourceLabs(measurementsDataVector);
+            }
         }
         return true;
     }
@@ -176,7 +193,29 @@ public class EctMeasurementsDataBeanHandler {
             measurements.add(measurement);
         }
 
+        populateSourceLabs(measurements);
         return measurements;
+    }
+
+    /** Load provenance once per history, rather than querying extensions for each rendered reading. */
+    public static void populateSourceLabs(Collection<EctMeasurementsDataBean> measurements) {
+        if (measurements.isEmpty()) {
+            return;
+        }
+        Map<Integer, Integer> sourceLabs = new HashMap<>();
+        for (EctMeasurementsDataBean measurement : measurements) {
+            sourceLabs.put(measurement.getId(), null);
+        }
+        MeasurementsExtDao extensions = SpringUtils.getBean(MeasurementsExtDao.class);
+        for (MeasurementsExt extension : extensions.findByMeasurementIdsAndKey(new ArrayList<>(sourceLabs.keySet()), "lab_no")) {
+            if (sourceLabs.containsKey(extension.getMeasurementId()) && "lab_no".equals(extension.getKeyVal())) {
+                // Never put an unchecked extension string into a URL or JavaScript context.
+                sourceLabs.put(extension.getMeasurementId(), LabPatientAccess.positiveIdentity(extension.getVal()));
+            }
+        }
+        for (EctMeasurementsDataBean measurement : measurements) {
+            measurement.setSourceLabNo(sourceLabs.get(measurement.getId()));
+        }
     }
 
     public static Hashtable<String, Object> getLast(String demo, String type) {
@@ -192,21 +231,36 @@ public class EctMeasurementsDataBeanHandler {
         return toHashTable(m, mt, p);
     }
 
+    /**
+     * Flattens one reading for the legacy Hashtable callers (the add/edit measurement page, eForm
+     * measurement prefill, renal dosing, the Rh immune globulin form).
+     *
+     * <p>{@code measurements.comments} and {@code dateObserved} are nullable columns, and
+     * {@code Hashtable} rejects null values, so a reading with no comment used to make these
+     * callers fail with a 500. A null value is now left out, which is what every caller already
+     * reads back through {@code get(...)}: {@code null}.
+     */
     private static Hashtable<String, Object> toHashTable(Measurement m, MeasurementType mt, Provider p) {
         Hashtable<String, Object> data = new Hashtable<String, Object>();
-        data.put("type", mt.getTypeDisplayName());
-        data.put("typeDisplayName", mt.getTypeDisplayName());
-        data.put("typeDescription", mt.getTypeDescription());
-        data.put("value", m.getDataField());
-        data.put("measuringInstruction", m.getMeasuringInstruction());
-        data.put("comments", m.getComments());
-        data.put("dateObserved", ConversionUtils.toTimestampString(m.getDateObserved()));
-        data.put("dateObserved_date", m.getDateObserved());
-        data.put("dateEntered", ConversionUtils.toTimestampString(m.getCreateDate()));
-        data.put("dateEntered_date", m.getCreateDate());
-        data.put("provider_first", p.getFirstName());
-        data.put("provider_last", p.getLastName());
+        putIfPresent(data, "type", mt.getTypeDisplayName());
+        putIfPresent(data, "typeDisplayName", mt.getTypeDisplayName());
+        putIfPresent(data, "typeDescription", mt.getTypeDescription());
+        putIfPresent(data, "value", m.getDataField());
+        putIfPresent(data, "measuringInstruction", m.getMeasuringInstruction());
+        putIfPresent(data, "comments", m.getComments());
+        putIfPresent(data, "dateObserved", ConversionUtils.toTimestampString(m.getDateObserved()));
+        putIfPresent(data, "dateObserved_date", m.getDateObserved());
+        putIfPresent(data, "dateEntered", ConversionUtils.toTimestampString(m.getCreateDate()));
+        putIfPresent(data, "dateEntered_date", m.getCreateDate());
+        putIfPresent(data, "provider_first", p.getFirstName());
+        putIfPresent(data, "provider_last", p.getLastName());
         return data;
+    }
+
+    private static void putIfPresent(Hashtable<String, Object> data, String key, Object value) {
+        if (value != null) {
+            data.put(key, value);
+        }
     }
 
     public static class EctMeasurementsDataBeanComparator implements Comparator<EctMeasurementsDataBean> {

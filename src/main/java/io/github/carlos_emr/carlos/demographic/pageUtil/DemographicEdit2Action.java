@@ -22,7 +22,7 @@
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.SxmlMisc;
+import io.github.carlos_emr.carlos.demographic.util.DemographicXml;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.dao.WaitingListDao;
 import io.github.carlos_emr.carlos.commn.dao.WaitingListNameDao;
 import io.github.carlos_emr.carlos.commn.model.Admission;
+import io.github.carlos_emr.carlos.commn.model.ConsentType;
 import io.github.carlos_emr.carlos.commn.model.CountryCode;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicArchive;
@@ -48,6 +49,7 @@ import io.github.carlos_emr.carlos.commn.model.DemographicExtArchive;
 import io.github.carlos_emr.carlos.commn.model.LookupList;
 import io.github.carlos_emr.carlos.commn.model.LookupListItem;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.commn.model.ProviderPreference;
 import io.github.carlos_emr.carlos.demographic.data.ProvinceNames;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
@@ -60,6 +62,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.waitinglist.WaitingListAvailabilityService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -97,7 +100,40 @@ public class DemographicEdit2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final transient SecurityInfoManager securityInfoManager;
+
+    public DemographicEdit2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
+
+    private SecurityInfoManager securityInfoManager() {
+        return securityInfoManager != null ? securityInfoManager : SpringUtils.getBean(SecurityInfoManager.class);
+    }
+
+    public DemographicEdit2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
+    }
+
+    /**
+     * Audits a refused attempt to open this patient's Master Record: the role may read
+     * demographics, but this patient's record is closed to this user (a patient-level lock or
+     * restriction). The refusal of access to a patient's record is the event a privacy officer
+     * looks for, so it is filed under the patient with the refused user's provider, security id
+     * and client address. It is written as {@code no right}, never as a read, names only the
+     * right refused, and carries nothing of the record.
+     *
+     * <p>The row is queued on the audit executor, outside any transaction of this request, so it
+     * survives the {@link SecurityException} that follows. An audit failure must not turn the
+     * refusal into another outcome: it is logged and the refusal proceeds.</p>
+     */
+    private static void auditRefusedOpen(LoggedInInfo loggedInInfo, String demographicNo) {
+        try {
+            LogAction.addLog(loggedInInfo, LogConst.NORIGHT, LogConst.CON_DEMOGRAPHIC, demographicNo, demographicNo,
+                    LogConst.READ);
+        } catch (RuntimeException e) {
+            logger.error("Unable to audit a refused attempt to open a patient record ({})", e.getClass().getSimpleName());
+        }
+    }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
@@ -109,7 +145,7 @@ public class DemographicEdit2Action extends ActionSupport {
             throw new SecurityException("missing required session");
         }
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
+        if (!securityInfoManager().hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             logger.warn("DemographicEdit2Action: provider {} lacks _demographic read privilege",
                     loggedInInfo.getLoggedInProviderNo());
             throw new SecurityException("missing required sec object (_demographic)");
@@ -135,7 +171,8 @@ public class DemographicEdit2Action extends ActionSupport {
             addActionError("Invalid demographic_no: must be numeric");
             return ERROR;
         }
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", trimmedDemographicNo)) {
+        if (!securityInfoManager().hasPrivilege(loggedInInfo, "_demographic", "r", trimmedDemographicNo)) {
+            auditRefusedOpen(loggedInInfo, trimmedDemographicNo);
             throw new SecurityException("missing required sec object (_demographic)");
         }
         demographic_no = trimmedDemographicNo;
@@ -236,7 +273,15 @@ public class DemographicEdit2Action extends ActionSupport {
         // --- Patient consent module ---
         if (oscarProps.getBooleanProperty("USE_NEW_PATIENT_CONSENT_MODULE", "true")) {
             PatientConsentManager patientConsentManager = SpringUtils.getBean(PatientConsentManager.class);
-            request.setAttribute("consentTypes", patientConsentManager.getActiveConsentTypes());
+            List<ConsentType> consentTypes = patientConsentManager.getActiveConsentTypes();
+            request.setAttribute("consentTypes", consentTypes);
+            // Set when the save that led here refused a consent change made against a record that
+            // had since changed. Only names looked up here reach the page, never the parameter.
+            List<String> consentNotSavedNames = ConsentNotSavedNotice.consentTypeNames(
+                    request.getParameter(ConsentNotSavedNotice.PARAMETER), consentTypes);
+            if (!consentNotSavedNames.isEmpty()) {
+                request.setAttribute(ConsentNotSavedNotice.NAMES_ATTRIBUTE, consentNotSavedNames);
+            }
             request.setAttribute("patientConsents", patientConsentManager.getAllConsentsByDemographic(
                     loggedInInfo, Integer.parseInt(demographic_no)));
         }
@@ -277,7 +322,7 @@ public class DemographicEdit2Action extends ActionSupport {
             nurse = StringUtils.defaultString(demographicCust.getNurse());
             alert = StringUtils.defaultString(demographicCust.getAlert());
             midwife = StringUtils.defaultString(demographicCust.getMidwife());
-            notes = SxmlMisc.getXmlContent(demographicCust.getNotes(), "unotes");
+            notes = DemographicXml.userNotesText(demographicCust.getNotes());
             notes = notes == null ? "" : notes;
         }
 
@@ -286,11 +331,11 @@ public class DemographicEdit2Action extends ActionSupport {
         if (demographic != null) {
             String fd = demographic.getFamilyDoctor();
             if (fd != null) {
-                rd = SxmlMisc.getXmlContent(StringUtils.trimToEmpty(fd), "rd");
+                rd = DemographicXml.referralDoctor(StringUtils.trimToEmpty(fd));
                 rd = (rd != null && !"null".equals(rd)) ? rd : "";
-                rdohip = SxmlMisc.getXmlContent(StringUtils.trimToEmpty(fd), "rdohip");
+                rdohip = DemographicXml.referralDoctorOhip(StringUtils.trimToEmpty(fd));
                 rdohip = (rdohip != null && !"null".equals(rdohip)) ? rdohip : "";
-                family_doc = SxmlMisc.getXmlContent(StringUtils.trimToEmpty(fd), "family_doc");
+                family_doc = DemographicXml.familyDoc(StringUtils.trimToEmpty(fd));
                 family_doc = family_doc != null ? family_doc : "";
             }
         }
@@ -321,6 +366,9 @@ public class DemographicEdit2Action extends ActionSupport {
         request.setAttribute("demoExt", demoExt);
         request.setAttribute("demographicCust", demographicCust);
         request.setAttribute("demographicCustDao", demographicCustDao);
+        // The record version the edit form is rendered from (issue #4225): DemographicUpdate2Action
+        // refuses a save from this form once another save has changed the patient.
+        request.setAttribute("demographicEditVersion", DemographicEditVersion.of(demographic, demoExt, demographicCust));
         request.setAttribute("archives", archives);
         request.setAttribute("extArchives", extArchives);
         request.setAttribute("communityAdmission", communityAdmission);
@@ -368,6 +416,17 @@ public class DemographicEdit2Action extends ActionSupport {
         request.setAttribute("scheduleTemplateCodeDao", scheduleTemplateCodeDao);
         request.setAttribute("waitingListDao", waitingListDao);
         request.setAttribute("waitingListNameDao", waitingListNameDao);
+
+        // Waiting-list availability is decided here, once, by the same service the
+        // save path re-checks; edit.jsp shows the Waiting List link from the first
+        // attribute and edit-form-clinical.jsp offers (and enables) exactly the second.
+        WaitingListAvailabilityService waitingListAvailability =
+                SpringUtils.getBean(WaitingListAvailabilityService.class);
+        request.setAttribute("waitingListLinkVisible", waitingListAvailability.hasCurrentLists());
+        request.setAttribute("selectableWaitingLists", waitingListAvailability.findSelectableLists(
+                (ProviderPreference) session.getAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE)));
+        request.setAttribute(PatientNavModel.REQUEST_ATTRIBUTE,
+                PatientNavModel.forRequest(request, demographic, PatientNavModel.Page.RECORD));
         request.setAttribute("userPropertyDAO", userPropertyDAO);
         request.setAttribute("demographicDao", demographicDao);
         request.setAttribute("demographicExtDao", demographicExtDao);

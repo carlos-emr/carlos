@@ -1,0 +1,832 @@
+#!/usr/bin/env node
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+/*
+ * Browser regression checks for the renderer's APCache bridge
+ * (EFormApCacheForPdfGenerationServlet), the capability-scoped servlet the
+ * headless PDF browser calls to populate APCache-driven eForm fields.
+ *
+ * The script logs into a running CARLOS app, imports two temporary eForms built
+ * from scripts/fixtures/eform/apcache-renderer-bridge.html (fields filled by
+ * APCache.js lookups, not server-side oscarDB attributes), and verifies:
+ *
+ *   1. positive: a saved form whose lookups name configured APs renders to a
+ *      PDF whose text carries the values the bridge served (the signed-in
+ *      provider's name, today's date) -- no placeholder, no pending marker --
+ *      and the save result view's own re-run lookups (which carry the
+ *      efmfid/efmdemographic_no form-action query string) still resolve
+ *      through the interactive route with no 400 and no alert;
+ *   2. negative: a form that also looks up an AP key this server does not
+ *      configure is NOT silently rendered with a blank field: the download is
+ *      withheld and the clinician gets the missing-content approval page whose
+ *      "Failed content resources" count is non-zero, while the page never
+ *      names the key (only the operator log does); Approve and download then
+ *      downloads a %PDF without saving a second instance, and replaying the same
+ *      one-time approval is answered with the expired-approval message and no PDF;
+ *   3. optional (APCACHE_JOURNAL_UNIT=carlos-emr, run as root on the packaged
+ *      install): the application journal carries the servlet's WARN line
+ *      naming the rejected key and reason only, with no fdid, throwable, or AP
+ *      value, and no 500-class "lookup failed" line for that render;
+ *   4. optional (APCACHE_PROBE_URL=http://127.0.0.1:18080/carlos, a loopback
+ *      Tomcat base): direct requests without a render grant answer 401, and a
+ *      non-GET answers 405 (or 403 from the CSRF guard); the front door (BASE_URL) also refuses.
+ *
+ * Last assertion: the eForm view an approved download leaves on screen answers its
+ * APCache lookups. On release/2026.08 it fails until #4979 is fixed (finding 458).
+ *
+ * Requires pdftotext from poppler-utils.
+ *
+ * Defaults are for the local devcontainer:
+ *   npm run test:eform-apcache-renderer-playwright
+ *
+ * Optional environment:
+ *   BASE_URL=http://127.0.0.1:8080/carlos
+ *   CHROME_PATH=/path/to/chrome-or-chromium
+ *   TEST_USER=carlosdoc TEST_PASSWORD=carlos2026 TEST_PIN=2026
+ *   RESET_PASSWORD=...  (only for the one-time forced reset on a fresh deb install)
+ *   MYSQL_HOST/USER/PASSWORD/DATABASE (the owned patient and its cleanup)
+ *   APCACHE_SCREENSHOT_DIR=/tmp
+ *   APCACHE_JOURNAL_UNIT=carlos-emr   (enables the journalctl assertions)
+ *   APCACHE_PROBE_URL=http://127.0.0.1:18080/carlos   (enables direct servlet probes)
+ *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
+ *
+ * FIXTURE. The two eForms are filled in and saved for a FAKE patient this check creates (lib/owned-patient.js: last name = a
+ * FAKE-PW run marker). The application's Delete only marks a saved instance and an imported template removed (status 0), so the
+ * check used to leave two templates, two instances and 18 values behind, the instances on DEMO patient 1. After the UI cleanup it
+ * now deletes the instances and their values by the patient's key and the two templates by their unique names, and the patient,
+ * and asserts each gone.
+ */
+
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { execFileSync } = require('node:child_process');
+const { chromium, request: playwrightRequest } = require('playwright');
+const h = require('./lib/playwright-harness');
+const {createApNegativeProof, sha} = require('./lib/apcache-negative-fault-proof');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
+const { createOwnedPatient, eformRows, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
+const { bundleMessage } = require('./lib/throwaway-login-fixture');
+const {
+  assert,
+  assertNotErrorPage,
+  buildArtifactPath,
+  buildFailureDetails,
+  createRecorder,
+  findLibraryEform,
+  getLaunchOptions,
+  gotoApp,
+  login,
+  screenshot,
+  validateBaseUrl,
+  wirePage,
+} = require('./eform-local-playwright-utils');
+
+const SERVLET_PATH = '/EFormApCacheForPdfGenerationServlet';
+const PROVIDER_KEY = 'current_user_fname_lname';
+const TODAY_KEY = 'today';
+const WARN_LINE = 'Renderer APCache key cannot be executed for this render';
+// Shipped APs read only this check's owned FAKE patient; no AP configuration is changed.
+const LITERAL_LOOKUPS = [
+  {key:'first_last_name',id:'apcache_literal_name',expected:null,expectedPdf:null},
+  {key:'addressline',id:'apcache_literal_address',expected:'&lt;img id=apInjected&gt;${city}, OWNED-CITY, ON, A1A1A1',expectedPdf:'<img id=apInjected>${city}, OWNED-CITY, ON, A1A1A1'},
+];
+
+
+const config = {
+  baseUrl: validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos'),
+  chromePath: process.env.CHROME_PATH || '',
+  testUser: process.env.TEST_USER || 'carlosdoc',
+  testPassword: process.env.TEST_PASSWORD || 'carlos2026',
+  testPin: process.env.TEST_PIN || '2026',
+  resetPassword: process.env.RESET_PASSWORD || '',
+  // The owned patient, created in main (never a demo patient).
+  demographicNo: null,
+  screenshotDir: process.env.APCACHE_SCREENSHOT_DIR || '/tmp',
+  journalUnit: process.env.APCACHE_JOURNAL_UNIT || '',
+  probeUrl: process.env.APCACHE_PROBE_URL || '',
+  fixtureHtmlPath: path.join(__dirname, 'fixtures', 'eform', 'apcache-renderer-bridge.html'),
+};
+
+const recorder = createRecorder();
+// Interactive lookups the eForm view left on screen after Approve and download answered with an error. Kept apart
+// from the run-wide lookup assertion and asserted last, so this one defect cannot hide any other.
+const approvedViewLookupFailures = [];
+// recorder.badResponses length when Approve was clicked; everything recorded after it is split at the end.
+let approvedViewMark = null;
+const LOOKUP_PATH = '/eform/efmformapconfig_lookup';
+
+/** Move the interactive-lookup errors recorded since the approval out of the run-wide list. */
+function splitApprovedViewLookups() {
+  if (approvedViewMark === null) return;
+  const after = recorder.badResponses.splice(approvedViewMark);
+  approvedViewMark = null;
+  for (const entry of after) {
+    (entry.url.includes(LOOKUP_PATH) ? approvedViewLookupFailures : recorder.badResponses).push(entry);
+  }
+}
+
+// Failure output must not carry patient-correlating identifiers: response URLs the recorder keeps
+// include fdid and demographic numbers. Same contract as eform-test-pattern-playwright-checks.js.
+const sensitiveQueryParamPattern = /([?&](?:fdid|efmfid|fid|demographic_no|efmdemographic_no|demographicNo|demo_no|demoNo|patient_id|patientId)=)[^&#\s'"]*/gi;
+const sensitiveDiagnosticFieldPattern = /^(fdid|efmfid|demographic_no|efmdemographic_no|demographicNo|demo_no|demoNo|patient_id|patientId)$/i;
+
+function redactSensitiveFailureText(value) {
+  return String(value)
+    .replace(sensitiveQueryParamPattern, '$1<redacted>')
+    .replace(/(["']?)(fdid|efmdemographic_no|demographic_no|demographicNo|demo_no|demoNo|patient_id|patientId)(\1)(\s*[:=]\s*)(["']?)\d+\5/gi, '$1$2$3$4$5<redacted>$5')
+    .replace(/\b(fdid|efmdemographic_no|demographic_no|demographicNo|demo_no|demoNo|patient_id|patientId)\b\s+\d+/gi, '$1 <redacted>');
+}
+
+function redactSensitiveFailureDetails(value) {
+  if (typeof value === 'string') {
+    return redactSensitiveFailureText(value);
+  }
+  if (Array.isArray(value)) {
+    return value.map(redactSensitiveFailureDetails);
+  }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nestedValue]) => [
+        key,
+        sensitiveDiagnosticFieldPattern.test(key) ? '<redacted>' : redactSensitiveFailureDetails(nestedValue),
+      ]),
+    );
+  }
+  return value;
+}
+
+function describe(value) {
+  return JSON.stringify(redactSensitiveFailureDetails(value), null, 2);
+}
+
+function validateConfig() {
+  assert(fs.existsSync(config.fixtureHtmlPath), `Fixture not found: ${config.fixtureHtmlPath}`);
+  assert(/^[A-Za-z0-9_-]+$/.test(config.journalUnit || 'x'), `APCACHE_JOURNAL_UNIT must be a plain unit name, got ${config.journalUnit}`);
+  if (config.probeUrl) {
+    const probe = new URL(config.probeUrl);
+    assert(['localhost', '127.0.0.1', '::1'].includes(probe.hostname), `APCACHE_PROBE_URL must be loopback, got ${probe.hostname}`);
+  }
+  try {
+    execFileSync('pdftotext', ['-v'], { stdio: 'ignore' });
+  } catch (error) {
+    throw new Error('pdftotext (poppler-utils) is required to read the rendered PDF text');
+  }
+}
+
+/** Builds one fixture variant; the negative one adds a lookup for a key no server configures. */
+function writeFixture(tempDir, name, missingKey) {
+  let html = fs.readFileSync(config.fixtureHtmlPath, 'utf8')
+    .split('APCACHE_KEY_PROVIDER').join(PROVIDER_KEY)
+    .split('APCACHE_KEY_TODAY').join(TODAY_KEY);
+  if (missingKey) {
+    assert(/^[A-Za-z0-9_]+$/.test(missingKey), `unsafe missing key ${missingKey}`);
+    html = html
+      .replace('APCACHE_EXTRA_LOOKUP', `apCache.lookup('${missingKey}');`)
+      .replace('APCACHE_EXTRA_FIELD', [
+        '<div class="field">',
+        `  <label>Unconfigured AP (${missingKey})`,
+        `    <input type="text" class="value" name="apcache_missing" id="apcache_missing" value="TemplateMissing" data-apcache-key="${missingKey}">`,
+        '  </label>',
+        `  <div id="apcache_missing_echo">APCACHE-PENDING[${missingKey}]</div>`,
+        '</div>',
+      ].join('\n'));
+  } else {
+    html = html.replace('APCACHE_EXTRA_LOOKUP', '').replace('APCACHE_EXTRA_FIELD', '');
+  }
+  assert(html.includes("apCache.lookup('today');"), 'Synthetic fixture no longer exposes its reviewed lookup insertion point');
+  html = html.replace("apCache.lookup('today');", "apCache.lookup('today');\n" + LITERAL_LOOKUPS.map(value => `  apCache.lookup('${value.key}');`).join('\n'));
+  assert(html.includes('</form>'), 'Synthetic fixture has no owned form insertion point');
+  // These two projections exercise literal AP output; they are recomputed from the owned
+  // patient on each view/render, not additional clinical fields to persist through Save.
+  // readonly alone still submits a named input: omit name while retaining the live value/echo.
+  html = html.replace('</form>', LITERAL_LOOKUPS.map(value => `<div class="field"><input type="text" class="value" id="${value.id}" readonly data-apcache-key="${value.key}"><div id="${value.id}_echo">APCACHE-PENDING[${value.key}]</div></div>`).join('\n') + '\n</form>');
+  const htmlPath = path.join(tempDir, `${name}.html`); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- name is a fixed literal chosen by this script under a private temp directory
+  fs.writeFileSync(htmlPath, html);
+  return htmlPath;
+}
+
+async function uploadEform(context, formName, formSubject, htmlPath) {
+  const page = await context.newPage();
+  wirePage(page, `apcache-upload:${formName}`, recorder);
+  try {
+    await gotoApp(page, config.baseUrl, '/eform/efmformmanager');
+    await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    const frame = page.frameLocator('#uploadFrame');
+    await frame.locator('input[name="formName"]').fill(formName);
+    await frame.locator('input[name="formSubject"]').fill(formSubject);
+    await frame.locator('#formHtml').setInputFiles(htmlPath);
+    await frame.locator('input.upload[type="submit"]').click();
+    await page.waitForURL(/administration\?show=Forms/, { timeout: 10000 }).catch(() => {});
+    await gotoApp(page, config.baseUrl, '/eform/efmformmanager');
+    await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    const { fid } = await findLibraryEform(page, formName);
+    return fid;
+  } finally {
+    await page.close().catch(() => {});
+  }
+}
+
+async function openAddEform(context, fid, label) {
+  const page = await context.newPage();
+  await page.addInitScript(() => {
+    window.close = () => {
+      window.__playwrightCloseIntercepted = true;
+    };
+  });
+  wirePage(page, label, recorder);
+  page.__ownedLiteralLookups = new Map();
+  page.on('response', response => {
+    const request = response.request();
+    const url = new URL(response.url());
+    if (url.origin !== config.baseUrl.origin || url.pathname !== config.baseUrl.pathname.replace(/\/$/, '') + LOOKUP_PATH) return;
+    const keys = url.searchParams.getAll('key');
+    if (keys.length !== 1 || !LITERAL_LOOKUPS.some(value => value.key === keys[0])) return;
+    const operation = (async () => {
+      assert(request.method() === 'GET' && response.status() === 200, 'Owned literal lookup transport failed');
+      return {html:await response.text()};
+    })().catch(error => ({error}));
+    page.__ownedLiteralLookups.set(keys[0], operation);
+  });
+  await gotoApp(page, config.baseUrl, `/eform/efmformadd_data?fid=${encodeURIComponent(fid)}&demographic_no=${encodeURIComponent(config.demographicNo)}`);
+  await page.waitForLoadState('domcontentloaded', { timeout: 30000 });
+  await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+  await assertNotErrorPage(page, label);
+  return page;
+}
+
+/** Reads the value the interactive viewer's own lookup produced, so the PDF can be compared to it. */
+async function readViewerValue(page, key, echoId) {
+  const echo = page.locator(`#${echoId}`);
+  await echo.filter({ hasText: `APCACHE-VALUE[${key}]=` }).waitFor({ state: 'attached', timeout: 20000 });
+  const text = (await echo.textContent()) || '';
+  const value = text.slice(`APCACHE-VALUE[${key}]=`.length).trim();
+  assert(value.length > 0, `viewer lookup for ${key} produced an empty value`);
+  return value;
+}
+
+/** Check the actual hidden response, native APCache value and DOM field before and after save. */
+async function assertLiteralLookups(page) {
+  for (const literal of LITERAL_LOOKUPS) {
+    const displayed = await readViewerValue(page, literal.key, literal.id + '_echo');
+    assert(displayed === literal.expected, `Owned clinical literal changed in native ${literal.key} lookup`);
+    const operation = page.__ownedLiteralLookups.get(literal.key);
+    assert(operation, 'Owned literal lookup carried no actual HTTP response');
+    const response = await operation;
+    assert(!response.error, 'Owned literal lookup response could not be read');
+    const actual = await page.evaluate(({key,id,html}) => {
+      const parsed = new DOMParser().parseFromString(html, 'text/html');
+      const fields = [...parsed.querySelectorAll('input')].filter(input => input.name === key);
+      const target = document.getElementById(id);
+      const form = target?.form, data = form ? new FormData(form) : null;
+      const provider = form?.querySelector('[name="apcache_provider"]');
+      const today = form?.querySelector('[name="apcache_today"]');
+      return {responseCount:fields.length,responseValue:fields[0]?.value,
+        projectionReadOnly:target?.readOnly === true && target?.disabled === false,
+        projectionUnnamed:target && !target.hasAttribute('name'),
+        projectionSubmitted:!data || data.has(id) || data.has(key),
+        ordinaryFieldsSubmitted:Boolean(provider?.value && today?.value
+          && data?.get('apcache_provider') === provider.value && data?.get('apcache_today') === today.value),
+        cacheValue:apCache.get(key),fieldValue:document.getElementById(id)?.value,
+        injectedNodes:document.querySelectorAll('#apInjected').length + parsed.querySelectorAll('script,img').length};
+    }, {key:literal.key,id:literal.id,html:response.html});
+    assert(actual.responseCount === 1 && actual.responseValue === literal.expected
+      && actual.cacheValue === literal.expected && actual.fieldValue === literal.expected
+      && actual.injectedNodes === 0, `Owned ${literal.key} value changed or created markup at the HTTP/cache/DOM boundary`);
+    assert(actual.projectionReadOnly && actual.projectionUnnamed && !actual.projectionSubmitted
+      && actual.ordinaryFieldsSubmitted, 'Literal AP projections must remain visible read-only unnamed probes while genuine provider/today fields submit');
+  }
+  return LITERAL_LOOKUPS.length;
+}
+
+async function downloadPdf(page, artifactBaseName) {
+  const pdfPath = buildArtifactPath(config.screenshotDir, artifactBaseName, '.pdf');
+  const downloadPromise = page.waitForEvent('download', { timeout: 90000 });
+  await page.locator('#remoteDownloadButton').click();
+  const download = await downloadPromise;
+  await download.saveAs(pdfPath);
+  const pdfBytes = fs.readFileSync(pdfPath);
+  assert(pdfBytes.subarray(0, 5).toString('utf8') === '%PDF-', 'Downloaded payload was not a PDF');
+  return pdfPath;
+}
+
+function pdfText(pdfPath) {
+  return execFileSync('pdftotext', ['-layout', pdfPath, '-'], { encoding: 'utf8' });
+}
+
+async function savedFdidOnPage(page) {
+  const fdid = await page.locator('#fdid, input[name="fdid"]').first().inputValue({ timeout: 15000 }).catch(() => '');
+  return /^\d+$/.test(fdid) ? fdid : null;
+}
+
+async function listSavedFdids(context, subject) {
+  const page = await context.newPage();
+  wirePage(page, 'apcache-patient-list', recorder);
+  try {
+    await gotoApp(page, config.baseUrl, `/eform/efmpatientformlist?demographic_no=${encodeURIComponent(config.demographicNo)}`);
+    await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    const rows = page.locator('#efmTable tr', { hasText: subject });
+    const fdids = new Set();
+    const rowCount = await rows.count();
+    for (let index = 0; index < rowCount; index += 1) {
+      const row = rows.nth(index);
+      const link = row.locator('a[onclick*="fdid="], a[href*="fdid="]').first();
+      const onclick = await link.getAttribute('onclick').catch(() => '') || '';
+      const href = await link.getAttribute('href').catch(() => '') || '';
+      const match = onclick.match(/fdid=([^&'"]+)/) || href.match(/fdid=([^&'"]+)/);
+      if (match && /^\d+$/.test(decodeURIComponent(match[1]))) {
+        fdids.add(decodeURIComponent(match[1]));
+      }
+    }
+    return Array.from(fdids);
+  } finally {
+    await page.close().catch(() => {});
+  }
+}
+
+async function cleanupSavedEform(context, fdid) {
+  const page = await context.newPage();
+  wirePage(page, 'apcache-saved-cleanup', recorder);
+  try {
+    await gotoApp(page, config.baseUrl, `/eform/efmpatientformlist?demographic_no=${encodeURIComponent(config.demographicNo)}`);
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+    const form = page.locator('form', { has: page.locator(`input[name="fdid"][value="${fdid}"]`) }).first();
+    if (!(await form.count())) {
+      return;
+    }
+    await Promise.all([
+      page.waitForResponse((response) => response.request().method() === 'POST' && response.url().includes('/eform/removeEForm'), { timeout: 15000 }),
+      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => null),
+      form.evaluate((formElement) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed cleanup helper submits an already-selected local form without interpolated code
+        formElement.submit();
+      }),
+    ]);
+  } finally {
+    await page.close().catch(() => {});
+  }
+}
+
+async function readCsrfToken(page) {
+  let csrfToken = await page.locator('input[name="CSRF-TOKEN"]').first().inputValue({ timeout: 5000 }).catch(() => '');
+  if (!csrfToken) {
+    const configuredContextPath = config.baseUrl.pathname === '/' ? '' : config.baseUrl.pathname.replace(/\/$/, '');
+    csrfToken = await page.evaluate(async (baseContextPath) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection,javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- baseContextPath is derived from validateBaseUrl and used only for a same-origin CSRFGuard fetch fallback
+      const contextInput = document.getElementById('context');
+      const contextPath = contextInput && contextInput.value ? contextInput.value : baseContextPath;
+      const response = await fetch(`${contextPath}/csrfguard`, { credentials: 'same-origin' });
+      if (!response.ok) {
+        return '';
+      }
+      const match = (await response.text()).match(/masterTokenValue\s*=\s*["']([^"']+)["']/);
+      return match ? match[1] : '';
+    }, configuredContextPath).catch(() => '');
+  }
+  assert(csrfToken, 'form manager page did not expose a CSRF token for cleanup');
+  return csrfToken;
+}
+
+async function cleanupImportedEform(context, fid) {
+  if (!fid) {
+    return;
+  }
+  const page = await context.newPage();
+  wirePage(page, 'apcache-template-cleanup', recorder);
+  try {
+    await gotoApp(page, config.baseUrl, '/eform/efmformmanager');
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+    const token = await readCsrfToken(page);
+    const formId = `apcache_delete_form_${fid}`;
+    await page.evaluate(({ submittedFid, deleteFormId, csrf }) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- values are passed as Playwright arguments, not interpolated into code
+      const form = document.createElement('form');
+      form.id = deleteFormId;
+      form.method = 'post';
+      form.action = `${window.location.origin}${window.location.pathname.replace(/\/efmformmanager.*$/, '')}/delEForm`;
+      for (const [name, value] of [['CSRF-TOKEN', csrf], ['fid', submittedFid]]) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = value;
+        form.appendChild(input);
+      }
+      document.body.appendChild(form);
+    }, { submittedFid: fid, deleteFormId: formId, csrf: token });
+    await Promise.all([
+      page.waitForResponse((response) => response.request().method() === 'POST' && response.url().includes('/eform/delEForm'), { timeout: 15000 }),
+      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => null),
+      page.locator(`#${formId}`).evaluate((form) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed cleanup helper submits an already-selected local form without interpolated code
+        form.submit();
+      }),
+    ]);
+  } finally {
+    await page.close().catch(() => {});
+  }
+}
+
+/** Part 1: configured keys are served by the bridge and land in the PDF text. */
+/** Markup is a mandatory render-only probe; positive saves contain benign clinical literals. */
+function prepareLiteralSave(sql, owner) {
+  assert(/^[1-9]\d*$/.test(String(owner.patient)) && /^FAKE-PW[0-9a-f]{16}$/.test(owner.marker), 'Literal fixture owner is invalid');
+  assert(sql.value(`UPDATE demographic SET address='Literal \${city}'
+    WHERE demographic_no=${Number(owner.patient)} AND last_name=${h.sqlString(owner.marker)} AND provider_no=${h.sqlString(owner.provider)}
+      AND first_name='\${last_name}' AND address='<img id=apInjected>\${city}' AND city='OWNED-CITY'; SELECT ROW_COUNT()`) === '1',
+  'Only the exact owned render-only markup row may transition to the benign save value');
+  LITERAL_LOOKUPS[1].expected = 'Literal ${city}, OWNED-CITY, ON, A1A1A1';
+  LITERAL_LOOKUPS[1].expectedPdf = LITERAL_LOOKUPS[1].expected;
+}
+
+function assertSavedClinicalFields(sql, fdid, fid, owner, providerValue, todayValue) {
+  assert(/^\d+$/.test(String(fdid)) && /^\d+$/.test(String(fid)) && /^\d+$/.test(String(owner.patient)),
+    'Saved positive form identity must be numeric');
+  const scope = `fdid=${Number(fdid)} AND fid=${Number(fid)} AND demographic_no=${Number(owner.patient)}`;
+  for (const [name, value] of [['apcache_provider', providerValue], ['apcache_today', todayValue]]) {
+    const hex = Buffer.from(value, 'utf8').toString('hex').toUpperCase();
+    assert(sql.value(`SELECT COUNT(*) FROM eform_values WHERE ${scope} AND BINARY var_name='${name}' AND HEX(var_value)='${hex}'`) === '1',
+      `Genuine saved ${name} field must retain the exact submitted value`);
+  }
+  assert(sql.value(`SELECT COUNT(*) FROM eform_values WHERE ${scope} AND var_name IN ('apcache_literal_name','apcache_literal_address','first_last_name','addressline')`) === '0',
+    'Recomputed literal AP projections must not become persisted clinical controls');
+}
+
+async function checkPositiveRender(context, fid, runId, artifactPaths, sql, owner) {
+  let page = await openAddEform(context, fid, 'apcache-positive');
+  const providerValue = await readViewerValue(page, PROVIDER_KEY, 'apcache_provider_echo');
+  const todayValue = await readViewerValue(page, TODAY_KEY, 'apcache_today_echo');
+  assert(/^\d{4}-\d{2}-\d{2}$/.test(todayValue), `viewer 'today' lookup is not a date: ${todayValue}`);
+
+  await assertLiteralLookups(page);
+  await page.close();
+  prepareLiteralSave(sql, owner);
+  page = await openAddEform(context, fid, 'apcache-positive-save');
+  await assertLiteralLookups(page);
+  assert(await readViewerValue(page, PROVIDER_KEY, 'apcache_provider_echo') === providerValue, 'Fresh positive viewer provider changed');
+  const pdfPath = await downloadPdf(page, `eform-apcache-positive-${runId}`);
+  artifactPaths.add(pdfPath);
+  const text = pdfText(pdfPath);
+  assert(text.includes(`APCACHE-VALUE[${PROVIDER_KEY}]=${providerValue}`),
+    `rendered PDF does not carry the provider value the bridge should have served (viewer saw a ${providerValue.length}-character value)`);
+  const todayMatch = text.match(new RegExp(`APCACHE-VALUE\\[${TODAY_KEY}\\]=(\\d{4}-\\d{2}-\\d{2})`));
+  assert(todayMatch, "rendered PDF does not carry the 'today' value the bridge should have served");
+  // Same value the viewer's own lookup produced moments earlier, not just any date: a stale or
+  // wrong renderer value must not pass on shape alone (a run that straddles midnight would fail
+  // here; rerun it).
+  assert(todayMatch[1] === todayValue, `rendered PDF 'today' value ${todayMatch[1]} does not match the viewer's ${todayValue}`);
+  for (const literal of LITERAL_LOOKUPS) {
+    assert(text.replace(/\s+/g, ' ').includes(`APCACHE-VALUE[${literal.key}]=${literal.expectedPdf}`),
+      `Rendered PDF changed owned ${literal.key} clinical literal`);
+  }
+  assert(!text.includes('APCACHE-PENDING'), 'rendered PDF still carries a pending marker: a lookup never completed in the renderer');
+  assert(!text.includes('APCACHE-ERROR'), 'rendered PDF carries an APCache error marker: the bridge refused a configured key');
+  assert(!text.includes('TemplateProvider') && !text.includes('TemplateToday'), 'rendered PDF carries template placeholders instead of bridge values');
+  // The download lands on the save result view, whose form action query string carries
+  // efmfid/efmdemographic_no rather than fid/demographic_no. The fixture's lookups re-run there
+  // against the INTERACTIVE route and must still resolve: a 400 here left every APCache field
+  // blank behind the library's "an error has occurred" alert after any save-and-download.
+  const literalLookupControlsVerified = await assertLiteralLookups(page);
+  const postSaveProvider = await readViewerValue(page, PROVIDER_KEY, 'apcache_provider_echo');
+  assert(postSaveProvider === providerValue, 'post-save view resolved a different provider value than the add view');
+  const fdid = await savedFdidOnPage(page);
+  assertSavedClinicalFields(sql, fdid, fid, owner, providerValue, todayValue);
+  await page.close().catch(() => {});
+  return { fdid, providerValue, todayValue, literalLookupControlsVerified };
+}
+
+/** The value of the hidden input efmshowform_data.jsp writes with this id (EForm.addHiddenInputElement), or ''. */
+function hiddenInputValue(html, id) {
+  // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp -- id is one of this check's literal field ids (eFormPDF, errorMessage)
+  const input = new RegExp(`<input[^>]*\\bid="${id}"[^>]*>`).exec(html);
+  const value = input && /\bvalue="([^"]*)"/.exec(input[0]);
+  if (!value) return '';
+  // The page attribute-encodes the value (Encode.forHtmlAttribute): decode it to the text the clinician reads.
+  return value[1]
+    .replace(/&#x([0-9a-f]+);/gi, (match, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (match, dec) => String.fromCodePoint(Number(dec)))
+    .replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
+}
+
+/**
+ * Part 2b: Approve and download on the approval page serves the incomplete render as a PDF once, saves no
+ * second instance, and the same approval cannot be used again: a replay is answered with the expired-approval
+ * message and no PDF (DownloadEFormPdf2Action consumes the one-time ticket).
+ */
+async function checkApprovedDownload(page, sql, fdid, runId, artifactPaths) {
+  const savedRows = () => sql.value(`SELECT COUNT(*) FROM eform_data WHERE demographic_no=${Number(config.demographicNo)}`);
+  const rowsBefore = savedRows();
+  const form = page.locator('form[action*="/eform/downloadEFormPdf"]');
+  assert(await form.count() === 1, 'the approval page offers no Approve and download');
+  const fields = await form.evaluate((element) => Object.fromEntries(new FormData(element)));
+  assert(fields.fdid === fdid && fields.renderApproval, 'the approval form does not carry the saved fdid and its one-time token');
+  const pdfPath = buildArtifactPath(config.screenshotDir, `eform-apcache-approved-${runId}`, '.pdf');
+  approvedViewMark = recorder.badResponses.length;
+  const [download] = await Promise.all([
+    page.waitForEvent('download', { timeout: 90000 }),
+    form.locator('button[type="submit"]').click(),
+  ]);
+  await download.saveAs(pdfPath);
+  artifactPaths.add(pdfPath);
+  assert(fs.readFileSync(pdfPath).subarray(0, 5).toString('utf8') === '%PDF-', 'Approve and download served no PDF');
+  assert(savedRows() === rowsBefore, 'Approve and download saved another eForm instance');
+  // The download lands on the eForm view, whose APCache lookups run again: give them time to answer (their errors are
+  // split out just before the final assertions).
+  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+
+  const downloadUrl = new URL(`${config.baseUrl.pathname.replace(/\/$/, '')}/eform/downloadEFormPdf`, config.baseUrl.origin).href;
+  const replay = await page.context().request.post(downloadUrl, { form: fields });
+  const html = await replay.text();
+  assert(replay.status() === 200, `the replayed approval answered HTTP ${replay.status()}`);
+  assert(!hiddenInputValue(html, 'eFormPDF'), 'the replayed approval served the PDF a second time');
+  // As getText shows it: MessageFormat turns a bundle's '' into one apostrophe.
+  const expired = bundleMessage('eform.download.approvalExpired',
+    'The incomplete-render approval is no longer valid. Download the eForm again to review the listed issues and approve them.')
+    .replace(/''/g, "'");
+  assert(hiddenInputValue(html, 'errorMessage') === expired, 'the replayed approval was not answered with the expired-approval message');
+  assert(savedRows() === rowsBefore, 'the replayed approval saved another eForm instance');
+}
+
+/** Part 2: an unconfigured key withholds the PDF and offers the approval page; the key is not shown. */
+async function checkNegativeRender(context, sql, fid, missingKey, runId, artifactPaths) {
+  const page = await openAddEform(context, fid, 'apcache-negative');
+  await readViewerValue(page, PROVIDER_KEY, 'apcache_provider_echo');
+
+  let downloadFired = false;
+  page.waitForEvent('download', { timeout: 60000 }).then(() => { downloadFired = true; }).catch(() => {});
+  await page.locator('#remoteDownloadButton').click();
+  const heading = page.locator('h5', { hasText: 'Some eForm content could not be loaded' });
+  await heading.waitFor({ state: 'visible', timeout: 90000 });
+  artifactPaths.add(await screenshot(page, config.screenshotDir, `eform-apcache-missing-content-${runId}`));
+  const bodyText = await page.locator('body').innerText();
+  const failedMatch = bodyText.match(/Failed content resources:\s*(\d+)/);
+  assert(failedMatch, `approval page does not report failed content resources: ${bodyText.slice(0, 400)}`);
+  assert(Number(failedMatch[1]) >= 1, `approval page counts ${failedMatch[1]} failed content resources; the unconfigured key should count as one`);
+  assert(!bodyText.includes(missingKey), 'approval page names the AP key; only the operator log should');
+  assert(await page.locator('input[name="renderApproval"]').count() === 1, 'approval page carries no one-time approval token');
+  assert(!downloadFired, 'a PDF was downloaded despite the unconfigured APCache key');
+  const fdid = await savedFdidOnPage(page);
+  assert(fdid, 'approval page does not carry the saved fdid');
+  await checkApprovedDownload(page, sql, fdid, runId, artifactPaths);
+  await page.close().catch(() => {});
+  return { fdid };
+}
+
+/** Part 3 (optional): the WARN line names the key in the journal, and nothing else about the render. */
+function checkJournal(sinceIso, missingKey, runFdids, positiveProviderValue) {
+  if (!config.journalUnit) {
+    return { skipped: true };
+  }
+  const journal = execFileSync('journalctl', ['-u', config.journalUnit, '--since', sinceIso, '--no-pager', '-o', 'cat'], { encoding: 'utf8' });
+  const warnLines = journal.split('\n').filter((line) => line.includes(WARN_LINE));
+  assert(warnLines.length >= 1, `journal has no "${WARN_LINE}" line since ${sinceIso}`);
+  const keyed = warnLines.filter((line) => line.includes(`key=${missingKey}`));
+  assert(keyed.length >= 1, `journal WARN lines never name key=${missingKey}`);
+  assert(keyed.every((line) => line.includes('reason=APCache key is not configured')), 'journal WARN line carries an unexpected reason');
+  // Key and reason only: the fix is in apconfig.xml, so no patient-correlating fdid rides along.
+  assert(!keyed.some((line) => line.includes('fdid=')), 'journal WARN line carries an fdid');
+  assert(!keyed.some((line) => /\bat [a-z]+\./.test(line) || line.includes('Exception')), 'journal WARN line carries a stack trace');
+  assert(!journal.includes(positiveProviderValue), 'journal carries an AP value; the servlet must log identifiers only');
+  // The lookup-failure ERROR lines carry the render's fdid; only this run's renders count, so a
+  // concurrent render on the same install cannot fail the check.
+  const failed = journal.split('\n')
+    .filter((line) => line.includes('Renderer APCache lookup failed') || line.includes('Renderer APCache lookup returned an unusable result'))
+    .filter((line) => runFdids.some((fdid) => line.includes(`fdid=${fdid}`)));
+  assert(failed.length === 0, 'journal reports an unexpected lookup failure for one of this run\'s renders');
+  return { warnLines: keyed.length };
+}
+
+/** Part 4 (optional): without a render grant the servlet refuses, on loopback and through the front door. */
+async function checkDirectProbes(proof) {
+  const results = {};
+  if (config.probeUrl) {
+    const base = config.probeUrl.replace(/\/$/, '');
+    const noCookie = await fetch(`${base}${SERVLET_PATH}?key=${TODAY_KEY}`, { redirect: 'manual' });
+    results.loopbackNoGrant = noCookie.status;
+    assert(noCookie.status === 401, `loopback request without a render grant answered ${noCookie.status}, expected 401`);
+    const bogus = await fetch(`${base}${SERVLET_PATH}?key=${TODAY_KEY}`, { redirect: 'manual', headers: { cookie: 'CARLOS_EFORM_RENDER=bogus-grant' } });
+    results.loopbackBogusGrant = bogus.status;
+    assert(bogus.status === 401, `loopback request with a bogus grant answered ${bogus.status}, expected 401`);
+    // The servlet itself only implements GET (405), but on a full deployment the CSRF guard
+    // refuses a token-less POST first (403). Either is the refusal that matters.
+    if (proof) proof.directPost({method:'POST',path:SERVLET_PATH,startedAt:new Date().toISOString()});
+    const post = await fetch(`${base}${SERVLET_PATH}?key=${TODAY_KEY}`, { method: 'POST', redirect: 'manual' });
+    if (proof) proof.directPost({status:post.status,finishedAt:new Date().toISOString()});
+    results.loopbackPost = post.status;
+    assert([403, 405].includes(post.status), `POST to the read-only bridge answered ${post.status}, expected 403/405`);
+  }
+  const front = await playwrightRequest.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(config.baseUrl) });
+  try {
+    const response = await front.get(`${config.baseUrl.origin}${config.baseUrl.pathname}${SERVLET_PATH}?key=${TODAY_KEY}`, { maxRedirects: 0 });
+    results.frontDoorNoGrant = response.status();
+    assert([401, 403].includes(response.status()), `front-door request without a render grant answered ${response.status()}, expected 401/403`);
+  } finally {
+    await front.dispose();
+  }
+  return results;
+}
+
+async function main() {
+  const runId = `${Date.now()}-${process.pid}`;
+  const missingKey = `renderer_missing_ap_${Date.now()}`;
+  const positiveName = `Playwright APCache bridge ${runId}`;
+  const negativeName = `Playwright APCache missing ${runId}`;
+  const positiveSubject = `APCache bridge ${runId}`;
+  const negativeSubject = `APCache missing ${runId}`;
+  const sinceIso = new Date(Date.now() - 5000).toISOString();
+  const artifactPaths = new Set();
+  const savedFdids = new Set();
+  let tempDir = null;
+  let browser = null;
+  let context = null;
+  let positiveFid = null;
+  let negativeFid = null;
+  const sql = h.createSqlRunner(h.readConfig().mysql);
+  const ownedMarker = newOwnedMarker();
+  LITERAL_LOOKUPS[0].expected = '${last_name} ' + ownedMarker[0].toUpperCase() + ownedMarker.slice(1).toLowerCase();
+  LITERAL_LOOKUPS[0].expectedPdf = LITERAL_LOOKUPS[0].expected;
+  // Taken before anything is saved, so only the run's own attachment rows are ever deleted.
+  const ownedRows = eformRows(sql);
+  let ownedPatient = null;
+  let proof = null;
+  let browserClosed = false;
+  let templatesAbsentBeforeImport = false;
+
+
+  try {
+  if (process.env.APCACHE_NEGATIVE_FAULT_ARTIFACT_DIR) {
+    assert(['carlos-emr', 'carlos-emr.service'].includes(config.journalUnit) && config.probeUrl,
+      'Expected-negative APCache proof requires actual installed journal and loopback servlet probes');
+    assert(new Date().getTimezoneOffset() === 0, 'Expected-negative proof requires UTC log time');
+    proof = createApNegativeProof(process.env.APCACHE_NEGATIVE_FAULT_ARTIFACT_DIR, {
+      runId, missingKey, negativeName, ownedMarker,
+      sourceHashes: {
+        testSourceSha256: sha(fs.readFileSync(__filename)),
+        helperSourceSha256: sha(fs.readFileSync(require.resolve('./lib/apcache-negative-fault-proof'))),
+        jspSourceSha256: sha(fs.readFileSync(path.resolve(__dirname, '../src/main/webapp/WEB-INF/jsp/eform/efmformapconfig_lookup.jsp'))),
+        apcacheSourceSha256: sha(fs.readFileSync(path.resolve(__dirname, '../src/main/webapp/library/eforms/APCache.js'))),
+        fixtureSourceSha256: sha(fs.readFileSync(config.fixtureHtmlPath)),
+      },
+    });
+  }
+    validateConfig();
+    const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(config.testUser)}`);
+    assert(provider, 'The configured test login has no provider');
+    ownedPatient = createOwnedPatient(sql, { marker: ownedMarker, provider });
+    config.demographicNo = ownedPatient;
+    assert(sql.value(`UPDATE demographic SET first_name='\${last_name}',address='<img id=apInjected>\${city}',city='OWNED-CITY',postal='A1A1A1'
+      WHERE demographic_no=${Number(ownedPatient)} AND last_name=${h.sqlString(ownedMarker)} AND provider_no=${h.sqlString(provider)};
+      SELECT ROW_COUNT()`) === '1', 'Owned clinical literal fixture update did not match exactly one new patient');
+
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-eform-apcache-'));
+    const positiveHtml = writeFixture(tempDir, 'apcache-positive', null);
+    const negativeHtml = writeFixture(tempDir, 'apcache-negative', missingKey);
+    browser = await chromium.launch(getLaunchOptions(config.chromePath));
+    context = await browser.newContext({
+      acceptDownloads: true,
+      ignoreHTTPSErrors: shouldIgnoreHttpsErrors(config.baseUrl),
+      viewport: { width: 1280, height: 1200 },
+    });
+    if (proof) proof.attach(context, config.baseUrl.href);
+    const landing = await login(context, config, recorder);
+    await landing.close();
+
+    if (proof) {
+      assert(sql.value(`SELECT COUNT(*) FROM eform WHERE form_name IN (${h.sqlString(positiveName)},${h.sqlString(negativeName)})`) === '0', 'Owned template names must be absent before import');
+      templatesAbsentBeforeImport = true;
+    }
+    positiveFid = await uploadEform(context, positiveName, positiveSubject, positiveHtml);
+    negativeFid = await uploadEform(context, negativeName, negativeSubject, negativeHtml);
+    if (proof) {
+      const htmlHex = sql.value(`SELECT HEX(form_html) FROM eform WHERE fid=${Number(negativeFid)} AND form_name=${h.sqlString(negativeName)}`);
+      assert(/^(?:[A-Fa-f0-9]{2})+$/.test(htmlHex), 'Owned negative template must have actual stored HTML');
+      const templateHtmlSha256 = sha(Buffer.from(htmlHex, 'hex'));
+      assert(templateHtmlSha256 === sha(fs.readFileSync(negativeHtml)), 'Imported negative template bytes differ from exact authored fixture');
+      proof.bindFixture({negativeFid:String(negativeFid),patient:String(ownedPatient),templateHtmlSha256});
+    }
+
+    const positive = await checkPositiveRender(context, positiveFid, runId, artifactPaths, sql, {patient:ownedPatient,marker:ownedMarker,provider});
+    if (positive.fdid) {
+      savedFdids.add(positive.fdid);
+    }
+    if (proof) proof.update({positiveWorkflowCompleted:true});
+    const negative = await checkNegativeRender(context, sql, negativeFid, missingKey, runId, artifactPaths);
+    savedFdids.add(negative.fdid);
+    if (proof) {proof.update({negativeWorkflowCompleted:true});await proof.drain();}
+
+    const journal = checkJournal(sinceIso, missingKey, [positive.fdid, negative.fdid].filter(Boolean), positive.providerValue);
+    const probes = await checkDirectProbes(proof);
+
+    // A 422 from the bridge is expected during the negative render (it is what withholds the
+    // PDF); it happens inside the headless renderer, not in this browser, so this browser must
+    // never have seen the bridge answer an error. The interactive route must not have answered
+    // one either: the save result view's efmfid/efmdemographic_no query string once produced
+    // "Invalid fid" 400s on every post-save lookup, and APCache.js turns any lookup failure
+    // into a "contact an administrator" alert the recorder captures as a dialog.
+    splitApprovedViewLookups();
+    const lookupFailures = recorder.badResponses.filter((response) => response.url.includes(LOOKUP_PATH));
+    assert(lookupFailures.length === 0, `interactive APCache lookups answered errors: ${describe(lookupFailures)}`);
+    assert(!recorder.badResponses.some((response) => response.url.includes(SERVLET_PATH)), `this browser saw the renderer bridge answer an error: ${describe(recorder.badResponses)}`);
+    assert(recorder.badResponses.length === 0, `Unexpected HTTP errors: ${describe(recorder.badResponses)}`);
+    const lookupAlerts = recorder.dialogs.filter((dialog) => /an error has occurred/i.test(dialog.text));
+    assert(lookupAlerts.length === 0, `APCache raised its lookup-failure alert: ${describe(lookupAlerts)}`);
+
+    console.log(JSON.stringify({
+      positiveTemplateFid: positiveFid,
+      negativeTemplateFid: negativeFid,
+      savedEformsCreated: [positive.fdid, negative.fdid].filter(Boolean).length,
+      providerValueLength: positive.providerValue.length,
+      literalLookupControlsVerified: positive.literalLookupControlsVerified,
+      todayValue: positive.todayValue,
+      journal,
+      probes,
+    }, null, 2));
+    for (const artifactPath of artifactPaths) {
+      // screenshot() returns null when screenshots are disabled; there is no file to remove then.
+      if (artifactPath) fs.rmSync(artifactPath, { force: true });
+    }
+    // Last: the eForm view an approved download leaves on screen is a POST result with no query string, so APCache.js
+    // forwards no fid and efmformapconfig_lookup refuses every lookup ("Invalid fid", 400): the form's APCache fields
+    // stay blank there.
+    assert(approvedViewLookupFailures.length === 0,
+      `after Approve and download, the eForm view's APCache lookups answered errors: ${describe(approvedViewLookupFailures)}`);
+    console.log('PASS eForm renderer APCache bridge check');
+  } catch (error) {
+    console.error('FAIL eForm renderer APCache bridge check');
+    console.error(redactSensitiveFailureText(error.stack || error.message));
+    console.error(describe(buildFailureDetails(recorder)));
+    process.exitCode = 1;
+  } finally {
+    const cleanupErrors = [];
+    if (context) {
+      for (const subject of [positiveSubject, negativeSubject]) {
+        await listSavedFdids(context, subject).then((fdids) => fdids.forEach((fdid) => savedFdids.add(fdid))).catch((error) => cleanupErrors.push(error));
+      }
+      for (const fdid of savedFdids) {
+        await cleanupSavedEform(context, fdid).catch((error) => cleanupErrors.push(error));
+      }
+      await cleanupImportedEform(context, positiveFid).catch((error) => cleanupErrors.push(error));
+      await cleanupImportedEform(context, negativeFid).catch((error) => cleanupErrors.push(error));
+    }
+    if (browser) {
+      try { await browser.close();browserClosed = true; }
+      catch (error) { cleanupErrors.push(error); }
+    }
+    if (proof && browserClosed) {
+      try {proof.update({browserClosed:true});}
+      catch (error) {cleanupErrors.push(error);}
+    }
+    if (tempDir) {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+    try {
+      // The soft-deleted templates by their unique names, then the instances and the patient by the patient's key.
+      // Each step on its own, so a template that cannot be removed does not leave the owned patient behind.
+      try {
+        if (!process.env.APCACHE_NEGATIVE_FAULT_ARTIFACT_DIR || templatesAbsentBeforeImport) {
+        sql.execute(`DELETE FROM eform WHERE form_name IN (${h.sqlString(positiveName)},${h.sqlString(negativeName)})`);
+        if (sql.value(`SELECT COUNT(*) FROM eform WHERE form_name IN (${h.sqlString(positiveName)},${h.sqlString(negativeName)})`) !== '0') {
+          throw new Error('The imported eForm templates were not removed');
+        }
+        }
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
+      try {
+        if (ownedPatient !== null) removeOwnedPatient(sql, ownedPatient, ownedMarker, ownedRows);
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
+    } finally {
+      sql.dispose();
+    }
+    if (proof) {
+      try {if (!cleanupErrors.length && browserClosed) proof.update({cleanupAcknowledged:true});}
+      finally {proof.close();}
+    }
+    if (cleanupErrors.length) {
+      console.error(`cleanup problems: ${cleanupErrors.map((error) => redactSensitiveFailureText(error.message)).join('; ')}`);
+      process.exitCode = 1;
+    }
+  }
+}
+
+if (process.env.APCACHE_NEGATIVE_FAULT_ARTIFACT_DIR) {
+  h.runCheck({name:'eform-apcache-renderer',run:async()=>{
+    await main();assert(!process.exitCode, 'APCache workflow or cleanup failed');
+  }});
+} else main();

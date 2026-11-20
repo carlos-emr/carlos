@@ -1,6 +1,7 @@
 <%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
+    Modifications by CARLOS Contributors, 2026.
     This software is published under the GPL GNU General Public License.
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -28,15 +29,15 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*"
+<%@ page import="java.util.*, io.github.carlos_emr.*, java.lang.*"
          errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -214,6 +215,7 @@
         el: document.querySelector('#resource_helpHtml_editor'),
         height: '200px',
         initialEditType: 'wysiwyg',
+        usageStatistics: false,
         initialValue: '',
         hideModeSwitch: true,
         toolbarItems: [['bold', 'italic', 'strike'], ['ul', 'ol'], ['link']],
@@ -281,7 +283,13 @@
 
 
     $(document).ready(function () {
-        parent.parent.resizeIframe($('html').height());
+        // resizeIframe lives on the admin shell that frames this page. A page opened
+        // standalone, or framed by a different shell, has no such function, and an
+        // unguarded call throws out of the jQuery ready callback as
+        // "parent.parent.resizeIframe is not a function" (reported on alpha10).
+        if (parent && parent.parent && typeof parent.parent.resizeIframe === 'function') {
+            parent.parent.resizeIframe($('html').height());
+        }
     });
 </script>
 </body>

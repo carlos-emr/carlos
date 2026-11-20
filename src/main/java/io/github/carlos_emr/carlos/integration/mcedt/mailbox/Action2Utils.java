@@ -28,6 +28,8 @@
  */
 package io.github.carlos_emr.carlos.integration.mcedt.mailbox;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import ca.ontario.health.edt.*;
 import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.Logger;
@@ -42,7 +44,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import java.io.*;
 import java.math.BigInteger;
-import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.*;
 
@@ -285,7 +286,7 @@ public class Action2Utils {
         String suffix = filename.substring(filename.lastIndexOf(".") + 1);
         String prefix = "";
         if (filename.length() < 4) {
-            logger.warn("Checked for OBEC file, found one with too short name: " + filename);
+            logger.warn("Checked for OBEC file, found one with too short name");
         } else {
             prefix = filename.substring(0, 4);
         }
@@ -318,7 +319,7 @@ public class Action2Utils {
 //				if (new Date(file.lastModified()).after(startDate) && new Date(file.lastModified()).before(endDate)) copyFileToDirectory(file, outbox,false, true);
 //			}
         } catch (Exception e) {
-            logger.error("Unable to copy OHIP files to outbox", e);
+            logger.error("Unable to copy OHIP files to outbox: {}", LogSafe.exceptionTrace(e));
         }
     }
 
@@ -346,7 +347,7 @@ public class Action2Utils {
             }
 
         } catch (Exception e) {
-            logger.error("Unable to copy OBEC files to outbox", e);
+            logger.error("Unable to copy OBEC files to outbox: {}", LogSafe.exceptionTrace(e));
         }
     }
 
@@ -361,39 +362,17 @@ public class Action2Utils {
         if (!dateDir.exists()) dateDir.mkdirs();
     }
 
+    /**
+     * The time of the last Upload-tab open. Both classes read and write the same file, so
+     * this delegates to {@link ActionUtils#getOutboxTimestamp()}, which owns its format.
+     */
     public static Date getOutboxTimestamp() {
-        Date startDate = new Date();
-        try {
-            SimpleDateFormat formatter = new SimpleDateFormat("dd-MM-yyyy HH:mm");
-            CarlosProperties props = CarlosProperties.getInstance();
-            File dateDir = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("ONEDT_OUTBOX", ""), "ONEDT_OUTBOX");
-            if (!dateDir.exists()) dateDir.mkdirs();
-            File dateFile = PathValidationUtils.validateGeneratedChildPath(".timestamp", dateDir);
-            if (!dateFile.exists()) dateFile.createNewFile();
-            BufferedReader br = new BufferedReader(new FileReader(dateFile));
-            String temp = br.readLine().trim();
-            if (temp != null) {
-                startDate = formatter.parse(temp);
-            }
-            br.close();
-        } catch (Exception e) {
-            logger.error("Unable to open outbox timestamp file", e);
-        }
-        return startDate;
+        return ActionUtils.getOutboxTimestamp();
     }
 
+    /** Records the last Upload-tab open; see {@link ActionUtils#setOutboxTimestamp(Date)}. */
     public static void setOutboxTimestamp(Date endDate) {
-        try {
-            SimpleDateFormat formatter = new SimpleDateFormat("dd-MM-yyyy HH:mm");
-            CarlosProperties props = CarlosProperties.getInstance();
-            File dateFile = PathValidationUtils.validateGeneratedSiblingPath(props.getProperty("ONEDT_OUTBOX", ""), ".timestamp", "ONEDT_OUTBOX timestamp");
-            if (!dateFile.exists()) dateFile.createNewFile();
-            BufferedWriter bw = new BufferedWriter(new FileWriter(dateFile));
-            bw.write(formatter.format(endDate));
-            bw.close();
-        } catch (Exception e) {
-            logger.error("Unable to open outbox timestamp file", e);
-        }
+        ActionUtils.setOutboxTimestamp(endDate);
     }
 
 
@@ -405,7 +384,7 @@ public class Action2Utils {
                 result = delegate.getTypeList();
                 setTypeList(request, result);
             } catch (Exception e) {
-                logger.error("Unable to load type list", e);
+                logger.error("Unable to load type list: {}", LogSafe.exceptionTrace(e));
 
                 //saveErrors(request, ActionUtils.addMessage("resourceAction.getTypeList.fault", McedtMessageCreator.exceptionToString(e)));
             }

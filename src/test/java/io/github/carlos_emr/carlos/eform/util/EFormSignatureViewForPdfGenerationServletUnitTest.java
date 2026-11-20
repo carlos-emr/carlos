@@ -63,6 +63,8 @@ class EFormSignatureViewForPdfGenerationServletUnitTest extends CarlosUnitTestBa
 
             DigitalSignatureManager manager = mock(DigitalSignatureManager.class);
             when(manager.getDigitalSignature(42)).thenReturn(signature);
+            signature.setModuleType(io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType.E_FORM);
+            when(manager.getDigitalSignatureMetadata(42)).thenReturn(signature);
             registerMock(DigitalSignatureManager.class, manager);
             // The grant's eForm (fdid 4321) references signature 42 AND the signature belongs to
             // the same patient (111), so the fetch is authorized.
@@ -97,6 +99,8 @@ class EFormSignatureViewForPdfGenerationServletUnitTest extends CarlosUnitTestBa
 
             DigitalSignatureManager manager = mock(DigitalSignatureManager.class);
             when(manager.getDigitalSignature(42)).thenReturn(signature);
+            signature.setModuleType(io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType.E_FORM);
+            when(manager.getDigitalSignatureMetadata(42)).thenReturn(signature);
             registerMock(DigitalSignatureManager.class, manager);
             // Stored markup escapes the '&' as '&amp;'; the reference must still authorize the fetch.
             registerMock(EFormValueDao.class, eFormValueDaoReferencingEscaped(4321, "42"));
@@ -112,6 +116,69 @@ class EFormSignatureViewForPdfGenerationServletUnitTest extends CarlosUnitTestBa
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
             assertThat(response.getContentAsByteArray()).containsExactly(imageBytes);
+        } finally {
+            EFormRenderTokenService.getInstance().invalidate(token);
+        }
+    }
+
+    @Test
+    @DisplayName("should stream a signature the Rich Text Letter stored with its ampersand escaped twice")
+    void shouldStreamSignature_whenRichTextLetterEscapedTheReferenceTwice() throws Exception {
+        EFormRenderTokenService.RenderToken token = EFormRenderTokenService.getInstance().issue(4321, "999998");
+        try {
+            byte[] imageBytes = new byte[] {6, 5, 4};
+            DigitalSignature signature = new DigitalSignature();
+            signature.setSignatureImage(imageBytes);
+            signature.setDemographicId(111);
+
+            DigitalSignatureManager manager = mock(DigitalSignatureManager.class);
+            when(manager.getDigitalSignature(42)).thenReturn(signature);
+            signature.setModuleType(io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType.E_FORM);
+            when(manager.getDigitalSignatureMetadata(42)).thenReturn(signature);
+            registerMock(DigitalSignatureManager.class, manager);
+            // The letter's signature pad inserts <img src='...&digitalSignatureId=42&r=...'>. The
+            // editor serializes the '&' as '&amp;', and saveRTL() escapes the serialized letter once
+            // more before it is stored, so the stored Letter value carries '&amp;amp;'.
+            registerMock(EFormValueDao.class, eFormValueDaoStoring(4321, "Letter",
+                    "&lt;img src=&quot;/carlos/imageRenderingServlet?source=signature_stored"
+                            + "&amp;amp;digitalSignatureId=42&amp;amp;r=568&quot;&gt;"));
+            registerMock(EFormDataDao.class, eFormDataDaoFor(4321, 111));
+
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormSignatureViewForPdfGenerationServlet");
+            request.setRemoteAddr("127.0.0.1");
+            request.setParameter("digitalSignatureId", "42");
+            installRendererCookie(request, token);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            new EFormSignatureViewForPdfGenerationServlet().doGet(request, response);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            assertThat(response.getContentAsByteArray()).containsExactly(imageBytes);
+        } finally {
+            EFormRenderTokenService.getInstance().invalidate(token);
+        }
+    }
+
+    @Test
+    @DisplayName("should reject a reference whose query string starts with an escaped ampersand")
+    void shouldRejectSignature_whenReferenceStartsWithAnEscapeInsteadOfAParameter() throws Exception {
+        EFormRenderTokenService.RenderToken token = EFormRenderTokenService.getInstance().issue(4321, "999998");
+        try {
+            registerMock(DigitalSignatureManager.class, mock(DigitalSignatureManager.class));
+            // "?amp;" is neither a raw parameter nor an escaped one, so it references nothing.
+            registerMock(EFormValueDao.class, eFormValueDaoStoring(4321, "Letter",
+                    "/carlos/imageRenderingServlet?amp;digitalSignatureId=42"));
+
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormSignatureViewForPdfGenerationServlet");
+            request.setRemoteAddr("127.0.0.1");
+            request.setParameter("digitalSignatureId", "42");
+            installRendererCookie(request, token);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            new EFormSignatureViewForPdfGenerationServlet().doGet(request, response);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+            assertThat(response.getContentAsByteArray()).isEmpty();
         } finally {
             EFormRenderTokenService.getInstance().invalidate(token);
         }
@@ -223,6 +290,8 @@ class EFormSignatureViewForPdfGenerationServletUnitTest extends CarlosUnitTestBa
             imagelessSignature.setDemographicId(111);
             DigitalSignatureManager manager = mock(DigitalSignatureManager.class);
             when(manager.getDigitalSignature(42)).thenReturn(imagelessSignature);
+            imagelessSignature.setModuleType(io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType.E_FORM);
+            when(manager.getDigitalSignatureMetadata(42)).thenReturn(imagelessSignature);
             registerMock(DigitalSignatureManager.class, manager);
             registerMock(EFormValueDao.class, eFormValueDaoReferencing(4321, "42"));
             registerMock(EFormDataDao.class, eFormDataDaoFor(4321, 111));
@@ -252,6 +321,8 @@ class EFormSignatureViewForPdfGenerationServletUnitTest extends CarlosUnitTestBa
 
             DigitalSignatureManager manager = mock(DigitalSignatureManager.class);
             when(manager.getDigitalSignature(42)).thenReturn(signature);
+            signature.setModuleType(io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType.E_FORM);
+            when(manager.getDigitalSignatureMetadata(42)).thenReturn(signature);
             registerMock(DigitalSignatureManager.class, manager);
             // The form's stored TEXT references signature 42 — text a form-filling user controls —
             // but the signature row belongs to another patient (222 vs the eForm's 111). The
@@ -286,6 +357,8 @@ class EFormSignatureViewForPdfGenerationServletUnitTest extends CarlosUnitTestBa
 
             DigitalSignatureManager manager = mock(DigitalSignatureManager.class);
             when(manager.getDigitalSignature(42)).thenReturn(signature);
+            signature.setModuleType(io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType.E_FORM);
+            when(manager.getDigitalSignatureMetadata(42)).thenReturn(signature);
             registerMock(DigitalSignatureManager.class, manager);
             registerMock(EFormValueDao.class, eFormValueDaoReferencing(4321, "42"));
             registerMock(EFormDataDao.class, eFormDataDaoFor(4321, 111));
@@ -360,6 +433,15 @@ class EFormSignatureViewForPdfGenerationServletUnitTest extends CarlosUnitTestBa
         signatureValue.setVarValue("/carlos/imageRenderingServlet?source=signature_stored&digitalSignatureId=" + signatureId);
         EFormValueDao dao = mock(EFormValueDao.class);
         when(dao.findByFormDataId(fdid)).thenReturn(List.of(signatureValue));
+        return dao;
+    }
+
+    private static EFormValueDao eFormValueDaoStoring(int fdid, String varName, String varValue) {
+        EFormValue value = new EFormValue();
+        value.setVarName(varName);
+        value.setVarValue(varValue);
+        EFormValueDao dao = mock(EFormValueDao.class);
+        when(dao.findByFormDataId(fdid)).thenReturn(List.of(value));
         return dao;
     }
 

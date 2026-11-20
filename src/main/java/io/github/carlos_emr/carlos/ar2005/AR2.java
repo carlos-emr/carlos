@@ -1,7 +1,5 @@
 package io.github.carlos_emr.carlos.ar2005;
 
-import org.apache.xmlbeans.xml.stream.XMLStreamException;
-import org.apache.xmlbeans.xml.stream.XMLInputStream;
 import org.w3c.dom.Node;
 import javax.xml.stream.XMLStreamReader;
 import java.io.Reader;
@@ -506,64 +504,6 @@ public interface AR2 extends XmlObject
             return (AR2)XmlBeans.getContextTypeLoader().parse(node, AR2.type, options);
         }
 
-        /**
-         * Parses an AR2 instance from a deprecated XMLInputStream.
-         *
-         * @param xis XMLInputStream the XML input stream containing AR2 form data
-         * @return AR2 the parsed AR2 instance
-         * @throws XmlException if the XML is malformed or does not conform to the AR2 schema
-         * @throws XMLStreamException if an error occurs during XML stream processing
-         * @deprecated XMLInputStream is deprecated; use InputStream or XMLStreamReader instead
-         */
-        @Deprecated
-        public static AR2 parse(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return (AR2)XmlBeans.getContextTypeLoader().parse(xis, AR2.type, (XmlOptions)null);
-        }
-
-        /**
-         * Parses an AR2 instance from a deprecated XMLInputStream with specified parsing options.
-         *
-         * @param xis XMLInputStream the XML input stream containing AR2 form data
-         * @param options XmlOptions the XML parsing and validation options to apply
-         * @return AR2 the parsed AR2 instance
-         * @throws XmlException if the XML is malformed or does not conform to the AR2 schema
-         * @throws XMLStreamException if an error occurs during XML stream processing
-         * @deprecated XMLInputStream is deprecated; use InputStream or XMLStreamReader instead
-         */
-        @Deprecated
-        public static AR2 parse(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return (AR2)XmlBeans.getContextTypeLoader().parse(xis, AR2.type, options);
-        }
-
-        /**
-         * Creates a validating XMLInputStream wrapper around the provided stream.
-         *
-         * @param xis XMLInputStream the XML input stream to validate
-         * @return XMLInputStream a validating stream wrapper
-         * @throws XmlException if validation setup fails
-         * @throws XMLStreamException if an error occurs during XML stream processing
-         * @deprecated XMLInputStream is deprecated; use XMLStreamReader validation instead
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, AR2.type, (XmlOptions)null);
-        }
-
-        /**
-         * Creates a validating XMLInputStream wrapper with specified validation options.
-         *
-         * @param xis XMLInputStream the XML input stream to validate
-         * @param options XmlOptions the XML parsing and validation options to apply
-         * @return XMLInputStream a validating stream wrapper
-         * @throws XmlException if validation setup fails
-         * @throws XMLStreamException if an error occurs during XML stream processing
-         * @deprecated XMLInputStream is deprecated; use XMLStreamReader validation instead
-         */
-        @Deprecated
-        public static XMLInputStream newValidatingXMLInputStream(final XMLInputStream xis, final XmlOptions options) throws XmlException, XMLStreamException {
-            return XmlBeans.getContextTypeLoader().newValidatingXMLInputStream(xis, AR2.type, options);
-        }
-        
         private Factory() {
         }
     }

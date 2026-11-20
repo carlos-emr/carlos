@@ -131,6 +131,12 @@ public class InboxhubQuery {
     private Boolean lab = false;
     private Boolean hrm = false;
     private Boolean unmatched = false;
+    /**
+     * Set by the toolbar's Acknowledged toggle: list only what was acknowledged today, judged by
+     * when it was acknowledged, not by the result's own date. The search panel's Acknowledged
+     * status never sets it, so older acknowledgements stay reachable there.
+     */
+    private Boolean acknowledgedToday = false;
 
     private String abnormal = AbnormalFilter.ALL.getValue();
     private String searchAll = ProviderSearchFilter.SPECIFIC_PROVIDER.getValue();
@@ -169,6 +175,14 @@ public class InboxhubQuery {
 
     public void setUnmatched(Boolean unmatched) {
         this.unmatched = unmatched;
+    }
+
+    public Boolean getAcknowledgedToday() {
+        return acknowledgedToday;
+    }
+
+    public void setAcknowledgedToday(Boolean acknowledgedToday) {
+        this.acknowledgedToday = acknowledgedToday;
     }
 
     public Boolean getClearFilters() {
@@ -334,6 +348,7 @@ public class InboxhubQuery {
         this.lab = false;
         this.hrm = false;
         this.unmatched = false;
+        this.acknowledgedToday = false;
         this.abnormal = AbnormalFilter.ALL.getValue();
         this.searchAll = ProviderSearchFilter.SPECIFIC_PROVIDER.getValue();
         this.viewMode = false;

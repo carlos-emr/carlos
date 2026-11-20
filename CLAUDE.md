@@ -36,7 +36,7 @@
 ## Core Context
 
 **Domain**: Canadian healthcare EMR system with multi-jurisdictional compliance (BC, ON, generic)
-**Stack**: Java 21, Spring 7.0.6, Struts 7.1.1, Hibernate 7.2.7, Maven 3, Tomcat 11.0, MariaDB/MySQL
+**Stack**: Java 25, Spring 7.0.6, Struts 7.1.1, Hibernate 7.2.7, Maven 3, Tomcat 11.0, MariaDB/MySQL
 **Regulatory**: HIPAA/PIPEDA compliance REQUIRED - PHI protection is CRITICAL
 
 
@@ -47,9 +47,138 @@
   `MIDDLEWARE` is hidden from the UI but its transport code/enum are retained and remain
   selectable only via direct configuration/DB for legacy relay deployments.
 - Admin configuration path is the existing UI: **Administration > Faxes > Configure Fax**.
+  `FaxConfig.faxUser` is the numeric SRFax **account number** (`access_id`; UI label "SRFax
+  Account Number", never the login email); `senderEmail` is the notification address only. The
+  page's **Test SRFax connection** button posts `method=testConnection` (POST-only, read-only
+  `Get_Fax_Inbox` probe via `FaxProviderClient.verifyConnection`) so bad credentials are
+  reported before saving. Browser check: `scripts/fax-configure-playwright-checks.js`.
 - Fax configuration requires `_admin.fax` write rights; scheduler controls use `_admin.fax.restart`.
 - SRFax duplicate prevention policy is unread/read flag based (unread-only pull + mark-as-read), not remote delete.
 - See `docs/fax-provider-configuration-and-ux.md` for implementation and operational details.
+
+## CDS Import Context (AI + Dev)
+
+- Start at `docs/cds-import.md`; server defaults and delegation are in
+  `docs/cds-import-configuration.md`. Admission defaults off. Enabling imports requires the
+  installed qualification and maintenance prerequisites in the operator guide.
+- Browser and trusted CLI imports share `demographic/cdsimport`. Resume intent is a durable
+  audited event. Preserve physical ownership, epochs, receipt verification, patient holds and
+  separate report/cleanup outcomes when changing recovery.
+- Preserve source values and partial-date precision alongside native projections. Read the
+  clinical and legacy-reader contracts before changing persisters or downstream readers.
+- Generate crosswalks and physical schema contracts with their tools. Qualify native changes
+  with the fresh ON/BC MariaDB tier and the actual packaged WAR.
+
+## eForm Chrome Styling
+
+- eForm pages must not receive a global stylesheet: the renderers (`efmshowform_data.jsp`,
+  `efmformadd_data.jsp`) and the PDF render surface (`EFormRenderPdfHtmlComposer`) never add the
+  plain `bootstrap.min.css`, whose reboot moves legacy eForm fields on screen and in print (#3944).
+- The toolbar, save alert and attachment picker use
+  `eform/eformFloatingToolbar/bootstrap-eform-scoped.min.css`, generated (never hand-edited) by
+  `scripts/build-eform-scoped-bootstrap.js`; new chrome goes inside an element with
+  `class="carlos-eform-ui"`. See `docs/eform-chrome-bootstrap-scope.md`.
+
+## eForm Signature Data URIs and the WAF
+
+- Signature pads store data URIs in author-named eForm fields, which the packaged WAF cannot name.
+  `eform_floating_toolbar.js` moves each image data URI into the fixed `carlos-data-uri` argument
+  while the save request is built (leaving `carlos-data-uri:<nonce>:<n>` in the field, with a
+  per-submission nonce in `carlos-data-uri-nonce` so typed text is never taken for a reference), and
+  `AddEForm2Action` restores it through `EFormDataUriCarrier` before anything is stored (#3552).
+- WAF rule 1040 exempts only `ARGS:carlos-data-uri`; never return to a request-wide
+  `ruleRemoveById`. `EFormDataUriCarrier` is the boundary: it accepts only padded Base64
+  PNG/JPEG/GIF/WebP (file signature checked) and jSignature base30, never SVG. The page and server
+  rules must stay identical: `scripts/fixtures/eform/data-uri-carrier-cases.json` drives both sides'
+  tests, and `scripts/waf/check-clinical-policy.py` (`data-uri-*`) pins the real-engine behaviour.
+
+## Query by Example Reporting Account
+
+- Query by Example runs every query as the read-only database account `carlos_report`
+  (`db_reporting_username` / `db_reporting_password`), never as `db_username`, and refuses to run
+  without it (issue #3372). There is no fallback to the application account.
+- `src/main/resources/db/reporting/carlos_report_grants.sql` lists every table as `reportable` or
+  `restricted` and rebuilds the account's grants. A migration that creates a table must add its
+  row there; `QueryByExampleReportingClassificationUnitTest` fails the build until it does, and
+  when the restricted rows differ from `QueryByExampleSqlValidator.SECURITY_SENSITIVE_TABLES`.
+- The application reads the same file from the WAR (`ReportingGrantList`) and refuses an account
+  whose `SHOW GRANTS` reach past it, so keep its one-row-per-line format: a row the reader cannot
+  parse closes Query by Example rather than being skipped.
+- Provisioning: `carlos-ctl db-users` / `db-migrate` on packaged installs; `populate_db.sh` and
+  the `qbe-reporting-account` helper in the devcontainer. See
+  `docs/query-by-example-least-privilege.md`.
+
+## PDF and Report Fonts
+
+- Never let a host font decide what prints (#5046). Jasper templates name a bundled DejaVu family
+  or nothing: `src/main/resources/jasperreports.properties` makes DejaVu Sans the default, and
+  `fonts/carlos-jasper-fonts.xml` maps Java's logical names to bundled faces. A fixed-height Jasper
+  text box must fit one line of its face, or Jasper prints nothing; `JasperTemplateFontPolicyUnitTest`
+  fails the build otherwise.
+- OpenPDF record text goes through `PdfFonts.phrase`/`paragraph`/`addText`/`showTextAligned`, which
+  fall back to bundled CJK and symbol faces. Not `new Phrase(text, font)`, `Phrase.add(String)`,
+  font-less chunks, `addCell(String)`, `PdfContentByte.showText*` or OpenPDF's default font.
+- `bash scripts/check-report-fonts.sh` re-runs the report tests under other host fonts in fresh
+  JVMs. See `docs/pdf-font-policy.md`.
+- Non-scripted HTML-to-PDF (forms, HRM reports, email, Messenger) goes through
+  `HtmlPdfRenderService`, never a new `ITextRenderer`; see `docs/html-pdf-rendering.md`.
+
+## Container-Provided Jakarta APIs
+
+- Tomcat 11 supplies Servlet 6.1, Pages 4.0, Expression Language 6.0 and Annotations 3.0 and
+  always loads those packages from its own `lib/`, so `pom.xml` keeps them `provided`, even when a
+  library asks for one at compile scope (#5416: EL 5.0.1 shipped beside Tomcat's EL 6.0). JSTL is
+  the exception: Tomcat has none, so the directly declared `jakarta.servlet.jsp.jstl-api`
+  and Glassfish implementation stay `compile`.
+- `ContainerApiPackagingUnitTest` (dependency graph) and `scripts/check-war-container-apis.py`
+  (the built WAR, run by `debian/rules`) enforce this from
+  `scripts/fixtures/tomcat-container-packages.json`. The `jspc` profile compiles with Tomcat 11's
+  Jasper (`${tomcat.version}`), not the plugin's default 10.1. See `docs/container-provided-apis.md`.
+## HAPI HL7 v2 Parsing
+
+- `ca.uhn.hapi` (HL7 v2, 2.6.0; not the `ca.uhn.hapi.fhir` line) reads lab and PHS/STAR messages
+  (#5414). Keep `hapi-base` and the five `hapi-structures-vNN` modules on the one
+  `hapi-hl7.version` property, and never reintroduce a vendored copy under `local_repo/`.
+- Text from outside CARLOS that may be HL7 v2 XML goes through `Hl7XmlMessageValidator` before
+  `GenericParser` / `DefaultXMLParser.parse`: HAPI 2.x no longer loads external entities or DTDs
+  but still expands internal ones. `PipeParser` never reads XML. Tests that need hostile XML use
+  `HostileHl7Xml` (loopback observer, synthetic marker file); never contact a public service.
+- Typed HAPI accessors report a missing repetition as a `RuntimeException` caused by an
+  `HL7Exception`. Where a handler answers such a miss with an empty value, catch `RuntimeException`
+  and call `Hl7Utils.rethrowUnlessHl7AccessFailure`; do not rely on `catch (HL7Exception)`.
+- Do not look repetitions of a generic message up by HAPI's segment names (`"OBR" + n`); use
+  `GenericSegmentNames`. See `docs/hapi-hl7v2-xml-hardening.md`.
+
+## Generic DAO Paging Order
+
+- `AbstractDaoImpl.findAll(offset, limit)` always orders by the entity identifier, read from the
+  JPA metamodel (composite `@EmbeddedId`/`@IdClass` keys expand to every component, by attribute
+  name), so offset pages never overlap or skip on an unchanged table (#5308). Never page with
+  `setFirstResult`/`setMaxResults` over a query without a unique `ORDER BY`: MariaDB returns
+  unordered rows in whatever index order it scans. A DAO needing a business order overrides
+  `getFindAllDomainOrder(alias)`; the identifier is still appended as the tie-breaker, and
+  `getIdentifierOrder(alias)` gives the same tie-breaker to a DAO's own paged queries.
+- Ordering is not a snapshot: see `AbstractDao#findAll` and
+  `docs/architecture/dao-findall-ordering.md` for concurrent inserts/deletes.
+
+## Debian Packaging and carlos-ctl
+
+The single-host deployment is three Debian packages (plus a transitional one):
+`carlos-emr` and `carlos-emr-drugref` are built from this repository
+(`debian/`); the `carlos-ctl` administration command is its **own repository
+and package**, `github.com/carlos-emr/carlos-ctl`, which `carlos-emr` depends
+on (`debian/control`, `Depends: carlos-ctl (>= ...)`). Through
+2026.08.0-alpha15 (developer build 2026.09.0~snapshot24) the CLI lived here
+under `debian/assets/carlos_ctl`; do not recreate it. What this repository keeps for the CLI: the OSCAR 19 import
+manifests it reads (`debian/assets/o19-manifest/*.json`, generated by
+`scripts/migration/o19/generate_manifests.py` and installed under
+`/usr/share/carlos-emr/o19-manifest/`), the pin of the `carlos-ctl` release a
+CARLOS release ships (`debian/carlos-ctl.pin`, fetched by
+`debian/fetch-carlos-ctl.sh`), the packaging-contract tests
+(`debian/assets/tests/`), the generator tests (`scripts/migration/o19/tests/`)
+and the CI job that runs the pinned CLI's suite against this tree
+(`.github/workflows/debian-python-tests.yml`, `CARLOS_SRC`). A postinst that
+starts using a new `carlos-ctl` verb or flag must raise the `Depends` floor.
 
 ## Essential Commands
 
@@ -140,6 +269,7 @@ CARLOS provides null-safe wrappers around OWASP Encoder. **Use the CARLOS wrappe
 | CSS string | `<carlos:encode value="${v}" context="cssString"/>` | `${carlos:forCssString(v)}` | `SafeEncode.forCssString(v)` |
 | URL path | `<carlos:encode value="${v}" context="uri"/>` | `${carlos:forUri(v)}` | `SafeEncode.forUri(v)` |
 | URL parameter | `<carlos:encode value="${v}" context="uriComponent"/>` | `${carlos:forUriComponent(v)}` | `SafeEncode.forUriComponent(v)` |
+| HL7 lab text (`<br />` markers) | `<carlos:encode value="${v}" context="htmlWithBreakMarkers"/>` | `${carlos:forHtmlContentWithBreakMarkers(v)}` | `SafeEncode.forHtmlContentWithBreakMarkers(v)` |
 
 `<carlos:encode>` supports the full OWASP context set. Default `context="html"` (forHtmlContent). See `src/main/webapp/WEB-INF/carlos-tag.tld` for the complete list.
 
@@ -181,11 +311,40 @@ CSRFGuard's client script only injects the hidden `<input name="CSRF-TOKEN">` in
 Don't rely on the "empty placeholder form" anti-pattern `<form id="csrfForm" style="display:none;"></form>` — CSRFGuard skips action-less forms, so the input never gets populated. Note also how CSRFGuard 4.5 (configured with `org.owasp.csrfguard.Ajax=true`, see `Owasp.CsrfGuard.properties`) validates tokens:
 
 - **AJAX / XHR requests** carrying `X-Requested-With: XMLHttpRequest` are validated via the `CSRF-TOKEN` request header. XHRs hijacked by CSRFGuard's injected client script get this header set automatically; `fetch()` calls are **not** hijacked and must set `CSRF-TOKEN` explicitly (e.g. reading it from the hidden `input[name="CSRF-TOKEN"]`).
+  - **Server-side, never compare `X-Requested-With` with `equals`.** CSRFGuard's hijack calls `setRequestHeader` a second time, and the XHR spec combines repeated values, so a jQuery `$.ajax` POST arrives as `X-Requested-With: XMLHttpRequest, OWASP CSRFGuard Project` and a `carlos-ajax.js` request carries the marker alone. Use `RequestNegotiation.isAjax(request)`. See `docs/csrf-protection-architecture.md` → "`X-Requested-With` is a LIST, not a single value".
 - **Classic form POSTs** (non-AJAX) are validated via the `CSRF-TOKEN` form-body parameter injected by CSRFGuard into the `<form>`.
 
 Header validation takes precedence over body-parameter validation when both are present.
 
+**Forms built in script and forms in inserted HTML** need no hand-rolled token. CARLOS serves a
+patched CSRFGuard client (`src/main/resources/csrfguard/carlos-csrfguard.js`, issue #4130). It
+adds the token when a same-origin POST form is submitted, through `form.submit()` or a submit
+event, and it reaches forms nested in HTML inserted after load (the Administration panel). It
+also survives numerically named controls. Give such forms `method="post"` and a real
+same-origin `action`. Before upgrading CSRFGuard, read
+`docs/csrf-protection-architecture.md` → "CARLOS patches to the client template".
+
+**Content-Security-Policy interaction.** The bootstrap fragment is an *inline* `<script>`. A page
+that sets its own `script-src` without `'unsafe-inline'` silently gets no token: the input stays
+empty, every POST is rejected with an HTML error page, and nothing is reported except a console
+message the user never sees. Such a page must generate a per-response nonce, include
+`'nonce-<value>'` in its `script-src`, and publish the same value as the `cspNonce` **request
+attribute before the include**. `csrf-token.jspf` and `LogoutBroadcastFilter` both read that
+attribute and emit a matching `nonce` on their inline blocks; pages that publish nothing are
+unaffected and render exactly as before. Prefer a nonce over `'unsafe-inline'` — the latter also
+admits injected script, which is the thing the policy exists to stop. Reference implementation:
+`src/main/webapp/WEB-INF/jsp/documentManager/annotateDocument.jsp`. Because the failure is
+invisible in the DOM, assert it in a browser check: the header is present, it carries a nonce, the
+inline blocks actually executed, and the console logged no CSP violation.
+
 Reference implementations: `src/main/webapp/WEB-INF/jsp/lab/CA/ALL/labDisplay.jsp:564,939` and `src/main/webapp/WEB-INF/jsp/documentManager/showDocument.jsp:919,1169`.
+
+**`carlosCsrfForm.js`.** On top of the patched client, `share/javascript/carlosCsrfForm.js`
+offers `carlosPostForm(action, fields, {target})` and `carlosSubmitForm(form)`: they fetch a
+token when the page has none yet and, if none can be had, refuse to send the POST and alert the
+user instead of letting it fail as a silent 403. The runtime-built call sites converted in #4130
+use it. Still do not name form controls with bare numbers. See
+`docs/csrf-protection-architecture.md` → "Runtime-built and injected forms".
 
 ### PathValidationUtils - File Path Security
 
@@ -295,6 +454,13 @@ the top of that file:
 - `NON_MUTATOR_GATES` — a read-scope gate that permits GET and only 405s
   on truly unsupported methods like DELETE/PUT.
 
+`HttpMethodGuardFilter` only infers a write from the route name or the
+`method` value. When a route picks its write from another parameter
+(`buttonUpdate`, `delete`, `forward`, ...), the action must refuse the GET
+itself; also list the route in the filter's
+`MUTATION_INTENT_PARAMS_BY_ROUTE`, and the contract test drives every entry
+there against its action (issue #3394).
+
 **When a new slice is migrated**, extend `IN_SCOPE_PACKAGE_PREFIXES` with
 the slice's package prefix only after the existing guarded actions in that
 slice have been audited and classified in the contract manifest. For a
@@ -314,7 +480,7 @@ default for new code.
 **Migration History**:
 - Struts 2.5.33 → 6.8.0 (January 2026, PR #88) — security fix for CVE-2025-64775
 - Struts 6.8.0 → 7.1.1 (March 2026) — Jakarta EE namespace migration, `com.opensymphony.xwork2.*` → `org.apache.struts2.*`
-- Caffeine 3.2.3 cache dependency required by Struts for internal caching
+- Caffeine 3.2.4 cache dependency required by Struts for internal caching
 
 ### Direct Response Actions
 
@@ -350,6 +516,20 @@ result. PR #2043 showed this surfaces in CARLOS as `CARLOS Error: 0` because
 Track broader cleanup of legacy mixed direct-response actions in
 GitHub issue #2064.
 
+### Duplicate Submissions and Stale Edits
+
+A create form that a double click, a slow-response re-click or a reload of its POST result page
+can repeat must save once per rendering: use `FormSubmissionGuard` (issue #4225). Render its
+token into the form and claim it in the action before validation. Answer a repeat of a saved
+rendering with the first save's own result page, and map `submissionRefused` to
+`/WEB-INF/jsp/common/formSubmissionRefused.jsp` for the 409 cases. An edit form that posts every
+field must refuse a form rendered from an older version rather than overwrite the newer record;
+`DemographicEditVersion` with `DemographicDao.findForUpdate()` is the reference; the Edit
+Appointment form carries `appointmentVersion` (`AppointmentEditConflict`) and the Edit Tickler
+form `ticklerVersion` (`TicklerEditVersion`). Browser checks that deliberately replay a captured
+POST must drop `carlosFormSubmission`, `demographicVersion`, `appointmentVersion` and
+`ticklerVersion`. See `docs/form-submission-guard.md`.
+
 ## Layer Names — class naming policy
 
 **Suffix == role + lifecycle.** Pick the most specific verb-suffix that fits; fall back to `*Service` only when nothing more specific applies. **Never** combine two role-suffixes (no `*LoaderService`, `*ServiceManager`).
@@ -360,6 +540,9 @@ Sanctioned suffixes for new code:
 Forbidden in new code: `*Prep`, `*Manager`, `*Helper`, `*Utils`, compound suffixes except the sanctioned `*ImportService` file-import workflow suffix. DAOs may not inject other DAOs (cross-DAO orchestration goes in a `*Service`).
 
 Full policy + decision rules + retired-suffix migration guidance: **`docs/architecture/layer-names.md`**.
+CDS transfer readers, mappers, field reconcilers, planners, classifiers, resource
+factories, immutable registries and static DAO read support follow the narrowly
+defined additional roles in that policy's "CDS transfer components" section.
 
 ## Healthcare Domain Context
 
@@ -440,9 +623,10 @@ When asked to write tests, you MUST:
 3. **Never invent or assume method names** - verify they exist
 4. **Choose the right base class**:
    - `CarlosTestBase` - Integration tests with Spring context and database
+   - Isolated persistence integration tests without the application Spring context may manage a unique H2 database and real JDBC/JPA resources directly (see `FrmDataShortcutLatestIntegrationTest` and `PregnancyTransactionIntegrationTest`). Keep `@Tag("integration")`, exercise actual database behavior and real commits/rollbacks when testing mutations, and guarantee resource/schema cleanup; mocked database behavior is not integration coverage.
    - `CarlosUnitTestBase` - Unit tests with mocked SpringUtils (no database)
    - Domain-specific bases like `DemographicUnitTestBase` - Unit tests with test data builders
-5. **Use @PersistenceContext(unitName = "testPersistenceUnit")** for EntityManager (integration tests only)
+5. **Use @PersistenceContext(unitName = "testPersistenceUnit")** for Spring-injected EntityManagers in application-context integration tests
 6. **For Manager unit tests**: Register SpringUtils mocks BEFORE creating static mocks (LogAction, etc.)
 
 ### Integration Test Pitfalls (Hibernate/H2)
@@ -474,13 +658,18 @@ dao.searchNotes("111", "%diabetes%");
 Note: This is standard SQL behavior, NOT a production bug. Callers provide wildcards from the UI layer.
 
 **4. DAO Methods May Override Test Data**
-Some DAO `save*()` methods override fields like `update_date` with `new Date()`. When testing date-based queries, re-set the date after saving:
+Some DAO `save*()` methods override fields like `update_date` with `new Date()`, and some entities stamp
+dates in `@PrePersist`/`@PreUpdate` callbacks. Always check the DAO and the entity before assuming test
+data is persisted as-is. `CaseManagementIssue` (finding 361): the DAO stamps new issues, never writes the
+date a caller's copy of an existing issue carries, and the entity's `@PreUpdate` stamps every UPDATE, so
+re-setting the date after `saveIssue` and flushing does not work. Give the fixture its date on INSERT:
 ```java
-caseManagementIssueDAO.saveIssue(cmi);  // Overwrites update_date with now()
-cmi.setUpdate_date(desiredDate);         // Re-set to test-specific date
-hibernateTemplate.flush();               // Persist the corrected date
+cmi.setUpdate_date(pastDate);   // an INSERT runs no @PreUpdate
+entityManager.persist(cmi);     // or hibernateTemplate.save(cmi)
+entityManager.flush();
 ```
-Always check the DAO implementation before assuming test data is persisted as-is.
+To move an existing issue's date in a test, use a bulk JPQL/SQL `update` (no entity callbacks). See
+`docs/test/test-writing-guide.md` and `CaseManagementIssueUpdateDateIntegrationTest`.
 
 **5. SpringUtils Identity Across Multiple Contexts**
 When running the full test suite, classes with `@TestPropertySource` create separate Spring contexts. `SpringUtils.getBean()` may return instances from a different context than `@Autowired` injection. Do NOT assert instance identity (`isSameAs`/`isEqualTo`). Instead assert type:
@@ -497,6 +686,10 @@ DAO method names can be misleading. For example, `getProviders(boolean active)` 
 
 ## Code Quality Standards
 
+**Library choices for new code**: Follow [Library conventions](docs/architecture/library-conventions.md)
+for common JDK and library APIs, including the HTTP-client decision and legacy compatibility
+exceptions. These conventions do not authorize rewriting existing call sites.
+
 **Security (CodeQL Integration)**:
 - Null-safe CARLOS encoder for all JSP outputs — prefer `<carlos:encode>` tag or `${carlos:forXxx()}` EL functions (see [OWASP Encoding](#owasp-encoding--xss-prevention))
 - Parameterized SQL queries (never concatenation)
@@ -511,7 +704,7 @@ or per-site `@SuppressFBWarnings`; Semgrep uses CARLOS sanitizer-aware rules in 
 rule-specific `nosemgrep` comments only when the code is already encoded/sanitized and the rule
 cannot model that sanitizer. Semgrep CI filters suppressed SARIF results before GitHub Code Scanning
 upload, so `nosemgrep` suppressions must remain specific and justified; do not blanket-disable
-Semgrep Pro or broad rule groups to clear PR noise. The `IMPROPER_UNICODE` detector is
+Semgrep Pro or broad rule groups to clear PR noise. SonarCloud path-traversal false positives (`javasecurity:S2083`/`S6549`/`S6096`) are excluded in `pom.xml` one file at a time, never by package, each with a source-and-helper comment; `SonarPathTraversalExclusionPolicyUnitTest` enforces this (issue #5316, see `docs/static-analysis-workflows.md`). The `IMPROPER_UNICODE` detector is
 *informational* — it flags `equalsIgnoreCase`/`toLowerCase`/`Normalizer` case folding **regardless
 of `Locale`** (so it cannot be cleared by adding `Locale.ROOT`), and almost all hits are intended
 case-insensitive domain comparisons. It is suppressed **per-site** with
@@ -560,7 +753,7 @@ public Example2Action(SomeManager someManager) {
 
 **Standards & Protocols**:
 - **HL7 v2/v3**: Full message processing with MSH, PID, OBX, ORC, OBR segment handlers
-- **FHIR R4**: HAPI FHIR 6.10.5 with resource filters and healthcare provider context
+- **FHIR DSTU3**: HAPI FHIR 8.12.1; core follows HAPI (6.9.12 minimum enforced), Saxon-HE remains 11.6, and outbound JSON retains the legacy blank-primitive contract
 - **SNOMED CT**: Clinical terminology with core dataset loading
 - **ICD-9/ICD-10**: Diagnosis coding systems fully integrated
 - **ATC Codes**: Anatomical Therapeutic Chemical classification for medications
@@ -595,7 +788,7 @@ public Example2Action(SomeManager someManager) {
 ## Technology Stack Details
 
 ### Core Technologies
-- **Java 21** with modern language features and Jakarta XML Binding
+- **Java 25** with modern language features and Jakarta XML Binding
 - **Spring Framework 7.0.6**: IoC container, MVC, AOP, Security, transaction management (Jakarta EE 11)
 - **Spring Security 7.0.4**: Crypto module for password hashing
 - **Hibernate 7.2.7**: ORM framework with custom MySQL dialect (`OscarMySQL5Dialect`)
@@ -607,7 +800,7 @@ public Example2Action(SomeManager someManager) {
 - **Struts 7.1.1**: Modern actions (2Action pattern) using `org.apache.struts2.ActionSupport`
   - Upgraded from 6.8.0 (March 2026) - Jakarta EE namespace migration
   - `*2Action` classes migrated from `com.opensymphony.xwork2.*` to `org.apache.struts2.*`
-  - Requires Caffeine 3.2.3 cache dependency for internal caching
+  - Requires Caffeine 3.2.4 cache dependency for internal caching
 - **Apache CXF 4.1.8**: Web services framework for healthcare integrations (Jakarta EE 10, upgrade to 4.2.x pending Jackson 3 migration)
 - **JSP/JSTL**: View layer with extensive medical form templates
 - **Bootstrap 5.3.0**: Modern UI framework loaded from CDN for responsive design
@@ -850,7 +1043,7 @@ This migration pattern allows CARLOS EMR to modernize incrementally while mainta
 - **Struts Configuration** (modular split):
   - `struts.xml` - Parent config with global constants and `<include>` directives for 17 module files
   - `struts-{admin,billing,clinical,demographic,document,eform,encounter,form,integration,lab,login,messenger,pmmodule,prescription,provider,report,scheduling}.xml` - Domain-specific action mappings
-  - Each module file declares its own uniquely-named package (e.g., `name="billing"`) with `namespace="/"` and `extends="struts-default"`
+  - Each module file declares its own uniquely-named package (e.g., `name="billing"`) with `namespace="/"` and `extends="carlos-default"` (the abstract parent in `struts.xml`: `struts-default` plus exception logging; name `carlosDefaultStack` / `carlosBasicStack`, never `defaultStack` / `basicStack`, in an action-level `<interceptor-ref>`)
   - New actions should be added to the appropriate domain-specific module file, not to `struts.xml`
   - Canonical action routes are extensionless (`struts.action.extension=""`)
   - Static assets are excluded from Struts by `struts.action.excludePattern`
@@ -868,7 +1061,7 @@ This migration pattern allows CARLOS EMR to modernize incrementally while mainta
 
 ### Docker Setup
 - Development environment runs in Docker containers
-- Tomcat container with Java 21 and debugging enabled
+- Tomcat container with Java 25 and debugging enabled
 - MariaDB database container
 - Maven repository caching for faster builds
 - Port 8080 for web application, 3306 for database
@@ -923,6 +1116,12 @@ SnomedCore/             # SNOMED CT clinical terminology (licensed, loaded separ
 build-demo.sh           # filters the dev demo dataset to the live (pruned) schema; its output
                         #   development.sql lives at .devcontainer/db/scripts/, not under database/mysql/
 ```
+
+**Demo/dev data companions** (all outside `database/`):
+- `.devcontainer/db/scripts/demo-name-sanitization.sql` (+ `-on.sql`) — FAKE- name sanitization v2 across all person-name tables; idempotent, exempts functional accounts (`-1`, `999998` carlosdoc)
+- `.devcontainer/db/scripts/demo-specialists.sql` — 60 clearly-fake referral specialists (specIds 9001–9060) for both ON and BC demo sets; never load a real provincial specialist directory into demo/dev. Also owns the `serviceSpecialists` consultation links, including a trailing block that gives each of the dev snapshot's six fictional consultation services a distinct slice of the roster (a no-op against either province's Flyway service catalog); pinned by `ConsultationSpecialistDemoSeedRegressionTest`
+- `.devcontainer/db/scripts/demo-synthetic-patients.sql` — 22 FAKE adults with full histories (problems, medicines, allergies, preventions, measurements, visit notes) for the AI chart tools (#6148); demographic_no 90001–90099, idempotent, devcontainer only. GENERATED from our own pinned Synthea v4.0.0 run (`scripts/devdata/synthea/run_synthea.sh`) by `scripts/devdata/synthea/generate_dev_patients.py` (code maps, clean-up rules and pins in its README); never hand-edit
+- `scripts/build-demo-additive.sh` + `demo-additive-exclude.txt` + `check-demo-additive.sh` — build-time transform of development.sql into the ADDITIVE per-province artifact the deb's optional `carlos-ctl demo-data` load uses (INSERT IGNORE only; Flyway data always wins)
 
 **Development Database**:
 - Container: `db-connect` alias → MariaDB as root user
@@ -1260,7 +1459,8 @@ docs/test/test-writing-guide.md                       # Test writing patterns an
 2. **Test real methods only** - Never make up methods that don't exist in the codebase
 3. **Use actual method signatures** - Match the exact parameters and return types
 4. **Choose the right base class**:
-   - Integration tests: Extend `CarlosTestBase` (Spring context + H2 database)
+   - Spring integration tests: Extend `CarlosTestBase` (Spring context + H2 database).
+   - Isolated persistence integration tests without the application Spring context may manage a unique H2 database and real JDBC/JPA resources directly (see `FrmDataShortcutLatestIntegrationTest` and `PregnancyTransactionIntegrationTest`). Keep `@Tag("integration")`, exercise actual database behavior and real commits/rollbacks when testing mutations, and guarantee resource/schema cleanup; mocked database behavior is not integration coverage.
    - Unit tests: Extend `CarlosUnitTestBase` (mocked SpringUtils, no database)
    - Domain unit tests: Extend domain-specific bases like `DemographicUnitTestBase`
 5. **Follow BDD naming strictly**: `should<Action>_<prepositionOrContext><Condition>` (camelCase, exactly ONE underscore, suffix starts lowercase; e.g. `_when`, `_by`, `_for`, `_with`). Do not use zero-underscore or multi-underscore variants.
@@ -1352,6 +1552,7 @@ make install --run-unit-tests     # Only unit tests (fast, no database)
 docs/Password_System.md                           # Security architecture details
 docs/struts-actions-detailed.md                   # Action mapping documentation
 docs/struts-web-endpoints.md                      # Current Struts route + WEB-INF JSP guidance
+docs/build-identity.md                            # Build stamp (About page, REST headers, HL7 SFT; never the login page): carlos-build.properties + BuildInfo, not carlos.properties
 pom.xml                                            # Complete dependency list with versions
 README.md                                          # Project setup and overview
 ```

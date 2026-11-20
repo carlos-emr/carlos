@@ -26,7 +26,9 @@ import org.apache.struts2.ServletActionContext;
  * {@code /oscarRx/StaticScript2.jsp}). Renders a read-only static prescription
  * view identified by {@code regionalIdentifier}/{@code cn} query parameters.
  * Enforces {@code _rx} read privilege before forwarding to the JSP at its
- * {@code /WEB-INF/jsp/rx/} location.
+ * {@code /WEB-INF/jsp/rx/} location. The page lists, and offers to re-prescribe, the saved drugs
+ * of the patient named by {@code demographicNo}, so that patient is also authorised here
+ * (patient-level {@code _rx} read and chart access) before the JSP opens Rx for them.
  *
  * @since 2026-04-13
  */
@@ -34,6 +36,13 @@ public final class ViewStaticScript2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Admits the static-script page with global {@code _rx} read and the patient the request names
+     * ({@link RxRequestedPatientAccess#require}); the page itself refuses a request that names no patient.
+     *
+     * @return {@code success} to render StaticScript2.jsp
+     * @throws SecurityException when the caller may not view the named patient
+     */
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -42,6 +51,11 @@ public final class ViewStaticScript2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", null)) {
             throw new SecurityException("missing required sec object (_rx)");
         }
+
+        // The JSP activates and renders the requested patient's Rx. Global _rx read alone must not
+        // let a caller pick any patient by URL: authorise the named patient first. A request that
+        // names no valid patient is left to the JSP, which refuses it without rendering anything.
+        RxRequestedPatientAccess.require(securityInfoManager, loggedInInfo, request, "_rx", "r");
 
         return SUCCESS;
     }

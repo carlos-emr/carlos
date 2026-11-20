@@ -2,37 +2,39 @@
 
 ## Overview
 
-CARLOS EMR uses a dual test framework approach with JUnit 5 (modern) tests running alongside legacy JUnit 4 tests. This guide covers the current state of the modern test framework and how to develop tests.
+CARLOS EMR has a single test suite built on JUnit Jupiter, living entirely under
+`src/test/`. It was introduced alongside the legacy JUnit 4 tests in a parallel
+`src/test-modern/` tree; that migration is finished — the JUnit 4 suite has been removed
+and `src/test-modern/` was collapsed into `src/test/`. This guide covers how to develop
+tests against the current framework.
 
 **Status**: ✅ Production Ready
 
 ## Current Test Results
 
-### Unit Tests
-- **129 of 129 passing** - All unit tests pass
-  - `DemographicManagerUnitTest` - 117 tests ✅ (18 @Nested classes covering 66 methods)
-  - `TicklerManagerUnitTest` - 9 tests ✅ (5 validation + 4 business operations)
-  - `TicklerDaoUnitTest` - 3 tests ✅
+Run the suite for a current count — a tally recorded here only goes stale:
 
-### Integration Tests
-- **11 of 12 passing** - TicklerDao integration tests
-- Tests are split across multiple files by operation type:
-  - `TicklerDaoFindIntegrationTest` - 5 tests ✅
-  - `TicklerDaoQueryIntegrationTest` - 3 tests ✅
-  - `TicklerDaoAggregateIntegrationTest` - 3 tests ✅
-  - `TicklerDaoWriteIntegrationTest` - 1 test ❌ (lst_gender table dependency)
+```bash
+mvn test                       # everything
+mvn test -Dgroups="unit"       # fast, no database
+mvn test -Dgroups="integration"
+```
+
+Worked examples to read: `DemographicManagerUnitTest` (117 tests across 18 `@Nested`
+classes) for the manager unit-test pattern, and the `TicklerDao*IntegrationTest` family
+for splitting a DAO's integration tests by operation type.
 
 ## Quick Start
 
 ### Running Tests
 
 ```bash
-# Run all tests (modern + legacy)
+# Run all tests
 mvn test
 make install --run-tests
 
-# Run specific modern test
-mvn test -Dtest=TicklerDaoIntegrationTest
+# Run a specific test class
+mvn test -Dtest=TicklerDaoFindIntegrationTest
 ```
 
 ### Writing Your First Test
@@ -69,36 +71,38 @@ public class YourComponentIntegrationTest extends CarlosTestBase {
 ### Directory Structure
 
 ```
-src/test-modern/
+src/test/
 ├── java/io/github/carlos_emr/carlos/
 │   ├── test/
 │   │   ├── base/              # Base test classes
 │   │   │   ├── CarlosTestBase.java
 │   │   │   ├── CarlosDaoTestBase.java
 │   │   │   └── CarlosWebTestBase.java
-│   │   ├── mocks/             # Mock implementations
-│   │   │   └── MockSecurityInfoManager.java
 │   │   ├── unit/              # Unit test infrastructure
 │   │   │   └── CarlosUnitTestBase.java
+│   │   ├── builders/          # Test data builders
+│   │   ├── logging/           # LogCapture, for Log4j2 assertions
+│   │   ├── mocks/             # Mock implementations
+│   │   │   └── MockSecurityInfoManager.java
+│   │   ├── support/           # Shared test support
 │   │   ├── examples/          # Example tests
 │   │   └── simple/            # Framework validation tests
-│   └── tickler/               # Domain-specific tests (example)
-│       ├── dao/               # DAO tests
-│       │   ├── archive/      # Original single-file tests (preserved for reference)
-│       │   ├── TicklerDaoBaseIntegrationTest.java
-│       │   ├── TicklerDaoFindIntegrationTest.java
-│       │   ├── TicklerDaoQueryIntegrationTest.java
-│       │   ├── TicklerDaoAggregateIntegrationTest.java
-│       │   ├── TicklerDaoWriteIntegrationTest.java
-│       │   └── TicklerDaoUnitTest.java
-│       ├── manager/           # Manager/Service tests
-│       │   ├── SimpleTicklerManagerTest.java
-│       │   └── TicklerManagerUnitTest.java
-│       └── TicklerUnitTestBase.java
+│   └── <domain>/              # Per-domain tests, mirroring the main tree
+│       └── tickler/
+│           ├── dao/           # Split by operation type
+│           │   ├── TicklerDaoFindIntegrationTest.java
+│           │   ├── TicklerDaoQueryIntegrationTest.java
+│           │   ├── TicklerDaoAggregateIntegrationTest.java
+│           │   ├── TicklerDaoWriteIntegrationTest.java
+│           │   └── TicklerDaoUnitTest.java
+│           ├── manager/
+│           │   └── TicklerManagerUnitTest.java
+│           └── TicklerUnitTestBase.java
 └── resources/
-    ├── META-INF/
-    │   └── persistence.xml    # JPA configuration
-    └── test-context-*.xml     # Spring contexts
+    ├── test-context-*.xml           # Spring contexts (full, complete, mock-security)
+    ├── test-applicationContext*.xml # Narrower / legacy contexts
+    ├── test.properties              # @TestPropertySource values
+    └── log4j2.xml                   # Test logging config
 ```
 
 ### Test Types
@@ -162,15 +166,15 @@ public abstract class CarlosUnitTestBase {
 
 #### Maven Configuration (pom.xml)
 ```xml
-<!-- JUnit 5 with Java 21 support -->
+<!-- JUnit 6 with Java 25 support -->
 <dependency>
     <groupId>org.junit.jupiter</groupId>
     <artifactId>junit-jupiter</artifactId>
-    <version>5.10.1</version>
+    <version>6.1.3</version>
     <scope>test</scope>
 </dependency>
 
-<!-- Surefire configuration for ByteBuddy Java 21 compatibility -->
+<!-- Surefire configuration for ByteBuddy Java 25 compatibility -->
 <plugin>
     <artifactId>maven-surefire-plugin</artifactId>
     <configuration>
@@ -183,10 +187,14 @@ public abstract class CarlosUnitTestBase {
 ```
 
 #### Spring Test Context
-Located in `src/test-modern/resources/`:
-- `test-context-dao.xml` - DAO and database configuration
-- `test-context-persistence.xml` - JPA/Hibernate setup
-- `test-context-security.xml` - Mock security configuration
+Located in `src/test/resources/`:
+- `test-context-full.xml` - the context `CarlosTestBase` loads
+- `test-context-complete.xml` - narrower package scan, names the `testPersistenceUnit`
+- `test-context-mock-security.xml` - mock security configuration
+
+There is no test `persistence.xml`; each context builds its `EntityManagerFactory` from
+`packagesToScan`, so an entity outside the scanned packages fails at runtime as
+"Unknown entity" rather than at startup.
 
 ## Best Practices
 
@@ -333,7 +341,7 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
 - Check Spring context configuration
 - Verify bean is defined in test context
 
-#### ByteBuddy Java 21 errors
+#### ByteBuddy Java 25 errors
 - Verify `-Dnet.bytebuddy.experimental=true` in Maven config
 - Update to Mockito 5.8.0 or later
 
@@ -342,9 +350,11 @@ public class TicklerManagerUnitTest extends TicklerUnitTestBase {
 - Example: Mock OscarLogDao before mocking LogAction
 
 #### Test not running
-- Check naming convention (*Test.java)
-- Verify @Test annotation present
-- Ensure test is in src/test-modern/java
+- Verify `@Test` annotation present
+- Check the class matches a surefire `<include>` pattern in `pom.xml` — that list is an
+  **allowlist**, so a non-matching class is skipped silently, with no error.
+  `*UnitTest` and `*IntegrationTest` always match.
+- Ensure the test is under `src/test/java`
 
 ### Debug Commands
 
@@ -359,32 +369,23 @@ mvn test -Dtest=YourTest -Dmaven.surefire.debug
 mvn test-compile
 ```
 
-## Migration from Legacy Tests
+## Adding a Test
 
-### When to Migrate
-- When adding new features
-- When fixing bugs in tested code
-- During refactoring efforts
-
-### How to Migrate
-1. Create new test in src/test-modern/
-2. Extend appropriate base class
-3. Convert assertions to AssertJ
-4. Add @DisplayName annotations
-5. Keep legacy test until confident
-6. Remove legacy test when ready
-
-### What Not to Migrate
-- Working tests with good coverage
-- Tests tightly coupled to legacy frameworks
-- Tests scheduled for removal
+1. Put it under `src/test/java`, in the package mirroring the code under test
+2. Extend the right base class — `CarlosTestBase` for Spring + H2 integration tests,
+   `CarlosUnitTestBase` for mocked unit tests, or a domain base such as
+   `DemographicUnitTestBase`
+3. Name it `*UnitTest` or `*IntegrationTest` so surefire picks it up
+4. Use AssertJ assertions and `@DisplayName`
+5. Tag it (`@Tag("unit")`, `@Tag("dao")`, ...) so `-Dgroups=` filtering works
 
 ## Resources
 
 ### Documentation
-- `/workspace/docs/modern-test-framework-guide.md` - This guide
-- `/workspace/docs/test-writing-best-practices.md` - Detailed best practices
-- `/workspace/CLAUDE.md` - Project context including test section
+- [`modern-test-framework-guide.md`](modern-test-framework-guide.md) - This guide
+- [`test-writing-guide.md`](test-writing-guide.md) - Patterns and static mocking
+- [`modern-test-framework-complete.md`](modern-test-framework-complete.md) - Deep reference
+- `CLAUDE.md` - Project context including the test section
 
 ### Examples
 - `io.github.carlos_emr.carlos.tickler.dao.*` - DAO integration tests
@@ -392,6 +393,6 @@ mvn test-compile
 - `io.github.carlos_emr.carlos.test.base.*` - Framework base classes
 
 ### Tools
-- JUnit 5: https://junit.org/junit5/docs/current/user-guide/
+- JUnit (Jupiter programming model; still the reference for JUnit 6): https://junit.org/junit5/docs/current/user-guide/
 - AssertJ: https://assertj.github.io/doc/
 - Mockito: https://javadoc.io/doc/org.mockito/mockito-core/latest/

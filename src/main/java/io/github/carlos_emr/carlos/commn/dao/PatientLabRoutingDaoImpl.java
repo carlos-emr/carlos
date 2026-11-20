@@ -32,6 +32,8 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
@@ -47,6 +49,39 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting> implements PatientLabRoutingDao {
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column> readCdsExportReceiptColumns() {
+        return CdsExportNativeMetadataReadSupport.read(entityManager, CdsExportNativeMetadataReadSupport.Table.LABORATORY_ROUTING);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportSourceSchema() {
+        return CdsExportPatientTableReadSupport.schema(entityManager, CdsExportPatientTableReadSupport.Plan.LABORATORY_ROUTING);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public long countCdsExportRows(int patient) {
+        CdsExportPatientTableReadSupport.requireLocalLaboratoryAssociations(entityManager, patient);
+        return CdsExportPatientTableReadSupport.count(entityManager, CdsExportPatientTableReadSupport.Plan.LABORATORY_ROUTING, patient);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> findCdsExportRowsAfter(int patient, Long afterId, int limit) {
+        CdsExportPatientTableReadSupport.requireLocalLaboratoryAssociations(entityManager, patient);
+        return CdsExportPatientTableReadSupport.page(entityManager, CdsExportPatientTableReadSupport.Plan.LABORATORY_ROUTING, patient, afterId, limit);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public byte[] readCdsExportValueChunk(int patient, long rowId, String column, long offset, int length) {
+        CdsExportPatientTableReadSupport.requireLocalLaboratoryAssociations(entityManager, patient);
+        return CdsExportPatientTableReadSupport.chunk(entityManager, CdsExportPatientTableReadSupport.Plan.LABORATORY_ROUTING, patient, rowId, column, offset, length);
+    }
+
 
 
     public PatientLabRoutingDaoImpl() {
@@ -314,6 +349,29 @@ public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting>
         List<Integer> results = q.getResultList();
 
         return results;
+    }
+
+    @Override
+    public List<Integer> findLabNosForDemographic(Integer demographicNo, String labType, Collection<Integer> labNos) {
+        if (demographicNo == null || labType == null || labNos == null || labNos.isEmpty()) {
+            return Collections.emptyList();
+        }
+        // Constant JPQL; every value, including the IN list, is a bound parameter.
+        Query query = entityManager.createQuery("select distinct x.labNo from PatientLabRouting x"
+                + " where x.demographicNo = :demographicNo and x.labType = :labType and x.labNo in (:labNos)");
+        query.setParameter("demographicNo", demographicNo);
+        query.setParameter("labType", labType);
+        query.setParameter("labNos", labNos);
+
+        @SuppressWarnings("unchecked")
+        List<Integer> owned = query.getResultList();
+        return owned;
+    }
+
+    @Override
+    public List<String> findLabSourcesForPatient(int labNo, int demographicNo) {
+        return entityManager.createQuery("select distinct p.labType from PatientLabRouting p where p.labNo = :labNo and p.demographicNo = :demographicNo and p.labType in ('HL7', 'MDS', 'CML', 'BCP')", String.class)
+                .setParameter("labNo", labNo).setParameter("demographicNo", demographicNo).getResultList();
     }
 
 }

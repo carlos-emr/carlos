@@ -21,15 +21,16 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Page role: Renders `EditFlowsheet.jsp` for the CARLOS EMR workflow.
-  Keep request setup in the paired action and use CARLOS encoding helpers
-  for dynamic output rendered by the page.
+  Flowsheet customization editor: lists, adds, hides and restores measurements for
+  clinic, provider or patient scope. Headings and navigation use the saved template name.
+  Parameters: flowsheet identifier, scope, demographic (for patient scope), view preferences.
+  @since 2026-07-07
 --%>
 <% long startTime = System.currentTimeMillis(); %>
 <%@ page
-        import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*,java.net.*" %>
+        import="java.util.*, io.github.carlos_emr.carlos.prevention.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*" %>
 <%@ page
-        import="org.jdom2.Element,io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.*,org.jdom2.output.Format,org.jdom2.output.XMLOutputter,io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.*,java.io.*" %>
+        import="org.jdom2.Element, io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.*, org.jdom2.output.Format, org.jdom2.output.XMLOutputter, io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.*" %>
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@ page import="org.springframework.web.context.WebApplicationContext" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.*,io.github.carlos_emr.carlos.commn.model.FlowSheetCustomization" %>
@@ -38,21 +39,22 @@
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBeanHandler" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBean" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.service.FlowSheetCustomizationService" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetCustomizationDao" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%!
     /**
@@ -88,8 +90,10 @@
             if (!action.equals(cust.getAction())) continue;
             if (!measurement.equals(cust.getMeasurement())) continue;
 
-            boolean isClinicLevel = "".equals(cust.getProviderNo()) && "0".equals(cust.getDemographicNo());
-            boolean isProviderLevel = currentProvider.equals(cust.getProviderNo()) && "0".equals(cust.getDemographicNo());
+            FlowSheetCustomizationService.ScopeLevel customizationScope = SpringUtils.getBean(FlowSheetCustomizationService.class).getScopeLevel(cust);
+            boolean isClinicLevel = FlowSheetCustomizationService.ScopeLevel.CLINIC == customizationScope;
+            boolean isProviderLevel = currentProvider.equals(cust.getProviderNo())
+                    && FlowSheetCustomizationService.ScopeLevel.PROVIDER == customizationScope;
 
             // Patient scope: inherit from clinic or provider
             if (demographic != null && !demographic.isEmpty()) {
@@ -128,12 +132,13 @@
                 isCurrentScopeMatch = demographic.equals(cust.getDemographicNo());
             } else if ("clinic".equals(scope)) {
                 // Clinic scope: providerNo="" AND demographicNo="0"
-                isCurrentScopeMatch = "".equals(cust.getProviderNo()) &&
-                                      "0".equals(cust.getDemographicNo());
+                isCurrentScopeMatch = FlowSheetCustomizationService.ScopeLevel.CLINIC
+                        == SpringUtils.getBean(FlowSheetCustomizationService.class).getScopeLevel(cust);
             } else {
                 // Provider scope: providerNo=currentProvider AND demographicNo="0"
-                isCurrentScopeMatch = currentProvider.equals(cust.getProviderNo()) &&
-                                      "0".equals(cust.getDemographicNo());
+                isCurrentScopeMatch = currentProvider.equals(cust.getProviderNo())
+                        && FlowSheetCustomizationService.ScopeLevel.PROVIDER
+                        == SpringUtils.getBean(FlowSheetCustomizationService.class).getScopeLevel(cust);
             }
 
             if (isCurrentScopeMatch) {
@@ -144,16 +149,12 @@
     }
 
     /**
-     * Determines the scope level name for a customization.
+     * Determines the scope level name for a customization. Delegates to
+     * {@link FlowSheetCustomizationService} so the page and the cascade checks share one
+     * null-safe definition of clinic/provider/patient scope.
      */
     private String getScopeLevelName(FlowSheetCustomization cust) {
-        if ("".equals(cust.getProviderNo()) && "0".equals(cust.getDemographicNo())) {
-            return "clinic";
-        } else if (!"0".equals(cust.getDemographicNo())) {
-            return "patient";
-        } else {
-            return "provider";
-        }
+        return SpringUtils.getBean(FlowSheetCustomizationService.class).getScopeLevelName(cust);
     }
 
     /**
@@ -210,10 +211,14 @@
     }
 
     String flowsheet = temp;
-    String displayNameValue = (String) request.getAttribute("displayName");
-    if (displayNameValue == null || displayNameValue.isEmpty()) {
-        displayNameValue = request.getParameter("displayName");
+    MeasurementTemplateFlowSheetConfig templateConfig = MeasurementTemplateFlowSheetConfig.getInstance();
+    // Reject missing/deleted templates before rendering or applying any saved customizations.
+    if (templateConfig.getFlowSheet(flowsheet) == null) {
+        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_NOT_FOUND);
+        return;
     }
+    // Resolve from the saved template: customization POSTs do not carry its display name.
+    String displayNameValue = templateConfig.getDisplayName(flowsheet);
     if (displayNameValue == null) displayNameValue = "";
     String encodedDisplayNameForUri = SafeEncode.forUriComponent(displayNameValue);
     String encodedDisplayNameForJsUri = SafeEncode.forJavaScript(SafeEncode.forUriComponent(displayNameValue));
@@ -233,7 +238,6 @@
         return;
     }
     String scope = request.getParameter("scope");
-    MeasurementTemplateFlowSheetConfig templateConfig = MeasurementTemplateFlowSheetConfig.getInstance();
     Hashtable<String, String> flowsheetNames = templateConfig.getFlowsheetDisplayNames();
 
     WebApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(getServletContext());
@@ -278,12 +282,7 @@
 
     <link href="<%=request.getContextPath() %>/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet">
 
-    <!-- Fav and touch icons -->
-    <link rel="apple-touch-icon-precomposed" sizes="144x144" href="ico/apple-touch-icon-144-precomposed.png">
-    <link rel="apple-touch-icon-precomposed" sizes="114x114" href="ico/apple-touch-icon-114-precomposed.png">
-    <link rel="apple-touch-icon-precomposed" sizes="72x72" href="ico/apple-touch-icon-72-precomposed.png">
-    <link rel="apple-touch-icon-precomposed" href="ico/apple-touch-icon-57-precomposed.png">
-    <link rel="shortcut icon" href="ico/favicon.png">
+    <link rel="icon" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/images/favicon.ico"/>
 
     <link rel="stylesheet" type="text/css" href="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css">
 
@@ -421,7 +420,11 @@
                         tracker = "&tracker=slim";
                     }
 
-                    String flowsheetPath = "encounter/oscarMeasurements/ViewTemplateFlowSheet";
+                    // When Edit Flowsheet was opened from the Health Tracker (&htracker)
+                    // the back button has to return there, not to the plain flowsheet view.
+                    String flowsheetPath = request.getParameter("htracker") != null
+                            ? "encounter/oscarMeasurements/ViewHealthTracker"
+                            : "encounter/oscarMeasurements/ViewTemplateFlowSheet";
             %>
 
             <a href="<%= request.getContextPath() %>/<%=flowsheetPath%>?demographic_no=<carlos:encode value='<%= demographic %>' context="uriComponent"/>&template=<carlos:encode value='<%= flowsheet %>' context="uriComponent"/><%=tracker%>"
@@ -429,7 +432,7 @@
 
             <%}%>
 
-Flowsheet: <span style="font-weight:normal">${carlos:forHtml(requestScope.displayName ? requestScope.displayName : param.displayName)}(<carlos:encode value='<%= flowsheet %>' context="html"/>)</span>
+Flowsheet: <span style="font-weight:normal"><carlos:encode value='<%= displayNameValue %>' context="html"/>(<carlos:encode value='<%= flowsheet %>' context="html"/>)</span>
         </h4>
         <span class="mode-toggle">
 		  	<% if (scope == null) {
@@ -670,9 +673,9 @@ Flowsheet: <span style="font-weight:normal">${carlos:forHtml(requestScope.displa
                                     </td>
                                     <td>
 
-                                        <%if (cust.getProviderNo().isEmpty()) { %>
+                                        <%if ("clinic".equals(custLevel)) { %>
                                         All patients
-                                        <%} else if (cust.getDemographicNo().equals("0")) { %>
+                                        <%} else if ("provider".equals(custLevel)) { %>
                                         Your patients
                                         <%} else { %>
                                         <a href="<%=request.getContextPath() %>/demographic/DemographicEdit?demographic_no=<carlos:encode value='<%= cust.getDemographicNo() %>' context="uriComponent"/>"
@@ -698,6 +701,11 @@ Flowsheet: <span style="font-weight:normal">${carlos:forHtml(requestScope.displa
 
                     <form name="FlowSheetCustomActionForm" id="FlowSheetCustomActionForm" class="card card-body bg-body-tertiary"
                           action="FlowSheetCustomAction" method="post">
+                        <%-- Round-trips the Health Tracker origin so FlowSheetCustom2Action's
+                             result lands back on the tracker instead of the flowsheet view. --%>
+                        <%if (request.getParameter("htracker") != null) {%>
+                        <input type="hidden" name="htracker" value="<carlos:encode value='<%= module %>' context="htmlAttribute"/>"/>
+                        <%}%>
                         <input type="hidden" name="flowsheet" value="<carlos:encode value='<%= temp %>' context="htmlAttribute"/>"/>
                         <input type="hidden" name="method" value="save"/>
                         <%if (demographic != null) {%>
@@ -820,7 +828,7 @@ Flowsheet: <span style="font-weight:normal">${carlos:forHtml(requestScope.displa
 
     <!-- flowsheet xml output -->
     <textarea style="display:none;" cols="200" rows="200">
-            <%=outp.outputString(va)%>
+            <carlos:encode value='<%= outp.outputString(va) %>' context="html"/>
         </textarea><!-- flowsheet xml output END-->
 </div>
     <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>

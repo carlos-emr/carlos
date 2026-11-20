@@ -23,11 +23,18 @@
 
 package io.github.carlos_emr.carlos.appt;
 
+import java.io.Serializable;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-public class ApptData {
+/**
+ * The appointment clipboard bean (copy, cut and paste), kept in the HTTP session between requests.
+ * Serializable so a session store that writes sessions to disk or another node can carry it.
+ */
+public class ApptData implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     String appointment_no;
     String provider_no;
     String appointment_date;
@@ -53,6 +60,7 @@ public class ApptData {
     String ohipNo;
     String urgency;
     String reasonCode;
+    String locationCode;
 
     public String getAppointment_date() {
         return appointment_date;
@@ -270,6 +278,27 @@ public class ApptData {
 
     public void setReasonCode(String reasonCode) {
         this.reasonCode = reasonCode;
+    }
+
+    /**
+     * Gets the copied appointment's Location List item, so pasting it books the same location.
+     *
+     * @return String the LookupListItem id as the booking form posted it, or null when none was
+     *         chosen (the dropdown was not shown, "Not specified", or a legacy location)
+     * @since 2026-11-04
+     */
+    public String getLocationCode() {
+        return locationCode;
+    }
+
+    /**
+     * Sets the copied appointment's Location List item.
+     *
+     * @param locationCode String the LookupListItem id, or null for none
+     * @since 2026-11-04
+     */
+    public void setLocationCode(String locationCode) {
+        this.locationCode = locationCode;
     }
 
 

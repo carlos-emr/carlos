@@ -49,6 +49,16 @@ class CaseManagementEmptyStateRegressionTest {
     private static final Path RESOURCES_DIRECTORY = resolveProjectPath(Path.of("src/main/resources"));
     private static final String[] LOCALES = {"en", "es", "fr", "pl", "pt_BR"};
 
+    /**
+     * The English text, written once. Both the "en says exactly this" assertion and the
+     * "no other locale says this" assertion read these, so a reworded English string cannot
+     * leave the absence check guarding a sentence the product no longer ships.
+     */
+    private static final String ENGLISH_NO_HISTORY =
+            "casemgmt.showHistory.msgNoHistory=No history has been recorded for this issue.";
+    /** The retired CPP-panel placeholder; an empty section is blank, so nothing may bring it back. */
+    private static final String RETIRED_NO_NOTES_KEY = "casemgmt.viewNotes.msgNoNotes";
+
     @Test
     @DisplayName("issue history popup should explain when no history exists")
     void shouldRenderHistoryEmptyState_whenHistoryIsEmpty() throws IOException {
@@ -59,26 +69,29 @@ class CaseManagementEmptyStateRegressionTest {
     }
 
     @Test
-    @DisplayName("CPP panel should explain when no notes exist")
-    void shouldRenderNotesEmptyState_whenNotesAreEmpty() throws IOException {
+    @DisplayName("CPP panel should stay blank when no notes exist")
+    void shouldRenderBlankNotesPanel_whenNotesAreEmpty() throws IOException {
         String jsp = Files.readString(VIEW_NOTES_JSP, StandardCharsets.UTF_8);
 
-        assertConditionalMessage(jsp, "Notes", "casemgmt.viewNotes.msgNoNotes");
+        // An empty section is one blank row, as in the navbar modules: no placeholder sentence.
         assertThat(jsp)
-                .contains("<li class=\"cpp-empty-state\">")
-                .contains("for (int i = 0; i < notes.size(); i++)");
+                .doesNotContain(RETIRED_NO_NOTES_KEY)
+                .doesNotContain("cpp-empty-state")
+                .contains("<c:if test=\"${empty Notes}\"><li>&nbsp;</li></c:if>")
+                .contains("for (int i = 0; i < notes.size(); i++)")
+                .contains("String htmlNoteTxt = SafeEncode.forHtml(note.getNote() + addlData);");
     }
 
     @Test
-    @DisplayName("CPP panel empty state should remain visible in both panel layouts")
-    void shouldStyleNotesEmptyState_forCppPanels() throws IOException {
+    @DisplayName("CPP panels should keep their list styling without an empty-state rule")
+    void shouldStyleNotesPanels_withoutEmptyStateRule() throws IOException {
         String css = Files.readString(ENCOUNTER_STYLES, StandardCharsets.UTF_8);
         String layout = Files.readString(NEW_ENCOUNTER_LAYOUT, StandardCharsets.UTF_8);
 
         assertThat(css)
                 .contains("#cppBoxes .topBox-notes")
                 .contains("#rightNavBar .topBox-notes")
-                .contains("div.topBox-notes ul li.cpp-empty-state");
+                .doesNotContain("cpp-empty-state");
         assertThat(layout).contains("/css/encounterStyles.css");
     }
 
@@ -90,18 +103,43 @@ class CaseManagementEmptyStateRegressionTest {
                     RESOURCES_DIRECTORY.resolve("oscarResources_" + locale + ".properties"),
                     StandardCharsets.UTF_8);
 
+            // Key presence is not enough: "key=" or a whitespace-only value satisfies a
+            // contains() check while <fmt:message> renders nothing, so require a real value.
             assertThat(resources)
                     .as("localized empty-state messages for %s", locale)
-                    .contains("casemgmt.showHistory.msgNoHistory=")
-                    .contains("casemgmt.viewNotes.msgNoNotes=");
+                    // Spaces and tabs only: \s would swallow the line break after an empty
+                    // value and let \S match the first character of the next property.
+                    .containsPattern("(?m)^[ \\t]*casemgmt\\.showHistory\\.msgNoHistory[ \\t]*[=:][ \\t]*\\S")
+                    .doesNotContain(RETIRED_NO_NOTES_KEY);
         }
 
         String english = Files.readString(
                 RESOURCES_DIRECTORY.resolve("oscarResources_en.properties"),
                 StandardCharsets.UTF_8);
-        assertThat(english)
-                .contains("casemgmt.showHistory.msgNoHistory=No history has been recorded for this issue.")
-                .contains("casemgmt.viewNotes.msgNoNotes=No notes have been recorded for this section.");
+        assertThat(english).contains(ENGLISH_NO_HISTORY);
+    }
+
+    @Test
+    @DisplayName("empty states should be translated, not English copied into every bundle")
+    void shouldTranslateEmptyStates_forNonEnglishLocales() throws IOException {
+        // The keys shipped present-but-English in all five bundles, each behind a
+        // translate-me marker, so a French or Spanish CPP panel rendered the English
+        // sentence. Key presence alone cannot catch that — assert the English string is
+        // absent from every non-English bundle.
+        for (String locale : LOCALES) {
+            if ("en".equals(locale)) {
+                continue;
+            }
+            String resources = Files.readString(
+                    RESOURCES_DIRECTORY.resolve("oscarResources_" + locale + ".properties"),
+                    StandardCharsets.UTF_8);
+
+            assertThat(resources)
+                    .as("empty-state messages for %s must not fall back to the English text", locale)
+                    // The English sentence itself, so a copied value survives no formatting
+                    // difference around the key or the separator.
+                    .doesNotContain(ENGLISH_NO_HISTORY.substring(ENGLISH_NO_HISTORY.indexOf('=') + 1));
+        }
     }
 
     private void assertConditionalMessage(String jsp, String collection, String messageKey) {

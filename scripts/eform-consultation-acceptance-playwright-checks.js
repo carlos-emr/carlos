@@ -39,32 +39,61 @@
  *   TEST_USER=carlosdoc
  *   TEST_PASSWORD=carlos2026
  *   TEST_PIN=2026
- *   EFORM_CONSULT_DEMOGRAPHIC_NO=1
+ *   MYSQL_HOST/USER/PASSWORD/DATABASE (the owned patient and its cleanup)
  *   EFORM_CONSULT_SCREENSHOT_DIR=/tmp
+ *   LIBRARY_EFORM_NAME='Signature trick' (optional stored form with BGImage1/BGImage2)
+ *   EFORM_CC_BADGE_FIXTURE=/path/to/cc-by-sa-3.0-80x15.png (optional pinned official offline badge;
+ *     requires adjacent .provenance.json; records cache identity/use, does not test external internet availability)
+ *   EFORM_WAF_AUDIT_LOG=/absolute/path/to/modsec_audit.log and
+ *   EFORM_WAF_ERROR_LOG=/absolute/path/to/nginx-error.log (both required for the
+ *     installed-release hostile POST/no-save proof; absent paths leave that
+ *     negative transport check explicitly unrequested, while DOM and positive
+ *     clinical save/reopen coverage still execute)
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
+ *
+ * FIXTURE. The eForm is saved for a FAKE patient this check creates (lib/owned-patient.js: last name = a FAKE-PW run marker). It
+ * used to save it for DEMO patient 1 and never removed the imported template, so every run left an active template, an instance
+ * and twelve values behind. The instance, its values and the patient are now deleted by the patient's key, and the template by its
+ * unique name, and each is asserted gone.
  */
 
+
+// EFORM_IMAGE_DIR identifies the disposable server's mounted eForm image store for owned asset verification/cleanup.
+const legacyHarness=require('./lib/legacy-check');
+const { validateBaseUrl } = require('./lib/playwright-harness');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { chromium, request } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { buildArtifactPath } = require('./eform-local-playwright-utils');
+const h = require('./lib/playwright-harness');
+const {ownedUploadedImage}=require('./lib/owned-uploaded-image');
+const { createOwnedPatient, eformRows, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
+const { storedBackgroundSnapshot, expectedBackgrounds, imageIdentity, assertLibraryBackgrounds } = require('./eform-library-background-probe');
+const { installOfflineCcBadge } = require('./lib/eform-offline-cc-badge');
+const { proveWafNegative, transitionToClinicalValues, assertPersistedLabValues } = require('./lib/eform-ap-probe');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
-const demographicNo = process.env.EFORM_CONSULT_DEMOGRAPHIC_NO || '1';
+// The owned patient the eForm is saved for, created in main (never a demo patient).
+let demographicNo = null;
 const screenshotDir = process.env.EFORM_CONSULT_SCREENSHOT_DIR || '/tmp';
+const wafAuditLog = process.env.EFORM_WAF_AUDIT_LOG;
+const wafErrorLog = process.env.EFORM_WAF_ERROR_LOG;
+assert(Boolean(wafAuditLog) === Boolean(wafErrorLog), 'Set both explicit EFORM_WAF_AUDIT_LOG and EFORM_WAF_ERROR_LOG for the installed-release negative check');
 
-const bgImageName = 'playwright_consult_acceptance_bg.png';
+const ownedMarker=newOwnedMarker();
+const bgImageName=ownedMarker+'-consult-bg.png';
 const transparentPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl5n2QAAAAASUVORK5CYII=';
-const libraryEformName = 'Signature trick';
-const libraryEformExpectedTemplateImages = [
-  '2025_06_12_PCXX108060A_Regional_Community_Pain_Self_Management_Program_Referral__Form_NWM11.png',
-  '2025_06_12_PCXX108060A_Regional_Community_Pain_Self_Management_Program_Referral__Form_NWM21.png',
-];
+// The image-layer template probe targets a form that ships in no repo fixture
+// or seed - it exists only in richer dev libraries. LIBRARY_EFORM_NAME selects
+// a different form; when the named form is absent the probe is skipped (with a
+// note) so the main documented acceptance workflow still runs everywhere.
+const libraryEformName = process.env.LIBRARY_EFORM_NAME || 'Signature trick';
 
 const badResponses = [];
 const consoleIssues = [];
@@ -76,22 +105,6 @@ function assert(condition, message) {
   if (!condition) {
     throw new Error(message);
   }
-}
-
-function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-
-  const host = parsed.hostname.toLowerCase();
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  if (!localHosts.has(host) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
-  return parsed;
 }
 
 function appUrl(appPath) {
@@ -136,10 +149,11 @@ function releaseDirtyFlag() {
 </head>
 <body>
 <form method="post" action="" name="FormName" id="FormName">
+<input type="hidden" name="playwright_latest_lab_values" id="playwright_latest_lab_values" oscarDB=latest_lab_values>
 <div id="page1" style="page-break-after:always;position:relative;">
 <img id="BGImage1" src="\${oscar_image_path}${bgImageName}" style="position:relative;left:0;top:0;width:750px;height:220px;">
 <input name="playwright_text_field" id="playwright_text_field" type="text" value="Template Text" class="noborder" style="position:absolute;left:40px;top:36px;width:220px;height:22px;">
-<textarea name="playwright_textarea_field" id="playwright_textarea_field" class="noborder" style="position:absolute;left:40px;top:76px;width:240px;height:48px;">Template Textarea</textarea>
+<textarea name="playwright_textarea_field" id="playwright_textarea_field" oscarDB=medical_history class="noborder" style="position:absolute;left:40px;top:76px;width:240px;height:48px;"></textarea>
 <select name="playwright_select_field" id="playwright_select_field" style="position:absolute;left:320px;top:36px;width:180px;height:24px;">
   <option value="">Choose</option>
   <option value="alpha">Alpha</option>
@@ -172,6 +186,53 @@ function cleanupFixtureFiles(fixture) {
     return;
   }
   fs.rmSync(fixture.tempDir, { recursive: true, force: true });
+}
+
+// The legacy AP used to reject its own bundled newline literal, log an ERROR,
+// and quietly return an empty clinical field. Seed only this run's owned chart;
+// removeOwnedPatient already removes its issue links, notes, and chart issues.
+function seedOwnedMedicalHistory(sql, provider, text) {
+  const issue = sql.value("SELECT issue_id FROM issue WHERE code='MedHistory'");
+  assert(/^[1-9]\d*$/.test(issue || ''), 'The medical-history catalog issue must exist exactly once');
+  const chartIssue = h.insertId(sql, `INSERT INTO casemgmt_issue (demographic_no,issue_id,type,update_date)
+    VALUES (${demographicNo},${issue},'doctor',NOW())`, 'medical-history chart issue');
+  const note = h.insertId(sql, `INSERT INTO casemgmt_note
+    (update_date,observation_date,demographic_no,provider_no,note,history,uuid,locked,archived)
+    VALUES (NOW(),NOW(),${demographicNo},${h.sqlString(provider)},${h.sqlString(text)},'',UUID(),'0',0)`,
+  'medical-history note');
+  sql.execute(`INSERT INTO casemgmt_issue_notes (id,note_id) VALUES (${chartIssue},${note})`);
+}
+
+function seedOwnedLatestLabValues(sql, provider, marker) {
+  const values = ['-4.25', '<5', '1.2e-3', '+2.5E+4', '≤0.5', '1:40', 'not detected / below limit',
+    '"><img id="pr5044-lab-injected" src="data:," onerror="window.__pr5044LabInjected=true"><script id="pr5044-lab-script">window.__pr5044LabInjected=true</script>',
+    'literal ${labvalues} and ${patient_name}'];
+  return values.map((value, index) => {
+    const measurement = h.insertId(sql, `INSERT INTO measurements
+      (type,demographicNo,providerNo,dataField,measuringInstruction,comments,dateObserved,dateEntered)
+      VALUES ('PWLB',${demographicNo},${h.sqlString(provider)},${h.sqlString(value)},'',${h.sqlString(marker)},NOW(),NOW())`,
+    'literal lab measurement');
+    const identifier = `${marker}-lab-${index}`;
+    sql.execute(`INSERT INTO measurementsExt (measurement_id,keyval,val)
+      VALUES (${measurement},'identifier',${h.sqlString(identifier)})`);
+    return { identifier, value, measurement };
+  });
+}
+
+async function assertOwnedLatestLabValues(page, expected) {
+  const field = page.locator('#playwright_latest_lab_values');
+  assert(await field.count() === 1, 'The latest_lab_values hidden AP field is missing or duplicated');
+  let values;
+  try { values = JSON.parse(await field.inputValue()); }
+  catch { throw new Error('The latest_lab_values AP did not provide valid JSON'); }
+  assert(Array.isArray(values) && values.length === expected.length,
+    'The latest_lab_values AP omitted or duplicated owned measurements');
+  const actual = new Map(values.map(row => [row.loincCode, row.measurementValue]));
+  assert(actual.size === expected.length && expected.every(row => actual.get(row.identifier) === row.value),
+    'The latest_lab_values AP changed a literal clinical result or its identifier');
+  assert(await page.locator('#pr5044-lab-injected,#pr5044-lab-script').count() === 0
+    && await page.evaluate(() => window.__pr5044LabInjected !== true),
+  'A latest_lab_values result escaped its hidden field into executable markup');
 }
 
 function isExpectedMissingAsset(status, responseUrl) {
@@ -219,10 +280,13 @@ function wirePage(page, label) {
     const responseUrl = response.url();
     const status = response.status();
     const contentType = response.headers()['content-type'] || '';
-    if (/\/eform\/displayImage(?:\.do)?\?imagefile=/.test(responseUrl)) {
+    if (imageIdentity(responseUrl, baseUrl.href) !== null) {
       displayImageResponses.push({ label, status, url: responseUrl, contentType });
     }
-    if (responseUrl.includes('/previewDocs?method=renderEFormPDF')) {
+    // getPdf() POSTs to /previewDocs with method=renderEFormPDF in the body
+    // (previews are mutator-gated POSTs, not GETs with a query string).
+    if (responseUrl.includes('/previewDocs')
+        && (response.request().postData() || '').includes('method=renderEFormPDF')) {
       eformPreviewResponses.push({ label, status, url: responseUrl, contentType });
     }
     if (/\/encounter\/RequestConsultation$/.test(responseUrl) && response.request().method() === 'POST') {
@@ -256,10 +320,16 @@ async function login(context) {
   const page = await context.newPage();
   wirePage(page, 'login');
   await gotoApp(page, '/');
+  await page.waitForLoadState('load', { timeout: 30000 });
   await page.locator('#username').fill(testUser);
   await page.locator('#password').fill(testPassword);
   if (await page.locator('#pin').count()) {
     await page.locator('#pin').fill(testPin);
+  }
+  assert(await page.locator('#username').inputValue() === testUser, 'login username field changed before submit');
+  assert(await page.locator('#password').inputValue() === testPassword, 'login password field changed before submit');
+  if (await page.locator('#pin').count()) {
+    assert(await page.locator('#pin').inputValue() === testPin, 'login PIN field changed before submit');
   }
   await Promise.all([
     page.waitForURL(/providercontrol|appointment/i, { timeout: 30000 }),
@@ -328,8 +398,18 @@ async function findExistingLibraryEform(context, formName) {
   try {
     await gotoApp(page, '/eform/efmformmanager');
     await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-    const row = page.locator('#eformTbl tbody tr', { hasText: formName }).first();
+    // Confirm the manager page itself rendered before waiting for a specific
+    // form row: otherwise a 500/broken manager page yields a row-wait
+    // TimeoutError that the caller's TimeoutError->skip catch would silently
+    // downgrade to "form absent". A missing table is a real failure (plain
+    // Error, not a TimeoutError), so it propagates.
+    if ((await page.locator('#eformTbl').count()) === 0) {
+      const body = await page.locator('body').innerText().catch(() => '');
+      throw new Error(`eForm manager page did not render its table (#eformTbl absent) — not a form-absent condition. body: ${body.slice(0, 200).replace(/\s+/g, ' ')}`);
+    }
+    const row = page.locator('#eformTbl tbody tr').filter({ has: page.getByRole('link', { name: formName, exact: true }) });
     await row.waitFor({ state: 'visible', timeout: 15000 });
+    assert(await row.count() === 1, `Expected one exact library form named ${formName}`);
     const editHref = await row.locator('a[href*="efmformmanageredit?fid="]').first().getAttribute('href');
     const match = editHref && editHref.match(/fid=([^&'"]+)/);
     assert(match && match[1], `Could not extract existing library fid for ${formName}`);
@@ -339,38 +419,50 @@ async function findExistingLibraryEform(context, formName) {
   }
 }
 
-async function readManagerTemplateHtml(context, fid) {
+async function readManagerTemplateBackgrounds(context, fid) {
   const requestContext = await request.newContext({
     storageState: await context.storageState(),
-    ignoreHTTPSErrors: true,
+    ignoreHTTPSErrors: shouldIgnoreHttpsErrors(),
   });
   try {
     const response = await requestContext.get(appUrl(`/eform/efmformmanageredit?fid=${encodeURIComponent(fid)}`));
     assert(response.ok(), `Could not fetch manager template HTML for fid ${fid}: ${response.status()}`);
-    return await response.text();
+    const editorHtml = await response.text();
+    const parserPage = await context.newPage();
+    try {
+      // DOMParser keeps the editor response and stored template inert. The
+      // textarea value is HTML-decoded by the browser before parsing the form.
+      // The callback is a fixed local function; HTML is a serialized argument parsed as inert DOM, never executable source.
+      // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-code-injection.playwright-evaluate-code-injection
+      const snapshot = await parserPage.evaluate(storedBackgroundSnapshot, editorHtml);
+      return expectedBackgrounds(snapshot);
+    } finally {
+      await parserPage.close();
+    }
   } finally {
     await requestContext.dispose();
   }
 }
 
-async function probeExistingLibraryEform(context, fid) {
+async function probeExistingLibraryEform(context, fid, expected) {
+  const responseStart = displayImageResponses.length;
   const page = await openAddEform(context, fid);
   try {
     await assertNotErrorPage(page, 'existing library eForm add page');
-    const bodyHtml = await page.locator('body').innerHTML();
-    const bgImageCount = await page.locator('#BGImage1, #BGImage2').count();
     const fieldCount = await page.locator('#FormName input, #FormName textarea, #FormName select').count();
-    assert(bgImageCount >= 2, `Existing library eForm fid=${fid} did not render both background images`);
-    await assertImageLoaded(page, '#BGImage1', `existing library eForm fid=${fid} background image 1`);
-    await assertImageLoaded(page, '#BGImage2', `existing library eForm fid=${fid} background image 2`);
+    await page.waitForFunction(() => ['BGImage1', 'BGImage2'].every((id) => {
+      const image = document.getElementById(id);
+      return image && image.complete && image.naturalWidth > 100 && image.naturalHeight > 100;
+    }), null, { timeout: 30000 });
+    const actual = await page.evaluate(() => ['BGImage1', 'BGImage2'].map((id) => {
+      const images = document.querySelectorAll(`[id="${id}"]`);
+      const image = images[0];
+      return { id, count: images.length, complete: image?.complete, width: image?.naturalWidth,
+        height: image?.naturalHeight, src: image?.currentSrc || image?.src };
+    }));
+    const proof = assertLibraryBackgrounds(expected, actual, displayImageResponses.slice(responseStart), baseUrl.href);
     await screenshot(page, 'consult-acceptance-library-eform-runtime');
-    return {
-      bgImageCount,
-      fieldCount,
-      bodyHasPainBackground: /Regional_Community_Pain/i.test(bodyHtml),
-      bodyHasDisplayImage: bodyHtml.includes('displayImage'),
-      renderSurfaceUsable: bgImageCount >= 2 && bodyHtml.includes('displayImage'),
-    };
+    return { ...proof, fieldCount };
   } finally {
     await page.close();
   }
@@ -459,7 +551,7 @@ async function capturePersistenceState(page) {
   });
 }
 
-async function saveEformAndCaptureFdid(page, expectedState) {
+async function fillEformForSave(page, expectedState) {
   await assertNotErrorPage(page, 'add eForm page');
   await assertImageLoaded(page, '#BGImage1', 'add eForm fixture background image');
   await page.locator('#playwright_text_field').fill(expectedState.textValue);
@@ -477,7 +569,10 @@ async function saveEformAndCaptureFdid(page, expectedState) {
     element.dispatchEvent(new Event('change', { bubbles: true }));
   });
   await page.locator('#remote_eform_subject').fill(expectedState.subjectValue);
+}
 
+async function saveEformAndCaptureFdid(page, expectedState) {
+  await fillEformForSave(page, expectedState);
   await Promise.all([
     page.waitForLoadState('domcontentloaded').catch(() => {}),
     page.locator('#remoteSubmitButton').click(),
@@ -528,36 +623,16 @@ async function openNewConsultation(context) {
 
 async function prepareConsultationForm(page) {
   await assertNotErrorPage(page, 'consultation form page');
-  const specialistSelect = page.locator('#specialist');
-  assert(await specialistSelect.count(), 'Consultation page did not render the specialist selector');
-  const options = await specialistSelect.locator('option').evaluateAll((nodes) => nodes
-    .map((node) => ({ value: node.value, text: (node.textContent || '').trim() }))
-    .filter((option) => option.value && option.value !== '-1'));
-
-  let submitMode = 'button';
-  if (options.length > 0) {
-    await specialistSelect.selectOption(options[0].value);
-    await page.waitForFunction(() => {
-      const serviceField = document.forms.EctConsultationFormRequest2Form && document.forms.EctConsultationFormRequest2Form.service;
-      return serviceField && serviceField.value && serviceField.value !== '0';
-    }, { timeout: 15000 });
-  } else {
-    const serviceWasSet = await page.evaluate(() => {
-      const form = document.forms.EctConsultationFormRequest2Form;
-      if (!form || !form.service) {
-        return false;
-      }
-      const services = Array.isArray(window.consultationServices) ? window.consultationServices : [];
-      const usable = services.find((service) => service && String(service.id || '') !== '' && String(service.id) !== '-1');
-      form.service.value = usable ? String(usable.id) : '57';
-      return form.service.value && form.service.value !== '0';
-    });
-    assert(serviceWasSet, 'Consultation page did not expose a usable service id for fallback submission');
-    submitMode = 'programmatic';
+  for (const [inputSelector, hiddenSelector] of [['#serviceInput', '#service'], ['#specialistInput', '#specialist']]) {
+    await page.locator(inputSelector).click();
+    const option = page.locator('ul.ui-autocomplete:visible li.ui-menu-item').first();
+    await option.waitFor({ state: 'visible', timeout: 15000 });
+    await option.click();
+    const selectedId = await page.locator(hiddenSelector).inputValue();
+    assert(/^\d+$/.test(selectedId) && selectedId !== '0', `${inputSelector} did not populate its selected ID`);
   }
 
   await page.locator('textarea[name="appointmentNotes"]').fill(`Playwright consultation note ${Date.now()}`);
-  return submitMode;
 }
 
 async function openConsultAttachmentPanelAndAttachEform(page, fdid) {
@@ -565,7 +640,9 @@ async function openConsultAttachmentPanelAndAttachEform(page, fdid) {
   await page.locator(`#eFormNo${fdid}`).waitFor({ state: 'visible', timeout: 15000 });
   const eformEntry = page.locator(`#eFormNo${fdid}`).locator('xpath=ancestor::li[1]');
   await Promise.all([
-    page.waitForResponse((response) => response.url().includes('/previewDocs?method=renderEFormPDF') && response.request().method() === 'GET'),
+    page.waitForResponse((response) => response.url().includes('/previewDocs')
+      && response.request().method() === 'POST'
+      && (response.request().postData() || '').includes('method=renderEFormPDF')),
     eformEntry.locator('button.preview-button').click(),
   ]);
   await eformEntry.locator(`input[type="checkbox"][value="${fdid}"]`).check();
@@ -574,10 +651,11 @@ async function openConsultAttachmentPanelAndAttachEform(page, fdid) {
   await screenshot(page, 'consultation-linked-open');
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('eform-consultation-acceptance',async context=>{
+  await (async({cancellation})=>{
   const fixture = createFixtureFiles();
   const timestamp = Date.now();
-  const formName = `Playwright Consultation Acceptance ${timestamp}`;
+  const formName = ownedMarker+' Consultation Acceptance';
   const formSubject = `Consult Acceptance ${timestamp}`;
   const expectedState = {
     textValue: `Playwright text ${timestamp}`,
@@ -592,6 +670,16 @@ async function openConsultAttachmentPanelAndAttachEform(page, fdid) {
   let libraryFid = null;
   let libraryRuntimeProbe = null;
   let browser = null;
+  let offlineBadge = null;
+  let uploadedImage;
+  const sql = h.createSqlRunner(h.readConfig().mysql);
+  const medicalHistory = `${ownedMarker} synthetic medical history & follow-up\nSecond synthetic history line` + ' literal ${medicalHistory}';
+  // Taken before anything is saved, so only the run's own attachment rows are ever deleted.
+  const ownedRows = eformRows(sql);
+  // Install cleanup before any insert. Extension rows are removed through the
+  // owned measurement while its parent still exists, then measurements by patient.
+  ownedRows.extra.push(['measurements', 'demographicNo']);
+  ownedRows.via.push({ table: 'measurementsExt', column: 'measurement_id', parent: 'measurements', key: 'id', patient: 'demographicNo' });
 
   const launchOptions = {
     headless: true,
@@ -602,65 +690,185 @@ async function openConsultAttachmentPanelAndAttachEform(page, fdid) {
   }
 
   try {
-    browser = await chromium.launch(launchOptions);
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1600 } });
+    if(!process.env.EFORM_IMAGE_DIR)throw new h.SkipCheck('EFORM_IMAGE_DIR is required to remove the owned uploaded background');
+    uploadedImage=ownedUploadedImage(process.env.EFORM_IMAGE_DIR,bgImageName,Buffer.from(transparentPngBase64,'base64'));
+    const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(testUser)}`);
+    assert(provider, 'The configured test login has no provider');
+    demographicNo = createOwnedPatient(sql, { marker: ownedMarker, provider });
+    seedOwnedMedicalHistory(sql, provider, medicalHistory);
+    let latestLabValues = seedOwnedLatestLabValues(sql, provider, ownedMarker);
+    browser = await chromium.launch({...(launchOptions),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1600 } });
+    cancellation?.throwIfCancelled();
+    offlineBadge = await installOfflineCcBadge(context, process.env.EFORM_CC_BADGE_FIXTURE);
+    cancellation?.throwIfCancelled();
     const landingPage = await login(context);
+    cancellation?.throwIfCancelled();
     await landingPage.close();
+    cancellation?.throwIfCancelled();
 
-    libraryFid = await findExistingLibraryEform(context, libraryEformName);
-    const libraryTemplateHtml = await readManagerTemplateHtml(context, libraryFid);
-    assert(libraryTemplateHtml.includes('${oscar_image_path}'), `Existing library eForm ${libraryEformName} did not retain oscar_image_path image references`);
-    for (const imageName of libraryEformExpectedTemplateImages) {
-      assert(libraryTemplateHtml.includes(imageName), `Existing library eForm ${libraryEformName} template did not retain expected background image ${imageName}`);
+    // Skip the probe only when the form is genuinely absent (the row wait times
+    // out); let any other failure (a 500 on the manager page, a broken lookup)
+    // propagate rather than be silently downgraded to "[skip]".
+    libraryFid = await findExistingLibraryEform(context, libraryEformName)
+      .catch((error) => {
+        if (error && error.name === 'TimeoutError') return null;
+        throw error;
+      });
+    cancellation?.throwIfCancelled();
+    if (libraryFid) {
+      const backgrounds = await readManagerTemplateBackgrounds(context, libraryFid);
+    cancellation?.throwIfCancelled();
+      libraryRuntimeProbe = await probeExistingLibraryEform(context, libraryFid, backgrounds);
+    cancellation?.throwIfCancelled();
+    } else {
+      console.log(`[skip] Library eForm "${libraryEformName}" is not in this database's eForm library; skipping the stored image-layer template probe (set LIBRARY_EFORM_NAME to probe a different form).`);
     }
-    libraryRuntimeProbe = await probeExistingLibraryEform(context, libraryFid);
 
     await ensureImageUploaded(context, fixture.imagePath, bgImageName);
+    uploadedImage.verify();
+    cancellation?.throwIfCancelled();
     const uploadResult = await uploadEform(context, formName, formSubject, fixture.htmlPath);
+    cancellation?.throwIfCancelled();
     managerPage = uploadResult.page;
     importedFid = uploadResult.fid;
 
+    const probePage = await openAddEform(context, importedFid);
+    cancellation?.throwIfCancelled();
+    assert(await probePage.locator('#playwright_textarea_field').inputValue() === medicalHistory,
+      'The bundled medical_history AP silently omitted or changed the owned clinical history');
+    cancellation?.throwIfCancelled();
+    console.log('PASS bundled medical_history AP populated the exact owned clinical history before editing');
+    await assertOwnedLatestLabValues(probePage, latestLabValues);
+    cancellation?.throwIfCancelled();
+    console.log('PASS bundled latest_lab_values AP preserved all nine owned literal results as JSON without executable markup');
+    const labScope = { baseUrl: baseUrl.href, fid: importedFid, patient: demographicNo, provider,
+      marker: ownedMarker, expected: latestLabValues };
+    if (wafAuditLog && wafErrorLog) {
+      await fillEformForSave(probePage, expectedState);
+    cancellation?.throwIfCancelled();
+      const receipt = await proveWafNegative({ context, page: probePage, sql, scope: labScope,
+        auditLog: wafAuditLog, errorLog: wafErrorLog });
+    cancellation?.throwIfCancelled();
+      console.log(`AP intentional hostile POST WAF-negative/no-save receipt: ${JSON.stringify(receipt)}`);
+    } else {
+      console.log('AP WAF-negative coverage NOT_REQUESTED: explicit audit/error paths absent; no WAF denial or no-save transport claim is made');
+    }
+    await probePage.close();
+    cancellation?.throwIfCancelled();
+    latestLabValues = transitionToClinicalValues(sql, labScope);
     const addPage = await openAddEform(context, importedFid);
+    cancellation?.throwIfCancelled();
+    assert(await addPage.locator('#playwright_textarea_field').inputValue() === medicalHistory,
+      'The fresh positive form changed the literal medical-history AP value');
+    cancellation?.throwIfCancelled();
+    await assertOwnedLatestLabValues(addPage, latestLabValues);
+    cancellation?.throwIfCancelled();
+    console.log('PASS fresh clinical form preserved all nine benign clinical lab values before saving');
     const fdid = await saveEformAndCaptureFdid(addPage, expectedState);
+    cancellation?.throwIfCancelled();
+    assertPersistedLabValues(sql, { ...labScope, expected: latestLabValues }, fdid);
     await screenshot(addPage, 'consult-acceptance-after-save');
+    cancellation?.throwIfCancelled();
     await addPage.close();
+    cancellation?.throwIfCancelled();
 
     const directPage = await openSavedEformDirect(context, fdid);
+    cancellation?.throwIfCancelled();
     await assertSavedFormState(directPage, expectedState, fdid, 'consult-acceptance-direct-reopen');
+    cancellation?.throwIfCancelled();
+    await assertOwnedLatestLabValues(directPage, latestLabValues);
+    cancellation?.throwIfCancelled();
     await directPage.close();
+    cancellation?.throwIfCancelled();
 
     const patientListPopup = await openSavedEformFromPatientList(context, fdid);
+    cancellation?.throwIfCancelled();
     assert(patientListPopup.url().includes(`fdid=${fdid}`), `Patient list popup did not open the expected saved-form route: ${patientListPopup.url()}`);
     await assertSavedFormState(patientListPopup, expectedState, fdid, 'consult-acceptance-patient-list-reopen');
+    cancellation?.throwIfCancelled();
+    await assertOwnedLatestLabValues(patientListPopup, latestLabValues);
+    cancellation?.throwIfCancelled();
     await patientListPopup.close();
+    cancellation?.throwIfCancelled();
 
     const newConsultationPage = await openNewConsultation(context);
+    cancellation?.throwIfCancelled();
     await prepareConsultationForm(newConsultationPage);
+    cancellation?.throwIfCancelled();
     await openConsultAttachmentPanelAndAttachEform(newConsultationPage, fdid);
+    cancellation?.throwIfCancelled();
     await newConsultationPage.close();
+    cancellation?.throwIfCancelled();
 
     const syntheticBackgroundResponses = collectDisplayImageFetches(bgImageName);
     assert(syntheticBackgroundResponses.length > 0, `displayImage was never requested for ${bgImageName}`);
     assert(syntheticBackgroundResponses.some((response) => response.status === 200), `displayImage never returned 200 for ${bgImageName}: ${JSON.stringify(syntheticBackgroundResponses, null, 2)}`);
-    assert(libraryRuntimeProbe.renderSurfaceUsable, `Existing library eForm ${libraryEformName} did not render a usable background-backed surface: ${JSON.stringify(libraryRuntimeProbe)}`);
+    if (libraryRuntimeProbe) {
+      assert(libraryRuntimeProbe.renderSurfaceUsable, `Existing library eForm ${libraryEformName} did not render a usable background-backed surface: ${JSON.stringify(libraryRuntimeProbe)}`);
+    }
     assert(eformPreviewResponses.some((response) => response.status === 200), `Consultation attachment preview never produced a 200 renderEFormPDF response: ${JSON.stringify(eformPreviewResponses, null, 2)}`);
     assert(badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
-    const renderConsoleIssues = consoleIssues.filter((issue) => ['add-eform', 'saved-direct', 'patient-list-popup', 'consult-new'].includes(issue.label));
+    // A raw stored eForm has no icon declaration, so Chromium probes the
+    // origin-root favicon outside the CARLOS context. The HTTP recorder already
+    // permits only its 404; mirror that exact exception for the console event.
+    const renderConsoleIssues = consoleIssues.filter((issue) => ['add-eform', 'saved-direct', 'patient-list-popup', 'consult-new'].includes(issue.label)
+      && !(issue.type === 'error'
+        && /Failed to load resource.*404/i.test(issue.text || '')
+        && issue.location && issue.location.url === `${baseUrl.origin}/favicon.ico`));
     assert(renderConsoleIssues.length === 0, `unexpected render-surface browser console failures: ${JSON.stringify(renderConsoleIssues, null, 2)}`);
+    if (offlineBadge) offlineBadge.assertUsed();
 
-    console.log('PASS eForm consultation acceptance workflow preserved saved values, reopened the saved fdid, reused that same saved eForm in the consultation attachment workflow, and probed the existing Signature trick library form for its stored image-layer template');
+    console.log('PASS eForm consultation acceptance workflow preserved saved values, reopened the saved fdid, and reused that same saved eForm in the consultation attachment workflow');
+    if (libraryRuntimeProbe) console.log(`PASS stored library form ${libraryEformName} rendered both exact background images from its template`);
     console.log(`Imported fid=${importedFid}, saved fdid=${fdid}, consultation request id=n/a (consultation attachment fallback), library fid=${libraryFid}, library runtime probe=${JSON.stringify(libraryRuntimeProbe)}, synthetic background responses=${JSON.stringify(syntheticBackgroundResponses)}`);
     console.log(`Screenshots written under ${screenshotDir}`);
   } finally {
+    if (offlineBadge) console.log(`Offline CC badge fixture receipt: ${JSON.stringify(offlineBadge.receipt())}`);
     if (managerPage && !managerPage.isClosed()) {
       await managerPage.close().catch(() => {});
     }
-    if (browser) {
-      await browser.close();
+    // Every step runs whatever the one before it did, and a failure is reported, not thrown: a throw out of this
+    // `finally` would replace the failure of the check itself.
+    const cleanupErrors = [];
+    let browserClosed=!browser;
+    try {
+      if (browser) {
+        await browser.close();browserClosed=true;
+      }
+    } catch (error) {
+      cleanupErrors.push(error);
     }
+    try {if(uploadedImage)uploadedImage.cleanup({browserClosed});}catch(error){cleanupErrors.push(error);}
     cleanupFixtureFiles(fixture);
+    try {
+      // The imported template by its unique name, then the instance, its values and the patient by the patient's key.
+      try {
+        assert(browserClosed,'Browser shutdown is unconfirmed; retaining the owned template');
+        sql.execute(`DELETE FROM eform WHERE form_name=${h.sqlString(formName)}`);
+        if (sql.value(`SELECT COUNT(*) FROM eform WHERE form_name=${h.sqlString(formName)}`) !== '0') {
+          throw new Error('The imported eForm template was not removed');
+        }
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
+      try {
+        assert(browserClosed,'Browser shutdown is unconfirmed; retaining the owned patient');
+        if (demographicNo !== null) removeOwnedPatient(sql, demographicNo, ownedMarker, ownedRows);
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
+    } finally {
+      sql.dispose();
+    }
+    if (cleanupErrors.length) {
+      console.error(`cleanup problems: ${cleanupErrors.map((error) => String(error.message).split('\n')[0]).join('; ')}`);
+      process.exitCode = 1;
+    }
   }
-})().catch((error) => {
+})(context).catch((error) => {
+  if (error instanceof h.SkipCheck) throw error;
   console.error('FAIL eForm consultation acceptance Playwright check');
   console.error(error.stack || error.message);
   if (badResponses.length) {
@@ -678,5 +886,6 @@ async function openConsultAttachmentPanelAndAttachEform(page, fdid) {
   if (consultPreviewResponses.length) {
     console.error(`consult preview responses: ${JSON.stringify(consultPreviewResponses, null, 2)}`);
   }
-  process.exit(1);
+  {process.exitCode=1;return;}
+});
 });

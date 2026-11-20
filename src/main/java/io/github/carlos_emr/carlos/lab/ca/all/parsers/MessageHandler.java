@@ -33,6 +33,7 @@ package io.github.carlos_emr.carlos.lab.ca.all.parsers;
 import java.util.ArrayList;
 
 import ca.uhn.hl7v2.HL7Exception;
+import ca.uhn.hl7v2.model.Segment;
 
 /**
  * When implementing this class a global variable 'msg' should be created as
@@ -47,6 +48,16 @@ import ca.uhn.hl7v2.HL7Exception;
  * <p>
  * The results for the majority of the methods should be retrieved from the
  * 'msg' object
+ * <p>
+ * <b>Line breaks.</b> Many handlers translate the HL7 {@code \.br\} escape into a
+ * literal {@code <br />} inside the text they return (results, comments, and
+ * sometimes other fields). That marker is a shared contract: the lab PDF, the
+ * upload splitter and the demographic export all parse it. Views must therefore
+ * never print the returned text raw, and must not plain-HTML-encode it either
+ * (that shows a visible {@code <br />}); render it with
+ * {@code SafeEncode.forHtmlContentWithBreakMarkers} (tag context
+ * {@code htmlWithBreakMarkers}), which encodes the text and turns only the
+ * markers into line breaks.
  */
 public interface MessageHandler {
 
@@ -161,6 +172,119 @@ public interface MessageHandler {
      * @return String the obx value
      */
     public String getOBXValueType(int i, int j);
+
+    /**
+     * Whether the jth OBX segment of the ith OBR group carries an embedded
+     * document rather than a result value: HL7 value type {@code ED}
+     * (encapsulated data, typically a base64 PDF or image in OBX-5).
+     *
+     * <p>Detection is by the declared value type (OBX-2), never by inspecting
+     * the result text. A long ordinary result made only of base64-alphabet
+     * characters is still a result; an {@code ED} segment is a document even
+     * when its payload is short. Consumers such as the OMD CDS export use this
+     * to route documents to {@code Reports} instead of {@code LaboratoryResults}.
+     * Handlers whose value type is not HL7-derived (for example IHA's
+     * {@code "NA"}) are unaffected.</p>
+     *
+     * <p>Adapted from the embedded-content detection added to the lab parsers
+     * in open-osp/Open-O f54daef859 (Colcamex Resources Inc.). Upstream decides
+     * per message ("every OBX is ED"); CARLOS decides per OBX so a message
+     * mixing a PDF with discrete results exports both correctly.</p>
+     *
+     * @param i the OBR group index
+     * @param j the OBX index within the group
+     * @return {@code true} when OBX-2 is {@code ED}
+     * @since 2026-09-26
+     */
+    default boolean isOBXEmbeddedDocument(int i, int j) {
+        String valueType = getOBXValueType(i, j);
+        return valueType != null && "ED".equals(valueType.trim());
+    }
+
+    /**
+     * The parsed OBX segment behind {@code (i, j)}, for the embedded-document accessors below.
+     *
+     * <p>Handlers whose {@code getOBXResult} reads OBX-5 component 1 override this so a
+     * standards-compliant {@code ED} value ({@code ^TEXT^PDF^Base64^<data>}) yields its ED.5
+     * data and ED.4 encoding wherever the parser can reach the segment, instead of the empty
+     * source-application component. The default, {@code null}, keeps the handler's own
+     * {@link #getOBXResult(int, int)} (PATHL7, for example, decodes ED values there itself).</p>
+     *
+     * @param i the OBR group index
+     * @param j the OBX index within the group
+     * @return the OBX segment, or {@code null} when the handler does not expose it
+     * @throws Exception when the indices do not resolve; callers treat it as "not available"
+     * @since 2026-10-01
+     */
+    default Segment getOBXSegment(int i, int j) throws Exception {
+        return null;
+    }
+
+    /**
+     * Encoding of the returned embedded-document payload (HL7 ED.4), when exposed by the parser.
+     * A means unencoded text, Base64 and Hex explicitly identify encoded octets. An absent
+     * value retains the legacy signature-based fallback for handlers without this metadata.
+     * The default reads ED.4 from {@link #getOBXSegment(int, int)} when ED.5 carries the data.
+     */
+    default String getOBXDocumentEncoding(int i, int j) {
+        return EdObservationValue.encoding(this, i, j, () -> getOBXSegment(i, j));
+    }
+
+    /**
+     * The payload of an embedded document (see {@link #isOBXEmbeddedDocument(int, int)}): HL7
+     * ED.5 where the parser exposes the segment ({@link #getOBXSegment(int, int)}), otherwise the
+     * ordinary {@link #getOBXResult(int, int)}. For a standards-compliant {@code ED} value
+     * component 1 is the (empty) source application and the document is in component 5.
+     *
+     * <p>The value is returned exactly as sent: it feeds the PDF decoder, so it is neither
+     * trimmed nor line-break translated. Views showing a text payload use
+     * {@link #getOBXEmbeddedDocumentText(int, int)}.</p>
+     *
+     * @param i the OBR group index
+     * @param j the OBX index within the group
+     * @return the encoded document, or the result text; may be empty
+     * @since 2026-09-30
+     */
+    default String getOBXEmbeddedDocumentData(int i, int j) {
+        return EdObservationValue.data(this, i, j, () -> getOBXSegment(i, j));
+    }
+
+    /**
+     * Whether {@link #getOBXEmbeddedDocumentData(int, int)} is the handler's OBX-5.1
+     * {@link #getOBXResult(int, int)} because ED.5 is empty, rather than an ED component. Such a
+     * payload is a legacy feed's result value: when it is not a PDF it is shown as text, as it
+     * was before ED documents were detected, even if it happens to look like base64. The default
+     * answers from {@link #getOBXSegment(int, int)} and is {@code false} when the segment is not
+     * exposed (PATHL7, for example, decodes its ED values itself).
+     *
+     * @param i the OBR group index
+     * @param j the OBX index within the group
+     * @return {@code true} when the payload is known to be the OBX-5.1 fallback
+     * @since 2026-10-02
+     */
+    default boolean isOBXEmbeddedDocumentResultFallback(int i, int j) {
+        return EdObservationValue.resultFallback(this, i, j, () -> getOBXSegment(i, j));
+    }
+
+    /**
+     * An embedded document declared as text (ED.4 {@code A}), ready for display: the
+     * {@link #getOBXEmbeddedDocumentData(int, int)} payload with the same normalisation
+     * {@code getOBXResult} applies to ordinary results (trimmed, HL7 {@code \.br\} turned into
+     * the {@code <br />} marker described on this interface), so views render it with the
+     * {@code htmlWithBreakMarkers} context. When ED.5 is empty, or
+     * {@link #getOBXDocumentEncoding(int, int)} is not {@code A} (an encoded document is never
+     * shown as text), this is the handler's own {@link #getOBXResult(int, int)}, already
+     * normalised.
+     *
+     * @param i the OBR group index
+     * @param j the OBX index within the group
+     * @return the text; may be empty, never {@code null}
+     * @since 2026-10-01
+     */
+    default String getOBXEmbeddedDocumentText(int i, int j) {
+        return EdObservationValue.text(this, i, j, () -> getOBXSegment(i, j));
+    }
+
 
 
     /**

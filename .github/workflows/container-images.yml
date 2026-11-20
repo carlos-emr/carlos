@@ -10,9 +10,9 @@
 # up both CI/CD pipelines and developer onboarding.
 #
 # Containers Managed:
-# - carlos-tomcat-dev: Development container with Java 21, Tomcat, Maven, Node.js
+# - carlos-tomcat-dev: Development container with Java 25, Tomcat, Maven, Node.js
 # - carlos-mariadb-dev: MariaDB database container with schema initialization scripts
-# - carlos-drugref-dev: DrugRef2 service container with Java 21
+# - carlos-drugref-dev: DrugRef2 service container with Java 25
 #   (the bare "carlos-drugref" ghcr name is reserved for the DEPLOYMENT image
 #   published by the carlos-podman repo's Publish Images workflow — dev images
 #   all carry the -dev suffix)
@@ -20,6 +20,7 @@
 # Freshness Check Strategy:
 # 1. Calculate SHA256 hash of Dockerfile + build context for each container
 # 2. Check if the branch-scoped ghcr.io cache image exists with matching hash label
+#    (read from the registry manifest; no layers are pulled for the check)
 # 3. If hash matches: skip build (image is up-to-date)
 # 4. If hash differs or image missing: build, test, and push new image
 #
@@ -76,7 +77,8 @@ jobs:
   # Check which containers need rebuilding
   # ===========================================================================
   check-containers:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     permissions:
       contents: read
       packages: read
@@ -87,14 +89,46 @@ jobs:
       mariadb_hash: ${{ steps.check.outputs.mariadb_hash }}
       drugref_needs_build: ${{ steps.check.outputs.drugref_needs_build }}
       drugref_hash: ${{ steps.check.outputs.drugref_hash }}
+      cache_tag: ${{ steps.check.outputs.cache_tag }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
 
+      - name: Verify carlos Compose environment
+        run: |
+          echo "Verifying Compose does not replace the image JVM options..."
+          compose_config="$(docker compose -f .devcontainer/docker-compose.yml config --format json)"
+          compose_has_catalina_opts="$(jq -r '
+            (.services.carlos.environment // {}) | has("CATALINA_OPTS")
+          ' <<< "$compose_config")"
+          if [ "$compose_has_catalina_opts" != "false" ]; then
+            echo "ERROR: carlos Compose configuration must inherit CATALINA_OPTS from the development image"
+            exit 1
+          fi
+
+          echo "Verifying sensitive development ports bind to host loopback..."
+          while read -r target published; do
+            if ! jq -e \
+                --argjson target "$target" \
+                --arg published "$published" \
+                '[.services.carlos.ports[] | select(
+                    .target == $target
+                    and (.published | tostring) == $published
+                    and .host_ip == "127.0.0.1"
+                )] | length == 1' <<< "$compose_config" > /dev/null; then
+              echo "ERROR: carlos port $published:$target must bind exactly once to 127.0.0.1"
+              exit 1
+            fi
+          done <<'EOF'
+          8080 8080
+          8443 8443
+          8000 18000
+          EOF
+
       - name: Log in to Container Registry
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -118,6 +152,12 @@ jobs:
               | cut -c1-120)
             printf '%s-latest' "$safe_ref"
           }
+
+          # Computed once per run and published as a job output: the publish jobs
+          # tag with it, so the sanitisation rule lives in exactly one place.
+          CACHE_TAG=$(cache_tag "$CACHE_REF_NAME")
+          echo "cache_tag=$CACHE_TAG" >> "$GITHUB_OUTPUT"
+          echo "Cache tag for this run: $CACHE_TAG"
 
           check_container() {
             local name=$1
@@ -154,19 +194,24 @@ jobs:
             fi
 
             # Try to get the existing image's hash label
-            IMAGE="${REGISTRY}/${IMAGE_PREFIX}/carlos-${name}:$(cache_tag "$CACHE_REF_NAME")"
+            IMAGE="${REGISTRY}/${IMAGE_PREFIX}/carlos-${name}:${CACHE_TAG}"
             echo "Checking image: $IMAGE"
 
-            # Pull image and check labels
+            # Read the label from the registry manifest + config blob without pulling
+            # any layers. The dev images are single-arch (built with buildx --load and
+            # pushed by the classic engine), so .Image.Config resolves directly. Any
+            # failure -- image missing, network error, unexpected manifest shape --
+            # leaves the hash empty, which forces a rebuild exactly as a failed
+            # `docker pull` did before.
             EXISTING_HASH=""
-            if docker pull "$IMAGE" 2>/dev/null; then
-              if ! EXISTING_HASH=$(docker inspect "$IMAGE" --format '{{ index .Config.Labels "org.openosp.content-hash" }}' 2>/dev/null); then
-                echo "Warning: failed to inspect existing image labels for $IMAGE; will treat as missing hash and rebuild if needed" >&2
-                EXISTING_HASH=""
-              fi
+            if ! EXISTING_HASH=$(docker buildx imagetools inspect "$IMAGE" \
+                --format '{{ index .Image.Config.Labels "org.openosp.content-hash" }}' 2>/dev/null); then
+              echo "Warning: could not read the manifest of $IMAGE; treating the hash as missing and rebuilding if needed" >&2
+              EXISTING_HASH=""
             fi
 
-            echo "Existing hash: ${EXISTING_HASH:-<none>}"
+            MISSING_HASH_MARKER='<none>'
+            echo "Existing hash: ${EXISTING_HASH:-$MISSING_HASH_MARKER}"
 
             if [ "$HASH" == "$EXISTING_HASH" ]; then
               echo "Container is up-to-date, skipping build"
@@ -188,17 +233,18 @@ jobs:
   build-tomcat:
     needs: check-containers
     if: needs.check-containers.outputs.tomcat_needs_build == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     permissions:
       contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
 
       - name: Build tomcat-dev container
         env:
@@ -209,15 +255,28 @@ jobs:
             --load \
             -t carlos-tomcat-dev:test \
             --label "org.openosp.content-hash=$CONTENT_HASH" \
-            --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
-            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
             .devcontainer/development
 
       - name: Test tomcat-dev container
         run: |
           echo "Testing container starts correctly..."
-          docker run -d --name test-tomcat carlos-tomcat-dev:test tail -f /dev/null
-          sleep 5
+          docker run -d --name test-tomcat carlos-tomcat-dev:test catalina.sh run
+          trap 'docker rm -f test-tomcat > /dev/null 2>&1 || true' EXIT
+
+          echo "Waiting for development HTTPS..."
+          for attempt in $(seq 1 30); do
+            if docker exec test-tomcat curl -kfsS -o /dev/null https://localhost:8443/; then
+              break
+            fi
+            if [ "$attempt" -eq 30 ]; then
+              echo "ERROR: development HTTPS did not become ready"
+              docker logs test-tomcat
+              exit 1
+            fi
+            sleep 2
+          done
 
           # Verify key components are present
           echo "Verifying Maven..."
@@ -229,11 +288,26 @@ jobs:
           echo "Verifying Tomcat..."
           docker exec test-tomcat ls -la /usr/local/tomcat/
 
+          echo "Verifying JavaMelody development override..."
+          docker exec test-tomcat sh -eu -c '
+            matches=0
+            for option in $CATALINA_OPTS; do
+              case "$option" in
+                -Djavamelody.system-actions-enabled=*)
+                  [ "$option" = "-Djavamelody.system-actions-enabled=true" ]
+                  matches=$((matches + 1))
+                  ;;
+              esac
+            done
+            [ "$matches" -eq 1 ]
+          '
+
           echo "Verifying Node.js..."
           docker exec test-tomcat node --version
 
           echo "All tests passed!"
           docker stop test-tomcat && docker rm test-tomcat
+          trap - EXIT
 
       - name: Save tested tomcat-dev image
         run: |
@@ -244,7 +318,7 @@ jobs:
           docker save carlos-tomcat-dev:test -o "$RUNNER_TEMP/container-images/carlos-tomcat-dev.tar"
 
       - name: Upload tested tomcat-dev image
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: carlos-tomcat-dev-image
           path: ${{ runner.temp }}/container-images/carlos-tomcat-dev.tar
@@ -253,19 +327,20 @@ jobs:
   publish-tomcat:
     needs: [check-containers, build-tomcat]
     if: needs.check-containers.outputs.tomcat_needs_build == 'true' && needs.build-tomcat.result == 'success' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.force_rebuild == 'true'))
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     permissions:
       contents: read
       packages: write
     steps:
       - name: Download tested tomcat-dev image
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: carlos-tomcat-dev-image
           path: ${{ runner.temp }}/container-images
 
       - name: Log in to Container Registry
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -274,23 +349,11 @@ jobs:
       - name: Push tested tomcat-dev container
         env:
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-tomcat-dev
-          CACHE_REF_NAME: ${{ github.base_ref || github.ref_name }}
+          CACHE_TAG: ${{ needs.check-containers.outputs.cache_tag }}
           SHOULD_PUSH_LATEST: ${{ github.ref_name == 'develop' }}
         run: |
-          cache_tag() {
-            local ref_name=$1
-            local safe_ref
-
-            safe_ref=$(printf '%s' "$ref_name" \
-              | tr '[:upper:]/' '[:lower:]-' \
-              | sed -E 's/[^a-z0-9_.-]+/-/g; s/^-+//; s/-+$//; s/^$/branch/' \
-              | cut -c1-120)
-            printf '%s-latest' "$safe_ref"
-          }
-
           docker load -i "$RUNNER_TEMP/container-images/carlos-tomcat-dev.tar"
-          docker tag carlos-tomcat-dev:test "$IMAGE:${{ github.sha }}"
-          CACHE_TAG=$(cache_tag "$CACHE_REF_NAME")
+          docker tag carlos-tomcat-dev:test "$IMAGE:${GITHUB_SHA}"
           docker tag carlos-tomcat-dev:test "$IMAGE:$CACHE_TAG"
           docker push "$IMAGE:$CACHE_TAG"
           echo "Pushed $IMAGE:$CACHE_TAG"
@@ -299,8 +362,8 @@ jobs:
             docker push "$IMAGE:latest"
             echo "Pushed $IMAGE:latest"
           fi
-          docker push "$IMAGE:${{ github.sha }}"
-          echo "Pushed $IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:${GITHUB_SHA}"
+          echo "Pushed $IMAGE:${GITHUB_SHA}"
 
   # ===========================================================================
   # Build and push mariadb-dev container
@@ -308,17 +371,18 @@ jobs:
   build-mariadb:
     needs: check-containers
     if: needs.check-containers.outputs.mariadb_needs_build == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     permissions:
       contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
 
       - name: Build mariadb-dev container
         env:
@@ -329,8 +393,8 @@ jobs:
             --load \
             -t carlos-mariadb-dev:test \
             --label "org.openosp.content-hash=$CONTENT_HASH" \
-            --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
-            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
             -f .devcontainer/db/Dockerfile .
 
       - name: Test mariadb-dev container
@@ -371,7 +435,7 @@ jobs:
             # Check container logs for the exact completion message from populate_db.sh: "Database initialization complete!"
             if docker logs test-mariadb 2>&1 | grep -q "Database initialization complete!"; then
               # Verify database state to avoid false positives from reused logs
-              provider_count=$(docker exec test-mariadb mariadb -N -u root -ptestpassword -e "SELECT COUNT(*) FROM oscar.provider;" 2>/dev/null || echo 0)
+              provider_count=$(docker exec test-mariadb mariadb -N -u root -ptestpassword -e "SELECT COUNT(*) FROM carlos.provider;" 2>/dev/null || echo 0)
               if [ "$provider_count" -gt 0 ]; then
                 echo "Database initialization complete and provider table populated (count=$provider_count)."
                 initialized=true
@@ -392,8 +456,8 @@ jobs:
 
           # Verify all databases exist
           echo "Verifying databases..."
-          docker exec test-mariadb mariadb -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "oscar" > /dev/null || { echo "ERROR: oscar database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
-          docker exec test-mariadb mariadb -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "oscar_test" > /dev/null || { echo "ERROR: oscar_test database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
+          docker exec test-mariadb mariadb -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "carlos" > /dev/null || { echo "ERROR: carlos database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
+          docker exec test-mariadb mariadb -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "carlos_test" > /dev/null || { echo "ERROR: carlos_test database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
           docker exec test-mariadb mariadb -u root -ptestpassword -e "SHOW DATABASES;" | grep -x "drugref2" > /dev/null || { echo "ERROR: drugref2 database not found"; docker stop test-mariadb && docker rm test-mariadb; exit 1; }
           echo "All databases verified!"
 
@@ -406,7 +470,7 @@ jobs:
           docker save carlos-mariadb-dev:test -o "$RUNNER_TEMP/container-images/carlos-mariadb-dev.tar"
 
       - name: Upload tested mariadb-dev image
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: carlos-mariadb-dev-image
           path: ${{ runner.temp }}/container-images/carlos-mariadb-dev.tar
@@ -415,19 +479,20 @@ jobs:
   publish-mariadb:
     needs: [check-containers, build-mariadb]
     if: needs.check-containers.outputs.mariadb_needs_build == 'true' && needs.build-mariadb.result == 'success' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.force_rebuild == 'true'))
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     permissions:
       contents: read
       packages: write
     steps:
       - name: Download tested mariadb-dev image
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: carlos-mariadb-dev-image
           path: ${{ runner.temp }}/container-images
 
       - name: Log in to Container Registry
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -436,23 +501,11 @@ jobs:
       - name: Push tested mariadb-dev container
         env:
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-mariadb-dev
-          CACHE_REF_NAME: ${{ github.base_ref || github.ref_name }}
+          CACHE_TAG: ${{ needs.check-containers.outputs.cache_tag }}
           SHOULD_PUSH_LATEST: ${{ github.ref_name == 'develop' }}
         run: |
-          cache_tag() {
-            local ref_name=$1
-            local safe_ref
-
-            safe_ref=$(printf '%s' "$ref_name" \
-              | tr '[:upper:]/' '[:lower:]-' \
-              | sed -E 's/[^a-z0-9_.-]+/-/g; s/^-+//; s/-+$//; s/^$/branch/' \
-              | cut -c1-120)
-            printf '%s-latest' "$safe_ref"
-          }
-
           docker load -i "$RUNNER_TEMP/container-images/carlos-mariadb-dev.tar"
-          docker tag carlos-mariadb-dev:test "$IMAGE:${{ github.sha }}"
-          CACHE_TAG=$(cache_tag "$CACHE_REF_NAME")
+          docker tag carlos-mariadb-dev:test "$IMAGE:${GITHUB_SHA}"
           docker tag carlos-mariadb-dev:test "$IMAGE:$CACHE_TAG"
           docker push "$IMAGE:$CACHE_TAG"
           echo "Pushed $IMAGE:$CACHE_TAG"
@@ -461,8 +514,8 @@ jobs:
             docker push "$IMAGE:latest"
             echo "Pushed $IMAGE:latest"
           fi
-          docker push "$IMAGE:${{ github.sha }}"
-          echo "Pushed $IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:${GITHUB_SHA}"
+          echo "Pushed $IMAGE:${GITHUB_SHA}"
 
   # ===========================================================================
   # Build and push drugref container
@@ -470,17 +523,18 @@ jobs:
   build-drugref:
     needs: check-containers
     if: needs.check-containers.outputs.drugref_needs_build == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     permissions:
       contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
 
       - name: Build drugref container
         env:
@@ -491,8 +545,8 @@ jobs:
             --load \
             -t carlos-drugref-dev:test \
             --label "org.openosp.content-hash=$CONTENT_HASH" \
-            --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
-            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
             .devcontainer/drugref
 
       - name: Test drugref container
@@ -543,7 +597,7 @@ jobs:
           docker save carlos-drugref-dev:test -o "$RUNNER_TEMP/container-images/carlos-drugref-dev.tar"
 
       - name: Upload tested drugref image
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: carlos-drugref-dev-image
           path: ${{ runner.temp }}/container-images/carlos-drugref-dev.tar
@@ -552,19 +606,20 @@ jobs:
   publish-drugref:
     needs: [check-containers, build-drugref]
     if: needs.check-containers.outputs.drugref_needs_build == 'true' && needs.build-drugref.result == 'success' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.force_rebuild == 'true'))
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     permissions:
       contents: read
       packages: write
     steps:
       - name: Download tested drugref image
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: carlos-drugref-dev-image
           path: ${{ runner.temp }}/container-images
 
       - name: Log in to Container Registry
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -573,23 +628,11 @@ jobs:
       - name: Push tested drugref container
         env:
           IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/carlos-drugref-dev
-          CACHE_REF_NAME: ${{ github.base_ref || github.ref_name }}
+          CACHE_TAG: ${{ needs.check-containers.outputs.cache_tag }}
           SHOULD_PUSH_LATEST: ${{ github.ref_name == 'develop' }}
         run: |
-          cache_tag() {
-            local ref_name=$1
-            local safe_ref
-
-            safe_ref=$(printf '%s' "$ref_name" \
-              | tr '[:upper:]/' '[:lower:]-' \
-              | sed -E 's/[^a-z0-9_.-]+/-/g; s/^-+//; s/-+$//; s/^$/branch/' \
-              | cut -c1-120)
-            printf '%s-latest' "$safe_ref"
-          }
-
           docker load -i "$RUNNER_TEMP/container-images/carlos-drugref-dev.tar"
-          docker tag carlos-drugref-dev:test "$IMAGE:${{ github.sha }}"
-          CACHE_TAG=$(cache_tag "$CACHE_REF_NAME")
+          docker tag carlos-drugref-dev:test "$IMAGE:${GITHUB_SHA}"
           docker tag carlos-drugref-dev:test "$IMAGE:$CACHE_TAG"
           docker push "$IMAGE:$CACHE_TAG"
           echo "Pushed $IMAGE:$CACHE_TAG"
@@ -598,8 +641,8 @@ jobs:
             docker push "$IMAGE:latest"
             echo "Pushed $IMAGE:latest"
           fi
-          docker push "$IMAGE:${{ github.sha }}"
-          echo "Pushed $IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:${GITHUB_SHA}"
+          echo "Pushed $IMAGE:${GITHUB_SHA}"
 
   # ===========================================================================
   # Summary job - reports what happened
@@ -607,7 +650,8 @@ jobs:
   summary:
     needs: [check-containers, build-tomcat, build-mariadb, build-drugref, publish-tomcat, publish-mariadb, publish-drugref]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
     permissions:
       contents: read
     steps:

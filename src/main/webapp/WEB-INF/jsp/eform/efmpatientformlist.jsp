@@ -33,10 +33,10 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
 <%@ taglib uri="jakarta.tags.core" prefix="c"%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -151,10 +151,13 @@
 			}
         </script>
         <style>
+            html {
+                overscroll-behavior: none;
+            }
+
             :root *:not(h2, .h2) {
                 font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
                 font-size: 12px;
-                overscroll-behavior: none;
                 -webkit-font-smoothing: antialiased;
                 -moz-osx-font-smoothing: grayscale;
             }
@@ -274,6 +277,9 @@
                                 <input type="hidden" name="group_view" value="<carlos:encode value='<%= groupView %>' context="htmlAttribute"/>"/>
                                 <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demographic_no %>' context="htmlAttribute"/>"/>
                                 <input type="hidden" name="parentAjaxId" value="<carlos:encode value='<%= parentAjaxId %>' context="htmlAttribute"/>"/>
+                                <%-- List state the post-delete redirect restores (RemEForm2Action#getRedirectTarget). --%>
+                                <input type="hidden" name="appointment" value="<carlos:encode value='<%= appointment %>' context="htmlAttribute"/>"/>
+                                <input type="hidden" name="orderby" value="<carlos:encode value='<%= orderByRequest %>' context="htmlAttribute"/>"/>
                                 <a style="color:red;" href="javascript:void(0);" onclick="if(confirm('Are you sure you want to delete this eform?')){this.closest('form').submit();}">
                                     <fmt:message key="eform.uploadimages.btnDelete"/></a>
                             </form>

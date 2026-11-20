@@ -1,18 +1,31 @@
+<%-- Modifications by CARLOS Contributors, 2026. --%>
 <%-- add-form-clinical.jsp: Care team, roster, consent, programs, submit (from demographicaddarecordhtm.jsp lines 1878-2490) --%>
+<%--
+  Purpose: Clinical section of the demographic registration form included by add.jsp.
+  Features: Care-team selection, roster status and dates, patient status, consent,
+  program and waiting-list controls, and registration submission. Optional roster,
+  joined and end dates start blank; add.jsp synchronizes their hidden date parts.
+  Inputs: DemographicAdd2Action request attributes supply configuration, provincial
+  defaults, provider lists and lookup services. The authenticated session supplies
+  user and role context; search_mode and keyword preserve the originating search.
+  This fragment completes markup opened in add-form-personal.jsp and depends on
+  the parent form and JavaScript in add.jsp.
+  @since 2026-10-04 (date-field submission correction, issue #4155)
+--%>
 <%@ page import="java.util.*" %>
-<%@ page import="java.text.SimpleDateFormat" %>
-<%@ page import="java.util.Date" %>
-<%@ page import="org.apache.commons.lang3.StringUtils" %>
+
+
+
 <%@ page import="io.github.carlos_emr.AppointmentMainBean" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.Gender" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.ProvinceNames" %>
-<%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.Util" %>
+
 <%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.PatientConsentManager" %>
+
 <%@ page import="io.github.carlos_emr.carlos.managers.ProgramManager2" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
@@ -25,10 +38,10 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
 
-<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+
+
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
+
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -235,7 +248,7 @@
                                     <input type="text" placeholder="<fmt:message key="yyyy-mm-dd"/>"
                                            name="roster_date" id="roster_date"
                                            class="form-control"
-                                           value="<%=today %>" size="12"
+                                           value="" size="12"
                                            onchange="parseDateField('roster_date');">
                                     <img src="<%= request.getContextPath() %>/images/cal.gif" id="roster_date_cal">
                                     <input type="hidden" name="roster_date_year">
@@ -316,7 +329,7 @@
                                     <input type="text" placeholder="<fmt:message key="yyyy-mm-dd"/>"
                                            name="date_joined" id="date_joined"
                                            class="form-control"
-                                           value="<%=today %>" size="12"
+                                           value="" size="12"
                                            onchange="parseDateField('date_joined');">
                                     <img src="<%= request.getContextPath() %>/images/cal.gif" id="date_joined_cal">
                                     <input type="hidden" name="date_joined_year">
@@ -332,7 +345,7 @@
                                     <input type="text" placeholder="<fmt:message key="yyyy-mm-dd"/>"
                                            name="end_date" id="end_date"
                                            class="form-control"
-                                           value="<%=today %>" size="12"
+                                           value="" size="12"
                                            onchange="parseDateField('end_date');">
                                     <img src="<%= request.getContextPath() %>/images/cal.gif" id="end_date_cal">
                                     <input type="hidden" name="end_date_year">

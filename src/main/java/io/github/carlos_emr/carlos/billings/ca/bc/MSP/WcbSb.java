@@ -116,16 +116,40 @@ public class WcbSb {
     public WcbSb(String billingNo) {
         BillingServiceDao bsDao = SpringUtils.getBean(BillingServiceDao.class);
 
-        for (Object[] o : bsDao.findSomethingByBillingId(ConversionUtils.fromIntString(billingNo))) {
-            fillWithRs((Wcb) o[1]);
+        for (Wcb form : bsDao.findOpenWcbFormsByBillingId(ConversionUtils.fromIntString(billingNo))) {
+            fillWithRs(form);
             return;
         }
     }
 
-    private void fillWithRs(Wcb w) {
-        this.bill_amount = w.getBillAmount();
+    public WcbSb(Wcb form, String masterNo) {
+        fillWithRs(form, masterNo);
+    }
+
+    /** The saved claim owns financial and submission fields; new clinical forms have no bill_amount. */
+    public WcbSb(Wcb form, io.github.carlos_emr.carlos.entities.Billingmaster claim) {
+        fillWithRs(form, String.valueOf(claim.getBillingmasterNo()), claim.getBillAmount());
+        this.invoice_no = String.valueOf(claim.getBillingNo());
+        this.w_feeitem = claim.getBillingCode();
+        this.w_icd9 = claim.getDxCode1();
+        this.w_payeeno = claim.getPayeeNo();
+        this.w_pracno = claim.getPractitionerNo();
+        this.w_servicedate = claim.getServiceDate();
+        this.visit_type = claim.getServiceLocation();
+        // Additional fee claims must not duplicate the clinical form's note records.
+        if (!java.util.Objects.equals(form.getFeeItem(), claim.getBillingCode())) this.formNeeded = "0";
+    }
+
+    private void fillWithRs(Wcb w) { fillWithRs(w, null); }
+
+    private void fillWithRs(Wcb w, String masterNo) {
+        fillWithRs(w, masterNo, w.getBillAmount());
+    }
+
+    private void fillWithRs(Wcb w, String masterNo, String amount) {
+        this.bill_amount = ExtractBean.claimAmount(amount).toPlainString();
         this.visit_type = w.getServiceLocation();
-        this.billing_no = getBillingMasterNo("" + w.getBillingNo());
+        this.billing_no = masterNo == null ? getBillingMasterNo("" + w.getBillingNo()) : masterNo;
         this.invoice_no = "" + w.getBillingNo();
         this.demographic_no = "" + w.getDemographicNo();
         this.provider_no = "" + w.getProviderNo();
@@ -176,7 +200,7 @@ public class WcbSb {
         this.w_feeitem = w.getFeeItem();
         this.w_extrafeeitem = w.getExtraFeeItem();
         this.w_servicelocation = w.getServiceLocation();
-        this.billamountforfeeitem1 = w.getFeeItem();
+        this.billamountforfeeitem1 = this.bill_amount;
         this.formNeeded = "" + w.getFormNeeded();
     }
 
@@ -218,11 +242,7 @@ public class WcbSb {
             }
         }
 
-        String ret = "<tr bgcolor='red'><td colspan='11'>" + "<a href='#' onClick=\"openBrWindow('billingTeleplanCorrectionWCB.jsp?billing_no=" + Misc.forwardZero(this.billing_no, 7) + "','','resizable=yes,scrollbars=yes,top=0,left=0,width=900,height=600'); return false;\">" + m.toString() + "</a>" + "</td></tr>";
-        if ("".equals(m.toString())) {
-            return "";
-        }
-        return ret;
+        return HtmlTeleplanHelper.wcbCorrectionErrorRow(this.billing_no, m.toString());
     }
 
     public BigDecimal getBillingAmountForFee1BigDecimal() {
@@ -392,10 +412,12 @@ public class WcbSb {
 
     }
 
+    /**
+     * Builds one encoded WCB claim row; delegates to {@link HtmlTeleplanHelper#wcbHtmlLine} so worker
+     * name, PHN, codes and the {@code billing_no} placed in the correction-popup URL are all encoded.
+     */
     public String getHtmlLine(String billingMasterNo, String invNo, String demoName, String phn, String serviceDate, String billingCode, String billAmount, String dx1, String dx2, String dx3) {
-        String htmlContent = "<tr>" + "<td class='bodytext'>" + "<a href='#' onClick=\"openBrWindow('billingTeleplanCorrectionWCB.jsp?billing_no=" + Misc.forwardZero(billingMasterNo, 7) + "','','resizable=yes,scrollbars=yes,top=0,left=0,width=900,height=600'); return false;\">" + invNo + "</a>" + "</td>" + "<td class='bodytext'>" + demoName + "</td>" + "<td class='bodytext'>" + w_phn + "</td>" + "<td class='bodytext'>" + dateFormat(serviceDate) + "</td>" + "<td class='bodytext'>" + billingCode + "</td>"
-                + "<td align='right' class='bodytext'>" + billAmount + "</td>" + "<td align='right' class='bodytext'>" + Misc.backwardSpace(dx1, 5) + "</td>" + "<td align='right' class='bodytext'>" + Misc.backwardSpace(dx2, 5) + "</td>" + "<td align='right' class='bodytext'>" + Misc.backwardSpace(dx3, 5) + "</td>" + "<td class='bodytext'>" + Misc.forwardZero(billingMasterNo, 7) + "</td>" + "<td class='bodytext'>&nbsp;</td>" + "</tr>";
-        return htmlContent;
+        return HtmlTeleplanHelper.wcbHtmlLine(billingMasterNo, invNo, demoName, phn, dateFormat(serviceDate), billingCode, billAmount, dx1, dx2, dx3);
     }
 
     boolean isFormNeeded() {

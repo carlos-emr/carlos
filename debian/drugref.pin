@@ -1,9 +1,11 @@
-# The carlos-emr/drugref2026 revision this package builds DrugRef from when
-# neither DRUGREF_SRC nor DRUGREF_WAR is supplied. Pin a full commit SHA for a
-# release build: a branch name makes two builds weeks apart ship different
-# code under one package version.
+# Immutable DrugRef source revision used by carlos-emr-drugref builds.
+# This revision migrates DrugRef to MariaDB Connector/J 3.5.11, preserving
+# legacy driver/URL configuration, temporal and alias metadata behavior,
+# DPD recovery, and orderly pool/driver shutdown. It is paired with
+# debian/drugref-dependencies-lock.json and the staged-WAR JDBC contract.
 #
-# The current pin is the master merge commit of the EntityManager-leak fix
-# (carlos-emr/drugref2026#8): without it, drug searches exhaust the JDBC pool
-# after one or two calls and permanently return "None found".
-ref=e1d867a9a6f13cd321218fe3510de20c2e7ad61c
+# It descends from master 57c8642 and retains the earlier allergy safety,
+# recoverable DPD replacement, missing-DIN lookup, SQL-date XML-RPC, and
+# EntityManager lifecycle fixes. Do not move the pin behind those changes.
+# Build from this full commit SHA; branch names are not reproducible.
+ref=93775a045670d5d6b90238ce1dbc551d174ed788

@@ -30,8 +30,6 @@
 
 package io.github.carlos_emr.carlos.encounter.data;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -39,16 +37,13 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
-import java.util.Set;
 import java.util.regex.Pattern;
-
-import jakarta.persistence.PersistenceException;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
+import io.github.carlos_emr.carlos.commn.dao.forms.FormGrowth0To36Dao;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -60,12 +55,12 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
 public class EctFormData {
 
+    /** Growth form table routed through the patient-bound JPA DAO. */
+    public static final String GROWTH_FORM_TABLE = "formGrowth0_36";
+
     private static final Pattern FORM_TABLE_NAME = Pattern.compile("^\\w+$");
-    private static final String LEGACY_FORM_SQL = "SELECT form_no, demographic_no, form_date from form where demographic_no=? order by form_no desc";
-    // Legacy built-in form table that is valid but not registered in encounterForm.
-    private static final Set<String> INTERNAL_FORM_TABLES = Set.of("formGrowth0_36");
     private static Logger logger = MiscUtils.getLogger();
-    private static EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
+    private static EncounterFormDao encounterFormDao() { return SpringUtils.getBean(EncounterFormDao.class); }
 
     public static final String DATE_FORMAT = "dd-MM-yyyy";
     public static final String DATETIME_FORMAT = "dd-MM-yyyy HH:mm:ss";
@@ -81,7 +76,7 @@ public class EctFormData {
     }
 
     public static Form[] getForms() {
-        List<EncounterForm> results = encounterFormDao.findAll();
+        List<EncounterForm> results = encounterFormDao().findAll();
         Collections.sort(results, EncounterForm.BC_FIRST_COMPARATOR);
 
         ArrayList<Form> forms = new ArrayList<Form>();
@@ -136,7 +131,7 @@ public class EctFormData {
     public static ArrayList<PatientForm> getGroupedPatientFormsFromAllTables(Integer demographicId) {
         // grab all of the forms
         EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
-        List<EncounterForm> encounterForms = encounterFormDao.findAll();
+        List<EncounterForm> encounterForms = encounterFormDao().findAll();
         Collections.sort(encounterForms, EncounterForm.BC_FIRST_COMPARATOR);
 
         // grab patient forms for all the above form types grouped by date of edit
@@ -156,6 +151,9 @@ public class EctFormData {
     }
 
     public static ArrayList<PatientForm> getGroupedPatientFormsAsArrayList(String demoNo, String formName, String table, String jsp) {
+        if (GROWTH_FORM_TABLE.equals(StringUtils.trimToNull(table))) {
+            return growthForms(demoNo, formName, jsp, true);
+        }
         String trustedTable = validateFormTable(table);
         if (trustedTable == null) return (new ArrayList<PatientForm>());
 
@@ -163,28 +161,11 @@ public class EctFormData {
         Integer demographicNo = parseDemographicNo(demoNo);
         if (demographicNo == null) return forms;
 
-        try {
-            if (!trustedTable.equals("form")) {
-                String sql = groupedFormTableSql(trustedTable);
-
-                try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
-                        LegacyJdbcQuery.trustedSelectSql(sql), demographicNo)) {
-                    while (rs.next()) {
-                        PatientForm frm = new PatientForm(formName, rs.getInt("ID"), rs.getInt("demographic_no"), rs.getDate("formCreated"), rs.getTimestamp("frmEdited"), jsp);
-                        forms.add(frm);
-                    }
-                }
-            } else {
-                try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LEGACY_FORM_SQL, demographicNo)) {
-                    while (rs.next()) {
-                        PatientForm frm = new PatientForm(formName, rs.getInt("form_no"), rs.getInt("demographic_no"), rs.getDate("form_date"), rs.getDate("form_date"));
-                        forms.add(frm);
-                    }
-                }
-            }
-        } catch (SQLException e) {
-            logger.error("Unexpected error.", e);
-            throw (new PersistenceException(e));
+        for (EncounterFormDao.HistoryRow row : patientHistory(trustedTable, demographicNo, true)) {
+            PatientForm form = "form".equals(trustedTable)
+                    ? new PatientForm(formName, row.id(), row.demographicNo(), row.created(), row.edited())
+                    : new PatientForm(formName, row.id(), row.demographicNo(), row.created(), row.edited(), jsp);
+            forms.add(form);
         }
 
         return (forms);
@@ -193,7 +174,7 @@ public class EctFormData {
     public static ArrayList<PatientForm> getAllPatientFormsFromAllTables(Integer demographicId) {
         // grab all of the forms
         EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
-        List<EncounterForm> encounterForms = encounterFormDao.findAll();
+        List<EncounterForm> encounterForms = encounterFormDao().findAll();
         Collections.sort(encounterForms, EncounterForm.BC_FIRST_COMPARATOR);
 
         // grab all patient forms for all the above form types
@@ -213,6 +194,9 @@ public class EctFormData {
     }
 
     public static ArrayList<PatientForm> getPatientFormsAsArrayList(String demoNo, String formName, String table) {
+        if (GROWTH_FORM_TABLE.equals(StringUtils.trimToNull(table))) {
+            return growthForms(demoNo, formName, null, false);
+        }
         String trustedTable = validateFormTable(table);
         if (trustedTable == null) return (new ArrayList<PatientForm>());
 
@@ -220,39 +204,22 @@ public class EctFormData {
         Integer demographicNo = parseDemographicNo(demoNo);
         if (demographicNo == null) return forms;
 
-        try {
-            if (!trustedTable.equals("form")) {
-                String sql = patientFormTableSql(trustedTable);
-
-                try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
-                        LegacyJdbcQuery.trustedSelectSql(sql), demographicNo)) {
-                    while (rs.next()) {
-                        PatientForm frm = new PatientForm(formName, rs.getInt("ID"), rs.getInt("demographic_no"), rs.getDate("formCreated"), rs.getTimestamp("formEdited"));
-
-                        // identify the source table for this form
-                        frm.setTable(trustedTable);
-
-                        forms.add(frm);
-                    }
-                }
-            } else {
-                try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LEGACY_FORM_SQL, demographicNo)) {
-                    while (rs.next()) {
-                        PatientForm frm = new PatientForm(formName, rs.getInt("form_no"), rs.getInt("demographic_no"), rs.getDate("form_date"), rs.getDate("form_date"));
-
-                        // identify the source table for this form
-                        frm.setTable(trustedTable);
-
-                        forms.add(frm);
-                    }
-                }
-            }
-        } catch (SQLException e) {
-            logger.error("Unexpected error.", e);
-            throw (new PersistenceException(e));
+        for (EncounterFormDao.HistoryRow row : patientHistory(trustedTable, demographicNo, false)) {
+            PatientForm form = new PatientForm(formName, row.id(), row.demographicNo(), row.created(), row.edited());
+            form.setTable(trustedTable);
+            forms.add(form);
         }
 
         return (forms);
+    }
+
+    private static List<EncounterFormDao.HistoryRow> patientHistory(String table, int patient, boolean grouped) {
+        try {
+            return encounterFormDao().findPatientHistory(table, Integer.toString(patient), grouped);
+        } catch (io.github.carlos_emr.carlos.commn.dao.UnknownEncounterFormTableException _) {
+            logger.warn("Rejected unregistered encounter form table: {}", LogSafe.sanitize(table));
+            return List.of();
+        }
     }
 
     private static Integer parseDemographicNo(String demoNo) {
@@ -275,27 +242,28 @@ public class EctFormData {
             }
             return null;
         }
-        if ("form".equals(normalizedTable) || INTERNAL_FORM_TABLES.contains(normalizedTable) || isKnownEncounterFormTable(normalizedTable)) {
-            return normalizedTable;
+        // The DAO validates registry membership immediately before constructing
+        // SQL. Repeating that query here adds one lookup per form on chart open.
+        return normalizedTable;
+    }
+
+    private static ArrayList<PatientForm> growthForms(String patient, String formName, String jsp, boolean grouped) {
+        ArrayList<PatientForm> results = new ArrayList<>();
+        Integer patientNo = parseDemographicNo(patient);
+        if (patientNo == null) return results;
+        var dao = SpringUtils.getBean(FormGrowth0To36Dao.class);
+        var versions = grouped ? dao.findGroupedHistory(patientNo) : dao.findHistory(patientNo);
+        for (var version : versions) {
+            PatientForm form = grouped
+                    ? new PatientForm(formName, version.id(), version.patient(), version.created(), version.edited(), jsp)
+                    : new PatientForm(formName, version.id(), version.patient(), version.created(), version.edited());
+            form.setTable(GROWTH_FORM_TABLE);
+            results.add(form);
         }
-        if (logger.isWarnEnabled()) {
-            logger.warn("Rejected unknown encounter form table name: {}", LogSafe.sanitize(normalizedTable));
-        }
-        return null;
+        return results;
     }
 
-    private static String groupedFormTableSql(String trustedTable) {
-        return "SELECT max(ID) ID, demographic_no, formCreated, date(formEdited) 'lastEdited', max(formEdited) 'frmEdited' FROM " + trustedTable + " WHERE demographic_no=? group by lastEdited";
-    }
 
-    private static String patientFormTableSql(String trustedTable) {
-        return "SELECT ID, demographic_no, formCreated, formEdited FROM " + trustedTable + " WHERE demographic_no=? ORDER BY ID DESC";
-    }
-
-    private static boolean isKnownEncounterFormTable(String table) {
-        // EncounterFormDaoImpl caches form-table lookups; keep validation here as the boundary.
-        return !encounterFormDao.findByFormTable(table).isEmpty();
-    }
 
     public static PatientForm[] getPatientForms(String demoNo, String table) {
         return (getPatientFormsAsArrayList(demoNo, null, table).toArray(new PatientForm[0]));
@@ -307,6 +275,29 @@ public class EctFormData {
         Collections.sort(results, PatientForm.CREATED_DATE_COMPARATOR);
 
         return (results.toArray(new PatientForm[0]));
+    }
+
+    /**
+     * Returns the saved row of a form that the {@code formId=latest} shortcut opens for this patient.
+     *
+     * <p>The shortcut ({@code FrmData.getShortcutFormValue}) resolves "latest" with
+     * {@code ORDER BY formEdited DESC, ID DESC}. A caller that labels a link to that shortcut,
+     * such as the eChart Forms module, must describe the same row, so it selects with
+     * {@link PatientForm#SHORTCUT_LATEST_COMPARATOR} rather than the creation-date order of
+     * {@link #getPatientFormsFromLocalAndRemote(LoggedInInfo, String, String)}. The two orders
+     * disagree for forms whose rows are updated in place (issue #4678).</p>
+     *
+     * <p>The legacy XML {@code form} table is not covered: its shortcut filters by form name and
+     * orders by {@code form_no}, while this lookup reads every XML form of the patient.</p>
+     *
+     * @param demoNo patient demographic number; an invalid value yields {@code null}
+     * @param table registered encounter form table; an unknown or invalid name yields {@code null}
+     * @return the row the latest shortcut opens, or {@code null} when the patient has none
+     */
+    public static PatientForm getShortcutLatestPatientForm(String demoNo, String table) {
+        return getPatientFormsAsArrayList(demoNo, null, table).stream()
+                .min(PatientForm.SHORTCUT_LATEST_COMPARATOR)
+                .orElse(null);
     }
 
     public static PatientForm[] getPatientFormsFromLocalAndRemote(LoggedInInfo loggedInInfo, String demoNo, String table, Boolean sortByEdited) {
@@ -329,39 +320,60 @@ public class EctFormData {
         private SimpleDateFormat dateFormat = new SimpleDateFormat(EctFormData.DATE_FORMAT);
 
         /**
-         * This comparator sorts PatientForm descending based on the created date
+         * Newest first, rows with no date last. Compares epoch milliseconds so that a
+         * {@code java.sql.Timestamp} and a plain {@code Date} order symmetrically.
          */
-        public static final Comparator<PatientForm> CREATED_DATE_COMPARATOR = new Comparator<PatientForm>() {
-            public int compare(PatientForm o1, PatientForm o2) {
-                if (o2.created == null && o1.created == null) {
-                    return o2.edited.compareTo(o1.edited);
-                }
-                if (o2.created == null && o1.created != null) {
-                    return o2.edited.compareTo(o1.created);
-                }
-                if (o1.created == null && o2.created != null) {
-                    return o2.created.compareTo(o1.edited);
-                }
+        private static final Comparator<Long> NEWEST_FIRST_UNDATED_LAST =
+                Comparator.nullsLast(Comparator.<Long>reverseOrder());
 
-                return (o2.created.compareTo(o1.created));
-            }
-        };
-        public static final Comparator<PatientForm> EDITED_DATE_COMPARATOR = new Comparator<PatientForm>() {
-            public int compare(PatientForm o1, PatientForm o2) {
-                if (o2.edited == null && o1.edited == null) {
-                    return o2.created.compareTo(o1.created);
-                }
-                if (o2.edited == null && o1.edited != null) {
-                    return o2.created.compareTo(o1.edited);
-                }
-                if (o1.edited == null && o2.edited != null) {
-                    return o2.edited.compareTo(o1.created);
-                }
+        /** Highest ID first, the deterministic tie-break once two rows carry the same effective date. */
+        private static final Comparator<Integer> HIGHEST_ID_FIRST =
+                Comparator.nullsLast(Comparator.<Integer>reverseOrder());
 
+        /**
+         * Sorts PatientForm newest first by creation date, using the edit date for a row that has no
+         * creation date. Rows with neither date sort last, then the highest ID first.
+         *
+         * <p>{@code formCreated} is nullable in every form table and {@code formEdited} in several, so a
+         * row may carry either date, both or neither (issue #5994). The key is derived from one row at
+         * a time, which keeps this a consistent total order; the earlier pairwise version compared one
+         * row's created date with the other's edited date, which is not transitive.</p>
+         */
+        public static final Comparator<PatientForm> CREATED_DATE_COMPARATOR =
+                Comparator.comparing((PatientForm form) -> epochMillis(form.created, form.edited),
+                                NEWEST_FIRST_UNDATED_LAST)
+                        .thenComparing(form -> form.formId, HIGHEST_ID_FIRST);
 
-                return (o2.edited.compareTo(o1.edited));
-            }
-        };
+        /**
+         * Sorts PatientForm newest first by edit date, using the creation date for a row that was
+         * never edited. Rows with neither date sort last, then the highest ID first.
+         *
+         * <p>Used by {@code EmailNoteUtil} to list a sent email's form attachments after the message has
+         * been accepted, so it must never throw on a row with a missing date (issue #5994). See
+         * {@link #CREATED_DATE_COMPARATOR} for why the key is per row.</p>
+         */
+        public static final Comparator<PatientForm> EDITED_DATE_COMPARATOR =
+                Comparator.comparing((PatientForm form) -> epochMillis(form.edited, form.created),
+                                NEWEST_FIRST_UNDATED_LAST)
+                        .thenComparing(form -> form.formId, HIGHEST_ID_FIRST);
+
+        /** The time of {@code preferred}, else of {@code fallback}, else {@code null} when the row has neither. */
+        private static Long epochMillis(Date preferred, Date fallback) {
+            Date effective = preferred != null ? preferred : fallback;
+            return effective == null ? null : effective.getTime();
+        }
+
+        /**
+         * Orders rows the way {@code FrmData.getShortcutFormValue} resolves {@code formId=latest}:
+         * newest {@code formEdited} first, rows without an edit time last (MySQL and H2 place
+         * NULL last in a descending sort), then the highest ID first when edit times tie.
+         * Timestamps compare with their full precision, as the database does.
+         */
+        public static final Comparator<PatientForm> SHORTCUT_LATEST_COMPARATOR =
+                Comparator.comparing((PatientForm form) -> form.edited,
+                                Comparator.nullsLast(Comparator.<Date>reverseOrder()))
+                        .thenComparing(form -> form.formId,
+                                Comparator.nullsLast(Comparator.<Integer>reverseOrder()));
 
         public Integer formId;
         public Integer demographicId;

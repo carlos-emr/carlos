@@ -28,7 +28,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import com.mysql.cj.jdbc.AbandonedConnectionCleanupThread;
 import io.github.carlos_emr.carlos.drools.DroolsShutdownResources;
 import io.github.carlos_emr.carlos.log.LogAction;
 import org.apache.logging.log4j.Logger;
@@ -47,23 +46,15 @@ public final class WebappShutdownResources {
 
     /**
      * Releases shutdown-sensitive resources for the supplied web application class loader.
-     * The call order is significant: servlet-thread DB state and datasource tracking are released before
-     * async log workers, Drools executors, cache timers, MySQL cleanup, and finally webapp-owned
-     * JDBC driver deregistration.
+     * The call order is significant: async log workers, Drools executors and cache timers
+     * are stopped before servlet-thread DB state and datasource tracking are released, followed by the JDK scheduler's
+     * context loader, the MariaDB timeout scheduler, and finally webapp-owned JDBC driver deregistration.
      *
      * @param webappClassLoader class loader associated with the stopping CARLOS webapp
      * @return per-step shutdown report for audit logging
      */
     public static ShutdownReport releaseForContext(ClassLoader webappClassLoader) {
         List<ShutdownStepResult> results = new ArrayList<>();
-        runStep(results, ShutdownStep.DB_THREAD_RESOURCES, () -> {
-            DbConnectionFilter.releaseAllKnownDbResources();
-            return 0;
-        });
-        runStep(results, ShutdownStep.TRACKING_DATA_SOURCE, () -> {
-            OscarTrackingBasicDataSource.clearTrackingState();
-            return 0;
-        });
         runStep(results, ShutdownStep.LOG_ACTION_EXECUTOR, () -> {
             LogAction.shutdownExecutorService();
             return 0;
@@ -73,10 +64,18 @@ public final class WebappShutdownResources {
             QueueCache.shutdownSharedTimer();
             return 0;
         });
-        runStep(results, ShutdownStep.MYSQL_CLEANUP_THREAD, () -> {
-            shutdownMySqlAbandonedConnectionCleanupThread();
+        runStep(results, ShutdownStep.DB_THREAD_RESOURCES, () -> {
+            DbConnectionFilter.releaseAllThreadDbResources();
             return 0;
         });
+        runStep(results, ShutdownStep.TRACKING_DATA_SOURCE, () -> {
+            OscarTrackingBasicDataSource.clearTrackingState();
+            return 0;
+        });
+        runStep(results, ShutdownStep.JDK_DELAY_SCHEDULER,
+                () -> releaseJdkDelaySchedulerClassLoader(webappClassLoader));
+        runStep(results, ShutdownStep.MARIADB_TIMEOUT_SCHEDULER,
+                () -> closeMariaDbScheduler(webappClassLoader));
         runStep(results, ShutdownStep.JDBC_DRIVERS, () -> deregisterJdbcDrivers(webappClassLoader));
         return new ShutdownReport(results);
     }
@@ -88,6 +87,14 @@ public final class WebappShutdownResources {
             logger.warn("Shutdown step {} failed", step, t);
             results.add(ShutdownStepResult.failure(step, t));
         }
+    }
+
+    static int closeMariaDbScheduler(ClassLoader webappClassLoader) {
+        if (isSameOrChildClassLoader(org.mariadb.jdbc.client.util.SchedulerProvider.class.getClassLoader(), webappClassLoader)) {
+            org.mariadb.jdbc.client.util.SchedulerProvider.close();
+            return 1;
+        }
+        return 0;
     }
 
     @FunctionalInterface
@@ -111,8 +118,10 @@ public final class WebappShutdownResources {
         DROOLS_EXECUTORS,
         /** Cancel the QueueCache shared timer. */
         QUEUE_CACHE_TIMER,
-        /** Stop MySQL Connector/J's abandoned cleanup thread. */
-        MYSQL_CLEANUP_THREAD,
+        /** Release the stopped webapp's reference held by Java 25's shared delay scheduler. */
+        JDK_DELAY_SCHEDULER,
+        /** Stop the webapp-owned MariaDB query timeout scheduler after connections close. */
+        MARIADB_TIMEOUT_SCHEDULER,
         /** Deregister JDBC drivers owned by the webapp class loader. */
         JDBC_DRIVERS
     }
@@ -201,6 +210,32 @@ public final class WebappShutdownResources {
     }
 
     /**
+     * Java 25's common-pool delay scheduler inherits the initiating thread's context
+     * class loader. It outlives every webapp, so its context must not retain a stopped
+     * CARLOS deployment. Only detach our loader from that exact bootstrap-loaded JDK
+     * thread; never interrupt the shared scheduler or change another application's loader.
+     *
+     * @param webappClassLoader class loader of the stopping webapp
+     * @return number of scheduler context-loader references released
+     * @throws ClassNotFoundException if the runtime lacks the Java 25 scheduler implementation
+     */
+    static int releaseJdkDelaySchedulerClassLoader(ClassLoader webappClassLoader) throws ClassNotFoundException {
+        // This JDK implementation class is package-private, so instanceof cannot
+        // name it. Resolve it through the bootstrap loader and compare Class identity.
+        Class<?> schedulerClass = Class.forName("java.util.concurrent.DelayScheduler", false, null);
+        int released = 0;
+        for (Thread thread : Thread.getAllStackTraces().keySet()) {
+            if (thread.getClass() == schedulerClass
+                    && "ForkJoinPool.commonPool-delayScheduler".equals(thread.getName())
+                    && isSameOrChildClassLoader(thread.getContextClassLoader(), webappClassLoader)) {
+                thread.setContextClassLoader(ClassLoader.getPlatformClassLoader());
+                released++;
+            }
+        }
+        return released;
+    }
+
+    /**
      * Deregisters JDBC drivers owned by the stopping webapp class loader hierarchy.
      * Drivers loaded by Tomcat or another shared parent loader are left registered because
      * they may be shared with other applications.
@@ -281,21 +316,4 @@ public final class WebappShutdownResources {
         return false;
     }
 
-    /**
-     * Stops MySQL Connector/J's abandoned-connection cleanup thread during webapp
-     * shutdown. A stopped cleanup thread is expected on repeated shutdown paths, so
-     * that state is logged at debug level; unexpected runtime failures are warnings
-     * because shutdown should continue best-effort.
-     */
-    static void shutdownMySqlAbandonedConnectionCleanupThread() {
-        try {
-            AbandonedConnectionCleanupThread.checkedShutdown();
-        } catch (NoClassDefFoundError e) {
-            logger.debug("MySQL cleanup thread class is not available on the classpath", e);
-        } catch (IllegalStateException e) {
-            logger.debug("MySQL cleanup thread was already stopped", e);
-        } catch (RuntimeException e) {
-            logger.warn("Unable to stop MySQL cleanup thread", e);
-        }
-    }
 }

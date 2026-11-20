@@ -59,6 +59,13 @@ public class EctEditMeasurementStyle2Action extends ActionSupport {
 
     public String execute()
             throws ServletException, IOException {
+        // Writes only from the form's POST: a link, image tag or prefetch must never change the
+        // measurement configuration (issue #3335).
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
 
         if (securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null) || securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.measurements", "w", null)) {
 
@@ -77,7 +84,7 @@ public class EctEditMeasurementStyle2Action extends ActionSupport {
             return "continue";
 
         } else {
-            throw new SecurityException("Access Denied!"); //missing required sec object (_admin)
+            throw new SecurityException("missing required sec object (_admin.measurements)");
         }
 
     }
@@ -90,7 +97,7 @@ public class EctEditMeasurementStyle2Action extends ActionSupport {
     private void changeCSS(String inputGroupName, String styleSheet) {
 
         for (MeasurementGroupStyle m : dao.findByGroupName(inputGroupName)) {
-            m.setId(Integer.parseInt(styleSheet));
+            m.setCssId(Integer.parseInt(styleSheet));
             dao.merge(m);
         }
 

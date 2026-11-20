@@ -28,6 +28,32 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose:
+        Waiting-list manager: lists the patients on one waiting list of the logged-in
+        provider's schedule group, in position order, and lets staff maintain them.
+
+    Features:
+        List picker over the group's current lists; choosing one reloads the page.
+        A row's note and "on list since" date are saved by posting to
+        waitinglist/SetupDisplayWaitingList?update=Y with the selectors
+        demographicNumSelected / wlNoteSelected / onListSinceSelected naming that row.
+        Remove posts to waitinglist/RemoveFromWaitingList in a popup. Both writes
+        require POST and _demographic write; this page itself needs _demographic read.
+        Opens the patient's Master Record and an appointment-booking popup per row.
+        "Create List" opens waitinglist/WLEditWaitingListNameAction, for roles
+        containing "admin". Reached from Report > Waiting List when
+        DEMOGRAPHIC_WAITING_LIST is true.
+        List, patient and provider names and notes go through the CARLOS encoder.
+
+    Parameters:
+        Rendered by waitinglist/SetupDisplayWaitingList (waitingListId selects the list),
+        which sets request attribute WLId and session attributes waitingList,
+        waitingListName, waitingListNames, allProviders, nbPatients and today.
+
+    @since 2026-04-15 at this WEB-INF path (#1674); the page predates CARLOS
+        (its header is dated 2001-2002).
+--%>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
@@ -37,7 +63,7 @@
     String styleClass = "data2";
 %>
 <%@ page
-        import="java.util.*,io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.waitinglist.bean.*" %>
+        import="java.util.*, io.github.carlos_emr.carlos.waitinglist.bean.*" %>
 <%@ page import="io.github.carlos_emr.carlos.waitinglist.bean.WLWaitingListNameBeanHandler" %>
 <%@ page import="io.github.carlos_emr.carlos.waitinglist.bean.WLWaitingListNameBean" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -118,7 +144,7 @@
                                         String name = wLBean.getWaitingListName();                                       
                                         String selected = id.compareTo((String) request.getAttribute("WLId")==null?"0":(String) request.getAttribute("WLId"))==0?"SELECTED":"";                                        
                                 %>
-                                <option value="<%=id%>" <%=selected%>><%=name%>
+                                <option value="<carlos:encode value='<%= id %>' context="htmlAttribute"/>" <%=selected%>><carlos:encode value='<%= name %>'/>
                                 </option>
                                         <%}%>
                                 </select> <INPUT type="button" onClick="goToPage()" value="<fmt:message key='oscarwaitinglist.displayWaitingList.generateReport'/>">
@@ -158,7 +184,11 @@
                                         <td align="left" class="Header" width="50"></td>
                                     </tr>
                                     <c:forEach var="waitingListBean" items="${waitingList.waitingList}" varStatus="ctr">
-                                        <input type="hidden" name="demographicNo" id="demographicNo" indexed="true"/>
+                                        <%-- The row's fields are named waitingListBean[i].x: setParameters() reads the
+                                             index out of the name and the update posts them under those names, which
+                                             is the shape SetupDisplayWaitingList requires. The plain names left over
+                                             from the Struts 1 indexed tags never reached the action. --%>
+                                        <input type="hidden" name="waitingListBean[${ctr.index}].demographicNo" value="${carlos:forHtmlAttribute(waitingListBean.demographicNo)}"/>
 
                                         <c:set var="styleClass" value="${(ctr.index % 2 == 0) ? 'data5' : 'data2'}"/>
 
@@ -177,14 +207,16 @@
                                                    onClick="updateWaitingList('${carlos:forJavaScript(waitingListBean.waitingListID)}', ${ctr.index});"/>
                                         </td>
                                         <td class="${styleClass}">
-                                            <textarea cols="45" name="note" indexed="true" class="data3" onblur="setParameters(this);"></textarea>
+                                            <fmt:message key="oscarwaitinglist.displayWaitingList.note" var="waitingListNoteLabel"/>
+                                            <textarea cols="45" name="waitingListBean[${ctr.index}].note" id="waitingListNote_${ctr.index}" aria-label="${carlos:forHtmlAttribute(waitingListNoteLabel)}" class="data3" onblur="setParameters(this);">${carlos:forHtmlContent(waitingListBean.note)}</textarea>
                                         </td>
                                         <td class="${styleClass}">
-                                            <input type="text" name="onListSince" indexed="true" class="data3" onblur="setParameters(this);" onchange="setParameters(this);"/>
+                                            <fmt:message key="oscarwaitinglist.displayWaitingList.dateOfRequest" var="waitingListDateLabel"/>
+                                            <input type="text" name="waitingListBean[${ctr.index}].onListSince" value="${carlos:forHtmlAttribute(waitingListBean.onListSince)}" id="waitingListOnListSince_${ctr.index}" aria-label="${carlos:forHtmlAttribute(waitingListDateLabel)}" class="data3" onblur="setParameters(this);" onchange="setParameters(this);"/>
                                             <img src="<%= request.getContextPath() %>/images/cal.gif" id="referral_date_cal_${ctr.index}">
                                             <script type="text/javascript">
                                                 Calendar.setup({
-                                                    inputField: "waitingListBean[${ctr.index}].onListSince",
+                                                    inputField: "waitingListOnListSince_${ctr.index}",
                                                     ifFormat: "%Y-%m-%d",
                                                     showsTime: false,
                                                     button: "referral_date_cal_${ctr.index}",
@@ -196,12 +228,12 @@
                                         <td class="${styleClass}">
                                             <select name="selectedProvider" class="data3">
                                                 <c:forEach var="allProvider" items="${allProviders}">
-                                                    <option value="${allProvider.providerID}">
-                                                            ${allProvider.providerName}
+                                                    <option value="${carlos:forHtmlAttribute(allProvider.providerID)}">
+                                                            ${carlos:forHtml(allProvider.providerName)}
                                                     </option>
                                                 </c:forEach>
                                             </select>
-                                            <a href="#" onClick="popupPage(${ctr.index}, '${carlos:forJavaScript(waitingListBean.patientName)}', '${carlos:forJavaScript(waitingListBean.demographicNo)}', '${carlos:forJavaScript(today)}', 400, 780, '<%= request.getContextPath() %>/schedule/FlipView?originalpage=<%= request.getContextPath() %>/waitinglist/SetupDisplayWaitingList'); return false;">
+                                            <a href="#" onClick="popupPage(${ctr.index}, '${carlos:forJavaScript(waitingListBean.demographicNo)}', '${carlos:forJavaScript(today)}', 400, 780, '<%= request.getContextPath() %>/schedule/FlipView?originalpage=<%= request.getContextPath() %>/waitinglist/SetupDisplayWaitingList'); return false;">
                                                 <fmt:message key='oscarwaitinglist.displayWaitingList.makeAppointment'/>
                                             </a>
                                         </td>
@@ -268,7 +300,7 @@
             var indexNum1 = thisObjName.indexOf("[");
             var indexNum2 = thisObjName.indexOf("]");
 
-            var wlcount = 0;
+            var wlCount = 0;
             if (indexNum1 > 0) {
                 wlCount = thisObjName.substring(indexNum1 + 1, indexNum2);
             }
@@ -280,7 +312,7 @@
             //alert("setParameters(): onListSinceSelected = " + document.forms[0].onListSinceSelected.value);
         }
 
-        function popupPage(ctr, patientName, demographicNo, startDate, vheight, vwidth, varpage) {
+        function popupPage(ctr, demographicNo, startDate, vheight, vwidth, varpage) {
             var nbPatients = parseInt('${carlos:forJavaScript(nbPatients)}');
             if (nbPatients > 1) {
                 var selected = document.forms[0].selectedProvider[ctr].options[document.forms[0].selectedProvider[ctr].selectedIndex].value;
@@ -290,8 +322,7 @@
             var page = varpage
                 + '&provider_no=' + encodeURIComponent(selected)
                 + '&startDate=' + encodeURIComponent(startDate)
-                + '&demographic_no=' + encodeURIComponent(demographicNo)
-                + '&demographic_name=' + encodeURIComponent(patientName);
+                + '&demographic_no=' + encodeURIComponent(demographicNo);
             var windowprops = "height=" + vheight + ",width=" + vwidth + ",location=no,scrollbars=yes,menubars=no,toolbars=no,resizable=yes,screenX=50,screenY=50,top=0,left=0";
             var popup = window.open(page, "<fmt:message key='provider.appointmentProviderAdminDay.apptProvider'/>", windowprops);
             if (popup != null) {

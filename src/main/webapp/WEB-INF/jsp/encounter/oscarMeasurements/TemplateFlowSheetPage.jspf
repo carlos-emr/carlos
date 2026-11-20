@@ -28,16 +28,16 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@page import="javax.swing.Spring"%>
+
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DrugDao"%>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DrugReasonDao"%>
 <%@page import="org.apache.commons.lang3.StringUtils"%>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils"%>
 <%long startTime = System.currentTimeMillis();%>
 <%@page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData"%>
-<%@page  import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*,java.net.*"%>
-<%@page import="org.springframework.web.context.support.WebApplicationContextUtils,io.github.carlos_emr.carlos.log.*"%>
-<%@page import="org.springframework.web.context.WebApplicationContext,io.github.carlos_emr.carlos.dxresearch.bean.*"%>
+<%@page  import="java.util.*, io.github.carlos_emr.carlos.prevention.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*, java.net.*"%>
+<%@page import="io.github.carlos_emr.carlos.log.*"%>
+<%@page import="io.github.carlos_emr.carlos.dxresearch.bean.*"%>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetCustomizationDao"%>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetDrugDao,io.github.carlos_emr.carlos.commn.dao.FlowSheetDxDao,io.github.carlos_emr.carlos.utility.MiscUtils"%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
@@ -45,12 +45,12 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security"%>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@page import="io.github.carlos_emr.CarlosProperties"%>
-<%@ page import="org.owasp.encoder.Encode" %>
+
+
 <%-- CARLOS StringUtils used via FQ name to avoid conflict with apache commons lang3 StringUtils --%>
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
@@ -61,7 +61,7 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementTemplateFlowSheetConfig" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBean" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypeBeanHandler" %>
-<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler" %>
+
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prevention.PreventionData" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
@@ -148,7 +148,11 @@
     ArrayList<String> measurements = new ArrayList(measurementLs);
     long startTimeToGetM = System.currentTimeMillis();
 
-    mi.getMeasurements(measurements);
+    // Decision support reads every item, hidden ones included: a ds_rules file and the item
+    // recommendations still cover an item a customization hides, and without its readings an
+    // up-to-date hidden item would be reported as never recorded (#4433). Display uses the
+    // visible list.
+    mi.getMeasurements(new ArrayList<String>(mFlowsheet.getMeasurementList()));
 
     try{
     	mFlowsheet.getMessages(mi);
@@ -202,10 +206,13 @@
 <oscar:customInterface name="renal" section="diab"/>
 
 <style media="all">
+    html {
+        overscroll-behavior: none;
+    }
+
     :root *:not(h1,h2,h3,h4) {
         font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
         font-size: 12px;
-        overscroll-behavior: none;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
     }
@@ -605,6 +612,12 @@ div.recommendations ul{
                     RxPrescriptionData prescriptData = new RxPrescriptionData();
                     RxPrescriptionData.Prescription [] arr = {};
                     arr = prescriptData.getUniquePrescriptionsByPatient(Integer.parseInt(demographic_no));
+                    // Drugs are linked by ATC code. A drug already linked to this flowsheet is shown as linked, like
+                    // a linked diagnosis, rather than offered again; one without an ATC code has nothing to link by.
+                    Set<String> linkedAtcCodes = new HashSet<>();
+                    for (FlowSheetDrug linkedDrug : flowSheetDrugDao.getFlowSheetDrugs(temp, Integer.parseInt(demographic_no))) {
+                        linkedAtcCodes.add(linkedDrug.getAtcCode());
+                    }
                     if (arr.length > 0){%>
                 <ul>
                     <%for (int i = 0; i < arr.length; i++){
@@ -614,17 +627,24 @@ div.recommendations ul{
                         rxP = rxP + "   " + arr[i].getEndDate();
                         String styleColor = "";
                         if(arr[i].isCurrent()){
+                            String rxAtc = arr[i].getAtcCode();
                     %>
                     <li title="<carlos:encode value='<%= rxD %>' context="htmlAttribute"/> - <carlos:encode value='<%= rxP %>' context="htmlAttribute"/>">
+                        <% if (rxAtc != null && linkedAtcCodes.contains(rxAtc)) { %>
+                            <span style="background-color: yellow;">- <carlos:encode value='<%= org.apache.commons.lang3.StringUtils.abbreviate(rxP, 12) %>' context="html"/></span>
+                        <% } else if (rxAtc == null || rxAtc.isBlank()) { %>
+                            - <carlos:encode value='<%= org.apache.commons.lang3.StringUtils.abbreviate(rxP, 12) %>' context="html"/>
+                        <% } else { %>
                             <form method="post" action="FlowSheetDrugAction" style="display:inline;">
                                 <input type="hidden" name="method" value="save"/>
                                 <input type="hidden" name="flowsheet" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(temp) %>' context="htmlAttribute"/>"/>
                                 <input type="hidden" name="demographic" value="<%= safeDemoNoHtml %>"/>
-                                <input type="hidden" name="atcCode" value="<carlos:encode value='<%= arr[i].getAtcCode() %>' context="htmlAttribute"/>"/>
+                                <input type="hidden" name="atcCode" value="<carlos:encode value='<%= rxAtc %>' context="htmlAttribute"/>"/>
                                 <a href="javascript:void(0);" onclick="this.closest('form').submit();">
                                 - <carlos:encode value='<%= org.apache.commons.lang3.StringUtils.abbreviate(rxP, 12) %>' context="html"/>
                                 </a>
                             </form>
+                        <% } %>
                     </li>
                     <%  }
                     }%>
@@ -757,7 +777,7 @@ div.recommendations ul{
 <div class="preventionSection" id="<%=measure%>"  style="overflow: auto;<%=hidden%>" >
     <div class="headPrevention">
 
-        <p class="noborder" <%=extraColour%> title="fade=[on] header=[<carlos:encode value='<%= (String) h2.get("display_name") %>' context="htmlAttribute"/>] body=[<%=wrapWithSpanIfNotNull(mi.getWarning(measure),"red")%><%=wrapWithSpanIfNotNull(mi.getRecommendation(measure),"red")%><carlos:encode value='<%= (String) h2.get("guideline") %>' context="htmlAttribute"/>]"   >
+        <p class="noborder" <%=extraColour%> title="fade=[on] header=[<%= SafeEncode.forTooltipText((String) h2.get("display_name")) %>] body=[<%=wrapWithSpanIfNotNull(mi.getWarning(measure),"red")%><%=wrapWithSpanIfNotNull(mi.getRecommendation(measure),"red")%><%= SafeEncode.forTooltipText((String) h2.get("guideline")) %>]"   >
         <%
             String safeMeasureUri = SafeEncode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(measure));
             String safeGraphMeasurementUrl = SafeEncode.forJavaScriptAttribute(
@@ -842,7 +862,7 @@ value="<%= h.get("name")%>"/>
     <div class="preventionProcedure" <%=hider%>
     onclick="javascript:fsPopup(760,670,'<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewAddMeasurementData?measurement=<carlos:encode value='${__enc_3}' context="javaScriptAttribute"/>&amp;id=<carlos:encode value='<%= String.valueOf(hdata.get("id")) %>' context="javaScriptAttribute"/>&amp;demographic_no=<%= safeDemoNoJsUri %>&amp;template=<%= safeTempJsUri %>','addMeasurementData')"
     >
-        <p <%=indColour%> title="fade=[on] header=[<carlos:encode value='<%= String.valueOf(hdata.get("age")) %>' context="htmlAttribute"/> -- Date:<carlos:encode value='<%= String.valueOf(hdata.get("prevention_date")) %>' context="htmlAttribute"/>] body=[<carlos:encode value='<%= com %>' context="htmlAttribute"/>&lt;br/&gt;Entered By:<carlos:encode value='<%= mdb.getProviderFirstName() %>' context="htmlAttribute"/> <carlos:encode value='<%= mdb.getProviderLastName() %>' context="htmlAttribute"/>]"><carlos:encode value='<%= String.valueOf(h2.get("value_name")) %>' context="html"/>: <carlos:encode value='<%= String.valueOf(hdata.get("age")) %>' context="html"/> <br/>
+        <p <%=indColour%> title="fade=[on] header=[<%= SafeEncode.forTooltipText(String.valueOf(hdata.get("age"))) %> -- Date:<%= SafeEncode.forTooltipText(String.valueOf(hdata.get("prevention_date"))) %>] body=[<%= SafeEncode.forTooltipText(com) %>&lt;br/&gt;Entered By:<%= SafeEncode.forTooltipText(mdb.getProviderFirstName()) %> <%= SafeEncode.forTooltipText(mdb.getProviderLastName()) %>]"><carlos:encode value='<%= String.valueOf(h2.get("value_name")) %>' context="html"/>: <carlos:encode value='<%= String.valueOf(hdata.get("age")) %>' context="html"/> <br/>
             <carlos:encode value='<%= String.valueOf(hdata.get("prevention_date")) %>' context="html"/>&nbsp;<%=mdb.getNumMonthSinceObserved()%>M
             <%if (comb) {%>
             <span class="footnote"><%=comments.size()%></span>
@@ -850,6 +870,12 @@ value="<%= h.get("name")%>"/>
 
 
         </p>
+        <% if (mdb.getSourceLabNo() != null) { %>
+        <a class="source-lab" href="<%= SafeEncode.forHtmlAttribute(request.getContextPath()) %>/lab/CA/ALL/ViewLabDisplay?segmentID=<%= SafeEncode.forHtmlAttribute(SafeEncode.forUriComponent(String.valueOf(mdb.getSourceLabNo()))) %>"
+           target="_blank" rel="noopener" onclick="event.stopPropagation();">
+            <fmt:message key="encounter.oscarMeasurements.sourceLab"/>
+        </a>
+        <% } %>
     </div>
     <%}%>
 </div><!-- preventionSection -->
@@ -861,10 +887,20 @@ value="<%= h.get("name")%>"/>
     }else{
     String prevType = (String) h2.get("prevention_type");
     long startPrevType = System.currentTimeMillis();
-    ArrayList<Map<String,Object>> alist = PreventionData.getPreventionData(loggedInInfo, prevType, Integer.parseInt(demographic_no));
-    // Reverse to display newest first (matching measurements/drugs display order)
-    // The query returns ASC order for Prevention page compatibility
-    Collections.reverse(alist);
+    // A failed read is shown as such in this section. A section with no rows would read as
+    // "this patient has never had it", on screen and on the browser print of this page.
+    ArrayList<Map<String,Object>> alist;
+    boolean preventionUnreadable = false;
+    try {
+        alist = PreventionData.getPreventionData(loggedInInfo, prevType, Integer.parseInt(demographic_no));
+        // Reverse to display newest first (matching measurements/drugs display order)
+        // The query returns ASC order for Prevention page compatibility
+        Collections.reverse(alist);
+    } catch (io.github.carlos_emr.carlos.prevention.dto.PreventionSourceUnavailableException unavailable) {
+        alist = new ArrayList<Map<String,Object>>();
+        preventionUnreadable = true;
+        PreventionData.logUnreadable("flowsheet", Integer.valueOf(demographic_no));
+    }
 
 %>
 
@@ -872,7 +908,7 @@ value="<%= h.get("name")%>"/>
 <div class="preventionSection" style="<%=hidden%>" >
     <div class="headPrevention">
         <c:set var="__enc_4"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(prevType) %>' context="uriComponent"/></c:set>
-        <p title="fade=[on] header=[<carlos:encode value='<%= (String) h2.get("display_name") %>' context="htmlAttribute"/>] body=[<%=wrapWithSpanIfNotNull(mi.getWarning(measure),"red")%><%=wrapWithSpanIfNotNull(mi.getRecommendation(measure),"red")%><carlos:encode value='<%= (String) h2.get("guideline") %>' context="htmlAttribute"/>]">
+        <p title="fade=[on] header=[<%= SafeEncode.forTooltipText((String) h2.get("display_name")) %>] body=[<%=wrapWithSpanIfNotNull(mi.getWarning(measure),"red")%><%=wrapWithSpanIfNotNull(mi.getRecommendation(measure),"red")%><%= SafeEncode.forTooltipText((String) h2.get("guideline")) %>]">
             <a href="javascript: function myFunction() {return false; }"  onclick="javascript:fsPopup(465,635,'${ pageContext.request.contextPath }/prevention/AddPrevention?prevention=<carlos:encode value='${__enc_4}' context="javaScriptAttribute"/>&amp;demographic_no=<%= safeDemoNoJsUri %>','addPreventionData<%=Math.abs( prevType.hashCode() ) %>')">
                 <span title="<carlos:encode value='<%= (String) h2.get("guideline") %>' context="htmlAttribute"/>" style="font-weight:bold;"><carlos:encode value='<%= (String) h2.get("display_name") %>' context="html"/></span>
             </a>
@@ -881,6 +917,11 @@ value="<%= h.get("name")%>"/>
             <br/>
         </p>
     </div>
+    <% if (preventionUnreadable) { %>
+    <div class="prevention-unreadable" role="alert" style="color:#842029; font-weight:bold; padding:2px 4px;">
+        <p><fmt:setBundle basename="oscarResources"/><fmt:message key="prevention.unreadable.message"/></p>
+    </div>
+    <% } %>
     <%
         out.flush();
         int prevCount = 0;
@@ -919,9 +960,14 @@ value="<%= h.get("name")%>"/>
                     hider = "style=\"display:none;\"";
                 }
             }
+            Object preventionDateInfo = hdata.get("prevention_date_info");
+            if (preventionDateInfo instanceof io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO
+                    && !((io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO) preventionDateInfo).isExact()) {
+                hider = ""; // Uncertain timing cannot be excluded by a date range or a latest-only limit.
+            }
     %>
     <div class="preventionProcedure" <%=hider%> onclick="javascript:fsPopup(465,635,'${ pageContext.request.contextPath }/prevention/AddPrevention?id=<carlos:encode value='<%= String.valueOf(hdata.get("id")) %>' context="javaScriptAttribute"/>&amp;demographic_no=<%= safeDemoNoJsUri %>','addPreventionData')" >
-        <p <%=r(hdata.get("refused"))%> title="fade=[on] header=[<carlos:encode value='<%= String.valueOf(hdata.get("age")) %>' context="htmlAttribute"/> -- Date:<carlos:encode value='<%= String.valueOf(hdata.get("prevention_date")) %>' context="htmlAttribute"/>] body=[<carlos:encode value='<%= com %>' context="htmlAttribute"/>]" >Age: <carlos:encode value='<%= String.valueOf(hdata.get("age")) %>' context="html"/> <br/>
+        <p <%=r(hdata.get("refused"))%> title="fade=[on] header=[<%= SafeEncode.forTooltipText(String.valueOf(hdata.get("age"))) %> -- Date:<%= SafeEncode.forTooltipText(String.valueOf(hdata.get("prevention_date"))) %>] body=[<%= SafeEncode.forTooltipText(com) %>]" >Age: <carlos:encode value='<%= String.valueOf(hdata.get("age")) %>' context="html"/> <br/>
             <!--<%=refused(hdata.get("refused"))%>-->Date: <carlos:encode value='<%= String.valueOf(hdata.get("prevention_date")) %>' context="html"/>
             <%if (comb) {%>
             <span class="footnote"><%=comments.size()%></span>

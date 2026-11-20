@@ -31,14 +31,14 @@
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
 <%@ page
-        import="java.util.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.MeasurementMapConfig, io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.util.StringUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+        import="java.util.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.MeasurementMapConfig" %>
+
 
 <%
 
@@ -151,8 +151,6 @@
 }%>
 
 
-        window.onload = stripe;
-
     </script>
     <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
     <style type="text/css">
@@ -177,8 +175,8 @@
                                                 onClick="window.close()"></td>
                         <td align="right">
 
-                            <a href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> |
-                            <a href="javascript:popupStart(300,400, '<%= request.getContextPath() %>/encounter/ViewLicense')"><fmt:message key="global.license"/></a>
+                            <a href="<%= request.getContextPath() %>/encounter/ViewAbout" target="_blank" rel="noopener"><fmt:message key="global.about"/></a> |
+                            <a href="<%= request.getContextPath() %>/encounter/ViewLicense" target="_blank" rel="noopener"><fmt:message key="global.license"/></a>
                         </td>
                     </tr>
                 </table>

@@ -34,6 +34,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
 
 import jakarta.annotation.Nonnull;
 import jakarta.persistence.EntityManager;
@@ -42,10 +43,13 @@ import jakarta.persistence.EntityTransaction;
 import jakarta.persistence.NonUniqueResultException;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
+import jakarta.persistence.TypedQuery;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
+import org.hibernate.proxy.HibernateProxy;
+import org.hibernate.proxy.LazyInitializer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -76,7 +80,13 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
 
     private static final Logger BATCH_LOGGER = MiscUtils.getLogger();
 
+    /** Entity alias of the {@link #findAll(Integer, Integer)} query, passed to {@link #getFindAllDomainOrder(String)}. */
+    private static final String FIND_ALL_ALIAS = "e";
+
     protected Class<T> modelClass;
+
+    /** Identifier attribute paths of {@link #modelClass} (an immutable list), resolved from the metamodel on first use. */
+    private final AtomicReference<List<String>> identifierPaths = new AtomicReference<>();
 
     @PersistenceContext(unitName = "entityManagerFactory")
     protected EntityManager entityManager = null;
@@ -234,11 +244,62 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
     }
 
     /**
-     * You can only remove attached instances.
+     * Removes an entity, whether or not it is attached to the current persistence context.
+     *
+     * <p>Many callers load an entity with one DAO call and delete it with another, so the instance
+     * they pass here was read in an earlier transaction and is detached. Hibernate 7 rejects
+     * {@code EntityManager.remove()} on a detached instance ({@code DetachedObjectException}), which
+     * silently broke those deletes (issue #4129). A detached instance is therefore re-read by its
+     * identifier inside this transaction and the managed copy is removed. The detached instance's
+     * field values are deliberately not merged back: a delete needs only the key, and merging could
+     * write stale or caller-modified state, or resurrect a row that has already been deleted.</p>
+     *
+     * <p>If the row is already gone (deleted concurrently), there is nothing to remove and the call
+     * is a no-op. A new, never-persisted instance (no identifier) is passed straight through, which
+     * JPA defines as a no-op too.</p>
+     *
+     * @param o the entity to remove; attached or detached
      */
     @Override
     public void remove(AbstractModel<?> o) {
-        entityManager.remove(o);
+        Object managed = managedInstanceForRemoval(o);
+        if (managed != null) {
+            entityManager.remove(managed);
+        }
+    }
+
+    /**
+     * Returns the instance {@link #remove(AbstractModel)} should hand to
+     * {@code EntityManager.remove()}: the argument itself when it is managed or new, otherwise the
+     * managed copy loaded by identifier, or {@code null} when that row no longer exists.
+     */
+    private Object managedInstanceForRemoval(AbstractModel<?> o) {
+        if (o == null || entityManager.contains(o)) {
+            // null keeps the JPA IllegalArgumentException contract for callers that pass nothing.
+            return o;
+        }
+        // Read the identifier from the JPA mapping (embedded/composite keys included) rather than
+        // trusting each model's hand-written getId().
+        Object id = entityManager.getEntityManagerFactory().getPersistenceUnitUtil().getIdentifier(o);
+        if (id == null) {
+            return o;
+        }
+        Class<?> entityClass = entityClassOf(o);
+        Object managed = entityManager.find(entityClass, id);
+        if (managed == null) {
+            BATCH_LOGGER.debug("remove: {} row already deleted; nothing to remove", entityClass.getSimpleName());
+        }
+        return managed;
+    }
+
+    /**
+     * The entity class to look a detached instance up by. A detached, uninitialized lazy proxy cannot
+     * be initialized (its session is gone), so its declared persistent class is used instead of its
+     * runtime class; {@code find()} on that class still returns the concrete subclass.
+     */
+    private static Class<?> entityClassOf(Object o) {
+        LazyInitializer lazyInitializer = HibernateProxy.extractLazyInitializer(o);
+        return lazyInitializer != null ? lazyInitializer.getPersistentClass() : o.getClass();
     }
 
     // SUPPORTS for the same reason as batchPersist: batchRemove owns its EntityManager and per-chunk
@@ -404,26 +465,107 @@ public abstract class AbstractDaoImpl<T extends AbstractModel<?>> implements Abs
     }
 
     /**
-     * Fetches all instances of the persistent class handled by this DAO.
+     * Returns one page of the instances of the persistent class handled by this DAO, in a
+     * deterministic order.
      *
-     * @return Returns all instances available in the backend
+     * <p>Rows are ordered by {@link #getFindAllDomainOrder(String)} when a subclass supplies one, and
+     * always last by the entity identifier, ascending. Without an {@code ORDER BY} the database may
+     * return rows in any order — MariaDB returns them in the order of whichever index it happens to
+     * scan — so the rows on page two had no defined relationship to the rows on page one (issue
+     * #5308). The identifier is unique, which makes the order total: every row has exactly one
+     * position, and consecutive pages of an unchanged table neither repeat nor skip a row.</p>
+     *
+     * <p>See {@link AbstractDao#findAll(Integer, Integer)} for the limit rules and for reading a
+     * table that other transactions change while it is being paged.</p>
      */
     @Override
-    @SuppressWarnings("unchecked")
     public List<T> findAll(Integer offset, Integer limit) {
-        Query query = entityManager.createQuery("FROM " + modelClass.getSimpleName());
-
-        if (offset != null && offset > 0) {
-            query.setFirstResult(offset);
-        }
-        // mandatory set limit
+        // Mandatory limit, checked before any query is built or run: a caller may ask for a smaller
+        // page but never for more than getMaxSelectSize() rows.
         int intLimit = (limit == null) ? getMaxSelectSize() : limit;
         if (intLimit > getMaxSelectSize()) {
             throw new MaxSelectLimitExceededException(getMaxSelectSize(), limit);
         }
+
+        // The JPQL is assembled from the mapped entity name, metamodel attribute names and this
+        // class's own order hook; no caller-supplied text reaches it.
+        TypedQuery<T> query = entityManager.createQuery(findAllQuery(), modelClass); // nosemgrep: hibernate-sqli, formatted-sql-string -- entity and attribute names only; offset/limit are bound through the Query API
+
+        if (offset != null && offset > 0) {
+            query.setFirstResult(offset);
+        }
         query.setMaxResults(intLimit);
 
         return query.getResultList();
+    }
+
+    /**
+     * Builds the JPQL that {@link #findAll(Integer, Integer)} runs, for example
+     * {@code SELECT e FROM FaxConfig e ORDER BY e.Id ASC}.
+     *
+     * @return the paged query, always ending with the identifier order
+     */
+    String findAllQuery() {
+        StringBuilder jpql = new StringBuilder("SELECT ").append(FIND_ALL_ALIAS)
+                .append(" FROM ").append(getModelClassName()).append(' ').append(FIND_ALL_ALIAS)
+                .append(" ORDER BY ");
+        String domainOrder = getFindAllDomainOrder(FIND_ALL_ALIAS);
+        if (domainOrder != null && !domainOrder.isBlank()) {
+            jpql.append(domainOrder.strip()).append(", ");
+        }
+        return jpql.append(getIdentifierOrder(FIND_ALL_ALIAS)).toString();
+    }
+
+    /**
+     * Optional business order for {@link #findAll(Integer, Integer)}, applied before the identifier.
+     *
+     * <p>Override this when the callers of a DAO expect its pages in a domain order, for example
+     * alphabetical by name. Return JPQL order items relative to {@code alias}, without the
+     * {@code ORDER BY} keyword, such as {@code alias + ".name ASC"}. {@code findAll} always appends
+     * the identifier afterwards as the final, unique tie-breaker, so an override cannot leave rows
+     * with equal sort values in an undefined order and does not need to repeat the identifier.</p>
+     *
+     * <p>The returned text becomes part of the query: build it from attribute names only, never from
+     * request or database values.</p>
+     *
+     * @param alias the entity alias used by the {@code findAll} query
+     * @return order items to apply first, or {@code null} to order by the identifier alone (the default)
+     */
+    protected String getFindAllDomainOrder(String alias) {
+        return null;
+    }
+
+    /**
+     * Returns ascending JPQL order items over this entity's identifier, for example
+     * {@code e.id ASC}, or {@code e.id.providerNo ASC, e.id.siteId ASC} for an {@code @EmbeddedId}.
+     *
+     * <p>The identifier is unique, so these items are a complete tie-breaker. Subclasses can append
+     * them to their own paged queries to get the same guarantee {@link #findAll(Integer, Integer)}
+     * gives. Composite keys are expanded as described in {@link EntityIdentifierPaths}.</p>
+     *
+     * @param alias the entity alias used by the query
+     * @return comma-separated order items, never empty
+     */
+    protected final String getIdentifierOrder(String alias) {
+        StringBuilder order = new StringBuilder();
+        for (String path : getIdentifierPaths()) {
+            if (!order.isEmpty()) {
+                order.append(", ");
+            }
+            order.append(alias).append('.').append(path).append(" ASC");
+        }
+        return order.toString();
+    }
+
+    private List<String> getIdentifierPaths() {
+        List<String> paths = identifierPaths.get();
+        if (paths == null) {
+            // Benign race: concurrent first calls resolve the same immutable list from the
+            // metamodel, which does not change after the persistence unit has started.
+            paths = EntityIdentifierPaths.resolve(entityManager.getMetamodel(), modelClass);
+            identifierPaths.compareAndSet(null, paths);
+        }
+        return paths;
     }
 
     protected int getMaxSelectSize() {

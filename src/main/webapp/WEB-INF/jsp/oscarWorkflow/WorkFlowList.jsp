@@ -28,11 +28,18 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Displays active RH workflow records and workflow help links.
+    Features: workflow listing and About/License windows within the application context.
+    Parameters: no workflow-type request parameter is consumed; this page uses RH.
+    Authentication is enforced by the existing workflow entry point; each row links its patient.
+    @since 2026-09-19
+--%>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page
-        import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.report.ClinicalReports.*,io.github.carlos_emr.carlos.workflow.*" %>
+        import="io.github.carlos_emr.carlos.demographic.data.*, java.util.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.report.ClinicalReports.*, io.github.carlos_emr.carlos.workflow.*" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString" %>
 <%@ page import="io.github.carlos_emr.carlos.workflow.WorkFlowDS" %>
 <%@ page import="io.github.carlos_emr.carlos.workflow.WorkFlowFactory" %>
@@ -44,7 +51,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
@@ -119,8 +126,8 @@
                         </td>
                         <td>&nbsp;</td>
                         <td style="text-align: right"><a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"><fmt:message key="global.license"/></a></td>
+                                href="${pageContext.request.contextPath}/encounter/ViewAbout" target="_blank" rel="noopener"><fmt:message key="global.about"/></a> | <a
+                                href="${pageContext.request.contextPath}/encounter/ViewLicense" target="_blank" rel="noopener"><fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>
@@ -138,7 +145,7 @@
                     //WorkFlowState workFlow = new WorkFlowState();
                     WorkFlowFactory flowFactory = new WorkFlowFactory();
                     WorkFlow flow = flowFactory.getWorkFlow(workflowType);
-                    ArrayList workList = flow.getActiveWorkFlowList();
+                    List<Map<String, Object>> workList = flow.getActiveWorkFlowList();
 
                     if (workList != null && workList.size() > 0) {
                         DemographicNameAgeString deName = DemographicNameAgeString.getInstance();
@@ -160,7 +167,7 @@
                         WorkFlowDS wfDS = flow.getWorkFlowDS();
 
                         for (int j = 0; j < workList.size(); j++) {
-                            Hashtable h = (Hashtable) workList.get(j);
+                            Map<String, Object> h = workList.get(j);
                           Map<String, String> demoHash = deName.getNameAgeSexHashtable(LoggedInInfo.getLoggedInInfoFromSession(request), ""+h.get("demographic_no"));
                             String colour = "";
 
@@ -174,7 +181,7 @@
                     %>
                     <tr style="background-color: <%=colour%>">
                         <td><a
-                                href="<%=flow.getLink(""+h.get("demographic_no"),""+h.get("ID"))%>"
+                                href="<carlos:encode value='<%= request.getContextPath() + flow.getLink(""+h.get("demographic_no"),""+h.get("ID")) %>' context="htmlAttribute"/>"
                                 target="_blank"><%=h.get("workflow_type")%>
                         </a></td>
                         <td><%=h.get("create_date_time")%>

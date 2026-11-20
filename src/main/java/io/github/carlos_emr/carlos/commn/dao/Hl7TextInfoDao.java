@@ -28,6 +28,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 package io.github.carlos_emr.carlos.commn.dao;
@@ -40,7 +41,28 @@ import io.github.carlos_emr.carlos.commn.model.Hl7TextInfo;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextMessageInfo;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextMessageInfo2;
 
-public interface Hl7TextInfoDao extends AbstractDao<Hl7TextInfo> {
+public interface Hl7TextInfoDao extends AbstractDao<Hl7TextInfo>, CdsExportPatientTableReadDao {
+
+    /**
+     * Most recent lab IDs and statuses, bounded and ordered by lab number descending.
+     * @param limit int maximum number of rows
+     * @return List&lt;LabStatus&gt; recent lab IDs and trimmed statuses, SQL NULL as empty text
+     */
+    List<LabStatus> findRecentLabStatuses(int limit);
+
+    /**
+     * Preserves MariaDB LOW_PRIORITY update semantics without exposing JDBC to handlers.
+     * @param labNumber int lab identifier to update
+     * @param status String replacement result status
+     */
+    void updateResultStatusLowPriority(int labNumber, String status);
+
+    /**
+     * Recent lab status projection.
+     * @param labNumber int lab identifier
+     * @param resultStatus String trimmed status, empty for SQL NULL
+     */
+    record LabStatus(int labNumber, String resultStatus) { }
 
     public List<Hl7TextInfo> findAll();
 
@@ -87,6 +109,27 @@ public interface Hl7TextInfoDao extends AbstractDao<Hl7TextInfo> {
                                                  String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page,
                                                  Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, boolean searchProvider, boolean patientSearch,
                                                  Date startDate, Date endDate);
+
+    /**
+     * As above, additionally keeping only routing rows changed at or after {@code acknowledgedSince}.
+     *
+     * <p>The bound is the routing row's own {@code timestamp}: acknowledging a lab stamps it, so
+     * paired with the acknowledged status it selects what was acknowledged since then, however old
+     * the result itself is. The Inbox Hub toolbar uses it to list today's acknowledgements without
+     * paging in the provider's whole acknowledged history.
+     *
+     * <p>{@code updateReportStatus} restamps the row on every write, so a comment saved today on a
+     * result acknowledged earlier (or acknowledging it again) also lists it: the bound follows the
+     * acknowledgement time the lab display shows. Other routing updates either move the row out
+     * of the acknowledged status or write its loaded timestamp back on merge, which keeps the
+     * column's {@code ON UPDATE} default from firing.
+     *
+     * @param acknowledgedSince inclusive lower bound on the routing row's timestamp, or null for none
+     */
+    public List<Object[]> findLabAndDocsViaMagic(String providerNo, String demographicNo, String patientFirstName,
+                                                 String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page,
+                                                 Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, boolean searchProvider, boolean patientSearch,
+                                                 Date startDate, Date endDate, Date acknowledgedSince);
 
     public List<Object> findDisciplines(Integer labid);
 

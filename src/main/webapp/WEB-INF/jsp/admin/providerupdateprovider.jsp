@@ -28,15 +28,25 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+  Purpose: Administration > Update Provider Record form (admin.provider edit).
+  Features: edits the provider identity, contact, billing (OHIP number,
+    specialty code, four-character OHIP group number: letters or digits,
+    0000 for solo billing) and security settings, then posts to
+    /admin/ProviderUpdate.
+  Parameters: keyword (provider number of the record being edited).
+  @since 2026-08-04
+--%>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.LookupListItem" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.LookupList" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
+<%@ page import="io.github.carlos_emr.carlos.billings.ca.on.support.BillingGroupNumber" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
@@ -441,8 +451,12 @@
                         <td align="right"><fmt:message key="admin.provider.formBillingGroupNo"/>:
                         </td>
                         <td><input type="text" name="xml_p_billinggroup_no"
-                                   value="<carlos:encode value='<%= SxmlMisc.getXmlContent(provider.getComments(),"xml_p_billinggroup_no")==null ? "" : SxmlMisc.getXmlContent(provider.getComments(),"xml_p_billinggroup_no") %>' context="htmlAttribute"/>"
-                                   datafld='xml_p_billinggroup_no'></td>
+                                   <%-- Rendered normalized (123 shows as 0123) so a stored short value still
+                                        satisfies the four-character pattern and is saved in MOH form; a blank
+                                        stays blank (solo). --%>
+                                   value="<carlos:encode value='<%= SxmlMisc.getXmlContent(provider.getComments(),"xml_p_billinggroup_no")==null || SxmlMisc.getXmlContent(provider.getComments(),"xml_p_billinggroup_no").isBlank() ? "" : BillingGroupNumber.normalize(SxmlMisc.getXmlContent(provider.getComments(),"xml_p_billinggroup_no")) %>' context="htmlAttribute"/>"
+                                   datafld='xml_p_billinggroup_no' maxlength="4" pattern="[A-Za-z0-9]{4}"
+                                   title="OHIP group number: 4 letters or digits (0000 for solo billing)"></td>
                     </tr>
                     <tr>
                         <td align="right"><fmt:message key="admin.provider.formCPSIDType"/>:
@@ -456,13 +470,18 @@
 
                                     if (ll != null) {
                                         for (LookupListItem llItem : ll.getItems()) {
+                                            boolean currentType = llItem.getValue() != null && llItem.getValue().equals(provider.getPractitionerNoType());
+                                            boolean activeType = Boolean.TRUE.equals(llItem.isActive());
+                                            // Preserve this provider's stored retired identity on unrelated edits.
+                                            // Other retired identities are never offered as new choices.
+                                            if (!activeType && !currentType) continue;
                                             String selected = "";
-                                            if (llItem.getValue() != null && llItem.getValue().equals(provider.getPractitionerNoType())) {
+                                            if (currentType) {
                                                 selected = " selected=\"selected\" ";
                                             }
                                 %>
 
-                                <option value="<carlos:encode value='<%= llItem.getValue() == null ? "" : llItem.getValue() %>' context="htmlAttribute"/>" <%=selected %>><carlos:encode value='<%= llItem.getLabel() == null ? "" : llItem.getLabel() %>' context="html"/>
+                                <option data-retired="<%= !activeType %>" value="<carlos:encode value='<%= llItem.getValue() == null ? "" : llItem.getValue() %>' context="htmlAttribute"/>" <%=selected %>><carlos:encode value='<%= llItem.getLabel() == null ? "" : llItem.getLabel() %>' context="html"/><% if (!activeType) { %> (<fmt:message key="admin.provider.formStatusInactive"/>)<% } %>
                                 </option>
                                 <%
                                     }

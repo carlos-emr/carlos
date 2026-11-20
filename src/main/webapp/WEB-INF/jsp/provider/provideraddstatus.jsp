@@ -38,6 +38,7 @@
   - Validates appointment and provider identifiers before applying updates.
   - Applies stale-status validation, archival, and update under one appointment row lock.
   - Publishes authoritative appointment provider/status values only after commit.
+  - The service audits the committed change (update/appointment) for the appointment and its patient.
   - URI-encodes provider-control redirect parameters.
   - Returns the refreshed day-view URL for AJAX callers and redirects legacy callers.
 
@@ -55,8 +56,7 @@
   @since 2026-06-11
 --%>
 
-<%@ page
-  import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat" %>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@page import="io.github.carlos_emr.carlos.appointment.service.AppointmentStatusTransitionException" %>
@@ -95,7 +95,9 @@
 %>
 <%
   //if action is good, then give me the result
-  boolean ajaxRequest = "XMLHttpRequest".equals(request.getHeader("X-Requested-With"));
+  // RequestNegotiation.isAjax, not an exact match: see providercontrol.jsp. An exact check missed
+  // the combined CSRFGuard header and left this reply as text/html for the filters to decorate.
+  boolean ajaxRequest = io.github.carlos_emr.carlos.utility.RequestNegotiation.isAjax(request);
   if (ajaxRequest) {
     response.setContentType("text/plain;charset=UTF-8");
   }
@@ -152,7 +154,9 @@
       providerNoParam,
       submittedCurrentStatus,
       appointmentStatus,
-      curUser_no
+      curUser_no,
+      // The audit row of the change carries this login's client address and names the patient.
+      io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request)
     );
   } catch (AppointmentStatusTransitionException e) {
     if (e.getReason() == AppointmentStatusTransitionException.Reason.APPOINTMENT_NOT_FOUND) {
@@ -183,7 +187,7 @@
     + "&x=" + SafeEncode.forUriComponent(request.getParameter("x"))
     + "&y=" + SafeEncode.forUriComponent(request.getParameter("y"));
   if (request.getParameter("viewWeek") != null) {
-    displaypage += "&provider_no="
+    displaypage += "&weekView=true&provider_no="
       + SafeEncode.forUriComponent(appointmentProviderNo);
   }
   out.clear();

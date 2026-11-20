@@ -115,6 +115,23 @@ public class IncomingLabRules extends AbstractModel<Integer> {
         return forwardTypeStrings;
     }
 
+    /**
+     * Whether this rule forwards results of the given inbox lab type.
+     *
+     * <p>Rules are scoped to three categories: {@code DOC}, {@code HRM}, and {@code HL7}, which
+     * covers every lab source ({@code HL7}, {@code CML}, {@code MDS}, {@code BCP}, ...). A rule
+     * with no type rows predates source selection and applies to all three, see
+     * {@link #getForwardTypeStrings()}. Every routing path (lab, HRM, document inbox) must use
+     * the same mapping so a rule scoped to one source never forwards or files another.</p>
+     *
+     * @param labType inbox lab type, as stored in {@code providerLabRouting.lab_type}; never null
+     * @return true when the rule applies to that type
+     */
+    public boolean appliesToLabType(String labType) {
+        String category = "DOC".equals(labType) || "HRM".equals(labType) ? labType : "HL7";
+        return getForwardTypeStrings().contains(category);
+    }
+
     public void setForwardTypes(ArrayList<IncomingLabRulesType> forwardTypes) {
         this.forwardTypes = forwardTypes;
     }

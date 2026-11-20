@@ -14,9 +14,18 @@
 
 /*
  * Local-only browser regression check for Rich Text Letter attachment routing.
+ *
+ * The letter is saved for a FAKE patient this check creates (lib/owned-patient.js: last name = a FAKE-PW run marker): nothing it
+ * asserts depends on a demo patient's records. The patient, the saved instance and its rows are removed by the patient's key
+ * afterwards, where the application's own Delete only marks the instance removed; it used to leave an instance and eight values
+ * on demo patient 1 per run. MYSQL_* reaches the database.
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
+const { createSqlRunner, readConfig, sqlString, shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
+const { createOwnedPatient, eformRows, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 const {
   assert,
   buildFailureDetails,
@@ -41,36 +50,64 @@ const config = {
   testUser: process.env.TEST_USER || 'carlosdoc',
   testPassword: process.env.TEST_PASSWORD || 'carlos2026',
   testPin: process.env.TEST_PIN || '2026',
-  demographicNo: process.env.RTL_DEMOGRAPHIC_NO || '1',
+  // The owned patient, created in main (never a demo patient).
+  demographicNo: null,
   screenshotDir: process.env.RTL_SCREENSHOT_DIR || '/tmp',
   formName: process.env.RTL_FORM_NAME || 'Rich Text Letter',
 };
 
-(async () => {
+legacyHarness.runLegacyCheck('eform-rtl-attachment-routes',async({cancellation})=>{
   const recorder = createRecorder();
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
+  const sql = createSqlRunner(readConfig().mysql);
+  const ownedMarker = newOwnedMarker();
+  let browser = null;
+  let ownedRows = null;
+  let ownedPatient = null;
+  // Patient creation and the browser launch are inside the try whose finally removes the patient and disposes the mysql option
+  // file, so a browser that fails to launch cannot strand a FAKE-PW patient.
   try {
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
+    // Taken before anything is saved, so only the run's own attachment rows are ever deleted.
+    ownedRows = eformRows(sql);
+    const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${sqlString(config.testUser)}`);
+    assert(provider, 'The configured test login has no provider');
+    ownedPatient = createOwnedPatient(sql, { marker: ownedMarker, provider });
+    config.demographicNo = ownedPatient;
+    browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
+    cancellation?.throwIfCancelled();
     const landingPage = await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
     await landingPage.close();
+    cancellation?.throwIfCancelled();
 
     const managerPage = await openManager(context, config, recorder, 'rtl-manager');
+    cancellation?.throwIfCancelled();
     const { fid } = await findLibraryEform(managerPage, config.formName);
+    cancellation?.throwIfCancelled();
     await managerPage.close();
+    cancellation?.throwIfCancelled();
 
     const addPage = await openAddEform(context, config, recorder, fid, config.demographicNo, 'rtl-add');
+    cancellation?.throwIfCancelled();
     const fdid = await saveCurrentEform(addPage, `RTL routes ${Date.now()}`);
+    cancellation?.throwIfCancelled();
     assert(/^\d+$/.test(fdid), `Expected numeric fdid for saved RTL instance, got ${fdid}`);
 
     const popup = await openAttachPopup(addPage, context);
+    cancellation?.throwIfCancelled();
     await waitForPopupReady(popup, recorder, 'rtl-attach-popup');
+    cancellation?.throwIfCancelled();
     const popupUrl = new URL(popup.url());
     assert(popupUrl.pathname.endsWith('/eform/attachEform'), `Attach popup used unexpected route: ${popup.url()}`);
     assert(!popupUrl.pathname.endsWith('.jsp'), `Attach popup fell back to a legacy JSP route: ${popup.url()}`);
     await screenshot(popup, config.screenshotDir, 'rtl-attachment-routes-popup');
+    cancellation?.throwIfCancelled();
     await popup.close();
+    cancellation?.throwIfCancelled();
 
     const fetchResult = await invokeFetchAttached(addPage);
+    cancellation?.throwIfCancelled();
     assert(fetchResult.hasFunction, 'Rich Text Letter page did not expose fetchAttached()');
     assert(!fetchResult.error, `fetchAttached() threw on the Rich Text Letter page: ${fetchResult.error}`);
     const sidebarRequest = getLatestRequest(recorder, (entry) => entry.url.includes('/eform/displayAttachedFiles'));
@@ -80,8 +117,11 @@ const config = {
     assert(!sidebarUrl.pathname.endsWith('.jsp'), `Attachment sidebar fell back to a legacy JSP route: ${sidebarRequest.url}`);
     assert(!/Error loading attachments|HTTP Status 404|HTTP Status 500/i.test(fetchResult.text), `Attachment sidebar rendered an error state: ${fetchResult.text}`);
     await screenshot(addPage, config.screenshotDir, 'rtl-attachment-routes-main');
+    cancellation?.throwIfCancelled();
     await addPage.close();
+    cancellation?.throwIfCancelled();
     await context.close();
+    cancellation?.throwIfCancelled();
 
     console.log(`PASS rtl attachment routes use gated endpoints and save a real fdid (${fdid})`);
   } catch (error) {
@@ -90,6 +130,15 @@ const config = {
     console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));
     process.exitCode = 1;
   } finally {
-    await browser.close();
+    try {
+      // A browser that will not close must not skip the patient's removal below.
+      if (browser) await browser.close().catch(() => {});
+      if (ownedPatient !== null) removeOwnedPatient(sql, ownedPatient, ownedMarker, ownedRows);
+    } catch (error) {
+      console.error(`FAIL cleanup: ${error.message}`);
+      process.exitCode = 1;
+    } finally {
+      sql.dispose();
+    }
   }
-})();
+});

@@ -29,12 +29,15 @@
 
 package io.github.carlos_emr.carlos.lab.ca.all;
 
+import io.github.carlos_emr.carlos.util.NativeQueryValues;
+
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -62,6 +65,7 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementType;
 import io.github.carlos_emr.carlos.commn.model.MeasurementsDeleted;
 import io.github.carlos_emr.carlos.commn.model.MeasurementsExt;
 import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -71,7 +75,6 @@ import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class Hl7textResultsData {
 
@@ -91,50 +94,160 @@ public class Hl7textResultsData {
         // no one should instantiate this
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    /**
+     * Parses a handler-formatted observation time, accepting a missing seconds, minutes or time
+     * component so a result observed in the past is never re-dated to the moment it was filed
+     * (issue #4619). Each layout must match the whole value and be a real calendar time, so a short
+     * layout can never silently swallow the date prefix of a longer or malformed value.
+     *
+     * @param observationDate the handler's formatted timestamp, may be null
+     * @return the parsed instant, or {@code null} when no supported layout matches
+     */
+    public static Date parseObservationDate(String observationDate) {
+        return io.github.carlos_emr.carlos.lab.ca.all.util.ObservationTime.parse(observationDate);
+    }
+
+    /**
+     * Files a report's results as the patient's measurements when the report is the current version
+     * of its accession, and archives the measurements of every other version, so the chart holds
+     * exactly one version's values.
+     *
+     * <p>Which version is current depends on what the source tells us (see
+     * {@link #currentVersion(String[], boolean)}). A report that is not current is a late delivery of
+     * history: nothing is archived and nothing is filed for it.</p>
+     *
+     * @param lab_no the report to file: at upload, the report just received
+     * @param demographic_no the patient the report was matched to
+     * @throws IllegalStateException if the report cannot be read or is missing from its own chain;
+     *                               nothing has been archived when it is thrown
+     */
     public static void populateMeasurementsTable(String lab_no, String demographic_no) {
         MessageHandler h = Factory.getHandler(lab_no);
-        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
-        Calendar calender = Calendar.getInstance();
-        String day = Integer.toString(calender.get(Calendar.DAY_OF_MONTH));
-        String month = Integer.toString(calender.get(Calendar.MONTH) + 1);
-        String year = Integer.toString(calender.get(Calendar.YEAR));
-        String hour = Integer.toString(calender.get(Calendar.HOUR));
-        String min = Integer.toString(calender.get(Calendar.MINUTE));
-        String second = Integer.toString(calender.get(Calendar.SECOND));
-        String dateEntered = year + "-" + month + "-" + day + " " + hour + ":" + min + ":" + second + ":";
-
+        if (h == null) {
+            // Refuse before the previous version's measurements are archived: with nothing
+            // readable to file in their place, the chart would be left with neither.
+            throw new IllegalStateException("Lab report could not be read; its measurements were not filed");
+        }
         //Check for other versions of this lab
         String[] matchingLabs = getMatchingLabs(lab_no).split(",");
-        //if this lab is the latest version delete the measurements from the previous version and add the new ones
 
-        int k = 0;
-        while (k < matchingLabs.length && !matchingLabs[k].equals(lab_no)) {
-            k++;
+        if (!java.util.Arrays.asList(matchingLabs).contains(lab_no)) {
+            throw new IllegalStateException("The incoming lab is absent from its resolved version chain");
+        }
+        // A late historical delivery must not replace the current version's measurements.
+        if (!lab_no.equals(currentVersion(matchingLabs, h instanceof io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler))) {
+            return;
         }
 
-        if (k != 0) {
+        // The current version replaces every other version of its report, not only the one sorted
+        // just before it: the version whose values are on the chart is the previous delivery,
+        // wherever the chain's order puts it, and an older defect may have left two versions filed
+        // (#5820). Archiving only the neighbour left both versions' values on the chart.
+        java.util.Set<String> superseded = new java.util.LinkedHashSet<>(java.util.Arrays.asList(matchingLabs));
+        superseded.remove(lab_no);
+        if (!superseded.isEmpty()) {
+            // The chain is resolved by accession number alone, so a recycled or colliding accession
+            // can put another patient's report in it. Only this patient's values are superseded.
+            Integer patient = patientNumber(demographic_no);
             List<MeasurementsDeleted> measurementsDeletedList = new ArrayList<>();
             List<Measurement> measurementsToRemove = new ArrayList<>();
-            MeasurementsDeleted measurementsDeleted;
-            for (Measurement m : measurementDao.findByValue("lab_no", matchingLabs[k - 1])) {
-                measurementsDeleted = new MeasurementsDeleted(m);
-                measurementsDeletedList.add(measurementsDeleted);
-                measurementsToRemove.add(m);
+            for (String previous : superseded) {
+                for (Measurement m : measurementDao.findByValue("lab_no", previous)) {
+                    if (patient != null && m.getDemographicId() != null && !patient.equals(m.getDemographicId())) {
+                        continue;
+                    }
+                    measurementsDeletedList.add(new MeasurementsDeleted(m));
+                    measurementsToRemove.add(m);
+                }
             }
             measurementsDeletedDao.batchPersistAtomically(measurementsDeletedList);
             measurementDao.batchRemoveAtomically(measurementsToRemove);
         }
-        // loop through the measurements for the lab and add them
+        fileMeasurements(h, lab_no, demographic_no);
+    }
+
+    /** The matched patient's number, or {@code null} when the caller supplied none that can be compared. */
+    private static Integer patientNumber(String demographicNo) {
+        try {
+            int number = Integer.parseInt(demographicNo == null ? "" : demographicNo.trim());
+            return number > 0 ? number : null;
+        } catch (NumberFormatException notANumber) {
+            return null;
+        }
+    }
+
+    /**
+     * Files the current version of a report that has no measurements yet, whichever of its versions
+     * the caller names. A patient match made after upload uses this: the version to file is decided
+     * here, by the same rule as at upload, not by the caller's position in the display order.
+     *
+     * @param lab_no any version of the report
+     * @param demographic_no the patient the report was matched to
+     * @throws IllegalStateException if the report cannot be read; nothing has been archived
+     */
+    public static void populateCurrentVersionMeasurements(String lab_no, String demographic_no) {
+        MessageHandler named = Factory.getHandler(lab_no);
+        if (named == null) {
+            throw new IllegalStateException("Lab report could not be read; its measurements were not filed");
+        }
+        String[] matchingLabs = getMatchingLabs(lab_no).split(",");
+        populateMeasurementsTable(
+                currentVersion(matchingLabs, named instanceof io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler),
+                demographic_no);
+    }
+
+    /**
+     * The version of a report whose results are the patient's measurements.
+     *
+     * <p>A CML chain is ordered by the lab's own revision evidence ({@code CmlVersionPolicy}), so
+     * its last version is current even when an older version was delivered after it (#5820).</p>
+     *
+     * <p>No other source gives CARLOS revision evidence. Their chain is ordered for display by the
+     * count of final results, the report date and the lab number, and that order must not decide
+     * which version is current: a correction commonly reports fewer "final" results than the
+     * report it corrects (a corrected result has status C, which most handlers do not count), so
+     * it sorts before the original, and treating it as history left the uncorrected values on
+     * flowsheets, graphs and decision support. For these sources the current version is the one
+     * received last, which is the one with the highest lab number: lab numbers are assigned in the
+     * order reports arrive, and the newest delivery for an accession is the lab's latest word on
+     * it. This is the rule CARLOS applied to every source before the CML protection was added,
+     * with one difference: every other version is superseded, so two versions' values never stay
+     * on the chart together.</p>
+     *
+     * @param chain the report's versions as {@link #getMatchingLabs(String)} resolved them
+     * @param revisionOrdered true when the chain's order is the source's revision order (CML)
+     * @return the lab number of the current version
+     */
+    static String currentVersion(String[] chain, boolean revisionOrdered) {
+        if (revisionOrdered) {
+            return chain[chain.length - 1];
+        }
+        String newest = chain[0];
+        for (String version : chain) {
+            if (Integer.parseInt(version.trim()) > Integer.parseInt(newest.trim())) {
+                newest = version;
+            }
+        }
+        return newest;
+    }
+
+    /** Files every viewable result of one report as a measurement. */
+    private static void fileMeasurements(MessageHandler h, String lab_no, String demographic_no) {
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        Calendar calender = Calendar.getInstance();
+        String day = Integer.toString(calender.get(Calendar.DAY_OF_MONTH));
+        String month = Integer.toString(calender.get(Calendar.MONTH) + 1);
+        String year = Integer.toString(calender.get(Calendar.YEAR));
+        String hour = Integer.toString(calender.get(Calendar.HOUR_OF_DAY));
+        String min = Integer.toString(calender.get(Calendar.MINUTE));
+        String second = Integer.toString(calender.get(Calendar.SECOND));
+        String dateEntered = year + "-" + month + "-" + day + " " + hour + ":" + min + ":" + second + ":";
 
         /*
          * find a regex filter in properties -or- set default to find everything
          * This OSCAR property determines what is allowed to be written to the measurements
          * table.  No more entire PDF documents written into measurements.
          */
-        String patternstring = CarlosProperties.getInstance().getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*");
-        Pattern pattern = Pattern.compile(patternstring);
 
         /*
          * Setting in OSCAR properties that toggles if a code
@@ -146,7 +259,6 @@ public class Hl7textResultsData {
         List<MeasurementsExt> measurementsExts = new ArrayList<>();
         for (int i = 0; i < h.getOBRCount(); i++) {
             for (int j = 0; j < h.getOBXCount(i); j++) {
-
                 String result = h.getOBXResult(i, j);
 
                 if (result == null) {
@@ -219,19 +331,13 @@ public class Hl7textResultsData {
                 }
 
 
-                /*
-                 * Trim and remove HTML
-                 */
-                String trimmed = StringUtils.trimToEmpty(result);
-                trimmed = trimmed.replaceAll("\\<br\\s?/?\\>", "");
-                Matcher matcher = pattern.matcher(trimmed.toLowerCase());
-                Measurement m = new Measurement();
-
-                if (matcher.find()) {
+                String value = projectableValue(result, lab_no, i, j);
+                if (value != null) {
+                    Measurement m = new Measurement();
                     m.setType(measType);
                     m.setDemographicId(Integer.parseInt(demographic_no));
                     m.setProviderNo("0");
-                    m.setDataField(matcher.group());
+                    m.setDataField(value);
                     m.setMeasuringInstruction(measInst);
                     try {
                         m.setCreateDate(simpleDateFormat.parse(dateEntered));
@@ -242,19 +348,20 @@ public class Hl7textResultsData {
                     /*
                      * This should be the OBR date - not the date the lab or measurement was received.
                      */
-                    try {
-                        m.setDateObserved(simpleDateFormat.parse(observationDate));
-                    } catch (Exception e) {
-                        m.setDateObserved(new Date());
+                    Date observed = parseObservationDate(observationDate);
+                    if (observed == null) {
+                        logger.warn("Unparseable HL7 observation time for lab " + LogSafe.sanitize(lab_no)
+                                + "; filing the measurement as observed now");
+                        observed = new Date();
                     }
+                    m.setDateObserved(observed);
 
                     m.setAppointmentNo(0);
 
                     /*
                      * Remove HTML
                      */
-                    comments = comments.replaceAll("\\<br\\s?/?\\>", "");
-                    m.setComments(comments);
+                    m.setComments(measurementComment(comments));
                     measurementDao.persist(m);
 
                     int mId = m.getId();
@@ -368,6 +475,71 @@ public class Hl7textResultsData {
         measurementsExtDao.batchPersistAtomically(measurementsExts, 50);
     }
 
+    /**
+     * A result's joined comment as a measurement stores it: handler line-break markers removed and
+     * cut to the column width, which the packaged database would otherwise do silently and a
+     * strict one would refuse. The full comment remains in the report.
+     */
+    private static String measurementComment(String joinedComments) {
+        String comment = joinedComments.replaceAll("\\<br\\s?/?\\>", "");
+        return comment.codePointCount(0, comment.length()) <= Measurement.COMMENTS_MAX_LENGTH ? comment
+                : comment.substring(0, comment.offsetByCodePoints(0, Measurement.COMMENTS_MAX_LENGTH));
+    }
+
+    /**
+     * The value a result is filed as: the text {@code HL7_LAB_MEASUREMENT_FILTER} matches, in the
+     * lab's own case. {@code null} when the filter does not match or the match is longer than a
+     * measurement holds; the full result stays in the report.
+     */
+    private static String projectableValue(String result, String lab, int obr, int obx) {
+        return projectableValue(result, "lab " + LogSafe.sanitize(lab) + ", OBX " + obr + "-" + obx);
+    }
+
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE",
+            justification = "Locale.ROOT shadow matches the clinic's result filter; not an identity or authorization decision")
+    // Locale.ROOT folding is only for the clinic's result filter, never identity or authorization.
+    private static String projectableValue(String result, String context) {
+        if (result == null || result.isEmpty() || "DNR".equals(result)) return null;
+        String trimmed = StringUtils.trimToEmpty(result).replaceAll("\\<br\\s?/?\\>", "").trim();
+        Locale locale = Locale.ROOT;
+        String shadow = trimmed.toLowerCase(locale);
+        Matcher match = Pattern.compile(CarlosProperties.getInstance()
+                .getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*")).matcher(shadow);
+        if (!match.find()) return null;
+        int start = originalBoundary(trimmed, shadow, match.start(), locale);
+        int end = originalBoundary(trimmed, shadow, match.end(), locale);
+        if (start < 0 || end < 0) {
+            if (context != null) logger.warn("Result filter split a Unicode case mapping; not filed as a measurement ({})", context);
+            return null;
+        }
+        String value = trimmed.substring(start, end);
+        int characters = value.codePointCount(0, value.length());
+        if (characters > Measurement.DATA_FIELD_MAX_LENGTH) {
+            if (context != null) logger.warn("A result of {} characters matched HL7_LAB_MEASUREMENT_FILTER but is longer than a measurement holds; original remains in the source report ({})", characters, context);
+            return null;
+        }
+        return value;
+    }
+
+    /** Map a lowercase-shadow boundary without cutting a source character in half. */
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE",
+            justification = "Maps the Locale.ROOT filter shadow back onto original result text; not an identity or authorization decision")
+    // This fold maps the Locale.ROOT filter shadow to original text, never identity or authorization.
+    private static int originalBoundary(String source, String shadow, int boundary, Locale locale) {
+        if (boundary == 0) return 0;
+        if (boundary == shadow.length()) return source.length();
+        if (source.length() == shadow.length()) return boundary;
+        int original = 0, folded = 0;
+        while (original < source.length()) {
+            int next = original + Character.charCount(source.codePointAt(original));
+            folded += source.substring(original, next).toLowerCase(locale).length();
+            if (folded == boundary) return next;
+            if (folded > boundary) return -1;
+            original = next;
+        }
+        return -1;
+    }
+
     public static String getMatchingLabs_CLS(String lab_no) {
         String ret = "";
         Hl7TextInfo self = null;
@@ -411,6 +583,32 @@ public class Hl7textResultsData {
         return sb.toString();
     }
 
+    /** Missing CML source evidence prevents chain-dependent writes, but not viewing the selected report. */
+    public static final class IncompleteCmlVersionChainException extends IllegalStateException {
+        private static final long serialVersionUID = 1L;
+
+        private IncompleteCmlVersionChainException(String message) {
+            super(message);
+        }
+    }
+
+    /** A display fallback never certifies the complete chain for a mutation. */
+    public record DisplayLabVersions(String labIds, boolean reliable) { }
+
+    /**
+     * Retains the selected report when a related CML source is unavailable.
+     * Callers must explain the incomplete history and disable mutation controls.
+     * Database failures and invalid source identifiers still propagate.
+     */
+    public static DisplayLabVersions getMatchingLabsForDisplay(String labNo) {
+        try {
+            return new DisplayLabVersions(getMatchingLabs(labNo), true);
+        } catch (IncompleteCmlVersionChainException incomplete) {
+            logger.warn("CML version chain is incomplete; only the selected report may be displayed read-only");
+            return new DisplayLabVersions(labNo, false);
+        }
+    }
+
     public static String getMatchingLabs(String lab_no) {
         String ret = "";
         int monthsBetween = 0;
@@ -419,6 +617,10 @@ public class Hl7textResultsData {
         if (hl7Msg != null && "CLS".equals(hl7Msg.getType())) {
             return getMatchingLabs_CLS(lab_no);
         }
+
+        boolean cml = hl7Msg != null && "CML".equals(hl7Msg.getType());
+        java.util.Map<Integer, io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler> cmlVersions = new java.util.LinkedHashMap<>();
+        java.util.Set<Integer> seenVersions = new java.util.HashSet<>();
 
         for (Object[] o : hl7TxtInfoDao.findByLabIdViaMagic(ConversionUtils.fromIntString(lab_no))) {
             Hl7TextInfo a = (Hl7TextInfo) o[0];
@@ -444,11 +646,30 @@ public class Hl7textResultsData {
             logger.debug("lab_no: " + labNo + " lab: " + lab_no);
 
             if (monthsBetween < 4) {
-                if (ret.equals("")) ret = "" + labNo;
-                else ret = ret + "," + labNo;
+                if (cml) {
+                    if (!seenVersions.add(labNo)) continue;
+                    Hl7TextMessage version = labNo == Integer.parseInt(lab_no)
+                            ? hl7Msg : hl7TxtMsgDao.find(labNo);
+                    if (version == null) throw new IncompleteCmlVersionChainException("A CML version has no stored source message");
+                    if ("CML".equals(version.getType())) {
+                        MessageHandler parser = Factory.getHandler(version);
+                        if (!(parser instanceof io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler cmlHandler)) {
+                            throw new IncompleteCmlVersionChainException("A stored CML version cannot be parsed");
+                        }
+                        // Order by the lab's revision evidence, never stale persisted completeness.
+                        cmlVersions.put(labNo, cmlHandler);
+                    }
+                } else {
+                    if (ret.equals("")) ret = "" + labNo;
+                    else ret = ret + "," + labNo;
+                }
             }
         }
 
+        if (cml) {
+            ret = io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.order(cmlVersions).stream()
+                    .map(String::valueOf).collect(java.util.stream.Collectors.joining(","));
+        }
         if (ret.equals("")) return (lab_no);
         else return (ret);
     }
@@ -460,6 +681,7 @@ public class Hl7textResultsData {
     public static ArrayList<LabResultData> populateHL7ResultsData(String demographicNo, String consultationId, boolean attached) {
         List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
         for (Object[] o : consultDocsDao.findLabs(ConversionUtils.fromIntString(consultationId))) {
+            if (!"HL7".equals(((PatientLabRouting) o[1]).getLabType())) continue;
             ConsultDocs c = (ConsultDocs) o[0];
             LabResultData lbData = new LabResultData(LabResultData.HL7TEXT);
             lbData.labPatientId = ConversionUtils.toIntString(c.getDocumentNo());
@@ -472,6 +694,7 @@ public class Hl7textResultsData {
     public static ArrayList<LabResultData> populateHL7ResultsDataEForm(String demographicNo, String fdid, boolean attached) {
         List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
         for (Object[] o : eformDocsDao.findLabs(ConversionUtils.fromIntString(fdid))) {
+            if (!"HL7".equals(((PatientLabRouting) o[1]).getLabType())) continue;
             EFormDocs c = (EFormDocs) o[0];
             LabResultData lbData = new LabResultData(LabResultData.HL7TEXT);
             lbData.labPatientId = ConversionUtils.toIntString(c.getDocumentNo());
@@ -485,6 +708,7 @@ public class Hl7textResultsData {
     public static ArrayList<LabResultData> populateHL7ResultsDataConsultResponse(String demographicNo, String consultationId, boolean attached) {
         List<LabResultData> attachedLabs = new ArrayList<LabResultData>();
         for (Object[] o : consultResponseDocDao.findLabs(ConversionUtils.fromIntString(consultationId))) {
+            if (!"HL7".equals(((PatientLabRouting) o[1]).getLabType())) continue;
             ConsultResponseDoc c = (ConsultResponseDoc) o[0];
             LabResultData lbData = new LabResultData(LabResultData.HL7TEXT);
             lbData.labPatientId = ConversionUtils.toIntString(c.getDocumentNo());
@@ -754,6 +978,16 @@ public class Hl7textResultsData {
     }
 
     public static ArrayList<LabResultData> populateHl7ResultsData(String providerNo, String demographicNo, String patientFirstName, String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page, Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, Date startDate, Date endDate) {
+        return new ArrayList<>(populateHl7ResultsData(providerNo, demographicNo, patientFirstName, patientLastName, patientHealthNumber, status, isPaged, page, pageSize, mixLabsAndDocs, isAbnormal, startDate, endDate, null));
+    }
+
+    /**
+     * As above, additionally keeping only labs whose routing row changed at or after
+     * {@code acknowledgedSince}; see {@link Hl7TextInfoDao#findLabAndDocsViaMagic}.
+     *
+     * @param acknowledgedSince inclusive lower bound on the routing row's timestamp, or null for none
+     */
+    public static List<LabResultData> populateHl7ResultsData(String providerNo, String demographicNo, String patientFirstName, String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page, Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, Date startDate, Date endDate, Date acknowledgedSince) {
 
         if (providerNo == null) {
             providerNo = "";
@@ -778,14 +1012,14 @@ public class Hl7textResultsData {
         // note to self: lab reports not found in the providerLabRouting table will not show up - need to ensure every lab is entered in providerLabRouting, with '0'
         // for the providers number if unable to find correct providers
 
-        for (Object[] i : hl7TxtInfoDao.findLabAndDocsViaMagic(providerNo, demographicNo, patientFirstName, patientLastName, patientHealthNumber, status, isPaged, page, pageSize, mixLabsAndDocs, isAbnormal, searchProvider, patientSearch, startDate, endDate)) {
+        for (Object[] i : hl7TxtInfoDao.findLabAndDocsViaMagic(providerNo, demographicNo, patientFirstName, patientLastName, patientHealthNumber, status, isPaged, page, pageSize, mixLabsAndDocs, isAbnormal, searchProvider, patientSearch, startDate, endDate, acknowledgedSince)) {
 
             String label = String.valueOf(i[0]);
             String lab_no = String.valueOf(i[1]);
             String sex = String.valueOf(i[2]);
             String health_no = String.valueOf(i[3]);
             String result_status = String.valueOf(i[4]);
-            String obr_date = String.valueOf(i[5]);
+            String observationDate = String.valueOf(NativeQueryValues.asString(i[5]));
             String priority = String.valueOf(i[6]);
             String requesting_client = String.valueOf(i[7]);
             String discipline = String.valueOf(i[8]);
@@ -820,7 +1054,7 @@ public class Hl7textResultsData {
                 lbData.abn = true;
             }
 
-            lbData.dateTime = obr_date;
+            lbData.dateTime = observationDate;
 
             if (priority != null && !priority.equals("")) {
                 switch (priority.charAt(0)) {

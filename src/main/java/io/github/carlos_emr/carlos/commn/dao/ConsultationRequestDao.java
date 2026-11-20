@@ -1,4 +1,5 @@
 /**
+ * Modifications by CARLOS Contributors, 2026.
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * <p>
  * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
@@ -31,13 +32,40 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
+import io.github.carlos_emr.carlos.consultation.dto.ConsultationListRow;
+
 import java.util.Date;
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
+import io.github.carlos_emr.carlos.consultation.dto.ConsultantOptionDto;
+import io.github.carlos_emr.carlos.consultation.dto.ConsultationListFilterDto;
+import io.github.carlos_emr.carlos.consultation.dto.ConsultationMrpOptionDto;
 import io.github.carlos_emr.carlos.consultation.dto.ConsultationRequestListItemDTO;
 
 public interface ConsultationRequestDao extends AbstractDao<ConsultationRequest> {
+
+    /**
+     * Returns scalar rows with the same filters, visibility, order and paging as
+     * {@link #getConsults(ConsultationListFilterDto)}.
+     *
+     * @param filter ConsultationListFilterDto the list filters; must not be null
+     * @return {@code List<ConsultationListRow>} of matching requests; empty if either
+     *         explicitly supplied visibility set is empty
+     * @throws NullPointerException if {@code filter} is null
+     */
+    List<ConsultationListRow> getConsultationListRows(ConsultationListFilterDto filter);
+
+    /**
+     * Returns scalar rows for the patient chart, retaining requests whose related
+     * specialist, service, patient or provider is missing, with null related fields.
+     * The bound {@link ConsultationRequestMergedDemographicDaoImpl} bean also includes
+     * requests filed under active merged patient records.
+     *
+     * @param demographicNo Integer the patient demographic number
+     * @return {@code List<ConsultationListRow>} of matching requests, with no ordering guarantee
+     */
+    List<ConsultationListRow> getConsultationListRows(Integer demographicNo);
 
     public static final int DEFAULT_CONSULT_REQUEST_RESULTS_LIMIT = 100;
 
@@ -48,6 +76,42 @@ public interface ConsultationRequestDao extends AbstractDao<ConsultationRequest>
     List<ConsultationRequest> getConsults(Integer demoNo);
 
     List<ConsultationRequest> getConsults(String team, boolean showCompleted, Date startDate, Date endDate, String orderby, String desc, String searchDate, Integer offset, Integer limit);
+
+    /**
+     * Returns one page of the Consultations list, applying every filter in {@code filter}.
+     *
+     * <p>The positional {@link #getConsults(String, boolean, Date, Date, String, String, String, Integer, Integer)}
+     * delegates here with no consultant and no MRP filter.</p>
+     *
+     * @param filter ConsultationListFilterDto the list filters; must not be null
+     * @return List of matching requests, at most {@code MAX_LIST_RETURN_SIZE} rows
+     * @since 2026-09-30
+     */
+    List<ConsultationRequest> getConsults(ConsultationListFilterDto filter);
+
+    /**
+     * Searches the specialists that at least one consultation request was sent to, for the
+     * Consultant type-ahead on the Consultations list.
+     *
+     * <p>The keyword is split on whitespace and commas; every token (up to four) must appear,
+     * case-insensitively, somewhere in "last, first". So "Smith,B", "smith b" and "brian smith"
+     * all find "Smith, Brian". LIKE wildcards in the keyword are matched literally.</p>
+     *
+     * @param keyword    String the text typed by the user; null or blank returns an empty list
+     * @param maxResults int the maximum number of rows to return; values below 1 return an empty list
+     * @return List of specialists ordered by last name, first name
+     * @since 2026-09-30
+     */
+    List<ConsultantOptionDto> searchDistinctConsultants(String keyword, int maxResults);
+
+    /**
+     * Lists the distinct most responsible providers ({@code demographic.provider_no}) of patients
+     * that have at least one consultation request, for the Provider filter on the Consultations list.
+     *
+     * @return List of providers ordered by last name, first name
+     * @since 2026-09-30
+     */
+    List<ConsultationMrpOptionDto> findDistinctConsultMrps();
 
     List<ConsultationRequest> getConsultationsByStatus(Integer demographicNo, String status);
 
@@ -74,4 +138,6 @@ public interface ConsultationRequestDao extends AbstractDao<ConsultationRequest>
      * @since 2026-04-11
      */
     List<ConsultationRequestListItemDTO> findConsultationDTOsByDemographicId(Integer demographicId);
+    ConsultationRequest lockForAttachmentSync(Integer id);
+
 }

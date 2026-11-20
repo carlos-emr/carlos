@@ -36,7 +36,14 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.Prevention;
 import io.github.carlos_emr.carlos.prevention.dto.PreventionListItemDTO;
 
-public interface PreventionDao extends AbstractDao<Prevention> {
+public interface PreventionDao extends AbstractDao<Prevention>, CdsExportPatientTableReadDao, CdsExportPreventionDataReadDao {
+    @Override java.util.List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column> readCdsExportReceiptColumns();
+
+    /**
+     * CDS export restriction metadata only: prevention id to program for each of the patient's
+     * prevention rows restricted to a program. No prevention type, date or value is read.
+     */
+    java.util.SortedMap<Integer, Integer> readCdsExportProgramRestrictions(int patient);
     List<Prevention> findByDemographicId(Integer demographicId);
 
     List<Prevention> findByUpdateDate(Date updatedAfterThisDateExclusive, int itemsToReturn);
@@ -61,13 +68,28 @@ public interface PreventionDao extends AbstractDao<Prevention> {
 
     List<Prevention> findActiveByDemoId(Integer demoId);
 
+    /**
+     * Returns the most recent non-deleted prevention of each type for a demographic, newest
+     * first, with the lazy {@code preventionExts} collection initialized before the DAO
+     * transaction ends. Callers such as the immunization REST endpoint and the FHIR
+     * Immunization mapper receive these entities detached and call
+     * {@code Prevention#setPreventionExtendedProperties()}, which iterates that collection.
+     *
+     * @param demographicId Integer the patient demographic number
+     * @return List of Prevention entities safe to use for extension lookups after detachment
+     */
     List<Prevention> findUniqueByDemographicId(Integer demographicId);
+
+    /** True if this patient's non-deleted imported history has uncertain timing.
+     * A null demographic returns false; population SQL never gates unrelated charts. */
+    boolean hasUncertainPreventionDates(Integer demographicId);
 
     List<Integer> findNewPreventionsSinceDemoKey(String keyName);
 
     /**
-     * Returns lightweight prevention DTOs for a demographic, bypassing the EAGER
-     * PreventionExt collection load. Uses JPQL constructor expression projection.
+     * Returns lightweight prevention DTOs for a demographic without materializing
+     * Prevention entities or their lazy PreventionExt collection. Uses JPQL constructor
+     * expression projection.
      *
      * @param demographicId Integer the patient demographic number
      * @return List of PreventionListItemDTO for the patient's immunizations

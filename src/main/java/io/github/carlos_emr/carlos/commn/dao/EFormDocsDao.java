@@ -44,4 +44,6 @@ public interface EFormDocsDao extends AbstractDao<EFormDocs> {
     List<EFormDocs> findByFdid(Integer fdid);
 
     List<Object[]> findLabs(Integer fdid);
+    List<EFormDocs> findByFdidIdDocTypeForUpdate(Integer id, String docType);
+
 }

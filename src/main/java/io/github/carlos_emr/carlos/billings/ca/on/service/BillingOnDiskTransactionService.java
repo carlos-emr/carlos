@@ -25,6 +25,8 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Transactional boundary for DB-only finalization after OHIP disk files have
@@ -35,6 +37,24 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class BillingOnDiskTransactionService {
 
+    /** Completion acknowledgement used to protect files when a database commit is uncertain. */
+    public static final class Outcome {
+        private boolean mayHaveCommitted;
+
+        /** Whether rollback was not confirmed after finalization started. */
+        public boolean mayHaveCommitted() { return mayHaveCommitted; }
+
+        private void observe() {
+            if (!TransactionSynchronizationManager.isSynchronizationActive()) return;
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override public void afterCompletion(int status) {
+                    mayHaveCommitted = status != STATUS_ROLLED_BACK;
+                }
+            });
+            mayHaveCommitted = true;
+        }
+    }
+
     /**
      * Finalizes one generated disk writer in a single DB transaction.
      *
@@ -43,6 +63,13 @@ public class BillingOnDiskTransactionService {
      */
     @Transactional
     public void finalizeGeneratedDisk(OhipClaimFileService writer, int diskId) {
+        finalizeGeneratedDisk(writer, diskId, new Outcome());
+    }
+
+    /** Finalizes one writer and records the actual transaction completion outcome. */
+    @Transactional
+    public void finalizeGeneratedDisk(OhipClaimFileService writer, int diskId, Outcome outcome) {
+        outcome.observe();
         writer.finalizeGeneratedDisk();
         writer.updateDisknameSum(diskId);
     }
@@ -55,6 +82,13 @@ public class BillingOnDiskTransactionService {
      */
     @Transactional
     public void finalizeGeneratedDisks(List<OhipClaimFileService> writers, int diskId) {
+        finalizeGeneratedDisks(writers, diskId, new Outcome());
+    }
+
+    /** Finalizes a group and records whether the transaction committed, rolled back, or is uncertain. */
+    @Transactional
+    public void finalizeGeneratedDisks(List<OhipClaimFileService> writers, int diskId, Outcome outcome) {
+        outcome.observe();
         for (OhipClaimFileService writer : writers) {
             writer.finalizeGeneratedDisk();
             writer.updateDisknameSum(diskId);

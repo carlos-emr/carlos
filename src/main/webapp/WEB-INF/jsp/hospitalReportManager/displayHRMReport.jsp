@@ -16,6 +16,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="org.apache.commons.lang3.StringUtils,io.github.carlos_emr.carlos.log.*" %>
 <%@page import="java.text.SimpleDateFormat" %>
+<%@page import="io.github.carlos_emr.carlos.hospitalReportManager.HRMReportPatientLink" %>
 <%@page import="java.util.Objects" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -23,7 +24,7 @@
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -45,7 +46,6 @@
     HRMSubClassDao hrmSubClassDao = (HRMSubClassDao) SpringUtils.getBean(HRMSubClassDao.class);
     HRMCategoryDao hrmCategoryDao = (HRMCategoryDao) SpringUtils.getBean(HRMCategoryDao.class);
     HRMDocumentCommentDao hrmDocumentCommentDao = (HRMDocumentCommentDao) SpringUtils.getBean(HRMDocumentCommentDao.class);
-    HRMProviderConfidentialityStatementDao hrmProviderConfidentialityStatementDao = (HRMProviderConfidentialityStatementDao) SpringUtils.getBean(HRMProviderConfidentialityStatementDao.class);
 %>
 
 <%@page import="io.github.carlos_emr.carlos.hospitalReportManager.*, io.github.carlos_emr.carlos.hospitalReportManager.model.*, io.github.carlos_emr.carlos.utility.SpringUtils, io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
@@ -54,7 +54,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.dao.*" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
 <%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.HRMDisplayReport2Action" %>
@@ -64,18 +64,38 @@
 <%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.dao.*" %>
 <%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.model.HRMReportCriteria" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <!DOCTYPE html>
 
 <%
     Integer hrmReportId = Integer.parseInt(request.getParameter("id"));
-    // Access ModelDriven criteria object from request attributes
-    HRMReportCriteria criteria =
-        (io.github.carlos_emr.carlos.hospitalReportManager.model.HRMReportCriteria) request.getAttribute("criteria");
-    boolean isListView = criteria != null && criteria.getListView() != null ? criteria.getListView() : false;
+    // The ModelDriven HRMReportCriteria is still published as the "criteria" request attribute by
+    // HRMDisplayReport2Action; this page no longer reads it. It used to take listView from there to
+    // decide whether sign-off should clear the inbox, but nothing ever sets that parameter — the
+    // Inboxhub link carries none and oscarMDS/Page.jsp sends "isListView", which does not bind — so
+    // the branch was dead and sign-off silently did nothing. hrmActions.js now decides from the
+    // window shape instead.
     String hrmReportTime = "";
     Integer hrmDuplicateNum = null;
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+
+    // Patient access is decided before the report row or its file is read: a report filed to a
+    // patient this provider is locked out of is refused as the chart is. HRMDisplayReport2Action
+    // has already refused a direct request; the check is repeated here because the inbox
+    // (oscarMDS/Page.jsp) includes this page without going through that action. An included page
+    // cannot set a status, so there the refusal is a line of text in place of the report, and
+    // nothing of the report or the patient is written either way.
+    if (!HRMReportAccess.mayReadReport(SpringUtils.getBean(SecurityInfoManager.class),
+            hrmDocumentToDemographicDao, loggedInInfo, hrmReportId)) {
+        if (request.getAttribute(RequestDispatcher.INCLUDE_REQUEST_URI) == null) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+        } else {
+%><div class="hrm-report-refused" role="alert"><fmt:message key="demographic.demographiceditdemographic.accessDenied"/></div><%
+        }
+        return;
+    }
+
     HRMDocument document = hrmDocumentDao.findById(hrmReportId).get(0);
     HRMReport hrmReport = null;
     Map<Integer, Date> dupReportDates = new HashMap<Integer, Date>();
@@ -90,7 +110,6 @@
     List<HRMDocument> allDocumentsWithRelationship = null;
     List<HRMDocument> children = null;
     List<HRMDocumentComment> documentComments = null;
-    String confidentialityStatement = null;
 
 
     if (document != null) {
@@ -103,7 +122,8 @@
             hrmDuplicateNum = document.getNumDuplicatesReceived();
 
             demographicLinkList = hrmDocumentToDemographicDao.findByHrmDocumentId(document.getId());
-            demographicLink = (demographicLinkList.size() > 0 ? demographicLinkList.get(0) : null);
+            // The patient buttons act for the patient whose chart opened the report, when it is linked to them (#5060).
+            demographicLink = HRMReportPatientLink.choose(demographicLinkList, request.getParameter("demographicNo"));
 
             providerLinkList = hrmDocumentToProviderDao.findByHrmDocumentIdNoSystemUser(document.getId());
 
@@ -158,9 +178,6 @@
             documentComments = hrmDocumentCommentDao.getCommentsForDocument(hrmReportId);
 
 
-            confidentialityStatement = hrmProviderConfidentialityStatementDao.getConfidentialityStatementForProvider(loggedInInfo.getLoggedInProviderNo());
-
-
             String duplicateLabIdsString = StringUtils.trimToNull(request.getParameter("duplicateLabIds"));
 
 
@@ -196,6 +213,24 @@
     // boolean obgynShortcuts = CarlosProperties.getInstance().getProperty("show_obgyn_shortcuts", "false").equalsIgnoreCase("true");
     // String formId = "0";
 
+
+    // Whether oscarMDS/Page.jsp is rendering this viewer inline, which it says so itself with a
+    // <jsp:param>. This used to read jakarta.servlet.include.servlet_path and look for
+    // "oscarMDS/Page.jsp" in it, which can never match: the Servlet specification sets the
+    // jakarta.servlet.include.* attributes to the path of the resource being INCLUDED — this JSP —
+    // not the page performing the include, so the check was always false and the inline view never
+    // got its JavaScript Print button.
+    //
+    // Computed up front because the report container below advertises it to hrmActions.js: in the
+    // inline shape a signed-off report has no window to close, so its card is hidden instead, and
+    // an ordinary top-level report page must not be blanked by mistake.
+    boolean hrmFromInboxPage = "true".equals(request.getParameter("inboxInline"));
+
+    // Whether the INBOX opened this window, which only the inbox links say (inWindow=true, the
+    // same marker labDisplay.jsp uses). window.opener alone cannot stand in for it: ticklerMain,
+    // ticklerDemoMain and the eChart's HRM shortcut all open this very route in a popup, and
+    // closing those on sign-off would take away the revoke affordance they rely on.
+    boolean hrmInInboxWindow = "true".equals(request.getParameter("inWindow"));
 
     String btnDisabled = "disabled";
     String demographicNo = "";
@@ -417,16 +452,19 @@
 <% return;
 } %>
 
-<div id="hrmdoc_<%=hrmReportId%>">
+<div id="hrmdoc_<%=hrmReportId%>" data-inbox-inline="<%=hrmFromInboxPage%>"
+     data-inbox-window="<%=hrmInInboxWindow%>">
     <div id="buttonBox">
         <input type="button" id="msgBtn_<%=hrmReportId%>" value="Msg"
                onclick="popupPatient(700,960,'<%= request.getContextPath() %>/messenger/SendDemoMessage?demographic_no=','msg', '<%=hrmReportId%>','<%=demographicNo %>')" <%=btnDisabled %>/>
         <input type="button" id="mainTickler_<%=hrmReportId%>" value="Tickler"
                onClick="popupPatient(710, 1024,'<%= request.getContextPath() %>/tickler/ForwardDemographicTickler?docType=HRM&docId=<%=hrmReportId%>&demographic_no=', 'Tickler','<%=hrmReportId%>','<%=demographicNo %>')" <%=btnDisabled %>>
+        <%-- The handler's URL must stay on one line: a line break inside a JavaScript string stops the
+             whole handler compiling, and the button then does nothing (#3711). --%>
+        <fmt:message key="oscarMDS.segmentDisplay.labResults" var="hrmEchartReason"/>
         <input type="button" id="mainEchart_<%=hrmReportId%>"
                value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
-               onClick="popupPatient(710, 1024,'<%= request.getContextPath() %>/encounter/IncomingEncounter?updateParent=false&reason=
-               <fmt:message key="oscarMDS.segmentDisplay.labResults"/>&curDate=<%=currentDate%>>&appointmentNo=&appointmentDate=&startTime=&status=&demographicNo=', 'encounter', '<%=hrmReportId%>','<%=demographicNo %>')" <%=btnDisabled %>>
+               onClick="popupPatient(710, 1024,'<%= request.getContextPath() %>/encounter/IncomingEncounter?updateParent=false&reason=${carlos:forUriComponent(hrmEchartReason)}&curDate=<%=currentDate%>&appointmentNo=&appointmentDate=&startTime=&status=&demographicNo=', 'encounter', '<%=hrmReportId%>','<%=demographicNo %>')" <%=btnDisabled %>>
         <input type="button" id="mainMaster_<%=hrmReportId%>"
                value=" <fmt:message key="oscarMDS.segmentDisplay.btnMaster"/>"
                onClick="popupPatient(710,1024,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=','master','<%=hrmReportId%>','<%=demographicNo %>')" <%=btnDisabled %>>
@@ -466,7 +504,11 @@
                     allDocumentsWithRelationship = (List<HRMDocument>) request.getAttribute("allDocumentsWithRelationship");
                     if (allDocumentsWithRelationship != null && allDocumentsWithRelationship.size() > 1) {
                 %>
-                <span id="similarNotice">CARLOS has also detected that the following reports are similar:
+                <%-- Report-qualified, like similarstatus below it: oscarMDS/Page.jsp <jsp:include>s this
+                     viewer once per inbox result, so a bare id appears many times on that page and
+                     getElementById returns the FIRST one. Marking a later report independent then
+                     erased an earlier report's similar-report list. --%>
+                <span id="similarNotice<%=hrmReportId %>">CARLOS has also detected that the following reports are similar:
 		<%
             List<Integer> seenBefore = new LinkedList<Integer>();
             for (HRMDocument relationshipDocument : allDocumentsWithRelationship) {
@@ -474,7 +516,7 @@
 			<span class="documentLink_status<%=relationshipDocument.getReportStatus() %>"
                   title="<%=relationshipDocument.getReportDate().toString() %>">
 			<% if (relationshipDocument.getId().intValue() != hrmReportId.intValue()) { %><a
-                    href="<%=request.getContextPath() %>/hospitalReportManager/Display?id=<%=relationshipDocument.getId() %>&segmentId=<%=relationshipDocument.getId() %> "><% } %>[<%=relationshipDocument.getId() %>]<% if (relationshipDocument.getId().intValue() != hrmReportId.intValue()) { %></a><% } %>
+                    href="<%=request.getContextPath() %>/hospitalReportManager/Display?id=<%=relationshipDocument.getId() %>&amp;segmentId=<%=relationshipDocument.getId() %><%=hrmInInboxWindow ? "&amp;inWindow=true" : "" %>"><% } %>[<%=relationshipDocument.getId() %>]<% if (relationshipDocument.getId().intValue() != hrmReportId.intValue()) { %></a><% } %>
 			</span>&nbsp;&nbsp;
 		<% seenBefore.add(relationshipDocument.getId().intValue());
         }
@@ -482,6 +524,7 @@
 		 <div class="boxButton">
 		   <input type="button" onClick="makeIndependent('<%=hrmReportId %>')"
                   value="Mark this report as not similar to the other report(s)"/>
+		   <span id="similarstatus<%=hrmReportId %>"></span>
 		 </div>  
 		</span>
                 <% } %>
@@ -499,10 +542,11 @@
             }
             if (hrmReport.getFileExtension() != null && ".pdf".equals(hrmReport.getFileExtension())) {
         %>
-            <object data="<%=request.getContextPath() %>/hospitalReportManager/HRMDownloadFile?hash=<%=noMessageIdHash%>"
-                    width="100%" height="600" type="application/pdf">
-                <p>(Your browser could not display the pdf)</p>
-            </object>
+            <%-- The packaged CSP intentionally blocks object/embed (object-src 'none').
+                 A same-origin frame allows the browser's PDF viewer without weakening it. --%>
+            <iframe title="HRM report"
+                    src="<%=request.getContextPath() %>/hospitalReportManager/HRMDownloadFile?hash=<%=noMessageIdHash%>&amp;disposition=inline"
+                    style="width: 100%; height: 600px; border: 0;"></iframe>
             <br/>
             <%
                 }
@@ -527,14 +571,6 @@
             %>
             <%= SafeEncode.forHtml(hrmReport.getFirstReportTextContent()).replaceAll("\n", "<br />") %>
 
-            <% } %>
-
-            <%
-                if (confidentialityStatement != null && confidentialityStatement.trim().length() > 0) {
-            %>
-            <hr/>
-            <em><strong>Provider Confidentiality Statement</strong><br/><carlos:encode value='<%= confidentialityStatement %>' context="html"/>
-            </em>
             <% } %>
         </div>
 
@@ -641,8 +677,6 @@
                             <% } %>
                         </div>
                         <input type="hidden" id="demofind<%=hrmReportId %>hrm" value="<%=demographicNo%>"/>
-                        <input type="hidden" id="demofind<%=hrmReportId %>hrm" value=""/>
-                        <input type="hidden" id="routetodemo<%=hrmReportId %>hrm" value=""/>
                         <input type="checkbox" id="activeOnly<%=hrmReportId%>hrm" name="activeOnly" checked="checked"
                                value="true" onclick="setupHrmDemoAutoCompletion('<%=hrmReportId%>')">Active
                         Only<br>
@@ -655,6 +689,7 @@
                     <th>Assigned Providers:</th>
                     <td>
                         <div id="provstatus<%=hrmReportId %>"></div>
+                        <div id="assignedProviders<%=hrmReportId %>">
                         <% if (providerLinkList != null && providerLinkList.size() > 0) {
                             for (HRMDocumentToProvider p : providerLinkList) {
                                 if (!p.getProviderNo().equalsIgnoreCase("-1")) {
@@ -672,6 +707,7 @@
                         } else { %>
                         <i>No providers currently assigned</i><br/>
                         <% } %>
+                        </div>
                         <% if (document.getUnmatchedProviders() != null && document.getUnmatchedProviders().trim().length() >= 1) {
                             String[] unmatchedProviders = document.getUnmatchedProviders().substring(1).split("\\|");
                             for (String unmatchedProvider : unmatchedProviders) { %>
@@ -765,21 +801,16 @@
 					<a href="javascript:void(0)" onclick="editCategory('<%=hrmReportId %>');">(edit)</a>
 				</span>
 
+				<%-- Outside both spans on purpose: a failed save leaves the chooser open and
+				     showCategory_ hidden, which is exactly when the reason has to be readable. --%>
+				<span id="categorystatus<%=hrmReportId %>"></span>
+
                     </td>
                 </tr>
                 <tr>
                     <td colspan=2>
                         <form action="<%=request.getContextPath() %>/hospitalReportManager/PrintHRMReport">
                             <input type="hidden" value="<%=hrmReportId %>" name="hrmReportId"/>
-                            <%
-                                // When included from oscarMDS/Page.jsp (the inbox view) via <jsp:include>,
-                                // the Servlet spec exposes the included path in the jakarta.servlet.include.servlet_path
-                                // request attribute. Page.jsp is now under /WEB-INF/jsp/oscarMDS/ (gated), so the
-                                // browser-visible request URI is /documentManager/inboxManage rather than the
-                                // old /oscarMDS/Page.jsp — we must check the include-path attribute instead.
-                                String hrmIncludePath = (String) request.getAttribute("jakarta.servlet.include.servlet_path");
-                                boolean hrmFromInboxPage = hrmIncludePath != null && hrmIncludePath.contains("oscarMDS/Page.jsp");
-                            %>
                             <% if (hrmFromInboxPage) {%>
                             <input type="button" value="Print" onclick="printHrm('<%=hrmReportId%>')"/>
                             <%} else { %>
@@ -797,10 +828,11 @@
                             } else {
                             %>
                             <input type="button" id="signoff<%=hrmReportId %>" value="Sign-Off"
-                                   onClick="signOffHrm('<%=hrmReportId %>', <%=isListView%>)"/>
+                                   onClick="signOffHrm('<%=hrmReportId %>')"/>
                             <%
                                 }
                             %>
+                            <span id="signoffstatus<%=hrmReportId %>"></span>
 
                         </form>
                     </td>
@@ -850,8 +882,15 @@
     </div>
     <div id="descriptionBox">
 
-        Add a description:
+        <label for="descriptionField_<%=hrmReportId %>_hrm">Add a description:</label>
+        <%-- HRMDocument.description holds DESCRIPTION_MAX_LENGTH code points. No maxlength: a browser
+             clips a paste to maxlength in UTF-16 units before any check runs. hrmActions.js
+             setDescription() and HRMModifyDocument2Action refuse a longer description with the
+             message below. --%>
+        <fmt:message key="dms.error.descriptionTooLong" var="hrmDescriptionTooLongText"/>
         <input type="text" id="descriptionField_<%=hrmReportId %>_hrm" size="100"
+               data-max-code-points="<%= HRMDocument.DESCRIPTION_MAX_LENGTH %>"
+               data-too-long-message="${carlos:forHtmlAttribute(hrmDescriptionTooLongText)}"
                value="<carlos:encode value='<%= document.getDescription() %>' context="htmlAttribute"/>"/><br/>
 
         <div class="boxButton">

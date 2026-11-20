@@ -36,12 +36,16 @@ import java.sql.SQLTimeoutException;
 import java.util.Collection;
 import java.util.Date;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Properties;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.report.data.QueryByExampleAccessDeniedException;
+import io.github.carlos_emr.carlos.report.data.ReportingAccountUnavailableException;
+import io.github.carlos_emr.carlos.report.data.ReportingConnectionService;
 import io.github.carlos_emr.carlos.report.data.RptByExampleData;
 import io.github.carlos_emr.carlos.report.data.QueryByExampleValidationException;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -62,6 +66,14 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 /**
  * Struts2 action for the Query-by-Example report tool. Allows authorized report users
  * to execute custom read-only SQL queries, persist successful searches, and display results.
+ *
+ * <p>Queries run as the read-only reporting database account, never the application account
+ * (issue #3372). When that account is not provisioned the page says so as soon as it opens, and a
+ * submitted query is not run.</p>
+ *
+ * <p>Every submitted run, whatever its outcome, leaves exactly one row in the {@code log} audit
+ * table ({@code read}/{@code query_by_example}, written by {@link RptByExampleData#auditRow} with
+ * the run's final outcome). Opening the page is not a run and is not audited.</p>
  *
  * @since 2003-07-22
  */
@@ -106,52 +118,98 @@ public class RptByExample2Action extends ActionSupport {
         sql = sql == null ? "" : sql;
         request.setAttribute("submittedSql", sql);
 
+        Properties properties = CarlosProperties.getInstance();
         if (!"POST".equals(request.getMethod())) {
+            // Settings only, no database call: tell the user up front rather than after they type.
+            if (isEnabled(properties) && !ReportingConnectionService.isConfigured(properties)) {
+                request.setAttribute("queryReportingUnavailable", true);
+            }
             return SUCCESS;
         }
 
-        Properties properties = CarlosProperties.getInstance();
         if (!isEnabled(properties)) {
             request.setAttribute("queryDisabled", true);
-            RptByExampleData.audit(providerNo, sql, 0, 0, "disabled");
+            RptByExampleData.audit(providerNo, sql, 0, 0, RptByExampleData.OUTCOME_DISABLED);
+            RptByExampleData.auditRow(loggedInInfo, sql, 0, 0, RptByExampleData.OUTCOME_DISABLED);
             return SUCCESS;
         }
 
         if (sql.isBlank()) {
             request.setAttribute("queryValidationError", true);
-            RptByExampleData.audit(providerNo, sql, 0, 0, "rejected");
+            RptByExampleData.audit(providerNo, sql, 0, 0, RptByExampleData.OUTCOME_REJECTED);
+            RptByExampleData.auditRow(loggedInInfo, sql, 0, 0, RptByExampleData.OUTCOME_REJECTED);
             return SUCCESS;
         }
 
-        RptByExampleData.QueryResult result;
+        long startedAt = System.nanoTime();
+        String outcome = RptByExampleData.OUTCOME_FAILED;
+        RptByExampleData.QueryResult result = null;
         try {
-            result = new RptByExampleData().execute(sql, properties, providerNo);
-        } catch (QueryByExampleValidationException e) {
-            request.setAttribute("queryValidationError", true);
-            return SUCCESS;
-        } catch (SQLTimeoutException e) {
-            request.setAttribute("queryTimeout", true);
-            request.setAttribute("queryTimeoutSeconds", RptByExampleData.QUERY_TIMEOUT_SECONDS);
-            return SUCCESS;
-        } catch (SQLException | RuntimeException e) {
-            request.setAttribute("queryExecutionError", true);
-            return SUCCESS;
-        }
-
-        request.setAttribute("results", result.html());
-        request.setAttribute("resultRowCount", result.rowCount());
-        request.setAttribute("resultLimit", RptByExampleData.MAX_ROWS);
-        request.setAttribute("resultTruncated", result.truncated());
-        request.setAttribute("resultRowLimitReached", result.rowLimitReached());
-        request.setAttribute("resultCharacterLimit", RptByExampleData.MAX_OUTPUT_CHARACTERS);
-        try {
-            write2Database(sql, providerNo);
-        } catch (RuntimeException e) {
-            request.setAttribute("queryHistoryError", true);
-            RptByExampleData.audit(providerNo, sql, result.durationMillis(), result.rowCount(), "history_failed");
+            QueryRun run = runQuery(providerNo, properties);
+            outcome = run.outcome();
+            result = run.result();
+            if (result != null) {
+                request.setAttribute("results", result.html());
+                request.setAttribute("resultRowCount", result.rowCount());
+                request.setAttribute("resultLimit", RptByExampleData.MAX_ROWS);
+                request.setAttribute("resultTruncated", result.truncated());
+                request.setAttribute("resultRowLimitReached", result.rowLimitReached());
+                request.setAttribute("resultCharacterLimit", RptByExampleData.MAX_OUTPUT_CHARACTERS);
+                try {
+                    write2Database(sql, providerNo);
+                } catch (RuntimeException _) {
+                    request.setAttribute("queryHistoryError", true);
+                    outcome = RptByExampleData.OUTCOME_HISTORY_FAILED;
+                    RptByExampleData.audit(providerNo, sql, result.durationMillis(), result.rowCount(), outcome);
+                }
+            }
+        } finally {
+            // One audit row per run, written last so that it carries the run's final outcome
+            // (history_failed replaces success rather than following it). A run that produced no
+            // result showed no rows; its duration is measured here, around the same call.
+            if (result != null) {
+                RptByExampleData.auditRow(loggedInInfo, sql, result.durationMillis(), result.rowCount(), outcome);
+            } else {
+                RptByExampleData.auditRow(loggedInInfo, sql, (System.nanoTime() - startedAt) / 1_000_000L, 0, outcome);
+            }
         }
 
         return SUCCESS;
+    }
+
+    /** The outcome of one query run, and its result when the query ran ({@code null} otherwise). */
+    private record QueryRun(String outcome, RptByExampleData.QueryResult result) {
+    }
+
+    /**
+     * Runs the submitted query. When it produces no result, sets the request attribute that tells
+     * the page why (rejected, no reporting account, refused by the database, timed out, failed)
+     * and returns the outcome without a result; {@link RptByExampleData} has already logged it.
+     */
+    private QueryRun runQuery(String providerNo, Properties properties) {
+        try {
+            RptByExampleData.QueryResult result = new RptByExampleData().execute(sql, properties, providerNo);
+            return new QueryRun(RptByExampleData.OUTCOME_SUCCESS, Objects.requireNonNull(result));
+        } catch (QueryByExampleValidationException _) {
+            request.setAttribute("queryValidationError", true);
+            return new QueryRun(RptByExampleData.OUTCOME_REJECTED, null);
+        } catch (ReportingAccountUnavailableException _) {
+            request.setAttribute("queryReportingUnavailable", true);
+            return new QueryRun(RptByExampleData.OUTCOME_UNAVAILABLE, null);
+        } catch (QueryByExampleAccessDeniedException _) {
+            request.setAttribute("queryAccessDenied", true);
+            return new QueryRun(RptByExampleData.OUTCOME_DENIED, null);
+        } catch (SQLTimeoutException _) {
+            request.setAttribute("queryTimeout", true);
+            request.setAttribute("queryTimeoutSeconds", RptByExampleData.QUERY_TIMEOUT_SECONDS);
+            return new QueryRun(RptByExampleData.OUTCOME_TIMEOUT, null);
+        } catch (io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException _) {
+            request.setAttribute("queryPreventionDateReview", true);
+            return new QueryRun(RptByExampleData.OUTCOME_FAILED, null);
+        } catch (SQLException | RuntimeException _) {
+            request.setAttribute("queryExecutionError", true);
+            return new QueryRun(RptByExampleData.OUTCOME_FAILED, null);
+        }
     }
 
     @SuppressFBWarnings(
@@ -180,7 +238,6 @@ public class RptByExample2Action extends ActionSupport {
 
 
     private String sql;
-    private String selectedRecentSearch;
 
     public String getSql() {
         return sql;
@@ -189,14 +246,5 @@ public class RptByExample2Action extends ActionSupport {
     @StrutsParameter
     public void setSql(String sql) {
         this.sql = sql;
-    }
-
-    public String getSelectedRecentSearch() {
-        return selectedRecentSearch;
-    }
-
-    @StrutsParameter
-    public void setSelectedRecentSearch(String selectedRecentSearch) {
-        this.selectedRecentSearch = selectedRecentSearch;
     }
 }

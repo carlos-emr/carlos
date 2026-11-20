@@ -21,7 +21,13 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
+const { validateBaseUrl } = require('./lib/playwright-harness');
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
+const h = require('./lib/playwright-harness');
+const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -36,58 +42,29 @@ const DEFAULT_CSRF_TOKEN_NAME = 'CSRF-TOKEN';
 
 const findings = [];
 const visited = [];
+const recorder = h.createRecorder();
 
 const scheduleLinks = [
-  { label: 'schedule-tickler-link', selector: "a[onclick*='/carlos/tickler/ViewTicklerMain']" },
-  { label: 'schedule-consultations-link', selector: "a[onclick*='/carlos/encounter/IncomingConsultation']" },
-  { label: 'schedule-scratch-link', selector: "a[onclick*='/carlos/Scratch']" },
-  { label: 'schedule-report-link', selector: "a[onclick*='/carlos/report/ViewReportindex']" },
-  { label: 'schedule-inbox-link', selector: "a[onclick*='/carlos/web/inboxhub/Inboxhub']" },
-  { label: 'schedule-edoc-link', selector: "a[onclick*='/carlos/documentManager/ViewDocumentReport']" },
+  { label: 'schedule-tickler-link', selector: 'a:has(#oscar_new_tickler)', path: '/tickler/ViewTicklerMain' },
+  { label: 'schedule-consultations-link', selector: 'a:has(#oscar_aged_consults)', path: '/encounter/IncomingConsultation' },
+  { label: 'schedule-scratch-link', selector: "a[onclick*='/Scratch']", path: '/Scratch' },
+  { label: 'schedule-report-link', selector: "a[onclick*='/report/ViewReportindex'], a[href*='/report/ViewReportindex']", path: '/report/ViewReportindex' },
+  { label: 'schedule-inbox-link', selector: '#inboxLink', path: '/web/inboxhub/Inboxhub' },
+  { label: 'schedule-edoc-link', selector: "a[onclick*='/documentManager/ViewDocumentReport'], a[href*='/documentManager/ViewDocumentReport']", path: '/documentManager/ViewDocumentReport' },
 ];
 
-function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-
-  const host = parsed.hostname.toLowerCase();
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
-  if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
-  return parsed;
-}
-
-function appUrl(appPath) {
+function appUrl(appPath, search = '') {
   if (!appPath.startsWith('/') || appPath.startsWith('//')) {
     throw new Error(`Application path must be root-relative, got ${appPath}`);
   }
   const url = new URL(baseUrl.href);
   url.pathname = `${baseUrl.pathname}${appPath}`.replace(/\/{2,}/g, '/');
-  url.search = '';
+  url.search = search;
   return url.toString();
 }
 
-function safeGoto(page, appPath, options) {
-  return page.goto(appUrl(appPath), options); // nosemgrep // NOSONAR - appUrl validates local-only BASE_URL and root-relative paths.
-}
-
-async function responseWithTimeout(request, timeoutMs) {
-  let timeoutId;
-  try {
-    return await Promise.race([
-      request.response(),
-      new Promise((resolve) => {
-        timeoutId = setTimeout(() => resolve(null), timeoutMs);
-      }),
-    ]);
-  } finally {
-    clearTimeout(timeoutId);
-  }
+function safeGoto(page, appPath, options, search = '') {
+  return page.goto(appUrl(appPath, search), options); // nosemgrep // NOSONAR - appUrl validates local-only BASE_URL and root-relative paths.
 }
 
 function isExpectedMissingAsset(status, responseUrl) {
@@ -113,6 +90,7 @@ function isSevereConsoleMessage(message) {
 }
 
 function wirePage(page, label) {
+  h.wireStrictPage(page, label, recorder, { baseline: [] });
   page.on('response', (response) => {
     const responseUrl = response.url();
     const status = response.status();
@@ -127,10 +105,6 @@ function wirePage(page, label) {
   });
   page.on('pageerror', (error) => {
     findings.push({ label, type: 'pageerror', text: error.stack || error.message });
-  });
-  page.on('dialog', async (dialog) => {
-    findings.push({ label, type: 'dialog', text: dialog.message() });
-    await dialog.accept();
   });
 }
 
@@ -165,28 +139,58 @@ async function login(context) {
 
 async function clickScheduleLink(context, schedulePage, linkSpec) {
   const locator = schedulePage.locator(linkSpec.selector).first();
-  if (!await locator.count()) {
+  // Wait for the link to attach rather than reading count() once: selecting a provider
+  // reloads the schedule window, and its navigation commits (URL updates) before the body
+  // renders, so an immediate count() races the reload and reports every link missing.
+  try {
+    await locator.waitFor({ state: 'attached', timeout: 15000 });
+  } catch {
     findings.push({ label: linkSpec.label, type: 'missing-user-link', selector: linkSpec.selector });
     return;
   }
 
-  const existingPages = context.pages();
-  const popupPromise = context.waitForEvent('page', { timeout: 10000 }).catch(() => null);
-  await locator.click();
-  let targetPage = await popupPromise;
-
-  if (!targetPage) {
-    const currentPages = context.pages();
-    targetPage = currentPages.find((page) => !existingPages.includes(page)) || currentPages[currentPages.length - 1];
+  // Focused schedule navigation uses the current tab; legacy navigation opens
+  // popups. The old fallback inspected the last context page (often Scratch),
+  // allowing Report/Inbox/eDoc to pass without judging their actual destination.
+  const onPopup = popup => wirePage(popup, linkSpec.label);
+  const scheduleUrl = new URL(schedulePage.url());
+  const scheduleLocation = new URL(appUrl('/provider/providercontrol'));
+  if (scheduleUrl.origin !== scheduleLocation.origin || scheduleUrl.pathname !== scheduleLocation.pathname) {
+    throw new Error('Schedule navigation started outside the expected application view');
   }
-
-  wirePage(targetPage, linkSpec.label);
-  await targetPage.waitForLoadState('domcontentloaded', { timeout: 30000 }).catch(() => {});
-  await targetPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-  visited.push({ label: linkSpec.label, url: targetPage.url() });
-  await assertNoErrorPage(targetPage, linkSpec.label);
+  context.on('page', onPopup);
+  let outcome;
+  try {
+    outcome = await clickOpensPopupOrNavigates(schedulePage, locator,
+      { context, label: linkSpec.label, timeout: 30000, checkErrorPage: false });
+    const targetPage = outcome.page;
+    visited.push({ label: linkSpec.label, url: targetPage.url() });
+    await assertNoErrorPage(targetPage, linkSpec.label);
+    const expected = `${baseUrl.pathname}${linkSpec.path}`;
+    if (new URL(targetPage.url()).pathname !== expected) {
+      findings.push({ label: linkSpec.label, type: 'unexpected-destination',
+        path: new URL(targetPage.url()).pathname, expected });
+    }
+  } finally {
+    context.off('page', onPopup);
+    if (outcome && outcome.isPopup && !outcome.page.isClosed()) await outcome.page.close();
+    if (outcome && !outcome.isPopup) {
+      // Reopen the observed schedule address with GET; history may otherwise
+      // replay the provider-selection POST that produced the schedule.
+      await safeGoto(schedulePage, '/provider/providercontrol',
+        { waitUntil: 'domcontentloaded', timeout: 30000 }, scheduleUrl.search);
+      await schedulePage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    }
+  }
 }
 
+/**
+ * Select a provider through its popup and verify the matching POST and CSRF token.
+ * Observe the response before the successful preference page closes itself.
+ * @param {import('playwright').BrowserContext} context The owned browser context.
+ * @param {import('playwright').Page} schedulePage The authenticated schedule opener.
+ * @returns {Promise<void>} Resolves after recording any failures and settling the opener.
+ */
 async function selectProviderFromLastNameSearch(context, schedulePage) {
   const searchInput = schedulePage.locator('form[name="findprovider"] input[name="providername"]');
   if (!await searchInput.count()) {
@@ -194,6 +198,14 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
     return;
   }
 
+  // The preference response refreshes the opener and closes its own popup.
+  // Capture the response event before selection; request.response() can race
+  // that normal close once the click has settled.
+  const providerResponsePromise = context.waitForEvent('response', {
+    predicate: response => response.request().method() === 'POST'
+      && /\/provider\/providercontrol(?:\?|$)/.test(response.url()),
+    timeout: 30000,
+  }).catch(() => null);
   const requestPromise = context.waitForEvent('request', {
     predicate: (request) => request.method() === 'POST'
       && /\/provider\/providercontrol(?:\?|$)/.test(request.url()),
@@ -249,7 +261,10 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
     await resultPage.close();
     return;
   }
-  const response = await responseWithTimeout(providerRequest, 30000);
+  const response = await providerResponsePromise;
+  if (response && response.request() !== providerRequest) {
+    throw new Error('Provider selection response belongs to a different request');
+  }
   const requestBody = providerRequest.postData() || '';
 
   // The page event is emitted only after the initial response starts loading, and every
@@ -289,9 +304,15 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
   await resultPage.waitForLoadState('domcontentloaded', { timeout: 30000 }).catch(() => {});
   await assertNoErrorPage(resultPage, 'schedule-provider-search');
   await resultPage.close();
+  // The successful preference page refreshes the MAIN schedule window before
+  // closing itself, so schedulePage may still be mid-reload. Wait for that reload
+  // to settle before the caller asserts the schedule nav links — otherwise every link
+  // check races a torn-down DOM and reports a false "missing-user-link".
+  await schedulePage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('schedule-links',async context=>{
+  await (async({cancellation})=>{
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
@@ -300,16 +321,21 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
     launchOptions.executablePath = chromePath;
   }
 
-  const browser = await chromium.launch(launchOptions);
+  const browser = await chromium.launch({...(launchOptions),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   try {
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1000 } });
+    cancellation?.throwIfCancelled();
+    context.on('page', page => h.wireStrictPage(page, 'schedule-links-page', recorder, { baseline: [] }));
     const schedulePage = await login(context);
+    cancellation?.throwIfCancelled();
 
     await selectProviderFromLastNameSearch(context, schedulePage);
+    cancellation?.throwIfCancelled();
 
     if (!testProviderSearchOnly) {
       for (const linkSpec of scheduleLinks) {
         await clickScheduleLink(context, schedulePage, linkSpec);
+    cancellation?.throwIfCancelled();
       }
     }
 
@@ -319,6 +345,7 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
     if (blockingFindings.length) {
       throw new Error(`schedule link browser check found ${blockingFindings.length} issue(s)`);
     }
+    h.assertStrictPage(recorder);
 
     console.log(testProviderSearchOnly
       ? 'PASS schedule provider search submitted a CSRF-protected selection'
@@ -326,8 +353,10 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
   } finally {
     await browser.close();
   }
-})().catch((error) => {
+})(context).catch((error) => {
   console.error('FAIL schedule link Playwright check');
   console.error(error.stack || error.message);
-  process.exit(1);
+  console.error(JSON.stringify(h.buildFailureDetails(recorder), null, 2));
+  {process.exitCode=1;return;}
+});
 });

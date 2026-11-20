@@ -25,11 +25,13 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@Tag("unit")
 @DisplayName("Credential logging regression tests")
 class CredentialLoggingRegressionTest {
 
@@ -42,20 +44,30 @@ class CredentialLoggingRegressionTest {
         assertThat(loginWs)
                 .doesNotContain("logger.debug(\"Login attempt : p =\" + password)");
         assertThat(tokenValidator)
-                .contains("logger.debug(\"userIdString=\" + usernameToken.getName())")
+                .contains("logger.debug(\"SOAP username-token authentication attempt\")")
+                .doesNotContain("logger.debug(\"userIdString=\" + usernameToken.getName())")
                 .doesNotContain("logger.debug(\"password=\" + usernameToken.getPassword())");
     }
 
     @Test
     @DisplayName("OAuth token parsing should not log token XML or secrets")
-    void shouldNotLogTokenXmlOrSecrets_forOauthTokenParsing() throws IOException {
+    void shouldNotLogTokenXmlOrSecrets_forOauthTokenParsing() throws Exception {
         String oauthConfig = readSource("app/AppOAuth1Config.java");
 
         assertThat(oauthConfig)
-                .contains("logger.debug(\"token XML length: {}\", str == null ? 0 : str.length())")
-                .contains("logger.debug(node.getNodeName())")
                 .doesNotContain("logger.debug(\"token === \" + str)")
+                .doesNotContain("logger.debug(\"token XML length:")
+                .doesNotContain("logger.debug(node.getNodeName())")
                 .doesNotContain("logger.error(node.getNodeName())");
+        String token = java.util.UUID.randomUUID().toString();
+        String secret = java.util.UUID.randomUUID().toString();
+        String xml = io.github.carlos_emr.carlos.app.AppOAuth1Config.getTokenXML(token, secret);
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(
+                io.github.carlos_emr.carlos.app.AppOAuth1Config.class)) {
+            assertThat(io.github.carlos_emr.carlos.app.AppOAuth1Config.getKeySecret(xml))
+                    .containsEntry("key", token).containsEntry("secret", secret);
+            assertThat(String.join("\n", logs.messages())).doesNotContain(token, secret, xml);
+        }
     }
 
     @Test
@@ -84,12 +96,12 @@ class CredentialLoggingRegressionTest {
     }
 
     @Test
-    @DisplayName("CML upload should log key presence only")
-    void shouldLogKeyPresenceOnly_forCmlUpload() throws IOException {
+    @DisplayName("CML upload should not log the key or data derived from it")
+    void shouldNotLogKeyOrDerivedData_forCmlUpload() throws IOException {
         String labUploadAction = readSource("lab/ca/on/CML/Upload/LabUpload2Action.java");
 
         assertThat(labUploadAction)
-                .contains("_logger.debug(\"upload key present: {}\", key != null)")
+                .contains("_logger.debug(\"Checking whether the CML upload key was supplied\")")
                 .doesNotContain("MiscUtils.getLogger().debug(\"key=\" + key)");
     }
 

@@ -35,12 +35,14 @@ import java.util.Date;
 import java.util.Map;
 import java.util.Properties;
 
+import org.apache.commons.lang3.StringUtils;
+
 import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.SxmlMisc;
+import io.github.carlos_emr.carlos.demographic.util.DemographicXml;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 public class FrmBCAR2007Record extends FrmRecord {
@@ -62,13 +64,13 @@ public class FrmBCAR2007Record extends FrmRecord {
                 props.setProperty("demographic_no", demo.getDemographicNo().toString());
                 props.setProperty("formCreated", UtilDateUtilities.DateToString(new Date(), _dateFormat));
 
-                props.setProperty("c_surname", demo.getLastName());
-                props.setProperty("c_givenName", demo.getFirstName());
-                props.setProperty("c_address", demo.getAddress());
-                props.setProperty("c_city", demo.getCity());
-                props.setProperty("c_province", demo.getProvince());
-                props.setProperty("c_postal", demo.getPostal());
-                props.setProperty("c_phn", demo.getHin());
+                props.setProperty("c_surname", StringUtils.defaultString(demo.getLastName()));
+                props.setProperty("c_givenName", StringUtils.defaultString(demo.getFirstName()));
+                props.setProperty("c_address", StringUtils.defaultString(demo.getAddress()));
+                props.setProperty("c_city", StringUtils.defaultString(demo.getCity()));
+                props.setProperty("c_province", StringUtils.defaultString(demo.getProvince()));
+                props.setProperty("c_postal", StringUtils.defaultString(demo.getPostal()));
+                props.setProperty("c_phn", StringUtils.defaultString(demo.getHin()));
                 props.setProperty("pg1_dateOfBirth", UtilDateUtilities.DateToString(date, _dateFormat));
                 props.setProperty("pg1_age", String.valueOf(UtilDateUtilities.calcAge(date)));
                 props.setProperty("c_phone", demo.getPhone());
@@ -77,7 +79,7 @@ public class FrmBCAR2007Record extends FrmRecord {
                 props.setProperty("pg2_formDate", UtilDateUtilities.DateToString(new Date(), _dateFormat));
                 props.setProperty("pg3_formDate", UtilDateUtilities.DateToString(new Date(), _dateFormat));
 
-                String rd = SxmlMisc.getXmlContent(demo.getFamilyDoctor(), "rd");
+                String rd = DemographicXml.referralDoctor(demo.getFamilyDoctor());
                 rd = rd != null ? rd : "";
                 props.setProperty("pg1_famPhy", rd);
 
@@ -96,13 +98,13 @@ public class FrmBCAR2007Record extends FrmRecord {
             demo = demographicManager.getDemographic(loggedInInfo, demographicNo);
 
             if (demo != null) {
-                props.setProperty("c_surname_cur", demo.getLastName());
-                props.setProperty("c_givenName_cur", demo.getFirstName());
-                props.setProperty("c_address_cur", demo.getAddress());
-                props.setProperty("c_city_cur", demo.getCity());
-                props.setProperty("c_province_cur", demo.getProvince());
-                props.setProperty("c_postal_cur", demo.getPostal());
-                props.setProperty("c_phn_cur", demo.getHin());
+                props.setProperty("c_surname_cur", StringUtils.defaultString(demo.getLastName()));
+                props.setProperty("c_givenName_cur", StringUtils.defaultString(demo.getFirstName()));
+                props.setProperty("c_address_cur", StringUtils.defaultString(demo.getAddress()));
+                props.setProperty("c_city_cur", StringUtils.defaultString(demo.getCity()));
+                props.setProperty("c_province_cur", StringUtils.defaultString(demo.getProvince()));
+                props.setProperty("c_postal_cur", StringUtils.defaultString(demo.getPostal()));
+                props.setProperty("c_phn_cur", StringUtils.defaultString(demo.getHin()));
                 props.setProperty("c_phone_cur", demo.getPhone());
                 props.setProperty("c_phoneAlt1_cur", demo.getPhone2());
                 Map<String, String> demoExt = demographicExtDao.getAllValuesForDemo(demographicNo);

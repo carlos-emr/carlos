@@ -31,8 +31,6 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.services.OrganizationMessageManager;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
@@ -46,16 +44,11 @@ import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import org.apache.struts2.ActionSupport;
-import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
-public class OrganizationMessage2Action extends ActionSupport {
+public class OrganizationMessage2Action extends MessageBannerAction {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-
-    HttpServletRequest request = ServletActionContext.getRequest();
-    HttpServletResponse response = ServletActionContext.getResponse();
 
 
     private OrganizationMessageManager mgr = SpringUtils.getBean(OrganizationMessageManager.class);
@@ -64,23 +57,12 @@ public class OrganizationMessage2Action extends ActionSupport {
     private ProgramManager programManager = SpringUtils.getBean(ProgramManager.class);
     private ProgramManager2 programManager2 = SpringUtils.getBean(ProgramManager2.class);
 
-    public String execute() {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)) {
-            throw new SecurityException("missing required sec object (_admin)");
-        }
-
-        String mtd = request.getParameter("method");
-        if ("edit".equals(mtd)) {
-            return edit();
-        } else if ("save".equals(mtd)) {
-            return save();
-        } else if ("view".equals(mtd)) {
-            return view();
-        }
-        return list();
+    @Override
+    protected SecurityInfoManager securityInfoManager() {
+        return securityInfoManager;
     }
 
+    @Override
     public String list() {
         //List activeMessages = mgr.getMessages();
         Facility facility = (Facility) request.getSession().getAttribute("currentFacility");
@@ -107,6 +89,7 @@ public class OrganizationMessage2Action extends ActionSupport {
         return "list";
     }
 
+    @Override
     public String edit() {
         String messageId = request.getParameter("id");
 
@@ -136,6 +119,7 @@ public class OrganizationMessage2Action extends ActionSupport {
         return "edit";
     }
 
+    @Override
     public String save() {
         FacilityMessage msg = this.getFacility_message();
         msg.setCreationDate(new Date());
@@ -151,6 +135,7 @@ public class OrganizationMessage2Action extends ActionSupport {
         return list();
     }
 
+    @Override
     public String view() {
 
         //String providerNo = (String)request.getSession().getAttribute("user");

@@ -80,6 +80,10 @@ class BillingOnReviewViewModelAssemblerUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         mockitoCloseable = MockitoAnnotations.openMocks(this);
+        var patientManager = Mockito.mock(io.github.carlos_emr.carlos.managers.DemographicManager.class);
+        when(patientManager.getDemographic(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenAnswer(call -> demographicDao.getDemographic(String.valueOf((Integer) call.getArgument(1))));
+        registerMock(io.github.carlos_emr.carlos.managers.DemographicManager.class, patientManager);
         when(reviewPrep.getDxDescription(any())).thenReturn("Essential, benign hypertension");
         // The assembler unconditionally indexes into the result of these
         // two methods at lines 332-334; default null Mockito return NPEs.
@@ -304,4 +308,18 @@ class BillingOnReviewViewModelAssemblerUnitTest extends CarlosUnitTestBase {
         assertThat(m.getProviderView()).isEqualTo("888888");
         assertThat(m.getProviderOhip()).isEqualTo("OHIP1");
     }
+    @Test
+    void shouldGateReviewSubmission_whenServiceCalculationReturnsWarning() {
+        request.setParameter("xml_billtype", "ODP");
+        when(reviewPrep.getRequestCodes(any(), any(), any(), any(), anyInt())).thenReturn(java.util.List.of(
+                new io.github.carlos_emr.carlos.billings.ca.on.support.BillingReviewServiceParam("A007A", "1", "abc")));
+        when(reviewPrep.getServiceCodeReviewItems(any(), any())).thenReturn(java.util.List.of(
+                new io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingReviewCodeItem(
+                        "A007A", "1", "0", "0", "abc", "Invalid service percent", "Assessment")));
+        var model = assembler.assemble(request, null);
+        assertThat(model.isTotalsParseFailed()).isTrue();
+        assertThat(model.getServiceCodeRows()).hasSize(1);
+        assertThat(model.getServiceCodeRows().getFirst().warning()).contains("Invalid service percent");
+    }
+
 }

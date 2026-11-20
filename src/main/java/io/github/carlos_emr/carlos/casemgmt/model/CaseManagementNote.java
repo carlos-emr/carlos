@@ -58,7 +58,7 @@ import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
                 @jakarta.persistence.FieldResult(name = "note", column = "note"),
                 @jakarta.persistence.FieldResult(name = "signed", column = "signed"),
                 @jakarta.persistence.FieldResult(name = "includeissue", column = "includeissue"),
-                @jakarta.persistence.FieldResult(name = "providerNo", column = "providerNo"),
+                @jakarta.persistence.FieldResult(name = "providerNo", column = "provider_no"),
                 @jakarta.persistence.FieldResult(name = "signing_provider_no", column = "signing_provider_no"),
                 @jakarta.persistence.FieldResult(name = "encounter_type", column = "encounter_type"),
                 @jakarta.persistence.FieldResult(name = "billing_code", column = "billing_code"),
@@ -82,7 +82,7 @@ import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 @jakarta.persistence.NamedNativeQueries({
         @jakarta.persistence.NamedNativeQuery(name = "mostRecentTime", resultSetMapping = "CaseManagementNoteNativeMapping", query = """
                 select cmn.note_id as id, cmn.update_date as update_date, cmn.observation_date as observation_date,
-                cmn.demographic_no as demographic_no, cmn.provider_no as providerNo, cmn.note as note, cmn.signed as signed,
+                cmn.demographic_no as demographic_no, cmn.provider_no as provider_no, cmn.note as note, cmn.signed as signed,
                 cmn.include_issue_innote as includeissue, cmn.signing_provider_no as signing_provider_no,
                 cmn.encounter_type as encounter_type, cmn.billing_code as billing_code, cmn.program_no as program_no,
                 cmn.reporter_caisi_role as reporter_caisi_role, cmn.reporter_program_team as reporter_program_team,
@@ -96,12 +96,13 @@ import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
                 (select min(cmn2.update_date) from casemgmt_note cmn2 where cmn2.uuid = cmn.uuid) as create_date
                 from casemgmt_note cmn
                 join (select max(note_id) as note_id from casemgmt_note
-                where demographic_no = :demographicNo and observation_date >= :staleDate group by uuid) recent on recent.note_id = cmn.note_id
-                order by cmn.observation_date asc
+                where demographic_no = :demographicNo group by uuid) recent on recent.note_id = cmn.note_id
+                where cmn.observation_date >= :staleDate or cmn.observation_date is null
+                order by cmn.observation_date is null asc, cmn.observation_date asc, cmn.note_id asc
                 """),
         @jakarta.persistence.NamedNativeQuery(name = "mostRecentDateRange", resultSetMapping = "CaseManagementNoteNativeMapping", query = """
                 select cmn.note_id as id, cmn.update_date as update_date, cmn.observation_date as observation_date,
-                cmn.demographic_no as demographic_no, cmn.provider_no as providerNo, cmn.note as note, cmn.signed as signed,
+                cmn.demographic_no as demographic_no, cmn.provider_no as provider_no, cmn.note as note, cmn.signed as signed,
                 cmn.include_issue_innote as includeissue, cmn.signing_provider_no as signing_provider_no,
                 cmn.encounter_type as encounter_type, cmn.billing_code as billing_code, cmn.program_no as program_no,
                 cmn.reporter_caisi_role as reporter_caisi_role, cmn.reporter_program_team as reporter_program_team,
@@ -115,12 +116,12 @@ import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
                 (select min(cmn2.update_date) from casemgmt_note cmn2 where cmn2.uuid = cmn.uuid) as create_date
                 from casemgmt_note cmn
                 join (select max(note_id) as note_id from casemgmt_note
-                where demographic_no = :demographicNo and observation_date >= :startDate and observation_date <= :endDate group by uuid) recent on recent.note_id = cmn.note_id
+                where demographic_no = :demographicNo and observation_date >= :startDate and observation_date < :endDate group by uuid) recent on recent.note_id = cmn.note_id
                 order by cmn.observation_date asc
                 """),
         @jakarta.persistence.NamedNativeQuery(name = "mostRecentLimit", resultSetMapping = "CaseManagementNoteNativeMapping", query = """
                 select cmn.note_id as id, cmn.update_date as update_date, cmn.observation_date as observation_date,
-                cmn.demographic_no as demographic_no, cmn.provider_no as providerNo, cmn.note as note, cmn.signed as signed,
+                cmn.demographic_no as demographic_no, cmn.provider_no as provider_no, cmn.note as note, cmn.signed as signed,
                 cmn.include_issue_innote as includeissue, cmn.signing_provider_no as signing_provider_no,
                 cmn.encounter_type as encounter_type, cmn.billing_code as billing_code, cmn.program_no as program_no,
                 cmn.reporter_caisi_role as reporter_caisi_role, cmn.reporter_program_team as reporter_program_team,
@@ -242,6 +243,47 @@ public class CaseManagementNote extends BaseObject {
         return this.hashCode;
     }
 
+    /**
+     * Copies a submitted edit into a new revision without changing the persistent identity
+     * of its source. Extension and attachment rows are copied by the revision save service.
+     */
+    public CaseManagementNote copyForRevision() {
+        CaseManagementNote copy = new CaseManagementNote();
+        copy.update_date = update_date == null ? null : new Date(update_date.getTime());
+        copy.create_date = create_date == null ? null : new Date(create_date.getTime());
+        copy.observation_date = observation_date == null ? null : new Date(observation_date.getTime());
+        copy.demographic_no = demographic_no;
+        copy.note = note;
+        copy.signed = signed;
+        copy.includeissue = includeissue;
+        copy.providerNo = providerNo;
+        copy.signing_provider_no = signing_provider_no;
+        copy.encounter_type = encounter_type;
+        copy.billing_code = billing_code;
+        copy.program_no = program_no;
+        copy.reporter_caisi_role = reporter_caisi_role;
+        copy.reporter_program_team = reporter_program_team;
+        copy.history = history;
+        copy.provider = provider;
+        copy.issues = new HashSet<>(issues);
+        copy.editors = new ArrayList<>(editors);
+        copy.roleName = roleName;
+        copy.programName = programName;
+        copy.uuid = uuid;
+        copy.revision = revision;
+        copy.locked = locked;
+        copy.archived = archived;
+        copy.remote = remote;
+        copy.facilityName = facilityName;
+        copy.position = position;
+        copy.appointmentNo = appointmentNo;
+        copy.hourOfEncounterTime = hourOfEncounterTime;
+        copy.minuteOfEncounterTime = minuteOfEncounterTime;
+        copy.hourOfEncTransportationTime = hourOfEncTransportationTime;
+        copy.minuteOfEncTransportationTime = minuteOfEncTransportationTime;
+        return copy;
+    }
+
     public CaseManagementNote() {
         update_date = new Date();
     }
@@ -339,7 +381,7 @@ public class CaseManagementNote extends BaseObject {
         this.update_date = update_date;
     }
     @jakarta.persistence.Temporal(jakarta.persistence.TemporalType.TIMESTAMP)
-    @org.hibernate.annotations.Formula("(select min(cmn.update_date) from casemgmt_note cmn where cmn.uuid = uuid)")
+    @org.hibernate.annotations.Formula("(select min(cmn.update_date) from casemgmt_note cmn where cmn.uuid = {alias}.uuid)")
 
     public Date getCreate_date() {
         return create_date;
@@ -493,7 +535,7 @@ public class CaseManagementNote extends BaseObject {
     public void setRevision(String rev) {
         this.revision = rev;
     }
-    @org.hibernate.annotations.Formula("(select count(cmn.uuid) from casemgmt_note cmn where cmn.uuid = uuid)")
+    @org.hibernate.annotations.Formula("(select count(cmn.uuid) from casemgmt_note cmn where cmn.uuid = {alias}.uuid)")
 
     public String getRevision() {
         return this.revision;
@@ -502,7 +544,7 @@ public class CaseManagementNote extends BaseObject {
 
     public String getProviderName() {
         if (getProvider() == null) {
-            return "DELETED";
+            return providerNo == null || providerNo.isBlank() ? "UNKNOWN" : "DELETED";
         }
         return getProvider().getFormattedName();
     }
@@ -510,7 +552,7 @@ public class CaseManagementNote extends BaseObject {
 
     public String getProviderNameFirstLast() {
         if (getProvider() == null) {
-            return "DELETED";
+            return providerNo == null || providerNo.isBlank() ? "UNKNOWN" : "DELETED";
         }
         return getProvider().getFullName();
     }
@@ -552,16 +594,15 @@ public class CaseManagementNote extends BaseObject {
 
     }
 
-    public static Comparator<CaseManagementNote> noteObservationDateComparator = new Comparator<CaseManagementNote>() {
+    public static Comparator<CaseManagementNote> noteObservationDateComparator = observationDateComparator(false);
 
-        public int compare(CaseManagementNote note1, CaseManagementNote note2) {
-            if (note1 == null || note2 == null) {
-                return 0;
-            }
-
-            return note2.getObservation_date().compareTo(note1.getObservation_date());
-        }
-    };
+    /** Source dates can be unknown; changing chronological direction must never move them first. */
+    public static Comparator<CaseManagementNote> observationDateComparator(boolean ascending) {
+        Comparator<Date> dates = ascending ? Comparator.naturalOrder() : Comparator.reverseOrder();
+        return Comparator.nullsLast(Comparator.comparing(CaseManagementNote::getObservation_date,
+                        Comparator.nullsLast(dates))
+                .thenComparing(CaseManagementNote::getId, Comparator.nullsLast(Comparator.naturalOrder())));
+    }
 
     public static Comparator<CaseManagementNote> getPositionComparator() {
         return new Comparator<CaseManagementNote>() {
@@ -586,6 +627,8 @@ public class CaseManagementNote extends BaseObject {
         return false;
     }
     @jakarta.persistence.Column(name = "locked")
+    // Legacy CHAR(1) NULL means the existing false default; retain explicit locks and write values.
+    @jakarta.persistence.Convert(converter = io.github.carlos_emr.carlos.commn.model.converter.LegacyFalseFlagConverter.class)
 
     public boolean isLocked() {
         return locked;
@@ -673,6 +716,12 @@ public class CaseManagementNote extends BaseObject {
     }
 
     private boolean isLinkTo(Integer tableName) {
+        // A note not saved yet has no links. The DAO refuses a null note id outright, so asking
+        // made every response that shows a new note fail, among them the notes REST service's
+        // new note (issue #4784). Nothing is cached: once saved, the note looks its link up.
+        if (this.id == null) {
+            return false;
+        }
         if (!cmnLinkRetrieved) {
             cmnLink = lookupNoteLinkDao().getLastLinkByNote(this.id);
             cmnLinkRetrieved = true;
@@ -699,6 +748,7 @@ public class CaseManagementNote extends BaseObject {
     }
 
     @jakarta.persistence.Column(name = "appointmentNo")
+    @jakarta.persistence.Convert(converter = io.github.carlos_emr.carlos.commn.model.converter.LegacyAppointmentNumberConverter.class)
 
 
     public int getAppointmentNo() {

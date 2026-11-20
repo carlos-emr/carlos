@@ -27,11 +27,12 @@ import io.github.carlos_emr.carlos.model.LookupCodeValue;
 import io.github.carlos_emr.carlos.model.LookupTableDefValue;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -847,6 +848,58 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
                 orderby_col INT
             )""";
 
+    @Nested
+    @DisplayName("Hibernate 7 native scalar types")
+    class NativeScalarTypes {
+        private LookupTableDefValue definition;
+
+        @BeforeEach
+        void createNativeFixtures() {
+            hibernateTemplate.execute(session -> {
+                session.createNativeQuery("CREATE TABLE IF NOT EXISTS lookup_native_types_test "
+                        + "(code VARCHAR(10), recorded_at TIMESTAMP, active BOOLEAN)").executeUpdate();
+                session.createNativeQuery("DELETE FROM lookup_native_types_test").executeUpdate();
+                session.createNativeQuery("INSERT INTO lookup_native_types_test VALUES "
+                        + "('A', TIMESTAMP '2026-03-04 12:34:56', TRUE), "
+                        + "('B', TIMESTAMP '2026-03-05 01:02:03', FALSE), ('C', NULL, NULL)").executeUpdate();
+                return null;
+            });
+            String tableId = nextTableId("NT");
+            insertLookupTableDef(tableId, "lookup_native_types_test");
+            insertField(tableId, "code", 1, 1);
+            insertFieldFull(tableId, "recorded_at", 2, 9, "D", false, "");
+            insertField(tableId, "active", 3, 3);
+            hibernateTemplate.flush();
+            definition = lookupDao.GetLookupTableDef(tableId);
+        }
+
+        @Test
+        void shouldPreserveEditableDate_whenReadingOneCode() {
+            List<FieldDefValue> fields = lookupDao.GetCodeFieldValues(definition, "A");
+            assertThat(fields.get(1).getVal()).isEqualTo("2026/03/04");
+        }
+
+        @Test
+        void shouldPreserveDateTimeAndNull_whenReadingAllCodes() {
+            List<List> rows = lookupDao.GetCodeFieldValues(definition);
+            assertThat(rows).hasSize(3);
+            java.util.Map<String, String> values = new java.util.HashMap<>();
+            for (List row : rows) values.put(((FieldDefValue) row.get(0)).getVal(), ((FieldDefValue) row.get(1)).getVal());
+            assertThat(values).containsEntry("A", "2026/03/04 12:34:56")
+                    .containsEntry("B", "2026/03/05 01:02:03").containsEntry("C", "");
+        }
+
+        @Test
+        void shouldPreserveBooleanFlagsAndNullDefaults_whenLoadingCodeList() {
+            List<LookupCodeValue> rows = lookupDao.LoadCodeList(definition.getTableId(), false, "", "");
+            assertThat(rows).hasSize(3);
+            for (LookupCodeValue row : rows) {
+                assertThat(row.isActive()).isEqualTo("A".equals(row.getCode()));
+                assertThat(row.getOrderByIndex()).isZero();
+            }
+        }
+    }
+
     // =========================================================================
     // GetCodeFieldValues tests
     // =========================================================================
@@ -1354,61 +1407,6 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
     }
 
     // =========================================================================
-    // runProcedure tests
-    // =========================================================================
-
-    /**
-     * Tests for {@link LookupDao#runProcedure(String, String[])}.
-     *
-     * <p>This method calls stored procedures via {@code DBPreparedHandler.procExecute()}.
-     * H2 does not support MySQL-style stored procedures, so the test is disabled
-     * with documentation for the limitation.</p>
-     */
-    @Nested
-    @DisplayName("runProcedure")
-    class RunProcedureTests {
-
-        @Test
-        @Tag("query")
-        @Disabled("Two blockers: (1) Requires MySQL stored procedures — H2 does not support "
-                + "MySQL-style CALL syntax. DBPreparedHandler.procExecute() builds a JDBC "
-                + "CallableStatement '{call procName(?,?)}' which requires a real MySQL/MariaDB "
-                + "backend. (2) procExecute() obtains its connection from "
-                + "DbConnectionFilter.getThreadLocalDbConnection(), a servlet-filter thread-local "
-                + "that is not populated in the Spring test context — the same limitation that "
-                + "disables the PopulationReportDao JDBC methods.")
-        @DisplayName("should call stored procedure via DBPreparedHandler")
-        void shouldCallStoredProcedure_viaDbPreparedHandler() throws SQLException {
-            // This test documents that runProcedure delegates to DBPreparedHandler.procExecute()
-            // which builds: "{call <procName>(<params>)}"
-            // This is MySQL-specific and cannot be tested with H2.
-            lookupDao.runProcedure("test_proc", new String[]{"param1", "param2"});
-        }
-
-        @Test
-        @Tag("query")
-        @Disabled("Two blockers: (1) H2 does not support MySQL stored procedures. "
-                + "(2) procExecute() uses DbConnectionFilter.getThreadLocalDbConnection(), "
-                + "a servlet-filter thread-local unavailable in the Spring test context.")
-        @DisplayName("should handle null params array in stored procedure call")
-        void shouldHandleNullParams_inStoredProcedureCall() throws SQLException {
-            // DBPreparedHandler.procExecute() handles null params by not adding parameter placeholders
-            lookupDao.runProcedure("test_proc_no_params", null);
-        }
-
-        @Test
-        @Tag("query")
-        @Disabled("Two blockers: (1) H2 does not support MySQL stored procedures. "
-                + "(2) procExecute() uses DbConnectionFilter.getThreadLocalDbConnection(), "
-                + "a servlet-filter thread-local unavailable in the Spring test context.")
-        @DisplayName("should handle empty params array in stored procedure call")
-        void shouldHandleEmptyParams_inStoredProcedureCall() throws SQLException {
-            // Empty array: procExecute builds "{call test_proc}" with no params
-            lookupDao.runProcedure("test_proc_empty", new String[]{});
-        }
-    }
-
-    // =========================================================================
     // getCountOfActiveClient tests
     // =========================================================================
 
@@ -1432,6 +1430,37 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
     @Nested
     @DisplayName("getCountOfActiveClient")
     class GetCountOfActiveClientTests {
+
+        @ParameterizedTest
+        @ValueSource(strings = {"FAKE_5399", "FAKE%5399", "FAKE!5399", "FAKE\\5399", "FAKE'5399"})
+        void shouldCountOnlyLiteralOrganization_whenCodeContainsSqlMetacharacters(String orgCode) throws SQLException {
+            String decoy = orgCode.replaceAll("[_%!\\\\']", "X");
+            hibernateTemplate.execute(session -> {
+                io.github.carlos_emr.carlos.test.support.IntegrationTestSeedService.ensureProviderExists(session, "999001");
+                io.github.carlos_emr.carlos.test.support.IntegrationTestSeedService.ensureDemographicExists(session, 9145399);
+                for (String csv : List.of(orgCode, decoy)) {
+                    var program = new io.github.carlos_emr.carlos.PMmodule.model.Program();
+                    program.setName("FAKE organization fixture");
+                    program.setType(io.github.carlos_emr.carlos.PMmodule.model.Program.COMMUNITY_TYPE);
+                    session.persist(program);
+                    session.flush();
+                    var admission = new io.github.carlos_emr.carlos.commn.model.Admission();
+                    admission.setProgramId(program.getId());
+                    admission.setClientId(9145399);
+                    admission.setProviderNo("999001");
+                    admission.setAdmissionStatus(io.github.carlos_emr.carlos.commons.KeyConstants.INTAKE_STATUS_ADMITTED);
+                    admission.setAdmissionDate(new java.util.Date());
+                    admission.setAdmissionNotes("FAKE literal-match fixture");
+                    session.persist(admission);
+                    session.createNativeQuery("INSERT INTO lst_orgcd (code, codeCsv) VALUES (:code, :csv)")
+                            .setParameter("code", "P" + program.getId()).setParameter("csv", csv + ",").executeUpdate();
+                }
+                session.flush();
+                return null;
+            });
+            assertThat(lookupDao.getCountOfActiveClient(orgCode)).isEqualTo(1);
+            assertThat(lookupDao.getCountOfActiveClient(orgCode + "missing")).isZero();
+        }
 
         @Test
         @Tag("aggregate")
@@ -1604,7 +1633,8 @@ public class LookupDaoIntegrationTest extends CarlosTestBase {
             // Given - insert a category record and a table referencing it
             hibernateTemplate.execute(session -> {
                 session.createNativeQuery(
-                    "MERGE INTO lst_field_category (id, description) KEY(id) VALUES (:id, :desc)")
+                    "INSERT INTO lst_field_category (id, description) VALUES (:id, :desc) "
+                            + "ON DUPLICATE KEY UPDATE description=VALUES(description)")
                     .setParameter("id", "MED")
                     .setParameter("desc", "Medical Records")
                     .executeUpdate();

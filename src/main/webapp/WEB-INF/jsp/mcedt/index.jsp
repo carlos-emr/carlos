@@ -33,9 +33,9 @@
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
+
 <%@ taglib uri="http://www.oscar-emr.com/tags/integration" prefix="i" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -45,6 +45,7 @@
 
 <html>
     <head>
+        <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <jsp:include page="head-includes.jsp"/>
         <style type="text/css">
@@ -94,6 +95,18 @@
             }
 
             function updateSelected(resourceId, control) {
+                // Without the token helper the POST would only be refused (403): say so,
+                // and undo any busy state the click set, so the button is not left stuck (#4130).
+                if (typeof carlosSubmitForm !== 'function') {
+                    alert('This page did not finish loading. Please reload it and try again.');
+                    if (control) {
+                        control.disabled = false;
+                    }
+                    if (typeof HideSpin === 'function') {
+                        HideSpin();
+                    }
+                    return false;
+                }
                 if (control) {
                     control.disabled = true;
                 }
@@ -106,7 +119,14 @@
                 input.value = resourceId;
                 form.appendChild(input);
                 document.body.appendChild(form);
-                form.submit();
+                // carlosSubmitForm attaches the CSRF token, which CSRFGuard cannot inject
+                // into a runtime-built form in time (#4130). If no token could be had,
+                // nothing was sent (the user has been told), so re-enable the button.
+                carlosSubmitForm(form).catch(function () {
+                    if (control) {
+                        control.disabled = false;
+                    }
+                });
                 return false;
             }
 
@@ -139,7 +159,7 @@
 
         <title>MCEDT: Index</title>
 
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
+        <base href="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(request.getContextPath() + "/") %>">
 
     </head>
 

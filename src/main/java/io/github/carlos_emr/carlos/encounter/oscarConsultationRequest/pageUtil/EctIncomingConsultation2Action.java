@@ -34,7 +34,6 @@ import java.io.IOException;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 
 
 import org.apache.struts2.ActionSupport;
@@ -44,20 +43,43 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * The schedule banner's Consultations entry point ({@code encounter/IncomingConsultation}).
+ *
+ * <p>Forwards to the same {@code ViewConsultationRequests.jsp} as {@code encounter/ViewConsultation},
+ * so it publishes the Consultant/Provider filter attributes (issue #3976) through
+ * {@link ConsultationListFilterResolver} too; without them the Provider dropdown would be empty
+ * on the page a user reaches first. The banner link carries no filter, so none is applied here.</p>
+ */
 public class EctIncomingConsultation2Action extends ActionSupport {
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final SecurityInfoManager securityInfoManager;
+    private final ConsultationListFilterResolver filterResolver;
 
-    HttpServletRequest request = ServletActionContext.getRequest();
-    HttpServletResponse response = ServletActionContext.getResponse();
+    /**
+     * Struts/Spring entry point: resolves the collaborators from the Spring context.
+     */
+    public EctIncomingConsultation2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class), ConsultationListFilterResolver.fromSpringContext());
+    }
 
+    /**
+     * Test constructor.
+     */
+    EctIncomingConsultation2Action(SecurityInfoManager securityInfoManager,
+                                   ConsultationListFilterResolver filterResolver) {
+        this.securityInfoManager = securityInfoManager;
+        this.filterResolver = filterResolver;
+    }
 
     public String execute()
             throws ServletException, IOException {
+        HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_con", "w", null)) {
             throw new SecurityException("missing required sec object (_con)");
         }
 
+        filterResolver.publish(request, loggedInInfo, null, null);
         return SUCCESS;
     }
 

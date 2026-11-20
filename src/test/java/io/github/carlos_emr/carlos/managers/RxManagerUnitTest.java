@@ -199,6 +199,29 @@ class RxManagerUnitTest extends RxManagerImpl {
     class UpdateDrug {
 
         @Test
+        void shouldRejectStaleVersion_beforeAnyMedicationWrite() {
+            Drug stored = new Drug(); stored.setId(4); stored.setDemographicId(1);
+            stored.setGenericName("ASA"); stored.setRowVersion(5L);
+            ((MockDrugDao) drugDao).seed(stored);
+            Drug incoming = new Drug(); incoming.setId(4); incoming.setDemographicId(1);
+            incoming.setGenericName("ASA"); incoming.setRowVersion(4L);
+            assertThatThrownBy(() -> updateDrug(new LoggedInInfo(), incoming)).isInstanceOf(RxSourceVersionValidator.Conflict.class);
+            assertThat(mergedDrug).isNull();
+            assertThat(stored.isArchived()).isFalse();
+        }
+
+        @ParameterizedTest @org.junit.jupiter.params.provider.NullSource @ValueSource(longs = {5L})
+        void shouldReplaceMedication_withMatchingOrLegacyVersion(Long token) {
+            Drug stored = new Drug(); stored.setId(4); stored.setDemographicId(1);
+            stored.setGenericName("ASA"); stored.setRowVersion(5L);
+            ((MockDrugDao) drugDao).seed(stored);
+            Drug incoming = new Drug(); incoming.setId(4); incoming.setDemographicId(1);
+            incoming.setGenericName("ASA"); incoming.setRowVersion(token);
+            assertThat(updateDrug(new LoggedInInfo(), incoming)).isNotNull();
+            assertThat(mergedDrug.isArchived()).isTrue();
+        }
+
+        @Test
         @DisplayName("should archive old drug and return new version")
         void shouldArchiveOldDrug_andReturnNewVersion() {
             LoggedInInfo info = new LoggedInInfo();
@@ -326,6 +349,21 @@ class RxManagerUnitTest extends RxManagerImpl {
         }
 
         @Test
+        void shouldRejectMixedPatients_beforeCreatingTheHeaderOrAnyDrug() {
+            var prescriptions = org.mockito.Mockito.mock(PrescriptionManager.class);
+            prescriptionManager = prescriptions;
+            Drug first = createTestDrug();
+            Drug other = createTestDrug();
+            other.setId(null); // A new drug has no persisted source row for the later source check.
+            other.setDemographicId(2); // The caller has write access to both patients.
+            assertThatThrownBy(() -> prescribe(new LoggedInInfo(), List.of(first, other), 1))
+                    .isInstanceOf(AccessDeniedException.class);
+            org.mockito.Mockito.verifyNoInteractions(prescriptions);
+            assertThat(addNewDrugCallCount).isZero();
+            assertThat(mergedDrug).isNull();
+        }
+
+        @Test
         @DisplayName("should create prescription with multiple drugs")
         void shouldCreatePrescription_withMultipleDrugs() {
             List<Drug> drugs = new ArrayList<>();
@@ -398,8 +436,8 @@ class RxManagerUnitTest extends RxManagerImpl {
         }
 
         @Test
-        @DisplayName("should attempt to add drug when it does not exist in DB")
-        void shouldAttemptAdd_whenDrugNotInDb() {
+        @DisplayName("should reject a missing update source without inserting a replacement")
+        void shouldRejectMissingUpdate_withoutInsertingReplacement() {
             List<Drug> drugs = new ArrayList<>();
             Drug drug = createTestDrug();
             drug.setId(3); // not in MockDrugDao
@@ -407,16 +445,14 @@ class RxManagerUnitTest extends RxManagerImpl {
             drugs.add(drug);
             LoggedInInfo info = new LoggedInInfo();
 
-            PrescriptionDrugs pd = prescribe(info, drugs, 1);
-
-            assertThat(pd).isNotNull();
-            assertThat(addNewDrugCallCount).isEqualTo(1);
-            assertThat(pd.drugs.get(0).getGenericName()).isEqualTo("ASA");
+            assertThatThrownBy(() -> prescribe(info, drugs, 1))
+                    .isInstanceOf(PrescriptionWriteException.class);
+            assertThat(addNewDrugCallCount).isZero();
         }
 
         @Test
-        @DisplayName("should return null when adding new drug fails")
-        void shouldReturnNull_whenAddingNewDrugFails() {
+        @DisplayName("should throw when adding a new prescription drug fails")
+        void shouldThrow_whenAddingNewDrugFails() {
             List<Drug> drugs = new ArrayList<>();
             Drug drug = createTestDrug();
             drug.setId(3); // not in MockDrugDao
@@ -424,9 +460,9 @@ class RxManagerUnitTest extends RxManagerImpl {
             drugs.add(drug);
             LoggedInInfo info = new LoggedInInfo();
 
-            PrescriptionDrugs pd = prescribe(info, drugs, 1);
-
-            assertThat(pd).isNull();
+            drug.setId(null);
+            assertThatThrownBy(() -> prescribe(info, drugs, 1))
+                    .isInstanceOf(PrescriptionWriteException.class);
             assertThat(addNewDrugCallCount).isEqualTo(1);
         }
     }
@@ -551,6 +587,45 @@ class RxManagerUnitTest extends RxManagerImpl {
             LoggedInInfo info = new LoggedInInfo();
             assertThatThrownBy(() -> getHistory(1, info, 6))
                     .isInstanceOf(AccessDeniedException.class);
+        }
+    }
+
+    /**
+     * Ownership contract for {@code archiveDrug}. Callers such as the re-prescribe flow stage drug
+     * ids from the request and rely on this method to refuse ids belonging to another patient, so
+     * both of its {@code false} branches are pinned here rather than trusted from the caller side.
+     */
+    @Nested
+    @DisplayName("archiveDrug")
+    class ArchiveDrug {
+
+        @Test
+        @DisplayName("should return false when the drug belongs to another demographic")
+        void shouldReturnFalse_whenDrugBelongsToAnotherDemographic() {
+            // A victim's drug, owned by demographic 9.
+            Drug victim = new Drug();
+            victim.setId(3);
+            victim.setDemographicId(9);
+            victim.setBrandName("Aspirin");
+            victim.setArchived(false);
+            ((MockDrugDao) drugDao).seed(victim);
+
+            // The caller is authorized for demographic 1 (passes writeCheck's <5 rule) but points
+            // the drug id at the victim's drug.
+            LoggedInInfo info = new LoggedInInfo();
+
+            assertThat(archiveDrug(info, 3, 1, Drug.REPRESCRIBED)).isFalse();
+            assertThat(mergedDrug).isNull();
+            assertThat(victim.isArchived()).isFalse();
+        }
+
+        @Test
+        @DisplayName("should return false when no drug matches the id")
+        void shouldReturnFalse_whenDrugNotFound() {
+            LoggedInInfo info = new LoggedInInfo();
+
+            assertThat(archiveDrug(info, 20, 1, Drug.REPRESCRIBED)).isFalse();
+            assertThat(mergedDrug).isNull();
         }
     }
 

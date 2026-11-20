@@ -26,14 +26,17 @@ import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
+import io.github.carlos_emr.carlos.commn.model.SystemPreferences;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.ParameterizedTest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,6 +45,7 @@ import jakarta.persistence.PersistenceContext;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -69,9 +73,9 @@ import static org.assertj.core.api.Assertions.*;
  *   <li>Return types use {@code Object[]} arrays with position-dependent column access</li>
  * </ul>
  *
- * <p><strong>SQL Injection Risk</strong>: {@code isSentToProvider} uses
- * string concatenation instead of parameterized queries. This is a known
- * security issue documented here for future remediation.</p>
+ * <p>{@code isSentToProvider} binds document and provider identifiers as query
+ * parameters. The full Spring test context supplies the document and preference
+ * DAOs used while assembling inbox results.</p>
  *
  * @since 2026-03-04
  * @see InboxResultsDao
@@ -140,9 +144,16 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
      * Creates a Document entity.
      */
     private Document createDocument(String doctype, String creator, char status) {
+        return createDocument(doctype, "Test document", creator, status);
+    }
+
+    /**
+     * Creates a Document entity with the given description.
+     */
+    private Document createDocument(String doctype, String docdesc, String creator, char status) {
         Document doc = new Document();
         doc.setDoctype(doctype);
-        doc.setDocdesc("Test document");
+        doc.setDocdesc(docdesc);
         doc.setDocfilename("test.pdf");
         doc.setDoccreator(creator);
         doc.setResponsible(creator);
@@ -325,6 +336,53 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
     }
 
     // ========================================================================
+    // populateDocumentResultsData — patient-name search without a HIN
+    // ========================================================================
+
+    /**
+     * A blank HIN filter must not drop a patient whose {@code hin} is NULL, and a non-blank one
+     * must still exclude them. Both the separate-documents path ({@code mixLabsAndDocs=false})
+     * and the mixed inbox path ({@code true}) build the HIN predicate, so each is its own test.
+     */
+    @Nested
+    @DisplayName("populateDocumentResultsData (name search, patient without HIN)")
+    @Tag("read")
+    @Tag("search")
+    class PopulateDocumentResultsDataWithoutHin {
+
+        @Test
+        @DisplayName("should include a patient without a HIN when documents are listed separately")
+        void shouldFindDocumentForPatientWithoutHin_whenNotMixingLabsAndDocs() {
+            assertNameSearchMatchesPatientWithoutHin(false);
+        }
+
+        @Test
+        @DisplayName("should include a patient without a HIN when labs and documents are mixed")
+        void shouldFindDocumentForPatientWithoutHin_whenMixingLabsAndDocs() {
+            assertNameSearchMatchesPatientWithoutHin(true);
+        }
+
+        private void assertNameSearchMatchesPatientWithoutHin(boolean mixLabsAndDocs) {
+            Demographic patient = entityManager.find(Demographic.class, demoId);
+            patient.setHin(null);
+            Document doc = createDocument("lab", PROVIDER_NO, 'A');
+            createCtlDocument("demographic", demoId, doc.getDocumentNo());
+            createProviderLabRouting(PROVIDER_NO, doc.getDocumentNo(), "DOC", "N");
+            entityManager.flush();
+
+            ArrayList<LabResultData> matches = inboxResultsDao.populateDocumentResultsData(
+                    PROVIDER_NO, null, "Test", "Patient", "", "N",
+                    false, null, null, mixLabsAndDocs, null);
+            assertThat(matches).extracting(result -> result.segmentID)
+                    .containsExactly(doc.getDocumentNo().toString());
+
+            assertThat(inboxResultsDao.populateDocumentResultsData(
+                    PROVIDER_NO, null, "Test", "Patient", "other-hin", "N",
+                    false, null, null, mixLabsAndDocs, null)).isEmpty();
+        }
+    }
+
+    // ========================================================================
     // populateDocumentResultsData — full overload with demographicNo
     // ========================================================================
 
@@ -334,7 +392,6 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
     class PopulateDocumentResultsDataFull {
 
         @Test
-        @Disabled("Requires DocumentDao and other beans in test context (SpringUtils.getBean calls in populateDocumentResultsData)")
         @DisplayName("should return documents for specific demographic when routing exists")
         @SuppressWarnings("unchecked")
         void shouldReturnDocuments_forDemographicWithRouting() {
@@ -356,7 +413,6 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
         }
 
         @Test
-        @Disabled("Requires DocumentDao and other beans in test context (SpringUtils.getBean calls in populateDocumentResultsData)")
         @DisplayName("should return documents filtered by status")
         @SuppressWarnings("unchecked")
         void shouldReturnDocuments_filteredByStatus() {
@@ -466,7 +522,6 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
     class PopulateDocumentResultsDataDateFiltering {
 
         @Test
-        @Disabled("Requires DocumentDao and other beans in test context (SpringUtils.getBean calls in populateDocumentResultsData)")
         @DisplayName("should filter documents by start and end dates")
         @SuppressWarnings("unchecked")
         void shouldFilterDocuments_byDateRange() {
@@ -491,6 +546,53 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
         }
 
         @Test
+        @DisplayName("should preserve time boundaries when filtering by received date")
+        void shouldFilterDocumentsByTime_whenReceivedDatePreferenceIsSelected() {
+            entityManager.persist(new SystemPreferences("inboxDateSearchType", "receivedCreated"));
+            Document doc = createDocument("lab", PROVIDER_NO, 'A');
+            createCtlDocument("demographic", demoId, doc.getDocumentNo());
+            createProviderLabRouting(PROVIDER_NO, doc.getDocumentNo(), "DOC", "N");
+            Date before = new Date(today.getTime() - 1000);
+            Date after = new Date(today.getTime() + 1000);
+
+            ArrayList<LabResultData> results = inboxResultsDao.populateDocumentResultsData(
+                    PROVIDER_NO, String.valueOf(demoId), "", "", "", "",
+                    false, null, null, false, null, before, after);
+            assertThat(results).hasSize(1);
+            assertThat(results.get(0).getDateObj().getTime()).isEqualTo(today.getTime());
+            assertThat(results.get(0).dateTime).isEqualTo("2026-03-04 12:00:00");
+            assertThat(inboxResultsDao.populateDocumentResultsData(
+                    PROVIDER_NO, String.valueOf(demoId), "", "", "", "",
+                    false, null, null, false, null, after, new Date(after.getTime() + 1000))).isEmpty();
+        }
+
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+        void shouldKeepDocumentInInbox_whenObservationDateIsMissing(boolean updateDateAlsoMissing) {
+            Document doc = createDocument("lab", PROVIDER_NO, 'A');
+            createCtlDocument("demographic", demoId, doc.getDocumentNo());
+            createProviderLabRouting(PROVIDER_NO, doc.getDocumentNo(), "DOC", "N");
+            // Model @PreUpdate correctly stamps ordinary edits with the current time.
+            // Seed historical/missing dates directly, then discard the cached entity.
+            var seedDates = entityManager.createNativeQuery("UPDATE document SET observationdate=NULL, updatedatetime="
+                    + (updateDateAlsoMissing ? "NULL" : ":updated") + " WHERE document_no=:id");
+            seedDates.setParameter("id", doc.getDocumentNo());
+            if (!updateDateAlsoMissing) seedDates.setParameter("updated", new java.sql.Timestamp(today.getTime()));
+            seedDates.executeUpdate();
+            entityManager.clear();
+
+            ArrayList<LabResultData> results = inboxResultsDao.populateDocumentResultsData(
+                    PROVIDER_NO, String.valueOf(demoId), "", "", "", "",
+                    false, null, null, false, null);
+
+            assertThat(results).hasSize(1);
+            assertThat(results.get(0).segmentID).isEqualTo(doc.getDocumentNo().toString());
+            assertThat(results.get(0).getDateObj().getTime()).isEqualTo(today.getTime());
+            assertThat(results.get(0).dateTime).isEqualTo(updateDateAlsoMissing
+                    ? "2026-03-04 12:00:00" : "2026-03-04");
+        }
+
+        @Test
         @DisplayName("should return empty when documents are outside date range")
         @SuppressWarnings("unchecked")
         void shouldReturnEmpty_whenOutsideDateRange() {
@@ -511,6 +613,189 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
                     false, null, null, false, null, startDate, endDate);
 
             // Then
+            assertThat(result).isEmpty();
+        }
+    }
+
+    /**
+     * The Inbox Hub's Acknowledged toggle lists what was acknowledged today, bounded by WHEN the
+     * routing row was acknowledged rather than by the document's own dates: a document scanned or
+     * observed long ago and acknowledged today must still be listed, and one acknowledged last year
+     * must not drag the provider's whole history into the list. Every query shape the toggle can
+     * combine with (patient, unmatched, name search) takes the bound.
+     */
+    @Nested
+    @DisplayName("populateDocumentResultsData (acknowledged-since bound)")
+    @Tag("read")
+    @Tag("filter")
+    class PopulateDocumentResultsDataAcknowledgedSince {
+
+        private final Date startOfToday = java.sql.Timestamp.valueOf("2026-10-15 00:00:00");
+
+        private int routeAcknowledgedDocument(int moduleId, String acknowledgedAt) {
+            Document doc = createDocument("lab", PROVIDER_NO, 'A');
+            createCtlDocument("demographic", moduleId, doc.getDocumentNo());
+            ProviderLabRoutingModel routing = createProviderLabRouting(PROVIDER_NO, doc.getDocumentNo(), "DOC", "A");
+            routing.setTimestamp(java.sql.Timestamp.valueOf(acknowledgedAt));
+            entityManager.flush();
+            return doc.getDocumentNo();
+        }
+
+        /**
+         * Shapes: the provider's whole list of patient documents, and of unmatched ones (the
+         * separate-documents listing reads those in a second subquery); one patient; a name
+         * search; the unmatched view. The bound is inclusive: a document acknowledged exactly at
+         * the start of the day is listed, one acknowledged a second earlier is not.
+         */
+        @ParameterizedTest(name = "{0}, mixLabsAndDocs={1}")
+        @CsvSource({"provider,true", "provider,false", "providerUnmatched,true", "providerUnmatched,false",
+                "patient,true", "patient,false", "nameSearch,true", "nameSearch,false", "unmatched,true", "unmatched,false"})
+        @DisplayName("should list only documents acknowledged since the bound, whatever their own dates")
+        void shouldListOnlyDocumentsAcknowledgedSinceBound_inEveryInboxQueryShape(String shape, boolean mixLabsAndDocs) {
+            int moduleId = "unmatched".equals(shape) || "providerUnmatched".equals(shape) ? -1 : demoId;
+            // The documents' own observation and content dates are 2026-03-04: only the
+            // acknowledgement time tells them apart.
+            int acknowledgedThisMorning = routeAcknowledgedDocument(moduleId, "2026-10-15 09:12:00");
+            int acknowledgedAtMidnight = routeAcknowledgedDocument(moduleId, "2026-10-15 00:00:00");
+            int acknowledgedLastNight = routeAcknowledgedDocument(moduleId, "2026-10-14 23:59:59");
+            int acknowledgedLastYear = routeAcknowledgedDocument(moduleId, "2025-01-10 16:40:00");
+            String demographicNo = "patient".equals(shape) ? String.valueOf(demoId) : "unmatched".equals(shape) ? "0" : null;
+            String lastName = "nameSearch".equals(shape) ? "Patient" : "";
+
+            List<LabResultData> unbounded = inboxResultsDao.populateDocumentResultsData(
+                    PROVIDER_NO, demographicNo, "", lastName, "", "A",
+                    false, null, null, mixLabsAndDocs, null, null, null, null);
+            List<LabResultData> bounded = inboxResultsDao.populateDocumentResultsData(
+                    PROVIDER_NO, demographicNo, "", lastName, "", "A",
+                    false, null, null, mixLabsAndDocs, null, null, null, startOfToday);
+
+            assertThat(unbounded).as("every document is acknowledged, so an unbounded search lists them all")
+                    .extracting(result -> result.segmentID)
+                    .containsExactlyInAnyOrder(String.valueOf(acknowledgedThisMorning), String.valueOf(acknowledgedAtMidnight),
+                            String.valueOf(acknowledgedLastNight), String.valueOf(acknowledgedLastYear));
+            assertThat(bounded).extracting(result -> result.segmentID)
+                    .containsExactlyInAnyOrder(String.valueOf(acknowledgedThisMorning), String.valueOf(acknowledgedAtMidnight));
+        }
+    }
+
+    /**
+     * Every Inbox view shows a document's type in its Discipline column, as clinicians sort by it
+     * (#5685). The row carries the type as its discipline and the saved description
+     * ({@code document.docdesc}) as its description. Before, the column showed the type in six of
+     * the query shapes and the description in the other two, depending only on which view was
+     * open, and the discipline was the routing marker "DOC". A document with no type was worse:
+     * mapping the null type threw, and the catch-all ended the page there, dropping that row and
+     * every row after it.
+     */
+    @Nested
+    @DisplayName("populateDocumentResultsData document type and description")
+    @Tag("read")
+    class PopulateDocumentResultsDataDescription {
+
+        private int routeDocument(int moduleId, String doctype, String docdesc) {
+            Document doc = createDocument(doctype, docdesc, PROVIDER_NO, 'A');
+            createCtlDocument("demographic", moduleId, doc.getDocumentNo());
+            createProviderLabRouting(PROVIDER_NO, doc.getDocumentNo(), "DOC", "N");
+            entityManager.flush();
+            return doc.getDocumentNo();
+        }
+
+        /**
+         * The same ten shapes as the acknowledged-since bound: the provider's whole list of
+         * patient documents and of unmatched ones, one patient, a name search and the unmatched
+         * view, each with labs and documents mixed and separate. Together they reach every query
+         * the method builds. Empty and whitespace-only types and descriptions are returned as
+         * none and must not truncate the list. Nonblank text, including surrounding spaces and
+         * literal markup, must be returned unchanged.
+         */
+        @ParameterizedTest(name = "{0}, mixLabsAndDocs={1}")
+        @CsvSource({"provider,true", "provider,false", "providerUnmatched,true", "providerUnmatched,false",
+                "patient,true", "patient,false", "nameSearch,true", "nameSearch,false", "unmatched,true", "unmatched,false"})
+        @DisplayName("should list each document with its type as discipline and its saved description")
+        void shouldListDocumentTypeAndSavedDescription_inEveryInboxQueryShape(String shape, boolean mixLabsAndDocs) {
+            int moduleId = "unmatched".equals(shape) || "providerUnmatched".equals(shape) ? -1 : demoId;
+            int described = routeDocument(moduleId, "lab", "FAKE CT head report");
+            int untyped = routeDocument(moduleId, null, "FAKE referral letter");
+            int undescribed = routeDocument(moduleId, "consult", "");
+            int whitespaceDescription = routeDocument(moduleId, "consult", " \t ");
+            int literalDescription = routeDocument(moduleId, "consult", "  FAKE <report> & follow-up  ");
+            int blankType = routeDocument(moduleId, " \t ", "FAKE discharge note");
+            String demographicNo = "patient".equals(shape) ? String.valueOf(demoId) : "unmatched".equals(shape) ? "0" : null;
+            String lastName = "nameSearch".equals(shape) ? "Patient" : "";
+
+            List<LabResultData> result = inboxResultsDao.populateDocumentResultsData(
+                    PROVIDER_NO, demographicNo, "", lastName, "", "N",
+                    false, null, null, mixLabsAndDocs, null, null, null, null);
+
+            assertThat(result).extracting(row -> row.segmentID, row -> row.discipline, row -> row.description)
+                    .containsExactlyInAnyOrder(
+                            tuple(String.valueOf(described), "lab", "FAKE CT head report"),
+                            tuple(String.valueOf(untyped), null, "FAKE referral letter"),
+                            tuple(String.valueOf(undescribed), "consult", null),
+                            tuple(String.valueOf(whitespaceDescription), "consult", null),
+                            tuple(String.valueOf(literalDescription), "consult", "  FAKE <report> & follow-up  "),
+                            tuple(String.valueOf(blankType), null, "FAKE discharge note"));
+            assertThat(result).allSatisfy(row -> assertThat(row.isDocument()).isTrue());
+        }
+    }
+
+    /**
+     * The Inbox patient search matched a document through {@code d.hin LIKE :patientHealthNumber},
+     * which a NULL HIN never satisfies, so a patient without a health card number disappeared from
+     * every name search.
+     */
+    @Nested
+    @DisplayName("populateDocumentResultsData patient search with a missing health card number")
+    @Tag("search")
+    class PopulateDocumentResultsDataNullHin {
+
+        private Integer createPatientWithoutHin(String lastName) {
+            Demographic demo = new Demographic();
+            demo.setFirstName("Nohin");
+            demo.setLastName(lastName);
+            demo.setHin(null);
+            demo.setSex("F");
+            demo.setProviderNo(PROVIDER_NO);
+            demo.setPatientStatus("AC");
+            demo.setPatientStatusDate(today);
+            demo.setDateJoined(today);
+            hibernateTemplate.save(demo);
+            hibernateTemplate.flush();
+            return demo.getDemographicNo();
+        }
+
+        @ParameterizedTest(name = "mixLabsAndDocs={0}")
+        @ValueSource(booleans = {true, false})
+        @DisplayName("should find a routed document by name when the patient has no HIN")
+        @SuppressWarnings("unchecked")
+        void shouldFindDocument_whenPatientHinIsNull(boolean mixLabsAndDocs) {
+            Integer patient = createPatientWithoutHin("Nullhindoc");
+            Document doc = createDocument("lab", PROVIDER_NO, 'A');
+            createCtlDocument("demographic", patient, doc.getDocumentNo());
+            createProviderLabRouting(PROVIDER_NO, doc.getDocumentNo(), "DOC", "N");
+
+            ArrayList<LabResultData> result = inboxResultsDao.populateDocumentResultsData(
+                    PROVIDER_NO, "", "", "Nullhindoc", "", "N",
+                    false, null, null, mixLabsAndDocs, null);
+
+            assertThat(result).extracting(lrd -> lrd.segmentID)
+                    .containsExactly(String.valueOf(doc.getDocumentNo()));
+        }
+
+        @ParameterizedTest(name = "mixLabsAndDocs={0}")
+        @ValueSource(booleans = {true, false})
+        @DisplayName("should not match a patient without a HIN when a health number is searched")
+        @SuppressWarnings("unchecked")
+        void shouldExcludeNullHinPatient_whenHealthNumberIsSearched(boolean mixLabsAndDocs) {
+            Integer patient = createPatientWithoutHin("Nullhinexcluded");
+            Document doc = createDocument("lab", PROVIDER_NO, 'A');
+            createCtlDocument("demographic", patient, doc.getDocumentNo());
+            createProviderLabRouting(PROVIDER_NO, doc.getDocumentNo(), "DOC", "N");
+
+            ArrayList<LabResultData> result = inboxResultsDao.populateDocumentResultsData(
+                    PROVIDER_NO, "", "", "Nullhinexcluded", "12345", "N",
+                    false, null, null, mixLabsAndDocs, null);
+
             assertThat(result).isEmpty();
         }
     }

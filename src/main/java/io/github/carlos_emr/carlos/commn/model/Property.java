@@ -41,7 +41,7 @@ public class Property extends AbstractModel<Integer> implements Serializable {
 
     public enum PROPERTY_KEY {
         invoice_payee_display_clinic, invoice_payee_info, default_billing_provider, default_billing_form,
-        bc_default_service_location, auto_populate_refer, auto_link_to_mrp, hl7_offer_file_for_others, hl7_allow_others_file_for_you
+        bc_default_service_location, auto_populate_refer, auto_link_to_mrp, provider_linking_rules, hl7_offer_file_for_others, hl7_allow_others_file_for_you
     }
 
     public enum PROPERTY_VALUE {clinicdefault}
@@ -57,6 +57,9 @@ public class Property extends AbstractModel<Integer> implements Serializable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
     private String name;
+    // TEXT since the email footer migration (V1.0.79): formatted email footers live here. The length
+    // mirrors it so the H2 test schema, built from the entities, holds what MariaDB holds.
+    @Column(length = 65535)
     private String value;
 
     @Column(name = "provider_no")

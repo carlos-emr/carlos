@@ -34,7 +34,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.MyDateFormat;
-import io.github.carlos_emr.SxmlMisc;
+import io.github.carlos_emr.carlos.demographic.util.DemographicXml;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao;
@@ -163,19 +163,34 @@ public class BillingShortcutPg2Service {
 
         persistBills(request, calc, demo, provider, userNo);
 
-        BillingShortcutPg2ViewModel.PostSaveAction action;
-        String redirectUrl = "";
-        String submit = request.getParameter("submit");
-        if ("Save".equals(submit)) {
-            action = BillingShortcutPg2ViewModel.PostSaveAction.CLOSE_WINDOW;
-        } else {
-            action = BillingShortcutPg2ViewModel.PostSaveAction.REDIRECT_TO_PG1;
-            redirectUrl = buildPg1RedirectUrl(request, demo, userNo);
-        }
+        BillingShortcutPg2ViewModel.PostSaveAction action = postSaveAction(request);
+        String redirectUrl = action == BillingShortcutPg2ViewModel.PostSaveAction.REDIRECT_TO_PG1
+                ? buildPg1RedirectUrl(request, demo, userNo) : "";
         return b.calculationHtml(calc.html + "<br>Billing records were added.<br>")
                 .postSaveAction(action)
                 .redirectUrl(redirectUrl)
                 .build();
+    }
+
+    /**
+     * Where the Confirmation window goes once its bills are saved: Save closes it, Save and
+     * Back reopens page 1 for the next bill.
+     *
+     * <p>The Confirmation page names its buttons {@code button}. {@code submit} is page 1's
+     * Next, which the page echoes back as a hidden field, so it reads "Next" whichever button
+     * was pressed; deciding from it sent Save back to page 1 too, which looks like an unsaved
+     * bill and invites a second save (#5055). A post without {@code button} still decides from
+     * {@code submit}, as before.</p>
+     *
+     * @param request the Confirmation page's save post
+     * @return {@code CLOSE_WINDOW} for Save, otherwise {@code REDIRECT_TO_PG1}
+     */
+    static BillingShortcutPg2ViewModel.PostSaveAction postSaveAction(HttpServletRequest request) {
+        String button = request.getParameter("button");
+        String choice = button == null || button.isEmpty() ? request.getParameter("submit") : button;
+        return "Save".equals(choice)
+                ? BillingShortcutPg2ViewModel.PostSaveAction.CLOSE_WINDOW
+                : BillingShortcutPg2ViewModel.PostSaveAction.REDIRECT_TO_PG1;
     }
 
     private static boolean shouldSave(HttpServletRequest request) {
@@ -228,8 +243,8 @@ public class BillingShortcutPg2Service {
             ctx.refDoctor = "N/A";
             ctx.refDoctorOhip = "000000";
         } else {
-            String rd = SxmlMisc.getXmlContent(demo.getFamilyDoctor(), "rd");
-            String rdohip = SxmlMisc.getXmlContent(demo.getFamilyDoctor(), "rdohip");
+            String rd = DemographicXml.referralDoctor(demo.getFamilyDoctor());
+            String rdohip = DemographicXml.referralDoctorOhip(demo.getFamilyDoctor());
             ctx.refDoctor = rd == null ? "" : rd;
             ctx.refDoctorOhip = rdohip == null ? "" : rdohip;
         }
@@ -271,7 +286,7 @@ public class BillingShortcutPg2Service {
     private void applyJspViewFieldsToBuilder(BillingShortcutPg2ViewModel.Builder b,
                                              HttpServletRequest request) {
         java.util.Properties providerBean;
-        Object beanObj = request.getSession().getAttribute("providerBean"); // nosemgrep: tainted-session-from-http-request -- providerBean is built post-auth from DAO-sourced active providers (see ImportDemographicDataAction42Action)
+        Object beanObj = request.getSession().getAttribute("providerBean"); // nosemgrep: tainted-session-from-http-request -- providerBean is built post-auth from DAO-sourced active providers
         providerBean = (beanObj instanceof java.util.Properties) ? (java.util.Properties) beanObj : new java.util.Properties();
 
         String xmlProvider = nullToEmpty(request.getParameter("xml_provider"));
@@ -295,7 +310,7 @@ public class BillingShortcutPg2Service {
         b.sliCode(sliCode).sliNotApplicable(sliNotApplicable);
 
         b.admissionDate(nullToEmpty(request.getParameter("xml_vdate")));
-        b.demographicName(nullToEmpty(request.getParameter("demographic_name")));
+        b.demographicName(nullToEmpty(io.github.carlos_emr.carlos.billing.CA.BillingPatientContext.name(request)));
         b.dxCode(nullToEmpty(request.getParameter("dxCode")));
         b.rulePerc(nullToEmpty(request.getParameter("rulePerc")));
         b.referralDocName(nullToEmpty(request.getParameter("referralDocName")));
@@ -519,7 +534,7 @@ public class BillingShortcutPg2Service {
         b.setProviderNo(request.getParameter("xml_provider"));
         b.setAppointmentNo(parseRequiredInt("appointment_no", request.getParameter("appointment_no")));
         b.setOrganizationSpecCode(request.getParameter("ohip_version"));
-        b.setDemographicName(request.getParameter("demographic_name"));
+        b.setDemographicName(io.github.carlos_emr.carlos.billing.CA.BillingPatientContext.requiredName(request));
         b.setHin(request.getParameter("hin"));
         b.setUpdateDate(new java.util.Date());
         b.setUpdateTime(new java.util.Date());
@@ -621,11 +636,7 @@ public class BillingShortcutPg2Service {
         url.append(request.getContextPath())
                 .append("/billing/CA/ON/billingShortcutPg1View?billRegion=&billForm=")
                 .append(URLEncoder.encode(hospitalView == null ? "" : hospitalView, StandardCharsets.UTF_8))
-                .append("&hotclick=&appointment_no=0&demographic_name=")
-                .append(URLEncoder.encode(demo.last, StandardCharsets.UTF_8))
-                .append("%2C")
-                .append(URLEncoder.encode(demo.first, StandardCharsets.UTF_8))
-                .append("&demographic_no=")
+                .append("&hotclick=&appointment_no=0&demographic_no=")
                 .append(URLEncoder.encode(nullToEmpty(request.getParameter("demographic_no")), StandardCharsets.UTF_8))
                 .append("&providerview=1&user_no=")
                 .append(URLEncoder.encode(nullToEmpty(userNo), StandardCharsets.UTF_8))

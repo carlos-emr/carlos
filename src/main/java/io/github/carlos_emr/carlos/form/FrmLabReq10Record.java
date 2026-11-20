@@ -179,7 +179,7 @@ public class FrmLabReq10Record extends FrmRecord {
 
                 if (ohipNo != null && !ohipNo.isEmpty()) {
                     props.setProperty("reqProvName", provider.getFormattedName());
-                    props.setProperty("practitionerNo", "0000-" + ohipNo + "-" + strSpecialtyCode);
+                    props.setProperty("practitionerNo", PractitionerNumber.ohipRequisition(ohipNo, strSpecialtyCode));
                 }
             }
         }

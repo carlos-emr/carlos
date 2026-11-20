@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 
@@ -39,29 +40,32 @@
 
 package io.github.carlos_emr.carlos.lab.ca.all.upload;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.*;
-import java.util.regex.Pattern;
-import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.*;
-import org.apache.commons.codec.binary.Base64;
+import java.util.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.UnexpectedRollbackException;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.OtherIdManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.commn.dao.LabRoutingLookupDao;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.demographic.data.DemographicMerged;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
+import io.github.carlos_emr.carlos.lab.service.MrpRoutingService;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -224,7 +228,7 @@ public final class MessageUploader {
         int insertID = 0;
         hl7TextMessage.setFileUploadCheckId(fileId);
         hl7TextMessage.setType(type);
-        hl7TextMessage.setBase64EncodedeMessage(new String(Base64.encodeBase64(hl7Body.getBytes(MiscUtils.DEFAULT_UTF8_ENCODING)), MiscUtils.DEFAULT_UTF8_ENCODING));
+        hl7TextMessage.setBase64EncodedeMessage(new String(Base64.getEncoder().encode(hl7Body.getBytes(MiscUtils.DEFAULT_UTF8_ENCODING)), MiscUtils.DEFAULT_UTF8_ENCODING));
         hl7TextMessage.setServiceName(serviceName);
         hl7TextMessageDao.persist(hl7TextMessage);
 
@@ -252,9 +256,7 @@ public final class MessageUploader {
 
         String demProviderNo = null;
 
-        try (Connection connection = LegacyJdbcQuery.getConnection()) {
-            demProviderNo = patientRouteReport(loggedInInfo, type, insertID, lastName, firstName, sex, dob, hin, connection);
-        }
+        demProviderNo = patientRouteReport(loggedInInfo, type, insertID, lastName, firstName, sex, dob, hin);
 
         Integer limit = null;
         boolean orderByLength = false;
@@ -273,9 +275,8 @@ public final class MessageUploader {
             search = "hso_no";
         }
 
-        try (Connection connection = LegacyJdbcQuery.getConnection()) {
-            providerRouteReport(String.valueOf(insertID), docNums, connection, demProviderNo, type, search, limit, orderByLength);
-        }
+        providerRouteReport(String.valueOf(insertID), docNums, demProviderNo, type, search, limit, orderByLength,
+                loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo());
         retVal = h.audit();
         if (results != null) {
             results.segmentId = insertID;
@@ -343,67 +344,23 @@ public final class MessageUploader {
         return index;
     }
 
-    // Allowed column names for provider search to prevent SQL injection
-    private static final java.util.Set<String> VALID_SEARCH_COLUMNS = java.util.Set.of(
-            "ohip_no", "provider_no", "last_name", "first_name", "practitioner_no");
-
     /**
      * Attempt to match the doctors from the lab to a providers
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private static void providerRouteReport(String labId, ArrayList<String> docNums, Connection conn, String altProviderNo, String labType, String search_on, Integer limit, boolean orderByLength) throws Exception {
+    private static void providerRouteReport(String labId, ArrayList<String> docNums, String altProviderNo, String labType, String search_on, Integer limit, boolean orderByLength, String uploaderProviderNo) throws Exception {
         // Using HashSet to avoid duplicate providers numbers
         LinkedHashSet<String> providerNums = new LinkedHashSet<>();
-        PreparedStatement pstmt;
-        String sql = "";
-        String sqlLimit = "";
-        String sqlOrderByLength = "";
-        String sqlSearchOn = "ohip_no";
-
-        if (search_on != null && search_on.length() > 0) {
-            // Whitelist column name to prevent SQL injection (normalize before checking)
-            String normalized = search_on.trim().toLowerCase(java.util.Locale.ROOT);
-            if (VALID_SEARCH_COLUMNS.contains(normalized)) {
-                sqlSearchOn = normalized;
-            } else {
-                MiscUtils.getLogger().warn("providerRouteReport: rejected invalid search column, using default 'ohip_no'");
-            }
-        }
-
-        if (limit != null && limit.intValue() > 0) {
-            sqlLimit = " limit " + limit.intValue(); // nosemgrep: formatted-sql-string -- integer value, not user string
-        }
-
-        if (orderByLength) {
-            sqlOrderByLength = " order by length(first_name)";
-        }
+        LabRoutingLookupDao lookup = SpringUtils.getBean(LabRoutingLookupDao.class);
 
         if (docNums != null) {
             for (int i = 0; i < docNums.size(); i++) {
 
                 if (docNums.get(i) != null && !((String) docNums.get(i)).trim().equals("")) {
-                    if ("ON".equals(CarlosProperties.getInstance().getProperty("billregion", "ON"))) {
-                        StringBuilder practitionerNum = new StringBuilder(((String) docNums.get(i)).trim());
-                        if (sqlSearchOn.equalsIgnoreCase("ohip_no")) {
-                            while (practitionerNum.length() < 6) {
-                                practitionerNum.insert(0, "0");
-                            }
-                        }
-                        sql = "select provider_no from provider where " + sqlSearchOn + " = ?" + sqlOrderByLength + sqlLimit; // nosemgrep: formatted-sql-string -- sqlSearchOn is whitelisted above
-                        pstmt = conn.prepareStatement(sql);
-                        pstmt.setString(1, practitionerNum.toString());
-                    } else {
-                        sql = "select provider_no from provider where " + sqlSearchOn + " LIKE ?" + sqlOrderByLength + sqlLimit; // nosemgrep: formatted-sql-string -- sqlSearchOn is whitelisted above
-                        pstmt = conn.prepareStatement(sql);
-                        pstmt.setString(1, (String) docNums.get(i));
-                    }
-                    ResultSet rs = pstmt.executeQuery(); // nosemgrep: formatted-sql-string — sqlSearchOn whitelisted above; practitionerNum bound via PreparedStatement
-                    while (rs.next()) {
-                        providerNums.add(Misc.getString(rs, "provider_no"));
-                    }
-                    rs.close();
-                    pstmt.close();
+                    providerNums.addAll(lookup.findProviders(search_on, docNums.get(i),
+                            "ON".equals(CarlosProperties.getInstance().getProperty("billregion", "ON")),
+                            limit, orderByLength));
 
                     String otherIdMatchKey = CarlosProperties.getInstance().getProperty("lab.other_id_matching", "");
                     if (otherIdMatchKey.length() > 0) {
@@ -418,157 +375,76 @@ public final class MessageUploader {
         }
 
 
-        ProviderLabRouting routing = new ProviderLabRouting();
-        if (providerNums.size() > 0) {
-            for (String provider_no : providerNums) {
-                routing.route(labId, provider_no, conn, "HL7");
-            }
-        } else {
-            if (altProviderNo != null && !altProviderNo.equals("0")) {
-                routing.route(labId, altProviderNo, conn, "HL7");
-            } else {
-                routing.route(labId, "0", conn, "HL7");
-            }
-        }
+        routeToProviders(labId, providerNums, altProviderNo, new ProviderLabRouting(),
+                SpringUtils.getBean(MrpRoutingService.class), uploaderProviderNo);
     }
 
     /**
-     * Attempt to match the doctors from the lab to a providers
+     * Routes an uploaded HL7 lab to the providers matched from the message.
+     *
+     * <p>When nothing in the message matched a provider, the lab goes to the matched patient's
+     * MRP ({@code altProviderNo}), or to the unassigned inbox ({@code 0}) when no patient matched
+     * either. When providers did match and the clinic has Provider Linking Rules on, the lab goes
+     * to the MRP as well, so the family physician sees a result a specialist or locum ordered.
+     * The router is idempotent and applies each recipient's forwarding rules.</p>
+     *
+     * @param labId the uploaded lab segment
+     * @param providerNums providers matched from the message, in match order
+     * @param altProviderNo the matched patient's MRP, or {@code 0} / {@code null}
+     * @param routing the lab router
+     * @param mrpRouting the Provider Linking Rules decision
+     * @param uploaderProviderNo the uploading provider for the audit log, or {@code null}
+     * @throws SQLException if a lab identifier is not numeric
      */
-    private static void providerRouteReport(String labId, ArrayList docNums, Connection conn, String altProviderNo, String labType) throws Exception {
-        providerRouteReport(labId, docNums, conn, altProviderNo, labType, null, null, false);
+    static void routeToProviders(String labId, Set<String> providerNums, String altProviderNo,
+                                 ProviderLabRouting routing, MrpRoutingService mrpRouting,
+                                 String uploaderProviderNo) throws SQLException {
+        if (!providerNums.isEmpty()) {
+            for (String provider_no : providerNums) {
+                routing.route(labId, provider_no, "HL7");
+            }
+            if (mrpRouting.shouldRouteUploadToMrp(altProviderNo)) {
+                String mrp = altProviderNo.trim();
+                // An MRP who ordered the test was routed above; this is not a linking-rule routing.
+                if (!providerNums.contains(mrp)) {
+                    mrpRouting.routeUploadedLabToMrp(labId, uploaderProviderNo);
+                }
+            }
+        } else {
+            if (altProviderNo == null || "0".equals(altProviderNo)
+                    || !mrpRouting.routeUploadedFallbackToMrp(labId, uploaderProviderNo)) {
+                routing.route(labId, "0", "HL7");
+            }
+        }
     }
-
 
     /**
      * Attempt to match the patient from the lab to a demographic, return the patients providers which is to be used then no other providers can be found to match the patient to.
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private static String patientRouteReport(LoggedInInfo loggedInInfo, String labType, int labId, String lastName, String firstName, String sex, String dob, String hin, Connection conn) throws SQLException {
+    private static String patientRouteReport(LoggedInInfo loggedInInfo, String labType, int labId, String lastName, String firstName, String sex, String dob, String hin) throws SQLException {
         PatientLabRoutingResult result = null;
 
-        String sql = null;
-        String demo = "0";
-        String provider_no = "0";
-        String dobYear = "%";
-        String dobMonth = "%";
-        String dobDay = "%";
-        String hinMod = null;
-
-
-			try {
-				if (hin != null && hin.equalsIgnoreCase("UNKNOWN")) { hin = ""; }
-				if (hin != null) {
-					hinMod = new String(hin);
-                    // Ontario may be bare 10 digits or have the version code concacted 1234567890XX
-					// Quebec type hin look like HUTPyymmdd12 which is 12 characters
-					// BC hin MSP is a 9 digit code
-					if (hinMod.length() == 12 && StringUtils.isNumeric(hinMod.substring(0, 10))) {
-                        // strip the version code for Ontario
-						hinMod = hinMod.substring(0, 10);
-					}
-				}
-
-				if (dob != null && !dob.isEmpty() && !dob.equalsIgnoreCase("UNKNOWN")) {
-					String[] dobArray = dob.trim().split("-");
-					dobYear = dobArray[0];
-					dobMonth = dobArray[1];
-					dobDay = dobArray[2];
-				}
-                
-				List<String> sqlParams = new ArrayList<>();
-                
-                // if no hin but there is a dob try for a complete match against the full name DOB and gender
-				if ((hinMod == null || hinMod.trim().isEmpty())
-						&& dob != null && !dob.isEmpty() && !dob.equalsIgnoreCase("UNKNOWN")
-						&& StringUtils.isNotBlank(lastName)
-						&& StringUtils.isNotBlank(firstName)
-						&& StringUtils.isNotBlank(sex)
-						&& !sex.equalsIgnoreCase("UNKNOWN")) {
-					// Avoid logging PHI (name/DOB/sex). Lab id and match outcome are sufficient diagnostics.
-					logger.debug("Attempting no-HIN demographic match by name+DOB+sex for lab " + labId);
-					sql = "select demographic_no, provider_no from demographic where year_of_birth like ? and month_of_birth like ? and date_of_birth like ? and ( sex like ? OR sex NOT IN ('F', 'M') ) and last_name = ? and first_name = ?";
-					sqlParams.add(dobYear);
-					sqlParams.add(dobMonth);
-					sqlParams.add(dobDay);
-					sqlParams.add(sex + "%");
-                    sqlParams.add(lastName);
-					sqlParams.add(firstName);
-				}
-                
-				// only the first letter of names used for LAB_NOMATCH_NAMES=no
-				if (!firstName.equals("")) firstName = firstName.substring(0, 1);
-				if (!lastName.equals("")) lastName = lastName.substring(0, 1);
-
-
-				/*
-				 * HIN is PREFERRED for lab matching to ensure patient safety. The provincial Health Insurance Number
-				 * uniquely identifies a patient within the healthcare system, preventing cross-patient result delivery
-				 * and fatal patient mismatches that occurred in previous iterations.
-				 *
-				 * A no-HIN matching path is allowed ONLY when an exact match is found on all three demographic identifiers:
-				 * full legal name (first and last), date of birth (year, month, day), and gender. Gender matching is applied
-				 * EXCEPT when the stored sex value is not 'M' or 'F' - those non-binary/unspecified stored values act as a
-				 * wildcard and permit a match with any incoming lab gender value.
-				 *
-				 * For HIN-based matching (below), the LAB_NOMATCH_NAMES property controls whether name verification is required
-				 * in addition to HIN + DOB + gender validation. When LAB_NOMATCH_NAMES is "no", only the first letter of names
-				 * is used for matching.
-				 */
-				if (hinMod != null && !hinMod.trim().isEmpty()) {
-                    // Gender matching allows the provided sex OR any stored sex value not explicitly 'F' or 'M'.
-                    // This permits matching when the stored demographic has non-binary/unspecified gender.
-					if (CarlosProperties.getInstance().getBooleanProperty("LAB_NOMATCH_NAMES", "yes")) {
-						sql = "select demographic_no, provider_no from demographic where hin=? and year_of_birth like ? and month_of_birth like ? and date_of_birth like ? and ( sex like ? OR sex NOT IN ('F','M') )";
-						sqlParams.add(hinMod);
-						sqlParams.add(dobYear);
-						sqlParams.add(dobMonth);
-						sqlParams.add(dobDay);
-						sqlParams.add(sex + "%");
-					} else {
-						sql = "select demographic_no, provider_no from demographic where hin=? and last_name like ? and first_name like ? and year_of_birth like ? and month_of_birth like ? and date_of_birth like ? and ( sex like ? OR sex NOT IN ('F','M') )";
-						sqlParams.add(hinMod);
-						sqlParams.add(lastName + "%");
-						sqlParams.add(firstName + "%");
-						sqlParams.add(dobYear);
-						sqlParams.add(dobMonth);
-						sqlParams.add(dobDay);
-						sqlParams.add(sex + "%");
-					}
-                }
-
-				if ( sql != null ) {
-					logger.debug("Matching patient demographics for lab routing");
-					PreparedStatement pstmt = conn.prepareStatement(sql);
-					for (int pi = 0; pi < sqlParams.size(); pi++) {
-						pstmt.setString(pi + 1, sqlParams.get(pi));
-					}
-					ResultSet rs = pstmt.executeQuery();
-					int count = 0;
-
-					while (rs.next()) {
-						result = new PatientLabRoutingResult();
-						demo = Misc.getString(rs, "demographic_no");
-						provider_no = Misc.getString(rs, "provider_no");
-						result.setDemographicNo(Integer.parseInt(demo));
-						result.setProviderNo(provider_no);
-						count++;
-					}
-					rs.close();
-					pstmt.close();
-					if (count > 1) {
-						result = null;
-					}
-				}
-			} catch (SQLException sqlE) {
-				throw sqlE;
-			}
-
+        List<LabRoutingLookupDao.Patient> matches = SpringUtils.getBean(LabRoutingLookupDao.class)
+                .findHl7Patients(lastName, firstName, sex, dob, hin,
+                        CarlosProperties.getInstance().getBooleanProperty("LAB_NOMATCH_NAMES", "yes"));
+        // Merged records are one patient only when every matching row resolves to the same head.
+        DemographicMerged mergeChain = new DemographicMerged();
+        Set<Integer> matchedHeads = new HashSet<>();
+        boolean unresolvedChain = false;
+        for (LabRoutingLookupDao.Patient match : matches) {
+            result = new PatientLabRoutingResult();
+            result.setDemographicNo(match.demographicNo());
+            result.setProviderNo(match.providerNo());
+            Integer head = mergeChain.findHead(match.demographicNo());
+            if (head == null) unresolvedChain = true;
+            else matchedHeads.add(head);
+        }
+        if (unresolvedChain || matchedHeads.size() > 1) result = null;
 
         if (result != null) {
-            DemographicMerged dm = new DemographicMerged();
-            Integer headDemo = dm.getHead(result.getDemographicNo());
+            Integer headDemo = new DemographicMerged().getHead(result.getDemographicNo());
             if (headDemo != null && headDemo.intValue() != result.getDemographicNo()) {
                 Demographic demoTmp = demographicManager.getDemographic(loggedInInfo, headDemo);
                 if (demoTmp != null) {
@@ -607,9 +483,103 @@ public final class MessageUploader {
     }
 
     /**
-     * Used when errors occur to clean the database of labs that have not been inserted into all of the necessary tables
+     * Used when errors occur to clean the database of labs that have not been inserted into all of the necessary tables.
+     *
+     * <p>Every upload entry point runs the handlers inside {@code FileUploadCheck.storeIfNew}'s
+     * transaction, which rolls back on an exception or a rejected parse, and a handler calls this from
+     * its {@code catch} block. When the failure was a rejected insert, Hibernate has already marked that
+     * transaction rollback-only and left the failed entity in the session with no id, so the first query
+     * here threw {@code AssertionFailure} (HHH000099, which Hibernate itself logs at ERROR) out of the
+     * handler before it logged the real cause (#4436). Nothing a rollback-only transaction wrote can
+     * commit, so there is nothing to clean: this returns without touching the session.</p>
+     *
+     * <p>A transaction that is still healthy is cleaned as before, because {@code IHAPOIHandler}
+     * returns a per-message failure string, which the caller commits, and relies on this to undo its
+     * rows first; so is a call with no transaction at all. A failing cleanup is logged at WARN rather
+     * than thrown, so it cannot replace the failure that brought the caller here. It does mark the
+     * enclosing transaction rollback-only, because a half-finished cleanup that the caller then commits
+     * would leave some rows removed and others stored; only if the transaction cannot be marked is the
+     * failure rethrown, so that it still rolls back. A call with no transaction runs the cleanup in one of
+     * its own, for the same all-or-nothing reason.</p>
+     *
+     * @param fileId the id of the {@code fileUploadCheck} row that the failed upload's rows reference
      */
     public static void clean(int fileId) {
+        if (isEnclosingTransactionRollbackOnly()) {
+            logger.info("Not cleaning up a failed lab upload: its transaction is already rollback-only, so nothing it wrote can commit");
+            return;
+        }
+        try {
+            if (TransactionSynchronizationManager.isActualTransactionActive()) {
+                removeStoredRows(fileId);
+            } else {
+                // Without a caller transaction every DAO call commits on its own, so a failure part-way would
+                // leave some rows recycled and removed and the rest stored. One transaction makes it all or nothing.
+                new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class))
+                        .executeWithoutResult(status -> removeStoredRows(fileId));
+            }
+        } catch (RuntimeException cleanupFailure) {
+            // exceptionTrace, like the upload actions: a persistence failure's nested causes can carry row content.
+            logger.warn("Could not clean up the rows of lab upload {}: {}", fileId, LogSafe.exceptionTrace(cleanupFailure));
+            if (TransactionSynchronizationManager.isActualTransactionActive() && !markEnclosingTransactionRollbackOnly()) {
+                throw cleanupFailure;
+            }
+        }
+    }
+
+    /**
+     * Makes the calling thread's Spring transaction unable to commit, without throwing.
+     *
+     * <p>Joins the transaction as a participant and marks that participant rollback-only, which is what a
+     * failing participating {@code @Transactional} method does: the transaction manager then marks the
+     * transaction itself, and a participant's completion neither commits nor rolls anything back.</p>
+     *
+     * @return {@code true} if the transaction was marked; {@code false} if it could not be, so the caller
+     *         must propagate its failure instead
+     */
+    private static boolean markEnclosingTransactionRollbackOnly() {
+        try {
+            joinEnclosingTransaction().executeWithoutResult(TransactionStatus::setRollbackOnly);
+            return true;
+        } catch (RuntimeException unmarkable) {
+            logger.warn("Could not mark the transaction rollback-only: {}", LogSafe.exceptionTrace(unmarkable));
+            return false;
+        }
+    }
+
+    /**
+     * Reports whether the calling thread's Spring transaction exists and can no longer commit.
+     *
+     * <p>Asks the transaction manager, as a participant, whether the transaction is rollback-only: the
+     * same question it asks at commit, so it sees Hibernate's own mark after a failed insert as well as
+     * one left by a failing transactional DAO. A manager configured to fail early answers by throwing
+     * {@code UnexpectedRollbackException} when the probe completes, which also means rollback-only. Never
+     * throws: if the state cannot be read, the transaction is treated as usable and {@link #clean(int)}
+     * attempts the cleanup.</p>
+     */
+    private static boolean isEnclosingTransactionRollbackOnly() {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+            return false;
+        }
+        try {
+            return Boolean.TRUE.equals(joinEnclosingTransaction().execute(TransactionStatus::isRollbackOnly));
+        } catch (UnexpectedRollbackException alreadyRollbackOnly) {
+            // A manager set to fail early on global rollback-only reports it this way when the probe completes.
+            return true;
+        } catch (RuntimeException unreadable) {
+            logger.debug("Could not read the transaction's rollback state: {}", LogSafe.exceptionTrace(unreadable));
+            return false;
+        }
+    }
+
+    /** A template that only joins the calling thread's transaction; it throws if there is none to join. */
+    private static TransactionTemplate joinEnclosingTransaction() {
+        TransactionTemplate template = new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class));
+        template.setPropagationBehavior(TransactionDefinition.PROPAGATION_MANDATORY);
+        return template;
+    }
+
+    private static void removeStoredRows(int fileId) {
 
         List<Hl7TextMessage> results = hl7TextMessageDao.findByFileUploadCheckId(fileId);
 
@@ -727,35 +697,26 @@ public final class MessageUploader {
      * String arrays are delineated with a pipe |
      */
     public static String mergeLabLabels(List<Hl7TextInfo> currentLabs, String incoming) {
-        // If a past lab with the same AccessionNumber exist carry over the label
-        String mergedLabel = StringUtils.trimToEmpty(incoming);
-        if (currentLabs == null) {
-            currentLabs = Collections.emptyList();
-        }
-        for (Hl7TextInfo matchingLab : currentLabs) {
-            String currentLabel = matchingLab.getLabel();
-            // if the lab has an entered label to carry over
-            if (!StringUtils.isBlank(currentLabel) && !StringUtils.isBlank(mergedLabel)) {
-                // compare labels and eliminate duplicates.
-                String[] labelArray = mergedLabel.split("\\s?\\|\\s?");
-                for (String labelItem : labelArray) {
-                    if (!labelItem.isEmpty()) {
-                        String regex = Pattern.quote(labelItem) + "\\s?\\|?\\s?";
-                        currentLabel = currentLabel.replaceAll(regex, "");
-                    }
-                }
-                currentLabel = StringUtils.trimToEmpty(currentLabel);
-
-                if (!currentLabel.isEmpty()) {
-                    mergedLabel = currentLabel + " | " + mergedLabel;
-                }
-
-                if (mergedLabel.startsWith("|")) {
-                    mergedLabel = mergedLabel.substring(1);
-                    mergedLabel = mergedLabel.trim();
-                }
+        LinkedHashSet<String> merged = labelTokens(incoming);
+        if (currentLabs != null) {
+            for (Hl7TextInfo matchingLab : currentLabs) {
+                LinkedHashSet<String> previous = labelTokens(matchingLab.getLabel());
+                // Compare whole panel/manual label tokens, never substrings (ALT is not SALT).
+                // Preserve the existing ordering: carried labels precede the incoming label.
+                previous.removeAll(merged);
+                previous.addAll(merged);
+                merged = previous;
             }
         }
-        return mergedLabel;
+        return String.join(" | ", merged);
+    }
+
+    private static LinkedHashSet<String> labelTokens(String label) {
+        LinkedHashSet<String> tokens = new LinkedHashSet<>();
+        for (String token : StringUtils.trimToEmpty(label).split("\\|")) {
+            String trimmed = token.trim();
+            if (!trimmed.isEmpty()) tokens.add(trimmed);
+        }
+        return tokens;
     }
 }

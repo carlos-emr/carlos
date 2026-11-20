@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.appointment.dto.AppointmentListItemDTO;
 import io.github.carlos_emr.carlos.appointment.dto.PatientAppointmentExportRow;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.AppointmentArchive;
+import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.beans.BeanUtils;
@@ -47,6 +48,7 @@ import org.hibernate.ScrollMode;
 import org.hibernate.ScrollableResults;
 
 import jakarta.persistence.NoResultException;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.NonUniqueResultException;
 import jakarta.persistence.PersistenceException;
 import jakarta.persistence.Query;
@@ -58,9 +60,95 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 @Repository
 @SuppressWarnings("unchecked")
 public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implements OscarAppointmentDao {
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column> readCdsExportReceiptColumns() {
+        return CdsExportNativeMetadataReadSupport.read(entityManager, CdsExportNativeMetadataReadSupport.Table.APPOINTMENT);
+    }
+
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportSourceSchema() {
+        return CdsExportPatientTableReadSupport.schema(entityManager, CdsExportPatientTableReadSupport.Plan.APPOINTMENTS);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public long countCdsExportRows(int patient) {
+        return CdsExportPatientTableReadSupport.count(entityManager, CdsExportPatientTableReadSupport.Plan.APPOINTMENTS, patient);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> findCdsExportRowsAfter(int patient, Long afterId, int limit) {
+        return CdsExportPatientTableReadSupport.page(entityManager, CdsExportPatientTableReadSupport.Plan.APPOINTMENTS, patient, afterId, limit);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public byte[] readCdsExportValueChunk(int patient, long rowId, String column, long offset, int length) {
+        return CdsExportPatientTableReadSupport.chunk(entityManager, CdsExportPatientTableReadSupport.Plan.APPOINTMENTS, patient, rowId, column, offset, length);
+    }
+
+
+    @Override
+    // S2077: sort must equal one of eight fixed columns; predicate variants are literals,
+    // and date, time and provider values remain bound parameters.
+    @SuppressWarnings("java:S2077")
+    public List<AppointmentDaySheetRow> findDaySheet(String start, String end, String startTime, String endTime,
+            String providerNo, boolean newOnly, String sort) {
+        if (!java.util.Set.of("start_time", "name", "phone", "sex", "hin", "ver", "chart_no", "roster_status").contains(sort)) {
+            throw new IllegalArgumentException("Invalid day-sheet sort");
+        }
+        String sql = "SELECT concat(d.year_of_birth,'/',d.month_of_birth,'/',d.date_of_birth), d.family_doctor,"
+                + " CAST(a.appointment_date AS CHAR), a.provider_no, CAST(a.start_time AS CHAR), CAST(a.end_time AS CHAR),"
+                + " a.reason, a.name, a.bookingSource, p.last_name, p.first_name, d.sex, d.hin, d.ver, d.provider_no,"
+                + " d.phone, d.roster_status, p2.last_name, p2.first_name, d.chart_no, a.appointment_no, a.updatedatetime"
+                + " FROM appointment a JOIN provider p ON a.provider_no=p.provider_no"
+                + " LEFT JOIN demographic d ON a.demographic_no=d.demographic_no"
+                + " LEFT JOIN provider p2 ON d.provider_no=p2.provider_no WHERE "
+                + (newOnly ? "a.appointment_date=:start AND a.status LIKE BINARY 't'"
+                        : "a.appointment_date>=:start AND a.appointment_date<=:end AND a.start_time>=:fromTime"
+                                + " AND a.end_time<:untilTime AND BINARY a.status NOT LIKE 'C%'")
+                + (providerNo == null ? "" : " AND a.provider_no=:provider")
+                + " ORDER BY " + (providerNo == null ? "p.last_name, p.first_name, " : "")
+                + "a.appointment_date, " + sort;
+        Query query = entityManager.createNativeQuery(sql, Object[].class).setParameter("start", start);
+        if (!newOnly) query.setParameter("end", end).setParameter("fromTime", startTime).setParameter("untilTime", endTime);
+        if (providerNo != null) query.setParameter("provider", providerNo);
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = query.getResultList();
+        return rows.stream().map(AppointmentDaySheetRow::from).toList();
+    }
 
     public OscarAppointmentDaoImpl() {
         super(Appointment.class);
+    }
+
+    @Override
+    public List<Appointment> findRecurringSeries(Appointment anchor, Date endDate) {
+        // Pre-#5199 rows can contain CRLF while new copies store LF. Compare the
+        // canonical text without rewriting the original appointment or its archive.
+        return entityManager.createQuery("SELECT a FROM Appointment a WHERE a.providerNo=:provider "
+                + "AND a.appointmentDate BETWEEN :start AND :end "
+                + "AND a.startTime=:startTime AND a.endTime=:endTime "
+                + "AND a.demographicNo=:demographic AND a.programId=:program "
+                + "AND COALESCE(a.name,'')=COALESCE(:name,'') "
+                + "AND REPLACE(REPLACE(COALESCE(a.notes,''),:crlf,:lf),:cr,:lf)=COALESCE(:notes,'') "
+                + "AND REPLACE(REPLACE(COALESCE(a.reason,''),:crlf,:lf),:cr,:lf)=COALESCE(:reason,'') "
+                + "AND COALESCE(a.creator,'')=COALESCE(:creator,'') "
+                + "AND (a.createDateTime=:created OR (a.createDateTime IS NULL AND :created IS NULL)) "
+                + "ORDER BY a.appointmentDate, a.id", Appointment.class)
+                .setParameter("provider", anchor.getProviderNo())
+                .setParameter("start", anchor.getAppointmentDate()).setParameter("end", endDate)
+                .setParameter("startTime", anchor.getStartTime()).setParameter("endTime", anchor.getEndTime())
+                .setParameter("demographic", anchor.getDemographicNo()).setParameter("program", anchor.getProgramId())
+                .setParameter("name", anchor.getName()).setParameter("notes", Appointment.normalizeLineEndings(anchor.getNotes()))
+                .setParameter("reason", Appointment.normalizeLineEndings(anchor.getReason())).setParameter("creator", anchor.getCreator())
+                .setParameter("crlf", "\r\n").setParameter("lf", "\n").setParameter("cr", "\r")
+                .setParameter("created", anchor.getCreateDateTime()).setMaxResults(367)
+                .setLockMode(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE).getResultList();
     }
 
     @Override
@@ -73,7 +161,14 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
                 Appointment.class);
         query.setParameter(1, appointmentNo);
         List<Appointment> rows = query.getResultList();
-        return rows.isEmpty() ? null : rows.get(0);
+        if (rows.isEmpty()) {
+            return null;
+        }
+        Appointment appointment = rows.get(0);
+        // A native lock query may resolve to an entity already in the persistence context.
+        // Use a locking refresh so MariaDB REPEATABLE READ also returns the current row.
+        entityManager.refresh(appointment, LockModeType.PESSIMISTIC_WRITE);
+        return appointment;
     }
 
     @Override
@@ -177,8 +272,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
      */
     @Override
     public List<Appointment> findByUpdateDate(Date updatedAfterThisDateExclusive, int itemsToReturn) {
-        String sqlCommand = "select x from " + modelClass.getSimpleName()
-                + " x where x.updateDateTime>?1 order by x.updateDateTime";
+        String sqlCommand = "select x from Appointment x where x.updateDateTime>?1 order by x.updateDateTime, x.id";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, updatedAfterThisDateExclusive);
@@ -195,7 +289,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
     @Override
     public List<Appointment> findByDemographicIdUpdateDate(Integer demographicId, Date updatedAfterThisDateExclusive) {
         String sqlCommand = "select x from " + modelClass.getSimpleName()
-                + " x where x.demographicNo=?1 and x.updateDateTime>?2 order by x.updateDateTime";
+                + " x where x.demographicNo=?1 and x.updateDateTime>?2 order by x.updateDateTime, x.id";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, demographicId);
@@ -243,6 +337,22 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         List<Appointment> rs = query.getResultList();
 
         return rs;
+    }
+
+    @Override
+    public List<Date> findDoNotBookDates(Appointment template, List<Date> dates) {
+        if (dates.isEmpty()) return java.util.Collections.emptyList();
+        return entityManager.createQuery("SELECT DISTINCT a.appointmentDate FROM Appointment a "
+                        + "WHERE a.providerNo = :provider AND a.programId = :program "
+                        + "AND a.appointmentDate IN :dates AND LOWER(a.name) = 'do_not_book' "
+                        + "AND (a.status IS NULL OR a.status NOT IN ('C', 'D')) "
+                        + "AND a.startTime <= :endTime AND a.endTime >= :startTime", Date.class)
+                .setParameter("provider", template.getProviderNo())
+                .setParameter("program", template.getProgramId())
+                .setParameter("dates", dates)
+                .setParameter("startTime", template.getStartTime())
+                .setParameter("endTime", template.getEndTime())
+                .getResultList();
     }
 
     @Override
@@ -407,6 +517,25 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
     }
 
     @Override
+    public Map<Integer, Date> findNextAppointmentDates(Collection<Integer> demographicIds) {
+        Map<Integer, Date> nextAppointmentDates = new HashMap<>();
+        if (demographicIds == null || demographicIds.isEmpty()) {
+            return nextAppointmentDates;
+        }
+        // The same predicate as findNextAppointment(Integer), aggregated: MIN over the rows that
+        // query orders by is the date its first row carries. Keep the two in step.
+        Query query = entityManager.createQuery(
+                "SELECT appt.demographicNo, MIN(appt.appointmentDate) FROM Appointment appt WHERE appt.demographicNo IN (:demographicIds) AND appt.status NOT LIKE '%C%' AND (appt.appointmentDate > CURRENT_DATE OR (appt.appointmentDate = CURRENT_DATE AND appt.startTime >= CURRENT_TIME)) GROUP BY appt.demographicNo");
+        query.setParameter("demographicIds", demographicIds);
+        for (Object[] row : (List<Object[]>) query.getResultList()) {
+            if (row[0] != null && row[1] != null) {
+                nextAppointmentDates.put(((Number) row[0]).intValue(), (Date) row[1]);
+            }
+        }
+        return nextAppointmentDates;
+    }
+
+    @Override
     public Appointment findDemoAppointmentToday(Integer demographicNo) {
         String sql = "SELECT a FROM Appointment a WHERE a.demographicNo = ?1 AND a.appointmentDate = CURRENT_DATE";
         String orderedSql = "SELECT a FROM Appointment a WHERE a.demographicNo = ?1 AND a.appointmentDate = CURRENT_DATE ORDER BY a.startTime ASC, a.id ASC";
@@ -415,12 +544,11 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
         try {
             return query.getSingleResult();
-        } catch (NoResultException e) {
-            MiscUtils.getLogger().info("Couldn't find appointment for demographic " + demographicNo + " today.");
+        } catch (NoResultException _) {
             return null;
-        } catch (NonUniqueResultException e) {
-            MiscUtils.getLogger().error(
-                    "Multiple appointments found for demographic {} today; returning earliest appointment", demographicNo, e);
+        } catch (NonUniqueResultException _) {
+            // Expected fallback: keep identifiers and persistence exception payloads out of logs.
+            MiscUtils.getLogger().warn("Multiple appointments found today; returning earliest appointment");
             TypedQuery<Appointment> fallbackQuery = entityManager.createQuery(orderedSql, Appointment.class);
             fallbackQuery.setParameter(1, demographicNo);
             fallbackQuery.setMaxResults(1);
@@ -523,16 +651,44 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
     }
 
     @Override
-    /**
-     * Searches for unbilled appointments within a specified date range for a given provider.
-     */
     public List<Appointment> search_unbill_history_daterange(String providerNo, Date startDate, Date endDate) {
-        String sql = "select a from Appointment a where a.providerNo=?1 and a.appointmentDate >=?2 and a.appointmentDate<=?3 and a.status NOT LIKE 'B%' and a.demographicNo <> 0 order by a.appointmentDate desc, a.startTime desc";
-        Query query = entityManager.createQuery(sql);
-        query.setParameter(1, providerNo);
-        query.setParameter(2, startDate);
-        query.setParameter(3, endDate);
+        return findUnbilledAppointments(providerNo, startDate, endDate, false, false);
+    }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Ported from open-osp/Open-O PR #134 / #186 (Chitrank Davé), which added
+     * the No-Show/Cancelled filter to the BC unbilled report. CARLOS inverts the
+     * flags to "include" so the default call excludes both statuses on every
+     * unbilled screen (issue #3960), and binds the status prefixes as
+     * parameters.</p>
+     */
+    @Override
+    public List<Appointment> findUnbilledAppointments(String providerNo, Date startDate, Date endDate,
+                                                             boolean includeNoShow, boolean includeCancelled) {
+        StringBuilder jpql = new StringBuilder("select a from Appointment a where a.providerNo = :providerNo"
+                + " and a.appointmentDate >= :startDate and a.appointmentDate <= :endDate"
+                + " and a.status not like :billedPrefix");
+        if (!includeCancelled) {
+            jpql.append(" and a.status not like :cancelledPrefix");
+        }
+        if (!includeNoShow) {
+            jpql.append(" and a.status not like :noShowPrefix");
+        }
+        jpql.append(" and a.demographicNo <> 0 order by a.appointmentDate desc, a.startTime desc");
+
+        Query query = entityManager.createQuery(jpql.toString());
+        query.setParameter("providerNo", providerNo);
+        query.setParameter("startDate", startDate);
+        query.setParameter("endDate", endDate);
+        query.setParameter("billedPrefix", AppointmentStatus.APPOINTMENT_STATUS_BILLED + "%");
+        if (!includeCancelled) {
+            query.setParameter("cancelledPrefix", AppointmentStatus.APPOINTMENT_STATUS_CANCELLED + "%");
+        }
+        if (!includeNoShow) {
+            query.setParameter("noShowPrefix", AppointmentStatus.APPOINTMENT_STATUS_NO_SHOW + "%");
+        }
         return query.getResultList();
     }
 
@@ -768,7 +924,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
     public List<Appointment> findByProgramProviderDemographicDate(Integer programId, String providerNo,
                                                                   Integer demographicId, Date updatedAfterThisDateExclusive, int itemsToReturn) {
         Query query = entityManager.createQuery(
-                "select x from Appointment x where (x.programId=?1 or x.programId is null or x.programId=0) and x.demographicNo=?2 and x.providerNo=?3 and x.updateDateTime>?4 order by x.updateDateTime");
+                "select x from Appointment x where (x.programId=?1 or x.programId is null or x.programId=0) and x.demographicNo=?2 and x.providerNo=?3 and x.updateDateTime>?4 order by x.updateDateTime, x.id");
         query.setParameter(1, programId);
         query.setParameter(2, demographicId);
         query.setParameter(3, providerNo);
@@ -835,21 +991,25 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
     @Override
     public int updateApptStatus(String ids, String status) {
-        // remove non-number value
-        StringBuilder idClean = new StringBuilder();
+        List<Integer> appointmentIds = new ArrayList<>();
         for (String id : ids.split(",")) {
             if (!StringUtils.isNumeric(id)) {
                 continue;
             }
-            idClean.append(id + ",");
+            try {
+                appointmentIds.add(Integer.valueOf(id));
+            } catch (NumberFormatException ignored) {
+                // Values outside the appointment INTEGER key space cannot match a row.
+            }
         }
-        if (idClean.length() == 0) {
+        if (appointmentIds.isEmpty()) {
             return 0;
         }
-        idClean.deleteCharAt(idClean.length() - 1);
-        Query q = entityManager
-                .createQuery("update Appointment set status=?1 where id in (" + idClean.toString() + ")");
-        q.setParameter(1, status);
+        Query q = entityManager.createQuery("update Appointment set status=:status, "
+                + "updateDateTime=greatest(current_timestamp, coalesce(timestampadd(second, 1, updateDateTime), current_timestamp)) "
+                + "where id in (:ids)");
+        q.setParameter("status", status);
+        q.setParameter("ids", appointmentIds);
         return q.executeUpdate();
     }
 
@@ -949,6 +1109,33 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
     private static String value(Object value) {
         return value == null ? "" : String.valueOf(value);
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public List<Appointment> findByUpdateDateAndId(Date after, int afterId, int limit) {
+        Query query = entityManager.createQuery("select x from Appointment x where "
+                + "(x.updateDateTime>?1 or (x.updateDateTime=?1 and x.id>?2)) order by x.updateDateTime, x.id");
+        query.setParameter(1, after);
+        query.setParameter(2, afterId);
+        setLimit(query, limit);
+        return query.getResultList();
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public List<Appointment> findByProgramProviderDemographicDateAndId(Integer programId, String providerNo,
+            Integer demographicId, Date after, int afterId, int limit) {
+        Query query = entityManager.createQuery("select x from Appointment x where "
+                + "(x.programId=?1 or x.programId is null or x.programId=0) and x.demographicNo=?2 and x.providerNo=?3 "
+                + "and (x.updateDateTime>?4 or (x.updateDateTime=?4 and x.id>?5)) order by x.updateDateTime, x.id");
+        query.setParameter(1, programId);
+        query.setParameter(2, demographicId);
+        query.setParameter(3, providerNo);
+        query.setParameter(4, after);
+        query.setParameter(5, afterId);
+        setLimit(query, limit);
+        return query.getResultList();
     }
 
 }

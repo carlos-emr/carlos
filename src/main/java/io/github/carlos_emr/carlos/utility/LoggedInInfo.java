@@ -33,7 +33,6 @@ import java.util.Locale;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
@@ -70,9 +69,11 @@ public final class LoggedInInfo implements Serializable {
         this.locale = locale;
     }
 
+    /** Reports a sanitized provider number and numeric facility ID, never session or security state. */
     @Override
     public String toString() {
-        return (ReflectionToStringBuilder.toString(this));
+        return "LoggedInInfo[providerNo=" + LogSafe.sanitize(getLoggedInProviderNo())
+                + ", facilityId=" + (currentFacility == null ? null : currentFacility.getId()) + "]";
     }
 
     /**
@@ -114,6 +115,21 @@ public final class LoggedInInfo implements Serializable {
      */
     public static LoggedInInfo getLoggedInInfoFromSession(HttpServletRequest request) {
         return (getLoggedInInfoFromSession(request.getSession()));
+    }
+
+    /**
+     * Retrieves the browser-request {@link LoggedInInfo} from the current HTTP session.
+     *
+     * @param request non-null current HTTP request used to access the session
+     * @return non-null {@link LoggedInInfo} stored in the session
+     * @throws SecurityException when session {@link LoggedInInfo} is missing
+     */
+    public static LoggedInInfo requireLoggedInInfoFromSession(HttpServletRequest request) {
+        LoggedInInfo loggedInInfo = getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            throw new SecurityException("missing required session");
+        }
+        return loggedInInfo;
     }
 
     /**

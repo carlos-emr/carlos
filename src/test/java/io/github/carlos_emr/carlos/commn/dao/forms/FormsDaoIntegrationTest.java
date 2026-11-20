@@ -162,6 +162,35 @@ public class FormsDaoIntegrationTest extends CarlosTestBase {
         }
     }
 
+    @Test
+    @DisplayName("Requisition listing and linking retain legacy integer/date types for both form versions")
+    void shouldReturnLegacyTypesForRequisitionListingsAndLinks() {
+        em.createNativeQuery("INSERT INTO formLabReq10 (formCreated, patientName, demographic_no) "
+                + "VALUES ('2026-03-02', 'Smith, John', 100)").executeUpdate();
+        em.flush();
+        List<List<Object[]>> listings = List.of(
+                formsDao.findIdFormCreatedAndPatientNameFromFormLabReq07(),
+                formsDao.findIdFormCreatedAndPatientNameFromFormLabReq07("100"),
+                formsDao.findIdFormCreatedAndPatientNameFromFormLabReq10(),
+                formsDao.findIdFormCreatedAndPatientNameFromFormLabReq10("100"));
+        for (List<Object[]> rows : listings) {
+            assertThat(rows).isNotEmpty();
+            for (Object[] row : rows) {
+                assertThat(row[0]).isInstanceOf(Integer.class);
+                assertThat(row[1]).isInstanceOf(java.util.Date.class);
+                assertThat(row[2]).isInstanceOf(String.class);
+            }
+        }
+        Integer id07 = (Integer) listings.get(1).getFirst()[0];
+        Integer id10 = (Integer) listings.get(3).getFirst()[0];
+        assertThat(formsDao.findFormCreatedFromFormLabReq07ById(id07))
+                .singleElement().isInstanceOf(java.util.Date.class);
+        assertThat(formsDao.findFormCreatedFromFormLabReq10ById(id10))
+                .singleElement().isInstanceOf(java.util.Date.class);
+        java.util.Date date = (java.util.Date) formsDao.findFormCreatedFromFormLabReq10ById(id10).getFirst();
+        assertThat(new java.text.SimpleDateFormat("yyyy-MM-dd").format(date)).isEqualTo("2026-03-02");
+    }
+
     @Nested
     @DisplayName("Parameterized native query execution")
     class ParameterizedNativeQueries {

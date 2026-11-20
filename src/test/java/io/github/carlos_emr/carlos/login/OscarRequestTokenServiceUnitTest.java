@@ -50,7 +50,10 @@ class OscarRequestTokenServiceUnitTest {
         request.setScheme("https");
         OAuth1Request oauthRequest = new OAuth1Request();
         oauthRequest.consumerKey = "consumer";
+        // Scope enforcement is on by default (#4419); these tests exercise callback handling.
+        oauthRequest.scopesCsv = "demographic.read";
         oauthRequest.callback = "javascript:alert(1)";
+        request.setParameter("oauth_callback", "javascript:alert(1)");
         Client client = new Client("consumer", "secret", "App", "https://trusted.example");
         client.setCallbackUri("https://trusted.example/callback");
         when(parser.parseFromRequest(request)).thenReturn(oauthRequest);
@@ -75,7 +78,10 @@ class OscarRequestTokenServiceUnitTest {
         request.setScheme("https");
         OAuth1Request oauthRequest = new OAuth1Request();
         oauthRequest.consumerKey = "consumer";
+        // Scope enforcement is on by default (#4419); these tests exercise callback handling.
+        oauthRequest.scopesCsv = "demographic.read";
         oauthRequest.callback = "https:callback";
+        request.setParameter("oauth_callback", "https:callback");
         Client client = new Client("consumer", "secret", "App", "https://trusted.example");
         client.setCallbackUri("https://trusted.example/callback");
         when(parser.parseFromRequest(request)).thenReturn(oauthRequest);
@@ -106,7 +112,10 @@ class OscarRequestTokenServiceUnitTest {
         request.setScheme("https");
         OAuth1Request oauthRequest = new OAuth1Request();
         oauthRequest.consumerKey = "consumer";
+        // Scope enforcement is on by default (#4419); these tests exercise callback handling.
+        oauthRequest.scopesCsv = "demographic.read";
         oauthRequest.callback = requestedCallback;
+        request.setParameter("oauth_callback", requestedCallback);
         Client client = new Client("consumer", "secret", "App", "https://trusted.example");
         client.setCallbackUri("https://trusted.example/callback");
         RequestToken token = new RequestToken(client, "token-id", "token-secret");
@@ -136,6 +145,8 @@ class OscarRequestTokenServiceUnitTest {
         request.setScheme("https");
         OAuth1Request oauthRequest = new OAuth1Request();
         oauthRequest.consumerKey = "consumer";
+        // Scope enforcement is on by default (#4419); these tests exercise callback handling.
+        oauthRequest.scopesCsv = "demographic.read";
         Client client = new Client("consumer", "secret", "App", "https://trusted.example/callback");
         client.setCallbackUri("https://trusted.example/callback");
         RequestToken token = new RequestToken(client, "token-id", "token-secret");
@@ -165,6 +176,8 @@ class OscarRequestTokenServiceUnitTest {
         request.setScheme("https");
         OAuth1Request oauthRequest = new OAuth1Request();
         oauthRequest.consumerKey = "consumer";
+        // Scope enforcement is on by default (#4419); these tests exercise callback handling.
+        oauthRequest.scopesCsv = "demographic.read";
         Client client = new Client("consumer", "secret", "App", "https://trusted.example/callback");
         client.setCallbackUri("OOB");
         RequestToken token = new RequestToken(client, "token-id", "token-secret");

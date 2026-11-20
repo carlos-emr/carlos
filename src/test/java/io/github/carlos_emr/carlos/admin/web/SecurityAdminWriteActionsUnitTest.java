@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.admin.web;
 
+import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.security.CarlosMethodSecurity;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
@@ -36,17 +37,24 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.AbstractPlatformTransactionManager;
+import org.springframework.transaction.support.DefaultTransactionStatus;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -65,13 +73,30 @@ class SecurityAdminWriteActionsUnitTest extends CarlosUnitTestBase {
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
     private CarlosMethodSecurity methodSecurity;
+    private SecurityDao securityDao;
+
+    /**
+     * Outcome of a POST that passed the admin write gate. SecurityUpdate2Action performs the edit
+     * itself (#4225), so in this fixture it reaches the locked lookup of record 42, finds nothing
+     * and refuses with its "conflict" view; SecurityAddSecurity2Action still only gates its JSP.
+     */
+    private static final String UPDATE_RECORD_MISSING = "conflict";
 
     @BeforeEach
     void setUpServletActionContext() {
         request = new MockHttpServletRequest();
+        // SecurityUpdate2Action requires a parseable record id; the add action ignores it.
+        request.setParameter("security_no", "42");
         response = new MockHttpServletResponse();
         methodSecurity = mock(CarlosMethodSecurity.class);
         registerMock(CarlosMethodSecurity.class, methodSecurity);
+        securityDao = createAndRegisterMock(SecurityDao.class);
+        registerMock(PlatformTransactionManager.class, new AbstractPlatformTransactionManager() {
+            @Override protected Object doGetTransaction() { return new Object(); }
+            @Override protected void doBegin(Object transaction, TransactionDefinition definition) { }
+            @Override protected void doCommit(DefaultTransactionStatus status) { }
+            @Override protected void doRollback(DefaultTransactionStatus status) { }
+        });
         servletActionContextMock = org.mockito.Mockito.mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
         servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
@@ -87,18 +112,20 @@ class SecurityAdminWriteActionsUnitTest extends CarlosUnitTestBase {
     static Stream<Arguments> writeActions() {
         return Stream.of(
             Arguments.of("SecurityAddSecurity2Action",
-                    (Function<CarlosMethodSecurity, ActionSupport>) SecurityAddSecurity2Action::new),
+                    (Function<CarlosMethodSecurity, ActionSupport>) SecurityAddSecurity2Action::new,
+                    ActionSupport.SUCCESS),
             Arguments.of("SecurityUpdate2Action",
-                    (Function<CarlosMethodSecurity, ActionSupport>) SecurityUpdate2Action::new)
+                    (Function<CarlosMethodSecurity, ActionSupport>) SecurityUpdate2Action::new,
+                    UPDATE_RECORD_MISSING)
         );
     }
 
     static Stream<Arguments> springWiredActions() {
         return Stream.of(
             Arguments.of("SecurityAddSecurity2Action",
-                    (Supplier<ActionSupport>) SecurityAddSecurity2Action::new),
+                    (Supplier<ActionSupport>) SecurityAddSecurity2Action::new, ActionSupport.SUCCESS),
             Arguments.of("SecurityUpdate2Action",
-                    (Supplier<ActionSupport>) SecurityUpdate2Action::new)
+                    (Supplier<ActionSupport>) SecurityUpdate2Action::new, UPDATE_RECORD_MISSING)
         );
     }
 
@@ -106,7 +133,7 @@ class SecurityAdminWriteActionsUnitTest extends CarlosUnitTestBase {
     @MethodSource("writeActions")
     @DisplayName("should require admin write privilege for POST")
     void shouldRequireAdminWritePrivilege_forPost(
-            String actionName, Function<CarlosMethodSecurity, ActionSupport> actionFactory) {
+            String actionName, Function<CarlosMethodSecurity, ActionSupport> actionFactory, String ignored) {
         when(methodSecurity.hasAdminWrite()).thenReturn(false);
         request.setMethod("POST");
         ActionSupport action = actionFactory.apply(methodSecurity);
@@ -116,13 +143,15 @@ class SecurityAdminWriteActionsUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(SecurityException.class)
                 .hasMessageContaining("(_admin or _admin.userAdmin)");
         verify(methodSecurity).hasAdminWrite();
+        verifyNoInteractions(securityDao);
     }
 
     @ParameterizedTest(name = "{0} allows POST with admin write privilege")
     @MethodSource("writeActions")
-    @DisplayName("should return success for POST after passing admin write privilege")
-    void shouldReturnSuccess_forPostWithAdminWritePrivilege(
-            String actionName, Function<CarlosMethodSecurity, ActionSupport> actionFactory) throws Exception {
+    @DisplayName("should proceed past the gate for POST after passing admin write privilege")
+    void shouldProceedPastGate_forPostWithAdminWritePrivilege(
+            String actionName, Function<CarlosMethodSecurity, ActionSupport> actionFactory,
+            String expected) throws Exception {
         when(methodSecurity.hasAdminWrite()).thenReturn(true);
         request.setMethod("POST");
 
@@ -130,15 +159,28 @@ class SecurityAdminWriteActionsUnitTest extends CarlosUnitTestBase {
 
         assertThat(result)
                 .as("%s should allow POST after admin write privilege is granted", actionName)
-                .isEqualTo(ActionSupport.SUCCESS);
+                .isEqualTo(expected);
         verify(methodSecurity).hasAdminWrite();
+    }
+
+    @Test
+    @DisplayName("SecurityUpdate2Action should look up the locked record after admin write privilege is granted")
+    void shouldLookUpLockedRecord_forUpdatePostWithAdminWritePrivilege() throws Exception {
+        when(methodSecurity.hasAdminWrite()).thenReturn(true);
+        request.setMethod("POST");
+
+        String result = new SecurityUpdate2Action(methodSecurity).execute();
+
+        assertThat(result).isEqualTo(UPDATE_RECORD_MISSING);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
+        verify(securityDao).findForUpdate(42);
     }
 
     @ParameterizedTest(name = "{0} resolves CarlosMethodSecurity from SpringUtils")
     @MethodSource("springWiredActions")
     @DisplayName("should use default constructor Spring wiring")
     void shouldUseSpringWiring_forDefaultConstructor(
-            String actionName, Supplier<ActionSupport> actionFactory) throws Exception {
+            String actionName, Supplier<ActionSupport> actionFactory, String expected) throws Exception {
         when(methodSecurity.hasAdminWrite()).thenReturn(true);
         request.setMethod("POST");
 
@@ -146,15 +188,45 @@ class SecurityAdminWriteActionsUnitTest extends CarlosUnitTestBase {
 
         assertThat(result)
                 .as("%s should use the registered CarlosMethodSecurity bean", actionName)
-                .isEqualTo(ActionSupport.SUCCESS);
+                .isEqualTo(expected);
         verify(methodSecurity).hasAdminWrite();
+    }
+
+    @ParameterizedTest(name = "SecurityUpdate2Action rejects security_no \"{0}\"")
+    @ValueSource(strings = {"", "   ", "abc", "0", "-1", "12a", "99999999999"})
+    @DisplayName("should reject update POST with 400 when security_no is not a positive integer")
+    void shouldRejectUpdatePost_whenSecurityNoIsNotAPositiveInteger(String securityNo) throws Exception {
+        when(methodSecurity.hasAdminWrite()).thenReturn(true);
+        request.setMethod("POST");
+        request.setParameter("security_no", securityNo);
+
+        String result = new SecurityUpdate2Action(methodSecurity).execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(response.getErrorMessage())
+                .isEqualTo("security_no is required and must be a positive integer");
+        verifyNoInteractions(securityDao);
+    }
+
+    @Test
+    @DisplayName("should reject update POST with 400 when security_no is absent")
+    void shouldRejectUpdatePost_whenSecurityNoIsAbsent() throws Exception {
+        when(methodSecurity.hasAdminWrite()).thenReturn(true);
+        request.setMethod("POST");
+        request.removeParameter("security_no");
+
+        String result = new SecurityUpdate2Action(methodSecurity).execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
     }
 
     @ParameterizedTest(name = "{0} rejects GET with 405 when admin write is granted")
     @MethodSource("writeActions")
     @DisplayName("should reject GET after passing admin write privilege")
     void shouldRejectGet_whenAdminWritePrivilegeGranted(
-            String actionName, Function<CarlosMethodSecurity, ActionSupport> actionFactory) throws Exception {
+            String actionName, Function<CarlosMethodSecurity, ActionSupport> actionFactory, String ignored) throws Exception {
         when(methodSecurity.hasAdminWrite()).thenReturn(true);
         request.setMethod("GET");
 
@@ -167,5 +239,6 @@ class SecurityAdminWriteActionsUnitTest extends CarlosUnitTestBase {
                 .as("%s should send 405 for GET", actionName)
                 .isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
         verify(methodSecurity).hasAdminWrite();
+        verifyNoInteractions(securityDao);
     }
 }

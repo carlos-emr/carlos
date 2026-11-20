@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -57,6 +58,118 @@ class LookupEntityCopyFactoryUnitTest {
     }
 
     @Test
+    @DisplayName("should copy all AppointmentStatus fields")
+    void shouldCopyAllAppointmentStatusFields_forAllInstanceFields() throws Exception {
+        assertCopyFactoryCopiesAllFields(AppointmentStatus.class, AppointmentStatus::copyOf);
+    }
+
+    @Test
+    @DisplayName("should copy all MeasurementType fields")
+    void shouldCopyAllMeasurementTypeFields_forAllInstanceFields() throws Exception {
+        assertCopyFactoryCopiesAllFields(MeasurementType.class, MeasurementType::copyOf);
+    }
+
+    @Test
+    @DisplayName("should copy all LookupListItem fields")
+    void shouldCopyAllLookupListItemFields_forAllInstanceFields() throws Exception {
+        assertCopyFactoryCopiesAllFields(LookupListItem.class, LookupListItem::copyOf);
+    }
+
+    @Test
+    @DisplayName("should copy all LookupList fields")
+    void shouldCopyAllLookupListFields_forAllInstanceFields() throws Exception {
+        assertCopyFactoryCopiesAllFields(LookupList.class, LookupList::copyOf);
+    }
+
+    @Test
+    @DisplayName("should deep copy LookupList items into a new list of new items in the same order")
+    void shouldDeepCopyLookupListItems_inSourceOrder() throws Exception {
+        LookupList source = populated(LookupList.class);
+        List<LookupListItem> sourceItems = source.getItems();
+
+        LookupList copy = LookupList.copyOf(source);
+
+        assertThat(copy.getItems())
+                .as("the copy must not share the source's item list")
+                .isNotSameAs(sourceItems)
+                .hasSameSizeAs(sourceItems);
+        for (int i = 0; i < sourceItems.size(); i++) {
+            LookupListItem sourceItem = sourceItems.get(i);
+            LookupListItem copiedItem = copy.getItems().get(i);
+            assertThat(copiedItem).as("item %s", i).isNotSameAs(sourceItem);
+            for (Field field : instanceFieldsIn(LookupListItem.class)) {
+                field.setAccessible(true);
+                assertThat(field.get(copiedItem))
+                        .as("item %s field: %s", i, field.getName())
+                        .isEqualTo(field.get(sourceItem));
+            }
+            assertThat(copiedItem.getDateCreated()).isNotSameAs(sourceItem.getDateCreated());
+        }
+
+        copy.getItems().get(0).setLabel("changed");
+        copy.getItems().remove(1);
+        copy.getItems().add(new LookupListItem());
+        assertThat(sourceItems).hasSize(2);
+        assertThat(sourceItems.get(0).getLabel()).isNotEqualTo("changed");
+    }
+
+    @Test
+    @DisplayName("should keep a null LookupList item list null in the copy")
+    void shouldKeepNullItemList_whenLookupListItemsAreNull() {
+        LookupList source = new LookupList();
+        source.setItems(null);
+
+        assertThat(LookupList.copyOf(source).getItems()).isNull();
+    }
+
+    @Test
+    @DisplayName("should copy raw MeasurementType and LookupListItem values without setter normalisation")
+    void shouldCopyRawValues_withoutSetterNormalisation() throws Exception {
+        MeasurementType type = new MeasurementType();
+        setField(MeasurementType.class, type, "measuringInstruction", null);
+        setField(MeasurementType.class, type, "typeDescription", "  padded  ");
+        LookupListItem item = new LookupListItem();
+        item.setLabel(null);
+
+        MeasurementType copiedType = MeasurementType.copyOf(type);
+        LookupListItem copiedItem = LookupListItem.copyOf(item);
+
+        assertThat(getField(MeasurementType.class, copiedType, "measuringInstruction"))
+                .as("setMeasuringInstruction would turn null into an empty string")
+                .isNull();
+        assertThat(copiedType.getTypeDescription())
+                .as("setTypeDescription would trim the value")
+                .isEqualTo("  padded  ");
+        assertThat(getField(LookupListItem.class, copiedItem, "label"))
+                .as("getLabel turns null into an empty string; the copy keeps the stored null")
+                .isNull();
+    }
+
+    @Test
+    @DisplayName("should clone creation dates keeping their runtime type and nanoseconds")
+    void shouldCloneCreationDates_keepingRuntimeTypeAndNanos() throws Exception {
+        Timestamp created = new Timestamp(1700000000000L);
+        created.setNanos(123456789);
+        MeasurementType type = new MeasurementType();
+        setField(MeasurementType.class, type, "createDate", created);
+        LookupListItem item = new LookupListItem();
+        item.setDateCreated(created);
+        LookupList list = new LookupList();
+        list.setDateCreated(created);
+
+        Date copiedTypeDate = MeasurementType.copyOf(type).getCreateDate();
+        Date copiedItemDate = LookupListItem.copyOf(item).getDateCreated();
+        Date copiedListDate = LookupList.copyOf(list).getDateCreated();
+
+        for (Date copied : List.of(copiedTypeDate, copiedItemDate, copiedListDate)) {
+            assertThat(copied).isNotSameAs(created).isInstanceOf(Timestamp.class).isEqualTo(created);
+            assertThat(((Timestamp) copied).getNanos()).isEqualTo(123456789);
+        }
+        copiedTypeDate.setTime(0L);
+        assertThat(created.getTime()).isEqualTo(1700000000123L);
+    }
+
+    @Test
     @DisplayName("should defensively copy Facility lastUpdated")
     void shouldDefensivelyCopyFacilityLastUpdated_withIndependentDateInstance() throws Exception {
         Facility source = populated(Facility.class);
@@ -78,6 +191,10 @@ class LookupEntityCopyFactoryUnitTest {
         assertThat(AppointmentType.copyOf(null)).isNull();
         assertThat(Facility.copyOf(null)).isNull();
         assertThat(ScheduleTemplateCode.copyOf(null)).isNull();
+        assertThat(AppointmentStatus.copyOf(null)).isNull();
+        assertThat(MeasurementType.copyOf(null)).isNull();
+        assertThat(LookupList.copyOf(null)).isNull();
+        assertThat(LookupListItem.copyOf(null)).isNull();
     }
 
     private <T> void assertCopyFactoryCopiesAllFields(Class<T> modelClass, CopyFactory<T> copyFactory) throws Exception {
@@ -119,7 +236,7 @@ class LookupEntityCopyFactoryUnitTest {
         return fields;
     }
 
-    private Object valueFor(Field field, int fieldIndex) {
+    private Object valueFor(Field field, int fieldIndex) throws Exception {
         Class<?> fieldType = field.getType();
         if (fieldType == Integer.class) {
             return 1000 + fieldIndex;
@@ -139,7 +256,28 @@ class LookupEntityCopyFactoryUnitTest {
         if (fieldType == Date.class) {
             return new Date(1700000000000L + fieldIndex);
         }
+        if (fieldType == List.class && field.getDeclaringClass() == LookupList.class) {
+            List<LookupListItem> items = new ArrayList<>();
+            items.add(populated(LookupListItem.class));
+            LookupListItem second = populated(LookupListItem.class);
+            second.setId(second.getId() + 1);
+            second.setLabel("second-label");
+            items.add(second);
+            return items;
+        }
         throw new AssertionError("Unsupported field type " + fieldType.getName() + " for " + field.getName());
+    }
+
+    private static void setField(Class<?> owner, Object target, String name, Object value) throws Exception {
+        Field field = owner.getDeclaredField(name);
+        field.setAccessible(true);
+        field.set(target, value);
+    }
+
+    private static Object getField(Class<?> owner, Object target, String name) throws Exception {
+        Field field = owner.getDeclaredField(name);
+        field.setAccessible(true);
+        return field.get(target);
     }
 
     @FunctionalInterface

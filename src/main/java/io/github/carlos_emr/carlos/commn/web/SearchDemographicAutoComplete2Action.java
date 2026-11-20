@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicCust;
+import io.github.carlos_emr.carlos.demographic.PatientReadAccess;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.provider.dto.ProviderSummaryDTO;
 import io.github.carlos_emr.carlos.utility.AppointmentUtil;
@@ -131,6 +132,12 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
             stati = Arrays.asList(pstatus.split(","));
         }
 
+        // The global _demographic r check above does not honour a patient-specific record lock
+        // (_demographic$<id> / _eChart$<id>). Resolve the locked set before searching, so
+        // missing privilege metadata fails closed before any patient row is read.
+        Set<Integer> deniedPatients = PatientReadAccess.deniedPatientsFromRequest(request, securityInfoManager,
+                loggedInInfo, "_demographic", SecurityInfoManager.READ);
+
         List<Demographic> list = null;
 
         if (searchStr.length() == 8 && searchStr.matches("([0-9]*)")) {
@@ -165,6 +172,19 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
             }
         }
 
+        // Drop locked patients, keeping the DAO's order, before any per-patient lookup (custom
+        // alert, providers, next appointment) or JSON field is built. A page can therefore hold
+        // fewer rows than the DAO limit; the limit itself is unchanged.
+        if (!deniedPatients.isEmpty()) {
+            List<Demographic> readable = new ArrayList<>(list.size());
+            for (Demographic demo : list) {
+                if (demo.getDemographicNo() == null || !deniedPatients.contains(demo.getDemographicNo())) {
+                    readable.add(demo);
+                }
+            }
+            list = readable;
+        }
+
 
         // Hoist DAO lookups outside loop to avoid N+1 bean resolution on every iteration
         DemographicCustDao demographicCustDao = (DemographicCustDao) SpringUtils.getBean(DemographicCustDao.class);
@@ -196,6 +216,18 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
                 ? new HashMap<>()
                 : providerDao.getProviderSummariesByIds(providerNos);
 
+        // Batch-load the next appointments in a single query: this list is up to 100 rows and the
+        // schedule's quick search issues a request per keystroke, so a per-row lookup would be
+        // 100 queries a keystroke.
+        Map<Integer, String> nextAppointments = new HashMap<>();
+        if (workflowEnhance) {
+            List<Integer> demographicNos = new ArrayList<>();
+            for (Demographic demo : list) {
+                demographicNos.add(demo.getDemographicNo());
+            }
+            nextAppointments = AppointmentUtil.getNextAppointments(demographicNos);
+        }
+
         List<HashMap<String, String>> secondList = new ArrayList<HashMap<String, String>>();
         for (Demographic demo : list) {
             HashMap<String, String> h = new HashMap<String, String>();
@@ -226,7 +258,7 @@ public class SearchDemographicAutoComplete2Action extends ActionSupport {
             h.put("alert", alertText);
 
             if (workflowEnhance) {
-                h.put("nextAppointment", AppointmentUtil.getNextAppointment(demo.getDemographicNo() + ""));
+                h.put("nextAppointment", nextAppointments.getOrDefault(demo.getDemographicNo(), ""));
 
                 if (demographicCust != null) {
                     String cust1 = StringUtils.trimToNull(demographicCust.getNurse());

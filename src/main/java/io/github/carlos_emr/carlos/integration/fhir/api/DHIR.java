@@ -30,6 +30,11 @@ package io.github.carlos_emr.carlos.integration.fhir.api;
 
 import java.util.HashSet;
 
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.util.RawValue;
+import io.github.carlos_emr.carlos.integration.fhir.builder.AbstractFhirMessageBuilder;
+import io.github.carlos_emr.carlos.integration.fhir.utils.FhirJsonCompatibility;
 import io.github.carlos_emr.carlos.integration.fhir.model.Patient;
 import io.github.carlos_emr.carlos.integration.fhir.model.SubmittingPractitioner;
 import org.hl7.fhir.dstu3.model.Bundle;
@@ -49,14 +54,31 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 public class DHIR {
 
-    private static Settings SETTINGS = new Settings(FhirDestination.DHIR, Region.ON);
+    /**
+     * Encodes the DHIR gateway envelope with the legacy FHIR blank-value contract.
+     * The body is trusted encoder output, embedded without reparsing clinical decimals
+     * as doubles or changing their scale. Envelope strings remain JSON-escaped.
+     *
+     * @throws IllegalStateException if FHIR JSON normalization fails; no payload is returned
+     */
+    public static String encodeSubmission(Bundle bundle, String destinationUrl, String clientRequestId) {
+        String body = FhirJsonCompatibility.encode(AbstractFhirMessageBuilder.getFhirContext(), bundle);
+        ObjectNode envelope = JsonNodeFactory.instance.objectNode();
+        envelope.put("url", destinationUrl);
+        envelope.put("service", "DHIR");
+        envelope.putRawValue("body", new RawValue(body));
+        envelope.put("client-request-id", clientRequestId);
+        envelope.put("client-app-desc", "EMR");
+        return envelope.toString();
+    }
 
     /**
      * Get the FhirBundleBuilder Object for all immunizations
      * Useful for adding additional resources or adjusting the message structure.
      */
     public static synchronized FhirBundleBuilder getFhirBundleBuilder(LoggedInInfo loggedInInfo, int demographicNo) {
-        OscarFhirConfigurationManager configurationManager = new OscarFhirConfigurationManager(loggedInInfo, SETTINGS);
+        Settings settings = new Settings(FhirDestination.DHIR, Region.ON);
+        OscarFhirConfigurationManager configurationManager = new OscarFhirConfigurationManager(loggedInInfo, settings);
         HashSet<AbstractOscarFhirResource<?, ?>> resourceList = new HashSet<AbstractOscarFhirResource<?, ?>>();
         Patient patient = OscarFhirResourceManager.getPatientByDemographicNumber(configurationManager, demographicNo);
 
@@ -90,9 +112,10 @@ public class DHIR {
     public static synchronized FhirBundleBuilder getFhirBundleBuilder(LoggedInInfo loggedInInfo, int demographicNo, int preventionId) {
 
         //TODO this will be set in a properties file later. The default is false anyway.
-        SETTINGS.setIncludeSenderEndpoint(Boolean.TRUE);
+        Settings settings = new Settings(FhirDestination.DHIR, Region.ON);
+        settings.setIncludeSenderEndpoint(Boolean.TRUE);
 
-        OscarFhirConfigurationManager configurationManager = new OscarFhirConfigurationManager(loggedInInfo, SETTINGS);
+        OscarFhirConfigurationManager configurationManager = new OscarFhirConfigurationManager(loggedInInfo, settings);
         HashSet<AbstractOscarFhirResource<?, ?>> resourceList = new HashSet<AbstractOscarFhirResource<?, ?>>();
         Patient patient = OscarFhirResourceManager.getPatientByDemographicNumber(configurationManager, demographicNo);
         SubmittingPractitioner submittingPractitioner = new SubmittingPractitioner(configurationManager.getLoggedInInfo().getLoggedInProvider(), configurationManager);

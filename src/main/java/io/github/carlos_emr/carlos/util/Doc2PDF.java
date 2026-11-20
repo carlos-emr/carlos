@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.util;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -57,23 +59,27 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Entities;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 
-import io.github.carlos_emr.carlos.documentManager.LocalOnlyUserAgent;
-import org.xhtmlrenderer.pdf.ITextRenderer;
-import org.xhtmlrenderer.layout.SharedContext;
+import io.github.carlos_emr.carlos.documentManager.htmlpdf.dto.HtmlPdfRenderRequest;
+import io.github.carlos_emr.carlos.documentManager.htmlpdf.dto.HtmlPdfRenderSource;
+import io.github.carlos_emr.carlos.documentManager.htmlpdf.service.HtmlPdfRenderService;
+import io.github.carlos_emr.carlos.utility.PDFGenerationException;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
- * HTML-to-PDF conversion utility using Flying Saucer's ITextRenderer.
+ * HTML-to-PDF conversion utility for Messenger and legacy callers.
  *
  * <p>Provides multiple entry points for converting HTML content (from strings, URIs, or JSP
- * output) into PDF documents. Uses Jsoup for HTML parsing and XHTML cleanup, then
- * Flying Saucer ({@link ITextRenderer}) for PDF rendering. Also includes legacy methods
- * for invoking the external {@code htmldoc} command-line tool.</p>
- *
- * <p>Note: Flying Saucer's {@code ITextRenderer} uses OpenPDF (the LGPL fork of iText)
- * as its PDF backend. The "iText" in the class name is a historical artifact from when
- * Flying Saucer used the original iText library.</p>
+ * output) into PDF documents. Uses Jsoup for HTML parsing and XHTML cleanup, then hands the
+ * document to {@link HtmlPdfRenderService}, which renders it with Flying Saucer on US Letter
+ * pages, makes no network request, and prints a plainer version of a document it cannot lay out
+ * rather than none at all.</p>
  *
  * @deprecated Unsafe with potential memory leaks. Consider using
  *     {@link io.github.carlos_emr.carlos.documentManager.ConvertToEdoc} for HTML-to-PDF conversion.
@@ -84,7 +90,6 @@ public class Doc2PDF {
     private static Logger logger = MiscUtils.getLogger();
     private static final int INTERNAL_FETCH_CONNECT_TIMEOUT_MS = 5000;
     private static final int INTERNAL_FETCH_READ_TIMEOUT_MS = 30000;
-    private static final char[] HEX_DIGITS = "0123456789ABCDEF".toCharArray();
 
     /**
      * Sends an HTTP 500 error response if the response has not yet been committed.
@@ -97,7 +102,7 @@ public class Doc2PDF {
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "PDF generation failed");
             }
         } catch (IOException ioEx) {
-            logger.error("Could not send error response", ioEx);
+            logger.error("Could not send error response: {}", LogSafe.exceptionTrace(ioEx));
         }
     }
 
@@ -116,41 +121,61 @@ public class Doc2PDF {
     }
 
     /**
-     * Render HTML to PDF using Flying Saucer's ITextRenderer.
-     * Mirrors the proven pattern from {@code ConvertToEdoc.fallbackRender()}.
+     * Renders HTML to PDF through {@link HtmlPdfRenderService}, as a Messenger document.
      *
-     * <p>Uses {@link LocalOnlyUserAgent} to prevent SSRF — all external network
-     * resource fetches ({@code http:}, {@code https:}, {@code ftp:}, protocol-relative
-     * {@code //}) are blocked at the transport layer. Only {@code data:} URIs and local
-     * file paths are permitted.</p>
+     * <p>The service removes scripts and comments, replaces form controls and images it cannot use,
+     * fetches nothing over the network and reads local files only from the web root (the base URL),
+     * {@code java.io.tmpdir} and Catalina's work directory. If it cannot lay the document out it prints
+     * a plainer version, with a note on the page, and only a document it cannot print at all fails.</p>
      *
      * @param html String containing the HTML content to render
      * @param os OutputStream to write the PDF to
      * @param baseUrl String optional base URL for resolving relative resources (e.g. {@code file:///path/to/webapp/}), or null
-     * @throws org.openpdf.text.DocumentException if the PDF document structure cannot be created
+     * @throws PDFGenerationException if the HTML is blank or cannot be converted to PDF
+     * @throws IOException if the PDF cannot be written to {@code os}
      * @since 2026-03-04
      */
-    private static void renderWithFlyingSaucer(String html, OutputStream os, String baseUrl) throws org.openpdf.text.DocumentException {
-        org.jsoup.nodes.Document doc = Jsoup.parse(html);
-        configureJsoupForXhtml(doc);
-        doc.outputSettings().charset(StandardCharsets.UTF_8.name());
+    private static void renderWithFlyingSaucer(String html, OutputStream os, String baseUrl) throws PDFGenerationException, IOException {
+        Path root = webRootOf(baseUrl);
+        Set<Path> allowed = new LinkedHashSet<>();
+        if (root != null) {
+            allowed.add(root);
+        }
+        addDirectory(allowed, System.getProperty("java.io.tmpdir"));
+        String catalinaBase = System.getProperty("catalina.base");
+        if (catalinaBase != null && !catalinaBase.isBlank()) {
+            addDirectory(allowed, Path.of(catalinaBase, "work").toString());
+        }
+        HtmlPdfRenderService service = SpringUtils.getBean(HtmlPdfRenderService.class);
+        service.render(new HtmlPdfRenderRequest(html, root, List.copyOf(allowed), HtmlPdfRenderSource.MESSENGER)).writeTo(os);
+    }
 
-        // Flying Saucer attempts to execute script content during rendering, causing errors
-        doc.select("script").remove();
-        // XHTML requires alt attributes on all img elements; missing ones cause validation failures
-        doc.select("img:not([alt])").attr("alt", "");
-        // Flying Saucer's form renderer crashes on input elements without an explicit type attribute
-        doc.select("input:not([type])").attr("type", "text");
+    /** The directory of a {@code file://} base URL as an absolute, normalised path; {@code null} for none or for a root. */
+    private static Path webRootOf(String baseUrl) {
+        String prefix = "file://";
+        if (baseUrl == null || !baseUrl.startsWith(prefix)) {
+            return null;
+        }
+        return usableDirectory(baseUrl.substring(prefix.length()));
+    }
 
-        ITextRenderer renderer = LocalOnlyUserAgent.createRestrictedRenderer();
-        SharedContext sharedContext = renderer.getSharedContext();
-        sharedContext.setPrint(true);
-        sharedContext.setInteractive(false);
-        sharedContext.getTextRenderer().setSmoothingThreshold(0);
+    private static void addDirectory(Set<Path> allowed, String directory) {
+        Path path = usableDirectory(directory);
+        if (path != null) {
+            allowed.add(path);
+        }
+    }
 
-        renderer.setDocumentFromString(doc.outerHtml(), baseUrl);
-        renderer.layout();
-        renderer.createPDF(os, true);
+    private static Path usableDirectory(String text) {
+        if (text == null || text.isBlank()) {
+            return null;
+        }
+        try {
+            Path path = Path.of(text).toAbsolutePath().normalize();
+            return path.getParent() == null ? null : path;
+        } catch (InvalidPathException e) {
+            return null;
+        }
     }
 
     /**
@@ -169,13 +194,13 @@ public class Doc2PDF {
         try {
 
             // Fetch the rendered JSP page via HTTP and parse it into a clean XHTML document
-            BufferedInputStream in = openValidatedInternalFetch(request, jsessionid, uri);
-            if (in == null) {
-                throw new IOException("Failed to fetch JSP content from the given URI");
+            org.jsoup.nodes.Document doc;
+            try (BufferedInputStream in = openValidatedInternalFetch(request, jsessionid, uri)) {
+                if (in == null) {
+                    throw new IOException("Failed to fetch JSP content from the given URI");
+                }
+                doc = Jsoup.parse(in, StandardCharsets.UTF_8.name(), uri);
             }
-
-            // Parse directly from InputStream with UTF-8 encoding and base URI
-            org.jsoup.nodes.Document doc = Jsoup.parse(in, StandardCharsets.UTF_8.name(), uri);
             configureJsoupForXhtml(doc);
 
             String cleanHtml = doc.html();
@@ -185,7 +210,7 @@ public class Doc2PDF {
             PrintPDFFromHTMLString(response, documentTxt, getFileBaseUrl(request));
 
         } catch (Exception e) {
-            logger.error("Failed to convert JSP to PDF for URI: {}", uri, e);
+            logger.error("Failed to convert JSP to PDF: {}", LogSafe.exceptionTrace(e));
             sendErrorIfPossible(response);
         }
 
@@ -204,6 +229,7 @@ public class Doc2PDF {
     public static void parseString2PDF(HttpServletRequest request, HttpServletResponse response, String docText) {
 
         try {
+            requirePrintableText(docText);
 
             // Parse and clean HTML with Jsoup (handles UTF-8 internally)
             org.jsoup.nodes.Document doc = Jsoup.parse(docText);
@@ -214,7 +240,7 @@ public class Doc2PDF {
             PrintPDFFromHTMLString(response, AddAbsoluteTag(request, cleanHtml, ""), getFileBaseUrl(request));
 
         } catch (Exception e) {
-            logger.error("Failed to convert HTML string to PDF", e);
+            logger.error("Failed to convert HTML string to PDF: {}", LogSafe.exceptionTrace(e));
             sendErrorIfPossible(response);
         }
 
@@ -233,6 +259,7 @@ public class Doc2PDF {
     public static String parseString2Bin(HttpServletRequest request, HttpServletResponse response, String docText) {
 
         try {
+            requirePrintableText(docText);
 
             // Parse and clean HTML with Jsoup (handles UTF-8 internally)
             org.jsoup.nodes.Document doc = Jsoup.parse(docText);
@@ -245,10 +272,22 @@ public class Doc2PDF {
             return testFile;
 
         } catch (Exception e) {
-            logger.error("Failed to convert HTML string to Base64 PDF binary", e);
+            logger.error("Failed to convert HTML string to Base64 PDF binary: {}", LogSafe.exceptionTrace(e));
             return null;
         }
 
+    }
+
+    /**
+     * Jsoup turns even an empty string into a document with a head and a body, which would then print as a
+     * blank page; a string with nothing in it is a failure here, as it is for the render service.
+     *
+     * @throws IllegalArgumentException if the text is null or only white space
+     */
+    private static void requirePrintableText(String docText) {
+        if (docText == null || docText.isBlank()) {
+            throw new IllegalArgumentException("There is no HTML to convert to PDF");
+        }
     }
 
     /**
@@ -265,7 +304,7 @@ public class Doc2PDF {
             p.writeBytes(docBin);
             p.flush();
         } catch (IOException ioe) {
-            logger.error("Failed to save PDF to file: {}", fileName, ioe);
+            logger.error("Failed to save PDF to file: {}", LogSafe.exceptionTrace(ioe));
         }
     }
 
@@ -278,7 +317,7 @@ public class Doc2PDF {
      * servlet context path. External hosts, alternate schemes, fragments, user-info,
      * and cross-context paths are rejected before opening a connection.</p>
      *
-     * @param jsessionid String the session ID appended to the URI for authentication
+     * @param jsessionid String the session ID sent in the cookie header for authentication
      * @param uri String the target URI to fetch
      * @return BufferedInputStream the response body, or null if the connection fails
      */
@@ -295,7 +334,7 @@ public class Doc2PDF {
      * Opens an internal same-application HTTP(S) connection with session authentication.
      *
      * @param request HttpServletRequest providing the allowed server name, port, and context path
-     * @param jsessionid String the session ID appended to the URI for authentication
+     * @param jsessionid String the session ID sent in the cookie header for authentication
      * @param uri String the target URI to fetch
      * @return BufferedInputStream the response body, or null if the connection fails
      */
@@ -305,17 +344,24 @@ public class Doc2PDF {
 
         HttpURLConnection conn = null;
         try {
-            // Append jsessionid to the URL path because this is a server-side HTTP connection
-            // that does not share the browser's session cookie; the session ID must be passed
-            // via URL rewriting so the target JSP executes within the user's authenticated session.
             URI validatedUri = validateInternalFetchUri(request, uri);
-            URL url = appendSessionId(validatedUri, jsessionid).toURL();
+            String sessionCookie = sessionCookieHeader(request, jsessionid);
+            URL url = validatedUri.toURL();
 
             MiscUtils.getLogger().debug("Opening internal Doc2PDF fetch for validated same-application target");
 
             conn = (HttpURLConnection) url.openConnection();
             conn.setConnectTimeout(INTERNAL_FETCH_CONNECT_TIMEOUT_MS);
             conn.setReadTimeout(INTERNAL_FETCH_READ_TIMEOUT_MS);
+            // Session tracking is COOKIE-only. Never put credentials in a URL or
+            // forward them to a redirect target outside the validated application.
+            conn.setInstanceFollowRedirects(false);
+            conn.setRequestProperty("Cookie", sessionCookie);
+            if (conn.getResponseCode() != HttpURLConnection.HTTP_OK) {
+                logger.warn("Internal Doc2PDF fetch did not return HTTP 200");
+                conn.disconnect();
+                return null;
+            }
 
             // Wrap the stream so that closing it also disconnects the HTTP connection,
             // preventing connection pool leaks when the caller closes the returned stream.
@@ -342,7 +388,7 @@ public class Doc2PDF {
             logger.warn("Rejected internal Doc2PDF fetch due to invalid URI syntax");
             return null;
         } catch (Exception e) {
-            logger.error("Failed to open HTTP connection to fetch URI content", e);
+            logger.error("Failed to open HTTP connection to fetch URI content: {}", LogSafe.exceptionTrace(e));
             if (conn != null) {
                 conn.disconnect();
             }
@@ -376,6 +422,8 @@ public class Doc2PDF {
             throw new IllegalArgumentException("Internal Doc2PDF fetch URI must target the local application connector");
         }
 
+        validateInternalFetchTransport(target);
+
         int targetPort = effectivePort(target.getScheme(), target.getPort());
         int requestPort = effectivePort(request.getScheme(), getRequestLocalPort(request));
         if (targetPort != requestPort) {
@@ -400,6 +448,19 @@ public class Doc2PDF {
         }
 
         return target;
+    }
+
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of parsed ASCII URI schemes in fail-closed transport validation")
+    private static void validateInternalFetchTransport(URI target) {
+        // Packaged nginx forwards to a loopback-only HTTP connector. Permit that
+        // same-host hop without relying on DNS; other connector names require TLS.
+        String targetHost = normalizeHost(target.getHost());
+        if ("http".equalsIgnoreCase(target.getScheme())
+                && !"127.0.0.1".equals(targetHost)
+                && !"::1".equals(targetHost)
+                && !"0:0:0:0:0:0:0:1".equals(targetHost)) {
+            throw new IllegalArgumentException("Internal HTTP fetches require a numeric loopback address");
+        }
     }
 
     private static boolean isAllowedInternalHost(HttpServletRequest request, String targetHost) {
@@ -470,54 +531,25 @@ public class Doc2PDF {
         return port;
     }
 
-    private static URI appendSessionId(URI uri, String jsessionid) throws URISyntaxException {
-        if (jsessionid == null || jsessionid.trim().isEmpty()) {
-            throw new URISyntaxException(String.valueOf(uri), "JSESSIONID must not be empty");
+    private static String sessionCookieHeader(HttpServletRequest request, String sessionId) {
+        // Tomcat session IDs (including an optional jvmRoute) use these characters.
+        // Reject separators/control characters before constructing an HTTP header.
+        if (sessionId == null || !sessionId.matches("[A-Za-z0-9._~-]+")) {
+            throw new IllegalArgumentException("Invalid internal session cookie value");
         }
-
-        String rawPath = uri.getRawPath();
-        if (rawPath == null || rawPath.isEmpty()) {
-            rawPath = "/";
+        String cookieName = request.getServletContext().getSessionCookieConfig().getName();
+        if (cookieName == null) {
+            cookieName = "JSESSIONID";
         }
-        String pathWithSession = rawPath + ";jsessionid=" + encodePathSegment(jsessionid);
-        StringBuilder rewrittenUri = new StringBuilder()
-                .append(uri.getScheme())
-                .append("://")
-                .append(uri.getRawAuthority())
-                .append(pathWithSession);
-        if (uri.getRawQuery() != null) {
-            rewrittenUri.append('?').append(uri.getRawQuery());
+        // This is an outbound request header, not a browser Set-Cookie response.
+        if (!org.apache.tomcat.util.http.parser.HttpParser.isToken(cookieName)) {
+            throw new IllegalArgumentException("Invalid internal session cookie name");
         }
-        return new URI(rewrittenUri.toString());
-    }
-
-    private static String encodePathSegment(String value) {
-        StringBuilder encoded = new StringBuilder();
-        for (byte b : value.getBytes(StandardCharsets.UTF_8)) {
-            int c = b & 0xff;
-            if (isUnreservedPathByte(c)) {
-                encoded.append((char) c);
-            } else {
-                encoded.append('%');
-                encoded.append(HEX_DIGITS[(c >> 4) & 0x0f]);
-                encoded.append(HEX_DIGITS[c & 0x0f]);
-            }
-        }
-        return encoded.toString();
-    }
-
-    private static boolean isUnreservedPathByte(int c) {
-        return (c >= 'A' && c <= 'Z')
-                || (c >= 'a' && c <= 'z')
-                || (c >= '0' && c <= '9')
-                || c == '-'
-                || c == '.'
-                || c == '_'
-                || c == '~';
+        return cookieName + "=" + sessionId;
     }
 
     /**
-     * Converts an HTML string to a Base64-encoded PDF using Flying Saucer.
+     * Converts an HTML string to a Base64-encoded PDF through {@link HtmlPdfRenderService}.
      *
      * @param response HttpServletResponse unused but maintained for API compatibility
      * @param docText String the HTML content to convert
@@ -528,9 +560,9 @@ public class Doc2PDF {
         try {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             renderWithFlyingSaucer(docText, baos, baseUrl);
-            return (new String(Base64.encodeBase64(baos.toByteArray())));
+            return (new String(java.util.Base64.getEncoder().encode(baos.toByteArray())));
         } catch (Exception e) {
-            logger.error("Failed to render HTML to Base64 PDF binary", e);
+            logger.error("Failed to render HTML to Base64 PDF binary: {}", LogSafe.exceptionTrace(e));
         }
         return null;
     }
@@ -551,7 +583,7 @@ public class Doc2PDF {
             return;
 
         } catch (Exception e) {
-            logger.error("Failed to decode and print Base64 PDF", e);
+            logger.error("Failed to decode and print Base64 PDF: {}", LogSafe.exceptionTrace(e));
             sendErrorIfPossible(response);
         }
 
@@ -593,14 +625,14 @@ public class Doc2PDF {
             o.close(); // *important* to ensure no more jsp output
             return;
         } catch (Exception e) {
-            logger.error("Failed to write PDF bytes to HTTP response", e);
+            logger.error("Failed to write PDF bytes to HTTP response: {}", LogSafe.exceptionTrace(e));
             sendErrorIfPossible(response);
         }
 
     }
 
     /**
-     * Converts an HTML string to PDF using Flying Saucer and writes it to the HTTP response.
+     * Converts an HTML string to PDF through {@link HtmlPdfRenderService} and writes it to the HTTP response.
      *
      * @param response HttpServletResponse to write the PDF to
      * @param docText String the HTML content to convert and serve
@@ -612,7 +644,7 @@ public class Doc2PDF {
             renderWithFlyingSaucer(docText, baos, baseUrl);
             PrintPDFFromBytes(response, baos.toByteArray());
         } catch (Exception e) {
-            logger.error("Failed to render HTML string to PDF", e);
+            logger.error("Failed to render HTML string to PDF: {}", LogSafe.exceptionTrace(e));
             sendErrorIfPossible(response);
         }
     }
@@ -626,7 +658,7 @@ public class Doc2PDF {
      * implementation constructed absolute HTTP URLs from src attributes; the current
      * implementation strips leading slashes so paths resolve relatively against a
      * {@code file://} base URL, which avoids HTTP requests blocked by
-     * {@link LocalOnlyUserAgent}.</p>
+     * the render service.</p>
      *
      * @param request HttpServletRequest unused, retained for API compatibility with existing callers
      * @param docText String the HTML content with potentially absolute src attributes

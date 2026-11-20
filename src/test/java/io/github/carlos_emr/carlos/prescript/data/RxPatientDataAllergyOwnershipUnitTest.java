@@ -25,11 +25,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -66,6 +69,9 @@ class RxPatientDataAllergyOwnershipUnitTest extends CarlosUnitTestBase {
     @Mock
     private PartialDateDao mockPartialDateDao;
 
+    @Mock
+    private PlatformTransactionManager mockTransactionManager;
+
     private RxPatientData.Patient patient;
 
     @BeforeEach
@@ -84,6 +90,7 @@ class RxPatientDataAllergyOwnershipUnitTest extends CarlosUnitTestBase {
         allergyDaoField.set(null, mockAllergyDao);
 
         registerMock(PartialDateDao.class, mockPartialDateDao);
+        registerMock(PlatformTransactionManager.class, mockTransactionManager);
 
         Demographic demographic = new Demographic();
         demographic.setDemographicNo(SESSION_DEMOGRAPHIC_NO);
@@ -186,5 +193,34 @@ class RxPatientDataAllergyOwnershipUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isFalse();
         verify(mockAllergyDao, never()).merge(any());
+    }
+
+    @Test
+    @DisplayName("amendActiveAllergy should archive the active original before adding its replacement, in one transaction")
+    void shouldArchiveOriginalThenAddReplacement_whenOriginalIsActive() {
+        Allergy replacement = allergyOwnedBy(SESSION_DEMOGRAPHIC_NO);
+        when(mockAllergyDao.archiveIfActive(ALLERGY_ID, SESSION_DEMOGRAPHIC_NO)).thenReturn(1);
+
+        boolean result = patient.amendActiveAllergy(new java.util.Date(), replacement, ALLERGY_ID);
+
+        assertThat(result).isTrue();
+        InOrder order = inOrder(mockTransactionManager, mockAllergyDao);
+        order.verify(mockTransactionManager).getTransaction(any());
+        order.verify(mockAllergyDao).archiveIfActive(ALLERGY_ID, SESSION_DEMOGRAPHIC_NO);
+        order.verify(mockAllergyDao).persist(replacement);
+        order.verify(mockTransactionManager).commit(any());
+    }
+
+    @Test
+    @DisplayName("amendActiveAllergy should add nothing when the original is no longer active (issue #4410)")
+    void shouldAddNothing_whenOriginalIsNoLongerActive() {
+        Allergy replacement = allergyOwnedBy(SESSION_DEMOGRAPHIC_NO);
+        when(mockAllergyDao.archiveIfActive(ALLERGY_ID, SESSION_DEMOGRAPHIC_NO)).thenReturn(0);
+
+        boolean result = patient.amendActiveAllergy(new java.util.Date(), replacement, ALLERGY_ID);
+
+        assertThat(result).isFalse();
+        verify(mockAllergyDao, never()).persist(any());
+        verify(mockPartialDateDao, never()).setPartialDate((Integer) any(), any(), any(), (String) any());
     }
 }

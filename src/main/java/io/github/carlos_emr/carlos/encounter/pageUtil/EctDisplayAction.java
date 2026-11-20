@@ -37,9 +37,13 @@ import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PatientRecordAccess;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
+import io.github.carlos_emr.carlos.commn.model.Appointment;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -47,6 +51,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -83,7 +88,21 @@ public class EctDisplayAction extends ActionSupport {
     private static final Pattern SAFE_TEXT = Pattern.compile("[^\\p{Cntrl}]*");
     private static final Set<String> VALID_SOURCES = Set.of("encounter", "messenger");
 
+    /**
+     * Parameters the navbar reload URL must not carry. The first three are re-added by the
+     * caller on every refresh (see {@code popColumn()} in newEncounterLayout.jsp and
+     * encounter.js); the CSRF token has no business in a URL at all.
+     */
+    private static final Set<String> RELOAD_URL_SUPPRESSED_PARAMS =
+            Set.of("reloadURL", "cmd", "numToDisplay", "CSRF-TOKEN");
+    private static final Set<String> RELOAD_CONTEXT_PARAMS =
+            Set.of("demographicNo", "demographic_no", "appointmentNo", "curProviderNo", "providerNo",
+                    // Posted in the body by every refresh as well as carried in the URL (#5250).
+                    "chartContext");
+
     private boolean enabled;
+    private LoggedInInfo moduleLogin;
+    private String moduleRoleNames;
 
     protected SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -103,7 +122,7 @@ public class EctDisplayAction extends ActionSupport {
             Actions.put("consultation", "/encounter/displayConsultation");
             Actions.put("allergies", "/encounter/displayAllergy");
             Actions.put("unresolvedIssues", "/encounter/displayIssues");
-            Actions.put("resolvedIssues", "/encounter/displayIssues");
+            Actions.put("resolvedIssues", "/encounter/displayResolvedIssues");
             Actions.put("Rx", "/encounter/displayRx");
             Actions.put("success", "/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp");
             Actions.put("error", "/WEB-INF/jsp/encounter/LeftNavBarError.jsp");
@@ -116,13 +135,31 @@ public class EctDisplayAction extends ActionSupport {
 
     }
 
+    /**
+     * Package-private accessor for the chained-command-to-endpoint map, used by
+     * routing regression tests instead of reflecting into the private static field.
+     *
+     * @return unmodifiable view of the action-name-to-endpoint map, or null if no
+     *         EctDisplayAction subclass has been constructed yet
+     * @since 2026-08-14
+     */
+    static Map<String, String> getActions() {
+        return Actions == null ? null : Collections.unmodifiableMap(Actions);
+    }
+
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * Loads a navbar module with one login identity for patient authorization and provider context.
+     *
+     * @return String the Struts result, or {@link #NONE} when the response was written directly
+     * @throws IOException if writing the response fails
+     * @throws ServletException if including the navbar view fails
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws IOException, ServletException {
-        EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
         String cmd = getCmd();
         String navName = buildNavName(cmd);
         request.setAttribute("navbarName", navName);
@@ -130,10 +167,19 @@ public class EctDisplayAction extends ActionSupport {
         boolean isJsonRequest = isJsonRequest();
         request.setAttribute("isJsonRequest", isJsonRequest);
 
-        bean = prepareEncounterSessionBean(bean);
+        // A concurrent logout can invalidate the session after the privilege check. Keep the
+        // authorized login for this request instead of dereferencing a second session lookup.
+        LoggedInInfo login = LoggedInInfo.getLoggedInInfoFromSession(request);
+        EctSessionBean bean;
+        try {
+            bean = prepareEncounterSessionBean(login);
+        } catch (IllegalArgumentException invalidPatient) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
+            return NONE;
+        }
 
         String params = resolveCommandParams();
-        String forward = handleDisplayCommand(bean, cmd, params, isJsonRequest);
+        String forward = handleDisplayCommand(bean, cmd, params, isJsonRequest, login);
 
         logUnexpectedForward(forward, navName, cmd, params);
         return finalizeForward(forward);
@@ -157,44 +203,36 @@ public class EctDisplayAction extends ActionSupport {
                 && ((value.charAt(3) | 0x20) == 'e');
     }
 
-    private EctSessionBean prepareEncounterSessionBean(EctSessionBean bean) {
-        boolean rebuildBean = bean == null || request.getParameter("demographicNo") != null;
-        String demographicNo = resolveDemographicNo(bean, rebuildBean);
-        ensureChartReadPrivilege(demographicNo);
-        return rebuildBean ? rebuildEncounterSessionBean(demographicNo) : bean;
+    private EctSessionBean prepareEncounterSessionBean(LoggedInInfo login) {
+        String demographicNo = EncounterPatientContext.requireDemographicNo(request);
+        ensureChartReadPrivilege(demographicNo, login);
+        return rebuildEncounterSessionBean(demographicNo, login);
     }
 
-    private String resolveDemographicNo(EctSessionBean bean, boolean rebuildBean) {
-        if (!rebuildBean) {
-            return bean.demographicNo;
-        }
-
-        String demographicNo = request.getParameter("demographicNo");
-        if (demographicNo == null || demographicNo.isEmpty()) {
-            throw new SecurityException("Missing required demographicNo");
-        }
-        if (!demographicNo.matches("\\d+")) {
-            throw new SecurityException("Invalid non-numeric demographicNo");
-        }
-        return demographicNo;
+    private void ensureChartReadPrivilege(String demographicNo, LoggedInInfo login) {
+        PatientRecordAccess.require(securityInfoManager, login, demographicNo, "_eChart", "r");
     }
 
-    private void ensureChartReadPrivilege(String demographicNo) {
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eChart", "r", demographicNo)) {
-            throw new SecurityException("missing required sec object (_eChart)");
-        }
-    }
-
-    private EctSessionBean rebuildEncounterSessionBean(String demographicNo) {
+    /** Builds request-only chart context, dropping appointments belonging to another patient. */
+    private EctSessionBean rebuildEncounterSessionBean(String demographicNo, LoggedInInfo login) {
         EctSessionBean bean = new EctSessionBean();
         bean.currentDate = resolveCurrentDate();
-        bean.providerNo = resolveProviderNo();
+        bean.providerNo = resolveProviderNo(login);
         bean.demographicNo = demographicNo;
-        bean.appointmentNo = resolveNumericParameter("appointmentNo", "Invalid non-numeric appointmentNo");
-        bean.curProviderNo = resolveCurrentProviderNo();
-        populateEncounterRequestFields(bean);
-        bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));
-        storeEncounterSessionBean(bean);
+        String appointmentNo = resolveNumericParameter("appointmentNo", "Invalid non-numeric appointmentNo");
+        Appointment appointment = findOwnedAppointment(demographicNo, appointmentNo);
+        if (appointment == null && appointmentNo != null && !"0".equals(appointmentNo)) {
+            // A chart window keeps the appointment it was opened with, but the visit can be deleted
+            // or moved by cut and paste while the chart is open, and a request can name another
+            // patient's visit. Continue as a chart without an appointment rather than failing every
+            // module, and never borrow that appointment's provider or link new work to it.
+            logger.debug("Navbar appointment context is not an appointment of the requested patient; continuing without it");
+            appointmentNo = "0";
+        }
+        bean.appointmentNo = appointmentNo;
+        bean.curProviderNo = resolveCurrentProviderNo(demographicNo, appointmentNo, appointment, login);
+        populateEncounterRequestFields(bean, login);
+        exposeEncounterRequestBean(bean);
         return bean;
     }
 
@@ -203,34 +241,66 @@ public class EctDisplayAction extends ActionSupport {
         return currentDate == null ? new Date() : currentDate;
     }
 
-    private String resolveProviderNo() {
+    /** Uses a valid explicit provider, otherwise the provider whose login passed authorization. */
+    private String resolveProviderNo(LoggedInInfo login) {
         String providerNo = request.getParameter("providerNo");
         if (providerNo != null && !providerNo.matches("[a-zA-Z0-9]{1,6}")) {
             logger.warn("Invalid providerNo rejected at trust boundary, falling back to session user: {}", LogSafe.sanitize(providerNo)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             providerNo = null;
         }
         if (providerNo == null) {
-            providerNo = (String) request.getSession().getAttribute("user"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): fallback to authenticated provider from own session
+            providerNo = login.getLoggedInProvider().getProviderNo();
         }
         return providerNo;
     }
 
-    private String resolveCurrentProviderNo() {
+    /**
+     * The requested appointment when it still exists and belongs to the requested patient, else null.
+     * This is the only appointment lookup a navbar request needs; do not initialize the full chart.
+     *
+     * @throws IllegalArgumentException (as NumberFormatException) for a blank or out-of-range number
+     */
+    private Appointment findOwnedAppointment(String demographicNo, String appointmentNo) {
+        if (appointmentNo == null || "0".equals(appointmentNo)) {
+            return null;
+        }
+        Appointment appointment = SpringUtils.getBean(OscarAppointmentDao.class).find(Integer.valueOf(appointmentNo));
+        return appointment != null && demographicNo.equals(String.valueOf(appointment.getDemographicNo()))
+                ? appointment : null;
+    }
+
+    /**
+     * Prefers an owned appointment, then an explicit or matching saved provider, and finally the
+     * authorized login. A concurrent logout must not turn that final fallback into a session read.
+     */
+    private String resolveCurrentProviderNo(String demographicNo, String appointmentNo, Appointment ownedAppointment,
+                                           LoggedInInfo login) {
+        // Only an appointment the requested patient owns may supply the provider; an entry snapshot
+        // or explicit provider must not legitimize a foreign appointment (it was dropped above).
+        if (ownedAppointment != null && ownedAppointment.getProviderNo() != null
+                && ownedAppointment.getProviderNo().matches("[a-zA-Z0-9]{1,6}")) {
+            return ownedAppointment.getProviderNo();
+        }
         String currentProviderNo = request.getParameter("curProviderNo");
         if (currentProviderNo != null && !currentProviderNo.isEmpty() && !currentProviderNo.matches("[a-zA-Z0-9]{1,6}")) {
             logger.warn("Invalid curProviderNo rejected, falling back to logged-in provider: {}", LogSafe.sanitize(currentProviderNo)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             currentProviderNo = null;
         }
         if (currentProviderNo == null || currentProviderNo.trim().isEmpty()) {
-            currentProviderNo = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProvider().getProviderNo();
+            EctSessionBean saved = EncounterPatientContext.findEncounter(request, demographicNo);
+            if (saved != null && java.util.Objects.equals(appointmentNo, saved.appointmentNo)
+                    && saved.curProviderNo != null && saved.curProviderNo.matches("[a-zA-Z0-9]{1,6}")) {
+                return saved.curProviderNo;
+            }
+            currentProviderNo = login.getLoggedInProvider().getProviderNo();
         }
         return currentProviderNo;
     }
 
-    private void populateEncounterRequestFields(EctSessionBean bean) {
+    private void populateEncounterRequestFields(EctSessionBean bean, LoggedInInfo login) {
         bean.reason = resolveReason();
         bean.encType = resolveEncounterType();
-        bean.userName = resolveUserName();
+        bean.userName = resolveUserName(login);
         bean.appointmentDate = resolveDateParameter("appointmentDate", "Rejected invalid appointmentDate at trust boundary: {}");
         bean.startTime = resolveTimeParameter("startTime");
         bean.status = resolveStatusParameter("status");
@@ -258,20 +328,17 @@ public class EctDisplayAction extends ActionSupport {
         return encounterType;
     }
 
-    private String resolveUserName() {
+    /** Falls back to the authorized provider's name when the requested display name is absent or invalid. */
+    private String resolveUserName(LoggedInInfo login) {
         String userName = request.getParameter("userName");
         if (userName == null) {
-            return sessionUserName();
+            return login.getLoggedInProvider().getFullName();
         }
         if (!SAFE_TEXT.matcher(userName).matches() || userName.length() > 100) {
             logger.warn("Rejected invalid userName at trust boundary, falling back to session-derived name");
-            return sessionUserName();
+            return login.getLoggedInProvider().getFullName();
         }
         return userName;
-    }
-
-    private String sessionUserName() {
-        return ((String) request.getSession().getAttribute("userfirstname")) + " " + ((String) request.getSession().getAttribute("userlastname")); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): authenticated user's name from own session
     }
 
     private String resolveDateParameter(String parameterName, String invalidMessage) {
@@ -323,14 +390,9 @@ public class EctDisplayAction extends ActionSupport {
         return value;
     }
 
-    private void storeEncounterSessionBean(EctSessionBean bean) {
-        // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- demographicNo/appointmentNo validated numeric;
-        // status validated [a-zA-Z]{1,2}; dates validated YYYY-MM-DD; time validated HH:MM; encType validated alphanumeric;
-        // reason/userName sanitized for control chars and length-capped; eChartId is server-generated;
-        // providerNo validated via [a-zA-Z0-9]{1,6} pattern before session fallback; used only as DAO lookup key;
-        // authz enforced at the chart privilege gate before session mutation
-        request.getSession().setAttribute("EctSessionBean", bean);
-        request.getSession().setAttribute("eChartID", bean.eChartId); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- server-generated ID from EctSessionBean.setUpEncounterPage()
+    private void exposeEncounterRequestBean(EctSessionBean bean) {
+        // Navbar requests run concurrently for multiple chart windows. Never publish their
+        // patient or appointment into the login's shared encounter state.
         request.setAttribute("EctSessionBean", bean);
     }
 
@@ -343,22 +405,54 @@ public class EctDisplayAction extends ActionSupport {
         return params;
     }
 
-    private String handleDisplayCommand(EctSessionBean bean, String cmd, String params, boolean isJsonRequest) throws IOException {
+    /** Checks the module's roles before loading its data and selecting its HTML or JSON response. */
+    private String handleDisplayCommand(EctSessionBean bean, String cmd, String params, boolean isJsonRequest,
+                                        LoggedInInfo login) throws IOException {
         String forward = "error";
         if (params == null || params.indexOf(cmd) <= -1) {
             return forward;
         }
 
         NavBarDisplayDAO dao = resolveDisplayDao(cmd);
-        if (!hasReadAccessForDisplayCommand(new SecurityManager(), cmd)) {
+        String roleNames = resolveRoleNames(login);
+        if (!hasReadAccessForDisplayCommand(new SecurityManager(), cmd, roleNames)) {
             return null;
         }
-        if (!getInfo(bean, request, dao)) {
-            return forward;
+        // Module loaders must use the same identity even if logout invalidates the session
+        // while the appointment or module data is being read. Never put it back in the session.
+        moduleLogin = login;
+        moduleRoleNames = roleNames;
+        try {
+            if (!getInfo(bean, request, dao)) {
+                return forward;
+            }
+        } finally {
+            moduleLogin = null;
+            moduleRoleNames = null;
         }
 
         request.setAttribute("DAO", dao);
         return resolveForward(cmd, params, dao, isJsonRequest);
+    }
+
+    /**
+     * Returns the authorized login while a navbar module is loading. Direct callers of
+     * {@link #getInfo} retain the normal session lookup; no identity survives the module call.
+     */
+    protected LoggedInInfo getLoggedInInfo(HttpServletRequest moduleRequest) {
+        return moduleLogin != null ? moduleLogin : LoggedInInfo.getLoggedInInfoFromSession(moduleRequest);
+    }
+
+    /** Returns the authorized module's active roles and provider, or the direct caller's session roles. */
+    protected String getRoleNames(HttpServletRequest moduleRequest) {
+        return moduleRoleNames != null ? moduleRoleNames
+                : moduleRequest.getSession().getAttribute("userrole") + "," + moduleRequest.getSession().getAttribute("user");
+    }
+
+    /** Returns the authorized module provider, preserving session lookup for direct module callers. */
+    protected String getProviderNo(HttpServletRequest moduleRequest) {
+        return moduleLogin != null ? moduleLogin.getLoggedInProvider().getProviderNo()
+                : (String) moduleRequest.getSession().getAttribute("user");
     }
 
     private NavBarDisplayDAO resolveDisplayDao(String cmd) {
@@ -372,32 +466,87 @@ public class EctDisplayAction extends ActionSupport {
             dao.setHeadingColour(headingColour);
         }
 
-        dao.setReloadUrl(buildReloadUrl());
+        dao.setReloadUrl(buildReloadUrl(request.getRequestURI(), request.getParameterMap()));
         dao.setDivId(cmd);
         return dao;
     }
 
-    private String buildReloadUrl() {
-        String baseUrl = request.getRequestURL().toString();
-        String encodedQuery = buildEncodedQueryString();
-        return encodedQuery.isEmpty() ? baseUrl : baseUrl + "?" + encodedQuery;
+    /**
+     * Builds the URL the left navbar posts back to when a single module is refreshed in
+     * place (the hidden {@code reloadUrl} input rendered by LeftNavBarDisplay.jsp, read by
+     * {@code reloadNav()} after a popup such as Add Tickler saves).
+     *
+     * <p>Two properties of the result are load-bearing:</p>
+     *
+     * <ul>
+     *   <li><strong>Root-relative, never absolute.</strong> This used to return
+     *   {@code request.getRequestURL()}, so the reload posted the server's own
+     *   {@code scheme://host/...} back as the {@code reloadURL} argument. On a packaged
+     *   deployment reached by IP address that value trips OWASP CRS rule 931100 ("URL
+     *   Parameter using IP Address", CRITICAL) on top of the standing 3 points from 920350
+     *   ("Host header is a numeric IP address"), so the WAF answered every navbar refresh
+     *   with 403 and the module box rendered "&lt;module&gt; Error: 403" until the user
+     *   reloaded the whole chart. Only the refresh was affected: the first render posts the
+     *   relative URL from encounterConfig.urls.leftNavbar, which matches nothing.</li>
+     *   <li><strong>The reload plumbing is not carried forward.</strong> The caller appends
+     *   {@code reloadURL}, {@code cmd} and {@code numToDisplay} on every post, so echoing
+     *   the incoming copies back nested the previous URL inside the next one and the value
+     *   grew with each refresh. {@code CSRF-TOKEN} is dropped for its own reason: CarlosAjax
+     *   posts it as a body parameter, and reflecting it into a URL would write the session's
+     *   CSRF token into page markup and into any log or referrer that records the URL.</li>
+     * </ul>
+     *
+     * <p>Every other parameter is preserved (notably {@code hC}, the module's heading
+     * colour). Identical context values merged from the URL and POST body appear only once,
+     * so repeated refreshes retain a stable URL without growing patient/appointment copies.</p>
+     *
+     * @param requestUri   the already-encoded request URI of the display action, including
+     *                     the context path (e.g. {@code /carlos/encounter/displayTickler})
+     * @param parameterMap the request's parameter map; query-string and POST-body parameters
+     *                     are merged by the container and both are honoured here
+     * @return a root-relative URL suitable for a same-origin XHR from the encounter page
+     */
+    static String buildReloadUrl(String requestUri, Map<String, String[]> parameterMap) {
+        String encodedQuery = buildEncodedQueryString(parameterMap);
+        return encodedQuery.isEmpty() ? requestUri : requestUri + "?" + encodedQuery;
     }
 
-    private String buildEncodedQueryString() {
+    private static String buildEncodedQueryString(Map<String, String[]> parameterMap) {
+        if (parameterMap == null) {
+            return "";
+        }
         StringJoiner joiner = new StringJoiner("&");
-        for (Map.Entry<String, String[]> entry : request.getParameterMap().entrySet()) {
-            String encodedKey = URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8);
-            String[] values = entry.getValue();
-            if (values == null || values.length == 0) {
-                joiner.add(encodedKey);
+        for (Map.Entry<String, String[]> entry : parameterMap.entrySet()) {
+            if (RELOAD_URL_SUPPRESSED_PARAMS.contains(entry.getKey())) {
                 continue;
             }
-            for (String value : values) {
-                String encodedValue = value == null ? "" : URLEncoder.encode(value, StandardCharsets.UTF_8);
-                joiner.add(encodedKey + "=" + encodedValue);
-            }
+            appendEncodedParameter(joiner, entry.getKey(), entry.getValue());
         }
         return joiner.toString();
+    }
+
+    /**
+     * Appends one request parameter to the query string, repeating the key once per value so a
+     * multi-valued parameter survives the round trip. Identical patient/provider/appointment
+     * context values are emitted once because the caller also posts its window's context.
+     *
+     * <p>A null or empty {@code values} array is emitted as a bare key. That is defensive rather
+     * than a shape the container produces: a servlet parameter map surfaces even {@code ?flag}
+     * as a single empty-string value, so this branch exists for a caller that hands over a map
+     * built some other way, not to reproduce how the parameter arrived over HTTP.</p>
+     */
+    private static void appendEncodedParameter(StringJoiner joiner, String name, String[] values) {
+        String encodedKey = URLEncoder.encode(name, StandardCharsets.UTF_8);
+        if (values == null || values.length == 0) {
+            joiner.add(encodedKey);
+            return;
+        }
+        Set<String> emittedContext = RELOAD_CONTEXT_PARAMS.contains(name) ? new java.util.HashSet<>() : null;
+        for (String value : values) {
+            if (emittedContext != null && !emittedContext.add(value == null ? "" : value)) continue;
+            String encodedValue = value == null ? "" : URLEncoder.encode(value, StandardCharsets.UTF_8);
+            joiner.add(encodedKey + "=" + encodedValue);
+        }
     }
 
     private String resolveForward(String cmd, String params, NavBarDisplayDAO dao, boolean isJsonRequest) throws IOException {
@@ -437,7 +586,11 @@ public class EctDisplayAction extends ActionSupport {
         // in Tomcat 11, truncating AJAX responses at the 8KB buffer boundary — include()
         // leaves the stream open. For non-XHR requests, return "success" so Struts performs
         // a FORWARD dispatch, allowing CsrfGuardScriptInjectionFilter to run on the FORWARD.
-        if ("success".equals(forward) && "XMLHttpRequest".equalsIgnoreCase(request.getHeader("X-Requested-With"))) {
+        // RequestNegotiation.isAjax, not an exact header match: CSRFGuard's client script
+        // appends its own marker to X-Requested-With, so a jQuery $.ajax call arrives as
+        // "XMLHttpRequest, OWASP CSRFGuard Project" and an equals check would take the
+        // forward() path that truncates the very response this branch exists to protect.
+        if ("success".equals(forward) && RequestNegotiation.isAjax(request)) {
             String jspPath = Actions.get("success");
             request.getRequestDispatcher(jspPath).include(request, response);
             return NONE;
@@ -458,16 +611,19 @@ public class EctDisplayAction extends ActionSupport {
         return true;
     }
 
-    /**
-     * Must be implemented by subclasses to retrieve module name
-     *
-     * @return Returns name of the module corresponding to the mapping in the {@link #Actions}
-     */
+    /** Builds the role identity once for the legacy module gate and the module's own role filters. */
+    private String resolveRoleNames(LoggedInInfo login) {
+        StringJoiner roles = new StringJoiner(",");
+        securityInfoManager.getRoles(login).forEach(role -> roles.add(role.getRoleName()));
+        roles.add(login.getLoggedInProvider().getProviderNo());
+        return roles.toString();
+    }
+
+    /** Applies legacy module rights using the authorized login's active roles and provider number. */
     // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
-    private boolean hasReadAccessForDisplayCommand(SecurityManager securityMgr, String cmd) {
-        return securityMgr.hasReadAccess("_" + cmd.toLowerCase(),
-                request.getSession().getAttribute("userrole") + "," + request.getSession().getAttribute("user"));
+    private boolean hasReadAccessForDisplayCommand(SecurityManager securityMgr, String cmd, String roleNames) {
+        return securityMgr.hasReadAccess("_" + cmd.toLowerCase(), roleNames);
     }
 
     public String getCmd() {

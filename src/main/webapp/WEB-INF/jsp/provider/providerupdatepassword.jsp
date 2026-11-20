@@ -29,6 +29,16 @@
 
 --%>
 
+<%--
+    Stores a provider's own new password and/or PIN, posted by providerchangepassword.jsp.
+
+    Reached only through provider/ViewProviderUpdatePassword. That gate (POST-only) has already
+    refused a new password that breaks the configured password policy and a new PIN shorter than
+    password_pin_min_length, so this page never sees one: the form's JavaScript check is feedback
+    only. What remains here is what needs the stored record: the current password or PIN must
+    match, the confirmation must match, and the new value must differ from the current one and
+    from the configured number of previous passwords.
+--%>
 <%
     if (session.getAttribute("user") == null)
         response.sendRedirect(request.getContextPath() + "/logoutPage");
@@ -36,7 +46,7 @@
 %>
 
 <%@ page
-        import="java.lang.*, java.util.*, java.text.*, io.github.carlos_emr.*"
+        import="java.lang.*, java.util.*"
         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Security" %>
@@ -50,7 +60,7 @@
 %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%
@@ -69,15 +79,19 @@
             String newPin = request.getParameter("newpin");
             String confPin = request.getParameter("confirmpin");
 
-            if (!pin.equals(s.getPin())) {
+            // PINs are stored as salted hashes, so the current PIN can only be checked through
+            // SecurityManager (which still accepts not-yet-migrated legacy values), and the
+            // replacement must be hashed before it is saved. A raw comparison against s.getPin()
+            // would reject every correct PIN once the record has been migrated.
+            if (!securityManager.validatePin(pin, s)) {
                 errorMsg = "PIN Update Error: PIN doesn't match the exisitng one in the system. ";
             } else if (!newPin.equals(confPin)) {
                 errorMsg = "PIN Update Error: New PIN doesn't match the Confirm PIN. ";
-            } else if (newPin.equals(s.getPin())) {
+            } else if (securityManager.validatePin(newPin, s)) {
                 errorMsg = "PIN Update Error: New PIN must be different from the existing PIN. ";
             } else {
                 pinUpdateRequired = true;
-                s.setPin(newPin);
+                s.setPin(securityManager.encodePin(newPin));
                 s.setPinUpdateDate(new java.util.Date());
             }
         }

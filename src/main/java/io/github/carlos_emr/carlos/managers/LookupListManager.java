@@ -151,7 +151,7 @@ public class LookupListManager {
         }
         LogAction.addLogSynchronous(loggedInInfo, "LookupListManager.removeLookupListItem", "Removed lookupListItem Id: " + id);
 
-        return (id == lookupListItemId);
+        return id != null && id == lookupListItemId;
     }
 
     /**
@@ -177,7 +177,7 @@ public class LookupListManager {
         LogAction.addLogSynchronous(loggedInInfo, "LookupListManager.updateLookupListItemDisplayOrder",
                 "Changed display order for lookupListItem Id: " + id + " To: " + lookupListItemDisplayOrder);
 
-        return (id == lookupListItemId);
+        return id != null && id == lookupListItemId;
     }
 
 

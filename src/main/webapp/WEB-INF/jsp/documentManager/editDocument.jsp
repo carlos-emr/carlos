@@ -28,6 +28,12 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose: Edit a patient document and record provider review acknowledgements.
+    Features: Document metadata, primary reviewer and additional reviewer display and sign-off.
+    Parameters: The action supplies formdata; mode identifies the document submitted to addEditDocument.
+    @since 2026-07-07
+--%>
 
 <%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -55,7 +61,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page
         import="java.util.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.providers.data.ProviderData, io.github.carlos_emr.carlos.utility.SpringUtils, io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao" %>
@@ -64,7 +70,8 @@
 <%@ page import="io.github.carlos_emr.carlos.documentManager.data.AddEditDocument2Form" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
-<%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Document" %>
+
 <%
     DocumentExtraReviewerDao documentExtraReviewerDao = SpringUtils.getBean(DocumentExtraReviewerDao.class);
     List<DocumentExtraReviewer> extraReviewers = new ArrayList<DocumentExtraReviewer>();
@@ -86,9 +93,9 @@
         moduleid = (String) request.getAttribute("functionid");
     }
 
-    Hashtable docerrors = new Hashtable();
+    Map<String, String> docerrors = new HashMap<>();
     if (request.getAttribute("docerrors") != null) {
-        docerrors = (Hashtable) request.getAttribute("docerrors");
+        docerrors = (Map<String, String>) request.getAttribute("docerrors");
     }
 
     String lastUpdate = "";
@@ -113,7 +120,7 @@
         formdata.setSourceFacility(currentDoc.getSourceFacility());
         formdata.setReviewerId(currentDoc.getReviewerId());
         formdata.setReviewDateTime(currentDoc.getReviewDateTime());
-        formdata.setContentDateTime(UtilDateUtilities.DateToString(currentDoc.getContentDateTime(), EDocUtil.CONTENT_DATETIME_FORMAT));
+        formdata.setContentDateTime(currentDoc.getContentDateTimeDisplay(EDocUtil.CONTENT_DATETIME_FORMAT));
         formdata.setRestrictToProgram(currentDoc.isRestrictToProgram());
         lastUpdate = currentDoc.getDateTimeStamp();
         fileName = currentDoc.getFileName();
@@ -162,6 +169,9 @@
     <link rel="stylesheet" type="text/css"
           href="<%= request.getContextPath() %>/share/css/niftyPrint.css" media="print"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/nifty.js"></script>
+    <%-- submitUpload() validates the observation date with validDate(), defined in Oscar.js;
+         without it every Update threw a ReferenceError and the edit was never posted. --%>
+    <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
     <link rel="stylesheet" type="text/css" media="all"
           href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
     <style type="text/css">
@@ -186,6 +196,7 @@
     <script type="text/javascript"
             src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
+    <fmt:message key="dms.error.descriptionTooLong" var="msgDescriptionTooLongText"/>
     <script type="text/javascript">
         window.onload = function () {
             // Vanilla autocomplete replacing Autocompleter.Local
@@ -231,7 +242,14 @@
         function submitUpload(object) {
             object.Submit.disabled = true;
             var ans = true;
-            if (object.reviewerId.value != "") {
+            // document.docdesc counts code points (utf8mb4), as Array.from does; AddEditDocument2Action
+            // refuses a longer description too, and that is the check that holds.
+            if (Array.from(object.docDesc.value.replace(/^[\x00-\x20]+|[\x00-\x20]+$/g, '')).length > <%= Document.DESCRIPTION_MAX_LENGTH %>) {
+                alert('${carlos:forJavaScript(msgDescriptionTooLongText)}');
+                object.docDesc.focus();
+                ans = false;
+            }
+            if (ans && object.reviewerId.value != "") {
                 ans = confirm("Updating this document will remove reviewer information. Confirm?");
             }
             if (ans && !validDate("observationDate")) {
@@ -243,18 +261,12 @@
         }
 
         function reviewed(ths) {
-            if (ths.form.reviewerId.value == 'null') {
-                thisForm = ths.form;
-                thisForm.reviewerId.value = <%=user_no%>;
-                thisForm.reviewDoc.value = true;
-                thisForm.submit();
-            } else {
-                alert('set extra');
-                thisForm = ths.form;
-                thisForm.extraReviewerId.value = <%=user_no%>;
-                thisForm.extraReviewDoc.value = true;
-                thisForm.submit();
-            }
+            var thisForm = ths.form;
+            // Ask for a review by the signed-in provider. The action decides from the stored
+            // document, under its row lock, whether this is the first review or an additional one,
+            // because the reviewer shown on this page can be out of date (issue #6081).
+            thisForm.reviewDoc.value = true;
+            thisForm.submit();
         }
 
         var docSubClassList = [
@@ -267,8 +279,8 @@
 <body class="mainbody">
 <div class="maindiv">
     <div class="maindivheading">Edit Document</div>
-    <%-- Lists docerrors --%> <% for (Enumeration errorkeys = docerrors.keys(); errorkeys.hasMoreElements(); ) {%>
-    <font class="warning">Error: <fmt:message key="<%=(String) docerrors.get(errorkeys.nextElement())%>"/></font><br/>
+    <%-- Lists docerrors --%> <% for (String errorkey : docerrors.keySet()) {%>
+    <font class="warning">Error: <fmt:message key="<%=docerrors.get(errorkey)%>"/></font><br/>
     <% } %> <form action="${pageContext.request.contextPath}/documentManager/addEditDocument" method="POST"
                        enctype="multipart/form-data" onsubmit="return submitUpload(this);">
     <input type="hidden" name="function"
@@ -280,9 +292,6 @@
     <input type="hidden" name="reviewerId" value="<carlos:encode value='<%= formdata.getReviewerId() %>' context="htmlAttribute"/>"/>
     <input type="hidden" name="reviewDateTime" value="<carlos:encode value='<%= formdata.getReviewDateTime() %>' context="htmlAttribute"/>"/>
     <input type="hidden" name="reviewDoc" value="false"/>
-
-    <input type="hidden" name="extraReviewerId" value=""/>
-    <input type="hidden" name="extraReviewDoc" value="false"/>
 
     <table class="layouttable">
         <tr>
@@ -327,9 +336,12 @@
             </td>
         </tr>
         <tr>
-            <td>Description:</td>
-            <td><input <% if (docerrors.containsKey("descmissing")) {%>
-                    class="warning" <%}%> type="text" name="docDesc" size="30"
+            <td><label for="docDesc">Description:</label></td>
+            <%-- No maxlength: a browser clips a paste to maxlength in UTF-16 units before any check
+                 runs. submitUpload and the action refuse a description longer than
+                 Document.DESCRIPTION_MAX_LENGTH code points. --%>
+            <td><input <% if (docerrors.containsKey("descmissing") || docerrors.containsKey("desctoolong")) {%>
+                    class="warning" <%}%> type="text" name="docDesc" id="docDesc" size="30"
                     value="<carlos:encode value='<%= formdata.getDocDesc() %>' context="htmlAttribute"/>">
             <td>
         </tr>

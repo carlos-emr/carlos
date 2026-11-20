@@ -34,7 +34,7 @@
     @since 2026-04-05
 --%>
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -63,8 +63,10 @@
         if (errorCode.isEmpty()) {
     %>
     <script language="JavaScript">
-        self.close();
-        self.opener.refresh();
+        if (window.opener && !window.opener.closed) {
+            window.opener.location.reload();
+        }
+        window.close();
     </script>
     <%
         } else {

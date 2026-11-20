@@ -51,6 +51,8 @@ class ScheduleNavigationAssetRegressionTest {
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "provider", "providerupdatepreference.jsp");
     private static final Path DOCUMENT_REPORT_JSP =
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "documentManager", "documentReport.jsp");
+    private static final Path ADD_DOCUMENT_JSP =
+            Path.of("src", "main", "webapp", "WEB-INF", "jsp", "documentManager", "addDocument.jsp");
     private static final Path DISPLAY_MESSAGES_JSP =
             Path.of("src", "main", "webapp", "WEB-INF", "jsp", "messenger", "DisplayMessages.jsp");
     private static final Path VIEW_MESSAGE_JSP =
@@ -80,15 +82,16 @@ class ScheduleNavigationAssetRegressionTest {
      * append the schedule navigation flag after box/demographic parameters.
      */
     private static final String STATUS_SORT_LINK_PATTERN =
-            "DisplayMessages?orderby=status<%=boxTypeQuerySuffix%>"
-                    + "<%=demographicQuerySuffix%><%=scheduleNavQuerySuffix%>";
+            "DisplayMessages?orderby=<%= \"status\".equals(orderby) ? \"!status\" : \"status\" %>"
+                    + "<%=boxTypeQuerySuffix%><%=demographicQuerySuffix%><%=scheduleNavQuerySuffix%><%=inboxFilterSuffix%>";
     /**
      * Verifies message-detail links retain both the selected mailbox and the
      * focused schedule-shell flag when users drill into an individual message.
      */
     private static final String MESSAGE_LINK_PATTERN =
             "ViewMessage?messageID=<carlos:encode value='<%= dm.getMessageId() %>'"
-                    + " context=\"uriComponent\"/>&boxType=<%=pageType%><%=scheduleNavQuerySuffix%>";
+                    + " context=\"uriComponent\"/>&boxType=<%=pageType%>&amp;orderby=<%=SafeEncode.forUriComponent(orderby)%>"
+                    + "<%=scheduleNavQuerySuffix%><%=inboxFilterSuffix%>";
 
     @Test
     @DisplayName("should resolve schedule navigation without Carlosdoc provider special case")
@@ -208,14 +211,19 @@ class ScheduleNavigationAssetRegressionTest {
         assertThat(viewMessage)
                 .contains("<%@ include file=\"messengerScheduleNav.jspf\" %>")
                 .contains("<jsp:include page=\"/WEB-INF/jsp/provider/mainMenu.jsp\"/>")
-                .contains("DisplayMessages<%=scheduleNavFirstQuerySuffix%>")
-                .contains("DisplayMessages?boxType=1<%=scheduleNavQuerySuffix%>")
-                .contains("ViewCreateMessage<%=scheduleNavFirstQuerySuffix%>");
+                .contains("DisplayMessages?boxType=0<%=scheduleNavQuerySuffix%><%=mailboxQuerySuffix%>")
+                .contains("DisplayMessages?boxType=1<%=scheduleNavQuerySuffix%><%=mailboxQuerySuffix%>")
+                // Compose names the message it is opened from first (issue #4673): the compose page
+                // starts with its own copy of that message's saved items. Then the nav flag.
+                .contains("ViewCreateMessage<%= viewedMessageId > 0 ? \"?forwardMessage=\" + viewedMessageId"
+                        + " + scheduleNavQuerySuffix : scheduleNavFirstQuerySuffix %>");
         assertThat(createMessage)
                 .contains("<%@ include file=\"messengerScheduleNav.jspf\" %>")
                 .contains("<jsp:include page=\"/WEB-INF/jsp/provider/mainMenu.jsp\"/>")
                 .contains("<input type=\"hidden\" name=\"scheduleNav\" value=\"1\">")
-                .contains("ClearMessage<%=scheduleNavFirstQuerySuffix%>")
+                // Clear names this compose window's key first (issue #4673), then the nav flag.
+                .contains("ClearMessage?attachmentKey=<%= SafeEncode.forHtmlAttribute("
+                        + "SafeEncode.forUriComponent(attachmentKey)) %><%=scheduleNavQuerySuffix%>")
                 .contains("DisplayMessages<%=scheduleNavFirstQuerySuffix%>");
         assertThat(sentMessage)
                 .contains("<%@ include file=\"messengerScheduleNav.jspf\" %>")
@@ -340,5 +348,46 @@ class ScheduleNavigationAssetRegressionTest {
      */
     private static String normalizeWhitespace(String content) {
         return content.replaceAll("\\s+", " ").trim();
+    }
+
+    /**
+     * The eDoc add-document and add-link forms leave the current request on every outcome — a
+     * forward on a validation failure, a redirect on success — so the schedule-shell flag has to
+     * be posted with them. Without the hidden inputs below, adding a document dropped the provider
+     * back onto the document list with the navigation header tabs gone (the header is rendered
+     * only while {@code scheduleNav=1} is on the request).
+     */
+    @Test
+    @DisplayName("should carry the schedule navigation flag through the eDoc add forms")
+    void shouldCarryScheduleNav_throughEdocAddForms() throws IOException {
+        String addDocument = Files.readString(ADD_DOCUMENT_JSP, StandardCharsets.UTF_8);
+
+        assertThat(addDocument)
+                .contains("boolean showScheduleNav = ScheduleNav.isActive(request);")
+                .contains("String scheduleNavQuerySuffix = showScheduleNav ? \"&\" + ScheduleNav.PARAM"
+                        + " + \"=\" + ScheduleNav.ENABLED : \"\";");
+
+        // One hidden input per form: the upload form and the Add Link form.
+        assertThat(countOccurrences(addDocument, "<input type=\"hidden\" name=\"scheduleNav\" value=\"1\">"))
+                .as("both eDoc add forms must post scheduleNav")
+                .isEqualTo(2);
+
+        // Both Cancel buttons navigate away, so they need the flag on the query string instead.
+        assertThat(countOccurrences(addDocument,
+                "/documentManager/ViewDocumentReport?function=<carlos:encode value='<%= module %>'"))
+                .isEqualTo(2);
+        assertThat(countOccurrences(addDocument, "<%=scheduleNavQuerySuffix%>'\">"))
+                .as("both Cancel buttons must keep the schedule shell")
+                .isEqualTo(2);
+    }
+
+    private static int countOccurrences(String haystack, String needle) {
+        int count = 0;
+        int index = haystack.indexOf(needle);
+        while (index >= 0) {
+            count++;
+            index = haystack.indexOf(needle, index + needle.length());
+        }
+        return count;
     }
 }

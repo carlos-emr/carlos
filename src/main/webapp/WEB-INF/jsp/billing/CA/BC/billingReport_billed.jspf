@@ -24,12 +24,16 @@
  */
 -->
 
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@page import="io.github.carlos_emr.MyDateFormat" %>
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Billing" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingDao" %>
-<%@page import="org.apache.commons.lang3.StringUtils"%><table width="100%" border="2" valign="top">
+<%@page import="org.apache.commons.lang3.StringUtils"%>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<table width="100%" border="2" valign="top">
 	<% 
  String dateBegin = StringUtils.trimToNull(request.getParameter("xml_vdate"));
    String dateEnd = StringUtils.trimToNull(request.getParameter("xml_appointment_date"));
@@ -41,9 +45,7 @@
   boolean bodd=false;
   nItems=0;
   String apptDoctorNo="", apptNo="", demoNo = "", demoName="", userno="", apptDate="", apptTime="", reason="",  note="";
-  if(bs.size() == 0) {
-    out.println("failed!!!"); 
-  } else {
+  // An empty range shows the headings and the "no results" row below, like the Unbilled report (#4951).
   %>
 	<tr bgcolor="#CCCCFF">
 		<TH align="center" width="20%"><b><font size="2"
@@ -94,14 +96,14 @@
 		<TD align="center" width="10%"><b><font size="2"
 			face="Arial, Helvetica, sans-serif"><%=apptTime==null?"00:00:00":apptTime%></font></b></TD>
 		<TD align="center" width="10%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><%=demoName%></font></b></TD>
+			face="Arial, Helvetica, sans-serif"><carlos:encode value='<%= demoName %>' context="html"/></font></b></TD>
 		<TD align="center" width="20%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><%=reason%>(<%=note%>) </font></b></TD>
+			face="Arial, Helvetica, sans-serif"><carlos:encode value='<%= reason %>' context="html"/>(<carlos:encode value='<%= note %>' context="html"/>) </font></b></TD>
 		<TD align="center" width="10%"><b> <font size="2"
 			face="Arial, Helvetica, sans-serif"><a
 			href="javascript: function myFunction() {return false; }"
 			onClick='popupPage(700,720, "<%= request.getContextPath() %>/billing/CA/BC/billingView?billing_no=<%=b.getId()%>&dboperation=search_bill&hotclick=0")'
-			title="<%=reason%>"> <%=b.getId()%></a></font></b></TD>
+			title="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(reason) %>"> <%=b.getId()%></a></font></b></TD>
 	</tr>
 	<%  rowCount = rowCount + 1;
     }
@@ -109,9 +111,8 @@
     %>
 	<tr bgcolor="<%=bodd?"ivory":"white"%>">
 		<TD colspan="5" align="center"><b><font size="2"
-			face="Arial, Helvetica, sans-serif">No unbill items</font></b></TD>
+			face="Arial, Helvetica, sans-serif"><fmt:message key="admin.billingreferralAdmin.msgNoResults"/></font></b></TD>
 	</tr>
 	<% }
-  
-}%>
+%>
 </table>

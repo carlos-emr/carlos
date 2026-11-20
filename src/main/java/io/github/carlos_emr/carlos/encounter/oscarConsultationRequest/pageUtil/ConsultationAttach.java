@@ -29,6 +29,9 @@
 
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
+import io.github.carlos_emr.carlos.documentManager.DocumentAttach;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+
 import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
@@ -67,6 +70,13 @@ public class ConsultationAttach {
     }
 
     protected void attach(LoggedInInfo loggedInInfo, String docType) {
+
+        if (ConsultDocs.DOCTYPE_LAB.equals(docType)) {
+            new DocumentAttach(Integer.valueOf(demoNo), false)
+                    .attachToConsult(docs.toArray(new String[0]),
+                            DocumentType.LAB, providerNo, Integer.valueOf(reqId));
+            return;
+        }
 
         //first we get a list of currently attached labs
         List<ConsultDocs> oldlist = consultDocsDao.findByRequestIdDocType(Integer.parseInt(getReqId()), docType);

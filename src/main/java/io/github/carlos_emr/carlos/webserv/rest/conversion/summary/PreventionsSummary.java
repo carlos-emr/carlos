@@ -32,7 +32,9 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.ResourceBundle;
 
 import io.github.carlos_emr.carlos.managers.PreventionManager;
 import io.github.carlos_emr.carlos.commn.model.Prevention;
@@ -40,19 +42,29 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.SummaryItemTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.SummaryTo1;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import io.github.carlos_emr.carlos.prevention.PreventionDS;
 import io.github.carlos_emr.carlos.prevention.PreventionData;
 import io.github.carlos_emr.carlos.prevention.PreventionDisplayConfig;
+import io.github.carlos_emr.carlos.prevention.PreventionDateService;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionSourceUnavailableException;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.MediaType;
 
 
 @Component
 public class PreventionsSummary implements Summary {
 
-    @Autowired
-    private PreventionManager preventionManager;
+    private final PreventionManager preventionManager;
+    private final PreventionDateService dateService;
+
+    public PreventionsSummary(PreventionManager preventionManager, PreventionDateService dateService) {
+        this.preventionManager = preventionManager;
+        this.dateService = dateService;
+    }
 
     public SummaryTo1 getSummary(LoggedInInfo loggedInInfo, Integer demographicNo, String summaryCode) {
 
@@ -60,9 +72,35 @@ public class PreventionsSummary implements Summary {
 
         List<SummaryItemTo1> list = summary.getSummaryItem();
 
-        preventionsList(loggedInInfo, list, demographicNo);
+        try {
+            preventionsList(loggedInInfo, list, demographicNo);
+        } catch (PreventionSourceUnavailableException unavailable) {
+            // A prevention read failed (logged where it failed). The summary keeps its shape and
+            // says so in one highlighted item. The items gathered before the failure are dropped:
+            // listed on their own they would read as the patient's whole prevention history. An
+            // empty summary or an HTTP 500 would hide the reason from the chart's summary panel.
+            PreventionData.logUnreadable("REST preventions summary", demographicNo);
+            list.clear();
+            list.add(unreadableItem(loggedInInfo, demographicNo));
+        }
 
         return summary;
+    }
+
+    /**
+     * The single item of a summary whose preventions could not be read: the same kind of item,
+     * link and warning style the summary gives a prevention that decision support flags, with
+     * localized text that says the list is missing and what to do.
+     */
+    private static SummaryItemTo1 unreadableItem(LoggedInInfo loggedInInfo, Integer demographicNo) {
+        Locale locale = loggedInInfo == null || loggedInInfo.getLocale() == null
+                ? Locale.getDefault() : loggedInInfo.getLocale();
+        ResourceBundle messages = ResourceBundle.getBundle("oscarResources", locale);
+        SummaryItemTo1 item = new SummaryItemTo1(0, messages.getString("prevention.unreadable.label"),
+                "../prevention/ViewPreventionIndex?demographic_no=" + demographicNo, "prevention");
+        item.setIndicatorClass("highlight");
+        item.setWarning(messages.getString("prevention.unreadable.message"));
+        return item;
     }
 
 
@@ -73,6 +111,15 @@ public class PreventionsSummary implements Summary {
 
         //saved preventions for demographicNo
         List<Prevention> preventions = preventionManager.getPreventionsByDemographicNo(loggedInInfo, demographicNo);
+        // This summary's public Date field has no precision protocol. Refuse the operation
+        // with an upgrade path; returning only exact rows would silently omit clinical history.
+        try {
+            for (Prevention prevention : preventions) if (prevention.isCdsImported()) dateService.getDate(prevention).requireExact();
+        } catch (PreventionDatePrecisionException unsafe) {
+            throw new WebApplicationException(Response.status(Response.Status.CONFLICT)
+                    .type(MediaType.TEXT_PLAIN_TYPE)
+                    .entity(unsafe.getMessage() + "; use /preventions/active/precision").build());
+        }
 
         SummaryItemTo1 summaryItem;
 

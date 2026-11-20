@@ -31,8 +31,10 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -48,9 +50,69 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements MeasurementDao {
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column> readCdsExportReceiptColumns() {
+        return CdsExportNativeMetadataReadSupport.read(entityManager, CdsExportNativeMetadataReadSupport.Table.MEASUREMENTS_CURRENT);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportSourceSchema() {
+        return CdsExportPatientTableReadSupport.schema(entityManager, CdsExportPatientTableReadSupport.Plan.MEASUREMENTS_CURRENT);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public long countCdsExportRows(int patient) {
+        CdsExportPatientTableReadSupport.requireLocalMeasurementAssociations(entityManager, patient);
+        return CdsExportPatientTableReadSupport.count(entityManager, CdsExportPatientTableReadSupport.Plan.MEASUREMENTS_CURRENT, patient);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> findCdsExportRowsAfter(int patient, Long afterId, int limit) {
+        CdsExportPatientTableReadSupport.requireLocalMeasurementAssociations(entityManager, patient);
+        return CdsExportPatientTableReadSupport.page(entityManager, CdsExportPatientTableReadSupport.Plan.MEASUREMENTS_CURRENT, patient, afterId, limit);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public byte[] readCdsExportValueChunk(int patient, long rowId, String column, long offset, int length) {
+        CdsExportPatientTableReadSupport.requireLocalMeasurementAssociations(entityManager, patient);
+        return CdsExportPatientTableReadSupport.chunk(entityManager, CdsExportPatientTableReadSupport.Plan.MEASUREMENTS_CURRENT, patient, rowId, column, offset, length);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportUnlinkedLaboratoryReadingDto>
+            findCdsExportUnlinkedLaboratoryReadings(int patient) {
+        return CdsExportPatientTableReadSupport.unlinkedLaboratoryReadings(entityManager, patient);
+    }
+
 
     public MeasurementDaoImpl() {
         super(Measurement.class);
+    }
+
+    @Override
+    public void reassignLabPatient(Measurement measurement, String labNo, int demographicNo) {
+        if (demographicNo <= 0 || measurement == null || !entityManager.contains(measurement)) {
+            throw new IllegalArgumentException("A managed lab measurement and valid patient are required");
+        }
+        // Measurement's lifecycle callback intentionally prohibits editing clinical values.
+        // This constrained correction changes only ownership, never values or annotations.
+        // Keep the source subquery uncorrelated: Hibernate 7.4 wraps it in a derived
+        // table for MySQL, where MariaDB cannot resolve an outer UPDATE alias (#5399).
+        int changed = entityManager.createQuery("update Measurement m set m.demographicId=:patient "
+                + "where m.id=:id and m.demographicId=:previous and m.id in "
+                + "(select e.measurementId from MeasurementsExt e "
+                + "where e.keyVal='lab_no' and e.val=:lab)")
+                .setParameter("patient", demographicNo).setParameter("id", measurement.getId())
+                .setParameter("previous", measurement.getDemographicId()).setParameter("lab", labNo)
+                .executeUpdate();
+        if (changed != 1) throw new IllegalStateException("Lab measurement ownership changed during correction");
+        entityManager.refresh(measurement);
     }
 
     @Override
@@ -669,15 +731,15 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
     public List<Object[]> findByDemoNoDateTypeMeasuringInstrAndDataField(Integer demographicNo, Date dateEntered,
                                                                          String measurementType, String mInstrc, String upper, String lower) {
         String sql = "SELECT dataField FROM measurements " + "WHERE dateEntered = ?1"
-                + "AND demographicNo = ?2" + "AND type = ?3"
-                + "AND measuringInstruction = ?4" + "AND dataField < ?5" + "AND dataField > ?6";
+                + " AND demographicNo = ?2" + " AND type = ?3"
+                + " AND measuringInstruction = ?4" + " AND dataField < ?5" + " AND dataField > ?6";
         Query query = entityManager.createNativeQuery(sql);
         query.setParameter(1, dateEntered);
         query.setParameter(2, demographicNo);
         query.setParameter(3, measurementType);
         query.setParameter(4, mInstrc);
-        query.setParameter(5, upper);
-        query.setParameter(6, lower);
+        query.setParameter(5, new BigDecimal(upper.trim()));
+        query.setParameter(6, new BigDecimal(lower.trim()));
         return query.getResultList();
     }
 
@@ -705,14 +767,14 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
     public List<Object[]> findByDemoNoDateTypeAndDataField(Integer demographicNo, Date dateEntered, String type,
                                                            String upper, String lower) {
         String sql = "SELECT dataField FROM measurements WHERE dateEntered = ?1"
-                + "AND demographicNo = ?2" + "AND type = ?3" + "AND dataField < ?4"
-                + "AND dataField > ?5";
+                + " AND demographicNo = ?2" + " AND type = ?3" + " AND dataField < ?4"
+                + " AND dataField > ?5";
         Query query = entityManager.createNativeQuery(sql);
         query.setParameter(1, dateEntered);
         query.setParameter(2, demographicNo);
         query.setParameter(3, type);
-        query.setParameter(4, upper);
-        query.setParameter(5, lower);
+        query.setParameter(4, new BigDecimal(upper.trim()));
+        query.setParameter(5, new BigDecimal(lower.trim()));
         return query.getResultList();
     }
 
@@ -724,11 +786,28 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
     }
 
     @Override
-    public List<Object[]> findByCreateDate(Date from, Date to) {
+    @SuppressWarnings("unchecked")
+    public Map<String, List<String>> findDistinctMeasuringInstructionsByTypes(Collection<String> types) {
+        Map<String, List<String>> byType = new HashMap<>();
+        if (types == null || types.isEmpty()) {
+            return byType;
+        }
+        Query query = createQuery("SELECT DISTINCT m.type, m.measuringInstruction", "m", "m.type IN (?1)");
+        query.setParameter(1, types);
+        for (Object[] row : (List<Object[]>) query.getResultList()) {
+            byType.computeIfAbsent((String) row[0], k -> new ArrayList<>()).add((String) row[1]);
+        }
+        return byType;
+    }
+
+    @Override
+    public List<Integer> findByCreateDate(Date from, Date toExclusive) {
+        // Half-open [from, toExclusive): createDate is a timestamp, so an inclusive "<= end-date midnight"
+        // bound dropped every measurement entered during the report's end date (#4549).
         Query query = createQuery("SELECT DISTINCT m.demographicId", "m",
-                "m.createDate >= ?1 AND m.createDate <= ?2");
+                "m.createDate >= ?1 AND m.createDate < ?2");
         query.setParameter(1, from);
-        query.setParameter(2, to);
+        query.setParameter(2, toExclusive);
         return query.getResultList();
     }
 

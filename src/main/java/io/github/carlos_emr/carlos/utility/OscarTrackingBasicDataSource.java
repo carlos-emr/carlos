@@ -23,6 +23,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: enforce CDS maintenance and disclosure compatibility.
  */
 package io.github.carlos_emr.carlos.utility;
 
@@ -41,6 +42,8 @@ import java.sql.SQLXML;
 import java.sql.Savepoint;
 import java.sql.Statement;
 import java.sql.Struct;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -52,37 +55,126 @@ import java.util.Set;
 import java.util.TimeZone;
 import java.util.WeakHashMap;
 import java.util.concurrent.Executor;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.concurrent.atomic.AtomicReference;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.commons.dbcp2.BasicDataSource;
 import org.apache.logging.log4j.Logger;
 
 public class OscarTrackingBasicDataSource extends BasicDataSource {
+    private final AtomicReference<io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionState> cdsAdmissionState=new AtomicReference<>();
+    private volatile boolean cdsMetadataGuardReady;
+    private volatile boolean boundedCdsConnections;
+
+    /** Configure before the first pool borrow: opt-in CDS nodes also bound Flyway/JPA network I/O. */
+    public synchronized void setBoundedCdsConnections(boolean enabled) {
+        if (getConnectionPool()!=null) throw new IllegalStateException("CDS connection policy requires an uninitialized pool");
+        boundedCdsConnections=enabled;
+    }
+
+    public synchronized boolean isBoundedCdsConnections() { return boundedCdsConnections; }
+
+    @Override protected org.apache.commons.dbcp2.ConnectionFactory createConnectionFactory() throws SQLException {
+        var configured=super.createConnectionFactory();
+        return boundedCdsConnections
+                ? io.github.carlos_emr.carlos.utility.CdsJdbcConnectionTimeouts.bounded(configured)
+                : configured;
+    }
+
+    private org.apache.commons.dbcp2.ConnectionFactory controlledConnectionFactory() throws SQLException {
+        return io.github.carlos_emr.carlos.utility.CdsJdbcConnectionTimeouts.bounded(super.createConnectionFactory());
+    }
+
+    /** New CDS metadata stays lossless before maintenance activation; ordinary SQL is unchanged. */
+    public void enableCdsMetadataGuard() {
+        if (getNumActive()!=0) throw new IllegalStateException("CDS metadata guard initialization requires a drained connection pool");
+        cdsMetadataGuardReady=true;
+    }
+
+    /** Installed after the schema boot gate and before the EntityManagerFactory starts. */
+    public void installCdsAdmissionState(io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionState state) {
+        if (!cdsAdmissionState.compareAndSet(null, java.util.Objects.requireNonNull(state))) throw new IllegalStateException("CDS admission is already initialized");
+        if (getNumActive() != 0) throw new IllegalStateException("CDS admission initialization requires a drained connection pool");
+    }
+
+    public io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionState getCdsAdmissionState() {
+        return cdsAdmissionState.get();
+    }
+
+    /** Uses the configured driver/credentials directly, never an abandoned-reclaimable pool lease. */
+    public Connection openUnpooledCdsMaintenanceConnection() throws SQLException {
+        return controlledConnectionFactory().createConnection();
+    }
+
+    /**
+     * Ordinary guarded admission for a bounded filesystem operation. Its single physical connection
+     * is outside DBCP abandoned reclamation; neither SQL nor maintenance privileges escape to callers.
+     */
+    public io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionGuard.OrdinaryAdmissionLease acquireOrdinaryAdmissionLease() throws SQLException {
+        if (isClosed()) throw new SQLException("Data source closed", "08003");
+        return io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionGuard.ordinaryLease(
+                controlledConnectionFactory().createConnection(), cdsAdmissionState.get());
+    }
+
+    private Connection cdsAdmission(Connection connection) {
+        var state = cdsAdmissionState.get();
+        if (state!=null) return io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionGuard.wrap(connection, state);
+        return cdsMetadataGuardReady
+                ? io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionGuard.wrapMetadataOnly(connection)
+                : connection;
+    }
+
+    private String configuredUrl;
+    private Boolean defaultUseInformationSchema;
 
     public static final int MAX_CONNECTION_WARN_SIZE = 2;
     public static final Logger logger = MiscUtils.getLogger();
-    public static final Map<Connection, StackTraceElement[]> debugMap = Collections.synchronizedMap(new WeakHashMap<Connection, StackTraceElement[]>());
-    private static final ThreadLocal<HashSet<Connection>> connections = new ThreadLocal<HashSet<Connection>>();
-    private static final Set<HashSet<Connection>> trackedThreadConnectionSets = Collections.synchronizedSet(
-            Collections.newSetFromMap(new IdentityHashMap<HashSet<Connection>, Boolean>()));
+    private static final Map<Connection, StackTraceElement[]> debugMap = Collections.synchronizedMap(new WeakHashMap<Connection, StackTraceElement[]>());
+    private static final ThreadLocal<OwnerState> connections = new ThreadLocal<>();
+    private static final Set<OwnerState> trackedThreadConnectionSets = Collections.synchronizedSet(
+            Collections.newSetFromMap(new IdentityHashMap<OwnerState, Boolean>()));
+
+    /** Owns one thread's tracking collection without exposing its synchronization monitor. */
+    private static final class OwnerState {
+        private final Object monitor = new Object();
+        private final HashSet<Connection> ownedConnections = new HashSet<>();
+
+        private int add(Connection connection) {
+            synchronized (monitor) {
+                ownedConnections.add(connection);
+                return ownedConnections.size();
+            }
+        }
+
+        private void remove(Connection connection) {
+            synchronized (monitor) {
+                ownedConnections.remove(connection);
+            }
+        }
+
+        private Set<Connection> drain() {
+            synchronized (monitor) {
+                Set<Connection> snapshot = new HashSet<>(ownedConnections);
+                ownedConnections.clear();
+                return snapshot;
+            }
+        }
+    }
 
     private static Connection trackConnection(Connection c) {
-        c = new TrackingJdbcConnection(c);
-
-        debugMap.put(c, Thread.currentThread().getStackTrace());
-
-        HashSet<Connection> threadConnections = connections.get();
+        OwnerState threadConnections = connections.get();
         if (threadConnections == null) {
-            threadConnections = new HashSet<Connection>();
+            threadConnections = new OwnerState();
             connections.set(threadConnections);
             trackedThreadConnectionSets.add(threadConnections);
         }
 
-        threadConnections.add(c);
+        c = new TrackingJdbcConnection(c, threadConnections);
+        debugMap.put(c, Thread.currentThread().getStackTrace());
+        int count = threadConnections.add(c);
 
-        if (threadConnections.size() > MAX_CONNECTION_WARN_SIZE) {
-            String msg = "Thread is currently using " + threadConnections.size() + " separate jdbc connections, it souldn't need more than " + MAX_CONNECTION_WARN_SIZE;
+        if (count > MAX_CONNECTION_WARN_SIZE) {
+            String msg = "Thread is currently using " + count + " separate jdbc connections, it souldn't need more than " + MAX_CONNECTION_WARN_SIZE;
             logger.warn(msg);
             logger.debug(msg, new Exception(msg));
         }
@@ -91,7 +183,7 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
     }
 
     public static void releaseThreadConnections() {
-        HashSet<Connection> threadConnections = connections.get();
+        OwnerState threadConnections = connections.get();
         if (threadConnections != null) {
             closeTrackedConnections(threadConnections, "Error closing jdbc connection.");
             trackedThreadConnectionSets.remove(threadConnections);
@@ -100,9 +192,10 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
         connections.remove();
     }
 
-    private static void closeTrackedConnections(HashSet<Connection> threadConnections, String errorMessage) {
-        HashSet<Connection> connectionsToClose = new HashSet<Connection>(threadConnections);
-        threadConnections.clear();
+    private static void closeTrackedConnections(OwnerState threadConnections, String errorMessage) {
+        Set<Connection> connectionsToClose = threadConnections.drain();
+        // Closing a connection may acquire driver locks or remove it from its owner set.
+        // Never hold the owner's private monitor while calling the driver.
         for (Connection c : connectionsToClose) {
             try {
                 if (!c.isClosed()) {
@@ -120,11 +213,11 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
      */
     static void clearTrackingState() {
         releaseThreadConnections();
-        HashSet<Connection>[] trackedThreadSets;
+        OwnerState[] trackedThreadSets;
         synchronized (trackedThreadConnectionSets) {
-            trackedThreadSets = trackedThreadConnectionSets.toArray(new HashSet[0]);
+            trackedThreadSets = trackedThreadConnectionSets.toArray(new OwnerState[0]);
         }
-        for (HashSet<Connection> threadConnections : trackedThreadSets) {
+        for (OwnerState threadConnections : trackedThreadSets) {
             closeTrackedConnections(threadConnections, "Error closing tracked thread jdbc connection during shutdown.");
             trackedThreadConnectionSets.remove(threadConnections);
         }
@@ -161,7 +254,7 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
 
     public Connection getConnection() throws SQLException {
         try {
-            return trackConnection(super.getConnection());
+            return trackConnection(cdsAdmission(super.getConnection()));
         } catch (RuntimeException e) {
             logger.error("Error:", e);
             logDebugMapToError();
@@ -171,7 +264,7 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
 
     public Connection getConnection(String username, String password) throws SQLException {
         try {
-            return trackConnection(super.getConnection(username, password));
+            return trackConnection(cdsAdmission(super.getConnection(username, password)));
         } catch (RuntimeException e) {
             logger.error("Error:", e);
             logDebugMapToError();
@@ -179,33 +272,94 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
         }
     }
 
+    /**
+     * Maps installed MySQL and native MariaDB driver names to the compatibility adapter.
+     * Other driver names retain the datasource's normal behavior.
+     *
+     * @param driverClassName configured JDBC driver class name
+     */
+    @Override
+    public synchronized void setDriverClassName(String driverClassName) {
+        super.setDriverClassName(MariaDbJdbcCompatibility.normalizeDriverClassName(driverClassName));
+    }
+
     @Override
     public synchronized void setUrl(String url) {
-        logger.warn("Setting mysql connection timezone. System timezone: " + TimeZone.getDefault().getID());
-        // find serverTimezone jdbc parameter
-        Pattern p = Pattern.compile("(serverTimezone=)(.*?)(?=&|$)");
-        Matcher m = p.matcher(url);
-        if (m.find()) {
-            String configuredTimezone = m.group(2);
-            logger.warn("Configured timezone: " + configuredTimezone);
-        } else {
-            // Sanitize the timezone ID to only allow safe characters before appending it to
-            // the JDBC URL.  TimeZone.getDefault().getID() returns values like "America/Toronto"
-            // which contain only letters, digits, underscores, hyphens, and forward slashes.
-            // The replacement ensures that even an unusual JVM timezone setting cannot inject
-            // additional JDBC URL parameters.
-            String safeTimezoneId = TimeZone.getDefault().getID().replaceAll("[^a-zA-Z0-9/_.+-]", "");
-            url += (url.contains("?") ? "&" : "?") + "serverTimezone=" + safeTimezoneId;
+        configuredUrl = url;
+        applyConfiguredUrl();
+    }
+
+    /**
+     * Optional distribution default. An explicit JDBC URL option or driver
+     * connection property retains its normal precedence. Null leaves the
+     * driver's own default unchanged, including when a previous default is cleared.
+     *
+     * @param value nullable default for Connector/J's metadata implementation
+     */
+    public synchronized void setDefaultUseInformationSchema(Boolean value) {
+        defaultUseInformationSchema = value;
+        if (configuredUrl != null) {
+            applyConfiguredUrl();
         }
+    }
+
+    private void applyConfiguredUrl() {
+        String url = configuredUrl;
+        if (url == null) {
+            super.setUrl(null);
+            return;
+        }
+        if (defaultUseInformationSchema != null && !hasExplicitMetadataOption(url)) {
+            url += (url.contains("?") ? "&" : "?")
+                    + "useInformationSchema=" + defaultUseInformationSchema;
+        }
+        // Preserve a configured timezone; otherwise keep the historical JVM-local default.
+        if (MariaDbJdbcCompatibility.isMariaDbUrl(url) && !hasExplicitTimezone(url)) {
+            String safeTimezoneId = TimeZone.getDefault().getID().replaceAll("[^a-zA-Z0-9/_.+-]", "");
+            url += (url.contains("?") ? "&" : "?") + "connectionTimeZone="
+                    + java.net.URLEncoder.encode(safeTimezoneId, StandardCharsets.UTF_8);
+        }
+        url = MariaDbJdbcCompatibility.normalizeUrl(url);
         super.setUrl(url);
+    }
+
+    private static boolean hasExplicitTimezone(String url) {
+        try {
+            Properties configured = MariaDbJdbcCompatibility.settings(url, new Properties()).properties();
+            return configured.containsKey("connectionTimeZone") || configured.containsKey("timezone");
+        } catch (SQLException _) {
+            throw new IllegalArgumentException("Invalid database connection configuration");
+        }
+    }
+
+    // FindSecBugs IMPROPER_UNICODE: ASCII JDBC option-name matching, not an authorization decision.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Case-insensitive comparison with the fixed ASCII JDBC metadata option name preserves explicit operator settings")
+    private static boolean hasExplicitMetadataOption(String url) {
+        int query = url.indexOf('?');
+        if (query < 0) {
+            return false;
+        }
+        for (String parameter : url.substring(query + 1).split("&")) {
+            String name = parameter.split("=", 2)[0];
+            if ("useInformationSchema".equalsIgnoreCase(URLDecoder.decode(name, StandardCharsets.UTF_8))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static class TrackingJdbcConnection implements Connection {
 
         private final Connection connection;
+        private final OwnerState ownerConnections;
 
         public TrackingJdbcConnection(Connection connection) {
+            this(connection, connections.get());
+        }
+
+        private TrackingJdbcConnection(Connection connection, OwnerState ownerConnections) {
             this.connection = connection;
+            this.ownerConnections = ownerConnections;
         }
 
         public void clearWarnings() throws SQLException {
@@ -216,9 +370,8 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
             try {
                 debugMap.remove(this);
 
-                HashSet<Connection> map = connections.get();
-                if (map != null) {
-                    map.remove(this);
+                if (ownerConnections != null) {
+                    ownerConnections.remove(this);
                 }
             } finally {
                 connection.close();

@@ -28,29 +28,77 @@
  * Toolbar-specific styles for the eForm floating toolbar (#toolbarWrapper / #eform_floating_toolbar).
  * These rules were previously bundled inside eform_floating_toolbar_bootstrap_custom.min.css
  * (a scoped Bootstrap 3 build). On migration to Bootstrap 5.3.3, plain bootstrap.min.css was
- * substituted — which lacks the toolbar positioning and scoping rules below.
+ * substituted — which lacks the toolbar positioning and scoping rules below, and whose reboot
+ * restyled the eForm under the toolbar (#3944).
  *
- * Injected dynamically by eform_floating_toolbar.js into eForm pages alongside bootstrap.min.css.
+ * Included in the eForm page head alongside bootstrap-eform-scoped.min.css, the Bootstrap copy
+ * confined to .carlos-eform-ui (the toolbar wrapper carries that class). Never add the plain
+ * bootstrap.min.css to an eForm page; see docs/eform-chrome-bootstrap-scope.md.
  *
  * @since 2026-03-14
  */
 
-/*
- * Position the toolbar wrapper as a fixed overlay at the bottom of the viewport.
- * Without this, the toolbar appears as inline content rather than a fixed footer bar.
- */
+/* Normal document flow; JavaScript accounts for legacy forms with absolute page positions. */
 #toolbarWrapper {
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
     font-size: 14px;
-    width: 100vw;
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: auto;
-    max-height: 50px;
-    z-index: 10000;
+    position: relative;
+    clear: both;
+    width: 100%;
+    min-width: 0;
+    margin-top: 16px;
 }
+
+/* Retain legacy controls for template handlers, while presenting one set of actions. */
+input[name="SubmitButton"], input[name="ResetButton"], input[name="PrintButton"],
+input[name="PrintSubmitButton"], input[name="PrintSaveButton"],
+input[name="pdfButton"], input[name="pdfSaveButton"],
+#faxControl, #fax_button, #faxSave_button {
+    display: none !important;
+}
+
+#toolbarWrapper form { flex: 1; min-width: 0; }
+#toolbarWrapper .input-group { flex-wrap: wrap; gap: 4px; }
+#toolbarWrapper #remote_eform_subject { flex: 1 1 180px; min-width: 140px; }
+#toolbarWrapper details { position: relative; }
+#toolbarWrapper summary { list-style: none; }
+#toolbarWrapper summary::-webkit-details-marker { display: none; }
+#toolbarWrapper .eform-options {
+    position: absolute;
+    right: 0;
+    width: min(320px, calc(100vw - 16px));
+    padding: 12px;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-shadow: 0 3px 10px #0002;
+    z-index: 10;
+}
+#toolbarWrapper .eform-options input { width: 100%; }
+#toolbarWrapper .eform-options label { display: block; margin-top: 6px; }
+#toolbarWrapper .fax-search { position: relative; }
+/* The standalone toolbar owns its spinner; eForms do not include spinner.jspf's styles. */
+#toolbarWrapper #oscar-spinner-screen {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    z-index: 1050;
+    align-items: center;
+    justify-content: center;
+}
+#toolbarWrapper #oscar-spinner-screen.active-oscar-spinner { display: flex; }
+#toolbarWrapper #img-oscar-spinner { width: 100px; height: 77px; }
+@media print {
+    #toolbarWrapper { display: none !important; }
+}
+/*
+ * Where the toolbar's jQuery UI dialogs are mounted (eformDialogHost() in eform_floating_toolbar.js):
+ * the Bootstrap scope above the dialog without a box of its own, so the dialog is positioned against
+ * the page as before, and the host does not count as page content when the toolbar measures where
+ * the form ends.
+ */
+.carlos-eform-dialog-host { display: contents; }
 
 /*
  * Ensure box-sizing is set consistently for all toolbar children.
@@ -89,7 +137,6 @@ div#eform_floating_toolbar *,
 #eform_floating_toolbar button,
 #eform_floating_toolbar nav input,
 #eform_floating_toolbar nav ::placeholder {
-    color: inherit;
     font: inherit;
     margin: 0;
 }

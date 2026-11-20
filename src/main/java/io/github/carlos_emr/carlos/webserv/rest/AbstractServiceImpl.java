@@ -28,13 +28,16 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.Produces;
 
+import org.apache.cxf.jaxrs.impl.HttpHeadersImpl;
 import org.apache.cxf.message.Message;
 import org.apache.cxf.phase.PhaseInterceptorChain;
 import org.apache.cxf.transport.http.AbstractHTTPDestination;
@@ -53,6 +56,31 @@ public abstract class AbstractServiceImpl {
         Message message = PhaseInterceptorChain.getCurrentMessage();
         HttpServletRequest request = (HttpServletRequest) message.get(AbstractHTTPDestination.HTTP_REQUEST);
         return (request);
+    }
+
+    /**
+     * Gets the values of one HTTP header of the request being served.
+     *
+     * <p>Read from CXF's current message, like {@link #getHttpServletRequest()}. Do not give a
+     * resource a {@code @Context} field for this, or for any other per-request value. The published
+     * resources are singletons behind a Spring CGLIB proxy (the REST audit advice applies to every
+     * one of them). CXF injects a {@code @Context} field into the object it was given, which is the
+     * proxy; the resource method runs on the proxy's target, where the field is still {@code null}.
+     * A {@code @Context} method parameter is passed through the proxy and is not affected.</p>
+     *
+     * @param name the header name, matched without regard to case
+     * @return one entry for each header line the request carries, in order and not split on
+     *     commas, or {@code null} when the request has no such header
+     * @throws IllegalStateException when called outside the handling of a REST request
+     */
+    protected List<String> getRequestHeader(String name) {
+        Message message = PhaseInterceptorChain.getCurrentMessage();
+        if (message == null) {
+            // Never read as "no such header": a caller may be asking whether a guard was requested.
+            throw new IllegalStateException("No REST request is being processed.");
+        }
+        // What CXF's own injected HttpHeaders delegates to for this message.
+        return new HttpHeadersImpl(message).getRequestHeader(name);
     }
 
     /**
@@ -94,11 +122,15 @@ public abstract class AbstractServiceImpl {
         Message message = PhaseInterceptorChain.getCurrentMessage();
         HttpServletRequest request = (HttpServletRequest) message.get(AbstractHTTPDestination.HTTP_REQUEST);
 
-        LoggedInInfo info = LoggedInInfo.getLoggedInInfoFromSession(request);
-
-        if (info != null && info.getLoggedInProvider() == null) {
-            // It's possible in the OAuth situation that the session is empty, but we have a valid LoggedInInfo on the request.
-            info = LoggedInInfo.getLoggedInInfoFromRequest(request);
+        // The request first: only server code puts a principal there, and on /ws/services it is the
+        // provider OAuthInterceptor just authenticated from the signed access token. That caller has
+        // no session, so the old session-first lookup failed every OAuth data call (issue #3446).
+        // The session /ws/rs surface keeps its principal in the session. getSession(false), so an
+        // OAuth call does not leave a session behind.
+        LoggedInInfo info = LoggedInInfo.getLoggedInInfoFromRequest(request);
+        if (info == null) {
+            HttpSession session = request.getSession(false);
+            info = session == null ? null : LoggedInInfo.getLoggedInInfoFromSession(session);
         }
 
         if (info == null) {

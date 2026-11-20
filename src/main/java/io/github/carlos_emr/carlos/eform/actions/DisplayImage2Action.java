@@ -37,6 +37,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Locale;
 
 import io.github.carlos_emr.carlos.eform.util.EFormAssetContentType;
 
@@ -45,7 +46,6 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.commons.io.FilenameUtils;
-import org.apache.commons.io.IOUtils;
 import org.apache.struts2.ServletActionContext;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -105,9 +105,30 @@ public class DisplayImage2Action extends ActionSupport {
      * so sandboxing these two files defends nothing while silently breaking clinic letterhead. The real
      * control is who holds {@code _eform} write. Every OTHER text/html file keeps the unconditional
      * sandbox in {@link #process}.</p>
+     *
+     * <p>The same reasoning covers every other {@code *.rtl} file in the directory
+     * ({@link #isLetterTemplate}): {@code EFormUtil.listRichTextLetterTemplates()} offers exactly those
+     * files in the editor's template dropdown, and {@code editControl2.js} navigates the editor iframe
+     * to the chosen one and then reads and rewrites its body. A sandboxed template gives that frame an
+     * opaque origin, so the editor throws on first access and the letter can neither be edited nor
+     * saved — which is what happened to any clinic template other than {@code blank.rtl}. Unlike the
+     * two seeded names there is no WAR fallback for them: absent means 404.</p>
      */
     static final java.util.Set<String> SEEDED_EDITOR_ASSETS = java.util.Set.of(
             "blank.rtl", "editor_help.html");
+
+    /**
+     * True for a Rich Text Letter template ({@code *.rtl}) — the files the editor loads into its own
+     * frame and therefore must serve unsandboxed, like {@link #SEEDED_EDITOR_ASSETS}.
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    static boolean isLetterTemplate(String fileName) {
+        // A plain suffix test rather than FilenameUtils.getExtension (WEAK_FILENAMEUTILS): this only
+        // classifies the name; path containment is enforced by getValidatedImageFile before anything
+        // is read. ROOT keeps the comparison locale-independent.
+        return fileName != null && fileName.toLowerCase(Locale.ROOT).endsWith(".rtl");
+    }
     private HttpServletRequest request = ServletActionContext.getRequest();
     private HttpServletResponse response = ServletActionContext.getResponse();
     private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
@@ -156,17 +177,27 @@ public class DisplayImage2Action extends ActionSupport {
         // every new Rich Text Letter opened blank, with nothing logged. Prefer the on-disk copy and
         // fall back to the WAR only when the file is absent, which is the state of a fresh install
         // before the deployer has run.
-        if (SEEDED_EDITOR_ASSETS.contains(fileName)) {
+        // Every other *.rtl is a clinic letter template the editor loads into its frame the same way
+        // (see isLetterTemplate on SEEDED_EDITOR_ASSETS): unsandboxed, on-disk only, 404 when absent.
+        if (SEEDED_EDITOR_ASSETS.contains(fileName) || isLetterTemplate(fileName)) {
             File seeded = getValidatedImageFile(fileName);
             if (!seeded.exists() || !seeded.isFile()) {
-                return serveBundledEditorAsset(fileName);
+                if (SEEDED_EDITOR_ASSETS.contains(fileName)) {
+                    return serveBundledEditorAsset(fileName);
+                }
+                logger.debug("Rich Text Letter template not found");
+                response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                return NONE;
             }
             return serveSeededEditorAsset(seeded, fileName);
         }
 
         File validatedFile = getValidatedImageFile(fileName);
         if (!validatedFile.exists() || !validatedFile.isFile()) {
-            logger.debug("eForm asset not found: {}", LogSafe.sanitize(fileName));
+            if (VACCINE_BRANDS_FILE.equals(fileName) && !validatedFile.exists()) {
+                return serveBundledVaccineCatalogue();
+            }
+            logger.debug("eForm asset not found");
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
             return NONE;
         }
@@ -174,11 +205,11 @@ public class DisplayImage2Action extends ActionSupport {
         try {
             data = process(validatedFile, fileName);
         } catch (FileNotFoundException e) {
-            logger.debug("eForm asset disappeared before streaming: {}", LogSafe.sanitize(fileName));
+            logger.debug("eForm asset disappeared before streaming");
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
             return NONE;
         } catch (IllegalArgumentException e) {
-            logger.debug("eForm asset request rejected (unsupported type): {}", LogSafe.sanitize(fileName));
+            logger.debug("eForm asset request rejected (unsupported type)");
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
             return NONE;
         }
@@ -193,15 +224,35 @@ public class DisplayImage2Action extends ActionSupport {
             }
             response.setContentType(contentType);
             OutputStream outputStream = response.getOutputStream();
-            IOUtils.copy(stream, outputStream);
+            stream.transferTo(outputStream);
             return NONE;
         } catch (IOException | IllegalStateException e) {
-            logger.error("Error streaming eform image to response", e);
+            logger.error("Error streaming eform image to response: {}", LogSafe.exceptionTrace(e));
             if (!response.isCommitted()) {
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             }
             return NONE;
         }
+    }
+
+    /**
+     * A clinic override is optional. Serve the shipped catalogue when absent so
+     * every fresh-install prevention view does not generate a browser 404 before
+     * its client-side fallback. Authorization and path validation ran above;
+     * an existing custom file still wins, and other missing assets remain 404.
+     */
+    private String serveBundledVaccineCatalogue() throws IOException {
+        try (InputStream stream = request.getServletContext()
+                .getResourceAsStream("/prevention/vaccine-brands.json")) {
+            if (stream == null) {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                return NONE;
+            }
+            response.setHeader("X-Content-Type-Options", "nosniff");
+            response.setContentType("application/json");
+            stream.transferTo(response.getOutputStream());
+        }
+        return NONE;
     }
 
     /**
@@ -225,7 +276,7 @@ public class DisplayImage2Action extends ActionSupport {
                 HtmlResponse.writeStoredHtml(response, contentType, stream);
             } else {
                 response.setContentType(contentType);
-                IOUtils.copy(stream, response.getOutputStream());
+                stream.transferTo(response.getOutputStream());
             }
         }
         return NONE;
@@ -244,7 +295,7 @@ public class DisplayImage2Action extends ActionSupport {
         response.setHeader("X-Content-Type-Options", "nosniff");
         try (InputStream stream = request.getServletContext().getResourceAsStream(BUNDLED_EDITOR_ASSETS_PATH + fileName)) {
             if (stream == null) {
-                logger.debug("Bundled eForm editor asset missing from WAR: {}", LogSafe.sanitize(fileName));
+                logger.debug("Bundled eForm editor asset missing from WAR");
                 response.sendError(HttpServletResponse.SC_NOT_FOUND);
                 return NONE;
             }
@@ -252,7 +303,7 @@ public class DisplayImage2Action extends ActionSupport {
                 HtmlResponse.writeStoredHtml(response, contentType, stream);
             } else {
                 response.setContentType(contentType);
-                IOUtils.copy(stream, response.getOutputStream());
+                stream.transferTo(response.getOutputStream());
             }
         }
         return NONE;
@@ -278,7 +329,7 @@ public class DisplayImage2Action extends ActionSupport {
 
     private void validateRequestedFileName(String fileName) {
         if (!fileName.equals(FilenameUtils.getName(fileName))) {
-            logger.warn("Path traversal attempt in imagefile parameter: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            logger.warn("Path traversal attempt in imagefile parameter"); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             throw new SecurityException("Path traversal detected in imagefile parameter");
         }
     }

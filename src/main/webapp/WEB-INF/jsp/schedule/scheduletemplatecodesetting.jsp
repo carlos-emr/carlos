@@ -33,7 +33,7 @@
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
 <%@ page
-        import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*"
+        import="java.util.*, java.lang.*"
         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -43,7 +43,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleTemplateCodeDao" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     ScheduleTemplateCodeDao scheduleTemplateCodeDao = SpringUtils.getBean(ScheduleTemplateCodeDao.class);
@@ -186,7 +186,7 @@
                 <label class="form-label" for="description"><fmt:message key="schedule.scheduletemplatecodesetting.formDescription"/>:</label>
                 <div>
                     <input type="text" name="description" id="description" maxlength="40"
-                            <%=bEdit?("value='"+SafeEncode.forHtmlContent(dataBean.getProperty("description"))+"'"):"value=''"%>>
+                            value="<%= SafeEncode.forHtmlAttribute(bEdit ? dataBean.getProperty("description") : "") %>">
                 </div>
             </div>
             <div class="mb-3">

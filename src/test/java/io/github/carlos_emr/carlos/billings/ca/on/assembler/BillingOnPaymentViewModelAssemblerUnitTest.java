@@ -36,17 +36,22 @@ import io.github.carlos_emr.carlos.commn.model.BillingONPremium;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.RaDetail;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import java.math.BigDecimal;
 import java.util.Date;
 import java.util.Collections;
 import java.util.List;
+import java.util.TimeZone;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -54,6 +59,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -67,7 +74,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("BillingOnPaymentViewModelAssembler smoke")
 @Tag("unit")
 @Tag("billing")
-class BillingOnPaymentViewModelAssemblerUnitTest {
+class BillingOnPaymentViewModelAssemblerUnitTest extends CarlosUnitTestBase {
 
     private ProviderDao providerDao;
     private RaDetailDao raDetailDao;
@@ -129,6 +136,52 @@ class BillingOnPaymentViewModelAssemblerUnitTest {
         assertThat(vm.getErrorMsg()).isNotEmpty();
     }
 
+    /**
+     * Assembles with Toronto as the JVM zone, on a new thread. {@code CachedDateFormats} keeps one
+     * formatter per pattern per thread, holding the zone that was the default when it was built,
+     * so on this test thread the dates could still parse in whatever zone an earlier test used.
+     */
+    private BillingOnPaymentViewModel assembleInToronto(MockHttpServletRequest req) throws Exception {
+        TimeZone original = TimeZone.getDefault();
+        TimeZone.setDefault(TimeZone.getTimeZone("America/Toronto"));
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            return executor.submit(() -> assembler.assemble(req, loggedInInfo, false, false)).get();
+        } finally {
+            executor.shutdownNow();
+            TimeZone.setDefault(original);
+        }
+    }
+
+    @Test
+    @DisplayName("should reject an end date one day before the start across spring forward (#6047)")
+    void shouldRejectEndBeforeStart_whenSpanIsTheSpringForwardDay() throws Exception {
+        // 2026-03-08 is 23 hours long in Toronto. Dividing elapsed time by 24 hours counted
+        // March 9 back to March 8 as zero days, so the reversed range ran the report.
+        MockHttpServletRequest req = new MockHttpServletRequest();
+        req.setParameter("startDateText", "2026-03-09");
+        req.setParameter("endDateText", "2026-03-08");
+        req.setParameter("providerList", "");
+
+        BillingOnPaymentViewModel vm = assembleInToronto(req);
+
+        assertThat(vm.getErrorMsg()).isNotEmpty();
+        assertThat(vm.isReportRendered()).isFalse();
+        verify(raDetailDao, never()).getRaDetailByDate(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("should accept a one-day range that is the spring-forward day (#6047)")
+    void shouldAcceptOrderedRange_whenSpanIsTheSpringForwardDay() throws Exception {
+        MockHttpServletRequest req = new MockHttpServletRequest();
+        req.setParameter("startDateText", "2026-03-08");
+        req.setParameter("endDateText", "2026-03-09");
+
+        BillingOnPaymentViewModel vm = assembleInToronto(req);
+
+        assertThat(vm.getErrorMsg()).isEmpty();
+    }
+
     @Test
     void shouldThrowSecurityException_whenIsThisProviderOnlyWithNoOhipNumber() {
         // _admin.invoices grant routes through the dropdown-restriction
@@ -161,6 +214,47 @@ class BillingOnPaymentViewModelAssemblerUnitTest {
 
         assertThat(vm.getProviderOptions()).hasSize(1);
         assertThat(vm.getProviderOptions().get(0).displayName()).contains("Smith");
+    }
+
+    @Test
+    void shouldRequestWholeCalendarMonthOfEndDate_whenQueryingRaDetails() {
+        // RaDetailDao treats both bounds as inclusive (issue #4430), so the assembler must hand it
+        // the first and the last day of the End Date's month for an RA paid on the 31st to appear.
+        MockHttpServletRequest req = new MockHttpServletRequest();
+        req.setParameter("providerList", "");
+        req.setParameter("startDateText", "2026-10-05");
+        req.setParameter("endDateText", "2026-10-20");
+
+        assembler.assemble(req, loggedInInfo, false, false);
+
+        ArgumentCaptor<Date> from = ArgumentCaptor.forClass(Date.class);
+        ArgumentCaptor<Date> to = ArgumentCaptor.forClass(Date.class);
+        verify(raDetailDao).getRaDetailByDate(from.capture(), to.capture(), any());
+        assertThat(new java.sql.Date(from.getValue().getTime()).toLocalDate()).isEqualTo(java.time.LocalDate.of(2026, java.time.Month.OCTOBER, 1));
+        assertThat(new java.sql.Date(to.getValue().getTime()).toLocalDate()).isEqualTo(java.time.LocalDate.of(2026, java.time.Month.OCTOBER, 31));
+    }
+
+    @Test
+    void shouldIncludeReturnedBoundaryPremiums_inSubtotalAndFinalPaidTotal() {
+        MockHttpServletRequest req = new MockHttpServletRequest();
+        req.setParameter("providerList", "");
+        req.setParameter("startDateText", "2026-12-30");
+        req.setParameter("endDateText", "2026-12-31");
+        BillingONPremium start = new BillingONPremium();
+        start.setPayDate(java.sql.Date.valueOf("2026-12-30"));
+        start.setAmountPay("11.11");
+        BillingONPremium end = new BillingONPremium();
+        end.setPayDate(java.sql.Date.valueOf("2026-12-31"));
+        end.setAmountPay("22.22");
+        when(bPremiumDao.getActiveRAPremiumsByPayDate(any(), any(), any())).thenReturn(List.of(start, end));
+
+        BillingOnPaymentViewModel vm = assembler.assemble(req, loggedInInfo, false, false);
+
+        assertThat(vm.getPremiumRows()).hasSize(2);
+        assertThat(vm.getPremiumItemCount()).isEqualTo(2);
+        assertThat(vm.getPremiumTotal()).isEqualTo("33.33");
+        assertThat(vm.getFinalTotal()).isEqualTo("33.33");
+        assertThat(vm.isPaymentsPartial()).isFalse();
     }
 
     @Test

@@ -1,0 +1,296 @@
+# Duplicate Submissions and Stale Edits
+
+Issue #4225 found create forms that saved twice and an edit form that silently overwrote a newer
+record. This page describes the two mechanisms that fix them and how to use them for another form.
+
+## One save per rendered create form: `FormSubmissionGuard`
+
+`io.github.carlos_emr.carlos.utility.FormSubmissionGuard` gives each rendering of a create form a
+one-time token. It is held in the HTTP session and bound to a `Scope` (the form) and an optional
+binding value, such as the patient a bill is for.
+
+A classic form POST repeats itself in four ways: a double click, a double Enter, a second click
+while a slow response is still out, and a reload of a result page rendered straight from the POST.
+Each of these used to create a second appointment, Ontario bill, patient or consultation service.
+With the guard, the first request to present a token claims it. A repeat of the same rendering
+gets one of these outcomes:
+
+| Verdict | Meaning | What the action does |
+|---|---|---|
+| `PROCEED` | The token was free and is now claimed | Saves, then closes the claim |
+| `ALREADY_SAVED` | The first submission saved `result()` | Writes nothing; renders the first save's own result page from `result()` |
+| `UNCONFIRMED` | The first submission may have saved but recorded no result | Writes nothing; HTTP 409 asking the user to check the record |
+| `IN_PROGRESS` | The first submission is still saving after a 20 s wait | Writes nothing; HTTP 409 |
+| `STALE` | Not a token this session issued for this scope and binding, or it was evicted | Writes nothing; HTTP 409 |
+| `ABSENT` | No token was posted | Keeps the endpoint's previous behaviour |
+
+The browser keeps whichever response arrived last, often the repeat's. That is why
+`ALREADY_SAVED` answers with the same page the first save would have shown: the popup closes, the
+day sheet refreshes, and the receipt or invoice prints. Repeats that cannot reproduce that page
+use `FormSubmissionGuard.refuse()`. It sets HTTP 409 and `Cache-Control: no-store` and selects a
+`global.formSubmission.*` message for `/WEB-INF/jsp/common/formSubmissionRefused.jsp`. Each
+guarded action maps the `submissionRefused` result to that page.
+
+A later, intentional create renders the form again and gets a new token. Each confirmation page
+that also offers the form issues a new token, as Add Service does, so adding another record still
+works. The guard identifies repeated submissions of one rendering. It does not deduplicate records
+by content.
+
+The Add pregnancy form uses `PREGNANCY_CREATE`, bound to its authorized patient. Both the first
+successful POST and a saved replay redirect to that patient's pregnancy history. The patient-row
+lock also prevents two different forms from creating concurrent current episodes. The token is
+still needed after completion: replaying an old create must not start another episode. Opening
+Add again issues a fresh token for an intentional later pregnancy.
+
+Appointment Settings > Locations uses `APPOINTMENT_LOCATION_ADD` for its add and paste forms, one
+token each, bound to its own dispatch (`add`, `addMany`): one form's token sent with the other
+dispatch is refused as stale, never answered with the first form's result, and each form saves once
+per rendering on its own. A repeat of one form shows the first submission's own message (what it
+added and skipped), rendered from `result()`.
+
+The Messenger compose page uses `MESSENGER_SEND` for every way a message is written: new,
+reply, reply all, forward, and a refused send shown again. `CreateMessage.jsp` issues the token
+itself, so each rendering has its own. `MsgCreateMessage2Action` claims it before it validates
+anything or takes the compose window's attachments, and stores the message and its delivery rows
+in the one observed transaction. What it records for a repeat is the message id, who the message
+was sent to, and a SHA-256 of what was submitted (recipients, subject, body, linked patient).
+A repeat with the same digest is answered with the "message sent" page of the first send. A
+submission of the same rendering with a different digest is not a repeat: the user went back to
+the page that had sent, changed the message and sent again. Answering it with the first send's
+confirmation would report a message as sent that never was, so the compose page is shown again
+with HTTP 409, what was submitted and `messenger.CreateMessage.msgChangedAfterSend`; that
+rendering has a new token, and sending from it delivers the changed message once.
+
+The Group Appointment page (`appointment/appointmentgrouprecords`) uses `APPOINTMENT_GROUP` for
+its four group actions: Add Group Appointment, Group Update, Group Cancel and Group Delete. Group
+Update needs it most: its first click removes the appointments it names and books them again, so
+a second click of the same page met changed versions and was answered with the 409 appointment
+conflict page, telling a user whose change had saved that nothing was saved. The actions still
+write from the page's scriptlet, so the gate, `ViewAppointmentSelfPost2Action`, holds the claim
+(`AppointmentGroupSubmission`):
+
+- After its method and privilege checks, and before the page validates or writes anything, the
+  gate claims the posted token. A request without one is rendered through the route's `success`
+  result exactly as before.
+- For a claimed request the gate runs the page itself, with the claim in a request attribute, and
+  closes the claim once the page has run, however it ended. The page reports
+  `AppointmentGroupSubmission.storageStarted()` before the first booking (Add Group Appointment
+  commits each booking on its own) or before its group-edit transaction commits, and `saved()`
+  with the action's name once the writes are durable.
+- A repeat of the same action is answered with `groupSaved` (`appointmentGroupSaved.jsp`), the
+  page the first save ended on: the success message, a refresh of the day sheet and the popup
+  closing. Another action of a saved rendering (Group Cancel after Group Update) is refused as
+  `STALE`; the update's page would report a cancellation that never happened.
+- A press that wrote nothing (nothing ticked, a rolled-back group edit, or the page's own refusal
+  of a stale form) leaves the token free. A rendering that has not saved therefore still reaches
+  the stale-form check, and a form another user's change overtook is answered with the 409
+  appointment conflict page as before.
+- The page echoes every posted field into its form. It skips a posted `carlosFormSubmission` (the
+  Add Appointment form's) and renders its own.
+
+The repeat-booking pages are not guarded this way; they keep the stored-row comparison described
+under "Stale Edit Appointment forms" below.
+
+### When a token is freed for a retry
+
+The claim frees the token only when the attempt provably wrote nothing:
+
+- The save calls `claim.storageStarted()` first inside a `TransactionTemplate` around the write
+  that creates the record. A rollback (`STATUS_ROLLED_BACK`) frees the token. Any other or unknown
+  outcome keeps it spent, including a commit whose acknowledgement was lost. Add Appointment
+  commits the appointment and its MC number together. The Ontario bill save marks a "nothing
+  saved" result rollback-only. Add Demographic wraps only the patient row, because its later
+  writes run in their own transactions. Add Service wraps its single insert.
+- After the commit, the action calls `claim.saved(id)` so a repeat can render the first result. If
+  a later step fails, the token stays spent and a repeat shows the first result instead of
+  creating a second record. A repeat's page shows what was saved (the service name, the patient's
+  name), never the repeat's own fields: those were not saved.
+
+Claim the token before validation. Once the first save has stored a patient, the HIN check would
+otherwise refuse the repeat as a duplicate of the patient it just created.
+
+### Adding the guard to another create form
+
+1. Add a `Scope` constant.
+2. Render the token into the form as `FormSubmissionGuard.PARAMETER`. In a scriptlet page, encode
+   the token for the HTML attribute: `<carlos:encode ... context="htmlAttribute"/>` or
+   `SafeEncode.forHtmlAttribute(...)`. A page assembled by an action can set a request attribute
+   instead (see `ViewBillingOnReview2Action`). A page that echoes every request parameter back
+   (the Ontario bill review) must skip `carlosFormSubmission`.
+3. In the action, call `attempt()` after the method and privilege checks. Handle the verdicts as
+   in the table above, wrap the save in `try (Claim claim = attempt.claim())`, and map
+   `submissionRefused` in the action's `struts-*.xml` entry.
+
+`PreventionSubmissionGuard` (#4410) and `EFormSubmissionGuard` predate this class. They keep
+form-specific state (the DHIR review, opener-session effects) and stay separate.
+
+`EFormSubmissionGuard` frees a token by the same rule. When a submission fails after its storage
+transaction started, `AddEForm2Action` keeps the token spent and answers HTTP 409 with its own
+text, never the replay refusal `eform.submitUnavailable` (#4424). After a confirmed commit,
+`eform.submitSavedStepIncomplete` says the eForm was saved and names the step that did not
+complete: Add to Documents, the chart notes and other entries the template writes, the fax,
+download or email preparation, or "a follow-on step" for work with no name of its own. When the
+commit's outcome is unknown, `eform.submitOutcomeUnknown` says the save could not be confirmed.
+The log records the step and `LogSafe.exceptionTrace`, never the exception's message.
+
+### Browser checks that replay requests
+
+`lib/mutation-families.js` and `get-reject-consult-config` replay a POST that the page already
+sent once (the CSRF, authorization and WAF matrices). The replayed token is already spent, so the
+families drop it (`carlosFormSubmission: null`) and replay the unguarded request. A check that
+must prove the guard itself renders a new form instead. `double-submit-*` checks the rapid
+activations and the reload, and `double-submit-intentional-adds` checks that a later add still
+works. `appointment-group-copy-cut` presses Add Group Appointment and Group Update a second time
+while the first response is held back, and expects the popup to close with one booking per
+provider.
+
+## Stale Master Record edits: `DemographicEditVersion`
+
+The Master Record edit form posts every field, and `DemographicUpdate2Action` used to write all of
+them back. A form opened before another user's save put that user's changes back (a cleared phone
+number). For a patient whose extension rows did not exist yet, it also inserted them a second time
+and failed on `uk_demo_ext` with HTTP 500.
+
+- `DemographicEdit2Action` renders `demographicVersion` into the form. This is a SHA-256 over the
+  patient row, the `demographicExt` rows the form writes (`editedExtensionKeys()`) and the
+  `demographiccust` row. A hash is used rather than `lastUpdateDate` because that column is stored
+  to the second.
+- `DemographicUpdate2Action` runs every write in one transaction after
+  `DemographicDao.findForUpdate()` locks the patient row. A posted version that no longer matches
+  is refused before anything is written: HTTP 409 with
+  `/WEB-INF/jsp/demographic/demographicUpdateConflict.jsp`. That page lists each field where the
+  refused entry differs from the current value and links to the current record. It also offers
+  to save the same entries again deliberately, after a confirmation, bound to the current version.
+- Extension rows are matched to the patient's existing rows by key, never by an id the form
+  posted. An unversioned save therefore cannot hit `uk_demo_ext` or touch another patient's row.
+- A post with no version (an older page or a hand-built request) is saved without the check.
+  Replay tooling drops `demographicVersion` for that reason.
+
+`concurrency-demographic-edit` and `concurrency-demographic-ext-insert` pin the refusal, and
+`demographic-stale-edit-recovery` pins the conflict page and both recovery paths.
+
+## Stale Edit Appointment forms: `AppointmentEditConflict`
+
+The classic Edit Appointment popup also posts every field. A popup opened before another user's
+change wrote its stale fields back: a cancellation saved from a second popup, or a status letter
+clicked on the day sheet, was silently undone.
+
+- `editappointment.jsp` renders `appointmentVersion`, the appointment's
+  `Appointment.getEditVersion()` (its `updatedatetime`, which `@PreUpdate` advances by at least one
+  second on every write). A redisplay of posted fields (the patient search round trip, a
+  text-length retry) keeps the version those fields came from. This is the token the REST edit
+  already uses; there is no second scheme.
+- `AppointmentUpdateRecord2Action` (Update Appt, Update & Receipt, Cancel Appt, No Show) writes
+  through `ScheduleManager.updateAppointment(loggedInInfo, id, version, edit)`: `findForUpdate`
+  locks the row, the version is compared, and the archive row and the update commit together.
+  Delete and Cut use `ScheduleManager.removeAppointment(loggedInInfo, id, version)` the same way;
+  Cut copies the form into the session for Paste only after the removal, so a refused cut leaves
+  nothing to paste.
+- The group page (`appointmentgrouprecords.jsp`) echoes the edit form's fields and lists each
+  matching appointment with its own `appointment_version<N>`. Group Update, Group Cancel and Group
+  Delete run in one transaction that first calls `AppointmentEditConflict.staleUnderLock()` for the
+  form's appointment and every ticked row. The repeat page's `RecurringAppointmentService.apply()`
+  compares the version with the anchor row it already locks.
+- A stale form whose fields the appointment already holds is not a conflict: it is the second
+  click on a form whose first submission was saved (the browser shows the later response). The
+  action writes nothing and answers with the normal result page. The Group Appointment page cannot
+  compare that way, because Group Update replaces the rows it names; it recognises the second
+  click by its `FormSubmissionGuard` token instead (see above).
+- Any other mismatch is refused before anything is written: HTTP 409 and
+  `/WEB-INF/jsp/appointment/appointmentEditConflict.jsp` (result `editConflict`), which says that
+  nothing was saved, refreshes the day sheet behind the popup and offers to reopen the appointment
+  as it is now. The repeat page shows the same text in its own alert. An appointment that no longer
+  exists is still answered 404.
+- Copy writes nothing to the appointment, so it is not checked. A post with no version (an older
+  page, a hand-built request, a replay) is saved without the check, as the REST edit does for
+  clients that send no `editVersion`. Replay tooling drops `appointmentVersion` for that reason.
+
+`concurrency-appointment-edit` pins the refusal: session A's stale Update Appt is answered 409,
+stores none of its fields and leaves session B's cancellation in place.
+
+## Stale task (tickler) edits and list actions
+
+Two tickler screens wrote over another user's change in the same way.
+
+**Edit Tickler popup.** The popup posts the status, priority, assignee and service date it showed,
+and `EditTickler2Action` wrote each one that differed from the stored row. A popup opened before
+another user completed the task put it back to Active when it only meant to raise the priority.
+
+- `ticklerEdit.jsp` renders `ticklerVersion` (`TicklerEditVersion.of`): a SHA-256 over the fields
+  the form writes, the row's `update_date` and the number of comments. `update_date` alone is not
+  enough because it is stored to the second.
+- With a version, the action calls `TicklerManager.getTicklerForUpdate()` first in its
+  transaction. `TicklerDao.findForUpdate()` locks the row and reads it again under the lock, so
+  the comparison and every write (attachments, comment, fields, history) see the same tickler.
+- A mismatch writes nothing: HTTP 409 and the `staleRefused` result
+  (`ticklerEditStaleRefused.jsp`, sentinel `#tickler-edit-stale`). The popup shows
+  `tickler.ticklerEdit.stale.error` in its error banner and in one alert, and leaves the Update
+  button disabled: the form can only be reopened.
+- A post with no version is saved without the check. Replay tooling drops `ticklerVersion`.
+
+**Task lists.** The lists post only the ticked task numbers, and `updateStatus` applied the
+requested status whatever the row held. A list loaded before another user deleted a task
+brought it back as Completed.
+
+- Each checkbox carries `data-rendered-status`. `ticklerStaleSelection.jspf` (included in the
+  bulk form of `ticklerMain.jsp` and `ticklerDemoMain.jsp`) wraps the form's `submit()` and posts
+  the ticked rows as `ticklerRendered` (`<tickler_no>:<status>` pairs in one field, so a long list
+  does not multiply request parameters).
+- `DbTicklerMain2Action` and `DbTicklerDemoMain2Action` call
+  `TicklerManager.updateStatusIfCurrent(..., renderedStatus, status)`. Under the row lock it
+  returns `APPLIED`, `UNCHANGED` (the task already has the requested status) or `STALE` (the
+  status is no longer the one the list showed). Without a rendered status the change is applied
+  as before, except that a Deleted task is never changed to Completed.
+- Stale tasks are left as they are; the other ticked tasks are still applied. The action
+  remembers the refused task numbers in the session (`TicklerRenderedStatus`) and the list it
+  redirects to names each one once, with patient, message and current status
+  (`#ticklerStaleSelection`). A refused task is not counted in `failCount`.
+
+`TicklerManager.updateStatus`, `completeTickler` and `deleteTickler` (REST) are unchanged, except
+that a legacy tickler stored without a patient (`demographic_no` 0 or NULL) can again be
+completed or deleted: `getTicklerDemographicNoForUpdate` applies the patient-specific rule only
+when the tickler has a patient. New patientless ticklers are still refused.
+
+`concurrency-tickler-edit` and `concurrency-tickler-list-status` pin both refusals.
+
+
+## Stale Security Records edits: `SecurityEditVersion`
+
+Administration, Search/Edit/Delete Security Records, Update Record posts every control the edit
+page shows (user name, provider, expiry flag and date, both PIN-lock flags, password, PIN, Force
+password reset, Enable MFA), and the save, then a scriptlet in `securityupdate.jsp`, copied all of
+them onto the `security` row. An administrator whose page was opened before another
+administrator's save put that save back without a warning: a forced password reset, an expiry,
+a lock flag or the MFA switch was silently undone (ledger finding 355).
+
+- `securityupdatesecurity.jsp` renders `securityVersion` (`SecurityEditVersion.of`): a SHA-256
+  over the values the form shows and writes and the row's `lastUpdateDate`, `passwordUpdateDate`
+  and `pinUpdateDate`. The password hash, the PIN, the MFA secret and the ONE ID values never enter
+  it, and none of them is logged. Because the credential change times are in it, a password or PIN
+  changed elsewhere after the page was opened (the user's own change, a forced reset at sign-in,
+  a hash upgrade at sign-in) also makes the page stale, as does Reset MFA, whose save stamps
+  `lastUpdateDate`.
+- `SecurityUpdate2Action` validates the user name and password as before (a refused value writes
+  nothing and shows its message) and then calls `SecurityRecordUpdateService.update()`. In one
+  transaction it locks the row (`SecurityDao.findForUpdate()`, a locking read that is refreshed),
+  compares the version and writes. The write is the one the scriptlet made: the password is hashed
+  only when it is not the unchanged marker, the PIN goes through `SecurityUpdatePinHandler`, the
+  lock flags change only when the form says they were editable, `lastUpdateDate` is stamped, and
+  no archive row is written. The action writes the same `LogAction` row after a save;
+  `securityupdate.jsp` now only reports the outcome.
+- A mismatch writes nothing, the new password and PIN included: HTTP 409, `Cache-Control:
+  no-store`, and the result page's `#securityEditConflict` block
+  (`admin.securityupdate.editConflict.*`), which says that nothing was saved and links to the edit
+  page of the record as it is now (`#securityEditConflictReopen`).
+- A stale form whose every value the login already holds, and which changes neither credential,
+  is not a conflict: it is most often the second click of a form whose first click saved. It
+  writes nothing (and no audit row) and shows the normal success message. A stale form that posts
+  a new password or PIN is always refused, even on a second click: telling whether the stored
+  hash already is that password would mean testing it against the hash, which the save must never
+  offer. The first click's password stands, and the administrator can reopen the record to check.
+- A post with no version (an older page or a hand-built request) is saved as before, under the
+  same lock but without the check.
+
+`concurrency-security-record` pins the refusal: session A's stale Update Record is answered 409,
+stores none of its fields and leaves session B's Force password reset in place; reopened, the
+record shows that reset and session A's change saves.

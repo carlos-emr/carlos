@@ -31,7 +31,7 @@
 package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
 import java.io.Serializable;
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -81,14 +81,15 @@ public class ConsultationRequestTo1 implements Serializable {
     private String letterheadAddress;
     private String letterheadPhone;
     private String letterheadFax;
-    private List<ConsultationAttachmentTo1> attachments = Collections.emptyList();
+    private List<ConsultationAttachmentTo1> attachments = new ArrayList<>();
+    private boolean attachmentSelectionProvided;
 
     private List<LetterheadTo1> letterheadList;
     private List<FaxConfigTo1> faxList;
     private List<ConsultationServiceTo1> serviceList;
     private List<String> sendToList;
 
-    private List<ConsultationRequestExtTo1> extras = Collections.emptyList();
+    private List<ConsultationRequestExtTo1> extras = new ArrayList<>();
 
 
     public Integer getId() {
@@ -297,6 +298,18 @@ public class ConsultationRequestTo1 implements Serializable {
 
     public void setAttachments(List<ConsultationAttachmentTo1> attachments) {
         this.attachments = attachments;
+        this.attachmentSelectionProvided = true;
+    }
+
+    /**
+     * Distinguishes a submitted empty selection from an omitted JSON field while retaining
+     * the legacy empty-list getter default for callers that only read this DTO.
+     *
+     * @return whether the caller explicitly supplied an attachment selection
+     */
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    public boolean hasAttachmentSelection() {
+        return attachmentSelectionProvided;
     }
 
     public List<LetterheadTo1> getLetterheadList() {

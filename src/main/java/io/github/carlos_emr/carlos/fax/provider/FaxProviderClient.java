@@ -54,9 +54,8 @@ public interface FaxProviderClient {
      * Sends an outbound fax.
      *
      * @param faxConfig FaxConfig provider configuration containing credentials and endpoint
-     * @param faxJob FaxJob logical fax job with destination and metadata. Note: implementations may null-out
-     *        the document field after transmission to free memory. Callers must not rely on the document
-     *        field after calling sendFax
+     * @param faxJob FaxJob logical fax job with destination and metadata. The legacy base64 backup
+     *        field is cleared after transmission; new payloads stream from filePath
      * @param filePath Path resolved path to document payload on local filesystem
      * @return FaxJob new fax job containing provider response fields (jobId, status, statusString)
      * @throws FaxProviderException when send operation fails
@@ -79,7 +78,7 @@ public interface FaxProviderClient {
      *
      * @param faxConfig FaxConfig provider configuration containing credentials and endpoint
      * @param fax FaxJob fax metadata identifying which document to download
-     * @return FaxJob fax job with downloaded document content populated
+     * @return FaxJob fax job with a private temporary documentPath populated; the caller must move or delete it
      * @throws FaxProviderException when download operation fails
      * @since 2026-02-11
      */
@@ -104,6 +103,26 @@ public interface FaxProviderClient {
      */
     default void markFaxAsRead(FaxConfig faxConfig, FaxJob fax) throws FaxProviderException {
         // No-op by default. Providers using read/unread semantics override this.
+    }
+
+    /**
+     * Verifies that the provider accepts the credentials carried by the given configuration.
+     *
+     * <p>Used by the admin "Test SRFax connection" control so a mistyped account number or
+     * password is reported immediately instead of surfacing minutes later as a scheduler error.
+     * Implementations must use a read-only, side-effect-free provider call and must not log or
+     * echo the credentials.</p>
+     *
+     * <p>The default implementation refuses: providers that offer no cheap probe report the
+     * test as unsupported rather than pretending success.</p>
+     *
+     * @param faxConfig FaxConfig provider configuration containing the credentials to verify
+     * @throws FaxProviderException when the provider rejects the credentials, cannot be reached,
+     *         or does not support a connection test
+     * @since 2026-09-03
+     */
+    default void verifyConnection(FaxConfig faxConfig) throws FaxProviderException {
+        throw new FaxProviderException("Connection test is not supported for provider " + getProviderType());
     }
 
     /**

@@ -160,7 +160,9 @@ public class RptByExamplesFavorite2Action extends ActionSupport {
      * @throws RuntimeException if persistence fails
      */
     public void deleteQuery(String providerNo, String id) {
-        dao.remove(requireOwnedFavorite(providerNo, id));
+        // The ownership lookup may return a detached entity. Delete by the verified ID
+        // so the DAO loads and removes a managed instance in its own transaction.
+        dao.remove(requireOwnedFavorite(providerNo, id).getId());
     }
 
     private void prepareNewFavorite(String providerNo) {

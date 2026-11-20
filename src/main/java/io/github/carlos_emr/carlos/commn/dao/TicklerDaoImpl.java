@@ -39,15 +39,19 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import jakarta.persistence.Query;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.ParameterExpression;
+import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.TypedQuery;
 
 import io.github.carlos_emr.carlos.commn.model.CustomFilter;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
+import io.github.carlos_emr.carlos.commn.model.TicklerDocs;
 import io.github.carlos_emr.carlos.tickler.dto.TicklerCommentDTO;
 import io.github.carlos_emr.carlos.tickler.dto.TicklerLinkDTO;
 import io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO;
@@ -59,13 +63,6 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerDao {
     private static final int IN_CLAUSE_BATCH_SIZE = 500;
     private static final String TICKLER_ALIAS = "t";
-
-    /**
-     * Matches the canonical root Tickler alias emitted by getTicklerQueryString().
-     * Keep this pattern and the query builder aligned through {@link #TICKLER_ALIAS}.
-     */
-    private static final Pattern TICKLER_FROM_PATTERN =
-            Pattern.compile("\\bFROM\\s+Tickler\\s+" + TICKLER_ALIAS + "\\b", Pattern.CASE_INSENSITIVE);
 
     /**
      * Pre-built ORDER BY clauses keyed by "column:dir". Values are static strings —
@@ -87,13 +84,79 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         Map<String, String> m = new HashMap<>();
         m.put("serviceDate:asc",  " ORDER BY t.serviceDate ASC, t.id DESC");
         m.put("serviceDate:desc", " ORDER BY t.serviceDate DESC, t.id DESC");
-        m.put("priority:asc",     " ORDER BY t.priority ASC, t.id DESC");
-        m.put("priority:desc",    " ORDER BY t.priority DESC, t.id DESC");
+        m.put("priority:asc",     " ORDER BY CASE t.priority WHEN 'High' THEN 0 WHEN 'Normal' THEN 1 WHEN 'Low' THEN 2 ELSE 3 END ASC, t.id DESC");
+        m.put("priority:desc",    " ORDER BY CASE t.priority WHEN 'Low' THEN 0 WHEN 'Normal' THEN 1 WHEN 'High' THEN 2 ELSE 3 END ASC, t.id DESC");
         ORDER_BY_CLAUSES = Collections.unmodifiableMap(m);
     }
 
     public TicklerDaoImpl() {
         super(Tickler.class);
+    }
+
+
+
+    @Override
+    public Tickler lockForAttachmentSync(Integer ticklerNo) {
+        // SELECT ... FOR UPDATE on the parent row: a second attachment sync for the same
+        // tickler blocks here until the first commits, then reads its rows.
+        return lockCurrentTickler(ticklerNo);
+    }
+
+    private Tickler lockCurrentTickler(Integer id) {
+        if (id == null) {
+            return null;
+        }
+        Tickler tickler = entityManager.find(Tickler.class, id);
+        if (tickler != null && entityManager.getLockMode(tickler) != jakarta.persistence.LockModeType.PESSIMISTIC_WRITE) {
+            // Upgrade during refresh. Hibernate omits FOR UPDATE from a refresh when its
+            // persistence context already records that lock, leaving a repeatable-read
+            // snapshot stale. A row locked by this helper already has its current state.
+            try {
+                entityManager.refresh(tickler, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+            } catch (jakarta.persistence.EntityNotFoundException deletedBeforeLock) {
+                return null;
+            }
+        }
+        return tickler;
+    }
+
+    @Override
+    public Tickler findForUpdate(Integer id) {
+        Tickler tickler = lockCurrentTickler(id);
+        if (tickler == null) {
+            return null;
+        }
+        // Load what an edit reads on this instance, so the caller needs no later detail query. It
+        // must not run find(Integer) on a locked tickler: that query join-fetches the program, and
+        // for a tickler stored with program_id 0 (added outside a program; the id names no row)
+        // Hibernate then tries to fill the program reference this load created from the all-NULL
+        // joined row and fails with a PropertyAccessException.
+        // These must also be locking/current reads: a normal collection load still uses
+        // MariaDB's earlier repeatable-read snapshot, even after refreshing the parent.
+        // Snapshot isolation may reject the stale transaction; it must never accept its old version.
+        // Fetch one collection per query and keep the optional program association lazy.
+        entityManager.createQuery("select t from Tickler t left join fetch t.comments where t.id = :id", Tickler.class)
+                .setParameter("id", id).setLockMode(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+                .getSingleResult();
+        entityManager.createQuery("select t from Tickler t left join fetch t.updates where t.id = :id", Tickler.class)
+                .setParameter("id", id).setLockMode(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+                .getSingleResult();
+        return tickler;
+    }
+
+    @Override
+    public List<Integer> lockPatientForUpdate(Integer id) {
+        return entityManager.createNativeQuery(
+                "SELECT demographic_no FROM tickler WHERE tickler_no = ?1 FOR UPDATE", Integer.class)
+                .setParameter(1, id).setFlushMode(jakarta.persistence.FlushModeType.COMMIT).getResultList();
+    }
+
+    @Override
+    public List<Integer> findDemographicNos(Integer ticklerNo) {
+        return entityManager.createQuery(
+                "select t.demographicNo from Tickler t where t.id = :id", Integer.class)
+                .setParameter("id", ticklerNo)
+                .getResultList();
     }
 
     @Override
@@ -188,7 +251,10 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         List<Tickler> results = new ArrayList<>();
         for (int index = 0; index < ticklerNos.size(); index += IN_CLAUSE_BATCH_SIZE) {
             List<Integer> ticklerBatch = ticklerNos.subList(index, Math.min(index + IN_CLAUSE_BATCH_SIZE, ticklerNos.size()));
-            Query query = entityManager.createQuery("select t from Tickler t where t.id in (?1) AND t.demographicNo = ?2 AND t.status != 'D'");
+            // The lab displays print each linked tickler's assignee after this call returns; fetch it here
+            // (single-valued, so no duplicate rows) instead of leaving a lazy proxy the JSP cannot load.
+            Query query = entityManager.createQuery("select t from Tickler t left join fetch t.assignee"
+                    + " where t.id in (?1) AND t.demographicNo = ?2 AND t.status != 'D'");
             query.setParameter(1, ticklerBatch);
             query.setParameter(2, demoNo);
             results.addAll(query.getResultList());
@@ -221,7 +287,9 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         List<Tickler> results = new ArrayList<>();
         for (int index = 0; index < ticklerNos.size(); index += IN_CLAUSE_BATCH_SIZE) {
             List<Integer> ticklerBatch = ticklerNos.subList(index, Math.min(index + IN_CLAUSE_BATCH_SIZE, ticklerNos.size()));
-            Query query = entityManager.createQuery("select t from Tickler t where t.id in (?1) AND t.taskAssignedTo = ?2 AND t.demographicNo = ?3 AND t.status != 'D'");
+            // Same reason as findByTicklerNosDemo: the lab display (labDisplayAjax.jsp) prints the assignee.
+            Query query = entityManager.createQuery("select t from Tickler t left join fetch t.assignee"
+                    + " where t.id in (?1) AND t.taskAssignedTo = ?2 AND t.demographicNo = ?3 AND t.status != 'D'");
             query.setParameter(1, ticklerBatch);
             query.setParameter(2, assignedTo);
             query.setParameter(3, demoNo);
@@ -258,7 +326,9 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         query.setParameter(4, endDate);
 
         List<Tickler> results = query.getResultList();
-
+        // The patient tickler view renders comments after this DAO call returns.
+        // Initialize the batched collection while the persistence context is open.
+        initializeTicklerComments(results);
         return results;
     }
 
@@ -321,17 +391,71 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
 
     @SuppressWarnings("unchecked")
     @Override
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Case-insensitive domain filter/sort hints select typed criteria; no security decision or SQL text is derived from case folding")
     public List<Tickler> getTicklers(CustomFilter filter, int offset, int limit, boolean includeComments,
                                      boolean includeUpdates, boolean includeProvider, boolean includeAssignee) {
-        String sql = "select t";
-        ArrayList<Object> paramList = new ArrayList<Object>();
-        sql = getTicklerQueryString(sql, paramList, filter);
-        sql = addTicklerFetchJoins(sql, includeProvider, includeAssignee);
-
-        Query query = entityManager.createQuery(sql);
-        for (int x = 0; x < paramList.size(); x++) {
-            query.setParameter(x + 1, paramList.get(x));
+        CriteriaBuilder builder = entityManager.getCriteriaBuilder();
+        var criteria = builder.createQuery(Tickler.class);
+        var tickler = criteria.from(Tickler.class);
+        if (includeProvider) tickler.fetch("provider", JoinType.LEFT);
+        if (includeAssignee) tickler.fetch("assignee", JoinType.LEFT);
+        var predicates = new ArrayList<Predicate>();
+        var parameters = new java.util.LinkedHashMap<ParameterExpression<?>, Object>();
+        if (activeFilter(filter.getMrp(), "All Providers")) {
+            var patient = criteria.subquery(Integer.class);
+            var demographic = patient.from(io.github.carlos_emr.carlos.commn.model.Demographic.class);
+            patient.select(demographic.get("demographicNo")).where(
+                    builder.equal(demographic.get("demographicNo"), tickler.get("demographicNo")),
+                    builder.equal(demographic.get("providerNo"), bind(builder, parameters, String.class, filter.getMrp())));
+            predicates.add(builder.exists(patient));
         }
+        if (filter.getStartDate() != null) predicates.add(builder.greaterThanOrEqualTo(
+                tickler.get("serviceDate"), bind(builder, parameters, Date.class, filter.getStartDate())));
+        if (filter.getEndDate() != null) {
+            Calendar end = Calendar.getInstance(); end.setTime(filter.getEndDate());
+            end.set(Calendar.HOUR_OF_DAY, 23); end.set(Calendar.MINUTE, 59); end.set(Calendar.SECOND, 59);
+            predicates.add(builder.lessThanOrEqualTo(tickler.get("serviceDate"), bind(builder, parameters, Date.class, end.getTime())));
+        }
+        if (activeFilter(filter.getProvider(), "All Providers")) {
+            var providers = builder.<String>in(tickler.get("creator"));
+            for (Provider provider : filter.getProviders()) providers.value(bind(builder, parameters, String.class, provider.getProviderNo()));
+            predicates.add(providers);
+        }
+        if (activeFilter(filter.getAssignee(), "All Providers")) {
+            var assignees = builder.<String>in(tickler.get("taskAssignedTo"));
+            for (Provider provider : filter.getAssignees()) assignees.value(bind(builder, parameters, String.class, provider.getProviderNo()));
+            predicates.add(assignees);
+        }
+        if (activeFilter(filter.getProgramId(), "All Programs")) predicates.add(builder.equal(
+                tickler.get("programId"), bind(builder, parameters, Integer.class, Integer.valueOf(filter.getProgramId()))));
+        String status = java.util.Objects.requireNonNull(filter.getStatus(), "Tickler status is required");
+        if (!status.isEmpty() && !"Z".equals(status)) predicates.add(builder.equal(
+                tickler.get("status"), bind(builder, parameters, Tickler.STATUS.class, convertStatus(status))));
+        if (filter.getPriority() != null && !filter.getPriority().isEmpty()) predicates.add(builder.equal(
+                tickler.get("priority"), bind(builder, parameters, Tickler.PRIORITY.class, convertPriority(filter.getPriority()))));
+        if (activeFilter(filter.getClient(), "All Clients")) predicates.add(builder.equal(
+                tickler.get("demographicNo"), bind(builder, parameters, Integer.class, Integer.valueOf(filter.getClient()))));
+        if (filter.getDemographicNo() != null && !filter.getDemographicNo().isEmpty()
+                && !"All Clients".equalsIgnoreCase(filter.getDemographicNo())) predicates.add(builder.equal(
+                        tickler.get("demographicNo"), bind(builder, parameters, Integer.class, Integer.valueOf(filter.getDemographicNo()))));
+        if (filter.getMessage() != null && !filter.getMessage().trim().isEmpty()) predicates.add(builder.equal(
+                tickler.get("message"), bind(builder, parameters, String.class, filter.getMessage())));
+        if (!filter.getExcludedDemographicNos().isEmpty()) {
+            var excluded = builder.<Integer>in(tickler.get("demographicNo"));
+            for (Integer patient : filter.getExcludedDemographicNos()) excluded.value(bind(builder, parameters, Integer.class, patient));
+            predicates.add(builder.or(builder.isNull(tickler.get("demographicNo")), builder.not(excluded)));
+        }
+        boolean ascending = "asc".equalsIgnoreCase(filter.getSort_order());
+        jakarta.persistence.criteria.Order primary;
+        if ("priority".equalsIgnoreCase(filter.getSortColumn())) {
+            var rank = builder.<Tickler.PRIORITY, Integer>selectCase(tickler.get("priority"));
+            var first = ascending ? Tickler.PRIORITY.High : Tickler.PRIORITY.Low;
+            var last = ascending ? Tickler.PRIORITY.Low : Tickler.PRIORITY.High;
+            primary = builder.asc(rank.when(first, 0).when(Tickler.PRIORITY.Normal, 1).when(last, 2).otherwise(3));
+        } else primary = ascending ? builder.asc(tickler.get("serviceDate")) : builder.desc(tickler.get("serviceDate"));
+        criteria.select(tickler).where(predicates.toArray(Predicate[]::new)).orderBy(primary, builder.desc(tickler.get("id")));
+        TypedQuery<Tickler> query = entityManager.createQuery(criteria);
+        parameters.forEach((parameter, value) -> setCriteriaParameter(query, parameter, value));
         query.setFirstResult(offset);
         if (limit > 0) {
             setLimit(query, limit);
@@ -346,28 +470,20 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         return results;
     }
 
-    /**
-     * Adds only single-valued provider fetch joins to legacy Tickler list queries.
-     *
-     * <p>Tickler comments and updates are initialized after the paged query instead of being
-     * fetch-joined here. Those collections use Hibernate batch loading, which avoids collection
-     * fetch joins on paginated list queries and avoids fetching both Tickler collections in one
-     * query.</p>
-     */
-    private String addTicklerFetchJoins(String sql, boolean includeProvider, boolean includeAssignee) {
-        if (!includeProvider && !includeAssignee) {
-            return sql;
-        }
-        StringBuilder joins = new StringBuilder();
-        if (includeProvider) {
-            joins.append(" left join fetch ").append(TICKLER_ALIAS).append(".provider");
-        }
-        if (includeAssignee) {
-            joins.append(" left join fetch ").append(TICKLER_ALIAS).append(".assignee");
-        }
-        // Rewrites to the canonical uppercase FROM form used by getTicklerQueryString().
-        return TICKLER_FROM_PATTERN.matcher(sql)
-                .replaceFirst(String.format("FROM Tickler %s%s", TICKLER_ALIAS, joins));
+    /** Domain sentinel values control which typed criteria are present. */
+    private static boolean activeFilter(String value, String all) {
+        return value != null && !value.isEmpty() && !all.equals(value);
+    }
+
+    private static <T> ParameterExpression<T> bind(CriteriaBuilder builder,
+            Map<ParameterExpression<?>, Object> parameters, Class<T> type, T value) {
+        ParameterExpression<T> parameter = builder.parameter(type, "filter" + parameters.size());
+        parameters.put(parameter, value);
+        return parameter;
+    }
+
+    private static <T> void setCriteriaParameter(TypedQuery<Tickler> query, ParameterExpression<T> parameter, Object value) {
+        query.setParameter(parameter, parameter.getParameterType().cast(value));
     }
 
     private void initializeTicklerUpdates(List<Tickler> ticklers) {
@@ -554,6 +670,10 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         if (includeMessage) {
             query = query + " and t.message = ?" + paramIndex++;
             paramList.add(filter.getMessage());
+        }
+        if (!filter.getExcludedDemographicNos().isEmpty()) {
+            query += " and (t.demographicNo is null or t.demographicNo not in (?" + paramIndex++ + "))";
+            paramList.add(filter.getExcludedDemographicNos());
         }
 
         return query;
@@ -755,6 +875,11 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
             paramList.add(filter.getMessage());
         }
 
+        if (!filter.getExcludedDemographicNos().isEmpty()) {
+            sb.append(" AND (t.demographicNo IS NULL OR t.demographicNo NOT IN (?").append(paramIndex++).append("))");
+            paramList.add(filter.getExcludedDemographicNos());
+        }
+
         if (filter.getSearchTerm() != null && !filter.getSearchTerm().trim().isEmpty()) {
             // SEARCH_WHERE_NAMED is a static constant — no user input is appended to the query
             sb.append(SEARCH_WHERE_NAMED);
@@ -833,8 +958,9 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
     }
 
     /**
-     * Batch loads links for the given tickler DTOs using a single query.
-     * Groups links by tickler ID and sets them on each DTO.
+     * Batch loads attachments for the given tickler DTOs using a single query over the
+     * {@code ticklerdocs} store (soft-deleted rows excluded). Groups them by tickler ID and
+     * sets them on each DTO as legacy-shaped {@link TicklerLinkDTO}s.
      *
      * @param ticklerDTOs List of TicklerListDTO to populate with links
      */
@@ -843,21 +969,21 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         List<Integer> ticklerIds = ticklerDTOs.stream()
                 .map(TicklerListDTO::getId)
                 .collect(Collectors.toList());
+        if (ticklerIds.isEmpty()) {
+            return;
+        }
 
-        StringBuilder jpql = new StringBuilder();
-        jpql.append("SELECT NEW io.github.carlos_emr.carlos.tickler.dto.TicklerLinkDTO(");
-        jpql.append("l.id, l.ticklerNo, l.tableName, l.tableId) ");
-        jpql.append("FROM TicklerLink l ");
-        jpql.append("WHERE l.ticklerNo IN (:ticklerIds)");
-
-        Query query = entityManager.createQuery(jpql.toString());
+        Query query = entityManager.createQuery(
+                "SELECT d FROM TicklerDocs d WHERE d.ticklerId IN (:ticklerIds) AND d.deleted IS NULL"
+                        + " ORDER BY d.ticklerId, d.id");
         query.setParameter("ticklerIds", ticklerIds);
 
-        List<TicklerLinkDTO> allLinks = query.getResultList();
+        List<TicklerDocs> allAttachments = query.getResultList();
 
         Map<Integer, List<TicklerLinkDTO>> linkMap = new HashMap<>();
-        for (TicklerLinkDTO link : allLinks) {
-            linkMap.computeIfAbsent(link.getTicklerNo(), k -> new ArrayList<>()).add(link);
+        for (TicklerDocs attachment : allAttachments) {
+            linkMap.computeIfAbsent(attachment.getTicklerId(), k -> new ArrayList<>())
+                    .add(TicklerLinkDTO.fromTicklerDocs(attachment));
         }
 
         for (TicklerListDTO dto : ticklerDTOs) {

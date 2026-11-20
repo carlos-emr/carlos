@@ -1,0 +1,42 @@
+#!/usr/bin/env sh
+# Opt-in SSH commit signing for the devcontainer.
+#
+# `develop` requires signed commits. If the developer has placed a signing key in
+# ~/.carlos-signing/ on their host (mounted read-only at /root/.carlos-signing),
+# configure git in the container to sign every commit with it, so commits made by
+# agents or terminals inside the container are accepted. With no key present this
+# is a no-op, leaving existing setups untouched. See .devcontainer/README.md.
+set -eu
+
+mount_dir="/root/.carlos-signing"
+key_name="id_ed25519"
+key_dir="/root/.ssh/carlos-signing"
+
+if [ ! -f "$mount_dir/$key_name" ] || [ ! -f "$mount_dir/$key_name.pub" ]; then
+    echo "setup-commit-signing: no key in $mount_dir, skipping (see .devcontainer/README.md)"
+    exit 0
+fi
+
+# ssh-keygen refuses private keys with loose permissions, and bind mounts from
+# Windows/macOS hosts often report 0755, so sign from a locked-down copy instead.
+mkdir -p "$key_dir"
+chmod 700 /root/.ssh "$key_dir"
+cp "$mount_dir/$key_name" "$mount_dir/$key_name.pub" "$key_dir/"
+chmod 600 "$key_dir/$key_name"
+chmod 644 "$key_dir/$key_name.pub"
+
+git config --global gpg.format ssh
+git config --global user.signingkey "$key_dir/$key_name.pub"
+git config --global commit.gpgsign true
+git config --global tag.gpgsign true
+
+# Let `git log --show-signature` verify locally; GitHub verifies independently.
+email="$(git config --global user.email || true)"
+if [ -n "$email" ]; then
+    printf '%s %s\n' "$email" "$(cat "$key_dir/$key_name.pub")" > "$key_dir/allowed_signers"
+    git config --global gpg.ssh.allowedSignersFile "$key_dir/allowed_signers"
+else
+    echo "setup-commit-signing: warning: git user.email is not set; GitHub only marks commits Verified when it matches an email on your account" >&2
+fi
+
+echo "setup-commit-signing: commits will be signed with $key_dir/$key_name.pub"

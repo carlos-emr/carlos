@@ -30,8 +30,8 @@ package io.github.carlos_emr.carlos.web;
 
 import io.github.carlos_emr.carlos.commn.dao.CasemgmtNoteLockDao;
 import io.github.carlos_emr.carlos.commn.exception.UserSessionNotFoundException;
-import io.github.carlos_emr.carlos.commn.model.CasemgmtNoteLock;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService;
+import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService;
 import io.github.carlos_emr.carlos.fax.action.Fax2Action;
 import io.github.carlos_emr.carlos.login.PendingMfaChallenges;
 import io.github.carlos_emr.carlos.managers.UserSessionManager;
@@ -57,17 +57,18 @@ public class OscarSessionListener implements HttpSessionListener {
         String id = se.getSession().getId();
         MiscUtils.getLogger().info("session is being destroyed - {}", getSessionLogReference(id));
         PendingMfaChallenges.clearFromSession(se.getSession());
+        EmailComposeSubmissionStateService.clearDestroyedSessionIfAvailable(id);
         SpringUtils.getBean(EFormRenderApprovalService.class)
                 .invalidateStagedFaxPreviewsForSession(id);
         Fax2Action.clearClaimedFaxFilePathsLockForSession(id);
 
         CasemgmtNoteLockDao casemgmtNoteLockDao = SpringUtils.getBean(CasemgmtNoteLockDao.class);
 
-        for (CasemgmtNoteLock lock : casemgmtNoteLockDao.findBySession(id)) {
-            MiscUtils.getLogger().info("removing note locks for this session - " + lock);
-
-            casemgmtNoteLockDao.remove(lock.getId());
-        }
+        // A takeover may occur while a session expires. Check ownership in the
+        // DELETE itself, rather than deleting IDs from an earlier snapshot.
+        int removedLocks = casemgmtNoteLockDao.removeAllForSession(id);
+        // Lock.toString() includes the raw session token and patient details.
+        MiscUtils.getLogger().info("Removed {} note locks for destroyed session", removedLocks);
 
 		HttpSession session = se.getSession();
 		Integer userSecurityCode = (Integer) session.getAttribute(UserSessionManagerImpl.KEY_USER_SECURITY_CODE);

@@ -31,6 +31,7 @@
 
 <%-- Updated by Eugene Petruhin on 16 dec 2008 while fixing #2434234 --%>
 
+<%@ taglib prefix="source" tagdir="/WEB-INF/tags" %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -46,11 +47,12 @@
     }
 %>
 
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.*" %>
-<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
+
+
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 Prescriptions
+<div><source:cdsSourceFields demographicNo="${requestScope.demographicNo}" category="MedicationsAndTreatments"/></div>
 <table width="100%" border="0" cellpadding="0" cellspacing="1" bgcolor="#C0C0C0">
     <tr class="title">
         <td>Start Date</td>
@@ -62,7 +64,7 @@ Prescriptions
                 <c:if test="${prescription.expired}">
                     *
                 </c:if>
-                <fmt:formatDate pattern="MM/dd/yy" value="${prescription.rxDate}"/>
+                <c:out value="${PrescriptionDateLabels[prescription.id]}"/>
             </td>
 
             <%String styleColor = ""; %>
@@ -81,7 +83,7 @@ Prescriptions
                                           demoNo="${carlos:forHtmlAttribute(param.demographicNo)}"
                                           programId="${carlos:forHtmlAttribute(sessionScope.case_program_id)}">
                     <a <%= styleColor%> target="_blank"
-                                        href="<%= request.getContextPath() %>/rx/ViewStaticScript2?regionalIdentifier=${carlos:forUriComponent(prescription.regionalIdentifier)}&cn=${carlos:forUriComponent(prescription.customName)}">
+                                        href="<%= request.getContextPath() %>/rx/ViewStaticScript2?demographicNo=${carlos:forUriComponent(prescription.demographicId)}&regionalIdentifier=${carlos:forUriComponent(prescription.regionalIdentifier)}&cn=${carlos:forUriComponent(prescription.customName)}">
                         ${carlos:forHtml(prescription.special)}
                     </a>
                 </caisirole:SecurityAccess>

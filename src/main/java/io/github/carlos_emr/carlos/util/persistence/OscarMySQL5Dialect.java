@@ -29,6 +29,7 @@
 package io.github.carlos_emr.carlos.util.persistence;
 
 import org.hibernate.dialect.MySQLDialect;
+import org.hibernate.query.sqm.CastType;
 
 /**
  * Custom MySQL dialect for CARLOS EMR.
@@ -49,4 +50,30 @@ public class OscarMySQL5Dialect extends MySQLDialect {
         super();
     }
 
+    /** Uses a cast target accepted by MariaDB and current MySQL releases. */
+    @Override
+    public String castPattern(CastType from, CastType to) {
+        // Hibernate's MySQL FLOAT(53) cast target is rejected by MariaDB.
+        // DOUBLE retains the floating-point semantics of existing HQL casts.
+        return to == CastType.DOUBLE ? "cast(?1 as double)" : super.castPattern(from, to);
+    }
+
+    /**
+     * Uses the shared MySQL/MariaDB locking syntax. MariaDB rejects MySQL's
+     * alias-qualified {@code FOR UPDATE OF alias} clause.
+     * @return false so locking clauses cover the selected tables without an OF list
+     */
+    @Override
+    protected boolean supportsAliasLocks() {
+        return false;
+    }
+
+    /**
+     * Keeps pessimistic read locks compatible with MariaDB as well as MySQL.
+     * @return false to use {@code LOCK IN SHARE MODE}, not MySQL-only FOR SHARE
+     */
+    @Override
+    protected boolean supportsForShare() {
+        return false;
+    }
 }

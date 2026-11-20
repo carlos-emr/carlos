@@ -417,7 +417,7 @@ public class LoginFilter implements Filter {
         // Retrieve existing session without creating new one
         HttpSession session = httpRequest.getSession(false);
         // Redirect to logout page if no valid authenticated session exists
-        if (session == null || session.getAttribute("user") == null) {
+        if (session == null || !hasAuthenticatedUser(session)) {
 
             // If the requested resource is not exempt, redirect to logout page
             // SECURITY: Root directory auto-exemption was removed to prevent
@@ -462,7 +462,9 @@ public class LoginFilter implements Filter {
                     }
                 }
 
-                if (!inListOfExemptions(requestURI, contextPath, EXEMPT_URLS_FOR_REQUEST_TIMEOUT)) {
+                // Background polls still pass authentication and expiry checks above.
+                if (!inListOfExemptions(requestURI, contextPath, EXEMPT_URLS_FOR_REQUEST_TIMEOUT)
+                        && (lastRequestDate == null || !Boolean.parseBoolean(httpRequest.getParameter("autoRefresh")))) {
                     logger.debug("reseting timer list uri {}", LogSafe.sanitizeUri(httpRequest.getRequestURI()));
                     // nosemgrep: tainted-session-from-http-request -- thisRequestDate is a server-generated Date object (new Date()), not user input
                     session.setAttribute("last_request_time", thisRequestDate);
@@ -532,13 +534,33 @@ public class LoginFilter implements Filter {
      *         path boundaries, false otherwise
      */
     boolean inListOfExemptions(String requestURI, String contextPath, String[] EXEMPT_URLS) {
+        return matchesExemption(requestURI, contextPath, EXEMPT_URLS);
+    }
+
+    /**
+     * Reports whether requests to {@code requestURI} must not count as the user's own activity:
+     * the paths in {@link #EXEMPT_URLS_FOR_REQUEST_TIMEOUT} (background polls such as the tab
+     * alerts and the heartbeat, the schedule's self-refresh, static assets and the login and
+     * logout pages). {@code UserActivityFilter} uses the same list, so the two inactivity timers
+     * agree on what is a user request (issue #5305).
+     *
+     * @param requestURI the full request URI, including the context path
+     * @param contextPath the servlet context path
+     * @return {@code true} when the URI is exempt from the inactivity timer
+     */
+    public static boolean isExemptFromInactivityTimer(String requestURI, String contextPath) {
+        return requestURI != null && matchesExemption(requestURI, contextPath == null ? "" : contextPath,
+                EXEMPT_URLS_FOR_REQUEST_TIMEOUT);
+    }
+
+    private static boolean matchesExemption(String requestURI, String contextPath, String[] exemptUrls) {
         requestURI = normalizeUri(requestURI);
 
         // Treat context root (e.g. /carlos/) as equivalent to /index (welcome file)
         if (isContextRootRequest(requestURI, contextPath)) {
             requestURI = contextPath + "/index";
         }
-        for (String exemptUrl : EXEMPT_URLS) {
+        for (String exemptUrl : exemptUrls) {
             String fullExempt = contextPath + exemptUrl;
             if (requestURI.equals(fullExempt)
                     || requestURI.startsWith(fullExempt + "/")
@@ -630,14 +652,44 @@ public class LoginFilter implements Filter {
         return requestURI.equals(contextPath) || requestURI.equals(contextPath + "/");
     }
 
+    /**
+     * Reports whether the session carries usable authenticated-provider state.
+     *
+     * <p>This is the single definition of "logged in" for the canonical gate. A present but blank
+     * {@code user} attribute is treated as unauthenticated: {@code Login2Action} stores the
+     * provider number as {@code strAuth[0] != null ? strAuth[0].trim() : ""}, so an empty string is
+     * a representable session state, and downstream defence-in-depth checks such as
+     * {@code PMMFilter} already fail closed on blank users. Accepting blank here would let that
+     * state reach Struts action execution, because Struts terminates the filter chain before the
+     * later per-module filters run.</p>
+     *
+     * @param session the current session; never {@code null} at the call sites below
+     * @return {@code true} only when a non-blank {@code user} attribute is present
+     */
+    private static boolean hasAuthenticatedUser(HttpSession session) {
+        Object user = session.getAttribute("user");
+        if (user == null) {
+            return false;
+        }
+
+        // Non-String values are not produced by the login flow, but a non-blank foreign type is
+        // still more authenticated state than none; only blank text counts as unauthenticated.
+        return !(user instanceof String userValue) || !userValue.isBlank();
+    }
+
     private boolean requiresFacilitySelection(HttpSession session) {
         return session != null
-                && session.getAttribute("user") != null
+                && hasAuthenticatedUser(session)
                 && Boolean.TRUE.equals(session.getAttribute(SessionConstants.PENDING_FACILITY_SELECTION));
     }
 
     private boolean isFacilitySelectionAllowed(String requestURI, String contextPath) {
         String normalizedUri = normalizeUri(requestURI);
+        // The chooser's own files need exact matches, without the route matcher's PATH_INFO allowance.
+        if (normalizedUri.equals(contextPath + "/css/caisi_css.css")
+                || normalizedUri.equals(contextPath + "/js/global.js")) {
+            return true;
+        }
         return inListOfExemptions(normalizedUri, contextPath, PENDING_FACILITY_SELECTION_URLS);
     }
 

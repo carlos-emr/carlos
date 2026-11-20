@@ -29,6 +29,8 @@
 
 package io.github.carlos_emr.carlos.daos;
 
+import io.github.carlos_emr.carlos.util.NativeQueryValues;
+
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -46,8 +48,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.db.DBPreparedHandlerParam;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 
 import io.github.carlos_emr.carlos.commons.KeyConstants;
 import io.github.carlos_emr.carlos.model.FieldDefValue;
@@ -106,7 +106,7 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
         if (tableDef == null)
             return (new ArrayList<LookupCodeValue>());
         List fields = LoadFieldDefList(tableId);
-        DBPreparedHandlerParam[] params = new DBPreparedHandlerParam[100];
+        Object[] params = new Object[100];
         String fieldNames[] = new String[17];
         String sSQL1 = "";
         String tableName = validateSqlIdentifier(tableDef.getTableName());
@@ -148,11 +148,11 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
         int i = 0;
         if (activeFieldExists && activeOnly) {
             sSQL += " and " + fieldNames[2] + "=?";
-            params[i++] = new DBPreparedHandlerParam(1);
+            params[i++] = 1;
         }
         if (!Utility.IsEmpty(parentCode)) {
             sSQL += " and " + fieldNames[4] + "=?";
-            params[i++] = new DBPreparedHandlerParam(parentCode);
+            params[i++] = parentCode;
         }
         if (!Utility.IsEmpty(code)) {
             // org table is different from other tables
@@ -160,29 +160,29 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
                 sSQL += " and " + fieldNames[0] + " like ('%'||";
                 String[] codes = code.split(",");
                 sSQL += "?";
-                params[i++] = new DBPreparedHandlerParam(codes[0]);
+                params[i++] = codes[0];
                 for (int k = 1; k < codes.length; k++) {
                     sSQL += ",?";
-                    params[i++] = new DBPreparedHandlerParam(codes[k]);
+                    params[i++] = codes[k];
                 }
                 sSQL += ")";
             } else {
                 sSQL += " and " + fieldNames[0] + " in (";
                 String[] codes = code.split(",");
                 sSQL += "?";
-                params[i++] = new DBPreparedHandlerParam(codes[0]);
+                params[i++] = codes[0];
                 for (int k = 1; k < codes.length; k++) {
                     if (codes[k].equals(""))
                         continue;
                     sSQL += ",?";
-                    params[i++] = new DBPreparedHandlerParam(codes[k]);
+                    params[i++] = codes[k];
                 }
                 sSQL += ")";
             }
         }
         if (!Utility.IsEmpty(codeDesc)) {
             sSQL += " and upper(" + fieldNames[1] + ") like ?";
-            params[i++] = new DBPreparedHandlerParam("%" + codeDesc.toUpperCase() + "%");
+            params[i++] = "%" + codeDesc.toUpperCase() + "%";
         }
 
         if (tableDef.isTree()) {
@@ -209,9 +209,7 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
             lv.setPrefix(tableId);
             lv.setCode(asString(row[0]));
             lv.setDescription(asString(row[1]));
-            // Misc.getString(ResultSet,...) used by the pre-JPA code returned "" for SQL NULL,
-            // yielding "00" → 0. asString() preserves null, which would produce "0null" → NFE,
-            // so route these flag columns through a null-safe helper instead.
+            // Preserve legacy NULL/empty flags and Hibernate 7 Boolean TINYINT(1) values.
             lv.setActive(parseIntWithZeroPrefix(row[2]) == 1);
             lv.setOrderByIndex(parseIntWithZeroPrefix(row[3]));
             lv.setParentCode(asString(row[4]));
@@ -234,7 +232,7 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
             Integer programId = null;
             try {
                 programId = Integer.valueOf(pCd);
-            } catch (NumberFormatException e) {
+            } catch (NumberFormatException _) {
                 // Ignore invalid programId format and keep the unfiltered list.
             }
             if (programId != null) {
@@ -413,9 +411,9 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
                 String val = asString(row[i]);
                 if ("D".equals(fdv.getFieldType()))
                     if (fdv.isEditable()) {
-                        val = MyDateFormat.getStandardDate(MyDateFormat.getCalendarwithTime(val));
+                        val = MyDateFormat.getStandardDate(nativeDateCalendar(row[i]));
                     } else {
-                        val = MyDateFormat.getStandardDateTime(MyDateFormat.getCalendarwithTime(val));
+                        val = MyDateFormat.getStandardDateTime(nativeDateCalendar(row[i]));
                     }
                 fdv.setVal(val);
             }
@@ -457,7 +455,7 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
                 FieldDefValue fdv = copyFieldDefValue(fieldDefs.get(i));
                 String val = asString(row[i]);
                 if ("D".equals(fdv.getFieldType()))
-                    val = MyDateFormat.getStandardDateTime(MyDateFormat.getCalendarwithTime(val));
+                    val = MyDateFormat.getStandardDateTime(nativeDateCalendar(row[i]));
                 fdv.setVal(val);
                 if (!Utility.IsEmpty(fdv.getLookupTable())) {
                     LookupCodeValue lkv = GetCode(fdv.getLookupTable(), val);
@@ -617,7 +615,7 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
         String tableName = validateSqlIdentifier(tableDef.getTableName());
         String idFieldVal = "";
 
-        DBPreparedHandlerParam[] params = new DBPreparedHandlerParam[fieldDefList.size()];
+        Object[] params = new Object[fieldDefList.size()];
         String phs = "";
         String sql = "insert into  " + tableName + "(";
         for (int i = 0; i < fieldDefList.size(); i++) {
@@ -633,13 +631,12 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
                 }
             }
             if ("S".equals(fdv.getFieldType())) {
-                params[i] = new DBPreparedHandlerParam(fdv.getVal());
+                params[i] = fdv.getVal();
             } else if ("D".equals(fdv.getFieldType())) {
                 // for last update date Using calendar Instance
-                params[i] = new DBPreparedHandlerParam(
-                        new java.sql.Date(MyDateFormat.getCalendarwithTime(fdv.getVal()).getTime().getTime()));
+                params[i] = new java.sql.Date(MyDateFormat.getCalendarwithTime(fdv.getVal()).getTime().getTime());
             } else {
-                params[i] = new DBPreparedHandlerParam(Integer.valueOf(fdv.getVal()).intValue());
+                params[i] = Integer.valueOf(fdv.getVal());
             }
         }
         sql = sql.substring(0, sql.length() - 1);
@@ -662,7 +659,7 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
         String idFieldName = "";
         String idFieldVal = "";
 
-        DBPreparedHandlerParam[] params = new DBPreparedHandlerParam[fieldDefList.size() + 1];
+        Object[] params = new Object[fieldDefList.size() + 1];
         String sql = "update " + tableName + " set ";
         for (int i = 0; i < fieldDefList.size(); i++) {
             FieldDefValue fdv = (FieldDefValue) fieldDefList.get(i);
@@ -674,17 +671,15 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
 
             sql += fieldSql + "=?,";
             if ("S".equals(fdv.getFieldType())) {
-                params[i] = new DBPreparedHandlerParam(fdv.getVal());
+                params[i] = fdv.getVal();
             } else if ("D".equals(fdv.getFieldType())) {
                 if (fdv.isEditable()) {
-                    params[i] = new DBPreparedHandlerParam(
-                            new java.sql.Date(MyDateFormat.getCalendar(fdv.getVal()).getTime().getTime()));
+                    params[i] = new java.sql.Date(MyDateFormat.getCalendar(fdv.getVal()).getTime().getTime());
                 } else {
-                    params[i] = new DBPreparedHandlerParam(
-                            new java.sql.Date(MyDateFormat.getCalendarwithTime(fdv.getVal()).getTime().getTime()));
+                    params[i] = new java.sql.Date(MyDateFormat.getCalendarwithTime(fdv.getVal()).getTime().getTime());
                 }
             } else {
-                params[i] = new DBPreparedHandlerParam(Integer.valueOf(fdv.getVal()).intValue());
+                params[i] = Integer.valueOf(fdv.getVal());
             }
         }
         sql = sql.substring(0, sql.length() - 1);
@@ -878,29 +873,21 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
     }
 
     @Override
-    public void runProcedure(String procName, String[] params) throws SQLException {
-        LegacyJdbcQuery.procExecute(procName, params);
-    }
-
-    @Override
     public int getCountOfActiveClient(String orgCd) throws SQLException {
         // Parameterized queries eliminate the SQL injection risk from orgCd.
         // CONCAT() is the correct MySQL/MariaDB string concatenation function;
         // the original code used '||' which is Oracle-style and acts as logical OR in MySQL.
         //
-        // The LIKE expression uses an explicit {@code ESCAPE '\'} clause so that the
-        // backslash-escaping of '%' / '_' below is honoured regardless of the target
-        // dialect's default escape character or SQL mode (e.g. MySQL
-        // {@code NO_BACKSLASH_ESCAPES}). Without the explicit clause, dialects that
-        // don't default to backslash would treat the escape characters as literals.
+        // A non-backslash escape is portable across MySQL/MariaDB SQL modes.
+        // Backslash string literals vary with NO_BACKSLASH_ESCAPES.
         String sql = "select count(*) from admission where admission_status = :status and CONCAT('P', program_id) in ("
-                + " select code from lst_orgcd where codecsv like :pattern escape '\\')";
+                + " select code from lst_orgcd where codecsv like :pattern escape '!')";
         String sql1 = "select count(*) from program_queue where CONCAT('P', program_id) in ("
-                + " select code from lst_orgcd where codecsv like :pattern escape '\\')";
+                + " select code from lst_orgcd where codecsv like :pattern escape '!')";
 
         // Escape LIKE special characters in orgCd to prevent unexpected wildcard expansion.
-        // Must stay in sync with the {@code ESCAPE '\'} clause in the SQL above.
-        String escapedOrgCd = orgCd.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+        // Escape the marker first, then LIKE's wildcard characters.
+        String escapedOrgCd = orgCd.replace("!", "!!").replace("%", "!%").replace("_", "!_");
         String likePattern = "%" + escapedOrgCd + ",%";
 
         Number count = (Number) entityManager().createNativeQuery(sql)
@@ -922,7 +909,7 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
         this.providerDao = providerDao;
     }
 
-    private int queryExecuteUpdate(String preparedSQL, DBPreparedHandlerParam[] params) {
+    private int queryExecuteUpdate(String preparedSQL, Object[] params) {
         Query query = entityManager().createNativeQuery(preparedSQL); // nosemgrep: hibernate-sqli -- identifiers in preparedSQL validated by validateSqlIdentifier at call sites; values bound below
         for (int i = 0; i < params.length; i++) {
             bindParam(query, i + 1, params[i]);
@@ -930,29 +917,19 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
         return query.executeUpdate();
     }
 
-    /**
-     * Binds a {@link DBPreparedHandlerParam} typed value to a JPA {@link Query} at a
-     * 1-based position, preserving the type-aware dispatch the legacy
-     * prepared-query binding performed (String / int / Date / Timestamp).
-     *
-     * @param query the JPA query to bind on
-     * @param position 1-based positional parameter index
-     * @param param the typed parameter (may be null)
-     */
-    private static void bindParam(Query query, int position, DBPreparedHandlerParam param) {
+    /** Binds the Java value contract used by lookup fields, including explicitly typed null strings. */
+    private static void bindParam(Query query, int position, Object param) {
         NativeQuery<?> nativeQuery = query.unwrap(NativeQuery.class);
-        if (param == null) {
-            // Explicit type hint avoids Hibernate "could not determine type" errors
-            // when binding a bare null to a native-query positional parameter.
-            nativeQuery.setParameter(position, (String) null, StandardBasicTypes.STRING);
-        } else if (DBPreparedHandlerParam.PARAM_STRING.equals(param.getParamType())) {
-            nativeQuery.setParameter(position, param.getStringValue(), StandardBasicTypes.STRING);
-        } else if (DBPreparedHandlerParam.PARAM_DATE.equals(param.getParamType())) {
-            nativeQuery.setParameter(position, param.getDateValue(), StandardBasicTypes.DATE);
-        } else if (DBPreparedHandlerParam.PARAM_INT.equals(param.getParamType())) {
-            nativeQuery.setParameter(position, param.getIntValue(), StandardBasicTypes.INTEGER);
-        } else if (DBPreparedHandlerParam.PARAM_TIMESTAMP.equals(param.getParamType())) {
-            nativeQuery.setParameter(position, param.getTimestampValue(), StandardBasicTypes.TIMESTAMP);
+        if (param == null || param instanceof String) {
+            nativeQuery.setParameter(position, (String) param, StandardBasicTypes.STRING);
+        } else if (param instanceof java.sql.Timestamp timestamp) {
+            nativeQuery.setParameter(position, timestamp, StandardBasicTypes.TIMESTAMP);
+        } else if (param instanceof java.sql.Date date) {
+            nativeQuery.setParameter(position, date, StandardBasicTypes.DATE);
+        } else if (param instanceof Integer integer) {
+            nativeQuery.setParameter(position, integer, StandardBasicTypes.INTEGER);
+        } else {
+            throw new IllegalArgumentException("Unsupported lookup parameter type");
         }
     }
 
@@ -961,17 +938,26 @@ public class LookupDaoImpl extends AbstractJpaDao implements LookupDao {
      * {@code Misc.getString(...)} behaviour that coerced SQL NULL to the empty string.
      */
     private static String asString(Object value) {
-        return StringUtils.defaultString(value == null ? null : value.toString());
+        return StringUtils.defaultString(NativeQueryValues.asString(value));
+    }
+
+    /** Date fields may be SQL DATE or DATETIME, or legacy date/time text. */
+    private static Calendar nativeDateCalendar(Object value) {
+        if (value instanceof java.util.Date || value instanceof java.time.LocalDate
+                || value instanceof java.time.LocalDateTime) {
+            return MyDateFormat.getCalendar(NativeQueryValues.asDate(value));
+        }
+        return MyDateFormat.getCalendarwithTime(asString(value));
     }
 
     /**
      * Parses a numeric-flag column into an int, matching the pre-JPA behaviour of
      * {@code Integer.valueOf("0" + Misc.getString(rs, col)).intValue()} where
      * {@code Misc.getString} coerced SQL NULL to an empty string (giving "00" → 0).
-     * A plain {@link #asString(Object)} call returns {@code null} for NULL, which would
-     * concatenate to {@code "0null"} and throw {@link NumberFormatException}.
+     * Hibernate 7 also returns TINYINT(1)/BIT(1) flags as Boolean.
      */
     private static int parseIntWithZeroPrefix(Object value) {
+        if (value instanceof Boolean flag) return flag.booleanValue() ? 1 : 0;
         String s = value == null ? "" : value.toString();
         return Integer.parseInt("0" + s);
     }

@@ -29,6 +29,7 @@
 
 package io.github.carlos_emr.carlos.webserv;
 
+import io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -66,6 +67,7 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 @GZIP(threshold = AbstractWs.GZIP_THRESHOLD)
 public class BookingWs extends AbstractWs {
     private static final Logger logger = MiscUtils.getLogger();
+    private static final String APPOINTMENT_OBJECT = "_appointment";
 
     @Autowired
     private ScheduleManager scheduleManager;
@@ -85,6 +87,7 @@ public class BookingWs extends AbstractWs {
     //getAppointmentTypes
 
     public BookingType[] getAppointmentTypesByProvider(String providerNo) {
+        requirePrivilege(APPOINTMENT_OBJECT, "r");
         SearchConfig config = appointmentSearchManager.getProviderSearchConfig(this.getLoggedInInfo().getLoggedInProviderNo());
         List<AppointmentType> list = appointmentSearchManager.getAppointmentTypes(config, providerNo);
 
@@ -97,6 +100,7 @@ public class BookingWs extends AbstractWs {
     }
 
     public BookingType[] getExternalAppointmentTypes(Integer demographicNo) {
+        requirePrivilege(APPOINTMENT_OBJECT, "r");
 
         SearchConfig config = appointmentSearchManager.getProviderSearchConfig(this.getLoggedInInfo().getLoggedInProviderNo());
         if (config == null) return null;
@@ -113,6 +117,7 @@ public class BookingWs extends AbstractWs {
 
     //findAppointment
     public AppointmentResults findAppointment(Integer demographicNo, String appointmentTypeStr, Calendar startDate) {
+        requirePrivilege(APPOINTMENT_OBJECT, "r");
         String providerNo = this.getLoggedInInfo().getLoggedInProviderNo();
         SearchConfig config = appointmentSearchManager.getProviderSearchConfig(providerNo);
         AppointmentResults appointmentResults = null;
@@ -164,6 +169,7 @@ public class BookingWs extends AbstractWs {
     //bookAppointment
 
     public AppointmentConfirmationTransfer bookAppointment(String encryptedAppointmentTimeSlot, String appointmentNotes) {
+        requirePrivilege(APPOINTMENT_OBJECT, "w");
         String providerNo = this.getLoggedInInfo().getLoggedInProviderNo();
         SearchConfig config = appointmentSearchManager.getProviderSearchConfig(providerNo);
 
@@ -193,7 +199,7 @@ public class BookingWs extends AbstractWs {
             appointment.setStatus("t"); // dunno what that means but seems to be what everyone else uses
             appointment.setBookingSource(BookingSource.OSCAR);
             if (appointmentLocation != null) {
-                appointment.setLocation(appointmentLocation);
+                AppointmentLocationResolver.setLocationText(appointment, appointmentLocation);
             }
 
             scheduleManager.addAppointment(getLoggedInInfo(), getLoggedInSecurity(), appointment);

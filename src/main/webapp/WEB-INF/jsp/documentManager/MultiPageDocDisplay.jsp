@@ -30,6 +30,7 @@
 --%>
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.ProviderBeanResolver" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -48,17 +49,17 @@
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="java.util.*" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
+
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
+
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@page import="org.springframework.web.context.support.WebApplicationContextUtils,io.github.carlos_emr.carlos.lab.ca.all.*,io.github.carlos_emr.carlos.mds.data.*,io.github.carlos_emr.carlos.lab.ca.all.util.*" %>
-<%@page import="org.springframework.web.context.WebApplicationContext,io.github.carlos_emr.carlos.commn.dao.*,io.github.carlos_emr.carlos.commn.model.*, io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.lab.ca.all.*, io.github.carlos_emr.carlos.mds.data.*" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.*, io.github.carlos_emr.carlos.commn.model.*, io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -231,6 +232,8 @@
     }
 %>
     </script>
+<script src="${pageContext.request.contextPath}/js/documentImageLoader.js"></script>
+<%@ include file="/WEB-INF/jsp/documentManager/documentMutationScripts.jspf" %>
 </head>
 <body>
 <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
@@ -248,7 +251,7 @@
                     <a id="lastP" href="javascript:void(0);" onclick="lastPage('<carlos:encode value="<%= docId %>" context='javaScriptAttribute'/>');">Last</a>
                     <%}%>
                 </div>
-                <a href="<%=url2%>"><img class="docTable" alt="document" src="<%=url%>" id="docImg_<%=docId%>"/></a>
+                <a href="<%=url2%>"><img class="docTable" alt="document" data-document-image-src="<carlos:encode value='<%=url%>' context="htmlAttribute"/>" id="docImg_<%=docId%>"/></a>
 
 
             </td>
@@ -300,8 +303,11 @@
                                 </td>
                             </tr>
                             <tr>
-                                <td><fmt:message key="dms.documentReport.msgDocDesc"/>:</td>
-                                <td><input tabindex="<%=tabindex++%>" type="text" name="documentDescription"
+                                <td><label for="docDesc_<%=docId%>"><fmt:message key="dms.documentReport.msgDocDesc"/>:</label></td>
+                                <%-- No maxlength: a browser clips a paste to maxlength in UTF-16 units before any check
+                                     runs. documentMetadataSave.js and ManageDocument2Action refuse a description longer
+                                     than Document.DESCRIPTION_MAX_LENGTH code points. --%>
+                                <td><input tabindex="<%=tabindex++%>" type="text" name="documentDescription" id="docDesc_<%=docId%>"
                                            value="<carlos:encode value='<%= curdoc.getDescription() %>' context="htmlAttribute"/>"/></td>
                             </tr>
                             <tr>
@@ -386,11 +392,11 @@
                                                 var e = document.getElementById('docImg_' + docid);
                                                 if (e) {
                                                     // Find URl from src of image
-                                                    var url = e.getAttribute('src');
+                                                    var url = CarlosDocumentImages.source(e);
                                                     // Update query parameters based on URL, current page, and page number
                                                     url = updateQueryParam(url, 'curPage', pn);
                                                     // Set attribute to newly updated URL
-                                                    e.setAttribute('src', url);
+                                                    CarlosDocumentImages.load(e, url);
                                                 }
                                             }
                                         }
@@ -502,71 +508,25 @@
                                             window.opener.location.reload();
                                         }
                                         updateStatus = function (formid) {
-                                            var num = formid.split("_");
-                                            var doclabid = num[1];
-                                            if (doclabid) {
-                                                var demoId = document.getElementById('demofind' + doclabid).value;
-                                                var saved = document.getElementById('saved' + doclabid).value;
-                                                if (demoId == '-1' || saved == 'false' || saved == false) {
-                                                    alert('Document is not assigned to a patient,please file it');
-                                                } else {
-                                                    var url = '<%=request.getContextPath()%>' + "/oscarMDS/UpdateStatus";
-                                                    var formEl = document.getElementById(formid);
-                                                    var data = new URLSearchParams(new FormData(formEl)).toString();
-                                                    var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
-                                                    var csrfToken = csrfEl ? csrfEl.value : '';
-
-                                                    fetch(url, {
-                                                        method: 'POST',
-                                                        headers: {
-                                                            'Content-Type': 'application/x-www-form-urlencoded',
-                                                            'X-Requested-With': 'XMLHttpRequest',
-                                                            'CSRF-TOKEN': csrfToken
-                                                        },
-                                                        credentials: 'same-origin',
-                                                        body: data
-                                                    }).then(function() {
-                                                        refreshParent();
-                                                        window.close();
-                                                    });
-                                                }
+                                            var id = formid.split('_')[1];
+                                            if (!id) return false;
+                                            if (document.getElementById('demofind' + id).value === '-1' || document.getElementById('saved' + id).value !== 'true') {
+                                                alert('Document is not assigned to a patient,please file it');
+                                                return false;
                                             }
+                                            return window.CarlosDocumentMetadata.acknowledge(formid, function () {
+                                                refreshParent();
+                                                window.close();
+                                            });
                                         }
 
                                         fileDoc = function (docId) {
-                                            if (docId) {
-                                                docId = docId.replace(/\s/, '');
-                                                if (docId.length > 0) {
-                                                    var demoId = document.getElementById('demofind' + docId).value;
-                                                    var saved = document.getElementById('saved' + docId).value;
-                                                    var isFile = true;
-                                                    if (demoId == '-1' || saved == 'false' || saved == false) {
-                                                        isFile = confirm('Document is not assigned and saved to any patient, do you still want to file it?');
-                                                    }
-                                                    if (isFile) {
-                                                        var type = 'DOC';
-                                                        if (type) {
-                                                            var url = '<%=request.getContextPath()%>/oscarMDS/FileLabs';
-                                                            var data = 'method=fileLabAjax&flaggedLabId=' + docId + '&labType=' + type;
-                                                            var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
-                                                            var csrfToken = csrfEl ? csrfEl.value : '';
-                                                            fetch(url, {
-                                                                method: 'POST',
-                                                                headers: {
-                                                                    'Content-Type': 'application/x-www-form-urlencoded',
-                                                                    'X-Requested-With': 'XMLHttpRequest',
-                                                                    'CSRF-TOKEN': csrfToken
-                                                                },
-                                                                credentials: 'same-origin',
-                                                                body: data
-                                                            }).then(function() {
-                                                                refreshParent();
-                                                                window.close();
-                                                            });
-                                                        }
-                                                    }
-                                                }
-                                            }
+                                            docId = String(docId).trim();
+                                            if ((document.getElementById('demofind' + docId).value === '-1' || document.getElementById('saved' + docId).value !== 'true') && !confirm('Document is not assigned and saved to any patient, do you still want to file it?')) return false;
+                                            return window.CarlosDocumentMetadata.file(docId, function () {
+                                                refreshParent();
+                                                window.close();
+                                            });
                                         }
 
                                         function sendMRP(ele) {
@@ -630,40 +590,14 @@
                                         }
 
                                         updateDocument = function (eleId) {
-                                            if (!checkObservationDate(eleId)) {
-                                                return false;
-                                            }
-                                            //save doc info
-                                            var url = "<%=request.getContextPath()%>/documentManager/ManageDocument";
-                                            var formEl = document.getElementById(eleId);
-                                            var data = new URLSearchParams(new FormData(formEl)).toString();
-                                            var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
-                                            var csrfToken = csrfEl ? csrfEl.value : '';
-                                            fetch(url, {
-                                                method: 'POST',
-                                                headers: {
-                                                    'Content-Type': 'application/x-www-form-urlencoded',
-                                                    'X-Requested-With': 'XMLHttpRequest',
-                                                    'CSRF-TOKEN': csrfToken
-                                                },
-                                                credentials: 'same-origin',
-                                                body: data
-                                            }).then(function() {
-                                                var ar = eleId.split("_");
-                                                var num = ar[1];
-                                                num = num.replace(/\s/g, '');
-                                                var successMsg = document.getElementById("saveSucessMsg_" + num);
-                                                if (successMsg) successMsg.style.display = '';
-                                                var savedEl = document.getElementById('saved' + num);
-                                                if (savedEl) savedEl.value = 'true';
+                                            if (!checkObservationDate(eleId)) return false;
+                                            return window.CarlosDocumentMetadata.save(eleId, function (json, num) {
                                                 var autoEl = document.getElementById('autocompletedemo' + num);
-                                                if (autoEl) autoEl.disabled = true;
+                                                if (autoEl && json.patientId !== null) autoEl.disabled = true;
                                                 var removeEl = document.getElementById('removeProv' + num);
                                                 if (removeEl) removeEl.parentNode.removeChild(removeEl);
-
                                                 refreshParent();
                                             });
-                                            return false;
                                         }
 
                                         function checkObservationDate(formid) {
@@ -735,8 +669,11 @@
                                 <td colspan="2">
                                     Linked Providers:
                                     <%
-                                        Properties p = (Properties) session.getAttribute("providerBean");
-                                        List<ProviderInboxItem> routeList = providerInboxRoutingDao.getProvidersWithRoutingForDocument("DOC", Integer.parseInt(docId));
+                                        Properties p = ProviderBeanResolver.resolve(session, docId);
+                                        List<ProviderInboxItem> routeList = Collections.emptyList();
+                                        if (docId != null && !docId.trim().isEmpty()) {
+                                            routeList = providerInboxRoutingDao.getProvidersWithRoutingForDocument("DOC", Integer.parseInt(docId));
+                                        }
                                     %>
                                     <ul>
                                         <%

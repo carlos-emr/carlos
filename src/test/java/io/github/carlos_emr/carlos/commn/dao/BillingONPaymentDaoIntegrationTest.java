@@ -30,6 +30,9 @@ import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -269,4 +272,99 @@ public class BillingONPaymentDaoIntegrationTest extends CarlosTestBase {
         assertThat(result).isNotNull();
         assertThat(result).contains("0.00");
     }
+
+    @ParameterizedTest
+    @CsvSource({"2026-03-08", "2026-11-01", "2028-02-29", "2026-12-31"})
+    @ResourceLock("java.util.TimeZone.default")
+    void shouldIncludeWholeEndDateAndExcludeAdjacentDays_whenQueryingSingleAndMultipleBills(String day) {
+        var originalZone = java.util.TimeZone.getDefault();
+        java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("America/Toronto"));
+        try {
+            var selected = paymentReportHeader();
+            var other = paymentReportHeader();
+            var start = java.sql.Timestamp.valueOf(day + " 00:00:00");
+            var endOfDay = java.sql.Timestamp.valueOf(day + " 23:59:59.999");
+            var nextDay = java.sql.Timestamp.valueOf(java.time.LocalDate.parse(day).plusDays(1).atStartOfDay());
+            paymentReportRow(selected, new Date(start.getTime() - 1));
+            var first = paymentReportRow(selected, start);
+            var last = paymentReportRow(selected, endOfDay);
+            paymentReportRow(selected, nextDay);
+            var otherPayment = paymentReportRow(other, start);
+            hibernateTemplate.flush();
+            entityManager.clear();
+
+            assertThat(dao.find3rdPartyPayRecordsByBill(selected, start, start))
+                    .extracting(BillingONPayment::getId).containsExactly(first.getId(), last.getId());
+            assertThat(dao.find3rdPartyPayRecordsByBills(List.of(selected.getId()), start, start))
+                    .extracting(BillingONPayment::getId).containsExactly(first.getId(), last.getId());
+            assertThat(dao.find3rdPartyPayRecordsByBills(List.of(selected.getId(), other.getId()), start, start))
+                    .extracting(BillingONPayment::getId)
+                    .containsExactlyInAnyOrder(first.getId(), last.getId(), otherPayment.getId());
+            assertThat(start).isEqualTo(java.sql.Timestamp.valueOf(day + " 00:00:00"));
+        } finally {
+            java.util.TimeZone.setDefault(originalZone);
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({"2026-03-08", "2026-11-01", "2028-02-29", "2026-12-31"})
+    @ResourceLock("java.util.TimeZone.default")
+    void shouldSelectInvoicesWithLatePayments_whenFilteringByProviderOrAllProviders(String day) {
+        var originalZone = java.util.TimeZone.getDefault();
+        java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("America/Toronto"));
+        try {
+            var selected = paymentReportHeader();
+            var otherProvider = paymentReportHeader("222222");
+            var before = paymentReportHeader();
+            var after = paymentReportHeader();
+            var start = java.sql.Timestamp.valueOf(day + " 00:00:00");
+            paymentReportRow(selected, java.sql.Timestamp.valueOf(day + " 12:34:56"));
+            paymentReportRow(selected, java.sql.Timestamp.valueOf(day + " 23:59:59.999"));
+            paymentReportRow(otherProvider, java.sql.Timestamp.valueOf(day + " 15:00:00"));
+            paymentReportRow(before, new Date(start.getTime() - 1));
+            paymentReportRow(after, java.sql.Timestamp.valueOf(java.time.LocalDate.parse(day).plusDays(1).atStartOfDay()));
+            hibernateTemplate.flush();
+            entityManager.clear();
+            var provider = new io.github.carlos_emr.carlos.commn.model.Provider();
+            provider.setProviderNo("111111");
+
+            assertThat(daoBONCH.get3rdPartyInvoiceByProvider(provider, start, start, java.util.Locale.CANADA))
+                    .extracting(BillingONCHeader1::getId).containsExactly(selected.getId());
+            assertThat(daoBONCH.get3rdPartyInvoiceByDate(start, start, java.util.Locale.CANADA))
+                    .extracting(BillingONCHeader1::getId).containsExactlyInAnyOrder(selected.getId(), otherProvider.getId());
+        } finally {
+            java.util.TimeZone.setDefault(originalZone);
+        }
+    }
+
+    @Test
+    void shouldReturnNoPayments_whenInvoiceSelectionIsEmpty() {
+        assertThat(dao.find3rdPartyPayRecordsByBills(List.of(), null, null)).isEmpty();
+        assertThat(dao.find3rdPartyPayRecordsByBills(null, null, null)).isEmpty();
+    }
+
+    private BillingONCHeader1 paymentReportHeader() {
+        return paymentReportHeader("111111");
+    }
+
+    private BillingONCHeader1 paymentReportHeader(String providerNo) {
+        var header = new BillingONCHeader1();
+        header.setHeaderId(0);
+        header.setDemographicNo(1);
+        header.setProviderNo(providerNo);
+        header.setStatus("S");
+        daoBONCH.persist(header);
+        hibernateTemplate.flush();
+        return header;
+    }
+
+    private BillingONPayment paymentReportRow(BillingONCHeader1 header, Date date) {
+        var payment = new BillingONPayment();
+        payment.setBillingNo(header.getId());
+        payment.setPaymentDate(date);
+        payment.setTotal_payment(new java.math.BigDecimal("12.50"));
+        dao.persist(payment);
+        return payment;
+    }
+
 }

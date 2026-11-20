@@ -24,13 +24,20 @@
 /*
  * Browser regression checks for DOB search in the patient search pop-up.
  *
- * Guards against the issue #3237 regression where the DOB auto-formatter in
- * zdemographicfulltitlesearch.jsp silently dropped a typed separator after the
- * year, so typing the required YYYY-MM-DD format appeared to stop accepting
- * input at 4 characters. The script logs in, opens the patient search page,
- * selects DOB mode, and verifies keystroke-by-keystroke entry of a full date
- * (with and without separators), then submits the search and checks the
- * results page renders without errors.
+ * Guards two regressions in the DOB auto-formatter
+ * (share/javascript/dobSearchKeyword.js, used by zdemographicfulltitlesearch.jsp):
+ *   - issue #3237: a typed separator after the year was dropped, so typing
+ *     YYYY-MM-DD appeared to stop accepting input at 4 characters;
+ *   - issue #3956: the % wildcard was stripped and anything shorter than 8
+ *     digits was refused, so YYYY, YYYY-MM and 1975-%-05 searches were
+ *     impossible.
+ * The script logs in, opens the patient search page, selects DOB mode, verifies
+ * keystroke-by-keystroke entry (full dates, separators, wildcards, a mid-field
+ * edit), submits full, year, year-month and wildcard searches and checks each
+ * reaches the results page with the typed keyword intact, and checks that a
+ * malformed date is refused with an alert instead of being submitted. It also
+ * exercises the appointment picker form and opens the name-only report picker
+ * to catch stale validation/focus handlers.
  *
  * Defaults are for the local devcontainer:
  *   node scripts/patient-search-dob-playwright-checks.js
@@ -41,11 +48,16 @@
  *   TEST_USER=carlosdoc
  *   TEST_PASSWORD=carlos2026
  *   TEST_PIN=2026
+ *   DOB_TEST_LOCALE=en-US browser locale used for the search and validation alert
+ *   DOB_EXPECTED_MESSAGE=... exact localized validation alert, when checking a locale
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const net = require('node:net');
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 
 const EXACT_LOCAL_HOSTS = new Set([
   'localhost',
@@ -62,9 +74,13 @@ const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
+const testLocale = process.env.DOB_TEST_LOCALE || 'en-US';
+const expectedDobMessage = process.env.DOB_EXPECTED_MESSAGE;
 
 const findings = [];
 const checks = [];
+let expectedDialogs = 0;
+let seenExpectedDialogs = 0;
 
 function normalizedHostname(url) {
   const host = url.hostname.toLowerCase();
@@ -86,24 +102,8 @@ function isPrivateIpv4(host) {
 }
 
 function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not contain embedded credentials');
-  }
-
-  const host = normalizedHostname(parsed);
-  const exactLocalHost = isExactLocalHost(host);
-  const privateIpv4 = isPrivateIpv4(host);
-  if (!exactLocalHost && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-  if (!exactLocalHost && parsed.protocol !== 'https:') {
-    throw new Error('Non-local BASE_URL targets must use https');
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
+  // Delegate host/protocol/credential rules; this legacy caller retains its return shape.
+  const parsed = require('./lib/playwright-harness').validateCredentialBaseUrl(rawBaseUrl);
   parsed.search = '';
   parsed.hash = '';
   return parsed;
@@ -125,8 +125,10 @@ function isWithinConfiguredApp(url) {
     && (appRoot === '/' || url.pathname === appRoot || url.pathname.startsWith(`${appRoot}/`));
 }
 
-async function safeGoto(page, appPath, options) {
-  const response = await page.goto(appUrl(appPath), options); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to loopback by default // NOSONAR - same rationale
+async function safeGoto(page, appPath, options, parameters = {}) {
+  const target = new URL(appUrl(appPath));
+  target.search = new URLSearchParams(parameters).toString();
+  const response = await page.goto(target.toString(), options); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- appUrl rejects non-root-relative paths and validateBaseUrl restricts hosts to loopback by default // NOSONAR - same rationale
   if (!isWithinConfiguredApp(new URL(page.url()))) {
     throw new Error('Navigation left the configured CARLOS EMR application');
   }
@@ -189,8 +191,17 @@ function wirePage(page, label) {
   });
   page.on('dialog', async (dialog) => {
     // Unlike sibling scripts, dialogs are blocking findings here: the DOB
-    // format alert firing on a full date is the regression this script guards.
-    findings.push({ label, type: 'dialog' });
+    // format alert firing on a valid date is the regression this script guards.
+    // expectDialog() is the one sanctioned exception, for the malformed-date step.
+    if (expectedDialogs > 0) {
+      expectedDialogs -= 1;
+      seenExpectedDialogs += 1;
+      if (expectedDobMessage !== undefined) {
+        expectValue('dob-localized-validation-alert', dialog.message(), expectedDobMessage);
+      }
+    } else {
+      findings.push({ label, type: 'dialog' });
+    }
     await dialog.accept();
   });
 }
@@ -248,12 +259,74 @@ async function typeDob(page, text) {
   return page.locator('#keyword').inputValue();
 }
 
+async function openDobSearch(page) {
+  await safeGoto(page, '/demographic/ViewSearch', { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await assertNoErrorPage(page, 'patient-search');
+  await selectDobMode(page);
+  await clearKeyword(page);
+}
+
+/**
+ * Types a DOB, submits, and asserts the keyword the server received. The form is
+ * a GET, so the query string is the server's view of the field. Result rows are
+ * deliberately not asserted: they would pin the local seed data, not the fix
+ * (the SQL side of partial matching is pinned by DemographicDaoIntegrationTest
+ * and patient-search-modes-playwright-checks.js).
+ */
+async function submitDob(page, label, typed, expectedKeyword, prefilled = false) {
+  await openDobSearch(page);
+  if (prefilled) {
+    // A restored/server-populated value does not dispatch an input event.
+    await page.locator('#keyword').evaluate((input, value) => { input.value = value; }, typed); // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- typed is a fixed synthetic DOB fixture assigned only to an input value, never executed or used as a URL
+  } else {
+    await typeDob(page, typed);
+  }
+  await Promise.all([
+    waitForAppPath(page, /DemographicSearch/, { timeout: 30000 }),
+    page.locator('form[name="titlesearch"] input[type="submit"]').first().click(),
+  ]);
+  await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+  await assertNoErrorPage(page, label);
+  expectValue(`${label}-submitted-keyword`, await page.locator('#keyword').inputValue(), expectedKeyword);
+  expectValue(`${label}-url-has-no-keyword`, new URL(page.url()).searchParams.has('keyword'), false);
+  expectValue(`${label}-results-table`, await page.locator('#patientResults').count() > 0, true);
+}
+
 async function fillDob(page, text) {
   await page.locator('#keyword').fill(text);
   return page.locator('#keyword').inputValue();
 }
 
-(async () => {
+async function expectValidationWithoutNavigation(page, submitSelector, label) {
+  const beforeDialogs = seenExpectedDialogs;
+  expectedDialogs = 1;
+  let navigationRequested = false;
+  const onRequest = (request) => {
+    if (request.isNavigationRequest() && request.frame() === page.mainFrame()) {
+      navigationRequested = true;
+    }
+  };
+  page.on('request', onRequest);
+  try {
+    // Observe commit rather than load: a slow response must not hide a submit.
+    // Also observe requests, including those whose response has not committed.
+    const navigation = page.waitForNavigation({ waitUntil: 'commit', timeout: 1500 })
+      .then(() => true, (error) => {
+        if (error.name === 'TimeoutError') return false;
+        throw error;
+      });
+    await page.locator(submitSelector).first().click();
+    const committed = await navigation;
+    expectValue(`${label}-alerted`, seenExpectedDialogs, beforeDialogs + 1);
+    expectValue(`${label}-no-navigation`, navigationRequested || committed, false);
+  } finally {
+    expectedDialogs = 0;
+    page.off('request', onRequest);
+  }
+}
+
+legacyHarness.runLegacyCheck('patient-search-dob',async context=>{
+  await (async({cancellation})=>{
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
@@ -262,100 +335,334 @@ async function fillDob(page, text) {
     launchOptions.executablePath = chromePath;
   }
 
-  const browser = await chromium.launch(launchOptions);
+  const browser = await chromium.launch({...(launchOptions),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   try {
     const context = await browser.newContext({
-      ignoreHTTPSErrors: isExactLocalHost(normalizedHostname(baseUrl)),
+      ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl),
       viewport: { width: 1024, height: 700 },
+      locale: testLocale,
     });
+    cancellation?.throwIfCancelled();
     await installNavigationGuard(context);
+    cancellation?.throwIfCancelled();
     const landingPage = await login(context);
+    cancellation?.throwIfCancelled();
     // Close the landing page once the session cookie is established. It stays
     // wired to the finding collectors, so leaving it open lets a late console
     // error or 404 there fail the run under the 'login' label — a failure with
     // nothing to do with the DOB field this script exists to check.
     await landingPage.close();
+    cancellation?.throwIfCancelled();
 
     const page = await context.newPage();
+    cancellation?.throwIfCancelled();
     wirePage(page, 'patient-search');
     await safeGoto(page, '/demographic/ViewSearch', { waitUntil: 'domcontentloaded', timeout: 30000 });
+    cancellation?.throwIfCancelled();
     await assertNoErrorPage(page, 'patient-search');
+    cancellation?.throwIfCancelled();
     await selectDobMode(page);
+    cancellation?.throwIfCancelled();
 
     // Regression #3237: the separator typed after the year must survive
     // instead of the field appearing stuck at 4 characters.
     await clearKeyword(page);
+    cancellation?.throwIfCancelled();
     expectValue('dob-year-plus-separator', await typeDob(page, '1980-'), '1980-');
+    cancellation?.throwIfCancelled();
     expectValue('dob-full-with-separators', await typeDob(page, '01-01'), '1980-01-01');
+    cancellation?.throwIfCancelled();
 
     // Digits-only entry keeps auto-formatting to YYYY-MM-DD.
     await clearKeyword(page);
+    cancellation?.throwIfCancelled();
     expectValue('dob-digits-only', await typeDob(page, '19800101'), '1980-01-01');
+    cancellation?.throwIfCancelled();
 
-    // Alternate separators are normalized to hyphens. The formatter strips every
-    // non-digit and its trailing-separator guard matches /[-/. ]$/, so slash, dot
-    // and space all have to survive the same keystroke-by-keystroke path.
+    // Alternate separators are normalized to hyphens while digits and whole-part
+    // wildcards survive the same keystroke-by-keystroke path.
     await clearKeyword(page);
+    cancellation?.throwIfCancelled();
     expectValue('dob-slash-separators', await typeDob(page, '1980/01/01'), '1980-01-01');
+    cancellation?.throwIfCancelled();
 
     await clearKeyword(page);
+    cancellation?.throwIfCancelled();
     expectValue('dob-dot-separators', await typeDob(page, '1980.01.01'), '1980-01-01');
+    cancellation?.throwIfCancelled();
 
     await clearKeyword(page);
+    cancellation?.throwIfCancelled();
     expectValue('dob-space-separators', await typeDob(page, '1980 01 01'), '1980-01-01');
+    cancellation?.throwIfCancelled();
+    await clearKeyword(page);
+    cancellation?.throwIfCancelled();
+    expectValue('dob-short-space-segments', await typeDob(page, '1980 1 1'), '1980-1-1');
+    cancellation?.throwIfCancelled();
 
     // Single-event entry covers paste/programmatic input, while the remaining
     // cases pin the edit paths the formatter promises to preserve.
     expectValue('dob-paste-digits-only', await fillDob(page, '19800101'), '1980-01-01');
+    cancellation?.throwIfCancelled();
     expectValue('dob-paste-with-separators', await fillDob(page, '1980-01-01'), '1980-01-01');
+    cancellation?.throwIfCancelled();
 
     await clearKeyword(page);
+    cancellation?.throwIfCancelled();
     await typeDob(page, '1980-');
+    cancellation?.throwIfCancelled();
     await page.locator('#keyword').press('Backspace');
+    cancellation?.throwIfCancelled();
     expectValue('dob-backspace-separator', await page.locator('#keyword').inputValue(), '1980');
+    cancellation?.throwIfCancelled();
 
     await clearKeyword(page);
-    expectValue('dob-eight-digit-cap', await typeDob(page, '1980010199'), '1980-01-01');
+    cancellation?.throwIfCancelled();
+    expectValue('dob-extra-digits-retained', await typeDob(page, '1980010199'), '1980-01-0199');
+    cancellation?.throwIfCancelled();
 
     await clearKeyword(page);
-    expectValue('dob-non-digits-ignored', await typeDob(page, '1980a01b01'), '1980-01-01');
+    cancellation?.throwIfCancelled();
+    expectValue('dob-non-digits-retained', await typeDob(page, '1980a01b01'), '1980a01b01');
+    cancellation?.throwIfCancelled();
 
     await clearKeyword(page);
-    expectValue('dob-double-separators', await typeDob(page, '1980--01--01'), '1980-01-01');
+    cancellation?.throwIfCancelled();
+    expectValue('dob-double-separators-retained', await typeDob(page, '1980--01--01'), '1980--01--01');
+    cancellation?.throwIfCancelled();
 
-    // A full DOB submits without the format alert and renders the results page.
+    // Issue #3956: % survives typing as a whole-segment wildcard, and the
+    // partial shapes are no longer truncated or rejected while typing.
+    await clearKeyword(page);
+    cancellation?.throwIfCancelled();
+    expectValue('dob-wildcard-month', await typeDob(page, '1980-%-01'), '1980-%-01');
+    cancellation?.throwIfCancelled();
+    await clearKeyword(page);
+    cancellation?.throwIfCancelled();
+    expectValue('dob-wildcard-year', await typeDob(page, '%-01-01'), '%-01-01');
+    cancellation?.throwIfCancelled();
+    await clearKeyword(page);
+    cancellation?.throwIfCancelled();
+    expectValue('dob-year-month', await typeDob(page, '1980-01'), '1980-01');
+    cancellation?.throwIfCancelled();
+    await clearKeyword(page);
+    cancellation?.throwIfCancelled();
+    expectValue('dob-one-digit-month-day', await typeDob(page, '1980-1-1'), '1980-1-1');
+    cancellation?.throwIfCancelled();
+    expectValue('dob-paste-wildcard', await fillDob(page, '1980-%-01'), '1980-%-01');
+    cancellation?.throwIfCancelled();
+
+    // A mid-field edit must not throw the caret to the end: deleting the
+    // month/day separator makes the formatter re-insert it, and the caret has to
+    // stay after the month (7), not jump to the end of the field (10).
+    await fillDob(page, '1980-01-01');
+    cancellation?.throwIfCancelled();
+    await page.locator('#keyword').evaluate((input) => input.setSelectionRange(7, 7));
+    cancellation?.throwIfCancelled();
+    await page.locator('#keyword').press('Delete');
+    cancellation?.throwIfCancelled();
+    expectValue('dob-mid-field-edit', await page.locator('#keyword').inputValue(), '1980-01-01');
+    cancellation?.throwIfCancelled();
+    expectValue('dob-mid-field-caret',
+      await page.locator('#keyword').evaluate((input) => input.selectionStart), 7);
+    cancellation?.throwIfCancelled();
+
+    // Each accepted shape submits without the format alert and reaches the
+    // results page with the whole keyword intact.
+    await submitDob(page, 'dob-search-full', '1980-01-01', '1980-01-01');
+    cancellation?.throwIfCancelled();
+    await submitDob(page, 'dob-search-prefilled', '19800101', '1980-01-01', true);
+    cancellation?.throwIfCancelled();
+    await submitDob(page, 'dob-search-year', '1980', '1980');
+    cancellation?.throwIfCancelled();
+    await submitDob(page, 'dob-search-year-month', '1980-01', '1980-01');
+    cancellation?.throwIfCancelled();
+    await submitDob(page, 'dob-search-wildcard', '1980-%-01', '1980-%-01');
+    cancellation?.throwIfCancelled();
+
+    // A malformed date is still refused in the browser: exactly one alert, and
+    // the page does not navigate.
+    await openDobSearch(page);
+    cancellation?.throwIfCancelled();
+    await typeDob(page, '198');
+    cancellation?.throwIfCancelled();
+    const beforeUrl = page.url();
+    await expectValidationWithoutNavigation(page,
+      'form[name="titlesearch"] input[type="submit"]', 'dob-malformed');
+    cancellation?.throwIfCancelled();
+    expectValue('dob-malformed-not-submitted', page.url(), beforeUrl);
+    for (const malformed of ['1980a01b01', '1980010199', '1980--01--01', '19%80']) {
+      await fillDob(page, malformed);
+    cancellation?.throwIfCancelled();
+      expectValue('dob-malformed-preserved', await page.locator('#keyword').inputValue(), malformed);
+    cancellation?.throwIfCancelled();
+      await expectValidationWithoutNavigation(page,
+        'form[name="titlesearch"] input[type="submit"]', 'dob-malformed-paste');
+    cancellation?.throwIfCancelled();
+      expectValue('dob-malformed-paste-not-submitted', page.url(), beforeUrl);
+    }
+
+
+    // Appointment/contact pickers have their own search form and POST routing.
+    // Exercise the actual dropdown and submission, including its localized alert.
+    await safeGoto(page, '/demographic/DemographicSearch',
+      { waitUntil: 'domcontentloaded', timeout: 30000 },
+      { displaymode: 'Search ', search_mode: 'search_dob', keyword: '1980', ptstatus: 'active' });
+    cancellation?.throwIfCancelled();
+    await assertNoErrorPage(page, 'appointment-search');
+    cancellation?.throwIfCancelled();
+    for (const [typed, expected, prefilled] of [
+      ['1980', '1980'], ['1980-01', '1980-01'],
+      ['1980-%-01', '1980-%-01'], ['19800101', '1980-01-01'],
+      ['19800101', '1980-01-01', true],
+    ]) {
+      await page.locator('select[name="search_mode"]').selectOption('search_dob');
+    cancellation?.throwIfCancelled();
+      const keyword = page.locator('form[name="titlesearch"] input[name="keyword"]');
+      if (prefilled) {
+        await keyword.evaluate((input, value) => { input.value = value; }, typed);
+    cancellation?.throwIfCancelled(); // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- typed is a fixed synthetic DOB fixture assigned only to an input value, never executed or used as a URL
+      } else {
+        await keyword.fill(typed);
+    cancellation?.throwIfCancelled();
+      }
+      await Promise.all([
+        page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
+        page.locator('form[name="titlesearch"] input[type="submit"]').first().click(),
+      ]);
+    cancellation?.throwIfCancelled();
+      await assertNoErrorPage(page, 'appointment-dob-results');
+    cancellation?.throwIfCancelled();
+      expectValue('appointment-dob-keyword', await page.locator('form[name="titlesearch"] input[name="keyword"]').inputValue(), expected);
+    cancellation?.throwIfCancelled();
+      expectValue('appointment-search-context', await page.locator('form[name="titlesearch"] input[type="hidden"][name="displaymode"]').inputValue(), 'Search ');
+    cancellation?.throwIfCancelled();
+    }
+    for (const invalid of ['198', '1980-13', '%']) {
+      await page.locator('form[name="titlesearch"] input[name="keyword"]').fill(invalid);
+    cancellation?.throwIfCancelled();
+      await expectValidationWithoutNavigation(page,
+        'form[name="titlesearch"] input[type="submit"]', 'appointment-malformed');
+    cancellation?.throwIfCancelled();
+      expectValue('appointment-malformed-retained', await page.locator('form[name="titlesearch"] input[name="keyword"]').inputValue(), invalid);
+    cancellation?.throwIfCancelled();
+    }
+
+    // Card swipes must survive DOB-mode formatting until submit selects HIN.
+    await page.locator('select[name="search_mode"]').selectOption('search_dob');
+    cancellation?.throwIfCancelled();
+    const appointmentKeyword = page.locator('form[name="titlesearch"] input[name="keyword"]');
+    await appointmentKeyword.fill('');
+    cancellation?.throwIfCancelled();
+    await appointmentKeyword.pressSequentially('%b6100541234567890', { delay: 25 });
+    cancellation?.throwIfCancelled();
+    expectValue('appointment-barcode-preserved', await appointmentKeyword.inputValue(), '%b6100541234567890');
+    cancellation?.throwIfCancelled();
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
+      page.locator('form[name="titlesearch"] input[type="submit"]').first().click(),
+    ]);
+    cancellation?.throwIfCancelled();
+    expectValue('appointment-barcode-mode', await page.locator('select[name="search_mode"]').inputValue(), 'search_hin');
+    cancellation?.throwIfCancelled();
+    expectValue('appointment-barcode-hin', await appointmentKeyword.inputValue(), '1234567890');
+    cancellation?.throwIfCancelled();
+
+    // The standalone popup also has an automatic scanner listener. Exercise
+    // the same form on its results page, where manual submission owns the flow.
+    await safeGoto(page, '/demographic/DemographicSearch',
+      { waitUntil: 'domcontentloaded', timeout: 30000 },
+      { displaymode: 'Search', search_mode: 'search_dob', keyword: '1980', ptstatus: 'active' });
+    cancellation?.throwIfCancelled();
+    await selectDobMode(page);
+    cancellation?.throwIfCancelled();
+    await clearKeyword(page);
+    cancellation?.throwIfCancelled();
+    await typeDob(page, '%b6100541234567890');
+    cancellation?.throwIfCancelled();
+    expectValue('main-barcode-preserved', await page.locator('#keyword').inputValue(), '%b6100541234567890');
+    cancellation?.throwIfCancelled();
     await Promise.all([
       waitForAppPath(page, /DemographicSearch/, { timeout: 30000 }),
       page.locator('form[name="titlesearch"] input[type="submit"]').first().click(),
     ]);
-    await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-    await assertNoErrorPage(page, 'dob-search-results');
+    cancellation?.throwIfCancelled();
+    expectValue('main-barcode-mode', await page.locator('#search_mode').inputValue(), 'search_hin');
+    cancellation?.throwIfCancelled();
+    expectValue('main-barcode-hin', await page.locator('#keyword').inputValue(), '1234567890');
+    cancellation?.throwIfCancelled();
 
-    // Reaching the results URL only proves the format alert did not block submit;
-    // it does not prove the whole date was submitted. The form is a GET, so the
-    // query string is the server's view of the field: a regressed formatter that
-    // truncated at the year would land here with keyword=1980 and still look fine.
-    // Assert on the echoed keyword rather than on result rows — the results table
-    // renders whether or not the local database happens to hold a 1980-01-01
-    // patient, so a row assertion would only pin the seed data, not the fix.
-    expectValue('dob-search-submitted-keyword',
-      new URL(page.url()).searchParams.get('keyword'), '1980-01-01');
-    expectValue('dob-search-results-table',
-      await page.locator('#patientResults').count() > 0, true);
+    // Search only: never select a patient or invoke a merge/unmerge operation.
+    await safeGoto(page, '/admin/DemographicMergeRecord', { waitUntil: 'domcontentloaded', timeout: 30000 });
+    cancellation?.throwIfCancelled();
+    await page.locator('input[name="search_mode"][value="search_dob"]').check();
+    cancellation?.throwIfCancelled();
+    const mergeKeyword = page.locator('form[name="titlesearch"] input[name="keyword"]');
+    await mergeKeyword.fill('1980-%-01');
+    cancellation?.throwIfCancelled();
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
+      page.locator('form[name="titlesearch"] input[name="button"]').click(),
+    ]);
+    cancellation?.throwIfCancelled();
+    expectValue('merge-search-partial-keyword', await mergeKeyword.inputValue(), '1980-%-01');
+    cancellation?.throwIfCancelled();
+    await mergeKeyword.fill('1980-13');
+    cancellation?.throwIfCancelled();
+    await expectValidationWithoutNavigation(page,
+      'form[name="titlesearch"] input[name="button"]', 'merge-search-malformed');
+    cancellation?.throwIfCancelled();
+    await mergeKeyword.fill('1980');
+    cancellation?.throwIfCancelled();
+    const submitted = page.waitForRequest(request => request.isNavigationRequest()
+      && request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/admin/DemographicMergeRecord'),
+      { timeout: 30000 });
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
+      page.locator('form[name="titlesearch"] button[name="dboperation"]').click(),
+    ]);
+    cancellation?.throwIfCancelled();
+    expectValue('merged-search-operation', new URLSearchParams((await submitted).postData()).get('dboperation'), 'demographic_search_merged');
+    cancellation?.throwIfCancelled();
+    await assertNoErrorPage(page, 'merged-search');
+    cancellation?.throwIfCancelled();
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
+      page.locator('button[form="search-sort"][name="orderby"][value="last_name"]').first().click(),
+    ]);
+    cancellation?.throwIfCancelled();
+    expectValue('merged-search-sort-keeps-scope', await page.locator('#search-page input[name="dboperation"]').inputValue(), 'demographic_search_merged');
+    cancellation?.throwIfCancelled();
+    await assertNoErrorPage(page, 'merged-search-sorted');
+    cancellation?.throwIfCancelled();
+    expectValue('merged-search-url-has-no-keyword', new URL(page.url()).searchParams.has('keyword'), false);
+
+    // The report picker is a name-only result page: it has no titlesearch form.
+    // Opening it must not run stale DOB/focus code against a nonexistent form.
+    await safeGoto(page, '/demographic/ViewDemographicSearch2ReportResults',
+      { waitUntil: 'load', timeout: 30000 }, { keyword: 'FAKE-PW-NO-MATCH' });
+    cancellation?.throwIfCancelled();
+    await assertNoErrorPage(page, 'report-picker');
+    cancellation?.throwIfCancelled();
+    expectValue('report-picker-results-form', await page.locator('form[name="addform"]').count(), 1);
+    cancellation?.throwIfCancelled();
+    expectValue('report-picker-has-no-search-form', await page.locator('form[name="titlesearch"]').count(), 0);
+    cancellation?.throwIfCancelled();
 
     if (findings.length) {
       throw new Error(`patient search DOB browser check found ${findings.length} issue(s)`);
     }
 
-    console.log('PASS CARLOS EMR patient search DOB entry accepts full YYYY-MM-DD input');
+    console.log('PASS CARLOS EMR patient search DOB entry accepts YYYY, YYYY-MM, YYYY-MM-DD and % wildcards');
   } finally {
     // Dump collected evidence on success and failure alike so a mid-flow
     // timeout (e.g. the DOB alert blocking submit) still reports the checks.
     console.log(JSON.stringify({ checks, findings }, null, 2));
     await browser.close();
   }
-})().catch((error) => {
+})(context).catch((error) => {
   console.error('FAIL CARLOS EMR patient search DOB Playwright check');
   console.error(`Failure type: ${error && error.name ? error.name : 'Error'}`);
-  process.exit(1);
+  {process.exitCode=1;return;}
+});
 });

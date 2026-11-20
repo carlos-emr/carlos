@@ -16,9 +16,9 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 -->
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -29,7 +29,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 </c:if>
     <c:if test="${page ge 1}">
     <c:forEach var="labResult" items="${labDocs}" varStatus="loopStatus">
-        <div class="document-card card mb-1 shadow-sm" id="labdoc_${labResult.segmentID}" style="height: 100%;">
+        <div class="document-card card mb-1 shadow-sm" id="labdoc_${carlos:forHtmlAttribute(labResult.labType)}_${carlos:forHtmlAttribute(labResult.segmentID)}" data-segment-id="${carlos:forHtmlAttribute(labResult.segmentID)}" data-lab-type="${carlos:forHtmlAttribute(labResult.labType)}" style="height: 100%;">
             <div class="card-body">
                 <div class="card-title fw-bold">
                     ${carlos:forHtml(labResult.labType)}:

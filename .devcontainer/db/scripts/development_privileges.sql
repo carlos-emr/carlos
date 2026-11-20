@@ -20,11 +20,15 @@
  * https://github.com/carlos-emr/carlos
  */
 
--- Restore current baseline Administration privileges after development.sql
--- replaces secObjPrivilege with its older demo snapshot. This local-only seed
--- is also safe to run against an existing development database. The default
--- carlosdoc account is intentionally a full administrator in development, so
--- remove its production/demo schedule group-creation override below.
+-- Restore current baseline privileges after development.sql replaces
+-- secObjPrivilege with its older demo snapshot. This local-only seed is also
+-- safe to run against an existing development database (seed_data.sh re-runs it
+-- on every devcontainer rebuild). The default carlosdoc account is intentionally
+-- a full administrator in development, so remove its production/demo schedule
+-- group-creation override below.
+--
+-- scripts/demo-dataset-contract.test.js replays this file and fails when a
+-- privilege that a Playwright check names differs from the Flyway seeds.
 
 INSERT IGNORE INTO `secObjectName`
     (`objectName`, `description`, `orgapplicable`)
@@ -43,6 +47,31 @@ VALUES
     ('admin', '_admin.schedule', 'x', 0, '999998'),
     ('admin', '_admin.schedule.groupCreate', 'x', 0, '999998'),
     ('admin', '_site_access_privacy', 'x', 0, '999998')
+ON DUPLICATE KEY UPDATE
+    `privilege` = VALUES(`privilege`),
+    `priority` = VALUES(`priority`),
+    `provider_no` = VALUES(`provider_no`);
+
+-- Doctor-role rows the 2023 snapshot carries with values that differ from the
+-- Flyway seeds (on/bc V1.0.2), which every packaged install gets (issue #4566).
+-- Without them a check passes on the deb and fails here, or the reverse.
+--   _eform w: the snapshot has x. Flyway gives doctors eForm edit and export
+--     (w) and leaves eForm deletion to _admin.eform, which
+--     authz-read-admin-objects asserts.
+--   _admin.flowsheet r: the snapshot has no doctor row. admin-role-management
+--     relies on it for the day-sheet Administration link.
+--   _episode and _newCasemgmt.episode o: the snapshot has x, a hand edit on the
+--     demo server (its recyclebin rows 5 and 7, dated 2023-10-06, record the
+--     earlier o for each).
+--     The shipped default hides the encounter Episode panel from doctors;
+--     granting it is a product change for a migration, not for this file.
+INSERT INTO `secObjPrivilege`
+    (`roleUserGroup`, `objectName`, `privilege`, `priority`, `provider_no`)
+VALUES
+    ('doctor', '_admin.flowsheet', 'r', 0, '999998'),
+    ('doctor', '_eform', 'w', 0, '999998'),
+    ('doctor', '_episode', 'o', 0, '999998'),
+    ('doctor', '_newCasemgmt.episode', 'o', 0, '999998')
 ON DUPLICATE KEY UPDATE
     `privilege` = VALUES(`privilege`),
     `priority` = VALUES(`priority`),

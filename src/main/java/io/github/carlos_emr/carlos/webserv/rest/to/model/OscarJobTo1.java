@@ -31,6 +31,8 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 import java.io.Serializable;
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import jakarta.xml.bind.annotation.XmlRootElement;
 
 @XmlRootElement(name = "OscarJob")
@@ -55,6 +57,7 @@ public class OscarJobTo1 implements Serializable {
     private String providerNo;
 
     /* for www */
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date nextPlannedExecutionDate;
 
 

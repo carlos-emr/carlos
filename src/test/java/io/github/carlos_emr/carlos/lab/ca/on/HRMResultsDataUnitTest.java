@@ -1,0 +1,271 @@
+/* Copyright (c) 2026 CARLOS Contributors. Licensed under GPL-2.0-or-later. */
+package io.github.carlos_emr.carlos.lab.ca.on;
+
+import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;
+import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToProviderDao;
+import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
+import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.hospitalReportManager.HRMReport;
+import io.github.carlos_emr.carlos.hospitalReportManager.HRMReportParser;
+import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
+import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
+import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToProvider;
+import java.time.Instant;
+import java.util.Date;
+import java.util.List;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+/**
+ * Regression coverage for HRM result query filters.
+ *
+ * @since 2026-09-16
+ */
+@Tag("unit")
+class HRMResultsDataUnitTest extends CarlosUnitTestBase {
+    private io.github.carlos_emr.carlos.managers.SecurityInfoManager security;
+
+    /**
+     * The feed leaves out a report filed to a patient the provider may not read. The provider of
+     * these tests may read every patient; the locked-patient test takes that away.
+     */
+    @org.junit.jupiter.api.BeforeEach
+    void permitEveryPatient() {
+        security = createAndRegisterMock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+        when(security.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), anyInt())).thenReturn(true);
+        when(security.hasPrivilegeReadOnly(any(LoggedInInfo.class), eq("_demographic"), eq("r"), anyString())).thenReturn(true);
+    }
+
+    @Test
+    void shouldLeaveReportOut_whenFiledToPatientProviderIsLockedOutOf() {
+        var providers = createAndRegisterMock(HRMDocumentToProviderDao.class);
+        var documents = createAndRegisterMock(HRMDocumentDao.class);
+        var matches = createAndRegisterMock(HRMDocumentToDemographicDao.class);
+        var demographics = createAndRegisterMock(DemographicManager.class);
+        var info = mock(LoggedInInfo.class);
+        var locked = new HRMDocumentToProvider();
+        locked.setHrmDocumentId(42);
+        var unfiled = new HRMDocumentToProvider();
+        unfiled.setHrmDocumentId(43);
+        when(providers.findByProviderNoLimit(anyString(), anyList(), anyBoolean(), any(), any(),
+                anyInt(), anyInt(), anyBoolean(), anyInt(), anyInt(), any())).thenReturn(List.of(locked, unfiled));
+        var match = new HRMDocumentToDemographic();
+        match.setDemographicNo(100);
+        when(matches.findByHrmDocumentId(42)).thenReturn(List.of(match));
+        when(matches.findByHrmDocumentId(43)).thenReturn(List.of());
+        when(security.isAllowedAccessToPatientRecord(info, 100)).thenReturn(false);
+        // What the patient lookup did for a locked patient, which failed the whole list.
+        when(demographics.getDemographic(info, 100)).thenThrow(new SecurityException("missing required sec object (_demographic)"));
+        var document = mock(HRMDocument.class);
+        when(document.getId()).thenReturn(43);
+        when(document.getTimeReceived()).thenReturn(new Date());
+        when(document.getReportFile()).thenReturn("synthetic-unfiled.xml");
+        when(documents.findById(43)).thenReturn(List.of(document));
+        var report = mock(HRMReport.class);
+        when(report.getLegalName()).thenReturn("FAKE-Unfiled,Person");
+
+        try (var parser = mockStatic(HRMReportParser.class)) {
+            parser.when(() -> HRMReportParser.parseReport(info, "synthetic-unfiled.xml")).thenReturn(report);
+
+            var results = new HRMResultsData().populateHRMdocumentsResultsData(info, "999998", "", null, null, false, 0, 100);
+
+            assertThat(results).extracting(result -> result.segmentID).containsExactly("43");
+            // Decided from the link alone: neither the locked report nor its patient was read.
+            verify(documents, never()).findById(42);
+            verify(demographics, never()).getDemographic(any(LoggedInInfo.class), anyInt());
+            parser.verify(() -> HRMReportParser.parseReport(any(LoggedInInfo.class), anyString()), times(1));
+        }
+        // A list is filtered read-only: the stateful check, which marks the session, is not used.
+        verify(security, never()).hasPrivilege(any(LoggedInInfo.class), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void shouldKeepRoutedReport_whenProviderLacksModuleRight() {
+        // The inbox has always listed a routed report without the HRM module right; only the
+        // patient's own rules are applied to the list.
+        Demographic patient = new Demographic();
+        patient.setFirstName("Test");
+        patient.setLastName("Patient");
+
+        LabResultData result = loadReport(patient, "Patient,Test");
+
+        assertThat(result.isMatchedToPatient).isTrue();
+        verify(security, never()).hasPrivilegeReadOnly(any(LoggedInInfo.class), eq("_hrm"), anyString(), anyString());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"42,42,42", "41,41,42,42,40,40", "42,41,42,40,41,40", "40,41,42,40,41,42"})
+    void shouldGroupDistinctVersionsWithoutSelfDuplicates_whenReportsHaveMultipleProviderRoutes(String routedIds) {
+        var providers = createAndRegisterMock(HRMDocumentToProviderDao.class);
+        var documents = createAndRegisterMock(HRMDocumentDao.class);
+        createAndRegisterMock(HRMDocumentToDemographicDao.class);
+        createAndRegisterMock(DemographicManager.class);
+        var info = mock(LoggedInInfo.class);
+        List<Integer> ids = java.util.Arrays.stream(routedIds.split(",")).map(Integer::valueOf).toList();
+        List<HRMDocumentToProvider> routes = ids.stream().map(id -> {
+            var route = new HRMDocumentToProvider();
+            route.setHrmDocumentId(id);
+            return route;
+        }).toList();
+        when(providers.findByProviderNoLimit(anyString(), anyList(), anyBoolean(), any(), any(),
+                anyInt(), anyInt(), anyBoolean(), anyInt(), anyInt(), isNull())).thenReturn(routes);
+
+        try (var parser = mockStatic(HRMReportParser.class)) {
+            for (Integer id : ids.stream().distinct().toList()) {
+                var document = mock(HRMDocument.class);
+                when(document.getId()).thenReturn(id);
+                when(document.getTimeReceived()).thenReturn(new Date(1700000000000L));
+                when(document.getReportFile()).thenReturn("synthetic-" + id + ".xml");
+                when(documents.findById(id)).thenReturn(List.of(document));
+                var report = mock(HRMReport.class);
+                when(report.getHrmDocumentId()).thenReturn(id);
+                when(report.getLegalName()).thenReturn("Patient,Test");
+                when(report.getSendingFacilityId()).thenReturn("SYNTHETIC");
+                when(report.getSendingFacilityReportNo()).thenReturn("SHARED-REPORT");
+                when(report.getDeliverToUserId()).thenReturn("999998");
+                when(report.getMessageUniqueId()).thenReturn("a^b^c^d^e^" + (20261102000000L + id));
+                parser.when(() -> HRMReportParser.parseReport(info, "synthetic-" + id + ".xml")).thenReturn(report);
+            }
+
+            var results = new HRMResultsData().populateHRMdocumentsResultsData(
+                    info, "", "", null, null, false, 0, 100);
+
+            assertThat(results).singleElement().satisfies(result -> {
+                assertThat(result.getSegmentID()).isEqualTo("42");
+                assertThat(result.getDuplicateLabIds()).containsExactlyInAnyOrderElementsOf(
+                        ids.stream().distinct().filter(id -> id != 42).toList());
+            });
+            for (Integer id : ids.stream().distinct().toList()) {
+                verify(documents).findById(id);
+                parser.verify(() -> HRMReportParser.parseReport(info, "synthetic-" + id + ".xml"));
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"1234567890"})
+    void shouldKeepMatchedReportVisible_withMissingOrPresentHealthNumber(String hin) {
+        Demographic patient = new Demographic();
+        patient.setFirstName("Test");
+        patient.setLastName("Patient");
+        patient.setHin(hin);
+        LabResultData result = loadReport(patient, "Patient,Test");
+        assertThat(result.isMatchedToPatient).isTrue();
+        assertThat(result.patientName).isEqualTo("Patient,Test");
+        assertThat(result.healthNumber).isEqualTo(hin);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"Patient", "Patient,", "Patient,Test"})
+    void shouldKeepUnmatchedReportVisible_withIncompletePatientName(String name) {
+        LabResultData result = loadReport(null, name, true);
+        assertThat(Boolean.TRUE.equals(result.isMatchedToPatient)).isFalse();
+        assertThat(result.patientName).isEqualTo(name);
+    }
+
+    @Test
+    void shouldReturnPatientDetails_withoutWritingThemToDebugLogs() {
+        Demographic patient = new Demographic();
+        patient.setFirstName("SyntheticPrivateFirst");
+        patient.setLastName("SyntheticPrivateLast");
+        patient.setHin("FAKE-PRIVATE-HIN");
+        try (var logs = LogCapture.forLogger(HRMResultsData.class)) {
+            LabResultData result = loadReport(patient, "SyntheticPrivateLast,SyntheticPrivateFirst");
+            assertThat(result.patientName).isEqualTo("SyntheticPrivateLast,SyntheticPrivateFirst");
+            assertThat(result.healthNumber).isEqualTo("FAKE-PRIVATE-HIN");
+            assertThat(logs.messages()).containsExactly("HRM result count: 1");
+        }
+    }
+
+    private LabResultData loadReport(Demographic patient, String reportName) {
+        return loadReport(patient, reportName, false);
+    }
+
+    private LabResultData loadReport(Demographic patient, String reportName, boolean forceGivenNameFilter) {
+        var providers = mock(HRMDocumentToProviderDao.class);
+        var documents = mock(HRMDocumentDao.class);
+        var matches = mock(HRMDocumentToDemographicDao.class);
+        var demographics = mock(DemographicManager.class);
+        registerMock(HRMDocumentToProviderDao.class, providers);
+        registerMock(HRMDocumentDao.class, documents);
+        registerMock(HRMDocumentToDemographicDao.class, matches);
+        registerMock(DemographicManager.class, demographics);
+        var info = mock(LoggedInInfo.class);
+        var route = new HRMDocumentToProvider();
+        route.setHrmDocumentId(42);
+        when(providers.findByProviderNoLimit(anyString(), anyList(), anyBoolean(), any(), any(),
+                anyInt(), anyInt(), anyBoolean(), anyInt(), anyInt(), any())).thenReturn(List.of(route));
+        var document = mock(HRMDocument.class);
+        when(document.getId()).thenReturn(42);
+        when(document.getTimeReceived()).thenReturn(new Date());
+        when(document.getReportFile()).thenReturn("synthetic-report.xml");
+        when(documents.findById(42)).thenReturn(List.of(document));
+        if (patient != null) {
+            var match = new HRMDocumentToDemographic();
+            match.setDemographicNo(100);
+            when(matches.findByHrmDocumentId(42)).thenReturn(List.of(match));
+            when(demographics.getDemographic(info, 100)).thenReturn(patient);
+        } else {
+            when(matches.findByHrmDocumentId(42)).thenReturn(List.of());
+        }
+        var report = mock(HRMReport.class);
+        when(report.getLegalName()).thenReturn(reportName);
+        try (var parser = mockStatic(HRMReportParser.class)) {
+            parser.when(() -> HRMReportParser.parseReport(info, "synthetic-report.xml")).thenReturn(report);
+            // Nonmatching HIN/surname filters force evaluation of the given-name predicate.
+            var results = forceGivenNameFilter
+                    ? new HRMResultsData().populateHRMdocumentsResultsData(info, "999998", "", "NO-SURNAME", "NO-HIN",
+                            null, "", null, null, false, 0, 100)
+                    : new HRMResultsData().populateHRMdocumentsResultsData(info, "999998", "", null, null, false, 0, 100);
+            assertThat(results).hasSize(1);
+            return results.iterator().next();
+        }
+    }
+
+    /**
+     * The Inbox Hub's Acknowledged toggle lists the reports signed off today. A bound dropped on
+     * its way to the query would page the provider's whole signed-off history into that list.
+     */
+    @Test
+    void shouldForwardSignOffBound_toReportQuery() {
+        HRMDocumentToProviderDao providers = mock(HRMDocumentToProviderDao.class);
+        registerMock(HRMDocumentToProviderDao.class, providers);
+        registerMock(HRMDocumentDao.class, mock(HRMDocumentDao.class));
+        registerMock(HRMDocumentToDemographicDao.class, mock(HRMDocumentToDemographicDao.class));
+        registerMock(DemographicManager.class, mock(DemographicManager.class));
+        Date startOfToday = Date.from(Instant.parse("2026-10-15T04:00:00Z"));
+
+        assertThat(new HRMResultsData().populateHRMdocumentsResultsData(mock(LoggedInInfo.class), "999998",
+                "", "", "", null, "A", null, null, true, 0, 20, startOfToday)).isEmpty();
+
+        verify(providers).findByProviderNoLimit(eq("999998"), eq(List.of()), eq(false),
+                isNull(), isNull(), eq(2), eq(1), eq(true), eq(0), eq(20), eq(startOfToday));
+    }
+
+    @ParameterizedTest
+    @CsvSource(value = {"N,0", "A,1", "F,1", "'',2", "NULL,0"}, nullValues = "NULL")
+    void shouldFilterBySignOffIndependentlyOfViewedState_whenReviewStatusSelected(String status, int signedOff) {
+        HRMDocumentToProviderDao providers = mock(HRMDocumentToProviderDao.class);
+        registerMock(HRMDocumentToProviderDao.class, providers);
+        registerMock(HRMDocumentDao.class, mock(HRMDocumentDao.class));
+        registerMock(HRMDocumentToDemographicDao.class, mock(HRMDocumentToDemographicDao.class));
+        registerMock(DemographicManager.class, mock(DemographicManager.class));
+        assertThat(new HRMResultsData().populateHRMdocumentsResultsData(
+                mock(LoggedInInfo.class), "999998", status, null, null, false, 0, 100)).isEmpty();
+        verify(providers).findByProviderNoLimit(eq("999998"), eq(java.util.List.of()), eq(false),
+                isNull(), isNull(), eq(2), eq(signedOff), eq(false), eq(0), eq(100), isNull());
+    }
+}

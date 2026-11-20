@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: enforce CDS maintenance and disclosure compatibility.
  */
 
 package io.github.carlos_emr.carlos.webserv;
@@ -39,6 +40,8 @@ import jakarta.jws.WebService;
 import org.apache.cxf.annotations.GZIP;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.managers.AllergyManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.transfer_objects.AllergyTransfer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -50,23 +53,54 @@ public class AllergyWs extends AbstractWs {
     @Autowired
     private AllergyManager allergyManager;
 
+    @Autowired
+    private SecurityInfoManager securityInfoManager;
+
+    private io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService projections;
+
+    /** Keeps the framework's public no-argument endpoint lifecycle and requires its projection guard. */
+    @Autowired
+    @jakarta.jws.WebMethod(exclude = true)
+    public void setCdsLegacyProjectionService(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService service) {
+        this.projections = java.util.Objects.requireNonNull(service);
+    }
+
     public AllergyTransfer getAllergy(Integer allergyId) {
-        Allergy allergy = allergyManager.getAllergy(getLoggedInInfo(), allergyId);
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        requireAllergyReadPrivilege(loggedInInfo);
+        Allergy allergy = allergyManager.getAllergy(loggedInInfo, allergyId);
+        if (allergy!=null) projections.requireSoapSupported(allergy.getDemographicNo(), java.util.Set.of("AllergiesAndAdverseReactions"));
         return (AllergyTransfer.toTransfer(allergy));
     }
 
     public AllergyTransfer[] getAllergiesUpdatedAfterDate(Date updatedAfterThisDateInclusive, int itemsToReturn) {
-        List<Allergy> allergies = allergyManager.getUpdatedAfterDate(getLoggedInInfo(), updatedAfterThisDateInclusive, itemsToReturn);
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        requireAllergyReadPrivilege(loggedInInfo);
+        List<Allergy> allergies = allergyManager.getUpdatedAfterDate(loggedInInfo, updatedAfterThisDateInclusive, itemsToReturn);
+        projections.requireSoapFeedSupported(java.util.Set.of("AllergiesAndAdverseReactions"));
         return (AllergyTransfer.toTransfers(allergies));
     }
 
     public AllergyTransfer[] getAllergiesByProgramProviderDemographicDate(Integer programId, String providerNo, Integer demographicId, Calendar updatedAfterThisDateInclusive, int itemsToReturn) {
-        List<Allergy> allergies = allergyManager.getAllergiesByProgramProviderDemographicDate(getLoggedInInfo(), programId, providerNo, demographicId, updatedAfterThisDateInclusive, itemsToReturn);
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        requireAllergyReadPrivilege(loggedInInfo);
+        List<Allergy> allergies = allergyManager.getAllergiesByProgramProviderDemographicDate(loggedInInfo, programId, providerNo, demographicId, updatedAfterThisDateInclusive, itemsToReturn);
+        if (demographicId==null) projections.requireSoapFeedSupported(java.util.Set.of("AllergiesAndAdverseReactions"));
+        else projections.requireSoapSupported(demographicId, java.util.Set.of("AllergiesAndAdverseReactions"));
         return (AllergyTransfer.toTransfers(allergies));
     }
 
     public AllergyTransfer[] getAllergiesByDemographicIdAfter(@WebParam(name = "lastUpdate") Calendar lastUpdate, @WebParam(name = "demographicId") Integer demographicId) {
-        List<Allergy> allergies = allergyManager.getByDemographicIdUpdatedAfterDate(getLoggedInInfo(), demographicId, lastUpdate.getTime());
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        requireAllergyReadPrivilege(loggedInInfo);
+        List<Allergy> allergies = allergyManager.getByDemographicIdUpdatedAfterDate(loggedInInfo, demographicId, lastUpdate.getTime());
+        projections.requireSoapSupported(demographicId, java.util.Set.of("AllergiesAndAdverseReactions"));
         return (AllergyTransfer.toTransfers(allergies));
+    }
+
+    private void requireAllergyReadPrivilege(LoggedInInfo loggedInInfo) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", SecurityInfoManager.READ, null)) {
+            throw new SecurityException("missing required sec object (_allergy)");
+        }
     }
 }

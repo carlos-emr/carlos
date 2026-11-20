@@ -110,7 +110,7 @@ public class BillingONPremiumDaoIntegrationTest extends CarlosTestBase {
             dao.persist(billONPrem5);
             dao.persist(billONPrem6);
 
-            List<BillingONPremium> expectedList = Arrays.asList(billONPrem2, billONPrem4);
+            List<BillingONPremium> expectedList = Arrays.asList(billONPrem2, billONPrem4, billONPrem5);
             List<BillingONPremium> resultList = dao.getActiveRAPremiumsByPayDate(startDate, endDate, locale);
 
             assertThat(resultList).hasSize(expectedList.size());
@@ -163,11 +163,39 @@ public class BillingONPremiumDaoIntegrationTest extends CarlosTestBase {
             dao.persist(billONPrem4);
             dao.persist(billONPrem5);
 
-            List<BillingONPremium> expectedList = Arrays.asList(billONPrem1, billONPrem3);
+            List<BillingONPremium> expectedList = Arrays.asList(billONPrem1, billONPrem3, billONPrem5);
             List<BillingONPremium> resultList = dao.getActiveRAPremiumsByProvider(provider, startDate, endDate, locale);
 
             assertThat(resultList).hasSize(expectedList.size());
             assertThat(resultList).containsAll(expectedList);
+        }
+
+        @Test
+        @DisplayName("single-day report includes active end-date premiums and respects provider filtering")
+        void shouldIncludeActivePremiumsOnBothBoundaries_forSingleDayReport() throws Exception {
+            Date day = dfm.parse("20261231");
+            BillingONPremium selected = premium("20261231", "427901", true);
+            BillingONPremium otherProvider = premium("20261231", "427902", true);
+            premium("20261231", "427901", false);
+            premium("20261230", "427901", true);
+            premium("20270101", "427901", true);
+
+            assertThat(dao.getActiveRAPremiumsByPayDate(day, day, Locale.CANADA))
+                    .containsExactlyInAnyOrder(selected, otherProvider);
+            Provider provider = new Provider();
+            provider.setProviderNo("427901");
+            assertThat(dao.getActiveRAPremiumsByProvider(provider, day, day, Locale.CANADA))
+                    .containsExactly(selected);
+        }
+
+        private BillingONPremium premium(String day, String providerNo, boolean active) throws Exception {
+            BillingONPremium premium = new BillingONPremium();
+            EntityDataGenerator.generateTestDataForModelClass(premium);
+            premium.setPayDate(dfm.parse(day));
+            premium.setProviderNo(providerNo);
+            premium.setStatus(active);
+            dao.persist(premium);
+            return premium;
         }
 
         @Test

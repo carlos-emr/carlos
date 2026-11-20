@@ -35,10 +35,13 @@
  *
  * <p><strong>Features:</strong></p>
  * <ul>
- *   <li>Multi-provider support (Middleware relay, SRFax direct API)</li>
+ *   <li>SRFax direct API account setup with per-field guidance (account number vs. login
+ *       email, sender/notification email, 10-digit fax number, password mask sentinel)</li>
+ *   <li>"Test SRFax connection" probe (read-only inbox call with the values as entered) so a
+ *       wrong account number or password is reported before saving</li>
  *   <li>Real-time scheduler health status polling</li>
  *   <li>Encrypted credential storage with auto-migration from legacy plain text</li>
- *   <li>Provider-specific field visibility (middleware vs SRFax)</li>
+ *   <li>Legacy middleware relay fields retained but hidden (SRFax is the only UI provider)</li>
  *   <li>Unsaved changes warning on page navigation</li>
  * </ul>
  *
@@ -47,13 +50,13 @@
  *
  * <p><strong>Parameters:</strong> None (uses session-based LoggedInInfo)</p>
  *
- * @since 2014-08-29 (original), 2026-02-11 (multi-provider refactor)
+ * @since 2014-08-29 (original), 2026-02-11 (multi-provider refactor), 2026-09-03 (SRFax setup clarity + connection test)
  */
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
@@ -76,10 +79,13 @@
 
 <%@page import="java.util.List" %>
 <%@page import="java.util.HashMap" %>
+<%@page import="java.util.Map" %>
+<%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.FaxManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.fax.provider.SRFaxProviderClient" %>
 <%@ page import="io.github.carlos_emr.carlos.fax.admin.ConfigureFax2Action" %>
+<%@ page import="io.github.carlos_emr.carlos.fax.core.FaxImporter" %>
 
 <%
     // Declare Java variables at page scope before any HTML/JavaScript
@@ -180,6 +186,8 @@
         const configureFaxUnableRetrieve = "<fmt:message key='admin.configureFax.unableRetrieve'/>";
         const configureFaxRestartFailed = "<fmt:message key='admin.configureFax.restartFailed'/>";
         const configureFaxUnsavedChanges = "<fmt:message key='admin.configureFax.unsavedChangesPrompt'/>";
+        const configureFaxTestConnectionTesting = "<fmt:message key='admin.configureFax.testConnectionTesting'/>";
+        const configureFaxTestConnectionFailed = "<fmt:message key='admin.configureFax.testConnectionFailed'/>";
         // Warn user if they try to leave with unsaved changes
         window.addEventListener('beforeunload', function (e) {
             if (!$("#submit").prop("disabled")) {
@@ -205,7 +213,12 @@
             }
         };
 
-        $(document).keypress(function () {
+        $(document).keypress(function (e) {
+            // Enter/Space on the Test button is not an edit: it must not arm Save (and the
+            // unsaved-changes prompt) for a form whose values have not changed.
+            if (e.target && e.target.id === "testSrfaxConnectionBtn") {
+                return;
+            }
             $("#submit").prop("disabled", false);
             $(this).off();
         });
@@ -249,11 +262,68 @@
                 setState(this);
             });
 
+            // Any edit to the credentials makes a displayed connection-test result stale.
+            $("#faxUser, #faxPasswd, #providerType").on("input change", invalidateTestConnectionResult);
+
             getFaxSchedularStatus();
             updateMiddlewareFieldsVisibility();
             getPendingIncomingFaxes();
 
         });
+
+        // "Test SRFax connection": POSTs the form values as entered (nothing is saved) to a
+        // read-only provider probe so a wrong account number/password is reported right away
+        // instead of surfacing later as a scheduler error. The form's hidden method=configure
+        // entry is dropped before appending method=testConnection: with two "method" values
+        // the server would read the first one and save instead of test.
+        // A result is only meaningful for the exact credentials that were tested. Each click
+        // takes a new sequence number; editing the account number or password bumps it and
+        // hides the result, so a late callback for superseded values is dropped and a green
+        // "successful" line can never sit beside credentials that were never verified.
+        var testConnectionSeq = 0;
+
+        function invalidateTestConnectionResult() {
+            testConnectionSeq++;
+            $("#testConnectionResult").hide().text("").removeClass("text-success text-danger text-muted");
+            $("#testSrfaxConnectionBtn").prop("disabled", false);
+        }
+
+        function testSrfaxConnection() {
+            var fields = $("#configFrm").serializeArray().filter(function (field) {
+                return field.name !== "method";
+            });
+            fields.push({ name: "method", value: "testConnection" });
+
+            var seq = ++testConnectionSeq;
+            var resultEl = $("#testConnectionResult");
+            // Show the aria-live region before writing to it so screen readers announce the
+            // "Testing" text and the result that replaces it.
+            resultEl.removeClass("text-success text-danger").addClass("text-muted")
+                    .show().text(configureFaxTestConnectionTesting);
+            $("#testSrfaxConnectionBtn").prop("disabled", true);
+
+            $.ajax({
+                url: "<carlos:encode value='<%= request.getContextPath() %>' context="javaScript"/>/admin/ManageFax",
+                method: 'POST',
+                data: $.param(fields),
+                dataType: "json",
+                success: function (data) {
+                    if (seq !== testConnectionSeq) { return; } // credentials changed meanwhile
+                    resultEl.removeClass("text-muted text-success text-danger")
+                            .addClass(data.success ? "text-success" : "text-danger")
+                            .text(data.message || (data.success ? "OK" : configureFaxTestConnectionFailed));
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    if (seq !== testConnectionSeq) { return; }
+                    resultEl.removeClass("text-muted text-success").addClass("text-danger")
+                            .text(configureFaxTestConnectionFailed + " " + (errorThrown || textStatus));
+                },
+                complete: function () {
+                    if (seq !== testConnectionSeq) { return; }
+                    $("#testSrfaxConnectionBtn").prop("disabled", false);
+                }
+            });
+        }
 
         function updateMiddlewareFieldsVisibility() {
             var providerType = $("#providerType").val();
@@ -444,6 +514,34 @@
             <div class="col-md-12">
                 <legend class="fax-section-title"><i class="fas fa-satellite-dish"></i> <fmt:message key="admin.configureFax.gatewayConfiguration"/></legend>
 
+                <%
+                    Map<Integer, FaxImporter.PollingFailure> pollingFailures = SpringUtils.getBean(FaxImporter.class).getPollingFailures();
+                    for (FaxConfig account : faxConfigList) {
+                        FaxImporter.PollingFailure failure = pollingFailures.get(account.getId());
+                        if (account.isActive() && account.isDownload() && failure != null) {
+                            String pollingAccountLabel = StringUtils.defaultIfBlank(account.getAccountName(), account.getFaxUser());
+                            pollingAccountLabel = StringUtils.defaultIfBlank(pollingAccountLabel, String.valueOf(account.getId()));
+                %>
+                <div class="alert alert-warning fax-poll-failure" role="status" data-account-id="<%= account.getId() %>">
+                    <fmt:message key="admin.configureFax.pollingFailed" var="pollingFailureMessage">
+                        <fmt:param value="<%= pollingAccountLabel %>"/>
+                    </fmt:message>
+                    <strong><carlos:encode value="${pollingFailureMessage}"/></strong>
+                    <p class="mb-1"><fmt:message key="admin.configureFax.pollingFailureHelp"/></p>
+                    <dl class="mb-0">
+                        <dt><fmt:message key="admin.configureFax.pollingFailureAttempts"/></dt>
+                        <dd class="fax-poll-attempts"><%= failure.attempts() %></dd>
+                        <dt><fmt:message key="admin.configureFax.pollingFailureSince"/></dt>
+                        <dd><fmt:formatDate value="<%= java.util.Date.from(failure.firstFailure()) %>" type="both"/></dd>
+                        <dt><fmt:message key="admin.configureFax.pollingNextRetry"/></dt>
+                        <dd class="fax-poll-next-retry"><fmt:formatDate value="<%= java.util.Date.from(failure.nextRetry()) %>" type="both"/></dd>
+                    </dl>
+                </div>
+                <%
+                        }
+                    }
+                %>
+
                 <div class="row fax-card">
                     <div class="col-md-12">
                         <%
@@ -530,39 +628,57 @@
                             </div>
                         </div>
 
-                        <!-- SRFax Account Credentials (always shown) -->
+                        <!-- SRFax Account Credentials (always shown). Field names/ids are a stable
+                             contract for scripts/e2e/fax/lib.js and the Playwright checks: do not
+                             rename faxUser / faxPassword / faxNumber / senderEmail / accountName. -->
                         <div class="row">
                             <div class="col-md-12">
                                 <h6 style="color: #0d6efd; margin-top: 12px; margin-bottom: 8px;"><fmt:message key="admin.configureFax.srfaxAccountCredentials"/></h6>
-                                <small class="fax-muted" style="display: block; margin-bottom: 12px;">
-                                    <i class="fas fa-info-circle"></i> <fmt:message key="admin.configureFax.srfaxAccountCredentialsHelp"/>
-                                </small>
+                                <div id="srfaxWhatYouNeed" class="fax-muted" style="margin-bottom: 12px;">
+                                    <div style="margin-bottom: 4px;"><fmt:message key="admin.configureFax.srfaxAccountCredentialsHelp"/></div>
+                                    <div><i class="fas fa-info-circle"></i> <strong><fmt:message key="admin.configureFax.whatYouNeedTitle"/></strong></div>
+                                    <ul style="margin: 4px 0 6px 18px; padding-left: 0;">
+                                        <li><fmt:message key="admin.configureFax.whatYouNeedAccountNumber"/></li>
+                                        <li><fmt:message key="admin.configureFax.whatYouNeedPassword"/></li>
+                                        <li><fmt:message key="admin.configureFax.whatYouNeedFaxNumber"/></li>
+                                    </ul>
+                                    <div><i class="fas fa-envelope"></i> <fmt:message key="admin.configureFax.whatYouNeedEmailNote"/></div>
+                                </div>
                             </div>
                             <div class="col-md-6">
-                                <label for="faxUser"><fmt:message key="admin.configureFax.srfaxUsername"/></label>
+                                <label for="faxUser"><i class="fas fa-hashtag"></i> <fmt:message key="admin.configureFax.srfaxAccountNumber"/></label>
                                 <input class="form-control" type="text" id="faxUser" name="faxUser"
+                                       inputmode="numeric" autocomplete="off"
+                                       placeholder="<fmt:message key='admin.configureFax.srfaxAccountNumberPlaceholder'/>"
                                        value="<carlos:encode value='<%= faxUser %>' context="htmlAttribute"/>"/>
+                                <small class="fax-muted"><fmt:message key="admin.configureFax.srfaxAccountNumberHelp"/></small>
                                 <input type="hidden" id="id" name="id" value="<carlos:encode value='<%= configId %>' context="htmlAttribute"/>"/>
                             </div>
                             <div class="col-md-6">
-                                <label for="faxPasswd"><fmt:message key="admin.configureFax.srfaxPassword"/></label>
+                                <label for="faxPasswd"><i class="fas fa-key"></i> <fmt:message key="admin.configureFax.srfaxPassword"/></label>
                                 <input class="form-control" type="password" id="faxPasswd" name="faxPassword"
+                                       autocomplete="new-password"
                                        value="<carlos:encode value='<%= faxPassword %>' context="htmlAttribute"/>"/>
+                                <small class="fax-muted"><fmt:message key="admin.configureFax.srfaxPasswordHelp"/></small>
                             </div>
                         </div>
 
                         <!-- Account Details -->
                         <div class="row">
                             <div class="col-md-6">
-                                <label for="faxNumber"><fmt:message key="admin.configureFax.faxNumber"/></label>
+                                <label for="faxNumber"><i class="fas fa-fax"></i> <fmt:message key="admin.configureFax.faxNumber"/></label>
                                 <input class="form-control" type="text" id="faxNumber" name="faxNumber"
+                                       inputmode="tel" autocomplete="off"
+                                       placeholder="<fmt:message key='admin.configureFax.faxNumberPlaceholder'/>"
                                        value="<carlos:encode value='<%= faxNumber %>' context="htmlAttribute"/>"/>
+                                <small class="fax-muted"><fmt:message key="admin.configureFax.faxNumberHelp"/></small>
                             </div>
                             <div class="col-md-6">
-                                <label for="senderEmail"><fmt:message key="admin.configureFax.email"/></label>
+                                <label for="senderEmail"><i class="fas fa-envelope"></i> <fmt:message key="admin.configureFax.senderEmail"/></label>
                                 <input class="form-control" type="email" id="senderEmail" name="senderEmail"
-                                       placeholder="<fmt:message key='admin.configureFax.accountEmailPlaceholder'/>"
+                                       placeholder="<fmt:message key='admin.configureFax.senderEmailPlaceholder'/>"
                                        value="<carlos:encode value='<%= senderEmail %>' context="htmlAttribute"/>"/>
+                                <small class="fax-muted"><fmt:message key="admin.configureFax.senderEmailHelp"/></small>
                             </div>
                         </div>
                         <div class="row">
@@ -577,7 +693,9 @@
                             <div class="col-md-6">
                                 <label for="accountName"><fmt:message key="admin.configureFax.accountName"/></label>
                                 <input class="form-control" type="text" name="accountName" id="accountName"
+                                       placeholder="<fmt:message key='admin.configureFax.accountNamePlaceholder'/>"
                                        value="<carlos:encode value='<%= accountName %>' context="htmlAttribute"/>"/>
+                                <small class="fax-muted"><fmt:message key="admin.configureFax.accountNameHelp"/></small>
                             </div>
                         </div>
 
@@ -615,11 +733,18 @@
             </div>
         </div>
 
-        <div class="row">
-        <input class="btn btn-primary" id="submit" type="submit" disabled value="<fmt:message key='admin.configureFax.saveConfiguration'/>"/>
-            <small class="fax-muted" style="margin-left: 12px; display: inline-block; line-height: 30px;">
+        <div class="row" style="align-items: center; gap: 12px; padding-left: 12px;">
+            <button id="testSrfaxConnectionBtn" class="btn btn-outline-primary" type="button" style="width: auto;" onclick="testSrfaxConnection()">
+                <i class="fas fa-plug"></i> <fmt:message key="admin.configureFax.testConnection"/>
+            </button>
+            <input class="btn btn-primary" id="submit" type="submit" disabled style="width: auto;" value="<fmt:message key='admin.configureFax.saveConfiguration'/>"/>
+            <small class="fax-muted" style="display: inline-block; line-height: 30px; width: auto;">
                 <i class="fas fa-info-circle"></i> <fmt:message key="admin.configureFax.unsavedChanges"/>
             </small>
+        </div>
+        <div class="row" style="padding-left: 12px;">
+            <div id="testConnectionResult" role="status" aria-live="polite" style="display:none; margin-top: 8px; font-weight: 500;"></div>
+            <small class="fax-muted"><fmt:message key="admin.configureFax.testConnectionHelp"/></small>
         </div>
     </form>
 

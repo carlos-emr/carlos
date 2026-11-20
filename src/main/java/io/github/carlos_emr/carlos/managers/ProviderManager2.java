@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.commn.model.Property;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderPreference;
 import io.github.carlos_emr.carlos.commn.model.ProviderPreference.QuickLink;
+import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.model.ProviderSettings;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -472,7 +473,30 @@ public class ProviderManager2 {
         }
     }
 
+    /**
+     * Updates settings for the authenticated provider and records a sanitized audit entry.
+     *
+     * <p>The target must match the provider identity from {@code loggedInInfo}. This
+     * manager-level check mirrors the REST endpoint as defense in depth; cross-provider
+     * administration requires a separate explicit endpoint.</p>
+     *
+     * @param loggedInInfo authenticated caller identity
+     * @param providerNo provider whose settings are being updated
+     * @param settings new provider settings
+     * @throws SecurityException when the caller is missing or targets another provider
+     * @since 2026-07-21
+     */
     public void updateProviderSettings(LoggedInInfo loggedInInfo, String providerNo, ProviderSettings settings) {
+        String warningPeriod = io.github.carlos_emr.carlos.utility.ConsultationWarningPeriod
+                .normalized(settings.getConsultationTimePeriodWarning());
+
+        // Defense in depth: keep the self-only authorization rule with the operation so
+        // a future non-REST caller cannot bypass the ProviderService endpoint guard.
+        // Cross-provider editing belongs behind a separate explicit admin endpoint.
+        String currentProviderNo = loggedInInfo != null ? loggedInInfo.getLoggedInProviderNo() : null;
+        if (providerNo == null || !providerNo.equals(currentProviderNo)) {
+            throw new SecurityException("provider settings may only be saved for the authenticated provider");
+        }
 
         ProviderPreference pp = providerPreferenceDao.find(providerNo);
         if (pp == null) {
@@ -558,8 +582,8 @@ public class ProviderManager2 {
         p.setValue(settings.getDefaultHcType());
         p = getMappedOrNewProperty(map, "default_sex", providerNo);
         p.setValue(settings.getDefaultSex());
-        p = getMappedOrNewProperty(map, "consultation_time_period_warning", providerNo);
-        p.setValue(settings.getConsultationTimePeriodWarning());
+        p = getMappedOrNewProperty(map, UserProperty.CONSULTATION_TIME_PERIOD_WARNING, providerNo);
+        p.setValue(warningPeriod);
         p = getMappedOrNewProperty(map, "consultation_team_warning", providerNo);
         p.setValue(settings.getConsultationTeamWarning());
         p = getMappedOrNewProperty(map, "consultation_req_paste_fmt", providerNo);
@@ -675,7 +699,9 @@ public class ProviderManager2 {
 
         for (String key : map.keySet()) {
             Property prop = map.get(key);
-            if (prop.getValue() != null) {
+            // Property normalizes blank to null. Persist that explicit reset for
+            // consultation periods so readers return to their default month.
+            if (prop.getValue() != null || UserProperty.CONSULTATION_TIME_PERIOD_WARNING.equals(key)) {
                 propertyDao.merge(prop);
             }
         }
@@ -684,6 +710,13 @@ public class ProviderManager2 {
         providerExt.setSignature(settings.getSignature());
 
         providerExtDao.merge(providerExt);
+
+        // Audit trail: record who changed which provider's settings, placed after the DAO
+        // writes above. If any merge throws, the exception propagates and this line is never
+        // reached, so no audit entry is recorded for an update that did not complete. The
+        // target provider identifier is passed as the structured data field (no settings
+        // values) to avoid logging PHI-adjacent content.
+        LogAction.addLogSynchronous(loggedInInfo, "ProviderManager.updateProviderSettings", providerNo);
 
     }
 
@@ -695,6 +728,8 @@ public class ProviderManager2 {
 
     }
 
+    /** @deprecated Legacy property API; the clinic-wide switch is managed by ProviderLinkingRulesService. */
+    @Deprecated
     public boolean updateAutoLinkToMrpProperty(LoggedInInfo loggedInInfo, String value) {
 		if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.lab", SecurityInfoManager.WRITE, null) &&
             !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.hrm", SecurityInfoManager.WRITE, null)) {
@@ -712,6 +747,8 @@ public class ProviderManager2 {
 		return propertyDao.isActiveBooleanProperty(Property.PROPERTY_KEY.auto_link_to_mrp);
 	}
 
+    /** @deprecated Legacy property API, retained for callers of the previous release. */
+    @Deprecated
 	public boolean viewAutoLinkToMrpPropertyStatus(LoggedInInfo loggedInInfo) {
 		if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.lab", SecurityInfoManager.READ, null) &&
             !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.hrm", SecurityInfoManager.READ, null)) {
@@ -721,7 +758,7 @@ public class ProviderManager2 {
 		return propertyDao.isActiveBooleanProperty(Property.PROPERTY_KEY.auto_link_to_mrp);
 	}
 
-	// If no property is found, it returns true by default.
+	// Filing for others is offered only after an explicit opt-in.
 	public boolean isHl7OfferFileForOthers(LoggedInInfo loggedInInfo, String providerNo) {
 		if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, null)) {
 			throw new RuntimeException("missing required security object _lab");
@@ -731,7 +768,7 @@ public class ProviderManager2 {
 				.stream()
 				.findFirst()
 				.map(p -> "true".equals(p.getValue()))
-				.orElse(true); // default to true
+				.orElse(false); // default off
 	}
 
 	public boolean isHl7AllowOthersFileForYou(LoggedInInfo loggedInInfo, String providerNo) {

@@ -29,6 +29,10 @@
 
 package io.github.carlos_emr.carlos.tickler.pageUtil;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -56,8 +60,9 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *
  * <p>When checkbox values are present the action loops over each selected tickler ID,
  * determines the target {@link Tickler.STATUS} from the first character of
- * {@code submit_form}, delegates to {@link TicklerManager#updateStatus}, and then
- * redirects to {@code ticklerMain.jsp}.
+ * {@code submit_form}, delegates to {@link TicklerManager#changeStatusIfCurrent} with the status
+ * the row showed when the list was rendered ({@link TicklerRenderedStatus}), and then redirects to
+ * {@code ticklerMain.jsp}. A task another user changed in the meantime is not overwritten.
  *
  * <p>Security: requires {@code _tickler} update privilege and POST method.
  *
@@ -117,7 +122,8 @@ public final class DbTicklerMain2Action extends ActionSupport {
             return NONE;
         }
 
-        // Determine the requested status from the first character of submit_form
+        // Deletion retains the clinical record with status D. Legacy "Erase Completely"
+        // submissions must also only mark Deleted, never remove the task or related records.
         String submitForm = request.getParameter("submit_form");
         Tickler.STATUS status = Tickler.STATUS.A;
         if (submitForm != null && !submitForm.isEmpty()) {
@@ -129,13 +135,25 @@ public final class DbTicklerMain2Action extends ActionSupport {
             }
         }
 
+        // What each ticked row showed when the list was rendered. A task someone else has changed
+        // since is left as it is and named on the list this action redirects to; the other ticked
+        // tasks are still applied.
+        Map<Integer, Tickler.STATUS> rendered = TicklerRenderedStatus.read(request);
+        List<Integer> refused = new ArrayList<>();
         int failCount = 0;
+        int conflictCount = 0;
         for (String ticklerIdStr : checkboxes) {
             try {
                 Tickler t = ticklerManager.getTickler(loggedInInfo, Integer.parseInt(ticklerIdStr));
                 if (t != null) {
-                    ticklerManager.updateStatus(loggedInInfo, t.getId(),
-                            loggedInInfo.getLoggedInProviderNo(), status);
+                    TicklerManager.StatusChange change = ticklerManager.changeStatusIfCurrent(loggedInInfo, t.getId(),
+                            loggedInInfo.getLoggedInProviderNo(), rendered.get(t.getId()), status);
+                    if (change == TicklerManager.StatusChange.STALE) {
+                        refused.add(t.getId());
+                        conflictCount++;
+                    }
+                } else {
+                    failCount++;
                 }
             } catch (NumberFormatException e) {
                 MiscUtils.getLogger().error("Invalid tickler checkbox value: {}", LogSafe.sanitize(ticklerIdStr), e);
@@ -146,9 +164,14 @@ public final class DbTicklerMain2Action extends ActionSupport {
             }
         }
 
+        TicklerRenderedStatus.rememberRefused(request.getSession(), refused);
+
         String redirect = appendScheduleNav(request.getContextPath() + "/tickler/ViewTicklerMain");
         if (failCount > 0) {
             redirect += (redirect.contains("?") ? "&" : "?") + "failCount=" + failCount;
+        }
+        if (conflictCount > 0) {
+            redirect += (redirect.contains("?") ? "&" : "?") + "conflictCount=" + conflictCount;
         }
         response.sendRedirect(redirect);
         return NONE;

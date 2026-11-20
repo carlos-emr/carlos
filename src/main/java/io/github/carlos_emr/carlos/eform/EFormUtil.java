@@ -29,7 +29,6 @@
 
 package io.github.carlos_emr.carlos.eform;
 
-import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.model.security.Secobjprivilege;
@@ -49,6 +48,7 @@ import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.EFormDao.EFormSortOrder;
+import io.github.carlos_emr.carlos.documentManager.DocumentDescription;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.MessagingManager;
@@ -63,7 +63,8 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.eform.data.EFormBase;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.commn.dao.ClinicalDataRow;
+import io.github.carlos_emr.carlos.commn.dao.EFormListingRow;
 import io.github.carlos_emr.carlos.messenger.data.MessengerSystemMessage;
 import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -72,11 +73,10 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 import jakarta.persistence.PersistenceException;
 import java.io.File;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -166,6 +166,28 @@ public class EFormUtil {
     }
 
     public static ArrayList<HashMap<String, ? extends Object>> listEForms(String sortBy, String deleted) {
+        return buildListing(sortBy, deleted, false);
+    }
+
+    /**
+     * Lists eForm templates for the eForm Library, adding the editor each one opens in.
+     *
+     * <p>Same rows and keys as {@link #listEForms(String, String)}, plus {@code "editorKind"}: the
+     * {@link EFormEditorResolver.EditorKind} the library's Edit action routes to. It is a separate
+     * method so the many other callers of the plain listing do not pay for scanning every template's
+     * markup.</p>
+     *
+     * @param sortBy one of {@link #NAME}, {@link #SUBJECT}, {@link #FILE_NAME} or {@link #DATE}
+     * @param deleted {@link #CURRENT}, {@link #DELETED} or "all"
+     * @return the listing rows, each with an {@code "editorKind"} value
+     * @since 2026-10-22
+     */
+    public static ArrayList<HashMap<String, ? extends Object>> listEFormsWithEditor(String sortBy, String deleted) {
+        return buildListing(sortBy, deleted, true);
+    }
+
+    private static ArrayList<HashMap<String, ? extends Object>> buildListing(
+            String sortBy, String deleted, boolean includeEditorKind) {
 
         // sends back a list of forms that were uploaded (those that can be added to the patient)
 
@@ -198,6 +220,9 @@ public class EFormUtil {
             curht.put("formDateAsDate", eform.getFormDate());
             curht.put("formTime", ConversionUtils.toTimeString(eform.getFormTime()));
             curht.put("roleType", eform.getRoleType());
+            if (includeEditorKind) {
+                curht.put("editorKind", EFormEditorResolver.resolve(eform.getFormHtml()));
+            }
             results.add(curht);
         }
         return (results);
@@ -236,12 +261,12 @@ public class EFormUtil {
 
     public static ArrayList<String> listImages() {
         String imagePath = CarlosProperties.getInstance().getEformImageDirectory();
-        logger.debug("Img Path: " + imagePath);
+        logger.debug("Resolving eForm image");
         File dir;
         try {
             dir = PathValidationUtils.resolveConfiguredDirectory(imagePath, "eform image path");
         } catch (SecurityException e) {
-            logger.warn("eForm image path is unavailable", e);
+            logger.warn("eForm image path is unavailable: {}", LogSafe.exceptionTrace(e));
             return new ArrayList<String>();
         }
         String[] files = dir.list();
@@ -311,7 +336,7 @@ public class EFormUtil {
                 results.add(curht);
             }
         } catch (Exception sqe) {
-            logger.error("Error", sqe);
+            logger.error("Error: {}", LogSafe.exceptionTrace(sqe));
         }
         return (results);
     }
@@ -356,7 +381,7 @@ public class EFormUtil {
                 results.add(curht);
             }
         } catch (Exception sqe) {
-            logger.error("Error", sqe);
+            logger.error("Error: {}", LogSafe.exceptionTrace(sqe));
         }
         return (results);
     }
@@ -390,7 +415,7 @@ public class EFormUtil {
                 results.add(curht);
             }
         } catch (Exception sqe) {
-            logger.error("Error", sqe);
+            logger.error("Error: {}", LogSafe.exceptionTrace(sqe));
         }
         return (results);
     }
@@ -428,7 +453,7 @@ public class EFormUtil {
                 results.add(curht);
             }
         } catch (Exception sqe) {
-            logger.error("Error", sqe);
+            logger.error("Error: {}", LogSafe.exceptionTrace(sqe));
         }
         return (results);
     }
@@ -453,7 +478,7 @@ public class EFormUtil {
                 results.add(curht);
             }
         } catch (Exception sqe) {
-            logger.error("Error", sqe);
+            logger.error("Error: {}", LogSafe.exceptionTrace(sqe));
         }
         return (results);
     }
@@ -556,7 +581,7 @@ public class EFormUtil {
         else if (fieldName.equalsIgnoreCase("roleType"))
             return eform.getRoleType();
 
-        logger.warn("Invalid field name: " + fieldName + ". Please use one of formName, formSubject, formFileName, formDate, formTime, formStatus, formHtml, showLatestFormOnly, patientIndependent or roleType.");
+        logger.warn("Invalid field name");
 
         return null;
     }
@@ -588,7 +613,7 @@ public class EFormUtil {
     /**
      * Resolves AP column values, keeping "the query failed" distinguishable from "it matched no rows".
      *
-     * <p>{@link #getValues(List, ParameterizedSql)} cannot express that difference: {@link #getSQL}
+     * <p>{@link #getValues(List, ParameterizedSql)} cannot express that difference: the DAO
      * logs and returns {@code null} for a blocked or failed statement, and {@code getValues} turns
      * that into an empty list — the same value a healthy query over a patient with no matching data
      * returns. Every AP caller then renders an empty clinical field, over HTTP 200, with nothing for
@@ -603,59 +628,38 @@ public class EFormUtil {
      *         nothing; {@code null} when the query could not be executed or read
      */
     public static ArrayList<String> getValuesOrNull(List<String> names, ParameterizedSql sql) {
-        ResultSet resultSet;
-        try {
-            EFormSqlSafety.validateLegacySqlSafety(sql.getSql());
-            resultSet = LegacyJdbcQuery.getPreparedResultSet(sql);
-        } catch (SecurityException | SQLException e) {
-            logger.error("eForm AP query could not be executed", e);
-            return null;
-        }
-        if (resultSet == null) {
-            return null;
-        }
-        ArrayList<String> values = new ArrayList<String>();
-        try (ResultSet rows = resultSet) {
-            while (rows.next()) {
-                values = new ArrayList<String>();
-                for (int i = 0; i < names.size(); i++) {
-                    try {
-                        values.add(Misc.getString(rows, names.get(i)));
-                    } catch (Exception columnError) {
-                        logger.error("eForm AP column could not be read: " + names.get(i), columnError);
-                        return null;
-                    }
-                }
-            }
-        } catch (SQLException e) {
-            logger.error("eForm AP result set could not be read", e);
-            return null;
-        }
-        return values;
+        return getValuesOrNull(names, sql, null);
+    }
+
+    /** Patient-scoped precision refusal happens before SQL can filter unknown dates out. */
+    public static ArrayList<String> getValuesOrNull(List<String> names, ParameterizedSql sql, Integer demographicNo) {
+        requirePreventionDateSafety(sql, demographicNo);
+        return readApValues(names, sql, true);
     }
 
     public static ArrayList<String> getValues(List<String> names, ParameterizedSql sql) {
-        // gets the values for each column name in the sql (used by DatabaseAP)
-        ArrayList<String> values = new ArrayList<String>();
-        try (ResultSet rs = getSQL(sql)) {
-            if (rs == null) {
-                return values;
-            }
-            while (rs.next()) {
-                values = new ArrayList<String>();
-                for (int i = 0; i < names.size(); i++) {
+        return readApValues(names, sql, false);
+    }
+
+    private static ArrayList<String> readApValues(List<String> names, ParameterizedSql sql, boolean strict) {
+        ArrayList<String> values = new ArrayList<>();
+        try {
+            for (ClinicalDataRow row : eFormValueDao().findDatabaseApValues(sql, names)) {
+                values = new ArrayList<>();
+                for (String name : names) {
                     try {
-                        values.add(Misc.getString(rs, names.get(i)));
-                    } catch (Exception sqe) {
-                        values.add("<(" + names.get(i) + ")NotFound>");
-                        logger.error("Error", sqe);
+                        values.add(row.text(name));
+                    } catch (IllegalArgumentException e) {
+                        if (strict) return null;
+                        values.add("<(" + name + ")NotFound>");
                     }
                 }
             }
-        } catch (SQLException sqe) {
-            logger.error("Error", sqe);
+        } catch (RuntimeException e) {
+            logger.error("eForm AP query failed (causeType={})", e.getClass().getName());
+            return strict ? null : new ArrayList<>();
         }
-        return (values);
+        return values;
     }
 
     /**
@@ -679,59 +683,36 @@ public class EFormUtil {
      *         {@code null} when it could not be executed or read
      */
     public static ArrayNode getJsonValuesOrNull(List<String> names, ParameterizedSql sql) {
-        ResultSet resultSet;
-        try {
-            EFormSqlSafety.validateLegacySqlSafety(sql.getSql());
-            resultSet = LegacyJdbcQuery.getPreparedResultSet(sql);
-        } catch (SecurityException | SQLException e) {
-            logger.error("eForm AP JSON query could not be executed", e);
-            return null;
-        }
-        if (resultSet == null) {
-            return null;
-        }
-        ArrayNode values = objectMapper.createArrayNode();
-        try (ResultSet rows = resultSet) {
-            while (rows.next()) {
-                ObjectNode value = objectMapper.createObjectNode();
-                for (int i = 0; i < names.size(); i++) {
-                    try {
-                        value.put(names.get(i), Misc.getString(rows, names.get(i)));
-                    } catch (Exception columnError) {
-                        logger.error("eForm AP JSON column could not be read: " + names.get(i), columnError);
-                        return null;
-                    }
-                }
-                values.add(value);
-            }
-        } catch (SQLException e) {
-            logger.error("eForm AP JSON result set could not be read", e);
-            return null;
-        }
-        return values;
+        return getJsonValuesOrNull(names, sql, null);
+    }
+
+    public static ArrayNode getJsonValuesOrNull(List<String> names, ParameterizedSql sql, Integer demographicNo) {
+        requirePreventionDateSafety(sql, demographicNo);
+        return readApJson(names, sql, true);
     }
 
     public static ArrayNode getJsonValues(List<String> names, ParameterizedSql sql) {
-        // gets the values for each column name in the sql (used by DatabaseAP)
+        return readApJson(names, sql, false);
+    }
+
+    private static ArrayNode readApJson(List<String> names, ParameterizedSql sql, boolean strict) {
         ArrayNode values = objectMapper.createArrayNode();
-        try (ResultSet rs = getSQL(sql)) {
-            if (rs == null) {
-                return values;
-            }
-            while (rs.next()) {
+        try {
+            for (ClinicalDataRow row : eFormValueDao().findDatabaseApValues(sql, names)) {
                 ObjectNode value = objectMapper.createObjectNode();
-                for (int i = 0; i < names.size(); i++) {
+                for (String name : names) {
                     try {
-                        value.put(names.get(i), Misc.getString(rs, names.get(i)));
-                    } catch (Exception sqe) {
-                        value.put(names.get(i), "<(" + names.get(i) + ")NotFound>");
-                        logger.error("Error", sqe);
+                        value.put(name, row.text(name));
+                    } catch (IllegalArgumentException e) {
+                        if (strict) return null;
+                        value.put(name, "<(" + name + ")NotFound>");
                     }
                 }
                 values.add(value);
             }
-        } catch (SQLException sqe) {
-            logger.error("Error", sqe);
+        } catch (RuntimeException e) {
+            logger.error("eForm AP JSON query failed (causeType={})", e.getClass().getName());
+            return strict ? null : objectMapper.createArrayNode();
         }
         return values;
     }
@@ -751,7 +732,7 @@ public class EFormUtil {
                 eFormValueDao().persist(eFormValue);
             }
         } catch (PersistenceException ee) {
-            logger.error("Unexpected Error", ee);
+            logger.error("Unexpected Error: {}", LogSafe.exceptionTrace(ee));
         }
     }
 
@@ -769,53 +750,31 @@ public class EFormUtil {
 
     // --------------eform groups---------
     public static ArrayList<HashMap<String, String>> getEFormGroups() {
-        String sql;
-        sql = "SELECT DISTINCT eform_groups.group_name, count(*)-1 AS 'count' FROM eform_groups "
-                + "LEFT JOIN eform ON eform.fid=eform_groups.fid WHERE eform.status=1 OR eform_groups.fid=0 "
-                + "GROUP BY eform_groups.group_name";
-        ArrayList<HashMap<String, String>> al = new ArrayList<HashMap<String, String>>();
-        try (ResultSet rs = getSQL(new ParameterizedSql(sql, List.of()))) {
-            if (rs == null) {
-                return al;
-            }
-            while (rs.next()) {
-                HashMap<String, String> curhash = new HashMap<String, String>();
-                curhash.put("groupName", Misc.getString(rs, "group_name"));
-                curhash.put("count", Misc.getString(rs, "count"));
-                al.add(curhash);
-            }
-        } catch (SQLException sqe) {
-            logger.error("Error", sqe);
-        }
-        return al;
+        return getGroupCounts(null);
     }
 
-    public static ArrayList<HashMap<String, String>> getEFormGroups(String demographic_no) {
-        String sql;
-        sql = "SELECT eform_groups.group_name, count(*)-1 AS 'count' FROM eform_groups "
-                + "LEFT JOIN eform_data ON eform_data.fid=eform_groups.fid "
-                + "WHERE (eform_data.status=1 AND eform_data.demographic_no=?"
-                + ") OR eform_groups.fid=0 " + "GROUP BY eform_groups.group_name";
-        ArrayList<HashMap<String, String>> al = new ArrayList<HashMap<String, String>>();
-        int demographicNo;
+    public static ArrayList<HashMap<String, String>> getEFormGroups(String demographicNo) {
         try {
-            demographicNo = Integer.parseInt(demographic_no);
-        } catch (NumberFormatException nfe) {
-            logger.error("Invalid demographic_no: " + demographic_no, nfe);
-            return al;
+            return getGroupCounts(Integer.valueOf(demographicNo));
+        } catch (NumberFormatException e) {
+            logger.error("Invalid patient number for eForm group lookup");
+            return new ArrayList<>();
         }
+    }
 
-        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo)) {
-            while (rs.next()) {
-                HashMap<String, String> curhash = new HashMap<String, String>();
-                curhash.put("groupName", Misc.getString(rs, "group_name"));
-                curhash.put("count", Misc.getString(rs, "count"));
-                al.add(curhash);
+    private static ArrayList<HashMap<String, String>> getGroupCounts(Integer demographicNo) {
+        var result = new ArrayList<HashMap<String, String>>();
+        try {
+            for (EFormGroupDao.GroupCount row : eFormGroupDao().findActiveGroupCounts(demographicNo)) {
+                var value = new HashMap<String, String>();
+                value.put("groupName", StringUtils.trimToEmpty(row.name()));
+                value.put("count", Long.toString(row.count()));
+                result.add(value);
             }
-        } catch (SQLException sqe) {
-            logger.error("Error", sqe);
+        } catch (RuntimeException e) {
+            logger.error("eForm group lookup failed (causeType={})", e.getClass().getName());
         }
-        return al;
+        return result;
     }
 
     public static void delEFormGroup(String name) {
@@ -824,23 +783,7 @@ public class EFormUtil {
     }
 
     public static void addEFormToGroup(String groupName, String fid) {
-        ResultSet rs = null;
-        try {
-            String sql1 = "SELECT eform_groups.fid FROM eform_groups, eform WHERE eform_groups.fid=? AND eform_groups.fid=eform.fid AND eform.status=1 AND eform_groups.group_name=?";
-            rs = LegacyJdbcQuery.getPreparedResultSet(sql1, ConversionUtils.fromIntString(fid), groupName);
-            if (!rs.next()) {
-                EFormGroup eg = new EFormGroup();
-                eg.setFormId(Integer.parseInt(fid));
-                eg.setGroupName(groupName);
-                eFormGroupDao().persist(eg);
-            }
-        } catch (SQLException sqe) {
-            logger.error("Error", sqe);
-        } finally {
-            if (rs != null) {
-                try { rs.close(); } catch (SQLException ignored) { }
-            }
-        }
+        eFormGroupDao().addActiveFormIfMissing(groupName, Integer.parseInt(fid));
     }
 
     public static void remEFormFromGroup(String groupName, String fid) {
@@ -849,44 +792,31 @@ public class EFormUtil {
     }
 
     public static ArrayList<HashMap<String, ? extends Object>> listEForms(String sortBy, String deleted, String group, String userRoles) {
-        // sends back a list of forms that were uploaded (those that can be added to the patient)
-        String validatedSort = validateSortBy(sortBy);
-        String sql = "";
-        if (deleted.equals("deleted")) {
-            sql = "SELECT * FROM eform, eform_groups where eform.status=0 AND eform.fid=eform_groups.fid AND eform_groups.group_name=? ORDER BY " + validatedSort;
-        } else if (deleted.equals("current")) {
-            sql = "SELECT * FROM eform, eform_groups where eform.status=1 AND eform.fid=eform_groups.fid AND eform_groups.group_name=? ORDER BY " + validatedSort;
-        } else if (deleted.equals("all")) {
-            sql = "SELECT * FROM eform, eform_groups where eform.fid=eform_groups.fid AND eform_groups.group_name=? ORDER BY " + validatedSort;
-        }
-        ArrayList<HashMap<String, ? extends Object>> results = new ArrayList<HashMap<String, ? extends Object>>();
-        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LegacyJdbcQuery.trustedSelectSql(sql), group)) {
-            while (rs.next()) {
-                HashMap<String, String> curht = new HashMap<String, String>();
-                curht.put("fid", rsGetString(rs, "fid"));
-                curht.put("formName", rsGetString(rs, "form_name"));
-                curht.put("formSubject", rsGetString(rs, "subject"));
-                curht.put("formFileName", rsGetString(rs, "file_name"));
-                curht.put("formDate", rsGetString(rs, "form_date"));
-                curht.put("formTime", rsGetString(rs, "form_time"));
-                curht.put("roleType", rsGetString(rs, "roleType"));
-
-                // filter eform by role type
-                if (curht.get("roleType") != null && !curht.get("roleType").equals("")) {
-                    // ojectName: "_admin,_admin.eform"
-                    // roleName: "doctor,admin"
-                    String objectName = "_eform." + curht.get("roleType");
-                    Vector v = OscarRoleObjectPrivilege.getPrivilegeProp(objectName);
-                    if (!OscarRoleObjectPrivilege.checkPrivilege(userRoles, (Properties) v.get(0), (Vector) v.get(1))) {
-                        continue;
-                    }
-                }
-                results.add(curht);
+        validateSortBy(sortBy);
+        var results = new ArrayList<HashMap<String, ? extends Object>>();
+        try {
+            for (EFormListingRow row : eformDao().findLibraryInGroup(legacyStatus(deleted), group, sortBy)) {
+                if (canListRole(row.roleType(), userRoles, false)) results.add(row.toLegacyMap(false));
             }
-        } catch (Exception sqe) {
-            logger.error("Error", sqe);
+        } catch (RuntimeException e) {
+            logger.error("eForm library lookup failed (causeType={})", e.getClass().getName());
         }
-        return (results);
+        return results;
+    }
+
+    private static Boolean legacyStatus(String deleted) {
+        return switch (deleted) {
+            case "current" -> true;
+            case "deleted" -> false;
+            case "all" -> null;
+            default -> throw new IllegalArgumentException("Invalid eForm status");
+        };
+    }
+
+    private static boolean canListRole(String role, String userRoles, boolean patient) {
+        if (role.isEmpty() || (patient && "null".equals(role))) return true;
+        Vector privileges = OscarRoleObjectPrivilege.getPrivilegeProp("_eform." + role);
+        return OscarRoleObjectPrivilege.checkPrivilege(userRoles, (Properties) privileges.get(0), (Vector) privileges.get(1));
     }
 
     public static ArrayList<HashMap<String, ? extends Object>> listPatientEForms(LoggedInInfo loggedInInfo, String sortBy, String deleted, String demographic_no, String groupName, int offset, int numToReturn) {
@@ -926,51 +856,17 @@ public class EFormUtil {
 
     @Deprecated
     public static ArrayList<HashMap<String, ? extends Object>> listPatientEForms(String sortBy, String deleted, String demographic_no, String groupName, String userRoles) {
-        // sends back a list of forms added to the patient
-        String validatedSort = validateSortBy(sortBy);
-        String sql = "";
-        if (deleted.equals("deleted")) {
-            sql = "SELECT * FROM eform_data, eform_groups WHERE eform_data.status=0 AND eform_data.patient_independent=0 AND eform_data.demographic_no=? AND eform_data.fid=eform_groups.fid AND eform_groups.group_name=? ORDER BY " + validatedSort;
-        } else if (deleted.equals("current")) {
-            sql = "SELECT * FROM eform_data, eform_groups WHERE eform_data.status=1 AND eform_data.patient_independent=0 AND eform_data.demographic_no=? AND eform_data.fid=eform_groups.fid AND eform_groups.group_name=? ORDER BY " + validatedSort;
-        } else if (deleted.equals("all")) {
-            sql = "SELECT * FROM eform_data, eform_groups WHERE eform_data.patient_independent=0 AND eform_data.demographic_no=? AND eform_data.fid=eform_groups.fid AND eform_groups.group_name=? ORDER BY " + validatedSort;
-        }
-        ArrayList<HashMap<String, ? extends Object>> results = new ArrayList<HashMap<String, ? extends Object>>();
-        int demographicNo;
+        validateSortBy(sortBy);
+        var results = new ArrayList<HashMap<String, ? extends Object>>();
         try {
-            demographicNo = Integer.parseInt(demographic_no);
-        } catch (NumberFormatException nfe) {
-            logger.error("Invalid demographic_no: " + demographic_no, nfe);
-            return results;
-        }
-        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LegacyJdbcQuery.trustedSelectSql(sql),
-                demographicNo, groupName)) {
-            while (rs.next()) {
-                // filter eform by role type
-                if (rsGetString(rs, "roleType") != null && !rsGetString(rs, "roleType").equals("") && !rsGetString(rs, "roleType").equals("null")) {
-                    // ojectName: "_admin,_admin.eform"
-                    // roleName: "doctor,admin"
-                    String objectName = "_eform." + rsGetString(rs, "roleType");
-                    Vector v = OscarRoleObjectPrivilege.getPrivilegeProp(objectName);
-                    if (!OscarRoleObjectPrivilege.checkPrivilege(userRoles, (Properties) v.get(0), (Vector) v.get(1))) {
-                        continue;
-                    }
-                }
-                HashMap<String, String> curht = new HashMap<String, String>();
-                curht.put("fdid", Misc.getString(rs, "fdid"));
-                curht.put("fid", rsGetString(rs, "fid"));
-                curht.put("formName", rsGetString(rs, "form_name"));
-                curht.put("formSubject", rsGetString(rs, "subject"));
-                curht.put("formDate", rsGetString(rs, "form_date"));
-                curht.put("formTime", rsGetString(rs, "form_time"));
-                curht.put("roleType", rsGetString(rs, "roleType"));
-                results.add(curht);
+            for (EFormListingRow row : eFormDataDao().findLegacyPatientFormsInGroup(
+                    legacyStatus(deleted), Integer.parseInt(demographic_no), groupName, sortBy)) {
+                if (canListRole(row.roleType(), userRoles, true)) results.add(row.toLegacyMap(true));
             }
-        } catch (Exception sqe) {
-            logger.error("Error", sqe);
+        } catch (RuntimeException e) {
+            logger.error("Patient eForm lookup failed (causeType={})", e.getClass().getName());
         }
-        return (results);
+        return results;
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
@@ -1023,7 +919,10 @@ public class EFormUtil {
                 else docOwner = eForm.getProviderNo();
             }
 
-            String docDesc = getContent("docdesc", template, eForm.getFormName());
+            // The template's <docdesc>, field values filled in, is not bounded by anything the eForm
+            // author controls, and the eForm is already saved: shortened to document.docdesc rather
+            // than cut by the database without a word.
+            String docDesc = DocumentDescription.fit(getContent("docdesc", template, eForm.getFormName()));
             String docText = getContent("content", template, "");
             docText = putTemplateEformHtml(eForm.getFormHtml(), docText);
 
@@ -1038,7 +937,7 @@ public class EFormUtil {
         /* write to prevention
          * <prevention>
          * 		<type>{preventionType: must be identical to Oscar prevention types}</type>
-         * 		<providers>{optional:providerNo}</providers>
+         * 		<provider>{optional:providerNo}</provider> (or <providers>)
          * 		<date>{optional:preventionDate}</date>
          * 		<status>{optional:completed/refused/ineligible}</status>
          * 		<name>{optional}</name>
@@ -1060,7 +959,10 @@ public class EFormUtil {
             String preventionType = getEqualIgnoreCase(preventionManager().getPreventionTypeList(), getContent("type", template, null));
             if (preventionType == null) continue;
 
-            String preventionProvider = getContent("providers", template, eForm.getProviderNo());
+            // <provider> is the tag eForm templates have always used; a 2025 package rename changed the
+            // reader to <providers>. Read the old tag first and keep the new one working.
+            String preventionProvider = getContent("provider", template, null);
+            if (preventionProvider == null) preventionProvider = getContent("providers", template, eForm.getProviderNo());
             String preventionDate = getContent("date", template, eForm.getFormDate());
             String preventionStatus = getContent("status", template, "completed"); //completed(0)/refused(1)/ineligible(2)
 
@@ -1207,16 +1109,27 @@ public class EFormUtil {
             String letterheadAddress = getContent("letterheadAddress", template, null);
             String letterheadPhone = getContent("letterheadPhone", template, null);
             String letterheadFax = getContent("letterheadFax", template, null);
-            String status = getContent("urgency", template, null);
+            String status = getContent("status", template, null);
             String source = getContent("source", template, "");
 
             ConsultationRequest consult = new ConsultationRequest();
 
-            ProfessionalSpecialist ps = professionalSpecialistDao().find(Integer.parseInt(referredToSpecialist));
+            // A request whose specialist or service id is missing, not a number or too long for an int is
+            // skipped like one whose specialist is not found; parsing it would throw and stop the eForm's
+            // submission after the eForm and its other outputs were saved. The warning names only the eForm's
+            // form id, so a clinic can find the template to correct.
+            int specialistId = NumberUtils.toInt(referredToSpecialist, -1);
+            int serviceId = NumberUtils.toInt(referredToService, -1);
+            if (specialistId <= 0 || serviceId <= 0) {
+                logger.warn("eForm template consultRequest skipped: service or specialist missing or not a number (eForm fid {})",
+                        NumberUtils.toInt(eForm.getFid()));
+                continue;
+            }
+            ProfessionalSpecialist ps = professionalSpecialistDao().find(specialistId);
             if (ps == null) continue;
-            if (referredToService == null || referredBy == null) continue;
+            if (referredBy == null) continue;
 
-            consult.setServiceId(Integer.parseInt(referredToService));
+            consult.setServiceId(serviceId);
             consult.setDemographicId(Integer.parseInt(eForm.getDemographicNo()));
             consult.setProviderNo(referredBy);
             consult.setFdid(Integer.parseInt(fdid));
@@ -1292,18 +1205,14 @@ public class EFormUtil {
     public static String getAttribute(String key, String htmlTag, boolean startsWith) {
         if (StringUtils.isBlank(key) || StringUtils.isBlank(htmlTag)) return null;
 
-        Matcher m = getAttributeMatcher(key, htmlTag, startsWith);
+        AttributeMatch m = findAttribute(key, htmlTag, startsWith);
         if (m == null) return null;
 
-        // With the new regex pattern:
-        // Group 0: Full match (attribute with optional value)
-        // Group 1: Attribute name
-        // Group 2: =value part (optional, including =)
-        // Group 3: Just the value (optional, without = and quotes)
-        String value = m.group();
-        if (!startsWith && m.group(3) != null) {
+        // text: the whole attribute, name and optional value; value: just the value, with its quotes
+        String value = m.text();
+        if (!startsWith && m.value() != null) {
             // Return just the value part without quotes
-            value = m.group(3);
+            value = m.value();
             // Remove quotes if present
             if ((value.startsWith("\"") && value.endsWith("\"")) || 
                 (value.startsWith("'") && value.endsWith("'"))) {
@@ -1318,7 +1227,7 @@ public class EFormUtil {
         int pos = -1;
         if (StringUtils.isBlank(key) || StringUtils.isBlank(htmlTag)) return pos;
 
-        Matcher m = getAttributeMatcher(key, htmlTag, false);
+        AttributeMatch m = findAttribute(key, htmlTag, false);
         if (m == null) return pos;
 
         return m.start();
@@ -1337,7 +1246,7 @@ public class EFormUtil {
         int pos = -1;
         if (StringUtils.isBlank(key) || StringUtils.isBlank(htmlTag)) return pos;
 
-        Matcher m = getAttributeMatcher(key, htmlTag, false);
+        AttributeMatch m = findAttribute(key, htmlTag, false);
         if (m == null) return pos;
 
         return m.end();
@@ -1413,7 +1322,7 @@ public class EFormUtil {
                 results.add(curht);
             }
         } catch (Exception sqe) {
-            logger.error("Error", sqe);
+            logger.error("Error: {}", LogSafe.exceptionTrace(sqe));
         }
         return (results);
     }
@@ -1443,17 +1352,10 @@ public class EFormUtil {
         return eFormDataDao().isLatestShowLatestFormOnlyPatientForm(fdid);
     }
 
-    private static ResultSet getSQL(ParameterizedSql sql) {
-        ResultSet rs = null;
-        try {
-            EFormSqlSafety.validateLegacySqlSafety(sql.getSql());
-            rs = LegacyJdbcQuery.getPreparedResultSet(sql);
-        } catch (SecurityException secEx) {
-            logger.error("Blocked unsafe SQL execution in legacy eForm path", secEx);
-        } catch (SQLException sqe) {
-            logger.error("Error", sqe);
+    private static void requirePreventionDateSafety(ParameterizedSql sql, Integer demographicNo) {
+        if (demographicNo != null && io.github.carlos_emr.carlos.prevention.PreventionReadSafetyService.readsPreventions(sql.getSql())) {
+            io.github.carlos_emr.carlos.prevention.PreventionData.requireExactDates(demographicNo);
         }
-        return (rs);
     }
 
     private static void setFormStatus(String fid, boolean status) {
@@ -1467,37 +1369,89 @@ public class EFormUtil {
         eformDao().merge(eform);
     }
 
-    private static String rsGetString(ResultSet rs, String column) throws SQLException {
-        // protects agianst null values;
-        String thisStr = Misc.getString(rs, column);
-        if (thisStr == null) return "";
-        return thisStr;
+    /**
+     * The name of an HTML attribute in an eForm tag.
+     *
+     * <p>Names may contain {@code $} because eForm markup uses it for its own attributes
+     * ({@code eform$name}, {@code var$value}, {@code ref$<field>} and {@code link$eform}); without it
+     * those attributes are never found, and their halves are read as ordinary attributes. The name
+     * class must stay disjoint from whitespace and {@code =}, so the end of a name is never ambiguous
+     * and matching stays linear (this replaced a ReDoS-prone pattern).</p>
+     */
+    static final Pattern ATTRIBUTE_NAME_PATTERN = Pattern.compile("[a-zA-Z][a-zA-Z0-9_:$-]*");
+
+    /**
+     * The optional value right after an attribute name: group 1 is the value with its quotes. It is
+     * applied with {@code lookingAt} to a region that starts at the end of each name, and the {@code ^}
+     * says so: it is only ever tried there, never at every position of the tag. Because a name never
+     * ends at whitespace or {@code =}, trying the value only after the whole name finds exactly what one
+     * combined {@code name(value)?} pattern found; it is kept separate so each pattern stays simple.
+     */
+    static final Pattern ATTRIBUTE_VALUE_PATTERN = Pattern.compile("^\\s*=\\s*(\"[^\"]*\"|'[^']*'|[^\\s>]+)");
+
+    /**
+     * One attribute found in a tag.
+     *
+     * @param name  the attribute name
+     * @param text  the whole attribute, name and optional value
+     * @param value the value with its quotes, or {@code null} for a name without a value
+     * @param start the index of the name in the tag
+     * @param end   the index after the attribute
+     */
+    record AttributeMatch(String name, String text, String value, int start, int end) { }
+
+    /** Every attribute of a tag, in order (see {@link #firstAttribute}). */
+    static List<AttributeMatch> scanAttributes(CharSequence htmlTag) {
+        List<AttributeMatch> attributes = new ArrayList<>();
+        firstAttribute(htmlTag, attribute -> {
+            attributes.add(attribute);
+            return false;
+        });
+        return attributes;
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private static Matcher getAttributeMatcher(String key, String htmlTag, boolean startsWith) {
-        Matcher m_return = null;
-        if (StringUtils.isBlank(key) || StringUtils.isBlank(htmlTag)) return m_return;
-
-        // Fixed ReDoS vulnerability by removing word boundaries and simplifying the regex
-        // This pattern matches HTML attributes in a safer way without polynomial complexity
-        Pattern p = Pattern.compile("([a-zA-Z][a-zA-Z0-9_:-]*)(\\s*=\\s*(\"[^\"]*\"|'[^']*'|[^\\s>]+))?", Pattern.CASE_INSENSITIVE);
-        Matcher m = p.matcher(htmlTag);
-
-        while (m.find()) {
-            // Group 1 contains the attribute name
-            String keypart = m.group(1);
-            if (keypart == null) continue;
-            
-            keypart = keypart.trim().toLowerCase();
-            key = key.trim().toLowerCase();
-            if ((keypart.equals(key)) || (startsWith && keypart.startsWith(key))) {
-                m_return = m;
-                break;
+    /**
+     * Scans a tag's attributes in order, the way one combined attribute pattern's {@code find()} loop
+     * did (each name, then its value if one follows, then the next name after it), and stops at the
+     * first one {@code wanted} accepts.
+     *
+     * @return that attribute, or {@code null} if none is accepted
+     */
+    private static AttributeMatch firstAttribute(CharSequence htmlTag, Predicate<AttributeMatch> wanted) {
+        Matcher name = ATTRIBUTE_NAME_PATTERN.matcher(htmlTag);
+        Matcher value = ATTRIBUTE_VALUE_PATTERN.matcher(htmlTag);
+        int from = 0;
+        while (from < htmlTag.length() && name.find(from)) {
+            int end = name.end();
+            String attributeValue = null;
+            value.region(end, htmlTag.length());
+            if (value.lookingAt()) {
+                end = value.end();
+                attributeValue = value.group(1);
             }
+            AttributeMatch attribute = new AttributeMatch(name.group(), htmlTag.subSequence(name.start(), end).toString(),
+                    attributeValue, name.start(), end);
+            if (wanted.test(attribute)) {
+                return attribute;
+            }
+            from = end;
         }
-        return m_return;
+        return null;
+    }
+
+    private static AttributeMatch findAttribute(String key, String htmlTag, boolean startsWith) {
+        if (StringUtils.isBlank(key) || StringUtils.isBlank(htmlTag)) return null;
+
+        String wanted = lowerCase(key.trim());
+        return firstAttribute(htmlTag, attribute -> {
+            String keypart = lowerCase(attribute.name());
+            return keypart.equals(wanted) || (startsWith && keypart.startsWith(wanted));
+        });
+    }
+
+    /** Attribute names are ASCII, so lower-casing them must not depend on the server's locale. */
+    private static String lowerCase(String attributeName) {
+        return attributeName.toLowerCase(Locale.ROOT);
     }
 
     private static String putTemplateValues(ArrayList<String> paramNames, ArrayList<String> paramValues, String template) {
@@ -1528,8 +1482,10 @@ public class EFormUtil {
     private static String putTemplateEformValues(EForm eForm, String fdid, String path, String template) {
         if (eForm == null || StringUtils.isBlank(template)) return template;
 
-        String[] efields = {"name", "subject", "patient", "providers", "link"};
-        String[] eValues = {eForm.getFormName(), eForm.getFormSubject(), eForm.getDemographicNo(), eForm.getProviderNo(), "<a href='" + path + "/eform/efmshowform_data?fdid=" + fdid + "' target='_blank'>" + eForm.getFormName() + "</a>"};
+        // $te{eform.provider} is the field eForm templates have always used; a 2025 package rename changed it
+        // to $te{eform.providers}. Both give the submitting provider.
+        String[] efields = {"name", "subject", "patient", "provider", "providers", "link"};
+        String[] eValues = {eForm.getFormName(), eForm.getFormSubject(), eForm.getDemographicNo(), eForm.getProviderNo(), eForm.getProviderNo(), "<a href='" + path + "/eform/efmshowform_data?fdid=" + fdid + "' target='_blank'>" + eForm.getFormName() + "</a>"};
 
         String tag = "$te{";
         String nwTemplate = "";

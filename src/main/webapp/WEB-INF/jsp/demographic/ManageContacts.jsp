@@ -29,11 +29,23 @@
 
 --%>
 
+<%--
+    Manages a patient's personal and professional contact associations.
+    Features: directory/provider/patient pickers, relationship flags, and removal.
+    Parameters: demographic_no identifies the patient (request parameter or
+    action attribute); indexed contact/procontact fields are posted to saveManage.
+    Internal patient selection uses the search popup's formName, elementName,
+    and elementId callback fields. Names and identifiers are separate values.
+    Access: this view requires _demographic read access; the save action enforces
+    POST, patient write access, association ownership, and reciprocal permissions.
+    @since 2026.08 (contact workflow corrections and contract documentation)
+--%>
+
 <%@ page import="java.util.List" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Contact" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.DemographicContact" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -182,14 +194,12 @@
             }
 
             function search_demographic(nameEl, valueEl) {
-                // ticklerPlus removed - demographic search functionality disabled
-                alert('Demographic search is currently unavailable');
-                return;
-                // var url = '<%= request.getContextPath() %>/demographic/DemographicSearch?outofdomain=false&form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl;
-                // var popup = window.open(url, 'demographic_search');
-                demo_no_orig = document.contactForm.elements[valueEl].value;
-                //check_demo_no = setInterval("if (demo_no_orig != document.contactForm.elements[valueEl].value) updTklrList()",100);
-
+                var params = new URLSearchParams({
+                    displaymode: 'Search ', caisi: 'true', formName: 'contactForm',
+                    elementName: nameEl, elementId: valueEl, keyword: '', search_mode: 'search_name'
+                });
+                var url = '<%= request.getContextPath() %>/demographic/DemographicSearch?' + params.toString();
+                var popup = window.open(url, 'demographic_search', 'width=900,height=650,scrollbars=yes,resizable=yes');
                 if (popup != null) {
                     if (popup.opener == null) {
                         popup.opener = self;
@@ -227,7 +237,8 @@
             }
 
             function search_procontact(nameEl, valueEl) {
-                var url = '<%= request.getContextPath() %>/demographic/ViewProContactSearch?form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl;
+                var url = '<%= request.getContextPath() %>/demographic/ViewProContactSearch?form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl
+                    + '&contactType=<%=DemographicContact.TYPE_CONTACT%>';
                 var popup = window.open(url, 'demographic_search');
                 demo_no_orig = document.contactForm.elements[valueEl].value;
                 //check_demo_no = setInterval("if (demo_no_orig != document.contactForm.elements[valueEl].value) updTklrList()",100);
@@ -257,6 +268,9 @@
 
             function setSelect(id, type, name, val) {
                 jQuery("select[name='" + type + "_" + id + "." + name + "']").each(function () {
+                    if (name === 'role' && val !== '' && !Array.from(this.options).some(function (option) { return option.value === val; })) {
+                        this.add(new Option(val, val));
+                    }
                     jQuery(this).val(val);
                 });
                 if (jQuery("select[name='" + type + "_" + id + "." + name + "']").val() != val) {
@@ -302,7 +316,7 @@
                 setInput(num, 'contact', 'id', '<carlos:encode value='<%= String.valueOf(dc.getId()) %>' context="javaScriptBlock"/>');
                 setSelect(num, 'contact', 'role', '<carlos:encode value='<%= dc.getRole() != null ? dc.getRole() : "" %>' context="javaScriptBlock"/>');
                 setSelectExisting(num, 'contact', 'type', '<carlos:encode value='<%= String.valueOf(dc.getType()) %>' context="javaScriptBlock"/>');
-                setSelect(num, 'contact', 'consentToContact', '<%=dc.isConsentToContact()?"1":"0"%>');
+                setSelect(num, 'contact', 'consentToContact', '<%=dc.getConsentToContact() == null ? "" : dc.isConsentToContact() ? "1" : "0"%>');
                 setSelect(num, 'contact', 'active', '<%=dc.isActive()?"1":"0"%>');
                 setInput(num, 'contact', 'contactId', '<carlos:encode value='<%= String.valueOf(dc.getContactId()) %>' context="javaScriptBlock"/>');
                 setInput(num, 'contact', 'contactName', '<carlos:encode value='<%= dc.getContactName() != null ? dc.getContactName() : "" %>' context="javaScriptBlock"/>');
@@ -325,7 +339,7 @@
                 var num = jQuery("#procontact_num").val();
                 setInput(num, 'procontact', 'id', '<carlos:encode value='<%= String.valueOf(dc.getId()) %>' context="javaScriptBlock"/>');
                 setSelect(num, 'procontact', 'role', '<carlos:encode value='<%= dc.getRole() != null ? dc.getRole() : "" %>' context="javaScriptBlock"/>');
-                setSelect(num, 'procontact', 'consentToContact', '<%=dc.isConsentToContact()?"1":"0"%>');
+                setSelect(num, 'procontact', 'consentToContact', '<%=dc.getConsentToContact() == null ? "" : dc.isConsentToContact() ? "1" : "0"%>');
                 setSelect(num, 'procontact', 'active', '<%=dc.isActive()?"1":"0"%>');
                 setSelectExisting(num, 'procontact', 'type', '<carlos:encode value='<%= String.valueOf(dc.getType()) %>' context="javaScriptBlock"/>');
                 setInput(num, 'procontact', 'contactId', '<carlos:encode value='<%= String.valueOf(dc.getContactId()) %>' context="javaScriptBlock"/>');
@@ -352,8 +366,8 @@
                         <td><c:set var="__enc_1"><carlos:encode value='<%= demographic_no != null ? demographic_no : "" %>' context="htmlAttribute"/></c:set><oscar:nameage demographicNo="${__enc_1}"/></td>
                         <td>&nbsp;</td>
                         <td style="text-align: right"><a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"><fmt:message key="global.license"/></a></td>
+                                href="<%=request.getContextPath()%>/encounter/ViewAbout" target="_blank" rel="noopener"><fmt:message key="global.about"/></a> | <a
+                                href="<%=request.getContextPath()%>/encounter/ViewLicense" target="_blank" rel="noopener"><fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>

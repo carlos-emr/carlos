@@ -47,8 +47,8 @@
         function CodeAttach(File0) {
             <c:choose>
                 <c:when test="${codeSearchModel.hasNameF}">
-            // nameFSafe is validated against [a-zA-Z_][a-zA-Z0-9_.]* in the
-            // assembler, so it's safe to splice as a JS identifier path.
+            // The assembler allows only legacy identifier paths or the exact
+            // indexed service-code field syntax used by the billing forms.
             self.opener.${codeSearchModel.nameFSafe} = File0;
                 </c:when>
                 <c:otherwise>

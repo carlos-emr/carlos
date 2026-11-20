@@ -96,6 +96,7 @@ public class FaxJob extends AbstractModel<Integer> implements Comparable<FaxJob>
     @Column(name = "faxline")
     private String fax_line;
 
+    @Column(length = 32)
     private String destination;
 
     private String recipient;
@@ -109,6 +110,11 @@ public class FaxJob extends AbstractModel<Integer> implements Comparable<FaxJob>
     private Date stamp;
 
     private String document;
+
+    // Transport-only spool. Never persist or serialize a local filesystem path, or copy it
+    // into the metadata job: the download caller owns and must consume/delete this file.
+    @Transient
+    private transient java.nio.file.Path documentPath;
 
     @Column(name = "jobId")
     private Long jobId;
@@ -221,6 +227,16 @@ public class FaxJob extends AbstractModel<Integer> implements Comparable<FaxJob>
      */
     public void setDocument(String document) {
         this.document = document;
+    }
+
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @jakarta.xml.bind.annotation.XmlTransient
+    public java.nio.file.Path getDocumentPath() {
+        return documentPath;
+    }
+
+    public void setDocumentPath(java.nio.file.Path documentPath) {
+        this.documentPath = documentPath;
     }
 
     /**

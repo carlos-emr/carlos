@@ -45,6 +45,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedStatic;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.managers.ApplicationTempPurgeJob.PurgeOutcome;
 
 /**
@@ -123,7 +124,7 @@ class ApplicationTempPurgeJobUnitTest {
         Instant cutoff = now.minus(24, ChronoUnit.HOURS);
 
         // NioFileManagerImpl.createTempFile stages multi-patient demographic import files under
-        // tempDirectory<ts> subdirectories (see ImportDemographicDataAction42Action). Pre-fix, the
+        // tempDirectory<ts> subdirectories. Pre-fix, the
         // tempPDF*-only filter never matched this prefix, so these directories were retained forever.
         Path oldTempDirectoryDir = Files.createDirectory(tempRoot.resolve("tempDirectory1700000000000"));
         Path nestedImportFile = Files.createFile(oldTempDirectoryDir.resolve("import-batch.csv"));
@@ -175,6 +176,70 @@ class ApplicationTempPurgeJobUnitTest {
 
         assertThat(outcome.removed()).isEqualTo(1);
         assertThat(outcome.skipped()).isZero();
+        assertThat(outcome.failed()).isZero();
+    }
+
+    @Test
+    @DisplayName("Removes an orphaned email compose directory but retains an active one")
+    void shouldRemoveOnlyExpiredEmailComposeWorkingDirectories_whenSweeping() throws IOException {
+        Instant now = Instant.now();
+        Instant cutoff = now.minus(24, ChronoUnit.HOURS);
+        Path orphan = Files.createDirectory(tempRoot.resolve("email-compose-orphan"));
+        Files.createFile(orphan.resolve("artifact.pdf"));
+        Files.writeString(
+                orphan.resolve(EmailComposeWorkingDirectory.ACTIVE_LEASE_FILE_NAME),
+                Long.toString(now.minus(1, ChronoUnit.HOURS).toEpochMilli()));
+        setLastModified(orphan, now.minus(48, ChronoUnit.HOURS));
+        Path active = Files.createDirectory(tempRoot.resolve("email-compose-active"));
+        Files.createFile(active.resolve("artifact.pdf"));
+        Files.writeString(
+                active.resolve(EmailComposeWorkingDirectory.ACTIVE_LEASE_FILE_NAME),
+                Long.toString(now.plus(30, ChronoUnit.MINUTES).toEpochMilli()));
+        setLastModified(active, now.minus(48, ChronoUnit.HOURS));
+
+        PurgeOutcome outcome = ApplicationTempPurgeJob.purgeExpiredEntries(tempRoot, cutoff);
+
+        assertThat(Files.exists(orphan)).isFalse();
+        assertThat(Files.isDirectory(active)).isTrue();
+        assertThat(outcome.removed()).isEqualTo(1);
+        assertThat(outcome.failed()).isZero();
+    }
+
+    @Test
+    @DisplayName("Retains an actively owned compose directory after its on-disk lease expires")
+    void shouldRetainEmailComposeWorkingDirectory_whenActivelyOwned() throws IOException {
+        Path activeDirectory = Files.createDirectory(tempRoot.resolve("email-compose-active-owner"));
+        Files.createFile(activeDirectory.resolve("artifact.pdf"));
+        Files.writeString(
+                activeDirectory.resolve(EmailComposeWorkingDirectory.ACTIVE_LEASE_FILE_NAME),
+                Long.toString(Instant.now().minus(1, ChronoUnit.HOURS).toEpochMilli()));
+        setLastModified(activeDirectory, Instant.now().minus(48, ChronoUnit.HOURS));
+
+        PurgeOutcome outcome = ApplicationTempPurgeJob.purgeExpiredEntries(
+                tempRoot,
+                Instant.now().minus(24, ChronoUnit.HOURS),
+                activeDirectory::equals);
+
+        assertThat(Files.isDirectory(activeDirectory)).isTrue();
+        assertThat(outcome.removed()).isZero();
+        assertThat(outcome.failed()).isZero();
+    }
+
+    @Test
+    @DisplayName("Rejects a far-future email compose lease so orphan cleanup remains bounded")
+    void shouldRemoveEmailComposeWorkingDirectory_whenLeaseIsUnbounded() throws IOException {
+        Path orphan = Files.createDirectory(tempRoot.resolve("email-compose-unbounded-lease"));
+        Files.createFile(orphan.resolve("artifact.pdf"));
+        Files.writeString(
+                orphan.resolve(EmailComposeWorkingDirectory.ACTIVE_LEASE_FILE_NAME),
+                Long.toString(Long.MAX_VALUE));
+        setLastModified(orphan, Instant.now().minus(48, ChronoUnit.HOURS));
+
+        PurgeOutcome outcome = ApplicationTempPurgeJob.purgeExpiredEntries(
+                tempRoot, Instant.now().minus(24, ChronoUnit.HOURS));
+
+        assertThat(Files.exists(orphan)).isFalse();
+        assertThat(outcome.removed()).isEqualTo(1);
         assertThat(outcome.failed()).isZero();
     }
 
@@ -327,18 +392,14 @@ class ApplicationTempPurgeJobUnitTest {
     @Test
     @DisplayName("Counts a scan failure when the swept directory cannot be listed")
     void shouldCountScanFailure_whenDirectoryUnreadable() throws IOException {
-        // Root ignores POSIX permission bits, so an unreadable directory is only reproducible as
-        // a non-root user (the devcontainer runs as root and skips this); the production change —
-        // a scan abort counts as at least one failure so the cycle summary can never report
-        // failed=0 for a cycle that listed nothing — is a single reviewed line.
-        assumeTrue(!"root".equals(System.getProperty("user.name")),
-                "POSIX permission bits are ignored when running as root");
-
         Path unreadable = tempRoot.resolve("unreadable");
         Files.createDirectory(unreadable);
         Set<PosixFilePermission> original = Files.getPosixFilePermissions(unreadable);
         try {
             Files.setPosixFilePermissions(unreadable, EnumSet.noneOf(PosixFilePermission.class));
+            // Test actual permission semantics: a root process with DAC bypass
+            // removed can exercise this path just like an ordinary user.
+            assumeTrue(!Files.isReadable(unreadable), "Process can bypass unreadable directory mode bits");
 
             PurgeOutcome outcome = ApplicationTempPurgeJob.purgeExpiredEntries(unreadable, Instant.now());
 

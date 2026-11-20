@@ -87,7 +87,7 @@ Comprehensive billing management for various Canadian provinces.
 | billing/CA/BC/ManageTeleplan | io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action | Manages Teleplan billing configurations |
 | billing/CA/BC/ProcessRemittance | io.github.carlos_emr.carlos.billings.ca.bc.MSP.GenTa2Action | Processes MSP remittance files |
 | billing/CA/BC/receivePaymentAction | io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ReceivePayment2Action | Records payment receipts |
-| billing/CA/BC/reprocessBill | io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingReProcessBill2Action | Reprocesses rejected bills |
+| billing/CA/BC/reprocessBill | io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingReProcessBill2Action | GET opens Bill Status, or a bill's adjust page with `billingmaster_no`; POST saves an adjusted bill (`billingmasterNo`) or a Bill Status mass edit (`billCheck`) |
 | billing/CA/BC/saveAssocAction | io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SaveAssoc2Action | Saves code associations |
 | billing/CA/BC/SaveBilling | io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSaveBilling2Action | Saves billing records |
 | billing/CA/BC/saveBillingPreferencesAction | io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SaveBillingPreferences2Action | Saves billing preferences |
@@ -284,7 +284,7 @@ Email management and communication.
 
 | Action Name | Class Name | Description |
 |-------------|------------|-------------|
-| email/emailComposeAction | io.github.carlos_emr.carlos.email.action.EmailCompose2Action | Composes new emails |
+| email/emailComposeAction | io.github.carlos_emr.carlos.email.action.EmailCompose2Action | Prepares the compose staged by an eForm save once, then redirects to `?composeView=<id>`, which renders it again on every request without preparing anything; an unusable window gets `emailComposeExpired.jsp` |
 | email/emailSendAction | io.github.carlos_emr.carlos.email.action.EmailSend2Action | Sends composed emails |
 
 ## Signature Module
@@ -331,8 +331,8 @@ Clinical forms and data import functionality.
 | formBPMH | io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.web.BpmhFormRetrieve2Action | Retrieves Best Possible Medication History forms |
 | form/formname | io.github.carlos_emr.carlos.form.Frm2Action | Generic form processor |
 | form/forwardshortcutname | io.github.carlos_emr.carlos.form.pageUtil.FormForward2Action | Forwards form shortcuts |
-| form/importLogDownload | io.github.carlos_emr.carlos.demographic.pageUtil.ImportLogDownload2Action | Downloads import logs |
-| form/importUpload | io.github.carlos_emr.carlos.demographic.pageUtil.ImportDemographicDataAction42Action | Uploads demographic import data |
+| form/importLogDownload | legacyCdsImportLog2Action | Expires retired temporary import-log links |
+| form/importUpload | viewCdsImport2Action | Opens the durable CDS import workflow |
 | form/RHPrevention | io.github.carlos_emr.carlos.form.pageUtil.FrmFormRHPrevention2Action | Manages reproductive health prevention forms |
 | form/select | io.github.carlos_emr.carlos.form.pageUtil.FrmSelect2Action | Selects forms |
 | form/SetupForm | io.github.carlos_emr.carlos.form.pageUtil.FrmSetupForm2Action | Sets up new forms |
@@ -368,9 +368,8 @@ Hospital report management and integration.
 | hospitalReportManager/hrm | io.github.carlos_emr.carlos.hospitalReportManager.v2018.HRM2Action | Main HRM interface |
 | hospitalReportManager/HRMPreferences | io.github.carlos_emr.carlos.hospitalReportManager.HRMPreferences2Action | Manages HRM preferences |
 | hospitalReportManager/Mapping | io.github.carlos_emr.carlos.hospitalReportManager.HRMMapping2Action | Maps HRM data fields |
-| hospitalReportManager/Modify | io.github.carlos_emr.carlos.hospitalReportManager.HRMModifyDocument2Action | Modifies HRM documents |
+| hospitalReportManager/Modify | io.github.carlos_emr.carlos.hospitalReportManager.HRMModifyDocument2Action | Modifies HRM documents (POST-only; replies `application/json` and returns `NONE`) |
 | hospitalReportManager/PrintHRMReport | io.github.carlos_emr.carlos.hospitalReportManager.PrintHRMReport2Action | Prints HRM reports |
-| hospitalReportManager/Statement | io.github.carlos_emr.carlos.hospitalReportManager.HRMStatementModify2Action | Modifies HRM statements |
 | hospitalReportManager/UploadLab | io.github.carlos_emr.carlos.hospitalReportManager.HRMUploadLab2Action | Uploads lab results to HRM |
 
 ## Indivica Module
@@ -539,6 +538,8 @@ Clinical encounter management and workflow.
 | encounter/displayConReport | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayConReport2Action | Displays consultation reports |
 | encounter/displayConsultation | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayConsult2Action | Displays consultations |
 | encounter/displayContacts | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayContacts2Action | Displays patient contacts |
+| encounter/displayFamilyDoctor | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayFamilyDoctor2Action | eChart Family Doctor panel (provider eChart preference) |
+| encounter/displayReferringDoctor | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayReferringDoctor2Action | eChart Referring Doctor panel (provider eChart preference) |
 | encounter/displayDecisionSupportAlerts | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayDecisionSupportAlerts2Action | Displays decision support alerts |
 | encounter/displayDiagrams | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayDiagram2Action | Displays clinical diagrams |
 | encounter/displayDisease | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayDx2Action | Displays diagnoses |
@@ -713,7 +714,7 @@ Comprehensive reporting functionality.
 | oscarReport/reportByTemplate/actions/tempInGroup | io.github.carlos_emr.carlos.report.reportByTemplate.actions.RBTGetTemplatesInGroup2Action | Gets templates in groups |
 | oscarReport/reportByTemplate/addEditTemplatesAction | io.github.carlos_emr.carlos.report.reportByTemplate.actions.ManageTemplates2Action | Manages report templates |
 | oscarReport/reportByTemplate/exportTemplateAction | io.github.carlos_emr.carlos.report.reportByTemplate.actions.ExportTemplate2Action | Exports report templates |
-| oscarReport/reportByTemplate/generateOutFilesAction | io.github.carlos_emr.carlos.report.reportByTemplate.actions.GenerateOutFiles2Action | Generates output files |
+| oscarReport/reportByTemplate/generateOutFilesAction | io.github.carlos_emr.carlos.report.reportByTemplate.actions.GenerateOutFiles2Action | Builds the CSV/XLSX download from the report result kept on the server for the session (by token) |
 | oscarReport/reportByTemplate/GenerateReportAction | io.github.carlos_emr.carlos.report.reportByTemplate.actions.GenerateReport2Action | Generates template-based reports |
 | oscarReport/reportByTemplate/rbtGroup | io.github.carlos_emr.carlos.report.reportByTemplate.actions.RBTGetGroup2Action | Gets report template groups |
 | oscarReport/reportByTemplate/uploadTemplates | io.github.carlos_emr.carlos.report.reportByTemplate.actions.UploadTemplates2Action | Uploads report templates |
@@ -908,7 +909,6 @@ General reporting functionality.
 | report/DxresearchReport | io.github.carlos_emr.carlos.commn.web.DxresearchReport2Action | Generates diagnostic research reports |
 | report/GenerateEnvelopes | io.github.carlos_emr.carlos.report.pageUtil.GenerateEnvelopes2Action | Generates mailing envelopes |
 | report/GenerateLetters | io.github.carlos_emr.carlos.report.pageUtil.GeneratePatientLetters2Action | Generates patient letters |
-| report/GenerateSpreadsheet | io.github.carlos_emr.carlos.report.pageUtil.GeneratePatientSpreadSheetList2Action | Generates patient spreadsheets |
 | report/ManageLetters | io.github.carlos_emr.carlos.report.pageUtil.ManagePatientLetters2Action | Manages patient letters |
 | report/printLabDaySheetAction | io.github.carlos_emr.carlos.report.pageUtil.printLabDaySheet2Action | Prints lab day sheets |
 | report/RemoveClinicalReport | io.github.carlos_emr.carlos.report.ClinicalReports.PageUtil.RemoveClinicalReportFromHistory2Action | Removes clinical reports from history |

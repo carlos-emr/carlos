@@ -31,11 +31,11 @@
 <!DOCTYPE html>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ page import="java.util.*" %>
+<%@ page import="org.springframework.util.StringUtils" %>
 <%@ page import="java.util.ResourceBundle" %>
 <%@ page import="java.text.MessageFormat" %>
 <%@ page import="io.github.carlos_emr.*" %>
 <%@ page import="io.github.carlos_emr.carlos.log.*" %>
-<%@ page import="org.springframework.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
@@ -55,6 +55,7 @@
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="com.fasterxml.jackson.databind.ObjectMapper" %>
+<%@ page import="io.github.carlos_emr.carlos.admin.support.AssignableRoles" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -126,17 +127,21 @@
 // get role from database
     List<String> vecRoleName = new ArrayList<String>();
 
-    String omit = "";
-    if (isSiteAccessPrivacy) {
-        omit = CarlosProperties.getInstance().getProperty("multioffice.admin.role.name", "");
+    List<String> allRoleNames = new ArrayList<String>();
+    for (SecRole secRole : secRoleDao.findAllOrderByRole()) {
+        allRoleNames.add(secRole.getName());
     }
 
-    List<SecRole> secRoles = secRoleDao.findAllOrderByRole();
-    for (SecRole secRole : secRoles) {
-        if (!secRole.getName().equals(omit)) {
-            vecRoleName.add(secRole.getName());
-        }
-    }
+    // Withholding the multisite super-root role is a multisite concern only. The seeded
+    // `admin` role itself holds `_site_access_privacy`, so without the multisites gate a
+    // standalone install drops `admin` from this dropdown and the last administrator can
+    // never hand the role over before being deactivated.
+    vecRoleName.addAll(AssignableRoles.filter(
+            allRoleNames,
+            isSiteAccessPrivacy,
+            IsPropertiesOn.isMultisitesEnable(),
+            CarlosProperties.getInstance().getProperty("multioffice.admin.role.name", "")));
+
     java.util.ResourceBundle oscarRec = ResourceBundle.getBundle("oscarResources", request.getLocale());
 //set the primary role
     if (request.getParameter("buttonSetPrimaryRole") != null && request.getParameter("buttonSetPrimaryRole").length() > 0) {
@@ -519,7 +524,7 @@
             if(providerNo !== '' && roleName !== '') {
                 return true;
             } else {
-                alert('Please enter in a providers and a corresponding role');
+                alert('Please enter in a provider and a corresponding role');
                 return false;
             }
         }
@@ -530,7 +535,7 @@
 	 */
     function enableAddRoleButton(e) {
 		// get the originally selected values from all the other
-        // roles set for this providers.
+        // roles set for this provider.
 	    const forms = document.getElementsByClassName(e.form.attributes.class.value);
 	    const SELECTED_ROLE_VALUES = [];
 	    for(let i=0;i<forms.length;i++) {
@@ -601,6 +606,8 @@
         for (int i = 0; i < vec.size(); i++) {
             Properties item = vec.get(i);
             String providerNo = item.getProperty("provider_no", "");
+            String roleId = item.getProperty("role_id");
+            boolean hasRoleId = roleId != null && !roleId.isBlank();
     %>
       <form name="myform" class="myform myform-<carlos:encode value='<%= providerNo %>' context="htmlAttribute"/>" action="${pageContext.request.contextPath}/admin/ProviderRole" method="POST" onSubmit="this.scrollPosition.value=window.scrollY">
         <tr>
@@ -663,9 +670,9 @@
                     <input type="submit" name="submit" class="btn btn-primary"
                            value="<fmt:message key="global.btnAdd"/>" disabled="disabled">
                     <input type="submit" name="buttonUpdate" class="btn btn-info"
-                           value="<fmt:message key="global.update"/>" <%= StringUtils.hasText(item.getProperty("role_id"))?"":"disabled"%>>
+                           value="<fmt:message key="global.update"/>" <%= hasRoleId ? "" : "disabled"%>>
                     <input type="submit" name="submit" class="btn btn-link" style="color:red;"
-                           value="<fmt:message key="global.btnDelete"/>" <%= StringUtils.hasText(item.getProperty("role_id"))?"":"disabled"%>>
+                           value="<fmt:message key="global.btnDelete"/>" <%= hasRoleId ? "" : "disabled"%>>
                 </div>
             </td>
         </tr>

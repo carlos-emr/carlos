@@ -29,16 +29,13 @@
 
 --%>
 <!DOCTYPE html>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Drug" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.DrugDao" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -67,38 +64,41 @@
         <title>Drug Reason</title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
+        <%-- ViewUpdateForm2Action loads the drug, authorises its patient (read, or write for a POSTed
+             update) and applies the change; this page only renders what it set (#3908). --%>
         <%
-            String id = request.getParameter("id");
-            DrugDao drugDao = SpringUtils.getBean(DrugDao.class);
-            Drug drug = drugDao.find(Integer.parseInt(id));
-            String drugForm = drug.getDrugForm();
-
-
-            if ("update".equals(request.getParameter("action"))) {
-                drug.setDrugForm(request.getParameter("drugForm"));
-                drugDao.merge(drug);
-            }
+            Object drugIdAttribute = request.getAttribute("drugId");
+            String id = drugIdAttribute == null ? "" : String.valueOf(drugIdAttribute);
+            String drugForm = (String) request.getAttribute("drugForm");
+            boolean updateRequested = Boolean.TRUE.equals(request.getAttribute("drugFormUpdated"));
         %>
 
         <script type="text/javascript">
             <%
-            if("update".equals(request.getParameter("action"))) {
+            if (updateRequested) {
             %>
-            window.opener.refresh();
-            window.close();
+            if (window.opener && !window.opener.closed) {
+                try {
+                    if (typeof window.opener.refresh === "function") window.opener.refresh();
+                } catch (unavailableOpener) { /* Saving succeeded; an inaccessible opener cannot undo it. */ }
+                window.close();
+            }
             <% } %>
         </script>
     </head>
     <body>
 
-    <form action="" method="post">
+    <%-- A real action URL: CSRFGuard only injects its token into forms with one, and the page's
+         <base href> made action="" post to the application root instead of this page. --%>
+    <form action="<%= request.getContextPath() %>/rx/ViewUpdateForm" method="post">
 
-        <h3>Current form is: <b><%=drugForm%>
+        <h3>Current form is: <b><carlos:encode value='<%= drugForm %>'/>
         </b></h3>
         <br/>
-        <b>Select new drug form :</b>
+        <label for="drugForm"><b>Select new drug form :</b></label>
 
-        <select name="drugForm">
+        <select id="drugForm" name="drugForm" required>
+        <option value=""></option>
             <option value="Aerosol metered-dose">Aerosol metered-dose</option>
             <option value="Aerosol with propellants">Aerosol with propellants</option>
             <option value="Bar chewable">Bar chewable</option>
@@ -195,8 +195,22 @@
             <option value="Wipe">Wipe</option>
 
         </select>
+        <script type="text/javascript">
+            var formSelect = document.querySelector('select[name="drugForm"]');
+            var storedForm = '<carlos:encode value='<%= drugForm %>' context="javaScriptBlock"/>';
+            formSelect.value = '';
+            Array.from(formSelect.options).some(function (option) {
+                if (option.value.toLowerCase() === storedForm.toLowerCase()) { formSelect.value = option.value; return true; }
+                return false;
+            });
+        </script>
         <input type="hidden" name="id" value="<carlos:encode value='<%= id %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="action" value="update"/>
+        <input type="hidden" name="originalVersion" value="<carlos:encode value='${requestScope.drugFormVersion}' context="htmlAttribute"/>"/>
+        <% if (Boolean.TRUE.equals(request.getAttribute("drugFormConflict"))) { %>
+        <p><fmt:message key="oscarRx.rejectedForm"/> <carlos:encode value="${requestScope.rejectedDrugForm}"/></p>
+        <p role="alert"><fmt:message key="oscarRx.sourceChanged"/> <a href="<%= request.getContextPath() %>/rx/ViewUpdateForm?id=<carlos:encode value='<%= id %>' context="uriComponent"/>"><fmt:message key="oscarRx.reloadCurrentForm"/></a></p>
+        <% } %>
         <input type="submit" class="btn btn-primary" value="submit">
     </form>
     </body>

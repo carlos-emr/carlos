@@ -26,6 +26,7 @@
 
 <%@page import="io.github.carlos_emr.MyDateFormat" %>
 <%@page import="io.github.carlos_emr.SxmlMisc" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.util.DemographicXml" %>
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Billing" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingDao" %>
@@ -68,8 +69,8 @@ specialty = SxmlMisc.getXmlContent(b.getContent(),"<specialty>","</specialty>")=
  DemoDOB = MyDateFormat.getStandardDate(Integer.parseInt(d.getYearOfBirth()),Integer.parseInt(d.getMonthOfBirth()),Integer.parseInt(d.getDateOfBirth()));
  hin = d.getHin() + d.getVer();
   if (d.getFamilyDoctor() == null){ r_doctor = "N/A"; r_doctor_ohip="000000";}else{
-   r_doctor=SxmlMisc.getXmlContent(d.getFamilyDoctor(),"rd")==null?"":SxmlMisc.getXmlContent(d.getFamilyDoctor(),"rd");
-   r_doctor_ohip=SxmlMisc.getXmlContent(d.getFamilyDoctor(),"rdohip")==null?"":SxmlMisc.getXmlContent(d.getFamilyDoctor(),"rdohip");
+   r_doctor=DemographicXml.referralDoctor(d.getFamilyDoctor())==null?"":DemographicXml.referralDoctor(d.getFamilyDoctor());
+   r_doctor_ohip=DemographicXml.referralDoctorOhip(d.getFamilyDoctor())==null?"":DemographicXml.referralDoctorOhip(d.getFamilyDoctor());
   }
   HCTYPE = d.getHcType()==null?"ON":d.getHcType();
 if (DemoSex.equals("M")) HCSex = "1";

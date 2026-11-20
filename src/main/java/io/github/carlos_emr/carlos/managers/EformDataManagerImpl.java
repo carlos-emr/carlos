@@ -140,36 +140,6 @@ public class EformDataManagerImpl implements EformDataManager {
         return formid;
     }
 
-    /**
-     * Saves an form as PDF EDoc.
-     * Returns the Eform id that was saved.
-     */
-    public Integer saveEformDataAsEDoc(LoggedInInfo loggedInInfo, String fdid) {
-
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.UPDATE, null)) {
-            throw new RuntimeException("missing required sec object (_eform)");
-        }
-        Integer documentId = null;
-        Integer formid = null;
-
-        if (fdid != null) {
-            formid = Integer.parseInt(fdid);
-            EFormData eformData = eFormDataDao.find(formid);
-            EDoc edoc = ConvertToEdoc.from(eformData);
-            documentManager.moveDocumentToOscarDocuments(loggedInInfo, edoc.getDocument(), edoc.getFilePath());
-            edoc.setFilePath(null);
-            documentId = documentManager.saveDocument(loggedInInfo, edoc);
-        }
-
-        if (documentId != null) {
-            LogAction.addLogSynchronous(loggedInInfo, "EformDataManager.saveEformDataAsEDoc", "Document ID saved: " + documentId);
-        } else {
-            LogAction.addLogSynchronous(loggedInInfo, "EformDataManager.saveEformDataAsEDoc", "Document conversion for Eform id: " + formid + " failed.");
-        }
-
-        return documentId;
-    }
-
     public Integer saveEFormWithAttachmentsAsEDoc(LoggedInInfo loggedInInfo, String fdid, String demographicId, Path eFormPDFPath) throws PDFGenerationException {
         EFormData eForm = eFormDataDao.find(Integer.parseInt(fdid));
         if (eForm == null || eForm.getDemographicId() == null) {
@@ -184,6 +154,7 @@ public class EformDataManagerImpl implements EformDataManager {
             throw new RuntimeException("missing required sec object (_eform)");
         }
         EDoc eDoc = ConvertToEdoc.from(eForm, eFormPDFPath);
+        eDoc.setCreatorId(loggedInInfo.getLoggedInProviderNo());
         documentManager.moveDocumentToOscarDocuments(loggedInInfo, eDoc.getDocument(), eDoc.getFilePath());
         eDoc.setFilePath(null);
         return documentManager.saveDocument(loggedInInfo, eDoc);
@@ -191,7 +162,7 @@ public class EformDataManagerImpl implements EformDataManager {
 
     public EFormData findByFdid(LoggedInInfo loggedInInfo, Integer fdid) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, null)) {
-            throw new RuntimeException("missing required sec object (_eform)");
+            throw new SecurityException("missing required sec object (_eform)");
         }
         return eFormDataDao.find(fdid);
     }
@@ -225,6 +196,9 @@ public class EformDataManagerImpl implements EformDataManager {
             LoggedInInfo loggedInInfo, int fdid, EFormRenderApproval approval) throws PDFGenerationException {
         EFormData eformData = eFormDataDao.find(fdid);
         if (eformData == null) {
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, null)) {
+                throw new SecurityException("missing required sec object (_eform)");
+            }
             logger.warn("EForm PDF generation failed: no saved eForm found for fdid={}", fdid);
             throw new PDFGenerationException("EForm PDF generation failed because the eForm was not found.");
         }
@@ -237,12 +211,14 @@ public class EformDataManagerImpl implements EformDataManager {
         logger.debug("Generating eForm PDF via browser renderer: fdid={}", fdid);
         Path path;
         EFormRenderCompletenessReport completeness;
+        java.util.List<String> severeConsoleDetails;
         try {
             // The caller owns cleanup of the returned renderer output.
             EFormBrowserPdfService.RenderedEformPdf rendered =
                     eFormBrowserPdfService.renderSavedEformPdf(loggedInInfo, fdid, approval);
             path = rendered.path();
             completeness = rendered.completeness();
+            severeConsoleDetails = rendered.severeConsoleDetails();
         } catch (EformContentUnavailableException e) {
             throw e;
         } catch (PDFGenerationException e) {
@@ -271,7 +247,7 @@ public class EformDataManagerImpl implements EformDataManager {
             throw new PDFGenerationException("EForm PDF generation produced an unreadable temporary file.");
         }
 
-        return new EformPdfRender(path, completeness, Map.of(fdid, completeness));
+        return new EformPdfRender(path, completeness, Map.of(fdid, completeness), severeConsoleDetails);
     }
 
 
@@ -311,14 +287,37 @@ public class EformDataManagerImpl implements EformDataManager {
         ArrayList<HashMap<String, ? extends Object>> allHRMDocuments = HRMUtil.listHRMDocuments(loggedInInfo, "report_date", false, demographicId, false);
         ArrayList<HashMap<String, ? extends Object>> filteredHRMDocuments = new ArrayList<>(attachedHRMDocumentIds.size());
         for (String hrmId : attachedHRMDocumentIds) {
+            Integer attachedHrmId = parseHrmAttachmentId(hrmId);
+            if (attachedHrmId == null) {
+                continue;
+            }
             for (HashMap<String, ? extends Object> hrmDocument : allHRMDocuments) {
-                if (Integer.parseInt(hrmId) == (Integer) hrmDocument.get("id")) {
+                if (attachedHrmId.equals(hrmAttachmentId(hrmDocument))) {
                     filteredHRMDocuments.add(hrmDocument);
+                    break;
                 }
             }
         }
         //return the subset of listHRMDocuments that is attached
         return filteredHRMDocuments;
+    }
+
+    private Integer hrmAttachmentId(HashMap<String, ? extends Object> hrmDocument) {
+        return hrmDocument == null ? null : parseHrmAttachmentId(hrmDocument.get("id"));
+    }
+
+    private Integer parseHrmAttachmentId(Object hrmDocumentId) {
+        if (hrmDocumentId instanceof Number) {
+            return ((Number) hrmDocumentId).intValue();
+        }
+        if (hrmDocumentId instanceof String) {
+            try {
+                return Integer.valueOf((String) hrmDocumentId);
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+        return null;
     }
 
     public List<EctFormData.PatientForm> getFormsAttachedToEForm(LoggedInInfo loggedInInfo, String fdid, String demographicId) {

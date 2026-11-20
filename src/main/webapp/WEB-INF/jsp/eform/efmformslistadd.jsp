@@ -46,13 +46,13 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c"%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -128,9 +128,17 @@
 
 			function updateAjax() {
 				var parentAjaxId = "<carlos:encode value='<%= parentAjaxId %>' context="javaScriptBlock"/>";
-				if (parentAjaxId != "null") {
-					window.opener.document.forms['encForm'].elements['reloadDiv'].value = parentAjaxId;
-					window.opener.updateNeeded = true;
+				// Guarded as in efmpatientformlist.jsp: the null-safe encoder renders a missing
+				// id as "" (never "null"), and window.opener is null when this page is not a
+				// popup or the COOP header cut it; unguarded, every unload threw a TypeError.
+				try {
+					if (parentAjaxId && parentAjaxId !== "null" && window.opener && !window.opener.closed
+							&& window.opener.document && window.opener.document.forms['encForm']) {
+						window.opener.document.forms['encForm'].elements['reloadDiv'].value = parentAjaxId;
+						window.opener.updateNeeded = true;
+					}
+				} catch (e) {
+					// Cross-origin or closed opener: nothing to update.
 				}
 
 			}
@@ -149,10 +157,13 @@
 			});
         </script>
         <style>
+            html {
+                overscroll-behavior: none;
+            }
+
             :root *:not(h2, .h2) {
                 font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
                 font-size: 12px;
-                overscroll-behavior: none;
                 -webkit-font-smoothing: antialiased;
                 -moz-osx-font-smoothing: grayscale;
             }

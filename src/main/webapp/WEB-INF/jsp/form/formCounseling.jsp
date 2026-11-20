@@ -28,8 +28,8 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
-<%@ taglib uri="http://displaytag.sf.net" prefix="display" %>
+
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -243,14 +243,12 @@
                 document.forms[0].submit.value = "save";
                 reset();
                 var ret = confirm("<fmt:message key='global.msgWannaSave'/>");
-                var ret = confirm("<fmt:message key='global.msgWannaSave'/>");
                 return ret;
             }
 
             function onSaveExit() {
                 document.forms[0].submit.value = "exit";
                 reset();
-                var ret = confirm("<fmt:message key='global.msgSaveExit'/>");
                 var ret = confirm("<fmt:message key='global.msgSaveExit'/>");
                 return ret;
             }

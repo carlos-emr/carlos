@@ -27,10 +27,12 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: add exact bounded source-provider lookups.
  */
 
 package io.github.carlos_emr.carlos.PMmodule.dao;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -39,8 +41,13 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.logging.log4j.Logger;
+import org.hibernate.dialect.H2Dialect;
+import org.hibernate.dialect.MariaDBDialect;
+import org.hibernate.dialect.MySQLDialect;
+import org.hibernate.engine.spi.SessionFactoryImplementor;
 import jakarta.persistence.Query;
 import jakarta.persistence.TypedQuery;
 import io.github.carlos_emr.carlos.commn.NativeSql;
@@ -68,7 +75,57 @@ import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
 
 
+    @Override
+    @Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportPublicProviderSchema() {
+        return io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.schema(entityManager(),
+                io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan.PUBLIC_PROVIDERS);
+    }
+    @Override
+    @Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public long countCdsExportPublicProviders(int patient, java.util.Set<String> categories) {
+        return io.github.carlos_emr.carlos.commn.dao.CdsExportProviderReadSupport.count(entityManager(), patient, categories);
+    }
+    @Override
+    @Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportProviderRowDto> findCdsExportPublicProvidersAfter(
+            int patient, java.util.Set<String> categories, String afterKey, int limit) {
+        return io.github.carlos_emr.carlos.commn.dao.CdsExportProviderReadSupport.page(entityManager(), patient, categories, afterKey, limit);
+    }
+
     private static Logger log = MiscUtils.getLogger();
+
+    @Override
+    // FindSecBugs IMPROPER_UNICODE: lower-casing a directory search term with Locale.ROOT to match
+    // LOWER(name) in the query; not a security or authorization decision.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive directory name search term; not a security or authorization decision")
+    public List<Object[]> searchFaxRecipients(String term, int limit) {
+        String literalTerm = term.toLowerCase(java.util.Locale.ROOT)
+                .replace("!", "!!").replace("%", "!%").replace("_", "!_");
+        // property has no unique key on (provider_no, name), so a provider can carry several
+        // faxnumber rows, and the write paths disagree about which one is current: saveProp()
+        // updates whichever row an unordered getProp() returns first, ProviderManager2 the last
+        // row it iterates, ProviderFaxUpdater every row; none inserts a second row. Neither
+        // "newest id" nor "first row" is therefore reliably the number the provider last saved.
+        // Faxes carry patient information, so fail closed: offer a provider only when every one
+        // of their faxnumber rows holds the same nonblank number (a cleared or conflicting row
+        // excludes them, and the clinician can still type a number). The rows are grouped once
+        // per provider in a derived table rather than by correlated subqueries: property has no
+        // index on provider_no, so a per-candidate subquery could rescan the table for each
+        // provider. One row per provider also makes the limit count providers, not rows.
+        return entityManager().createQuery(
+                "SELECT p, f.fax FROM Provider p JOIN ("
+                + "SELECT u.providerNo AS providerNo, MAX(TRIM(u.value)) AS fax FROM UserProperty u "
+                + "WHERE u.name = 'faxnumber' GROUP BY u.providerNo "
+                + "HAVING MIN(CASE WHEN u.value IS NULL OR TRIM(u.value) = '' THEN 0 ELSE 1 END) = 1 "
+                + "AND MIN(TRIM(u.value)) = MAX(TRIM(u.value))) f ON f.providerNo = p.providerNo "
+                + "WHERE p.status = '1' "
+                + "AND (LOWER(p.lastName) LIKE :term ESCAPE '!' OR LOWER(p.firstName) LIKE :term ESCAPE '!') "
+                + "ORDER BY p.lastName, p.firstName, p.providerNo", Object[].class)
+                .setParameter("term", "%" + literalTerm + "%")
+                .setMaxResults(limit)
+                .getResultList();
+    }
 
     public boolean providerExists(String providerNo) {
         return entityManager().find(Provider.class, providerNo) != null;
@@ -547,6 +604,96 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
         List<Provider> providers = (List<Provider>) JpqlQueryHelper.find(entityManager(), sSQL, team);
 
         return providers;
+    }
+
+    @Override
+    @NativeSql({"provider"})
+    public List<String> findCdsProviderNosByOhip(String ohipNo) {
+        var query = cdsUsesMysqlTextSemantics()
+                ? entityManager().createNativeQuery("select provider_no from provider where provider_no <> '-1' "
+                        + "and ohip_no=:value and CAST(ohip_no AS BINARY) = CAST(:value AS BINARY) order by provider_no", String.class)
+                : entityManager().createNativeQuery("select provider_no from provider where provider_no <> '-1' "
+                        + "and ohip_no=:value and STRINGTOUTF8(ohip_no)=STRINGTOUTF8(:value) order by provider_no", String.class);
+        return query
+                .setParameter("value", ohipNo).setMaxResults(2).getResultList();
+    }
+
+    @Override
+    @NativeSql({"provider"})
+    public List<String> findCdsProviderNosByCpso(String cpsoNo) {
+        var query = cdsUsesMysqlTextSemantics()
+                ? entityManager().createNativeQuery("select provider_no from provider where provider_no <> '-1' "
+                        + "and practitionerNoType='CPSO' and practitionerNo=:value "
+                        + "and CAST(practitionerNoType AS BINARY) = CAST('CPSO' AS BINARY) and CAST(practitionerNo AS BINARY) = CAST(:value AS BINARY) order by provider_no", String.class)
+                : entityManager().createNativeQuery("select provider_no from provider where provider_no <> '-1' "
+                        + "and practitionerNoType='CPSO' and practitionerNo=:value "
+                        + "and STRINGTOUTF8(practitionerNoType)=STRINGTOUTF8('CPSO') "
+                        + "and STRINGTOUTF8(practitionerNo)=STRINGTOUTF8(:value) order by provider_no", String.class);
+        return query
+                .setParameter("value", cpsoNo).setMaxResults(2).getResultList();
+    }
+
+    @Override
+    @NativeSql({"provider"})
+    @SuppressFBWarnings(value = "SQL_INJECTION_JPA", justification = "Only server-owned charset identifiers validated by cdsNameCharsets enter SQL structure; source names remain bound parameters")
+    // Charset identifiers come only from bounded schema metadata validated as [A-Za-z0-9_]{1,64}; names are bound values.
+    @SuppressWarnings("java:S2077")
+    public List<String> findCdsProviderNosByExactName(String firstName, String lastName) {
+        if (!cdsUsesMysqlTextSemantics()) {
+            // H2 stores Unicode strings directly; UTF8 bytes retain case, accents and trailing spaces.
+            return entityManager().createNativeQuery("select provider_no from provider where provider_no <> '-1' "
+                    + "and first_name=:first and last_name=:last "
+                    + "and STRINGTOUTF8(first_name)=STRINGTOUTF8(:first) "
+                    + "and STRINGTOUTF8(last_name)=STRINGTOUTF8(:last) order by provider_no", String.class)
+                    .setParameter("first", firstName).setParameter("last", lastName).setMaxResults(2).getResultList();
+        }
+        CdsNameCharsets charsets = cdsNameCharsets();
+        return entityManager().createNativeQuery("select provider_no from provider where provider_no <> '-1' "
+                + "and first_name=CONVERT(:first USING " + charsets.first() + ") "
+                + "and last_name=CONVERT(:last USING " + charsets.last() + ") "
+                + "and CAST(CONVERT(first_name USING utf8mb4) AS BINARY) = CAST(CONVERT(:first USING utf8mb4) AS BINARY) "
+                + "and CAST(CONVERT(last_name USING utf8mb4) AS BINARY) = CAST(CONVERT(:last USING utf8mb4) AS BINARY) "
+                + "order by provider_no", String.class)
+                .setParameter("first", firstName).setParameter("last", lastName).setMaxResults(2).getResultList();
+    }
+
+    /** Database semantics come from the real persistence factory, never an import/test option. */
+    private boolean cdsUsesMysqlTextSemantics() {
+        var dialect = entityManager().getEntityManagerFactory().unwrap(SessionFactoryImplementor.class)
+                .getJdbcServices().getDialect();
+        if (dialect instanceof MySQLDialect || dialect instanceof MariaDBDialect) return true;
+        if (dialect instanceof H2Dialect) return false;
+        throw new IllegalStateException("Unsupported database dialect for exact CDS provider matching");
+    }
+
+    private record CdsNameCharsets(String first, String last) { }
+    private final AtomicReference<CdsNameCharsets> cdsNameCharsets = new AtomicReference<>();
+
+    /** Deployment schema metadata is bounded and immutable for the lifetime of this DAO. */
+    private CdsNameCharsets cdsNameCharsets() {
+        CdsNameCharsets result = cdsNameCharsets.get();
+        if (result != null) return result;
+        synchronized (this) {
+            result = cdsNameCharsets.get();
+            if (result != null) return result;
+            List<?> metadata = entityManager().createNativeQuery("select COLUMN_NAME,CHARACTER_SET_NAME "
+                    + "from information_schema.COLUMNS where TABLE_SCHEMA=DATABASE() and TABLE_NAME='provider' "
+                    + "and COLUMN_NAME in ('first_name','last_name')").setMaxResults(3).getResultList();
+            String first = null, last = null;
+            for (Object item : metadata) {
+                Object[] row = (Object[]) item;
+                String name = row[0].toString(), charset = row[1] == null ? "" : row[1].toString();
+                // Only server-owned charset identifiers enter SQL structure; source names remain bound values.
+                if (!charset.matches("[A-Za-z0-9_]{1,64}")) throw new IllegalStateException("Unsupported provider name character set");
+                if (name.equals("first_name") && first == null) first = charset;
+                else if (name.equals("last_name") && last == null) last = charset;
+                else throw new IllegalStateException("Ambiguous provider name column metadata");
+            }
+            if (metadata.size() != 2 || first == null || last == null) throw new IllegalStateException("Missing provider name column metadata");
+            result = new CdsNameCharsets(first, last);
+            cdsNameCharsets.set(result);
+            return result;
+        }
     }
 
     @Override

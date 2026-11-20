@@ -308,7 +308,8 @@ class EFormBrowserRenderPageServletUnitTest extends CarlosUnitTestBase {
                 .contains("script-src 'self' 'unsafe-inline' 'unsafe-eval'")
                 .contains("object-src 'none'")
                 .contains("form-action 'none'")
-                .contains("img-src 'self' data: blob:");
+                .contains("img-src 'self' data: blob:")
+                .doesNotContain("creativecommons.org", "licensebuttons.net");
     }
 
     private void installLoggedInInfo(MockHttpServletRequest request, String providerNo) {

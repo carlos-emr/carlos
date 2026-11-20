@@ -8,12 +8,14 @@
  */
 package io.github.carlos_emr.carlos.utility.tld;
 
-import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.nio.charset.StandardCharsets;
+import java.util.Locale;
+import java.util.ResourceBundle;
+import java.util.concurrent.TimeUnit;
 
 import jakarta.el.ELContext;
-import jakarta.el.ExpressionFactory;
 import jakarta.servlet.Servlet;
 import jakarta.servlet.ServletConfig;
 import jakarta.servlet.ServletContext;
@@ -25,12 +27,16 @@ import jakarta.servlet.jsp.JspException;
 import jakarta.servlet.jsp.JspWriter;
 import jakarta.servlet.jsp.PageContext;
 
+import io.github.carlos_emr.carlos.test.mocks.CapturingPageContext;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.owasp.encoder.Encode;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -57,7 +63,7 @@ class CarlosEncodeTagUnitTest {
     void setUp() {
         tag = new CarlosEncodeTag();
         captured = new StringWriter();
-        CapturingPageContext ctx = new CapturingPageContext(new CapturingJspWriter(captured));
+        CapturingPageContext ctx = CapturingPageContext.writingTo(captured);
         tag.setPageContext(ctx);
     }
 
@@ -86,7 +92,7 @@ class CarlosEncodeTagUnitTest {
             for (String ctx : contexts) {
                 tag = new CarlosEncodeTag();
                 StringWriter sw = new StringWriter();
-                tag.setPageContext(new CapturingPageContext(new CapturingJspWriter(sw)));
+                tag.setPageContext(CapturingPageContext.writingTo(sw));
                 tag.setContext(ctx);
                 tag.setValue(null);
                 tag.doStartTag();
@@ -128,6 +134,18 @@ class CarlosEncodeTagUnitTest {
         }
 
         @Test
+        void shouldDispatchToForHtmlContentWithBreakMarkers_whenContextIsHtmlWithBreakMarkers() throws JspException {
+            run("htmlWithBreakMarkers", "5.2<br />Repeat <b>");
+            assertThat(captured.toString()).isEqualTo("5.2<br/>Repeat &lt;b&gt;");
+        }
+
+        @Test
+        void shouldRenderEmpty_whenHtmlWithBreakMarkersValueIsNull() throws JspException {
+            run("htmlWithBreakMarkers", null);
+            assertThat(captured.toString()).isEmpty();
+        }
+
+        @Test
         void shouldDispatchToForHtmlAttribute_whenContextIsHtmlAttribute() throws JspException {
             run("htmlAttribute", "\" onerror=alert(1)");
             assertThat(captured.toString()).isEqualTo(Encode.forHtmlAttribute("\" onerror=alert(1)"));
@@ -158,9 +176,59 @@ class CarlosEncodeTagUnitTest {
         }
 
         @Test
+        @DisplayName("should keep stored drug names inside a JavaScript href argument")
+        void shouldEncodeDrugNameQuotesAndEntities_forJavaScriptAttribute() throws JspException {
+            // WriteScript's ShowDrugInfo link uses this context inside a double-quoted href
+            // and a single-quoted JS argument. HTML entities must not reopen either quote.
+            run("javaScriptAttribute", "O'Brien');alert(1);//\" onmouseover=\"alert(2) &quot;");
+
+            assertThat(captured.toString())
+                    .doesNotContain("'", "\"", "&")
+                    .contains("\\x27", "\\x22", "\\x26");
+        }
+
+        @Test
         void shouldDispatchToForJavaScriptBlock_whenContextIsSet() throws JspException {
             run("javaScriptBlock", "value");
             assertThat(captured.toString()).isEqualTo(Encode.forJavaScriptBlock("value"));
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"en", "es", "fr", "pl", "pt-BR"})
+        @DisplayName("should preserve quoted contact validation messages through the real JSP tag")
+        void shouldEncodeContactValidationMessages_forJavaScriptBlock(String language) throws Exception {
+            ResourceBundle messages = ResourceBundle.getBundle("oscarResources", Locale.forLanguageTag(language));
+            for (String key : new String[]{"demographic.contactForm.msgLastNameRequired",
+                    "demographic.contactForm.msgFirstNameRequired"}) {
+                String message = messages.getString(key);
+                assertThat(message).as("translated quote regression fixture %s/%s", language, key).contains("\"");
+                captured.getBuffer().setLength(0);
+                run("javaScriptBlock", message);
+                String encoded = captured.toString();
+                // The actual tag output must stay inside the JSP's double-quoted literal.
+                assertThat(encoded).doesNotContain("\r", "\n", "</script").contains("\\\"");
+                assertThat(encoded.replace("\\\"", "")).doesNotContain("\"");
+                // Commons Text's unescapeEcmaScript does not decode JavaScript's hex escapes
+                // (including the new space escape). Execute the actual literal instead.
+                assertThat(evaluateStringLiteral(encoded)).isEqualTo(message);
+            }
+        }
+
+        private String evaluateStringLiteral(String encoded) throws Exception {
+            String executor = "const fs=require('node:fs'),vm=require('node:vm');"
+                    + "process.stdout.write(vm.runInNewContext(fs.readFileSync(0,'utf8'),{}, {timeout:1000}));";
+            Process process = new ProcessBuilder("node", "-e", executor).start();
+            try {
+                try (var input = process.getOutputStream()) {
+                    input.write(('\"' + encoded + '\"').getBytes(StandardCharsets.UTF_8));
+                }
+                assertThat(process.waitFor(10, TimeUnit.SECONDS)).as("JavaScript literal evaluation finished").isTrue();
+                String errors = new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
+                assertThat(process.exitValue()).as("JavaScript literal must parse: %s", errors).isZero();
+                return new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            } finally {
+                process.destroyForcibly();
+            }
         }
 
         @Test
@@ -217,7 +285,7 @@ class CarlosEncodeTagUnitTest {
             for (String variant : new String[] {"HTML", "Html", "hTmL", "HtMl"}) {
                 CarlosEncodeTag t = new CarlosEncodeTag();
                 StringWriter sw = new StringWriter();
-                t.setPageContext(new CapturingPageContext(new CapturingJspWriter(sw)));
+                t.setPageContext(CapturingPageContext.writingTo(sw));
                 t.setContext(variant);
                 t.setValue("<x>");
                 t.doStartTag();
@@ -261,7 +329,7 @@ class CarlosEncodeTagUnitTest {
             // After release, re-invoking with no setters should produce empty (null value -> empty)
             CarlosEncodeTag sameTag = tag;
             StringWriter sw = new StringWriter();
-            sameTag.setPageContext(new CapturingPageContext(new CapturingJspWriter(sw)));
+            sameTag.setPageContext(CapturingPageContext.writingTo(sw));
             try {
                 sameTag.doStartTag();
             } catch (JspException e) {
@@ -269,87 +337,5 @@ class CarlosEncodeTagUnitTest {
             }
             assertThat(sw.toString()).isEmpty();
         }
-    }
-
-    // -------- Test doubles --------
-
-    /** Minimal JspWriter that writes everything through to the underlying {@link Writer}. */
-    private static final class CapturingJspWriter extends JspWriter {
-        private final Writer delegate;
-
-        CapturingJspWriter(Writer delegate) {
-            super(NO_BUFFER, false);
-            this.delegate = delegate;
-        }
-
-        @Override public void write(int c) throws IOException { delegate.write(c); }
-        @Override public void write(char[] cbuf, int off, int len) throws IOException { delegate.write(cbuf, off, len); }
-        @Override public void write(String s) throws IOException { delegate.write(s); }
-        @Override public void write(String s, int off, int len) throws IOException { delegate.write(s, off, len); }
-        @Override public void newLine() throws IOException { delegate.write(System.lineSeparator()); }
-        @Override public void print(boolean b) throws IOException { delegate.write(String.valueOf(b)); }
-        @Override public void print(char c) throws IOException { delegate.write(String.valueOf(c)); }
-        @Override public void print(int i) throws IOException { delegate.write(String.valueOf(i)); }
-        @Override public void print(long l) throws IOException { delegate.write(String.valueOf(l)); }
-        @Override public void print(float f) throws IOException { delegate.write(String.valueOf(f)); }
-        @Override public void print(double d) throws IOException { delegate.write(String.valueOf(d)); }
-        @Override public void print(char[] s) throws IOException { delegate.write(s); }
-        @Override public void print(String s) throws IOException { delegate.write(s == null ? "null" : s); }
-        @Override public void print(Object obj) throws IOException { delegate.write(obj == null ? "null" : obj.toString()); }
-        @Override public void println() throws IOException { newLine(); }
-        @Override public void println(boolean x) throws IOException { print(x); newLine(); }
-        @Override public void println(char x) throws IOException { print(x); newLine(); }
-        @Override public void println(int x) throws IOException { print(x); newLine(); }
-        @Override public void println(long x) throws IOException { print(x); newLine(); }
-        @Override public void println(float x) throws IOException { print(x); newLine(); }
-        @Override public void println(double x) throws IOException { print(x); newLine(); }
-        @Override public void println(char[] x) throws IOException { print(x); newLine(); }
-        @Override public void println(String x) throws IOException { print(x); newLine(); }
-        @Override public void println(Object x) throws IOException { print(x); newLine(); }
-        @Override public void clear() { /* no-op for tests */ }
-        @Override public void clearBuffer() { /* no-op for tests */ }
-        @Override public void flush() throws IOException { delegate.flush(); }
-        @Override public void close() throws IOException { delegate.close(); }
-        @Override public int getRemaining() { return Integer.MAX_VALUE; }
-    }
-
-    /** Minimal PageContext that only exposes {@link #getOut()}. Everything else throws. */
-    @SuppressWarnings("deprecation")
-    private static final class CapturingPageContext extends PageContext {
-        private final JspWriter out;
-
-        CapturingPageContext(JspWriter out) {
-            this.out = out;
-        }
-
-        @Override public JspWriter getOut() { return out; }
-
-        // Everything below is unused by CarlosEncodeTag and throws if called unexpectedly.
-        @Override public void initialize(Servlet servlet, ServletRequest request, ServletResponse response,
-                                         String errorPageURL, boolean needsSession, int bufferSize,
-                                         boolean autoFlush) { throw new UnsupportedOperationException(); }
-        @Override public void release() { /* no-op */ }
-        @Override public Object getPage() { throw new UnsupportedOperationException(); }
-        @Override public ServletRequest getRequest() { throw new UnsupportedOperationException(); }
-        @Override public ServletResponse getResponse() { throw new UnsupportedOperationException(); }
-        @Override public Exception getException() { throw new UnsupportedOperationException(); }
-        @Override public ServletConfig getServletConfig() { throw new UnsupportedOperationException(); }
-        @Override public ServletContext getServletContext() { throw new UnsupportedOperationException(); }
-        @Override public HttpSession getSession() { throw new UnsupportedOperationException(); }
-        @Override public void forward(String relativeUrlPath) throws ServletException, IOException { throw new UnsupportedOperationException(); }
-        @Override public void include(String relativeUrlPath) throws ServletException, IOException { throw new UnsupportedOperationException(); }
-        @Override public void include(String relativeUrlPath, boolean flush) throws ServletException, IOException { throw new UnsupportedOperationException(); }
-        @Override public void handlePageException(Exception e) throws ServletException, IOException { throw new UnsupportedOperationException(); }
-        @Override public void handlePageException(Throwable t) throws ServletException, IOException { throw new UnsupportedOperationException(); }
-        @Override public void setAttribute(String name, Object value) { /* no-op */ }
-        @Override public void setAttribute(String name, Object value, int scope) { /* no-op */ }
-        @Override public Object getAttribute(String name) { return null; }
-        @Override public Object getAttribute(String name, int scope) { return null; }
-        @Override public Object findAttribute(String name) { return null; }
-        @Override public void removeAttribute(String name) { /* no-op */ }
-        @Override public void removeAttribute(String name, int scope) { /* no-op */ }
-        @Override public int getAttributesScope(String name) { return 0; }
-        @Override public java.util.Enumeration<String> getAttributeNamesInScope(int scope) { return null; }
-        @Override public ELContext getELContext() { throw new UnsupportedOperationException(); }
     }
 }

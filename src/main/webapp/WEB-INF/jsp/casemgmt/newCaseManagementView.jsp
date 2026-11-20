@@ -29,40 +29,42 @@
 --%>
 
 
-<%@page import="io.github.carlos_emr.Misc" %>
-<%@page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
+
+
 <%@include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
-<%@taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
-<%@page import="java.util.Enumeration" %>
-<%@page import="io.github.carlos_emr.carlos.encounter.pageUtil.NavBarDisplayDAO" %>
-<%@page import="java.util.Arrays,java.util.Properties,java.util.List,java.util.Set,java.util.ArrayList,java.util.Enumeration,java.util.HashSet,java.util.Iterator,java.text.SimpleDateFormat,java.util.Calendar,java.util.Date,java.text.ParseException" %>
-<%@page import="org.owasp.encoder.Encode" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty,io.github.carlos_emr.carlos.casemgmt.model.*,io.github.carlos_emr.carlos.casemgmt.service.* " %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.model.*" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.*" %>
-<%@page import="io.github.carlos_emr.carlos.util.DateUtils" %>
-<%@page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
-<%@page import="org.springframework.web.context.WebApplicationContext" %>
-<%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.common.Colour" %>
-<%@page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
-<%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="com.quatro.dao.security.*,io.github.carlos_emr.carlos.model.security.Secrole" %>
-<%@page import="io.github.carlos_emr.carlos.utility.EncounterUtil" %>
-<%@page import="org.apache.cxf.common.i18n.UncheckedException" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewAction" %>
+
+
+
+<%@page import="java.util.Properties" %>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao" %>
+
+
+
 <%@page import="io.github.carlos_emr.CarlosProperties" %>
-<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplayNonNote" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.EncounterTemplateDao" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.web.CheckBoxBean" %>
+
+
+
+
+<%@page import="io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferenceResolver" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+
 
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
@@ -92,3 +94,19 @@
 <div id="notCPP">
 
 </div>
+
+<%-- This leaves the OCEAN toolbar accessible but not taking up prime real estate.
+     Matches OSCAR19's newCaseManagementView.jsp: a static sibling right after #notCPP, present
+     from initial page load (no AJAX-load race). Two switches must both allow it: the clinic-wide
+     echart_show_ocean admin toggle (default "on" when unset, same as OSCAR19's
+     echartPreferencesMap.getOrDefault("echart_show_ocean", true)), and the provider's own
+     "Display OCEAN UI" eChart preference (default "off"; see EchartDisplayPreferenceResolver). --%>
+<%
+    EchartDisplayPreferenceResolver caseManagementViewEchartResolver = SpringUtils.getBean(EchartDisplayPreferenceResolver.class);
+    boolean echartShowOcean = caseManagementViewEchartResolver.isOceanShown(caseManagementViewEchartResolver.resolve(
+            LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo()));
+    if (echartShowOcean) {
+%>
+<div id="ocean_placeholder" style="display:none">
+</div>
+<% } %>

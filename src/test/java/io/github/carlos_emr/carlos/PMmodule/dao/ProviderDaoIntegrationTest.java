@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderFacility;
 import io.github.carlos_emr.carlos.commn.model.ProviderFacilityPK;
+import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -1864,6 +1865,222 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(results).isEmpty();
+        }
+    }
+
+    /**
+     * Tests for {@link ProviderDao#searchFaxRecipients(String, int)}, the provider source of the
+     * eForm fax recipient directory: only active providers whose {@code faxnumber} property holds a
+     * non-blank value are offered, matched case-insensitively by first or last name.
+     */
+    @Nested
+    @DisplayName("Fax recipient search")
+    @Tag("search")
+    @Tag("read")
+    class FaxRecipientSearch {
+
+        private void persistFaxNumber(String providerNo, String value) {
+            UserProperty property = new UserProperty();
+            property.setProviderNo(providerNo);
+            property.setName("faxnumber");
+            property.setValue(value);
+            hibernateTemplate.save(property);
+        }
+
+        @Test
+        @DisplayName("should return active provider with a fax number when last name matches")
+        void shouldReturnProviderWithFax_whenLastNameMatches() {
+            persistFaxNumber("T001", "416-555-0101");
+            hibernateTemplate.flush();
+
+            List<Object[]> rows = providerDao.searchFaxRecipients("smi", 10);
+
+            // Jane Smith (T003) matches the name but has no fax number property.
+            assertThat(rows).hasSize(1);
+            assertThat(((Provider) rows.get(0)[0]).getProviderNo()).isEqualTo("T001");
+            assertThat(rows.get(0)[1]).isEqualTo("416-555-0101");
+        }
+
+        @Test
+        @DisplayName("should exclude providers whose fax number is blank")
+        void shouldExcludeProvider_whenFaxNumberIsBlank() {
+            persistFaxNumber("T003", "   ");
+            hibernateTemplate.flush();
+
+            assertThat(providerDao.searchFaxRecipients("jane", 10)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should exclude inactive providers even when they have a fax number")
+        void shouldExcludeProvider_whenProviderIsInactive() {
+            persistFaxNumber("T004", "416-555-0104");
+            hibernateTemplate.flush();
+
+            assertThat(providerDao.searchFaxRecipients("johnson", 10)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should ignore other provider properties holding a number")
+        void shouldExcludeProvider_whenOnlyOtherPropertyIsSet() {
+            UserProperty other = new UserProperty();
+            other.setProviderNo("T002");
+            other.setName("faxnumberx");
+            other.setValue("416-555-0102");
+            hibernateTemplate.save(other);
+            hibernateTemplate.flush();
+
+            assertThat(providerDao.searchFaxRecipients("doe", 10)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should match first names case-insensitively, ordered by last name, within the limit")
+        void shouldMatchFirstNameCaseInsensitively_withinLimit() {
+            persistFaxNumber("T001", "416-555-0101");
+            persistFaxNumber("T002", "416-555-0102");
+            hibernateTemplate.flush();
+
+            List<Object[]> all = providerDao.searchFaxRecipients("JOHN", 10);
+            assertThat(all).extracting(row -> ((Provider) row[0]).getProviderNo())
+                    .containsExactly("T002", "T001");
+
+            List<Object[]> limited = providerDao.searchFaxRecipients("JOHN", 1);
+            assertThat(limited).extracting(row -> ((Provider) row[0]).getProviderNo())
+                    .containsExactly("T002");
+        }
+
+        @Test
+        @DisplayName("should return one row when a provider has several identical fax rows")
+        void shouldReturnOneRowPerProvider_whenFaxPropertyIsDuplicated() {
+            persistFaxNumber("T001", "416-555-0001");
+            persistFaxNumber("T001", "416-555-0001");
+            hibernateTemplate.flush();
+
+            List<Object[]> rows = providerDao.searchFaxRecipients("smith", 10);
+
+            assertThat(rows).hasSize(1);
+            assertThat(((Provider) rows.get(0)[0]).getProviderNo()).isEqualTo("T001");
+            assertThat(rows.get(0)[1]).isEqualTo("416-555-0001");
+        }
+
+        @Test
+        @DisplayName("should exclude a provider whose newest fax row was cleared")
+        void shouldExcludeProvider_whenNewestFaxRowIsBlank() {
+            persistFaxNumber("T001", "416-555-0001");
+            persistFaxNumber("T001", "  ");
+            hibernateTemplate.flush();
+
+            assertThat(providerDao.searchFaxRecipients("smith", 10)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should exclude a provider whose older fax row was cleared in place")
+        void shouldExcludeProvider_whenOlderFaxRowIsBlank() {
+            // saveProp() updates whichever row an unordered lookup returns, so a clear can land on
+            // the older row and leave the removed number on the newer one.
+            persistFaxNumber("T001", "");
+            persistFaxNumber("T001", "416-555-0001");
+            hibernateTemplate.flush();
+
+            assertThat(providerDao.searchFaxRecipients("smith", 10)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should exclude a provider whose fax rows hold conflicting numbers")
+        void shouldExcludeProvider_whenFaxRowsConflict() {
+            persistFaxNumber("T001", "416-555-0001");
+            persistFaxNumber("T001", "416-555-0002");
+            hibernateTemplate.flush();
+
+            assertThat(providerDao.searchFaxRecipients("smith", 10)).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should count providers, not duplicate property rows, toward the limit")
+        void shouldApplyLimitToProviders_whenFaxPropertyIsDuplicated() {
+            persistFaxNumber("T002", "416-555-0021");
+            persistFaxNumber("T002", "416-555-0021");
+            persistFaxNumber("T001", "416-555-0011");
+            hibernateTemplate.flush();
+
+            List<Object[]> rows = providerDao.searchFaxRecipients("john", 2);
+
+            assertThat(rows).extracting(row -> ((Provider) row[0]).getProviderNo())
+                    .containsExactly("T002", "T001");
+        }
+
+        @Test
+        @DisplayName("should treat LIKE wildcards in the term as literal text")
+        void shouldTreatWildcards_asLiteralText() {
+            persistFaxNumber("T001", "416-555-0101");
+            persistFaxNumber("T002", "416-555-0102");
+            hibernateTemplate.flush();
+
+            assertThat(providerDao.searchFaxRecipients("%", 10)).isEmpty();
+            assertThat(providerDao.searchFaxRecipients("_", 10)).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("CDS exact source-provider candidates")
+    class CdsSourceProviderCandidates {
+        @Test void shouldMatchInactiveHistoricalProvider_withExactLeadingZeros() {
+            Provider historical = providerDao.getProvider("T004");
+            historical.setOhipNo("009901"); entityManager.flush();
+            assertThat(providerDao.findCdsProviderNosByOhip("009901")).containsExactly("T004");
+            assertThat(providerDao.findCdsProviderNosByOhip("9901")).isEmpty();
+            assertThat(providerDao.findCdsProviderNosByOhip("009901 ")).isEmpty();
+        }
+        @Test void shouldRequireCpsoIssuer_ratherThanAnyPractitionerNumber() {
+            Provider ontario = providerDao.getProvider("T001");
+            ontario.setPractitionerNoType("CPSO"); ontario.setPractitionerNo("001234");
+            Provider elsewhere = providerDao.getProvider("T002");
+            elsewhere.setPractitionerNoType("CPSBC"); elsewhere.setPractitionerNo("001234");
+            entityManager.flush();
+            entityManager.createNativeQuery("update provider set practitionerNoType=:issuer,practitionerNo=:number where provider_no=:id")
+                    .setParameter("issuer", "cpso").setParameter("number", "001234").setParameter("id", "T003").executeUpdate();
+            entityManager.createNativeQuery("update provider set practitionerNoType=:issuer,practitionerNo=:number where provider_no=:id")
+                    .setParameter("issuer", "CPSO ").setParameter("number", "001234").setParameter("id", "T004").executeUpdate();
+            entityManager.clear();
+            assertThat(providerDao.findCdsProviderNosByCpso("001234")).containsExactly("T001");
+        }
+        @Test void shouldUseBinaryExactNames_withoutWildcardOrCaseFoldMatching() {
+            assertThat(providerDao.findCdsProviderNosByExactName("John", "Smith")).containsExactly("T001");
+            assertThat(providerDao.findCdsProviderNosByExactName("john", "Smith")).isEmpty();
+            assertThat(providerDao.findCdsProviderNosByExactName("John%", "Smith")).isEmpty();
+        }
+        @Test void shouldReturnOnlyTwoIdentifiers_whenDirectoryHasManyDuplicates() {
+            for (String id : List.of("T001", "T002", "T003")) providerDao.getProvider(id).setOhipNo("009902");
+            entityManager.flush();
+            assertThat(providerDao.findCdsProviderNosByOhip("009902")).containsExactly("T001", "T002");
+        }
+        @Test void shouldKeepUnicodeNormalizationDistinct_andBoundExactNameCandidates() {
+            String[] firstNames = {"Élodie", "E\u0301lodie", "élodie", "Élodie "};
+            for (int i = 0; i < firstNames.length; i++) {
+                entityManager.createNativeQuery("update provider set first_name=:first,last_name=:last where provider_no=:id")
+                        .setParameter("first", firstNames[i]).setParameter("last", "Müller")
+                        .setParameter("id", "T00" + (i + 1)).executeUpdate();
+            }
+            entityManager.clear();
+            assertThat(providerDao.findCdsProviderNosByExactName("Élodie", "Müller")).containsExactly("T001");
+            assertThat(providerDao.findCdsProviderNosByExactName("E\u0301lodie", "Müller")).containsExactly("T002");
+            assertThat(providerDao.findCdsProviderNosByExactName("Élodie ", "Müller")).containsExactly("T004");
+            entityManager.createNativeQuery("update provider set first_name=:first where provider_no in ('T002','T003')")
+                    .setParameter("first", "Élodie").executeUpdate();
+            assertThat(providerDao.findCdsProviderNosByExactName("Élodie", "Müller")).containsExactly("T001", "T002");
+        }
+        @Test void shouldCompareUnicodeNamesExactly_withoutTrimmingOrAccentFolding() {
+            Provider source = providerDao.getProvider("T001");
+            source.setFirstName("Élodie"); source.setLastName("Müller"); entityManager.flush();
+            assertThat(providerDao.findCdsProviderNosByExactName("Élodie", "Müller")).containsExactly("T001");
+            assertThat(providerDao.findCdsProviderNosByExactName("élodie", "Müller")).isEmpty();
+            assertThat(providerDao.findCdsProviderNosByExactName("Elodie", "Müller")).isEmpty();
+            assertThat(providerDao.findCdsProviderNosByExactName("Élodie ", "Müller")).isEmpty();
+            // Provider's legacy getter trims on ORM flush; native storage can still contain old whitespace.
+            entityManager.createNativeQuery("update provider set first_name=:first where provider_no=:id")
+                    .setParameter("first", "Élodie ").setParameter("id", "T001").executeUpdate();
+            entityManager.clear();
+            assertThat(providerDao.findCdsProviderNosByExactName("Élodie ", "Müller")).containsExactly("T001");
+            assertThat(providerDao.findCdsProviderNosByExactName("Élodie", "Müller")).isEmpty();
         }
     }
 }

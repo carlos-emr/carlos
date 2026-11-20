@@ -81,6 +81,7 @@ Ontario, Canada
 <%@ page import="java.text.SimpleDateFormat" %>
 <%@ page import="java.time.LocalDateTime" %>
 <%@ page import="java.time.format.DateTimeFormatter" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.FormSubmissionGuard" %>
 <%@ page import="java.time.format.FormatStyle" %>
 <%@ page import="java.time.ZoneId" %>
 
@@ -128,16 +129,26 @@ Ontario, Canada
 <%@ page import="io.github.carlos_emr.carlos.appt.JdbcApptImpl" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptData" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.location.AppointmentLocationList" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<fmt:message key="Appointment.textTooLong" var="appointmentTextTooLong"/>
+<fmt:message key="Appointment.textInvalidUnicode" var="appointmentTextInvalidUnicode"/>
+<fmt:message key="Appointment.formName" var="appointmentTextName"/>
+<fmt:message key="Appointment.formReason" var="appointmentTextReason"/>
+<fmt:message key="Appointment.formNotes" var="appointmentTextNotes"/>
+<fmt:message key="Appointment.formResources" var="appointmentTextResources"/>
+
+
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib tagdir="/WEB-INF/tags/appointment" prefix="appt" %>
 
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 
@@ -155,10 +166,13 @@ Ontario, Canada
     ProviderPreference providerPreference = (ProviderPreference) session.getAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE);
     int everyMin = providerPreference.getEveryMin();
 
+    boolean appointmentTextRetry = Boolean.TRUE.equals(request.getAttribute("appointmentTextRetry"))
+            || request.getAttribute("appointmentValidationErrors") != null;
     boolean bFirstDisp = true; //this is the first time to display the window
     boolean bFromWL = false; //this is from waiting list page
 
     if (request.getParameter("bFirstDisp") != null) bFirstDisp = (request.getParameter("bFirstDisp")).equals("true");
+    if (appointmentTextRetry) bFirstDisp = false;
     if (request.getParameter("demographic_no") != null) bFromWL = true;
 
     String duration = request.getParameter("duration") != null ? (request.getParameter("duration").equals(" ") || request.getParameter("duration").equals("") || request.getParameter("duration").equals("null") ? ("" + everyMin) : request.getParameter("duration")) : ("" + everyMin);
@@ -204,7 +218,7 @@ Ontario, Canada
     ApptData apptObj = ApptUtil.getAppointmentFromSession(request);
 
     CarlosProperties pros = CarlosProperties.getInstance();
-    String strEditable = pros.getProperty("ENABLE_EDIT_APPT_STATUS");
+    boolean statusEditable = pros.isAppointmentStatusEditingEnabled();
     Boolean isMobileOptimized = session.getAttribute("mobileOptimized") != null;
 
     AppointmentStatusMgr apptStatusMgr = new AppointmentStatusMgrImpl();
@@ -216,14 +230,27 @@ Ontario, Canada
     boolean locationEnabled = caisiEnabled && (useProgramLocation != null && useProgramLocation.equals("true"));
 
     ProgramManager2 programManager2 = SpringUtils.getBean(ProgramManager2.class);
+
+    // The Location List replaces the free-text location only while it has an active item and no
+    // site setup (multisite, scheduleSiteID, CAISI programs) is configured; those keep their controls.
+    AppointmentLocationList appointmentLocations = SpringUtils.getBean(AppointmentLocationResolver.class).load();
+    boolean locationMode = appointmentLocations.isLocationMode();
 %>
 
 <html>
     <head>
+        <fmt:message key="appointment.type.reason.length.error" var="typeReasonLengthError"/>
+        <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/appointmentTypeReason.js"></script>
+        <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/appointmentLocationSelect.js"></script>
+        <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/dobSearchKeyword.js"></script>
+        <fmt:message key="demographic.zdemographicfulltitlesearch.msgDobFormat" var="dobFormatMessage"/>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+        <script src="${pageContext.request.contextPath}/share/javascript/codePointLengthLimits.js"></script>
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script src="${pageContext.request.contextPath}/js/checkDate.js"></script>
+        <script src="${pageContext.request.contextPath}/js/appointmentPatientLink.js"></script>
+        <script src="${pageContext.request.contextPath}/js/appointmentTextBounds.js"></script>
         <title><fmt:message key="appointment.addappointment.title"/></title>
 
         <style>
@@ -307,6 +334,9 @@ Ontario, Canada
             }
 
             function onAdd() {
+                const form = document.ADDAPPT;
+                if (form.displaymode.value !== 'Search ' && form.displaymode.value !== 'Group Appt'
+                        && !CarlosAppointmentTextBounds.validate(form, showJSAlert)) return false;
                 return calculateEndTime();
             }
 
@@ -320,7 +350,9 @@ Ontario, Canada
                 var determinator = 0;
                 determinator = localStorage.getItem('copyPaste');
                 if (determinator == 1) {  //This means we are moving an appt
-                    pasteAppt(false);
+                    // Use the server-rendered restriction argument for automatic paste too.
+                    var pasteButton = document.getElementById('pasteButton');
+                    if (pasteButton) pasteButton.click();
                     document.forms['ADDAPPT'].displaymode.value = 'Add Appointment';
                     //$("#pasteButton").trigger( "click" );
                     //$("#addButton").trigger( "click" );
@@ -404,6 +436,7 @@ Ontario, Canada
             }
 
             var readOnly = false;
+            var groupBookingRestricted = false;
 
             function checkDateTypeIn(obj) {
                 if (obj.value == '') {
@@ -464,35 +497,35 @@ Ontario, Canada
 
             function onNotBook() {
                 document.forms[0].keyword.value = "<%=DONOTBOOK%>";
+                // Assigning value fires no input/blur event, so drop the patient link
+                // explicitly: Do Not Book is a deliberate non-patient booking.
+                CarlosAppointmentPatientLink.unlink(document.forms[0].keyword);
             }
 
             function onButRepeat() {
                 document.forms[0].action = "<%=request.getContextPath() %>/appointment/appointmentrepeatbooking";
+                // Settle the patient link BEFORE calculateEndTime(): its "." no-show rule
+                // reads #demographic_no, and submitForm() would settle only afterwards,
+                // leaving a stale link to suppress status N on a hand-edited name.
+                CarlosAppointmentPatientLink.settle(document.forms[0]);
                 if (calculateEndTime()) {
-                    document.forms[0].submit();
+                    CarlosAppointmentPatientLink.submitForm(document.forms[0]);
                 }
             }
 
             <% if(apptObj!=null) { %>
 
             function pasteAppt(multipleSameDayGroupAppt) {
+                groupBookingRestricted = !!multipleSameDayGroupAppt;
 
                 var warnMsgId = document.getElementById("tooManySameDayGroupApptWarning");
 
                 if (multipleSameDayGroupAppt) {
                     warnMsgId.style.display = "block";
-                    if (document.forms[0].groupButton) {
-                        document.forms[0].groupButton.style.display = "none";
-                    }
-                    document.forms[0].addButton.style.display = "none";
-
-                    if (document.forms[0].pasteButton) {
-                        document.forms[0].pasteButton.style.display = "none";
-                    }
-
-                    if (document.forms[0].apptRepeatButton) {
-                        document.forms[0].apptRepeatButton.style.display = "none";
-                    }
+                    ['groupButton', 'addButton', 'pasteButton', 'apptRepeatButton'].forEach(function (id) {
+                        var button = document.getElementById(id);
+                        if (button) button.style.display = 'none';
+                    });
                 } else {
                     warnMsgId.style.display = "none";
                 }
@@ -501,12 +534,34 @@ Ontario, Canada
                 //document.forms[0].chart_no.value = "<carlos:encode value='<%= apptObj.getChart_no() %>' context="javaScriptBlock"/>";
                 document.forms[0].keyword.value = "<carlos:encode value='<%= apptObj.getName() %>' context="javaScriptBlock"/>";
                 document.forms[0].demographic_no.value = "<carlos:encode value='<%= apptObj.getDemographic_no() %>' context="javaScriptBlock"/>";
+                // The pasted name and link belong together; make them the new baseline. ApptData
+                // carries no alert/status/MRP, so a different patient clears the MRP and hides
+                // the previous patient's banners rather than leave them describing the wrong chart.
+                CarlosAppointmentPatientLink.rebase(document.forms[0].keyword);
                 document.forms[0].reason.value = "<carlos:encode value='<%= apptObj.getReason() %>' context="javaScriptBlock"/>";
                 document.forms[0].reasonCode.value = "<carlos:encode value='<%= apptObj.getReasonCode() %>' context="javaScriptBlock"/>";
                 document.forms[0].notes.value = "<carlos:encode value='<%= apptObj.getNotes() %>' context="javaScriptBlock"/>";
                 document.forms[0].resources.value = "<carlos:encode value='<%= apptObj.getResources() %>' context="javaScriptBlock"/>";
                 document.forms[0].type.value = "<carlos:encode value='<%= apptObj.getType() %>' context="javaScriptBlock"/>";
+                document.forms[0].type.dataset.previousReason = document.forms[0].type.selectedOptions[0]?.dataset.reason || '';
+                document.forms[0].type.dataset.previousType = document.forms[0].type.value;
+                <% if (locationMode) {
+                    // A pasted appointment keeps its location (a cut is a move): its item when the
+                    // dropdown offers it, the active item its typed text names, or otherwise its name
+                    // as a legacy option (an item disabled since), which saves the name without a code.
+                    AppointmentLocationList.Choice pasted = appointmentLocations.pastedChoice(apptObj.getLocationCode(), apptObj.getLocation());
+                %>
+                selectAppointmentLocationCode(document.forms[0].locationCode, "<carlos:encode value='<%= pasted.value() %>' context="javaScriptBlock"/>");
+                <% if (pasted.legacy() != null) { %>
+                <%-- Raw on purpose: the label is encoded for JavaScript below and set as option text, never parsed as HTML. --%>
+                <fmt:message key="appointment.location.legacyOption" var="pastedLegacyLabel"><fmt:param value="<%= pasted.legacy().trim() %>"/></fmt:message>
+                offerLegacyAppointmentLocation(document.forms[0].locationCode, document.forms[0].location,
+                    "<carlos:encode value='<%= pasted.legacy() %>' context="javaScriptBlock"/>",
+                    "<carlos:encode value="${pastedLegacyLabel}" context="javaScriptBlock"/>");
+                <% } %>
+                <% } else { %>
                 document.forms[0].location.value = "<carlos:encode value='<%= apptObj.getLocation() %>' context="javaScriptBlock"/>";
+                <% } %>
                 if ('<carlos:encode value='<%= apptObj.getUrgency() %>' context="javaScriptBlock"/>' == 'critical') {
                     document.forms[0].urgency.checked = "checked";
                 }
@@ -516,7 +571,7 @@ Ontario, Canada
                 statusCode = statusCode.substring(0, 1); //the selector only supports setting the first status
                 document.forms[0].status.value = statusCode;
                 <%}%>
-                <%if("true".equals(pros.getProperty("appointment.paste.location","false"))) {%>
+                <%if(!locationMode && "true".equals(pros.getProperty("appointment.paste.location","false"))) {%>
                 document.forms[0].location.value = "<carlos:encode value='<%= apptObj.getLocation() %>' context="javaScriptBlock"/>";
                 <%}%>
 
@@ -539,13 +594,17 @@ Ontario, Canada
 
             function setType(typeSel, reasonSel, locSel, durSel, notesSel, resSel) {
                 document.forms['ADDAPPT'].type.value = typeSel;
+                document.forms['ADDAPPT'].type.dataset.previousReason = document.forms['ADDAPPT'].type.selectedOptions[0]?.dataset.reason || '';
+                document.forms['ADDAPPT'].type.dataset.previousType = document.forms['ADDAPPT'].type.value;
                 document.forms['ADDAPPT'].reason.value = reasonSel;
                 document.forms['ADDAPPT'].duration.value = durSel;
                 document.forms['ADDAPPT'].notes.value = notesSel;
                 document.forms['ADDAPPT'].duration.value = durSel;
                 document.forms['ADDAPPT'].resources.value = resSel;
                 var loc = document.forms['ADDAPPT'].location;
-                if (loc.nodeName === 'SELECT') {
+                if (document.forms['ADDAPPT'].locationCode) {
+                    selectAppointmentLocationByName(document.forms['ADDAPPT'].locationCode, locSel);
+                } else if (loc.nodeName === 'SELECT') {
                     for (c = 0; c < loc.length; c++) {
                         if (loc.options[c].innerHTML == locSel) {
                             loc.selectedIndex = c;
@@ -563,6 +622,12 @@ Ontario, Canada
 
                 var searchDemoUrl = "<%= request.getContextPath() %>/demographic/SearchDemographic";
 
+                // Keeps #keyword and #demographic_no/#mrp in step and refreshes the patient
+                // banners on every link: commits a highlighted row on blur/submit and
+                // reconciles a hand-edited name (issue #3883). See
+                // js/appointmentPatientLink.js for the semantics.
+                var patientLink = CarlosAppointmentPatientLink.attach(document);
+
                 $("#keyword").autocomplete({
                     source: function (req, res) {
                         $.ajax({
@@ -576,45 +641,15 @@ Ontario, Canada
                     minLength: 2,
 
                     focus: function (event, ui) {
-                        $("#keyword").val(ui.item.formattedName);
+                        patientLink.highlight(ui.item);
                         return false;
                     },
                     select: function (event, ui) {
-                        $("#demographic_no").val(ui.item.value);
-                        $("#mrp").val(ui.item.provider);
-                        $("#keyword").val(ui.item.formattedName);
-
-                        // Show patient alert banner if the selected patient has an alert
-                        var patientAlert = ui.item.alert || "";
-                        var alertBanner = document.getElementById('patientAlertBanner');
-                        if (patientAlert) {
-                            // Use textContent to safely set content and prevent XSS
-                            document.getElementById('patientAlertText').textContent = patientAlert;
-                            alertBanner.style.display = '';
-                        } else {
-                            alertBanner.style.display = 'none';
-                        }
-
-                        // Show patient status banner if the selected patient has a non-default status
-                        var rawStatus = ui.item.status || "";
-                        var rawRoster = ui.item.rosterStatus || "";
-                        // Normalize: AC (active) and RO (rostered) are the expected defaults — hide banner for these
-                        var displayStatus = (!rawStatus || rawStatus === "AC") ? "" : rawStatus;
-                        var displayRoster = (!rawRoster || rawRoster === "RO") ? "" : rawRoster;
-                        var statusBanner = document.getElementById('patientStatusBanner');
-                        var statusTextEl = document.getElementById('patientStatusText');
-                        if (displayStatus || displayRoster) {
-                            var rosterLabel = statusBanner ? (statusBanner.getAttribute('data-roster-label') || '') : '';
-                            var parts = [];
-                            if (displayStatus) parts.push(displayStatus);
-                            if (displayRoster) parts.push(rosterLabel + ":\u00a0" + displayRoster);
-                            statusTextEl.textContent = parts.join("\u00a0");
-                            statusBanner.style.display = '';
-                        } else {
-                            statusBanner.style.display = 'none';
-                        }
-
+                        patientLink.commit(ui.item);
                         return false;
+                    },
+                    close: function (event) {
+                        patientLink.menuClosed(event);
                     }
                 })
                     .autocomplete("instance")._renderItem = function (ul, item) {
@@ -674,15 +709,25 @@ Ontario, Canada
                     }
                 });
 
+                // Track the previous autofill separately from text entered by the user.
+                document.getElementById('type').dataset.previousReason = $('#type option:selected').attr('data-reason') || '';
+                document.getElementById('type').dataset.previousType = $('#type').val();
                 // render custom selectmenu
                 $('#type').myselectmenu({
                     change: function (event, data) {
                         label = data.item.value;
                         origReason = $("textarea[name='reason']").val();
                         reason = data.item.element.attr("data-reason");
-                        if (origReason.length > 0) {
-                            reason = reason.concat(" -- ".concat(origReason));
+                        var nextTypeReason = reason || '';
+                        try {
+                            reason = appointmentTypeReason(origReason, this.dataset.previousReason || '', nextTypeReason);
+                        } catch (error) {
+                            if (!(error instanceof RangeError)) throw error;
+                            $(this).val(this.dataset.previousType).myselectmenu('refresh');
+                            alert("<carlos:encode value="${typeReasonLengthError}" context="javaScriptBlock"/>");
+                            return;
                         }
+                        this.dataset.previousReason = nextTypeReason;
                         loc = data.item.element.attr("data-loc");
                         dur = data.item.element.attr("data-dur");
                         notes = data.item.element.attr("data-notes");
@@ -799,6 +844,14 @@ Ontario, Canada
 
             }
 
+            // A successful lock refresh must not undo a same-day group booking restriction.
+            function updateBookingButtonVisibility(locked) {
+                ['addButton', 'pasteButton', 'apptRepeatButton', 'groupButton'].forEach(function (id) {
+                    var button = document.getElementById(id);
+                    if (button) button.style.display = (locked && !haveLock) || groupBookingRestricted ? 'none' : '';
+                });
+            }
+
             function updatePageLock(timeout, apptDate, startTime, endTime) {
 
                 for (var i = 0; i < timers.length; i++) {
@@ -839,25 +892,23 @@ Ontario, Canada
 
                             });
 
-                            var lockedMsg = locked ? '<span style="color:red" title="' + lockedProviderName + '">&nbsp(locked)</span>' : '';
-                            document.getElementById('lock_notification').innerHTML =
-                                '<span title="' + providerNames + '">Viewers:' + data.length + lockedMsg + '</span>'
-                            ;
-
-
-                            if (haveLock == true) { //i have the lock
-                                document.getElementById('addButton').style.display = '';
-                                document.getElementById('pasteButton').style.display = '';
-                                document.getElementById('apptRepeatButton').style.display = '';
-                            } else if (locked && !haveLock) { //someone else has lock.
-                                document.getElementById('addButton').style.display = 'none';
-                                document.getElementById('pasteButton').style.display = 'none';
-                                document.getElementById('apptRepeatButton').style.display = 'none';
-                            } else { //no lock
-                                document.getElementById('addButton').style.display = '';
-                                document.getElementById('pasteButton').style.display = '';
-                                document.getElementById('apptRepeatButton').style.display = '';
+                            // Provider names come from the server: build the notice as text nodes and
+                            // attributes, never as HTML.
+                            var notice = document.getElementById('lock_notification');
+                            var viewers = document.createElement('span');
+                            viewers.setAttribute('title', providerNames);
+                            viewers.textContent = 'Viewers:' + data.length;
+                            if (locked) {
+                                var lockedMark = document.createElement('span');
+                                lockedMark.style.color = 'red';
+                                lockedMark.setAttribute('title', lockedProviderName);
+                                lockedMark.textContent = '\u00a0(locked)';
+                                viewers.appendChild(lockedMark);
                             }
+                            notice.replaceChildren(viewers);
+
+
+                            updateBookingButtonVisibility(locked);
                             document.getElementById('searchBtn').removeAttribute('disabled');
                         }
                     }
@@ -934,8 +985,8 @@ Ontario, Canada
                 document.getElementById("search_mode").value = 'search_name';
 
                 var keyObj = document.forms['ADDAPPT'].keyword;
-                var keyVal = keyObj.value;
-                console.log(keyVal);
+                var keyVal = keyObj.value.trim();
+                keyObj.value = keyVal;
 
                 // start with the loosest pattern
                 // address pattern 293 Meridian
@@ -965,33 +1016,46 @@ Ontario, Canada
                     document.getElementById("search_mode").value = "search_phone";
                 }
 
-                // DOB yyyy-mm-dd with varying delimiters
-                const reDOB = /^(19|20)\d\d([\/.-\s])(0[1-9]|1[012])[\/.-\s](0[1-9]|[12]\d|3[01])$/;
-                if (reDOB.exec(keyVal)) {
-                    const yyyy = keyVal.substring(0, 4);
-                    const mm = keyVal.substring(5, 7);
-                    const dd = keyVal.substring(8);
-                    const dob = yyyy + "-" + mm + "-" + dd;
+                // Reject date-shaped invalid input before handing it to the picker.
+                // Ordinary names and street addresses remain general searches.
+                const dob = /^[0-9]{8}$/.test(keyVal)
+                    ? CarlosDobSearch.format(keyVal) : keyVal.replace(/[/. ]/g, '-');
+                if (CarlosDobSearch.isValid(dob)) {
                     keyObj.value = dob;
                     document.getElementById("search_mode").value = "search_dob";
+                } else if (/^[0-9%./ -]+$/.test(keyVal)
+                        && (/^(?:[0-9]{4}|%)(?:[-/. ]|$)/.test(keyVal) || /^[0-9]{8}$/.test(keyVal))) {
+                    alert('${carlos:forJavaScript(dobFormatMessage)}');
+                    return false;
                 }
 
                 //swipe pattern
-                if (keyVal.indexOf('%b610054') == 0 && keyVal.length > 18) {
+                if (/^%b610054[0-9]{10}/.test(keyVal)) {
                     keyObj.value = keyVal.substring(8, 18);
                     document.getElementById("search_mode").value = "search_hin";
                 }
+                return true;
             }
 
             function locale() {
                 // add style for multisites location
                 var loc = document.forms['ADDAPPT'].location;
-                if (loc.nodeName.toUpperCase() == 'SELECT') loc.style.backgroundColor = loc.options[loc.selectedIndex].style.backgroundColor;
+                if (loc && loc.nodeName.toUpperCase() === 'SELECT') {
+                    var selectedLocation = loc.options[loc.selectedIndex];
+                    // A provider may have no active site assignments; initialization must continue.
+                    if (selectedLocation) loc.style.backgroundColor = selectedLocation.style.backgroundColor;
+                }
             }
 
         </script>
     </head>
     <body onLoad="setfocus(); moveAppt(); locale(); updateTime();">
+        <c:if test="${not empty appointmentValidationErrors}">
+            <div class="alert alert-danger" role="alert">
+                <c:forEach var="error" items="${appointmentValidationErrors}"><p>${carlos:forHtml(error)}</p></c:forEach>
+            </div>
+        </c:if>
+
     <div class="container">
         <% if (timeoutSecs > 0) { %>
         <div id="lock_notification">
@@ -1038,8 +1102,15 @@ Ontario, Canada
                 }
             }
         %>
-        <div id="jsAlertBanner" class="alert alert-danger alert-dismissible" style="display:none" role="alert">
-            <span id="jsAlertText"></span>
+        <div id="jsAlertBanner" class="alert alert-danger alert-dismissible" style="<%= appointmentTextRetry ? "" : "display:none" %>" role="alert">
+            <span id="jsAlertText"><c:if test="${appointmentTextRetry}">
+                <fmt:message key="${appointmentTextLabelKey}" var="appointmentTextLabel"/>
+                <fmt:message key="${appointmentTextMessageKey}" var="appointmentTextMessage">
+                    <fmt:param value="${appointmentTextLabel}"/>
+                    <fmt:param value="${appointmentTextMaximum}"/>
+                </fmt:message>
+                <carlos:encode value="${appointmentTextMessage}"/>
+            </c:if></span>
             <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
         </div>
         <div id="tooManySameDayGroupApptWarning" style="<%=displayStyle%>">
@@ -1133,12 +1204,21 @@ Ontario, Canada
 
         <form name="ADDAPPT" id="addappt" method="post"
               action="<%=request.getContextPath()%>/appointment/AddRecord"
-              onsubmit="return(onAdd())">
+              onsubmit="return(onAdd())"
+              data-appointment-too-long="${carlos:forHtmlAttribute(appointmentTextTooLong)}"
+              data-appointment-invalid="${carlos:forHtmlAttribute(appointmentTextInvalidUnicode)}"
+              data-appointment-name="${carlos:forHtmlAttribute(appointmentTextName)}"
+              data-appointment-reason="${carlos:forHtmlAttribute(appointmentTextReason)}"
+              data-appointment-notes="${carlos:forHtmlAttribute(appointmentTextNotes)}"
+              data-appointment-resources="${carlos:forHtmlAttribute(appointmentTextResources)}">
             <input type="hidden" name="displaymode" value="">
             <input type="hidden" name="year" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("year")) %>' context="htmlAttribute"/>">
             <input type="hidden" name="month" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("month")) %>' context="htmlAttribute"/>">
             <input type="hidden" name="day" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("day")) %>' context="htmlAttribute"/>">
             <input type="hidden" name="fromAppt" value="1">
+            <%-- One booking per rendering (issue #4225): a repeat of this form ends as its first save did. --%>
+            <input type="hidden" name="<%= FormSubmissionGuard.PARAMETER %>"
+                   value="<carlos:encode value='<%= (appointmentTextRetry && request.getParameter(FormSubmissionGuard.PARAMETER) != null) ? request.getParameter(FormSubmissionGuard.PARAMETER) : FormSubmissionGuard.issue(session, FormSubmissionGuard.Scope.APPOINTMENT_ADD, null) %>' context="htmlAttribute"/>">
 
 
             <div class="page-header-bar time" id="header">
@@ -1154,23 +1234,23 @@ Ontario, Canada
                     <%-- Left column: Date, Time, Duration, Patient, Reason, Location, Creator --%>
                     <div class="col-md-6">
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formDate"/>&nbsp;<span style="color:brown;">(<%=dateString1%>)</span>:</label>
+                            <label class="col-sm-4 col-form-label" for="appointment_date"><fmt:message key="Appointment.formDate"/>&nbsp;<span style="color:brown;">(<%=dateString1%>)</span>:</label>
                             <div class="col-sm-8">
-                                <input type="date" class="form-control form-control-sm" name="appointment_date"
+                                <input type="date" class="form-control form-control-sm" name="appointment_date" id="appointment_date"
                                        value="<%=dateString2%>"
                                        onChange="checkDateTypeIn(this);checkPageLock()">
                             </div>
                         </div>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formStartTime"/>:</label>
+                            <label class="col-sm-4 col-form-label" for="start_time"><fmt:message key="Appointment.formStartTime"/>:</label>
                             <div class="col-sm-8">
-                                <input type="time" name="start_time" class="form-control form-control-sm"
+                                <input type="time" name="start_time" id="start_time" class="form-control form-control-sm"
                                        value='<carlos:encode value='<%= request.getParameter("start_time") == null ? "" : request.getParameter("start_time") %>' context="htmlAttribute"/>'<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
                                        onChange="checkTimeTypeIn(this);checkPageLock();updateTime()">
                             </div>
                         </div>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formDuration"/>:</label>
+                            <label class="col-sm-4 col-form-label" for="duration"><fmt:message key="Appointment.formDuration"/>:</label>
                             <div class="col-sm-8">
                                 <input type="number" name="duration" id="duration" class="form-control form-control-sm"
                                        value="<carlos:encode value='<%= duration %>' context="htmlAttribute"/>" onChange="checkPageLock()" onblur="calculateEndTime();">
@@ -1190,7 +1270,9 @@ Ontario, Canada
                                 <div class="input-group input-group-sm">
                                 <%
                                     String name = "";
-                                    if (!bFirstDisp || bFromWL) {
+                                    if (appointmentTextRetry) {
+                                        name = StringUtils.defaultString(request.getParameter("keyword"));
+                                    } else if (!bFirstDisp || bFromWL) {
                                         // Prefer server-side DB lookup over any name transmitted via URL to avoid PHI exposure.
                                         // When demographic_no is present, resolve the patient name directly from the database.
                                         String demoNoForName = StringUtils.trimToNull(request.getParameter("demographic_no"));
@@ -1203,8 +1285,10 @@ Ontario, Canada
                                                     // (getFullName() concatenates raw DB values and can produce "null, null")
                                                     String ln = StringUtils.defaultString(demForName.getLastName()).trim();
                                                     String fn = StringUtils.defaultString(demForName.getFirstName()).trim();
+                                                    // "Last,First", as Edit Appointment shows it and Add stores it for a linked
+                                                    // patient (AppointmentAddRecord2Action): the box shows what will be saved.
                                                     if (!ln.isEmpty() || !fn.isEmpty()) {
-                                                        name = ln.isEmpty() ? fn : fn.isEmpty() ? ln : ln + ", " + fn;
+                                                        name = ln.isEmpty() ? fn : fn.isEmpty() ? ln : ln + "," + fn;
                                                     }
                                                 }
                                             } catch (Exception lookupEx) {
@@ -1217,22 +1301,23 @@ Ontario, Canada
                                         }
                                     }
                                 %>
+                                    <% if (request.getAttribute("appointmentValidationErrors") != null) name = StringUtils.defaultString(request.getParameter("keyword")); %>
                                     <input type="hidden" name="demographic_no" id="demographic_no"
                                            value='<%=(bFirstDisp && !bFromWL) ? "" : SafeEncode.forHtmlAttribute(StringUtils.defaultString(request.getParameter("demographic_no")))%>'>
                                     <fmt:message key="Appointment.formNamePlaceholder" var="formNamePlaceholderMsg"/>
                                     <fmt:message key="appointment.addappointment.btnSearch" var="btnSearchMsg"/>
-                                    <input type="text" name="keyword" id="keyword" class="form-control form-control-sm"
+                                    <input type="text" name="keyword" data-code-point-maxlength="255" id="keyword" maxlength="510" class="form-control form-control-sm"
                                         value="<carlos:encode value='<%= name %>' context="htmlAttribute"/>"
                                         placeholder="${carlos:forHtmlAttribute(formNamePlaceholderMsg)}">
                                     <button type="submit" name="searchBtn" id="searchBtn" class="btn btn-secondary btn-sm"
                                            formaction="<%=request.getContextPath()%>/demographic/DemographicSearch"
-                                           onclick="parseSearch(); document.forms['ADDAPPT'].displaymode.value='Search ';"
+                                           onclick="if (!parseSearch()) return false; document.forms['ADDAPPT'].displaymode.value='Search ';"
                                            title="${carlos:forHtmlAttribute(btnSearchMsg)}"><i class="fa-solid fa-magnifying-glass"></i></button>
                                 </div>
                             </div>
                         </div>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label" for="reasonCode"><fmt:message key="Appointment.formReason"/>:</label>
+                            <label class="col-sm-4 col-form-label" for="reasonCode" id="apptReasonLabel"><fmt:message key="Appointment.formReason"/>:</label>
                             <div class="col-sm-8">
                                 <select name="reasonCode" id="reasonCode" class="form-select form-select-sm">
                                     <c:choose>
@@ -1251,10 +1336,11 @@ Ontario, Canada
                                     </c:choose>
                                 </select>
                                 <fmt:message key="Appointment.formReason" var="formReasonMsg"/>
-                                <textarea id="reason" name="reason" class="form-control form-control-sm mt-1" tabindex="2" rows="2"
+                                <label for="reason" class="visually-hidden"><fmt:message key="Appointment.formReason"/></label>
+                                <textarea id="reason" name="reason" data-code-point-maxlength="80" class="form-control form-control-sm mt-1" rows="2"
                                           style="resize:none;"
                                           placeholder="${carlos:forHtmlAttribute(formReasonMsg)}"
-                                          maxlength="80"><%=bFirstDisp ? "" : (request.getParameter("reason") == null || "".equals(request.getParameter("reason"))) ? "" : SafeEncode.forHtmlContent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("reason")))%></textarea>
+                                          maxlength="160"><%=bFirstDisp ? "" : (request.getParameter("reason") == null || "".equals(request.getParameter("reason"))) ? "" : SafeEncode.forHtmlContent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("reason")))%></textarea>
                             </div>
                         </div>
                         <%
@@ -1269,7 +1355,9 @@ Ontario, Canada
                                     : bMoreAddr ? ApptUtil.getColorFromLocation(props.getProperty("scheduleSiteID", ""), props.getProperty("scheduleSiteColor", ""), loc) : "white";
                         %>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formLocation"/>:</label>
+                            <%-- The label names whichever location control this clinic's setup shows. --%>
+                            <label class="col-sm-4 col-form-label" for="<%= bMultisites ? "location" : locationEnabled ? "locationSite" : locationMode ? "locationCode" : "locationText" %>"
+                                   id="apptLocationLabel"><fmt:message key="Appointment.formLocation"/>:</label>
                             <div class="col-sm-8">
                                 <% if (bMultisites) { %>
                                 <%
@@ -1277,9 +1365,9 @@ Ontario, Canada
                                     java.util.regex.Pattern cssColorPattern = java.util.regex.Pattern.compile("^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$|^[a-zA-Z]+$");
                                     String safeColoAttr = (colo != null && cssColorPattern.matcher(colo).matches()) ? SafeEncode.forHtmlAttribute(colo) : "";
                                 %>
-                                <select tabindex="4" class="form-select form-select-sm" name="location"
+                                <select id="location" class="form-select form-select-sm" name="location" aria-labelledby="apptLocationLabel"
                                         style="background-color: <%=safeColoAttr%>"
-                                        onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
+                                        onchange='locale()'>
                                     <% for (Site s : sites) {
                                         String safeBgColorAttr = (s.getBgColor() != null && cssColorPattern.matcher(s.getBgColor()).matches()) ? SafeEncode.forHtmlAttribute(s.getBgColor()) : "";
                                     %>
@@ -1290,7 +1378,7 @@ Ontario, Canada
                                     <% } %>
                                 </select>
                                 <% } else if (locationEnabled) { %>
-                                <select name="location" class="form-select form-select-sm">
+                                <select id="locationSite" aria-labelledby="apptLocationLabel" name="location" class="form-select form-select-sm">
                                     <%
                                         String sessionLocation = "";
                                         ProgramProvider programProvider = programManager2.getCurrentProgramInDomain(loggedInInfo, loggedInInfo.getLoggedInProviderNo());
@@ -1307,24 +1395,37 @@ Ontario, Canada
                                     }
                                     %>
                                 </select>
+                                <% } else if (locationMode) {
+                                    // A re-render (patient search) starts on what the form posted, as an option value.
+                                    // The hidden location field carries a pasted legacy name, which stays offered.
+                                    // The posted item stays offered even if it was disabled meanwhile (marked inactive),
+                                    // so the choice is kept and the save is refused visibly, not dropped silently.
+                                    AppointmentLocationList.Choice postedLocation = AppointmentLocationList.Choice.posted(
+                                            bFirstDisp ? null : request.getParameter("locationCode"),
+                                            bFirstDisp ? null : request.getParameter("location"));
+                                %>
+                                <appt:locationSelect choices="<%= appointmentLocations.getChoices(postedLocation.code()) %>"
+                                                     selected="<%= postedLocation.value() %>" legacy="<%= postedLocation.legacy() %>"
+                                                     selectId="locationCode" labelledBy="apptLocationLabel"
+                                                     cssClass="form-select form-select-sm"/>
                                 <% } else { %>
-                                <input type="text" name="location" tabindex="4" value="<carlos:encode value='<%= loc != null ? loc : "" %>' context="htmlAttribute"/>" class="form-control form-control-sm">
+                                <input type="text" id="locationText" aria-labelledby="apptLocationLabel" name="location" value="<carlos:encode value='<%= loc != null ? loc : "" %>' context="htmlAttribute"/>" class="form-control form-control-sm">
                                 <% } %>
                             </div>
                         </div>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formCreator"/>:</label>
+                            <label class="col-sm-4 col-form-label" for="user_id"><fmt:message key="Appointment.formCreator"/>:</label>
                             <div class="col-sm-8">
-                                <input type="text" name="user_id" class="form-control form-control-sm"
+                                <input type="text" id="user_id" name="user_id" class="form-control form-control-sm"
                                        value='<%=bFirstDisp?(SafeEncode.forHtmlAttribute(userlastname)+", "+SafeEncode.forHtmlAttribute(userfirstname)):(request.getParameter("user_id") == null || "".equals(request.getParameter("user_id")))?"Unknown":SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("user_id")))%>'
                                        readonly="readonly">
                             </div>
                         </div>
                         <% if (pros.isPropertyActive("mc_number")) { %>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formMC"/>:</label>
+                            <label class="col-sm-4 col-form-label" for="appt_mc_number"><fmt:message key="Appointment.formMC"/>:</label>
                             <div class="col-sm-8">
-                                <input type="text" name="appt_mc_number" tabindex="5" class="form-control form-control-sm"/>
+                                <input type="text" id="appt_mc_number" name="appt_mc_number" class="form-control form-control-sm"/>
                             </div>
                         </div>
                         <% } %>
@@ -1333,10 +1434,10 @@ Ontario, Canada
                     <%-- Right column: Status, Type, Doctor, Notes, Resources, DateTime, Critical, Email --%>
                     <div class="col-md-6">
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formStatus"/>:</label>
+                            <label class="col-sm-4 col-form-label" for="status" id="apptStatusLabel"><fmt:message key="Appointment.formStatus"/>:</label>
                             <div class="col-sm-8">
-                                <% if (strEditable != null && strEditable.equalsIgnoreCase("yes")) { %>
-                                <select class="form-select form-select-sm" name="status" style="background-color:<carlos:encode value='<%= (allStatus.get(0)).getColor() %>' context="htmlAttribute"/>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
+                                <% if (statusEditable) { %>
+                                <select id="status" class="form-select form-select-sm" name="status" style="background-color:<carlos:encode value='<%= (allStatus.get(0)).getColor() %>' context="htmlAttribute"/>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
                                     <% for (int i = 0; i < allStatus.size(); i++) { %>
                                     <option class="<carlos:encode value='<%= (allStatus.get(i)).getStatus() %>' context="htmlAttribute"/>"
                                             style="background-color:<carlos:encode value='<%= (allStatus.get(i)).getColor() %>' context="htmlAttribute"/>"
@@ -1346,13 +1447,13 @@ Ontario, Canada
                                     <% } %>
                                 </select>
                                 <% } else { %>
-                                <input type="text" name="status" class="form-control form-control-sm"
+                                <input type="text" id="statusText" aria-labelledby="apptStatusLabel" name="status" class="form-control form-control-sm"
                                        value='<carlos:encode value='<%= bFirstDisp ? "t" : (request.getParameter("status") == null ? "" : request.getParameter("status")) %>' context="htmlAttribute"/>'>
                                 <% } %>
                             </div>
                         </div>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formType"/>:</label>
+                            <label class="col-sm-4 col-form-label" for="type"><fmt:message key="Appointment.formType"/>:</label>
                             <div class="col-sm-8">
                                 <select class="form-select form-select-sm" name="type" id="type"
                                         title="<fmt:message key="billing.billingCorrection.msgSelectVisitType"/>">
@@ -1380,24 +1481,23 @@ Ontario, Canada
                             </div>
                         </div>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formNotes"/>:</label>
+                            <label class="col-sm-4 col-form-label" for="notes"><fmt:message key="Appointment.formNotes"/>:</label>
                             <div class="col-sm-8">
                                 <fmt:message key="Appointment.formNotes" var="formNotesMsg"/>
-                                <textarea class="form-control form-control-sm" name="notes" tabindex="3" rows="2" style="resize:none;"
+                                <textarea id="notes" class="form-control form-control-sm" name="notes" rows="2" style="resize:none;"
                                           placeholder="${carlos:forHtmlAttribute(formNotesMsg)}"
-                                          maxlength="255"><%=bFirstDisp ? "" : SafeEncode.forHtmlContent(StringUtils.defaultString(request.getParameter("notes")))%></textarea>
+                                          maxlength="65536" data-max-codepoints="32768"><%=bFirstDisp ? "" : SafeEncode.forHtmlContent(StringUtils.defaultString(request.getParameter("notes")))%></textarea>
                             </div>
                         </div>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formResources"/>:</label>
+                            <label class="col-sm-4 col-form-label" for="resources"><fmt:message key="Appointment.formResources"/>:</label>
                             <div class="col-sm-8">
-                                <input type="text" name="resources" class="form-control form-control-sm"
-                                       tabindex="6"
+                                <input type="text" id="resources" name="resources" data-code-point-maxlength="255" class="form-control form-control-sm"
                                        value='<%=bFirstDisp?"":"".equals(request.getParameter("resources"))?"": SafeEncode.forHtmlAttribute(StringUtils.defaultString(request.getParameter("resources")))%>'>
                             </div>
                         </div>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formDateTime"/>:</label>
+                            <span class="col-sm-4 col-form-label"><fmt:message key="Appointment.formDateTime"/>:</span>
                             <div class="col-sm-8">
                                 <%
                                     GregorianCalendar now = new GregorianCalendar();
@@ -1434,10 +1534,10 @@ Ontario, Canada
                         <% String emailReminder = pros.getProperty("emailApptReminder");
                             if ((emailReminder != null) && emailReminder.equalsIgnoreCase("yes")) { %>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formEmailReminder"/>:</label>
+                            <label class="col-sm-4 col-form-label" for="emailPt"><fmt:message key="Appointment.formEmailReminder"/>:</label>
                             <div class="col-sm-8">
                                 <div class="form-check mt-1">
-                                    <input type="checkbox" class="form-check-input" name="emailPt" value="email reminder">
+                                    <input type="checkbox" class="form-check-input" name="emailPt" id="emailPt" value="email reminder">
                                 </div>
                             </div>
                         </div>
@@ -1472,7 +1572,6 @@ Ontario, Canada
                     <input type="submit" id="addButton" class="btn btn-primary"
                            formaction="<%=request.getContextPath()%>/appointment/AddRecord"
                            onclick="document.forms['ADDAPPT'].displaymode.value='Add Appointment'"
-                           tabindex="7"
                            value="<% if (isMobileOptimized) { %><fmt:message key="appointment.addappointment.btnAddAppointmentMobile"/>
                    <% } else { %><fmt:message key="appointment.addappointment.btnAddAppointment"/><% } %>"
                             <%=disabled%>>
@@ -1508,7 +1607,7 @@ Ontario, Canada
                            onclick="pasteAppt(<%=(numSameDayGroupApptsPaste > 0)%>);">
                     <% }%>
 
-                    <% if (!props.getProperty("allowMultipleSameDayGroupAppt", "").equalsIgnoreCase("no")) {%>
+                    <% if (!(bDnb || bMultipleSameDayGroupAppt) && !props.getProperty("allowMultipleSameDayGroupAppt", "").equalsIgnoreCase("no")) {%>
                     <fmt:message key="appointment.addappointment.btnRepeat" var="btnRepeatMsg"/>
                     <input type="button" id="apptRepeatButton" class="btn btn-primary"
                            value="${carlos:forHtmlAttribute(btnRepeatMsg)}"

@@ -1,36 +1,49 @@
+<%-- Modifications by CARLOS Contributors, 2026. --%>
 <%-- add-form-personal.jsp: Name, address, phone, demographics, HIN (from demographicaddarecordhtm.jsp lines 767-1877) --%>
+<%--
+  Purpose: Personal-details section of the demographic registration form included by add.jsp.
+  Features: Identity, contact information, birth date, health-card details and
+  optional effective and renewal dates. Hidden date parts use the registration
+  action's parameter names and are synchronized by add.jsp before submission.
+  Inputs: DemographicAdd2Action request attributes supply patient-search defaults,
+  provincial configuration and country/lookup data. The authenticated session
+  supplies user and role context; search_mode and keyword preserve the search.
+  This fragment relies on the parent form and JavaScript in add.jsp and opens
+  the care-team row completed by add-form-clinical.jsp.
+  @since 2026-10-04 (date-field submission correction, issue #4155)
+--%>
 <%@ page import="java.util.*" %>
-<%@ page import="java.text.SimpleDateFormat" %>
-<%@ page import="java.util.Date" %>
+
+
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="io.github.carlos_emr.AppointmentMainBean" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="io.github.carlos_emr.Misc" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.Gender" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.ProvinceNames" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicEditHelper" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.Util" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.PatientConsentManager" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.managers.ProgramManager2" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
+
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
+
+
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
+
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <c:set var="ctx" value="${ pageContext.request.contextPath }"/>
 <%-- Retrieve variables from request attributes (set by DemographicAdd2Action) --%>
@@ -50,7 +63,6 @@
     String defaultProvince = (String) request.getAttribute("defaultProvince");
     ProvinceNames pNames = (ProvinceNames) request.getAttribute("pNames");
     boolean privateConsentEnabled = Boolean.TRUE.equals(request.getAttribute("privateConsentEnabled"));
-    String today = (String) request.getAttribute("today");
     List<Provider> doctors = (List<Provider>) request.getAttribute("doctors");
     List<Provider> nurses = (List<Provider>) request.getAttribute("nurses");
     List<Provider> midwifes = (List<Provider>) request.getAttribute("midwifes");
@@ -111,6 +123,10 @@
                     <input type="hidden" name="notes" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("notes")) %>' context="htmlAttribute"/>">
                     <input type="hidden" name="reason" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("reason")) %>' context="htmlAttribute"/>">
                     <input type="hidden" name="location" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("location")) %>' context="htmlAttribute"/>">
+                    <%-- Only when the booking form posted one (AppointmentLocationList.Choice.posted). --%>
+                    <% if (request.getParameter("locationCode") != null) { %>
+                    <input type="hidden" name="locationCode" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("locationCode")) %>' context="htmlAttribute"/>">
+                    <% } %>
                     <input type="hidden" name="resources" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("resources")) %>' context="htmlAttribute"/>">
                     <input type="hidden" name="type" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("type")) %>' context="htmlAttribute"/>">
                     <input type="hidden" name="style" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("style")) %>' context="htmlAttribute"/>">
@@ -207,10 +223,10 @@
                                        class="form-control" value="">
                             </div>
                             <div class="col-sm-2 text-end">
-                                <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formNameUsed"/>:</label>
+                                <label for="nameUsed" class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formNameUsed"/>:</label>
                             </div>
                             <div class="col-sm-4">
-                                <input type="text" name="nameUsed" class="form-control" value="" onBlur="upCaseCtrl(this)"/>
+                                <input type="text" name="nameUsed" id="nameUsed" maxlength="<%=Demographic.PREF_NAME_MAX_LENGTH%>" class="form-control" value="" onBlur="upCaseCtrl(this)"/>
                             </div>
                         </div>
 
@@ -772,10 +788,10 @@
                                 </div>
                             </div>
                             <div class="col-sm-2 text-end">
-                                <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formPronouns"/></label>
+                                <label for="patientPronouns" class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formPronouns"/></label>
                             </div>
                             <div class="col-sm-4">
-                                <input type="text" id="patientPronouns" name="pronouns" class="form-control"/>
+                                <input type="text" id="patientPronouns" name="pronouns" maxlength="<%=Demographic.PRONOUN_MAX_LENGTH%>" class="form-control"/>
                             </div>
                         </div>
 
@@ -809,10 +825,10 @@
                                 </div>
                             </div>
                             <div class="col-sm-2 text-end">
-                                <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formGender"/></label>
+                                <label for="patientGender" class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formGender"/></label>
                             </div>
                             <div class="col-sm-4">
-                                <input type="text" id="patientGender" name="gender" class="form-control"/>
+                                <input type="text" id="patientGender" name="gender" maxlength="<%=Demographic.GENDER_MAX_LENGTH%>" class="form-control"/>
                             </div>
                         </div>
 
@@ -835,12 +851,12 @@
                                     <input type="text" placeholder="<fmt:message key="yyyy-mm-dd"/>"
                                            name="eff_date" id="eff_date"
                                            class="form-control"
-                                           value="<%=today %>" size="12"
+                                           value="" size="12"
                                            onchange="parseDateField('eff_date');">
                                     <img src="<%= request.getContextPath() %>/images/cal.gif" id="eff_date_cal">
                                     <input type="hidden" name="eff_date_year">
-                                    <input type="hidden" name="eff_month">
-                                    <input type="hidden" name="eff">
+                                    <input type="hidden" name="eff_date_month">
+                                    <input type="hidden" name="eff_date_date">
                                 </div>
                             </div>
                         </div>
@@ -939,7 +955,7 @@
                                     <input type="text" placeholder="<fmt:message key="yyyy-mm-dd"/>"
                                            name="hc_renew_date" id="hc_renew_date"
                                            class="form-control"
-                                           value="<%=today %>" size="12"
+                                           value="" size="12"
                                            onchange="parseDateField('hc_renew_date');">
                                     <img src="<%= request.getContextPath() %>/images/cal.gif" id="hc_renew_date_cal">
                                     <input type="hidden" name="hc_renew_date_year">

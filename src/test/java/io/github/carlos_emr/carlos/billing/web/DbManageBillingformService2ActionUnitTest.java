@@ -20,6 +20,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -40,6 +44,28 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("billing")
 class DbManageBillingformService2ActionUnitTest extends CarlosUnitTestBase {
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @DisplayName("should bound validation and transactional billing configuration diagnostics")
+    void shouldKeepBillingDiagnosticsPrivate_whenUpdateFails(boolean persistenceFailure) throws Exception {
+        request.setParameter("group1", "Fixture Codes");
+        request.setParameter("group1_service0", "A007A");
+        request.setParameter("group1_service0_order", persistenceFailure ? "1" : "PRIVATE_ORDER_VALUE");
+        if (persistenceFailure) org.mockito.Mockito.doThrow(new IllegalStateException("PRIVATE_BILLING_MESSAGE",
+                new IllegalArgumentException("PRIVATE_BILLING_CAUSE")))
+                .when(billingFormConfigurationService).replaceServiceCodes(eq("42"), any());
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(DbManageBillingformService2Action.class)) {
+            assertThat(new DbManageBillingformService2Action().execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(persistenceFailure ? 500 : 400);
+            // parseServiceOrder wraps the numeric exception; neither its sensitive cause
+            // nor its message may be attached to the emitted validation diagnostic.
+            assertThat(logs.messages()).anyMatch(message -> message.contains(persistenceFailure ? "IllegalStateException" : "IllegalArgumentException"));
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_");
+            assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
+            if (!persistenceFailure) verify(billingFormConfigurationService, never()).replaceServiceCodes(any(), any());
+        }
+    }
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
@@ -115,5 +141,44 @@ class DbManageBillingformService2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getRedirectedUrl()).isEqualTo("/carlos/billing/CA/ON/ManageBillingform");
         verify(billingFormConfigurationService).replaceServiceCodes(eq("42"), any(List.class));
+    }
+
+    /** Only surrounding whitespace changes; the form, group and order stay intact. */
+    @ParameterizedTest
+    @ValueSource(strings = {" A007A", "A007A ", "\t A007A \r\n", "A007A"})
+    void shouldTrimServiceCodes_whenReplacingBillingFormRows(String serviceCode) throws Exception {
+        request.setParameter("group3", "Common Codes");
+        request.setParameter("group3_service19", serviceCode);
+        request.setParameter("group3_service19_order", "7");
+
+        new DbManageBillingformService2Action().execute();
+
+        ArgumentCaptor<List<CtlBillingService>> rows = ArgumentCaptor.captor();
+        verify(billingFormConfigurationService).replaceServiceCodes(eq("42"), rows.capture());
+        assertThat(rows.getValue()).singleElement().satisfies(row -> {
+            assertThat(row.getServiceCode()).isEqualTo("A007A");
+            assertThat(row.getServiceOrder()).isEqualTo(7);
+            assertThat(row.getServiceGroup()).isEqualTo("Group3");
+            assertThat(row.getServiceGroupName()).isEqualTo("Common Codes");
+        });
+        assertThat(response.getStatus()).isEqualTo(302);
+    }
+
+    /** Blank codes are ignored before their invalid orders can abort a save. */
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "\t\r\n", "  \t  "})
+    void shouldSkipEmptyServiceCodes_whenOrderIsInvalid(String serviceCode) throws Exception {
+        if (serviceCode != null) {
+            request.setParameter("group1_service0", serviceCode);
+        }
+        request.setParameter("group1_service0_order", "invalid");
+
+        new DbManageBillingformService2Action().execute();
+
+        ArgumentCaptor<List<CtlBillingService>> rows = ArgumentCaptor.captor();
+        verify(billingFormConfigurationService).replaceServiceCodes(eq("42"), rows.capture());
+        assertThat(rows.getValue()).isEmpty();
+        assertThat(response.getStatus()).isEqualTo(302);
     }
 }

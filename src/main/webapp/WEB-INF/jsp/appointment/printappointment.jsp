@@ -71,8 +71,12 @@
     <%=defaultPrinterNameAppointmentReceipt%>
     <%}%>
     <br>
-    <object id="apptpdf" type="application/pdf"
-            data="printAppointmentReceiptAction?appointment_no=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("appointment_no")) %>' context="uriComponent"/>"
-            height="80%" width="100%"></object>
+    <p><a id="appointmentReceiptPdf"
+          href="printAppointmentReceiptAction?appointment_no=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("appointment_no")) %>' context="uriComponent"/>"><fmt:message key="report.appointmentReceipt.title"/> (PDF)</a></p>
+    <%-- The packaged CSP intentionally blocks object/embed. A same-origin frame
+         allows the browser's PDF viewer without weakening that policy. --%>
+    <iframe id="apptpdf" title="<fmt:message key="report.appointmentReceipt.title"/>"
+            src="printAppointmentReceiptAction?appointment_no=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("appointment_no")) %>' context="uriComponent"/>"
+            style="width: 100%; height: 80vh; min-height: 240px; border: 0;"></iframe>
     </body>
 </html>

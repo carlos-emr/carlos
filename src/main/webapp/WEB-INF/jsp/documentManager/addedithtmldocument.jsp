@@ -50,7 +50,7 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -59,7 +59,7 @@
 <%@ page import="io.github.carlos_emr.carlos.documentManager.data.AddEditDocument2Form" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
-<%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Document" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%
@@ -120,8 +120,8 @@
         formdata.setObservationDate(currentDoc.getObservationDate());
         formdata.setReviewerId(currentDoc.getReviewerId());
         formdata.setReviewDateTime(currentDoc.getReviewDateTime());
-        formdata.setContentDateTime(UtilDateUtilities.DateToString(currentDoc.getContentDateTime(), EDocUtil.CONTENT_DATETIME_FORMAT));
-        formdata.setHtml(UtilMisc.htmlEscape(currentDoc.getHtml()));
+        formdata.setContentDateTime(currentDoc.getContentDateTimeDisplay(EDocUtil.CONTENT_DATETIME_FORMAT));
+        formdata.setHtml(currentDoc.getHtml());
         lastUpdate = currentDoc.getDateTimeStamp();
         fileName = currentDoc.getFileName();
     } else {
@@ -202,6 +202,7 @@
     <script type="text/javascript"
             src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
+    <fmt:message key="dms.error.descriptionTooLong" var="msgDescriptionTooLongText"/>
     <script type="text/javascript">
         window.onload = function () {
             if (!NiftyCheck()) return;
@@ -248,7 +249,14 @@
         function submitUpload(object) {
             object.Submit.disabled = true;
             var ans = true;
-            if (object.reviewerId.value != "") {
+            // document.docdesc counts code points (utf8mb4), as Array.from does; AddEditHtml2Action
+            // refuses a longer description too, and that is the check that holds.
+            if (Array.from(object.docDesc.value.replace(/^[\x00-\x20]+|[\x00-\x20]+$/g, '')).length > <%= Document.DESCRIPTION_MAX_LENGTH %>) {
+                alert('${carlos:forJavaScript(msgDescriptionTooLongText)}');
+                object.docDesc.focus();
+                ans = false;
+            }
+            if (ans && object.reviewerId.value != "") {
                 ans = confirm("Re-submitting this HTML will remove reviewer information. Confirm?");
             }
             if (ans && !validDate("observationDate")) {
@@ -363,9 +371,12 @@
             </td>
         </tr>
         <tr>
-            <td>Description:</td>
-            <td><input <% if (linkhtmlerrors.containsKey("descmissing")) {%>
-                    class="warning" <%}%> type="text" name="docDesc" size="30"
+            <td><label for="docDesc">Description:</label></td>
+            <%-- No maxlength: a browser clips a paste to maxlength in UTF-16 units before any check
+                 runs. submitUpload and the action refuse a description longer than
+                 Document.DESCRIPTION_MAX_LENGTH code points. --%>
+            <td><input <% if (linkhtmlerrors.containsKey("descmissing") || linkhtmlerrors.containsKey("desctoolong")) {%>
+                    class="warning" <%}%> type="text" name="docDesc" id="docDesc" size="30"
                     onfocus="checkDefaultValue(this)" value="<carlos:encode value='<%= formdata.getDocDesc() %>' context="htmlAttribute"/>"></td>
         </tr>
         <tr>
@@ -396,7 +407,7 @@
         </tr>
         <tr>
             <td><fmt:message key="dms.addDocument.formContentAddedUpdated"/>:</td>
-            <td><%=formdata.getContentDateTime()%>
+            <td><carlos:encode value='<%= formdata.getContentDateTime() %>' context='html'/>
             </td>
         </tr>
         <tr>
@@ -410,7 +421,7 @@
         <tr>
             <td>Observation Date <font class="comment">(yyyy/mm/dd):</font></td>
             <td><input type="text" name="observationDate"
-                       id="observationDate" value="<%=formdata.getObservationDate()%>"><a
+                       id="observationDate" value="<carlos:encode value='<%= formdata.getObservationDate() %>' context='htmlAttribute'/>"><a
                     id="obsdate"><img title="Calendar" src="<%= request.getContextPath() %>/images/cal.gif"
                                       alt="Calendar" border="0"/></a></td>
         </tr>
@@ -439,8 +450,7 @@
         <tr>
             <td colspan="2">
 			    <textarea name="html" <% if (linkhtmlerrors.containsKey("uploaderror")) {%>
-                          class="warning" <%}%> wrap="off" style="width: 98%; height: 200px;"><%=formdata.getHtml()%>
-			    </textarea>
+                          class="warning" <%}%> wrap="off" style="width: 98%; height: 200px;"><carlos:encode value='<%= formdata.getHtml() %>' context='html'/></textarea>
             </td>
         </tr>
     </table>

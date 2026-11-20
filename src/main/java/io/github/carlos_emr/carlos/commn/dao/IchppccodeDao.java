@@ -36,7 +36,17 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.AbstractCodeSystemModel;
 import io.github.carlos_emr.carlos.commn.model.Ichppccode;
 
-public interface IchppccodeDao extends AbstractDao<Ichppccode> {
+/**
+ * ICHPPC research-code lookups.
+ *
+ * <p>This must extend {@link AbstractCodeSystemDao} — not {@link AbstractDao} — because
+ * {@code ichppccode} is one of the coding systems {@link AbstractCodeSystemDao#getDaoName}
+ * resolves, and every caller of that switch casts the resolved bean to
+ * {@code AbstractCodeSystemDao}. Declaring only {@code AbstractDao} here made that cast throw
+ * {@link ClassCastException} at runtime for ICHPPC alone, which surfaced as an HTTP 500 when a
+ * clinician added an ICHPPC code to the disease registry (issue #3741).</p>
+ */
+public interface IchppccodeDao extends AbstractCodeSystemDao<Ichppccode> {
     List<Ichppccode> findAll();
 
     List<Ichppccode> getIchppccodeCode(String term);

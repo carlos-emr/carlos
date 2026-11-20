@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.drools;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -133,13 +135,28 @@ public final class DroolsHelper {
      * @return KieBase compiled rule base ready for creating KieSessions
      * @throws DroolsCompilationException if the URL cannot be read or rule compilation fails
      */
+    public static KieBase loadFromUrl(URL url) throws DroolsCompilationException {
+        return createKieBaseFromDrl(readDrl(url));
+    }
+
+    /**
+     * Reads DRL text from a local classpath or filesystem URL without compiling it.
+     *
+     * <p>Applies the same local-URL validation as {@link #loadFromUrl(URL)}. Callers that cache
+     * compiled rules by content (for example {@code MeasurementFlowSheet}) read the text first so
+     * a cache hit skips compilation entirely.</p>
+     *
+     * @param url URL pointing to a DRL rule file (classpath or filesystem)
+     * @return String the DRL text, decoded as UTF-8
+     * @throws DroolsCompilationException if the URL is not a local file or jar resource, or
+     *                                    cannot be read
+     */
     // FindSecBugs URLCONNECTION_SSRF_FD: validateLocalDrlUrl rejects network-backed URL schemes before openStream.
     @SuppressFBWarnings(value = "URLCONNECTION_SSRF_FD", justification = "validateLocalDrlUrl only allows file: and jar:file: DRL resources before opening the stream")
-    public static KieBase loadFromUrl(URL url) throws DroolsCompilationException {
+    public static String readDrl(URL url) throws DroolsCompilationException {
         validateLocalDrlUrl(url);
         try (InputStream is = url.openStream()) {
-            String drl = IOUtils.toString(is, StandardCharsets.UTF_8);
-            return createKieBaseFromDrl(drl);
+            return IOUtils.toString(is, StandardCharsets.UTF_8);
         } catch (IOException e) {
             throw new DroolsCompilationException("Failed to read DRL from URL", e);
         }
@@ -270,13 +287,13 @@ public final class DroolsHelper {
                 try {
                     kContainer.dispose();
                 } catch (RuntimeException e) {
-                    log.warn("Failed to dispose KieContainer for releaseId {}", releaseId, e);
+                    log.warn("Failed to dispose KieContainer for releaseId {} {}", releaseId, LogSafe.exceptionTrace(e));
                 }
             }
             try {
                 ks.getRepository().removeKieModule(releaseId);
             } catch (RuntimeException e) {
-                log.warn("Failed to remove KieModule for releaseId {}", releaseId, e);
+                log.warn("Failed to remove KieModule for releaseId {} {}", releaseId, LogSafe.exceptionTrace(e));
             }
         }
     }
@@ -313,7 +330,7 @@ public final class DroolsHelper {
                 File allowedDir = new File(measurementDirPath);
                 File file = PathValidationUtils.validatePath(drlFilename, allowedDir);
                 if (file.isFile() && file.canRead()) {
-                    log.debug("Loading measurement DRL from file: {}", file.getName());
+                    log.debug("Loading configured measurement rules");
                     try (FileInputStream fis = new FileInputStream(file)) {
                         measurementRuleBase = loadFromInputStream(fis);
                     }
@@ -326,17 +343,17 @@ public final class DroolsHelper {
                 String resourcePath = "/oscar/encounter/oscarMeasurements/flowsheets/decisionSupport/" + drlFilename;
                 URL url = classpathAnchor.getResource(resourcePath);
                 if (url == null) {
-                    log.warn("Measurement DRL resource not found on classpath: {}", resourcePath);
+                    log.warn("Measurement DRL resource not found on classpath");
                     return null;
                 }
-                log.debug("Loading measurement DRL from classpath: {}", url.getFile());
+                log.debug("Loading measurement DRL from classpath");
                 measurementRuleBase = loadFromUrl(url);
             }
         } catch (SecurityException e) {
-            log.error("Security violation loading measurement DRL '{}': path traversal rejected", drlFilename, e);
+            log.error("Security violation loading measurement DRL: path traversal rejected: {}", LogSafe.exceptionTrace(e));
             throw e;
         } catch (IOException | DroolsCompilationException e) {
-            log.error("Failed to load measurement rule base for DRL file '{}'", drlFilename, e);
+            log.error("Failed to load measurement rule base for DRL file: {}", LogSafe.exceptionTrace(e));
         }
         return measurementRuleBase;
     }

@@ -31,8 +31,10 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -43,19 +45,26 @@ import io.github.carlos_emr.carlos.appointment.dto.AppointmentListItemDTO;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.AppointmentArchive;
 
-public interface OscarAppointmentDao extends AbstractDao<Appointment> {
+public interface OscarAppointmentDao extends AbstractDao<Appointment>, CdsExportPatientTableReadDao {
+
+    List<AppointmentDaySheetRow> findDaySheet(String start, String end, String startTime, String endTime,
+            String providerNo, boolean newOnly, String sort);
 
     public boolean checkForConflict(Appointment appt);
 
     /**
-     * Loads an appointment while acquiring a database write lock. Callers must
-     * invoke this method inside the transaction that performs the corresponding
-     * mutation so the lock remains held through validation and commit.
+     * Locks and refreshes an appointment from the current database row, including
+     * when it was already loaded in the persistence context. Callers must invoke
+     * this before modifying the appointment, inside the transaction that performs
+     * the corresponding mutation, so the lock remains held through validation and commit.
      *
      * @param appointmentNo appointment primary key
      * @return the locked appointment, or {@code null} when it does not exist
      */
     Appointment findForUpdate(Integer appointmentNo);
+
+    /** Existing legacy-series members from the anchor date through endDate; bounded at 367 rows. */
+    List<Appointment> findRecurringSeries(Appointment anchor, Date endDate);
 
     public List<Appointment> getAppointmentHistory(Integer demographicNo, Integer offset, Integer limit);
 
@@ -78,6 +87,17 @@ public interface OscarAppointmentDao extends AbstractDao<Appointment> {
     public List<Integer> getAllDemographicNoSince(Date lastUpdateDate, List<Program> programs);
 
     public List<Appointment> findByDateRange(Date startTime, Date endTime);
+
+    /**
+     * Finds requested dates blocked by an overlapping Do Not Book slot for the template's
+     * provider and program. Start/end times are inclusive; C and D slots are inactive,
+     * matching the Add Appointment popup. Only dates, not appointment entities, are loaded.
+     *
+     * @param template requested provider, program and time interval
+     * @param dates candidate dates (recurrence callers supply at most 366)
+     * @return distinct blocked dates, or an empty list for no candidates or conflicts
+     */
+    List<Date> findDoNotBookDates(Appointment template, List<Date> dates);
 
     public List<Appointment> findByDateRangeAndProvider(Date startTime, Date endTime, String providerNo);
 
@@ -104,6 +124,20 @@ public interface OscarAppointmentDao extends AbstractDao<Appointment> {
 
     public Appointment findNextAppointment(Integer demographicId);
 
+    /**
+     * Resolves the next appointment DATE for many patients in one query, for callers that would
+     * otherwise call {@link #findNextAppointment(Integer)} once per row (the patient search returns
+     * up to 100).
+     *
+     * <p>"Next" is the same selection {@link #findNextAppointment(Integer)} makes -- the earliest
+     * uncancelled appointment that has not started yet -- so the two must be kept in step.</p>
+     *
+     * @param demographicIds patients to resolve; null or empty returns an empty map
+     * @return a map from demographic number to that patient's next appointment date, holding no
+     *         entry for a patient with no such appointment
+     */
+    public Map<Integer, Date> findNextAppointmentDates(Collection<Integer> demographicIds);
+
     public Appointment findDemoAppointmentToday(Integer demographicNo);
 
     public List<Appointment> findByProviderAndDate(String providerNo, Date appointmentDate);
@@ -124,7 +158,42 @@ public interface OscarAppointmentDao extends AbstractDao<Appointment> {
     void streamPatientAppointments(String providerNo, Date from, Date to,
                                    Consumer<PatientAppointmentExportRow> rowConsumer);
 
+    /**
+     * Lists appointments that still need billing for one provider and date range,
+     * newest first. Billed ({@code B*}), No-Show ({@code N*}) and Cancelled
+     * ({@code C*}) appointments are excluded, matching the Ontario "new report"
+     * unbilled query ({@link #findBillingOnNewReportUnbilledRows}).
+     *
+     * <p>Equivalent to {@code findUnbilledAppointments(providerNo,
+     * startDate, endDate, false, false)}.</p>
+     *
+     * @param providerNo appointment provider number
+     * @param startDate inclusive start of the appointment-date range
+     * @param endDate inclusive end of the appointment-date range
+     * @return unbilled, non-cancelled, attended-or-pending appointments
+     */
     public List<Appointment> search_unbill_history_daterange(String providerNo, Date startDate, Date endDate);
+
+    /**
+     * Lists appointments that still need billing, with opt-in inclusion of
+     * No-Show and Cancelled appointments for clinics that bill for missed visits.
+     *
+     * <p>Billed ({@code B*}) appointments and appointments without a patient
+     * ({@code demographic_no = 0}) are always excluded. Status prefixes are
+     * matched case-sensitively ({@code appointment.status} is
+     * {@code utf8mb4_bin}), so lowercase custom statuses such as {@code c}
+     * ("Customized 3") are never mistaken for Cancelled.</p>
+     *
+     * @param providerNo appointment provider number
+     * @param startDate inclusive start of the appointment-date range
+     * @param endDate inclusive end of the appointment-date range
+     * @param includeNoShow {@code true} to keep {@code N*} (No-Show) appointments
+     * @param includeCancelled {@code true} to keep {@code C*} (Cancelled) appointments
+     * @return matching appointments ordered by date then start time, newest first
+     * @since 2026-09-26
+     */
+    public List<Appointment> findUnbilledAppointments(String providerNo, Date startDate, Date endDate,
+                                                             boolean includeNoShow, boolean includeCancelled);
 
     public List<Appointment> findByDateAndProvider(Date date, String provider_no);
 
@@ -192,4 +261,14 @@ public interface OscarAppointmentDao extends AbstractDao<Appointment> {
      * @since 2026-04-11
      */
     public List<AppointmentListItemDTO> findDayAppointmentDTOs(Date date, String providerNo);
+    /** Strict timestamp/ID continuation; old extension implementations refuse unsupported paging explicitly. */
+    default List<Appointment> findByUpdateDateAndId(Date after, int afterId, int limit) {
+        throw new UnsupportedOperationException("Schedule keyset paging is not supported by this DAO");
+    }
+
+    default List<Appointment> findByProgramProviderDemographicDateAndId(Integer programId, String providerNo,
+            Integer demographicId, Date after, int afterId, int limit) {
+        throw new UnsupportedOperationException("Filtered schedule keyset paging is not supported by this DAO");
+    }
+
 }

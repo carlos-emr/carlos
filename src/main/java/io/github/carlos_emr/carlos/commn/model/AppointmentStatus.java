@@ -38,14 +38,22 @@ import jakarta.persistence.PostUpdate;
 import jakarta.persistence.Table;
 
 import io.github.carlos_emr.carlos.appt.status.service.impl.AppointmentStatusMgrImpl;
+import org.hibernate.annotations.DynamicUpdate;
 
 
 @Entity
 @Table(name = "appointment_status")
+// Inline forms save one field at a time. Updating only dirty columns keeps a concurrent
+// colour/icon/activation change from being overwritten by this request's older snapshot.
+@DynamicUpdate
 public class AppointmentStatus extends AbstractModel<Integer> {
 
     public static final String APPOINTMENT_STATUS_HERE = "H";
     public static final String APPOINTMENT_STATUS_CANCELLED = "C";
+    /** No-Show appointment status code (first character of {@code appointment.status}). */
+    public static final String APPOINTMENT_STATUS_NO_SHOW = "N";
+    /** Billed appointment status code (first character of {@code appointment.status}). */
+    public static final String APPOINTMENT_STATUS_BILLED = "B";
 
 
     @Id
@@ -69,6 +77,42 @@ public class AppointmentStatus extends AbstractModel<Integer> {
 
     @Column(name = "short_letter_colour")
     private String shortLetterColour;
+
+    /**
+     * Creates an empty instance, as JPA and the existing callers do. Declared explicitly
+     * because the private copy constructor behind {@link #copyOf(AppointmentStatus)} would
+     * otherwise remove the implicit no-argument constructor JPA requires.
+     */
+    public AppointmentStatus() {
+    }
+
+    private AppointmentStatus(AppointmentStatus source) {
+        this.id = source.id;
+        this.status = source.status;
+        this.description = source.description;
+        this.color = source.color;
+        this.icon = source.icon;
+        this.active = source.active;
+        this.editable = source.editable;
+        this.shortLetters = source.shortLetters;
+        this.shortLetterColour = source.shortLetterColour;
+    }
+
+    /**
+     * Returns a detached copy that shares no mutable state with {@code source}.
+     *
+     * <p>{@code AppointmentStatusDaoImpl} keeps copies in the shared {@code appointmentStatuses}
+     * cache and hands each caller its own copy, so one caller changing a status (for example a
+     * colour for display) cannot change what every other reader sees until the cache expires.
+     * The copy keeps the database id, so {@code equals}/{@code hashCode} still match the row,
+     * but it is not managed by any persistence context: changing it writes nothing.</p>
+     *
+     * @param source the status to copy; may be {@code null}
+     * @return a new detached copy, or {@code null} when {@code source} is {@code null}
+     */
+    public static AppointmentStatus copyOf(AppointmentStatus source) {
+        return source == null ? null : new AppointmentStatus(source);
+    }
 
     public Integer getId() {
         return id;

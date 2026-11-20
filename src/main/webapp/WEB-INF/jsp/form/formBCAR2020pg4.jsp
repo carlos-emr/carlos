@@ -29,8 +29,8 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
-<%@ taglib uri="http://displaytag.sf.net" prefix="display" %>
+
+
 
 <%
     String user = (String) session.getAttribute("user");
@@ -48,9 +48,9 @@
     }
 %>
 
-<%@ page import=" io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*, java.util.Properties" %>
+<%@ page import="io.github.carlos_emr.carlos.form.*, java.util.Properties" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
+
 <%@ page import="io.github.carlos_emr.carlos.form.FrmBCAR2020Record" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -223,7 +223,7 @@
                 <table width="100%" border="0" cellspacing="1" cellpadding="1" class="small9">
                     <tr>
                         <td>
-                            <img src="graphics/BCAR2020_ref_pg1_top.png" width="100%"/>
+                            <img src="${pageContext.request.contextPath}/form/graphics/BCAR2020_ref_pg1_top.png" width="100%"/>
                         </td>
                     </tr>
                     <tr>

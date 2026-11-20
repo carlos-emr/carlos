@@ -26,7 +26,7 @@
   for dynamic output rendered by the page.
 --%>
 <!DOCTYPE html>
-<%@page import="io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOnNewReportViewModelAssembler" %>
+
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -184,16 +184,17 @@
     <table id="reportTbl" class="table table-sm table-striped table-hover" style="margin-top:10px;">
         <thead>
         <tr>
-            <c:forEach var="header" items="${model.columnHeaders}">
-                <th><carlos:encode value="${header}" context="html"/></th>
+            <%-- "header" is an implicit JSP object containing HTTP request headers. --%>
+            <c:forEach var="columnHeader" items="${model.columnHeaders}">
+                <th><carlos:encode value="${columnHeader}" context="html"/></th>
             </c:forEach>
         </tr>
         </thead>
         <tbody>
         <c:forEach var="row" items="${model.rows}">
             <tr>
-                <c:forEach var="header" items="${model.columnHeaders}">
-                    <c:set var="cell" value="${row.cells[header]}"/>
+                <c:forEach var="columnHeader" items="${model.columnHeaders}">
+                    <c:set var="cell" value="${row.cells[columnHeader]}"/>
                     <td>
                         <c:choose>
                             <c:when test="${not empty cell and not empty cell.popupUrl}">

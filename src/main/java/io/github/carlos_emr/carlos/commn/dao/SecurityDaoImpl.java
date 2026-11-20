@@ -31,11 +31,15 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.Date;
 import java.util.List;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.Security;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 public class SecurityDaoImpl extends AbstractDaoImpl<Security> implements SecurityDao {
@@ -43,6 +47,8 @@ public class SecurityDaoImpl extends AbstractDaoImpl<Security> implements Securi
     public SecurityDaoImpl() {
         super(Security.class);
     }
+
+
 
     @Override
     public List<Security> findAllOrderBy(String propertyName) {
@@ -102,6 +108,17 @@ public class SecurityDaoImpl extends AbstractDaoImpl<Security> implements Securi
     }
 
     @Override
+    public int updatePinHashIfUnchanged(Integer securityNo, String expectedPin, String newPinHash, Date pinUpdateDate) {
+        Query query = entityManager.createQuery(
+                "update Security x set x.pin = ?1, x.pinUpdateDate = ?2 where x.id = ?3 and x.pin = ?4");
+        query.setParameter(1, newPinHash);
+        query.setParameter(2, pinUpdateDate);
+        query.setParameter(3, securityNo);
+        query.setParameter(4, expectedPin);
+        return query.executeUpdate();
+    }
+
+    @Override
     public List<Security> findByLikeUserName(String userName) {
         Query query = entityManager.createQuery("select x from Security x where x.userName like ?1");
         query.setParameter(1, userName);
@@ -128,12 +145,32 @@ public class SecurityDaoImpl extends AbstractDaoImpl<Security> implements Securi
 
     @Override
     public List<Security> findByProviderSite(String providerNo) {
-        String queryStr = "select * from security s inner join providersite p on s.provider_no = p.provider_no " +
-                "where p.site_id in(select site_id from providersite where provider_no=?1)";
+        // Select only security columns and return each account once, even across shared sites.
+        String queryStr = "select s.* from security s where s.provider_no in " +
+                "(select p.provider_no from providersite p where p.site_id in " +
+                "(select site_id from providersite where provider_no=?1))";
         Query query = entityManager.createNativeQuery(queryStr, modelClass);
         query.setParameter(1, providerNo);
         @SuppressWarnings("unchecked")
         List<Security> secList = query.getResultList();
         return secList;
+    }
+
+    // MANDATORY: a lock taken in a transaction of its own would be released before the caller's
+    // comparison and write, which is the window this method exists to close.
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Security findForUpdate(Integer securityNo) {
+        if (securityNo == null) {
+            return null;
+        }
+        Security security = entityManager.find(Security.class, securityNo, LockModeType.PESSIMISTIC_WRITE);
+        if (security == null) {
+            return null;
+        }
+        // find() only locks an instance this persistence context had already loaded. Read the row
+        // again under the lock so MariaDB REPEATABLE READ also returns the committed state.
+        entityManager.refresh(security, LockModeType.PESSIMISTIC_WRITE);
+        return security;
     }
 }

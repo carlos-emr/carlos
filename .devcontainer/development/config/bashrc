@@ -71,7 +71,7 @@ alias egrep='egrep --color=auto'
 alias build='mvn clean compile'
 alias test-build='mvn test'
 alias package-war='mvn package'
-alias db-connect='mariadb -h db -u root -ppassword oscar'
+alias db-connect='mariadb -h db -u root -ppassword carlos'
 alias logs-tomcat='tail -f /usr/local/tomcat/logs/catalina.out'
 alias claude-help='cat CLAUDE.md | head -50'
 

@@ -39,7 +39,7 @@ import io.github.carlos_emr.carlos.commn.model.Ichppccode;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public class IchppccodeDaoImpl extends AbstractDaoImpl<Ichppccode> implements IchppccodeDao {
+public class IchppccodeDaoImpl extends AbstractCodeSystemDaoImpl<Ichppccode> implements IchppccodeDao {
 
     public IchppccodeDaoImpl() {
         super(Ichppccode.class);
@@ -93,7 +93,7 @@ public class IchppccodeDaoImpl extends AbstractDaoImpl<Ichppccode> implements Ic
         query.setParameter(1, codingSystem);
         query.setMaxResults(1);
 
-        return find(codingSystem);
+        return getSingleResultOrNull(query);
     }
 
     @Override

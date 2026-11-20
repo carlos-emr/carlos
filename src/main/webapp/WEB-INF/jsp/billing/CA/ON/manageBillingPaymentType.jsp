@@ -47,17 +47,13 @@
     <link href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css" rel="stylesheet" type="text/css">
     <!-- Bootstrap 2.3.1 -->
     <link href="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css">
+    <script src="${pageContext.request.contextPath}/billing/CA/ON/payment-type-csrf.js"></script>
     <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="${pageContext.request.contextPath}/js/global.js"></script>
     <script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
     <script src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
 
     <script>
-        function csrfTokenValue() {
-            var tokenInput = document.querySelector("input[name='CSRF-TOKEN']");
-            return tokenInput ? tokenInput.value : "";
-        }
-
         jQuery(document).ready(function () {
             jQuery('#tblBillType').DataTable({
                 "order": [],
@@ -111,29 +107,30 @@
 <script type="text/javascript">
 
     jQuery(document).ready(function () {
-        jQuery("tr td:nth-child(4)").on("click", "a", function (event) {
+        jQuery("tr td:nth-child(4)").on("click", "a", async function (event) {
+            event.preventDefault();
+            const token = await paymentTypeBeginRequest();
+            if (!token) return;
             jQuery.ajax({
                 url: "${pageContext.request.contextPath}/billing/CA/ON/removePaymentType",
                 type: "post",
-                async: false,
-                headers: {"CSRF-TOKEN": csrfTokenValue()},
                 timeout: 30000,
                 dataType: "json",
-                data: {paymentTypeId: event.target.getAttribute("data-paymentTypeId")},
+                complete: paymentTypeRequestComplete,
+                data: {"CSRF-TOKEN": token, paymentTypeId: event.target.getAttribute("data-paymentTypeId")},
                 success: function (data) {
                     if (data == null) {
                         alert("Error happened after getting response!");
+                        return;
                     }
-                    if (parseInt(data.ret) == 0) {
+                    if (data.ret === "0" || data.ret === 0) {
                         alert("Successed deleting the payment type!");
                         location.href = "${pageContext.request.contextPath}/billing/CA/ON/managePaymentType";
                     } else {
                         alert("Failed to delete the payment type, reason:" + data.reason);
                     }
                 },
-                error: function () {
-                    alert("Error happened!!");
-                }
+                error: paymentTypeRequestFailed
             });
             return false;
         });

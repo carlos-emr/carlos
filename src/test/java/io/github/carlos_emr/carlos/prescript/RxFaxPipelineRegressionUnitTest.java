@@ -38,10 +38,11 @@ import org.junit.jupiter.api.Test;
  *
  * <ul>
  *   <li>Routing — {@code /form/createcustomedpdf} is a plain servlet declared in
- *       {@code web.xml} ({@code FrmCustomedPDFServlet}); the Rx print and fax flows POST
- *       to it. Struts' global {@code struts.action.excludePattern} has to let it through,
+ *       {@code web.xml} ({@code FrmCustomedPDFServlet}); the Rx print flow POSTs to it.
+ *       Struts' global {@code struts.action.excludePattern} has to let it through,
  *       otherwise the Struts filter claims the request and answers 404 before the servlet
- *       runs — prescription faxing dies with "CARLOS Error: 404".</li>
+ *       runs — prescription printing dies with "CARLOS Error: 404". The fax flow POSTs to
+ *       the Struts action {@code /rx/faxPrescription} instead (issue #3108).</li>
  *   <li>Rx body newlines — {@code Preview2.jsp} posts the prescription text in the
  *       {@code rx} parameter, which the servlet splits on the platform line separator.
  *       Writing the {@code replaceAll} with a {@code "\\\n"} literal inline in a JSP tag
@@ -70,6 +71,8 @@ class RxFaxPipelineRegressionUnitTest {
             resolveProjectPath(Path.of("src/main/webapp/WEB-INF/jsp/rx/Preview2.jsp"));
     private static final Path VIEW_SCRIPT2_JSP =
             resolveProjectPath(Path.of("src/main/webapp/WEB-INF/jsp/rx/ViewScript2.jsp"));
+    private static final Path STRUTS_PRESCRIPTION_XML =
+            resolveProjectPath(Path.of("src/main/webapp/WEB-INF/classes/struts-prescription.xml"));
 
     private static final Pattern STRUTS_ACTION_EXCLUDE_PATTERN = Pattern.compile(
             "<constant name=\"struts\\.action\\.excludePattern\" value=\"([^\"]+)\"\\s*/>");
@@ -77,6 +80,10 @@ class RxFaxPipelineRegressionUnitTest {
             "<servlet-mapping>\\s*<servlet-name>pdfCustomedCreator</servlet-name>\\s*"
                     + "<url-pattern>/form/createcustomedpdf</url-pattern>\\s*</servlet-mapping>",
             Pattern.DOTALL);
+    private static final Pattern FAX_DISABLED_PREDICATE = Pattern.compile(
+            "function\\s+shouldDisableFaxControls\\(\\)\\s*\\{(.*?)\\}", Pattern.DOTALL);
+    private static final Pattern FAILED_FAX_RESET = Pattern.compile(
+            "function\\s+resetFailedFaxSubmission\\([^)]*\\)\\s*\\{(.*?)\\}", Pattern.DOTALL);
 
     @Test
     @DisplayName("should exclude the prescription PDF servlet URL from Struts action mapping")
@@ -88,6 +95,17 @@ class RxFaxPipelineRegressionUnitTest {
         Pattern excludePattern = Pattern.compile(matcher.group(1));
         assertThat(excludePattern.matcher("/form/createcustomedpdf").matches()).isTrue();
         assertThat(excludePattern.matcher("/carlos/form/createcustomedpdf").matches()).isTrue();
+    }
+
+    @Test
+    @DisplayName("should send the fax to the POST-only fax action and only printing to the PDF servlet")
+    void shouldRouteFax_toPostOnlyFaxAction() throws IOException {
+        String viewScript2 = Files.readString(VIEW_SCRIPT2_JSP);
+        assertThat(viewScript2)
+                .contains("method === \"oscarRxFax\"\n                        ? \"<%= request.getContextPath() %>/rx/faxPrescription?\" + requestParams")
+                .contains(": \"<%= request.getContextPath() %>/form/createcustomedpdf?__method=\" + method");
+        assertThat(Files.readString(STRUTS_PRESCRIPTION_XML)).contains(
+                "<action name=\"rx/faxPrescription\" class=\"io.github.carlos_emr.carlos.prescript.pageUtil.RxFaxPrescription2Action\"/>");
     }
 
     @Test
@@ -117,6 +135,114 @@ class RxFaxPipelineRegressionUnitTest {
         // A parse-time capture ("var csrfToken = ...") runs before CSRFGuard populates the
         // hidden input on DOMContentLoaded, so every fetch() would send an empty token.
         assertThat(viewScript2).doesNotContain("'CSRF-TOKEN': csrfToken");
+    }
+
+    @Test
+    @DisplayName("should HTML-attribute encode stored pharmacy fields in the fax form")
+    void shouldEncodePharmacyFields_inFaxFormAttributes() throws IOException {
+        String preview2 = Files.readString(PREVIEW2_JSP);
+        assertThat(preview2)
+                .contains("value='<%= pharmaFax %>' context=\"htmlAttribute\"")
+                .contains("value='<%= pharmaName %>' context=\"htmlAttribute\"")
+                .doesNotContain("name=\"pharmaFax\" value=\"<%=pharmaFax%>\"")
+                .doesNotContain("name=\"pharmaName\" value=\"<%=pharmaName%>\"");
+    }
+
+    @Test
+    @DisplayName("should gate stored pharmacy fax numbers using the selected providers' dialing rules")
+    void shouldGatePharmacyFax_toProviderRules() throws IOException {
+        String viewScript2 = Files.readString(VIEW_SCRIPT2_JSP);
+        assertThat(viewScript2)
+                .contains("FaxDestination.forQueue(")
+                .contains("pharmacy == null ? null : pharmacy.getFax(), account.getProviderType()")
+                .contains("boolean hasPharmacyFax = !usableFaxSenderNumbers.isEmpty()")
+                .contains("usableFaxSenderNumbers.contains(faxConfig.getFaxNumber()) ? \"\" : \"disabled\"")
+                .doesNotContain("selected=\"<%=providerFax.equals");
+    }
+
+    @Test
+    @DisplayName("should bind notes preview signature and fax to the server-resolved displayed prescription")
+    void shouldBindAllPrescriptionOperations_toServerResolvedScript() throws IOException {
+        String viewScript2 = Files.readString(VIEW_SCRIPT2_JSP);
+        int selectionStart = viewScript2.indexOf("String scriptIdForFax = firstValidScriptId(");
+        int selectionEnd = viewScript2.indexOf(';', selectionStart);
+        assertThat(selectionStart).isGreaterThan(viewScript2.indexOf("bean = reprintEntry.bean();"));
+        assertThat(selectionEnd).isLessThan(viewScript2.indexOf("function addNotes()"));
+        // The attribute is set on fresh writes and /rx/viewScript; direct reprints
+        // have the displayed saved stash instead. Neither may be overridden by a URL.
+        assertThat(viewScript2.substring(selectionStart, selectionEnd))
+                .contains("request.getAttribute(\"scriptId\")")
+                .contains("bean.getStashItem(0).getScript_no()")
+                .contains("reprintEntry != null && bean.getStashSize() > 0")
+                .doesNotContain("getParameter");
+        assertThat(viewScript2)
+                .doesNotContain("request.getParameter(\"scriptId\")")
+                .contains("\"scriptNo=\" + encodeURIComponent(faxScriptNo)")
+                .contains("var faxScriptNo = \"<carlos:encode value='<%= scriptIdForFax %>'")
+                .contains("/rx/ViewPreview2?scriptId=<%= scriptIdForFax %>")
+                .contains("associateSavedSignature(e, '<%= scriptIdForFax %>')")
+                .contains("onPrint2('oscarRxFax', faxScriptNo,");
+    }
+
+    @Test
+    @DisplayName("should render the selected saved script independently of later session changes")
+    void shouldRenderSnapshot_whenBoundToRequest() throws IOException {
+        String viewScript2 = Files.readString(VIEW_SCRIPT2_JSP);
+        String preview2 = Files.readString(PREVIEW2_JSP);
+        assertThat(viewScript2)
+                .contains("RxReprintWorkspace.findForRequest(request, session, viewScriptDemographicNo)")
+                .contains("RxPreviewSnapshot.load(viewScriptDemographicNo, scriptIdForFax)")
+                .contains("bean = previewSnapshot.bean();")
+                .contains("bean = emptyPreview;")
+                .contains("String comment = reprintEntry != null ? reprintEntry.comment()");
+        assertThat(preview2)
+                .contains("request.getAttribute(RxPreviewSnapshot.REQUEST_ATTRIBUTE)")
+                .contains("bean = previewSnapshot != null ? previewSnapshot.bean() : reprintEntry.bean();")
+                .contains("else if (previewSnapshot == null && !\"true\".equalsIgnoreCase(rePrint) && hasRxStampSignature)");
+    }
+
+    @Test
+    @DisplayName("should require patient demographic read permission before enabling fax buttons")
+    void shouldRequireDemographicRead_whenEnablingFaxButtons() throws IOException {
+        String viewScript2 = Files.readString(VIEW_SCRIPT2_JSP);
+        int gateStart = viewScript2.indexOf("canFaxScript = faxSecurityManager.hasPrivilege");
+        int gateEnd = viewScript2.indexOf(';', gateStart);
+        assertThat(viewScript2.substring(gateStart, gateEnd))
+                .contains("\"_rx\", \"w\", String.valueOf(faxTarget.getDemographicId())")
+                .contains("\"_demographic\", \"r\", String.valueOf(faxTarget.getDemographicId())")
+                .contains("\"_fax\", \"w\", null");
+    }
+
+    @Test
+    @DisplayName("should reapply every current fax prerequisite after a failed submission")
+    void shouldReapplyFaxPrerequisites_afterFailedSubmission() throws IOException {
+        String viewScript2 = Files.readString(VIEW_SCRIPT2_JSP);
+
+        Matcher predicateMatcher = FAX_DISABLED_PREDICATE.matcher(viewScript2);
+        assertThat(predicateMatcher.find()).isTrue();
+        assertThat(predicateMatcher.group(1))
+                .contains("faxSubmissionPending")
+                .contains("faxSubmissionUncertain")
+                .contains("typeof hasPreview === 'undefined'")
+                .contains("!hasPreview")
+                .contains("!hasFaxNumber")
+                .contains("!hasFaxSenderAccount")
+                .contains("!canFaxScript")
+                .contains("!(isSignatureSaved || hasStoredSignature)");
+
+        Matcher resetMatcher = FAILED_FAX_RESET.matcher(viewScript2);
+        assertThat(resetMatcher.find()).isTrue();
+        assertThat(resetMatcher.group(1))
+                .contains("faxSubmissionPending = false")
+                .contains("setFaxControlsDisabled(shouldDisableFaxControls())")
+                .doesNotContain("setFaxControlsDisabled(false)");
+
+        int signatureHandlerStart = viewScript2.indexOf("function signatureHandler(e)");
+        int signatureSaveBranch = viewScript2.indexOf("if (e.isSave)", signatureHandlerStart);
+        assertThat(signatureHandlerStart).isGreaterThanOrEqualTo(0);
+        assertThat(signatureSaveBranch).isGreaterThan(signatureHandlerStart);
+        assertThat(viewScript2.substring(signatureHandlerStart, signatureSaveBranch))
+                .contains("setFaxControlsDisabled(shouldDisableFaxControls());");
     }
 
     private static Path resolveProjectPath(Path relativePath) {

@@ -11,7 +11,7 @@
 ## Core Context
 
 **Domain**: Canadian healthcare EMR system with multi-jurisdictional compliance (BC, ON, generic)
-**Stack**: Java 21, Spring 7.0.6, Struts 7.1.1, Hibernate 7.2.7, Maven 3, Tomcat 11.0, MariaDB/MySQL
+**Stack**: Java 25, Spring 7.0.6, Struts 7.1.1, Hibernate 7.2.7, Maven 3, Tomcat 11.0, MariaDB/MySQL
 **Architecture**: Multi-layered healthcare web application with complex medical database schema
 **Regulatory**: HIPAA/PIPEDA compliance REQUIRED - PHI protection is CRITICAL
 
@@ -19,7 +19,7 @@
 
 | Category | Technology | Version |
 |----------|-----------|---------|
-| Language | Java | 21 |
+| Language | Java | 25 |
 | Framework | Spring Framework | 7.0.6 |
 | Security | Spring Security | 7.0.4 |
 | Web | Struts | 7.1.1 |
@@ -28,7 +28,7 @@
 | Database | MariaDB/MySQL | - |
 | CSRF | OWASP CSRFGuard | 4.5 (Jakarta) |
 | XSS | OWASP Encoder | 1.4.0 (Jakarta) |
-| FHIR | HAPI FHIR | 8.4.0 |
+| FHIR DSTU3 | HAPI FHIR | 8.12.1 |
 | Web Services | Apache CXF | 4.1.5 |
 | Rules | Drools | 10.1.0 |
 | Caching | Caffeine | 3.2.3 |

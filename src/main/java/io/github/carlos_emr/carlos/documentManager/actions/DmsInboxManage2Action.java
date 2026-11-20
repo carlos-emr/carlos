@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.commn.model.Queue;
 import io.github.carlos_emr.carlos.commn.model.QueueDocumentLink;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -63,6 +64,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
+import java.time.ZoneId;
 import java.util.*;
 
 import org.apache.struts2.ActionSupport;
@@ -105,6 +107,12 @@ public class DmsInboxManage2Action extends ActionSupport {
     }
 
     public String execute() {
+        // This mutation has its own write authorization and typed outcome, including for callers
+        // without read permission. Dispatch it before the legacy read-only view gate.
+        if ("updateDocStatusInQueue".equals(request.getParameter("method"))) return updateDocStatusInQueue();
+        // addNewQueue inserts a queue and its _queue.<id> security object. It must be a POST (CSRFGuard
+        // does not validate GET) and needs write access, so it also runs before the read-only gate (#4428).
+        if ("addNewQueue".equals(request.getParameter("method"))) return addNewQueue();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "r", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
@@ -117,14 +125,10 @@ public class DmsInboxManage2Action extends ActionSupport {
             return prepareForIndexPage();
         } else if ("prepareForContentPage".equals(mtd)) {
             return prepareForContentPage();
-        } else if ("addNewQueue".equals(mtd)) {
-            return addNewQueue();
         } else if ("isDocumentLinkedToDemographic".equals(mtd)) {
             return isDocumentLinkedToDemographic();
         } else if ("isLabLinkedToDemographic".equals(mtd)) {
             return isLabLinkedToDemographic();
-        } else if ("updateDocStatusInQueue".equals(mtd)) {
-            return updateDocStatusInQueue();
         } else if ("getDocumentsInQueues".equals(mtd)) {
             return getDocumentsInQueues();
         }
@@ -206,6 +210,10 @@ public class DmsInboxManage2Action extends ActionSupport {
         return "doclabPreview";
     }
 
+    /**
+     * Builds scoped inbox counts and patient summaries for an authenticated index request.
+     * @return the index view, the existing error view for invalid dates/query failures, or NONE after logout
+     */
     public String prepareForIndexPage() {
         HttpSession session = request.getSession();
         if (redirectUnauthenticated(session)) {
@@ -274,6 +282,10 @@ public class DmsInboxManage2Action extends ActionSupport {
         try {
             CategoryData cData = new CategoryData(patientLastName, patientFirstName, patientHealthNumber,
                     patientSearch, providerSearch, searchProviderNo, status, abnormalStatus, startDate, endDate);
+            // The HRM rows of the list leave out a patient the user may not open; so must the sidebar.
+            // Always set: without a signed-in user the filter keeps no patient's reports.
+            cData.setHrmPatientReadable(io.github.carlos_emr.carlos.hospitalReportManager.HRMReportAccess
+                    .inboxPatientFilter(securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request)));
             cData.populateCountsAndPatients();
             MiscUtils.getLogger().debug("LABS " + cData.getTotalLabs());
             request.setAttribute("patientFirstName", patientFirstName);
@@ -288,11 +300,15 @@ public class DmsInboxManage2Action extends ActionSupport {
             request.setAttribute("categoryData", cData);
 
             return "dms_index";
-        } catch (SQLException e) {
+        } catch (SQLException | java.time.format.DateTimeParseException e) {
             return "error";
         }
     }
 
+    /**
+     * Loads inbox report rows using strict calendar bounds and preserves each selected HL7 review identity.
+     * @return the content view, the error view for an invalid date, or NONE after logout
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision.")
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -344,23 +360,19 @@ public class DmsInboxManage2Action extends ActionSupport {
 
         Date startDate = null;
         Date endDate = null;
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-
-        //Tries to convert the start date to a Date object, if it fails then sets the date to null so it doesn't pass other checks
         try {
-            startDate = sdf.parse(startDateStr);
-        } catch (Exception e) {
-            startDate = null;
-        }
-        //Tries to convert the end date to a Date object, if it fails then sets the date to null so it doesn't pass other checks
-        try {
-            endDate = sdf.parse(endDateStr);
-            endDate.setTime(endDate.getTime() + ((1000 * 3600 * 24) - 1));
-        } catch (Exception e) {
-            endDate = null;
+            var start = io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.parseDateBound(startDateStr);
+            var end = io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.parseDateBound(endDateStr);
+            // A local calendar day can span 23 or 25 hours at daylight-saving transitions.
+            ZoneId clinicZone = ZoneId.systemDefault();
+            startDate = start == null ? null : Date.from(start.atStartOfDay(clinicZone).toInstant());
+            endDate = end == null ? null : Date.from(end.plusDays(1).atStartOfDay(clinicZone).toInstant().minusMillis(1));
+        } catch (java.time.format.DateTimeParseException e) {
+            return "error";
         }
 
-        logger.debug("Got dates: " + startDate + "-" + endDate + " out of " + startDateStr + "-" + endDateStr);
+        logger.debug("Got dates: {}-{} out of {}-{}", LogSafe.sanitizeObject(startDate), LogSafe.sanitizeObject(endDate),
+                LogSafe.sanitize(startDateStr), LogSafe.sanitize(endDateStr));
 
         Boolean isAbnormal = null;
         if ("abnormal".equals(view)) {
@@ -463,69 +475,9 @@ public class DmsInboxManage2Action extends ActionSupport {
         }
         Collections.sort(labdocs);
 
-        HashMap<String, LabResultData> labMap = new HashMap<String, LabResultData>();
-        LinkedHashMap<String, ArrayList<String>> accessionMap = new LinkedHashMap<String, ArrayList<String>>();
-
-        int accessionNumCount = 0;
-        for (LabResultData result : labdocs) {
-            String segmentId = result.getSegmentID();
-            if (result.isDocument())
-                segmentId += "d";
-            else if (result.isHRM())
-                segmentId += "h";
-
-            labMap.put(segmentId, result);
-            ArrayList<String> labNums = new ArrayList<String>();
-
-            if (result.accessionNumber == null || result.accessionNumber.equals("null") || result.accessionNumber.isEmpty()) {
-                labNums.add(segmentId);
-                accessionNumCount++;
-                accessionMap.put("noAccessionNum" + accessionNumCount + result.labType, labNums);
-            } else if (!accessionMap.containsKey(result.accessionNumber + result.labType)) {
-                labNums.add(segmentId);
-                accessionMap.put(result.accessionNumber + result.labType, labNums);
-
-                // Different MDS Labs may have the same accession Number if they are seperated
-                // by two years. So accession numbers are limited to matching only if their
-                // labs are within one year of eachother
-            } else {
-                labNums = accessionMap.get(result.accessionNumber + result.labType);
-                boolean matchFlag = false;
-                for (int j = 0; j < labNums.size(); j++) {
-                    LabResultData matchingResult = labMap.get(labNums.get(j));
-
-                    Date dateA = result.getDateObj();
-                    Date dateB = matchingResult.getDateObj();
-                    int monthsBetween = 0;
-                    if (dateA == null || dateB == null) {
-                        monthsBetween = 5;
-                    } else if (dateA.before(dateB)) {
-                        monthsBetween = UtilDateUtilities.getNumMonths(dateA, dateB);
-                    } else {
-                        monthsBetween = UtilDateUtilities.getNumMonths(dateB, dateA);
-                    }
-
-                    if (monthsBetween < 4) {
-                        matchFlag = true;
-                        break;
-                    }
-                }
-                if (!matchFlag) {
-                    labNums.add(segmentId);
-                    accessionMap.put(result.accessionNumber + result.labType, labNums);
-                }
-            }
-        }
-
-        labdocs.clear();
-
-        for (ArrayList<String> labNums : accessionMap.values()) {
-            // must sort through in reverse to keep the labs in the correct order
-            for (int j = labNums.size() - 1; j >= 0; j--) {
-                labdocs.add(labMap.get(labNums.get(j)));
-            }
-        }
-        logger.debug("labdocs.size()=" + labdocs.size());
+        labdocs = preserveSelectedReports(labdocs);
+        // An int count cannot carry CR/LF; the taint rule cannot model that.
+        logger.debug("labdocs.size()={}", labdocs.size()); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
 
         /* find all data for the index.jsp page */
         Hashtable patientDocs = new Hashtable();
@@ -626,7 +578,8 @@ public class DmsInboxManage2Action extends ActionSupport {
         List<String> normals = ab_NormalDoc.get("normal");
         List<String> abnormals = ab_NormalDoc.get("abnormal");
 
-        logger.debug("labdocs.size()=" + labdocs.size());
+        // An int count cannot carry CR/LF; the taint rule cannot model that.
+        logger.debug("labdocs.size()={}", labdocs.size()); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
 
         // set attributes
         request.setAttribute("pageNum", page);
@@ -653,29 +606,63 @@ public class DmsInboxManage2Action extends ActionSupport {
         return "dms_page";
     }
 
+    /**
+     * Creates a document queue and its {@code _queue.<id>} security object (Administration &gt; Add New Queue).
+     *
+     * <p>Order matters: the HTTP method is rejected first (405, {@code Allow: POST}) so no privilege lookup or
+     * write happens for GET/HEAD, then {@code _edoc} write is required, then the name is validated (400 when
+     * missing or blank). The queue and its security object are committed in the same transaction.
+     *
+     * @return {@link #NONE}; the JSON body {@code {"addNewQueue":true|false}} is written directly. A missing
+     *         write privilege throws {@link SecurityException}
+     */
     public String addNewQueue() {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            return writeAddNewQueueResult(HttpServletResponse.SC_METHOD_NOT_ALLOWED, false);
+        }
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "w", null)) {
+            throw new SecurityException("missing required sec object (_edoc)");
+        }
+        String qn = request.getParameter("newQueueName");
+        String queueName = qn == null ? "" : qn.trim();
+        if (queueName.isEmpty()) {
+            return writeAddNewQueueResult(HttpServletResponse.SC_BAD_REQUEST, false);
+        }
         boolean success = false;
         try {
-            String qn = request.getParameter("newQueueName");
-            qn = qn.trim();
-            if (qn != null && qn.length() > 0) {
-                QueueDao queueDao = (QueueDao) SpringUtils.getBean(QueueDao.class);
-                success = queueDao.addNewQueue(qn);
-                addQueueSecObjectName(qn, queueDao.getLastId());
-            }
+            QueueDao queueDao = (QueueDao) SpringUtils.getBean(QueueDao.class);
+            var transaction = new org.springframework.transaction.support.TransactionTemplate(
+                    SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+            success = Boolean.TRUE.equals(transaction.execute(status -> {
+                Integer queueId = queueDao.addNewQueueAndGetId(queueName);
+                if (queueId == null) {
+                    status.setRollbackOnly();
+                    return false;
+                }
+                addQueueSecObjectName(queueName, queueId.toString());
+                return true;
+            }));
         } catch (Exception e) {
             logger.error("Error", e);
         }
+        return writeAddNewQueueResult(HttpServletResponse.SC_OK, success);
+    }
 
+    /** Writes the {@code addNewQueue} JSON outcome with an explicit HTTP status and returns {@link #NONE}. */
+    private String writeAddNewQueueResult(int status, boolean success) {
+        response.setStatus(status);
+        response.setContentType("application/json;charset=UTF-8");
         HashMap<String, Boolean> hm = new HashMap<String, Boolean>();
         hm.put("addNewQueue", success);
         ObjectNode jsonObject = objectMapper.valueToTree(hm);
         try {
-            response.getOutputStream().write(jsonObject.toString().getBytes());
+            response.getOutputStream().write(jsonObject.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
         } catch (java.io.IOException ioe) {
             logger.error("Error", ioe);
         }
-        return null;
+        return NONE;
     }
 
     public String isDocumentLinkedToDemographic() {
@@ -683,7 +670,7 @@ public class DmsInboxManage2Action extends ActionSupport {
         String demoId = null;
         try {
             String docId = request.getParameter("docId");
-            logger.debug("DocId:" + docId);
+            logger.debug("DocId:{}", LogSafe.sanitize(docId));
             if (docId != null) {
                 docId = docId.trim();
                 if (docId.length() > 0) {
@@ -691,7 +678,7 @@ public class DmsInboxManage2Action extends ActionSupport {
                     demoId = doc.getModuleId();
 
                     if (demoId != null) {
-                        logger.debug("DemoId:" + demoId);
+                        logger.debug("DemoId:{}", LogSafe.sanitize(demoId));
                         Integer demographicId = Integer.parseInt(demoId);
                         if (demographicId > 0) {
                             logger.debug("Success true");
@@ -747,11 +734,79 @@ public class DmsInboxManage2Action extends ActionSupport {
     }
 
     public String updateDocStatusInQueue() {
-        String docid = request.getParameter("docid");
-        if (docid != null && !docid.isEmpty()) {
-            queueDocumentLinkDAO.setStatusInactive(Integer.parseInt(docid));
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            writeQueueCompletion(405, false, false, null);
+            return NONE;
         }
-        return null;
+        String[] selections = request.getParameterValues("docid");
+        if (selections == null || selections.length != 1
+                || !IncomingDocumentCapacityResponse.positiveId(selections[0])) {
+            writeQueueCompletion(400, false, false, null);
+            return NONE;
+        }
+        String documentId = selections[0];
+        int number = Integer.parseInt(documentId);
+        LoggedInInfo info = LoggedInInfo.getLoggedInInfoFromSession(request);
+        int[] completion = {-1};
+        try {
+            IncomingDocumentCapacityResponse.requireStoredDocumentWriteAccess(securityInfoManager, info, documentId);
+            var transaction = new org.springframework.transaction.support.TransactionTemplate(
+                    SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+            transaction.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+            transaction.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
+            transaction.executeWithoutResult(status -> {
+                // Until afterCompletion confirms rollback, a failed commit has an unknown outcome.
+                completion[0] = org.springframework.transaction.support.TransactionSynchronization.STATUS_UNKNOWN;
+                org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                        new org.springframework.transaction.support.TransactionSynchronization() {
+                            @Override public void afterCompletion(int result) { completion[0] = result; }
+                        });
+                if (SpringUtils.getBean(DocumentDao.class).findForPageMutation(number) == null) {
+                    throw new SecurityException("Document is not available");
+                }
+                // Other sessions wait on the document row; recheck actual ownership after waiting.
+                IncomingDocumentCapacityResponse.requireStoredDocumentWriteAccess(securityInfoManager, info, documentId);
+                List<QueueDocumentLink> affected = queueDocumentLinkDAO.getQueueFromDocument(number).stream()
+                        .filter(link -> link.getStatus() != null && !"I".equals(link.getStatus())).toList();
+                // Completion removes the document from every queue. Visibility in just one queue
+                // cannot authorize changing a second, inaccessible queue. Check all before writing.
+                for (QueueDocumentLink link : affected) {
+                    IncomingDocumentCapacityResponse.requireQueueAccess(securityInfoManager, info, String.valueOf(link.getQueueId()));
+                }
+                for (QueueDocumentLink link : affected) {
+                    link.setStatus("I");
+                    queueDocumentLinkDAO.merge(link);
+                }
+            });
+        } catch (RuntimeException failure) {
+            boolean accepted = completion[0] != -1
+                    && completion[0] != org.springframework.transaction.support.TransactionSynchronization.STATUS_ROLLED_BACK;
+            int status = accepted ? 500 : failure instanceof SecurityException ? 403 : 500;
+            logger.warn("Document queue completion was not confirmed", failure);
+            writeQueueCompletion(status, false, accepted, number);
+            return NONE;
+        }
+        // Keep response-writing errors outside the transaction catch: the commit already succeeded.
+        writeQueueCompletion(200, true, true, number);
+        return NONE;
+    }
+
+    private void writeQueueCompletion(int status, boolean success, boolean accepted, Integer document) {
+        ObjectNode result = objectMapper.createObjectNode().put("success", success).put("accepted", accepted)
+                .put("retryable", false);
+        if (document != null) result.put("document", document);
+        if (!success) result.put("error", accepted
+                ? "Queue completion outcome is unconfirmed; do not submit again" : "Queue completion was refused");
+        response.setStatus(status);
+        response.setContentType("application/json;charset=UTF-8");
+        response.setHeader("Cache-Control", "no-store");
+        try {
+            response.getOutputStream().write(result.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (java.io.IOException failure) {
+            logger.error("Could not report document queue completion outcome", failure);
+            if (!response.isCommitted()) response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        }
     }
 
     // return a hastable containing queue id to queue name, a hashtable of queue id and a list of document nos.
@@ -891,5 +946,43 @@ public class DmsInboxManage2Action extends ActionSupport {
         request.setAttribute("searchProviderNo", searchProviderNo);
         return "document_in_queues";
 
+    }
+    private record ReportIdentity(String source, String id) { }
+    private record AccessionIdentity(String source, String accession) { }
+
+    /** Keeps HL7 review identities separate and preserves the other legacy source grouping. */
+    static ArrayList<LabResultData> preserveSelectedReports(List<LabResultData> selected) {
+        Map<ReportIdentity, LabResultData> reports = new LinkedHashMap<>();
+        for (LabResultData result : selected) {
+            reports.put(new ReportIdentity(result.labType, result.getSegmentID()), result);
+        }
+        Map<Object, List<LabResultData>> groups = new LinkedHashMap<>();
+        for (var entry : reports.entrySet()) {
+            LabResultData result = entry.getValue();
+            String accession = result.accessionNumber;
+            // An HL7 version is an independently reviewed report. Missing accessions
+            // also carry no evidence of a shared family, whatever their source.
+            Object key = "HL7".equals(result.labType) || accession == null
+                    || accession.isEmpty() || "null".equals(accession)
+                    ? entry.getKey() : new AccessionIdentity(result.labType, accession);
+            List<LabResultData> group = groups.computeIfAbsent(key, ignored -> new ArrayList<>());
+            if (group.stream().noneMatch(previous -> sameLegacyReportPeriod(previous, result))) {
+                group.add(result);
+            }
+        }
+        ArrayList<LabResultData> retained = new ArrayList<>();
+        for (List<LabResultData> group : groups.values()) {
+            retained.addAll(group.reversed());
+        }
+        return retained;
+    }
+
+    /** Legacy non-HL7 sources group a shared accession only within four calendar months; unknown dates stay separate. */
+    private static boolean sameLegacyReportPeriod(LabResultData first, LabResultData second) {
+        Date firstDate = first.getDateObj();
+        Date secondDate = second.getDateObj();
+        if (firstDate == null || secondDate == null) return false;
+        return (firstDate.before(secondDate) ? UtilDateUtilities.getNumMonths(firstDate, secondDate)
+                : UtilDateUtilities.getNumMonths(secondDate, firstDate)) < 4;
     }
 }

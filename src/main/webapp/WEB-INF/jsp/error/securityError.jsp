@@ -29,7 +29,19 @@
 
 --%>
 <%@ page import="java.util.List" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+<%--
+    Answer 403, not 200. This page is the global result for SecurityException, so
+    every authorization failure in the application renders it -- and it used to
+    render with the default 200 status. Any client that judges success by status
+    then read a REFUSED request as a successful one: the legacy document uploader
+    (noswfupload.js) treats anything under 400 as done and printed "Upload
+    complete" for an upload the _edoc privilege check had just rejected.
+
+    setStatus rather than sendError, so the styled page below is what the user
+    sees instead of the container's default error page.
+--%>
+<% response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN); %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <html>
@@ -38,9 +50,13 @@
 </head>
 <body>
 
-<h5>Security Exception</h5>
+<h5 id="carlos-permission-denied">Security Exception</h5>
 
 You tried to access a resource with insufficient privileges.
+<%-- Set by CarlosExceptionMappingInterceptor: the id on the WARN line that records this refusal. --%>
+<% Object incidentId = request.getAttribute("carlosIncidentId"); if (incidentId != null) { %>
+<p id="incident-reference">Reference: <code><carlos:encode value='<%= String.valueOf(incidentId) %>' context="html"/></code></p>
+<% } %>
 
 <%
     String[] vals = request.getParameterValues("type");

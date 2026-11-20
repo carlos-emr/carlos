@@ -31,6 +31,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLTimeoutException;
 import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayDeque;
@@ -38,8 +39,13 @@ import java.util.Deque;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.TimeUnit;
+import java.util.function.LongSupplier;
+import java.util.regex.Pattern;
 
 import javax.sql.DataSource;
+
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import org.springframework.jdbc.CannotGetJdbcConnectionException;
 import org.springframework.jdbc.datasource.DataSourceUtils;
@@ -57,6 +63,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * of returning JDBC cursors.</p>
  */
 public final class LegacyJdbcQuery {
+    private static final Pattern FILE_ACCESS_CLAUSE = Pattern.compile(
+            "\\binto\\s+(?:outfile|dumpfile)\\b|\\bload_file\\b|\\bload\\s+data\\b");
     private static final int MAX_THREAD_RESOURCES_BEFORE_WARNING = 10;
     private static final int MAX_THREAD_RESOURCES_BEFORE_EXCEPTION = 50;
     private static final ThreadLocal<Deque<AutoCloseable>> THREAD_RESOURCES = new ThreadLocal<>();
@@ -123,6 +131,114 @@ public final class LegacyJdbcQuery {
         return getPreparedResultSet(trustedReportSelectSql(sql.getSql()), false, sql.getParamsArray());
     }
 
+    /**
+     * Executes a template report with a forward-only, streaming MySQL cursor.
+     * The extra row lets the consumer detect overflow instead of silently truncating.
+     * Other legacy callers retain their scrollable cursor contract.
+     *
+     * @param sql validated report template and bound parameters
+     * @param maxRows positive JDBC row ceiling, including the overflow sentinel
+     * @param deadlineNanos absolute deadline from System.nanoTime(), shared by the request
+     * @return owned cursor; closing it releases the statement and connection
+     * @throws SQLException if validation, setup or execution fails
+     */
+    public static ResultSet getBoundedReportResultSet(ParameterizedSql sql, int maxRows, long deadlineNanos)
+            throws SQLException {
+        return getBoundedReportResultSet(trustedReportSelectSql(sql.getSql()), maxRows, deadlineNanos,
+                sql.getParamsArray());
+    }
+
+    /**
+     * Streams a validated legacy report using an exact JDBC row ceiling and absolute deadline.
+     * Unlike {@link ParameterizedSql}, this path preserves quoted question marks in legacy SQL.
+     * Callers requesting a complete result include one overflow sentinel in {@code maxRows};
+     * first-row and metadata reads need no sentinel.
+     *
+     * <p>Connection acquisition consumes the deadline, although its blocking wait is governed
+     * by the datasource's pool timeout. Once acquired, the connection is interrupted at the
+     * deadline, including during statement setup and result consumption.</p>
+     *
+     * @param sql validated report SELECT
+     * @param maxRows positive JDBC row ceiling, including any caller-required overflow sentinel
+     * @param deadlineNanos absolute deadline from {@link System#nanoTime()}
+     * @param params JDBC-bound query values
+     * @return owned cursor that releases its statement and managed connection when closed
+     * @throws SQLException if acquisition, setup, execution or the deadline fails
+     */
+    public static ResultSet getBoundedReportResultSet(TrustedSql sql, int maxRows, long deadlineNanos,
+            Object... params) throws SQLException {
+        return getBoundedReportResultSet(sql, maxRows, deadlineNanos, System::nanoTime, params);
+    }
+
+    static ResultSet getBoundedReportResultSet(TrustedSql sql, int maxRows, long deadlineNanos,
+            LongSupplier nanoTime, Object... params) throws SQLException {
+        if (maxRows < 1) {
+            throw new IllegalArgumentException("Report row limit must be positive");
+        }
+        if (deadlineNanos - nanoTime.getAsLong() <= 0) {
+            throw new SQLTimeoutException("Report query deadline exceeded");
+        }
+        DataSource dataSource = dataSource();
+        Connection connection = getRequiredConnection(dataSource);
+        PreparedStatement ps = null;
+        ReportQueryDeadline deadline = null;
+        try {
+            if (deadlineNanos - nanoTime.getAsLong() <= 0) {
+                throw new SQLTimeoutException("Report query deadline exceeded");
+            }
+            deadline = new ReportQueryDeadline(connection, deadlineNanos);
+            ps = prepareStreamingReportStatement(connection, sql);
+            ps.setMaxRows(maxRows);
+            // The negative streaming sentinel is specific to Connector/J. Other
+            // JDBC drivers (including H2) require a non-negative fetch size.
+            ps.setFetchSize(switch (connection.getMetaData().getDatabaseProductName()) {
+                case "MySQL", "MariaDB" -> Integer.MIN_VALUE;
+                case null, default -> Math.min(100, maxRows);
+            });
+            bindParams(ps, params);
+            long remainingNanos = deadlineNanos - nanoTime.getAsLong();
+            if (remainingNanos <= 0) {
+                throw new SQLTimeoutException("Report query deadline exceeded");
+            }
+            // JDBC uses integer seconds; only this fallback rounds up. The timer
+            // retains the original absolute deadline, including acquisition/setup.
+            ps.setQueryTimeout(Math.clamp(
+                    (remainingNanos + TimeUnit.SECONDS.toNanos(1) - 1) / TimeUnit.SECONDS.toNanos(1),
+                    1, Integer.MAX_VALUE));
+            ResultSet rs = ps.executeQuery(); // NOSONAR javasecurity:S3649 -- validated, parameterized report boundary
+            return registerThreadResource(ReportQueryDeadline.wrap(
+                    StatementClosingResultSet.wrap(rs, ps, connection, dataSource), deadline));
+        } catch (SQLException | RuntimeException e) {
+            PreparedStatement failedStatement = ps;
+            Runnable cleanup = () -> {
+                try {
+                    closeStatement(failedStatement);
+                } finally {
+                    DataSourceUtils.releaseConnection(connection, dataSource);
+                }
+            };
+            if (deadline == null) {
+                cleanup.run();
+            } else {
+                deadline.discard(cleanup);
+            }
+            if (deadline != null && deadline.isExpired() && e instanceof SQLException) {
+                throw new SQLTimeoutException("Report query deadline exceeded", e);
+            }
+            throw e;
+        }
+    }
+
+    @SuppressFBWarnings(
+            value = {"SQL_INJECTION_JDBC", "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"},
+            justification = "Only TrustedSql created by structural SELECT validation reaches this preparation sink")
+    private static PreparedStatement prepareStreamingReportStatement(Connection connection, TrustedSql sql)
+            throws SQLException {
+        // codeql[java/sql-injection] -- TrustedSql is constructed only after SELECT validation; values are bound by the caller.
+        return connection.prepareStatement(sql.sql(), ResultSet.TYPE_FORWARD_ONLY,
+                ResultSet.CONCUR_READ_ONLY); // nosemgrep: java.lang.security.audit.formatted-sql-string-deepsemgrep.formatted-sql-string-deepsemgrep -- validated TrustedSql boundary
+    }
+
     public static ResultSet getPreparedResultSet(TrustedSql sql, Object... params) throws SQLException {
         return getPreparedResultSet(sql, false, params);
     }
@@ -169,6 +285,20 @@ public final class LegacyJdbcQuery {
         return getPreparedResultSetValidated(sql, updatable, params);
     }
 
+    /**
+     * Bounded streaming compatibility path for server-configured reports.
+     * Callers must close the result, detect the extra sentinel row, and enforce their output budget.
+     * This retains the managed legacy datasource; Query by Example uses its separate reporting account.
+     */
+    public static ResultSet getBoundedReportResultSet(TrustedSql sql, int maximumRows, int timeoutSeconds,
+            Object... params) throws SQLException {
+        if (maximumRows < 1 || maximumRows == Integer.MAX_VALUE || timeoutSeconds < 1) {
+            throw new IllegalArgumentException("Invalid report query budget");
+        }
+        long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(timeoutSeconds);
+        return getBoundedReportResultSet(sql, maximumRows + 1, deadlineNanos, params);
+    }
+
     private static ResultSet getPreparedResultSetValidated(TrustedSql sql, boolean updatable, Object... params) throws SQLException {
         DataSource dataSource = dataSource();
         Connection connection = getRequiredConnection(dataSource);
@@ -207,15 +337,15 @@ public final class LegacyJdbcQuery {
 
     public static void procExecute(String procName, String[] params) throws SQLException {
         validateProcName(procName);
-        StringBuilder sql = new StringBuilder("{call ").append(procName);
+        StringBuilder sql = new StringBuilder("{call ").append(procName).append('(');
         if (params != null && params.length > 0) {
             StringBuilder prms = new StringBuilder();
             for (int i = 0; i < params.length; i++) {
                 prms.append("?,");
             }
-            sql.append("(").append(prms.substring(0, prms.length() - 1)).append(")");
+            sql.append(prms.substring(0, prms.length() - 1));
         }
-        sql.append("}");
+        sql.append(")}");
 
         DataSource dataSource = dataSource();
         Connection connection = getRequiredConnection(dataSource);
@@ -345,11 +475,8 @@ public final class LegacyJdbcQuery {
             }
         }
 
-        String[] blockedPhrases = {"into outfile", "into dumpfile", "load_file", "load data"};
-        for (String phrase : blockedPhrases) {
-            if (normalizedSqlSyntax.contains(phrase)) {
-                throw new SQLException("Unsafe SQL detected: prohibited keyword");
-            }
+        if (containsFileAccessClause(normalizedSqlSyntax)) {
+            throw new SQLException("Unsafe SQL detected: prohibited keyword");
         }
     }
 
@@ -373,12 +500,24 @@ public final class LegacyJdbcQuery {
             throw new SQLException("Unsafe SQL detected: comment or statement separator");
         }
 
-        String[] blockedPhrases = {"into outfile", "into dumpfile", "load_file", "load data"};
-        for (String phrase : blockedPhrases) {
-            if (normalized.contains(phrase)) {
-                throw new SQLException("Unsafe SQL detected: prohibited keyword");
-            }
+        // Quoted literals are data ("SELECT 'load_file' AS label" reads no file), as in the
+        // generic validator; the control-token scan above already refused anything ambiguous.
+        if (containsFileAccessClause(stripQuotedSqlSections(sql).toLowerCase(Locale.ROOT))) {
+            throw new SQLException("Unsafe SQL detected: prohibited keyword");
         }
+    }
+
+    /**
+     * File reads and writes the SELECT validators refuse. MariaDB accepts any whitespace
+     * between the words of {@code INTO OUTFILE}, {@code INTO DUMPFILE} and {@code LOAD DATA}
+     * (a newline or a tab as readily as one space), so they are matched as tokens separated by
+     * whitespace, not as literal single-spaced phrases. Comments, the other separator MariaDB
+     * accepts there, are refused before this runs.
+     *
+     * @param lowerCaseSql SQL already folded to lower case
+     */
+    private static boolean containsFileAccessClause(String lowerCaseSql) {
+        return FILE_ACCESS_CLAUSE.matcher(lowerCaseSql).find();
     }
 
     private static Object[] toObjects(LegacyJdbcParameter[] params) {
@@ -396,6 +535,10 @@ public final class LegacyJdbcQuery {
      * because the bundled AP SQL historically included it. Semicolons inside
      * quoted literals, such as {@code GROUP_CONCAT(... SEPARATOR ';')}, are data
      * and are not treated as stacked statements.</p>
+     *
+     * <p>A backslash escape is unsafe only where it could escape the literal's
+     * closing quote, because only then does the literal end in a different place
+     * under {@code NO_BACKSLASH_ESCAPES}. Escapes such as {@code '\n'} are data.</p>
      */
     public static boolean containsUnsafeSqlControlToken(String sql) {
         if (sql == null) {
@@ -418,8 +561,11 @@ public final class LegacyJdbcQuery {
                 char current = sql.charAt(position);
                 char next = nextChar();
                 if (insideQuotedLiteral()) {
-                    if (isSqlModeDependentEscape(current)) {
-                        return true;
+                    if (isStringLiteralBackslash(current)) {
+                        if (backslashRunEscapesClosingQuote()) {
+                            return true;
+                        }
+                        continue;
                     }
                     skipQuotedLiteralToken(current, next);
                 } else if (opensQuotedLiteral(current)) {
@@ -447,8 +593,37 @@ public final class LegacyJdbcQuery {
             }
         }
 
-        private boolean isSqlModeDependentEscape(char current) {
+        /** A backslash inside a string literal; backtick identifiers have no escapes in any mode. */
+        private boolean isStringLiteralBackslash(char current) {
             return quote != '`' && current == '\\';
+        }
+
+        /**
+         * Consumes the run of backslashes starting at {@code position} and reports whether it makes
+         * the end of the literal depend on the server's sql_mode.
+         *
+         * <p>Under the default sql_mode each backslash escapes the character after it; under
+         * {@code NO_BACKSLASH_ESCAPES} it is plain text. The two readings end the literal in
+         * different places only when an ODD run sits directly before the literal's own quote: the
+         * default mode reads an escaped quote and keeps going, while {@code NO_BACKSLASH_ESCAPES}
+         * ends the literal there and parses the rest as SQL ({@code 'safe\' union select ...}).
+         * Any other run, such as the {@code '\n'} separators the bundled eForm AP queries join rows
+         * with, or an escaped backslash before the closing quote, ends the literal at the same quote
+         * in both modes and changes only its content, so it is not a control token. Refusing those
+         * as well blanked every AP field built on them.</p>
+         *
+         * @return true when the literal's end depends on the sql_mode
+         */
+        private boolean backslashRunEscapesClosingQuote() {
+            int runEnd = position;
+            while (runEnd < sql.length() && sql.charAt(runEnd) == '\\') {
+                runEnd++;
+            }
+            boolean oddRun = (runEnd - position) % 2 == 1;
+            boolean beforeClosingQuote = runEnd < sql.length() && sql.charAt(runEnd) == quote;
+            // Resume on the character after the run: the loop increment moves past runEnd - 1.
+            position = runEnd - 1;
+            return oddRun && beforeClosingQuote;
         }
 
         private static boolean opensQuotedLiteral(char current) {
@@ -623,8 +798,11 @@ public final class LegacyJdbcQuery {
 
     /**
      * Masks quoted sections while preserving input length for keyword checks.
-     * Backslash-containing string literals are rejected by the control-token scanner before this
-     * method is called because their boundaries depend on MySQL's {@code NO_BACKSLASH_ESCAPES} mode.
+     * The control-token scanner rejects, before this method is called, every string literal whose
+     * end depends on MySQL's {@code NO_BACKSLASH_ESCAPES} mode: an odd run of backslashes directly
+     * before the closing quote. Any other backslash (one inside the literal, such as {@code '\n'},
+     * or an even run before the quote) leaves the closing quote where both modes put it, so this
+     * method treats backslashes as ordinary characters and masks the same span either way.
      * This intentionally differs from the Query-by-Example validator's scanner, which must match
      * JSqlParser's configured parsing. The two scanners must not be merged.
      */

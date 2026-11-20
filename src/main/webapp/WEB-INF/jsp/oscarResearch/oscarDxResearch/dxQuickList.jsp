@@ -43,12 +43,12 @@ Required Parameters to plug-in:
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <table id="dxCodeQuicklist">
     <tr>
         <td class="heading">
-            ${ quickList }
+            ${carlos:forHtml(quickList)}
             <div class="card">
                 <div class="card-body">
                     <fmt:message key="oscarResearch.oscarDxResearch.quickList"/>
@@ -64,9 +64,9 @@ Required Parameters to plug-in:
     <tr>
         <td class="quickList">
             <select class="form-select" style="overflow:auto" name="quickList"
-                         onchange="javascript:changeList(this,'${ demographicNo }','${ providerNo }');">
+                         onchange="javascript:changeList(this,'${carlos:forJavaScriptAttribute(demographicNo)}','${carlos:forJavaScriptAttribute(providerNo)}');">
                 <c:forEach var="quickLists" items="${allQuickLists.dxQuickListBeanVector}">
-                    <option value="${ quickLists.quickListName }" ${ quickLists.quickListName eq param.quickList || quickLists.lastUsed eq 'Selected' ? 'selected' : '' } >
+                    <option value="${carlos:forHtmlAttribute(quickLists.quickListName)}" ${ (not empty param.quickList and quickLists.quickListName eq param.quickList) or (empty param.quickList and quickLists.lastUsed eq 'Selected') ? 'selected' : '' } >
                         ${carlos:forHtml(quickLists.quickListName)}
                     </option>
                 </c:forEach>

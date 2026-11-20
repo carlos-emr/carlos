@@ -98,6 +98,28 @@ class ConcatPDFUnitTest {
         }
     }
 
+    @Test
+    @DisplayName("required merge refuses a corrupt section before writing any partial PDF")
+    void shouldRejectIncompleteRequiredMerge_beforeWritingOutput() throws Exception {
+        String good = savePdfFile(createPdf(1, "Required chart"), "required.pdf");
+        String corrupt = savePdfFile("not a PDF".getBytes(java.nio.charset.StandardCharsets.UTF_8), "corrupt.pdf");
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                () -> ConcatPDF.concatRequired(List.of(good, corrupt), out))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(out.size()).isZero();
+    }
+
+    @Test
+    @DisplayName("required merge includes every page of valid sections in order")
+    void shouldIncludeEveryRequiredSection_whenAllInputsAreValid() throws Exception {
+        String first = savePdfFile(createPdf(2, "First"), "first-required.pdf");
+        String second = savePdfFile(createPdf(3, "Second"), "second-required.pdf");
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ConcatPDF.concatRequired(List.of(first, second), out);
+        assertThat(countPages(out.toByteArray())).isEqualTo(5);
+    }
+
     @Nested
     @DisplayName("Single file merge")
     class SingleFileMerge {

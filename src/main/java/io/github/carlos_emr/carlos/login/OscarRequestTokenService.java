@@ -58,10 +58,10 @@
 
 package io.github.carlos_emr.carlos.login;
 
-import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Request;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1SignatureVerifier;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Exception;
+import io.github.carlos_emr.carlos.webserv.oauth.OAuthScopeEnforcement;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuthScopes;
 import io.github.carlos_emr.carlos.webserv.oauth.Client;
 import io.github.carlos_emr.carlos.webserv.oauth.RequestTokenRegistration;
@@ -79,13 +79,6 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
 public class OscarRequestTokenService {
-
-    /**
-     * Config flag gating OAuth 1.0a scope enforcement (issue #3083). Absent/false (the default) keeps the
-     * historical lenient behaviour where any scope string is accepted and persisted; a truthy value makes
-     * {@code /initiate} reject empty or unknown scopes.
-     */
-    private static final String SCOPE_ENFORCEMENT_PROPERTY = "oauth.scope.enforcement.enabled";
 
     private final OscarOAuthDataProvider dataProvider;
     private final OAuth1ParamParser parser;
@@ -119,20 +112,23 @@ public class OscarRequestTokenService {
         cfg.setConsumerKey(client.getConsumerKey());
         cfg.setConsumerSecret(client.getSecret());
         cfg.setApplicationURI(req.getRequestURL().toString());
-        verifier.verifySignature(req, cfg);
+        try {
+            verifier.verifySignature(req, cfg);
+        } catch (IllegalArgumentException _) {
+            throw new OAuth1Exception(401, "invalid_signature");
+        }
 
         RequestTokenRegistration reg = new RequestTokenRegistration(client);
 
-        // --- decode+normalize callback ONLY for persistence ---
-        String cbRaw = oreq.callback; // keep whatever the parser gives (was working before)
+        // Header values and servlet parameters are decoded once by the shared parser.
+        String cbRaw = io.github.carlos_emr.carlos.webserv.oauth.util.OAuthRequestParser
+                .extractOAuthParameters(req).get("oauth_callback");
         String cbToStore;
 
         if (isOutOfBandCallback(cbRaw)) {
             cbToStore = "oob";
         } else if (cbRaw != null && !cbRaw.isEmpty()) {
-            // decode once (RFC3986) and normalize to plain canonical URL
-            String decoded = pctDecode(cbRaw);
-            cbToStore = normalizeUrl(decoded);
+            cbToStore = normalizeUrl(cbRaw);
         } else {
             // fallback to app-registered callback if your flow allows it
             String registeredCallback = client.getCallbackUri();
@@ -141,11 +137,13 @@ public class OscarRequestTokenService {
 
         reg.setCallback(cbToStore);   // <-- store plain URL now (not encoded)
 
-        // trim before splitting so leading/trailing whitespace does not yield an empty token that
-        // would otherwise be rejected as an unknown scope under enforcement
-        String[] requestedScopes = (oreq.scopesCsv != null && !oreq.scopesCsv.isBlank())
-                ? oreq.scopesCsv.trim().split("\\s+")
-                : new String[0];
+        // OAuth1ParamParser leaves query and Authorization-header values percent-encoded (it only maps
+        // '+' to a space), so "demographic.read%20provider.read" would read as one unknown scope and,
+        // under enforcement (#4419), refuse every multi-scope request. Scopes are plain ASCII
+        // tokens, so one percent-decode is safe whichever source the value came from.
+        // OAuthScopes.parseScopeString decodes once and drops empty tokens, so stray whitespace is not
+        // rejected as an unknown scope; the interceptor reads stored scopes with the same helper.
+        String[] requestedScopes = OAuthScopes.parseScopeString(oreq.scopesCsv).toArray(new String[0]);
         validateRequestedScopes(requestedScopes);
         if (requestedScopes.length > 0) {
             reg.setScopes(requestedScopes);
@@ -165,14 +163,14 @@ public class OscarRequestTokenService {
      * <p>When scope enforcement is enabled, a request token may only be issued for known
      * {@code <domain>.read}/{@code <domain>.write} scopes, and at least one scope must be requested; this
      * stops arbitrary/meaningless scope strings (and empty grants that later read as "full access") from
-     * being persisted onto a token. When enforcement is disabled (the default) this is a no-op so existing
-     * integrations are unaffected.
+     * being persisted onto a token. Enforcement is off unless an operator turns it on
+     * ({@link OAuthScopeEnforcement}, #4419); while it is off this is a no-op.
      *
      * @throws OAuth1Exception 400 {@code invalid_scope} if no scopes are requested or any requested scope
      *                         is outside the vocabulary
      */
     private static void validateRequestedScopes(String[] scopes) {
-        if (!CarlosProperties.getInstance().isPropertyActive(SCOPE_ENFORCEMENT_PROPERTY)) {
+        if (!OAuthScopeEnforcement.isEnabled()) {
             return;
         }
         if (scopes == null || scopes.length == 0) {
@@ -187,26 +185,6 @@ public class OscarRequestTokenService {
 
     private static String enc(String s) {
         return URLEncoder.encode(s, StandardCharsets.UTF_8);
-    }
-
-    private static String pctDecode(String s) {
-        if (s == null || s.isEmpty()) return s;
-        int n = s.length();
-        StringBuilder out = new StringBuilder(n);
-        for (int i = 0; i < n; i++) {
-            char c = s.charAt(i);
-            if (c == '%' && i + 2 < n) {
-                int hi = Character.digit(s.charAt(i + 1), 16);
-                int lo = Character.digit(s.charAt(i + 2), 16);
-                if (hi >= 0 && lo >= 0) {
-                    out.append((char) ((hi << 4) + lo));
-                    i += 2;
-                    continue;
-                }
-            }
-            out.append(c);
-        }
-        return out.toString();
     }
 
     private static String normalizeUrl(String url) {
@@ -229,8 +207,12 @@ public class OscarRequestTokenService {
                 (port == 443 && "https".equals(scheme))) {
                 port = -1; // drop default ports
             }
-            String path = (u.getPath() == null || u.getPath().isEmpty()) ? "/" : u.getPath();
-            return new URI(scheme, u.getUserInfo(), host, port, path, u.getQuery(), u.getFragment()).toString();
+            String path = (u.getRawPath() == null || u.getRawPath().isEmpty()) ? "/" : u.getRawPath();
+            String authority = new URI(scheme, u.getUserInfo(), host, port, null, null, null).toString();
+            // Preserve escaped query separators and percent literals. Rebuilding from decoded
+            // URI components would turn a query value's %26 into another query parameter.
+            return authority + path + (u.getRawQuery() == null ? "" : "?" + u.getRawQuery())
+                    + (u.getRawFragment() == null ? "" : "#" + u.getRawFragment());
         } catch (OAuth1Exception e) {
             throw e;
         } catch (IllegalArgumentException | URISyntaxException e) {

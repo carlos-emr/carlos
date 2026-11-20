@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
@@ -42,10 +43,13 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 
 import org.apache.commons.lang3.time.DateFormatUtils;
-import org.apache.tools.ant.util.DateUtils;
+import io.github.carlos_emr.carlos.utility.IsoDates;
+import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager;
+import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.AdmissionConverter;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.ProgramConverter;
 import io.github.carlos_emr.carlos.webserv.rest.to.AbstractSearchResponse;
@@ -57,27 +61,42 @@ import org.springframework.beans.factory.annotation.Autowired;
 @Consumes(MediaType.APPLICATION_JSON)
 public class ProgramService extends AbstractServiceImpl {
 
+    /** Security object guarding program-management data, matching the PMmodule actions. */
+    private static final String SECURITY_OBJECT = "_pmm_management";
+
+    private final ProgramManager2 programManager;
+
+    private final AdmissionManager admissionManager;
+
+    private final SecurityInfoManager securityInfoManager;
 
     @Autowired
-    ProgramManager2 programManager;
-
-    @Autowired
-    AdmissionManager admissionManager;
+    public ProgramService(ProgramManager2 programManager, AdmissionManager admissionManager, SecurityInfoManager securityInfoManager) {
+        this.programManager = programManager;
+        this.admissionManager = admissionManager;
+        this.securityInfoManager = securityInfoManager;
+    }
 
 
     @GET
     @Path("/patientList")
     @Produces("application/json")
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class,
+            propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW,
+            isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public AbstractSearchResponse<AdmissionTo1> getPatientList(@QueryParam("programNo") String programNo, @QueryParam("day") String day, @QueryParam("startIndex") Integer startIndex, @QueryParam("numToReturn") Integer numToReturn) throws Exception {
+
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECURITY_OBJECT, "r", null)) {
+            throw new AccessDeniedException(SECURITY_OBJECT, "r");
+        }
 
         AbstractSearchResponse<AdmissionTo1> response = new AbstractSearchResponse<AdmissionTo1>();
 
         if (day == null) {
-            day = DateFormatUtils.format(Calendar.getInstance(), DateUtils.ISO8601_DATE_PATTERN);
+            day = DateFormatUtils.format(Calendar.getInstance(), IsoDates.ISO8601_DATE_PATTERN);
         }
 
-
-        Date d = new SimpleDateFormat(DateUtils.ISO8601_DATE_PATTERN).parse(day);
+        Date d = new SimpleDateFormat(IsoDates.ISO8601_DATE_PATTERN).parse(day);
 
         if (programNo == null) {
             //get default
@@ -97,14 +116,23 @@ public class ProgramService extends AbstractServiceImpl {
         }
 
         if (programNo == null) {
-            throw new Exception("Can't get a program for this providers to use as default");
+            throw new Exception("Can't get a program for this provider to use as default");
         }
 
-
-        List<AdmissionTo1> transfers = new AdmissionConverter().includeDemographic(true).getAllAsTransferObjects(getLoggedInInfo(), admissionManager.findAdmissionsByProgramAndDate(getLoggedInInfo(), Integer.parseInt(programNo), d, startIndex, numToReturn));
-
+        int program = Integer.parseInt(programNo);
+        int offset = startIndex == null ? 0 : startIndex;
+        int limit = numToReturn == null ? 50 : numToReturn;
+        if (limit < 0) throw new jakarta.ws.rs.BadRequestException("Invalid page size");
+        var permitted = io.github.carlos_emr.carlos.webserv.rest.util.PatientApiPages.read(
+                getLoggedInInfo(), securityInfoManager, SECURITY_OBJECT, offset, limit == 0 ? 1 : limit,
+                (rawOffset, batch) -> admissionManager.findAdmissionsByProgramAndDate(
+                        getLoggedInInfo(), program, d, rawOffset, batch),
+                io.github.carlos_emr.carlos.commn.model.Admission::getClientId,
+                io.github.carlos_emr.carlos.commn.model.Admission::getId, "_demographic");
+        List<AdmissionTo1> transfers = new AdmissionConverter().includeDemographic(true).getAllAsTransferObjects(
+                getLoggedInInfo(), limit == 0 ? java.util.List.of() : permitted.rows());
         response.setContent(transfers);
-        response.setTotal(admissionManager.findAdmissionsByProgramAndDateAsCount(getLoggedInInfo(), Integer.parseInt(programNo), d));
+        response.setTotal(permitted.total());
 
         return response;
     }
@@ -113,6 +141,10 @@ public class ProgramService extends AbstractServiceImpl {
     @Path("/programList")
     @Produces("application/json")
     public AbstractSearchResponse<ProgramTo1> getProgramList() throws Exception {
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECURITY_OBJECT, "r", null)) {
+            throw new AccessDeniedException(SECURITY_OBJECT, "r");
+        }
+
         AbstractSearchResponse<ProgramTo1> response = new AbstractSearchResponse<ProgramTo1>();
 
         List<ProgramProvider> programProviders = programManager.getProgramDomain(getLoggedInInfo(), getLoggedInInfo().getLoggedInProviderNo());
@@ -120,6 +152,16 @@ public class ProgramService extends AbstractServiceImpl {
             List<ProgramTo1> listProgramTo1 = new ArrayList<ProgramTo1>();
             ProgramConverter converter = new ProgramConverter();
 
+            for (ProgramProvider programProvider : programProviders) {
+                // program_provider.program_id is nullable and the association is not optional=false,
+                // so a membership row can carry no program. Skipping it keeps one orphaned row from
+                // turning the whole program list into a 500 for the provider.
+                Program program = programProvider.getProgram();
+                if (program == null) {
+                    continue;
+                }
+                listProgramTo1.add(converter.getAsTransferObject(getLoggedInInfo(), program));
+            }
             response.setContent(listProgramTo1);
             response.setTotal(listProgramTo1.size());
         }

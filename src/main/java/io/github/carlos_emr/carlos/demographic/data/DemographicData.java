@@ -42,6 +42,7 @@ import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.commn.dao.DemographicCustDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicCust;
+import io.github.carlos_emr.carlos.demographic.util.DemographicXml;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -182,16 +183,15 @@ public class DemographicData {
     }
 
     public String getDemographicNotes(String demographicNo) {
-        String retval = "";
         DemographicCust demographicCust = demographicCustDao.find(Integer.parseInt(demographicNo));
-        if (demographicCust != null) {
-            retval = demographicCust.getNotes();
-        }
+        return demographicCust == null ? "" : DemographicCust.patientNotesText(demographicCust.getNotes());
+    }
 
-        if (retval.startsWith("<unotes>")) retval = retval.substring(8);
-        if (retval.endsWith("</unotes>")) retval = retval.substring(0, retval.length() - 9);
-
-        return retval;
+    /** The patient alert shown on the master record (demographiccust.cust3), or "" when none. */
+    public String getDemographicAlert(String demographicNo) {
+        DemographicCust demographicCust = demographicCustDao.find(Integer.parseInt(demographicNo));
+        String alert = demographicCust == null ? null : demographicCust.getAlert();
+        return alert == null ? "" : alert;
     }
 
     public Demographic getDemographic(LoggedInInfo loggedInInfo, String DemographicNo) {
@@ -436,7 +436,7 @@ public class DemographicData {
         demographicCust.setMidwife("");
         demographicCust.setNurse("");
         demographicCust.setResident("");
-        demographicCust.setNotes("<unotes>" + content + "</unotes>");
+        demographicCust.setNotes(DemographicXml.userNotes(content));
         demographicCustDao.persist(demographicCust);
     }
 

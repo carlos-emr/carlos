@@ -50,18 +50,19 @@
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page
-        import="java.util.*,io.github.carlos_emr.carlos.demographic.data.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.report.data.*,io.github.carlos_emr.carlos.prevention.pageUtil.*,io.github.carlos_emr.carlos.demographic.pageUtil.*" %>
+        import="java.util.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.report.data.*, io.github.carlos_emr.carlos.demographic.pageUtil.*" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.Util" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicExportAction42Action" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.PGPEncrypt" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.DemographicSets" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 
@@ -141,6 +142,13 @@
             }
 
             function checkValidOptions() {
+                // A single-patient export (opened from the master record) carries demographicNo
+                // and renders no set/provider selectors. Dereferencing them threw, the submit
+                // handler aborted, and the browser fell back to a plain form POST that bypassed
+                // the X-Export-Status handling below.
+                if (document.getElementById("demographicNo")) {
+                    return true;
+                }
                 var pt = document.getElementById("patientSet").value;
                 var pn = document.getElementById("providerNo").value;
 
@@ -228,6 +236,7 @@
                 // Show loading overlay
                 document.getElementById('exportSuccessMessage').style.display = 'none';
                 document.getElementById('exportErrorMessage').style.display = 'none';
+                document.getElementById('exportIncompleteMessage').style.display = 'none';
                 document.getElementById('exportLoadingOverlay').style.display = 'block';
 
                 try {
@@ -239,8 +248,12 @@
                     });
 
                     var exportStatus = response.headers.get('X-Export-Status');
+                    // 'incomplete': the archive was produced and is downloaded like a successful
+                    // one, but something could not be exported for some charts. It is never
+                    // announced as a plain success.
+                    var incomplete = exportStatus === 'incomplete';
 
-                    if (exportStatus === 'success' && response.ok) {
+                    if ((exportStatus === 'success' || incomplete) && response.ok) {
                         var blob = await response.blob();
                         var contentDisposition = response.headers.get('Content-Disposition');
                         var filename = 'export.zip';
@@ -260,12 +273,18 @@
                         URL.revokeObjectURL(url);
 
                         document.getElementById('exportLoadingOverlay').style.display = 'none';
-                        document.getElementById('exportSuccessMessage').style.display = 'block';
+                        if (incomplete) {
+                            showExportIncomplete(response.headers.get('X-Export-Incomplete-Count'),
+                                response.headers.get('X-Export-Incomplete-Charts'));
+                        } else {
+                            document.getElementById('exportSuccessMessage').style.display = 'block';
+                        }
                     } else {
                         // X-Export-Error carries a fixed, non-PHI validation reason (for example an
                         // unsupported export template). Assigned via textContent so the server
                         // string is never interpreted as markup.
-                        showExportError(response.headers.get('X-Export-Error'));
+                        showExportError(response.headers.get('X-Export-Error'),
+                            response.headers.get('X-Export-Incomplete-Charts'));
                     }
                 } catch (e) {
                     console.error('Export request failed:', e);
@@ -274,13 +293,43 @@
             }
 
             /**
+             * Shows the warning for an archive that was downloaded but is missing something.
+             * The server sends how many charts are affected and their chart numbers (as many as
+             * fit in a header); ExportEvent.log in the archive lists every one with its reason.
+             * Both values are checked to be plain numbers and assigned with textContent.
+             *
+             * @param count value of the X-Export-Incomplete-Count response header
+             * @param charts value of the X-Export-Incomplete-Charts response header
+             */
+            function showExportIncomplete(count, charts) {
+                var total = /^[0-9]+$/.test(count || '') ? parseInt(count, 10) : 0;
+                var listed = /^[0-9]+(,[0-9]+)*$/.test(charts || '') ? charts.split(',') : [];
+                var texts = document.getElementById('exportIncompleteTexts');
+                var text = texts.querySelector('[data-export-incomplete="summary"]').textContent
+                    .replace('{0}', total > 0 ? String(total) : '?');
+                if (listed.length > 0) {
+                    text += ' ' + texts.querySelector('[data-export-incomplete="charts"]').textContent
+                        + ' ' + listed.join(', ');
+                    if (total > listed.length) {
+                        text += ' ' + texts.querySelector('[data-export-incomplete="more"]').textContent
+                            .replace('{0}', String(total - listed.length));
+                    }
+                }
+                document.getElementById('exportIncompleteDetail').textContent = text;
+                document.getElementById('exportIncompleteMessage').style.display = 'block';
+            }
+
+            /**
              * Hides the loading overlay and shows the error alert. When the server sent a reason
              * code, the matching localized sentence is copied into the alert; an unknown or absent
              * code leaves only the generic message.
              *
              * @param code value of the X-Export-Error response header, may be null/empty
+             * @param charts value of the X-Export-Incomplete-Charts response header, when the
+             *        server names the charts behind the failure; shown only if it is a list of
+             *        plain numbers
              */
-            function showExportError(code) {
+            function showExportError(code, charts) {
                 document.getElementById('exportLoadingOverlay').style.display = 'none';
 
                 var detail = '';
@@ -293,6 +342,11 @@
                     if (localized) {
                         detail = localized.textContent;
                     }
+                }
+                if (detail && /^[0-9]+(,[0-9]+)*$/.test(charts || '')) {
+                    detail += ' ' + document.querySelector(
+                        '#exportIncompleteTexts [data-export-incomplete="charts"]').textContent
+                        + ' ' + charts.split(',').join(', ');
                 }
                 document.getElementById('exportErrorDetail').textContent = detail;
                 document.getElementById('exportErrorMessage').style.display = 'block';
@@ -367,6 +421,7 @@
             }
 
             #exportSuccessMessage,
+            #exportIncompleteMessage,
             #exportErrorMessage {
                 display: none;
             }
@@ -401,6 +456,11 @@
             </div>
         </div>
         <h3><fmt:message key="demographic.demographicexport.title"/> </h3>
+<% if (io.github.carlos_emr.carlos.demographic.cdsexport.web.CdsExportWebService.mayOpen(
+        io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request),
+        io.github.carlos_emr.carlos.utility.SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class))) { %>
+        <p><a href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/form/cdsExport"><fmt:message key="demographic.demographicexport.cdsExportLink"/></a></p>
+<% } %>
 
         <div class="col-md-2">
             <% if (demographicNo == null) { %>
@@ -417,6 +477,18 @@
                 <fmt:message key="demographic.demographicexport.downloadNotStarted"/> <a href="javascript:void(0);" onclick="retryExport()"><fmt:message key="demographic.demographicexport.clickToDownload"/></a>
             </div>
 
+            <!-- Warning shown when the archive was downloaded but is missing something -->
+            <div id="exportIncompleteMessage" class="alert alert-warning" role="alert">
+                <div id="exportIncompleteDetail"></div>
+            </div>
+
+            <!-- Localized parts of that warning; showExportIncomplete() fills in the numbers. -->
+            <div id="exportIncompleteTexts" style="display: none;">
+                <span data-export-incomplete="summary"><fmt:message key="demographic.demographicexport.exportIncomplete"/></span>
+                <span data-export-incomplete="charts"><fmt:message key="demographic.demographicexport.exportIncompleteCharts"/></span>
+                <span data-export-incomplete="more"><fmt:message key="demographic.demographicexport.exportIncompleteMore"/></span>
+            </div>
+
             <!--
                 Localized text for each X-Export-Error reason code the action can return.
                 Kept in the page (not in the action) so the message follows the user's locale;
@@ -424,6 +496,8 @@
             -->
             <div id="exportErrorReasons" style="display: none;">
                 <span data-export-error-code="unsupportedTemplate"><fmt:message key="demographic.demographicexport.unsupportedTemplate"/></span>
+                <span data-export-error-code="preventionSourceUnavailable"><fmt:message key="demographic.demographicexport.preventionSourceUnavailable"/></span>
+                <span data-export-error-code="nothingExported"><fmt:message key="demographic.demographicexport.nothingExported"/></span>
             </div>
 
             <!-- Error message shown if export fails -->
@@ -437,7 +511,7 @@
             <form id="DemographicExportForm" name="DemographicExportForm" action="${pageContext.request.contextPath}/demographic/DemographicExport" method="post" onsubmit="return handleExportSubmit();">
 
                 <% if (demographicNo != null) { %>
-                <input type="hidden" name="demographicNo" id="demographicNo" value="<carlos:encode value='<%= demographicNo %>' context="htmlAttribute"/>"/>
+                <input type="hidden" name="demographicNo" id="demographicNo" value="<%= SafeEncode.forHtmlAttribute(demographicNo) %>"/>
                 <fmt:message key="demographic.demographicexport.exportingdemographicno"/><carlos:encode value='<%= demographicNo %>' context="html"/>
                 <%} else {%>
                 <fmt:message key="demographic.demographicexport.patientset"/><br>
@@ -452,7 +526,7 @@
                         for (int i = 0; i < sets.size(); i++) {
                             String setName = sets.get(i);
                     %>
-                    <option value="<%=setName%>"><%=setName%>
+                    <option value="<%= SafeEncode.forHtmlAttribute(setName) %>"><carlos:encode value='<%= setName %>' context="html"/>
                     </option>
                     <%}%>
                 </select>
@@ -473,7 +547,7 @@
                         for (int i = 0; i < providers.size(); i++) {
                             Provider p = providers.get(i);
                     %>
-                    <option value="<%=p.getProviderNo()%>"><%=p.getFormattedName()%>
+                    <option value="<%= SafeEncode.forHtmlAttribute(p.getProviderNo()) %>"><carlos:encode value='<%= p.getFormattedName() %>' context="html"/>
                     </option>
                     <%}%>
                 </select>

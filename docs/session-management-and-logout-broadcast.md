@@ -36,6 +36,26 @@ CARLOS has three independent session timeout mechanisms:
 
 3. **Client-side safety net**: The injected heartbeat script tracks `lastSuccessfulHeartbeat` timestamp. If no successful heartbeat response is received within `INACTIVITY_LIMIT_MINS`, the client triggers logout. This catches edge cases like prolonged network outages.
 
+A fourth, older check backs up the first: **`UserActivityFilter`** logs out an authenticated
+session whose user has made no request of their own for longer than the session's own timeout
+(`setMaxInactiveInterval`, 2 hours after login), even while background polls keep the container
+session alive. Its rules (issue #5305):
+
+- It is mapped after `LoginFilter` and before Struts prepare/execute, for REQUEST dispatches
+  only. Until #5305 it was mapped after `struts2-execute`, so it never saw a Struts action.
+- `autoRefresh=true` requests, the CSRFGuard script servlet (`/csrfguard`) and every path
+  `LoginFilter` exempts from its own timer (`LoginFilter.isExemptFromInactivityTimer`: the
+  heartbeat, the tab-alert and message polls, the schedule's self-refresh, static assets, the
+  login and logout pages) are not user activity, so the two timers agree.
+- The timer starts at the session's first authenticated request of any kind, so a session that
+  only ever polls still times out, and it never moves backwards.
+- It never creates a session and ignores anonymous and half-finished login sessions.
+- It never redirects `/logout`, `/logoutPage`, `/index` or `/loginfailed` (the logout page posts
+  to `/logout`, so redirecting it would loop).
+- It writes one audit row (`logged out due to inactivity`) per inactive session; later requests
+  from that session, such as the heartbeat, are redirected to `/logoutPage` without another row.
+- A session whose timeout is zero or negative never expires, so it is never judged inactive.
+
 ## Architecture
 
 ### Components

@@ -35,10 +35,10 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
+
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -288,7 +288,13 @@
             indicatorAllDisplay($('#property-bin').val());
         }
 
-        parent.parent.resizeIframe($('html').height());
+        // resizeIframe lives on the admin shell that frames this page. A page opened
+        // standalone, or framed by a different shell, has no such function, and an
+        // unguarded call throws out of the jQuery ready callback as
+        // "parent.parent.resizeIframe is not a function" (reported on alpha10).
+        if (parent && parent.parent && typeof parent.parent.resizeIframe === 'function') {
+            parent.parent.resizeIframe($('html').height());
+        }
     });
 </script>
 </body>

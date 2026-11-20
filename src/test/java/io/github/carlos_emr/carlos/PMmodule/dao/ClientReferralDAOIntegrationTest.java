@@ -64,6 +64,13 @@ public class ClientReferralDAOIntegrationTest extends CarlosTestBase {
     private Long testClientId2;
     private Long testProgramId1;
     private Long testProgramId2;
+    // Ids this fixture owns and deliberately leaves without referrals. The
+    // "should return empty" tests below assert against these rather than against a
+    // magic constant: a hard-coded id is not the fixture's to guarantee, and the
+    // moment an identity-generated program or client happens to land on it those
+    // tests fail reporting a defect that is not there.
+    private Long testClientIdUnused;
+    private Long testProgramIdUnused;
     private Integer testFacilityId1 = 1;
     private Integer testFacilityId2 = 2;
 
@@ -75,11 +82,16 @@ public class ClientReferralDAOIntegrationTest extends CarlosTestBase {
 
         testClientId1 = baseId * 100 + 1;
         testClientId2 = baseId * 100 + 2;
+        testClientIdUnused = baseId * 100 + 3;
 
         Program program1 = createProgram("Test Program 1");
         Program program2 = createProgram("Test Program 2");
+        // Created so the "program doesn't match" test has a real, unreferenced program
+        // id to query; no referral below ever names it.
+        Program programUnused = createProgram("Test Program Unreferenced");
         testProgramId1 = (long) program1.getId();
         testProgramId2 = (long) program2.getId();
+        testProgramIdUnused = (long) programUnused.getId();
 
         createReferral(testClientId1, testProgramId1, testFacilityId1, "active");
         createReferral(testClientId1, testProgramId2, testFacilityId1, "active");
@@ -211,7 +223,7 @@ public class ClientReferralDAOIntegrationTest extends CarlosTestBase {
         @DisplayName("should return empty when client doesn't exist")
         void shouldReturnEmpty_whenClientDoesntExist() {
             // When
-            List<ClientReferral> results = clientReferralDAO.getReferrals(99999L);
+            List<ClientReferral> results = clientReferralDAO.getReferrals(testClientIdUnused);
 
             // Then
             assertThat(results).isEmpty();
@@ -244,7 +256,7 @@ public class ClientReferralDAOIntegrationTest extends CarlosTestBase {
         void shouldReturnEmpty_whenClientDoesntMatchFacility() {
             // When
             List<ClientReferral> results = clientReferralDAO.getReferralsByFacility(
-                99999L, testFacilityId1);
+                testClientIdUnused, testFacilityId1);
 
             // Then
             assertThat(results).isEmpty();
@@ -290,7 +302,7 @@ public class ClientReferralDAOIntegrationTest extends CarlosTestBase {
         void shouldReturnEmpty_whenClientDoesntMatch() {
             // When
             List<ClientReferral> results = clientReferralDAO.getActiveReferrals(
-                99999L, testFacilityId1);
+                testClientIdUnused, testFacilityId1);
 
             // Then
             assertThat(results).isEmpty();
@@ -324,7 +336,7 @@ public class ClientReferralDAOIntegrationTest extends CarlosTestBase {
         void shouldReturnEmpty_whenClientDoesntMatch() {
             // When
             List<ClientReferral> results = clientReferralDAO.getActiveReferralsByClientAndProgram(
-                99999L, testProgramId1);
+                testClientIdUnused, testProgramId1);
 
             // Then
             assertThat(results).isEmpty();
@@ -336,7 +348,7 @@ public class ClientReferralDAOIntegrationTest extends CarlosTestBase {
         void shouldReturnEmpty_whenProgramDoesntMatch() {
             // When
             List<ClientReferral> results = clientReferralDAO.getActiveReferralsByClientAndProgram(
-                testClientId1, 99999L);
+                testClientId1, testProgramIdUnused);
 
             // Then
             assertThat(results).isEmpty();

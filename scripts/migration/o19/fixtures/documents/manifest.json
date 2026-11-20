@@ -1,0 +1,25 @@
+{
+  "comment": "Files make-documents-tar.sh generates into the O19 OscarDocument layout, and how each exercises the documents-phase (P5) reconciliation. fixture-document-rows.sql inserts the matching database rows.",
+  "context_dir": "oscar_mcmaster",
+  "files": [
+    {"path": "document/demo_referral_note.pdf", "kind": "pdf",
+     "db_row": "document_no auto, linked to demo patient 1 via ctl_document",
+     "exercises": "happy path: row + file both present"},
+    {"path": "document/demo_lab_scan.pdf", "kind": "pdf",
+     "db_row": "document_no auto, linked to demo patient 2 via ctl_document",
+     "exercises": "happy path"},
+    {"path": "document/demo_orphan_upload.pdf", "kind": "pdf",
+     "db_row": null,
+     "exercises": "orphan: file on disk with no document row (report-only)"},
+    {"path": "eform/images/demo_clinic_logo.png", "kind": "png",
+     "db_row": "eform 'Demo Letterhead' references ${oscar_image_path}demo_clinic_logo.png",
+     "exercises": "eform image asset resolution"},
+    {"path": "incomingdocs/queue1/demo_incoming_fax.pdf", "kind": "pdf",
+     "db_row": null,
+     "exercises": "incomingdocs subtree carried by the tar"}
+  ],
+  "missing_file_row": {
+    "docfilename": "demo_missing_scan.pdf",
+    "exercises": "blocking reconciliation: document row whose file is absent from the tar — the documents phase must fail until resolved"
+  }
+}

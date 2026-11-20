@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// Modifications by CARLOS Contributors, 2026.
 /*
  * Browser CRUD checks for the CARLOS Tickler interface.
  *
@@ -6,8 +7,8 @@
  * verifies it in the DataTables-backed list, edits it through the edit UI,
  * completes it, deletes it, and cleans up rows it created.
  *
- * Defaults are for the local devcontainer:
- *   npm run test:tickler-crud-playwright
+ * In the local devcontainer, explicitly opt in to its separate disposable DB service:
+ *   MYSQL_HOST=db ALLOW_NON_LOCAL_MYSQL_HOST=true npm run test:tickler-crud-playwright
  *
  * Optional environment:
  *   BASE_URL=http://127.0.0.1:8080/carlos
@@ -15,52 +16,55 @@
  *   TEST_USER=carlosdoc
  *   TEST_PASSWORD=carlos2026
  *   TEST_PIN=2026
- *   MYSQL_HOST=db MYSQL_USER=root MYSQL_PASSWORD=password MYSQL_DATABASE=oscar
+ *   MYSQL_HOST=127.0.0.1 MYSQL_USER=root MYSQL_PASSWORD=password MYSQL_DATABASE=carlos
+ *   ALLOW_NON_LOCAL_MYSQL_HOST=true only for a disposable non-loopback database
  *   TICKLER_DEMOGRAPHIC_NO=1
  *   TICKLER_PROVIDER_NO=999998
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
+const { validateCredentialBaseUrl: validateBaseUrl } = require('./lib/playwright-harness');
+const legacyHarness = require('./lib/legacy-check');
+const h = require('./lib/playwright-harness');
 const { chromium } = require('playwright');
+const { cleanupTicklerFixture, readNoteLinkFloor } = require('./lib/tickler-fixture-cleanup');
+const { withTicklerConfirmations } = require('./lib/tickler-confirmation');
+const { selectTicklerAssignee } = require('./lib/tickler-clinic');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { NO_PLAYWRIGHT_SIGNAL_HANDLING, shouldIgnoreHttpsErrors,
+  createRecorder, wireStrictPage, assertStrictPage, buildFailureDetails } = require('./lib/playwright-harness');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
-const mysqlHost = process.env.MYSQL_HOST || 'db';
+const mysqlHost = require('./lib/playwright-harness').validateMysqlHost(process.env.MYSQL_HOST || '127.0.0.1');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
-const mysqlDatabase = process.env.MYSQL_DATABASE || 'oscar';
+const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 const demographicNo = process.env.TICKLER_DEMOGRAPHIC_NO || '1';
 const providerNo = process.env.TICKLER_PROVIDER_NO || '999998';
 const stamp = `PW_TICKLER_CRUD_${Date.now()}`;
-const createdMessage = `${stamp} created through add UI`;
-const editedMessage = `${stamp} edited through edit UI`;
+// Both messages BEGIN with a pasted internal PACS link whose query string carries "&cmd",
+// the ordinary clinical text that the packaged WAF's CRS scores as an attack (931100 on a
+// value that starts with an IP-address URL, 932110 on "&cmd"). Through the packaged front
+// door on :443 this is what proves the tickler routes accept clinician prose (exclusions 1104
+// and 1105); through bare Tomcat nothing inspects it. Keep the link first and keep "&cmd" in it.
+const CLINICAL_TEXT_THE_WAF_SCORES = "http://10.0.0.5/pacs/study?id=1&cmd=view f/u imaging;";
+const createdMessage = `${CLINICAL_TEXT_THE_WAF_SCORES} ${stamp} created through add UI`;
+const editedMessage = `${CLINICAL_TEXT_THE_WAF_SCORES} ${stamp} edited through edit UI`;
 
 const mysqlDefaults = createMysqlDefaultsFile();
 const badResponses = [];
 const consoleIssues = [];
-
-function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-
-  const host = parsed.hostname.toLowerCase();
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
-  if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
-  return parsed;
-}
+const strictRecorder = createRecorder();
+// Set before the tickler is created; until then the run owns no rows to clean. Note
+// links at or below it predate the run and are never deleted (#4409).
+let linkIdFloor = null;
 
 function appUrl(appPath, query = null) {
   if (!appPath.startsWith('/') || appPath.startsWith('//')) {
@@ -78,13 +82,27 @@ function appUrl(appPath, query = null) {
   return url.toString();
 }
 
+// A MariaDB option file is NOT a raw key=value format: in a value, '\' starts an
+// escape sequence ('\s' is a space, '\t' a tab) and an unquoted '#' starts a
+// comment that truncates the rest of the line. Writing the password verbatim
+// therefore silently corrupts it and the script dies on "Access denied".
+// Double-quoting the value neutralizes '#' and surrounding whitespace; '\' and
+// '"' still need escaping inside the quotes.
+function encodeOptionFileValue(value) {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
 function createMysqlDefaultsFile() {
   if (/[\r\n]/.test(mysqlPassword)) {
     throw new Error('MYSQL_PASSWORD must not contain newline characters');
   }
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-tickler-mysql-'));
   const file = path.join(dir, 'client.cnf');
-  fs.writeFileSync(file, `[client]\npassword=${mysqlPassword}\n`, { mode: 0o600 });
+  fs.writeFileSync(
+    file,
+    `[client]\npassword=${encodeOptionFileValue(mysqlPassword)}\n`,
+    { mode: 0o600 }
+  );
   return { dir, file };
 }
 
@@ -119,13 +137,15 @@ function assert(condition, message) {
 }
 
 function cleanupRows() {
-  const escapedStamp = escapeSql(`${stamp}%`);
-  sql(`DELETE FROM tickler_comments WHERE tickler_no IN (SELECT tickler_no FROM tickler WHERE message LIKE '${escapedStamp}')`);
-  sql(`DELETE FROM tickler WHERE message LIKE '${escapedStamp}'`);
+  if (linkIdFloor === null) {
+    return;
+  }
+  cleanupTicklerFixture({ sql, patient: demographicNo, stamp, linkIdFloor });
 }
 
 function getTicklerRows() {
-  const escapedStamp = escapeSql(`${stamp}%`);
+  // The stamp sits after the scoring text, so match it anywhere in the message.
+  const escapedStamp = escapeSql(`%${stamp}%`);
   const out = sql(
     `SELECT tickler_no, status, priority, task_assigned_to, DATE(service_date), message`
       + ` FROM tickler WHERE message LIKE '${escapedStamp}' ORDER BY tickler_no`
@@ -139,6 +159,19 @@ function getTicklerRows() {
   });
 }
 
+async function waitForTicklerStatus(expectedStatus, timeoutMs = 30000) {
+  const deadline = Date.now() + timeoutMs;
+  let rows = [];
+  while (Date.now() < deadline) {
+    rows = getTicklerRows();
+    if (rows.length === 1 && rows[0].status === expectedStatus) {
+      return rows[0];
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error(`tickler did not reach status ${expectedStatus}; last rows=${JSON.stringify(rows)}`);
+}
+
 function getCommentRows(ticklerNo) {
   const out = sql(
     `SELECT message FROM tickler_comments WHERE tickler_no=${Number(ticklerNo)} ORDER BY id`
@@ -147,10 +180,7 @@ function getCommentRows(ticklerNo) {
 }
 
 function wirePage(page, label) {
-  page.on('dialog', async (dialog) => {
-    consoleIssues.push({ label, type: 'dialog', text: dialog.message() });
-    await dialog.accept();
-  });
+  wireStrictPage(page, label, strictRecorder, { baseline: [] });
   page.on('response', (response) => {
     const status = response.status();
     const responseUrl = response.url();
@@ -188,6 +218,15 @@ async function login(page) {
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 }
 
+async function waitForTicklerDraw(page) {
+  await page.waitForFunction(() => {
+    const table = window.jQuery && window.jQuery('#ticklerResults').DataTable();
+    if (!table) return false;
+    const settings = table.settings()[0];
+    return !settings.bDrawing && settings.jqXHR && settings.jqXHR.readyState === 4;
+  }, null, { timeout: 30000 });
+}
+
 async function waitForTicklerListReady(page) {
   await page.locator('#ticklerResults').waitFor({ state: 'visible', timeout: 30000 });
   await page.waitForFunction(() => (
@@ -197,23 +236,92 @@ async function waitForTicklerListReady(page) {
       && window.jQuery.fn.DataTable.isDataTable('#ticklerResults')
       && window.jQuery('#ticklerResults').DataTable().settings()[0].bInitialised
   ), null, { timeout: 30000 });
-  await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+  await waitForTicklerDraw(page);
+}
+
+// A successful edit broadcasts a list refresh. Observe that refresh before the
+// save, then wait for its body and draw instead of aborting it with page.reload().
+async function refreshTicklerListAfter(page, save) {
+  const [response] = await Promise.all([
+    page.waitForResponse(response => response.request().method() === 'GET'
+      && new URL(response.url()).pathname.endsWith('/tickler/ListTicklers'),
+    { timeout: 30000 }),
+    save(),
+  ]);
+  assert(response.status() === 200, `tickler list refresh returned HTTP ${response.status()}`);
+  assert(!await response.finished(), 'tickler list refresh did not finish');
+  await waitForTicklerListReady(page);
 }
 
 async function setTicklerListStatus(page, status) {
-  await page.locator('#ticklerview').selectOption(status);
-  await page.waitForFunction((expectedStatus) => {
+  const statusSelect = page.locator('#ticklerview');
+  const currentStatus = await statusSelect.inputValue();
+
+  // Selecting the current value still fires DataTables' change handler. A
+  // second ajax.reload() can replace a checkbox after Playwright checks it but
+  // before the form is submitted, producing a valid no-op POST. Do not create
+  // that reload when the requested filter is already active.
+  if (currentStatus === status) {
+    await page.waitForFunction(() => {
+      const table = window.jQuery && window.jQuery('#ticklerResults').DataTable();
+      if (!table) {
+        return false;
+      }
+      const settings = table.settings()[0];
+      return !settings.bDrawing && (!settings.jqXHR || settings.jqXHR.readyState === 4);
+    }, null, { timeout: 30000 });
+    return;
+  }
+
+  const previousDraw = await page.evaluate(() => (
+    window.jQuery('#ticklerResults').DataTable().settings()[0].iDraw
+  ));
+  const [listResponse] = await Promise.all([
+    page.waitForResponse((response) => {
+      const url = new URL(response.url());
+      return response.request().method() === 'GET'
+        && url.pathname.endsWith('/tickler/ListTicklers')
+        && url.searchParams.get('status') === status;
+    }, { timeout: 30000 }),
+    statusSelect.selectOption(status),
+  ]);
+  assert(listResponse.status() < 400, `tickler list reload returned HTTP ${listResponse.status()}`);
+
+  await page.waitForFunction(({ expectedStatus, previousDraw }) => {
     const table = window.jQuery && window.jQuery('#ticklerResults').DataTable();
-    return table && document.getElementById('ticklerview').value === expectedStatus;
-  }, status, { timeout: 30000 }).catch(() => {});
+    if (!table) {
+      return false;
+    }
+    const settings = table.settings()[0];
+    return document.getElementById('ticklerview').value === expectedStatus
+      && settings.iDraw > previousDraw
+      && !settings.bDrawing
+      && (!settings.jqXHR || settings.jqXHR.readyState === 4);
+  }, { expectedStatus: status, previousDraw }, { timeout: 30000 });
 }
 
 async function findRowInList(page, message, expectedStatus) {
-  await page.locator('#ticklerResults_filter input[type="search"]').fill('');
+  const previousDraw = await page.evaluate(() => (
+    window.jQuery('#ticklerResults').DataTable().settings()[0].iDraw
+  ));
   await page.evaluate(() => {
+    document.querySelector('#ticklerResults_filter input[type="search"]').value = '';
     window.jQuery('#ticklerResults').DataTable().search('').order([4, 'desc']).draw();
   });
   try {
+    // DataTables keeps the old tbody visible while a server-side draw is in
+    // flight. Waiting only for a visible row can therefore return a checkbox
+    // that is about to be detached, losing its checked state at submit time.
+    await page.waitForFunction((previousDraw) => {
+      const table = window.jQuery && window.jQuery('#ticklerResults').DataTable();
+      if (!table) {
+        return false;
+      }
+      const settings = table.settings()[0];
+      return settings.iDraw > previousDraw
+        && !settings.bDrawing
+        && (!settings.jqXHR || settings.jqXHR.readyState === 4);
+    }, previousDraw, { timeout: 30000 });
     await page.locator('#ticklerResults tbody tr').filter({ hasText: message }).first().waitFor({
       state: 'visible',
       timeout: 30000,
@@ -247,22 +355,29 @@ async function findRowInList(page, message, expectedStatus) {
   return row;
 }
 
+async function searchTicklerList(page, message) {
+  const field = page.locator('#ticklerResults_filter input[type="search"]');
+  if (await field.inputValue() !== message) await field.fill(message);
+  // Use DataTables' native input handler and debounce. An extra API draw can
+  // cancel its request; a fixed delay does not prove either draw has finished.
+  await page.waitForFunction(needle => {
+    const table = window.jQuery && window.jQuery('#ticklerResults').DataTable();
+    if (!table) return false;
+    const settings = table.settings()[0];
+    return table.search() === needle && !settings.bDrawing
+      && settings.jqXHR && settings.jqXHR.readyState === 4;
+  }, message, { timeout: 30000 });
+}
+
 async function probeTicklerSearch(page, message) {
-  await page.locator('#ticklerResults_filter input[type="search"]').fill(message);
-  await page.evaluate(() => {
-    const needle = document.querySelector('#ticklerResults_filter input[type="search"]').value;
-    window.jQuery('#ticklerResults').DataTable().search(needle).draw();
-  });
-  await page.waitForTimeout(1500);
+  await searchTicklerList(page, message);
   const found = await page.evaluate(() => {
     const needle = document.querySelector('#ticklerResults_filter input[type="search"]').value;
     const table = window.jQuery('#ticklerResults').DataTable();
     return table.rows({ search: 'applied' }).data().toArray().some((row) => row.message === needle);
   });
-  await page.locator('#ticklerResults_filter input[type="search"]').fill('');
-  await page.evaluate(() => {
-    window.jQuery('#ticklerResults').DataTable().search('').draw();
-  });
+  // Reset is a request too: settle it before the next workflow changes the list.
+  await searchTicklerList(page, '');
   return found;
 }
 
@@ -283,25 +398,25 @@ async function createTickler(context) {
   await page.locator('textarea[name="ticklerMessage"]').fill(createdMessage);
   await page.locator('input[name="xml_appointment_date"]').fill('2026-02-18');
   await page.locator('select[name="priority"]').selectOption('High');
-  await page.locator('select[name="task_assigned_to"]').selectOption(providerNo);
+  await selectTicklerAssignee(page, providerNo);
   await page.locator('input.btn-primary[name="Button"]').first().click();
   await page.waitForFunction(() => {
     const frame = document.getElementById('ticklerSubmitFrame');
     return frame && frame.contentDocument && frame.contentDocument.getElementById('tickler-save-ok');
   }, null, { timeout: 30000 });
 
-  await page.waitForTimeout(750);
+  // Observe persistence from a separate database connection before closing the
+  // page; a fixed delay after the iframe acknowledgement does not prove it.
+  const row = await waitForTicklerStatus('A');
   await page.close().catch(() => {});
 
-  const rows = getTicklerRows();
-  assert(rows.length === 1, `expected one created tickler row, found ${rows.length}`);
-  assert(rows[0].status === 'A', `created tickler status was ${rows[0].status}`);
-  assert(rows[0].priority === 'High', `created tickler priority was ${rows[0].priority}`);
-  assert(rows[0].serviceDate === '2026-02-18', `created tickler service date was ${rows[0].serviceDate}`);
-  assert(rows[0].assignee === providerNo, `created tickler assignee was ${rows[0].assignee}`);
-  return rows[0].id;
+  assert(row.priority === 'High', `created tickler priority was ${row.priority}`);
+  assert(row.serviceDate === '2026-02-18', `created tickler service date was ${row.serviceDate}`);
+  assert(row.assignee === providerNo, `created tickler assignee was ${row.assignee}`);
+  return row.id;
 }
 
+/** Saves the owned task's message, priority and date, then observes its list refresh before closing the popup. */
 async function editTicklerFromList(context, listPage, ticklerNo) {
   await findRowInList(listPage, createdMessage, 'A');
   const rowLocator = listPage.locator('#ticklerResults tbody tr').filter({ hasText: createdMessage }).first();
@@ -314,12 +429,13 @@ async function editTicklerFromList(context, listPage, ticklerNo) {
   await editPage.locator('#newMessage').fill(editedMessage);
   await editPage.locator('#priority').selectOption('Low');
   await editPage.locator('#xml_appointment_date').fill('2026-02-19');
-  await editPage.locator('input[name="updateTickler"]').click();
-  await editPage.waitForFunction(() => {
-    const frame = document.getElementById('ticklerEditFrame');
-    return frame && frame.contentDocument && frame.contentDocument.getElementById('tickler-edit-ok');
-  }, null, { timeout: 30000 });
-  await editPage.waitForTimeout(750).catch(() => {});
+  await refreshTicklerListAfter(listPage, async () => {
+    await editPage.locator('input[name="updateTickler"]').click();
+    await editPage.waitForFunction(() => {
+      const frame = document.getElementById('ticklerEditFrame');
+      return frame && frame.contentDocument && frame.contentDocument.getElementById('tickler-edit-ok');
+    }, null, { timeout: 30000 });
+  });
   await editPage.close().catch(() => {});
 
   const rows = getTicklerRows();
@@ -330,96 +446,153 @@ async function editTicklerFromList(context, listPage, ticklerNo) {
   assert(comments.includes(editedMessage), 'edited tickler comment was not saved');
 }
 
-async function completeTicklerViaEdit(context, ticklerNo) {
-  const page = await context.newPage();
+/** Completes the owned task and waits for the broadcast's response body and table draw before closing the popup. */
+async function completeTicklerViaEdit(context, listPage, ticklerNo) {
+  await findRowInList(listPage, createdMessage, 'A');
+  const row = listPage.locator('#ticklerResults tbody tr').filter({ hasText: createdMessage }).first();
+  const popup = context.waitForEvent('page');
+  await row.locator('a[onclick*="openTicklerEdit"]').click();
+  const page = await popup;
   wirePage(page, 'tickler-complete-edit');
-  await gotoApp(page, '/tickler/ViewTicklerEdit', 'domcontentloaded', { tickler_no: ticklerNo });
+  await page.waitForURL(url => url.pathname.endsWith('/tickler/ViewTicklerEdit')
+    && url.searchParams.get('tickler_no') === String(ticklerNo),
+    { timeout: 30000, waitUntil: 'domcontentloaded' });
   await page.locator('form[name="serviceform"]').waitFor({ state: 'visible', timeout: 30000 });
   await page.locator('#status').selectOption('C');
-  await page.locator('input[name="updateTickler"]').click();
-  await page.waitForFunction(() => {
-    const frame = document.getElementById('ticklerEditFrame');
-    return frame && frame.contentDocument && frame.contentDocument.getElementById('tickler-edit-ok');
-  }, null, { timeout: 30000 });
+  await refreshTicklerListAfter(listPage, async () => {
+    await page.locator('input[name="updateTickler"]').click();
+    await page.waitForFunction(() => {
+      const frame = document.getElementById('ticklerEditFrame');
+      return frame && frame.contentDocument && frame.contentDocument.getElementById('tickler-edit-ok');
+    }, null, { timeout: 30000 });
+  });
+  // The iframe marker can be visible before its load handler broadcasts the
+  // refresh. Keep the sender alive until the list has received and drawn it.
   await page.close().catch(() => {});
 
   const rows = getTicklerRows();
   assert(rows.length === 1 && rows[0].status === 'C', `completed tickler status was ${rows[0] && rows[0].status}`);
 }
 
+/**
+ * Deletes the tickler carrying `message` from the Completed view of the task list. The ticked row is
+ * submitted through Delete, which asks for one native confirmation (#5683) that is accepted here, and
+ * the POST to DbTicklerMain must carry the selected id with a Delete submit_form.
+ *
+ * @param {import('playwright').Page} page the wired task-list page
+ * @param {string} message the unique tickler message that identifies the row
+ */
 async function deleteTicklerFromList(page, message) {
   await setTicklerListStatus(page, 'C');
   await findRowInList(page, message, 'C');
   const rowLocator = page.locator('#ticklerResults tbody tr').filter({ hasText: message }).first();
-  await rowLocator.locator('input[name="checkbox"]').check();
-  await Promise.all([
-    page.waitForLoadState('domcontentloaded').catch(() => {}),
-    page.locator("form[name='ticklerform'] input.btn-danger").click(),
-  ]);
+  const checkbox = rowLocator.locator('input[name="checkbox"]');
+  const selectedTicklerNo = await checkbox.getAttribute('value');
+  assert(selectedTicklerNo, 'tickler delete checkbox had no tickler id');
+  await checkbox.check();
+  // Delete asks for confirmation (#5683); the helper accepts the one prompt and fails if it is missing or repeated.
+  let deleteResponse;
+  await withTicklerConfirmations(page, 1, async () => {
+    [deleteResponse] = await Promise.all([
+      page.waitForResponse((response) => {
+        const request = response.request();
+        return request.method() === 'POST'
+          && new URL(response.url()).pathname.endsWith('/tickler/DbTicklerMain');
+      }, { timeout: 30000 }),
+      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
+      page.locator("form[name='ticklerform'] input.btn-danger").click(),
+    ]);
+  });
+  assert(deleteResponse.status() < 400, `tickler delete returned HTTP ${deleteResponse.status()}`);
+  const deleteForm = new URLSearchParams(deleteResponse.request().postData() || '');
+  assert(deleteForm.getAll('checkbox').includes(selectedTicklerNo),
+    `tickler delete POST omitted selected id ${selectedTicklerNo}`);
+  assert(/^d/i.test(deleteForm.get('submit_form') || ''),
+    `tickler delete POST had unexpected submit_form=${deleteForm.get('submit_form')}`);
   await waitForTicklerListReady(page);
 
-  const rows = getTicklerRows();
-  assert(rows.length === 1 && rows[0].status === 'D', `deleted tickler status was ${rows[0] && rows[0].status}`);
+  await waitForTicklerStatus('D');
 }
 
-(async () => {
-  cleanupRows();
+// Issue #3600: a finally does not run when the process is killed, which would leave
+// the synthetic ticklers (and the cleartext MySQL password file) behind. Both steps
+// are idempotent; the handler is removed once the normal finally has run them.
+let browser;
+let context;
+
+async function main({cancellation}) {
+  linkIdFloor = readNoteLinkFloor(sql);
 
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    ...NO_PLAYWRIGHT_SIGNAL_HANDLING,
   };
   if (chromePath) {
     launchOptions.executablePath = chromePath;
   }
 
-  const browser = await chromium.launch(launchOptions);
-  const context = await browser.newContext({ ignoreHTTPSErrors: true });
-  try {
+  browser = await chromium.launch(launchOptions);
+    await cancellation.throwIfCancelled();
+  h.recordBrowserVersion(browser);
+  context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
+    await cancellation.throwIfCancelled();
+  context.on('page', page => wireStrictPage(page, 'tickler-crud', strictRecorder, { baseline: [] }));
     const schedulePage = await context.newPage();
+    await cancellation.throwIfCancelled();
     wirePage(schedulePage, 'login-schedule');
     await login(schedulePage);
+    await cancellation.throwIfCancelled();
 
     const ticklerNo = await createTickler(context);
+    await cancellation.throwIfCancelled();
 
     const listPage = await context.newPage();
+    await cancellation.throwIfCancelled();
     wirePage(listPage, 'tickler-list');
     await openDemoTicklerList(listPage);
+    await cancellation.throwIfCancelled();
     const activeRow = await findRowInList(listPage, createdMessage, 'A');
+    await cancellation.throwIfCancelled();
     assert(String(activeRow.id) === String(ticklerNo), `list row id ${activeRow.id} did not match created id ${ticklerNo}`);
     const searchFoundCreated = await probeTicklerSearch(listPage, createdMessage);
-    if (!searchFoundCreated) {
-      console.log(`WARN tickler list search did not return the created message ${createdMessage}`);
-    }
+    await cancellation.throwIfCancelled();
+    assert(searchFoundCreated, 'Tickler list search did not return the created message');
 
     await editTicklerFromList(context, listPage, ticklerNo);
-    await listPage.reload({ waitUntil: 'domcontentloaded' });
-    await waitForTicklerListReady(listPage);
+    await cancellation.throwIfCancelled();
     const editedRow = await findRowInList(listPage, createdMessage, 'A');
+    await cancellation.throwIfCancelled();
     assert(String(editedRow.id) === String(ticklerNo), `edited list row id ${editedRow.id} did not match ${ticklerNo}`);
 
-    await completeTicklerViaEdit(context, ticklerNo);
-    await listPage.reload({ waitUntil: 'domcontentloaded' });
-    await waitForTicklerListReady(listPage);
+    await completeTicklerViaEdit(context, listPage, ticklerNo);
+    await cancellation.throwIfCancelled();
     await setTicklerListStatus(listPage, 'C');
+    await cancellation.throwIfCancelled();
     await findRowInList(listPage, createdMessage, 'C');
+    await cancellation.throwIfCancelled();
 
     await deleteTicklerFromList(listPage, createdMessage);
+    await cancellation.throwIfCancelled();
     await setTicklerListStatus(listPage, 'D');
+    await cancellation.throwIfCancelled();
     await findRowInList(listPage, createdMessage, 'D');
+    await cancellation.throwIfCancelled();
 
     assert(badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
     assert(consoleIssues.length === 0, `unexpected console issues: ${JSON.stringify(consoleIssues, null, 2)}`);
+    assertStrictPage(strictRecorder);
 
     console.log(`PASS tickler CRUD interface flow for tickler ${ticklerNo}`);
-  } finally {
-    await context.close().catch(() => {});
-    await browser.close().catch(() => {});
-    cleanupRows();
-    cleanupMysqlDefaultsFile();
-  }
-})().catch((error) => {
-  cleanupMysqlDefaultsFile();
-  console.error(`FAIL tickler CRUD interface flow: ${error.stack || error.message}`);
-  process.exit(1);
+  assertStrictPage(strictRecorder);
+}
+
+legacyHarness.runLegacyCheck('tickler-crud', main, {
+  realSignalCheckpoints: true,
+  cleanup: () => legacyHarness.finishLegacyCleanup([
+    () => context && context.close(),
+    () => browser && browser.close(),
+    cleanupRows,
+    cleanupMysqlDefaultsFile,
+  ]),
 });

@@ -21,16 +21,20 @@
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.function.Function;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -40,11 +44,18 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.openpdf.text.DocumentException;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
+import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMPDFCreator;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.FaxManager;
+import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
@@ -63,8 +74,6 @@ import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-import com.sun.xml.messaging.saaj.util.ByteInputStream;
-import com.sun.xml.messaging.saaj.util.ByteOutputStream;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -78,7 +87,9 @@ import org.apache.struts2.ServletActionContext;
  * <ul>
  *   <li><b>eForms</b> - rendered via {@link FaxManager}</li>
  *   <li><b>Documents</b> - images converted via {@link ImagePDFCreator}, PDFs included directly</li>
- *   <li><b>Lab results</b> - rendered via {@link LabPDFCreator} with embedded documents</li>
+ *   <li><b>Lab results</b> - HL7 labs rendered via {@link LabPDFCreator} with embedded documents;
+ *       the labs it cannot draw (CML, MDS, PathNet, unconfirmed source) are named on a page right
+ *       after the consultation form by {@link ConsultationLabsNotIncluded} (issue #4693)</li>
  *   <li><b>HRM reports</b> - rendered via {@link HRMPDFCreator}</li>
  *   <li><b>Forms</b> - rendered via {@link FaxManager} with {@link FormTransportContainer}</li>
  * </ul>
@@ -92,18 +103,32 @@ import org.apache.struts2.ServletActionContext;
  * @since 2012-04-09
  */
 public class EctConsultationFormRequestPrintAction22Action extends ActionSupport {
+    private static final long serialVersionUID = 1L;
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
     private static final Logger logger = MiscUtils.getLogger();
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private static final String ATTACHMENT_TYPE_DOC = "DOC";
+    private static final String ATTACHMENT_TYPE_LAB = "LAB";
+    private static final String ATTACHMENT_TYPE_HRM = "HRM";
+    private static final String MISSING_ATTACHMENT_METADATA = "missing attachment metadata";
+    private static final String UNREADABLE_ATTACHMENT_FILE = "unreadable attachment file";
+    private transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
-    private ConsultationManager consultationManager = SpringUtils.getBean(ConsultationManager.class);
+    private transient ConsultationManager consultationManager = SpringUtils.getBean(ConsultationManager.class);
 
     private static FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
 
+    private final AttachmentOwnershipService attachmentOwnershipService;
+
+    private final ConsultationRequestDao consultationRequestDao;
+
     public EctConsultationFormRequestPrintAction22Action() {
+        // Struts creates this legacy action with a no-arg constructor.
+        this.attachmentOwnershipService = SpringUtils.getBean(AttachmentOwnershipService.class);
+        this.consultationRequestDao = SpringUtils.getBean(ConsultationRequestDao.class);
     }
 
     /**
@@ -128,36 +153,73 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         String reqId = (String) request.getAttribute("reqId");
         if (request.getParameter("reqId") != null) reqId = request.getParameter("reqId");
 
-        String demoNo = request.getParameter("demographicNo");
-        ArrayList<EDoc> docs = EDocUtil.listDocs(loggedInInfo, demoNo, reqId, EDocUtil.ATTACHED);
+        // Issue #3867: this route is reachable directly, so neither the demographicNo parameter nor
+        // the consult_docs rows can be trusted. The patient comes from the stored consultation, and
+        // every attachment looked up by consultation id is kept only when it is that patient's own:
+        // a row written before attach-time ownership checks existed must not print another
+        // patient's record. Labs are kept only as HL7 labs because LabPDFCreator resolves every
+        // lab id as an HL7 segment. HRMs and forms below are already looked up per patient.
+        Integer ownerDemographicNo = findConsultationDemographicNo(reqId);
+        if (ownerDemographicNo == null) {
+            logger.warn("Consultation print refused: the consultation request id is missing, malformed or unknown");
+            request.setAttribute("printError", Boolean.TRUE);
+            return "error";
+        }
+        // The role-level _con check above says nothing about this patient; the packet carries the
+        // stored patient's PHI, so require access to that patient's record, as the fax route does.
+        if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, ownerDemographicNo)
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_con", "r", String.valueOf(ownerDemographicNo))) {
+            throw new SecurityException("missing required sec object (_con)");
+        }
+        String demoNo = String.valueOf(ownerDemographicNo);
+        List<EDoc> docs = retainOwned(DocumentType.DOC, ownerDemographicNo,
+                EDocUtil.listDocs(loggedInInfo, demoNo, reqId, EDocUtil.ATTACHED), EDoc::getDocId);
         String path = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
         if (!path.endsWith(File.separator)) {
             path = path + File.separator;
         }
         ArrayList<Object> alist = new ArrayList<Object>();
-        byte[] buffer;
-        ByteInputStream bis;
-        ByteOutputStream bos;
         CommonLabResultData consultLabs = new CommonLabResultData();
         ArrayList<InputStream> streams = new ArrayList<InputStream>();
 
-        ArrayList<LabResultData> labs = consultLabs.populateLabResultsData(loggedInInfo, demoNo, reqId, CommonLabResultData.ATTACHED);
+        List<LabResultData> listedLabs = consultLabs.populateLabResultsData(loggedInInfo, demoNo, reqId, CommonLabResultData.ATTACHED);
+        List<LabResultData> labs = retainOwned(DocumentType.LAB, ownerDemographicNo,
+                AttachmentOwnershipService.renderableLabsOnly(listedLabs), LabResultData::getSegmentID);
+        // Issue #4693: the labs LabPDFCreator cannot draw are still attached; a page right after the
+        // letter names them, as the main consultation packet does.
+        Locale readerLocale = LocaleUtils.resolveBundleLocale(request);
+        List<String> labsNotIncluded = ConsultationLabsNotIncluded.describe(
+                AttachmentOwnershipService.labsNotRenderable(listedLabs), readerLocale);
         String error = "";
         Exception exception = null;
         try {
+            ArrayList<HashMap<String, ? extends Object>> attachedHRMDocuments =
+                    consultationManager.getAttachedHRMDocuments(loggedInInfo, demoNo, reqId);
+            List<EctFormData.PatientForm> forms = consultationManager.getAttachedForms(
+                    loggedInInfo, Integer.parseInt(reqId.trim()), ownerDemographicNo);
+            List<String> attachmentsNotIncluded = ConsultationAttachmentsNotIncluded.describe(consultationManager,
+                    loggedInInfo, Integer.parseInt(reqId.trim()), forms, attachedHRMDocuments, readerLocale);
 
-            bos = new ByteOutputStream();
-            ConsultationPDFCreator cpdfc = new ConsultationPDFCreator(request, bos);
-            cpdfc.printPdf(loggedInInfo);
+            InputStream consultationPdf = renderConsultationLetter(loggedInInfo);
+            streams.add(consultationPdf);
+            alist.add(consultationPdf);
 
-            buffer = bos.getBytes();
-            bis = new ByteInputStream(buffer, bos.getCount());
-            bos.close();
-            streams.add(bis);
-            alist.add(bis);
+            if (!labsNotIncluded.isEmpty()) {
+                InputStream notice = new ByteArrayInputStream(ConsultationLabsNotIncluded.noticePage(labsNotIncluded, readerLocale));
+                streams.add(notice);
+                alist.add(notice);
+            }
+
+            if (!attachmentsNotIncluded.isEmpty()) {
+                InputStream notice = new ByteArrayInputStream(ConsultationAttachmentsNotIncluded.noticePage(attachmentsNotIncluded, readerLocale));
+                streams.add(notice);
+                alist.add(notice);
+            }
 
             // attached eForms
-            List<EFormData> eForms = consultationManager.getAttachedEForms(reqId);
+            List<EFormData> eForms = retainOwned(DocumentType.EFORM, ownerDemographicNo,
+                    consultationManager.getAttachedEForms(reqId),
+                    eForm -> eForm.getId() == null ? null : String.valueOf(eForm.getId()));
 
             for (EFormData eFormItem : eForms) {
                 Path attachedForm;
@@ -172,82 +234,24 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
                 // stream was created but never added to the cleanup list, leaking one file
                 // descriptor per attached eForm on every print (see attached-forms site below
                 // for the matching leak).
-                InputStream attachedFormStream = Files.newInputStream(attachedForm);
+                // Renderers write into CARLOS-owned temp roots. Confine the returned path before
+                // reading it, including canonical resolution of any symlink in that path.
+                InputStream attachedFormStream = Files.newInputStream(
+                        PathValidationUtils.validateApplicationTempPath(attachedForm == null ? null : attachedForm.toFile()).toPath());
                 streams.add(attachedFormStream);
                 alist.add(attachedFormStream);
             }
 
             //attached docs
-            for (int i = 0; i < docs.size(); i++) {
-                EDoc doc = docs.get(i);
-                if (doc.isPrintable()) {
-                    if (doc.isImage()) {
-                        bos = new ByteOutputStream();
-                        request.setAttribute("imagePath", path + doc.getFileName());
-                        request.setAttribute("imageTitle", doc.getDescription());
-                        ImagePDFCreator ipdfc = new ImagePDFCreator(request, bos);
-                        ipdfc.printPdf();
-
-                        buffer = bos.getBytes();
-                        bis = new ByteInputStream(buffer, bos.getCount());
-                        bos.close();
-                        streams.add(bis);
-                        alist.add(bis);
-
-                    } else if (doc.isPDF()) {
-                        alist.add(path + doc.getFileName());
-                    } else {
-                        logger.error("EctConsultationFormRequestPrintAction: " + doc.getType() + " is marked as printable but no means have been established to print it.");
-                    }
-                }
-            }
+            appendDocumentAttachments(alist, streams, docs, path);
 
             // Iterating over requested labs.
-            for (int i = 0; labs != null && i < labs.size(); i++) {
-                File tempLabPDF = File.createTempFile("lab" + labs.get(i).segmentID, "pdf");
-
-                // Defense-in-depth: verify temp file is in an allowed temp directory
-                if (!PathValidationUtils.isInAllowedTempDirectory(tempLabPDF)) {
-                    logger.error("Temp file not in allowed temp directory: {}", tempLabPDF.getAbsolutePath());
-                    tempLabPDF.delete();
-                    throw new SecurityException("Temp file created outside allowed temp directory");
-                }
-
-                // Storing the lab in PDF format inside a byte stream.
-                try (
-                        FileOutputStream fileOutputStream = new FileOutputStream(tempLabPDF);
-                        ByteOutputStream byteOutputStream = new ByteOutputStream();
-                ) {
-                    request.setAttribute("segmentID", labs.get(i).segmentID);
-                    LabPDFCreator labPDFCreator = new LabPDFCreator(request, fileOutputStream);
-                    labPDFCreator.printPdf();
-                    labPDFCreator.addEmbeddedDocuments(tempLabPDF, byteOutputStream);
-
-                    // Transferring PDF to an input stream to be concatenated with
-                    // the rest of the documents.
-                    buffer = byteOutputStream.getBytes();
-                    bis = new ByteInputStream(buffer, byteOutputStream.getCount());
-                    streams.add(bis);
-                    alist.add(bis);
-                }
-                tempLabPDF.delete();
-            }
+            appendLabAttachments(alist, streams, labs);
 
             // attached HRMs
-            ArrayList<HashMap<String, ? extends Object>> attachedHRMDocuments = consultationManager.getAttachedHRMDocuments(loggedInInfo, demoNo, reqId);
-            for (HashMap<String, ? extends Object> attachedHRMDocument : attachedHRMDocuments) {
-                bos = new ByteOutputStream();
-                HRMPDFCreator hrmPdf = new HRMPDFCreator(bos, (Integer) attachedHRMDocument.get("id"), loggedInInfo);
-                hrmPdf.printPdf();
-                buffer = bos.getBytes();
-                bis = new ByteInputStream(buffer, bos.getCount());
-                bos.close();
-                streams.add(bis);
-                alist.add(bis);
-            }
+            appendHRMAttachments(loggedInInfo, alist, streams, attachedHRMDocuments);
 
             // attached forms
-            List<EctFormData.PatientForm> forms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(reqId), Integer.parseInt(demoNo));
 
             for (EctFormData.PatientForm formItem : forms) {
                 InputStream attachedFormStream = renderFormAttachment(
@@ -257,24 +261,7 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             }
 
             if (alist.size() > 0) {
-
-                bos = new ByteOutputStream();
-                int skipped = ConcatPDF.concat(alist, bos);
-                if (skipped > 0) {
-                    // A document PDFBox could not parse was dropped — do not stream a consultation
-                    // packet silently missing content; surface it via the error path below.
-                    throw new IOException(skipped + " document(s) could not be included in the combined consultation PDF.");
-                }
-                if (response.isCommitted()) {
-                    throw new IOException("Consultation print response committed before PDF output");
-                }
-                response.setContentType("application/pdf"); // octet-stream
-                response.setHeader(
-                        "Content-Disposition",
-                        "inline; filename=\"combinedPDF-"
-                                + UtilDateUtilities.getToday("yyyy-mm-dd.hh.mm.ss")
-                                + ".pdf\"");
-                response.getOutputStream().write(bos.getBytes(), 0, bos.getCount());
+                writeCombinedPacket(alist);
             }
 
         } catch (DocumentException de) {
@@ -319,6 +306,248 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
 
     }
 
+    private InputStream renderConsultationLetter(LoggedInInfo loggedInInfo) throws DocumentException, IOException {
+        try (PdfBuffer output = new PdfBuffer()) {
+            new ConsultationPDFCreator(request, output).printPdf(loggedInInfo);
+            return output.openInputStream();
+        }
+    }
+
+    private InputStream renderImageAttachment(File documentFile, EDoc document) throws IOException, DocumentException {
+        try (PdfBuffer output = new PdfBuffer()) {
+            request.setAttribute("imagePath", documentFile.getPath());
+            request.setAttribute("imageTitle", document.getDescription());
+            new ImagePDFCreator(request, output).printPdf();
+            return output.openInputStream();
+        }
+    }
+
+    /** Keeps PHI-bearing lab files inside an application-owned private directory and removes them on failure too. */
+    private InputStream renderLabAttachment(LabResultData lab) throws IOException, DocumentException {
+        Path temporary = SpringUtils.getBean(NioFileManager.class)
+                .saveTempFile("consultationLab", new ByteArrayOutputStream());
+        Path labPdf = PathValidationUtils.validateApplicationTempPath(temporary.toFile()).toPath();
+        try (OutputStream output = Files.newOutputStream(labPdf);
+             PdfBuffer embedded = new PdfBuffer()) {
+            request.setAttribute("segmentID", lab.segmentID);
+            LabPDFCreator creator = new LabPDFCreator(request, output);
+            creator.printPdf();
+            creator.addEmbeddedDocuments(labPdf.toFile(), embedded);
+            return embedded.openInputStream();
+        } finally {
+            cleanupLabPdf(labPdf);
+        }
+    }
+
+    /** A bounded, non-copying view; each writer finishes before its buffer is published. */
+    private static final class PdfBuffer extends ByteArrayOutputStream {
+        ByteArrayInputStream openInputStream() {
+            return new ByteArrayInputStream(buf, 0, count);
+        }
+    }
+
+    /** Cleanup is independent of the print result; saveTempFile owns a fresh directory per lab. */
+    @SuppressWarnings("java:S1166") // Exception messages and stack traces can contain patient paths.
+    private void cleanupLabPdf(Path labPdf) {
+        for (Path artifact : List.of(labPdf, labPdf.getParent())) {
+            try {
+                Files.deleteIfExists(artifact);
+            } catch (IOException | SecurityException cleanupFailure) {
+                if (logger.isWarnEnabled()) {
+                    logger.warn("Failed to remove consultation lab temporary {} ({})",
+                            artifact.equals(labPdf) ? "file" : "directory", cleanupFailure.getClass().getSimpleName());
+                }
+            }
+        }
+    }
+
+    private InputStream renderHrmAttachment(LoggedInInfo loggedInInfo, HashMap<String, ? extends Object> report)
+            throws IOException, PDFGenerationException {
+        try (PdfBuffer output = new PdfBuffer()) {
+            new HRMPDFCreator(output, (Integer) report.get("id"), loggedInInfo).printPdf();
+            return output.openInputStream();
+        }
+    }
+
+    private void writeCombinedPacket(List<Object> parts) throws IOException {
+        try (PdfBuffer output = new PdfBuffer()) {
+            int skipped = ConcatPDF.concat(parts, output);
+            if (skipped > 0) {
+                throw new IOException(skipped + " document(s) could not be included in the combined consultation PDF.");
+            }
+            if (response.isCommitted()) {
+                throw new IOException("Consultation print response committed before PDF output");
+            }
+            response.setContentType("application/pdf");
+            response.setHeader("Content-Disposition", "inline; filename=\"combinedPDF-"
+                    + UtilDateUtilities.getToday("yyyy-mm-dd.hh.mm.ss") + ".pdf\"");
+            output.writeTo(response.getOutputStream());
+        }
+    }
+
+    /**
+     * Adds each attached document, lab and HRM report to the packet. These helpers fail closed: a
+     * printed consult must never be silently missing an attachment, so one that cannot be read or
+     * rendered fails the whole print through {@code execute()}'s error path, as it did before the
+     * helpers were extracted.
+     */
+    private void appendDocumentAttachments(ArrayList<Object> alist, ArrayList<InputStream> streams, List<EDoc> docs, String documentDirectory)
+            throws PDFGenerationException {
+        for (EDoc doc : emptyIfNull(docs)) {
+            if (doc == null) {
+                throw unavailableAttachment(ATTACHMENT_TYPE_DOC, null, MISSING_ATTACHMENT_METADATA);
+            }
+            try {
+                appendDocumentAttachment(alist, streams, doc, documentDirectory);
+            } catch (SecurityException e) {
+                throw e;
+            } catch (DocumentException e) {
+                throw unavailableAttachment(ATTACHMENT_TYPE_DOC, documentId(doc), "document PDF conversion failed", e);
+            } catch (IOException | RuntimeException e) {
+                throw unavailableAttachment(ATTACHMENT_TYPE_DOC, documentId(doc), e);
+            }
+        }
+    }
+
+    private void appendDocumentAttachment(ArrayList<Object> alist, ArrayList<InputStream> streams, EDoc doc, String documentDirectory)
+            throws IOException, DocumentException, PDFGenerationException {
+        if (!doc.isPrintable()) {
+            return;
+        }
+
+        File validatedFile = resolveReadableDocumentAttachmentFile(documentDirectory, doc);
+
+        if (doc.isImage()) {
+            InputStream rendered = renderImageAttachment(validatedFile, doc);
+            streams.add(rendered);
+            alist.add(rendered);
+        } else if (doc.isPDF()) {
+            alist.add(validatedFile.getPath());
+        } else {
+            if (logger.isErrorEnabled()) {
+                logger.error("EctConsultationFormRequestPrintAction: {} is marked as printable but no means have been established to print it.",
+                        LogSafe.sanitize(doc.getType()));
+            }
+        }
+    }
+
+    // FindSecBugs PATH_TRAVERSAL_IN: constructed path is immediately validated for
+    // directory containment before readability check or use.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+            justification = "path is validated for directory containment before readability check or use")
+    private File resolveReadableDocumentAttachmentFile(String documentDirectory, EDoc doc) throws PDFGenerationException {
+        File validatedFile = PathValidationUtils.validateExistingPath(
+                new File(documentDirectory, doc.getFileName()), new File(documentDirectory));
+        if (!Files.isReadable(validatedFile.toPath())) {
+            throw unavailableAttachment(ATTACHMENT_TYPE_DOC, documentId(doc), UNREADABLE_ATTACHMENT_FILE);
+        }
+        return validatedFile;
+    }
+
+    private void appendLabAttachments(ArrayList<Object> alist, ArrayList<InputStream> streams, List<LabResultData> labs)
+            throws PDFGenerationException {
+        for (LabResultData lab : emptyIfNull(labs)) {
+            if (lab == null) {
+                throw unavailableAttachment(ATTACHMENT_TYPE_LAB, null, MISSING_ATTACHMENT_METADATA);
+            }
+            if (lab.isAttachmentUnavailable()) {
+                // Listed on the consult form for the user to select again; print refuses it until then.
+                throw unavailableAttachment(ATTACHMENT_TYPE_LAB, lab.segmentID, "lab attachment is unavailable or has an unresolved source");
+            }
+            appendLabAttachment(alist, streams, lab);
+        }
+    }
+
+    private void appendLabAttachment(ArrayList<Object> alist, ArrayList<InputStream> streams, LabResultData lab)
+            throws PDFGenerationException {
+        try {
+            InputStream rendered = renderLabAttachment(lab);
+            streams.add(rendered);
+            alist.add(rendered);
+        } catch (SecurityException e) {
+            throw e;
+        } catch (IOException | RuntimeException e) {
+            throw unavailableAttachment(ATTACHMENT_TYPE_LAB, lab.segmentID, e);
+        }
+    }
+
+    private void appendHRMAttachments(LoggedInInfo loggedInInfo, ArrayList<Object> alist, ArrayList<InputStream> streams, List<HashMap<String, ? extends Object>> attachedHRMDocuments)
+            throws PDFGenerationException {
+        for (HashMap<String, ? extends Object> attachedHRMDocument : emptyIfNull(attachedHRMDocuments)) {
+            Object hrmDocumentId = attachedHRMDocument == null ? null : attachedHRMDocument.get("id");
+            if (!(hrmDocumentId instanceof Integer)) {
+                throw unavailableAttachment(ATTACHMENT_TYPE_HRM, hrmDocumentId, MISSING_ATTACHMENT_METADATA);
+            }
+            try {
+                InputStream rendered = renderHrmAttachment(loggedInInfo, attachedHRMDocument);
+                streams.add(rendered);
+                alist.add(rendered);
+            } catch (SecurityException e) {
+                throw e;
+            } catch (IOException | PDFGenerationException | RuntimeException e) {
+                throw unavailableAttachment(ATTACHMENT_TYPE_HRM, hrmDocumentId, e);
+            }
+        }
+    }
+
+
+    private String documentId(EDoc doc) {
+        return String.valueOf(doc.getDocId());
+    }
+
+    private PDFGenerationException unavailableAttachment(String attachmentType, Object attachmentId, Throwable cause) {
+        return unavailableAttachment(attachmentType, attachmentId, cause == null ? "unknown error" : cause.getClass().getSimpleName());
+    }
+
+    private PDFGenerationException unavailableAttachment(String attachmentType, Object attachmentId, String reason, Throwable cause) {
+        return unavailableAttachment(attachmentType, attachmentId,
+                cause == null ? reason : reason + " (" + cause.getClass().getSimpleName() + ")");
+    }
+
+    /**
+     * The failure for an attachment that cannot go into the packet. It names the attachment by
+     * type and id and gives the exception class only, with no cause attached: renderer messages
+     * and causes can carry clinical text and paths, and {@code execute()} logs this exception.
+     */
+    private PDFGenerationException unavailableAttachment(String attachmentType, Object attachmentId, String reason) {
+        return new PDFGenerationException("Attached " + attachmentType + " " + LogSafe.sanitize(String.valueOf(attachmentId))
+                + " could not be included in the consultation print: " + reason);
+    }
+
+    private <T> List<T> emptyIfNull(List<T> source) {
+        return source == null ? List.of() : source;
+    }
+
+    /**
+     * The patient the stored consultation request was written for, or {@code null} when the id is
+     * missing, not a number or does not name a consultation.
+     */
+    private Integer findConsultationDemographicNo(String reqId) {
+        if (reqId == null) {
+            return null;
+        }
+        int requestId;
+        try {
+            requestId = Integer.parseInt(reqId.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+        ConsultationRequest consultationRequest = consultationRequestDao.find(requestId);
+        return consultationRequest == null ? null : consultationRequest.getDemographicId();
+    }
+
+    /** Keeps the patient's own attachments; logs only how many were omitted, never ids. */
+    private <T> List<T> retainOwned(DocumentType type, Integer demographicNo, List<T> attachments,
+                                    Function<T, String> idOf) {
+        List<T> retained = attachmentOwnershipService.retainOwned(type, demographicNo, attachments, idOf);
+        int omitted = (attachments == null ? 0 : attachments.size()) - retained.size();
+        if (omitted > 0) {
+            logger.warn("Omitted {} consultation attachment(s) of type {} not owned by the consultation patient",
+                    omitted, type.getType());
+        }
+        return retained;
+    }
+
     private InputStream renderFormAttachment(
             LoggedInInfo loggedInInfo,
             HttpServletRequest request,
@@ -343,7 +572,8 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             formTransportContainer.setRealPath(ServletActionContext.getServletContext().getRealPath(File.separator));
             Path attachedForm = faxManager.renderFaxDocument(
                     loggedInInfo, FaxManager.TransactionType.FORM, formTransportContainer);
-            return Files.newInputStream(attachedForm);
+            return Files.newInputStream(
+                    PathValidationUtils.validateApplicationTempPath(attachedForm == null ? null : attachedForm.toFile()).toPath());
         } catch (SQLException | IOException | ServletException | RuntimeException e) {
             throw new PDFGenerationException(
                     "Attached form \"" + formName + "\" could not be rendered: " + e.getMessage(), e);

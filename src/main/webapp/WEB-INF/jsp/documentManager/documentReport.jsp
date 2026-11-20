@@ -26,11 +26,12 @@
   for dynamic output rendered by the page.
 --%>
 <!DOCTYPE html>
+<%@ taglib prefix="source" tagdir="/WEB-INF/tags" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO, io.github.carlos_emr.carlos.commn.model.UserProperty" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -39,7 +40,9 @@
         response.sendRedirect("${ pageContext.request.contextPath }/logoutPage");
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     String user_no = (String) session.getAttribute("user");
-    String demographicNo = (String) session.getAttribute("casemgmt_DemoNo");
+    // The page's patient is moduleid, from this request. It used to also read the session's
+    // last-opened chart (casemgmt_DemoNo), another window's patient, into a variable nothing
+    // used; that session attribute no longer exists (issue #4673).
 
     String appointment = request.getParameter("appointmentNo");
     int appointmentNo = 0;
@@ -53,16 +56,16 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
-<%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProp" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
@@ -116,10 +119,6 @@
     } else if (request.getAttribute("function") != null) {
         module = (String) request.getAttribute("function");
         moduleid = (String) request.getAttribute("functionid");
-    }
-
-    if (!"".equalsIgnoreCase(moduleid) && (demographicNo == null || demographicNo.equalsIgnoreCase("null"))) {
-        demographicNo = moduleid;
     }
 
 // module can be "demographic", "provider", or "providers" (use EDocUtil.isProviderModule() for provider checks)
@@ -231,6 +230,37 @@
                 }
             }
 
+            /**
+             * Copies the CSRFGuard token the client script injected into this page's own
+             * (combine-PDF) form into a dynamically built one.
+             *
+             * CSRFGuard injects into forms that exist when its script runs; a form created and
+             * submitted in the same tick misses that (its injectIntoDynamicNodes observer has not
+             * fired yet), so the POST arrives with no token and CSRFGuard answers 403 -- which is
+             * what deleting a document from this page did.
+             *
+             * Adapted from MultiPageDocDisplay.jsp's helper of the same name, not identical to
+             * it: that one warns and lets the caller submit regardless, while this one returns
+             * false on a missing or empty token so submitDocAction can abort and tell the user
+             * to reload. Keep the two in mind together if either changes.
+             */
+            function appendCsrfToken(form) {
+                var csrfEl = document.querySelector('input[name="CSRF-TOKEN"]');
+                if (!csrfEl || !csrfEl.value) {
+                    // Fail closed. Submitting anyway only trades a silent no-op for CSRFGuard's
+                    // 403 error page, which is the failure this helper exists to prevent; tell
+                    // the user to reload instead, so the action can actually be retried.
+                    console.warn('CSRF token not found on page; document action not submitted.');
+                    return false;
+                }
+                var csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'CSRF-TOKEN';
+                csrfInput.value = csrfEl.value;
+                form.appendChild(csrfInput);
+                return true;
+            }
+
             /** Creates a dynamic POST form to submit a document action (delete/undelete) to the appropriate action route. */
             function submitDocAction(paramName, docId, func, funcId, viewStatus) {
                 var form = document.createElement('form');
@@ -259,6 +289,10 @@
                     input.value = fields[key];
                     form.appendChild(input);
                 }
+                if (!appendCsrfToken(form)) {
+                    showListAlert(msgCsrfTokenMissing);
+                    return;
+                }
                 document.body.appendChild(form);
                 form.submit();
             }
@@ -272,7 +306,13 @@
                 }
             }
 
-            var msgNoDocSelected = '<fmt:message key="dms.documentReport.msgNoDocSelected"/>';
+            <fmt:message key="dms.documentReport.msgNoDocSelected" var="noDocSelectedText"/>
+            var msgNoDocSelected = '${carlos:forJavaScript(noDocSelectedText)}';
+            <%-- Emitted through forJavaScript: a translation containing an apostrophe or a
+                 backslash would otherwise terminate this string literal and break the whole
+                 script block, taking the delete/undelete handlers down with it. --%>
+            <fmt:message key="dms.documentReport.msgCsrfTokenMissing" var="csrfTokenMissingText"/>
+            var msgCsrfTokenMissing = '${carlos:forJavaScript(csrfTokenMissingText)}';
 
             /**
              * Displays a dismissable Bootstrap alert-danger in the document list alert container.
@@ -348,17 +388,23 @@
                 var update = "<carlos:encode value='<%= updateParent %>' context="javaScriptBlock"/>";
                 var parentId = "<carlos:encode value='<%= parentAjaxId %>' context="javaScriptBlock"/>";
 
-                if (update === "true"
-                        && window.opener
-                        && !window.opener.closed
-                        && window.opener.URLs
-                        && Object.prototype.hasOwnProperty.call(window.opener.URLs, parentId)) {
-                    window.opener.popLeftColumn(window.opener.URLs[parentId], parentId, parentId);
-                } else if (update === "true") {
-                    // Parent refresh was requested but the opener/URL map is gone or lacks this id;
-                    // skip silently in the UI but leave a console trace for debugging.
-                    console.warn("documentReport: parent refresh skipped for parentAjaxId=" + parentId);
+                if (update !== "true") return;
+                var parent = window.opener;
+                if (parent && !parent.closed) {
+                    // The current E-Chart exposes reloadNav, not the legacy URLs map.
+                    // This upload callback targets only its Documents module.
+                    if (parentId === "docs" && typeof parent.reloadNav === "function"
+                            && parent.document.getElementById("docs")) {
+                        parent.reloadNav("docs");
+                        return;
+                    }
+                    if (parent.URLs && Object.prototype.hasOwnProperty.call(parent.URLs, parentId)
+                            && typeof parent.popLeftColumn === "function") {
+                        parent.popLeftColumn(parent.URLs[parentId], parentId, parentId);
+                        return;
+                    }
                 }
+                console.warn("documentReport: parent refresh skipped for parentAjaxId=" + parentId);
             }
 
             window.closeWindow = function() {
@@ -374,14 +420,16 @@
             }
 
             jQuery(document).ready(function () {
+                setup();
                 jQuery("table[id^='tblDocs']").DataTable({
                     ordering: true,
-                    columnDefs: [{orderable: false, targets: [0, 8]}],
+                    // Columns: select, content, description, creator, responsible, observed, created, actions.
+                    columnDefs: [{orderable: false, targets: [0, 7]}],
                     lengthMenu: [
                         [-1, 10, 20, 50, 100, 200],
                         ['All', 10, 20, 50, 100, 200]
                     ],
-                    order: [[6, 'dsc']],
+                    order: [[5, 'desc']],
                     "language": {
                         "url": "<%=request.getContextPath() %>/library/DataTables/i18n/<fmt:message key="global.i18n.datatablescode"/>.json"
                     }
@@ -390,10 +438,13 @@
         </script>
 
         <style>
+            html {
+                overscroll-behavior: none;
+            }
+
             :root *:not(h2) {
                 font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
                 font-size: 12px;
-                overscroll-behavior: none;
                 -webkit-font-smoothing: antialiased;
                 -moz-osx-font-smoothing: grayscale;
             }
@@ -429,6 +480,7 @@
         </h2>
 
         <div id="docListAlertContainer"></div>
+        <c:if test="${requestScope.normalizedFunction eq 'demographic' or param.function eq 'demographic' or requestScope.function eq 'demographic'}"><div><source:cdsSourceFields demographicNo="${not empty requestScope.functionid ? requestScope.functionid : param.functionid}" category="Reports"/></div></c:if>
 
         <% if ("demographic".equals(module)) { %>
         <oscar:nameage demographicNo="<%= moduleid %>"/>
@@ -474,6 +526,10 @@
 
                 for (int i = 0; i < categories.size(); i++) {
                     String currentkey = (String) categoryKeys.get(i);
+                    // The heading carries the patient's (or provider's) name, so the Browse link
+                    // sends a stable scope token instead: categories[0] is always the private list
+                    // and categories[1] (provider module only) the public one.
+                    String currentScope = (i == 0) ? "private" : "public";
                     ArrayList category = (ArrayList) categories.get(i);
             %>
                 <div class="doclist card">
@@ -520,7 +576,7 @@
                                 <div class="mb-3">
                                     <a class="btn btn-link"
                                         <%-- The browser link is a full navigation; append scheduleNav so it remains in the schedule shell. --%>
-                                        href="${ pageContext.request.contextPath }/documentManager/ViewDocumentBrowser?function=<carlos:encode value='<%= module %>' context="uriComponent"/>&functionid=<carlos:encode value='<%= moduleid %>' context="uriComponent"/>&categorykey=<carlos:encode value='<%= currentkey %>' context="uriComponent"/><%=scheduleNavQuerySuffix%>">
+                                        href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/ViewDocumentBrowser?function=<carlos:encode value='<%= module %>' context="uriComponent"/>&functionid=<carlos:encode value='<%= moduleid %>' context="uriComponent"/>&categorykey=<%= currentScope %><%=scheduleNavQuerySuffix%>">
                                         <fmt:message key="dms.documentReport.msgBrowser"/>
                                     </a>
                                 </div>
@@ -544,9 +600,6 @@
                                     <fmt:message key="dms.documentReport.msgDocDesc"/>
                                 </th>
                                 <th>
-                                    <fmt:message key="dms.documentReport.msgType"/>
-                                </th>
-                                <th>
                                     <fmt:message key="dms.documentReport.msgCreator"/>
                                 </th>
                                 <th>
@@ -566,24 +619,6 @@
                             <%
                                 for (int i2 = 0; i2 < category.size(); i2++) {
                                     EDoc curdoc = (EDoc) category.get(i2);
-                                    //content type (take everything following '/')
-                                    int slash = 0;
-                                    String contentType = "";
-                                    if (curdoc.getContentType() == null || curdoc.getContentType().isEmpty()) {
-                                        contentType = "ukn";
-                                    } else if ((slash = curdoc.getContentType().indexOf('/')) != -1) {
-                                        contentType = curdoc.getContentType().substring(slash + 1);
-                                    } else {
-                                        contentType = curdoc.getContentType();
-                                    }
-                                    // remove punctuation
-                                    contentType = contentType.replaceAll("\\p{Punct}", "");
-
-                                    // truncate to save space
-                                    if (contentType.length() > 3) {
-                                        contentType = contentType.substring(0, 3);
-                                    }
-
                                     String dStatus = "";
                                     if ((curdoc.getStatus() + "").compareTo("H") == 0) {
                                         dStatus = "html";
@@ -618,20 +653,13 @@
                                         <carlos:encode value='<%= curdoc.getDescription() %>' context="html"/>
                                     </a>
                                 </td>
-                                <td>
-                                    <div style="overflow:hidden; text-overflow: ellipsis;"
-                                         title="<carlos:encode value='<%= contentType %>' context="htmlAttribute"/>">
-                                        <carlos:encode value='<%= contentType %>' context="html"/>
-                                    </div>
-                                </td>
-
                                 <td><carlos:encode value='<%= curdoc.getCreatorName() %>' context="html"/>
                                 </td>
                                 <td><carlos:encode value='<%= curdoc.getResponsibleName() %>' context="html"/>
                                 </td>
                                 <td><carlos:encode value='<%= curdoc.getObservationDate() %>' context="html"/>
                                 </td>
-                                <td><%=curdoc.getContentDateTime()%>
+                                <td><carlos:encode value='<%=curdoc.getContentDateTimeDisplay()%>' context="html"/>
                                 </td>
 
                                 <td style="text-align: right;">
@@ -725,7 +753,10 @@
 
                                         <% } %>
 
-                                        <% if (!("demographic".equals(module) && moduleid != null && moduleid.equals(session.getAttribute("user")))) {
+                                        <%-- A tickler is for a patient: only a patient's own document list offers one.
+                                             On a provider's list the module id is the provider number, which the
+                                             link would send as the patient's (#4839). --%>
+                                        <% if ("demographic".equals(module)) {
 
                                             String tickler_url = request.getContextPath() + "/tickler/ForwardDemographicTickler?docType=DOC&docId=" + SafeEncode.forUriComponent(curdoc.getDocId()) + "&demographic_no=" + SafeEncode.forUriComponent(moduleid);
                                         %>
@@ -755,7 +786,7 @@
                         value="<fmt:message key='dms.documentReport.btnDoneClose'/>"
                         onclick="window.closeWindow()"/>
                 <input type="button" value="<fmt:message key='dms.documentReport.btnCombinePDF'/>" class="btn btn-secondary"
-                       onclick="return submitForm('<rewrite:reWrite jspPage="combinePDFs" context="javaScriptAttribute"/>');"/>
+                       onclick="return submitForm('<rewrite:reWrite jspPage="/documentManager/combinePDFs" context="javaScriptAttribute"/>');"/>
             </div>
 
         </form>

@@ -29,8 +29,8 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
-<%@ taglib uri="http://displaytag.sf.net" prefix="display" %>
+
+
 
 <%
     String user = (String) session.getAttribute("user");
@@ -48,7 +48,7 @@
     }
 %>
 
-<%@ page import=" io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*, java.util.Properties" %>
+<%@ page import="io.github.carlos_emr.carlos.form.*, java.util.Properties" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
@@ -351,14 +351,14 @@
                                             <option value="B">B</option>
                                             <option value="AB">AB</option>
                                             <option value="O">O</option>
-                                            <option value="UN"><fmt:message key="global.unknown"/></option>
+                                            <option value="UN"><fmt:message key="form.formBCAR2020pg1.option.unknown"/></option>
                                         </select>
                                     </td>
                                     <td>
                                         <select name="s_investigationsRhFactor" style="width: 100%">
                                             <option value="POS"><fmt:message key="form.formBCAR2020pg2.label.pos"/></option>
                                             <option value="NEG"><fmt:message key="form.formBCAR2020pg2.label.neg"/></option>
-                                            <option value="UN"><fmt:message key="global.unknown"/></option>
+                                            <option value="UN"><fmt:message key="form.formBCAR2020pg1.option.unknown"/></option>
                                         </select>
                                     </td>
                                     <td>

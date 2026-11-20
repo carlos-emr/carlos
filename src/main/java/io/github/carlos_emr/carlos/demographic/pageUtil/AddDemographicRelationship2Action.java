@@ -59,11 +59,17 @@ public class AddDemographicRelationship2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
-    private DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    // Struts creates this action per request; its Spring services are not serialized.
+    private final transient DemographicManager demographicManager;
+    private final transient SecurityInfoManager securityInfoManager;
+    public AddDemographicRelationship2Action(DemographicManager demographicManager, SecurityInfoManager securityInfoManager) {
+        this.demographicManager = demographicManager;
+        this.securityInfoManager = securityInfoManager;
+    }
 
     public AddDemographicRelationship2Action() {
-
+        // Struts requires a public no-argument constructor; it delegates to the injecting constructor.
+        this(SpringUtils.getBean(DemographicManager.class), SpringUtils.getBean(SecurityInfoManager.class));
     }
 
     /**
@@ -89,7 +95,9 @@ public class AddDemographicRelationship2Action extends ActionSupport {
     @Override
     public String execute() throws IOException {
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", null)) {
+        LoggedInInfo loggedInInfo = LoggedInInfo.requireLoggedInInfoFromSession(request);
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
@@ -150,7 +158,7 @@ public class AddDemographicRelationship2Action extends ActionSupport {
         DemographicRelationship demo = new DemographicRelationship();
         demo.addDemographicRelationship(origDemo, linkingDemo, relation, sdmBool, eBool, notes, providerNo, facilityId);
 
-        InverseRelation inverse = computeInverseRelation(origDemo, linkingDemo, relation);
+        InverseRelation inverse = computeInverseRelation(loggedInInfo, origDemo, linkingDemo, relation);
         if (inverse != null) {
             DemographicRelationship demo2 = new DemographicRelationship();
             demo2.addDemographicRelationship(inverse.origDemo(), inverse.linkingDemo(), inverse.relation(),
@@ -171,7 +179,7 @@ public class AddDemographicRelationship2Action extends ActionSupport {
         }
         try {
             return Integer.parseInt(demographicNo) > 0;
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             return false;
         }
     }
@@ -187,14 +195,17 @@ public class AddDemographicRelationship2Action extends ActionSupport {
     // Sex determines whether the inverse is e.g. brother/sister, grandfather/grandmother,
     // husband/wife of the same relation (from AddAlternateContact.jsp's original logic).
     // Returns null when no inverse relation applies (e.g. relation type has no sex-specific inverse).
-    private InverseRelation computeInverseRelation(String origDemo, String linkingDemo, String relation) {
+    // FindSecBugs IMPROPER_UNICODE: M/F are domain codes used to select an inverse relation, not identities or credentials.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "M/F domain codes select an inverse relation; no identity or credential comparison")
+    private InverseRelation computeInverseRelation(LoggedInInfo loggedInInfo, String origDemo,
+            String linkingDemo, String relation) {
         boolean relationset = false;
 
         CtlRelationshipsDao ctlRelationshipsDao = SpringUtils.getBean(CtlRelationshipsDao.class);
         CtlRelationships cr = ctlRelationshipsDao.findByValue(relation);
         if (cr != null && ((cr.getMaleInverse() != null && cr.getMaleInverse().length() > 0) || (cr.getFemaleInverse() != null && cr.getFemaleInverse().length() > 0))) {
             //need sex of the relation
-            Demographic d = demographicManager.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), origDemo);
+            Demographic d = demographicManager.getDemographic(loggedInInfo, origDemo);
             if (d != null && d.getSex().equalsIgnoreCase("M")) {
                 relation = cr.getMaleInverse();
                 relationset = true;

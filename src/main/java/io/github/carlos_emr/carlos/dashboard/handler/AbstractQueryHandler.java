@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.dashboard.handler;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
 
 import jakarta.persistence.Query;
 
@@ -315,31 +316,53 @@ public abstract class AbstractQueryHandler extends AbstractJpaDao {
      * Replaces all given patterns in the given string with the given value.
      */
     private String patternReplace(String pattern, String query, String value) {
-        logger.debug("Inserting pattern " + pattern + " with a value of " + value);
-        return query.replaceAll(pattern, value);
+        logger.debug("Inserting pattern {} with a value of {}", pattern, value);
+        // quoteReplacement: a literal $ or \ in the value must not be read as a regex
+        // group reference, which would corrupt the query or throw.
+        return query.replaceAll(pattern, Matcher.quoteReplacement(value == null ? "" : value));
     }
 
     /**
-     * parses a parameter value array into a comma delimited string for use
-     * in a SQL query.
+     * Parses a parameter value array into the text substituted for its placeholder.
+     * <p>
+     * Trust boundary: a single value is an SQL fragment written by the indicator author and is
+     * substituted verbatim (shipped templates rely on this, e.g. {@code '%AC%'} or a bare
+     * number). A multi-value list is different: the handler itself wraps each token in quotes
+     * to build an {@code IN (...)} list, so quote and backslash characters inside a token are
+     * escaped here to keep each token a single string literal.
+     *
+     * @param values String[] the configured values; may be null or empty
+     * @return String the substitution text, never null
      */
-    private static String parseParameterValue(String[] values) {
-        String value = "";
-
-        if (values.length > 1) {
-            StringBuilder stringBuilder = new StringBuilder();
-            stringBuilder.append("(");
-            for (int i = 0; i < values.length; i++) {
-                stringBuilder.append("'").append(values[i]).append("',");
-            }
-            stringBuilder.deleteCharAt(stringBuilder.length() - 1);
-            stringBuilder.append(")");
-            value = stringBuilder.toString();
-        } else {
-            value = values[0].trim();
+    static String parseParameterValue(String[] values) {
+        if (values == null || values.length == 0) {
+            return "";
         }
 
-        return value;
+        if (values.length > 1) {
+            StringBuilder stringBuilder = new StringBuilder("(");
+            for (int i = 0; i < values.length; i++) {
+                if (i > 0) {
+                    stringBuilder.append(",");
+                }
+                stringBuilder.append("'").append(escapeSqlStringLiteral(values[i])).append("'");
+            }
+            stringBuilder.append(")");
+            return stringBuilder.toString();
+        }
+
+        return values[0] == null ? "" : values[0].trim();
+    }
+
+    /**
+     * Escapes a token for use inside a single-quoted MySQL/MariaDB string literal. Backslash is
+     * escaped first because MySQL treats it as an escape character by default.
+     */
+    private static String escapeSqlStringLiteral(String token) {
+        if (token == null) {
+            return "";
+        }
+        return token.trim().replace("\\", "\\\\").replace("'", "''");
     }
 
     /**

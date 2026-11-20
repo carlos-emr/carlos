@@ -29,6 +29,8 @@
 
 package io.github.carlos_emr.carlos.lab.ca.all.upload.handlers;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import org.openpdf.text.pdf.PdfReader;
 
 import ca.uhn.fhir.context.FhirContext;
@@ -39,9 +41,12 @@ import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileReader;
-import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
@@ -51,20 +56,22 @@ import org.hl7.fhir.dstu3.model.CommunicationRequest;
 
 import org.hl7.fhir.dstu3.model.Reference;
 
+
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
 
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+import io.github.carlos_emr.carlos.documentManager.DocumentDescription;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.lab.FileUploadCheck;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -93,7 +100,11 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
     protected static Logger logger = MiscUtils.getLogger();
     private static FhirContext fhirContext = FhirContext.forDstu3();
     private ProviderInboxRoutingDao providerInboxRoutingDao = (ProviderInboxRoutingDao) SpringUtils.getBean(ProviderInboxRoutingDao.class);
-    private static SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+    /*
+     * Immutable, so safe to share between concurrent uploads; the shared SimpleDateFormat it
+     * replaced could file one upload under another's date (issue #5301).
+     */
+    private static final DateTimeFormatter OBSERVATION_DATE = DateTimeFormatter.ofPattern("uuuu-MM-dd", Locale.ROOT);
 
 
     /**
@@ -126,15 +137,15 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
             
             // Validate the file path using PathValidationUtils
             File baseDir = new File(baseDocDir);
-            File targetFile = new File(fileName);
+            File targetFile;
             try {
-                targetFile = PathValidationUtils.validateExistingPath(targetFile, baseDir);
+                targetFile = PathValidationUtils.validateExistingPath(fileName, baseDir);
             } catch (SecurityException e) {
-                logger.error("Path traversal attempt detected: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                logger.error("Path traversal attempt detected");
                 return null;
             }
             if (!targetFile.exists() || !targetFile.isFile()) {
-                logger.error("File does not exist or is not a regular file: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                logger.error("File does not exist or is not a regular file");
                 return null;
             }
             
@@ -146,9 +157,17 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
             List<Reference> refs = communicationRequest.getRecipient();
             Reference patient = communicationRequest.getSubject();
 
-            Date createDate = communicationRequest.getAuthoredOn();
+            // The document is filed under the clinic's date of authoredOn. Without one there is no
+            // date to file it under: refuse it before its PDF is written.
+            String observationDate = observationDate(communicationRequest.getAuthoredOn(), ZoneId.systemDefault());
+            if (observationDate == null) {
+                logger.error("CommunicationRequest has no authoredOn date; not creating a document record");
+                return null;
+            }
             Attachment attachment = communicationRequest.getPayloadFirstRep().getContentAttachment();
-            String title = attachment.getTitle();
+            // The sending system's title becomes the document description: shortened to
+            // document.docdesc rather than cut by the database without a word.
+            String title = DocumentDescription.fit(attachment.getTitle());
             String docType = "";
             CodeableConcept cc = communicationRequest.getCategoryFirstRep();
 
@@ -161,6 +180,13 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
             ByteArrayInputStream is = new ByteArrayInputStream(document);
             String incomingDocumentFilename = communicationRequest.getIdentifierFirstRep().getValue().replace('/', '-') + "_" + (new Date().getTime()) + ".pdf";
             String filePath = Utilities.savePdfFile(is, incomingDocumentFilename);
+            if (filePath == null) {
+                // savePdfFile returns null when the destination is invalid, the name collides, or the
+                // write fails. Dereferencing it turned that into an NPE instead of a parse failure.
+                logger.error("PDF save returned no path; not creating a document record");
+                return null;
+            }
+            discardOnRollback(new File(filePath), PathValidationUtils.getRequiredDocumentDirectory());
 
             int fileNameIdx = filePath.lastIndexOf("/");
             filePath = filePath.substring(fileNameIdx + 1);
@@ -173,7 +199,7 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
                     providerNo,
                     "",
                     'A',
-                    sdf.format(createDate),
+                    observationDate,
                     "", "", "demographic",
                     patient.getReference().substring("Patient/".length()), false);
 
@@ -188,18 +214,50 @@ public class FHIRCommunicationRequestHandler implements MessageHandler {
             String doc_no = EDocUtil.addDocumentSQL(newDoc);
 
             for (Reference ref : refs) {
-                providerInboxRoutingDao.addToProviderInbox(ref.getReference().substring("Practitioner/".length()), Integer.parseInt(doc_no), "DOC");
+                providerInboxRoutingDao.addToProviderInboxStrict(ref.getReference().substring("Practitioner/".length()), Integer.parseInt(doc_no), "DOC");
             }
 
             LogAction.addLog(providerNo, LogConst.ADD, LogConst.CON_DOCUMENT, doc_no, ipAddr, "", "DocUpload.FHIRCommunicationRequest");
 
         } catch (Exception e) {
-            logger.error("error parsing Document Reference Document", e);
+            logger.error("error parsing Document Reference Document: {}", LogSafe.exceptionTrace(e));
             return null;
         } finally {
             IOUtils.closeQuietly(in);
         }
 
         return "success";
+    }
+
+    /**
+     * The clinic's calendar date of a CommunicationRequest's {@code authoredOn} instant, as the
+     * {@code yyyy-MM-dd} observation date its document is filed under.
+     *
+     * @param authoredOn Date the request's authoredOn instant; may be {@code null}
+     * @param clinicZone ZoneId the clinic's zone
+     * @return String the date text, or {@code null} when {@code authoredOn} is {@code null}
+     */
+    static String observationDate(Date authoredOn, ZoneId clinicZone) {
+        if (authoredOn == null) {
+            return null;
+        }
+        // The epoch milliseconds rather than toInstant(), which a java.sql.Date refuses.
+        return OBSERVATION_DATE.format(Instant.ofEpochMilli(authoredOn.getTime()).atZone(clinicZone));
+    }
+
+    /**
+     * Deletes a PDF this handler wrote if the surrounding transaction rolls back.
+     *
+     * <p>Inside {@code FileUploadCheck.storeIfNew} a later failure, or this handler returning
+     * {@code null}, rolls back the document, routing and checksum rows; the file on disk is not
+     * transactional, so without this it stayed behind and every retry wrote another. A commit, a
+     * commit whose outcome is unknown (the rows may exist), or no transaction at all keeps the file,
+     * as before. A delete that fails is retried when the JVM shuts down.</p>
+     *
+     * @param saved the PDF written by {@link Utilities#savePdfFile}
+     * @param documentDir the document directory the file must lie in before it is deleted
+     */
+    static void discardOnRollback(File saved, File documentDir) {
+        FileUploadCheck.discardOnRollback(saved, documentDir);
     }
 }

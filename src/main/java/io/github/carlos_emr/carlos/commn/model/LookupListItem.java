@@ -44,6 +44,10 @@ public class LookupListItem extends AbstractModel<Integer> {
 
     private String label;
 
+    private String icon;
+
+    private String colour;
+
     private boolean active = true;
 
     private int displayOrder = 0;
@@ -52,6 +56,47 @@ public class LookupListItem extends AbstractModel<Integer> {
 
     @Temporal(TemporalType.TIMESTAMP)
     private Date dateCreated = new Date();
+
+    /**
+     * Creates an empty instance, as JPA and the existing callers do. Declared explicitly
+     * because the private copy constructor behind {@link #copyOf(LookupListItem)} would
+     * otherwise remove the implicit no-argument constructor JPA requires.
+     */
+    public LookupListItem() {
+    }
+
+    /*
+     * Copies the label field directly: getLabel() turns null into "", and a copy must hold
+     * exactly what the row holds.
+     */
+    private LookupListItem(LookupListItem source) {
+        this.id = source.id;
+        this.lookupListId = source.lookupListId;
+        this.value = source.value;
+        this.label = source.label;
+        this.icon = source.icon;
+        this.colour = source.colour;
+        this.active = source.active;
+        this.displayOrder = source.displayOrder;
+        this.createdBy = source.createdBy;
+        this.dateCreated = source.dateCreated == null ? null : (Date) source.dateCreated.clone();
+    }
+
+    /**
+     * Returns a detached copy that shares no mutable state with {@code source}.
+     *
+     * <p>Used by {@link LookupList#copyOf(LookupList)} so a cached lookup list's items are
+     * copied along with the list. The creation date is cloned (keeping its runtime type, such
+     * as {@link java.sql.Timestamp}). The copy keeps the database id, so
+     * {@code equals}/{@code hashCode} still match the row, but it is not managed by any
+     * persistence context: changing it writes nothing.</p>
+     *
+     * @param source the item to copy; may be {@code null}
+     * @return a new detached copy, or {@code null} when {@code source} is {@code null}
+     */
+    public static LookupListItem copyOf(LookupListItem source) {
+        return source == null ? null : new LookupListItem(source);
+    }
 
     public Integer getId() {
         return id;
@@ -78,6 +123,48 @@ public class LookupListItem extends AbstractModel<Integer> {
 
     public void setLabel(String label) {
         this.label = label;
+    }
+
+    /**
+     * Returns the icon drawn for this item, such as on an appointment location chip.
+     *
+     * @return String a whitelisted Font Awesome class such as {@code fa-house}, or null when unset
+     * @since 2026-11-04
+     */
+    public String getIcon() {
+        return icon;
+    }
+
+    /**
+     * Sets the icon drawn for this item. Writers validate it against a whitelist first, because
+     * pages write it into a {@code class} attribute.
+     *
+     * @param icon String a whitelisted Font Awesome class, or null to clear it
+     * @since 2026-11-04
+     */
+    public void setIcon(String icon) {
+        this.icon = icon;
+    }
+
+    /**
+     * Returns the colour this item is drawn in, such as on an appointment location chip.
+     *
+     * @return String a {@code #rrggbb} colour, or null when unset
+     * @since 2026-11-04
+     */
+    public String getColour() {
+        return colour;
+    }
+
+    /**
+     * Sets the colour this item is drawn in. Writers validate it as {@code #rrggbb} first, because
+     * pages write it into a {@code style} attribute.
+     *
+     * @param colour String a {@code #rrggbb} colour, or null to clear it
+     * @since 2026-11-04
+     */
+    public void setColour(String colour) {
+        this.colour = colour;
     }
 
     public boolean isActive() {

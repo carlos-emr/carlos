@@ -28,7 +28,7 @@ import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.SxmlMisc;
+import io.github.carlos_emr.carlos.demographic.util.DemographicXml;
 
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingDateOfBirths;
 import static io.github.carlos_emr.carlos.billings.ca.on.support.BillingDateOfBirths.calculateAge;
@@ -142,8 +142,8 @@ public class BillingOnFormDemographicLoader {
             rDoctor = "N/A";
             rDoctorOhip = "000000";
         } else {
-            rDoctor = firstNonNull(SxmlMisc.getXmlContent(familyDoctor, "rd"), "");
-            rDoctorOhip = firstNonNull(SxmlMisc.getXmlContent(familyDoctor, "rdohip"), "");
+            rDoctor = firstNonNull(DemographicXml.referralDoctor(familyDoctor), "");
+            rDoctorOhip = firstNonNull(DemographicXml.referralDoctorOhip(familyDoctor), "");
             ProfessionalSpecialist specialist = professionalSpecialistDao.getByReferralNo(rDoctorOhip);
             if (specialist != null) {
                 rDoctor = specialist.getLastName() + "," + specialist.getFirstName();

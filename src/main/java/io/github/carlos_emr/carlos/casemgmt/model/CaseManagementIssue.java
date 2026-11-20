@@ -35,6 +35,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import io.github.carlos_emr.carlos.model.BaseObject;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
@@ -65,6 +67,7 @@ public class CaseManagementIssue extends BaseObject {
     // protected boolean active;
     protected boolean resolved;
     protected String type;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     protected Date update_date = new Date();
     protected Set notes = new HashSet();
     protected Issue issue;
@@ -264,6 +267,21 @@ public class CaseManagementIssue extends BaseObject {
     public void setUpdate_date(Date update_date) {
         this.update_date = update_date;
     }
+
+    /**
+     * Stamps {@code update_date} when this row is about to be updated.
+     *
+     * <p>Hibernate calls this only for an entity whose flush-time dirty check, against the state
+     * it loaded from the database, found a changed column. So the date moves when one of the
+     * issue's own values changes, and not when a note save merely lists the issue or links a note
+     * to it (the link rows belong to the note). {@code CaseManagementIssueDAOImpl} stamps new rows
+     * and keeps a caller's copy of the date from counting as a change.</p>
+     */
+    @jakarta.persistence.PreUpdate
+    protected void stampChange() {
+        this.update_date = new Date();
+    }
+
     @jakarta.persistence.Column(name = "program_id")
 
     public Integer getProgram_id() {

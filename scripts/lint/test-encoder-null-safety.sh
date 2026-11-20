@@ -7,7 +7,8 @@
 # Invokes the lint script as an actual subprocess (not via importlib) so a
 # regression in argv handling, main() flow, or exit-code logic gets caught.
 #
-# Tests two fixtures:
+# Tests four fixtures:
+#   - encoder-class-b-javascriptutils-positive.jsp : MUST be flagged (lint exits non-zero)
 #   - encoder-class-c-positive.jsp  : MUST be flagged (lint exits non-zero)
 #   - encoder-class-c-tag-positive.jsp : MUST be flagged (lint exits non-zero)
 #   - encoder-class-c-negative.jsp  : MUST NOT be flagged (lint exits zero)
@@ -92,6 +93,12 @@ stage_and_run() {
   rm -rf "$stage_root"
   trap - RETURN
 }
+
+stage_and_run \
+  "encoder-class-b-javascriptutils-positive.jsp" \
+  "1" \
+  "Class B — unsafe encoder scriptlet" \
+  "positive Class-B JavaScriptUtils fixture flagged"
 
 stage_and_run \
   "encoder-class-c-positive.jsp" \

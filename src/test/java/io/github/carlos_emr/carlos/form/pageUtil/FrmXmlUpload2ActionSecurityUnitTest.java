@@ -61,8 +61,10 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import io.github.carlos_emr.carlos.commn.dao.EFormDao;
+import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.commn.model.EForm;
 import io.github.carlos_emr.carlos.eform.upload.ImageUpload2Action;
+import io.github.carlos_emr.carlos.form.service.FormXmlImportService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -208,6 +210,33 @@ class FrmXmlUpload2ActionSecurityUnitTest extends CarlosUnitTestBase {
                         && "issue-3071-eform.html".equals(eform.getFileName())
                         && "<html><body>Issue 3071 eForm</body></html>".equals(eform.getFormHtml())
                         && eform.isCurrent()));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldRejectFailedOrEmptyLegacyArchive_withoutSuccess(boolean invalidEntry) throws Exception {
+        registerMock(FormXmlImportService.class, new FormXmlImportService(mock(EncounterFormDao.class)));
+        request.setMethod("POST");
+        when(securityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.eform"), eq("w"), isNull()))
+                .thenReturn(true);
+        Path archive = tempDir.resolve("legacy.zip");
+        try (ZipOutputStream output = new ZipOutputStream(Files.newOutputStream(archive))) {
+            if (invalidEntry) {
+                output.putNextEntry(new ZipEntry("invalid.xml"));
+                output.write("<Results/>".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                output.closeEntry();
+            }
+        }
+        FrmXmlUpload2Action action = new FrmXmlUpload2Action();
+        action.setFile1(archive.toFile());
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.ERROR);
+        assertThat(action.getActionErrors()).hasSize(1);
+        assertThat(action.getActionErrors()).contains(invalidEntry
+                ? "Unable to import form data. Check the archive and retry."
+                : "The archive contains no form data files.");
+        assertThat(request.getAttribute("actionErrors")).isEqualTo(action.getActionErrors());
+        verify(eformDao, never()).persist(any(EForm.class));
     }
 
     @Test

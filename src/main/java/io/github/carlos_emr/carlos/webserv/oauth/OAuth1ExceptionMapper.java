@@ -32,8 +32,9 @@ import jakarta.ws.rs.ext.Provider;
  * instead of letting it surface as a generic 500. Resources such as
  * {@code OscarRequestTokenService} are written to throw {@code OAuth1Exception}
  * and rely on this mapper to render the controlled error response. Registered
- * only on the OAuth jaxrs:server, which is the only place {@code OAuth1Exception}
- * is raised.
+ * on the OAuth jaxrs:server and, since #4438, on the /services jaxrs:server, where
+ * {@code OAuthInterceptor} wraps its refusals in a Fault whose cause is an
+ * {@code OAuth1Exception}; without the mapper CXF rendered those as an XML fault.
  */
 @Provider
 public class OAuth1ExceptionMapper implements ExceptionMapper<OAuth1Exception> {

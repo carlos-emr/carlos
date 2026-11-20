@@ -60,7 +60,7 @@ public final class SearchRefDocViewModel {
             String phone,
             String fax,
             String address,
-            /** Pre-built JS click handler — already encoded by the assembler. */
+            /** JavaScript source with escaped arguments; the JSP must encode the complete HTML attribute. */
             String onClickHandler) { }
 
     /** Extracted form index + element name from a "document.forms[N].elements['X'].value" JS path. */

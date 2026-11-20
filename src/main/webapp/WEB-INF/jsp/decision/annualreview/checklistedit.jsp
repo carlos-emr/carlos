@@ -37,7 +37,7 @@
         throw new NullPointerException("Cannot resolve real path for /decision/annualreview/ - check deployment configuration");
     }
 %>
-<%@ page import="java.util.*, java.sql.*, java.io.*, io.github.carlos_emr.*"
+<%@ page import="java.util.*, java.io.*, io.github.carlos_emr.*"
          errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
@@ -49,7 +49,7 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
     <title>CHECK LIST</title>
-    <link rel="stylesheet" href="antenatalrecord.css">
+    <link rel="stylesheet" href="<%= SafeEncode.forHtmlAttribute(request.getContextPath()) %>/decision/antenatal/antenatalrecord.css">
     <script language="JavaScript">
         <!--
 

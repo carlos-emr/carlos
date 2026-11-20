@@ -54,19 +54,26 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
 
     /** Matches a {@code digitalSignatureId=<n>} reference in a stored eForm value's query string. */
     // Accept the reference as a first query parameter ("?digitalSignatureId="), a raw subsequent
-    // parameter ("&digitalSignatureId="), or its HTML-escaped form ("&amp;digitalSignatureId=").
-    // The "amp;" is scoped to the "&" branch only, so a malformed "?amp;digitalSignatureId=" (neither
-    // a raw parameter nor a valid escape) is NOT accepted.
-    private static final Pattern DIGITAL_SIGNATURE_ID_REFERENCE = Pattern.compile("(?:\\?|&(?:amp;)?)digitalSignatureId=(\\d+)");
+    // parameter ("&digitalSignatureId="), its HTML-escaped form ("&amp;digitalSignatureId="), or the
+    // form the Rich Text Letter stores ("&amp;amp;digitalSignatureId="): the editor serializes the
+    // signature image's src with "&amp;", and saveRTL() escapes the serialized letter once more
+    // before it is submitted, so without that form no signed letter could be printed with its
+    // signature. The "amp;" is scoped to the "&" branch only, so a malformed
+    // "?amp;digitalSignatureId=" (neither a raw parameter nor a valid escape) is NOT accepted.
+    private static final Pattern DIGITAL_SIGNATURE_ID_REFERENCE = Pattern.compile("(?:\\?|&(?:amp;){0,2})digitalSignatureId=(\\d+)");
 
+    /**
+     * Serves a stored signature only for the patient and eForm bound to a live render grant.
+     * Unprovable or conflicting bindings fail closed before signature bytes are loaded.
+     */
     @Override
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         // ensure it's a local machine request... no one else should be calling this servlet.
         String remoteAddress = request.getRemoteAddr();
-        logger.debug("EFormSignatureViewForPdfGenerationServlet request from : {}", remoteAddress);
+        logger.debug("EFormSignatureViewForPdfGenerationServlet request from : {}", LogSafe.sanitize(remoteAddress));
 
         if (!"127.0.0.1".equals(remoteAddress) && !"0:0:0:0:0:0:0:1".equals(remoteAddress) && !"::1".equals(remoteAddress)) {
-            logger.warn("Unauthorised request made to EFormSignatureViewForPdfGenerationServlet from address : {}", remoteAddress);
+            logger.warn("Unauthorised request made to EFormSignatureViewForPdfGenerationServlet from address : {}", LogSafe.sanitize(remoteAddress));
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
@@ -100,7 +107,7 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
             final int digitalSignatureId;
             try {
                 digitalSignatureId = Integer.parseInt(signatureIdParam);
-            } catch (NumberFormatException e) {
+            } catch (NumberFormatException _) {
                 // \d+ admits digit strings beyond Integer range; an over-range id is a bad request,
                 // not a server error.
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid digitalSignatureId");
@@ -123,28 +130,36 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
             if (renderEform == null) {
                 // Distinct from the mismatch below: the eForm row vanished between grant mint and
                 // fetch (delete race) — an unprovable binding, not a merge-tooling symptom.
-                logger.warn("Rejected signature fetch: render eForm row no longer exists: fdid={}",
-                        LogSafe.sanitize(String.valueOf(grant.fdid())));
+                if (logger.isWarnEnabled()) {
+                    logger.warn("Rejected signature fetch: render eForm row no longer exists: fdid={}",
+                            LogSafe.sanitize(String.valueOf(grant.fdid())));
+                }
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
                 return;
             }
             Integer renderDemographic = renderEform.getDemographicId();
 			DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
+			DigitalSignature metadata = digitalSignatureManager.getDigitalSignatureMetadata(digitalSignatureId);
+			if (metadata == null) {
+				if (logger.isWarnEnabled()) {
+					logger.warn("Rejected signature fetch: no readable signature metadata for render eForm: fdid={}",
+							LogSafe.sanitize(String.valueOf(grant.fdid())));
+				}
+				response.sendError(HttpServletResponse.SC_NOT_FOUND);
+				return;
+			}
+			if (metadata.getModuleType() != io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType.E_FORM
+					|| renderDemographic == null || !renderDemographic.equals(metadata.getDemographicId())) {
+				if (logger.isWarnEnabled()) {
+					logger.warn("Rejected signature fetch: signature module or patient does not match render eForm: fdid={}",
+							LogSafe.sanitize(String.valueOf(grant.fdid())));
+				}
+				response.sendError(HttpServletResponse.SC_FORBIDDEN);
+				return;
+			}
 			DigitalSignature digitalSignature = digitalSignatureManager
 					.getDigitalSignature(digitalSignatureId);
             if (digitalSignature != null) {
-                Integer signatureDemographic = digitalSignature.getDemographicId();
-                if (renderDemographic == null || signatureDemographic == null
-                        || !signatureDemographic.equals(renderDemographic)) {
-                    // Distinct, triage-able message: DigitalSignature.demographicId is NOT NULL in
-                    // the schema and set by every creation path, so a legitimate form can only hit
-                    // this if demographic merge/renumber tooling moved EFormData without updating
-                    // DigitalSignature. fdid only — never patient or signature identifiers.
-                    logger.warn("Rejected signature fetch: signature not bound to the render eForm's patient: fdid={}",
-                            LogSafe.sanitize(String.valueOf(grant.fdid())));
-                    response.sendError(HttpServletResponse.SC_FORBIDDEN);
-                    return;
-                }
                 //renderImage(response, digitalSignature.getSignatureImage(), "jpeg");
 
                 byte[] image = digitalSignature.getSignatureImage();
@@ -170,6 +185,8 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
                 bos.write(image); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- image/jpeg binary write
                 bos.flush();
 
+                // only image.length is logged, not image content or request text.
+                // nosemgrep: carlos.crlf-injection-logs
                 logger.debug("Streamed eForm signature image to render browser ({} bytes)", image.length);
                 return;
             }

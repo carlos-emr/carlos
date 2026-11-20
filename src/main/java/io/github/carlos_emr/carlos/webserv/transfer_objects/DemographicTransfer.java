@@ -30,7 +30,6 @@
 
 package io.github.carlos_emr.carlos.webserv.transfer_objects;
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.BeanUtils;
@@ -73,6 +72,7 @@ public final class DemographicTransfer {
     private Date rosterDate;
     private Date rosterTerminationDate;
     private String rosterTerminationReason;
+    private String rosterEnrolledTo;
     private String links;
     private String alias;
     private String previousAddress;
@@ -121,6 +121,8 @@ public final class DemographicTransfer {
         this.patientStatus = patientStatus;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getPatientStatusDate() {
         return (patientStatusDate);
     }
@@ -211,6 +213,8 @@ public final class DemographicTransfer {
         this.sexDesc = sexDesc;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getDateJoined() {
         return (dateJoined);
     }
@@ -251,6 +255,8 @@ public final class DemographicTransfer {
         this.postal = postal;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getHcRenewDate() {
         return (hcRenewDate);
     }
@@ -275,6 +281,8 @@ public final class DemographicTransfer {
         this.pcnIndicator = pcnIndicator;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getEndDate() {
         return (endDate);
     }
@@ -323,6 +331,8 @@ public final class DemographicTransfer {
         this.yearOfBirth = yearOfBirth;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getEffDate() {
         return (effDate);
     }
@@ -331,6 +341,8 @@ public final class DemographicTransfer {
         this.effDate = effDate;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getRosterDate() {
         return (rosterDate);
     }
@@ -339,6 +351,8 @@ public final class DemographicTransfer {
         this.rosterDate = rosterDate;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getRosterTerminationDate() {
         return (rosterTerminationDate);
     }
@@ -353,6 +367,26 @@ public final class DemographicTransfer {
 
     public void setRosterTerminationReason(String rosterTerminationReason) {
         this.rosterTerminationReason = rosterTerminationReason;
+    }
+
+    /**
+     * Provider number ({@code demographic.roster_enrolled_to}) the patient is rostered/enrolled to,
+     * as the raw provider number rather than a resolved provider. Copied by {@link #filter} only
+     * when the {@code rosterEnrolledTo} field is requested.
+     *
+     * @return the enrolled-to provider number, or {@code null} when not enrolled to a provider
+     */
+    public String getRosterEnrolledTo() {
+        return (rosterEnrolledTo);
+    }
+
+    /**
+     * Sets the enrolled-to provider number. Stored as given; {@code null} is accepted.
+     *
+     * @param rosterEnrolledTo the enrolled-to provider number, or {@code null}
+     */
+    public void setRosterEnrolledTo(String rosterEnrolledTo) {
+        this.rosterEnrolledTo = rosterEnrolledTo;
     }
 
     public String getLinks() {
@@ -467,6 +501,8 @@ public final class DemographicTransfer {
         this.lastUpdateUser = lastUpdateUser;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getLastUpdateDate() {
         return (lastUpdateDate);
     }
@@ -549,7 +585,7 @@ public final class DemographicTransfer {
 
         DemographicTransfer demographicTransfer = new DemographicTransfer();
 
-        BeanUtils.copyProperties(demographic, demographicTransfer);
+        BeanUtils.copyProperties(demographic, demographicTransfer, "sin");
 
         return (demographicTransfer);
     }
@@ -564,9 +600,10 @@ public final class DemographicTransfer {
         return (results.toArray(new DemographicTransfer[0]));
     }
 
+    /** Returns only the type marker, without patient fields or nested records. */
     @Override
     public String toString() {
-        return (ReflectionToStringBuilder.toString(this));
+        return getClass().getSimpleName() + "[protected]";
     }
 
     public DemographicTransfer filter(String[] fields) {
@@ -616,6 +653,7 @@ public final class DemographicTransfer {
                 dto.setRosterTerminationDate(this.getRosterTerminationDate());
             else if ("rosterTerminationReason".equals(field))
                 dto.setRosterTerminationReason(this.getRosterTerminationReason());
+            else if ("rosterEnrolledTo".equals(field)) dto.setRosterEnrolledTo(this.getRosterEnrolledTo());
             else if ("sex".equals(field)) dto.setSex(this.getSex());
             else if ("sexDesc".equals(field)) dto.setSexDesc(this.getSexDesc());
             else if ("sin".equals(field)) dto.setSin(this.getSin());

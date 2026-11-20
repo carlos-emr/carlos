@@ -47,6 +47,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -54,6 +56,9 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -114,6 +119,71 @@ class LogoutBroadcastFilterUnitTest {
 
         assertThat(forwardResponse.getContentAsString()).contains("<html><body>schedule</body></html>");
         assertThat(forwardResponse.getContentAsString()).doesNotContain("window.__carlosLogoutActive=true;");
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1, 2})
+    void shouldClearPublishedWriterLength_whenTypeChangesToHtml(int api) throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
+        request.getSession(true).setAttribute("user", "123");
+        MockHttpServletResponse response = spy(new MockHttpServletResponse());
+        filter.doFilter(request, response, (req, res) -> {
+            res.setContentType("text/plain;charset=UTF-8");
+            res.setContentLength(4);
+            var writer = res.getWriter();
+            assertThat(response.getContentLength()).isEqualTo(4);
+            var http = (HttpServletResponse) res;
+            switch (api) {
+                case 0 -> http.setContentType("text/html;charset=UTF-8");
+                case 1 -> http.setHeader("Content-Type", "text/html;charset=UTF-8");
+                default -> http.addHeader("Content-Type", "text/html;charset=UTF-8");
+            }
+            // Spring's mock ignores null values; real-Tomcat tests verify header removal.
+            verify(response).setHeader("Content-Length", null);
+            writer.write("body");
+        });
+        assertThat(response.getContentAsString()).startsWith("body").contains("window.__carlosLogoutActive=true;");
+        verify(response).setHeader("Content-Length", null);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldRetractPublishedLength_whenBufferResetDiscardsTheBody(boolean stream) throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
+        request.getSession(true).setAttribute("user", "123");
+        MockHttpServletResponse response = spy(new MockHttpServletResponse());
+        filter.doFilter(request, response, (req, res) -> {
+            res.setContentType("application/json;charset=UTF-8");
+            res.setContentLength(4);
+            if (stream) {
+                res.getOutputStream().write("{\"a\"".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            } else {
+                res.getWriter().write("{\"a\"");
+            }
+            assertThat(response.getContentLength()).as("non-HTML length published before the body").isEqualTo(4);
+            res.resetBuffer();
+            // The published length described the discarded body. Spring's mock ignores null
+            // values; the real-Tomcat lifecycle test verifies the replacement's framing.
+            verify(response).setHeader("Content-Length", null);
+        });
+        assertThat(response.getContentAsString()).isEmpty();
+    }
+
+    @Test
+    void shouldKeepPublishedLength_whenBufferResetIsRejected() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
+        request.getSession(true).setAttribute("user", "123");
+        MockHttpServletResponse response = spy(new MockHttpServletResponse());
+        filter.doFilter(request, response, (req, res) -> {
+            res.setContentType("application/json;charset=UTF-8");
+            res.setContentLength(4);
+            res.getWriter().write("{\"a\"");
+            response.setCommitted(true);
+            org.assertj.core.api.Assertions.assertThatThrownBy(res::resetBuffer)
+                    .isInstanceOf(IllegalStateException.class);
+        });
+        verify(response, never()).setHeader("Content-Length", null);
+        assertThat(response.getContentLength()).isEqualTo(4);
     }
 
     @Test
@@ -190,8 +260,8 @@ class LogoutBroadcastFilterUnitTest {
         assertThat(content).contains("window.__carlosLogoutActive=true;");
         assertThat(content).contains("BroadcastChannel('carlos_logout')");
         // The injected script stores the context path in a `cp` variable and concatenates it
-        // onto the heartbeat URL at runtime. OWASP JS-encoding escapes the leading slash as \/.
-        assertThat(content).contains("var cp='" + contextPath.replace("/", "\\/") + "';");
+        // onto the heartbeat URL at runtime. Encoder 1.6 escapes the slash and terminal script letter.
+        assertThat(content).contains("var cp='\\/carlo\\x73';");
         assertThat(content).contains("fetch(cp+'/status/SessionHeartbeat?autoRefresh=true')");
         assertThat(response.getLastRequestedBufferSize()).isEqualTo(HTML_INJECTION_BUFFER_SIZE_BYTES);
     }
@@ -627,6 +697,32 @@ class LogoutBroadcastFilterUnitTest {
     }
 
     @Test
+    @DisplayName("should not inject script when CSRFGuard appended its marker to the AJAX header")
+    void shouldNotInjectScript_whenCsrfGuardAppendedItsAjaxMarker() throws Exception {
+        // CSRFGuard's client script calls setRequestHeader("X-Requested-With", ...) inside its
+        // XMLHttpRequest.send() hijack, and the XHR spec combines that with the value jQuery
+        // already set. Every jQuery $.ajax call in CARLOS therefore arrives in this shape; the
+        // previous exact-match AJAX check missed it and appended the heartbeat script to the reply,
+        // which callers rendering the response body showed as literal JavaScript on screen.
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/hospitalReportManager/Modify");
+        request.setContextPath("/carlos");
+        request.addHeader("X-Requested-With", "XMLHttpRequest, OWASP CSRFGuard Project");
+        request.getSession(true).setAttribute("user", "123");
+        TrackingMockHttpServletResponse response = new TrackingMockHttpServletResponse();
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.getWriter().write("Success");
+        };
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getContentAsString()).isEqualTo("Success");
+        assertThat(response.getContentAsString()).doesNotContain("window.__carlosLogoutActive=true;");
+        assertThat(response.getSetBufferSizeCallCount()).isZero();
+    }
+
+    @Test
     @DisplayName("should preserve AJAX login failure content length without wrapping")
     void shouldPreserveAjaxLoginFailureContentLength_withoutWrapping() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/login");
@@ -988,6 +1084,29 @@ class LogoutBroadcastFilterUnitTest {
     }
 
     @Test
+    @DisplayName("should publish a stream length declared after the stream when no type is ever set")
+    void shouldPublishStreamLength_whenItIsDeclaredAfterTheStreamWithoutAType() throws Exception {
+        MockHttpServletRequest request = authenticatedRequest("/provider/providercontrol");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        byte[] body = {0, 1, -1, 42};
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            var stream = servletResponse.getOutputStream();
+            servletResponse.setContentLength(body.length);
+            // This filter never appends to a stream, so a stream's length is published as soon
+            // as it is known, whatever the type: holding it past a flush would only lose it.
+            assertThat(response.getHeader("Content-Length")).isEqualTo(String.valueOf(body.length));
+            stream.write(body);
+        };
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getContentType()).isNull();
+        assertThat(response.getContentAsByteArray()).isEqualTo(body);
+        assertThat(response.getHeader("Content-Length")).isEqualTo(String.valueOf(body.length));
+    }
+
+    @Test
     @DisplayName("should replay deferred content length only once when output stream is used")
     void shouldReplayDeferredContentLengthOnlyOnce_whenOutputStreamIsUsed() throws Exception {
         MockHttpServletRequest request = authenticatedRequest("/provider/providercontrol");
@@ -1004,8 +1123,9 @@ class LogoutBroadcastFilterUnitTest {
 
         assertThat(response.getContentAsByteArray()).isEqualTo(body);
         assertThat(response.getHeader("Content-Length")).isEqualTo(String.valueOf(body.length));
-        assertThat(response.getSetContentLengthCallCount()).isOne();
-        assertThat(response.getSetContentLengthLongCallCount()).isZero();
+        // The shared DeferredContentLength replays through the long API; what matters is once.
+        assertThat(response.getSetContentLengthCallCount() + response.getSetContentLengthLongCallCount())
+                .as("the deferred length reaches the delegate exactly once").isOne();
     }
 
     @Test
@@ -1078,6 +1198,26 @@ class LogoutBroadcastFilterUnitTest {
                         .contains("uri=/carlos/provider/providercontrol");
                 assertThat(event.getThrown()).isInstanceOf(IOException.class);
             });
+            assertThat(response.getHeader("Content-Length")).isNull();
+        }
+    }
+
+    @Test
+    @DisplayName("should log a client abort below ERROR when the script cannot be written")
+    void shouldNotLogError_whenClientAbortsScriptWrite() throws Exception {
+        MockHttpServletRequest request = authenticatedRequest("/provider/providercontrol");
+        ClientAbortingResponse response = new ClientAbortingResponse();
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.setContentLength(42);
+        };
+
+        try (LogCapture capture = LogCapture.forLogger(LogoutBroadcastFilter.class)) {
+            filter.doFilter(request, response, chain);
+
+            assertThat(capture.events()).noneSatisfy(event ->
+                    assertThat(event.getLevel()).isEqualTo(Level.ERROR));
             assertThat(response.getHeader("Content-Length")).isNull();
         }
     }
@@ -1393,6 +1533,18 @@ class LogoutBroadcastFilterUnitTest {
         @Override
         public void flushBuffer() throws IOException {
             throw new IOException("flush failed");
+        }
+    }
+
+    /** The flush fails the way it does when the browser has gone away (#4438). */
+    private static class ClientAbortingResponse extends HttpServletResponseWrapper {
+        ClientAbortingResponse() {
+            super(new MockHttpServletResponse());
+        }
+
+        @Override
+        public void flushBuffer() throws IOException {
+            throw new org.apache.catalina.connector.ClientAbortException("Broken pipe");
         }
     }
 

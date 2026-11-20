@@ -1,6 +1,9 @@
 services:
   carlos:
     container_name: carlos-tomcat-dev
+    # Chrome for Testing and its matching chromedriver have Linux amd64 builds only.
+    # Docker Desktop emulates this service on Apple Silicon; DB and DrugRef stay native.
+    platform: linux/amd64
     # Run tini as PID 1 so orphaned subprocesses are reaped. The eForm browser renderer
     # launches a Chromium process tree per render; on an abnormal teardown (watchdog kill,
     # redeploy mid-render) orphaned helpers reparent to PID 1 and — without an init — become
@@ -11,13 +14,18 @@ services:
       context: ./development
       dockerfile: Dockerfile
     ports:
-      - "8080:8080"
-      - "18000:8000"
+      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:8443:8443"
+      - "127.0.0.1:18000:8000"
     volumes:
       - m2-volume:/root/.m2
       - gemini-config:/root/.gemini
       - ..:/workspace
       - ../.devcontainer/db/db_data/:/db-data/
+      # Opt-in SSH commit signing (develop requires signed commits). With no key inside,
+      # setup-commit-signing does nothing. If the host folder is missing Docker creates it
+      # owned by root, so create it yourself first (see README "Commit Signing").
+      - ${HOME}/.carlos-signing:/root/.carlos-signing:ro
     env_file:
       - ./development/config/shared/local.env
     environment:

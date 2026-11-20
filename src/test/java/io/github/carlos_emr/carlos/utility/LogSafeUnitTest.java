@@ -48,6 +48,23 @@ import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationExc
 @DisplayName("LogSafe")
 class LogSafeUnitTest {
 
+    @Test
+    void shouldPreserveDiagnosticTypesAndLocations_withoutMessagesOrSourceFilenames() {
+        String privateValue = "FAKE-PRIVATE-PATIENT-FILE";
+        Throwable failure = new java.io.IOException(privateValue) {
+            @Override public String getMessage() { throw new AssertionError("message must not be read"); }
+            @Override public String toString() { throw new AssertionError("throwable must not be formatted"); }
+        };
+        failure.setStackTrace(new StackTraceElement[]{new StackTraceElement("safe.Code", "read", privateValue, 42)});
+        Throwable cause = new IllegalArgumentException(privateValue);
+        cause.setStackTrace(new StackTraceElement[]{new StackTraceElement("safe.Parser", "parse", privateValue, 7)});
+        failure.initCause(cause); cause.initCause(failure); failure.addSuppressed(new IllegalStateException(privateValue));
+        String trace = LogSafe.exceptionTrace(failure);
+        assertThat(trace).contains("safe.Code.read:42", "safe.Parser.parse:7", "java.lang.IllegalArgumentException",
+                "java.lang.IllegalStateException", "repeated or truncated exception").doesNotContain(privateValue);
+        assertThat(LogSafe.exceptionTrace(null)).isEmpty();
+    }
+
     @Nested
     @DisplayName("sanitize(String)")
     class SanitizeString {
@@ -470,6 +487,23 @@ class LogSafeUnitTest {
         void shouldStripJavascriptLineSeparators_fromInput() {
             assertThat(LogSafe.sanitizeForDisplay("before\u2028after\u2029end"))
                     .isEqualTo("beforeafterend");
+        }
+
+        @Test
+        @DisplayName("should strip U+0085 NEXT LINE from input")
+        void shouldStripNextLine_fromInput() {
+            // U+0085 is a C1 control, outside Java's ASCII-only \p{Cntrl}, but
+            // java.util.regex and Unicode-aware log viewers treat it as a line
+            // terminator — so leaving it in place would permit forged log lines.
+            assertThat(LogSafe.sanitizeForDisplay("before\u0085after"))
+                    .isEqualTo("beforeafter");
+        }
+
+        @Test
+        @DisplayName("should strip every line boundary a Unicode log reader honours")
+        void shouldStripAllUnicodeLineBoundaries_fromInput() {
+            String input = "a\nb\rc\u000Bd\u000Ce\u0085f\u2028g\u2029h";
+            assertThat(LogSafe.sanitizeForDisplay(input)).isEqualTo("abcdefgh");
         }
 
         @Test

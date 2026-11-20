@@ -27,8 +27,12 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
 /**
  * Log-injection regression test for {@link CarlosProperties#getProperty(String)}.
@@ -58,10 +62,23 @@ class CarlosPropertiesLogInjectionUnitTest {
         }
     }
 
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"   "})
+    @DisplayName("should reject null and blank keys before checking special property names")
+    void shouldRejectInvalidKeys_beforeCheckingSpecialProperties(String key) {
+        CarlosProperties properties = CarlosProperties.getInstance();
+
+        assertThatIllegalArgumentException().isThrownBy(() -> properties.getProperty(key))
+                .withMessage("Property key cannot be blank.");
+    }
+
     @Test
     @DisplayName("should sanitize key when property is missing")
     void shouldSanitizeKey_whenPropertyMissing() {
-        String maliciousKey = "missing.key\r\n" + FORGED;
+        // Unique per run: the missing-key warning fires once per key per JVM, so a key another
+        // test (or an earlier repetition) already reported would produce no line to inspect.
+        String maliciousKey = "missing.key." + System.nanoTime() + "\r\n" + FORGED;
 
         try (LogCapture logCapture = LogCapture.forLogger(CarlosProperties.class)) {
             CarlosProperties.getInstance().getProperty(maliciousKey);
@@ -88,6 +105,21 @@ class CarlosPropertiesLogInjectionUnitTest {
             // Both the key and the blacklisted value are escaped in the warning.
             assertThat(logged).contains("blacklisted.key").contains("oscar.LegacyClass");
             assertThat(logged).contains("\\r\\n");
+        }
+    }
+
+    @Test
+    @DisplayName("should warn once per missing key however often it is read")
+    void shouldWarnOnce_whenSameMissingKeyIsReadRepeatedly() {
+        String key = "missing.once." + System.nanoTime();
+
+        try (LogCapture logCapture = LogCapture.forLogger(CarlosProperties.class)) {
+            for (int i = 0; i < 3; i++) {
+                CarlosProperties.getInstance().getProperty(key);
+            }
+
+            long warnings = logCapture.messages().stream().filter(message -> message.contains(key)).count();
+            assertThat(warnings).as("one warning for three lookups of the same missing key").isEqualTo(1);
         }
     }
 

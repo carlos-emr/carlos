@@ -1,8 +1,9 @@
-<%@page import="java.sql.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@taglib uri="http://displaytag.sf.net" prefix="display" %>
+<%@page  errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -73,21 +74,23 @@
             }
         </script>
         <title>Manage Procedure and Tray Fee Associations</title>
-    </head>
+    <%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
+</head>
     <body>
-    <% 
-    java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
-    if (actionErrors != null && !actionErrors.isEmpty()) {
-%>
-    <div class="action-errors">
-        <ul>
-            <% for (String error : actionErrors) { %>
-                <li><%= error %></li>
-            <% } %>
-        </ul>
-    </div>
-<% } %>
-    <form action="${pageContext.request.contextPath}/billing/CA/BC/supServiceCodeAssocAction" method="post">
+    <%-- Validation messages echo the submitted service codes, so every one goes through the
+         null-safe CARLOS encoder. This is the only error renderer on the page: the raw
+         scriptlet loop and the Struts <s:actionerror/> tag that both used to live here were
+         removed so a message cannot reach the browser unencoded or twice. --%>
+    <c:if test="${not empty actionErrors}">
+        <div class="action-errors">
+            <ul class="errorMessage">
+                <c:forEach items="${actionErrors}" var="error">
+                    <li><carlos:encode value="${error}"/></li>
+                </c:forEach>
+            </ul>
+        </div>
+    </c:if>
+    <form id="supServiceCodeAssocActionForm" name="supServiceCodeAssocActionForm" action="${pageContext.request.contextPath}/billing/CA/BC/supServiceCodeAssocAction" method="post">
         <input type="hidden" name="actionMode" id="actionMode"/>
         <input type="hidden" name="id" id="id"/>
         <fieldset>
@@ -95,22 +98,32 @@
                 Associations
             </legend>
             <p><label for="primaryCode"> Procedure Fee Code: </label>
-                <input type="text" name="primaryCode" id="primaryCode"/> <a href="#"
-                                                                      onClick="popFeeItemList('supServiceCodeAssocActionForm','primaryCode'); return false;">Search</a>
+                <input type="text" name="primaryCode" id="primaryCode"/> <button type="button"
+                                                                      onClick="popFeeItemList('supServiceCodeAssocActionForm','primaryCode'); return false;">Search</button>
             </p>
             <p><label for="secondaryCode"> Tray Fee Code: </label>
-                <input type="text" name="secondaryCode" id="secondaryCode"/> <a href="#"
-                                                                          onClick="popFeeItemList('supServiceCodeAssocActionForm','secondaryCode'); return false;">Search</a>
+                <input type="text" name="secondaryCode" id="secondaryCode"/> <button type="button"
+                                                                          onClick="popFeeItemList('supServiceCodeAssocActionForm','secondaryCode'); return false;">Search</button>
             </p>
             <input type="submit" name="submitButton" value="Save Association"
                    onclick="setMode('edit');"/> <input type="reset" value="Clear"/></fieldset>
     </form>
-    <p/><display:table class="displayGrid" name="list" pagesize="50"
-                       defaultsort="1" defaultorder="descending"
-                       decorator="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillCodesTableWrapper">
-        <display:column property="billingServiceNo" title="Procedure Fee Code"/>
-        <display:column property="billingServiceTrayNo" title="Tray Fee Code"/>
-        <display:column property="associationStatus" title="Options"/>
-    </display:table>
+    <%-- Paging is local; rejected save fields are never repeated into navigation URLs. As under
+         displaytag (sort.amount=page), the default sort orders the rows within each page of 50. --%>
+    <p/><c:if test="${not empty list}">
+<table class="displayGrid" data-carlos-table data-page-size="50" data-default-sort="1" data-default-order="descending">
+<thead><tr>
+        <th scope="col">Procedure Fee Code</th>
+        <th scope="col">Tray Fee Code</th>
+        <th scope="col">Options</th>
+    </tr></thead>
+<tbody><c:forEach var="tableRow" items="${list}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.billingServiceNo))}" data-sort-type="${carlos:tableSortType(tableRow.billingServiceNo)}">${carlos:forHtml(tableRow.billingServiceNo)}</td>
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.billingServiceTrayNo))}" data-sort-type="${carlos:tableSortType(tableRow.billingServiceTrayNo)}">${carlos:forHtml(tableRow.billingServiceTrayNo)}</td>
+        <td><button type="button" onClick="editAssociation('${carlos:forJavaScriptAttribute(tableRow.billingServiceNo)}','${carlos:forJavaScriptAttribute(tableRow.billingServiceTrayNo)}'); return false;">Edit</button><br /><button type="button" onClick="deleteAssociation('${carlos:forJavaScriptAttribute(tableRow.id)}'); return false;">Delete</button></td>
+    </tr></c:forEach></tbody>
+</table>
+</c:if>
+<c:if test="${empty list}">Nothing found to display.</c:if>
     </body>
 </html>

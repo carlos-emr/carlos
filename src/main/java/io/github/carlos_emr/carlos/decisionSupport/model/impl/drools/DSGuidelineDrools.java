@@ -107,8 +107,9 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.RuleBaseCrea
  *
  * <h3>Caching Strategy</h3>
  * <p>Compiled {@link KieBase} instances are cached in {@link RuleBaseFactory} using a key of
- * the form {@code "DSGuidelineDrools:<id>"} (or {@code "DSGuidelineDrools:<title>"} when the
- * entity has no persisted ID). The cache has a 24-hour TTL. When the entity is updated via JPA,
+ * the form {@code "DSGuidelineDrools:<id>"} for persisted entities. Unsaved condition previews
+ * use RuleBaseCreator's content-based cache because their titles need not identify the same
+ * conditions. The cache has a 24-hour TTL. When the entity is updated via JPA,
  * the {@link #afterSave()} callback (annotated with {@link jakarta.persistence.PostUpdate @PostUpdate})
  * invalidates the cached entry, forcing recompilation on the next evaluation.</p>
  *
@@ -205,8 +206,8 @@ public class DSGuidelineDrools extends DSGuideline {
      *
      * <p>If the entity has been persisted (has a non-null ID), the key is
      * {@code "DSGuidelineDrools:<id>"}. Otherwise, it falls back to
-     * {@code "DSGuidelineDrools:<title>"}. This ensures that unsaved guidelines
-     * (e.g., during testing or preview) can still participate in caching.</p>
+     * {@code "DSGuidelineDrools:preview"}, used for the generated rule name. Unsaved
+     * guidelines only share compiled rules when their full DRL content matches.</p>
      *
      * @return String cache key for {@link RuleBaseFactory} lookup
      */
@@ -214,7 +215,7 @@ public class DSGuidelineDrools extends DSGuideline {
         if (getId() != null)
             return ("DSGuidelineDrools:" + getId());
         else
-            return "DSGuidelineDrools:" + title;
+            return "DSGuidelineDrools:preview";
 
     }
 
@@ -391,14 +392,14 @@ public class DSGuidelineDrools extends DSGuideline {
      * <p>This method implements a two-level caching strategy:</p>
      * <ol>
      *   <li><strong>RuleBaseFactory cache</strong>: First checks {@link RuleBaseFactory} for a
-     *       previously compiled KieBase using the guideline's cache key. If found, assigns it
+     *       previously compiled KieBase using a persisted guideline's cache key. If found, assigns it
      *       directly to the instance field and returns immediately.</li>
      *   <li><strong>RuleBaseCreator cache</strong>: If not in the factory cache, generates a DRL
      *       string and delegates to {@link RuleBaseCreator#getRuleBase(String, List)} (where the
      *       first parameter is used as the DRL package name, not as a cache key). RuleBaseCreator
      *       has its own secondary cache keyed by {@code "RuleBaseCreator:" + sha256(fullDrlString)}.
-     *       The compiled result is then stored in RuleBaseFactory under the guideline's own key
-     *       (by this method).</li>
+     *       For persisted guidelines, the compiled result is also stored under the entity key.
+     *       Unsaved previews rely on the full-content key to keep different conditions separate.</li>
      * </ol>
      *
      * <p>The DRL generation pipeline proceeds as follows:</p>
@@ -420,8 +421,8 @@ public class DSGuidelineDrools extends DSGuideline {
         try {
             String ruleBaseFactoryKey = getRuleBaseFactoryKey();
 
-            // Check the RuleBaseFactory cache first to avoid recompilation
-            KieBase result = RuleBaseFactory.getRuleBase(ruleBaseFactoryKey);
+            // Single-condition previews share a title, but must evaluate different rules.
+            KieBase result = getId() == null ? null : RuleBaseFactory.getRuleBase(ruleBaseFactoryKey);
             if (result != null) {
                 _kieBase = result;
                 return;
@@ -464,7 +465,7 @@ public class DSGuidelineDrools extends DSGuideline {
             RuleBaseCreator ruleBaseCreator = new RuleBaseCreator();
             try {
                 _kieBase = ruleBaseCreator.getRuleBase(ruleBaseFactoryKey, rules);
-                RuleBaseFactory.putRuleBase(ruleBaseFactoryKey, _kieBase);
+                if (getId() != null) RuleBaseFactory.putRuleBase(ruleBaseFactoryKey, _kieBase);
             } catch (Exception e) {
                 throw new DecisionSupportException("Could not create a rule base for guideline '" + this.getTitle() + "'", e);
             }

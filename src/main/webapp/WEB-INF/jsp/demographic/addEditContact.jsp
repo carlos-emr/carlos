@@ -28,6 +28,12 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose: Create or edit a contact in the personal contact directory.
+    Features: Focus the last-name control and submit the contact form through its Save handler.
+    Parameters: The action supplies the contact model; POST method=saveContact submits contact.* fields.
+    @since 2026-07-07
+--%>
 
 <!--
 /*
@@ -53,6 +59,8 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ page import="java.util.Properties" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:message key="demographic.contactForm.msgLastNameRequired" var="contactLastNameRequired"/>
+<fmt:message key="demographic.contactForm.msgFirstNameRequired" var="contactFirstNameRequired"/>
 <%
 
     String msg = "Enter contact details.";
@@ -69,8 +77,11 @@
             <!--
             function setfocus() {
                 this.focus();
-                document.forms[0].referral_no.focus();
-                document.forms[0].referral_no.select();
+                var lastName = document.forms[0].elements["contact.lastName"];
+                if (lastName) {
+                    lastName.focus();
+                    lastName.select();
+                }
             }
 
             function onSearch() {
@@ -95,12 +106,12 @@
 
             function checkAllFields() {
                 var b = true;
-                if (document.forms[0].last_name.value.length <= 0) {
+                if (document.forms[0].elements["contact.lastName"].value.length <= 0) {
                     b = false;
-                    alert("<fmt:message key='demographic.contactForm.msgLastNameRequired'/>");
-                } else if (document.forms[0].first_name.value.length <= 0) {
+                    alert("<carlos:encode value='${contactLastNameRequired}' context='javaScriptBlock'/>");
+                } else if (document.forms[0].elements["contact.firstName"].value.length <= 0) {
                     b = false;
-                    alert("<fmt:message key='demographic.contactForm.msgFirstNameRequired'/>");
+                    alert("<carlos:encode value='${contactFirstNameRequired}' context='javaScriptBlock'/>");
                 }
                 return b;
             }

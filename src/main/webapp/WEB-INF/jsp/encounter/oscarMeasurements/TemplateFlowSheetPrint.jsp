@@ -28,13 +28,27 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%
+    String[] patientParameters = request.getParameterValues("demographic_no");
+    String demographic_no = patientParameters != null && patientParameters.length == 1 ? patientParameters[0] : null;
+    try {
+        if (demographic_no == null || !demographic_no.matches("[1-9][0-9]{0,9}")
+                || Integer.parseInt(demographic_no) < 1) {
+            response.sendError(400);
+            return;
+        }
+    } catch (NumberFormatException invalidPatient) {
+        response.sendError(400);
+        return;
+    }
+%>
 <!DOCTYPE html>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <% long startTime = System.currentTimeMillis(); %>
 <%@ page
-        import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*,java.net.*" %>
-<%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@ page import="org.springframework.web.context.WebApplicationContext" %>
+        import="java.util.*, io.github.carlos_emr.carlos.prevention.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*, java.net.*" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetCustomizationDao,io.github.carlos_emr.carlos.commn.model.FlowSheetCustomization" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetDrugDao,io.github.carlos_emr.carlos.commn.model.FlowSheetDrug" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
@@ -49,17 +63,18 @@
 <%@ page import="io.github.carlos_emr.carlos.prevention.PreventionData" %>
 <%@ page import="io.github.carlos_emr.carlos.prevention.Prevention" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
@@ -84,7 +99,6 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
 
 <%
-    String demographic_no = request.getParameter("demographic_no");
     String providerNo = (String) session.getAttribute("user");
     boolean printView = false;
     String date = UtilDateUtilities.getToday("yyyy-MM-dd");
@@ -120,7 +134,8 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
     if (elesToPrint != null) {
         for (String toPrint : elesToPrint) {
             String printStyle = request.getParameter("printStyle" + toPrint);
-            if (printStyle != null && printStyle.equals("all")) {
+            // Prevention checkboxes have no print-style selector; include every value by default.
+            if (printStyle == null || printStyle.equals("all")) {
                 forPrint.put(toPrint, "all");
             } else if (printStyle != null && printStyle.equals("num")) {
                 String numEle = request.getParameter("numEle" + toPrint);
@@ -150,14 +165,23 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
     ////Start
     MeasurementTemplateFlowSheetConfig templateConfig = MeasurementTemplateFlowSheetConfig.getInstance();
-    MeasurementFlowSheet mFlowsheet = templateConfig.getFlowSheet(temp, LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), Integer.parseInt(demographic_no));
+    String customizationProvider = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
+    Integer customizationPatient = Integer.valueOf(demographic_no);
+    List<FlowSheetCustomization> customizations = flowSheetCustomizationDao.getFlowSheetCustomizations(
+            temp, customizationProvider, customizationPatient);
+    MeasurementFlowSheet mFlowsheet = templateConfig.getFlowSheet(
+            temp, customizationProvider, customizationPatient, customizations);
 
     MeasurementInfo mi = new MeasurementInfo(demographic_no);
-    List<String> measurementLs = mFlowsheet.getMeasurementList();
+    List<String> measurementLs = mFlowsheet.getVisibleMeasurementList();
     ArrayList<String> measurements = new ArrayList(measurementLs);
     long startTimeToGetM = System.currentTimeMillis();
 
-    mi.getMeasurements(measurements);
+    // Decision support reads every item, hidden ones included: a ds_rules file and the item
+    // recommendations still cover an item a customization hides, and without its readings an
+    // up-to-date hidden item would be reported as never recorded (#4433). Display uses the
+    // visible list.
+    mi.getMeasurements(new ArrayList<String>(mFlowsheet.getMeasurementList()));
 
     try {
         mFlowsheet.getMessages(mi);
@@ -191,11 +215,7 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
         <link href="<%=request.getContextPath() %>/library/flatpickr/flatpickr.min.css" rel="stylesheet">
 
         <!-- Fav and touch icons -->
-        <link rel="apple-touch-icon-precomposed" sizes="144x144" href="ico/apple-touch-icon-144-precomposed.png">
-        <link rel="apple-touch-icon-precomposed" sizes="114x114" href="ico/apple-touch-icon-114-precomposed.png">
-        <link rel="apple-touch-icon-precomposed" sizes="72x72" href="ico/apple-touch-icon-72-precomposed.png">
-        <link rel="apple-touch-icon-precomposed" href="ico/apple-touch-icon-57-precomposed.png">
-        <link rel="shortcut icon" href="ico/favicon.png">
+        <link rel="icon" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/images/favicon.ico"/>
 
         <style type="text/css">
             div.ImmSet {
@@ -486,7 +506,12 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
             <div class="module-block DoNotPrint">
                 <%if (!printView) {%>
-                <a href="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewTemplateFlowSheet?demographic_no=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>&template=<carlos:encode value='<%= temp %>' context="uriComponent"/>"
+                <%-- The Health Tracker opens this page with &htracker so "back" returns to the
+                     tracker rather than dropping the clinician on the plain flowsheet view. --%>
+                <%String backRoute = request.getParameter("htracker") != null
+                        ? "/encounter/oscarMeasurements/ViewHealthTracker"
+                        : "/encounter/oscarMeasurements/ViewTemplateFlowSheet";%>
+                <a href="<%= request.getContextPath() %><%= backRoute %>?demographic_no=<carlos:encode value='<%= demographic_no %>' context="uriComponent"/>&template=<carlos:encode value='<%= temp %>' context="uriComponent"/>"
                    title="go back to <carlos:encode value='<%= temp %>' context="htmlAttribute"/>">&lt;&lt; <carlos:encode value='<%= flowSheet %>' context="html"/>
                 </a> <br/>
                 <a href="JavaScript:void(0);" class="back" title="go back to <carlos:encode value='<%= flowSheet %>' context="htmlAttribute"/>"></a>
@@ -741,10 +766,20 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
                     String prevType = (String) h2.get("prevention_type");
                     long startPrevType = System.currentTimeMillis();
-                    ArrayList<Map<String, Object>> alist = PreventionData.getPreventionData(LoggedInInfo.getLoggedInInfoFromSession(request), prevType, Integer.valueOf(demographic_no));
-                    // Reverse to display newest first (matching measurements/drugs display order)
-                    // The query returns ASC order for Prevention page compatibility
-                    Collections.reverse(alist);
+                    // A failed read is stated in this section, on the selection page and on the
+                    // printout. A section printed with no rows would go on paper as "never had it".
+                    ArrayList<Map<String, Object>> alist;
+                    boolean preventionUnreadable = false;
+                    try {
+                        alist = PreventionData.getPreventionData(LoggedInInfo.getLoggedInInfoFromSession(request), prevType, Integer.valueOf(demographic_no));
+                        // Reverse to display newest first (matching measurements/drugs display order)
+                        // The query returns ASC order for Prevention page compatibility
+                        Collections.reverse(alist);
+                    } catch (io.github.carlos_emr.carlos.prevention.dto.PreventionSourceUnavailableException unavailable) {
+                        alist = new ArrayList<Map<String, Object>>();
+                        preventionUnreadable = true;
+                        PreventionData.logUnreadable("flowsheet print", Integer.valueOf(demographic_no));
+                    }
                 %>
 
                 <div class="preventionSection" style="<%=hidden%>">
@@ -761,6 +796,11 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                             <span title="<carlos:encode value='<%= String.valueOf(h2.get("guideline")) %>' context="htmlAttribute"/>"><carlos:encode value='<%= String.valueOf(h2.get("display_name")) %>' context="html"/></span>
                         </p>
                     </div><!--headPrevention-->
+                    <% if (preventionUnreadable) { %>
+                    <div class="prevention-unreadable" role="alert" style="color:#842029; font-weight:bold; padding:2px 4px;">
+                        <p><fmt:setBundle basename="oscarResources"/><fmt:message key="prevention.unreadable.message"/></p>
+                    </div>
+                    <% } %>
                     <%
                         out.flush();
                         for (int k = 0; k < alist.size(); k++) {
@@ -796,8 +836,8 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                                     Hashtable dates = (Hashtable) oj;
                                     Date sdate = (Date) dates.get("sdate");
                                     Date edate = (Date) dates.get("edate");
-                                    Date itDate = UtilDateUtilities.StringToDate((String) hdata.get("prevention_date"));
-                                    if (itDate.before(sdate) || itDate.after(edate)) {
+                                    Date itDate = (Date) hdata.get("prevention_date_asDate");
+                                    if (itDate != null && (itDate.before(sdate) || itDate.after(edate))) {
                                         hider = "style=\"display:none\"";
                                     }
                                 }
@@ -806,13 +846,16 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                             if (k > num) {
                                 hider = "style=\"display:none;\"";
                             }
+                            Object preventionDateInfo = hdata.get("prevention_date_info");
+                            if (preventionDateInfo instanceof io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO
+                                    && !((io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO) preventionDateInfo).isExact()) hider = "";
 
                             //////PREV END
                     %>
                     <div class="preventionProcedure" <%=hider%>
                          onclick="javascript:popup(465,635,'<%= request.getContextPath() %>/prevention/ViewAddPreventionData?id=<%=SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(String.valueOf(hdata.get("id"))))%>&amp;demographic_no=<%= SafeEncode.forJavaScriptAttribute(SafeEncode.forUriComponent(demographic_no)) %>','addPreventionData')">
                         <p <%=r(hdata.get("refused"))%>
-                                title="fade=[on] header=[<carlos:encode value='<%= String.valueOf(hdata.get("age")) %>' context="htmlAttribute"/> -- Date:<carlos:encode value='<%= String.valueOf(hdata.get("prevention_date")) %>' context="htmlAttribute"/>] body=[<carlos:encode value='<%= com %>' context="htmlAttribute"/>]">
+                                title="fade=[on] header=[<%= SafeEncode.forTooltipText(String.valueOf(hdata.get("age"))) %> -- Date:<%= SafeEncode.forTooltipText(String.valueOf(hdata.get("prevention_date"))) %>] body=[<%= SafeEncode.forTooltipText(com) %>]">
                             Age: <carlos:encode value='<%= String.valueOf(hdata.get("age")) %>' context="html"/> <br/>
                             <!--<%=refused(hdata.get("refused"))%>-->Date: <carlos:encode value='<%= String.valueOf(hdata.get("prevention_date")) %>' context="html"/>
                             <%if (comb) {%>

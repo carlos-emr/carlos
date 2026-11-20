@@ -1,19 +1,19 @@
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.*" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 
-<%@ page import="org.apache.logging.log4j.Logger" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarLogDao" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.inboxhub.query.InboxhubQuery" %>
-<%@ page import="io.github.carlos_emr.carlos.mds.data.CategoryData" %>
+
+
+
+
+
+
+
 
 <% pageContext.setAttribute("currentUser", session.getAttribute("user")); %>
 
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -23,8 +23,11 @@
 <div class="inbox-toolbar">
         <input id="topFBtn" type="button" class="btn btn-primary btn-sm ms-1" value="<fmt:message key="oscarMDS.index.btnForward"/>" onclick="submitForward('${carlos:forJavaScript(currentUser)}')">
         <input id="topFileBtn" type="button" class="btn btn-primary btn-sm" value="<fmt:message key='oscarMDS.index.btnFile'/>" onclick="submitFile('${carlos:forJavaScript(currentUser)}')"/>
-        <%-- Acknowledged toggle: switches between showing New vs Acknowledged items --%>
-        <label class="inbox-toolbar-link" for="ackToggle">
+        <%-- Acknowledged-today toggle: switches between New items and what was acknowledged TODAY
+             (by acknowledgement time; see fetchInboxhubData). The label carries the scope so it reads
+             on touch screens and to screen readers; the title says that older acknowledgements are
+             reached through the search panel's Acknowledged status. --%>
+        <label class="inbox-toolbar-link" for="ackToggle" title="<fmt:message key='inboxhub.toolbar.acknowledgedTodayTitle'/>">
             <input type="checkbox" id="ackToggle" onchange="toggleAcknowledged(this.checked)"><fmt:message key="inboxhub.toolbar.acknowledged"/>
         </label>
         <%-- Rapid Review toggle: after acknowledging a lab in the popup, auto-opens the next item --%>
@@ -76,9 +79,9 @@
 </c:if>
             <c:if test="${page ge 1}">
             <c:forEach var="labResult" items="${labDocs}" varStatus="loopStatus">
-                <tr id="labdoc_${labResult.segmentID}" data-lab-type="${labResult.labType}" class="${!labResult.isMatchedToPatient() ? 'table-warning' : (labResult.resultStatus == 'A' ? 'table-danger' : '')}">
+                <tr id="labdoc_${carlos:forHtmlAttribute(labResult.labType)}_${carlos:forHtmlAttribute(labResult.segmentID)}" data-segment-id="${carlos:forHtmlAttribute(labResult.segmentID)}" data-lab-type="${carlos:forHtmlAttribute(labResult.labType)}" class="${!labResult.isMatchedToPatient() ? 'table-warning' : (labResult.resultStatus == 'A' ? 'table-danger' : '')}">
                     <td>
-                        <c:set var="disabled" value="${!labResult.matchedToPatient && labResult.labType != 'DOC' ? 'disabled' : ''}"/>
+                        <c:set var="disabled" value="${(!labResult.matchedToPatient && labResult.labType != 'DOC') || labResult.multipleAckCountUnavailable ? 'disabled' : ''}"/>
                         <input type="checkbox" name="flaggedLabs" value="${labResult.segmentID}:${labResult.labType}" ${disabled}>
                     </td>
                     <td>
@@ -94,13 +97,16 @@
                     <td>${carlos:forHtml(labResult.label == 'null' ? '' : labResult.label)}</td>
                     <td>${carlos:forHtml(labResult.dateTime)}${labResult.document ? ' / ' : ''}${carlos:forHtml(labResult.document ? labResult.lastUpdateDate : '')}</td>
                     <td>${carlos:forHtml(labResult.requestingClient)}</td>
-                    <td>${carlos:forHtml(labResult.document ? (labResult.description == null ? '' : labResult.description) : labResult.disciplineDisplayString)}</td>
+                    <td>${carlos:forHtml(labResult.document ? labResult.discipline : labResult.disciplineDisplayString)}</td>
                     <td>${carlos:forHtml(labResult.reportStatus)}</td>
                     <td>
                         <c:set var="multiLabCount" value="${labResult.multipleAckCount}" />
                         ${carlos:forHtml(labResult.ackCount)}&nbsp;
                         <c:if test="${multiLabCount >= 0}">
                             (${carlos:forHtml(labResult.multipleAckCount)})
+                        </c:if>
+                        <c:if test="${labResult.multipleAckCountUnavailable}">
+                            <span class="text-warning" role="alert" data-carlos-cml-count-warning="unavailable"><fmt:message key="cml.versionChain.unavailable"/></span>
                         </c:if>
                     </td>
                 </tr>
@@ -140,7 +146,8 @@
         } else {
             windowprops = "height=660, width=960, location=no, scrollbars=yes, menubars=no, toolbars=no, resizable=yes, top=0, left=0";
         }
-        var popup = window.open(encodeURI(page), "labreport", windowprops);
+        // LabDataController already URL-encodes each parameter, including duplicateLabIds.
+        var popup = window.open(page, "labreport", windowprops);
         if (popup != null) {
             if (popup.opener == null) {
                 popup.opener = self;
@@ -236,16 +243,44 @@
         }
     });
 
-    function removeReport(reportId) {
-        const rowEl = jQuery("#labdoc_" + reportId);
-        if (rowEl.length > 0) {
-            const labType = rowEl.data('labType');
-            jQuery('#inbox_table').DataTable().row(rowEl).remove().draw(false);
-            const countStatId = labType === 'DOC' ? 'totalDocsCountStat' :
-                                labType === 'HRM' ? 'totalHRMsCountStat' : 'totalLabsCountStat';
-            const current = parseInt(jQuery('#' + countStatId).text()) || 0;
-            if (current > 0) {
-                jQuery('#' + countStatId).text(current - 1);
+    /**
+     * Drops one acknowledged/signed-off item from the inbox table and from its counters.
+     *
+     * This is the legacy window.opener entry point: popups call it once per id they cleared.
+     * Each call therefore means exactly one routing row, which is the unit the counters
+     * count — so it counts one, whether or not a row was on screen to remove. Acknowledging
+     * a lab calls it once per version in the chain, and the older versions have no row of
+     * their own (the inbox collapses a chain to one row) but do each hold a routing row that
+     * the badge is counting. Tying the count to a row being removed left those behind.
+     *
+     * The count is taken off the STORED total (see countAcknowledgedInboxhubItem in
+     * InboxhubForm.jsp), not off the rendered badge: the badges are repainted from those
+     * hidden inputs on every list draw, so a badge-only edit is undone by the next refresh
+     * and the acknowledged item keeps being counted until a full page reload. That helper
+     * also keeps the count to once per item, since a popup calls this directly AND
+     * broadcasts, and the row may already be gone by the time the broadcast lands.
+     *
+     * It goes through dropAcknowledgedInboxhubItem, the same contract the BroadcastChannel
+     * listener and the no-BroadcastChannel fallback use, so a popup that can reach the inbox
+     * only this way still gets the preview boundary re-sync and the Rapid Review advance. The
+     * cleared count is left unsaid: one call is one routing row, which is what the helper
+     * assumes when the sender does not say. When the helper answers that a full re-sync is
+     * still required -- list mode still paging its results in -- the re-fetch is made here,
+     * as the listener would make it, but ONLY for the id whose row was on screen: an older
+     * version in the chain has no row of its own, and re-fetching once per version would
+     * throw the list away as many times as the chain is long.
+     *
+     * @param {string} reportId segment id of the item to drop
+     * @param {string} labType its report type; segment ids are not unique across types, so
+     *                 without one this can only fall back to whatever row carries the id
+     */
+    function removeReport(reportId, labType) {
+        const resolvedType = labType || inboxhubItemElement(reportId, labType).data('labType');
+        const settled = dropAcknowledgedInboxhubItem(reportId, resolvedType);
+        if (!settled && isInboxhubItemHandled(reportId, resolvedType)) {
+            fetchInboxhubData();
+            if (rapidReviewState) {
+                armPendingRapidReview(inboxhubResultSetGeneration);
             }
         }
     }

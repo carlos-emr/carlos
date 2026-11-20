@@ -99,10 +99,10 @@ public interface BillingONPaymentDao extends AbstractDao<BillingONPayment> {
     /** Load the third-party payment rows tied to one billing number. */
     List<BillingONPayment> find3rdPartyPaymentsByBillingNo(Integer billingNo);
 
-    /** Date-filtered third-party payment history for one billing header. */
+    /** Third-party payment history from startDate through the whole calendar endDate for one header. */
     List<BillingONPayment> find3rdPartyPayRecordsByBill(BillingONCHeader1 bCh1, Date startDate, Date endDate);
 
-    /** Date-filtered third-party payment history for several invoices at once. */
+    /** Third-party payment history from startDate through the whole calendar endDate for several invoices. */
     List<BillingONPayment> find3rdPartyPayRecordsByBills(List<Integer> billingNos, Date startDate, Date endDate);
 
     /** Create and persist a payment row using the older action-layer parameter contract. */

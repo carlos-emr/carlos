@@ -181,15 +181,21 @@ public class FrmXmlUpload2Action extends ActionSupport implements UploadedFilesA
     /**
      * Imports a legacy clinical form data ZIP using the established entry-by-entry importer.
      *
-     * @return {@code null} to continue on to {@link #SUCCESS}
+     * @return {@code null} after all entries were processed, or {@link #ERROR} on failure
      */
     private String importLegacyArchive(ZipFile zf) throws IOException {
-        Enumeration<? extends ZipEntry> entries = zf.entries();
-        while (entries.hasMoreElements()) {
-            ZipEntry entry = entries.nextElement();
-            try (InputStream zis = zf.getInputStream(entry)) {
-                JDBCUtil.toDataBase(zis, entry.getName());
-            }
+        int processed;
+        try {
+            processed = SpringUtils.getBean(io.github.carlos_emr.carlos.form.service.FormXmlImportService.class).importArchive(zf);
+        } catch (JDBCUtil.XmlImportException | RuntimeException e) {
+            LOGGER.error("Legacy form archive rolled back (causeType={})", e.getClass().getName());
+            addActionError(ResourceBundle.getBundle("oscarResources", request.getLocale()).getString("form.xmlUpload.legacyFailure"));
+            return forwardActionErrors();
+        }
+        if (processed == 0) {
+            addActionError(ResourceBundle.getBundle("oscarResources", request.getLocale())
+                    .getString("form.xmlUpload.legacyEmpty"));
+            return forwardActionErrors();
         }
         return null;
     }

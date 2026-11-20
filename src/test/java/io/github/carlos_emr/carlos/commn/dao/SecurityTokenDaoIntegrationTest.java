@@ -109,4 +109,52 @@ public class SecurityTokenDaoIntegrationTest extends CarlosTestBase {
 
         assertThat(result).isEqualTo(expectedResult);
     }
+    @Test
+    void shouldScopeSoapLookupAndRevocation_withoutChangingOtherTokenPurposes() {
+        SecurityToken mine = soapRow("soap1:" + "1".repeat(64), "soap1:41:123:456:hash");
+        SecurityToken otherAccount = soapRow("soap1:" + "2".repeat(64), "soap1:410:123:456:hash");
+        SecurityToken otherPurpose = soapRow("FAKE-other-purpose", "soap1:41:123:456:hash");
+        dao.persist(mine);
+        dao.persist(otherAccount);
+        dao.persist(otherPurpose);
+        hibernateTemplate.flush();
+        assertThat(dao.findSoapToken(mine.getToken()).getId()).isEqualTo(mine.getId());
+        assertThat(dao.getByTokenAndExpiry(mine.getToken(), new Date(0))).isNull();
+        assertThat(dao.getByTokenAndExpiry(mine.getToken().toUpperCase(java.util.Locale.ROOT), new Date(0))).isNull();
+        assertThat(dao.revokeSoapTokens("soap1:41:")).isEqualTo(1);
+        hibernateTemplate.flush();
+        hibernateTemplate.clear();
+        assertThat(dao.findSoapToken(mine.getToken())).isNull();
+        assertThat(dao.findSoapToken(otherAccount.getToken())).isNotNull();
+        assertThat(dao.getByTokenAndExpiry(otherPurpose.getToken(), new Date(0))).isNotNull();
+        assertThat(dao.revokeSoapTokens("soap1:41:")).isZero();
+    }
+
+    @Test
+    void shouldRejectAmbiguousSoapRows_insteadOfSelectingAnArbitraryCredential() {
+        String token = "soap1:" + "3".repeat(64);
+        dao.persist(soapRow(token, "soap1:41:123:456:hash"));
+        dao.persist(soapRow(token, "soap1:42:123:456:hash"));
+        hibernateTemplate.flush();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> dao.findSoapToken(token))
+                .isInstanceOf(IllegalStateException.class).hasMessage("Ambiguous SOAP token storage");
+    }
+
+    @Test
+    void shouldRejectWildcardOrUnscopedSoapDeletion_beforeAnyWrite() {
+        for (String owner : new String[]{null, "", "soap1:%", "soap1:0:", "soap1:41"}) {
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> dao.revokeSoapTokens(owner))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    private SecurityToken soapRow(String hash, String data) {
+        SecurityToken row = new SecurityToken();
+        row.setToken(hash);
+        row.setData(data);
+        row.setCreated(new Date());
+        row.setExpiry(new Date(System.currentTimeMillis() + 3600000));
+        return row;
+    }
+
 }

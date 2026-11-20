@@ -44,20 +44,19 @@
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctPatientData" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctProgram" %>
 <%@ page import="java.net.URLEncoder" %>
-<%@ page import="java.util.ArrayList" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
-<%@ taglib uri="carlos" prefix="carlos" %>
+
 
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 
@@ -66,7 +65,13 @@
     long startTime = System.currentTimeMillis();
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
-    String demographic$ = request.getParameter("demographicNo");
+    String demographic$;
+    try {
+        demographic$ = EncounterPatientContext.requireDemographicNo(request);
+    } catch (IllegalArgumentException invalidPatient) {
+        response.sendError(400, "Invalid encounter patient");
+        return;
+    }
     boolean bPrincipalControl = false;
     boolean bPrincipalDisplay = false;
 
@@ -118,10 +123,12 @@
     LogAction.addLog((String) session.getAttribute("user"), LogConst.READ, LogConst.CON_ECHART, demographic$, ip, demographic$);
 %>
 
-<%-- Session bean retrieval --%>
+<%-- IncomingEncounter and the legacy save (EctSaveEncounter2Action) each supply this chart's
+     request-owned bean. The login-wide session bean follows whichever chart was entered last in
+     any window, so it is never rendered here (issues #4556, #4673). --%>
 <%
-    EctSessionBean bean = null;
-    if ((bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean")) == null) {
+    EctSessionBean bean = (EctSessionBean) request.getAttribute("EctSessionBean");
+    if (bean == null || !demographic$.equals(bean.demographicNo)) {
         response.sendRedirect(request.getContextPath() + "/encounter/ViewError");
         return;
     }
@@ -134,19 +141,27 @@
     session.setAttribute("newCaseManagement", "true");
     String userNo = (String) request.getSession().getAttribute("user");
     if (userNo != null) {
+        // Both chart variants choose their own program before redirecting. An ordinary
+        // day-sheet entry must not capture a program selected in an unrelated PMM window.
+        try {
+            io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.initialize(
+                    request, new EctProgram(session), userNo, bean.providerNo);
+        } catch (SecurityException invalidProgram) {
+            response.sendError(403, "Unavailable chart program selection");
+            return;
+        }
 %>
 <caisi:isModuleLoad moduleName="caisi" reverse="true">
     <%
-        EctProgram prgrmMgr = new EctProgram(session);
-        session.setAttribute("case_program_id", prgrmMgr.getProgram(bean.providerNo));
         session.setAttribute("casemgmt_oscar_baseurl", request.getContextPath());
-        session.setAttribute("casemgmt_bean_flag", "true");
         String hrefurl = request.getContextPath() + "/casemgmt/ViewForward?action=view" +
         "&demographicNo=" + bean.demographicNo +
+        "&chartContext=" + io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) +
         "&providerNo=" + bean.providerNo +
         "&providerName=" + URLEncoder.encode(bean.userName, StandardCharsets.UTF_8) +
         "&appointmentNo=" + (bean.appointmentNo != null ? bean.appointmentNo : "") +
         "&reason=" + URLEncoder.encode(bean.reason != null ? bean.reason : "", StandardCharsets.UTF_8) +
+        (bean.oscarMsgID != null && !bean.oscarMsgID.isEmpty() ? "&msgId=" + SafeEncode.forUriComponent(bean.oscarMsgID) : "") +
         "&reasonCode=" + (bean.reasonCode != null ? bean.reasonCode : "") +
         "&appointmentDate=" + (bean.appointmentDate != null ? bean.appointmentDate : "") +
         "&start_time=" + (bean.startTime != null ? bean.startTime : "") +
@@ -171,73 +186,17 @@
 <caisi:isModuleLoad moduleName="caisi">
     <%
         session.setAttribute("casemgmt_oscar_baseurl", request.getContextPath());
-        session.setAttribute("casemgmt_oscar_bean", bean);
-        session.setAttribute("casemgmt_bean_flag", "true");
-        String hrefurl = request.getContextPath() + "/casemgmt/ViewForward?action=view&demographicNo=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&providerName=" + URLEncoder.encode(bean.userName, StandardCharsets.UTF_8);
-        if (request.getParameter("casetoEncounter") == null) {
-            if (!response.isCommitted())
-                response.sendRedirect(hrefurl);
+        // The request-owned bean is not copied into the session: under this unkeyed name it was
+        // the last-entered chart's, and every reader asks for "casemgmt_oscar_bean" + patient.
+        String hrefurl = request.getContextPath() + "/casemgmt/ViewForward?action=view&demographicNo=" + bean.demographicNo + "&chartContext=" + io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) + "&providerNo=" + bean.providerNo + "&providerName=" + URLEncoder.encode(bean.userName, StandardCharsets.UTF_8) +
+                (bean.oscarMsgID != null && !bean.oscarMsgID.isEmpty() ? "&msgId=" + SafeEncode.forUriComponent(bean.oscarMsgID) : "");
+        // Retired bookmarks must enter the modern chart before accepting typing.
+        if (!response.isCommitted()) {
+            response.sendRedirect(hrefurl);
             return;
         }
+        response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
     %>
 </caisi:isModuleLoad>
 
-<html>
-<%@ include file="includes/encounter-head.jspf" %>
-
-    <body topmargin="0" leftmargin="0" bottommargin="0" rightmargin="0" vlink="#0000FF">
-
-    <%-- Action errors display --%>
-    <c:if test="${not empty actionErrors}">
-        <div class="action-errors">
-            <ul>
-                <c:forEach var="error" items="${actionErrors}">
-                    <li>${carlos:forHtml(error)}</li>
-                </c:forEach>
-            </ul>
-        </div>
-    </c:if>
-
-    <div id="templatejs" style="display: none"></div>
-
-    <%-- Header bar with patient info and search --%>
-    <%@ include file="includes/encounter-header-bar.jspf" %>
-
-    <%-- Main content: left nav + encounter form --%>
-    <div class="container-fluid p-0">
-        <div class="row g-0" style="min-height: calc(100vh - 42px);">
-            <%-- Left navigation --%>
-            <div class="col-auto" id="encounter-left-nav" style="width: 22%;">
-                <div id="leftNavbar" style="height: 100%; width: 100%;">
-                    <caisi:isModuleLoad moduleName="caisi">
-                        <%
-                            String hrefurl2 = request.getContextPath() + "/casemgmt/ViewForward?action=view&demographicNo=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&providerName=" + URLEncoder.encode(bean.userName, StandardCharsets.UTF_8);
-                        %>
-                        <a href="<%=hrefurl2%>">Case Management Encounter</a>
-                    </caisi:isModuleLoad>
-                </div>
-            </div>
-
-            <%-- Right content: encounter form --%>
-            <div class="col" style="background-color: #CCCCFF;">
-                <form name="encForm" action="SaveEncounter2" method="POST">
-                    <input type="hidden" id="reloadDiv" name="reloadDiv" value="none"
-                           onchange="updateDiv();">
-                    <caisi:isModuleLoad moduleName="caisi">
-                        <input type="hidden" name="casetoEncounter" value="true">
-                    </caisi:isModuleLoad>
-
-                    <%@ include file="includes/encounter-row-one.jspf" %>
-                    <%@ include file="includes/encounter-row-two.jspf" %>
-                    <%@ include file="includes/encounter-rx-allergies.jspf" %>
-                    <%@ include file="includes/encounter-row-three.jspf" %>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <%-- Split chart overlay --%>
-    <%@ include file="includes/encounter-split-chart.jspf" %>
-
-    </body>
-</html>
+<%-- The legacy editor is retired; this view only forwards to the modern chart. --%>

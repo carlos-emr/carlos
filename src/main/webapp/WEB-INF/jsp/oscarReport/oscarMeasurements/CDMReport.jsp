@@ -49,10 +49,10 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@ page import="io.github.carlos_emr.carlos.report.oscarMeasurements.pageUtil.*" %>
-<%@ page import="java.util.*, java.sql.*, java.text.*, java.net.*" %>
+
+<%@ page import="java.util.*" %>
 <%
     GregorianCalendar now = new GregorianCalendar();
     int curYear = now.get(Calendar.YEAR);
@@ -97,9 +97,7 @@
                     <tr>
                         <td><fmt:message key="oscarReport.CDMReport.msgTitle"/>: ${carlos:forHtml(CDMGroup)}</td>
                         <td></td>
-                        <td style="text-align: right"><a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"><fmt:message key="global.license"/></a></td>
+                        <td style="text-align: right"><%@ include file="/WEB-INF/jsp/includes/about-license-links.jspf" %></td>
                     </tr>
                 </table>
             </td>

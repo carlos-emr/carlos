@@ -1,0 +1,6 @@
+# carlos-emr-restart: "the EMR's Tomcat must (re)start to pick up what this
+# transaction changed". Activated by carlos-emr's own configure and by
+# carlos-emr-drugref's, so a transaction that configures both deploys the
+# ~400 MB webapp ONCE, in the triggered postinst, instead of once per package.
+# noawait: the activating package is fully configured without waiting for it.
+interest-noawait carlos-emr-restart

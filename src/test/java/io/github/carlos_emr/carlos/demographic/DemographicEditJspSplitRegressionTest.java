@@ -66,8 +66,9 @@ class DemographicEditJspSplitRegressionTest {
     private static final Path MASTER_JSP = WEBAPP_ROOT.resolve("WEB-INF/jsp/demographic/edit.jsp");
     private static final Pattern JSP_FORWARD = Pattern.compile(
             "(?is)<jsp:forward\\b([^>]*)>(.*?)</jsp:forward>|<jsp:forward\\b([^>]*)/\\s*>");
+    // The open-tag branch must not take a self-closing tag, or it would run on to a later </jsp:include>.
     private static final Pattern JSP_INCLUDE = Pattern.compile(
-            "(?is)<jsp:include\\b([^>]*)>(.*?)</jsp:include>|<jsp:include\\b([^>]*)/\\s*>");
+            "(?is)<jsp:include\\b([^>]*)(?<!/)>(.*?)</jsp:include>|<jsp:include\\b([^>]*)/\\s*>");
     private static final Pattern JSP_PAGE_ATTRIBUTE = Pattern.compile("\\bpage\\s*=\\s*(['\"])(.*?)\\1");
     private static final Pattern JSP_PARAM = Pattern.compile("(?is)<jsp:param\\b[^>]*/\\s*>");
     private static final Set<String> REQUIRED_EDIT_FRAGMENTS = Set.of(
@@ -123,7 +124,9 @@ class DemographicEditJspSplitRegressionTest {
     void shouldUseDynamicFragments_forMasterEditPage() throws IOException {
         String masterJsp = Files.readString(MASTER_JSP, StandardCharsets.UTF_8);
 
-        Set<String> editFragmentIncludes = jspIncludePages(masterJsp);
+        // Without its comments: the header comment names <jsp:include>, which would otherwise pair
+        // with the page's first </jsp:include> and hide every include in between.
+        Set<String> editFragmentIncludes = jspIncludePages(removeJspCommentsAndDirectives(masterJsp));
         editFragmentIncludes.removeIf(page -> !page.startsWith("edit-") || !page.endsWith(".jsp"));
 
         // These fragments are the split contract that keeps the generated _jspService methods below the JVM limit.
@@ -135,6 +138,7 @@ class DemographicEditJspSplitRegressionTest {
     @DisplayName("should parse include pages with optional JSP params")
     void shouldParseIncludePages_withOptionalJspParams() {
         String jsp = """
+                <jsp:include page="edit-form-clinical.jsp"/>
                 <jsp:include page="edit-view.jsp">
                     <jsp:param name="section" value="view"/>
                 </jsp:include>
@@ -142,7 +146,7 @@ class DemographicEditJspSplitRegressionTest {
                 """;
 
         assertThat(jspIncludePages(jsp))
-                .containsExactlyInAnyOrder("edit-view.jsp", "edit-form-personal.jsp");
+                .containsExactlyInAnyOrder("edit-form-clinical.jsp", "edit-view.jsp", "edit-form-personal.jsp");
     }
 
     private static String removeJspCommentsAndDirectives(String jsp) {

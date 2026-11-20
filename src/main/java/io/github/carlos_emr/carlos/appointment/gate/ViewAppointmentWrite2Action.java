@@ -44,9 +44,16 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * The forms themselves submit to separate AddRecord / UpdateRecord /
  * CutRecord endpoints.
  *
+ * <p>This base gate enforces only the shared {@code _appointment w} check and the
+ * allowed methods, then forwards. Routes that need additional request validation use
+ * a dedicated subclass and override {@link #afterPrivilegeGranted}; see
+ * {@link ViewEditAppointmentWrite2Action}. Detection is therefore by mapped class, not
+ * by sniffing the request path — a route can never silently fail open to the base
+ * "forward" behavior.
+ *
  * @since 2026-04-14
  */
-public final class ViewAppointmentWrite2Action extends ActionSupport {
+public class ViewAppointmentWrite2Action extends ActionSupport {
 
     private final SecurityInfoManager securityInfoManager =
             SpringUtils.getBean(SecurityInfoManager.class);
@@ -63,7 +70,7 @@ public final class ViewAppointmentWrite2Action extends ActionSupport {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
-    public String execute() throws Exception {
+    public final String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -86,6 +93,17 @@ public final class ViewAppointmentWrite2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
+        return afterPrivilegeGranted(request, response);
+    }
+
+    /**
+     * Hook invoked after the shared {@code _appointment w} and method checks pass. The
+     * base gate forwards to its mapped JSP ({@link #SUCCESS}). Subclasses that gate a
+     * route needing extra request validation override this and may write an error
+     * response and return {@link #NONE}.
+     */
+    protected String afterPrivilegeGranted(HttpServletRequest request,
+                                           HttpServletResponse response) throws Exception {
         return SUCCESS;
     }
 }

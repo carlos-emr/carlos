@@ -77,6 +77,18 @@ public class PharmacyInfoDaoIntegrationTest extends CarlosTestBase {
         return info;
     }
 
+    @Test
+    @DisplayName("should match literal metacharacters and exclude pharmacies without fax numbers")
+    void shouldMatchLiteralMetacharacters_whenSearchingFaxablePharmacies() {
+        PharmacyInfo exact = createPharmacy("Review!_% Pharmacy", "Ottawa", '1');
+        createPharmacy("Review!ABC Pharmacy", "Ottawa", '1');
+        PharmacyInfo unavailable = createPharmacy("Review!_% No Fax", "Ottawa", '1');
+        unavailable.setFax("");
+        pharmacyInfoDao.merge(unavailable);
+        assertThat(pharmacyInfoDao.searchFaxablePharmacies("Review!_%", "", 20))
+                .extracting(PharmacyInfo::getId).containsExactly(exact.getId());
+    }
+
     @Nested
     @DisplayName("CRUD operations")
     class CrudOperations {
@@ -87,6 +99,21 @@ public class PharmacyInfoDaoIntegrationTest extends CarlosTestBase {
         void shouldPersistPharmacy_whenValidDataProvided() {
             PharmacyInfo info = createPharmacy("Test Pharmacy", "Ottawa", '1');
             assertThat(info.getId()).isPositive();
+        }
+
+        @Test
+        @Tag("create")
+        @DisplayName("should write the legacy uid column explicitly so a strict database accepts the row")
+        void shouldWriteLegacyUid_whenPharmacyIsPersisted() {
+            PharmacyInfo info = createPharmacy("Uid Pharmacy", "Ottawa", '1');
+            entityManager.flush();
+
+            // pharmacyInfo.uid is NOT NULL with no default in MariaDB. A strict sql_mode refuses an insert that
+            // omits it (issue #3151: Add Pharmacy failed with error 1364). The query also fails if the column is
+            // not mapped at all, since the test schema is generated from the entities.
+            Object uid = entityManager.createNativeQuery("SELECT uid FROM pharmacyInfo WHERE recordID = :id")
+                    .setParameter("id", info.getId()).getSingleResult();
+            assertThat(((Number) uid).intValue()).isZero();
         }
 
         @Test
@@ -139,6 +166,27 @@ public class PharmacyInfoDaoIntegrationTest extends CarlosTestBase {
             assertThat(all).isNotEmpty();
             assertThat(all).extracting(PharmacyInfo::getName).contains("New Pharmacy");
         }
+
+        @Test
+        @Tag("update")
+        @DisplayName("should leave a stored legacy uid untouched when a pharmacy is edited")
+        void shouldKeepLegacyUid_whenPharmacyIsUpdated() {
+            PharmacyInfo info = createPharmacy("Uid Keeper", "Ottawa", '1');
+            entityManager.flush();
+            entityManager.createNativeQuery("UPDATE pharmacyInfo SET uid = 5 WHERE recordID = :id")
+                    .setParameter("id", info.getId()).executeUpdate();
+            entityManager.clear();
+
+            // updatePharmacy merges a detached PharmacyInfo built without a uid, so it carries the default 0.
+            pharmacyInfoDao.updatePharmacy(info.getId(), "Uid Keeper Renamed", "1 Main St", "Ottawa", "ON",
+                    "K1A0B1", "613-555-0100", "613-555-0101", "613-555-0102", "keeper@pharmacy.ca", "SLI", "edited");
+            entityManager.flush();
+            entityManager.clear();
+
+            Object uid = entityManager.createNativeQuery("SELECT uid FROM pharmacyInfo WHERE recordID = :id")
+                    .setParameter("id", info.getId()).getSingleResult();
+            assertThat(((Number) uid).intValue()).isEqualTo(5);
+        }
     }
 
     @Nested
@@ -172,6 +220,17 @@ public class PharmacyInfoDaoIntegrationTest extends CarlosTestBase {
             assertThat(results).hasSize(1);
             assertThat(results.get(0).getName()).isEqualTo("Downtown Pharmacy");
             assertThat(results.get(0).getCity()).isEqualTo("Ottawa");
+        }
+
+        @Test
+        @DisplayName("legacy pharmacy search preserves literal exclamation marks and wildcard callers")
+        void shouldPreserveLegacySearchPatternSemantics_whenUsingLegacySearchPatterns() {
+            PharmacyInfo exact = createPharmacy("Release! Pharmacy", "Ottawa", '1');
+            createPharmacy("Release Pharmacy", "Ottawa", '1');
+            assertThat(pharmacyInfoDao.searchPharmacyByNameAddressCity("Release!", "Ottawa"))
+                    .extracting(PharmacyInfo::getId).containsExactly(exact.getId());
+            assertThat(pharmacyInfoDao.searchPharmacyByNameAddressCity("Release%Pharmacy", "Ottawa"))
+                    .hasSize(2);
         }
 
         @Test

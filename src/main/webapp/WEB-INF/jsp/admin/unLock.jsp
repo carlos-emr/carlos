@@ -32,16 +32,10 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="java.util.*" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Security" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
-    SecurityDao securityDao = SpringUtils.getBean(SecurityDao.class);
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
-    String curUser_no = (String) session.getAttribute("user");
 
-    boolean isSiteAccessPrivacy = false;
     boolean authed = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_admin,_admin.userAdmin,_admin.unlockAccount" rights="r"
@@ -56,11 +50,6 @@
 %>
 
 
-<security:oscarSec objectName="_site_access_privacy" roleName="<%=roleName$%>" rights="r"
-                   reverse="false"><%isSiteAccessPrivacy = true; %>
-</security:oscarSec>
-
-
 <%
     // Read unlock result message and lock list from the Action (UnLock2Action)
     String msg = (String) request.getAttribute("msg");
@@ -70,27 +59,11 @@
     Vector vec = (Vector) request.getAttribute("lockList");
     if (vec == null) vec = new Vector();
 
-    //multi-office limit
-    if (isSiteAccessPrivacy && vec.size() > 0) {
-
-        List<String> userList = new ArrayList<String>();
-        List<Security> securityList = securityDao.findByProviderSite(curUser_no);
-
-        for (Security security : securityList) {
-            userList.add(security.getUserName());
-        }
-
-        for (int i = 0; i < vec.size(); i++) {
-            if (!userList.contains((String) vec.get(i))) {
-                vec.remove((String) vec.get(i));
-            }
-        }
-    }
 
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -125,8 +98,8 @@
         </div>
         <% } %>
         <div class="card card-body bg-body-tertiary">
-            <b><fmt:message key="admin.providersearchresults.ID"/></b>
-            <select name="userName">
+            <label for="locked-account"><fmt:message key="admin.providersearchresults.ID"/></label>
+            <select id="locked-account" name="userName">
                 <% for (int i = 0; i < vec.size(); i++) { %>
                 <option value="<carlos:encode value='<%= (String) vec.get(i) %>' context="htmlAttribute"/>"><carlos:encode value='<%= (String) vec.get(i) %>' context="html"/>
                 </option>

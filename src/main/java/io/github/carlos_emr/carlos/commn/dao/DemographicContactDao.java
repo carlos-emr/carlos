@@ -36,7 +36,7 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.DemographicContact;
 
-public interface DemographicContactDao extends AbstractDao<DemographicContact> {
+public interface DemographicContactDao extends AbstractDao<DemographicContact>, CdsExportPatientTableReadDao {
 
     public List<DemographicContact> findByDemographicNo(int demographicNo);
 
@@ -45,6 +45,17 @@ public interface DemographicContactDao extends AbstractDao<DemographicContact> {
     public List<DemographicContact> findByDemographicNoAndCategory(int demographicNo, String category);
 
     public List<DemographicContact> find(int demographicNo, int contactId);
+
+    /**
+     * Finds non-deleted personal patient associations, excluding other ID namespaces.
+     * Inactive rows are included: resaving a relationship must neither duplicate
+     * an existing inactive reverse row nor reactivate it implicitly.
+     *
+     * @param demographicNo patient owning the association
+     * @param contactId related patient's identifier
+     * @return matching patient associations, including inactive rows
+     */
+    List<DemographicContact> findPersonalPatientLinks(int demographicNo, int contactId);
 
     public List<DemographicContact> findAllByContactIdAndCategoryAndType(int contactId, String category, int type);
 

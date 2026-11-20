@@ -42,7 +42,7 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.SxmlMisc;
+import io.github.carlos_emr.carlos.demographic.util.DemographicXml;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /**
@@ -63,6 +63,14 @@ public abstract class FrmRecord {
     public abstract Properties getFormRecord(LoggedInInfo loggedInInfo, int demographicNo, int existingID) throws SQLException;
 
     public abstract int saveFormRecord(Properties props) throws SQLException;
+
+    /**
+     * Carries the authenticated actor into migrated persistence services. Legacy records
+     * deliberately delegate to their existing save implementation without using the actor.
+     */
+    public int saveFormRecord(LoggedInInfo actor, Properties props) throws SQLException {
+        return saveFormRecord(props);
+    }
 
     public abstract String findActionValue(String submit) throws SQLException;
 
@@ -109,7 +117,7 @@ public abstract class FrmRecord {
         demoProps.setProperty("c_phone", StringUtils.trimToEmpty(demographic.getPhone()));
         demoProps.setProperty("c_phoneAlt1", StringUtils.trimToEmpty(demographic.getPhone2()));
 
-        String rd = SxmlMisc.getXmlContent(demographic.getFamilyDoctor(), "rd");
+        String rd = DemographicXml.referralDoctor(demographic.getFamilyDoctor());
         rd = rd != null ? rd : "";
         demoProps.setProperty("pg1_famPhy", rd);
 

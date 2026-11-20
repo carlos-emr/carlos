@@ -37,14 +37,56 @@ import io.github.carlos_emr.carlos.commn.model.enumerator.DemographicExtKey;
 import org.springframework.stereotype.Repository;
 
 import jakarta.persistence.Query;
+import jakarta.persistence.LockModeType;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
 import java.util.*;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Repository
 public class DemographicExtDaoImpl extends AbstractDaoImpl<DemographicExt> implements DemographicExtDao {
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column> readCdsExportReceiptColumns() {
+        return CdsExportNativeMetadataReadSupport.read(entityManager, CdsExportNativeMetadataReadSupport.Table.DEMOGRAPHIC_EXT);
+    }
+
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportSourceSchema() {
+        return CdsExportPatientTableReadSupport.schema(entityManager, CdsExportPatientTableReadSupport.Plan.DEMOGRAPHIC_EXT);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public long countCdsExportRows(int patient) {
+        return CdsExportPatientTableReadSupport.count(entityManager, CdsExportPatientTableReadSupport.Plan.DEMOGRAPHIC_EXT, patient);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> findCdsExportRowsAfter(int patient, Long afterId, int limit) {
+        return CdsExportPatientTableReadSupport.page(entityManager, CdsExportPatientTableReadSupport.Plan.DEMOGRAPHIC_EXT, patient, afterId, limit);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public byte[] readCdsExportValueChunk(int patient, long rowId, String column, long offset, int length) {
+        return CdsExportPatientTableReadSupport.chunk(entityManager, CdsExportPatientTableReadSupport.Plan.DEMOGRAPHIC_EXT, patient, rowId, column, offset, length);
+    }
 
     public DemographicExtDaoImpl() {
         super(DemographicExt.class);
+    }
+
+    @Override
+    public List<ReportValue> findReportValues(String key, Collection<Integer> demographicNumbers, boolean latestOnly) {
+        if (demographicNumbers.isEmpty()) return List.of();
+        var query = entityManager.createQuery("select x.id, x.demographicNo, x.value from DemographicExt x where x.key=:key and x.demographicNo in :numbers order by x.dateCreated"
+                + (latestOnly ? " desc, x.id desc" : ", x.id"), Object[].class)
+                .setParameter("key", key).setParameter("numbers", demographicNumbers);
+        if (latestOnly) query.setMaxResults(1);
+        return query.getResultList().stream().map(row -> new ReportValue((Integer) row[0], (Integer) row[1], (String) row[2])).toList();
     }
 
     @Override
@@ -244,6 +286,25 @@ public class DemographicExtDaoImpl extends AbstractDaoImpl<DemographicExt> imple
      *                   is for
      * @param value      The value for this key
      */
+    @Override
+    public boolean addKeyIfAbsentSince(String providerNo, Integer demo, String key, String value, Date since) {
+        if (entityManager.find(Demographic.class, demo, LockModeType.PESSIMISTIC_WRITE) == null) {
+            return false;
+        }
+        Query query = entityManager.createQuery("SELECT d FROM DemographicExt d WHERE d.demographicNo=?1"
+                + " AND (d.providerNo=?2 OR (d.providerNo IS NULL AND ?2 IS NULL))"
+                + " AND d.key=?3 AND d.value=?4 AND d.dateCreated>=?5");
+        query.setParameter(1, demo);
+        query.setParameter(2, providerNo);
+        query.setParameter(3, key);
+        query.setParameter(4, value);
+        query.setParameter(5, since);
+        query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
+        if (!query.getResultList().isEmpty()) return false;
+        addKey(providerNo, demo, key, value);
+        return true;
+    }
+
     @Override
     public void addKey(String providerNo, Integer demo, String key, String value) {
         DemographicExt demographicExt = new DemographicExt();

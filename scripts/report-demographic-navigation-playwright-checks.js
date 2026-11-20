@@ -50,14 +50,17 @@
  *   TEST_USER=carlosdoc
  *   TEST_PASSWORD=carlos2026
  *   TEST_PIN=2026
- *   MYSQL_HOST=db MYSQL_USER=root MYSQL_PASSWORD=password MYSQL_DATABASE=oscar
+ *   MYSQL_HOST=db MYSQL_USER=root MYSQL_PASSWORD=password MYSQL_DATABASE=carlos
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
+const { validateCredentialBaseUrl: validateBaseUrl } = require('./lib/playwright-harness');
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
+const { installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING } = require('./lib/playwright-harness');
 const path = require('path');
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
@@ -85,29 +88,15 @@ function isLocalHost(rawHost) {
   return LOCAL_HOSTS.has(host) || isPrivateIpv4(host);
 }
 
-function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-
-  const host = parsed.hostname.toLowerCase();
-  if (!isLocalHost(host) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
-  return parsed;
-}
-
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
-const mysqlHost = process.env.MYSQL_HOST || 'db';
+const mysqlHost = require('./lib/playwright-harness').validateMysqlHost(process.env.MYSQL_HOST || '127.0.0.1');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
-const mysqlDatabase = process.env.MYSQL_DATABASE || 'oscar';
+const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 const savedQueryStamp = `PW_DEMOREPORT_${Date.now()}`;
 
 const findings = [];
@@ -584,10 +573,17 @@ async function checkBackButtonDirectEntryFallback(context) {
   await page.close();
 }
 
-(async () => {
+// Issue #3600: a finally does not run when the process is killed, which would leave
+// the saved-query row and the cleartext MySQL password file behind. Idempotent.
+const signalHandlers = installCleanupSignalHandlers(cleanupSavedQueryRow);
+
+const legacyHarness = require('./lib/legacy-check');
+legacyHarness.runLegacyCheck('report-demographic-navigation', async () => {
+  await (async () => {
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
+    ...NO_PLAYWRIGHT_SIGNAL_HANDLING,
   };
   if (chromePath) {
     launchOptions.executablePath = chromePath;
@@ -600,7 +596,7 @@ async function checkBackButtonDirectEntryFallback(context) {
     // still gets full TLS validation, so a spoofed/invalid cert can't silently
     // intercept the credentialed login this script performs.
     const context = await browser.newContext({
-      ignoreHTTPSErrors: isLocalHost(baseUrl.hostname),
+      ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl),
       viewport: { width: 1440, height: 1000 },
     });
     await login(context);
@@ -621,9 +617,12 @@ async function checkBackButtonDirectEntryFallback(context) {
   } finally {
     cleanupSavedQueryRow();
     await browser.close();
+    // Last, so a signal arriving during any step above still reaches the handler.
+    signalHandlers.dispose();
   }
 })().catch((error) => {
   console.error('FAIL demographic report navigation Playwright check');
   console.error(error.stack || error.message);
-  process.exit(1);
+  process.exitCode = 1;
 });
+}, {existingSignalHandlers:true});

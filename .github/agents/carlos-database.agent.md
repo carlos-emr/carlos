@@ -22,7 +22,7 @@ tools: ["*"]
 **Regulatory**: HIPAA/PIPEDA compliance REQUIRED - PHI protection is CRITICAL
 
 **Tech Stack** (April 2026):
-- Java 21, Spring 7.0.6, Hibernate 7.2.7, Maven 3
+- Java 25, Spring 7.0.6, Hibernate 7.2.7, Maven 3
 - MariaDB/MySQL with custom dialect: `OscarMySQL5Dialect`
 - Custom connection tracking: `OscarTrackingBasicDataSource`
 - H2 in-memory database for testing

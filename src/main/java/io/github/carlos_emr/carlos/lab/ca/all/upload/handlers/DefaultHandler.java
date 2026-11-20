@@ -46,6 +46,8 @@ import java.util.ArrayList;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 
+import io.github.carlos_emr.CarlosProperties;
+
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -56,7 +58,6 @@ import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
-import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -74,7 +75,7 @@ public class DefaultHandler implements MessageHandler {
     }
 
     public String parse(LoggedInInfo loggedInInfo, String serviceName, String fileName, int fileId, String ipAddr) {
-        logger.info("DefaultHandler.parse: Called with serviceName={}, fileName={}, fileId={}", LogSafe.sanitize(serviceName), LogSafe.sanitize(fileName), fileId); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+        logger.info("DefaultHandler.parse: fileId=");
         Document xmlDoc = getXML(fileName);
 
         /*
@@ -98,7 +99,7 @@ public class DefaultHandler implements MessageHandler {
                 }
             } catch (Exception e) {
                 MessageUploader.clean(fileId);
-                logger.error("ERROR:", e);
+                logger.error("ERROR: {}", LogSafe.exceptionTrace(e));
                 return null;
             }
         } else {
@@ -117,7 +118,7 @@ public class DefaultHandler implements MessageHandler {
                 }
             } catch (Exception e) {
                 MessageUploader.clean(fileId);
-                logger.error("ERROR:", e);
+                logger.error("ERROR: {}", LogSafe.exceptionTrace(e));
                 return null;
             }
         }
@@ -132,14 +133,13 @@ public class DefaultHandler implements MessageHandler {
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     private Document getXML(String fileName) {
         try {
-            // Validate the file path using PathValidationUtils
-            File file = new File(fileName);
+            File file = PathValidationUtils.validateExistingDocumentPath(fileName);
 
             // Validate the file is within the expected document directory
             CarlosProperties props = CarlosProperties.getInstance();
             String documentDir = props.getProperty("DOCUMENT_DIR");
             if (documentDir == null || documentDir.trim().isEmpty()) {
-                logger.error("DOCUMENT_DIR is not configured while parsing XML file: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                logger.error("DOCUMENT_DIR is not configured while parsing XML file");
                 return null;
             }
             File docDir = PathValidationUtils.validateConfiguredDirectory(documentDir, "DOCUMENT_DIR");
@@ -147,20 +147,19 @@ public class DefaultHandler implements MessageHandler {
 
             // Ensure the file exists and is a regular file
             if (!file.exists() || !file.isFile()) {
-                logger.error("File does not exist or is not a regular file: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                logger.error("File does not exist or is not a regular file");
                 return null;
             }
 
             DocumentBuilderFactory factory = XmlUtils.createSecureDocumentBuilderFactory();
-            // Use the validated file object instead of creating a new FileInputStream with the raw path
             Document doc = factory.newDocumentBuilder().parse(file);
             return (doc);
 
         } catch (SecurityException e) {
-            logger.error("Path traversal attempt detected while parsing XML file: {}", LogSafe.sanitize(fileName), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            logger.error("Path traversal attempt detected while parsing XML file: {}", LogSafe.exceptionTrace(e));
             return null;
         } catch (Exception e) {
-            logger.error("Error parsing XML file: {}", LogSafe.sanitize(fileName), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            logger.error("Error parsing XML file: {}", LogSafe.exceptionTrace(e));
             return (null);
         }
     }
@@ -170,34 +169,30 @@ public class DefaultHandler implements MessageHandler {
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public String readTextFile(String fullPathFilename) throws IOException {
-        // Validate the file path using PathValidationUtils
-        File file = new File(fullPathFilename);
+        File file;
+        try {
+            file = PathValidationUtils.validateExistingDocumentPath(fullPathFilename);
+        } catch (SecurityException e) {
+            throw new IOException("Path traversal attempt detected", e);
+        }
 
-        // Ensure the file exists and is a regular file
         if (!file.exists() || !file.isFile()) {
-            throw new IOException("File does not exist or is not a regular file: " + fullPathFilename);
+            throw new IOException("File does not exist or is not a regular file");
         }
 
-        // Validate the file is within the expected document directory
-        CarlosProperties props = CarlosProperties.getInstance();
-        String documentDir = props.getProperty("DOCUMENT_DIR");
-        if (documentDir == null || documentDir.trim().isEmpty()) {
-            throw new IOException("DOCUMENT_DIR is not configured while reading lab text file");
-        }
-        File docDir = PathValidationUtils.validateConfiguredDirectory(documentDir, "DOCUMENT_DIR");
-        file = PathValidationUtils.validateExistingPath(file, docDir);
+        // No second containment check here: validateExistingDocumentPath() above already requires a
+        // configured DOCUMENT_DIR and proves containment against it. Re-checking added no coverage
+        // and could throw an unchecked SecurityException out of a method that declares only
+        // IOException, leaving callers with two different failure types for the same rejection.
 
         StringBuilder sb = new StringBuilder(1024);
-        // Use the validated file object instead of the raw path
-        BufferedReader reader = new BufferedReader(new FileReader(file));
-
-        char[] chars = new char[1024];
-        int numRead = 0;
-        while ((numRead = reader.read(chars)) > -1) {
-            sb.append(chars, 0, numRead);
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            char[] chars = new char[1024];
+            int numRead = 0;
+            while ((numRead = reader.read(chars)) > -1) {
+                sb.append(chars, 0, numRead);
+            }
         }
-
-        reader.close();
 
         return sb.toString();
     }

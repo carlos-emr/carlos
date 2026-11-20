@@ -22,6 +22,8 @@
 --%>
 <!DOCTYPE html>
 <%@ page import="java.nio.charset.StandardCharsets" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.location.AppointmentLocationList" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupAccessRestrictionDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
@@ -37,6 +39,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.util.DemographicXml" %>
 <%@page import="io.github.carlos_emr.carlos.util.*" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
@@ -48,7 +51,7 @@
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="org.apache.commons.text.WordUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.managers.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
@@ -58,7 +61,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.NavPath" %>
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
-<%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
+
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 
@@ -67,8 +70,9 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib tagdir="/WEB-INF/tags/appointment" prefix="appt" %>
 
 <%
     LoggedInInfo loggedInInfo1 = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -139,6 +143,8 @@
 %>
 <%
     LookupList reasonCodes = lookupListManager.findLookupListByName(loggedInInfo1, "reasonCode");
+    // Loaded once per page: each booked appointment's Location List chip is looked up in memory.
+    AppointmentLocationList appointmentLocations = SpringUtils.getBean(AppointmentLocationResolver.class).load();
     if (reasonCodes != null && reasonCodes.getItems() != null) {
         for (LookupListItem lli : reasonCodes.getItems()) {
             reasonCodesMap.put(lli.getId(), lli);
@@ -149,16 +155,6 @@
     pageContext.setAttribute("isPreventionWarningDisabled", providerPreventionManager.isDisabled());
 %>
 <%!
-    //multisite starts =====================
-    private boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable();
-    private List<Site> sites = new ArrayList<Site>();
-    private List<Site> curUserSites = new ArrayList<Site>();
-    private List<String> siteProviderNos = new ArrayList<String>();
-    private List<String> siteGroups = new ArrayList<String>();
-    private String selectedSite = null;
-    private HashMap<String, String> siteBgColor = new HashMap<String, String>();
-    private HashMap<String, String> CurrentSiteMap = new HashMap<String, String>();
-
    private void appendTooltipLine(StringBuilder tooltip, String labelHtml, String value) {
     if (value == null) return;
     String trimmedValue = value.trim(); 
@@ -171,25 +167,35 @@
   }
 %>
 <%
+    // Multisite state belongs to this request only. These are locals of the page's service method: a JSP
+    // declaration would make them fields of the one servlet instance that every login shares.
+    boolean bMultisites = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable();
+    List<Site> sites = new ArrayList<Site>();
+    List<Site> curUserSites = new ArrayList<Site>();
+    List<String> siteProviderNos = new ArrayList<String>();
+    List<String> siteGroups = new ArrayList<String>();
+    String selectedSite = null;
+    HashMap<String, String> siteBgColor = new HashMap<String, String>();
+    HashMap<String, String> CurrentSiteMap = new HashMap<String, String>();
     if (bMultisites) {
         sites = siteDao.getAllActiveSites();
-        selectedSite = (String) session.getAttribute("site_selected");
+        String siteManagerProviderNo = (String) session.getAttribute("user");
+        if (isSiteAccessPrivacy || isTeamAccessPrivacy) {
+            curUserSites = siteDao.getActiveSitesByProviderNo(siteManagerProviderNo);
+        } else {
+            curUserSites = sites;
+        }
+        // The remembered clinic counts only while it is one this login is offered; anything else is All Clinics.
+        selectedSite = io.github.carlos_emr.carlos.commn.SiteChoice.offeredOrNull(
+                (String) session.getAttribute("site_selected"), curUserSites);
 
         if (selectedSite != null) {
             //get site providers list
             siteProviderNos = siteDao.getProviderNoBySiteLocation(selectedSite);
             siteGroups = siteDao.getGroupBySiteLocation(selectedSite);
-        }
-
-        if (isSiteAccessPrivacy || isTeamAccessPrivacy) {
-            String siteManagerProviderNo = (String) session.getAttribute("user");
-            curUserSites = siteDao.getActiveSitesByProviderNo(siteManagerProviderNo);
-            if (selectedSite == null) {
-                siteProviderNos = siteDao.getProviderNoBySiteManagerProviderNo(siteManagerProviderNo);
-                siteGroups = siteDao.getGroupBySiteManagerProviderNo(siteManagerProviderNo);
-            }
-        } else {
-            curUserSites = sites;
+        } else if (isSiteAccessPrivacy || isTeamAccessPrivacy) {
+            siteProviderNos = siteDao.getProviderNoBySiteManagerProviderNo(siteManagerProviderNo);
+            siteGroups = siteDao.getGroupBySiteManagerProviderNo(siteManagerProviderNo);
         }
 
         for (Site s : curUserSites) {
@@ -341,10 +347,10 @@
     }
     pageContext.setAttribute("scheduleResourceBaseUrl", resourcebaseurl);
 
-    boolean isWeekView = false;
+    boolean isWeekView = "true".equals(request.getParameter("weekView"));
     String provNum = request.getParameter("provider_no");
-    if (provNum != null) {
-        isWeekView = true;
+    if (provNum == null || provNum.isBlank()) {
+        isWeekView = false;
     }
     if (caisiView != null && "true".equals(caisiView)) {
         isWeekView = false;
@@ -402,7 +408,7 @@
         java.util.ResourceBundle prop = ResourceBundle.getBundle("oscarResources", request.getLocale());
         formatDate = UtilDateUtilities.DateToString(inform.parse(strDate), prop.getString("date.EEEyyyyMMdd"), request.getLocale());
     } catch (Exception e) {
-        MiscUtils.getLogger().error("appointmentprovideradminday: missing 'date.EEEyyyyMMdd' bundle key for locale {}; falling back to default format",
+        MiscUtils.getLogger().error("appointmentprovideradminday: missing or invalid 'date.EEEyyyyMMdd' date pattern for locale {}; falling back to default format",
                 request.getLocale(), e);
         // The fallback parse can itself throw ParseException (same parser, same input).
         // Use the literal strDate as a final fallback so the page still renders
@@ -551,12 +557,8 @@
                 popupPage(600, 860, ('<%= request.getContextPath() %>/appointment/editappointment?dboperation=search&' + s));
             }
 
-            function goFilpView(s) {
-                self.location.href = "<%= request.getContextPath() %>/schedule/FlipView?originalpage=<%= request.getContextPath() %>/provider/providercontrol&startDate=<%=year+"-"+month+"-"+day%>" + "&provider_no=" + s;
-            }
-
             function goWeekView(s) {
-                self.location.href = "<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=<%=day%>&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1&provider_no=" + s;
+                self.location.href = "<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=<%=day%>&view=0&displaymode=day&dboperation=searchappointmentday&viewall=1&weekView=true&provider_no=" + s;
             }
 
             function goZoomView(s, n) {
@@ -1094,9 +1096,9 @@
 
 
                             <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
-                                <security:oscarSec roleName="<%=roleName$%>"
-                                                   objectName="_admin,_admin.userAdmin,_admin.schedule,_admin.billing,_admin.resource,_admin.reporting,_admin.backup,_admin.messenger,_admin.eform,_admin.encounter,_admin.misc,_admin.fax,_admin.flowsheet"
-                                                   rights="r">
+                                <%-- One oscarSec tag per object: see administration-menu-gate.jspf (issues #4238, #4623). --%>
+                                <%@ include file="/WEB-INF/jspf/administration-menu-gate.jspf" %>
+                                <c:if test="${canOpenAdministration}">
 
                                     <li id="admin2">
                                         <a href="javascript:void(0)" id="admin-panel"
@@ -1104,7 +1106,7 @@
                                        onclick="return openScheduleSection('<%=scheduleAdministrationUrlForJsAttribute%>', function(u){ newWindow(u,'admin'); }, event);"><fmt:message key="provider.mainMenu.administration"/></a>
                                     </li>
 
-                                </security:oscarSec>
+                                </c:if>
                             </caisi:isModuleLoad>
 
                             <security:oscarSec roleName="<%=roleName$%>" objectName="_dashboardDisplay" rights="r">
@@ -1221,7 +1223,7 @@
                           style="display:none;"></form>
                 </span>
                 <a class="redArrow"
-                   href="<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day-7):(day-1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%= isWeekView ? "&provider_no=" + SafeEncode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(provNum)) : "" %>&viewall=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(viewall) %>' context="uriComponent"/>">
+                   href="<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day-7):(day-1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%= isWeekView ? "&weekView=true&provider_no=" + SafeEncode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(provNum)) : "" %>&viewall=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(viewall) %>' context="uriComponent"/>">
                     <span class="fa-solid fa-backward-step"
                           title="<fmt:message key="provider.appointmentProviderAdminDay.viewPrevDay"/>"></span>
                 </a>
@@ -1229,7 +1231,7 @@
                     String calendarUrl = request.getContextPath() + "/share/CalendarPopup?urlfrom=" + request.getContextPath() + "/provider/providercontrol" + "&year=" + strYear + "&month=" + strMonth + "&param=" + URLEncoder.encode("&view=0&displaymode=day&dboperation=searchappointmentday&viewall=" + viewall, "UTF-8");
 
                     if (isWeekView) {
-                        calendarUrl += URLEncoder.encode("&provider_no=" + provNum, "UTF-8");
+                        calendarUrl += URLEncoder.encode("&weekView=true&provider_no=" + provNum, "UTF-8");
                     }
                 %>
                 <b><a href="#" class="clickable-date" onclick="popupPage(425,430,'<%=calendarUrl%>'); return false;"
@@ -1242,7 +1244,7 @@
                     }
                 %></span></a></b>
                 <a class="redArrow"
-                   href="<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day+7):(day+1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%= isWeekView ? "&provider_no=" + SafeEncode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(provNum)) : "" %>&viewall=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(viewall) %>' context="uriComponent"/>">
+                   href="<%= request.getContextPath() %>/provider/providercontrol?year=<%=year%>&month=<%=month%>&day=<%=isWeekView?(day+7):(day+1)%><%=viewString%>&displaymode=day&dboperation=searchappointmentday<%= isWeekView ? "&weekView=true&provider_no=" + SafeEncode.forUriComponent(io.github.carlos_emr.carlos.util.StringUtils.noNull(provNum)) : "" %>&viewall=<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(viewall) %>' context="uriComponent"/>">
                     <span class="fa-solid fa-forward-step"
                           title="<fmt:message key="provider.appointmentProviderAdminDay.viewNextDay"/>"></span>
                 </a>
@@ -1452,15 +1454,15 @@
                                         </script>
 
                                         <select id="site" name="site" onchange="changeSite(this)"
-                                                style="background-color: <%=( selectedSite == null || siteBgColor.get(selectedSite) == null ? "#FFFFFF" : siteBgColor.get(selectedSite))%>">
+                                                style="background-color: <carlos:encode value='<%= io.github.carlos_emr.carlos.commn.SiteChoice.cssColor(selectedSite == null ? null : siteBgColor.get(selectedSite), "#FFFFFF") %>' context="htmlAttribute"/>">
                                             <option value="none" style="background-color:white"><fmt:message key="provider.appointmentprovideradminmonth.formAllClinics"/></option>
                                             <%
                                                 for (int i = 0; i < curUserSites.size(); i++) {
                                             %>
-                                            <option value="<%=curUserSites.get(i).getName()%>"
-                                                    style="background-color:<%=curUserSites.get(i).getBgColor()%>"
+                                            <option value="<carlos:encode value='<%= curUserSites.get(i).getName() %>' context="htmlAttribute"/>"
+                                                    style="background-color:<carlos:encode value='<%= io.github.carlos_emr.carlos.commn.SiteChoice.cssColor(curUserSites.get(i).getBgColor(), "") %>' context="htmlAttribute"/>"
                                                     <%=(curUserSites.get(i).getName().equals(selectedSite)) ? " selected " : ""%> >
-                                                <%=curUserSites.get(i).getName()%>
+                                                <carlos:encode value='<%= curUserSites.get(i).getName() %>'/>
                                             </option>
                                             <%
                                                 }
@@ -1537,7 +1539,7 @@
 
                                     <!-- caisi infirmary view extension add fffffffffffff-->
                                     <caisi:isModuleLoad moduleName="caisi">
-                                    <jsp:include page="infirmaryviewprogramlist.jspf"/>
+                                    <jsp:include page="infirmaryviewprogramlist.jsp"/>
                                 </td>
                             </tr>
                         </table>
@@ -1632,7 +1634,7 @@
                                     try {
                                         formatDate = UtilDateUtilities.DateToString(inform.parse(strDate), wdProp.getString("date.EEEyyyyMMdd"), request.getLocale());
                                     } catch (Exception e) {
-                                        MiscUtils.getLogger().error("appointmentprovideradminday weekday loop: missing 'date.EEEyyyyMMdd' bundle key for locale {}; falling back to default format",
+                                        MiscUtils.getLogger().error("appointmentprovideradminday weekday loop: missing or invalid 'date.EEEyyyyMMdd' date pattern for locale {}; falling back to default format",
                                                 request.getLocale(), e);
                                         try {
                                             formatDate = UtilDateUtilities.DateToString(inform.parse(strDate), "EEE, yyyy-MM-dd");
@@ -1713,6 +1715,8 @@
                                 <tr>
                                     <td class="infirmaryView" NOWRAP ALIGN="center"
                                         BGCOLOR="<%=bColor?"#bfefff":"silver"%>">
+                                        <%-- Keeps the name in view within its own column (receptionistapptstyle.css). --%>
+                                        <span class="providerNameSticky">
                                         <!-- caisi infirmary view extension modify ffffffffffff-->
                                         <c:if test="${infirmaryView_isOscar != 'false'}">
                                             <%
@@ -1740,16 +1744,19 @@
                                                    onClick="goSearchView('<%=curProvider_no[nProvider]%>')"
                                                    title="<fmt:message key="provider.appointmentProviderAdminDay.searchView"/>"
                                                    style="color:black" class="noprint">
-                                            <input type='radio' name='flipview' class="noprint"
-                                                   onClick="goFilpView('<%=curProvider_no[nProvider]%>')"
-                                                   title="<fmt:message key="schedule.scheduleflipview.title"/>">
                                             <a href=#
                                                onClick="goZoomView('<%=curProvider_no[nProvider]%>','<carlos:encode value='<%= curProviderName[nProvider] %>' context="javaScriptAttribute"/>')"
-                                               onDblClick="goFilpView('<%=curProvider_no[nProvider]%>')"
                                                title='<fmt:message key="provider.appointmentProviderAdminDay.zoomView"/>'>
                                                 <carlos:encode value='<%= curProviderName[nProvider] + " (" + appointmentCount + ") " %>' context="html"/>
                                             </a>
-                                                <oscar:oscarPropertiesCheck value="yes" property="TOGGLE_REASON_BY_PROVIDER" defaultVal="yes">
+                                            <a class="provider-availability-link noprint"
+                                               href="<%= request.getContextPath() %>/schedule/FlipView?originalpage=<%= SafeEncode.forUriComponent(request.getContextPath() + "/provider/providercontrol") %>&amp;startDate=<carlos:encode value='<%= String.format(Locale.ROOT, "%04d-%02d-%02d", year, month, day) %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no[nProvider] %>' context="uriComponent"/>"
+                                               title="<fmt:message key="provider.appointmentProviderAdminDay.viewAvailability"/>"
+                                               aria-label="<fmt:message key="provider.appointmentProviderAdminDay.viewAvailability"/>">
+                                                <span class="fa-solid fa-calendar-days" aria-hidden="true"></span>
+                                                <span><fmt:message key="provider.appointmentProviderAdminDay.viewAvailability"/></span>
+                                            </a>
+                                                <oscar:oscarPropertiesCheck value="yes" property="TOGGLE_REASON_BY_PROVIDER" defaultVal="true">
                                                     <a href="#"
                                                        class="expand-reason-btn"
                                                        data-provider="<%= curProvider_no[nProvider] %>"
@@ -1783,8 +1790,30 @@
                                             </c:forEach>
                                         </c:if>
                                         <!-- caisi infirmary view extension modify end ffffffffffffffff-->
+                                        </span>
                                     </td>
                                 </tr>
+                                <%-- Mirrors the desktop availability link above, which the mobile
+                                     stylesheet hides with the rest of the provider header. Keep it
+                                     under the same infirmary-view guard so CAISI infirmary mode
+                                     suppresses both entry points, not just the desktop one. The week
+                                     view shows no desktop link either, and this row would repeat
+                                     under each of its seven day columns. --%>
+                                <c:if test="${infirmaryView_isOscar != 'false'}">
+                                <% if (!isWeekView) { %>
+                                <tr class="provider-availability-mobile-row noprint">
+                                    <td class="noGrid" align="center">
+                                        <a class="provider-availability-link"
+                                           href="<%= request.getContextPath() %>/schedule/FlipView?originalpage=<%= SafeEncode.forUriComponent(request.getContextPath() + "/provider/providercontrol") %>&amp;startDate=<carlos:encode value='<%= String.format(Locale.ROOT, "%04d-%02d-%02d", year, month, day) %>' context="uriComponent"/>&amp;provider_no=<carlos:encode value='<%= curProvider_no[nProvider] %>' context="uriComponent"/>"
+                                           title="<fmt:message key="provider.appointmentProviderAdminDay.viewAvailability"/>"
+                                           aria-label="<fmt:message key="provider.appointmentProviderAdminDay.viewAvailability"/>">
+                                            <span class="fa-solid fa-calendar-days" aria-hidden="true"></span>
+                                            <span><fmt:message key="provider.appointmentProviderAdminDay.viewAvailability"/></span>
+                                        </a>
+                                    </td>
+                                </tr>
+                                <% } %>
+                                </c:if>
                                 <!-- END for the first providers's name -->
                                 <tr>
 
@@ -1793,7 +1822,10 @@
                                         <!-- caisi infirmary view exteion add -->
                                         <!--  fffffffffffffffffffffffffffffffffffffffffff-->
                                         <caisi:isModuleLoad moduleName="caisi">
-                                            <jsp:include page="infirmarydemographiclist.jspf"/>
+                                            <jsp:include page="infirmarydemographiclist.jsp">
+                                                <jsp:param name="userAvail" value="<%= userAvail %>"/>
+                                                <jsp:param name="strDate" value="<%= strDate %>"/>
+                                            </jsp:include>
                                         </caisi:isModuleLoad>
 
                                         <c:if test="${infirmaryView_isOscar != 'false'}">
@@ -1925,6 +1957,8 @@
                                                               String name = ".";
                                                               if (demographic_no != 0) {
                                                                   demographic = demographicManager.getDemographic(loggedInInfo1, demographic_no);
+                                                              }
+                                                              if (demographic != null) {
                                                                   StringBuilder nameBuilder = new StringBuilder();
 																  nameBuilder.append(UtilMisc.toUpperLowerCase(demographic.getLastName()))
 																  .append(", ")
@@ -2004,7 +2038,7 @@
 
                                                                   String demographicAlert = dCust != null && dCust.getAlert() != null ? dCust.getAlert() : "";
                                                                   String demographicNotes = dCust != null && dCust.getNotes() != null
-                                                                          ? SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>")
+                                                                          ? DemographicXml.userNotesText(dCust.getNotes())
                                                                           : "";
 
                                                                   String timeRange = iS + ":" + (iSm >= 10 ? "" : "0") + iSm + "-" + iE + ":" + (iEm >= 10 ? "" : "0") + iEm;
@@ -2061,8 +2095,11 @@
                                                         nowrap>
                                                         <!-- multisites : add colour-coded to the "location" value of that appointment. -->
                                                         <%if (bMultisites) {%>
-                                                        <span title="<%= sitename %>"
-                                                              style="background-color:<%=siteBgColor.get(sitename)%>;">&nbsp;</span>|
+                                                        <span title="<carlos:encode value='<%= sitename %>' context="htmlAttribute"/>"
+                                                              style="background-color:<carlos:encode value='<%= io.github.carlos_emr.carlos.commn.SiteChoice.cssColor(siteBgColor.get(sitename), "") %>' context="htmlAttribute"/>;">&nbsp;</span>|
+                                                        <%} else if (appointmentLocations.chipItemFor(appointment) != null) {%>
+                                                        <%-- The Location List chip (#3982): no chip in a site setup, which marks its own. --%>
+                                                        <appt:locationChip item="<%= appointmentLocations.chipItemFor(appointment) %>" label="<%= appointment.getLocation() %>"/>
                                                         <%} %>
 
                                                         <%
@@ -2140,10 +2177,10 @@
 
                                                         <!--  notes -->
                                                         <% if (CarlosProperties.getInstance().getProperty("displayNotesOnScheduleScreen", "").equals("true")) { %>
-                                                        <% if (dCust != null && dCust.getNotes() != null && !SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>").isEmpty()) { %>
+                                                        <% if (dCust != null && dCust.getNotes() != null && !DemographicXml.userNotesText(dCust.getNotes()).isEmpty()) { %>
                                                         <a href="#" onClick="return false;"
 
-                                                           title="<carlos:encode value='<%= SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>") %>' context="htmlAttribute"/>">N</a>
+                                                           title="<carlos:encode value='<%= DemographicXml.userNotesText(dCust.getNotes()) %>' context="htmlAttribute"/>">N</a>
 
                                                         <%
                                                                 }
@@ -2198,10 +2235,10 @@
 
                                                         <!--  notes -->
                                                         <% if (CarlosProperties.getInstance().getProperty("displayNotesOnScheduleScreen", "").equals("true")) {%>
-                                                        <% if (dCust != null && dCust.getNotes() != null && !SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>").isEmpty()) { %>
+                                                        <% if (dCust != null && dCust.getNotes() != null && !DemographicXml.userNotesText(dCust.getNotes()).isEmpty()) { %>
                                                         <a href="#" onClick="return false;"
 
-                                                           title="<carlos:encode value='<%= SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>") %>' context="htmlAttribute"/>">N</a>
+                                                           title="<carlos:encode value='<%= DemographicXml.userNotesText(dCust.getNotes()) %>' context="htmlAttribute"/>">N</a>
 
                                                         <%
                                                                 }
@@ -2319,14 +2356,14 @@
                                                                 if (status.indexOf('B') == -1) {
                                                             %>
                                                             &#124; <a href=#
-                                                                      onClick='popupPage(800,1200, "<%=request.getContextPath()%>/billing?billRegion=<%=URLEncoder.encode(prov, StandardCharsets.UTF_8)%>&billForm=<%=URLEncoder.encode(oscarVariables.getProperty("default_view"), StandardCharsets.UTF_8)%>&hotclick=<%=URLEncoder.encode("", StandardCharsets.UTF_8)%>&appointment_no=<%=appointment.getId()%>&demographic_name=<%=URLEncoder.encode(name, StandardCharsets.UTF_8)%>&status=<%=status%>&demographic_no=<%=demographic_no%>&providerview=<%=curProvider_no[nProvider]%>&user_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&apptProvider_no=<%=curProvider_no[nProvider]%>&xml_provider=<%=curProvider_no[nProvider]%>&appointment_date=<%=year+"-"+month+"-"+day%>&start_time=<%=start_time%>&bNewForm=1");return false;'
+                                                                      onClick='popupPage(800,1200, "<%=request.getContextPath()%>/billing?billRegion=<%=URLEncoder.encode(prov, StandardCharsets.UTF_8)%>&billForm=<%=URLEncoder.encode(oscarVariables.getProperty("default_view"), StandardCharsets.UTF_8)%>&hotclick=<%=URLEncoder.encode("", StandardCharsets.UTF_8)%>&appointment_no=<%=appointment.getId()%>&status=<%=status%>&demographic_no=<%=demographic_no%>&providerview=<%=curProvider_no[nProvider]%>&user_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&apptProvider_no=<%=curProvider_no[nProvider]%>&xml_provider=<%=curProvider_no[nProvider]%>&appointment_date=<%=year+"-"+month+"-"+day%>&start_time=<%=start_time%>&bNewForm=1");return false;'
                                                                       title="<fmt:message key="global.billingtag"/>"><fmt:message key="provider.appointmentProviderAdminDay.btnB"/></a>
                                                             <%
                                                             } else {
                                                                 if (caisiBillingPreferenceNotDelete != null && caisiBillingPreferenceNotDelete.equals("1")) {
                                                             %>
                                                             &#124; <a href=#
-                                                                      onClick='onUpdatebill("<%= request.getContextPath() %>/billing/CA/ON/BillingEditWithApptNo?billRegion=<%=URLEncoder.encode(prov, StandardCharsets.UTF_8)%>&billForm=<%=URLEncoder.encode(oscarVariables.getProperty("default_view"), StandardCharsets.UTF_8)%>&hotclick=<%=URLEncoder.encode("", StandardCharsets.UTF_8)%>&appointment_no=<%=appointment.getId()%>&demographic_name=<%=URLEncoder.encode(name, StandardCharsets.UTF_8)%>&status=<%=status%>&demographic_no=<%=demographic_no%>&providerview=<%=curProvider_no[nProvider]%>&user_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&apptProvider_no=<%=curProvider_no[nProvider]%>&appointment_date=<%=year+"-"+month+"-"+day%>&start_time=<%=iS+":"+iSm%>&bNewForm=1");return false;'
+                                                                      onClick='onUpdatebill("<%= request.getContextPath() %>/billing/CA/ON/BillingEditWithApptNo?billRegion=<%=URLEncoder.encode(prov, StandardCharsets.UTF_8)%>&billForm=<%=URLEncoder.encode(oscarVariables.getProperty("default_view"), StandardCharsets.UTF_8)%>&hotclick=<%=URLEncoder.encode("", StandardCharsets.UTF_8)%>&appointment_no=<%=appointment.getId()%>&status=<%=status%>&demographic_no=<%=demographic_no%>&providerview=<%=curProvider_no[nProvider]%>&user_no=<%=loggedInInfo1.getLoggedInProviderNo()%>&apptProvider_no=<%=curProvider_no[nProvider]%>&appointment_date=<%=year+"-"+month+"-"+day%>&start_time=<%=iS+":"+iSm%>&bNewForm=1");return false;'
                                                                       title="<fmt:message key="global.billingtag"/>">=<fmt:message key="provider.appointmentProviderAdminDay.btnB"/></a>
                                                             <%
                                                             } else {
@@ -2386,7 +2423,7 @@
 
                                                         <!-- add one link to caisi Program Management Module -->
                                                         <caisi:isModuleLoad moduleName="caisi">
-                                                            <a href=${pageContext.servletContext.contextPath}'/PMmodule/ClientManager?id=<%=demographic_no%>'
+                                                            <a href="${pageContext.servletContext.contextPath}/PMmodule/ClientManager?id=<%=demographic_no%>"
                                                                title="<fmt:message key="provider.appointmentProviderAdminDay.programManagement"/>">|P</a>
                                                         </caisi:isModuleLoad>
 

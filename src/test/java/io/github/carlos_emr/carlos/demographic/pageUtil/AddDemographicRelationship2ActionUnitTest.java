@@ -106,6 +106,10 @@ class AddDemographicRelationship2ActionUnitTest extends CarlosUnitTestBase {
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(mockLoggedInInfo);
+        // mockStatic stubs every LoggedInInfo static, so the require* variant the action now
+        // calls (#2499) returns null unless it is stubbed too.
+        loggedInInfoMock.when(() -> LoggedInInfo.requireLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                .thenReturn(mockLoggedInInfo);
 
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(RelationshipsDao.class, relationshipsDao);
@@ -140,6 +144,18 @@ class AddDemographicRelationship2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("demo")).isEqualTo("1373");
         verifyNoInteractions(relationshipsDao);
         verifyNoInteractions(ctlRelationshipsDao);
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"GET", "HEAD"})
+    @DisplayName("should render the popup for its actual demo-only opening request without persisting")
+    void shouldRenderPopup_whenRequestOnlyCarriesDemo(String method) throws Exception {
+        request.setMethod(method);
+        request.setParameter("demo", "1373");
+
+        assertThat(new AddDemographicRelationship2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        verifyNoInteractions(relationshipsDao, ctlRelationshipsDao, demographicManager);
     }
 
     @Test
