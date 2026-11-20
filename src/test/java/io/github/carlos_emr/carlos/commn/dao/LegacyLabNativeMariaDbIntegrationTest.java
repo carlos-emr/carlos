@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("flyway-schema")
 @EnabledIfEnvironmentVariable(named = "CARLOS_TEST_MARIADB_DAO", matches = "true")
 class LegacyLabNativeMariaDbIntegrationTest extends CarlosTestBase {
+    private static final InboxCategoryDao.DateSearchType OBSERVATION = InboxCategoryDao.DateSearchType.SERVICE_OBSERVATION;
     @PersistenceContext(unitName = "entityManagerFactory") private EntityManager em;
     @Autowired private Hl7TextInfoDao labs;
     @Autowired private InboxCategoryDao inbox;
@@ -67,10 +68,10 @@ class LegacyLabNativeMariaDbIntegrationTest extends CarlosTestBase {
             em.createNativeQuery("INSERT INTO providerLabRouting (provider_no, lab_no, lab_type, status) VALUES (?1,?2,'HL7',?3)")
                     .setParameter(1, provider).setParameter(2, id).setParameter(3, index == 2 ? "A" : "N").executeUpdate();
         }
-        var filter = new InboxCategoryDao.Filter("", "", "", false, true, provider, "N", "all", null, null);
+        var filter = new InboxCategoryDao.Filter("", "", "", false, true, provider, "N", "all", null, null, OBSERVATION);
         assertThat(inbox.count(filter, InboxCategoryDao.Operation.LAB_UNMATCHED, null).total()).isEqualTo(2);
         assertThat(inbox.count(filter, InboxCategoryDao.Operation.ABNORMAL, null).total()).isEqualTo(2);
-        var all = new InboxCategoryDao.Filter("", "", "", false, true, provider, "", "all", null, null);
+        var all = new InboxCategoryDao.Filter("", "", "", false, true, provider, "", "all", null, null, OBSERVATION);
         assertThat(inbox.count(all, InboxCategoryDao.Operation.LAB_UNMATCHED, null).total()).isEqualTo(3);
     }
 
@@ -90,7 +91,7 @@ class LegacyLabNativeMariaDbIntegrationTest extends CarlosTestBase {
             if (index != 3) em.createNativeQuery("INSERT INTO patientLabRouting (demographic_no,lab_no,lab_type,created) VALUES (?1,?2,'HL7',NOW())")
                     .setParameter(1, index == 2 ? 0 : patient).setParameter(2, lab).executeUpdate();
         }
-        var filter = new InboxCategoryDao.Filter("FAKE-Inbox", "Native", "", true, true, provider, "N", "all", null, null);
+        var filter = new InboxCategoryDao.Filter("FAKE-Inbox", "Native", "", true, true, provider, "N", "all", null, null, OBSERVATION);
         var result = inbox.count(filter, InboxCategoryDao.Operation.LAB_PATIENT, null);
         assertThat(result.total()).isEqualTo(2);
         assertThat(inbox.count(filter, InboxCategoryDao.Operation.NORMAL, null).total()).isEqualTo(1);
@@ -120,7 +121,7 @@ class LegacyLabNativeMariaDbIntegrationTest extends CarlosTestBase {
         // A second module link must not count the same routed document twice.
         em.createNativeQuery("INSERT INTO ctl_document (module,module_id,document_no,status) VALUES ('other',?1,1900577921,'A')")
                 .setParameter(1, patient).executeUpdate();
-        var filter = new InboxCategoryDao.Filter("FAKE-Document", "Native", "", true, true, provider, "N", "all", null, null);
+        var filter = new InboxCategoryDao.Filter("FAKE-Document", "Native", "", true, true, provider, "N", "all", null, null, OBSERVATION);
         var result = inbox.count(filter, InboxCategoryDao.Operation.DOCUMENT_PATIENT, null);
         assertThat(result.total()).isEqualTo(1);
         assertThat(result.patients()).containsExactly(new InboxCategoryDao.PatientCount(patient, "Native", "FAKE-Document", 0, 1, 0));
@@ -149,14 +150,75 @@ class LegacyLabNativeMariaDbIntegrationTest extends CarlosTestBase {
         em.createNativeQuery("INSERT INTO HRMDocumentToProvider (providerNo,hrmDocumentId,signedOff,viewed) VALUES (?1,'1900577931',0,0)")
                 .setParameter(1, provider).executeUpdate();
         for (String status : new String[]{"N", "A", ""}) {
-            var filter = new InboxCategoryDao.Filter("FAKE-Hrm", "Native", "", true, true, provider, status, "all", null, null);
+            var filter = new InboxCategoryDao.Filter("FAKE-Hrm", "Native", "", true, true, provider, status, "all", null, null, OBSERVATION);
             int expected = status.isEmpty() ? 2 : 1;
             assertThat(inbox.count(filter, InboxCategoryDao.Operation.HRM_PATIENT, null).total()).as("patient status %s", status).isEqualTo(expected);
             assertThat(inbox.count(filter, InboxCategoryDao.Operation.HRM_UNMATCHED, null).total()).as("unmatched status %s", status).isEqualTo(expected);
         }
-        var foreign = new InboxCategoryDao.Filter("", "", "", false, true, "577904", "", "all", null, null);
+        var foreign = new InboxCategoryDao.Filter("", "", "", false, true, "577904", "", "all", null, null, OBSERVATION);
         assertThat(inbox.count(foreign, InboxCategoryDao.Operation.HRM_PATIENT, null).total()).isZero();
         assertThat(inbox.count(foreign, InboxCategoryDao.Operation.HRM_UNMATCHED, null).total()).isZero();
+    }
+
+    @Test
+    void shouldCompareTheFiltersDateColumns_forLabAndDocumentBoundsOnPhysicalMariaDb() throws Exception {
+        // Issue #5772: the date mode arrives in the filter. Each fixture item falls inside the window
+        // by exactly one of its two dates, so each mode counts a different, known set.
+        String provider = "577940";
+        int patient = 1900577940;
+        em.createNativeQuery("INSERT INTO demographic (demographic_no,last_name,first_name,hin,sex) VALUES (?1,'FAKE-Dates','Native',NULL,'F')")
+                .setParameter(1, patient).executeUpdate();
+        // Labs: 41 observed in January but received in March; 42 observed in December but received
+        // in January; 43 is unmatched, observed in January and received in March.
+        Object[][] labFixtures = {{1900577941, "2026-01-10", "2026-03-05 10:00:00", true},
+                {1900577942, "2025-12-01", "2026-01-10 09:00:00", true},
+                {1900577943, "2026-01-10", "2026-03-05 10:00:00", false}};
+        for (Object[] lab : labFixtures) {
+            em.createNativeQuery("INSERT INTO hl7TextInfo (lab_no,accessionNum,result_status,obr_date,report_status) VALUES (?1,?2,'A',?3,'F')")
+                    .setParameter(1, lab[0]).setParameter(2, "FAKE-" + lab[0]).setParameter(3, lab[1]).executeUpdate();
+            em.createNativeQuery("INSERT INTO hl7TextMessage (lab_id,fileUploadCheck_id,message,type,serviceName,created)"
+                    + " VALUES (?1,0,'FAKE','FAKE','FAKE',?2)")
+                    .setParameter(1, lab[0]).setParameter(2, lab[2]).executeUpdate();
+            em.createNativeQuery("INSERT INTO providerLabRouting (provider_no,lab_no,lab_type,status) VALUES (?1,?2,'HL7','N')")
+                    .setParameter(1, provider).setParameter(2, lab[0]).executeUpdate();
+            if ((Boolean) lab[3]) em.createNativeQuery("INSERT INTO patientLabRouting (demographic_no,lab_no,lab_type,created) VALUES (?1,?2,'HL7',NOW())")
+                    .setParameter(1, patient).setParameter(2, lab[0]).executeUpdate();
+        }
+        // Documents: 44 observed in January, created in March; 45 observed in December, created in
+        // January; 46 is unmatched, observed in March and created in January.
+        Object[][] documentFixtures = {{1900577944, "2026-01-10", "2026-03-05 10:00:00", patient},
+                {1900577945, "2025-12-01", "2026-01-10 09:00:00", patient},
+                {1900577946, "2026-03-05", "2026-01-10 08:00:00", -1}};
+        for (Object[] document : documentFixtures) {
+            em.createNativeQuery("INSERT INTO document (document_no,docdesc,docfilename,doccreator,responsible,status,contenttype,"
+                    + "restrictToProgram,abnormal,observationdate,contentdatetime) VALUES (?1,'FAKE-dates','fake.pdf',?2,?2,'A',"
+                    + "'application/pdf',0,0,?3,?4)")
+                    .setParameter(1, document[0]).setParameter(2, provider).setParameter(3, document[1])
+                    .setParameter(4, document[2]).executeUpdate();
+            em.createNativeQuery("INSERT INTO ctl_document (module,module_id,document_no,status) VALUES ('demographic',?1,?2,'A')")
+                    .setParameter(1, document[3]).setParameter(2, document[0]).executeUpdate();
+            em.createNativeQuery("INSERT INTO providerLabRouting (provider_no,lab_no,lab_type,status) VALUES (?1,?2,'DOC','N')")
+                    .setParameter(1, provider).setParameter(2, document[0]).executeUpdate();
+        }
+        for (var mode : InboxCategoryDao.DateSearchType.values()) {
+            boolean received = mode == InboxCategoryDao.DateSearchType.RECEIVED_CREATED;
+            var filter = new InboxCategoryDao.Filter("", "", "", false, true, provider, "N", "all",
+                    "2026-01-01", "2026-01-31", mode);
+            var patientLabs = inbox.count(filter, InboxCategoryDao.Operation.LAB_PATIENT, null);
+            assertThat(patientLabs.total()).as("%s patient labs", mode).isEqualTo(1);
+            assertThat(inbox.count(filter, InboxCategoryDao.Operation.LAB_UNMATCHED, null).total())
+                    .as("%s unmatched labs", mode).isEqualTo(received ? 0 : 1);
+            assertThat(inbox.count(filter, InboxCategoryDao.Operation.ABNORMAL, null).total())
+                    .as("%s abnormal labs", mode).isEqualTo(received ? 1 : 2);
+            var patientDocuments = inbox.count(filter, InboxCategoryDao.Operation.DOCUMENT_PATIENT, null);
+            assertThat(patientDocuments.total()).as("%s patient documents", mode).isEqualTo(1);
+            assertThat(inbox.count(filter, InboxCategoryDao.Operation.DOCUMENT_UNMATCHED, null).total())
+                    .as("%s unmatched documents", mode).isEqualTo(received ? 1 : 0);
+            assertThat(patientLabs.patients()).containsExactly(
+                    new InboxCategoryDao.PatientCount(patient, "Native", "FAKE-Dates", 1, 0, 0));
+            assertThat(patientDocuments.patients()).containsExactly(
+                    new InboxCategoryDao.PatientCount(patient, "Native", "FAKE-Dates", 0, 1, 0));
+        }
     }
 
     @Test

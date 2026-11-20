@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.commn.model.DemographicExtArchive;
 import io.github.carlos_emr.carlos.commn.model.ProviderPreference;
 import io.github.carlos_emr.carlos.commn.model.WaitingList;
+import io.github.carlos_emr.carlos.demographic.DemographicCustomFieldSelect;
 import io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
@@ -68,6 +69,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -86,6 +88,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class DemographicUpdate2Action extends ActionSupport {
 
     private static final Logger logger = MiscUtils.getLogger();
+    /** The form's waiting-list note field. */
+    private static final String WAITING_LIST_NOTE = "waiting_list_note";
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -189,7 +193,14 @@ public class DemographicUpdate2Action extends ActionSupport {
 
         applyForm(demographic, proNo);
 
-        List<String> fieldLengthValidationErrors = demographic.validateFieldLengths();
+        List<String> fieldLengthValidationErrors = new ArrayList<>(demographic.validateFieldLengths());
+        // The custom fields (alert, nurse, resident, midwife) and the waiting-list note are written
+        // after the patient row, so they are checked here too, before anything is saved (#5869).
+        fieldLengthValidationErrors.addAll(postedCust(demographicNo).validateFieldLengths());
+        if (waitingListChosen) {
+            fieldLengthValidationErrors.addAll(
+                    WaitingList.validateNoteLength(request.getParameter(WAITING_LIST_NOTE)));
+        }
         if (!fieldLengthValidationErrors.isEmpty()) {
             logger.warn("DemographicUpdate2Action: rejected demographic input due to field length limits: {}",
                     LogSafe.sanitize(String.join("; ", fieldLengthValidationErrors)));
@@ -200,9 +211,17 @@ public class DemographicUpdate2Action extends ActionSupport {
 
         // The extension rows this form writes. Their ids are resolved from the patient's existing
         // rows when they are saved, not taken from the form (see the write phase below).
+        CarlosProperties properties = CarlosProperties.getInstance();
+        Set<String> configuredSelects = DemographicCustomFieldSelect.configuredKeys(
+                properties.getProperty("demographicExt"), properties.getProperty("demographicExtForm"));
         List<DemographicExt> extensions = new ArrayList<>();
         for (String key : DemographicEditVersion.editedExtensionKeys()) {
-            extensions.add(new DemographicExt(proNo, demographicNo, key, request.getParameter(key)));
+            String value = request.getParameter(key);
+            // Browsers omit a select whose current choice is disabled. An empty submitted value
+            // still means the clinician deliberately cleared the field.
+            if (value != null || !configuredSelects.contains(key)) {
+                extensions.add(new DemographicExt(proNo, demographicNo, key, value));
+            }
         }
 
         // --- HIN duplicate check must run before any persistence to prevent partial updates ---
@@ -266,8 +285,12 @@ public class DemographicUpdate2Action extends ActionSupport {
                     // used to insert them a second time (uk_demo_ext), and a posted id could name
                     // another patient's row.
                     Map<String, Integer> rowIds = new HashMap<>();
+                    List<DemographicExt> archivedExtensions = new ArrayList<>(extensions);
                     for (DemographicExt row : demographicExtDao.getDemographicExtByDemographicNo(patientNo)) {
                         rowIds.putIfAbsent(row.getKey(), row.getId());
+                        if (configuredSelects.contains(row.getKey()) && request.getParameter(row.getKey()) == null) {
+                            archivedExtensions.add(row);
+                        }
                     }
                     for (DemographicExt extension : extensions) {
                         extension.setId(rowIds.get(extension.getKey()));
@@ -278,10 +301,9 @@ public class DemographicUpdate2Action extends ActionSupport {
                     OtherIdManager.saveIdDemographic(patientNo, "meditech_id", request.getParameter("meditech_id"));
 
                     Long archiveId = demographicArchiveDao.archiveRecord(current);
-                    for (DemographicExt extension : extensions) {
+                    for (DemographicExt extension : archivedExtensions) {
                         DemographicExtArchive archive = new DemographicExtArchive(extension);
                         archive.setArchiveId(archiveId);
-                        archive.setValue(request.getParameter(archive.getKey()));
                         demographicExtArchiveDao.saveEntity(archive);
                     }
 
@@ -322,7 +344,7 @@ public class DemographicUpdate2Action extends ActionSupport {
             String listId = String.valueOf(waitingListId);
             // Records a new note/date row when the patient is already on the list; a
             // no-op otherwise, in which case the result page confirms and posts the add.
-            WLWaitingListUtil.updateWaitingListRecord(listId, request.getParameter("waiting_list_note"),
+            WLWaitingListUtil.updateWaitingListRecord(listId, request.getParameter(WAITING_LIST_NOTE),
                     demoNo, request.getParameter("waiting_list_referral_date"));
 
             List<WaitingList> waitingListList = waitingListDao.findByWaitingListIdAndDemographicId(
@@ -332,7 +354,7 @@ public class DemographicUpdate2Action extends ActionSupport {
                 request.setAttribute("demographicNo", demoNo);
                 request.setAttribute("wlDemoNo", demoNo);
                 request.setAttribute("wlListId", listId);
-                request.setAttribute("wlNote", StringUtils.noNull(request.getParameter("waiting_list_note")));
+                request.setAttribute("wlNote", StringUtils.noNull(request.getParameter(WAITING_LIST_NOTE)));
                 request.setAttribute("wlReferralDate", StringUtils.noNull(request.getParameter("waiting_list_referral_date")));
                 request.setAttribute("addToWl", Boolean.TRUE);
                 request.setAttribute("needsWlConfirm", Boolean.valueOf(!apptList.isEmpty()));
@@ -475,37 +497,48 @@ public class DemographicUpdate2Action extends ActionSupport {
 
     /** Records the consent choices the form posted (the new patient consent module). */
     private void writeConsents(LoggedInInfo loggedInInfo, Demographic demographic) {
-    if (CarlosProperties.getInstance().getBooleanProperty("USE_NEW_PATIENT_CONSENT_MODULE", "true")) {
+        if (!CarlosProperties.getInstance().getBooleanProperty("USE_NEW_PATIENT_CONSENT_MODULE", "true")) {
+            return;
+        }
         PatientConsentManager patientConsentManager = SpringUtils.getBean(PatientConsentManager.class);
         List<ConsentType> consentTypes = patientConsentManager.getActiveConsentTypes();
         boolean explicitConsent = Boolean.TRUE;
         for (ConsentType consentType : consentTypes) {
             String type = consentType.getType();
             String consentRecord = request.getParameter(type);
-            int deleteme = 0;
-            String deleteConsentParam = request.getParameter("deleteConsent_" + type);
-            if (!org.apache.commons.lang3.StringUtils.isEmpty(deleteConsentParam)) {
-                try {
-                    deleteme = Integer.parseInt(deleteConsentParam);
-                } catch (NumberFormatException e) {
-                    logger.warn("DemographicUpdate2Action: invalid deleteConsent_{} value={}, defaulting to 0", type, LogSafe.sanitize(deleteConsentParam));
-                }
-            }
+            // Read (and logged when malformed) before the record, as before this method was split.
+            int deleteme = postedDeleteConsent(type);
             if (consentRecord != null) {
-                boolean optOut;
-                try {
-                    optOut = Integer.parseInt(consentRecord) == 1;
-                } catch (NumberFormatException e) {
-                    logger.warn("DemographicUpdate2Action: invalid consent record value={}, defaulting to false", LogSafe.sanitize(consentRecord));
-                    optOut = false;
-                }
                 patientConsentManager.addEditConsentRecord(loggedInInfo, demographic.getDemographicNo(),
-                        consentType.getId(), explicitConsent, optOut);
+                        consentType.getId(), explicitConsent, isOptOut(consentRecord));
             } else if (deleteme == 1) {
                 patientConsentManager.deleteConsent(loggedInInfo, demographic.getDemographicNo(), consentType.getId());
             }
         }
     }
+
+    /** The posted {@code deleteConsent_<type>} flag; 0 when it is absent or not a number. */
+    private int postedDeleteConsent(String type) {
+        String deleteConsentParam = request.getParameter("deleteConsent_" + type);
+        if (org.apache.commons.lang3.StringUtils.isEmpty(deleteConsentParam)) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(deleteConsentParam);
+        } catch (NumberFormatException _) {
+            logger.warn("DemographicUpdate2Action: invalid deleteConsent_{} value={}, defaulting to 0", type, LogSafe.sanitize(deleteConsentParam));
+            return 0;
+        }
+    }
+
+    /** Whether a posted consent record opts out ({@code 1}); false when it is not a number. */
+    private static boolean isOptOut(String consentRecord) {
+        try {
+            return Integer.parseInt(consentRecord) == 1;
+        } catch (NumberFormatException _) {
+            logger.warn("DemographicUpdate2Action: invalid consent record value={}, defaulting to false", LogSafe.sanitize(consentRecord));
+            return false;
+        }
     }
 
     /** The custom-row values the form posted, applied to {@code cust}. */

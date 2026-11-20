@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "492cd51c296ff7cfd156e7c4d17bb16002c501e2",
+  "comparisonSha256": "b196ccac17b0952a4e2a4341a2d21b3956ce000d199b687bf09b584d7a368ad8",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/demographic/data/DemographicMerged.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "206420e5819d78fc69e09aa34484dc99ac6fc831"
+    }
+  },
+  "baselineCommit": "e3ad46f780c94c99ff9fb73989bbf52f1e0c3eb8",
+  "baselineSourceTree": "492cd51c296ff7cfd156e7c4d17bb16002c501e2",
+  "baselineReportSha256": "dd0a09f588e70bbdb5d99ebbd55272d3345dd9f84d31dc34e273ed7125e2e35c",
+  "baselineLane": "41 merge/unmerge action tests and 18 physical British Columbia Flyway MariaDB web-unmerge cases",
+  "baselineTestCounts": {
+    "tests": 59,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "19c90ee20182c25f50c7af1b792033b6ef3cf42b8ea63921c685b66b8eb477e1",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

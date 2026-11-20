@@ -1,6 +1,8 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 package io.github.carlos_emr.carlos.documentManager;
 
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.file.Files;
@@ -27,6 +29,13 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /** Valid temp PDFs must not log a failed document-directory probe before succeeding. */
 @Tag("unit")
@@ -135,7 +144,55 @@ class EDocUtilTempPathLogUnitTest extends CarlosUnitTestBase {
             assertThatThrownBy(() -> EDocUtil.readContent(requested.toString()))
                     .isInstanceOf(IOException.class).hasCauseInstanceOf(SecurityException.class);
             assertThat(EDocUtil.getFile(requested.toString())).isNull();
+            assertThat(EDocUtil.getPDFPageCount(requested.toString())).isZero();
             assertThat(paths.events()).anyMatch(event -> event.getLevel().isMoreSpecificThan(Level.ERROR));
+        }
+    }
+
+    @Test
+    void shouldReturnNoPages_forMissingAndMalformedFileNames() {
+        assertThat(EDocUtil.getPDFPageCount(documents.resolve("missing.pdf").toString())).isZero();
+        assertThat(EDocUtil.getPDFPageCount("missing.pdf")).isZero();
+        assertThat(EDocUtil.getPDFPageCount("invalid" + (char) 0 + ".pdf")).isZero();
+        assertThat(EDocUtil.getFile("missing.pdf")).isNull();
+    }
+
+    @Test
+    void shouldRejectResolution_whenTheFilesystemCannotCanonicalizeThePath() {
+        String path = documents.resolve("long".repeat(1250)).toString();
+        assertThatThrownBy(() -> EDocUtil.resolvePath(path))
+                .isInstanceOf(SecurityException.class)
+                .hasCauseInstanceOf(IOException.class);
+    }
+
+    @Test
+    void shouldKeepReadResults_whenACompletedInputCannotBeClosed() throws Exception {
+        byte[] content = {7, 0, 9};
+        Files.write(documents.resolve("owned.dat"), content);
+        assertThat(EDocUtil.resolvePath("owned.dat")).isNotBlank();
+        try (var log = LogCapture.forLogger(EDocUtil.class);
+             var input = mockConstruction(FileInputStream.class, (stream, context) -> {
+                 when(stream.readAllBytes()).thenReturn(content);
+                 when(stream.read(any(byte[].class), anyInt(), anyInt())).thenReturn(-1);
+                 doThrow(new IOException("fixture input close failure")).when(stream).close();
+             })) {
+            assertThat(EDocUtil.getFile("owned.dat")).containsExactly(content);
+            assertThat(EDocUtil.readContent("owned.dat")).isEmpty();
+            assertThat(input.constructed()).hasSize(2);
+            assertThat(log.messages()).anyMatch(message -> message.contains("Unable to close output stream"));
+        }
+    }
+
+    @Test
+    void shouldLogAWriteCloseFailure_afterFlushingTheContent() throws Exception {
+        byte[] content = {5, 0, 2};
+        try (var log = LogCapture.forLogger(EDocUtil.class);
+             var output = mockConstruction(FileOutputStream.class, (stream, context) ->
+                     doThrow(new IOException("fixture output close failure")).when(stream).close())) {
+            EDocUtil.writeDocContent("owned.dat", content);
+            assertThat(output.constructed()).hasSize(1);
+            verify(output.constructed().getFirst()).write(any(byte[].class), eq(0), eq(content.length));
+            assertThat(log.messages()).anyMatch(message -> message.contains("Unable to close output stream"));
         }
     }
 

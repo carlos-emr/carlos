@@ -3,10 +3,10 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/managers/DemographicManagerImpl.java",
   "kind": "floor",
   "floor": {
-    "lines": 96.95431472081218,
-    "instructions": 96.42521166509877,
-    "branches": 84.42622950819673,
-    "sourceBlob": "52df3a532cbb176dab95252c13ea975eabc83727"
+    "lines": 97.1830985915493,
+    "instructions": 96.64607237422771,
+    "branches": 86.02941176470588,
+    "sourceBlob": "e041decccb9e29ec009b5338989a90a29016158d"
   },
-  "evidenceSha256": "8559ea72d5df8d2b664b7cd48f9d4fbdd501a34598873e11a95478f064d6dbbc"
+  "evidenceSha256": "d12d51daa8c3190eaa86276782943565d32fdb5e80dec788c060662792268d9f"
 }

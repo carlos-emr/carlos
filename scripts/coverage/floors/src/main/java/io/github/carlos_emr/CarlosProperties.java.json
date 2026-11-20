@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/CarlosProperties.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 96.11650485436893,
+    "instructions": 96.17977528089888,
+    "branches": 90.0,
+    "sourceBlob": "8dac004df28ae5b9967a0421d70a236f7d3a350e"
+  },
+  "evidenceSha256": "c245822b9d361d478202f4a7fc3d4f1dbdace8b054af71a643e30a461c4bcf51"
+}

@@ -1444,22 +1444,6 @@
             	<input type="checkbox" class="form-check-input" name="urgency" id="urgency" value="critical" <%=urgencyChecked%> >
                     </td>
                 </tr>
-                <% String emailReminder = pros.getProperty("emailApptReminder");
-                    if ((emailReminder != null) && emailReminder.equalsIgnoreCase("yes")) { %>
-                <tr>
-                    <td>
-                        <label><fmt:message key="Appointment.formEmailReminder"/>:</label>
-                    </td>
-                    <td>
-                <input type="checkbox" class="form-check-input" name="emailPt" value="email reminder">
-                    </td>
-                </tr>
-                <% } else { %>
-                <tr>
-                    <td></td>
-                    <td></td>
-                </tr>
-                <% }%>
             </table>
     </div>
         </div>

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/managers/AuditLogPurgeService.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 90.9090909090909,
+    "instructions": 86.03192702394527,
+    "branches": 70.44534412955466,
+    "sourceBlob": "143f772136fead7b77d687e62197b87e45316238"
+  },
+  "evidenceSha256": "51eb9370e3ebf3e60c1ffcf636a3e6fc80afa4233306e481fc981615a50b2050"
+}

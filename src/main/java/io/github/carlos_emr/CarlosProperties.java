@@ -39,7 +39,6 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
@@ -48,6 +47,7 @@ import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.charset.StandardCharsets;
+import java.nio.charset.Charset;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.security.NoSuchAlgorithmException;
@@ -255,16 +255,28 @@ public class CarlosProperties extends Properties {
 
         try {
             readFromFile("/carlos.properties");
-
-            String overrideProperties = System.getProperty("carlos_override_properties");
-            if (overrideProperties != null) {
-                if (MiscUtils.getLogger().isInfoEnabled()) {
-                    MiscUtils.getLogger().info("Applying override properties : {}", LogSafe.sanitize(overrideProperties));
-                }
-                readFromFile(overrideProperties);
-            }
         } catch (IOException e) {
-            MiscUtils.getLogger().error("Error", e);
+            throw new IllegalStateException("Unable to load bundled CARLOS configuration; refusing to start", e);
+        }
+        String overrideProperties = System.getProperty("carlos_override_properties");
+        if (overrideProperties != null) {
+            try {
+                MiscUtils.getLogger().info("Applying override properties : {}", LogSafe.sanitize(overrideProperties));
+                readFromFile(overrideProperties);
+            } catch (IOException | IllegalArgumentException e) {
+                // An explicitly selected source is mandatory. Falling back to the
+                // bundled configuration can connect to a different DB or key.
+                throw new IllegalStateException("Unable to read configured override "
+                        + LogSafe.sanitize(overrideProperties) + " (" + e.getClass().getSimpleName()
+                        + "); check file permissions and POSIX lock support; refusing to start", e);
+            }
+        }
+    }
+
+    /** Returns the actual last loaded source, including the writable key destination when external. */
+    public String getConfigurationSource() {
+        synchronized (CONFIGURATION_FILE_LOCK) {
+            return loadedPropertiesFile == null ? loadedPropertiesLocation : loadedPropertiesFile.getAbsolutePath();
         }
     }
 
@@ -302,9 +314,10 @@ public class CarlosProperties extends Properties {
         synchronized (CONFIGURATION_FILE_LOCK) {
             InputStream resource = getClass().getResourceAsStream(url);
             File propertyFile = null;
+            Properties incoming = new Properties();
             if (resource != null) {
                 try (resource) {
-                    load(resource);
+                    incoming.load(resource);
                 }
             } else {
                 try {
@@ -317,9 +330,12 @@ public class CarlosProperties extends Properties {
                 try (FileInputStream input = new FileInputStream(propertyFile);
                      FileChannel channel = input.getChannel();
                      FileLock _ = channel.lock(0, Long.MAX_VALUE, true)) {
-                    load(input);
+                    incoming.load(input);
                 }
             }
+            // A failed/malformed read must not partially replace the current key
+            // or settings before its source can be recorded.
+            putAll(incoming);
             // Bundled resources are not operator-writable configuration files.
             loadedPropertiesFile = propertyFile;
             loadedPropertiesLocation = url;
@@ -781,6 +797,8 @@ public class CarlosProperties extends Properties {
 	 * @throws IOException If an I/O error occurs while writing to the file.
 	 */
 	public void saveProperty(String propFilePath, String key, String value) throws IOException {
+		Objects.requireNonNull(key, "property key");
+		Objects.requireNonNull(value, "property value");
 		File propertyFile;
 		try {
 			propertyFile = PathValidationUtils.resolveConfiguredFile(propFilePath, "properties file");
@@ -789,11 +807,22 @@ public class CarlosProperties extends Properties {
 			// (resolveConfiguredFile permits a missing one - this append-mode write then creates it).
 			throw new IOException("Unable to resolve properties file for saving", e);
 		}
-		try (FileWriter writer = new FileWriter(propertyFile, true)) {
-			// Write the new key-value pair
-			writer.write("\n" + key + "=" + value + "\n");
+		synchronized (CONFIGURATION_FILE_LOCK) {
+			// Retain the public API's create/append and default-charset contracts.
+			// Append on the same inode as key initialization, under its record lock.
+			try (FileChannel channel = FileChannel.open(propertyFile.toPath(), StandardOpenOption.CREATE,
+					StandardOpenOption.WRITE);
+				 FileLock lock = channel.lock()) {
+				channel.position(channel.size());
+				ByteBuffer entry = Charset.defaultCharset().encode("\n" + key + "=" + value + "\n");
+				while (entry.hasRemaining()) {
+					channel.write(entry);
+				}
+				channel.force(true);
+			}
+			// Failed persistence must not leave memory claiming the save succeeded.
+			setProperty(key, value);
 		}
-		setProperty(key, value);
 	}
 
 }

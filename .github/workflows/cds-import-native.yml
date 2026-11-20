@@ -6,6 +6,7 @@ on:
     types: [opened, synchronize, reopened, edited]
     branches: [main, develop, experimental, 'release/*', 'staging/*', 'hotfix/*']
   push:
+    tags: ['20*']
     branches: [main, 'release/**']
   workflow_dispatch:
 

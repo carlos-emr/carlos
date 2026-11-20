@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "00e97011274dd45105eb1e0d4743327715f456f7",
+  "comparisonSha256": "77b2ffaeb4f8218cda80f6cf22ce892acc3f5b7a2007cde081b4927600959667",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/OscarJobService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "c7bdec49ae78c8cfd9e671af12d1391e7da7be24"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/to/OscarJobResponse.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "a75f399ec8cadacea6eddcd24e618a791aca7839"
+    }
+  },
+  "baselineCommit": "590c54d64adf3533d1f4deaa9ad5e39c4b3aa69b",
+  "baselineSourceTree": "00e97011274dd45105eb1e0d4743327715f456f7",
+  "baselineReportSha256": "cc1d2253cc7017f0898f8da44745aa44a714637371d3af97565f0f8062dec672",
+  "baselineLane": "JDK 25 repository Maven run of OscarJobServiceEndpointTest and OscarJobServiceSecurityTest with JaCoCo 0.8.16",
+  "baselineTestCounts": {
+    "tests": 17,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "5972649d03be52bc7bbba0374e5a3f8056907a87b98a3cc6f8a72e7c54364710",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

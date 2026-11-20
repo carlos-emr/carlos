@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "88a81a42e7ea94b52ec8f1eb5feb7b39a3971438d503b073e3be9c85e452d973",
+ "migration_sha256": "40ac641c235cb2bfbe478ff46f869e6e33cf2e4d9f5ab1a098b8bde0bf1312bc",
  "province": "bc",
  "schema": {
   "checks": [
@@ -186238,6 +186238,28 @@
     1,
     1,
     "demographic_no",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "demographicArchive",
+    "idx_demographicArchive_provider_roster_date",
+    1,
+    1,
+    "provider_no",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "demographicArchive",
+    "idx_demographicArchive_provider_roster_date",
+    1,
+    2,
+    "roster_date",
     "A",
     null,
     "BTREE",

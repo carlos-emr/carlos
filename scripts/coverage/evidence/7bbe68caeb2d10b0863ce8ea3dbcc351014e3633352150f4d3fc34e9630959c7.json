@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "2b27d4ae8ecdc8775b2e36561e2be1c9a665f240",
+  "comparisonSha256": "91a5568e509a20624ef048bf9ce51295b45c1b72ff6463eaf3545c7a810f7b1e",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/schedule/service/ScheduleDateOverrideService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "872a7e7078ba22c7b191b42e5a06a1ff8f0fc0c3"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/schedule/web/ScheduleDateSave2Action.java": {
+      "lines": 96.96969696969697,
+      "instructions": 96.28378378378379,
+      "branches": 81.25,
+      "sourceBlob": "6b340c1c1737cd9e97fef5b6aa9974177c65986c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/ScheduleDateDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "31a6c23850d8d5cef83a3a4fae5422534b9e96c3"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/ScheduleDateDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "46887fb1723b1bb6333c2cbc188f1877d62c3962"
+    }
+  },
+  "baselineCommit": "b56d911d97c417b645c70ba673d21a54c257c879",
+  "baselineSourceTree": "2b27d4ae8ecdc8775b2e36561e2be1c9a665f240",
+  "baselineReportSha256": "dca5c8782642261421411e9e9ab01ca5ab2e0bdda2d1bd24985ce52913f9e455",
+  "baselineLane": "Java 25 schedule date override service (H2 integration, two-thread overlapping Saves), schedule action, schedule date DAO, scheduledatesave JSP and mutator contract tests, for the serialized replacement and strict date review fixes",
+  "baselineTestCounts": {
+    "tests": 216,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "e479c8484bcac0ac71ae31c00130ad5ecf39de6b4771a8f8a492004b961918e3",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

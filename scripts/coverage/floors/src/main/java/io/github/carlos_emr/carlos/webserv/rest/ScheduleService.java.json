@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/webserv/rest/ScheduleService.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 91.39784946236558,
+    "instructions": 90.09708737864078,
+    "branches": 82.53968253968254,
+    "sourceBlob": "78dc8684810919f755cb74c4dacd0766559c1420"
+  },
+  "evidenceSha256": "c7405bef900e5cb4b12fd2084ed5f8f835fa917d41dfdd91e7f7824afccb0848"
+}

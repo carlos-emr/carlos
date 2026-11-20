@@ -37,7 +37,8 @@ function loadHelper({ fetchImpl, inputCount = 1 }) {
     clearTimeout,
     console: { warn: (...args) => warnings.push(args.map(String).join(' ')) },
     document: {
-      querySelectorAll: () => inputs,
+      // Answer only the selector the helper is meant to use, so a wrong selector finds nothing.
+      querySelectorAll: (selector) => (selector === 'input[name="CSRF-TOKEN"]' ? inputs : []),
     },
   };
   context.window = {
@@ -166,4 +167,92 @@ test('does not register a beforeunload listener', () => {
   assert.equal(helper.listenerCounts().beforeunload, 0);
   assert.ok(helper.listenerCounts().pagehide > 0, 'pagehide is still observed');
   assert.ok(helper.listenerCounts().pageshow > 0, 'pageshow is still observed');
+});
+
+// #1408: fetch() POST bodies built from a form carry its CSRF-TOKEN input even while it is
+// empty, so a params.has() fallback never ran and an early click posted an empty token.
+const ensureParam = (helper, params) =>
+  vm.runInContext('carlosEnsureCsrfParam', helper.context)(params, '/carlos');
+
+test('keeps a token the request body already carries and fetches nothing', async () => {
+  let fetches = 0;
+  const helper = loadHelper({ fetchImpl: async () => { fetches += 1; return { ok: true, text: async () => TOKEN_SCRIPT }; } });
+  const params = new URLSearchParams('a=1&CSRF-TOKEN=BODY-TOKEN');
+
+  await ensureParam(helper, params);
+
+  assert.equal(params.get('CSRF-TOKEN'), 'BODY-TOKEN');
+  assert.equal(fetches, 0);
+});
+
+test('replaces an empty body token with the first non-empty token on the page', async () => {
+  let fetches = 0;
+  const helper = loadHelper({ fetchImpl: async () => { fetches += 1; return { ok: true, text: async () => TOKEN_SCRIPT }; }, inputCount: 3 });
+  helper.inputs[1].value = 'PAGE-TOKEN';
+  const params = new URLSearchParams('a=1&CSRF-TOKEN=');
+
+  await ensureParam(helper, params);
+
+  assert.deepEqual(params.getAll('CSRF-TOKEN'), ['PAGE-TOKEN'], 'one token, not an empty one beside it');
+  assert.equal(fetches, 0);
+});
+
+test('fetches the token before posting when no input carries one yet', async () => {
+  let fetches = 0;
+  const helper = loadHelper({ fetchImpl: async () => { fetches += 1; return { ok: true, text: async () => TOKEN_SCRIPT }; } });
+  const params = new URLSearchParams('a=1&CSRF-TOKEN=');
+
+  await ensureParam(helper, params);
+
+  assert.equal(fetches, 1);
+  assert.deepEqual(params.getAll('CSRF-TOKEN'), ['TOKEN-VALUE-1234']);
+});
+
+test('rejects instead of posting when no token can be obtained', async () => {
+  const helper = loadHelper({ fetchImpl: async () => ({ ok: false, status: 500, text: async () => '' }) });
+  const params = new URLSearchParams('a=1');
+
+  await assert.rejects(ensureParam(helper, params), /status 500/);
+  assert.equal(params.get('CSRF-TOKEN'), null, 'no empty token is written into the body');
+  await drainTimers();
+});
+
+test('the lab and document macro and comment POSTs ensure a token before fetch', () => {
+  const root = path.join(__dirname, '..', 'src', 'main', 'webapp', 'WEB-INF', 'jsp');
+  const lab = fs.readFileSync(path.join(root, 'lab', 'CA', 'ALL', 'labDisplay.jsp'), 'utf8');
+  const doc = fs.readFileSync(path.join(root, 'documentManager', 'showDocument.jsp'), 'utf8');
+  // The fetch must be issued inside the helper's .then(), so it waits for the token.
+  const chained = /carlosEnsureCsrfParam\(params,[^\n]*?\)\.then\(function \(\) \{\s*return fetch\(url, \{/g;
+
+  // labDisplay: the Acknowledge/Comment link check, Add Comment, the macro link check and Run Macro;
+  // showDocument: the macro link check and Run Macro.
+  for (const [name, source, sites] of [['labDisplay.jsp', lab, 4], ['showDocument.jsp', doc, 2]]) {
+    assert.doesNotMatch(source, /params\.has\(\s*['"]CSRF-TOKEN['"]\s*\)/, `${name} still treats an empty token as present`);
+    assert.equal((source.match(/carlosEnsureCsrfParam\(params,/g) || []).length, sites, `${name} token-ensured POSTs`);
+    assert.equal((source.match(chained) || []).length, sites, `${name} POSTs wait for the token before fetch`);
+    assert.match(source, /share\/javascript\/csrfTokenFetch\.js/, `${name} loads the helper`);
+  }
+});
+
+test('ignores inputs the CSRF-TOKEN selector does not match', async () => {
+  let fetches = 0;
+  const helper = loadHelper({ fetchImpl: async () => { fetches += 1; return { ok: true, text: async () => TOKEN_SCRIPT }; } });
+  const first = vm.runInContext('carlosFirstCsrfToken', helper.context);
+
+  // Any other selector would read 'WRONG'; only the CSRF-TOKEN selector yields the page token.
+  helper.context.document.querySelectorAll = (selector) =>
+    (selector === 'input[name="CSRF-TOKEN"]' ? [{ value: '' }, { value: 'PAGE-TOKEN' }] : [{ value: 'WRONG' }]);
+  assert.equal(first(), 'PAGE-TOKEN');
+  assert.equal(fetches, 0);
+});
+
+test('rejects when the token request never answers', async () => {
+  const helper = loadHelper({ fetchImpl: () => new Promise(() => {}) });
+  const params = new URLSearchParams('a=1');
+
+  await assert.rejects(
+    vm.runInContext('carlosEnsureCsrfParam', helper.context)(params, '/carlos', 20),
+    /timed out/,
+  );
+  assert.equal(params.get('CSRF-TOKEN'), null);
 });

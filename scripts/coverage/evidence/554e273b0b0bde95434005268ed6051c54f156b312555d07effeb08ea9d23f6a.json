@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "8838206aaa009692790d468e6a44574b46b50dde",
+  "comparisonSha256": "e14a707e673dcd9a1ad0b2b01e3140d23a6e6ecdeaafd71aa7869378caf6c172",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/jobs/OscarJobUtils.java": {
+      "lines": 76.92307692307692,
+      "instructions": 82.97872340425532,
+      "branches": 100.0,
+      "sourceBlob": "b2103307d3bcfa16b69fbf7d58f9b61f0dcb806f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/OscarJobService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "64d334f13cd854e45bd8fb06e38244ea7ebc2894"
+    }
+  },
+  "baselineCommit": "a28cf5e25b7b74d4991eab50f13193a094482a13",
+  "baselineSourceTree": "8838206aaa009692790d468e6a44574b46b50dde",
+  "baselineReportSha256": "cc22d28690290a8201e170fce91ac4498a4a091cad58df078dfe5f5799a281b4",
+  "baselineLane": "PR #6239 Java 25 concurrent scheduling, cancellation, and REST controls",
+  "baselineTestCounts": {
+    "tests": 27,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "f2573b6318728038eff64926afff575201a563f16acd86e5f0e84fb0c26d7985",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.commn.jobs.OscarJobSchedulingUnitTest",
+    "io.github.carlos_emr.carlos.webserv.rest.OscarJobServiceEndpointTest",
+    "io.github.carlos_emr.carlos.webserv.rest.OscarJobServiceSecurityTest"
+  ]
+}

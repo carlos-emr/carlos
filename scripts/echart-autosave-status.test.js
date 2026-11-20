@@ -92,15 +92,54 @@ function modernNativeAjax() {
     constructor() { this.timeout = 0; this.headers = {}; nativeRequests.push(this); }
     open(method, url, asynchronous) { this.method = method; this.url = url; this.asynchronous = asynchronous; }
     setRequestHeader(name, value) { this.headers[name] = value; }
+    getResponseHeader(name) { return this.responseHeaders?.[name.toLowerCase()] ?? null; }
+    getAllResponseHeaders() {
+      return Object.entries(this.responseHeaders ?? {}).map(([name, value]) => `${name}: ${value}\r\n`).join('');
+    }
     send(body) { this.body = body; }
-    abort() { this.aborted = true; }
-    finish() { Object.assign(this, ack()); this.onload(); }
+    abort() { this.aborted = true; this.responseHeaders = null; }
+    finish(response = ack()) { Object.assign(this, response); this.onload(); }
   }
   h.context.XMLHttpRequest = NativeXhr;
   h.context.document.querySelector = selector => selector === 'input[name="CSRF-TOKEN"]' ? { value: 'owned-csrf' } : null;
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../src/main/webapp/share/javascript/carlos-ajax.js'), 'utf8'), h.context);
   return { ...h, nativeRequests };
 }
+
+test('real CarlosAjax preserves response headers on a failed request', () => {
+  const h = modernNativeAjax();
+  let refusal;
+  h.context.CarlosAjax.request('/carlos/CaseManagementEntry', {
+    method: 'post',
+    onFailure: response => { refusal = response; },
+  });
+  const xhr = h.nativeRequests[0];
+  xhr.responseHeaders = { 'x-carlos-note-lock-lost': 'true' };
+  xhr.finish({ status: 409, responseText: '' });
+  assert.equal(refusal.getResponseHeader('X-Carlos-Note-Lock-Lost'), 'true');
+  assert.equal(refusal.getResponseHeader('X-Missing-Header'), null);
+});
+
+test('real CarlosAjax gives onComplete the response headers after onFailure aborts the native request', () => {
+  const h = modernNativeAjax();
+  const values = [];
+  const xhr = h.context.CarlosAjax.request('/carlos/CaseManagementEntry', {
+    method: 'post',
+    onFailure: response => {
+      values.push(response.getResponseHeader('X-Carlos-Note-Lock-Lost'));
+      xhr.abort();
+    },
+    onComplete: response => {
+      values.push(response.status, response.getResponseHeader('x-carlos-NOTE-lock-lost'),
+        response.getResponseHeader('x-missing'));
+    },
+  });
+  xhr.responseHeaders = {'x-carlos-note-lock-lost': 'true'};
+  xhr.finish({status: 409, responseText: ''});
+
+  assert.equal(xhr.getResponseHeader('x-carlos-note-lock-lost'), null);
+  assert.deepEqual(values, ['true', 409, 'true', null]);
+});
 
 test('real CarlosAjax autosave XHR times out after 45 seconds, reports failure and releases the next backup retry', () => {
   const h = modernNativeAjax(); h.context.backup();
@@ -187,12 +226,31 @@ test('modern explicit cancellation does not announce an autosave failure and sta
 
 test('modern lock conflict stops periodic retries and keeps the text available for recovery', () => {
   const h = modern(); h.context.autoSave();
-  h.requests[0].options.onFailure({ status: 409 }); h.requests[0].options.onComplete();
+  h.requests[0].options.onFailure({
+    status: 409, getResponseHeader: name => name === 'X-Carlos-Note-Lock-Lost' ? 'true' : null
+  });
+  h.requests[0].options.onComplete();
   h.context.backup(); h.context.autoSave();
   assert.equal(h.requests.length, 1);
   assert.equal(h.status.attributes['data-autosave-state'], 'conflict');
   assert.equal(h.status.textContent, labels.draftSaveConflictLabel);
   assert.equal(h.timers.length, 0);
+  assert.equal(h.editor.value, 'Unsaved H&P + clinical text');
+});
+
+test('modern autosave can recover after an unconfirmed lock conflict', () => {
+  const h = modern();
+  h.context.autoSave();
+  h.requests[0].options.onFailure({ status: 409, getResponseHeader: () => null });
+  h.requests[0].options.onComplete();
+  assert.equal(h.context.lostNoteLock, false);
+  assert.equal(h.status.attributes['data-autosave-state'], 'failed');
+
+  h.context.backup();
+  assert.equal(h.requests.length, 2);
+  h.requests[1].options.onSuccess(ack());
+  h.requests[1].options.onComplete();
+  assert.equal(h.status.attributes['data-autosave-state'], 'saved');
   assert.equal(h.editor.value, 'Unsaved H&P + clinical text');
 });
 
@@ -519,3 +577,193 @@ test('both editors expose an atomic polite status region', () => {
     assert.match(tag, /aria-atomic=['"]true['"]/);
   }
 });
+
+
+// Execute editor activation through its DOM and form updates.
+function editorAfterLostLock(kind, accepted) {
+  const h = modern();
+  const alerts = [];
+  let switchAttempts = 0;
+  const form = h.context.document.forms.caseManagementEntryForm;
+  Object.assign(form, {noteId: {value: '515'}, note_edit: {}, newNoteIdx: {}, method: {},
+    ajax: {}, chain: {}, includeIssue: {}});
+  h.context.lostNoteLock = true;
+  h.editor.parentNode = {id: 'nOld'};
+  h.editor.focus = () => {};
+  const insertEditor = input => { h.elements[input.id] = input; };
+  const jquery = {on() { return this; }, off() { return this; }};
+  Object.assign(h.context, {
+    Event: {stop() {}, element: () => ({id: 'edit42'})},
+    deferNoteSaveUntilIssues: () => false,
+    changeToView: () => { switchAttempts++; return accepted; },
+    createNoteTextarea: (id, value) => ({id, value: value || 'FAKE later note'}),
+    newNoteCounter: 0, reason: 'FAKE later note',
+    NoteisLocked: () => 'none',
+    Element: {remove: id => {delete h.elements[id];}, stopObserving() {}, observe() {}},
+    fullView() {}, fetchNote() {}, notePrintButton: () => '', noteIsQeued: () => -1,
+    setPrintControlSelected() {}, initTemplateFeatures() {}, getActiveText() {},
+    monitorCaseNote() {}, adjustCaseNote() {}, enableNotePassthroughScroll() {},
+    jQuery: () => jquery, ctx: '/carlos', fullChart: 'false',
+    alert: value => alerts.push(value),
+    validDate: () => true, caisiEnabled: false, providerNo: '999998',
+    noteLockLostError: 'Lock lost; copy the text and reopen the chart.',
+    Form: {serialize: current => new URLSearchParams({
+      noteId: String(current.noteId.value), note: h.elements[h.context.caseNote].value,
+    }).toString()},
+    beginNoteSwitchSave: () => () => {},
+  });
+  h.elements.encMainDiv = {insertAdjacentHTML(_position, html) {
+    const signature = html.match(/id='(sig[0-9]+)'/)[1];
+    h.elements[signature] = {parentNode: {insertBefore: insertEditor}, addClassName() {}};
+  }};
+  h.elements.n42 = {id: 'n42', getElementsBySelector: () => [],
+    insertBefore: insertEditor, insertAdjacentHTML() {}};
+  h.elements.full42 = {value: 'false'};
+  const from = modernSource.indexOf(`    function ${kind}(`);
+  const boundary = kind === 'newNote'
+    ? '            $(caseNote).focus();'
+    : '        //we want to make sure update issue ajax call';
+  const to = modernSource.indexOf(boundary, from);
+  assert.ok(from > 0 && to > from);
+  let body = modernSource.slice(from, to).replace(/<%--[\s\S]*?--%>/g, '');
+  body += kind === 'newNote' ? '        } return false; }' : ' return false; }';
+  vm.runInContext(body, h.context);
+  h.context[kind](kind === 'newNote' ? null : {});
+  const noteId = kind === 'newNote' ? '0' : '42';
+  vm.runInContext(modernSource.slice(modernSource.indexOf('    function saveNoteAjax('),
+    modernSource.indexOf('    function savePage(')), h.context);
+  return {...h, alerts, noteId, switchAttempts, form};
+}
+
+for (const kind of ['newNote', 'editNote']) {
+  test(`${kind} starts an independent editor with working autosave and manual saving after an earlier lock loss`, () => {
+    const h = editorAfterLostLock(kind, true);
+    h.context.autoSave();
+    assert.equal(h.requests.length, 1, 'the later editor must retain autosave protection');
+    assert.equal(h.context.lostNoteLock, false);
+    assert.equal(String(h.form.noteId.value), h.noteId);
+    assert.equal(new URLSearchParams(h.requests[0].options.postBody).get('note_id'), h.noteId);
+    h.requests[0].options.onSuccess(ack()); h.requests[0].options.onComplete();
+    assert.equal(h.status.attributes['data-autosave-state'], 'saved');
+    h.context.saveNoteAjax('save', 'list');
+    assert.equal(h.requests.length, 2, 'manual saves must use the later editor too');
+    assert.equal(new URLSearchParams(h.requests[1].options.postBody).get('noteId'), h.noteId);
+    assert.equal(h.editor.value, 'Unsaved H&P + clinical text', 'the original refused text remains available');
+  });
+  test(`${kind} leaves the original editor conflicted when a switch is refused`, () => {
+    const h = editorAfterLostLock(kind, false);
+    assert.equal(h.switchAttempts, 1, 'the old editor refused the requested switch');
+    h.context.autoSave();
+    assert.equal(h.context.lostNoteLock, true);
+    assert.equal(h.context.caseNote, 'editor');
+    assert.equal(h.form.noteId.value, '515');
+    assert.equal(h.editor.value, 'Unsaved H&P + clinical text');
+    assert.equal(h.requests.length, 0);
+  });
+}
+
+test('a confirmed save-on-switch conflict survives restoring the original editor controls', () => {
+  const h = editorAfterLostLock('editNote', true);
+  Object.assign(h.form, {elements: [], setAttribute() {}, removeAttribute() {}});
+  h.context.noteSavingMessage = 'Saving note';
+  h.context.showAutosaveStatus('saved', labels.draftSavedLabel);
+  vm.runInContext(modernSource.slice(modernSource.indexOf('    function beginNoteSwitchSave('),
+    modernSource.indexOf('    function deferNoteSaveUntilIssues(')), h.context);
+
+  h.context.saveNoteAjax('save', 'list');
+  h.requests[0].options.onFailure({
+    status: 409,
+    getResponseHeader: name => name === 'X-Carlos-Note-Lock-Lost' ? 'true' : null,
+  });
+  h.requests[0].options.onComplete();
+
+  assert.equal(h.context.lostNoteLock, true);
+  assert.equal(h.status.attributes['data-autosave-state'], 'conflict');
+  assert.equal(h.status.textContent, labels.draftSaveConflictLabel);
+  assert.equal(h.elements[h.context.caseNote].value, 'FAKE later note');
+});
+
+for (const outcome of ['refused', 'deferred', 'failed', 'no replacement', 'activated']) {
+  test(`filter preserves the lock conflict until a replacement editor is activated (${outcome})`, () => {
+    const h = modern();
+    const forms = h.context.document.forms;
+    const previous = forms.caseManagementEntryForm;
+    Object.assign(previous, {method: {}, note_edit: {}, ajax: {}, chain: {}, cloneNode() { return {...this}; }});
+    forms.caseManagementViewForm = {method: {}, resetFilter: {}, elements: []};
+    h.elements.notCPP = {update() {
+      if (outcome === 'activated') forms.caseManagementEntryForm = {noteId: {value: '0'}};
+    }};
+    Object.assign(h.context, {lostNoteLock: true, fullChart: 'false',
+      changeToView: () => outcome !== 'refused', deferNoteSaveUntilIssues: () => outcome === 'deferred',
+      Form: {serialize: () => 'fixture=valid'}, showChartLoadError() {},
+    });
+    const from = modernSource.indexOf('    function filter(');
+    vm.runInContext(modernSource.slice(from, modernSource.indexOf('\n    function ', from + 1)), h.context);
+
+    h.context.filter(false, false);
+    if (outcome === 'refused' || outcome === 'deferred') assert.equal(h.requests.length, 0);
+    else if (outcome === 'failed') h.requests[0].options.onFailure({status: 500});
+    else h.requests[0].options.onSuccess({responseText: 'FAKE chart'});
+
+    assert.equal(h.context.lostNoteLock, outcome !== 'activated');
+    assert.equal(forms.caseManagementEntryForm === previous, outcome !== 'activated');
+    assert.equal(h.editor.value, 'Unsaved H&P + clinical text');
+  });
+}
+
+for (const outcome of ['clean', 'blocked', 'failed', 'saved', 'switched']) {
+  test(`Attach Note keeps a dirty draft until its save succeeds (${outcome})`, () => {
+    const h = modern();
+    const form = h.context.document.forms.caseManagementEntryForm;
+    form.noteId.value = '515';
+    h.editor.parentNode = {id: 'n515'};
+    const opened = [];
+    const removed = [];
+    let deleted = 0;
+    let finishSave;
+    const jquery = {off() { return this; }};
+    Object.assign(h.context, {
+      ctx: '/carlos', chartContext: 'FAKE-context',
+      origCaseNote: outcome === 'clean' ? h.editor.value : 'Previous note',
+      ajaxSaveNote(sig, noteId, text, callback, preserveEditor) {
+        assert.equal(sig, 'sig515');
+        assert.equal(noteId, '515');
+        assert.equal(text, h.editor.value);
+        assert.equal(preserveEditor, true);
+        if (outcome === 'blocked') return false;
+        finishSave = callback;
+        return true;
+      },
+      deleteAutoSave() { deleted++; },
+      jQuery: () => jquery,
+      Element: {stopObserving() {}, remove(id) { removed.push(id); delete h.elements[id]; }},
+      monitorCaseNote() {}, getActiveText() {}, destroyNoteIssueAutocomplete() {},
+      popupPage(_height, _width, _name, url) { opened.push(url); },
+    });
+    const from = modernSource.indexOf('    function assign(');
+    vm.runInContext(modernSource.slice(from, modernSource.indexOf('    function setIssueCheckbox(', from)), h.context);
+
+    h.context.assign('11', '101');
+    if (outcome === 'clean') {
+      assert.equal(opened.length, 1);
+      assert.match(opened[0], /noteId=515/);
+    } else {
+      assert.equal(opened.length, 0);
+      assert.equal(deleted, 0);
+      assert.equal(h.elements.editor, h.editor);
+      if (outcome === 'failed') finishSave(false);
+      if (outcome === 'saved' || outcome === 'switched') {
+        form.noteId.value = '600';
+        if (outcome === 'switched') h.context.caseNote = 'anotherEditor';
+        finishSave(true);
+      }
+      if (outcome === 'saved') {
+        assert.equal(opened.length, 1);
+        assert.match(opened[0], /noteId=600/);
+      } else assert.equal(opened.length, 0);
+    }
+    assert.equal(deleted, outcome === 'saved' ? 1 : 0);
+    assert.equal(removed.includes('editor'), outcome === 'saved');
+    assert.equal(h.editor.value, 'Unsaved H&P + clinical text');
+  });
+}

@@ -517,7 +517,7 @@
                                    href="${ctx}/fax/faxAction?method=getPreview&faxFilePath=${carlos:forUriComponent(faxFilePath)}"
                                    target="_blank" rel="noopener noreferrer">Open PDF</a>
                             </p>
-                            <div id="previewStatus" class="text-muted">Loading preview…</div>
+                            <div id="previewStatus" class="text-muted">Loading preview&#8230;</div>
                             <div id="previewImages" class="d-flex flex-column gap-3"></div>
                         </div>
                     </div>

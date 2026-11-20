@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/pageUtil/GraphFailurePage.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 99.3485342019544,
+    "branches": 96.66666666666667,
+    "sourceBlob": "273cb4d27eef10632165e0554e995bd76c6294f3"
+  },
+  "evidenceSha256": "4053cd8322653fa03b3d81ccc47ded1226681ee45c4e755147bd596b973f678e"
+}

@@ -285,10 +285,12 @@ public final class MiscUtils {
 
     public static byte[] readFileAsByteArray(String url) throws IOException {
         try (InputStream is = MiscUtils.class.getResourceAsStream(url)) {
-            int size = is.available();
-            byte[] b = new byte[size];
-            is.read(b);
-            return b;
+            if (is == null) {
+                throw new java.io.FileNotFoundException("classpath resource not found");
+            }
+            // available() on a resource inside a JAR is not its length, and one read may stop
+            // short; read to end of stream (#3027).
+            return is.readAllBytes();
         }
     }
 

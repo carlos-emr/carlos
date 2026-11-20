@@ -109,4 +109,5 @@ common/V1.0.59.47__index_cds_laboratory_result_native_lab.sql
 common/V1.0.59.48__index_cds_import_unit_patient_id.sql
 common/V1.0.59.49__cds_export_attempt_checkpoint.sql
 common/V1.0.59.50__cds_preparation_payload_capacity.sql
+common/V1.0.59.50.1__index_historical_roster_provider_period.sql
 common/V1.0.59.51__mcedt_encrypted_credential_storage.sql

@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "d7e87e6906b8f4e3748f8ec434b39aa1fbee229a",
+  "comparisonSha256": "22a19cd508734b8c5379a40ac77906b57007168b08d4bd6c6f87c475650d10ae",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/DemographicService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "60a9a4ec589738e8f9ccebf76ed571b6cddce4c7"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/util/DemographicWriteConflict.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 81.25,
+      "sourceBlob": "42fa216845b91a44622bf759cc76da4055707cd5"
+    }
+  },
+  "baselineCommit": "321aefe8d19f3c431daca1433f8bdaf72b6e5972",
+  "baselineSourceTree": "d7e87e6906b8f4e3748f8ec434b39aa1fbee229a",
+  "baselineReportSha256": "41f5120346d86b64a7b0abbfda60e25844cafd7837bc2a60e85065408bf34905",
+  "baselineLane": "PR #6320 Java 25 demographic writes and duplicate-extension outcomes",
+  "baselineTestCounts": {
+    "tests": 113,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "6e971cf1896bcf3f9c3e3caa34b70b408e771d2b9f5706ec793cc5dcc9ac2522",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.managers.DemographicUpdateDaoTransactionIntegrationTest",
+    "io.github.carlos_emr.carlos.webserv.rest.DemographicIdentifierPreservationTransactionIntegrationTest",
+    "io.github.carlos_emr.carlos.webserv.rest.DemographicServiceEndpointTest",
+    "io.github.carlos_emr.carlos.webserv.rest.DemographicServiceUnitTest",
+    "io.github.carlos_emr.carlos.webserv.rest.util.DemographicWriteProfileUnitTest"
+  ]
+}

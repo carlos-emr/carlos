@@ -62,6 +62,8 @@ import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.SimpleTransactionStatus;
 
 import io.github.carlos_emr.carlos.commn.dao.EFormDao;
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
@@ -85,6 +87,7 @@ class FrmXmlUpload2ActionSecurityUnitTest extends CarlosUnitTestBase {
     private ServletContext servletContext;
     private SecurityInfoManager securityInfoManager;
     private EFormDao eformDao;
+    private PlatformTransactionManager eformTransactions;
 
     @TempDir
     Path tempDir;
@@ -106,6 +109,10 @@ class FrmXmlUpload2ActionSecurityUnitTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, securityInfoManager);
         eformDao = mock(EFormDao.class);
         registerMock(EFormDao.class, eformDao);
+        when(eformDao.findMaxIdForActiveForm(any())).thenReturn(null);
+        eformTransactions = mock(PlatformTransactionManager.class);
+        registerMock(PlatformTransactionManager.class, eformTransactions);
+        when(eformTransactions.getTransaction(any())).thenAnswer(invocation -> new SimpleTransactionStatus());
         doAnswer(invocation -> {
             ReflectionTestUtils.setField((EForm) invocation.getArgument(0), "id", 1);
             return null;
@@ -205,7 +212,8 @@ class FrmXmlUpload2ActionSecurityUnitTest extends CarlosUnitTestBase {
         try (MockedStatic<ImageUpload2Action> imageUploadActionMock = org.mockito.Mockito.mockStatic(ImageUpload2Action.class)) {
             imageUploadActionMock.when(ImageUpload2Action::getImageFolder).thenReturn(tempDir.toFile());
 
-            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(action.execute()).as("archive errors: %s", action.getActionErrors())
+                    .isEqualTo(ActionSupport.SUCCESS);
         }
 
         verify(eformDao).persist(org.mockito.ArgumentMatchers.<EForm>argThat(eform ->
@@ -213,6 +221,7 @@ class FrmXmlUpload2ActionSecurityUnitTest extends CarlosUnitTestBase {
                         && "issue-3071-eform.html".equals(eform.getFileName())
                         && "<html><body>Issue 3071 eForm</body></html>".equals(eform.getFormHtml())
                         && eform.isCurrent()));
+        verify(eformTransactions).commit(any());
     }
 
     @org.junit.jupiter.params.ParameterizedTest
@@ -256,7 +265,8 @@ class FrmXmlUpload2ActionSecurityUnitTest extends CarlosUnitTestBase {
         try (MockedStatic<ImageUpload2Action> imageUploadActionMock = org.mockito.Mockito.mockStatic(ImageUpload2Action.class)) {
             imageUploadActionMock.when(ImageUpload2Action::getImageFolder).thenReturn(tempDir.toFile());
 
-            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(action.execute()).as("archive errors: %s", action.getActionErrors())
+                    .isEqualTo(ActionSupport.SUCCESS);
         }
 
         verify(eformDao).persist(any(EForm.class));

@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "d689efec4f91cd99bf277fa773226d6408192f30",
+  "comparisonSha256": "8867ae17a941b4d8100e583fcb931be5ea8aaac2b818957f50f0212fc4034b85",
+  "baselineCommit": "803261d189acf76d01368c7166b6624f4361ad5b",
+  "baselineSourceTree": "d689efec4f91cd99bf277fa773226d6408192f30",
+  "baselineReportSha256": "26f6955d58530de0d7e4945d0ceaa41eb62b4416df48dcac5fd8383e096dafa7",
+  "baselineLane": "Focused Java 25 PMmodule action-routing and embedded Jasper form tests",
+  "baselineTestCounts": {
+    "tests": 40,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "13b51a1c4ac113669b09c0fbca88ecc590f9cf404ac88b9b4cd2f67706383eab",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/PMmodule/web/admin/ProgramManager2Action.java": {
+      "sourceBlob": "a31f6b8be75bba6e268517d759b25e167ab2f676",
+      "lines": 85.71428571428571,
+      "instructions": 67.44186046511628,
+      "branches": 50.0
+    }
+  }
+}

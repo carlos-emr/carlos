@@ -2130,14 +2130,6 @@
     "integrity" : "sha512:jbbvo31NVpvyuV2QkxuAZPh+2SjSC7+Njn+mGC6aEdMuaizANKPRc6OO5wzi6p8g9S+dhzDZQB0rxgYGdMGJKA=="
   }, {
     "groupId" : "org.owasp.encoder",
-    "artifactId" : "encoder-jakarta-jsp",
-    "version" : "1.6.0",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:136a9jdhsHlUQBO2Jbz7m9pwqk1cy5rbgUlq9Gas9W65Pmzdu4NJTDKoiUQiYu+OrlTIjdM1he/WLnuc98QcsQ=="
-  }, {
-    "groupId" : "org.owasp.encoder",
     "artifactId" : "encoder",
     "version" : "1.6.0",
     "scope" : "compile",
