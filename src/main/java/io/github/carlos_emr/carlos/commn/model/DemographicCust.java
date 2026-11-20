@@ -46,8 +46,13 @@ public class DemographicCust extends AbstractModel<Integer> {
     public static final int NURSE_MAX_LENGTH = 255;
     /** cust2 (resident) is VARCHAR(255). */
     public static final int RESIDENT_MAX_LENGTH = 255;
-    /** cust3 (the patient alert) is VARCHAR(255). */
-    public static final int ALERT_MAX_LENGTH = 255;
+    /**
+     * cust3 (the patient alert) is TEXT (D244), so a long safety alert is kept whole. TEXT holds
+     * 65,535 bytes and a utf8mb4 character takes at most 4, so 16,383 characters always fit,
+     * whatever the characters. Needs the migration that widens demographiccust.cust3 and
+     * demographiccustArchive.cust3: on a VARCHAR(255) column a longer alert would be cut again.
+     */
+    public static final int ALERT_MAX_LENGTH = 16383;
     /** cust4 (midwife) is VARCHAR(255). */
     public static final int MIDWIFE_MAX_LENGTH = 255;
 
@@ -115,10 +120,11 @@ public class DemographicCust extends AbstractModel<Integer> {
     }
 
     /**
-     * Checks the four VARCHAR(255) custom fields against their columns (issue #5869).
+     * Checks the four custom fields against their columns (issue #5869): the alert against TEXT
+     * ({@link #ALERT_MAX_LENGTH}), nurse, resident and midwife against VARCHAR(255).
      *
      * <p>Packaged installs run MariaDB with an empty {@code sql_mode}, where a longer value is cut
-     * to 255 characters with only a warning and the save still reports success. That silently
+     * to the column with only a warning and the save still reports success. That silently
      * dropped the end of a long patient alert. The add, edit and REST saves call this before they
      * write anything and refuse the whole save when it returns errors. The notes ({@code content})
      * column is MEDIUMTEXT and is not checked here.</p>

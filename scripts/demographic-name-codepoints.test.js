@@ -42,9 +42,11 @@ const applyTo = (fieldName, initial) => {
   const context={document};vm.createContext(context);vm.runInContext(script,context);context.applyDemographicFieldLengthLimits();
   return {field, handlers, formHandlers, attributes};
 };
-// The patient alert (edit: alert, add: cust3) and the waiting-list note are VARCHAR(255) (#5869).
+// The waiting-list note is VARCHAR(255) (#5869); the patient alert (edit: alert, add: cust3) is TEXT (D244).
+const ALERT = limitsByClass.DemographicCust.ALERT_MAX_LENGTH;
+assert.equal(ALERT, 16383, 'TEXT holds 65,535 bytes: 16,383 four-byte characters');
 const fieldLimits = {first_name: 50, last_name: 50, pronouns: 25, gender: 25,
-  alert: 255, cust3: 255, waiting_list_note: 255};
+  alert: ALERT, cust3: ALERT, waiting_list_note: 255};
 for (const [fieldName, maximum] of Object.entries(fieldLimits)) {
   test(`${fieldName} preserves ${maximum} supplementary characters and refuses ${maximum + 1} without truncation`, () => {
     const initial = '😀'.repeat(maximum);
@@ -60,12 +62,13 @@ for (const [fieldName, maximum] of Object.entries(fieldLimits)) {
 }
 for (const fieldName of ['alert','cust3']) {
   test(`${fieldName} counts each line break as the CR LF the browser submits`, () => {
-    // 253 letters and one line break are 255 characters once submitted; a second break makes 257.
-    const {field, handlers} = applyTo(fieldName, 'A'.repeat(126) + '\n' + 'A'.repeat(127));
+    // ALERT - 2 letters and one line break fill the column once submitted; a second break is 2 more.
+    const half = Math.floor((ALERT - 2) / 2), rest = ALERT - 2 - half;
+    const {field, handlers} = applyTo(fieldName, 'A'.repeat(half) + '\n' + 'A'.repeat(rest));
     assert.equal(field.error,'');
-    field.value = 'A'.repeat(126) + '\n' + 'A'.repeat(126) + '\n' + 'A';handlers.input();
-    assert.equal(field.error,'Maximum 255 characters.');
-    field.value = 'A'.repeat(126) + '\r\n' + 'A'.repeat(127);handlers.input();
+    field.value = 'A'.repeat(half) + '\n' + 'A'.repeat(rest - 1) + '\n' + 'A';handlers.input();
+    assert.equal(field.error,`Maximum ${ALERT} characters.`);
+    field.value = 'A'.repeat(half) + '\r\n' + 'A'.repeat(rest);handlers.input();
     assert.equal(field.error,'');
   });
 }
