@@ -48,6 +48,10 @@ import java.util.List;
 public class EmailLog extends AbstractModel<Integer> implements Comparable<EmailLog> {
 
     /** Body retained after a portal invitation send finishes; the activation code is discarded. */
+    /** What a sent myCarlos device code email keeps instead of its body (mycarlos#141). */
+    public static final String MYCARLOS_CODE_BODY_FORGOTTEN =
+            "This myCarlos device code is not kept by CARLOS. A new code is sent when the patient asks again from the myCarlos app.";
+
     public static final String PORTAL_INVITE_BODY_FORGOTTEN =
             "This invitation's code is not kept by CARLOS. Resend the invitation to issue a new code.";
 
@@ -170,7 +174,13 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
          * A patient portal invitation sent by the invite delivery workflow. Deliberately absent from
          * {@code EmailData.parseTransactionType}, so a compose request cannot claim to be an invitation.
          */
-        PORTAL_INVITE
+        PORTAL_INVITE,
+        /**
+         * The code that approves a patient's new myCarlos device (clinic code v1, mycarlos#141), sent by
+         * the device-code job. Its body is cleared once sent, and it is absent from
+         * {@code EmailData.parseTransactionType} like {@link #PORTAL_INVITE}.
+         */
+        MYCARLOS_CODE
     }
 
     @Id

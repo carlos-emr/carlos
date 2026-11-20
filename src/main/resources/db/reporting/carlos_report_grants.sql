@@ -169,6 +169,7 @@ INSERT INTO carlos_report_tables (table_name, access, excluded_columns, reason) 
 ('mycarlos_delivery_original', 'restricted', NULL, 'myCarlos device keys, signed approvals and encrypted deliveries; managed through application workflows'),
 ('mycarlos_delivery_outbox', 'restricted', NULL, 'myCarlos device keys, signed approvals and encrypted deliveries; managed through application workflows'),
 ('mycarlos_device_approval_challenge', 'restricted', NULL, 'myCarlos device keys, signed approvals and encrypted deliveries; managed through application workflows'),
+('mycarlos_device_approval_code', 'restricted', NULL, 'myCarlos device keys, signed approvals and encrypted deliveries; managed through application workflows'),
 ('mycarlos_device_approval_outbox', 'restricted', NULL, 'myCarlos device keys, signed approvals and encrypted deliveries; managed through application workflows'),
 ('mycarlos_patient_binding', 'restricted', NULL, 'myCarlos device keys, signed approvals and encrypted deliveries; managed through application workflows'),
 ('outboundEmailArchive', 'restricted', NULL, 'Private messaging, consent or integration state; managed through application workflows'),

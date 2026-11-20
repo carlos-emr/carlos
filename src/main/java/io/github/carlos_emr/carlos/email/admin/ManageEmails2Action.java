@@ -367,6 +367,11 @@ public class ManageEmails2Action extends ActionSupport {
                 throw new UncheckedIOException(redirectFailure);
             }
             return NONE;
+        } catch (EmailComposeManager.DeviceCodeEmailException deviceCode) {
+            // The device asks for a new code itself; nothing here can send this one again.
+            JSONUtil.errorResponse(response, ERROR_MESSAGE_ATTRIBUTE,
+                    "A myCarlos device code email is not sent again from here; the device asks for a new code.");
+            return null;
         }
         // Recovery has one owner, which also handles its authorization and portal errors, and
         // shows its own "still sending" state for a fresh email.

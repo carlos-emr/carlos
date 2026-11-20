@@ -30,6 +30,17 @@ record PortalMyCarlosAcceptedDevice(long id, long bindingId, String kid, Bytes x
             positive(securityNo);
             require("in_person_device_comparison".equals(staffMethod) && predecessorId == null
                     && predecessorVersion == null && predecessorApproval == null);
+        } else if (kind.equals("code")) {
+            // Clinic code v1 (mycarlos#141): no predecessor. Staff fields are all absent (policy
+            // "code"), or all present when staff also approved (policy "code_and_staff").
+            require(predecessorId == null && predecessorVersion == null && predecessorApproval == null);
+            if (providerNo == null) require(securityNo == null && staffMethod == null);
+            else {
+                text(providerNo, 6);
+                require(securityNo != null);
+                positive(securityNo);
+                require("in_person_device_comparison".equals(staffMethod));
+            }
         } else {
             require(providerNo == null && securityNo == null && staffMethod == null && predecessorId != null && predecessorVersion != null);
             positive(predecessorId);

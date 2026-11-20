@@ -31,7 +31,7 @@ record PortalMyCarlosDeviceApprovalChallenge(Bytes challengeId, UUID requestId, 
         second(issuedAt);
         second(expiresAt);
         require(expiresAt.isAfter(issuedAt) && java.time.Duration.between(issuedAt, expiresAt).getSeconds() <= 600);
-        if (kind.equals("staff_first")) require(predecessorId == null && predecessorKid == null && predecessorVersion == null
+        if (!kind.equals("accepted_device")) require(predecessorId == null && predecessorKid == null && predecessorVersion == null
                 && approvalJti == null && consumedApproval == null && consumedApprovalHash == null);
         else {
             nullablePositive(predecessorId);

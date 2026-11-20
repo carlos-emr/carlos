@@ -60,7 +60,11 @@ class PortalMyCarlosApprovalClientUnitTest {
     @Test void shouldSeparateJobs_whenRegisteringApprovalAndDeliveryPermissions() {
         assertFalse(PortalJob.DELIVERY_SYNC.permissions().contains(PortalJob.PERMISSION_APPROVAL_DECISIONS_PUBLISH));
         assertFalse(PortalJob.DEVICE_APPROVAL_SYNC.permissions().contains(PortalJob.PERMISSION_DELIVERY_UPLOAD));
-        assertEquals(5, PortalJob.DEVICE_APPROVAL_SYNC.permissions().size());
+        // Clinic code v1 (mycarlos#141) adds reading and consuming device codes to the approval job.
+        assertEquals(7, PortalJob.DEVICE_APPROVAL_SYNC.permissions().size());
+        assertTrue(PortalJob.DEVICE_APPROVAL_SYNC.permissions().containsAll(java.util.Set.of(
+                PortalJob.PERMISSION_APPROVAL_CODES_READ, PortalJob.PERMISSION_APPROVAL_CODES_CONSUME)));
+        assertFalse(PortalJob.DELIVERY_SYNC.permissions().contains(PortalJob.PERMISSION_APPROVAL_CODES_READ));
         assertEquals(3, PortalJob.DELIVERY_SYNC.permissions().size());
     }
     @Test void shouldParseRealIntent_whenSharedFixtureArrivesOnNonemptyPage() throws Exception {

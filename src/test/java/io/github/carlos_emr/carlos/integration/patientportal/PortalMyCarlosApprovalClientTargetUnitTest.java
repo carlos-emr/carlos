@@ -60,6 +60,31 @@ class PortalMyCarlosApprovalClientTargetUnitTest {
                 "/internal/carlos/mycarlos/device-approval-requests?after=17&limit=20"));
         assertEquals(0, network.get());
     }
+    @Test void shouldAllowOnlyExactCodeRoutes_forDeviceCodeJob() {
+        var settings = settings("https://localhost:8455", "clinic-a");
+        var portal = new PatientPortalService(settings, request -> new PatientPortalHttpResponse(200, "{}"),
+                PortalStaffAssertionSigner.from(settings.staffAssertionPrivateKey()), () -> true);
+        var cfg = PortalMyCarlosDeviceApprovalService.Current.fromValidated(settings, "https://localhost:8455/patient", true, true);
+        String request = "0f8fad5b-d9cb-469f-a165-70867728950e";
+        assertDoesNotThrow(() -> PortalMyCarlosStaffApprovalService.requireClientTarget(portal, cfg,
+                PortalJob.PERMISSION_APPROVAL_CODES_READ, "GET", "/internal/carlos/mycarlos/device-approval-codes?after=3&limit=20"));
+        assertDoesNotThrow(() -> PortalMyCarlosStaffApprovalService.requireClientTarget(portal, cfg,
+                PortalJob.PERMISSION_APPROVAL_CODES_CONSUME, "PUT",
+                "/internal/carlos/mycarlos/device-approval-requests/" + request + "/codes/5/consumed"));
+        for (String[] bad : new String[][] {
+                {PortalJob.PERMISSION_APPROVAL_CODES_READ, "PUT", "/internal/carlos/mycarlos/device-approval-codes?after=3&limit=20"},
+                {PortalJob.PERMISSION_APPROVAL_CODES_READ, "GET", "/internal/carlos/mycarlos/device-approval-codes?after=03&limit=20"},
+                {PortalJob.PERMISSION_APPROVAL_CODES_READ, "GET", "/internal/carlos/mycarlos/device-approval-codes?after=3&limit=21"},
+                {PortalJob.PERMISSION_APPROVAL_REQUESTS_READ, "GET", "/internal/carlos/mycarlos/device-approval-codes?after=3&limit=20"},
+                {PortalJob.PERMISSION_APPROVAL_CODES_CONSUME, "PUT", "/internal/carlos/mycarlos/device-approval-requests/" + request + "/codes/6/consumed"},
+                {PortalJob.PERMISSION_APPROVAL_CODES_CONSUME, "PUT", "/internal/carlos/mycarlos/device-approval-requests/" + request + "/codes/0/consumed"},
+                {PortalJob.PERMISSION_APPROVAL_CODES_CONSUME, "POST", "/internal/carlos/mycarlos/device-approval-requests/" + request + "/codes/1/consumed"},
+                {PortalJob.PERMISSION_APPROVAL_CODES_CONSUME, "PUT", "/internal/carlos/mycarlos/device-approval-requests/" + request.toUpperCase(java.util.Locale.ROOT) + "/codes/1/consumed"}}) {
+            assertThrows(PortalRequestPreparationException.class,
+                    () -> PortalMyCarlosStaffApprovalService.requireClientTarget(portal, cfg, bad[0], bad[1], bad[2]),
+                    String.join(" ", bad));
+        }
+    }
     @Test void shouldRefuseFetchedOldPageBeforeImport_whenConfigurationChangesDuringHttp() throws Exception {
         var old = settings("https://localhost:8455", "clinic-a");
         var newer = settings("https://localhost:9555", "clinic-a");
