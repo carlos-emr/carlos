@@ -35,7 +35,10 @@ import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.email.archive.OutboundEmailArchiveDto;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailDocumentManifestComposer;
 import io.github.carlos_emr.carlos.email.core.EmailSender;
+import io.github.carlos_emr.carlos.email.core.PdfAttachmentSigningService;
+import io.github.carlos_emr.carlos.email.core.PdfSignatureService;
 import io.github.carlos_emr.carlos.email.helpers.APISendGridEmailSender;
 import io.github.carlos_emr.carlos.email.helpers.SMTPEmailSender;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -43,7 +46,6 @@ import io.github.carlos_emr.carlos.test.util.PdfSigningTestSupport;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PDFSigningConfig;
-import io.github.carlos_emr.carlos.utility.PDFSigningUtil;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -51,7 +53,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedConstruction;
-import org.mockito.MockedStatic;
 import org.springframework.mail.javamail.JavaMailSender;
 
 import java.io.IOException;
@@ -68,9 +69,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -90,7 +89,8 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
     private JavaMailSender javaMailSender;
     private LoggedInInfo loggedInInfo;
     private EmailManager emailManager;
-    private io.github.carlos_emr.carlos.email.core.EmailDocumentManifestComposer documentManifestComposer;
+    private EmailDocumentManifestComposer documentManifestComposer;
+    private PdfSignatureService pdfSignatureService;
 
     @BeforeEach
     void setUp() {
@@ -110,9 +110,18 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
         when(consentResolver.resolve(any(), any())).thenReturn(
                 new io.github.carlos_emr.carlos.email.core.EmailConsentResult("Email",
                         EmailLog.EmailConsentStatus.OPT_IN, null, null));
+        // Only the tests that turn PDF signing on reach the signer; their PDFs carry no manifest.
+        // The signing service itself is real, so these send-level tests pin the call site through
+        // its injected seam rather than through static mocks (carlos-emr/carlos#3851).
+        documentManifestComposer = mock(EmailDocumentManifestComposer.class);
+        when(documentManifestComposer.forSend(any(), any()))
+                .thenReturn(EmailDocumentManifestComposer.AttachmentManifests.NONE);
+        pdfSignatureService = mock(PdfSignatureService.class);
+        when(pdfSignatureService.currentConfiguration()).thenReturn(PdfSigningTestSupport.disabledConfig());
         emailManager = new EmailManager(consentResolver,
                 new io.github.carlos_emr.carlos.email.core.EmailSenderFactory(), securityInfoManager,
-                outboundEmailArchiveService);
+                outboundEmailArchiveService,
+                new PdfAttachmentSigningService(documentManifestComposer, pdfSignatureService));
         injectDependency(emailManager, "oscarLogDao", mock(io.github.carlos_emr.carlos.commn.dao.OscarLogDao.class));
         when(emailLogDao.transitionEmailStatus(any(), any(), any(), any(), any())).thenReturn(1);
         injectDependency(emailManager, "clinicFooterService", io.github.carlos_emr.carlos.email.core.ConfiguredClinicFooterFixture.service());
@@ -124,11 +133,6 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
         injectDependency(emailManager, "programManager", mock(ProgramManager.class));
         injectDependency(emailManager, "providerManager", mockProviderManager());
         injectDependency(emailManager, "securityInfoManager", securityInfoManager);
-        // Only the tests that turn PDF signing on reach it; their PDFs carry no manifest.
-        documentManifestComposer = mock(io.github.carlos_emr.carlos.email.core.EmailDocumentManifestComposer.class);
-        when(documentManifestComposer.forSend(any(), any()))
-                .thenReturn(io.github.carlos_emr.carlos.email.core.EmailDocumentManifestComposer.AttachmentManifests.NONE);
-        injectDependency(emailManager, "documentManifestComposer", documentManifestComposer);
     }
 
     @org.junit.jupiter.params.ParameterizedTest
@@ -600,26 +604,34 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
         when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(smtpEmailConfig());
         Path source = writeSinglePagePdf("source");
         Path signed = writeSinglePagePdf("signedPDF_");
+        // Give the stand-in signed copy content of its own: the working directory moves the
+        // signed file, so its path is not what reaches the sender, but its bytes are.
+        try (org.apache.pdfbox.pdmodel.PDDocument document =
+                org.apache.pdfbox.Loader.loadPDF(Files.readAllBytes(signed))) {
+            document.getDocumentInformation().setTitle("FAKE signed copy");
+            document.save(signed.toFile());
+        }
+        byte[] signedBytes = Files.readAllBytes(signed);
+        assertThat(signedBytes).isNotEqualTo(Files.readAllBytes(source));
         EmailData emailData = emailDataWithAttachment(source);
         List<String> pathSeenBySender = new ArrayList<>();
+        List<byte[]> bytesSeenBySender = new ArrayList<>();
 
-        try (MockedStatic<PDFSigningConfig> config =
-                        mockStatic(PDFSigningConfig.class, CALLS_REAL_METHODS);
-                MockedStatic<PDFSigningUtil> signer = mockStatic(PDFSigningUtil.class);
-                MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders((smtpSender, context) -> {
+        try (MockedConstruction<SMTPEmailSender> _ = mockSmtpSenders((smtpSender, context) -> {
                     // The sender is built with the attachment list itself, so the paths it holds at
                     // construction are what get archived and dispatched.
                     for (Object argument : context.arguments()) {
                         if (argument instanceof List<?> attachments && !attachments.isEmpty()
                                 && attachments.get(0) instanceof EmailAttachment first) {
                             pathSeenBySender.add(first.getFilePath());
+                            bytesSeenBySender.add(Files.readAllBytes(Path.of(first.getFilePath())));
                         }
                     }
                     when(smtpSender.prepareArtifactBytes())
                             .thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
                 })) {
-            config.when(PDFSigningConfig::fromCarlosProperties).thenReturn(PdfSigningTestSupport.stubbedEnabledConfig());
-            signer.when(() -> PDFSigningUtil.signPDF(any(Path.class), any(PDFSigningConfig.class), any(), any()))
+            when(pdfSignatureService.currentConfiguration()).thenReturn(PdfSigningTestSupport.stubbedEnabledConfig());
+            when(pdfSignatureService.sign(any(Path.class), any(PDFSigningConfig.class), any(), any()))
                     .thenReturn(signed);
 
             EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
@@ -629,8 +641,9 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
             // in sendEmailInternal would leave the sender holding the unsigned source.
             assertThat(pathSeenBySender).hasSize(1);
             assertThat(pathSeenBySender.get(0)).isNotEqualTo(source.toString());
-            signer.verify(() -> PDFSigningUtil.signPDF(
-                    eq(source.toRealPath()), any(PDFSigningConfig.class), any(), any()));
+            assertThat(bytesSeenBySender.get(0)).isEqualTo(signedBytes);
+            verify(pdfSignatureService).sign(
+                    eq(source.toRealPath()), any(PDFSigningConfig.class), any(), any());
             // The send hands its session and email log to the manifest composer.
             verify(documentManifestComposer).forSend(eq(loggedInInfo), any(EmailLog.class));
             assertThat(source).exists();
@@ -650,12 +663,9 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
         }).when(emailLogDao).persist(any(EmailLog.class));
         Path source = writeSinglePagePdf("source");
 
-        try (MockedStatic<PDFSigningConfig> config =
-                        mockStatic(PDFSigningConfig.class, CALLS_REAL_METHODS);
-                MockedStatic<PDFSigningUtil> signer = mockStatic(PDFSigningUtil.class);
-                MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders((smtpSender, context) -> { })) {
-            config.when(PDFSigningConfig::fromCarlosProperties).thenReturn(PdfSigningTestSupport.stubbedEnabledConfig());
-            signer.when(() -> PDFSigningUtil.signPDF(any(Path.class), any(PDFSigningConfig.class), any(), any()))
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders((smtpSender, context) -> { })) {
+            when(pdfSignatureService.currentConfiguration()).thenReturn(PdfSigningTestSupport.stubbedEnabledConfig());
+            when(pdfSignatureService.sign(any(Path.class), any(PDFSigningConfig.class), any(), any()))
                     .thenThrow(new IOException("Failed to load PDF signing key material"));
 
             EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailDataWithAttachment(source));
@@ -668,6 +678,36 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
             verifyNoInteractions(outboundEmailArchiveService, javaMailSender);
         } finally {
             Files.deleteIfExists(source);
+        }
+    }
+
+    @Test
+    @DisplayName("should fail the send before any sender exists when an attachment cannot be encrypted")
+    void shouldFailSendBeforeAnySenderExists_whenAttachmentEncryptionFailsUnchecked() throws Exception {
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(smtpEmailConfig());
+        doAnswer(invocation -> {
+            injectDependency(invocation.getArgument(0), "id", 73);
+            return null;
+        }).when(emailLogDao).persist(any(EmailLog.class));
+        EmailData emailData = emailData();
+        // A path the trusted-path check cannot canonicalize: resolveTrustedPath reports it as an
+        // unchecked SecurityException, which used to escape and strand the log at PENDING.
+        emailData.setAttachments(new ArrayList<>(List.of(
+                new EmailAttachment("document.pdf", "unreadable\0document.pdf", DocumentType.DOC, 1))));
+        emailData.setIsEncrypted(true);
+        emailData.setIsAttachmentEncrypted(true);
+        emailData.setPassword("FAKE-encryption-passphrase");
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders((smtpSender, context) -> { })) {
+            EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
+
+            // The same definite failure as a signing fault (carlos-emr/carlos#3851): nothing was
+            // archived, signed or dispatched.
+            assertThat(emailLog.getStatus()).isEqualTo(EmailLog.EmailStatus.FAILED);
+            assertThat(emailLog.getErrorMessage()).isEqualTo("Failed to create encrypted email attachments");
+            assertThat(smtpSenders.constructed()).isEmpty();
+            verifyNoInteractions(outboundEmailArchiveService, javaMailSender);
+            verify(pdfSignatureService, never()).sign(any(), any(), any(), any());
         }
     }
 

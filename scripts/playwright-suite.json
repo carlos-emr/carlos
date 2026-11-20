@@ -16513,6 +16513,27 @@
       "env": []
     },
     {
+      "name": "email-pdf-signing",
+      "script": "scripts/email-pdf-signing-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "profile": "pdf-signing",
+      "env": [
+        "DOCUMENT_DIR"
+      ],
+      "mutates": [
+        "file:validation-pdf-signing.p12"
+      ],
+      "fixtures": "The workflow's FAKE patient, an owned eForm template, an owned loopback SMTP sender, a FAKE ECDSA P-256 keystore at the profile's path and, when none is saved, a FAKE clinic email footer; all are removed and their removal asserted. Audit rows are left. Requires the automatic pdf-signing configuration and must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Issues #3216/#3851: with signing on and no keystore an eForm email fails closed with 'Failed to sign email PDF attachment' and reaches no transport; with the FAKE keystore provisioned the delivered eForm PDF carries one PAdES signature over the whole file that openssl cms verifies, and one EmailManager.signAttachment audit row names the email log, the eForm and the key ID computed from the certificate."
+    },
+    {
       "name": "admin-login-text",
       "script": "scripts/admin-login-text-playwright-checks.js",
       "tiers": [
