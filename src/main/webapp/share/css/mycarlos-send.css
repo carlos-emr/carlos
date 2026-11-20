@@ -1,0 +1,16 @@
+/* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
+.mycarlos-send { max-width: 56rem; margin: 2rem auto; padding: 1.5rem; color: #202d38; background: #fff; }
+.mycarlos-send h1 { font-size: 1.65rem; margin: 0 0 .75rem; }
+.mycarlos-send h2 { font-size: 1.2rem; margin-top: 2rem; }
+.mycarlos-send .document-title { font-size: 1.1rem; font-weight: 600; overflow-wrap: anywhere; }
+.mycarlos-send label { display: block; font-weight: 600; margin: 1.5rem 0 .5rem; }
+.mycarlos-send select { width: 100%; min-height: 2.75rem; padding: .5rem; }
+.mycarlos-send .delivery-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin: 1rem 0; }
+.mycarlos-send button { min-height: 2.75rem; padding: .5rem 1rem; border: 1px solid #315f83; border-radius: .3rem; background: #f1f6fa; color: #183b57; }
+.mycarlos-send button[type=submit] { background: #1f5b84; color: #fff; }
+.mycarlos-send button:disabled { opacity: .6; cursor: default; }
+.mycarlos-send :focus-visible { outline: 3px solid #935d00; outline-offset: 3px; }
+.mycarlos-send table { width: 100%; border-collapse: collapse; }
+.mycarlos-send th, .mycarlos-send td { padding: .75rem .5rem; text-align: left; border-bottom: 1px solid #d2dce3; }
+#delivery-message:not(:empty), .delivery-warning { padding: .8rem; margin: 1rem 0; border-left: 4px solid #9b6400; background: #fff5de; }
+@media (max-width: 40rem) { .mycarlos-send { margin: .5rem; padding: 1rem; } }

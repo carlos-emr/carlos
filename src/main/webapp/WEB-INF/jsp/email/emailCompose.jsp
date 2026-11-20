@@ -351,6 +351,15 @@
                 </div>
             </c:if>
 
+            <c:if test="${not empty myCarlosRouteDocumentId}">
+                <div class="alert alert-info" id="mycarlos-compose-route">
+                    <a class="btn btn-outline-primary" href="${carlos:forHtmlAttribute(ctx)}/demographic/PortalDelivery?demographicNo=${carlos:forUriComponent(demographicId)}&amp;documentId=${carlos:forUriComponent(myCarlosRouteDocumentId)}">
+                        <fmt:message key="mycarlos.delivery.route"/>
+                    </a>
+                </div>
+            </c:if>
+            <c:if test="${myCarlosRouteUnavailable}"><p class="alert alert-warning"><fmt:message key="mycarlos.delivery.unavailable"/></p></c:if>
+
             <form id="emailComposeForm" class="email-compose-form" action="${carlos:forHtmlAttribute(emailSendAction)}" method="post"
                   onsubmit="return validateEmailForm()" novalidate>
                 <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>

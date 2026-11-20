@@ -130,3 +130,5 @@ common/V1.0.59.48__index_cds_import_unit_patient_id.sql forward-merge
 common/V1.0.59.49__cds_export_attempt_checkpoint.sql forward-merge
 common/V1.0.59.50__cds_preparation_payload_capacity.sql forward-merge
 common/V1.0.82__hide_consent_live_demographic_projection.sql
+common/V1.0.83__mycarlos_accepted_device_approval.sql
+common/V1.0.84__mycarlos_sender_outbox.sql
