@@ -1132,4 +1132,34 @@ class JdbcConnectorMariaDbIntegrationTest {
         return io.github.carlos_emr.carlos.form.FrmRecordHelp.isBooleanColumnType(
                 rows.getMetaData().getColumnTypeName(rows.findColumn(name)));
     }
+
+    /**
+     * A trigger's SIGNAL and an unset parameter are statement failures, not lost connections:
+     * Connector/J reports both as SQLTransientConnectionException, the compatibility driver
+     * reports them as the plain SQLException MySQL Connector/J gave, and the pooled connection
+     * stays usable (#6333).
+     */
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldReportStatementFailuresAsPlainSqlExceptions_forBothConfigurations(boolean legacy) throws Exception {
+        try (var source = source(legacy, ""); var connection = source.getConnection();
+             var statement = connection.createStatement()) {
+            // A standalone SIGNAL raises exactly what a fault-injection trigger raises, without the
+            // SUPER privilege that CREATE TRIGGER needs while binary logging is on.
+            assertThatThrownBy(() -> statement.execute("SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='FAKE-PW owned signal probe'"))
+                    .isExactlyInstanceOf(SQLException.class)
+                    .hasMessageContaining("FAKE-PW owned signal probe")
+                    .satisfies(failure -> {
+                        assertThat(((SQLException) failure).getSQLState()).isEqualTo("45000");
+                        assertThat(((SQLException) failure).getErrorCode()).isEqualTo(1644);
+                    });
+            try (var unset = connection.prepareStatement("SELECT ? FROM DUAL")) {
+                assertThatThrownBy(unset::executeQuery).isExactlyInstanceOf(SQLException.class)
+                        .satisfies(failure -> assertThat(((SQLException) failure).getSQLState()).isEqualTo("07004"));
+            }
+            try (var rows = statement.executeQuery("SELECT 1")) {
+                assertThat(rows.next()).isTrue();
+            }
+        }
+    }
 }

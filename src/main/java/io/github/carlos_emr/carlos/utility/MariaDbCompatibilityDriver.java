@@ -38,6 +38,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.SQLTransientConnectionException;
 import java.sql.Statement;
 import java.sql.Types;
 import java.time.LocalDate;
@@ -112,6 +113,35 @@ public final class MariaDbCompatibilityDriver implements Driver {
                                     boolean emptyStringsConvertToZero, boolean jdbcCompliantTruncation,
                                     TimeZone defaultZone, TimeZone connectionZone, boolean preserveInstants) { }
 
+    /**
+     * Gives a statement failure the JDBC type its SQLSTATE stands for. Connector/J 3 maps the
+     * SQLSTATE classes it knows to their JDBC subclasses and reports every other class as a
+     * {@link SQLTransientConnectionException}: a trigger's {@code SIGNAL SQLSTATE '45000'}, an unset
+     * parameter ({@code 07004}) or a statement over max_allowed_packet ({@code HZ000}) then reads
+     * as a lost connection, and Hibernate and Spring translate it to JDBCConnectionException and
+     * DataAccessResourceFailureException. MySQL Connector/J, which CARLOS used before, reported
+     * them as plain SQL failures, and code that decides "the database is gone" from the type
+     * (the CDS export) must not take them for an outage (#6333). Class 08 is a real connection
+     * failure and class 25 is the driver's own failover report; both are left as they are.
+     *
+     * <p>The corrected exception keeps the message, SQLSTATE, vendor code, cause, stack, suppressed
+     * and next exceptions. The mislabelled original is deliberately not kept as the cause, because
+     * callers walk the cause chain looking for connection exceptions.
+     *
+     * @param failure a failure raised by the native driver
+     * @return the same failure, or a plain {@link SQLException} with identical diagnostics
+     */
+    static SQLException correctedLabel(SQLException failure) {
+        if (failure.getClass() != SQLTransientConnectionException.class) return failure;
+        String state = failure.getSQLState();
+        if (state == null || state.length() < 2 || state.startsWith("08") || state.startsWith("25")) return failure;
+        SQLException plain = new SQLException(failure.getMessage(), state, failure.getErrorCode(), failure.getCause());
+        plain.setStackTrace(failure.getStackTrace());
+        for (Throwable suppressed : failure.getSuppressed()) plain.addSuppressed(suppressed);
+        if (failure.getNextException() != null) plain.setNextException(failure.getNextException());
+        return plain;
+    }
+
     /** Wraps one JDBC object while retaining its owning compatibility connection and statement. */
     private static Object wrap(Object target, Class<?> type, Connection connection, Statement statement,
                                ConversionPolicy policy) {
@@ -136,6 +166,14 @@ public final class MariaDbCompatibilityDriver implements Driver {
 
         /** Adapts result conversions and object ownership, delegating all remaining JDBC operations. */
         @Override public Object invoke(Object proxy, Method method, Object[] args) throws SQLException {
+            try {
+                return adapt(proxy, method, args);
+            } catch (SQLException failure) {
+                throw correctedLabel(failure);
+            }
+        }
+
+        private Object adapt(Object proxy, Method method, Object[] args) throws SQLException {
             String name = method.getName();
             Object special = objectOperation(proxy, name, args);
             if (special != NO_CONVERSION) return special;

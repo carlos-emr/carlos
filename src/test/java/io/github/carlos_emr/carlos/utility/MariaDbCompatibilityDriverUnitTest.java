@@ -47,4 +47,47 @@ class MariaDbCompatibilityDriverUnitTest {
         assertThat(descriptors).filteredOn(property -> "connectTimeout".equals(property.name))
                 .singleElement().extracting(property -> property.value).isEqualTo("1234");
     }
+
+    /** Connector/J's catch-all type for unknown SQLSTATE classes is relabelled; real connection failures are not (#6333). */
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"45000", "07004", "HZ000", "3D000", "44000"})
+    void shouldReportPlainSqlFailure_forNonConnectionStateMislabelledAsTransientConnection(String state) {
+        var cause = new java.io.IOException("socket detail");
+        var next = new java.sql.SQLException("next");
+        var suppressed = new IllegalStateException("suppressed");
+        var original = new java.sql.SQLTransientConnectionException("(conn=7) probe", state, 1644, cause);
+        original.setNextException(next);
+        original.addSuppressed(suppressed);
+
+        java.sql.SQLException corrected = MariaDbCompatibilityDriver.correctedLabel(original);
+
+        assertThat(corrected.getClass()).isEqualTo(java.sql.SQLException.class);
+        assertThat(corrected.getMessage()).isEqualTo("(conn=7) probe");
+        assertThat(corrected.getSQLState()).isEqualTo(state);
+        assertThat(corrected.getErrorCode()).isEqualTo(1644);
+        assertThat(corrected.getCause()).isSameAs(cause);
+        assertThat((Object) corrected.getNextException()).isSameAs(next);
+        assertThat(corrected.getSuppressed()).containsExactly(suppressed);
+        assertThat(corrected.getStackTrace()).isEqualTo(original.getStackTrace());
+        for (Throwable link = corrected; link != null; link = link.getCause()) {
+            assertThat((Object) link).isNotInstanceOf(java.sql.SQLTransientConnectionException.class);
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"08000", "08S01", "25S03"})
+    void shouldKeepTransientConnectionType_forConnectionAndFailoverStates(String state) {
+        var original = new java.sql.SQLTransientConnectionException("lost", state);
+        assertThat((Object) MariaDbCompatibilityDriver.correctedLabel(original)).isSameAs(original);
+    }
+
+    @Test
+    void shouldLeaveFailureUnchanged_forOtherTypesOrMissingState() {
+        var timeout = new java.sql.SQLTimeoutException("timeout", "70100");
+        var integrity = new java.sql.SQLIntegrityConstraintViolationException("dup", "23000");
+        var unknownState = new java.sql.SQLTransientConnectionException("no state");
+        assertThat((Object) MariaDbCompatibilityDriver.correctedLabel(timeout)).isSameAs(timeout);
+        assertThat((Object) MariaDbCompatibilityDriver.correctedLabel(integrity)).isSameAs(integrity);
+        assertThat((Object) MariaDbCompatibilityDriver.correctedLabel(unknownState)).isSameAs(unknownState);
+    }
 }
