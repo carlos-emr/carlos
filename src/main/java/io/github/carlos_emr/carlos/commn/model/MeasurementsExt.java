@@ -71,6 +71,19 @@ import jakarta.persistence.Table;
 @Table(name = "measurementsExt")
 public class MeasurementsExt extends AbstractModel<Integer> {
 
+    /**
+     * Key of the extension that says how a lab result was filed (#6122). Absent for a result
+     * filed as {@code HL7_LAB_MEASUREMENT_FILTER} matched it, the way every result was filed before.
+     */
+    public static final String VALUE_TYPE_KEY = "value_type";
+
+    /**
+     * {@link #VALUE_TYPE_KEY} value for a final or corrected lab result filed whole, as the lab's
+     * own words, because {@code HL7_LAB_MEASUREMENT_FILTER} did not match it (for example
+     * {@code Pending} or {@code Not detected}). Views label it as text, and graphs cannot plot it.
+     */
+    public static final String TEXT_VALUE_TYPE = "text";
+
     /** Primary key for the measurement extension record. */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

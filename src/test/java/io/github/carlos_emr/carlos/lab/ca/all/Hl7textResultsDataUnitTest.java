@@ -4,6 +4,7 @@ package io.github.carlos_emr.carlos.lab.ca.all;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.atMost;
 import static org.mockito.Mockito.doAnswer;
@@ -21,6 +22,7 @@ import java.io.Reader;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Calendar;
@@ -28,6 +30,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.stream.Stream;
@@ -43,6 +46,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
@@ -51,10 +55,12 @@ import org.springframework.test.util.ReflectionTestUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementsDeletedDao;
+import io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementMapDao;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.commn.model.MeasurementMap;
 import io.github.carlos_emr.carlos.commn.model.MeasurementType;
+import io.github.carlos_emr.carlos.commn.model.MeasurementsExt;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
@@ -249,7 +255,7 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
-    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @NullAndEmptySource
     @ValueSource(strings = {"DNR"})
     void shouldLeaveMeasurementsAbsent_whenTheSourceHasNoReportableValue(String result) {
         assertThat(fileResult(result, ".*", "2026-03-10 12:00:00", LocalDateTime.parse("2026-03-10T14:00:00"))).isNull();
@@ -280,16 +286,37 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         Measurement samePatients = new Measurement();
         samePatients.setDataField("5.1");
         samePatients.setDemographicId(42);
-        when(measurementDao.findByValue("lab_no", "1111")).thenReturn(java.util.List.of(otherPatients));
+        Measurement unknownPatient = new Measurement();
+        unknownPatient.setDataField("8.9");
+        when(measurementDao.findByValue("lab_no", "1111")).thenReturn(List.of(otherPatients, unknownPatient));
         when(measurementDao.findByValue("lab_no", "2222")).thenReturn(java.util.List.of(samePatients));
         try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
             versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("1111,2222,4616");
-            assertThat(fileResult("6.1", ".*", "2026-03-10 12:00:00", LocalDateTime.parse("2026-03-10T14:00:00")))
-                    .isNotNull();
+            Measurement filed = fileResult("6.1", ".*", "2026-03-10 12:00:00", LocalDateTime.parse("2026-03-10T14:00:00"));
+            assertThat(filed).isNotNull();
+            assertThat(filed.getDemographicId()).isEqualTo(42);
         }
 
         verify(measurementDao).batchRemoveAtomically(
                 org.mockito.ArgumentMatchers.argThat(removed -> removed.size() == 1 && removed.get(0) == samePatients));
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"0", "-42", "invalid", " 42 ", "2147483648"})
+    void shouldRejectInvalidPatientBeforeArchivingMeasurements(String demographicNo) {
+        MessageHandler handler = mock(MessageHandler.class);
+        try (var factory = mockStatic(Factory.class);
+                var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
+            factory.when(() -> Factory.getHandler("4616")).thenReturn(handler);
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("2222,4616");
+
+            assertThatThrownBy(() -> Hl7textResultsData.populateMeasurementsTable("4616", demographicNo))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("A positive patient number is required to file lab measurements");
+        }
+        verifyNoInteractions(measurementDao, mockedBeans.get(MeasurementsDeletedDao.class),
+                mockedBeans.get(MeasurementsExtDao.class));
     }
 
     @ParameterizedTest
@@ -328,6 +355,7 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
     void shouldReplaceThePartial_whenTheFinalFollowsIt() {
         Measurement partial = new Measurement();
         partial.setDataField("5.1");
+        partial.setDemographicId(42);
         when(measurementDao.findByValue("lab_no", "1111")).thenReturn(java.util.List.of(partial));
         Measurement filed;
         try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
@@ -523,6 +551,9 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
                 mockedBeans.get(MeasurementMapDao.class));
     }
 
+    /** The HL7_LAB_FILE_TEXT_RESULTS value a test sets before filing; {@code null} leaves the property unset. */
+    private String textResultsSwitch;
+
     /**
      * Files one A1C result through {@link Hl7textResultsData#populateMeasurementsTable} with the given
      * {@code HL7_LAB_MEASUREMENT_FILTER}, and returns the measurement it persisted, or {@code null} when it
@@ -531,6 +562,12 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
     private Measurement fileResult(String result, String filter, String observationTimestamp,
             LocalDateTime entryTimestamp) {
         return fileResult(MessageHandler.class, result, filter, observationTimestamp, entryTimestamp);
+    }
+
+    private Measurement fileResult(String result, String filter, String observationTimestamp,
+            LocalDateTime entryTimestamp, String status) {
+        return fileResult(MessageHandler.class, result, filter, observationTimestamp, entryTimestamp, status,
+                () -> Hl7textResultsData.populateMeasurementsTable("4616", "42"));
     }
 
     /** As above, for a report read by the given handler type, which decides how its version chain is judged. */
@@ -546,7 +583,13 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
      */
     private Measurement fileResult(Class<? extends MessageHandler> source, String result, String filter,
             String observationTimestamp, LocalDateTime entryTimestamp, Runnable filing) {
+        return fileResult(source, result, filter, observationTimestamp, entryTimestamp, null, filing);
+    }
+
+    private Measurement fileResult(Class<? extends MessageHandler> source, String result, String filter,
+            String observationTimestamp, LocalDateTime entryTimestamp, String status, Runnable filing) {
         MessageHandler handler = mock(source);
+        when(handler.getOBXResultStatus(0, 0)).thenReturn(status);
         when(handler.getOBRCount()).thenReturn(1);
         when(handler.getOBXCount(0)).thenReturn(1);
         when(handler.getOBXResult(0, 0)).thenReturn(result);
@@ -558,6 +601,9 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         CarlosProperties properties = mock(CarlosProperties.class);
         when(properties.getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*")).thenReturn(filter);
         when(properties.getProperty("MAP_BY_IDENTIFIER_AND_NAME", "false")).thenReturn("false");
+        if (textResultsSwitch != null) {
+            when(properties.getProperty("HL7_LAB_FILE_TEXT_RESULTS", "true")).thenReturn(textResultsSwitch);
+        }
         Calendar entryCalendar = GregorianCalendar.from(entryTimestamp.atZone(ZoneId.systemDefault()));
 
         try (MockedStatic<Factory> factory = mockStatic(Factory.class);
@@ -666,6 +712,313 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
             verify(measurementDao, never()).persist(any(Measurement.class));
         }
 
+    }
+
+    /** The extension rows the last filing wrote. */
+    @SuppressWarnings("unchecked")
+    private List<MeasurementsExt> filedExtensions() {
+        ArgumentCaptor<List<MeasurementsExt>> rows = ArgumentCaptor.forClass(List.class);
+        verify((MeasurementsExtDao) mockedBeans.get(MeasurementsExtDao.class)).batchPersistAtomically(rows.capture(), anyInt());
+        return rows.getValue();
+    }
+
+    private static boolean isTextMarker(MeasurementsExt row) {
+        return MeasurementsExt.VALUE_TYPE_KEY.equals(row.getKeyVal()) && MeasurementsExt.TEXT_VALUE_TYPE.equals(row.getVal());
+    }
+
+    /**
+     * #6122: a final or corrected result the filter does not match ({@code Pending}, {@code Not detected}) was not
+     * filed, so the cumulative grid and the value history showed nothing for it. It is now filed whole, marked as text.
+     */
+    @Nested
+    @DisplayName("a final result the shipped filter does not match")
+    class FinalTextResults {
+
+        private static final LocalDateTime ENTERED = LocalDateTime.parse("2026-10-13T10:05:19");
+        private static final String OBSERVED = "2026-10-09 11:20:29";
+
+        @ParameterizedTest(name = "[{0}] with status {1} is filed as text [{2}]")
+        @CsvSource(delimiter = '|', value = {
+                "Pending                   | F | Pending",
+                "Not detected              | C | Not detected",
+                "Resistant                 | F | Resistant",
+                // Labs send the code in lower case, and many handlers report a word (#6122 review).
+                "Pending                   | f | Pending",
+                "Not detected              | c | Not detected",
+                "Pending                   | Final | Pending",
+                "Not detected              | Corrected | Not detected",
+                "Not detected              | Edited | Not detected",
+                "' Detected '              | F | Detected",
+                "Detected<br />see comment | F | Detected see comment",
+                "Detected <BR> see comment | F | Detected see comment"})
+        void shouldFileWholeTextAndMarkIt_whenAFinalResultIsNotMatched(String result, String status, String expected)
+                throws IOException {
+            Measurement measurement = fileResult(result, shippedFilter(), OBSERVED, ENTERED, status);
+
+            assertThat(measurement).isNotNull();
+            assertThat(measurement.getDataField()).isEqualTo(expected);
+            assertThat(filedExtensions()).filteredOn(Hl7textResultsDataUnitTest::isTextMarker).hasSize(1);
+        }
+
+        // A status padded with spaces is not final: only the exact token counts, as in CML's handler
+        // and the CDS import (ObxResultStatusUnitTest), so its result stays unfiled as before #6122.
+        @ParameterizedTest(name = "status [{0}] leaves Pending unfiled")
+        @ValueSource(strings = {"P", "I", "X", "D", "U", "Preliminary", "Pending", "Partial", "Changed to Final", "",
+                " F ", "F ", " c", "Final "})
+        void shouldLeaveTheResultUnfiled_whenItIsNotFinal(String status) throws IOException {
+            assertThat(fileResult("Pending", shippedFilter(), OBSERVED, ENTERED, status)).isNull();
+            verify(measurementDao, never()).persist(any(Measurement.class));
+        }
+
+        // HL7_LAB_FILE_TEXT_RESULTS (the operator's switch, #6122): absent or anything but false/no/off files
+        // the word as the PR does; off is exactly the filing from before #6122.
+        @ParameterizedTest(name = "switch [{0}] still files a final word the filter does not match")
+        @ValueSource(strings = {"true", "TRUE", "yes", "on", "", "  ", "banana"})
+        void shouldFileTheWordAsText_whenTheSwitchIsOnOrNotUnderstood(String value) throws IOException {
+            textResultsSwitch = value;
+
+            Measurement measurement = fileResult("Pending", shippedFilter(), OBSERVED, ENTERED, "F");
+
+            assertThat(measurement).isNotNull();
+            assertThat(measurement.getDataField()).isEqualTo("Pending");
+            assertThat(filedExtensions()).filteredOn(Hl7textResultsDataUnitTest::isTextMarker).hasSize(1);
+        }
+
+        @ParameterizedTest(name = "switch [{0}] files no word result")
+        @ValueSource(strings = {"false", "FALSE", "no", "off", " false "})
+        void shouldFileNoWordResult_whenTheSwitchIsOff(String value) throws IOException {
+            textResultsSwitch = value;
+
+            try (LogCapture log = LogCapture.forLogger(Hl7textResultsData.class)) {
+                assertThat(fileResult("FAKE-WORD-RESULT", shippedFilter(), OBSERVED, ENTERED, "F")).isNull();
+                // Nothing is logged about a result at all, let alone its text.
+                assertThat(log.messages()).noneSatisfy(message -> assertThat(message).contains("FAKE-WORD-RESULT"));
+            }
+            verify(measurementDao, never()).persist(any(Measurement.class));
+        }
+
+        @Test
+        void shouldFileTheMatchedValue_whenTheFilterMatchesAndTheSwitchIsOff() throws IOException {
+            textResultsSwitch = "false";
+
+            Measurement measurement = fileResult("Negative", ".*", OBSERVED, ENTERED, "F");
+
+            assertThat(measurement.getDataField()).isEqualTo("Negative");
+            assertThat(filedExtensions()).noneMatch(Hl7textResultsDataUnitTest::isTextMarker);
+        }
+
+        @ParameterizedTest(name = "switch [{0}] still files a word the filter matches")
+        @ValueSource(strings = {"true", "false"})
+        void shouldFileAWordTheFilterMatches_whateverTheSwitchSays(String value) throws IOException {
+            textResultsSwitch = value;
+
+            Measurement measurement = fileResult("Pending", "pending", OBSERVED, ENTERED, "F");
+
+            assertThat(measurement).isNotNull();
+            assertThat(measurement.getDataField()).isEqualTo("Pending");
+            assertThat(filedExtensions()).noneMatch(Hl7textResultsDataUnitTest::isTextMarker);
+        }
+
+        @Test
+        void shouldFileTheMatchedValueWithoutTheMarker_whenTheFilterMatches() throws IOException {
+            Measurement measurement = fileResult("Negative", shippedFilter(), OBSERVED, ENTERED, "F");
+
+            assertThat(measurement.getDataField()).isEqualTo("Negative");
+            assertThat(filedExtensions()).noneMatch(Hl7textResultsDataUnitTest::isTextMarker)
+                    .anyMatch(row -> "olis_status".equals(row.getKeyVal()) && "F".equals(row.getVal()));
+        }
+
+        @Test
+        void shouldFileWholeText_whenItFillsTheDataField() throws IOException {
+            // 255 characters, 247 of them outside the Basic Multilingual Plane: the column counts characters.
+            String longest = "Pending " + "\uD835\uDC00".repeat(Measurement.DATA_FIELD_MAX_LENGTH - 8);
+
+            Measurement measurement = fileResult(longest, shippedFilter(), OBSERVED, ENTERED, "F");
+
+            assertThat(measurement.getDataField()).isEqualTo(longest);
+        }
+
+        @Test
+        void shouldLeaveTextUnfiled_whenOneCharacterLongerThanTheDataField() throws IOException {
+            // 256 characters, 248 of them outside the Basic Multilingual Plane: one more than the column holds.
+            String tooLong = "Pending " + "\uD835\uDC00".repeat(Measurement.DATA_FIELD_MAX_LENGTH - 7);
+
+            assertThat(tooLong.codePointCount(0, tooLong.length())).isEqualTo(Measurement.DATA_FIELD_MAX_LENGTH + 1);
+            assertThat(fileResult(tooLong, shippedFilter(), OBSERVED, ENTERED, "F")).isNull();
+            verify(measurementDao, never()).persist(any(Measurement.class));
+        }
+
+        @Test
+        void shouldLeaveTextUnfiledWithoutLoggingIt_whenLongerThanTheDataField() throws IOException {
+            String tooLong = "FAKE-TEXT-" + "x".repeat(Measurement.DATA_FIELD_MAX_LENGTH);
+
+            try (LogCapture log = LogCapture.forLogger(Hl7textResultsData.class)) {
+                assertThat(fileResult(tooLong, shippedFilter(), OBSERVED, ENTERED, "F")).isNull();
+                // The warning says why and where, and never carries the result itself.
+                assertThat(log.messages()).anySatisfy(message -> assertThat(message)
+                        .contains("longer than a measurement holds", "lab 4616", "OBX 0-0")
+                        .doesNotContain("FAKE-TEXT"));
+            }
+            verify(measurementDao, never()).persist(any(Measurement.class));
+        }
+
+        @Test
+        void shouldLeaveTooLongTextUnfiledWithoutLogging_whenNoPlaceIsGiven() {
+            String tooLong = "FAKE-TEXT-" + "x".repeat(Measurement.DATA_FIELD_MAX_LENGTH);
+
+            try (LogCapture log = LogCapture.forLogger(Hl7textResultsData.class)) {
+                assertThat(Hl7textResultsData.textResultValue(tooLong, "F", null)).isNull();
+                assertThat(log.messages()).isEmpty();
+            }
+        }
+
+        @Test
+        void shouldNormalizeOnlyBreakMarkers_withTheirSurroundingWhitespace() {
+            for (var example : Map.of(
+                    "  Pending \t<br /> \n see report  ", "Pending see report",
+                    "Pending<br><BR/>see report", "Pending  see report",
+                    "Pending\u00a0<br>\u00a0see report", "Pending\u00a0 \u00a0see report",
+                    "Pending<br  />see report", "Pending<br  />see report",
+                    "Pending\u0007<br>see report", "Pending\u0007 see report",
+                    "Pending \t see report", "Pending \t see report").entrySet()) {
+                assertThat(Hl7textResultsData.textResultValue(example.getKey(), "F", null))
+                        .isEqualTo(example.getValue());
+            }
+        }
+
+        @Test
+        void shouldBoundNormalizationTime_whenAnOversizedResultHasLongWhitespaceRuns() {
+            String whitespace = " ".repeat(100_000);
+            org.junit.jupiter.api.Assertions.assertTimeout(Duration.ofSeconds(5), () -> {
+                assertThat(Hl7textResultsData.textResultValue("Pending" + whitespace + "see report", "F", null))
+                        .isNull();
+                assertThat(Hl7textResultsData.textResultValue("Pending" + whitespace + "<br not-a-tag>", "F", null))
+                        .isNull();
+                assertThat(Hl7textResultsData.textResultValue("Pending" + whitespace + "<BR/>" + whitespace + "see report", "F", null))
+                        .isEqualTo("Pending see report");
+            });
+        }
+
+        @Test
+        void shouldReadTheStatusAndText_whenCalledDirectly() {
+            assertThat(Hl7textResultsData.textResultValue("Pending", "F", null)).isEqualTo("Pending");
+            assertThat(Hl7textResultsData.textResultValue("Pending", "C", null)).isEqualTo("Pending");
+            assertThat(Hl7textResultsData.textResultValue("Pending", "Final", null)).isEqualTo("Pending");
+            assertThat(Hl7textResultsData.textResultValue("Pending", "P", null)).isNull();
+            assertThat(Hl7textResultsData.textResultValue("Pending", null, null)).isNull();
+            for (String empty : new String[]{null, "", "   ", "<br />", "DNR"}) {
+                assertThat(Hl7textResultsData.textResultValue(empty, "F", null)).isNull();
+            }
+        }
+    }
+
+    /**
+     * #6122 review: the unit tests above give the filing the status a mock returns. These run real messages
+     * through the real handlers, which report the status in their own words: CML and CLS say {@code Final},
+     * CLS says {@code Corrected} and MDS says {@code Edited} for a correction. The CML message comes from the
+     * Create Lab form's generator, the issue's own repro.
+     */
+    @Nested
+    @DisplayName("a final word result, through the real lab handlers")
+    class ThroughTheLabHandlers {
+
+        private static final String TIME = "20261009112029";
+
+        @ParameterizedTest(name = "Create Lab (CML) status [{0}] is reported as [{1}]; Pending filed: {2}")
+        @CsvSource({"F,Final,true", "f,Final,true", "C,C,true", "c,c,true", "'',Final,true",
+                "I,Pending,false", "P,P,false", "X,X,false"})
+        void shouldFileTheWordResult_whenTheCreateLabReportIsFinal(String stat, String reported, boolean filed)
+                throws Exception {
+            io.github.carlos_emr.carlos.commn.model.LabTest test = new io.github.carlos_emr.carlos.commn.model.LabTest();
+            test.setDate(inDefaultTimeZone(LocalDateTime.parse("2026-10-09T11:20:29")));
+            test.setCodeType("ST");
+            test.setCode("3767");
+            test.setName("Hemoglobin A1C");
+            test.setDescription("FAKE A1C");
+            test.setCodeValue("Pending");
+            test.setStat(stat);
+            io.github.carlos_emr.carlos.commn.model.Lab lab = new io.github.carlos_emr.carlos.commn.model.Lab();
+            lab.setLastName("FAKE-Workflow");
+            lab.setFirstName("Synthetic");
+            lab.setAccession("FAKE-CML-1");
+            lab.setLabReqDate(test.getDate());
+            lab.setTests(List.of(test));
+            io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler handler =
+                    new io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler();
+            handler.init(io.github.carlos_emr.carlos.lab.ca.all.util.CMLLabHL7Generator.generate(lab));
+
+            assertThat(handler.getOBXResultStatus(0, 0)).isEqualTo(reported);
+            // The report's own final count and the filing use one rule.
+            assertThat(handler.getOBXFinalResultCount()).isEqualTo(filed ? 1 : 0);
+            expectFiled(fileThrough(handler), filed);
+        }
+
+        @ParameterizedTest(name = "CLS status [{0}] is reported as [{1}]; Pending filed: {2}")
+        @CsvSource({"F,Final,true", "C,Corrected,true", "c,Corrected,true", "P,Preliminary,false", "I,I,false"})
+        void shouldFileTheWordResult_whenTheClsHandlerSaysFinalOrCorrected(String status, String reported,
+                boolean filed) throws Exception {
+            io.github.carlos_emr.carlos.lab.ca.all.parsers.CLSHandler handler =
+                    new io.github.carlos_emr.carlos.lab.ca.all.parsers.CLSHandler();
+            handler.init(message("CLS", status));
+
+            assertThat(handler.getOBXResultStatus(0, 0)).isEqualTo(reported);
+            expectFiled(fileThrough(handler), filed);
+        }
+
+        @ParameterizedTest(name = "MDS status [{0}] is reported as [{1}]; Pending filed: {2}")
+        @CsvSource({"F,Final,true", "f,Final,true", "C,Edited,true", "U,Changed to Final,false",
+                "P,Preliminary,false", "I,Pending,false"})
+        void shouldFileTheWordResult_whenTheMdsHandlerSaysFinalOrEdited(String status, String reported,
+                boolean filed) throws Exception {
+            io.github.carlos_emr.carlos.lab.ca.all.parsers.MDSHandler handler =
+                    new io.github.carlos_emr.carlos.lab.ca.all.parsers.MDSHandler();
+            handler.init(message("MDS", status));
+
+            assertThat(handler.getOBXResultStatus(0, 0)).isEqualTo(reported);
+            expectFiled(fileThrough(handler), filed);
+        }
+
+        /** A one-result FAKE report: A1C code 3767, result {@code Pending}, the given OBX-11 status. */
+        private String message(String sender, String status) {
+            String[] obr = new String[26], obx = new String[15];
+            java.util.Arrays.fill(obr, "");
+            java.util.Arrays.fill(obx, "");
+            obr[0] = "OBR"; obr[1] = "1"; obr[2] = "FAKE-" + sender; obr[4] = "A1C^FAKE PANEL";
+            obr[7] = TIME; obr[14] = TIME; obr[20] = "FAKE-ACC"; obr[25] = "F";
+            obx[0] = "OBX"; obx[1] = "1"; obx[2] = "ST"; obx[3] = "3767^Hemoglobin A1C^FAKE A1C";
+            obx[5] = "Pending"; obx[11] = status; obx[14] = TIME;
+            String end = "\r";
+            return "MSH|^~\\&|" + sender + "|FAKE-LAB|CARLOS|CLINIC|" + TIME + "||ORU^R01|FAKE-1-2-3|P|2.3" + end
+                    + "PID|1||FAKE-HIN||FAKE-Workflow^Synthetic||19800102|F" + end
+                    + "ORC|RE|FAKE-" + sender + end
+                    + String.join("|", obr) + end + String.join("|", obx) + end;
+        }
+
+        private void expectFiled(Measurement measurement, boolean filed) {
+            if (!filed) {
+                assertThat(measurement).isNull();
+                verify(measurementDao, never()).persist(any(Measurement.class));
+                return;
+            }
+            assertThat(measurement).isNotNull();
+            assertThat(measurement.getDataField()).isEqualTo("Pending");
+            assertThat(filedExtensions()).filteredOn(Hl7textResultsDataUnitTest::isTextMarker).hasSize(1);
+        }
+
+        private Measurement fileThrough(MessageHandler handler) throws IOException {
+            CarlosProperties properties = mock(CarlosProperties.class);
+            when(properties.getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*")).thenReturn(shippedFilter());
+            when(properties.getProperty("MAP_BY_IDENTIFIER_AND_NAME", "false")).thenReturn("false");
+            try (MockedStatic<Factory> factory = mockStatic(Factory.class);
+                 MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class)) {
+                factory.when(() -> Factory.getHandler("4616")).thenReturn(handler);
+                configuration.when(CarlosProperties::getInstance).thenReturn(properties);
+                Hl7textResultsData.populateMeasurementsTable("4616", "42");
+            }
+            ArgumentCaptor<Measurement> measurement = ArgumentCaptor.forClass(Measurement.class);
+            verify(measurementDao, atMost(1)).persist(measurement.capture());
+            return measurement.getAllValues().isEmpty() ? null : measurement.getValue();
+        }
     }
 
     private static String shippedFilter() throws IOException {

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/model/MeasurementsExt.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "90b03964181255227e7114c0e280101e5c1c1ad5"
+  },
+  "evidenceSha256": "9b86936c43330a856a9c52a6c75ab8546bfd2941cf5f8bbc895e558ad7b2acfa"
+}

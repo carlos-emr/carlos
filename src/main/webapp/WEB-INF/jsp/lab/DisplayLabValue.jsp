@@ -103,7 +103,8 @@
          title="fade=[on] header=[<%= SafeEncode.forTooltipText(String.valueOf(hMap.get("result"))) %>] body=[<%= SafeEncode.forTooltipText(String.valueOf(hMap.get("units"))) %> <%= SafeEncode.forTooltipText(String.valueOf(hMap.get("range"))) %>]"
          class="preventionProcedure" id="preventionProcedure<%=""+k+""+ran%>"
          onclick="javascript:popup(660,960,'<carlos:encode value='<%= labDisplayLink %>' context="javaScriptAttribute"/>','labReport')">
-        <p <%=r(hMap.get("abn"))%>><carlos:encode value='<%= String.valueOf(hMap.get("result")) %>' context="html"/>
+        <p <%=r(hMap.get("abn"))%>><carlos:encode value='<%= String.valueOf(hMap.get("result")) %>' context="htmlWithBreakMarkers"/>
+            <% if (CommonLabTestValues.isTextResult(hMap)) { %><span class="badge text-bg-light border" data-carlos-lab-text-result="true"><fmt:message key="lab.measurement.textResult"/></span><% } %>
             &nbsp;&nbsp;&nbsp; <carlos:encode value='<%= java.util.Objects.toString(hMap.get("collDate"), "") %>' context="html"/>
         </p>
     </div>

@@ -904,6 +904,9 @@
         // The plot's axis offset also separates the title from an offset plot.
         const titleOptions = (show, offset = 0) => ({ display: show, text: spec.title || '', color: '#000000', align: 'center',
             font: { family: FONT, size: chartLook.title, weight: 'bold', lineHeight: LINE_HEIGHT }, padding: { top: 2, bottom: 4 + offset } });
+        // A note under the title (#6122), e.g. how many results the chart could not plot. Absent: no subtitle.
+        const noteOptions = () => ({ display: !!spec.note, text: spec.note || '', color: '#000000', align: 'center',
+            font: { family: FONT, size: 12, weight: 'normal', lineHeight: LINE_HEIGHT }, padding: { top: 0, bottom: 4 } });
         const basePadding = { left: 8, right: 8, top: 1, bottom: 1 };
 
         let mainChart = null;
@@ -933,7 +936,7 @@
                     options: { responsive: false, animation: false, devicePixelRatio: 1, scales,
                         layout: { padding: { ...basePadding, right: basePadding.right + (spec.secondAxis ? 0 : AXIS_OFFSET),
                             bottom: (combined ? AXIS_OFFSET : legend.height) } },
-                        plugins: { title: titleOptions(true, AXIS_OFFSET), legend: { display: false }, tooltip: { enabled: false } } } });
+                        plugins: { title: titleOptions(true, AXIS_OFFSET), subtitle: noteOptions(), legend: { display: false }, tooltip: { enabled: false } } } });
                 charts.push(mainChart);
             }
             if (combined) {

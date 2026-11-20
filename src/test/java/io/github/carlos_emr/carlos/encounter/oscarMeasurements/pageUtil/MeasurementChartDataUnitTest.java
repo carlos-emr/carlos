@@ -237,6 +237,23 @@ class MeasurementChartDataUnitTest {
         assertThat((Map<String, Object>) chart.toConfig().get("style")).containsEntry("itemLabels", null);
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldHandleAnUnnamedSeries_andOptionalPointLabels() {
+        var series = new MeasurementChart.Series(null);
+        var collection = new MeasurementChart.SeriesCollection();
+        collection.addSeries(series);
+        var unnamed = MeasurementChart.lines("Synthetic", "Days", "kg", collection).withItemLabels(null).toConfig();
+        assertThat((List<Map<String, Object>>) unnamed.get("datasets")).singleElement()
+                .satisfies(dataset -> assertThat(dataset).containsEntry("label", ""));
+        assertThat((Map<String, Object>) unnamed.get("style")).containsEntry("itemLabels", null);
+
+        series.setKey("Weight");
+        var named = MeasurementChart.lines("Synthetic", "Days", "kg", collection).toConfig();
+        assertThat((List<Map<String, Object>>) named.get("datasets")).singleElement()
+                .satisfies(dataset -> assertThat(dataset).containsEntry("label", "Weight"));
+    }
+
     /** The other lab charts overrode the factory look: wide date margins, a taller range, white plot, shapes, labels. */
     @Test
     @SuppressWarnings("unchecked")

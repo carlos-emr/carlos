@@ -72,11 +72,15 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
+import io.github.carlos_emr.carlos.lab.ca.all.parsers.ObxResultStatus;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 public class Hl7textResultsData {
+
+    /** Property: file final word results the result filter does not match (default on; see {@link #fileTextResults()}). */
+    static final String FILE_TEXT_RESULTS_PROPERTY = "HL7_LAB_FILE_TEXT_RESULTS";
 
     private static Logger logger = MiscUtils.getLogger();
     private static MeasurementsDeletedDao measurementsDeletedDao = (MeasurementsDeletedDao) SpringUtils.getBean(MeasurementsDeletedDao.class);
@@ -118,10 +122,15 @@ public class Hl7textResultsData {
      *
      * @param lab_no the report to file: at upload, the report just received
      * @param demographic_no the patient the report was matched to
+     * @throws IllegalArgumentException if the patient identifier is not a positive integer
      * @throws IllegalStateException if the report cannot be read or is missing from its own chain;
      *                               nothing has been archived when it is thrown
      */
     public static void populateMeasurementsTable(String lab_no, String demographic_no) {
+        Integer patient = ConversionUtils.fromIntString(demographic_no);
+        if (patient <= 0) {
+            throw new IllegalArgumentException("A positive patient number is required to file lab measurements");
+        }
         MessageHandler h = Factory.getHandler(lab_no);
         if (h == null) {
             // Refuse before the previous version's measurements are archived: with nothing
@@ -148,12 +157,11 @@ public class Hl7textResultsData {
         if (!superseded.isEmpty()) {
             // The chain is resolved by accession number alone, so a recycled or colliding accession
             // can put another patient's report in it. Only this patient's values are superseded.
-            Integer patient = patientNumber(demographic_no);
             List<MeasurementsDeleted> measurementsDeletedList = new ArrayList<>();
             List<Measurement> measurementsToRemove = new ArrayList<>();
             for (String previous : superseded) {
                 for (Measurement m : measurementDao.findByValue("lab_no", previous)) {
-                    if (patient != null && m.getDemographicId() != null && !patient.equals(m.getDemographicId())) {
+                    if (!patient.equals(m.getDemographicId())) {
                         continue;
                     }
                     measurementsDeletedList.add(new MeasurementsDeleted(m));
@@ -163,17 +171,7 @@ public class Hl7textResultsData {
             measurementsDeletedDao.batchPersistAtomically(measurementsDeletedList);
             measurementDao.batchRemoveAtomically(measurementsToRemove);
         }
-        fileMeasurements(h, lab_no, demographic_no);
-    }
-
-    /** The matched patient's number, or {@code null} when the caller supplied none that can be compared. */
-    private static Integer patientNumber(String demographicNo) {
-        try {
-            int number = Integer.parseInt(demographicNo == null ? "" : demographicNo.trim());
-            return number > 0 ? number : null;
-        } catch (NumberFormatException notANumber) {
-            return null;
-        }
+        fileMeasurements(h, lab_no, patient);
     }
 
     /**
@@ -183,6 +181,7 @@ public class Hl7textResultsData {
      *
      * @param lab_no any version of the report
      * @param demographic_no the patient the report was matched to
+     * @throws IllegalArgumentException if the patient identifier is not a positive integer
      * @throws IllegalStateException if the report cannot be read; nothing has been archived
      */
     public static void populateCurrentVersionMeasurements(String lab_no, String demographic_no) {
@@ -232,7 +231,7 @@ public class Hl7textResultsData {
     }
 
     /** Files every viewable result of one report as a measurement. */
-    private static void fileMeasurements(MessageHandler h, String lab_no, String demographic_no) {
+    private static void fileMeasurements(MessageHandler h, String lab_no, Integer patient) {
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         Calendar calender = Calendar.getInstance();
         String day = Integer.toString(calender.get(Calendar.DAY_OF_MONTH));
@@ -332,10 +331,16 @@ public class Hl7textResultsData {
 
 
                 String value = projectableValue(result, lab_no, i, j);
+                // A final or corrected result the filter does not match is filed whole, as text (#6122).
+                boolean textResult = false;
+                if (value == null && fileTextResults()) {
+                    value = textResultValue(result, olis_status, "lab " + LogSafe.sanitize(lab_no) + ", OBX " + i + "-" + j);
+                    textResult = value != null;
+                }
                 if (value != null) {
                     Measurement m = new Measurement();
                     m.setType(measType);
-                    m.setDemographicId(Integer.parseInt(demographic_no));
+                    m.setDemographicId(patient);
                     m.setProviderNo("0");
                     m.setDataField(value);
                     m.setMeasuringInstruction(measInst);
@@ -469,6 +474,14 @@ public class Hl7textResultsData {
                     me.setVal(i + "-" + j);
                     measurementsExts.add(me);
 
+                    if (textResult) {
+                        me = new MeasurementsExt();
+                        me.setMeasurementId(mId);
+                        me.setKeyVal(MeasurementsExt.VALUE_TYPE_KEY);
+                        me.setVal(MeasurementsExt.TEXT_VALUE_TYPE);
+                        measurementsExts.add(me);
+                    }
+
                 }
             }
         }
@@ -519,6 +532,68 @@ public class Hl7textResultsData {
             return null;
         }
         return value;
+    }
+
+    /**
+     * The operator's switch for filing final word results the filter does not match (#6122): the property
+     * {@value #FILE_TEXT_RESULTS_PROPERTY}. On unless it is set to {@code false}, {@code no} or {@code off}, so an
+     * install that never sets it, or sets something else, files them. Off keeps exactly the filing from before
+     * #6122: only what {@code HL7_LAB_MEASUREMENT_FILTER} matches becomes a measurement.
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an operator's on/off word in the properties file; not a security or authorization decision. See docs/static-analysis-workflows.md
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE",
+            justification = "Case-insensitive comparison of an operator's on/off word in the properties file; not a security or authorization decision")
+    static boolean fileTextResults() {
+        String configured = CarlosProperties.getInstance().getProperty(FILE_TEXT_RESULTS_PROPERTY, "true");
+        if (configured == null) {
+            return true;
+        }
+        String value = configured.trim();
+        return !(value.equalsIgnoreCase("false") || value.equalsIgnoreCase("no") || value.equalsIgnoreCase("off"));
+    }
+
+    /**
+     * The value a final or corrected result is filed as when {@code HL7_LAB_MEASUREMENT_FILTER} does
+     * not match it (#6122): the lab's own words, whole, each line-break marker ({@code <br />}, in any
+     * case) read as one space.
+     * Such a result ({@code Pending}, {@code Not detected}, {@code Resistant}) was left unfiled
+     * before, so the cumulative grid and the value history showed nothing for it. Final means what
+     * {@link ObxResultStatus#isFinal} says, in the handler's own words ({@code F}, {@code Final},
+     * {@code Corrected}, ...). A result with any other status (preliminary included) stays unfiled,
+     * as does an empty one and one longer than a measurement holds; the full result always stays
+     * in the report.
+     *
+     * @param result the OBX result as the handler reads it
+     * @param status the OBX result status as the handler reports it
+     * @param context where the result is, for the log; never the result itself. May be {@code null}
+     * @return the text to file, marked {@link MeasurementsExt#TEXT_VALUE_TYPE}, or {@code null}
+     */
+    static String textResultValue(String result, String status, String context) {
+        if (result == null || !ObxResultStatus.isFinal(status)) return null;
+        // Handlers mark line breaks as <br />; a lab may send its own in capitals.
+        // Start at the marker: a leading \\s* makes a failed search rescan every whitespace suffix.
+        Matcher breaks = Pattern.compile("(?i)<br\\s?/?>\\s*").matcher(result);
+        StringBuilder normalized = new StringBuilder();
+        int start = 0;
+        while (breaks.find()) {
+            int end = breaks.start();
+            while (end > start) {
+                char c = result.charAt(end - 1);
+                // Preserve the regex's default ASCII whitespace semantics.
+                if (c != ' ' && (c < '\t' || c > '\r')) break;
+                end--;
+            }
+            normalized.append(result, start, end).append(' ');
+            start = breaks.end();
+        }
+        String text = normalized.append(result, start, result.length()).toString().trim();
+        if (text.isEmpty() || "DNR".equals(text)) return null;
+        int characters = text.codePointCount(0, text.length());
+        if (characters > Measurement.DATA_FIELD_MAX_LENGTH) {
+            if (context != null) logger.warn("A final text result of {} characters is longer than a measurement holds; original remains in the source report ({})", characters, context);
+            return null;
+        }
+        return text;
     }
 
     /** Map a lowercase-shadow boundary without cutting a source character in half. */

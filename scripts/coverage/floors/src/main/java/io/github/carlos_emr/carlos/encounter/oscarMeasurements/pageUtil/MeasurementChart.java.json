@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/pageUtil/MeasurementChart.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 99.33333333333333,
+    "instructions": 99.42196531791907,
+    "branches": 94.44444444444444,
+    "sourceBlob": "09691b31366280a938aa00d1b15d20135f48408b"
+  },
+  "evidenceSha256": "9b86936c43330a856a9c52a6c75ab8546bfd2941cf5f8bbc895e558ad7b2acfa"
+}

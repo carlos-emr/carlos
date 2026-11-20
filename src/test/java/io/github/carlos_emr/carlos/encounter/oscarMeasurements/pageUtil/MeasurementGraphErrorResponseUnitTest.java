@@ -18,6 +18,7 @@ import io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -395,9 +396,41 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
 
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(rendered.get().toConfig()).containsEntry("yLabel", "kg").containsEntry("secondAxis", "cm");
+        assertThat(rendered.get().toConfig()).doesNotContainKey("note");
         assertThat(datasets(rendered.get()))
                 .extracting(dataset -> dataset.get("label"), dataset -> dataset.get("yAxisID"))
                 .containsExactly(tuple("Weight", "y"), tuple("Height", "y2"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"inclRef", "rxincl", "lab", "labRef"})
+    void shouldReportOmittedText_whenAMeasurementChartAlsoHasANumber(String method) throws Exception {
+        request.setParameter("method", method);
+        AtomicReference<MeasurementChart> rendered = new AtomicReference<>();
+        executeChartFrom(type -> List.of(measurement("WT", "Weight", "kg", "Pending"),
+                measurement("WT", "Weight", "kg", "63")), rendered);
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(rendered.get().toConfig()).containsEntry("note",
+                "Results not shown on this chart: 1. Open the full report to see them.");
+        assertThat(datasets(rendered.get())).filteredOn(dataset -> "line".equals(dataset.get("kind")))
+                .singleElement().satisfies(dataset -> assertThat(points(dataset))
+                        .extracting(point -> point.get("y")).containsExactly(63.0));
+    }
+
+    @Test
+    void shouldCountOmittedResultsFromBothAxes_inTheBrowserLanguage() throws Exception {
+        request.setParameter("type2", "HT");
+        request.addHeader("Accept-Language", "fr");
+        request.addPreferredLocale(Locale.FRENCH);
+        AtomicReference<MeasurementChart> rendered = new AtomicReference<>();
+        executeChartFrom(type -> "HT".equals(type)
+                ? List.of(measurement("HT", "Height", "cm", "Not detected"), measurement("HT", "Height", "cm", "170"))
+                : List.of(measurement("WT", "Weight", "kg", "Pending"), measurement("WT", "Weight", "kg", "63")), rendered);
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(rendered.get().toConfig()).containsEntry("note",
+                "Résultats non affichés sur ce graphique : 2. Ouvrez le compte rendu complet pour les voir.");
     }
 
     @Test
@@ -409,6 +442,7 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
                 measurement("BP", "Blood pressure", "mmHg", "")), rendered);
 
         assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(rendered.get().toConfig()).doesNotContainKey("note");
         assertThat(datasets(rendered.get())).filteredOn(dataset -> "line".equals(dataset.get("kind")))
                 .extracting(dataset -> dataset.get("label"), dataset -> points(dataset).getFirst().get("y"))
                 .containsExactly(tuple("Diastolic", 80.0), tuple("Systolic", 120.0));
@@ -668,6 +702,28 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
     }
 
     private MeasurementChart executeLabChart(Map<String, Serializable> value) throws Exception {
+        return executeLabChart(List.of(value));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldReportTextResultsOmittedFromTheLabPlot_withOrWithoutMedications(boolean withMedications) throws Exception {
+        if (withMedications) {
+            request.setParameter("drug", new String[0]);
+        }
+        Map<String, Serializable> numeric = labValue("");
+        Map<String, Serializable> text = new java.util.HashMap<>(numeric);
+        text.put("result", "Resistant");
+        MeasurementChart chart = executeLabChart(List.of(text, numeric));
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(chart.toConfig()).containsEntry("note",
+                "Results not shown on this chart: 1. Open the full report to see them.");
+        assertThat(datasets(chart)).singleElement().satisfies(dataset -> assertThat(points(dataset))
+                .extracting(point -> point.get("y")).containsExactly(4.2));
+    }
+
+    private MeasurementChart executeLabChart(List<Map<String, Serializable>> values) throws Exception {
         request.setParameter("method", "actualLab");
         request.setParameter("labType", "CML");
         request.setParameter("identifier", "synthetic-code");
@@ -675,7 +731,7 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
         AtomicReference<MeasurementChart> rendered = new AtomicReference<>();
         try (var labs = mockStatic(CommonLabTestValues.class)) {
             labs.when(() -> CommonLabTestValues.findValuesForTest("CML", 101, "Synthetic potassium", "synthetic-code"))
-                    .thenReturn(new ArrayList<>(List.of(value)));
+                    .thenReturn(new ArrayList<>(values));
             executeMeasurementChart(null, rendered);
         }
         return rendered.get();
