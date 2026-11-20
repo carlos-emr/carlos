@@ -179,9 +179,9 @@ public class WLWaitingListUtil {
         Integer patientId = ConversionUtils.fromIntString(demographicNo);
         // A locking read sees the committed current rows even when the REST transaction
         // established a repeatable-read snapshot before waiting for the patient lock.
+        List<WaitingList> lockedEntries = currentEntryRequired ? dao.findByWaitingListIdForUpdate(listId) : List.of();
         List<WaitingList> waitingLists = currentEntryRequired
-                ? dao.findByWaitingListIdForUpdate(listId).stream()
-                        .filter(entry -> patientId.equals(entry.getDemographicNo())).toList()
+                ? lockedEntries.stream().filter(entry -> patientId.equals(entry.getDemographicNo())).toList()
                 : dao.findByWaitingListIdAndDemographicId(listId, patientId);
         // Not on this list: the patient edit form relies on this being a no-op (it then offers the
         // add), so it stays one, but it is reported, because a caller that was asked to save this
@@ -189,7 +189,7 @@ public class WLWaitingListUtil {
         if (waitingLists.isEmpty()) return false;
         WaitingList previous = waitingLists.getLast();
 
-        // set all previous records 'is_history' fielf to 'N' --> to keep as record but never display
+        // Keep the replaced entries as history.
         for (WaitingList wl : waitingLists) {
             wl.setHistory(true);
             dao.merge(wl);
@@ -200,7 +200,8 @@ public class WLWaitingListUtil {
         wl.setDemographicNo(patientId);
         wl.setNote(waitingListNote);
         wl.setPosition(previous.getPosition());
-        if (onListSince == null || onListSince.length() <= 0) {
+        boolean dateOmitted = onListSince == null || onListSince.isEmpty();
+        if (dateOmitted) {
             // A note edit must keep the locked row's start date, which drives list ordering.
             wl.setOnListSince(currentEntryRequired ? previous.getOnListSince() : new Date());
         } else {
@@ -210,8 +211,14 @@ public class WLWaitingListUtil {
 
         dao.saveEntity(wl);
 
-        // update the waiting list positions
-        if (currentEntryRequired) {
+        if (currentEntryRequired && dateOmitted) {
+            // Replace the old row in the locked order so its new ID never breaks a tie.
+            List<WaitingList> ordered = lockedEntries.stream()
+                    .map(entry -> entry == previous ? wl : entry)
+                    .filter(entry -> WaitingList.IS_HISTORY_NO.equals(entry.getIsHistory()))
+                    .toList();
+            repositionEntries(dao, ordered);
+        } else if (currentEntryRequired) {
             repositionEntries(dao, dao.findByWaitingListIdForUpdate(listId));
         } else {
             repositionEntries(waitingListID);

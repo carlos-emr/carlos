@@ -531,17 +531,24 @@ class DemographicUpdateDaoTransactionIntegrationTest {
     @DisplayName("should preserve the stored start date and both positions when REST edits a waiting-list note")
     void shouldPreserveStartDateAndPositions_whenRestEditsWaitingListNote() {
         assertNoteEditKeepsWaitingListOrder(Timestamp.valueOf("2020-05-12 12:00:00"),
-                Timestamp.valueOf("2021-07-15 12:00:00"));
+                Timestamp.valueOf("2021-07-15 12:00:00"), 2);
     }
 
     @Test
     @DisplayName("should preserve the order of waiting-list entries with identical start dates after a note edit")
     void shouldPreserveWaitingListOrder_whenStartDatesMatch() {
         Timestamp start = Timestamp.valueOf("2020-05-12 12:00:00");
-        assertNoteEditKeepsWaitingListOrder(start, start);
+        assertNoteEditKeepsWaitingListOrder(start, start, 2);
     }
 
-    private void assertNoteEditKeepsWaitingListOrder(Timestamp originalStart, Timestamp secondStart) {
+    @Test
+    @DisplayName("should preserve the waiting-list rank when both the dates and stored positions are equal")
+    void shouldPreserveWaitingListRank_whenDatesAndPositionsMatch() {
+        Timestamp start = Timestamp.valueOf("2020-05-12 12:00:00");
+        assertNoteEditKeepsWaitingListOrder(start, start, 1);
+    }
+
+    private void assertNoteEditKeepsWaitingListOrder(Timestamp originalStart, Timestamp secondStart, int secondPosition) {
         jdbc.update("UPDATE waitingList SET onListSince=? WHERE listID=? AND demographic_no=?",
                 originalStart, waitingListId, patientId);
         int secondPatientId = new TransactionTemplate(transactions).execute(status -> {
@@ -551,7 +558,7 @@ class DemographicUpdateDaoTransactionIntegrationTest {
             entry.setListId(waitingListId);
             entry.setDemographicNo(nextPatient.getDemographicNo());
             entry.setNote("Second patient note");
-            entry.setPosition(2);
+            entry.setPosition(secondPosition);
             entry.setOnListSince(secondStart);
             entry.setHistory(false);
             em.persist(entry);

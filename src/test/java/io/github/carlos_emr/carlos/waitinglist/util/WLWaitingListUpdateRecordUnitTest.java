@@ -163,8 +163,10 @@ class WLWaitingListUpdateRecordUnitTest extends CarlosUnitTestBase {
         @DisplayName("should record the note and report it when the patient is on the list, whatever history precedes")
         void shouldRecordTheNoteAndReportIt_whenACurrentEntryFollowsHistory() {
             WaitingListDao dao = createAndRegisterMock(WaitingListDao.class);
-            WaitingList current = entry(3, false);
-            when(dao.findByWaitingListIdForUpdate(7)).thenReturn(List.of(current), List.of());
+            WaitingList preceding = entry(1, false);
+            preceding.setDemographicNo(102);
+            WaitingList current = entry(2, false);
+            when(dao.findByWaitingListIdForUpdate(7)).thenReturn(List.of(preceding, current));
 
             assertThat(WLWaitingListUtil.updateCurrentWaitingListRecord("7", "FAKE note", "101", null)).isTrue();
 
@@ -172,7 +174,7 @@ class WLWaitingListUpdateRecordUnitTest extends CarlosUnitTestBase {
             ArgumentCaptor<WaitingList> saved = ArgumentCaptor.forClass(WaitingList.class);
             verify(dao).saveEntity(saved.capture());
             assertThat(saved.getValue().getNote()).isEqualTo("FAKE note");
-            assertThat(saved.getValue().getPosition()).isEqualTo(3L);
+            assertThat(saved.getValue().getPosition()).isEqualTo(2L);
             assertThat(saved.getValue().getIsHistory()).isEqualTo("N");
         }
 
@@ -182,7 +184,7 @@ class WLWaitingListUpdateRecordUnitTest extends CarlosUnitTestBase {
             WaitingListDao dao = createAndRegisterMock(WaitingListDao.class);
             WaitingList current = entry(3, false);
             current.setOnListSince(JOINED);
-            when(dao.findByWaitingListIdForUpdate(7)).thenReturn(List.of(current), List.of());
+            when(dao.findByWaitingListIdForUpdate(7)).thenReturn(List.of(current));
 
             WLWaitingListUtil.updateCurrentWaitingListRecord("7", "FAKE note", "101", null);
 
