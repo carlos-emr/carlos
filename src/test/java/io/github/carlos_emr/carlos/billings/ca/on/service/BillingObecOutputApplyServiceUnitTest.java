@@ -216,8 +216,14 @@ class BillingObecOutputApplyServiceUnitTest {
 
         service.applyOutputSpec(loggedInInfo, List.of(row));
 
-        assertThat(d.getVer()).isEqualTo("##");
-        verify(demographicManager).updateDemographic(eq(loggedInInfo), eq(d));
+        // The manager is given a copy that carries the marker. The stored row keeps its version code
+        // until the manager has archived it: changed in place, the archive recorded "##".
+        var saved = org.mockito.ArgumentCaptor.forClass(Demographic.class);
+        verify(demographicManager).updateDemographic(eq(loggedInInfo), saved.capture());
+        assertThat(saved.getValue()).isNotSameAs(d);
+        assertThat(saved.getValue().getDemographicNo()).isEqualTo(101);
+        assertThat(saved.getValue().getVer()).isEqualTo("##");
+        assertThat(d.getVer()).isEqualTo("AB");
 
         assertThat(cust.getAlert())
                 .contains("existing-alert")
@@ -289,7 +295,7 @@ class BillingObecOutputApplyServiceUnitTest {
             String message = "Invalid old version code: ZZ\nReason: Expired card- Renew card\nResponse Code: 60";
             assertThat(cust.getAlert()).isEqualTo(existing == null || existing.isEmpty() ? message : existing + "\n" + message);
             assertThat(result.appliedCount()).isEqualTo(1);
-            assertThat(patient.getVer()).isEqualTo("##");
+            assertThat(patient.getVer()).as("the stored row is left for the manager to archive").isEqualTo("ZZ");
         }
     }
 
@@ -302,6 +308,16 @@ class BillingObecOutputApplyServiceUnitTest {
     private static int formLength(String existing) {
         String alert = existing + "\r\n" + MESSAGE.replace("\n", "\r\n");
         return alert.codePointCount(0, alert.length());
+    }
+
+    /**
+     * The version code the apply asked the manager to store. The apply updates from a copy, so that
+     * the manager archives the stored row with the code being invalidated (#5298).
+     */
+    private String versionSentToTheManager() {
+        var saved = org.mockito.ArgumentCaptor.forClass(Demographic.class);
+        verify(demographicManager).updateDemographic(eq(loggedInInfo), saved.capture());
+        return saved.getValue().getVer();
     }
 
     private BillingObecOutputApplyService.ApplyResult applyWithAlert(DemographicCust cust, Demographic patient) {
@@ -325,7 +341,8 @@ class BillingObecOutputApplyServiceUnitTest {
         var result = service.applyOutputSpec(loggedInInfo, List.of(record("1234567890", "ZZ", "60")));
 
         assertThat(result.appliedCount()).isEqualTo(1);
-        assertThat(patient.getVer()).isEqualTo("##");
+        assertThat(versionSentToTheManager()).isEqualTo("##");
+        assertThat(patient.getVer()).as("the stored row is left for the manager to archive").isEqualTo("ZZ");
         assertThat(result.reasons()).containsExactly(
                 "Alert not updated for row 1: the patient has no custom-fields record to hold the alert");
         verify(demographicCustDao, never()).merge(any(DemographicCust.class));
@@ -375,7 +392,8 @@ class BillingObecOutputApplyServiceUnitTest {
         // Nothing is cut: the alert keeps its text, and the row's version is still flagged.
         assertThat(cust.getAlert()).isEqualTo(existing);
         verify(demographicCustDao, never()).merge(any(DemographicCust.class));
-        assertThat(patient.getVer()).isEqualTo("##");
+        assertThat(versionSentToTheManager()).isEqualTo("##");
+        assertThat(patient.getVer()).as("the stored row is left for the manager to archive").isEqualTo("ZZ");
         assertThat(result.appliedCount()).isEqualTo(1);
         assertThat(result.reasons()).singleElement().asString()
                 .startsWith("Alert not updated for row 1:")

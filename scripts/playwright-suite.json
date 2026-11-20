@@ -792,6 +792,23 @@
       "notes": "A patient created over REST with extras (demo_cell) has each extension linked to the new demographic_no, whatever number the client sent, and the summary endpoint shows it (#5119); a client-supplied extension id never re-points another patient's extension row; two colliding extras fail the request and leave no patient, admission or extension row because creation is one transaction."
     },
     {
+      "name": "demographic-rest-update-atomicity",
+      "script": "scripts/demographic-rest-update-atomicity-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EXCLUSIVE"
+      ],
+      "fixtures": "The recoverable workflow patient (last name FAKE-PW<hex>, kept by every update) with one demographiccust row, one demo_cell extension and one entry on a waiting list named by the marker, and a second patient (last name FAKE-PW<hex>-V) with one demo_cell extension and, from step 6, an entry on the same list, all inserted by SQL; cleanup deletes the patient's waitingList, demographicExt, demographicExtArchive, demographiccust, demographiccustArchive and demographicArchive rows, the second patient with its extension and waiting-list rows, and the owned waitingListName row, and asserts them gone. The owned waiting-list name is listed clinic-wide (every REST demographic read returns the current list names) while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5298: one PUT /ws/rs/demographics stores the custom fields, the waiting-list entry, the patient and its extensions together, attributes them to the signed-in provider and archives what they replaced, including the previous custom fields (which the update used to overwrite without an archive row); an update whose last extension violates uk_demo_ext_single_value is answered HTTP 409 (DUPLICATE_DEMOGRAPHIC_EXTENSION_KEY) and leaves every one of those records and the update audit unchanged, while the access log still records the failed call; an update that renames the stored extension onto a key the patient already holds, which violates the same index as an UPDATE of an existing row, is answered and rolled back the same way instead of failing at the commit as HTTP 500; and an update in which the stored extension gives up its key and a new extension takes it is stored, because the extensions are written in the order given; an update that sends another patient's extension id is refused (409, DEMOGRAPHIC_EXTENSION_NOT_FOUND) with that patient's row and archive untouched; an update that records a waiting-list note keeps the patient's start date and place on the list, where the replacement entry used to be dated today and renumbered behind a patient who joined later; and an update that names a waiting list the patient was taken off (the application keeps that entry as history), has only a NULL history flag, or has no entry at all, is refused (409, WAITING_LIST_ENTRY_NOT_FOUND) instead of putting the patient back on the list, or saving the patient and dropping the note."
+    },
+    {
       "name": "demographic-edit-update",
       "script": "scripts/demographic-edit-update-playwright-checks.js",
       "tiers": [

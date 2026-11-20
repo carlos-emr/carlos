@@ -39,6 +39,9 @@ class DemographicProviderReassignmentTransactionIntegrationTest extends CarlosTe
         io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator.generateTestDataForModelClass(patient);
         patient.setFirstName("FAKE");patient.setLastName("FAKE-REASSIGN");
         patient.setYearOfBirth("1980");patient.setMonthOfBirth("01");patient.setDateOfBirth("02");
+        // The stored preferred name and the alias are independent columns.
+        patient.setPrefName("FAKE-PREF");
+        patient.setAlias("FAKE-ALIAS");
         Date previousUpdate = Date.from(Instant.parse("2023-01-01T00:00:00Z"));
         Date earlierReportDate = Date.from(Instant.parse("2024-06-15T00:00:00Z"));
         patient.setLastUpdateDate(previousUpdate);
@@ -79,6 +82,10 @@ class DemographicProviderReassignmentTransactionIntegrationTest extends CarlosTe
         assertThat(entityManager.createQuery("select a.value from DemographicExtArchive a where a.demographicNo = :id",String.class)
                 .setParameter("id",id).getResultList()).containsExactly("999998");
         assertThat(saved.getProviderNo()).isEqualTo("999997");
+        assertThat(entityManager.createNativeQuery("select pref_name from demographic where demographic_no = ?1")
+                .setParameter(1, id).getSingleResult()).as("the stored preferred name").isEqualTo("FAKE-PREF");
+        assertThat(entityManager.createNativeQuery("select alias from demographic where demographic_no = ?1")
+                .setParameter(1, id).getSingleResult()).as("the stored alias").isEqualTo("FAKE-ALIAS");
         assertThat(saved.getLastUpdateDate()).isAfter(earlierReportDate);
         assertThat(saved.getRosterTerminationDate()).isNull();
         assertThat(extensions.find(resident.getId()).getValue()).isEqualTo("999997");
