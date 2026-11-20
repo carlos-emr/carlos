@@ -35,17 +35,20 @@ import java.util.Objects;
  * add-form-clinical.jsp and edit-form-clinical.jsp) as one AlertsAndSpecialNeeds occurrence.
  *
  * <p>CDS 5.2 AlertsAndSpecialNeeds/AlertDescription ({@code text1K}, whitespace preserved) is the
- * element that means the same thing; the 255-character column always fits it, and a carriage
- * return is written as a character reference, so the text travels exactly. The CARLOS importer
- * files the occurrence as a Reminders note, with the exact text of the residual when the element
- * could not hold it (CdsHistoryPersister). The occurrence exists only when AlertsAndSpecialNeeds
- * is selected (the alert column is captured only then) and the alert is populated.
+ * element that means the same thing. The alert column holds up to 16,383 characters
+ * ({@code DemographicCust.ALERT_MAX_LENGTH}), so an alert is no longer always short enough: one of
+ * up to {@value #MAXIMUM} characters fits the element, and a carriage return is written as a
+ * character reference, so the text travels exactly; a longer one leaves AlertDescription out and
+ * travels exactly in the occurrence's ResidualInfo (below). The CARLOS importer files the
+ * occurrence as a Reminders note, with the exact text of the residual when the element could not
+ * hold it (CdsHistoryPersister). The occurrence exists only when AlertsAndSpecialNeeds is selected
+ * (the alert column is captured only then) and the alert is populated.
  *
  * <p>No alert holds a chart. A character XML 1.0 cannot carry (a control character pasted into
  * the Alert box) is written as U+FFFD in AlertDescription, one for one, and the stored text
  * travels exactly in the occurrence's own ResidualInfo as {@value #RESIDUAL_NAME} (JSON, {@link
- * CdsExportResidualJson}). Text longer than the element (the column cannot hold it) would leave
- * AlertDescription out and travel in the same residual.
+ * CdsExportResidualJson}). Text longer than the element ({@value #MAXIMUM} characters, which the
+ * column now allows) leaves AlertDescription out and travels in the same residual, whole.
  */
 public final class CdsExportPatientAlertMapper {
     /** Occurrence identity table: one alert per patient, keyed by the patient number. */
