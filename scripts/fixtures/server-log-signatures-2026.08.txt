@@ -92,3 +92,31 @@ ERROR action.EmailCompose2Action (EmailCompose2Action.java:312) @EmailComposeMan
 ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:460) uri=/carlos/ws/rs/__test-error-b7b14930bf56c8b606643af113d2dc35
 ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:349) uri=/carlos/__test-error-b7b14930bf56c8b606643af113d2dc35.jsp @carlostest5794.ErrorSanitizationFaultServlet.doGet :: jakarta.servlet.ServletException
 ERROR utility.DbConnectionFilter (DbConnectionFilter.java:87) @carlostest5794.ErrorSanitizationFaultServlet.doGet :: jakarta.servlet.ServletException
+# Added for #6333: printed by the audit on a fresh Ubuntu 26.04 install of release/2026.08 packages
+# (2026.09.0~snapshot30, Ontario demo data) while each owning check ran alone, after the frame/REST-cause
+# parser fix and the MariaDB statement-failure relabelling.
+ERROR upload.PhsStarHandler (PhsStarHandler.java:103) @Hl7XmlMessageValidator.requireNoDocumentType :: ca.uhn.hl7v2.HL7Exception org.xml.sax.SAXParseException
+ERROR pageUtil.RxWriteScript2Action (RxWriteScript2Action.java:2310) @RxWriteScript2Action.persistStashLocked :: io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2Action$PrescriptionSaveException org.hibernate.exception.GenericJDBCException java.sql.SQLException
+ERROR pageUtil.InsideLabUpload2Action (InsideLabUpload2Action.java:205) @PhsStarHandler.parse :: java.lang.RuntimeException ca.uhn.hl7v2.HL7Exception org.xml.sax.SAXParseException
+ERROR mailbox.Upload2Action (Upload2Action.java:350) @PathValidationUtils.validateStrictFileName :: io.github.carlos_emr.carlos.utility.FileValidationException
+ERROR parsers.Factory (Factory.java:251) @DefaultGenericHandler.init :: java.lang.StringIndexOutOfBoundsException
+ERROR parsers.Factory (Factory.java:242) @CMLHandler.init :: ca.uhn.hl7v2.parser.EncodingNotSupportedException
+ERROR handlers.CMLHandler (CMLHandler.java:97) @MessageUploader.routeReport :: java.lang.Exception
+ERROR handlers.CMLHandler (CMLHandler.java:97) @AbstractDaoImpl.persist :: org.hibernate.exception.GenericJDBCException java.sql.SQLException
+ERROR handlers.CMLHandler (CMLHandler.java:96) @MessageUploader.routeReport :: java.lang.Exception
+ERROR handlers.CMLHandler (CMLHandler.java:96) @AbstractDaoImpl.persist :: org.hibernate.exception.GenericJDBCException java.sql.SQLException
+ERROR documentManager.EDocUtil (EDocUtil.java:1470) @EDocUtil.getPDFPageCount :: java.io.IOException
+ERROR actions.ManageDocument2Action (ManageDocument2Action.java:1011) @ManageDocument2Action.renderPageToCache :: java.io.IOException
+ERROR action.EmailCompose2Action (EmailCompose2Action.java:314) @EmailComposeManager.patientAttachmentIds :: io.github.carlos_emr.carlos.utility.PDFGenerationException
+ERROR reportByTemplate.SQLReporter (SQLReporter.java:273) @LegacyJdbcQuery.validateReportSelectQuery :: java.sql.SQLException
+ERROR pageUtil.RptDownloadCSVServlet (RptDownloadCSVServlet.java:139) @MariaDbCompatibilityDriver$JdbcHandler.invokeNative :: java.sql.SQLSyntaxErrorException
+ERROR eform.EFormUtil (EFormUtil.java:1363)
+ERROR documentManager.IncomingDocUtil (IncomingDocUtil.java:1428) @IncomingDocUtil.extractPageLocked :: java.lang.Exception java.nio.file.FileAlreadyExistsException
+ERROR dao.DemographicPharmacyDaoImpl (DemographicPharmacyDaoImpl.java:181)
+ERROR app.CarlosExceptionMappingInterceptor (CarlosExceptionMappingInterceptor.java:196) @CaseManagementNoteDAOImpl.saveNote :: org.hibernate.exception.GenericJDBCException java.sql.SQLException
+ERROR app.CarlosExceptionMappingInterceptor (CarlosExceptionMappingInterceptor.java:196) @CaseManagementManagerImpl$$SpringCGLIB$$0.saveCppNoteRevision :: org.springframework.orm.jpa.JpaSystemException org.hibernate.exception.GenericJDBCException java.sql.SQLException
+ERROR app.CarlosExceptionMappingInterceptor (CarlosExceptionMappingInterceptor.java:196) @CaseManagementManagerImpl$$SpringCGLIB$$0.saveCompactNoteRevision :: org.springframework.orm.jpa.JpaSystemException org.hibernate.exception.GenericJDBCException java.sql.SQLException
+ERROR actions.ManageDocument2Action (ManageDocument2Action.java:1011) @IncomingDocumentMutationLock.acquire :: java.nio.file.NoSuchFileException
+ERROR actions.DmsInboxManage2Action (DmsInboxManage2Action.java:656) @DmsInboxManage2Action.addNewQueue :: org.springframework.orm.jpa.JpaSystemException org.hibernate.exception.GenericJDBCException java.sql.SQLException
+ERROR actions.AddEditDocument2Action (AddEditDocument2Action.java:311)
+ERROR actions.AddEForm2Action (AddEForm2Action.java:214) @DocumentManagerImpl.moveDocument :: java.lang.RuntimeException

@@ -247,13 +247,16 @@ test('should match each shipped baseline entry against the event it was written 
   // that silently stopped matching (a typo, an escaped space) fails here.
   const lines = [
     '2026-10-08 04:41:40,319 ERROR action.Log (Log.java:73) - CSRF violation: (user:<anonymous>, ip:127.0.0.1, method:POST, error:Required Token is missing from the Request)',
-    '2026-10-08 04:37:51,825 ERROR pageUtil.PrintAppointmentReceipt2Action (PrintAppointmentReceipt2Action.java:173) - user home: /var/lib/carlos-emr',
-    '2026-10-08 04:43:26,812 ERROR dao.DemographicPharmacyDaoImpl (DemographicPharmacyDaoImpl.java:149) - UNKNOWN PHARMACY TO UNLINK',
+    '2026-10-08 04:43:26,812 ERROR dao.DemographicPharmacyDaoImpl (DemographicPharmacyDaoImpl.java:181) - UNKNOWN PHARMACY TO UNLINK',
   ];
   const r = audit(t, lines, { baseline: fs.readFileSync(BASELINE, 'utf8') });
   assert.equal(r.status, 0, r.out);
   assert.doesNotMatch(r.out, /^UNKNOWN /m);
-  assert.equal((r.out.match(/^KNOWN /gm) || []).length, 3, 'each reconstructed event should be its own KNOWN signature');
+  assert.equal((r.out.match(/^KNOWN /gm) || []).length, 2, 'each reconstructed event should be its own KNOWN signature');
+  // PrintAppointmentReceipt2Action no longer logs its debug line at ERROR (finding 138), so no entry explains it.
+  const receipt = audit(t, ['2026-10-08 04:37:51,825 ERROR pageUtil.PrintAppointmentReceipt2Action (PrintAppointmentReceipt2Action.java:173) - user home: /var/lib/carlos-emr'],
+    { baseline: fs.readFileSync(BASELINE, 'utf8') });
+  assert.equal(receipt.status, 1, receipt.out);
 });
 
 test('fixed schedule validation errors are no longer allowlisted as deliberate server failures',t=>{
