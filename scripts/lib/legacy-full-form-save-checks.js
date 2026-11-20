@@ -154,8 +154,27 @@ async function checkLegacyFullFormIsolation(s, { program }) {
     const editor = await withOpenerReload(opener, async () => {
       const opened = context.waitForEvent('page');
       opened.catch(() => {});
-      await opener.evaluate(target => { window.open(target, '_blank'); }, url);
-      const page = await opened;
+      const lockPosts = [];
+      const countLockPost = request => {
+        if (request.method() !== 'POST' || !new URL(request.url()).pathname.endsWith('/CaseManagementEntry')) return;
+        const fields = new URLSearchParams(request.postData() || '');
+        if (fields.get('method') === 'isNoteEdited' && fields.get('demographicNo') === patient
+            && fields.get('noteId') === ids[index]) lockPosts.push(request);
+      };
+      context.on('request', countLockPost);
+      let page;
+      try {
+        await opener.evaluate(target => { window.open(target, '_blank'); }, url);
+        page = await opened;
+        await page.waitForLoadState('load');
+        h.assert(await page.locator(`${NOTE}[readonly]`).inputValue() === original[index]
+          && lockPosts.length === 0, 'Reading the saved note opened it for editing');
+        h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note_lock WHERE demographic_no=${patient}
+          AND note_id=${ids[index]}`) === '0', 'Reading the saved note acquired a lock');
+        await page.locator('#editLegacyNote').click();
+        await page.locator(`${NOTE}:not([readonly])`).waitFor();
+        h.assert(lockPosts.length === 1, 'Choosing Edit did not make exactly one lock request');
+      } finally { context.off('request', countLockPost); }
       await prepareEditor(page, { noteId: ids[index], text: original[index], chartContext, description });
       return page;
     });

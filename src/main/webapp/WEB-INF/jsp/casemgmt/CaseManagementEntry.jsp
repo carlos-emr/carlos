@@ -54,6 +54,7 @@
 <fmt:message var="draftSaveFailedLabel" key="encounter.draftSaveFailed.msg"/>
 <fmt:message var="draftSaveConflictLabel" key="encounter.draftSaveConflict.msg"/>
 <fmt:message var="draftSavedLabel" key="encounter.draftSaved.msg"/>
+<fmt:message var="noteLockLostLabel" key="encounter.noteLockLostError.msg"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 
@@ -194,6 +195,7 @@
         var legacyAutosavePending = false;
         var legacyAutosaveStopped = false;
         var legacyAutosaveSuspended = false;
+        var legacyNoteLockOwned = false;
 
         function showLegacyAutosaveStatus(state, text) {
             var status = document.getElementById('legacyAutosaveStatus');
@@ -217,7 +219,7 @@
 
         function autoSave() {
             clearTimeout(legacyAutosaveTimer);
-            if (legacyAutosavePending || legacyAutosaveStopped) return;
+            if (!legacyNoteLockOwned || legacyAutosavePending || legacyAutosaveStopped) return;
             XMLHttpRequestObject = window.XMLHttpRequest ? new XMLHttpRequest()
                 : window.ActiveXObject ? new ActiveXObject("Microsoft.XMLHTTP") : false;
             if (XMLHttpRequestObject) {
@@ -263,7 +265,7 @@
 
         function setTimer() {
             clearTimeout(legacyAutosaveTimer);
-            if (!legacyAutosaveStopped) legacyAutosaveTimer = setTimeout(autoSave, 60000);
+            if (legacyNoteLockOwned && !legacyAutosaveStopped) legacyAutosaveTimer = setTimeout(autoSave, 60000);
         }
 
         window.addEventListener('pagehide', function () {
@@ -280,8 +282,62 @@
         });
 
         function init() {
-            setTimer();
-            window.opener.location.reload(true);
+            if (window.opener && !window.opener.closed) window.opener.location.reload(true);
+        }
+
+        // The reader can view and copy the note before asking to edit it.
+        function takeNoteLock() {
+            var edit = document.getElementById('editLegacyNote');
+            if (edit.disabled || legacyNoteLockOwned) return;
+            var lockRequest = window.XMLHttpRequest ? new XMLHttpRequest() : null;
+            if (!lockRequest) {
+                alert('${carlos:forJavaScriptBlock(noteLockLostLabel)}');
+                return;
+            }
+            edit.disabled = true;
+            lockRequest.onreadystatechange = function () {
+                if (lockRequest.readyState !== 4) return;
+                var owned = false;
+                if (lockRequest.status === 200) {
+                    try {
+                        owned = JSON.parse(lockRequest.responseText).ownedBySession === true;
+                    } catch (e) {
+                        owned = false;
+                    }
+                }
+                if (!owned) {
+                    edit.disabled = false;
+                    alert('${carlos:forJavaScriptBlock(noteLockLostLabel)}');
+                    return;
+                }
+                legacyNoteLockOwned = true;
+                edit.hidden = true;
+                document.querySelectorAll('#caseManagementEntryForm [data-note-lock-edit]').forEach(function (field) {
+                    field.disabled = false;
+                });
+                var note = document.getElementById('caseNote_note');
+                note.readOnly = false;
+                note.focus();
+                setTimer();
+            };
+            lockRequest.open('POST', '<%=request.getContextPath() %>/CaseManagementEntry', true);
+            lockRequest.timeout = 45000;
+            lockRequest.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            var demographicNo = '${carlos:forJavaScript(param.demographicNo)}';
+            var noteId = '<carlos:encode value='<%= String.valueOf(form.getCaseNote().getId() == null || form.getCaseNote().getId() <= 0 ? 0 : form.getCaseNote().getId()) %>' context="javaScriptBlock"/>';<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+            var chartContext = '<%= SafeEncode.forJavaScript(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>';
+            lockRequest.send((chartContext ? "chartContext=" + encodeURIComponent(chartContext) + "&" : "")
+                + "method=isNoteEdited&demographicNo=" + encodeURIComponent(demographicNo)
+                + "&noteId=" + encodeURIComponent(noteId));
+        }
+
+        function cancelLegacyNote(form) {
+            if (legacyNoteLockOwned) {
+                form.elements['method'].value = 'cancel';
+                return true;
+            }
+            window.close();
+            return false;
         }
 
         function restore() {
@@ -361,10 +417,10 @@
             <tr class="title">
                 <td></td>
                 <td><fmt:message key="casemanagementEntry.Issue"/></td>
-                <td><fmt:message key="casemanagementEntry.Acute"/></td>
-                <td><fmt:message key="casemanagementEntry.Certain"/></td>
-                <td><fmt:message key="casemanagementEntry.Major"/></td>
-                <td><fmt:message key="casemanagementEntry.Resolved"/></td>
+                <td id="note-issue-acute-heading"><fmt:message key="casemanagementEntry.Acute"/></td>
+                <td id="note-issue-certain-heading"><fmt:message key="casemanagementEntry.Certain"/></td>
+                <td id="note-issue-major-heading"><fmt:message key="casemanagementEntry.Major"/></td>
+                <td id="note-issue-resolved-heading"><fmt:message key="casemanagementEntry.Resolved"/></td>
                 <td><fmt:message key="casemanagementEntry.Type"/></td>
                 <td></td>
             </tr>
@@ -382,51 +438,61 @@
         <tr style="background-color: ${counter % 2 == 0 ? '#EEEEFF' : 'white'}; text-align: center;">
             <td>
                 <input type="checkbox" name="${cbb.issue.id > 0 ? 'selectedCaseIssueId' : 'selectedCatalogIssueId'}"
+                       id="note-issue-select-${status.index}"
                        value="<carlos:encode value='${cbb.issue.id > 0 ? cbb.issue.id : cbb.issue.issue_id}' context='htmlAttribute'/>"
                        onchange="setChangeFlag(true);"
-                       ${checkBoxDisabled ? 'disabled' : ''} />
+                       disabled ${checkBoxDisabled ? '' : 'data-note-lock-edit'} />
             </td>
-            <td style="${cbb.issueDisplay.priority eq 'allergy' ? 'background-color: yellow;' : ''}">
-                ${cbb.issueDisplay.description}
+            <td id="note-issue-description-${status.index}"
+                style="${cbb.issueDisplay.priority eq 'allergy' ? 'background-color: yellow;' : ''}">
+                <label for="note-issue-select-${status.index}">${cbb.issueDisplay.description}</label>
             </td>
             <td>
-                <select name="issueCheckList[${status.index}].issueDisplay.acute" ${disabled ? 'disabled' : ''}>
+                <select id="note-issue-acute-${status.index}" name="issueCheckList[${status.index}].issueDisplay.acute"
+                        aria-labelledby="note-issue-acute-heading note-issue-description-${status.index}"
+                        disabled ${disabled ? '' : 'data-note-lock-edit'}>
                     <option value="acute" ${cbb.issueDisplay.acute eq 'acute' ? 'selected' : ''}>acute</option>
                     <option value="chronic" ${cbb.issueDisplay.acute eq 'chronic' ? 'selected' : ''}>chronic</option>
                 </select>
             </td>
             <td>
-                <select name="issueCheckList[${status.index}].issueDisplay.certain" ${disabled ? 'disabled' : ''}>
+                <select id="note-issue-certain-${status.index}" name="issueCheckList[${status.index}].issueDisplay.certain"
+                        aria-labelledby="note-issue-certain-heading note-issue-description-${status.index}"
+                        disabled ${disabled ? '' : 'data-note-lock-edit'}>
                     <option value="certain" ${cbb.issueDisplay.certain eq 'certain' ? 'selected' : ''}>certain</option>
                     <option value="uncertain" ${cbb.issueDisplay.certain eq 'uncertain' ? 'selected' : ''}>uncertain</option>
                 </select>
             </td>
             <td>
-                <select name="issueCheckList[${status.index}].issueDisplay.major" ${disabled ? 'disabled' : ''}>
+                <select id="note-issue-major-${status.index}" name="issueCheckList[${status.index}].issueDisplay.major"
+                        aria-labelledby="note-issue-major-heading note-issue-description-${status.index}"
+                        disabled ${disabled ? '' : 'data-note-lock-edit'}>
                     <option value="major" ${cbb.issueDisplay.major eq 'major' ? 'selected' : ''}>major</option>
                     <option value="not major" ${cbb.issueDisplay.major eq 'not major' ? 'selected' : ''}>not major</option>
                 </select>
             </td>
             <td>
-                <select name="issueCheckList[${status.index}].issueDisplay.resolved" ${disabled ? 'disabled' : ''}>
+                <select id="note-issue-resolved-${status.index}" name="issueCheckList[${status.index}].issueDisplay.resolved"
+                        aria-labelledby="note-issue-resolved-heading note-issue-description-${status.index}"
+                        disabled ${disabled ? '' : 'data-note-lock-edit'}>
                     <option value="resolved" ${cbb.issueDisplay.resolved eq 'resolved' ? 'selected' : ''}>resolved</option>
                     <option value="unresolved" ${cbb.issueDisplay.resolved eq 'unresolved' ? 'selected' : ''}>unresolved</option>
                 </select>
             </td>
             <td>
                 <input type="text" name="issueCheckList[${status.index}].issueDisplay.role" 
-                       value="${cbb.issueDisplay.role}" ${disabled ? 'disabled' : ''} />
+                       value="${cbb.issueDisplay.role}" disabled ${disabled ? '' : 'data-note-lock-edit'} />
             </td>
             <td>
                 <c:if test="${cbb.issueDisplay.location eq 'local'}">
                     <c:if test="${!cbb.used}">
-                        <button type="submit" 
+                        <button type="submit" disabled data-note-lock-edit
                                 onclick="this.form.method.value='issueDelete'; this.form.caseIssueId.value=this.getAttribute('data-case-issue-id');"
                                 data-case-issue-id="<carlos:encode value='${cbb.issue.id}' context='htmlAttribute'/>">
                             Delete
                         </button>
                     </c:if>
-                    <button type="submit" 
+                    <button type="submit" disabled data-note-lock-edit
                             onclick="this.form.method.value='changeDiagnosis'; this.form.caseIssueId.value=this.getAttribute('data-case-issue-id');"
                             data-case-issue-id="<carlos:encode value='${cbb.issue.id}' context='htmlAttribute'/>">
                         Change Issue
@@ -459,10 +525,11 @@
         %>
         <br>
         <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.issues" rights="w">
-            <input type="submit" value="add new issue" onclick="this.form.method.value='addNewIssue';" />
+            <input type="submit" value="add new issue" disabled data-note-lock-edit onclick="this.form.method.value='addNewIssue';" />
         </security:oscarSec>
 
         <p><b><fmt:message key="casemanagementEntry.progressnoteentryview"/> </b></p>
+        <button type="button" id="editLegacyNote" onclick="takeNoteLock()"><fmt:message key="encounter.edit.msgEdit"/></button>
         <%if ("true".equalsIgnoreCase((String) request.getAttribute("change_flag"))) {%>
         <span id="spanMsg" style="color:red"><fmt:message key="casemanagementEntry.notenotsavedyet"/></span>
         <%} else {%>
@@ -484,7 +551,7 @@
                          point, which the server stores as part of the note (#3955). The closing
                          tag follows the value directly: any whitespace between them is textarea
                          content and would be appended to the note on every save. --%>
-                    <textarea name="caseNote_note" id="caseNote_note" cols="60" rows="20" wrap="soft" aria-label="<fmt:message key='encounter.noteBrowser.encounterNote'/>"
+                    <textarea name="caseNote_note" id="caseNote_note" cols="60" rows="20" wrap="soft" readonly aria-label="<fmt:message key='encounter.noteBrowser.encounterNote'/>"
                               onchange="setChangeFlag(true);">${carlos:forHtmlContent(caseManagementEntryForm.caseNote.note)}</textarea>
                 </td>
                 <td class="fieldTitle"></td>
@@ -494,7 +561,7 @@
             <tr>
                 <td class="fieldTitle"><fmt:message key="casemanagementEntry.encountertype"/></td>
                 <td class="fieldValue"><select
-                        name="caseNote.encounter_type" onchange="setChangeFlag(true);">
+                        name="caseNote.encounter_type" disabled data-note-lock-edit onchange="setChangeFlag(true);">
                     <option value="">&nbsp;</option>
                     <option value="face to face encounter with client"><fmt:message key="casemanagementEntry.facetofaceencounterwithclient"/></option>
                     <option value="telephone encounter with client"><fmt:message key="casemanagementEntry.telephoneencounterwithclient"/></option>
@@ -503,13 +570,13 @@
             </tr>
 
             <tr>
-                <td class="fieldTitle"><fmt:message key="casemanagementEntry.Sign"/></td>
-                <td class="fieldValue"><input type="checkbox" name="sign" onchange="setChangeFlag(true);"/></td>
+                <td class="fieldTitle"><label for="note-sign"><fmt:message key="casemanagementEntry.Sign"/></label></td>
+                <td class="fieldValue"><input type="checkbox" id="note-sign" name="sign" disabled data-note-lock-edit onchange="setChangeFlag(true);"/></td>
             </tr>
 
             <tr>
-                <td class="fieldTitle"><fmt:message key="casemanagementEntry.includecheckedissuesinnote"/></td>
-                <td class="fieldValue"><input type="checkbox" name="includeIssue" onchange="setChangeFlag(true);"/></td>
+                <td class="fieldTitle"><label for="note-include-issues"><fmt:message key="casemanagementEntry.includecheckedissuesinnote"/></label></td>
+                <td class="fieldValue"><input type="checkbox" id="note-include-issues" name="includeIssue" disabled data-note-lock-edit onchange="setChangeFlag(true);"/></td>
             </tr>
 
             <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
@@ -523,7 +590,7 @@
 
                             <td class="fieldValue">
                                 ${carlos:forHtml(caseManagementEntryForm.caseNote.billing_code)}
-                                <input type="button" value="add billing"
+                                <input type="button" value="add billing" disabled data-note-lock-edit
                                        onclick="self.open('<carlos:encode value='<%= StringUtils.noNull((String)request.getAttribute("billing_url")) %>' context="javaScriptAttribute"/>','','scrollbars=yes,menubars=no,toolbars=no,resizable=yes');return false;">
                             </td>
                         </tr>
@@ -533,13 +600,13 @@
 
             <tr>
                 <td class="fieldValue" colspan="2">
-                    <input type="submit" value="Save"
+                    <input type="submit" value="Save" disabled data-note-lock-edit
                            onclick="this.form.method.value='save';return validateSave();">
                     <input type="submit"
-                           value="Save and Exit"
+                           value="Save and Exit" disabled data-note-lock-edit
                            onclick="this.form.method.value='saveAndExit';if (validateSave()) {return true;}else return false;">
                     <input type="submit"
-                           value="cancel" onclick="this.form.method.value='cancel';return true;">
+                           value="cancel" onclick="return cancelLegacyNote(this.form);">
                 </td>
 
             </tr>

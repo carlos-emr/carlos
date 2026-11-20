@@ -79,6 +79,8 @@ async function checkLegacyAutosave(s, { patient, chartContext, opener = s.schedu
     await opener.evaluate(target => { window.open(target, '_blank'); }, url);
     editor = await opened;
     await editor.locator(NOTE).waitFor({ state: 'visible' });
+    await editor.locator('#editLegacyNote').click();
+    await editor.locator(`${NOTE}:not([readonly])`).waitFor();
     h.assert(await editor.locator('input[name="chartContext"]').inputValue() === chartContext,
       'Legacy editor lost the originating chart context');
     const status = editor.locator('#legacyAutosaveStatus[role="status"][aria-live="polite"][aria-atomic="true"]');

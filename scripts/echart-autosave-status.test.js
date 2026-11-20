@@ -359,7 +359,7 @@ test('modern acknowledgments accept empty response bytes when the transport has 
   assert.equal(h.status.attributes['data-autosave-state'], 'saved');
 });
 
-function legacy() {
+function legacy(ownsLock = true) {
   const status = statusElement();
   const editor = { value: 'Legacy H&P + clinical text' };
   const requests = [];
@@ -389,8 +389,17 @@ function legacy() {
     .replace(/var demographicNo = [\s\S]+?XMLHttpRequestObject.send\(/,
       "var demographicNo = '101'; var noteId = '0'; var programId = '11'; var chartContext = 'valid'; XMLHttpRequestObject.send(");
   vm.createContext(context); vm.runInContext(renderLabels(source), context);
+  context.legacyNoteLockOwned = ownsLock;
   return { context, status, editor, requests, timers, activeTimers, listeners };
 }
+
+test('opening the classic form for reading neither autosaves nor starts an autosave timer', () => {
+  const h = legacy(false);
+  h.context.setTimer();
+  h.context.autoSave();
+  assert.equal(h.requests.length, 0);
+  assert.equal(h.timers.length, 0);
+});
 
 for (const code of [0, 403, 500]) {
   test(`legacy HTTP ${code} failure is visible and retries once without losing text or scheduling duplicate timers`, () => {

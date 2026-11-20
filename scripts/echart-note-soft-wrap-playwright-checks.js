@@ -523,6 +523,7 @@ async function workflow(session, { legacyOnly = false } = {}) {
       await h.assertNotErrorPage(page, 'classic case-management entry form');
       const editor = page.locator('form textarea[name="caseNote_note"]');
       await editor.first().waitFor({ state: 'visible', timeout: 30000 });
+      h.assert(!await editor.isEditable(), 'The classic note must open for reading');
       // Whitespace between the value and </textarea> used to be textarea content, appended to
       // the note on every save from this form.
       const storedHex = sql.value(`SELECT HEX(note) FROM casemgmt_note WHERE note_id=${first.noteId}
@@ -538,6 +539,7 @@ async function workflow(session, { legacyOnly = false } = {}) {
       });
       h.assert(scope.patient === String(patient) && scope.provider === String(session.provider)
         && scope.name === 'caseManagementEntryForm', 'Classic note form lost its patient/provider scope');
+      await page.locator('#editLegacyNote').click();
       await editor.fill(noteText(tag, 'classic editor'));
       assertSoftWrap(await probeEditor(editor), 'the classic case-management entry editor');
     } finally {
