@@ -22,8 +22,10 @@ package io.github.carlos_emr.carlos.eform.data;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -34,7 +36,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
+import io.github.carlos_emr.carlos.commn.dao.EFormDao;
+import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
+import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
@@ -174,6 +181,62 @@ class EFormSelectValueRestoreUnitTest extends CarlosUnitTestBase {
         String html = "<select name=\"m\" multiple><option selected>a</option><option>b</option></select>";
 
         assertThat(selectedTexts(save(html, "m", "b"), "m")).containsExactly("b");
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldUseTheScalarValue_whenRepeatedValuesAreNullOrEmpty(boolean suppliedEmptyList) {
+        EForm form = formOf("<input name=untouched value=keep>"
+                + "<select name=m multiple><option selected>a</option><option>b</option></select>");
+        Map<String, List<String>> submitted = suppliedEmptyList ? Map.of("m", List.of()) : null;
+
+        form.setValues(list("m"), list("b"), submitted);
+
+        Document saved = Jsoup.parse(form.getFormHtml());
+        assertThat(selectedTexts(saved, "m")).containsExactly("b");
+        assertThat(saved.selectFirst("input[name=untouched]").val()).isEqualTo("keep");
+    }
+
+    @Test
+    void shouldLeaveTheFormUntouched_whenSubmittedNamesAndValuesHaveDifferentLengths() {
+        EForm form = formOf(VALUELESS);
+        String before = form.getFormHtml();
+
+        form.setValues(list("s"), list());
+
+        assertThat(form.getFormHtml()).isEqualTo(before);
+    }
+
+    @Test
+    void shouldSaveAllSelectedValues_forLoadedTemplatesAndReopenedRevisions() {
+        String html = formOf("<select name=\"m\" multiple><option selected>a</option>"
+                + "<option>b</option><option>c</option></select>").getFormHtml();
+        var template = mock(io.github.carlos_emr.carlos.commn.model.EForm.class);
+        when(template.getId()).thenReturn(51);
+        when(template.getFormDate()).thenReturn(new Date(0));
+        when(template.getFormTime()).thenReturn(new Date(0));
+        when(template.getFormHtml()).thenReturn(html);
+        var templates = mock(EFormDao.class);
+        when(templates.find(Integer.valueOf(51))).thenReturn(template);
+        registerMock(EFormDao.class, templates);
+
+        var revision = new EFormData();
+        revision.setFormId(51);
+        revision.setDemographicId(661);
+        revision.setFormDate(new Date(0));
+        revision.setFormData(html);
+        var revisions = mock(EFormDataDao.class);
+        when(revisions.find(Integer.valueOf(83))).thenReturn(revision);
+        registerMock(EFormDataDao.class, revisions);
+
+        for (EForm form : List.of(new EForm("51", "661"), new EForm("51", "661", "995"), new EForm("83"))) {
+            assertThat(form.getFormHtml()).isEqualTo(html);
+            form.setValues(list("m"), list("b"), Map.of("m", List.of("b", "c")));
+
+            assertThat(selectedTexts(Jsoup.parse(form.getFormHtml()), "m"))
+                    .as("template %s, revision %s, provider %s", form.getFid(), form.getFdid(), form.getProviderNo())
+                    .containsExactly("b", "c");
+        }
     }
 
     @Test

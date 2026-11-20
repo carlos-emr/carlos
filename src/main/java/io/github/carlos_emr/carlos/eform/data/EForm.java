@@ -1081,7 +1081,7 @@ public class EForm extends EFormBase {
      * @return boolean true when the template content must be kept
      */
     private boolean keepsFdidMarker(String authored, String submitted) {
-        return submitted.isBlank() && authored != null && authored.contains(fdidMarker);
+        return submitted.isBlank() && authored.contains(fdidMarker);
     }
 
     private StringBuilder putValueUsingDocument(String fieldName, String type, String value) {
@@ -1518,8 +1518,8 @@ public class EForm extends EFormBase {
 
     // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
-    public void setSignatureCode(String contextPath, String userAgent, String demographicNo, String providerId) {
-        String signatureRequestId = DigitalSignatureUtils.generateSignatureRequestId(providerId);
+    public void setSignatureCode(String contextPath, String userAgent, String demographicNo, HttpSession session) {
+        String signatureRequestId = DigitalSignatureUtils.generateSignatureRequestId(session);
         String imageUrl = contextPath + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_preview.name() + "&" + DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY + "=" + signatureRequestId;
         String storedImgUrl = contextPath + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_stored.name() + "&digitalSignatureId=";
 

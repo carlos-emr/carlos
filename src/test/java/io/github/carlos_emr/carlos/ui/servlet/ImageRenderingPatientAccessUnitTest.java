@@ -190,6 +190,17 @@ class ImageRenderingPatientAccessUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldNotSelectTheValidPatient_whenARepeatedPhotoIdentityIsMissing() throws Exception {
+        // A request wrapper may report a repeated value as null; that value names no patient, so
+        // the request must not fall back to the valid one beside it.
+        request.setParameter("clientId", new String[]{"101", null});
+        new ImageRenderingServlet().doGet(request, response);
+        assertThat(response.getStatus()).isEqualTo(404);
+        assertThat(response.getContentAsByteArray()).isEmpty();
+        verifyNoInteractions(images);
+    }
+
+    @Test
     void shouldAcceptEquivalentCanonicalPatientValues_withoutUsingAnyRememberedPatient() throws Exception {
         request.setParameter("clientId", new String[]{"00101", "101"});
         request.getSession().setAttribute("clientId", "202");

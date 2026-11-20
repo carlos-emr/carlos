@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/signature/action/SaveSignatureUpload2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "ed7d4ffc03b7a4e22a1d9db7d8152d3b095ad871"
+  },
+  "evidenceSha256": "8212a478ab7e389f4e71362b12f290838bd329e1b88431ba5b6f5975b2e67dcd"
+}

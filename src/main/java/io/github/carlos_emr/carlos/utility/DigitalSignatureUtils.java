@@ -30,12 +30,24 @@ package io.github.carlos_emr.carlos.utility;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.Serializable;
 import java.nio.file.Path;
+import java.security.SecureRandom;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.HexFormat;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.regex.Pattern;
+
+import jakarta.servlet.http.HttpSession;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.DigitalSignatureDao;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
+import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class DigitalSignatureUtils {
@@ -44,8 +56,151 @@ public class DigitalSignatureUtils {
 
     public static final String SIGNATURE_REQUEST_ID_KEY = "signatureRequestId";
 
-    public static String generateSignatureRequestId(String providerNo) {
-        return (providerNo + System.currentTimeMillis());
+    /** Session attribute holding the signature-pad request ids this login was given. */
+    static final String ISSUED_REQUEST_IDS_ATTRIBUTE = DigitalSignatureUtils.class.getName() + ".issuedRequestIds";
+    private static final String UPLOAD_RECEIPTS_ATTRIBUTE = DigitalSignatureUtils.class.getName() + ".uploadReceipts";
+
+    /** How many request ids one session keeps; the oldest is dropped beyond this. */
+    static final int MAX_ISSUED_REQUEST_IDS = 200;
+
+    private static final Pattern REQUEST_ID_FORMAT = Pattern.compile("[0-9a-f]{32}");
+
+    private static final SecureRandom RANDOM = new SecureRandom();
+
+    // Guards the get-or-create of a session's id set; signature pages are opened rarely.
+    private static final Object ISSUED_IDS_LOCK = new Object();
+
+    /** The already-saved result of an exact capture, scoped to its pad and signature owner. */
+    public record UploadIdentity(String requestId, Integer patientId, String providerNo,
+                                 Integer facilityId, ModuleType module, String imageDigest) implements Serializable {}
+
+    public record UploadLookup(boolean issued, Integer signatureId) {}
+
+    /** Bounded session data for signature uploads whose acknowledgement may have been lost. */
+    public static final class UploadReceipts implements Serializable {
+        private static final long serialVersionUID = 1L;
+
+        private static final class UploadLock implements Serializable {
+            private static final long serialVersionUID = 1L;
+        }
+
+        private final Map<String, UploadLock> locks = new HashMap<>();
+        private final LinkedHashMap<UploadIdentity, Integer> saved = new LinkedHashMap<>();
+
+        /** Serializes writes to a pad's temp file without blocking uploads for other pads. */
+        public synchronized Object lockFor(HttpSession session, String id) {
+            if (locks.size() >= MAX_ISSUED_REQUEST_IDS && !locks.containsKey(id)) {
+                locks.keySet().removeIf(issuedId -> !isIssued(session, issuedId));
+            }
+            return locks.computeIfAbsent(id, _ -> new UploadLock());
+        }
+
+        /** Read validity and the receipt together so expiry cannot look like a new capture. */
+        public synchronized UploadLookup lookup(HttpSession session, UploadIdentity identity) {
+            boolean issued = isIssued(session, identity.requestId());
+            return new UploadLookup(issued, issued ? saved.get(identity) : null);
+        }
+
+        /** Record the committed ID before the action starts writing its HTTP acknowledgement. */
+        public synchronized void remember(HttpSession session, UploadIdentity identity, int id) {
+            if (!isIssued(session, identity.requestId())) return;
+            saved.put(identity, id);
+            if (saved.size() > MAX_ISSUED_REQUEST_IDS) {
+                saved.keySet().removeIf(capture -> !isIssued(session, capture.requestId()));
+                if (saved.size() > MAX_ISSUED_REQUEST_IDS) {
+                    // The oldest pad can no longer promise to replay every capture it saved.
+                    String expiredPad = saved.firstEntry().getKey().requestId();
+                    expireRequestId(session, expiredPad);
+                    saved.keySet().removeIf(capture -> expiredPad.equals(capture.requestId()));
+                }
+            }
+            session.setAttribute(UPLOAD_RECEIPTS_ATTRIBUTE, this);
+        }
+    }
+
+    public static UploadReceipts uploadReceipts(HttpSession session) {
+        synchronized (ISSUED_IDS_LOCK) {
+            if (session.getAttribute(UPLOAD_RECEIPTS_ATTRIBUTE) instanceof UploadReceipts receipts) {
+                return receipts;
+            }
+            UploadReceipts receipts = new UploadReceipts();
+            session.setAttribute(UPLOAD_RECEIPTS_ATTRIBUTE, receipts);
+            return receipts;
+        }
+    }
+
+    /**
+     * Issues a request id for one signature-pad capture and records it in the session.
+     *
+     * <p>The pad writes its capture to {@code signature_<id>.jpg} in {@code java.io.tmpdir}, and the
+     * page that asked for the signature later reads it back by the same id. Only ids issued to this
+     * session are accepted when the capture is uploaded, previewed or saved (see
+     * {@link #isIssued(HttpSession, String)}), so a capture belongs to the page that asked for it.
+     * The id is 32 random lowercase hex characters, which keeps it valid for the pad's alphanumeric
+     * key and the temp file name.</p>
+     *
+     * @param session the logged-in user's session; must not be {@code null}
+     * @return the new request id
+     */
+    public static String generateSignatureRequestId(HttpSession session) {
+        if (session == null) {
+            throw new IllegalArgumentException("A session is required to issue a signature request id");
+        }
+        byte[] bytes = new byte[16];
+        RANDOM.nextBytes(bytes);
+        String requestId = HexFormat.of().formatHex(bytes);
+        synchronized (ISSUED_IDS_LOCK) {
+            LinkedHashSet<String> issued = issuedIds(session);
+            issued.add(requestId);
+            for (Iterator<String> oldest = issued.iterator(); issued.size() > MAX_ISSUED_REQUEST_IDS; ) {
+                oldest.next();
+                oldest.remove();
+            }
+            // Set it again so a replicated or persisted session store sees the change.
+            session.setAttribute(ISSUED_REQUEST_IDS_ATTRIBUTE, issued);
+        }
+        return requestId;
+    }
+
+    /**
+     * Reports whether {@code requestId} was issued to this session by
+     * {@link #generateSignatureRequestId(HttpSession)}.
+     *
+     * @return {@code false} for a {@code null} session or id, or an id in any other format
+     */
+    public static boolean isIssued(HttpSession session, String requestId) {
+        if (session == null || requestId == null || !REQUEST_ID_FORMAT.matcher(requestId).matches()) {
+            return false;
+        }
+        synchronized (ISSUED_IDS_LOCK) {
+            Object issued;
+            try {
+                issued = session.getAttribute(ISSUED_REQUEST_IDS_ATTRIBUTE);
+            } catch (IllegalStateException _) {
+                return false;
+            }
+            return issued instanceof LinkedHashSet<?> ids && ids.contains(requestId);
+        }
+    }
+
+    /** The request ids issued to this session, oldest first; stores an empty set if there is none yet. */
+    @SuppressWarnings("unchecked")
+    private static LinkedHashSet<String> issuedIds(HttpSession session) {
+        Object value = session.getAttribute(ISSUED_REQUEST_IDS_ATTRIBUTE);
+        if (value instanceof LinkedHashSet<?> set) {
+            return (LinkedHashSet<String>) set;
+        }
+        LinkedHashSet<String> issued = new LinkedHashSet<>();
+        session.setAttribute(ISSUED_REQUEST_IDS_ATTRIBUTE, issued);
+        return issued;
+    }
+
+    private static void expireRequestId(HttpSession session, String requestId) {
+        synchronized (ISSUED_IDS_LOCK) {
+            LinkedHashSet<String> issued = issuedIds(session);
+            issued.remove(requestId);
+            session.setAttribute(ISSUED_REQUEST_IDS_ATTRIBUTE, issued);
+        }
     }
 
     public static String getTempFilePath(String signatureRequestId) {
@@ -68,6 +223,10 @@ public class DigitalSignatureUtils {
         DigitalSignature digitalSignature = null;
 
         if (loggedInInfo.getCurrentFacility().isEnableDigitalSignatures()) {
+            if (!isIssued(loggedInInfo.getSession(), signatureRequestId)) {
+                logger.debug("Signature request id was not issued to this session; nothing to store.");
+                return digitalSignature;
+            }
             String filename = DigitalSignatureUtils.getTempFilePath(signatureRequestId);
             if (filename == null || filename.isEmpty()) {
                 return digitalSignature;

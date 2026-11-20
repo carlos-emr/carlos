@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/ui/servlet/ImageRenderingServlet.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 63.63636363636363,
+    "instructions": 60.0,
+    "branches": 100.0,
+    "sourceBlob": "6f2744c65762ab55b907087781689d267cd140b9"
+  },
+  "evidenceSha256": "e641e5465dbcff2fc48af4c9767def6bfde30482dbeda97d62eaf9ae2ef374ab"
+}

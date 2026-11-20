@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/managers/ConsultationSignatureService.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 97.14285714285714,
+    "branches": 91.66666666666667,
+    "sourceBlob": "be23d167276fb6f9486395383b8b6d1f3fbf5ad6"
+  },
+  "evidenceSha256": "8212a478ab7e389f4e71362b12f290838bd329e1b88431ba5b6f5975b2e67dcd"
+}

@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "9368a7faefe77a5233853ef190cdec63792c2551",
+  "comparisonSha256": "923f4cf39f596d53a06c17b59d1eb4af7df19317eaf89eb411773fe00a9e317a",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/eform/data/EForm.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "eb195d319fa5734df5428ac0483c3cd33ff64b18"
+    }
+  },
+  "baselineCommit": "86fc3a76a65f35b3332213ee1e8eba05254c11bf",
+  "baselineSourceTree": "9368a7faefe77a5233853ef190cdec63792c2551",
+  "baselineReportSha256": "b6983df1a6c2826c53e5513e57d8cd33844744d1bdb3a7a79cef9ba1d5d738e3",
+  "baselineLane": "Release merge of EForm signatures, attachment dates, form saves and JSP checks (75 tests)",
+  "baselineTestCounts": {
+    "tests": 75,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "06b30535f811b47527f97025b2848c756396fa18a489933a49a69bafa54844d6",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.eform.EFormJspMigrationRegressionTest",
+    "io.github.carlos_emr.carlos.eform.data.EFormFdidMarkerSaveUnitTest",
+    "io.github.carlos_emr.carlos.eform.data.EFormHiddenAttachmentsUnitTest",
+    "io.github.carlos_emr.carlos.eform.data.EFormSelectValueRestoreUnitTest",
+    "io.github.carlos_emr.carlos.eform.data.EFormSignatureCodeUnitTest",
+    "io.github.carlos_emr.carlos.eform.util.EFormSignatureViewForPdfGenerationServletUnitTest",
+    "io.github.carlos_emr.carlos.signature.action.SaveSignatureUpload2ActionIssuedKeyUnitTest"
+  ]
+}
