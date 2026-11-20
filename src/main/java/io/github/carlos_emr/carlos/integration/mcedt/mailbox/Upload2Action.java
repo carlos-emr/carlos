@@ -407,9 +407,9 @@ public class Upload2Action extends ActionSupport implements UploadedFilesAware {
         File outboxDir = PathValidationUtils.resolveConfiguredDirectory(props.getProperty("ONEDT_OUTBOX", ""), "ONEDT_OUTBOX");
         File file = validatedOutboxFile(this.getFileName(), outboxDir);
         try (FileInputStream fis = new FileInputStream(file)) {
-            byte[] data = new byte[fis.available()];
-            fis.read(data);
-            fis.close();
+            // available() is only an estimate and one read may stop short; an MCEDT upload must
+            // carry the whole outbox file (#3027).
+            byte[] data = fis.readAllBytes();
             result.setContent(data);
         } catch (Exception e) {
             logger.error("Unable to read upload file: {}", LogSafe.exceptionTrace(e));
@@ -432,9 +432,8 @@ public class Upload2Action extends ActionSupport implements UploadedFilesAware {
                 result.setResourceType(resourceTypes.get(i));
                 File file = validatedOutboxFile(fileNames.get(i), outboxDir);
                 try (FileInputStream fis = new FileInputStream(file);) {
-                    byte[] data = new byte[fis.available()];
-                    fis.read(data);
-                    fis.close();
+                    // Whole file, not an available()-sized single read (#3027).
+                    byte[] data = fis.readAllBytes();
                     result.setContent(data);
                     results.add(result);
                 } catch (Exception e) {

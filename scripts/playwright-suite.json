@@ -5668,11 +5668,7 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "notes": "All earlier steps pass on 2026.08.0~alpha19 (the old note that the Key Manager buttons post without the context path is out of date). Last, after a step that asserts the probe service name is free, pinned to app-findings-log.md finding 163: a GET of admin/ViewKeygenCreateKey?name=<service> must be refused by the application (403/405) and add no publicKeys row; createKey.jsp creates the key pair for any request that carries a name, so a cross-site GET registers keys.",
-      "expectedFailure": {
-        "finding": 163,
-        "step": "a GET of Create Key that names a service is refused and registers no key pair"
-      },
+      "notes": "All earlier steps pass on 2026.08.0~alpha19 (the old note that the Key Manager buttons post without the context path is out of date). Last, after a step that asserts the probe service name is free: a GET of admin/ViewKeygenCreateKey?name=<service> must be refused by the application (403/405) and add no publicKeys row. This was app-findings-log.md finding 163, fixed by #6321: ViewKeygenCreateKey2Action answers 405 for a request that names a service unless it is a POST.",
       "fixtures": "Creates and deletes one marker-named ServiceClient through the UI. Seeds one marker publicKeys row with a fresh RSA-2048 pair and links a demo specialist id only on that row. Removes the client, the key, any key the pinned GET probe registers under the marker-get service name and the key's PublicKey read-audit log rows."
     },
     {

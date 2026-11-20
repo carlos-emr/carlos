@@ -951,8 +951,9 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         FileInputStream fin = null;
         try {
             fin = new FileInputStream(file);
-            byte fileContents[] = new byte[(int) file.length()];
-            fin.read(fileContents);
+            // One read(byte[]) may return fewer bytes than the file holds, which stored a
+            // truncated, zero-padded document (#3027); readAllBytes reads to end of file.
+            byte[] fileContents = fin.readAllBytes();
             DocumentStorage docStor = new DocumentStorage();
             docStor.setFileContents(fileContents);
             docStor.setDocumentNo(documentNo);

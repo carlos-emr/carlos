@@ -20,11 +20,13 @@ import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO;
 import io.github.carlos_emr.carlos.commn.dao.CtlDocTypeDao;
 import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.DocumentStorageDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
 import io.github.carlos_emr.carlos.commn.dao.DocumentExtraReviewerDao;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
+import io.github.carlos_emr.carlos.commn.model.DocumentStorage;
 import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
@@ -63,6 +65,7 @@ import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
@@ -92,6 +95,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -233,6 +237,33 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
         if (servletActionContextMock != null) {
             servletActionContextMock.close();
         }
+    }
+
+    @Test
+    @DisplayName("should persist exactly the file bytes when the estimated length is stale")
+    void shouldPersistExactlyTheFileBytes_whenTheLengthEstimateIsStale(
+            @org.junit.jupiter.api.io.TempDir Path directory) throws IOException {
+        byte[] content = {12, 42, -4, 18};
+        Path upload = Files.write(directory.resolve("FAKE-document.bin"), content);
+        File file = new File(upload.toString()) {
+            @Override
+            public long length() {
+                return content.length + 10;
+            }
+        };
+        DocumentStorageDao storageDao = createAndRegisterMock(DocumentStorageDao.class);
+        doAnswer(invocation -> {
+            DocumentStorage stored = invocation.getArgument(0);
+            ReflectionTestUtils.setField(stored, "id", 19);
+            return null;
+        }).when(storageDao).persist(any(DocumentStorage.class));
+
+        assertThat(AddEditDocument2Action.storeDocumentInDatabase(file, 21)).isEqualTo(19);
+
+        var saved = ArgumentCaptor.forClass(DocumentStorage.class);
+        verify(storageDao).persist(saved.capture());
+        assertThat(saved.getValue().getDocumentNo()).isEqualTo(21);
+        assertThat(saved.getValue().getFileContents()).containsExactly(content);
     }
 
     @Test
