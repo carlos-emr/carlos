@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "b11070e4f9bba0ff6c61402b3cbc24f66d3e5ca3",
+  "comparisonSha256": "742269166be61ba73840d0fca6c0b0887db1ab9ee44b960ea04dc1ef91034e49",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/report/data/RptDemographicQueryBuilder.java": {
+      "lines": 97.36842105263158,
+      "instructions": 97.97297297297297,
+      "branches": 79.41176470588235,
+      "sourceBlob": "690b6da539b72fd3e3a96fa8cba77c79396f4da2"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/data/RptDemographicQuery2Builder.java": {
+      "lines": 97.36842105263158,
+      "instructions": 97.97297297297297,
+      "branches": 79.41176470588235,
+      "sourceBlob": "3ef56f8177ebc150258daf347b152bfc4ac295f8"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prevention/reports/PreventionReportUtil.java": {
+      "lines": 85.71428571428571,
+      "instructions": 88.67924528301887,
+      "branches": 95.45454545454545,
+      "sourceBlob": "91ce4d181d6a65f9c10d5ae2aa64a1f290998c02"
+    }
+  },
+  "baselineCommit": "360074742e3bb7c5632db3f9684764101c6c1434",
+  "baselineSourceTree": "b11070e4f9bba0ff6c61402b3cbc24f66d3e5ca3",
+  "baselineReportSha256": "c5ee14da729ae6020074483f8be2d6092057bd72aa17f30ae2db7597736b15cd",
+  "baselineLane": "PR #6326 JDK 25 both report builders, roster history, and deterministic short-stream cases",
+  "baselineTestCounts": {
+    "tests": 30,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "697f3511ebeebbf12ddc9bbd7fc8b96abbf3a2e40787c8eb05bcccf6ada262ce",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.prevention.reports.PreventionReportUtilUnitTest",
+    "io.github.carlos_emr.carlos.report.data.RptDemographicQueryAsOfRosterUnitTest",
+    "io.github.carlos_emr.carlos.utility.IgnoredStreamReadRegressionTest"
+  ]
+}

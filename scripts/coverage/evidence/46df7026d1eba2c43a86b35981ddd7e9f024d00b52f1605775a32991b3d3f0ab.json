@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "7e1f9533813135462ed891a40ebf60611866c27a",
+  "comparisonSha256": "205365b1c49b0d18c11bbbb45e4103add1f965e5304382d84ff171fc3f7ee25f",
+  "baselineCommit": "aaf1bfc4c451b139b9d863587bfe15b1dea6db0f",
+  "baselineSourceTree": "7e1f9533813135462ed891a40ebf60611866c27a",
+  "baselineReportSha256": "0cf65f9a0d88e06f125f5908cf848582f471a2a3bc869b4516b75c1c84fe9f8c",
+  "baselineLane": "Focused Oscar job REST endpoint, security and scheduler unit tests",
+  "baselineTestCounts": {
+    "tests": 38,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "6a44f990043d256286cc34abb52cc7264e5ac8c0ad286b28e83f72019c11aea9",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/OscarJobService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "f40cd0d898874492952391dedf51c90a754825e6"
+    }
+  },
+  "exclusions": {}
+}

@@ -5685,11 +5685,7 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "notes": "All earlier steps pass on 2026.08.0~alpha19 (the old note that the Key Manager buttons post without the context path is out of date). Last, after a step that asserts the probe service name is free, pinned to app-findings-log.md finding 163: a GET of admin/ViewKeygenCreateKey?name=<service> must be refused by the application (403/405) and add no publicKeys row; createKey.jsp creates the key pair for any request that carries a name, so a cross-site GET registers keys.",
-      "expectedFailure": {
-        "finding": 163,
-        "step": "a GET of Create Key that names a service is refused and registers no key pair"
-      },
+      "notes": "All earlier steps pass on 2026.08.0~alpha19 (the old note that the Key Manager buttons post without the context path is out of date). Last, after a step that asserts the probe service name is free: a GET of admin/ViewKeygenCreateKey?name=<service> must be refused by the application (403/405) and add no publicKeys row. This was app-findings-log.md finding 163, fixed by #6321: ViewKeygenCreateKey2Action answers 405 for a request that names a service unless it is a POST.",
       "fixtures": "Creates and deletes one marker-named ServiceClient through the UI. Seeds one marker publicKeys row with a fresh RSA-2048 pair and links a demo specialist id only on that row. Removes the client, the key, any key the pinned GET probe registers under the marker-get service name and the key's PublicKey read-audit log rows."
     },
     {
@@ -14720,8 +14716,8 @@
       "env": [
         "DOCUMENT_DIR"
       ],
-      "notes": "Clicks Reviewed in a stored document's Edit popup after the stored review changed under it (issue #6081): a review another user's Update cleared, a first review another provider made, and a document deleted while the save waits for its row (a second database session holds the row lock, deletes the row and commits). The server decides first versus additional review from the stored row under its lock; the deleted document re-renders the popup with dms.error.documentMissing. SCREENSHOT_DIR receives one evidence screenshot per case.",
-      "fixtures": "Owns a patient and three PDF documents (rows and files); a second active provider from the install is used only as a stored reviewer value. Extra-reviewer rows, documents, links and files are removed."
+      "notes": "Clicks Reviewed in a stored document's Edit popup after the stored review changed under it (issue #6081): a review another user's Update cleared, a first review another provider made, and a document deleted while the save waits for its row (a second database session holds the row lock, deletes the row and commits). The server decides first versus additional review from the stored row under its lock; the deleted document re-renders the popup with dms.error.documentMissing. SCREENSHOT_DIR receives one evidence screenshot per case. Also checks replacement confirmation/cancellation, archival and retirement of prior attestations, and refusal after source bytes change.",
+      "fixtures": "Owns a patient and five PDF documents (rows and files); a second active provider from the install is used only as a stored reviewer value. Extra-reviewer rows, documents, links, replacement uploads and files are removed."
     },
     {
       "name": "document-add-new-type",
@@ -19789,6 +19785,84 @@
       ],
       "notes": "Manual regression for #6018: creates one owned synthetic 17 MiB template, exports it through Manage eForms, removes the source and imports the downloaded ZIP. Verifies exact HTML byte length and SHA-256 without dumping the large value, no patient instances and unchanged unrelated template hashes. The 50 MiB HTML and separate 16 MiB properties/64 MiB aggregate limits also have JVM controls.",
       "fixtures": "One marker-named synthetic template, removed only after verifying its name, file, provider, byte length, digest and lack of patient instances; owned download scratch directory. Requires an exclusive disposable host. It must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "consultation-unavailable-hrm",
+      "script": "scripts/consultation-unavailable-hrm-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "DOCUMENT_DIR"
+      ],
+      "mutates": [
+        "consultationRequests",
+        "consultdocs",
+        "consultationServices",
+        "professionalSpecialists",
+        "HRMDocument",
+        "file:owned-hrm-sources"
+      ],
+      "fixtures": "Owned patient, service, specialist, referral and HRM sources. must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Every owned clinical row and source file is removed; audit records are retained.",
+      "notes": "Ordinary save retains unavailable attachments; GET/CSRF refusal, explicit cancel/confirm removal, existing hidden report retention, preservation of unsaved edits, and old-token replay after reattachment."
+    },
+    {
+      "name": "hrm-version-history",
+      "script": "scripts/hrm-version-history-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "on"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "DOCUMENT_DIR"
+      ],
+      "mutates": [
+        "HRMDocument",
+        "HRMDocumentToDemographic",
+        "HRMDocumentToProvider",
+        "file:owned-hrm-sources",
+        "consultationRequests",
+        "consultationServices",
+        "professionalSpecialists"
+      ],
+      "fixtures": "Owned synthetic patient, HRM documents, patient/provider relationships, XML files and an owned referral/service/specialist; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). All removed; audit records retained.",
+      "notes": "Authenticated native viewer and consultation/eForm picker rendering: validated duplicate group, malformed/deleted/unrelated ID refusal, null dates, deterministic ties, dated version labels and unchanged current selection/default checkboxes. Does not transmit or import reports."
+    },
+    {
+      "name": "inbox-failure-states",
+      "script": "scripts/inbox-failure-states-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "manual": true,
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "DOCUMENT_DIR",
+        "EXCLUSIVE",
+        "CARLOS_DISPOSABLE_VM"
+      ],
+      "mutates": [
+        "document",
+        "ctl_document",
+        "providerLabRouting",
+        "HRMDocument",
+        "file:owned-pdfs"
+      ],
+      "fixtures": "Owned patient, PDF documents, invalid document and routing rows. Deliberately renames HRMDocument briefly and restores it before cleanup; requires a disposable installation and must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Every owned row/file is removed.",
+      "notes": "Visible incomplete-list notice with later valid rows, no fake clinical row, and a real HRM count SQL failure returning HTTP 500 without totals. Verifies recovery after restoring the table. Requires explicit CARLOS_DISPOSABLE_VM=true and EXCLUSIVE=1; never runs from a tier."
     }
   ]
 }

@@ -17,8 +17,8 @@ test('the Reviewed handler does not embed the signed-in provider number', () => 
 function review(reviewer) {
   let submits = 0;
   const dialogs = [];
-  const form = {reviewerId:{value:reviewer}, reviewDoc:{value:'false'}, submit() {submits++;}};
-  const context = vm.createContext({alert:message => dialogs.push(message)});
+  const form = {reviewerId:{value:reviewer}, reviewDoc:{value:'false'}, reportValidity() {return true;}, submit() {submits++;}};
+  const context = vm.createContext({alert:message => dialogs.push(message), submitUpload: () => true});
   vm.runInContext(source, context);
   context.reviewed({form});
   assert.equal(submits, 1);
@@ -33,9 +33,16 @@ for (const value of ['', 'null', '999997']) {
     const form = review(value);
     assert.equal(String(form.reviewDoc.value), 'true');
     assert.equal(form.reviewerId.value, value, 'the rendered reviewer is left as loaded and is not trusted');
-    assert.deepEqual(Object.keys(form).sort(), ['reviewDoc', 'reviewerId', 'submit']);
+    assert.deepEqual(Object.keys(form).sort(), ['reportValidity', 'reviewDoc', 'reviewerId', 'submit']);
   });
 }
 test('the edit form no longer posts client-chosen extra-review fields', () => {
   assert.doesNotMatch(jsp, /name="extraReviewerId"|name="extraReviewDoc"/);
+});
+
+test('canceled validation clears review intent and submits nothing', () => {
+  const form = {reviewDoc:{value:false}, reportValidity() {return true;}, submit() {assert.fail('must not submit');}};
+  const context = vm.createContext({submitUpload: () => false});
+  vm.runInContext(source, context); context.reviewed({form});
+  assert.equal(form.reviewDoc.value, false);
 });
