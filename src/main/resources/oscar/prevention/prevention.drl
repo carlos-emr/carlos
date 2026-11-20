@@ -103,7 +103,12 @@
 //     (one dose)" when dated in their age range, and restarts the 10-year Td clock, except a refused or
 //     "ineligible" Tdap, which "Td 1" and "Td 2" leave out so that dismissing the adult Tdap does not silence an
 //     overdue Td.
-//   - Rotavirus: a refused record still counts in "Rota 1"/"Rota 2"'s record count.
+//   - Rotavirus "Rota 1" does not remind when a refusal or "ineligible" record is the only record (a decline is not
+//     a first dose due), and "Rota 2"/"Rota 2.1" count doses given, not records: a refusal dated before the one dose
+//     does not hide the second-dose reminder, one dated on or after it does (as for "Rota 3").
+//   - Nothing tests that a rotavirus dose was VALID (given at 6 weeks of age or later, at least 28 days after the
+//     one before): a dose on file counts as given whatever its date, so a clinician decides on a dose that was
+//     given too early.
 //   - A teen of 17 with no booster dose on file gets no Tdap reminder (owner's decision: "Tdap 2" covers 14-16).
 //   - Catch-up primary series for children 7 years and older. Of the guide's catch-up schedule for 7 to 17 (Part 1,
 //     Table 3), only "Tdap ... 10 years after last dose of Tdap-IPV" is modelled, through "Tdap 1".
@@ -446,18 +451,13 @@ rule "Rota 2"
         prev : Prevention()
         // An unknown birth date gives age 0, which would keep the reminder up for good.
         eval( prev.getDOB() != null && prev.getAgeInMonths() < 8 )
-        eval( prev.getNumberOfPreventionType("Rota")
-            + prev.getNumberOfPreventionType("Rota-1")
-            + prev.getNumberOfPreventionType("Rota-5")
-            == 1 )
+        eval( dosesGiven(prev, "Rota") + dosesGiven(prev, "Rota-1") + dosesGiven(prev, "Rota-5") == 1 )
         eval( prev.getNumberOfPreventionType("Rota") == 0 || prev.getCalendarDaysSinceLast("Rota") >= 28 )
         eval( prev.getNumberOfPreventionType("Rota-1") == 0 || prev.getCalendarDaysSinceLast("Rota-1") >= 28 )
         eval( prev.getNumberOfPreventionType("Rota-5") == 0 || prev.getCalendarDaysSinceLast("Rota-5") >= 28 )
         eval( !prev.isPreventionNever("Rota") && !prev.isPreventionNever("Rota-1") && !prev.isPreventionNever("Rota-5") )
-        // The one record is a dose given, not a refusal (1) or "ineligible" (2).
-        eval( prev.getRefusedStatus("Rota") != 1 && prev.getRefusedStatus("Rota") != 2 )
-        eval( prev.getRefusedStatus("Rota-1") != 1 && prev.getRefusedStatus("Rota-1") != 2 )
-        eval( prev.getRefusedStatus("Rota-5") != 1 && prev.getRefusedStatus("Rota-5") != 2 )
+        // Not declined since the dose: a refusal (1) or "ineligible" (2) dated on or after it stops the reminder.
+        eval( !rotaDeclinedSinceLastDose(prev) )
         eval( !prev.isNextDateSet("Rota") && !prev.isNextDateSet("Rota-1") && !prev.isNextDateSet("Rota-5") )
     then
         System.out.println("Rota 2");
@@ -469,14 +469,10 @@ rule "Rota 2.1"
         prev : Prevention()
         // An unknown birth date gives age 0, which would keep the reminder up for good.
         eval( prev.getDOB() != null && prev.getAgeInMonths() < 8 )
-        eval( prev.getNumberOfPreventionType("Rota")
-            + prev.getNumberOfPreventionType("Rota-1")
-            + prev.getNumberOfPreventionType("Rota-5")
-            == 1 )
+        eval( dosesGiven(prev, "Rota") + dosesGiven(prev, "Rota-1") + dosesGiven(prev, "Rota-5") == 1 )
         eval( !prev.isPreventionNever("Rota") && !prev.isPreventionNever("Rota-1") && !prev.isPreventionNever("Rota-5") )
-        eval( prev.getRefusedStatus("Rota") != 1 && prev.getRefusedStatus("Rota") != 2 )
-        eval( prev.getRefusedStatus("Rota-1") != 1 && prev.getRefusedStatus("Rota-1") != 2 )
-        eval( prev.getRefusedStatus("Rota-5") != 1 && prev.getRefusedStatus("Rota-5") != 2 )
+        // Not declined since the dose: a refusal (1) or "ineligible" (2) dated on or after it stops the reminder.
+        eval( !rotaDeclinedSinceLastDose(prev) )
         eval( (prev.isNextDateSet("Rota") && prev.isPassedNextDate("Rota"))
             || (prev.isNextDateSet("Rota-1") && prev.isPassedNextDate("Rota-1"))
             || (prev.isNextDateSet("Rota-5") && prev.isPassedNextDate("Rota-5")) )

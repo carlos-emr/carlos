@@ -377,6 +377,111 @@ class PneuCRotaPreventionRulesDroolsUnitTest {
         void shouldNotRemind_whenTheRota1DoseIsMarkedNeverRemind() {
             assertThat(reminders(infantWithOneRotaDose("Rota-1", true, true), NEEDS_SECOND_ROTA)).isZero();
         }
+
+        @Test
+        void shouldRemind_whenARefusalPrecedesTheOneDose() {
+            // Declined at 2 months, accepted later: one dose given, so the second is due; the refusal is not a dose.
+            Prevention prev = infantWithRotaRecords(4,
+                    rotaRecord("Rota-1", 80, true, null), rotaRecord("Rota-1", 45, false, null));
+            assertThat(reminders(prev, NEEDS_SECOND_ROTA)).isEqualTo(1);
+        }
+
+        @Test
+        void shouldRemind_whenARefusalUnderAnotherNamePrecedesTheOneDose() {
+            Prevention prev = infantWithRotaRecords(4,
+                    rotaRecord("Rota", 80, true, null), rotaRecord("Rota-5", 45, false, null));
+            assertThat(reminders(prev, NEEDS_SECOND_ROTA)).isEqualTo(1);
+        }
+
+        @Test
+        void shouldRemind_whenAnIneligibleRecordPrecedesTheOneDose() {
+            Prevention prev = infantWithRotaRecords(4,
+                    rotaIneligibleRecord("Rota-1", 80), rotaRecord("Rota-1", 45, false, null));
+            assertThat(reminders(prev, NEEDS_SECOND_ROTA)).isEqualTo(1);
+        }
+
+        @Test
+        void shouldNotRemind_whenARefusalFollowsTheOneDose() {
+            Prevention prev = infantWithRotaRecords(4,
+                    rotaRecord("Rota-1", 60, false, null), rotaRecord("Rota-1", 10, true, null));
+            assertThat(reminders(prev, NEEDS_SECOND_ROTA)).isZero();
+        }
+
+        @Test
+        void shouldNotRemind_whenARefusalIsDatedTheSameDayAsTheOneDose() {
+            Prevention prev = infantWithRotaRecords(4,
+                    rotaRecord("Rota-1", 45, false, null), rotaRecord("Rota-1", 45, true, null));
+            assertThat(reminders(prev, NEEDS_SECOND_ROTA)).isZero();
+        }
+
+        @Test
+        void shouldNotRemind_whenAnIneligibleRecordUnderAnotherNameFollowsTheOneDose() {
+            Prevention prev = infantWithRotaRecords(4,
+                    rotaRecord("Rota-1", 60, false, null), rotaIneligibleRecord("Rota", 10));
+            assertThat(reminders(prev, NEEDS_SECOND_ROTA)).isZero();
+        }
+
+        @Test
+        void shouldRemindOnceTheNextDateHasPassed_whenARefusalPrecedesTheOneDose() {
+            Prevention prev = infantWithRotaRecords(5,
+                    rotaRecord("Rota-1", 90, true, null), rotaRecord("Rota-1", 60, false, -3));
+            assertThat(reminders(prev, NEEDS_SECOND_ROTA)).isEqualTo(1);
+        }
+
+        @Test
+        void shouldNotRemindBeforeTheNextDate_whenARefusalPrecedesTheOneDose() {
+            Prevention prev = infantWithRotaRecords(5,
+                    rotaRecord("Rota-1", 90, true, null), rotaRecord("Rota-1", 60, false, 14));
+            assertThat(reminders(prev, NEEDS_SECOND_ROTA)).isZero();
+        }
+
+        @Test
+        void shouldNotRemind_whenTwoDosesAreOnFileAndOneRefusalPrecedesThem() {
+            // Two doses given: the second is not due (the third rule decides after a Rot-5 or unknown dose).
+            Prevention prev = infantWithRotaRecords(5,
+                    rotaRecord("Rota-1", 120, true, null), rotaRecord("Rota-1", 90, false, null),
+                    rotaRecord("Rota-1", 40, false, null));
+            assertThat(reminders(prev, NEEDS_SECOND_ROTA)).isZero();
+        }
+    }
+
+    /**
+     * What the rotavirus rules do NOT check, pinned so that a change to it is deliberate (#5048): nothing tests that a
+     * dose on file was valid, that is given at 6 weeks of age or later (Canadian Immunization Guide, Rotavirus
+     * vaccine) and at least 4 weeks after the dose before it. A dose on file counts as given whatever its date. This
+     * is a clinical point left for the owner, not a decision made here.
+     */
+    @Nested
+    @DisplayName("Rotavirus: a dose on file counts whatever its age or interval (not validated)")
+    class DoseValidityIsNotTested {
+
+        @Test
+        void shouldStillCountADoseGivenBeforeSixWeeksOfAge_asTheFirstDose() {
+            // Born 120 days ago, dose at 21 days of age (99 days ago): under the guide's 6-week minimum.
+            // A fresh Prevention for each question: the warnings accumulate on the object the rules run on.
+            Prevention first = new Prevention("F", daysFromToday(-120));
+            first.addPreventionItem(rotaRecord("Rota-1", 99, false, null));
+            assertThat(reminders(first, NEEDS_FIRST_ROTA)).isZero();
+            Prevention second = new Prevention("F", daysFromToday(-120));
+            second.addPreventionItem(rotaRecord("Rota-1", 99, false, null));
+            assertThat(reminders(second, NEEDS_SECOND_ROTA)).isEqualTo(1);
+        }
+
+        @Test
+        void shouldStillCountTwoDosesTenDaysApart_asTwoDoses() {
+            // The second dose, 10 days after the first, is under the 4-week minimum interval.
+            Prevention prev = infantWithRotaRecords(4,
+                    rotaRecord("Rota-1", 60, false, null), rotaRecord("Rota-1", 50, false, null));
+            assertThat(reminders(prev, NEEDS_SECOND_ROTA) + reminders(prev, NEEDS_FIRST_ROTA)).isZero();
+        }
+
+        @Test
+        void shouldStillRemindTheThirdDose_whenTheSecondWasGivenUnderTheMinimumInterval() {
+            // Rot-5 doses 10 days apart: two doses on file, so the third is due 28 days after the second.
+            Prevention prev = infantWithRotaRecords(5,
+                    rotaRecord("Rota-5", 70, false, null), rotaRecord("Rota-5", 60, false, null));
+            assertThat(reminders(prev, NEEDS_THIRD_ROTA)).isEqualTo(1);
+        }
     }
 
     /**
@@ -626,6 +731,17 @@ class PneuCRotaPreventionRulesDroolsUnitTest {
         @Test
         void shouldNotRemind_whenADoseIsOnFile() {
             assertThat(reminders(infantWithRotaRecords(3, rotaRecord("Rota-1", 20, false, null)), NEEDS_FIRST_ROTA)).isZero();
+        }
+
+        @Test
+        void shouldNotRemind_whenTheOnlyRecordIsARefusal() {
+            // A decline is not a first dose due: the refusal stays what stops the reminder.
+            assertThat(reminders(infantWithRotaRecords(3, rotaRecord("Rota-1", 20, true, null)), NEEDS_FIRST_ROTA)).isZero();
+        }
+
+        @Test
+        void shouldNotRemind_whenTheOnlyRecordSaysIneligible() {
+            assertThat(reminders(infantWithRotaRecords(3, rotaIneligibleRecord("Rota-1", 20)), NEEDS_FIRST_ROTA)).isZero();
         }
     }
 }
