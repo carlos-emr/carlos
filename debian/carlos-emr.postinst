@@ -1705,8 +1705,14 @@ OAUTH_ACCESS_DEFAULTS
         # that case, and the renderer waits with them.
         RENDER_PROVISION="${PROVISION_LOCK_HELD}"
         if [ "${RENDER_PROVISION}" = 0 ]; then
-            echo "carlos-emr: NOT provisioning the eForm render browser: another provisioning" >&2
-            echo "carlos-emr: run holds the lock. Once it has finished, run:" >&2
+            if [ "${PROPERTIES_RECOVERY_PENDING:-0}" = 1 ]; then
+                echo "carlos-emr: NOT provisioning the eForm render browser: ${PROPERTIES} may be half written" >&2
+                echo "carlos-emr: (a pending recovery, see above), so this configure changes no configuration." >&2
+                echo "carlos-emr: Once the OSCAR 19 import has finished, run:" >&2
+            else
+                echo "carlos-emr: NOT provisioning the eForm render browser: another provisioning" >&2
+                echo "carlos-emr: run holds the lock. Once it has finished, run:" >&2
+            fi
             echo "carlos-emr:   sudo dpkg-reconfigure carlos-emr" >&2
         fi
         if [ "${RENDER_PROVISION}" = 1 ]; then
@@ -2536,9 +2542,15 @@ if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
         # package, activates it regardless, and it must not restart a unit this
         # configure held back just because that unit is in `failed` state.
         mkdir -p "${RUN_DIR}" 2>/dev/null && : > "${START_VETO}" 2>/dev/null || true
-        echo "carlos-emr: NOT starting the service — the schema is not ready (see above)." >&2
-        echo "carlos-emr: the unit stays enabled; it will start on the next boot or when you" >&2
-        echo "carlos-emr: start it after completing the migration." >&2
+        if [ "${PROPERTIES_RECOVERY_PENDING:-0}" = 1 ]; then
+            echo "carlos-emr: NOT starting the service — ${PROPERTIES} has a pending recovery (see above)." >&2
+            echo "carlos-emr: once the OSCAR 19 import has finished, run: sudo dpkg-reconfigure carlos-emr" >&2
+            echo "carlos-emr: (it recovers the file, finishes this configure and starts the service)." >&2
+        else
+            echo "carlos-emr: NOT starting the service — the schema is not ready (see above)." >&2
+            echo "carlos-emr: the unit stays enabled; it will start on the next boot or when you" >&2
+            echo "carlos-emr: start it after completing the migration." >&2
+        fi
     else
         rm -f "${START_VETO}"
         # restart rather than start when this configure generated a new render
