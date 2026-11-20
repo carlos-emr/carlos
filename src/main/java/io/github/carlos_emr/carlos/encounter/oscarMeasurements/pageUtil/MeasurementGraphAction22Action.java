@@ -39,6 +39,7 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.Measurem
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.MeasurementChart.ReferenceRange;
 import java.io.OutputStream;
 import java.io.Serializable;
+import java.text.MessageFormat;
 import java.text.ParseException;
 import java.util.*;
 
@@ -55,6 +56,7 @@ import io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao;
 import io.github.carlos_emr.carlos.commn.model.MeasurementsExt;
 import io.github.carlos_emr.carlos.demographic.PatientReadAccess;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PatientRecordAccess;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -227,55 +229,69 @@ public class MeasurementGraphAction22Action extends ActionSupport {
 
     private MeasurementChart referenceRangeChart(Integer demographicNo, String typeIdName) {
         List<EctMeasurementsDataBean> measurements = getList(demographicNo, typeIdName);
-        SeriesCollection dataset = measurementSeries(measurements, typeIdName);
+        MeasurementSeries dataset = measurementSeries(measurements, typeIdName);
         // Preserve the legacy high-low chart's title and dataset order.
-        return MeasurementChart.highLow("HighLowChartDemo2", "Time", "Value", dataset,
-                "DREFERENCE RANGE", measurementReferenceRanges(measurements, typeIdName));
+        return MeasurementChart.highLow("HighLowChartDemo2", "Time", "Value", dataset.series(),
+                "DREFERENCE RANGE", measurementReferenceRanges(measurements, typeIdName))
+                .withNote(omittedResultsNote(dataset.omitted()));
     }
 
     private MeasurementChart rxAndLabChart(Integer demographicNo, String typeIdName) {
         List<EctMeasurementsDataBean> measurements = getList(demographicNo, typeIdName);
-        return MeasurementChart.lines("MED + LAB CHART", "Days", measurementUnits(measurements),
-                        measurementSeries(measurements, typeIdName))
+        MeasurementSeries dataset = measurementSeries(measurements, typeIdName);
+        return MeasurementChart.lines("MED + LAB CHART", "Days", measurementUnits(measurements), dataset.series())
                 .withDomainMargins(0.9, 0.9).withRangeUpperMargin(0.2).withPlotBackground(WHITE)
                 .withShapes().withItemLabels(VALUE_DATE_LABEL, "0.00", 8)
-                .withMedications(getDrugDataSet(demographicNo, request.getParameterValues("drug")));
+                .withMedications(getDrugDataSet(demographicNo, request.getParameterValues("drug")))
+                .withNote(omittedResultsNote(dataset.omitted()));
     }
 
     private MeasurementChart labChart(Integer demographicNo, String typeIdName, String chartTitle) {
         List<EctMeasurementsDataBean> measurements = getList(demographicNo, typeIdName);
-        return MeasurementChart.lines(chartTitle, "Days", measurementUnits(measurements),
-                        measurementSeries(measurements, typeIdName))
+        MeasurementSeries dataset = measurementSeries(measurements, typeIdName);
+        return MeasurementChart.lines(chartTitle, "Days", measurementUnits(measurements), dataset.series())
                 .withDomainMargins(0.9, 0.9).withRangeUpperMargin(0.34).withPlotBackground(WHITE)
-                .withShapes().withItemLabels(VALUE_DATE_LABEL, "0.00", 8);
+                .withShapes().withItemLabels(VALUE_DATE_LABEL, "0.00", 8)
+                .withNote(omittedResultsNote(dataset.omitted()));
     }
 
     private MeasurementChart labChartRef(Integer demographicNo, String typeIdName, String chartTitle) {
         List<EctMeasurementsDataBean> measurements = getList(demographicNo, typeIdName);
-        return MeasurementChart.lines(chartTitle, "Days", measurementUnits(measurements),
-                        measurementSeries(measurements, typeIdName))
+        MeasurementSeries dataset = measurementSeries(measurements, typeIdName);
+        return MeasurementChart.lines(chartTitle, "Days", measurementUnits(measurements), dataset.series())
                 .withDomainMargins(0.9, 0.9).withRangeUpperMargin(0.34).withPlotBackground(WHITE)
                 .withShapes().withItemLabels(VALUE_DATE_LABEL, "0.00", 12)
-                .withGreenReferenceRanges("Reference Range", measurementReferenceRanges(measurements, typeIdName));
+                .withGreenReferenceRanges("Reference Range", measurementReferenceRanges(measurements, typeIdName))
+                .withNote(omittedResultsNote(dataset.omitted()));
     }
 
     MeasurementChart defaultChart(Integer demographicNo, String typeIdName, String typeIdName2, String chartTitle) {
         List<EctMeasurementsDataBean> measurements = getList(demographicNo, typeIdName);
-        MeasurementChart chart = MeasurementChart.lines(chartTitle, "Days", measurementUnits(measurements),
-                measurementSeries(measurements, typeIdName));
+        MeasurementSeries primary = measurementSeries(measurements, typeIdName);
+        MeasurementChart chart = MeasurementChart.lines(chartTitle, "Days", measurementUnits(measurements), primary.series());
+        int omitted = primary.omitted();
         if (typeIdName2 != null) {
             List<EctMeasurementsDataBean> secondary = getList(demographicNo, typeIdName2);
             // The legacy secondary axis is a single numeric series, including for a BP request.
-            chart.withSecondAxis(measurementUnits(secondary), numericMeasurementSeries(secondary));
+            MeasurementSeries secondarySeries = numericMeasurementSeries(secondary);
+            chart.withSecondAxis(measurementUnits(secondary), secondarySeries.series());
+            omitted += secondarySeries.omitted();
         }
-        return chart;
+        return chart.withNote(omittedResultsNote(omitted));
+    }
+
+    private String omittedResultsNote(int omitted) {
+        return omitted == 0 ? null : MessageFormat.format(
+                LocaleUtils.getMessage(request, "lab.graph.resultsNotShown"), Integer.toString(omitted));
     }
 
     private static String measurementUnits(List<EctMeasurementsDataBean> measurements) {
         return measurements.isEmpty() ? "" : measurements.getFirst().getTypeDescription();
     }
 
-    private static SeriesCollection measurementSeries(List<EctMeasurementsDataBean> measurements, String typeIdName) {
+    private record MeasurementSeries(SeriesCollection series, int omitted) { }
+
+    private static MeasurementSeries measurementSeries(List<EctMeasurementsDataBean> measurements, String typeIdName) {
         if (!"BP".equals(typeIdName)) {
             return numericMeasurementSeries(measurements);
         }
@@ -301,7 +317,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         SeriesCollection dataset = new SeriesCollection();
         dataset.addSeries(diastolic);
         dataset.addSeries(systolic);
-        return dataset;
+        return new MeasurementSeries(dataset, 0);
     }
 
     /** The name the graph window shows for a measurement's type: its display name, else its code. */
@@ -327,20 +343,23 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         return observed;
     }
 
-    private static SeriesCollection numericMeasurementSeries(List<EctMeasurementsDataBean> measurements) {
+    private static MeasurementSeries numericMeasurementSeries(List<EctMeasurementsDataBean> measurements) {
         SeriesCollection dataset = new SeriesCollection();
         if (measurements.isEmpty()) {
-            return dataset;
+            return new MeasurementSeries(dataset, 0);
         }
         Series series = new Series(measurements.getFirst().getTypeDisplayName());
+        int omitted = 0;
         for (EctMeasurementsDataBean measurement : measurements) {
             String result = numericResult(measurement.getDataField());
-            if (result != null) {
+            if (result == null) {
+                omitted++;
+            } else {
                 series.addOrUpdate(observedDay(measurement), plottedValue(measurement.getType(), result));
             }
         }
         dataset.addSeries(series);
-        return dataset;
+        return new MeasurementSeries(dataset, omitted);
     }
 
     /**
@@ -499,7 +518,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
     }
 
     /** {@code labelBand}: the former lab-only chart chose item labels by tens of points, the lab-plus-medication chart by sixes. */
-    private static MeasurementChart actualLabChart(List<Map<String, Serializable>> values, String fallbackName,
+    private MeasurementChart actualLabChart(List<Map<String, Serializable>> values, String fallbackName,
                                                    String chartTitle, int labelBand) throws ParseException {
         String units = "type Y";
         String name = "Lab Value";
@@ -512,8 +531,15 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         }
         Series series = new Series(name);
         List<ReferenceRange> ranges = new ArrayList<>();
+        int omitted = 0;
         for (Map<String, Serializable> value : values) {
-            addLabValue(series, value, name);
+            String result = numericResult((String) value.get("result"));
+            Day collectionDate = collectionDay(value, name);
+            if (result == null) {
+                omitted++;
+            } else if (collectionDate != null) {
+                series.addOrUpdate(collectionDate, Double.parseDouble(result));
+            }
             addLabReferenceRange(ranges, value, name);
         }
         SeriesCollection dataset = new SeriesCollection();
@@ -521,16 +547,8 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         return MeasurementChart.lines(chartTitle, "Days", units, dataset)
                 .withDomainMargins(0.9, 0.9).withRangeUpperMargin(0.34).withPlotBackground(WHITE).withGridlines("#c0c0c0")
                 .withShapes().withItemLabels(MeasurementChart.labItemLabels(series.getItemCount(), labelBand))
-                .withReferenceRanges("Normal Reference Range", ranges);
-    }
-
-    private static void addLabValue(Series series, Map<String, Serializable> value, String testName)
-            throws ParseException {
-        String result = numericResult((String) value.get("result"));
-        Day collectionDate = collectionDay(value, testName);
-        if (result != null && collectionDate != null) {
-            series.addOrUpdate(collectionDate, Double.parseDouble(result));
-        }
+                .withReferenceRanges("Normal Reference Range", ranges)
+                .withNote(omittedResultsNote(omitted));
     }
 
     private static void addLabReferenceRange(List<ReferenceRange> ranges, Map<String, Serializable> value,
