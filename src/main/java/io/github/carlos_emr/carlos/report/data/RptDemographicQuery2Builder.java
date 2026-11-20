@@ -190,7 +190,8 @@ public class RptDemographicQuery2Builder {
         }
         stringBuffer.append(" from demographic d ");
         if (getprovider) {
-            stringBuffer.append(", provider p");
+            stringBuffer.append(historicalRoster ? " left join provider p" : " inner join provider p");
+            stringBuffer.append(" on d.provider_no = p.provider_no");
         }
         int yStyle = 0;
         try {
@@ -381,13 +382,6 @@ public class RptDemographicQuery2Builder {
         }
 
         //removed roster_status condition in place more complex check below
-
-        if (getprovider) {
-            whereClause();
-            firstClause();
-            stringBuffer.append(" ( d.provider_no = p.provider_no )");
-            theFirstFlag = 1;
-        }
 
         List<Integer> demoIds = frm.getDemographicIds();
         if (!demoIds.isEmpty()) {

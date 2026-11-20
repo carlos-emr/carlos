@@ -20,6 +20,7 @@ import io.github.carlos_emr.carlos.report.pageUtil.RptDemographicReport2Form;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -192,6 +193,43 @@ class RptDemographicQueryAsOfRosterUnitTest extends CarlosUnitTestBase {
         assertThat(new ArrayList<Object>((List<?>) result.get(0)))
                 .as("the hidden patient number is not part of the returned row")
                 .containsExactly("FAKE-KEPT");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("builders")
+    @DisplayName("should retain a historically rostered patient when the displayed current provider is absent")
+    void shouldRetainHistoricallyRosteredPatient_whenTheDisplayedProviderIsAbsent(
+            String name, BiFunction<RptDemographicReport2Form, String, List<?>> build) {
+        List<Object[]> rows = new ArrayList<>();
+        rows.add(new Object[] {11, null, 11});
+        when(formsDao.runParameterizedNativeQuery(anyString(), anyMap())).thenReturn(rows);
+        rosteredToDrA(11);
+        RptDemographicReport2Form frm = form();
+        frm.setSelect(new String[] {"demographic_no", "provider_name"});
+
+        List<?> result = build.apply(frm, AS_OF);
+
+        assertThat(capturedSql())
+                .contains("left join provider p on d.provider_no = p.provider_no", ARCHIVE_ADMISSION)
+                .doesNotContain("( d.provider_no = p.provider_no )");
+        assertThat(result).singleElement().isEqualTo(Arrays.asList("11", null));
+        history.verify(() -> PreventionReportUtil.wasRosteredToAnyProvider(
+                any(), eq(11), any(Date.class), eq(Set.of(DR_A))));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("builders")
+    @DisplayName("should require a current provider for a provider-name report without a historical date")
+    void shouldKeepTheCurrentProviderJoin_whenNoAsOfDateIsSet(
+            String name, BiFunction<RptDemographicReport2Form, String, List<?>> build) {
+        when(formsDao.runParameterizedNativeQuery(anyString(), anyMap())).thenReturn(new ArrayList<>());
+        RptDemographicReport2Form frm = form();
+        frm.setSelect(new String[] {"demographic_no", "provider_name"});
+
+        build.apply(frm, null);
+
+        assertThat(capturedSql()).contains("inner join provider p on d.provider_no = p.provider_no", CURRENT_ONLY);
+        history.verifyNoInteractions();
     }
 
     @ParameterizedTest(name = "{0}")
