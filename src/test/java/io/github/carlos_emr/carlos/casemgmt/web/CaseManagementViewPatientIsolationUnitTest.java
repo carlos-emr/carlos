@@ -26,14 +26,17 @@ import io.github.carlos_emr.carlos.casemgmt.common.ChartSessionKeys;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.casemgmt.service.ClientImageManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.services.security.SecurityManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -53,6 +56,7 @@ import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -383,6 +387,32 @@ class CaseManagementViewPatientIsolationUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(manager);
     }
 
+    @ParameterizedTest
+    @CsvSource({
+            "OMeds,_newCasemgmt.otherMeds",
+            "RiskFactors,_newCasemgmt.riskFactors",
+            "FamHistory,_newCasemgmt.familyHistory",
+            "MedHistory,_newCasemgmt.medicalHistory"
+    })
+    void shouldCompleteForbiddenResponse_whenACppListPrivilegeIsMissing(String code, String privilege) throws Exception {
+        request.setMethod("POST");
+        request.setParameter("method", "listNotes");
+        request.setParameter("demographicNo", "101");
+        request.setParameter("issue_code", code);
+        doReturn(false).when(action).hasPrivilege(privilege, "doctor,4249");
+
+        try (var guards = mockConstruction(SecurityManager.class,
+                (guard, context) -> when(guard.hasReadAccess("_" + code, "doctor,4249")).thenReturn(true))) {
+            assertThat(action.execute()).isEqualTo("none");
+            verify(guards.constructed().getFirst()).hasReadAccess("_" + code, "doctor,4249");
+        }
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        assertThat(request.getAttribute("Notes")).isNull();
+        verify(action).hasPrivilege(privilege, "doctor,4249");
+        verifyNoInteractions(manager);
+    }
+
     @Test
     void shouldEncodeCppIssueFieldsIndependently_whenClinicalTextContainsDelimiters() throws Exception {
         request.setParameter("demographicNo", "101");
@@ -399,8 +429,7 @@ class CaseManagementViewPatientIsolationUnitTest extends CarlosUnitTestBase {
         when(manager.getIssueInfoByCode(eq("4249"), any(String[].class))).thenReturn(List.of(first, second));
         when(manager.getActiveNotes(eq("101"), any(String[].class))).thenReturn(List.of());
 
-        try (var constructed = org.mockito.Mockito.mockConstruction(
-                io.github.carlos_emr.carlos.services.security.SecurityManager.class,
+        try (var constructed = mockConstruction(SecurityManager.class,
                 (guard, context) -> when(guard.hasReadAccess("_Social", "doctor,4249")).thenReturn(true))) {
             assertThat(action.listNotes()).isEqualTo("listNotes");
             verify(constructed.constructed().get(0)).hasReadAccess("_Social", "doctor,4249");

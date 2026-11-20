@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "2a7182a42bd4d67b7b6dcf4560e7f0b8fe7c81d1",
+  "comparisonSha256": "4a5032d966804059c9c8fd908501f3806c807b0d3c16605d503c3dc01c56d984",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/printing/PrivacyStatementAppendingFilter.java": {
+      "lines": 96.29629629629629,
+      "instructions": 97.16666666666667,
+      "branches": 92.1875,
+      "sourceBlob": "1cefe5df971b313cc6208a7f095f78ac234d73cb"
+    }
+  },
+  "baselineCommit": "88baa1d7bdc80a0053b9ab3429e855ee0ffe7d21",
+  "baselineSourceTree": "2a7182a42bd4d67b7b6dcf4560e7f0b8fe7c81d1",
+  "baselineReportSha256": "d1815b86253d371845f8937400a0f2c04357595e7545e1ad553140b08c98364f",
+  "baselineLane": "Java 25 privacy and logout suites with embedded Tomcat. Dynamic HEAD retains its declared metadata and static decorated HTML omits its bare metadata.",
+  "baselineTestCounts": {
+    "tests": 123,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "60b5cfc58536bcd2692cca1ff7e9892cb8a24df8a5c37268af1312ce95ab23c0",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

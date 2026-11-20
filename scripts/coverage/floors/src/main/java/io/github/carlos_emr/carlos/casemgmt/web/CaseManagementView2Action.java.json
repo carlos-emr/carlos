@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementView2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "19892ec50e244d5399b356b968a74fd96f31d753"
+  },
+  "evidenceSha256": "904cae1b28ac46299a0a0f723a47c66209130bb3faa9d912d5f4aee075092b95"
+}

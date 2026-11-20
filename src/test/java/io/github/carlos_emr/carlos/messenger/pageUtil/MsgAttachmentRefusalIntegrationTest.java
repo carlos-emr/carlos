@@ -191,7 +191,10 @@ class MsgAttachmentRefusalIntegrationTest {
             ActionContext.of().withServletRequest(request).withServletResponse(response).bind();
             try {
                 var action = new MsgAttachPDF2Action(security, demographicManager, resolver,
-                        (req, res, route) -> { throw new AssertionError("A stale attachment reached rendering"); }, converter);
+                        (req, res, route) -> { throw new AssertionError("A stale attachment reached rendering"); },
+                        converter,
+                        (req, info, patient, limit) -> { throw new AssertionError("A stale attachment reached chart printing"); },
+                        (info, patient, preview) -> { throw new AssertionError("A stale attachment wrote a disclosure audit"); });
                 action.setDemographic_no(Integer.toString(PATIENT));
                 action.setAttachmentKey(key);
                 if (Boolean.parseBoolean(request.getParameter("isPreview"))) {

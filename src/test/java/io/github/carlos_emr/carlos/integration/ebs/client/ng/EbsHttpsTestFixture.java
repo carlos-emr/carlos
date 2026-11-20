@@ -120,13 +120,14 @@ final class EbsHttpsTestFixture implements AutoCloseable {
     static final String AUDIT = "synthetic-audit";
     static final String ATTACHMENT_ID = "synthetic-download";
     static final byte[] PAYLOAD = new byte[32 * 1024];
+    static final byte[] SECOND_PAYLOAD = "second synthetic attachment\n".repeat(128).getBytes(StandardCharsets.UTF_8);
     static {
         for (int i = 0; i < PAYLOAD.length; i++) {
             PAYLOAD[i] = (byte) (i * 31 + 7);
         }
     }
 
-    enum Mode { NORMAL, UNSIGNED, TAMPERED_SIGNATURE, UNTRUSTED_SIGNER, EXPIRED,
+    enum Mode { NORMAL, MULTIPLE_DOWNLOAD_FILES, UNSIGNED, TAMPERED_SIGNATURE, UNTRUSTED_SIGNER, EXPIRED,
         STALLED_HEADERS, STALLED_BODY, PROGRESSING_BODY, TRUNCATED, TAMPERED_ATTACHMENT,
         SOAP_FAULT, ENCRYPTED_SOAP_FAULT }
 
@@ -297,6 +298,8 @@ final class EbsHttpsTestFixture implements AutoCloseable {
         Element body = (Element) doc.getElementsByTagNameNS(SOAP, "Body").item(0);
         Object value;
         Map<String, Attachment> attachments = new LinkedHashMap<>();
+        List<byte[]> payloads = responseMode == Mode.MULTIPLE_DOWNLOAD_FILES
+                ? List.of(PAYLOAD, SECOND_PAYLOAD) : List.of(PAYLOAD);
         if (isSoapFault(responseMode)) {
             Element fault = doc.createElementNS(SOAP, "s:Fault");
             Element code = doc.createElementNS(null, "faultcode"); code.setTextContent("s:Server");
@@ -315,34 +318,40 @@ final class EbsHttpsTestFixture implements AutoCloseable {
             UploadResponse response = new UploadResponse(); response.setReturn(result);
             value = new ca.ontario.health.edt.ObjectFactory().createUploadResponse(response);
         } else if (operation.equals("download")) {
-            DownloadData data = new DownloadData(); data.setResourceID(BigInteger.ONE);
-            data.setResourceType("fixture"); data.setDescription("synthetic"); data.setContent(PAYLOAD);
-            DownloadResult result = new DownloadResult(); result.setAuditID(AUDIT); result.getData().add(data);
+            DownloadResult result = new DownloadResult(); result.setAuditID(AUDIT);
+            for (int i = 0; i < payloads.size(); i++) {
+                DownloadData data = new DownloadData(); data.setResourceID(BigInteger.valueOf(i + 1L));
+                data.setResourceType("fixture"); data.setDescription("synthetic"); data.setContent(payloads.get(i));
+                result.getData().add(data);
+            }
             DownloadResponse response = new DownloadResponse(); response.setReturn(result);
             value = new ca.ontario.health.edt.ObjectFactory().createDownloadResponse(response);
         } else throw new IOException("Unexpected synthetic EBS operation");
         if (value != null) binding.createMarshaller().marshal(value, body);
         if (operation.equals("download")) {
-            Element content;
-            if (isSoapFault(responseMode)) {
-                Element fault = (Element) doc.getElementsByTagNameNS(SOAP, "Fault").item(0);
-                Element detail = doc.createElementNS(null, "detail");
-                content = doc.createElementNS("urn:synthetic:fault", "fixture:content");
-                content.setAttributeNS(XMLConstants.XMLNS_ATTRIBUTE_NS_URI, "xmlns:fixture", "urn:synthetic:fault");
-                detail.appendChild(content); fault.appendChild(detail);
-            } else {
-                content = (Element) doc.getElementsByTagName("content").item(0);
+            for (int i = 0; i < payloads.size(); i++) {
+                Element content;
+                if (isSoapFault(responseMode)) {
+                    Element fault = (Element) doc.getElementsByTagNameNS(SOAP, "Fault").item(0);
+                    Element detail = doc.createElementNS(null, "detail");
+                    content = doc.createElementNS("urn:synthetic:fault", "fixture:content");
+                    content.setAttributeNS(XMLConstants.XMLNS_ATTRIBUTE_NS_URI, "xmlns:fixture", "urn:synthetic:fault");
+                    detail.appendChild(content); fault.appendChild(detail);
+                } else {
+                    content = (Element) doc.getElementsByTagName("content").item(i);
+                }
+                String attachmentId = i == 0 ? ATTACHMENT_ID : ATTACHMENT_ID + "-" + (i + 1);
+                content.setTextContent("");
+                Element xop = doc.createElementNS("http://www.w3.org/2004/08/xop/include", "xop:Include");
+                xop.setAttributeNS(XMLConstants.XMLNS_ATTRIBUTE_NS_URI, "xmlns:xop",
+                        "http://www.w3.org/2004/08/xop/include");
+                xop.setAttribute("href", "cid:" + attachmentId); content.appendChild(xop);
+                Attachment attachment = new Attachment(); attachment.setId(attachmentId);
+                attachment.setMimeType("application/octet-stream");
+                attachment.addHeaders(Map.of("Content-ID", "<" + attachmentId + ">"));
+                attachment.setSourceStream(new ByteArrayInputStream(payloads.get(i)));
+                attachments.put(attachmentId, attachment);
             }
-            content.setTextContent("");
-            Element xop = doc.createElementNS("http://www.w3.org/2004/08/xop/include", "xop:Include");
-            xop.setAttributeNS(XMLConstants.XMLNS_ATTRIBUTE_NS_URI, "xmlns:xop",
-                    "http://www.w3.org/2004/08/xop/include");
-            xop.setAttribute("href", "cid:" + ATTACHMENT_ID); content.appendChild(xop);
-            Attachment attachment = new Attachment(); attachment.setId(ATTACHMENT_ID);
-            attachment.setMimeType("application/octet-stream");
-            attachment.addHeaders(Map.of("Content-ID", "<" + ATTACHMENT_ID + ">"));
-            attachment.setSourceStream(new ByteArrayInputStream(PAYLOAD));
-            attachments.put(ATTACHMENT_ID, attachment);
         }
         if (responseMode != Mode.UNSIGNED) {
             WSSecHeader security = new WSSecHeader(doc); security.insertSecurityHeader();
@@ -387,9 +396,10 @@ final class EbsHttpsTestFixture implements AutoCloseable {
                 + "\r\nContent-ID: <root>\r\nContent-Transfer-Encoding: binary\r\n\r\n");
         wire.write(envelope);
         boolean encrypted = false;
+        int ordinal = 0;
         for (Attachment attachment : attachments.values()) {
             byte[] bytes = attachment.getSourceStream().readAllBytes();
-            encrypted |= !Arrays.equals(bytes, PAYLOAD);
+            encrypted |= !Arrays.equals(bytes, payloads.get(ordinal++));
             if (responseMode == Mode.TAMPERED_ATTACHMENT) bytes[bytes.length / 2] ^= 1;
             write(wire, "\r\n--" + boundary + "\r\nContent-Type: " + attachment.getMimeType()
                     + "\r\nContent-ID: <" + attachment.getId() + ">\r\nContent-Transfer-Encoding: binary\r\n\r\n");

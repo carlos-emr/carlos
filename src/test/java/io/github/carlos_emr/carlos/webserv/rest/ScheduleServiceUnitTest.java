@@ -134,6 +134,33 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRequireAnAppointmentPayload_evenWithWriteAccess() {
+        assertThatThrownBy(() -> service.addAppointment(null))
+                .isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        verifyNoInteractions(appointmentManager);
+    }
+
+    @Test
+    void shouldRejectInvalidDeleteIds_beforeCallingManager() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "d", null)).thenReturn(true);
+        AppointmentTo1 zeroId = new AppointmentTo1();
+        zeroId.setId(0);
+
+        assertThatThrownBy(() -> service.deleteAppointment(null)).isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        assertThatThrownBy(() -> service.deleteAppointment(new AppointmentTo1()))
+                .isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        assertThatThrownBy(() -> service.deleteAppointment(zeroId)).isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        verifyNoInteractions(appointmentManager);
+    }
+
+    @Test
+    void shouldRefuseAppointmentHistory_whenTheCallerLacksModuleAccess() {
+        assertThatThrownBy(() -> service.findExistAppointments(123))
+                .isInstanceOf(jakarta.ws.rs.ForbiddenException.class);
+        verifyNoInteractions(appointmentManager, scheduleManager);
+    }
+
+    @Test
     void shouldReturnNotFound_whenAppointmentDoesNotExist() {
         AppointmentTo1 request = new AppointmentTo1();
         request.setId(123);
@@ -506,9 +533,10 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
         current.setCreator("server-creator");
         current.setLastUpdateUser("server-updater");
         current.setUpdateDateTime(new Date(123000));
-        when(scheduleManager.updateAppointment(eq(loggedInInfo), eq(42), eq("123000"), any()))
+        when(scheduleManager.updateAppointment(eq(loggedInInfo), eq(42), eq("123000"),
+                eq(io.github.carlos_emr.carlos.managers.ScheduleManager.AppointmentUpdateAction.valueOf(field.toUpperCase(java.util.Locale.ROOT))), any()))
                 .thenAnswer(call -> {
-                    java.util.function.Consumer<Appointment> edit = call.getArgument(3);
+                    java.util.function.Consumer<Appointment> edit = call.getArgument(4);
                     edit.accept(current);
                     return current;
                 });

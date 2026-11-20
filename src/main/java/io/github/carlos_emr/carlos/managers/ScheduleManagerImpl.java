@@ -271,19 +271,30 @@ public class ScheduleManagerImpl implements ScheduleManager {
     /**
      * Audits an appointment edit under the appointment and its patient, with the client address.
      * REST clients and the classic Edit Appointment form both save through this manager; a row
-     * without the patient cannot be found from the patient's audit trail. The action name and the
-     * {@code appointmentId=N} data are unchanged for readers of earlier rows; an edit that changed
-     * the status also names the new one ({@code ; status=C}), never the reason, notes or name. A
+     * without the patient cannot be found from the patient's audit trail. Generic updates retain
+     * {@code appointmentId=N} data and append a changed status ({@code ; status=C}). Field routes
+     * retain their historical action names and {@code id=N} data. Neither includes clinical text. A
      * slot that names no patient ({@code demographic_no} 0) is filed under none. This is the one
      * audit row of an edit: callers do not write another.
      *
      * @param newStatus the status the edit set, or {@code null} when it left the status as it was
      */
     private static void auditUpdate(LoggedInInfo loggedInInfo, Appointment appointment, String newStatus) {
-        LogAction.addLogSynchronous(loggedInInfo, "AppointmentManager.updateAppointment", LogConst.CON_APPT,
-                String.valueOf(appointment.getId()),
-                appointment.getDemographicNo() > 0 ? String.valueOf(appointment.getDemographicNo()) : null,
-                APPOINTMENT_ID_AUDIT_PREFIX + appointment.getId() + (newStatus == null ? "" : "; status=" + newStatus));
+        auditUpdate(loggedInInfo, appointment, newStatus, AppointmentUpdateAction.UPDATE);
+    }
+
+    private static void auditUpdate(LoggedInInfo loggedInInfo, Appointment appointment, String newStatus,
+            AppointmentUpdateAction auditAction) {
+        String appointmentId = String.valueOf(appointment.getId());
+        String patientId = appointment.getDemographicNo() > 0 ? String.valueOf(appointment.getDemographicNo()) : null;
+        if (auditAction == AppointmentUpdateAction.UPDATE) {
+            String data = APPOINTMENT_ID_AUDIT_PREFIX + appointmentId + (newStatus == null ? "" : "; status=" + newStatus);
+            LogAction.addLogSynchronous(loggedInInfo, auditAction.auditName(), LogConst.CON_APPT,
+                    appointmentId, patientId, data);
+        } else {
+            LogAction.addLogStrict(loggedInInfo, auditAction.auditName(), LogConst.CON_APPT,
+                    appointmentId, patientId, "id=" + appointmentId);
+        }
     }
 
     /**
@@ -296,6 +307,14 @@ public class ScheduleManagerImpl implements ScheduleManager {
     @Transactional
     public Appointment updateAppointment(LoggedInInfo loggedInInfo, Integer appointmentId,
             String expectedVersion, Consumer<Appointment> edit) {
+        return updateAppointment(loggedInInfo, appointmentId, expectedVersion, AppointmentUpdateAction.UPDATE, edit);
+    }
+
+    @Override
+    @Transactional
+    public Appointment updateAppointment(LoggedInInfo loggedInInfo, Integer appointmentId,
+            String expectedVersion, AppointmentUpdateAction auditAction, Consumer<Appointment> edit) {
+        java.util.Objects.requireNonNull(auditAction, "Appointment audit action required");
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "w", null)) {
             throw new SecurityException("missing required sec object (_appointment)");
         }
@@ -325,7 +344,7 @@ public class ScheduleManagerImpl implements ScheduleManager {
         // Run the version callback before serializing the response token.
         oscarAppointmentDao.flush();
         auditUpdate(loggedInInfo, current,
-                java.util.Objects.equals(statusBefore, current.getStatus()) ? null : current.getStatus());
+                java.util.Objects.equals(statusBefore, current.getStatus()) ? null : current.getStatus(), auditAction);
         return current;
     }
 

@@ -1,0 +1,16 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2026 CARLOS Contributors
+# Root reconciliation and service-user verification share Java Properties semantics.
+set -eu
+case "${1:-}" in reconcile|verify) ;; *) echo 'usage: carlos-emr-config-preflight reconcile|verify' >&2; exit 2 ;; esac
+# A privileged helper must not honor JVM instrumentation/classpath injection.
+unset JAVA_TOOL_OPTIONS _JAVA_OPTIONS JDK_JAVA_OPTIONS CLASSPATH
+for runtime in /usr/lib/jvm/java-25-openjdk-* /usr/lib/jvm/java-25-openjdk /usr/lib/jvm/default-java; do
+    if [ -x "$runtime/bin/java" ] && grep -q '^JAVA_VERSION="25' "$runtime/release"; then
+        exec "$runtime/bin/java" -jar /usr/share/carlos-emr/lib/carlos-configuration-preflight.jar \
+            "$1" /etc/carlos-emr/carlos.properties
+    fi
+done
+echo 'carlos-emr: Java 25 is unavailable; configuration preflight refused the start.' >&2
+exit 1

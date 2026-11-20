@@ -5,6 +5,7 @@
 package io.github.carlos_emr.carlos.managers;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
@@ -17,6 +18,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.github.carlos_emr.carlos.commn.dao.SecObjPrivilegeDao;
+import io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException;
 import io.github.carlos_emr.carlos.commn.model.SecObjPrivilege;
 import io.github.carlos_emr.carlos.commn.model.SecObjPrivilegePrimaryKey;
 import io.github.carlos_emr.carlos.daos.security.SecuserroleDao;
@@ -215,6 +217,27 @@ class SecurityPrivilegeSnapshotUnitTest extends CarlosUnitTestBase {
 
         // One failed batch read; the failure is not answered by further reads.
         verify(privileges, times(1)).findByObjectNames(any());
+    }
+
+    @Test
+    void shouldPreserveThePatientDirective_whenReadingSnapshotPermissions() {
+        var directive = new PatientDirectiveException("restricted");
+        doThrow(directive).when(privileges).findByObjectNames(any());
+        var snapshot = security.readOnlySnapshot(info, names("10"));
+
+        assertThatThrownBy(() -> snapshot.hasPrivilege("_eChart", "r", "10"))
+                .isSameAs(directive);
+    }
+
+    @Test
+    void shouldReadCombinedObjectsThroughTheLegacyLookup() {
+        grant("_lab", "doctor", "r", 0);
+        var snapshot = security.readOnlySnapshot(info, Arrays.asList(null, "", "_lab", "_lab,_rx"));
+
+        assertThat(snapshot.hasPrivilege("_lab,_rx", "r", null)).isTrue();
+
+        verify(privileges).findByObjectNames(List.of("_lab"));
+        verify(privileges).findByObjectNames(List.of("_lab", "_rx"));
     }
 
     @Test

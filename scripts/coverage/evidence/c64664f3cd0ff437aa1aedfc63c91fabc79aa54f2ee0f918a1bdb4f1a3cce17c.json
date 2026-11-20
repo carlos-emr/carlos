@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "e2313c56b20e07a6d734ee351e009b83ab891420",
+  "comparisonSha256": "88efa1a20ca70fb35a5e42b5452f0c6501c5ee45300a722ae6d988ca46dbb6ba",
+  "baselineCommit": "35f44d93564e6ef35b9d69b2a126f06f2b7b27a1",
+  "baselineSourceTree": "e2313c56b20e07a6d734ee351e009b83ab891420",
+  "baselineReportSha256": "a6d0990b166534244b3b0641b6112cfe0338456654ce0a0798ed839c6b3e5a1a",
+  "baselineLane": "Java 25 job save endpoints, missing stored jobs, authorization and scheduler interleaving",
+  "baselineTestCounts": {
+    "tests": 33,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "3cc2f37dadbaa36f94f1f31a58a60e94a55fda81893cb50ce5118187db52ec50",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/OscarJobService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "f6cc24c14fa5be1e9bb0aaa975da1b1ea1f0651a"
+    }
+  }
+}

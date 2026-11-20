@@ -70,6 +70,8 @@ public final class OscarSpringContextLoader extends ContextLoaderListener {
 
     @Override
     protected WebApplicationContext createWebApplicationContext(ServletContext servletContext) {
+        // Spring loads the REST context here, which can initialize CXF logging during refresh.
+        System.setProperty("org.apache.cxf.Logger", "org.apache.cxf.common.logging.Slf4jLogger");
         String contextClassName = servletContext.getInitParameter(CONTEXT_CLASS_PARAM);
         log.info("Creating Spring context");
         Class<?> contextClass;

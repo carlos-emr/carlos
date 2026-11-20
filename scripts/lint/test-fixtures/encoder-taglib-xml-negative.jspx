@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jsp:root xmlns:jsp="http://java.sun.com/JSP/Page" version="3.0">
+  <!-- xmlns:e="urn:jsptld:owasp.encoder.jakarta" -->
+  <!-- ${e:forHtml(example)} -->
+  <jsp:text>Inert XML comment fixture</jsp:text>
+</jsp:root>

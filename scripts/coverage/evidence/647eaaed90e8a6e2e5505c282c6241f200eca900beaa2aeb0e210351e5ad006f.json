@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "b9ffd5312aa009bcb2256b4a13f8f5aff5c28109",
+  "comparisonSha256": "0c827fec24855e2d6660497547dafdd722d000642c7dcc01069886cbc9a9dd45",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/prevention/reports/PreventionReportUtil.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "1089dbb39f9de69b57b00700d77173d91eb27158"
+    }
+  },
+  "baselineCommit": "def8a2db6c77581f794a4ec12c0b98090e899f4c",
+  "baselineSourceTree": "b9ffd5312aa009bcb2256b4a13f8f5aff5c28109",
+  "baselineReportSha256": "5c4aea7fe21459081db49e7620d7cff210d931533339f39eec1e6afa8e9dada7",
+  "baselineLane": "JDK 25 focused Surefire for historical roster revisions and shared mailbox test fixture",
+  "baselineTestCounts": {
+    "tests": 56,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "e726f873fa9e0a3dd43633db863373a05a8d6fd3466750b6fce79c88b0d66500",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.admin.service.DemographicProviderReassignmentServiceUnitTest",
+    "io.github.carlos_emr.carlos.admin.service.DemographicProviderReassignmentTransactionIntegrationTest",
+    "io.github.carlos_emr.carlos.integration.mcedt.mailbox.Upload2ActionOutboxReadUnitTest",
+    "io.github.carlos_emr.carlos.prevention.reports.PreventionReportUtilUnitTest",
+    "io.github.carlos_emr.carlos.report.data.RptDemographicQueryAsOfRosterUnitTest"
+  ]
+}

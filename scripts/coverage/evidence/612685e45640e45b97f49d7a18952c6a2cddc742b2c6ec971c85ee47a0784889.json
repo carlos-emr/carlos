@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "9ae8c0e8b724879a8a0e0c088972e27768786505",
+  "comparisonSha256": "e68dd01ae4e5afaf18890b7e7bbb2b0150e939bc0342de0f7653e3988dfba405",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/prevention/reports/PreventionReportUtil.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 98.61111111111111,
+      "sourceBlob": "99e91ed76df1d55d598259ae0862628872f2ebb2"
+    }
+  },
+  "exclusions": {},
+  "zeroCoverageWaivers": {},
+  "baselineCommit": "fb969fea772aed193191197511f7011dac7f735b",
+  "baselineSourceTree": "9ae8c0e8b724879a8a0e0c088972e27768786505",
+  "baselineReportSha256": "7d2324a0abb6b33220d497012535dcbc51718a01f67383957e73e11408fdce10",
+  "baselineLane": "Focused Java 25 run on fb969fea: PreventionReportUtilUnitTest, RptDemographicQueryAsOfRosterUnitTest, PreventionReport2ActionUnitTest and both DemographicProviderReassignment tests (59 tests, H2 integration context); zero failures/errors/skips. Measures the as-of roster history check; not full release qualification.",
+  "baselineTestCounts": {
+    "tests": 59,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "388301fca1250df01426b94d3a3373f41e527d86d75c224501751351a23d6995",
+  "baselineTestReportsHashFormat": "SHA-256 of a sha256sum-style manifest of the run's Surefire TEST-*.xml report files: one '<sha256>  <file name>' line each, sorted by name",
+  "baselineTestRunCommit": "fb969fea772aed193191197511f7011dac7f735b",
+  "baselineAdditionalTestRuns": []
+}

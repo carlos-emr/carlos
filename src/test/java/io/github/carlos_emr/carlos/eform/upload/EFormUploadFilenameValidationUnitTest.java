@@ -16,6 +16,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.managers.PreventionManager;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.junit.jupiter.api.AfterEach;
@@ -23,6 +24,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -30,6 +33,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFileAttributes;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -39,6 +43,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
@@ -253,6 +258,74 @@ class EFormUploadFilenameValidationUnitTest extends CarlosUnitTestBase {
                     io.github.carlos_emr.carlos.utility.PathValidationUtils.class, "allowedTempDirectories", previousRoots);
             Files.deleteIfExists(outside);
             Files.deleteIfExists(outsideDir);
+        }
+    }
+
+    @Test
+    @EnabledOnOs(OS.LINUX)
+    void shouldExplainOwnershipRefusal_whenReplacingAnImageOwnedByAnotherAccount() throws Exception {
+        Path images = Files.createDirectory(tempDir.resolve("images"));
+        Path existing = Files.writeString(images.resolve("diagram.png"), "FAKE previous image");
+        Path upload = Files.writeString(tempDir.resolve("upload.png"), "FAKE replacement image");
+        var original = mock(PosixFileAttributes.class);
+        when(original.owner()).thenReturn(() -> "FAKE other account");
+
+        try (var folders = mockStatic(ImageUpload2Action.class);
+             var files = mockStatic(Files.class, CALLS_REAL_METHODS)) {
+            folders.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
+            files.when(() -> Files.readAttributes(existing, PosixFileAttributes.class,
+                    java.nio.file.LinkOption.NOFOLLOW_LINKS)).thenReturn(original);
+            var action = new ImageUpload2Action();
+            action.setImage(upload.toFile());
+            action.setImageFileName("diagram.png");
+
+            assertThat(action.execute()).isEqualTo("error");
+            assertThat(action.getActionErrors()).singleElement().asString().contains("CARLOS service account");
+            assertThat(request.getAttribute("status")).isNull();
+        }
+        assertThat(Files.readString(existing)).isEqualTo("FAKE previous image");
+        try (var entries = Files.list(images)) {
+            assertThat(entries.toList()).containsExactlyInAnyOrder(existing, images.resolve("extractFolder"));
+        }
+    }
+
+    @Test
+    @DisplayName("image upload should refuse a source alias changed after destination validation")
+    void shouldRefuseChangedSource_whenAliasEscapesAfterDestinationValidation() throws Exception {
+        Path allowed = Files.createDirectory(tempDir.resolve("uploads"));
+        Path foreign = Files.createDirectory(tempDir.resolve("foreign"));
+        Path images = Files.createDirectory(tempDir.resolve("images"));
+        Path accepted = Files.writeString(allowed.resolve("accepted.png"), "FAKE accepted image");
+        Path outside = Files.writeString(foreign.resolve("outside.png"), "FAKE outside upload root");
+        Path alias = Files.createSymbolicLink(allowed.resolve("upload.tmp"), accepted);
+        Object previousRoots = org.springframework.test.util.ReflectionTestUtils.getField(
+                PathValidationUtils.class, "allowedTempDirectories");
+        try (var folders = mockStatic(ImageUpload2Action.class);
+             var validation = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS)) {
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    PathValidationUtils.class, "allowedTempDirectories", java.util.Set.of(allowed.toRealPath().toString()));
+            folders.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
+            validation.when(() -> PathValidationUtils.validateUpload(alias.toFile(), "diagram.png", images.toFile()))
+                    .thenAnswer(call -> {
+                        // Both validations are real. Move only the alias after the first has
+                        // accepted its original target, before the action opens its input.
+                        Object destination = call.callRealMethod();
+                        Files.delete(alias);
+                        Files.createSymbolicLink(alias, outside);
+                        return destination;
+                    });
+            ImageUpload2Action action = new ImageUpload2Action();
+            action.setImage(alias.toFile());
+            action.setImageFileName("diagram.png");
+
+            assertThat(action.execute()).isEqualTo("error");
+            assertThat(action.getActionErrors()).anySatisfy(error -> assertThat(error).contains("Upload failed"));
+            assertThat(images.resolve("diagram.png")).doesNotExist();
+            assertThat(Files.readString(accepted)).isEqualTo("FAKE accepted image");
+            assertThat(Files.readString(outside)).isEqualTo("FAKE outside upload root");
+        } finally {
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    PathValidationUtils.class, "allowedTempDirectories", previousRoots);
         }
     }
 }

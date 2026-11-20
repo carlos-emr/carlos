@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "2a7182a42bd4d67b7b6dcf4560e7f0b8fe7c81d1",
+  "comparisonSha256": "4a5032d966804059c9c8fd908501f3806c807b0d3c16605d503c3dc01c56d984",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/printing/PrivacyStatementAppendingFilter.java": {
+      "lines": 97.53086419753086,
+      "instructions": 97.83333333333333,
+      "branches": 96.09375,
+      "sourceBlob": "1cefe5df971b313cc6208a7f095f78ac234d73cb"
+    }
+  },
+  "baselineCommit": "b6c0e7ab7c71fbcb3b002cd8a56386b854d3ca6d",
+  "baselineSourceTree": "2a7182a42bd4d67b7b6dcf4560e7f0b8fe7c81d1",
+  "baselineReportSha256": "5796dd6c350a9037e8ba44c81a0b9a5058bd055e812968de73bdb7c3d5807c0d",
+  "baselineLane": "Fresh exact JDK25 selected-source classes and existing/regression controls. All614 unique actual JUnit cases pass with zero failures/errors/skips. Component inputs and exact JUnit hashes retained; selected-source evidence only.",
+  "baselineTestCounts": {
+    "tests": 614,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "84d52777c6e6f46e5a5680022e83db3f701b73dbde7b392dfc2d4a841b5a2ba7",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineReportHeaderCollisions": 0
+}

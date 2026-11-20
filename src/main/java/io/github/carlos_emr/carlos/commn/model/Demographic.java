@@ -304,7 +304,9 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
                     "known CARLOS types; no user-controlled property name reaches the sink")
     public Demographic(Demographic d) {
         try {
-            BeanUtils.copyProperties(d, this);
+            BeanUtils.copyProperties(d, this, "prefName");
+            // The getter displays the alias first. Preserve the separately mapped column.
+            prefName = org.hibernate.Hibernate.unproxy(d, Demographic.class).prefName;
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -386,7 +388,13 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         return errors;
     }
 
-    private static void addFieldLengthError(List<String> errors, String fieldName, String value, int maxLength) {
+    /**
+     * Adds "&lt;field&gt; exceeds maximum length of N characters." when {@code value} holds more than
+     * {@code maxLength} Unicode code points, the unit a utf8mb4 VARCHAR is measured in. The message
+     * names the field and the limit, never the value. Shared with {@link DemographicCust} and
+     * {@link WaitingList}, whose columns are written by the same add, edit and REST saves.
+     */
+    static void addFieldLengthError(List<String> errors, String fieldName, String value, int maxLength) {
         if (value != null && value.codePointCount(0, value.length()) > maxLength) {
             String unit = maxLength == 1 ? "character" : "characters";
             errors.add(fieldName + " exceeds maximum length of " + maxLength + " " + unit + ".");
