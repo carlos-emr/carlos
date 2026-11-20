@@ -3,10 +3,10 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/commn/dao/WaitingListDaoImpl.java",
   "kind": "floor",
   "floor": {
-    "lines": 75.0,
-    "instructions": 76.19047619047619,
+    "lines": 88.88888888888889,
+    "instructions": 85.71428571428571,
     "branches": 100.0,
-    "sourceBlob": "03c0e5627e7760bd8f4e3ccd57dfba20ef6faafc"
+    "sourceBlob": "93928bb4777ac634d5e2a42721a23b606bd66d37"
   },
-  "evidenceSha256": "58506af9e84fe1e0a9ae4b59145540cb50d1f5033bf9e449dc799d29f0ca69f4"
+  "evidenceSha256": "6597a78694ed31e43782ef611a2b7026e8662133db68e6a99e4ef97ffbc9da4c"
 }
