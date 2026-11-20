@@ -4,8 +4,10 @@ package io.github.carlos_emr.carlos.commn.dao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.AppointmentArchive;
 import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.AppointmentUpdateException;
 import io.github.carlos_emr.carlos.managers.ScheduleManager;
+import io.github.carlos_emr.carlos.managers.ScheduleManager.AppointmentUpdateAction;
 import io.github.carlos_emr.carlos.managers.ScheduleManagerImpl;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.MariaDbTestUrl;
@@ -228,6 +230,26 @@ class AppointmentUpdateDaoIntegrationTest {
         save(clientA,null,row -> row.setReason("FAKE-write-only"));
         assertState("FAKE-write-only",1);
         verify(security,never()).hasPrivilege(any(),eq("_appointment"),eq("r"),any());
+    }
+
+    @Test
+    void shouldRollbackFieldEditAndArchive_whenAuditFails() {
+        Appointment original = read();
+        String appointmentId = Integer.toString(id);
+        try (var audit = mockStatic(LogAction.class)) {
+            audit.when(() -> LogAction.addLogStrict(clientA, AppointmentUpdateAction.STATUS.auditName(),
+                    LogConst.CON_APPT, appointmentId, null, "id=" + appointmentId))
+                    .thenThrow(new IllegalStateException("Synthetic audit failure"));
+
+            assertThatThrownBy(() -> manager.updateAppointment(clientA, id, original.getEditVersion(),
+                    AppointmentUpdateAction.STATUS, row -> row.setStatus("C")))
+                    .isInstanceOf(IllegalStateException.class).hasMessage("Synthetic audit failure");
+        }
+        assertState("FAKE-original", 0);
+        Appointment persisted = read();
+        assertThat(persisted.getStatus()).isEqualTo(original.getStatus());
+        assertThat(persisted.getEditVersion()).isEqualTo(original.getEditVersion());
+        assertThat(persisted.getLastUpdateUser()).isEqualTo(original.getLastUpdateUser());
     }
 
     @Test

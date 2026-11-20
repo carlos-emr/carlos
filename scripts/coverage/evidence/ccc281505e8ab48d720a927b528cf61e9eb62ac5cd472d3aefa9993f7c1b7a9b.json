@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "381ab8de07c5ab9cc4ecc97d21802ace5379115b",
+  "comparisonSha256": "21409dc80f01dea8931146ce7d2fe7ca2b44eafbcfdffb84456df1ad391990a6",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/documentManager/EDocUtil.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "888e32bddd673828085bf5f077cc1796ec1cecbf"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prevention/reports/PreventionReportUtil.java": {
+      "lines": 92.6829268292683,
+      "instructions": 94.91525423728814,
+      "branches": 95.65217391304348,
+      "sourceBlob": "535ef1d5e68d3a3dd3f65d06230ab9c89c297ddf"
+    }
+  },
+  "baselineCommit": "752f9911a7d61ba458721cdf9eca28b21ca60b7e",
+  "baselineSourceTree": "381ab8de07c5ab9cc4ecc97d21802ace5379115b",
+  "baselineReportSha256": "edf66b90c72cd09945cfd57ffd07f187675c928b0b6a06d5554ad679684a7d64",
+  "baselineLane": "PR #6326 JDK 25 provider revisions, report builders and document read, write and path regressions",
+  "baselineTestCounts": {
+    "tests": 78,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "25d9ae99dcf5470d3408631e265fc0ed9a3b8bf1dea7d0555752fc71b4c22a81",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.documentManager.ConvertToEdocIntegrationTest",
+    "io.github.carlos_emr.carlos.documentManager.EDocUtilEditDocumentPageCountUnitTest",
+    "io.github.carlos_emr.carlos.documentManager.EDocUtilRefileQueueUnitTest",
+    "io.github.carlos_emr.carlos.documentManager.EDocUtilTempPathLogUnitTest",
+    "io.github.carlos_emr.carlos.documentManager.EDocUtilTicklerHtmlUnitTest",
+    "io.github.carlos_emr.carlos.prevention.reports.PreventionReportUtilUnitTest",
+    "io.github.carlos_emr.carlos.report.data.RptDemographicQueryAsOfRosterUnitTest",
+    "io.github.carlos_emr.carlos.utility.IgnoredStreamReadRegressionTest"
+  ]
+}

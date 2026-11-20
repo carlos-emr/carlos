@@ -7,6 +7,18 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const test = require('node:test');
 
+// Execute the JDK-only shipped writer rather than assuming the package's fixed
+// /usr/lib helper exists on the test host. Ownership checks have native coverage.
+let preflightClasses;
+test.before(() => {
+  preflightClasses = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-preflight-classes-'));
+  const compiled = spawnSync('javac', ['--release', '25', '-d', preflightClasses,
+    path.join(__dirname, '../src/main/java/io/github/carlos_emr/carlos/config/PackagedConfigurationPreflight.java'),
+    path.join(__dirname, '../debian/assets/tests/fixtures/ConfigurationPreflightFixture.java')], {encoding: 'utf8'});
+  assert.equal(compiled.status, 0, compiled.stderr);
+});
+test.after(() => fs.rmSync(preflightClasses, {recursive: true, force: true}));
+
 const fake = `#!/usr/bin/env python3
 import json, os, sys
 name=os.path.basename(sys.argv[0]); args=sys.argv[1:]
@@ -70,8 +82,11 @@ function setup(t) {
       const postinst = fs.readFileSync(path.join(__dirname, '../debian/carlos-emr.postinst'), 'utf8');
       const block = postinst.match(/^        # BEGIN MODERN_CHART_CUTOVER\n[\s\S]*?^        # END MODERN_CHART_CUTOVER\n/m);
       assert.ok(block, 'mandatory cutover block exists');
-      const migration = spawnSync('sh', ['-c', 'set -e\n' + block[0]], {
+      const executable = block[0].replace('/usr/lib/carlos-emr/carlos-emr-config-preflight reconcile',
+        'java -cp "$CARLOS_PREFLIGHT_TEST_CLASSES" io.github.carlos_emr.carlos.config.ConfigurationPreflightFixture reconcile "$PROPERTIES"');
+      const migration = spawnSync('sh', ['-c', 'set -e\n' + executable], {
         env: { ...env, PROVISION_LOCK_HELD: '1',
+          CARLOS_PREFLIGHT_TEST_CLASSES: preflightClasses,
           PROPERTIES: path.join(env.CARLOS_ETC_DIR, 'carlos.properties') }, encoding: 'utf8' });
       assert.equal(migration.status, 0, migration.stderr);
     }

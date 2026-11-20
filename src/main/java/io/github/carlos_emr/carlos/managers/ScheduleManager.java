@@ -104,6 +104,49 @@ public interface ScheduleManager {
             String expectedVersion, Consumer<Appointment> edit);
 
     /**
+     * Server-owned audit identity for an appointment edit.
+     *
+     * @since 2026-11-18
+     */
+    enum AppointmentUpdateAction {
+        UPDATE("AppointmentManager.updateAppointment"),
+        STATUS("AppointmentManager.updateAppointmentStatus"),
+        TYPE("AppointmentManager.updateAppointmentType"),
+        URGENCY("AppointmentManager.updateAppointmentUrgency");
+
+        private final String auditName;
+
+        AppointmentUpdateAction(String auditName) {
+            this.auditName = auditName;
+        }
+
+        /** @return the historical audit action for this server-selected edit */
+        public String auditName() {
+            return auditName;
+        }
+    }
+
+    /**
+     * Edits through the same lock/version/archive path with a route-specific audit identity.
+     * The default preserves compatibility with existing implementations; the built-in
+     * implementation emits the selected historical action and data contract.
+     *
+     * @param loggedInInfo authenticated caller
+     * @param appointmentId row to edit
+     * @param expectedVersion client token, or null/blank for a legacy unconditional edit
+     * @param auditAction server-selected edit identity, never a request-provided action string
+     * @param edit mutation applied to the locked current row
+     * @return updated appointment with its next edit version
+     * @throws AppointmentUpdateException if the row is absent or its supplied version is stale
+     * @throws SecurityException if the caller lacks appointment/patient access
+     */
+    default Appointment updateAppointment(LoggedInInfo loggedInInfo, Integer appointmentId,
+            String expectedVersion, AppointmentUpdateAction auditAction, Consumer<Appointment> edit) {
+        java.util.Objects.requireNonNull(auditAction, "Appointment audit action required");
+        return updateAppointment(loggedInInfo, appointmentId, expectedVersion, edit);
+    }
+
+    /**
      * Archives and removes the locked current row, validating the client's read version when supplied.
      * The classic Edit Appointment form's Delete and Cut use it so a popup opened before another
      * user's change cannot remove (or cut and re-paste) the newer appointment unseen. Missing or

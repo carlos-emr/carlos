@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/documentManager/UnavailableHrmAttachmentService.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 88.73626373626374,
+    "branches": 64.58333333333333,
+    "sourceBlob": "4ac0ae1b69533bb50ebbbe152f120993068669f7"
+  },
+  "evidenceSha256": "5973d6c3b715f946cf529275f3a185a2af995419027e149604f322ea9af23295"
+}

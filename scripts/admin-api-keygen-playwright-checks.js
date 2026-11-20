@@ -12,9 +12,9 @@
  * manager returns the owned service's private key (no-store JSON) as base64 PKCS#8 that
  * pairs with the stored public key, and audits the read. Last (fails today): its two
  * buttons must reach routes inside the application context and save/open.
- * Last (pinned to app-findings-log.md finding 163): a GET of admin/ViewKeygenCreateKey that names a
- * service must be refused and register no key pair; the page's own form posts, and the sibling
- * update action refuses GET, but createKey.jsp creates the pair for any request that carries a name.
+ * Last (app-findings-log.md finding 163, fixed by #6321): a GET of admin/ViewKeygenCreateKey that
+ * names a service must be refused and register no key pair; the page's own form posts, and
+ * createKey.jsp creates the pair for any request that carries a name.
  * Fixtures: the client is created through the UI; the publicKeys row is seeded with a
  * fresh RSA-2048 pair (Create New Key has no working entry). Cleanup deletes only the
  * marker rows (ServiceClient, publicKeys incl. the one a GET may create, their audit rows) and asserts they are gone.
@@ -350,14 +350,14 @@ async function workflow(s) {
       h.assert(!problems.length, `Key manager buttons do not reach their routes: ${problems.join('; ')}`);
     });
 
-    // The precondition of the pinned step below, in a step of its own: a probe service name that is already taken
-    // would make the refusal and the row count mean nothing, and must not read as the known failure.
+    // The precondition of the refusal step below, in a step of its own: a probe service name that is already taken
+    // would make the refusal and the row count mean nothing, and must not read as a refusal failure.
     await s.step('no key pair is registered under the probe service name', async () => {
       h.assert(sql.value(`SELECT COUNT(*) FROM publicKeys WHERE service=${h.sqlString(probeService)}`) === '0',
         'A key pair is already registered under the probe service name');
     });
 
-    // Pinned: holds only the assertion finding 163 breaks. The route is the one the Create New Key
+    // Finding 163 (fixed by #6321): holds only that assertion. The route is the one the Create New Key
     // button opened in the step above (so it exists and is served by the application); the request is
     // the same address with a name, sent as a GET. assertRefused requires the application's 403/405 and
     // an unchanged publicKeys row count together, and never echoes the body (a created key's private

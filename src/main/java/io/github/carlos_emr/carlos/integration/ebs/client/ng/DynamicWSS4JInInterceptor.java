@@ -2,6 +2,7 @@ package io.github.carlos_emr.carlos.integration.ebs.client.ng;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.cxf.attachment.AttachmentDeserializer;
+import org.apache.cxf.binding.soap.SoapMessage;
 import org.apache.cxf.interceptor.Fault;
 import org.apache.cxf.io.CacheSizeExceededException;
 import org.apache.cxf.io.CachedOutputStream;
@@ -13,6 +14,9 @@ import org.apache.cxf.ws.security.wss4j.WSS4JInInterceptor;
 import org.apache.logging.log4j.Logger;
 import org.apache.wss4j.common.ConfigurationConstants;
 import org.apache.wss4j.common.WSS4JConstants;
+import org.apache.wss4j.common.ext.AttachmentRequestCallback;
+import org.apache.wss4j.common.ext.WSSecurityException;
+import org.apache.wss4j.dom.handler.RequestData;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import javax.xml.stream.XMLStreamConstants;
@@ -123,6 +127,7 @@ import java.util.Set;
  */
 public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message> {
     private static final String REPLAY_STREAM = DynamicWSS4JInInterceptor.class.getName() + ".replay";
+    private static final String ATTACHMENT_STREAMS = DynamicWSS4JInInterceptor.class.getName() + ".attachmentStreams";
 
     /**
      * Upper bound, applied separately, on the direct {@code EncryptedKey}, {@code EncryptedData}
@@ -249,7 +254,7 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
             Map<String, Object> wssProps = clientBuilder.newWSSInInterceptorConfiguration();
             wssProps.put(ConfigurationConstants.ACTION, buildAction(detection.result()));
 
-            message.getInterceptorChain().add(new WSS4JInInterceptor(wssProps));
+            message.getInterceptorChain().add(new AttachmentTrackingInterceptor(wssProps));
             // Retain ownership separately: MIME/WSS4J may replace the message stream
             // without closing the original replay on either success or a security fault.
             if (detection.replay() != null) {
@@ -278,6 +283,52 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
         Object replay = message.remove(REPLAY_STREAM);
         if (replay instanceof InputStream stream) {
             closeSource(stream);
+        }
+    }
+
+    /** Releases WSS4J's readers over the response's CXF attachment caches. */
+    static void closeAttachmentStreams(Message message) {
+        if (message.getExchange() != null
+                && message.getExchange().remove(ATTACHMENT_STREAMS) instanceof AttachmentStreams streams) {
+            streams.inputs.reversed().forEach(DynamicWSS4JInInterceptor::closeSource);
+        }
+    }
+
+    private static final class AttachmentStreams {
+        private final List<InputStream> inputs = new ArrayList<>();
+
+        private void add(InputStream input) {
+            if (input != null && inputs.stream().noneMatch(existing -> existing == input)) {
+                inputs.add(input);
+            }
+        }
+    }
+
+    private static final class AttachmentTrackingInterceptor extends WSS4JInInterceptor {
+        private AttachmentTrackingInterceptor(Map<String, Object> properties) {
+            super(properties);
+            // Keep CXF's interceptor ID for phase ordering.
+            setId(WSS4JInInterceptor.class.getName());
+        }
+
+        @Override
+        protected void computeAction(SoapMessage message, RequestData data) throws WSSecurityException {
+            super.computeAction(message, data);
+            var delegate = data.getAttachmentCallbackHandler();
+            data.setAttachmentCallbackHandler(callbacks -> {
+                try {
+                    delegate.handle(callbacks);
+                } finally {
+                    // CXF can remove a part once it hands its reader to WSS4J.
+                    for (var callback : callbacks) {
+                        if (callback instanceof AttachmentRequestCallback request && request.getAttachments() != null) {
+                            AttachmentStreams streams = (AttachmentStreams) message.getExchange().computeIfAbsent(
+                                    ATTACHMENT_STREAMS, key -> new AttachmentStreams());
+                            request.getAttachments().forEach(attachment -> streams.add(attachment.getSourceStream()));
+                        }
+                    }
+                }
+            });
         }
     }
 
@@ -515,7 +566,7 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
         try {
             source.close();
         } catch (IOException | RuntimeException e) {
-            logger.debug("Ignoring failure to close the fully read MCEDT response stream: {}",
+            logger.debug("Ignoring failure to close an MCEDT response stream: {}",
                     e.getClass().getName());
         }
     }

@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "53308182f83de9099f3d0bf3f14632b3837f957e",
+  "comparisonSha256": "2dc308fd6731ff2a18f410bbabd0922ca4a1bdc62e2fd08c7b11a91ecdaaaa84",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/waitinglist/util/WLWaitingListUtil.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "a66b35cb1933465d20539419e1860c7e8a0684dc"
+    }
+  },
+  "baselineCommit": "523b94517b5d1097933ec996f4d81000cb064a65",
+  "baselineSourceTree": "53308182f83de9099f3d0bf3f14632b3837f957e",
+  "baselineReportSha256": "cafcc9cd3e20a715981cfb4b06146136ca883c558881916d21cfa67a1a692277",
+  "baselineLane": "Waiting-list ordering, transaction and note-date checks on H2 and Ontario and BC Flyway MariaDB 11.8.8",
+  "baselineTestCounts": {
+    "tests": 272,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "2862d85e3646468a18ca0219732540edc05e2c1ef1a0332d3b323ce21c4ac47e",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.commn.dao.WaitingListDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.managers.DemographicUpdateDaoTransactionIntegrationTest",
+    "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLMutation2ActionsTest",
+    "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLWaitingListNoteLengthActionUnitTest",
+    "io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListConcurrencyUnitTest",
+    "io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListUpdateRecordUnitTest",
+    "io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListUtilNoteLengthUnitTest",
+    "io.github.carlos_emr.carlos.webserv.rest.DemographicServiceEndpointTest"
+  ]
+}

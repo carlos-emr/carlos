@@ -1,5 +1,59 @@
 # CARLOS 2026.08 release notes
 
+## Demographic updates save together or not at all
+
+A patient update through the demographic manager is now one transaction: the archive
+copy of the previous record, the patient record and its extensions are saved together.
+A failure partway through, such as an extension the database refuses, no longer leaves
+an archive row or a changed patient behind. The same applies to saving a patient's
+custom fields (alert, notes, nurse, resident, midwife) with their archive copy.
+
+`PUT /ws/rs/demographics` has run as one transaction since 2026.08.0-beta8, including
+the custom fields and the waiting-list entry it changes. Inside that transaction the
+previous alert and notes were overwritten without an archive row; they are archived
+again. When an update is refused or one of its writes fails, the transaction is rolled
+back and nothing of it is saved. When the outcome is uncertain, because no response
+arrived or the server reported a failure while committing, the update may have been
+saved: reload the patient before deciding whether to resubmit. An update whose audit
+row cannot be written is not saved. Existing records are unchanged. Custom fields
+overwritten through this endpoint on 2026.08.0-beta8 were not archived and cannot be
+reconstructed.
+
+Three requests that this endpoint used to accept or fail on unclearly are now refused
+with HTTP 409 and a JSON error code, and save nothing: a second extension with a key
+the patient already holds (`DUPLICATE_DEMOGRAPHIC_EXTENSION_KEY`), an extension id
+that is not one of this patient's stored extensions (`DEMOGRAPHIC_EXTENSION_NOT_FOUND`;
+the id alone could re-point another patient's extension to this patient), and a
+waiting list on which the patient has no current entry (`WAITING_LIST_ENTRY_NOT_FOUND`; the
+patient was saved and the waiting-list note dropped without an error, or, when the entry
+had been removed through the application or carried no history flag, the patient was given
+a current entry on the list). Every extension
+is saved under the patient being updated, whatever patient number the request gives it.
+An update that names a waiting list now locks that list's current entries until it is
+saved. When another update of the same list is in progress or has just changed them, the
+request is refused with HTTP 409 `WAITING_LIST_CHANGED` and nothing is saved.
+Integrations that send extension ids or a waiting-list id should reload the patient on
+these codes.
+
+An update that records a waiting-list note no longer moves the patient down the list.
+The entry that replaces the patient's entry used to be dated today, and a list is
+numbered by start date, so the patient was placed behind everyone who had joined
+later. The replacement now keeps the start date, and entries with the same start date
+keep their order. Entries already re-dated this way
+keep the date they were given; the earlier entry, with the original date, is still
+stored as history. Removing a patient from a waiting list now waits for an update of
+that list that is in progress, instead of reporting success while the update leaves
+the patient on the list.
+
+An Ontario OBEC response that invalidates a health-card version code now archives the
+patient with the code that was replaced; the archive row used to hold the `##` marker.
+
+Reassigning patients to another MRP (Administration, Update Demographic Provider) no
+longer replaces a patient's stored preferred name with the alias. The reassignment
+updates from a copy of the patient, and the copy took the name shown, which is the alias
+when one is set, as the preferred name. Preferred names replaced this way are not
+restored by the upgrade.
+
 ## Note lock recovery
 
 When another window takes a note lock, a refused toolbar save now explains that
@@ -30,6 +84,34 @@ added to audit data. Existing historical audit rows are unchanged.
 
 These events no longer depend on entity `toString()` formatting. The model diagnostic
 redactions remain in place. See [the audit contract](security-object-diagnostics.md).
+
+## Installation, configuration and release hardening
+
+Packaged starts reconcile the mandatory modern-chart flag before Tomcat, even
+after deferred configure or configuration restore. A second check as the service
+user validates the effective configuration and original encryption key. Root
+never repairs a legacy home override; startup names conflicting files and refuses
+an unusable override or missing key. See [key recovery](startup-encryption-key.md)
+and [chart cutover](modern-chart-cutover.md).
+
+Upgrades preserve the published beta6/beta7 Tomcat conffile bytes, avoiding a
+comment-only dpkg prompt on edited hosts. Hosts that installed intermediate
+snapshot payloads can still receive a normal conffile prompt. The unchanged
+nginx distribution default-site symlink is retired; custom files/targets are
+preserved. Certificate regeneration keeps an operator-stopped nginx stopped.
+Unattended installs announce a retained true debconf stop-port-conflicts answer;
+fresh defaults remain false and saved/preseeded choices are retained.
+
+Audit purge now verifies and durably stores exact locked cohorts before deleting
+them. Failures retain recoverable backups and report partial completion explicitly.
+See [audit purge and recovery](audit-log-purge.md) for client/TLS prerequisites.
+
+Release automation now builds drafts and requires exact-tag qualification before
+publication, including direct Debian dispatches. Final artifact bytes are promoted
+without rebuilding. The existing incomplete release matrix continues to block
+readiness; this repair does not certify a release. See the
+[publication procedure](testing/release-publication.md). The published carlos-ctl
+pin, dependency floor and command interfaces are unchanged.
 
 ## Measurement charts, CML revisions and CDM forms
 

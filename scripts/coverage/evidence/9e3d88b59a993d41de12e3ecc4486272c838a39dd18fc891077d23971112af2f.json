@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "d648b12cd7e18531e223e9549c0c3b92f456df61",
+  "comparisonSha256": "e15522cc0feca57aef6ba2f6a66abd77fe092702291d4e2d9135d8e2e6871a99",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/to/OscarJobResponse.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "aa4be5a0d9e28ee58678451adfab501e7fd61cef"
+    }
+  },
+  "baselineCommit": "e88eb80bfdedef152c473a76242d2a92b87c974a",
+  "baselineSourceTree": "d648b12cd7e18531e223e9549c0c3b92f456df61",
+  "baselineReportSha256": "6cb68d491ee11536be4c6b575e7f8fef650f143d07d09c79d8ffe0733871cbb2",
+  "baselineLane": "CXF job scheduling responses and JAXB compatibility",
+  "baselineTestCounts": {
+    "tests": 355,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "d74c8377883d97670573a029c2c75bb223708f85ee75d28dcffd434a2e4603d8",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.utility.xml.JaxbImplementationCompatibilityUnitTest",
+    "io.github.carlos_emr.carlos.webserv.rest.OscarJobServiceEndpointTest"
+  ]
+}

@@ -15,4 +15,7 @@ public interface EReferAttachmentDataDao extends AbstractDao<EReferAttachmentDat
 
     /** Removes a selected pending row and its parent only when the queue becomes empty. */
     void removeFromPendingQueue(EReferAttachmentData data);
+
+    /** Removes this patient's recent, unarchived queue entries for one explicitly detached source. */
+    int removeRecentByDocumentId(int docId, String type, int demographicNo, Date expiry);
 }

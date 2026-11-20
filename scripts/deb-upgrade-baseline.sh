@@ -41,14 +41,78 @@ file_hash() {
 properties_without_cutover() {
     python3 - "$CARLOS_ETC_DIR/carlos.properties" "${1:-content}" <<'PYCUTOVER'
 import pathlib
+import re
 import sys
 
 content = pathlib.Path(sys.argv[1]).read_bytes()
 entry = (b"\n\n# Mandatory modern-chart cutover; retain this on rollback (#4793).\n"
          b"AbandonOldChart=true\n")
-ready = content.endswith(entry)
 if sys.argv[2] == "status":
-    print("ready" if ready else "absent")
+    # Match Java Properties.load rather than the location of our historical
+    # append block. Idempotent preparation leaves an already-effective true in
+    # place even when another setting/comment follows it (#5763).
+    def unescape(value):
+        result = []
+        index = 0
+        while index < len(value):
+            char = value[index]
+            index += 1
+            if char == '\\':
+                if index == len(value):
+                    break
+                char = value[index]
+                index += 1
+                if char == 'u':
+                    digits = value[index:index + 4]
+                    if not re.fullmatch('[0-9a-fA-F]{4}', digits):
+                        raise ValueError('Malformed Java properties unicode escape')
+                    char = chr(int(digits, 16))
+                    index += 4
+                else:
+                    char = {'t': '\t', 'n': '\n', 'r': '\r', 'f': '\f'}.get(char, char)
+            result.append(char)
+        return ''.join(result)
+
+    def logical_lines():
+        logical = ''
+        continued = False
+        for physical in re.split(r'\r\n|\r|\n', content.decode('iso-8859-1')):
+            part = physical.lstrip(' \t\f')
+            if not continued and (not part or part.startswith(('#', '!'))):
+                continue
+            logical += part
+            trailing = len(logical) - len(logical.rstrip('\\'))
+            if trailing % 2:
+                logical = logical[:-1]
+                continued = True
+                continue
+            yield logical
+            logical = ''
+            continued = False
+        if continued:
+            yield logical
+
+    effective = None
+    for line in logical_lines():
+        end = 0
+        escaped = False
+        while end < len(line):
+            char = line[end]
+            if not escaped and char in '=:\t\f ':
+                break
+            escaped = char == '\\' and not escaped
+            end += 1
+        value = end
+        while value < len(line) and line[value] in ' \t\f':
+            value += 1
+        if value < len(line) and line[value] in '=:':
+            value += 1
+        while value < len(line) and line[value] in ' \t\f':
+            value += 1
+        key, decoded = unescape(line[:end]), unescape(line[value:])
+        if key == 'AbandonOldChart':
+            effective = decoded
+    print('ready' if effective is not None and effective.lower() == 'true' else 'absent')
 else:
     # A later init-config can append settings after an earlier cutover entry.
     # Exempt those exact historical migration entries too, never arbitrary flags.

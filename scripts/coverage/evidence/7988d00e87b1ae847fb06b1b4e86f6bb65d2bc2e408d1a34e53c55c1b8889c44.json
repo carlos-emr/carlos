@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "5f8399db3df5c9471721576377a3b1929e2648e3",
+  "comparisonSha256": "e20236574a228429ef313811c073ced5ac9f206fe4d7b8e2b5dc56aaaf4ac742",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/admin/gate/ViewKeygenCreateKey2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "38d3b353689c5c4a3f1ee91f4be7cb50f4481aef"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/app/HttpMethodGuardFilter.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "79de3e376259d64b8ff4046a6192b7354cc9770a"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementView2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "96523ed5eeba6f7c1f689ae37760083f709e2540"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/PatientLabRoutingDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "ba6fd1e1ebf93616e31d03d5c4b2c737b6325e7c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/PatientLabRoutingDaoImpl.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 100.0,
+      "sourceBlob": "7dc91dbdd8bf66502657603d0cfdc8f5e4793f6d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/AbstractModel.java": {
+      "lines": 66.66666666666667,
+      "instructions": 51.92307692307692,
+      "branches": 57.142857142857146,
+      "sourceBlob": "c19cee92bfbbbb80a243b7a3418b5e94e0a920d4"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/pageUtil/DemographicExportAction42Action.java": {
+      "lines": 1.6172506738544474,
+      "instructions": 1.5762925598991173,
+      "branches": 0.0,
+      "sourceBlob": "74522f31e4127d68cde3d6683aa6873eddfc8897"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/documentManager/EDocUtil.java": {
+      "lines": 26.666666666666668,
+      "instructions": 26.08695652173913,
+      "branches": 100.0,
+      "sourceBlob": "3143182a7a1de3ff774c9d06e57b8b06006e4dc8"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/documentManager/actions/AddEditDocument2Action.java": {
+      "lines": 96.82539682539682,
+      "instructions": 95.36423841059603,
+      "branches": 96.875,
+      "sourceBlob": "a18f23dfccc6760db2a8d8f298f010fae73adba9"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/documentManager/actions/AddEditHtml2Action.java": {
+      "lines": 100.0,
+      "instructions": 97.1830985915493,
+      "branches": 87.5,
+      "sourceBlob": "9a535868557450f25ead8ecd9d05fb91352e2fed"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/eform/actions/HtmlEdit2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "894cef147f830f9cf77015f24bfb02b07a2be455"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/oscarConsultationRequest/pageUtil/ConsultationPDFCreator.java": {
+      "lines": 85.92233009708738,
+      "instructions": 87.46312684365782,
+      "branches": 59.523809523809526,
+      "sourceBlob": "c504efd3e31bae895d8ffc3752d2b15aa6deaf09"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/Update2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 90.0,
+      "sourceBlob": "5030c6c84ff1e0d8e51f7e67c045f4caf6893d4b"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/mailbox/Upload2Action.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 100.0,
+      "sourceBlob": "8f2987c969afddae75243147c555f8a729109871"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prevention/reports/PreventionReportUtil.java": {
+      "lines": 76.92307692307692,
+      "instructions": 82.3529411764706,
+      "branches": 87.5,
+      "sourceBlob": "cfab1eca6bec68a648b07c741deed931b55775f3"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/data/RptDemographicQuery2Builder.java": {
+      "lines": 94.28571428571429,
+      "instructions": 92.96875,
+      "branches": 76.66666666666667,
+      "sourceBlob": "a5f912a3d249759ea7d94e2c12ba1b0f8d903d8a"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/data/RptDemographicQueryBuilder.java": {
+      "lines": 94.28571428571429,
+      "instructions": 92.96875,
+      "branches": 76.66666666666667,
+      "sourceBlob": "967d59ed1c79f7b2b2e4b7fbb3f2c11a98cc307c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/MiscUtils.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "83f4e287507d6d8c5681d5c5a7b599519adfd678"
+    }
+  },
+  "exclusions": {},
+  "zeroCoverageWaivers": {},
+  "baselineCommit": "494a932443bf10c2abb0f12d80274079bb56df37",
+  "baselineSourceTree": "5f8399db3df5c9471721576377a3b1929e2648e3",
+  "baselineReportSha256": "be3898e0ecc7faa1543e3665ae0046dafcc20a73e2a1f24d0da1497b9260aec1",
+  "baselineLane": "PR #6326: focused Java 25 run (JDK Temurin 25.0.5, Maven 3.9.11) of the unit and H2 tests for the 18 Java sources this PR changes - Key Manager method guard and filter, mutator contract, case-management views, PatientLabRoutingDao, AbstractModel equality, legacy CDS export, document storage and reads, consultation PDF images, MCEDT update and upload, as-of roster queries, PreventionReportUtil and MiscUtils - with the JaCoCo 0.8.16 agent, measured on commit 494a9324",
+  "baselineTestCounts": {
+    "tests": 1151,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 1
+  },
+  "baselineTestReportsSha256": "4a409af56b540e2212730b69247897fba0a06d5178c31c2828ef50349ecb21a5",
+  "baselineTestReportsHashFormat": "SHA-256 of a sha256sum-style manifest of the run's Surefire TEST-*.xml report files: one '<sha256>  <file name>' line each, sorted by name",
+  "baselineTestRunCommit": "494a932443bf10c2abb0f12d80274079bb56df37",
+  "baselineAdditionalTestRuns": []
+}
