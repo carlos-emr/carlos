@@ -12,6 +12,10 @@
 //   MYCARLOS_DOCUMENTS  two of that patient's documents, comma-separated (e.g. 55,56);
 // plus the usual BASE_URL, TEST_USER/TEST_PASSWORD/TEST_PIN and MYSQL_* for the harness. The
 // deliveries it makes stay in the throwaway portal; nothing else is written.
+//
+// NOT part of scripts/playwright-suite.json, and named without "-playwright-checks" on purpose: it needs a live
+// portal that no release-qualification lane has, so listing it would make the release plan require it.
+// Run it by hand: npm run test:mycarlos-send-dialog-playwright.
 const h = require('../../lib/playwright-harness');
 const { runWorkflow } = require('../../lib/workflow-session');
 
