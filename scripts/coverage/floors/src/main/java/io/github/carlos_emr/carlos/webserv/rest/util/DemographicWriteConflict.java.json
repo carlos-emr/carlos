@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/webserv/rest/util/DemographicWriteConflict.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 81.25,
+    "sourceBlob": "42fa216845b91a44622bf759cc76da4055707cd5"
+  },
+  "evidenceSha256": "adbf39aa5dfd4114f2b211e96751a7991063cb34f0b72ebe38c15352aa345125"
+}

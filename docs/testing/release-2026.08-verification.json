@@ -411,11 +411,12 @@
         "scripts/lib/qualified-lab-oracle.js",
         "scripts/qualified-lab-oracle.test.js",
         "docs/testing/lab-qualified-results-inventory.md",
-        "src/test/java/io/github/carlos_emr/carlos/lab/ca/on/LabResultDataAcknowledgementCountUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/on/LabResultDataAcknowledgementCountUnitTest.java",
+        "scripts/inbox-failure-states-playwright-checks.js"
       ],
-      "implementation": "Add native extension ambiguities and installed source-link authorization checks; retain the older-main timestamp/long measurement/import/routing regression sweep.",
+      "implementation": "Add native extension ambiguities and installed source-link authorization checks; retain the older-main timestamp/long measurement/import/routing regression sweep. Exercise invalid inbox document rows and real count-query failure on an exclusive disposable installation.",
       "cases": "History, Health Tracker and flowsheets; null/duplicate/stale/invalid/overflow extension values; foreign-patient source lab; batched provenance query; older lab versions and merged patients; real HL7 observation/entry times at midnight/noon/23:59 and DST; long and partial results; missing public key. Native qualified/qualitative lab entry, exact stored HL7 and every report/history/grid/row/visible tooltip, offered Plot PNGs with independent printed-axis calibration and exact numeric controls, actual PDF clinical columns and unrelated-patient preservation. Bound-to-number coercion #5827 and shipped-filter literal/history loss #5828 remain fatal. Incomplete CML acknowledgement aggregates retain visible inbox rows with an explicit warning and disabled bulk selection; unrelated query errors propagate and existing JSON/XML count contracts remain unchanged.",
-      "acceptance": "Exact clinical values and timestamps persist; links open only authorized source reports, remain deterministic under duplicate data, and add no per-reading query or false error storm.",
+      "acceptance": "Exact clinical values and timestamps persist; links open only authorized source reports, remain deterministic under duplicate data, and add no per-reading query or false error storm. Invalid inbox rows retain later valid documents with an explicit incomplete-list notice; failed count queries return a non-success response without partial totals, and recovery is verified after restoring the schema.",
       "requiredChecks": [
         "evidence-self-tests",
         "coverage-self-tests",
@@ -428,7 +429,8 @@
         "java-native-bc-flyway",
         "java-date-zones",
         "manual-pathnet-patient-link",
-        "packaged-native-pathnet"
+        "packaged-native-pathnet",
+        "manual-inbox-failure-states"
       ]
     },
     {
@@ -552,6 +554,8 @@
       "area": "EBS transport and WS-Security qualification",
       "sources": [
         "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/EdtClientBuilderTransportUnitTest.java",
+        "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentCleanupInterceptor.java",
+        "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/DynamicWSS4JInInterceptor.java",
         "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentResolverSpi.java",
         "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/mailbox/CidPrefixResourceResolver.java",
         "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentResolverSpiUnitTest.java",
@@ -565,9 +569,9 @@
         "scripts/ci/run-public-api-oracle.py",
         "scripts/ci/WarWireCompatibilityProbe.java"
       ],
-      "implementation": "Preserve the extensive independent loopback HTTPS tests; run them against packaged classpath and qualify actual approved staging MCEDT/HCV deployment settings. Add a separate test for CXF-owned spill-cache retention rather than claiming application replay closure covers it.",
-      "cases": "Signed/encrypted SOAP/MTOM, exact bytes, TLS 1.2/1.3, mTLS/hostname/trust failures, proxy/auth, stalled/progressing/truncated bodies, plain/multipart fault chains, thread-local cleanup and concurrent clients; ordinary crypto properties remain readable, ENC(...) has explicit refusal; async/HTTP2/custom extensions inventoried.",
-      "acceptance": "Supported Ministry flows work on deployed transport and resources stay bounded. The documented pre-existing CXF spill-cache finding and unavailable staging credentials remain explicit unresolved gates. CXF-owned spill caches and vendor staging are separate required acceptance; replay-buffer cleanup alone is insufficient.",
+      "implementation": "Run the independent loopback HTTPS tests against the packaged classpath and qualify approved staging MCEDT/HCV deployment settings. The #5745 loopback regressions use a private directory and a low threshold to verify CXF-owned spill-cache cleanup alongside application replay cleanup.",
+      "cases": "Signed/encrypted SOAP/MTOM, exact bytes for distinct attachments, TLS 1.2/1.3, mTLS/hostname/trust failures, proxy/auth, stalled/progressing/truncated bodies, plain/multipart fault chains, thread-local cleanup and concurrent clients. Response completion and faults release CXF-owned spill files and preserve unrelated files. Ordinary crypto properties remain readable, ENC(...) has explicit refusal, and async/HTTP2/custom extensions are inventoried.",
+      "acceptance": "Supported Ministry flows work on deployed transport and resources stay bounded. Both CXF attachment caches and replay buffers are released. Packaged staging qualification remains required and depends on authorized access.",
       "requiredChecks": [
         "evidence-self-tests",
         "coverage-self-tests",
@@ -820,6 +824,7 @@
         "fixture-hrm-report-list",
         "fixture-messenger-reply-form",
         "fixture-search-sort-messenger-inbox",
+        "manual-forms-default-heading",
         "manual-demographic-converted-limits",
         "manual-eform-large-html-roundtrip"
       ]
@@ -1095,7 +1100,8 @@
         "packaged-full",
         "backup-retention-purge",
         "debian-python",
-        "installed-backup-core"
+        "installed-backup-core",
+        "java-native-generated"
       ]
     },
     {
@@ -5138,6 +5144,39 @@
               ]
             }
           ]
+        },
+        "io.github.carlos_emr.carlos.managers.AuditLogPurgeMariaDbIntegrationTest": {
+          "check": "java-native-generated",
+          "cases": [
+            {
+              "name": "shouldRestoreEveryDeletedValue_whenPurgingThroughTheLastInstantOfTheDay",
+              "container": ""
+            },
+            {
+              "name": "shouldRetainRowsAndReleaseLocks_whenDumpFailsTimesOutOrOmitsRows",
+              "container": ""
+            },
+            {
+              "name": "shouldRetainBackedUpRows_whenAuditRecordingFailsBeforeDelete",
+              "container": ""
+            },
+            {
+              "name": "shouldSerializePurgesAndPreserveLateHistoricalRows_whenAnotherWriterRuns",
+              "container": ""
+            },
+            {
+              "name": "shouldRecordPurgeAuditWithoutBlocking_whenAllExistingRowsAreEligible",
+              "container": ""
+            },
+            {
+              "name": "shouldUseLiveCredentials_whenApplicationUserHasQuotedPassword",
+              "container": ""
+            },
+            {
+              "name": "shouldRetainCompletedBackupsAndReportFailure_whenALaterCohortFails",
+              "container": ""
+            }
+          ]
         }
       },
       "runtimeConstraints": {
@@ -5189,7 +5228,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicWebUnmergeIntegrationTest,SiteRenameClockMariaDbIntegrationTest,JdbcConnectorMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,RxStrictAuditIntegrationTest,RxSaveReceiptCommitIntegrationTest,RxConcurrencyIntegrationTest,RxFavoriteGroupIntegrationTest,RxFavoriteCopyIntegrationTest,RxRestPrescriptionRollbackIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest",
+        "-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicWebUnmergeIntegrationTest,SiteRenameClockMariaDbIntegrationTest,JdbcConnectorMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,RxStrictAuditIntegrationTest,RxSaveReceiptCommitIntegrationTest,RxConcurrencyIntegrationTest,RxFavoriteGroupIntegrationTest,RxFavoriteCopyIntegrationTest,RxRestPrescriptionRollbackIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,AppointmentFieldAuditTransactionIntegrationTest,AuditLogPurgeMariaDbIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -5199,7 +5238,7 @@
         "-DexcludedGroups=flyway-schema",
         "-Dcarlos.test.schema.expected=generated"
       ],
-      "minimumCases": 2599,
+      "minimumCases": 2606,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "RxCorrectionSaveRollbackIntegrationTest": 2,
@@ -5230,7 +5269,8 @@
         "RxPrescribeMariaDbIntegrationTest": 4,
         "TicklerPatientAccessMariaDbIntegrationTest": 12,
         "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
-        "AppointmentUpdateDaoIntegrationTest": 18,
+        "AppointmentUpdateDaoIntegrationTest": 19,
+        "AppointmentFieldAuditTransactionIntegrationTest": 3,
         "ReportingPatientListAuditMariaDbIntegrationTest": 4,
         "RxSaveReceiptCommitIntegrationTest": 19,
         "RxConcurrencyIntegrationTest": 6,
@@ -5240,7 +5280,9 @@
         "RxStrictAuditIntegrationTest": 1,
         "DemographicWebUnmergeIntegrationTest": 19,
         "BillingObecAlertDaoMariaDbIntegrationTest": 4,
-        "SiteRenameClockMariaDbIntegrationTest": 8
+        "SiteRenameClockMariaDbIntegrationTest": 8,
+        "AuditLogPurgeMariaDbIntegrationTest": 7,
+        "DemographicUpdateDaoTransactionIntegrationTest": 30
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -5270,7 +5312,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicWebUnmergeIntegrationTest,SiteRenameClockMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,Growth0To36FormPersistenceIntegrationTest,EncounterFormDaoGroupedHistoryIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest,CaseManagementNoteLegacyFlagsMariaDbIntegrationTest",
+        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicWebUnmergeIntegrationTest,SiteRenameClockMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,Growth0To36FormPersistenceIntegrationTest,EncounterFormDaoGroupedHistoryIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest,CaseManagementNoteLegacyFlagsMariaDbIntegrationTest,DemographicUpdateDaoTransactionIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -5311,7 +5353,8 @@
         "ReportingPatientListAuditMariaDbIntegrationTest": 4,
         "DemographicWebUnmergeIntegrationTest": 19,
         "CaseManagementNoteLegacyFlagsMariaDbIntegrationTest": 30,
-        "SiteRenameClockMariaDbIntegrationTest": 8
+        "SiteRenameClockMariaDbIntegrationTest": 8,
+        "DemographicUpdateDaoTransactionIntegrationTest": 30
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -5341,7 +5384,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicWebUnmergeIntegrationTest,SiteRenameClockMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,FormXmlImportServiceIntegrationTest,EFormApColumnLookupIntegrationTest,AppointmentDaySheetServiceIntegrationTest,AntenatalReportDaoIntegrationTest,EFormGroupDaoIntegrationTest,Growth0To36FormPersistenceIntegrationTest,EncounterFormDaoGroupedHistoryIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,LegacyBcTeleplanExportMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest,CaseManagementNoteLegacyFlagsMariaDbIntegrationTest",
+        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicWebUnmergeIntegrationTest,SiteRenameClockMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,FormXmlImportServiceIntegrationTest,EFormApColumnLookupIntegrationTest,AppointmentDaySheetServiceIntegrationTest,AntenatalReportDaoIntegrationTest,EFormGroupDaoIntegrationTest,Growth0To36FormPersistenceIntegrationTest,EncounterFormDaoGroupedHistoryIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,LegacyBcTeleplanExportMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest,CaseManagementNoteLegacyFlagsMariaDbIntegrationTest,DemographicUpdateDaoTransactionIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -5380,7 +5423,8 @@
         "ReportingPatientListAuditMariaDbIntegrationTest": 4,
         "DemographicWebUnmergeIntegrationTest": 19,
         "CaseManagementNoteLegacyFlagsMariaDbIntegrationTest": 30,
-        "SiteRenameClockMariaDbIntegrationTest": 8
+        "SiteRenameClockMariaDbIntegrationTest": 8,
+        "DemographicUpdateDaoTransactionIntegrationTest": 30
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -8462,6 +8506,43 @@
       "requireLockedChromium": true
     },
     {
+      "id": "manual-forms-default-heading",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "selection": [
+        "forms-default-heading"
+      ],
+      "packaged": true,
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST",
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE"
+      ],
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "timeoutSeconds": 420,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--only",
+        "forms-default-heading",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "requireLockedChromium": true
+    },
+    {
       "id": "manual-provider-document-queue-security",
       "kind": "browser",
       "profiles": [
@@ -8640,6 +8721,44 @@
         "{run}/browser.xml"
       ],
       "requireLockedChromium": true
+    },
+    {
+      "id": "manual-inbox-failure-states",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "selection": [
+        "inbox-failure-states"
+      ],
+      "packaged": true,
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST",
+        "DOCUMENT_DIR",
+        "EXCLUSIVE",
+        "CARLOS_DISPOSABLE_VM"
+      ],
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "timeoutSeconds": 420,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--only",
+        "inbox-failure-states",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "requireLockedChromium": true
     }
   ],
   "requireJavaDiscovery": true,
@@ -8790,9 +8909,22 @@
       ]
     },
     "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentCleanupInterceptor.java": {
-      "reason": "Owned replay closes once and attachment thread-local is cleared on normal and fault chains.",
+      "reason": "Owned replay and CXF attachment caches are released and the attachment thread-local is cleared on normal and fault chains. Cleanup reads no additional MIME parts.",
       "tests": [
-        "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentCleanupInterceptorUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentCleanupInterceptorUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/EdtClientBuilderTransportUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T19"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/DynamicWSS4JInInterceptor.java": {
+      "reason": "The signed HTTPS fixture verifies that each exchange releases WSS4J attachment readers and delivers the exact payloads for concurrent responses and downloads containing multiple attachments.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/EdtClientBuilderTransportUnitTest.java"
       ],
       "checks": [
         "java-all"
@@ -9276,16 +9408,22 @@
       ]
     },
     "src/main/java/io/github/carlos_emr/carlos/managers/DemographicManagerImpl.java": {
-      "reason": "Merged-demographic read audit identifies the requested patient; installed chart reads verify the patient-filtered access audit. Other manager acceptance and source-scope gaps are not waived.",
+      "reason": "Merged-demographic read audit identifies the requested patient; installed chart reads verify the patient-filtered access audit. A demographic update and its custom-field save are single transactions (#5298): database-raised failures at the patient, extension, custom-field and audit rows leave nothing behind on H2 and physical MariaDB, extensions are written in the order given so that a refused change to a stored extension is raised by the update itself rather than at the caller's commit, every extension is bound to the patient being updated and a stored one that is not that patient's is refused before any write, and the installed REST update is checked end to end. Other manager acceptance and source-scope gaps are not waived.",
       "tests": [
         "src/test/java/io/github/carlos_emr/carlos/managers/DemographicManagerUnitTest.java",
-        "scripts/audit-log-chart-read-playwright-checks.js"
+        "scripts/audit-log-chart-read-playwright-checks.js",
+        "src/test/java/io/github/carlos_emr/carlos/managers/DemographicUpdateDaoTransactionIntegrationTest.java",
+        "scripts/demographic-rest-update-atomicity-playwright-checks.js"
       ],
       "checks": [
         "java-all",
-        "packaged-full"
+        "packaged-full",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
       ],
       "workstreams": [
+        "T04",
         "T23",
         "T39"
       ]
@@ -9869,6 +10007,108 @@
       ],
       "workstreams": [
         "T26"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/CarlosProperties.java": {
+      "reason": "Installation/configuration hardening: preserve API and configuration precedence; require native failure/recovery evidence for audit deletion and packaged startup. This binding does not establish release readiness.",
+      "workstreams": [
+        "T07"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "tests": [
+        "src/test/java/io/github/carlos_emr/CarlosPropertiesSaveUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/login/StartupKeyPersistenceUnitTest.java"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/login/Startup.java": {
+      "reason": "Installation/configuration hardening: preserve API and configuration precedence; require native failure/recovery evidence for audit deletion and packaged startup. This binding does not establish release readiness.",
+      "workstreams": [
+        "T07"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/login/StartupKeyPersistenceUnitTest.java"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/config/PackagedConfigurationPreflight.java": {
+      "reason": "Installation/configuration hardening: preserve API and configuration precedence; require native failure/recovery evidence for audit deletion and packaged startup. This binding does not establish release readiness.",
+      "workstreams": [
+        "T26"
+      ],
+      "checks": [
+        "debian-python"
+      ],
+      "tests": [
+        "debian/assets/tests/test_modern_chart_cutover.py",
+        "scripts/ci/check-installed-configuration-preflight.sh"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/AuditLogPurgeService.java": {
+      "reason": "Installation/configuration hardening: preserve API and configuration precedence; require native failure/recovery evidence for audit deletion and packaged startup. This binding does not establish release readiness.",
+      "workstreams": [
+        "T36"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated"
+      ],
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AuditLogPurgeServiceUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/AuditLogPurgeMariaDbIntegrationTest.java"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/AuditLogManager.java": {
+      "reason": "Installation/configuration hardening: preserve API and configuration precedence; require native failure/recovery evidence for audit deletion and packaged startup. This binding does not establish release readiness.",
+      "workstreams": [
+        "T36"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated"
+      ],
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AuditLogManagerUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/AuditLogPurgeMariaDbIntegrationTest.java"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/admin/web/AuditLogPurge2Action.java": {
+      "reason": "Installation/configuration hardening: preserve API and configuration precedence; require native failure/recovery evidence for audit deletion and packaged startup. This binding does not establish release readiness.",
+      "workstreams": [
+        "T23"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/admin/web/AuditLogPurgeActionUnitTest.java"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/MariaDbJdbcCompatibility.java": {
+      "reason": "Installation/configuration hardening: preserve API and configuration precedence; require native failure/recovery evidence for audit deletion and packaged startup. This binding does not establish release readiness.",
+      "workstreams": [
+        "T21"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/MariaDbJdbcCompatibilityUnitTest.java"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/OscarTrackingBasicDataSource.java": {
+      "reason": "Installation/configuration hardening: preserve API and configuration precedence; require native failure/recovery evidence for audit deletion and packaged startup. This binding does not establish release readiness.",
+      "workstreams": [
+        "T21"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/MariaDbJdbcCompatibilityUnitTest.java"
       ]
     }
   },

@@ -45,6 +45,7 @@ on:
       - '.github/workflows/deb-packages.yml'
       - '.github/workflows/debian-python-tests.yml'
   push:
+    tags: ['20*']
     branches: [develop, 'release/**']
     paths:
       - 'debian/**'
@@ -112,6 +113,11 @@ jobs:
           python-version: '3.14'
       - name: Install the CLI's runtime dependency
         run: pip install bcrypt==5.0.0
+      - name: Java Properties preflight regression runtime
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v4.7.1
+        with:
+          distribution: temurin
+          java-version: '25'
       - name: Packaging-contract tests
         # Do not import these as debian.assets: python-debian, installed on
         # Debian development hosts, owns the top-level debian package.
@@ -121,6 +127,12 @@ jobs:
             -o Acquire::https::Timeout=30 -o APT::Update::Error-Mode=any update
           sudo apt-get install -y --no-install-recommends restic
           python3 scripts/ci/run-python-release-tests.py --start debian/assets/tests --output target/debian-python-ci.json
+      - name: Verify the installed root and service-user preflight
+        run: |
+          docker run --rm --network=none -e CARLOS_DISPOSABLE_HOST=true \
+            -v "$GITHUB_WORKSPACE:/workspace:ro" -w /workspace \
+            tomcat:11.0.27-jdk25-temurin@sha256:5f639b0943621fabc57de055c8789a2813692f3b25322379900ffac00958baea \
+            bash scripts/ci/check-installed-configuration-preflight.sh
       - name: Provision migrated ON and BC references for native generator tests
         run: |
           sudo apt-get install -y --no-install-recommends mariadb-client

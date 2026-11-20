@@ -304,7 +304,9 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
                     "known CARLOS types; no user-controlled property name reaches the sink")
     public Demographic(Demographic d) {
         try {
-            BeanUtils.copyProperties(d, this);
+            BeanUtils.copyProperties(d, this, "prefName");
+            // The getter displays the alias first. Preserve the separately mapped column.
+            prefName = org.hibernate.Hibernate.unproxy(d, Demographic.class).prefName;
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

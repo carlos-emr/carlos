@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "ed66bd2606c724a99b1b3114cb5f05fc0dd5276e",
+  "comparisonSha256": "a1a5c421a6758062ad8e7d3439b99d420063831c60d4e65cf683ef8b81752be5",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/WaitingListDaoImpl.java": {
+      "lines": 88.88888888888889,
+      "instructions": 85.71428571428571,
+      "branches": 100.0,
+      "sourceBlob": "93928bb4777ac634d5e2a42721a23b606bd66d37"
+    }
+  },
+  "baselineCommit": "e06bb5f834f34482c59411c484aa26896c0913ff",
+  "baselineSourceTree": "ed66bd2606c724a99b1b3114cb5f05fc0dd5276e",
+  "baselineReportSha256": "6118a873c014b63fe467ff8902ccdc4f1699ebc3f0fe7ec52e50f1fbbe0e4600",
+  "baselineLane": "Local waiting list DAO and REST validation on H2 and Ontario and BC Flyway MariaDB 11.8.8",
+  "baselineTestCounts": {
+    "tests": 263,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "f585844edc46ebfeed03625f772b8a3c7531121de383467a18279e7b6e8d73ec",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.commn.dao.WaitingListDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.managers.DemographicUpdateDaoTransactionIntegrationTest",
+    "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLMutation2ActionsTest",
+    "io.github.carlos_emr.carlos.waitinglist.pageUtil.WLWaitingListNoteLengthActionUnitTest",
+    "io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListConcurrencyUnitTest",
+    "io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListUpdateRecordUnitTest",
+    "io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListUtilNoteLengthUnitTest",
+    "io.github.carlos_emr.carlos.webserv.rest.DemographicServiceEndpointTest"
+  ]
+}

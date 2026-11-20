@@ -6,6 +6,8 @@ import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.*;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import java.time.Instant;
+import java.util.Date;
 import java.util.List;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -60,6 +62,20 @@ class DemographicProviderReassignmentServiceUnitTest {
         when(demographics.getDemographicsNameRangeByProvider(user,old,"^[A-Z]")).thenReturn(List.of(patient));
         assertThat(service.reassign(user,"UpdateMrp","999998","999997","A","Z")).isEqualTo(1);
         verify(demographics).updateDemographic(eq(user),argThat(saved -> saved != patient && saved.getProviderNo().equals("999997")));
+    }
+    @Test void shouldPreserveTheRevision_whenTheMrpIsUnchanged() {
+        allowPatient(101);
+        Date previousUpdate = Date.from(Instant.parse("2023-01-01T00:00:00Z"));
+        Demographic patient = new Demographic();
+        patient.setDemographicNo(101);
+        patient.setProviderNo("999998");
+        patient.setLastUpdateDate(previousUpdate);
+        when(demographics.getDemographicsNameRangeByProvider(user, old, "^[A-Z]")).thenReturn(List.of(patient));
+
+        assertThat(service.reassign(user, "UpdateMrp", "999998", "999998", "A", "Z")).isEqualTo(1);
+
+        verify(demographics).updateDemographic(eq(user), argThat(saved -> saved != patient
+                && "999998".equals(saved.getProviderNo()) && previousUpdate.equals(saved.getLastUpdateDate())));
     }
     @Test void shouldRejectReversedRange_beforeQueries() {
         assertThatThrownBy(()->service.reassign(user,"UpdateMrp","999998","999997","Z","A")).isInstanceOf(IllegalArgumentException.class);

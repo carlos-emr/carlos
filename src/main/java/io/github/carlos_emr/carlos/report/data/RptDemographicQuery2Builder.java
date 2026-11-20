@@ -41,9 +41,12 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 import java.text.ParseException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class RptDemographicQuery2Builder {
@@ -100,6 +103,19 @@ public class RptDemographicQuery2Builder {
         String[] rosterStatus = frm.getRosterStatus();
         String[] patientStatus = frm.getPatientStatus();
         String[] providers = frm.getProviderNo();
+        // An "as of" roster report (#5877) widens its candidates to archived provider periods and
+        // then checks each row against the roster history. The check needs the patient number
+        // whatever columns were selected, and a row limit must count only the rows it keeps.
+        boolean historicalRoster = asofRosterDate != null && providers != null && providers.length > 0;
+        Set<String> rosterProviders = historicalRoster ? new HashSet<>(Arrays.asList(providers)) : Set.of();
+        java.sql.Date rosterHistoryDate = null;
+        if (historicalRoster) {
+            java.util.Date parsed = UtilDateUtilities.getDateFromString(asofRosterDate, "yyyy-MM-dd");
+            if (parsed != null) {
+                rosterHistoryDate = new java.sql.Date(parsed.getTime());
+                params.put("rosterHistoryDate", rosterHistoryDate);
+            }
+        }
 
         String firstName = frm.getFirstName();
         String lastName = frm.getLastName();
@@ -168,9 +184,14 @@ public class RptDemographicQuery2Builder {
 
         }
 
+        if (historicalRoster) {
+            // Hidden last column for the roster-history check; never copied into a result row.
+            stringBuffer.append(", d.demographic_no ");
+        }
         stringBuffer.append(" from demographic d ");
         if (getprovider) {
-            stringBuffer.append(", provider p");
+            stringBuffer.append(historicalRoster ? " left join provider p" : " inner join provider p");
+            stringBuffer.append(" on d.provider_no = p.provider_no");
         }
         int yStyle = 0;
         try {
@@ -293,10 +314,25 @@ public class RptDemographicQuery2Builder {
                 theFirstFlag = 1;
                 String paramName = "provider" + i;
                 params.put(paramName, providers[i]);
+                String providerPredicate = " d.provider_no = :" + paramName;
+                if (historicalRoster) {
+                    // An "as of" report asks who was rostered to the provider on that date, which
+                    // the per-row history check below decides. Filtering on the patient's current
+                    // provider here dropped patients who were the provider's then but have since
+                    // moved (#5877), so also admit patients any archived period assigns to them.
+                    // Only archived periods that could cover the date are candidates; the history check
+                    // applies the exact rule. Without a readable date, every archived period is a candidate.
+                    String archivePeriod = rosterHistoryDate == null ? ""
+                            : " and da.roster_date <= :rosterHistoryDate"
+                                    + " and (da.roster_termination_date is null or da.roster_termination_date >= :rosterHistoryDate)";
+                    providerPredicate = " ( d.provider_no = :" + paramName
+                            + " or d.demographic_no in (select da.demographic_no from demographicArchive da"
+                            + " where da.provider_no = :" + paramName + archivePeriod + ") )";
+                }
                 if (i == (providers.length - 1)) {
-                    stringBuffer.append(" d.provider_no = :" + paramName + " )");
+                    stringBuffer.append(providerPredicate + " )");
                 } else {
-                    stringBuffer.append(" d.provider_no = :" + paramName + " or  ");
+                    stringBuffer.append(providerPredicate + " or  ");
                 }
             }
         }
@@ -347,13 +383,6 @@ public class RptDemographicQuery2Builder {
 
         //removed roster_status condition in place more complex check below
 
-        if (getprovider) {
-            whereClause();
-            firstClause();
-            stringBuffer.append(" ( d.provider_no = p.provider_no )");
-            theFirstFlag = 1;
-        }
-
         List<Integer> demoIds = frm.getDemographicIds();
         if (!demoIds.isEmpty()) {
             whereClause();
@@ -382,12 +411,20 @@ public class RptDemographicQuery2Builder {
             }
         }
 
+        Integer keptRowLimit = null;
         if (limit != null && limit.length() != 0) {
             if (!limit.equals("0")) {
                 try {
                     int limitInt = Integer.parseInt(limit);
-                    params.put("limitValue", limitInt);
-                    stringBuffer.append(" limit :limitValue ");
+                    if (historicalRoster) {
+                        // A SQL LIMIT would let rows the history check then drops use up the limit.
+                        if (limitInt > 0) {
+                            keptRowLimit = limitInt;
+                        }
+                    } else {
+                        params.put("limitValue", limitInt);
+                        stringBuffer.append(" limit :limitValue ");
+                    }
                 } catch (Exception u) {
                     MiscUtils.getLogger().debug("limit was not numeric >" + limit + "<");
                 }
@@ -420,23 +457,36 @@ public class RptDemographicQuery2Builder {
                 }
 
                 // need to check if they were rostered at this point to this providers  (asofRosterDate is only set if this is being called from prevention reports)
-                if (demoNo != null && asofRosterDate != null && providers != null && providers.length > 0) {
-                    //Only checking the first doc.  Only one should be included for finding the cumulative bonus
+                if (historicalRoster) {
+                    Object rosterDemographicNo = o[select.length];
+                    demoNo = rosterDemographicNo == null ? null : String.valueOf(rosterDemographicNo);
+                    if (demoNo == null) {
+                        // A row whose roster history cannot be checked is not reported for the date.
+                        continue;
+                    }
                     try {
-                        if (!PreventionReportUtil.wasRosteredToThisProvider(loggedInInfo, Integer.parseInt(demoNo), DateUtils.parseDate(asofRosterDate, null), providers[0])) {
-                            MiscUtils.getLogger().info("Demographic :" + demoNo + " was not included in returned array because they were not rostered to " + providers[0] + " on " + asofRosterDate);
+                        if (!PreventionReportUtil.wasRosteredToAnyProvider(loggedInInfo, Integer.parseInt(demoNo),
+                                DateUtils.parseDate(asofRosterDate, null), rosterProviders)) {
+                            // Patient and provider numbers stay out of the log: this runs for every candidate row.
+                            MiscUtils.getLogger().debug("Report row left out: not rostered to the selected provider on the as-of date");
                             continue;
                         } else {
-                            MiscUtils.getLogger().info("Demographic :" + demoNo + " was included in returned array because they were not rostered to " + providers[0] + " on " + asofRosterDate);
+                            MiscUtils.getLogger().debug("Report row kept: rostered to the selected provider on the as-of date");
                         }
-                    } catch (NumberFormatException e) {
-                        MiscUtils.getLogger().error("Error", e);
-                    } catch (ParseException e) {
-                        MiscUtils.getLogger().error("Error", e);
+                    } catch (NumberFormatException | ParseException e) {
+                        // An unreadable patient number or as-of date means the history cannot be
+                        // checked; such a row is not reported for the date, so it cannot use up
+                        // the row limit either. The exception text can carry the patient number.
+                        MiscUtils.getLogger().error("Roster history check failed ({}); report row left out",
+                                e.getClass().getSimpleName());
+                        continue;
                     }
                 }
 
                 searchedArray.add(tempArr);
+                if (keptRowLimit != null && searchedArray.size() >= keptRowLimit) {
+                    break;
+                }
 
             }
         } catch (Exception e) {

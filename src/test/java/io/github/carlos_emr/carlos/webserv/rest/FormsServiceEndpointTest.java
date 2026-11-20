@@ -85,6 +85,32 @@ class FormsServiceEndpointTest extends CarlosRestTestBase {
     @DisplayName("GET /forms/{demographicNo}/all")
     class GetFormsForHeading {
 
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.NullAndEmptySource
+        @org.junit.jupiter.params.provider.ValueSource(strings = {"Unknown", "completed"})
+        void shouldUseTheAvailableFormList_whenHeadingIsOmittedOrNotCompleted(String heading) {
+            EForm later = new EForm();
+            ReflectionTestUtils.setField(later, "id", 12);
+            later.setFormName("Delta referral");
+            EForm first = new EForm();
+            ReflectionTestUtils.setField(first, "id", 11);
+            first.setFormName("Alpha referral");
+            when(mockFormsManager.findByStatus(any(LoggedInInfo.class), eq(true), isNull()))
+                .thenReturn(new ArrayList<>(List.of(later, first)));
+
+            var client = request().path("/forms/123/all");
+            if (heading != null) client.query("heading", heading);
+            try (Response response = client.get()) {
+                assertThat(response.getStatus()).isEqualTo(200);
+                FormListTo1 body = response.readEntity(FormListTo1.class);
+                assertThat(body.getList()).extracting(form -> form.getName())
+                    .containsExactly("Alpha referral", "Delta referral");
+                assertThat(body.getList()).extracting(form -> form.getFormId()).containsExactly(11, 12);
+                assertThat(body.getList()).allSatisfy(form -> assertThat(form.getDemographicNo()).isEqualTo(123));
+            }
+            org.mockito.Mockito.verify(mockFormsManager, org.mockito.Mockito.never()).findByDemographicId(any(), any());
+        }
+
         @Test
         @DisplayName("should return 200 with completed eforms")
         void shouldReturn200WithCompletedEForms_whenHeadingIsCompleted() {

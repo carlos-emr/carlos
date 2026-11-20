@@ -1899,9 +1899,10 @@ public class DemographicExportAction42Action extends ActionSupport {
                                 }
 
                                 //export dosage
-                                medi.setDosage(dosageValue.toString());
+                                String dosageText = plainDosage(dosageValue);
+                                medi.setDosage(dosageText);
                                 if (StringUtils.filled(drugUnit)) medi.setDosageUnitOfMeasure(drugUnit);
-                                mSummary = Util.addSummary(mSummary, "Dosage", dosageValue + " " + drugUnit);
+                                mSummary = Util.addSummary(mSummary, "Dosage", dosageText + " " + drugUnit);
 
                                 if (StringUtils.filled(arr[p].getSpecialInstruction()) && medi.getDrugDescription() != null) {
                                     String[] parts = arr[p].getSpecial().split("\n");
@@ -4517,6 +4518,27 @@ public class DemographicExportAction42Action extends ActionSupport {
                     reviewer.setOHIPPhysicianId(pvd.getOhip_no());
             }
         }
+    }
+
+    /**
+     * Writes a dose as a plain decimal a person can read safely. {@code Float.toString} prints a
+     * whole dose as "1.0" and a large one as "1.0E7"; a trailing zero is on ISMP Canada's
+     * <i>Do Not Use</i> list because "1.0 mg" can be read as 10 mg (#6185). The result has no
+     * trailing zero, no exponent, and keeps the leading zero of a fraction ("0.5", never ".5").
+     *
+     * @param dose the dose quantity, as stored on the drug
+     * @return the dose as a plain decimal string, or {@code Float.toString} for a non-finite value
+     */
+    static String plainDosage(Float dose) {
+        if (dose == null) {
+            return "0";
+        }
+        if (!Float.isFinite(dose)) {
+            return dose.toString();
+        }
+        // Float.toString gives the shortest decimal that identifies the float, so 0.1f stays 0.1
+        // rather than the binary expansion BigDecimal(float) would produce.
+        return new BigDecimal(Float.toString(dose)).stripTrailingZeros().toPlainString();
     }
 
     private Float getDosageValue(String dosage) {
