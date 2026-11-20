@@ -669,6 +669,11 @@ input[id^='acklabel_']{
                     comment = "";
                 }
             }
+            // A comment the server did not save stays on this page; offer it again, not the saved one.
+            var unsaved = addComment.unsaved[String(segmentId)];
+            if (unsaved != null) {
+                comment = unsaved;
+            }
             var commentVal = prompt('${carlos:forJavaScript(msgComment)}',comment);
 
             var ackForm = document.forms['acknowledgeForm_' + segmentId];
@@ -900,14 +905,24 @@ input[id^='acklabel_']{
                     body: params.toString()
                 });
             })
-            .then(function() {
+            .then(function(response) {
+                // fetch resolves on an HTTP error too; only a saved comment may reload the viewer.
+                if (!response.ok) {
+                    throw new Error('Add comment failed with HTTP ' + response.status);
+                }
+                delete addComment.unsaved[String(labid)];
                 window.location.reload();
             })
             .catch(function(error) {
                 console.error('Failed to add comment:', error);
-                alert('An error occurred while adding the comment. Please refresh and try again.');
+                if (formEl.comment) {
+                    addComment.unsaved[String(labid)] = formEl.comment.value;
+                }
+                alert('The comment was not saved. Your text is retained on this page: choose Comment to try again. Refreshing will clear it.');
             });
         }
+        // Comments the server refused, by report, so a retry does not lose the clinician's text.
+        addComment.unsaved = {};
         function submitLabel(lblval, segmentID) {
             var ackForm = document.forms['acknowledgeForm_' + segmentID];
             var labForm = document.forms['labLabelForm_' + segmentID];
