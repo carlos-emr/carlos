@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentEditConflict;
+import io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderService;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
@@ -45,6 +46,7 @@ class RecurringAppointmentServiceStaleFormUnitTest extends CarlosUnitTestBase {
     private final OscarAppointmentDao appointments = mock(OscarAppointmentDao.class);
     private final AppointmentArchiveDao archives = mock(AppointmentArchiveDao.class);
     private final SecurityInfoManager security = mock(SecurityInfoManager.class);
+    private final AppointmentReminderService reminders = mock(AppointmentReminderService.class);
     private final LoggedInInfo user = mock(LoggedInInfo.class);
     private final Appointment anchor = new Appointment();
     private RecurringAppointmentService service;
@@ -65,7 +67,7 @@ class RecurringAppointmentServiceStaleFormUnitTest extends CarlosUnitTestBase {
         when(appointments.findRecurringSeries(eq(anchor), any())).thenReturn(List.of(anchor));
         service = new RecurringAppointmentService(appointments, archives, security,
                 new io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver(
-                        mock(io.github.carlos_emr.carlos.commn.dao.LookupListDao.class)));
+                        mock(io.github.carlos_emr.carlos.commn.dao.LookupListDao.class)), reminders);
         values = new HashMap<>(Map.of("appointment_no", "61", "provider_no", "999998",
                 "appointment_date", "2027-01-31", "start_time", "10:00", "end_time", "10:14",
                 "keyword", "FAKE-PATIENT,Check", "status", "t", "groupappt", "Group Update",
@@ -88,7 +90,7 @@ class RecurringAppointmentServiceStaleFormUnitTest extends CarlosUnitTestBase {
                         assertThat(refused.getReason()).isEqualTo(AppointmentUpdateException.Reason.STALE_VERSION));
 
         assertThat(anchor.getStatus()).isEqualTo("C");
-        verifyNoInteractions(archives);
+        verifyNoInteractions(archives, reminders);
         verify(appointments, never()).merge(any());
         verify(appointments, never()).remove(any(Integer.class));
     }
@@ -120,7 +122,7 @@ class RecurringAppointmentServiceStaleFormUnitTest extends CarlosUnitTestBase {
                 .isInstanceOfSatisfying(AppointmentUpdateException.class, refused ->
                         assertThat(refused.getReason()).isEqualTo(AppointmentUpdateException.Reason.STALE_VERSION));
         assertThat(anchor.getReason()).isEqualTo("Changed by a colleague");
-        verifyNoInteractions(archives);
+        verifyNoInteractions(archives, reminders);
         verify(appointments, never()).merge(any());
     }
 
@@ -146,6 +148,7 @@ class RecurringAppointmentServiceStaleFormUnitTest extends CarlosUnitTestBase {
                 .isInstanceOfSatisfying(AppointmentUpdateException.class, refused ->
                         assertThat(refused.getReason()).isEqualTo(AppointmentUpdateException.Reason.STALE_VERSION));
         assertThat(anchor.getStatus()).isEqualTo("B");
+        verifyNoInteractions(reminders);
         verify(appointments, never()).merge(any());
     }
 

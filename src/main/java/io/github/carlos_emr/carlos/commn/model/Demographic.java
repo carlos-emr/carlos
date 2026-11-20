@@ -2135,6 +2135,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
      *
      * @param locale browser-preferred locale for this request; {@code null} falls back to English
      */
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of a fixed ASCII roster-status code (NR); not a security or authorization decision")
     public String getRosterStatusDisplay(Locale locale) {
         String rs = StringUtils.trimToNull(this.getRosterStatus());
         ResourceBundle carlosRes = getResourceBundle(locale);
@@ -2147,6 +2148,12 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
             }
             if ("FS".equals(rs)) {
                 return getRes(carlosRes, "demographic.enrollementhistory.feeforservice", "FEE FOR SERVICE");
+            }
+            // Intentionally case-insensitive: roster_status is stored as entered (the form, REST and CDS
+            // import paths do not normalise case). Fixed ASCII code, so no Unicode folding concern; the
+            // IMPROPER_UNICODE alert is suppressed on this method for that reason.
+            if ("NR".equalsIgnoreCase(rs)) {
+                return getRes(carlosRes, "demographic.enrollementhistory.notrostered", "Not Rostered");
             }
             return rs;
         } else {

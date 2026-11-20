@@ -170,7 +170,13 @@ public class EmailLog extends AbstractModel<Integer> implements Comparable<Email
          * A patient portal invitation sent by the invite delivery workflow. Deliberately absent from
          * {@code EmailData.parseTransactionType}, so a compose request cannot claim to be an invitation.
          */
-        PORTAL_INVITE
+        PORTAL_INVITE,
+        /**
+         * An appointment reminder sent by the reminder job as the system provider (#5887). Exactly 20
+         * characters, the width of {@code emailLog.transactionType}. Absent from
+         * {@code EmailData.parseTransactionType}, like {@link #PORTAL_INVITE}.
+         */
+        APPOINTMENT_REMINDER
     }
 
     @Id
