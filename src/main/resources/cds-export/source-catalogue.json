@@ -2,10 +2,10 @@
   "format": 1,
   "profiles": {
     "on": {
-      "physicalContractSha256": "605816c225ea96d6bafed7979c5763a7a12575c45399e045d60ae5214d6bf8af"
+      "physicalContractSha256": "d6dc5dfdda351a8636dc3f7602dd6ccb95d1cf09dc99e845ed42df912d831afb"
     },
     "bc": {
-      "physicalContractSha256": "066ec8f30bea0cc8447c6c364fb8b8d416c05294a96e33abadef0edc438d9767"
+      "physicalContractSha256": "3f85bc98a283942aebf3e25ed26703330574f860a5cacc2c67b31d596a1fbc28"
     }
   },
   "tables": {
@@ -410,6 +410,7 @@
     "mycarlos_delivery_original": "OPERATIONAL",
     "mycarlos_delivery_outbox": "REQUIRE_EMPTY",
     "mycarlos_device_approval_challenge": "OPERATIONAL",
+    "mycarlos_device_approval_code": "OPERATIONAL",
     "mycarlos_device_approval_outbox": "OPERATIONAL",
     "mycarlos_patient_binding": "OPERATIONAL",
     "mygroup": "REFERENCE",
@@ -1472,6 +1473,7 @@
     "mycarlos_delivery_original": "Ruled by Ben 20 Nov 2026: the encrypted copy of a chart document that was sent to myCarlos. It is a transport duplicate of a document the document tables already export, it names no patient itself, and the record that it was sent is held through mycarlos_delivery_outbox.",
     "mycarlos_delivery_outbox": "Ruled by Ben 20 Nov 2026: the per-patient record of each document sent to myCarlos (state, encrypted snapshot and receipt). Held like the other patient-linked send records (outboundEmailArchive, sms_transaction): hold exports containing these records until faithful capture is qualified; never silently omit the source or call it operational.",
     "mycarlos_device_approval_challenge": "myCarlos device approval challenges: candidate device keys, intent, expiry and consumption. Access workflow state for a patient, like the portal invitation lifecycle, not clinical content.",
+    "mycarlos_device_approval_code": "myCarlos clinic code challenges: a keyed hash of the emailed code (never the code), the wrong attempts, expiry and when it was sent. No patient column and no clinical content; it only gates a device approval.",
     "mycarlos_device_approval_outbox": "myCarlos device approval messages waiting to be sent to the portal: the exact body, its hash and retry state. Transport data, not clinical content.",
     "mycarlos_patient_binding": "The link between a chart and its myCarlos recipient at the portal (identifiers, portal address, device key). Access workflow state; the patient message and documents stay in their own tables.",
     "o19_imported_signature_owner": "OSCAR 19 import provenance: which imported DigitalSignature rows the migration bound to which patient and module (V1.0.59.35). It holds no clinical value of its own; each signature row is exported with its parent under the DigitalSignature ruling.",

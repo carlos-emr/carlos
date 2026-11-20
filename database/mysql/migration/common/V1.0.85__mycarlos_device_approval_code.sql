@@ -1,6 +1,6 @@
 -- Clinic code v1 (carlos-emr/mycarlos#141): a new device can be approved with a 9-digit code the
 -- clinic emails the patient, instead of by staff. Written with Ben's OK (28 Oct 2026); the number is
--- the next free one and is fixed at merge time. V1.0.81 is not edited.
+-- the next free one and is fixed at merge time. V1.0.83 is not edited.
 --
 -- 1. The approval kind 'code' joins 'staff_first' and 'accepted_device'. Like 'staff_first' it has
 --    no predecessor and no predecessor proof. Its accepted device has no staff fields (policy
