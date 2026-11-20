@@ -2302,7 +2302,13 @@ public final class RxWriteScript2Action extends ActionSupport {
             try {
                 return persistStashTransaction(loggedInInfo, bean);
             } catch (RuntimeException e) {
-                logger.error("Prescription save did not complete ({})", e.getClass().getSimpleName());
+                if (e instanceof io.github.carlos_emr.carlos.managers.RxSourceVersionValidator.Conflict) {
+                    // A source changed since the card was staged: answered 409 RX_SOURCE_CHANGED, not a fault.
+                    logger.warn("Prescription save refused: a source prescription changed");
+                } else {
+                    // Types and code locations only (no messages), so the cause can be told apart (#6333).
+                    logger.error("Prescription save did not complete{}", LogSafe.exceptionTrace(e));
+                }
                 throw new PrescriptionSaveException(e);
             }
         }

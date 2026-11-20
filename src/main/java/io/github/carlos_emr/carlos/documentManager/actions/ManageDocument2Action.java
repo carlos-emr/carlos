@@ -2317,6 +2317,19 @@ public class ManageDocument2Action extends ActionSupport {
     }
 
     /**
+     * A viewer that closes or moves on before a page image arrives aborts the response; nothing
+     * failed on the server, so that is DEBUG, as in DbConnectionFilter (#4438, #6333). Any other
+     * write failure stays an ERROR.
+     */
+    void logResponseFailure(String message, Exception failure) {
+        if (io.github.carlos_emr.carlos.utility.ClientAbort.isClientAbort(failure)) {
+            log.debug("Client closed the document response early ({})", failure.getClass().getSimpleName());
+        } else {
+            log.error(message, LogSafe.exceptionTrace(failure)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+        }
+    }
+
+    /**
      * Writes the given byte array directly to the servlet response output stream.
      *
      * @param response HttpServletResponse the servlet response to write to
@@ -2328,7 +2341,7 @@ public class ManageDocument2Action extends ActionSupport {
              ByteArrayInputStream fileInputStream = new ByteArrayInputStream(pdfBytes)) {
             fileInputStream.transferTo(outs);
         } catch (Exception e) {
-            log.error("Error retrieving PDF document: {}", LogSafe.exceptionTrace(e));
+            logResponseFailure("Error retrieving PDF document: {}", e);
         }
         return response;
     }
@@ -2346,7 +2359,7 @@ public class ManageDocument2Action extends ActionSupport {
         ) {
             fileInputStream.transferTo(outs);
         } catch (Exception e) {
-            log.error("Error retrieving document: {}", LogSafe.exceptionTrace(e)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
+            logResponseFailure("Error retrieving document: {}", e);
         }
         return response;
     }

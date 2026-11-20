@@ -1928,6 +1928,24 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         }
     }
 
+    /** A viewer that closes before a page image arrives is not a server error (#6333, #4438). */
+    @Test
+    void shouldLogClientAbortAtDebug_andOtherWriteFailuresAtError() {
+        try (var log = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(ManageDocument2Action.class)) {
+            action.logResponseFailure("Error retrieving PDF document: {}",
+                    new IOException(new org.apache.catalina.connector.ClientAbortException("FAKE-PW broken pipe")));
+            assertThat(log.events()).singleElement().satisfies(event ->
+                    assertThat(event.getLevel()).isEqualTo(org.apache.logging.log4j.Level.DEBUG));
+        }
+        try (var log = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(ManageDocument2Action.class)) {
+            action.logResponseFailure("Error retrieving PDF document: {}", new IOException("FAKE-PW disk failure"));
+            assertThat(log.events()).singleElement().satisfies(event -> {
+                assertThat(event.getLevel()).isEqualTo(org.apache.logging.log4j.Level.ERROR);
+                assertThat(event.getMessage().getFormattedMessage()).contains("java.io.IOException").doesNotContain("FAKE-PW");
+            });
+        }
+    }
+
     private static final class TestManageDocument2Action extends ManageDocument2Action {
         private boolean failMove;
         private boolean capacityBusy;

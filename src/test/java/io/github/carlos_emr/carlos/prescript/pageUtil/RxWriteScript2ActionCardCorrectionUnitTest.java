@@ -493,6 +493,27 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
             return drug;
         }
 
+        @Test
+        @DisplayName("should log a failed save with its types and code locations but no message text")
+        void shouldLogFailureTypesWithoutMessages_whenSaveFails() {
+            doAnswer(invocation -> {
+                throw new IllegalStateException("FAKE-PW synthetic medication text");
+            }).when(mockDrugDao).persist(any(Drug.class));
+
+            try (LogCapture capture = LogCapture.forLogger(RxWriteScript2Action.class)) {
+                assertThatThrownBy(this::save).isInstanceOf(RxWriteScript2Action.PrescriptionSaveException.class);
+                // #6333: the cause is named, with the frames the server-log audit reads, so one
+                // allow-listed fault cannot also hide every other prescription-save failure.
+                assertThat(capture.events()).anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(org.apache.logging.log4j.Level.ERROR);
+                    assertThat(event.getMessage().getFormattedMessage())
+                            .startsWith("Prescription save did not complete")
+                            .contains("java.lang.IllegalStateException", "  at io.github.carlos_emr.carlos.");
+                });
+                assertThat(capture.messages()).noneMatch(message -> message.contains("FAKE-PW synthetic medication text"));
+            }
+        }
+
         @ParameterizedTest
         @CsvSource({"drug,false", "drug,true", "date,false", "date,true", "reason,false", "reason,true", "archive,true"})
         @DisplayName("should restore every new card and renewal source after a confirmed rollback")
