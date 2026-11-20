@@ -107,6 +107,24 @@ public class CaseManagementView2Action extends ActionSupport {
     private static final Set<String> VALID_TABS = Set.of(CaseManagementViewFormBean.tabs);
 
     /** Expected format for check_issue parameters: two numeric parts separated by a dot, each up to 10 digits. */
+    /** The one partial view the chart asks this action for (newEncounterLayout.jsp, newCaseManagementView.js.jsp). */
+    static final String AJAX_VIEW_RESULT = "ajaxView";
+
+    /**
+     * The Struts result for the new chart's view request. The {@code ajaxview} parameter used to
+     * be returned as the result name verbatim, so any other value reached an unmapped result (a
+     * Struts ConfigurationException answered as a 500, #6333) or another of this action's views
+     * without the state it needs.
+     *
+     * @param requested the {@code ajaxview} request parameter
+     * @return the full chart page when none is asked for, the notes partial for {@code ajaxView},
+     *         or {@code null} for any other value, which the caller refuses with 400
+     */
+    static String newCaseManagementViewResult(String requested) {
+        if (requested == null || requested.isEmpty() || requested.equalsIgnoreCase("null")) return "page.newcasemgmt.view";
+        return AJAX_VIEW_RESULT.equals(requested) ? AJAX_VIEW_RESULT : null;
+    }
+
     private static final Pattern CHECK_ISSUE_PATTERN = Pattern.compile("\\d{1,10}\\.\\d{1,10}");
 
     private CaseManagementManager caseManagementManager = (CaseManagementManager) SpringUtils.getBean(CaseManagementManager.class);
@@ -574,12 +592,12 @@ public class CaseManagementView2Action extends ActionSupport {
             return "clientHistoryPrintPreview";
         } else {
             if (useNewCaseMgmt) {
-                String fwdName = request.getParameter("ajaxview");
-                if (fwdName == null || fwdName.equals("") || fwdName.equalsIgnoreCase("null")) {
-                    return "page.newcasemgmt.view";
-                } else {
-                    return fwdName;
+                String result = newCaseManagementViewResult(request.getParameter("ajaxview"));
+                if (result == null) {
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                    return NONE;
                 }
+                return result;
             } else return "page.casemgmt.view";
         }
     }
