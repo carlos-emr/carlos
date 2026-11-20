@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "3c1ada3810ae0d85ef9b9d280017927ea19c6898",
+  "comparisonSha256": "ee7731bc4b75e42e690a528de7c0e879fea90ca1210055ccd6fae564bfb1d796",
+  "baselineCommit": "7cf1d96f0af2aba7a88d345e3c21e2feddd60658",
+  "baselineSourceTree": "3c1ada3810ae0d85ef9b9d280017927ea19c6898",
+  "baselineReportSha256": "2d615ee3a54154789cba893b913cf0272c7b48ec7292c6fa72f8efe0c6f97f80",
+  "baselineLane": "PR #6320 waiting-list transactions, REST and concurrency tests on Java 25",
+  "baselineTestCounts": {
+    "tests": 126,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "907ea0cde788f541efa170796715ec7d2cfbed4ad7739cddc6029e94b5c28a41",
+  "baselineTestReportsHashFormat": "SHA-256 of a sha256sum-style manifest of sorted Surefire result files",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/waitinglist/util/WLWaitingListUtil.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "34b50ed4feec63f6b3ee3eea11a36ef8f06ff6d6"
+    }
+  },
+  "exclusions": {}
+}
