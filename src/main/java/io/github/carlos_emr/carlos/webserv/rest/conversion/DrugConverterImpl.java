@@ -94,7 +94,8 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
             }
             d.setAtc(t.getAtc());
             d.setRegionalIdentifier(t.getRegionalIdentifier());
-            d.setDosage(t.getStrength() + t.getStrengthUnit());
+            // String concatenation would store the text "nullnull" for a drug sent without strength (#6333).
+            d.setDosage(t.getStrength() == null ? "" : t.getStrength() + (t.getStrengthUnit() == null ? "" : t.getStrengthUnit()));
             d.setTakeMax(t.getTakeMax());
             d.setTakeMin(t.getTakeMin());
             d.setRxDate(t.getRxDate());
@@ -224,8 +225,11 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
         t.setExternalProvider(d.getOutsideProviderName());
         t.setAdditionalInstructions(d.getSpecialInstruction());
 
-        if (d.getQuantity() != null) {
-            t.setQuantity(Integer.parseInt(d.getQuantity()));
+        // The stored quantity is free text ("30 tabs", "1.5"); only a whole number fits the transfer field,
+        // and anything else must not fail the whole read (#6333).
+        String quantity = d.getQuantity() == null ? null : d.getQuantity().trim();
+        if (quantity != null && quantity.matches("\\d{1,9}")) {
+            t.setQuantity(Integer.valueOf(quantity));
         }
 
         this.populateStrengthFromDosage(d, t);
@@ -239,23 +243,26 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
         }
         Boolean result = false;
         String dosage = d.getDosage();
+        // A stored drug may have no dosage at all (the column allows NULL; imported and SQL-entered rows).
+        if (dosage == null || dosage.isBlank()) {
+            return false;
+        }
         try {
-            if (!dosage.isEmpty()) {
-                Pattern pattern = Pattern.compile("(\\d+\\.?\\d+)\\s?([^0-9]+)\\s?");
-                Matcher matcher = pattern.matcher(dosage);
-                if (matcher.find()) { // getting first dosage component, to match populateTo1Strength behaviour
-                    String strength = matcher.group(1);
-                    String unit = matcher.group(2);
-                    if (!strength.isEmpty() && !unit.isEmpty()) {
-                        t.setStrength(Float.parseFloat(strength));
-                        t.setStrengthUnit(unit);
-                        result = true;
-                    }
+            Pattern pattern = Pattern.compile("(\\d+\\.?\\d+)\\s?([^0-9]+)\\s?");
+            Matcher matcher = pattern.matcher(dosage);
+            if (matcher.find()) { // getting first dosage component, to match populateTo1Strength behaviour
+                String strength = matcher.group(1);
+                String unit = matcher.group(2);
+                if (!strength.isEmpty() && !unit.isEmpty()) {
+                    t.setStrength(Float.parseFloat(strength));
+                    t.setStrengthUnit(unit);
+                    result = true;
                 }
             }
             return result;
-        } catch (Exception e) {
-            logger.error(e.getStackTrace());
+        } catch (NumberFormatException unparsable) {
+            // The dosage is medication detail: name only the failure type, never the value.
+            logger.warn("Stored dosage has no readable strength ({})", unparsable.getClass().getSimpleName());
             return false;
         }
     }

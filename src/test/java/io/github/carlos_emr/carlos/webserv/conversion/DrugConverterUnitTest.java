@@ -324,6 +324,97 @@ class DrugConverterUnitTest {
         }
     }
 
+    /** Stored values the REST read and write used to mishandle (#6333). */
+    @Nested
+    @DisplayName("Stored values without a strength or a numeric quantity")
+    class StoredValueEdges {
+
+        @Test
+        void shouldConvertDrugWithoutStrength_whenStoredDosageIsNull() {
+            Drug d = new Drug();
+            d.setDosage(null);
+
+            DrugTo1 t;
+            // It used to throw a NullPointerException internally and log its stack-trace array at ERROR.
+            try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(DrugConverterImpl.class)) {
+                t = converter.getAsTransferObject(info, d);
+                assertThat(logs.events()).noneMatch(event -> event.getLevel().isMoreSpecificThan(org.apache.logging.log4j.Level.WARN));
+            }
+
+            assertThat(t.getStrength()).isNull();
+            assertThat(t.getStrengthUnit()).isNull();
+        }
+
+        @Test
+        void shouldConvertDrugWithoutStrength_whenStoredDosageIsBlank() {
+            Drug d = new Drug();
+            d.setDosage("  ");
+
+            assertThat(converter.getAsTransferObject(info, d).getStrength()).isNull();
+        }
+
+        @Test
+        void shouldReadStrengthFromStoredDosage_forNumericDosage() {
+            Drug d = new Drug();
+            d.setDosage("12.5 mg");
+
+            DrugTo1 t = converter.getAsTransferObject(info, d);
+
+            assertThat(t.getStrength()).isEqualTo(12.5f);
+            assertThat(t.getStrengthUnit()).isEqualTo("mg");
+        }
+
+        @Test
+        void shouldLeaveQuantityEmpty_forFreeTextQuantity() {
+            for (String stored : new String[]{"30 tabs", "1.5", "", "  ", "99999999999"}) {
+                Drug d = new Drug();
+                d.setQuantity(stored);
+                assertThat(converter.getAsTransferObject(info, d).getQuantity()).as(stored).isNull();
+            }
+        }
+
+        @Test
+        void shouldConvertQuantity_forWholeNumberQuantity() {
+            Drug d = new Drug();
+            d.setQuantity(" 30 ");
+            assertThat(converter.getAsTransferObject(info, d).getQuantity()).isEqualTo(30);
+        }
+
+        /** A transfer drug with the fields the domain conversion unboxes, and no strength. */
+        private DrugTo1 transferWithoutStrength() {
+            DrugTo1 t = new DrugTo1();
+            t.setRowVersion(1L);
+            t.setDemographicNo(1);
+            t.setProviderNo("1");
+            t.setBrandName("unknown custom drug");
+            t.setTakeMax(1.0f);
+            t.setTakeMin(1.0f);
+            t.setDuration(7);
+            t.setRepeats(0);
+            t.setPrn(false);
+            t.setArchived(false);
+            t.setLongTerm(false);
+            t.setNoSubstitutions(false);
+            return t;
+        }
+
+        @Test
+        void shouldStoreEmptyDosage_whenTransferHasNoStrength() {
+            DrugTo1 t = transferWithoutStrength();
+
+            // Drug.setDosage stores a blank dosage as NULL; it used to receive the text "nullnull".
+            assertThat(converter.getAsDomainObject(info, t).getDosage()).isNull();
+        }
+
+        @Test
+        void shouldStoreStrengthWithoutUnit_whenTransferHasNoUnit() {
+            DrugTo1 t = transferWithoutStrength();
+            t.setStrength(5f);
+
+            assertThat(converter.getAsDomainObject(info, t).getDosage()).isEqualTo("5.0");
+        }
+    }
+
     /**
      * Testable subclass exposing protected methods.
      */
