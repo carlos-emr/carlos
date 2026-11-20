@@ -117,6 +117,7 @@ Conditions:
             <td>${carlos:forHtml(conditionResult.condition.values)}</td>
             <td>
                 <c:choose>
+                    <c:when test="${not conditionResult.valueDisplayable}"><fmt:message key="encounter.guidelinedetail.notListed"/></c:when>
                     <c:when test="${empty conditionResult.actualValues}"><span class="bad"><fmt:message key="encounter.guidelinedetail.error"/></span></c:when>
                     <c:otherwise>${carlos:forHtml(conditionResult.actualValues)}</c:otherwise>
                 </c:choose>

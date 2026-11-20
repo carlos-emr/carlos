@@ -195,5 +195,10 @@ public class DSGuideline2Action extends ActionSupport {
         public String getActualValues() {
             return this.actualValues;
         }
+
+        /** Whether this condition type has a listing of patient values at all (#6328). */
+        public boolean isValueDisplayable() {
+            return condition != null && DSDemographicAccess.hasDisplayValue(condition.getConditionType());
+        }
     }
 }

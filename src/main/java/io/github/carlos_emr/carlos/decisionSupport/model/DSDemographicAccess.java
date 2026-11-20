@@ -788,8 +788,29 @@ public class DSDemographicAccess {
     //number of units billed today
 
 
+    /** The condition types whose patient values the guideline detail page can list (#6328). */
+    private static final java.util.Set<Module> DISPLAYABLE_MODULES =
+            java.util.EnumSet.of(Module.dxcodes, Module.drugs, Module.age, Module.sex, Module.notes);
+
+    /**
+     * Whether {@link #getDemogrpahicValues(Module)} can list the patient's values for a condition
+     * type. The other types (billing, flowsheet, ATC and Rx class conditions) are still evaluated;
+     * only their values are not listed, which the page states instead of reporting an error.
+     *
+     * @param module a condition type, possibly null
+     * @return true when the patient's values for the type can be listed
+     */
+    public static boolean hasDisplayValue(Module module) {
+        return module != null && DISPLAYABLE_MODULES.contains(module);
+    }
+
     //for testing purposes mostly (used to list patient values in echart
     public String getDemogrpahicValues(Module module) {
+        if (!hasDisplayValue(module)) {
+            // Not a failure: these condition types have no listing (#6328). They used to log an ERROR per
+            // condition per guideline view.
+            return null;
+        }
         try {
             if (module == Module.dxcodes) return this.getDxCodesStr();
             if (module == Module.drugs) return this.getRxCodesStr();
@@ -800,7 +821,6 @@ public class DSDemographicAccess {
             logger.error("Cannot get demographic data for decision support, module: '" + module + "'", dse);
             return null;
         }
-        logger.error("Decision Support Display Error: Cannot get text for module: " + module);
         return null;
     }
 
