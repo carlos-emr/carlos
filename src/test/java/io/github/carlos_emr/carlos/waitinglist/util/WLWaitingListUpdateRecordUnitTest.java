@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.Date;
 import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
@@ -21,6 +22,7 @@ import org.mockito.ArgumentCaptor;
 import io.github.carlos_emr.carlos.commn.dao.WaitingListDao;
 import io.github.carlos_emr.carlos.commn.model.WaitingList;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
  * What {@link WLWaitingListUtil#updateWaitingListRecord} and its stricter sibling
@@ -39,6 +41,9 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 @Tag("unit")
 @DisplayName("WLWaitingListUtil.updateWaitingListRecord result")
 class WLWaitingListUpdateRecordUnitTest extends CarlosUnitTestBase {
+
+    /** 4 May 2020: when the fixture patient joined the list. */
+    private static final Date JOINED = new Date(1_588_550_400_000L);
 
     @Test
     void shouldKeepTheVoidReturnType_forPreviouslyCompiledCallers() throws NoSuchMethodException {
@@ -101,6 +106,20 @@ class WLWaitingListUpdateRecordUnitTest extends CarlosUnitTestBase {
         assertThat(saved.getValue().getIsHistory()).isEqualTo("N");
     }
 
+    @Test
+    @DisplayName("should date the replacement entry today when the patient edit form names no date, as it always has")
+    void shouldDateTheEntryToday_whenTheEditFormNamesNoDate() {
+        WaitingListDao dao = createAndRegisterMock(WaitingListDao.class);
+        WaitingList current = entry(3, false);
+        current.setOnListSince(JOINED);
+        when(dao.findByWaitingListIdAndDemographicId(7, 101)).thenReturn(List.of(current));
+        Date before = new Date();
+
+        WLWaitingListUtil.updateWaitingListRecord("7", "FAKE note", "101", null);
+
+        assertThat(savedEntry(dao).getOnListSince()).isAfterOrEqualTo(before);
+    }
+
     /** {@code updateCurrentWaitingListRecord}: the caller must not put a removed patient back. */
     @Nested
     @DisplayName("when a current entry is required")
@@ -156,6 +175,39 @@ class WLWaitingListUpdateRecordUnitTest extends CarlosUnitTestBase {
             assertThat(saved.getValue().getPosition()).isEqualTo(3L);
             assertThat(saved.getValue().getIsHistory()).isEqualTo("N");
         }
+
+        @Test
+        @DisplayName("should keep the replaced entry's start date when the caller names none")
+        void shouldKeepTheStartDate_whenTheCallerNamesNone() {
+            WaitingListDao dao = createAndRegisterMock(WaitingListDao.class);
+            WaitingList current = entry(3, false);
+            current.setOnListSince(JOINED);
+            when(dao.findByWaitingListIdForUpdate(7)).thenReturn(List.of(current), List.of());
+
+            WLWaitingListUtil.updateCurrentWaitingListRecord("7", "FAKE note", "101", null);
+
+            // The list is renumbered by this date: today's would move the patient down it.
+            assertThat(savedEntry(dao).getOnListSince()).isEqualTo(JOINED);
+        }
+
+        @Test
+        @DisplayName("should use the start date the caller names")
+        void shouldUseTheGivenStartDate_whenTheCallerNamesOne() {
+            WaitingListDao dao = createAndRegisterMock(WaitingListDao.class);
+            WaitingList current = entry(3, false);
+            current.setOnListSince(JOINED);
+            when(dao.findByWaitingListIdForUpdate(7)).thenReturn(List.of(current), List.of());
+
+            WLWaitingListUtil.updateCurrentWaitingListRecord("7", "FAKE note", "101", "2021-06-01");
+
+            assertThat(savedEntry(dao).getOnListSince()).isEqualTo(ConversionUtils.fromDateString("2021-06-01"));
+        }
+    }
+
+    private static WaitingList savedEntry(WaitingListDao dao) {
+        ArgumentCaptor<WaitingList> saved = ArgumentCaptor.forClass(WaitingList.class);
+        verify(dao).saveEntity(saved.capture());
+        return saved.getValue();
     }
 
     private static WaitingList entry(long position, boolean history) {

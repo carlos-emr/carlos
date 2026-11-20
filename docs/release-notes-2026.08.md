@@ -35,6 +35,16 @@ request is refused with HTTP 409 `WAITING_LIST_CHANGED` and nothing is saved.
 Integrations that send extension ids or a waiting-list id should reload the patient on
 these codes.
 
+An update that records a waiting-list note no longer moves the patient down the list.
+The entry that replaces the patient's entry used to be dated today, and a list is
+numbered by start date, so the patient was placed behind everyone who had joined
+later. The replacement now keeps the start date, and entries with the same start date
+keep their order. Entries already re-dated this way
+keep the date they were given; the earlier entry, with the original date, is still
+stored as history. Removing a patient from a waiting list now waits for an update of
+that list that is in progress, instead of reporting success while the update leaves
+the patient on the list.
+
 An Ontario OBEC response that invalidates a health-card version code now archives the
 patient with the code that was replaced; the archive row used to hold the `##` marker.
 

@@ -27,17 +27,21 @@
  * Step 5: an update that sends the id of another patient's extension is refused (409,
  * DEMOGRAPHIC_EXTENSION_NOT_FOUND) before either chart changes. The id alone used to re-point that
  * row to this patient and overwrite it.
- * Step 6: an update that names a waiting list the patient was taken off after the form was loaded
+ * Step 6: an update that records a waiting-list note keeps the patient's start date and place on
+ * the list. The replacement entry used to be dated today, and the list is renumbered by that
+ * date, so the patient dropped behind the second patient, who joined a year later.
+ * Step 7: an update that names a waiting list the patient was taken off after the form was loaded
  * (the application keeps the removed entry as history) is refused (409,
  * WAITING_LIST_ENTRY_NOT_FOUND) and rolled back. It used to put the patient back on the list.
- * Steps 7 and 8: the same refusal for a list on which the patient has a NULL history flag or no
+ * Steps 8 and 9: the same refusal for a list on which the patient has a NULL history flag or no
  * entry at all. Those rows do not qualify as current.
  *
  * The patient is the runWorkflow fixture (last name = this run's FAKE-PW<hex> marker, which the
  * updates keep). The waiting list is a list of its own, named by the marker, so renumbering it
  * touches no other patient's entry. Step 5's second patient has this run's marker plus "-V" as its
- * last name. Cleanup removes the patient's rows from each table the update writes, the second
- * patient and its extension, then the list, and verifies them gone. Environment: the common contract (BASE_URL,
+ * last name; step 6 puts it on the list as well. Cleanup removes the patient's rows from each table
+ * the update writes, the second patient with its extension and list entry, then the list, and
+ * verifies them gone. Environment: the common contract (BASE_URL,
  * TEST_USER, TEST_PASSWORD, TEST_PIN, MYSQL_*) and EXCLUSIVE=1.
  */
 'use strict';
@@ -66,7 +70,7 @@ async function workflow(s) {
   const patient = Number(s.patient);
   const count = (sql, parameters) => Number(s.sql.value(sql, parameters));
   const audits = action => count('SELECT COUNT(*) FROM log WHERE action=? AND provider_no=?', [action, s.provider]);
-  /** Step 5's second patient, whose extension the update must not be able to claim. */
+  /** Step 5's second patient, whose extension the update must not be able to claim; on the list from step 6. */
   const victimName = `${s.marker}-V`;
   const victimRows = 'SELECT demographic_no FROM demographic WHERE last_name=?';
 
@@ -78,7 +82,7 @@ async function workflow(s) {
       h.assert(count(`SELECT COUNT(*) FROM ${table} WHERE ${column}=?`, [patient]) === 0,
         `Owned ${table} rows were not removed`);
     }
-    for (const table of ['demographicExtArchive', 'demographicExt']) {
+    for (const table of ['waitingList', 'demographicExtArchive', 'demographicExt']) {
       s.sql.execute(`DELETE FROM ${table} WHERE demographic_no IN (${victimRows})`, [victimName]);
     }
     s.sql.execute('DELETE FROM demographic WHERE last_name=?', [victimName]);
@@ -244,6 +248,30 @@ async function workflow(s) {
       'The refused update archived the other patient\'s extension');
   });
 
+  await s.step('an update that records a note keeps the patient\'s start date and place on the list', async () => {
+    const victim = Number(s.sql.value(victimRows, [victimName]));
+    h.assert(Number.isSafeInteger(victim) && victim > 0 && victim !== patient, 'The second patient is missing');
+    // The owned patient joined the list first; the second patient joined it a year later.
+    s.sql.execute(`UPDATE waitingList SET onListSince='2020-05-04 00:00:00'
+      WHERE listID=? AND demographic_no=? AND is_history='N'`, [list, patient]);
+    s.sql.execute(`INSERT INTO waitingList (listID,demographic_no,note,position,onListSince,is_history)
+      VALUES (?,?,?,2,'2021-06-01 00:00:00','N')`, [list, victim, `${s.marker}-later`]);
+    const currentEntries = () => JSON.stringify(s.sql.rows(`SELECT demographic_no,position,
+      DATE_FORMAT(onListSince,'%Y-%m-%d') FROM waitingList WHERE listID=? AND is_history='N' ORDER BY position,id`, [list]));
+    const expected = JSON.stringify([[String(patient), '1', '2020-05-04'], [String(victim), '2', '2021-06-01']]);
+    h.assert(currentEntries() === expected, `The list fixture is ${currentEntries()}, expected ${expected}`);
+
+    const response = await s.context.request.put(endpoint, { data: update('Noted', 6, []), maxRedirects: 0 });
+    h.assert(response.status() === 200, `an update that records a note expected HTTP 200, received ${response.status()}`);
+    await response.dispose();
+
+    h.assert(count("SELECT COUNT(*) FROM waitingList WHERE listID=? AND demographic_no=? AND is_history='N' AND note=?",
+      [list, patient, `${s.marker}-note6`]) === 1, 'The note was not recorded on a current entry');
+    // The list is renumbered by start date: an entry dated today would be second.
+    h.assert(currentEntries() === expected,
+      `After the note was recorded the list is ${currentEntries()}, expected ${expected}`);
+  });
+
   await s.step('an update naming a waiting list the patient was taken off does not put them back', async () => {
     // The application's removal (WLWaitingListUtil.removeFromWaitingList) keeps the entry as
     // history. It happens after the form that names the list was loaded.
@@ -254,8 +282,8 @@ async function workflow(s) {
 
     // expectRefusal compares every waiting-list row before and after: no current entry may appear.
     await expectRefusal('an update naming a waiting list the patient was taken off',
-      update('Stale', 6, [extra('wPhoneExt', `${s.marker}-stale6`)]),
-      'WAITING_LIST_ENTRY_NOT_FOUND', 'the removed waiting-list entry', `${s.marker}-stale6`);
+      update('Stale', 7, [extra('wPhoneExt', `${s.marker}-stale7`)]),
+      'WAITING_LIST_ENTRY_NOT_FOUND', 'the removed waiting-list entry', `${s.marker}-stale7`);
   });
 
   await s.step('an update naming a list with only a NULL history flag is refused', async () => {
@@ -263,8 +291,8 @@ async function workflow(s) {
     h.assert(count('SELECT COUNT(*) FROM waitingList WHERE listID=? AND demographic_no=? AND is_history IS NULL',
       [list, patient]) > 0, 'No waiting-list rows with a NULL history flag were created');
     await expectRefusal('an update naming a list with only a NULL history flag',
-      update('Stale', 7, [extra('wPhoneExt', `${s.marker}-stale7`)]),
-      'WAITING_LIST_ENTRY_NOT_FOUND', 'the NULL history flag', `${s.marker}-stale7`);
+      update('Stale', 8, [extra('wPhoneExt', `${s.marker}-stale8`)]),
+      'WAITING_LIST_ENTRY_NOT_FOUND', 'the NULL history flag', `${s.marker}-stale8`);
   });
 
   await s.step('an update naming a waiting list the patient has no entry on is refused, not half saved', async () => {
@@ -273,8 +301,8 @@ async function workflow(s) {
       'The waiting-list entries were not removed');
 
     await expectRefusal('an update naming a waiting list the patient has no entry on',
-      update('Stale', 8, [extra('wPhoneExt', `${s.marker}-stale8`)]),
-      'WAITING_LIST_ENTRY_NOT_FOUND', 'the missing waiting-list entry', `${s.marker}-stale8`);
+      update('Stale', 9, [extra('wPhoneExt', `${s.marker}-stale9`)]),
+      'WAITING_LIST_ENTRY_NOT_FOUND', 'the missing waiting-list entry', `${s.marker}-stale9`);
   });
 }
 

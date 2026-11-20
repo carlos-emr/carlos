@@ -20,6 +20,7 @@ import io.github.carlos_emr.carlos.commn.model.WaitingList;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 import java.util.List;
@@ -30,6 +31,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
 @Tag("unit")
@@ -63,6 +65,26 @@ class WLWaitingListConcurrencyUnitTest {
         operations.verify(dao).merge(same(removed));
         operations.verify(dao).merge(same(remaining));
         operations.verify(transactions).commit(transaction);
+    }
+
+    @Test
+    void shouldRollBackAndChangeNothing_whenTheListCannotBeLocked() {
+        WaitingListDao dao = mock(WaitingListDao.class);
+        var transactions = mock(PlatformTransactionManager.class);
+        var transaction = new SimpleTransactionStatus();
+        var refused = new CannotAcquireLockException("FAKE lock refusal");
+        when(transactions.getTransaction(any())).thenReturn(transaction);
+        when(dao.findByWaitingListIdForUpdate(7)).thenThrow(refused);
+
+        try (var spring = mockStatic(SpringUtils.class)) {
+            spring.when(() -> SpringUtils.getBean(WaitingListDao.class)).thenReturn(dao);
+            spring.when(() -> SpringUtils.getBean(PlatformTransactionManager.class)).thenReturn(transactions);
+            assertThatThrownBy(() -> WLWaitingListUtil.removeFromWaitingList("7", "101")).isSameAs(refused);
+        }
+
+        verify(transactions).rollback(transaction);
+        verify(transactions, never()).commit(any());
+        verify(dao, never()).merge(any(WaitingList.class));
     }
 
     @Test
