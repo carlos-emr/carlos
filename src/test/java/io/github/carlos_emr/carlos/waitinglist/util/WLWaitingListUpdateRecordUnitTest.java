@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.mockito.ArgumentCaptor;
 
 import io.github.carlos_emr.carlos.commn.dao.WaitingListDao;
@@ -178,15 +179,16 @@ class WLWaitingListUpdateRecordUnitTest extends CarlosUnitTestBase {
             assertThat(saved.getValue().getIsHistory()).isEqualTo("N");
         }
 
-        @Test
+        @ParameterizedTest
+        @NullAndEmptySource
         @DisplayName("should keep the replaced entry's start date when the caller names none")
-        void shouldKeepTheStartDate_whenTheCallerNamesNone() {
+        void shouldKeepTheStartDate_whenTheCallerNamesNone(String omittedDate) {
             WaitingListDao dao = createAndRegisterMock(WaitingListDao.class);
             WaitingList current = entry(3, false);
             current.setOnListSince(JOINED);
             when(dao.findByWaitingListIdForUpdate(7)).thenReturn(List.of(current));
 
-            WLWaitingListUtil.updateCurrentWaitingListRecord("7", "FAKE note", "101", null);
+            WLWaitingListUtil.updateCurrentWaitingListRecord("7", "FAKE note", "101", omittedDate);
 
             // The list is renumbered by this date: today's would move the patient down it.
             assertThat(savedEntry(dao).getOnListSince()).isEqualTo(JOINED);
