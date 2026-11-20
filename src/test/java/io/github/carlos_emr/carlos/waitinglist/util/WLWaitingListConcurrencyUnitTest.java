@@ -53,7 +53,7 @@ class WLWaitingListConcurrencyUnitTest {
     }
 
     @Test
-    void shouldRepositionWhileAnotherThreadHoldsThePublicClassMonitor() throws Exception {
+    void shouldReposition_whileAnotherThreadHoldsThePublicClassMonitor() throws Exception {
         WaitingListDao dao = mock(WaitingListDao.class);
         try (var worker = Executors.newSingleThreadExecutor()) {
             synchronized (WLWaitingListUtil.class) {

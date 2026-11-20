@@ -273,7 +273,8 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
                 "PUT,different_unique_key,500",
                 "PUT,,500"
         })
-        void shouldIdentifyOnlyTheDuplicateExtensionConflict(String method, String constraint, int status) {
+        void shouldIdentifyOnlyTheDuplicateExtensionConflict_amongWriteFailures(
+                String method, String constraint, int status) {
             DemographicTo1 data = payload(method);
             String privateValue = "FAKE-PRIVATE-EXTENSION-DIAGNOSTIC";
             RuntimeException failure = constraint == null
