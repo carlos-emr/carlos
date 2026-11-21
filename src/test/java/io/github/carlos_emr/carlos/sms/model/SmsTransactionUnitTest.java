@@ -108,6 +108,37 @@ class SmsTransactionUnitTest {
         assertThat(transaction.getNextAttemptAt()).isNotNull();
     }
 
+    /** #884: a reminder's time limit is stored, survives a provider swap, and comes back in its send command. */
+    @Test
+    @DisplayName("should keep a text's time limit when stored, moved to another provider and sent")
+    void shouldKeepTheTimeLimit_whenStoredMovedAndSent() {
+        Instant limit = Instant.parse("2026-11-18T15:30:00Z");
+        SmsTransaction stored = SmsTransaction.outboundAttempt(SmsSendCommand.appointmentReminder(123, "416-555-1212",
+                "FAKE reminder", "999998", 501, limit), SmsProviderType.STUB);
+
+        assertThat(stored.getExpiresAt()).isEqualTo(Date.from(limit));
+        assertThat(stored.toSendCommand().expiresAt()).isEqualTo(limit);
+        assertThat(stored.toSendCommand().messagePurpose()).isEqualTo(SmsMessagePurpose.APPOINTMENT_REMINDER);
+        SmsTransaction moved = stored.queuedCopyFor(SmsProviderType.VOIPMS);
+        assertThat(moved.getExpiresAt()).isEqualTo(Date.from(limit)).isNotSameAs(stored.getExpiresAt());
+        assertThat(moved.getAppointmentNo()).isEqualTo(501);
+
+        assertThat(stored.expiredBy(Date.from(limit.minusMillis(1)))).isFalse();
+        assertThat(stored.expiredBy(Date.from(limit))).isTrue();
+    }
+
+    @Test
+    @DisplayName("should never expire a text stored without a time limit")
+    void shouldNeverExpire_aTextWithoutATimeLimit() {
+        SmsTransaction stored = SmsTransaction.outboundAttempt(
+                SmsSendCommand.patientMessage(123, "416-555-1212", "FAKE text", "999998"), SmsProviderType.STUB);
+
+        assertThat(stored.getExpiresAt()).isNull();
+        assertThat(stored.expiredBy(new Date(Long.MAX_VALUE))).isFalse();
+        assertThat(stored.toSendCommand().expiresAt()).isNull();
+        assertThat(stored.queuedCopyFor(SmsProviderType.STUB).getExpiresAt()).isNull();
+    }
+
     @Test
     @DisplayName("consent-blocked transaction stores block status and reason")
     void shouldMarkConsentBlocked_whenDecisionDeniesSend() {

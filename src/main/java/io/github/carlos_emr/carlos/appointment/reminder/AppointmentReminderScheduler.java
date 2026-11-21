@@ -65,7 +65,9 @@ public class AppointmentReminderScheduler {
 
     @PostConstruct
     public synchronized void start() {
-        if (executor != null || !CarlosProperties.getInstance().isPropertyActive(ENABLED_PROPERTY)) {
+        // Either channel's switch starts the job; each channel then sends only while its own is on (#884).
+        if (executor != null || !(CarlosProperties.getInstance().isPropertyActive(ENABLED_PROPERTY)
+                || CarlosProperties.getInstance().isPropertyActive(SmsReminderChannel.ENABLED_PROPERTY))) {
             return;
         }
         executor = Executors.newSingleThreadScheduledExecutor(runnable -> {

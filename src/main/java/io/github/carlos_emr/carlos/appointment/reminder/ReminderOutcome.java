@@ -25,12 +25,14 @@ import java.util.Objects;
 
 /**
  * How one reminder attempt ended (#5887). {@code emailLogId} names the email log row when the email channel
- * made one, so staff can follow it to Manage Emails. {@code reason}, when given, says why for the audit row: a
+ * made one, so staff can follow it to Manage Emails; {@code smsTransactionId} names the SMS row the SMS channel
+ * made (#884), so its text can be followed. {@code reason}, when given, says why for the audit row: a
  * fixed word or an exception's class name, never patient data.
  *
  * @since 2026-11-12
  */
-public record ReminderOutcome(AppointmentReminderStatus status, Integer emailLogId, String reason) {
+public record ReminderOutcome(AppointmentReminderStatus status, Integer emailLogId, Long smsTransactionId,
+                              String reason) {
 
     public ReminderOutcome {
         Objects.requireNonNull(status, "status");
@@ -41,8 +43,17 @@ public record ReminderOutcome(AppointmentReminderStatus status, Integer emailLog
         reason = reason == null || reason.isBlank() ? null : reason.replaceAll("[^A-Za-z0-9._-]", "");
     }
 
+    public ReminderOutcome(AppointmentReminderStatus status, Integer emailLogId, String reason) {
+        this(status, emailLogId, null, reason);
+    }
+
     public ReminderOutcome(AppointmentReminderStatus status, Integer emailLogId) {
-        this(status, emailLogId, null);
+        this(status, emailLogId, null, null);
+    }
+
+    /** An SMS outcome (#884), naming the text's row when the SMS queue recorded one. */
+    public static ReminderOutcome sms(AppointmentReminderStatus status, Long smsTransactionId, String reason) {
+        return new ReminderOutcome(status, null, smsTransactionId, reason);
     }
 
     public static ReminderOutcome of(AppointmentReminderStatus status) {

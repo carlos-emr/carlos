@@ -301,4 +301,34 @@ class SmsTransactionPersistenceIntegrationTest extends CarlosTestBase {
                 .getSingleResult();
         assertThat(count).isEqualTo(1L);
     }
+
+    /** #884: an appointment reminder's text is found by its appointment, with its time limit stored. */
+    @Test
+    @DisplayName("should find the newest reminder text for an appointment, with its time limit stored")
+    void shouldFindTheNewestReminderText_forAnAppointment() {
+        SmsConsentDecisionDto consented = SmsConsentDecisionDto.permitted(SmsConsentStatus.OPT_IN, 4321,
+                Instant.parse("2026-09-01T14:30:00Z"));
+        Instant limit = Instant.parse("2026-11-18T15:30:00Z");
+        SmsTransaction first = recorder.recordOutboundAttempt(SmsSendCommand.appointmentReminder(123, "416-555-1212",
+                "FAKE first reminder", "999998", 88501, limit), SmsProviderType.STUB, consented);
+        SmsTransaction newer = recorder.recordOutboundAttempt(SmsSendCommand.appointmentReminder(123, "416-555-1212",
+                "FAKE newer reminder", "999998", 88501, limit), SmsProviderType.STUB, consented);
+        recorder.recordOutboundAttempt(SmsSendCommand.patientMessage(123, "416-555-1212", "FAKE other text", "999998"),
+                SmsProviderType.STUB, consented);
+        entityManager.flush();
+        entityManager.clear();
+
+        SmsTransaction found = smsTransactionDao.findLatestOutboundByAppointment(88501,
+                io.github.carlos_emr.carlos.sms.SmsMessagePurpose.APPOINTMENT_REMINDER).orElseThrow();
+
+        assertThat(found.getId()).isEqualTo(newer.getId()).isGreaterThan(first.getId());
+        assertThat(found.getExpiresAt()).isEqualTo(java.util.Date.from(limit));
+        assertThat(smsTransactionDao.findLatestOutboundByAppointment(88501,
+                io.github.carlos_emr.carlos.sms.SmsMessagePurpose.PATIENT_MESSAGE)).isEmpty();
+        assertThat(smsTransactionDao.findLatestOutboundByAppointment(88502,
+                io.github.carlos_emr.carlos.sms.SmsMessagePurpose.APPOINTMENT_REMINDER)).isEmpty();
+        assertThat(smsTransactionDao.findLatestOutboundByAppointment(0,
+                io.github.carlos_emr.carlos.sms.SmsMessagePurpose.APPOINTMENT_REMINDER)).isEmpty();
+    }
+
 }

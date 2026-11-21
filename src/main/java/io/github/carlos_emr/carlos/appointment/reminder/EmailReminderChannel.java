@@ -117,6 +117,12 @@ public class EmailReminderChannel implements AppointmentReminderChannel {
         return ReminderChannel.EMAIL;
     }
 
+    /** Email reminders run while the clinic has them on, the switch that also shows the box (#884: per channel). */
+    @Override
+    public boolean enabled() {
+        return CarlosProperties.getInstance().isPropertyActive(AppointmentReminderScheduler.ENABLED_PROPERTY);
+    }
+
     @Override
     public ReminderOutcome send(ClaimedReminder reminder) {
         LoggedInInfo system;
@@ -176,6 +182,11 @@ public class EmailReminderChannel implements AppointmentReminderChannel {
 
     /** The system provider, as the BC alert timer builds it; {@code null} if the clinic has no such row. */
     private LoggedInInfo systemUser() {
+        return systemUser(providers);
+    }
+
+    /** The system provider any reminder channel reads the patient as (#884 shares it). */
+    static LoggedInInfo systemUser(ProviderDao providers) {
         Provider provider = providers.getProvider(Provider.SYSTEM_PROVIDER_NO);
         if (provider == null) {
             return null;

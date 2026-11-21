@@ -25,9 +25,16 @@ import java.time.LocalDateTime;
 
 /**
  * A reminder claimed by this run and marked as being sent for {@code start} (#5887). The channel reads the
- * patient and their address itself, as they are at send time.
+ * patient and their address itself, as they are at send time. {@code requestedBy} is who ticked the box, so a
+ * text reminder (#884) names its requester for the SMS failure alerts.
  *
  * @since 2026-11-12
  */
-public record ClaimedReminder(long reminderId, int appointmentNo, int demographicNo, LocalDateTime start) {
+public record ClaimedReminder(long reminderId, int appointmentNo, int demographicNo, LocalDateTime start,
+                              String requestedBy) {
+
+    /** A claim that names no requester. */
+    public ClaimedReminder(long reminderId, int appointmentNo, int demographicNo, LocalDateTime start) {
+        this(reminderId, appointmentNo, demographicNo, start, null);
+    }
 }

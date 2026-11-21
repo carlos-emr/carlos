@@ -200,7 +200,8 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @ParameterizedTest(name = "{0}")
-        @ValueSource(strings = {"SENT", "UNCONFIRMED"})
+        // QUEUED: a text handed to the SMS queue (#884) counts as sent for the visit.
+        @ValueSource(strings = {"SENT", "UNCONFIRMED", "QUEUED"})
         void shouldRecordTheReminderAsCovered_whenAnotherBookingWasAlreadyRemindedForTheStart(String outcome) {
             Appointment appointment = appointment(start, PATIENT, "t");
             AppointmentReminder reminder = requested();
@@ -342,6 +343,38 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
 
             assertThat(handed).isEmpty();
             assertThat(reminder.getLastStatus()).isEqualTo(AppointmentReminderStatus.DUPLICATE);
+        }
+
+        /**
+         * #884 (review): a text handed to the SMS queue covers the visit as a sent email does, also after its booking
+         * was unticked, cancelled or moved, so the decision is pinned here as well as the H2 query.
+         */
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"unticked", "cancelled", "moved"})
+        void shouldRecordTheReminderAsCovered_whenTheBookingWhoseTextWasQueuedChangedAfter(String change) {
+            Appointment appointment = appointment(start, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+            siblings(changed(sibling(12L, "t", AppointmentReminderStatus.QUEUED), change));
+
+            service.processDue(10);
+
+            assertThat(handed).isEmpty();
+            assertThat(reminder.getLastStatus()).isEqualTo(AppointmentReminderStatus.DUPLICATE);
+        }
+
+        /** #884 (review): a text handed to the SMS queue is handed over, so the query also reads queued ones. */
+        @Test
+        void shouldAskForQueuedTexts_amongTheRemindersHandedOver() {
+            assertThat(AppointmentReminderService.HANDED_OVER).contains(AppointmentReminderStatus.QUEUED);
+            Appointment appointment = appointment(start, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+
+            service.processDue(10);
+
+            verify(reminders).findSameVisit(eq(ReminderChannel.EMAIL), eq(PATIENT), eq(start), eq(7L),
+                    org.mockito.ArgumentMatchers.argThat(statuses -> statuses.contains(AppointmentReminderStatus.QUEUED)));
         }
 
         /** A booking not yet reminded that left the visit will never send for it: this one must. */
@@ -495,6 +528,103 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             assertThat(service.atStartSince(appointment, start)).as("no creation time: since when is unknown").isNull();
         }
 
+        /**
+         * #884: a channel's quiet hours count too. A failure at 20:45 for a 09:30 start would retry at 21:15, inside
+         * the quiet hours, and they end at 08:00, after the 07:30 cutoff: that retry never runs, so this one sends.
+         */
+        @Test
+        void shouldSend_whenTheEarlierBookingsRetryFallsInTheChannelsQuietHours() {
+            LocalDateTime evening = NOW.withHour(20).withMinute(50);
+            LocalDateTime morning = NOW.plusDays(1).withHour(9).withMinute(30);
+            ReminderWindow quiet = new ReminderWindow(Duration.ofHours(24), Duration.ofHours(2),
+                    java.time.LocalTime.of(21, 0), java.time.LocalTime.of(8, 0));
+            AppointmentReminderChannel channel = new AppointmentReminderChannel() {
+                @Override
+                public ReminderChannel channel() {
+                    return ReminderChannel.EMAIL;
+                }
+
+                @Override
+                public ReminderOutcome send(ClaimedReminder claimed) {
+                    handed.add(claimed);
+                    return new ReminderOutcome(AppointmentReminderStatus.SENT, 900);
+                }
+
+                @Override
+                public Optional<ReminderWindow> window() {
+                    return Optional.of(quiet);
+                }
+            };
+            AppointmentReminderService atEvening = new AppointmentReminderService(reminders, appointments,
+                    () -> List.of(channel), TransactionOperations.withoutTransaction(),
+                    new ReminderWindow(Duration.ofHours(24), Duration.ofHours(2)),
+                    Clock.fixed(evening.atZone(ZONE).toInstant(), ZONE));
+            Appointment appointment = appointment(morning, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+            Appointment other = appointment(morning, PATIENT, "t");
+            other.setId(APPOINTMENT + 1);
+            AppointmentReminder failed = AppointmentReminder.requested(APPOINTMENT + 1, ReminderChannel.EMAIL, "999998",
+                    at(NOW.minusDays(1)));
+            ReflectionTestUtils.setField(failed, "id", 3L);
+            failed.startSending(at(morning), at(evening.minusMinutes(5)));
+            failed.finish(AppointmentReminderStatus.FAILED, null, at(evening.minusMinutes(5)));
+            when(reminders.findSameVisit(eq(ReminderChannel.EMAIL), eq(PATIENT), eq(morning), eq(7L), any()))
+                    .thenReturn(List.of(new ReminderCandidate(failed, other)));
+
+            atEvening.processDue(10);
+
+            assertThat(handed).hasSize(1);
+        }
+
+        @ParameterizedTest(name = "{0} minutes after quiet hours")
+        @ValueSource(ints = {1, 5, 6})
+        void shouldYieldOnlyWhenTheRetryWindowLastsLongerThanTheJobPeriod(int minutes) {
+            LocalDateTime evening = NOW.withHour(20).withMinute(50);
+            LocalDateTime morning = NOW.plusDays(1).withHour(10).withMinute(minutes);
+            ReminderWindow quiet = new ReminderWindow(Duration.ofHours(24), Duration.ofHours(2),
+                    java.time.LocalTime.of(21, 0), java.time.LocalTime.of(8, 0));
+            AppointmentReminderChannel channel = new AppointmentReminderChannel() {
+                @Override
+                public ReminderChannel channel() {
+                    return ReminderChannel.EMAIL;
+                }
+
+                @Override
+                public ReminderOutcome send(ClaimedReminder claimed) {
+                    handed.add(claimed);
+                    return new ReminderOutcome(AppointmentReminderStatus.SENT, 900);
+                }
+
+                @Override
+                public Optional<ReminderWindow> window() {
+                    return Optional.of(quiet);
+                }
+            };
+            AppointmentReminderService atEvening = new AppointmentReminderService(reminders, appointments,
+                    () -> List.of(channel), TransactionOperations.withoutTransaction(),
+                    new ReminderWindow(Duration.ofHours(24), Duration.ofHours(2)),
+                    Clock.fixed(evening.atZone(ZONE).toInstant(), ZONE));
+            Appointment appointment = appointment(morning, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+            Appointment other = appointment(morning, PATIENT, "t");
+            other.setId(APPOINTMENT + 1);
+            AppointmentReminder failed = AppointmentReminder.requested(APPOINTMENT + 1, ReminderChannel.EMAIL, "999998",
+                    at(NOW.minusDays(1)));
+            ReflectionTestUtils.setField(failed, "id", 3L);
+            failed.startSending(at(morning), at(evening.minusMinutes(5)));
+            failed.finish(AppointmentReminderStatus.FAILED, null, at(evening.minusMinutes(5)));
+            when(reminders.findSameVisit(eq(ReminderChannel.EMAIL), eq(PATIENT), eq(morning), eq(7L), any()))
+                    .thenReturn(List.of(new ReminderCandidate(failed, other)));
+
+            atEvening.processDue(10);
+
+            assertThat(handed).hasSize(minutes > 5 ? 0 : 1);
+            assertThat(reminder.getLastStatus()).isEqualTo(minutes > 5
+                    ? AppointmentReminderStatus.DUPLICATE : AppointmentReminderStatus.SENT);
+        }
+
         @Test
         void shouldSend_whenALaterBookingYieldedToThisOne() {
             Appointment appointment = appointment(start, PATIENT, "t");
@@ -534,7 +664,8 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             ReminderRun run = service.processDue(10);
 
             assertThat(run).isEqualTo(new ReminderRun(1, 1, 0));
-            assertThat(handed).containsExactly(new ClaimedReminder(7L, APPOINTMENT, PATIENT, start));
+            // The claim names who ticked the box, so an SMS failure alert can reach them (#884).
+            assertThat(handed).containsExactly(new ClaimedReminder(7L, APPOINTMENT, PATIENT, start, "999998"));
             assertThat(reminder.getLastStatus()).isEqualTo(AppointmentReminderStatus.SENT);
             assertThat(reminder.getLastEmailLogId()).isEqualTo(900);
             assertThat(reminder.getSentFor()).isEqualTo(at(start));
@@ -1145,12 +1276,290 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
         @ValueSource(strings = {"en", "fr", "es", "pl", "pt_BR"})
         void shouldHaveEveryStatusLine_inEveryBundle(String language) {
             ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", Locale.forLanguageTag(language.replace('_', '-')));
-            for (String key : new String[]{"sent", "sending", "unconfirmed", "failed", "blockedConsent", "noAddress", "notSetUp",
-                    "notPermitted", "scheduled", "due", "tooLate", "duplicate"}) {
-                String pattern = bundle.getString("appointment.reminder.status." + key);
-                // The page always passes the value, so every line is a MessageFormat pattern.
-                assertThat(new MessageFormat(pattern).format(new Object[]{"FAKE-WHEN"})).as(key).doesNotContain("{", "}");
+            // Each channel words its own lines (#884), and QUEUED/EXPIRED come with the SMS channel.
+            for (ReminderChannel channel : ReminderChannel.values()) {
+                for (String key : new String[]{"sent", "queued", "expired", "sending", "unconfirmed", "failed", "blockedConsent",
+                        "noAddress", "notSetUp", "notPermitted", "scheduled", "due", "tooLate", "duplicate"}) {
+                    String fullKey = AppointmentReminderService.statusKeyPrefix(channel) + key;
+                    String pattern = bundle.getString(fullKey);
+                    // The page always passes the value, so every line is a MessageFormat pattern.
+                    assertThat(new MessageFormat(pattern).format(new Object[]{"FAKE-WHEN"})).as(fullKey)
+                            .doesNotContain("{", "}");
+                }
             }
+        }
+    }
+
+    /** #884: the text reminder's line, which knows the quiet hours and where a text failed. */
+    @Nested
+    @DisplayName("Text reminder status line")
+    class SmsStatusLine {
+
+        private static final String KEYS = "appointment.reminder.sms.status.";
+        private final DateTimeFormatter shown = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
+                .withLocale(Locale.ENGLISH);
+        private AppointmentReminderStatus queueSays;
+
+        /** The service as seen at {@code now}, with a text channel of {@code leadHours} and quiet hours 21:00-08:00. */
+        private Optional<ReminderStatusLine> line(LocalDateTime now, int leadHours, LocalDateTime start,
+                                                  AppointmentReminder reminder) {
+            ReminderWindow window = new ReminderWindow(Duration.ofHours(leadHours), Duration.ofHours(2),
+                    ReminderWindow.SMS_QUIET_FROM, ReminderWindow.SMS_QUIET_UNTIL, ReminderWindow.SMS_HANDOVER_MARGIN);
+            AppointmentReminderChannel sms = new AppointmentReminderChannel() {
+                @Override
+                public ReminderChannel channel() {
+                    return ReminderChannel.SMS;
+                }
+
+                @Override
+                public ReminderOutcome send(ClaimedReminder claimed) {
+                    throw new AssertionError("not sent from the status line");
+                }
+
+                @Override
+                public int maxAttempts() {
+                    return 2;
+                }
+
+                @Override
+                public Optional<ReminderWindow> window() {
+                    return Optional.of(window);
+                }
+
+                @Override
+                public AppointmentReminderStatus currentStatus(AppointmentReminder stored) {
+                    return queueSays == null ? stored.getLastStatus() : queueSays;
+                }
+            };
+            AppointmentReminderService atNow = new AppointmentReminderService(reminders, appointments, () -> List.of(sms),
+                    TransactionOperations.withoutTransaction(), new ReminderWindow(Duration.ofHours(24), Duration.ofHours(2)),
+                    Clock.fixed(now.atZone(ZONE).toInstant(), ZONE));
+            when(reminders.findByAppointment(APPOINTMENT, ReminderChannel.SMS)).thenReturn(Optional.of(reminder));
+            return atNow.statusLine(appointment(start, PATIENT, "t"), ReminderChannel.SMS, Locale.ENGLISH);
+        }
+
+        private AppointmentReminder textRequested() {
+            return AppointmentReminder.requested(APPOINTMENT, ReminderChannel.SMS, "999998", at(NOW.minusDays(3)));
+        }
+
+        @Test
+        void shouldSayTheTextIsBeingHandedOver_whileTheAttemptIsInProgress() {
+            LocalDateTime start = NOW.plusHours(20);
+            AppointmentReminder reminder = textRequested();
+            reminder.startSending(at(start), at(NOW.minusMinutes(1)));
+
+            assertThat(line(NOW, 24, start, reminder))
+                    .contains(new ReminderStatusLine(KEYS + "sending", ""));
+        }
+
+        @Test
+        @DisplayName("should say 08:00 for a text due in the last minutes before the quiet hours")
+        void shouldSayItGoesAtEight_whenDueJustBeforeTheQuietHours() {
+            ReminderWindow sms = ReminderWindow.forSmsHoursBefore("24");
+            LocalDateTime justBefore = NOW.withHour(20).withMinute(55);
+            LocalDateTime tomorrow = NOW.plusDays(1).withHour(14);
+
+            assertThat(sms.nextSendTime(tomorrow, justBefore)).contains(NOW.plusDays(1).withHour(8));
+            assertThat(line(justBefore, 24, tomorrow, textRequested()))
+                    .contains(new ReminderStatusLine(KEYS + "scheduled", shown.format(NOW.plusDays(1).withHour(8))));
+        }
+
+        @Test
+        @DisplayName("should say 08:00, not too close, for a box ticked at night for tomorrow afternoon")
+        void shouldSayItGoesAtEight_whenTickedAtNight() {
+            LocalDateTime night = NOW.withHour(22);
+            LocalDateTime tomorrow = NOW.plusDays(1).withHour(14);
+
+            assertThat(line(night, 24, tomorrow, textRequested()))
+                    .contains(new ReminderStatusLine(KEYS + "scheduled", shown.format(NOW.plusDays(1).withHour(8))));
+        }
+
+        @Test
+        @DisplayName("should say the quiet hours stop it when all the time left falls in them, never that it will go")
+        void shouldSayTheQuietHoursStopIt_whenAllTheTimeLeftFallsInThem() {
+            LocalDateTime night = NOW.withHour(22);
+            LocalDateTime earlyTomorrow = NOW.plusDays(1).withHour(9);
+
+            assertThat(line(night, 3, earlyTomorrow, textRequested()))
+                    .contains(new ReminderStatusLine(KEYS + "quietHours", ""));
+        }
+
+        @Test
+        @DisplayName("should say due inside the window by day, and too late after the cutoff")
+        void shouldSayDueByDay_andTooLateAfterTheCutoff() {
+            assertThat(line(NOW, 24, NOW.plusHours(20), textRequested()))
+                    .contains(new ReminderStatusLine(KEYS + "due", ""));
+            assertThat(line(NOW, 24, NOW.plusHours(1), textRequested()))
+                    .contains(new ReminderStatusLine(KEYS + "tooLate", ""));
+        }
+
+        @Test
+        @DisplayName("should say a text that never reached the queue sent nothing, and whether it is tried again")
+        void shouldSayNothingWasSent_whenTheTextNeverReachedTheQueue() {
+            LocalDateTime start = NOW.plusHours(20);
+            AppointmentReminder reminder = textRequested();
+            reminder.startSending(at(start), at(NOW.minusMinutes(10)));
+            reminder.finish(AppointmentReminderStatus.FAILED, null, null, at(NOW.minusMinutes(10)));
+
+            assertThat(line(NOW, 24, start, reminder))
+                    .contains(new ReminderStatusLine(KEYS + "notQueuedRetry", shown.format(NOW.minusMinutes(10))));
+
+            reminder.startSending(at(start), at(NOW.minusMinutes(5)));
+            reminder.finish(AppointmentReminderStatus.FAILED, null, null, at(NOW.minusMinutes(5)));
+            assertThat(line(NOW, 24, start, reminder))
+                    .contains(new ReminderStatusLine(KEYS + "notQueued", shown.format(NOW.minusMinutes(5))));
+        }
+
+        @Test
+        @DisplayName("should send staff to the SMS Queue only for a text the queue took and failed")
+        void shouldPointToTheSmsQueue_forATextTheQueueFailed() {
+            LocalDateTime start = NOW.plusHours(20);
+            AppointmentReminder reminder = textRequested();
+            reminder.startSending(at(start), at(NOW.minusMinutes(10)));
+            reminder.finish(AppointmentReminderStatus.QUEUED, null, 55L, at(NOW.minusMinutes(10)));
+            queueSays = AppointmentReminderStatus.FAILED;
+
+            assertThat(line(NOW, 24, start, reminder))
+                    .contains(new ReminderStatusLine(KEYS + "failed", shown.format(NOW.minusMinutes(10))));
+        }
+
+        @Test
+        @DisplayName("should say the clinic's details made the text too long")
+        void shouldSayTheTextDidNotFit_whenItWasTooLong() {
+            LocalDateTime start = NOW.plusHours(20);
+            AppointmentReminder reminder = textRequested();
+            reminder.startSending(at(start), at(NOW.minusMinutes(10)));
+            reminder.finish(AppointmentReminderStatus.TOO_LONG, null, null, at(NOW.minusMinutes(10)));
+
+            assertThat(line(NOW, 24, start, reminder)).contains(new ReminderStatusLine(KEYS + "doesNotFit", ""));
+        }
+
+        /**
+         * The text line is shown to anyone who may open the appointment, so it carries a time or nothing: never the
+         * number, the text, its SMS row or an error. Every outcome is checked, with a text handed over.
+         */
+        @ParameterizedTest(name = "{0}")
+        @org.junit.jupiter.params.provider.EnumSource(AppointmentReminderStatus.class)
+        void shouldCarryOnlyATime_forEveryTextOutcome(AppointmentReminderStatus status) {
+            LocalDateTime start = NOW.plusHours(20);
+            AppointmentReminder reminder = textRequested();
+            reminder.startSending(at(start), at(NOW.minusMinutes(10)));
+            if (status != AppointmentReminderStatus.SENDING) {
+                reminder.finish(status, null, 55L, at(NOW.minusMinutes(10)));
+            }
+
+            assertThat(line(NOW, 24, start, reminder)).hasValueSatisfying(found -> {
+                assertThat(found.argument()).isIn("", shown.format(NOW.minusMinutes(10)));
+                // The sentence as staff read it, in every language: no SMS row id or anything but the time.
+                for (String language : new String[]{"en", "fr", "es", "pl", "pt_BR"}) {
+                    ResourceBundle bundle = ResourceBundle.getBundle("oscarResources",
+                            Locale.forLanguageTag(language.replace('_', '-')));
+                    String shownLine = new MessageFormat(bundle.getString(found.messageKey()))
+                            .format(new Object[]{found.argument()});
+                    assertThat(shownLine).as(language + " " + found.messageKey()).doesNotContain("55")
+                            .doesNotContain("{").doesNotContain("''");
+                }
+            });
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"en", "fr", "es", "pl", "pt_BR"})
+        void shouldHaveTheTextOnlyLines_inEveryBundle(String language) {
+            ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", Locale.forLanguageTag(language.replace('_', '-')));
+            for (String key : new String[]{"quietHours", "doesNotFit", "notQueued", "notQueuedRetry"}) {
+                String pattern = bundle.getString(KEYS + key);
+                assertThat(new MessageFormat(pattern).format(new Object[]{"FAKE-WHEN"})).as(key)
+                        .doesNotContain("{", "}").doesNotContain("''");
+            }
+        }
+    }
+
+    /** #884: each channel has its own switch, window and number of attempts. */
+    @Nested
+    @DisplayName("Each channel's switch, window and attempts")
+    class Channels {
+
+        private AppointmentReminderService serviceWith(boolean enabled, int attempts, ReminderWindow channelWindow) {
+            AppointmentReminderChannel channel = new AppointmentReminderChannel() {
+                @Override
+                public ReminderChannel channel() {
+                    return ReminderChannel.EMAIL;
+                }
+
+                @Override
+                public ReminderOutcome send(ClaimedReminder reminder) {
+                    handed.add(reminder);
+                    return new ReminderOutcome(AppointmentReminderStatus.SENT, 900);
+                }
+
+                @Override
+                public boolean enabled() {
+                    return enabled;
+                }
+
+                @Override
+                public int maxAttempts() {
+                    return attempts;
+                }
+
+                @Override
+                public Optional<ReminderWindow> window() {
+                    return Optional.ofNullable(channelWindow);
+                }
+            };
+            return new AppointmentReminderService(reminders, appointments, () -> List.of(channel),
+                    TransactionOperations.withoutTransaction(), new ReminderWindow(Duration.ofHours(24), Duration.ofHours(2)),
+                    Clock.fixed(NOW.atZone(ZONE).toInstant(), ZONE));
+        }
+
+        @Test
+        void shouldSendNothing_forAChannelThatIsSwitchedOff() {
+            Appointment appointment = appointment(NOW.plusHours(20), PATIENT, "t");
+            stored(requested(), appointment, appointment);
+
+            serviceWith(false, 2, null).processDue(10);
+
+            assertThat(handed).isEmpty();
+            verify(reminders, never()).findDue(any(), any(), any(), anyInt(), anyInt());
+        }
+
+        @Test
+        void shouldNeverRetry_aChannelThatAllowsOneAttempt() {
+            LocalDateTime start = NOW.plusHours(20);
+            Appointment appointment = appointment(start, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            reminder.startSending(at(start), at(NOW.minusHours(2)));
+            reminder.finish(AppointmentReminderStatus.FAILED, null, at(NOW.minusHours(2)));
+            stored(reminder, appointment, appointment);
+
+            serviceWith(true, 1, null).processDue(10);
+
+            assertThat(handed).isEmpty();
+            verify(reminders).findDue(eq(ReminderChannel.EMAIL), any(), any(), eq(1), anyInt());
+        }
+
+        @Test
+        void shouldHoldAReminder_duringTheChannelsQuietHours() {
+            Appointment appointment = appointment(NOW.plusHours(20), PATIENT, "t");
+            stored(requested(), appointment, appointment);
+            ReminderWindow quietNow = new ReminderWindow(Duration.ofHours(24), Duration.ofHours(2),
+                    NOW.toLocalTime().minusHours(1), NOW.toLocalTime().plusHours(1));
+
+            serviceWith(true, 2, quietNow).processDue(10);
+
+            assertThat(handed).as("held until the quiet hours end").isEmpty();
+        }
+
+        @Test
+        void shouldSend_onceTheChannelsQuietHoursAreOver() {
+            Appointment appointment = appointment(NOW.plusHours(20), PATIENT, "t");
+            stored(requested(), appointment, appointment);
+            ReminderWindow quietEarlier = new ReminderWindow(Duration.ofHours(24), Duration.ofHours(2),
+                    NOW.toLocalTime().minusHours(3), NOW.toLocalTime().minusHours(1));
+
+            serviceWith(true, 2, quietEarlier).processDue(10);
+
+            assertThat(handed).hasSize(1);
         }
     }
 
