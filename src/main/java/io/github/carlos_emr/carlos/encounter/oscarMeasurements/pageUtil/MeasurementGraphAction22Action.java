@@ -297,8 +297,16 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         }
         Series systolic = new Series(SYSTOLIC);
         Series diastolic = new Series(DIASTOLIC);
+        int omitted = 0;
         for (EctMeasurementsDataBean measurement : measurements) {
             if (StringUtils.isNotEmpty(measurement.getDataField())) {
+                if (measurement.isFiledAsText()) {
+                    // A final result the lab worded (for example Pending) is not a malformed pair: leave it
+                    // off the chart, count it, and keep both series for the readings that are numbers.
+                    // Anything else that is not systolic/diastolic keeps its diagnostic below (#6142 review).
+                    omitted++;
+                    continue;
+                }
                 String[] values = measurement.getDataField().split("/");
                 if (values.length != 2) {
                     throw new GraphDataException(GraphDataException.Problem.BLOOD_PRESSURE_FORMAT,
@@ -317,7 +325,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         SeriesCollection dataset = new SeriesCollection();
         dataset.addSeries(diastolic);
         dataset.addSeries(systolic);
-        return new MeasurementSeries(dataset, 0);
+        return new MeasurementSeries(dataset, omitted);
     }
 
     /** The name the graph window shows for a measurement's type: its display name, else its code. */

@@ -170,6 +170,20 @@ class LabTextResultLabelJspRegressionTest {
         // Pending is now filed as text, so the notices no longer name it as missing.
         assertThat(bundle.getProperty("lab.measurementGrid.scope")).doesNotContain("Pending");
         assertThat(bundle.getProperty("lab.measurementHistory.unavailable")).doesNotContain("Pending");
+        // #6142 review: every language says what the label marks (a word result filed whole because the
+        // site's measurement filter did not match it), and that a site which turned filing off leaves current
+        // word results only in the original report. The label word is the bundle's own, in each language.
+        String label = bundle.getProperty("lab.measurement.textResult");
+        for (String key : new String[] {"lab.measurementGrid.scope", "lab.measurementHistory.unavailable"}) {
+            assertThat(bundle.getProperty(key)).as(language + " " + key).contains(label)
+                    .contains("CARLOS");
+        }
+        if ("en".equals(language)) {
+            for (String key : new String[] {"lab.measurementGrid.scope", "lab.measurementHistory.unavailable"}) {
+                assertThat(bundle.getProperty(key)).contains("did not match this site's measurement filter")
+                        .contains("turned off filing of word results").contains("current word results");
+            }
+        }
         if ("en".equals(language)) {
             // Reports received before the update were filed under the old rule: their word results are still absent.
             assertThat(bundle.getProperty("lab.measurementGrid.scope")).contains("before this update");

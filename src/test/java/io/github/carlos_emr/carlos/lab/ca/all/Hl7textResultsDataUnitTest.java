@@ -301,6 +301,27 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
                 org.mockito.ArgumentMatchers.argThat(removed -> removed.size() == 1 && removed.get(0) == samePatients));
     }
 
+    @Test
+    @DisplayName("should file this patient's final result when another patient's later report shares the accession")
+    void shouldFileThisPatientsResult_whenAnotherPatientsLaterReportSharesTheAccession() {
+        // #6142 review: the chain is resolved by accession alone. Another patient's report (5000, routed to
+        // patient 4711) arrived later, so it would be chosen as the current version and this patient's
+        // incoming report (4616, patient 42) would be skipped before anything was filed.
+        io.github.carlos_emr.carlos.commn.model.PatientLabRouting otherPatient = new io.github.carlos_emr.carlos.commn.model.PatientLabRouting();
+        otherPatient.setDemographicNo(4711);
+        var routing = (io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao) mockedBeans.get(io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao.class);
+        when(routing.findByLabNoAndLabType(5000, "HL7")).thenReturn(List.of(otherPatient));
+        try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("4616,5000");
+            Measurement filed = fileResult("6.1", ".*", "2026-03-10 12:00:00", LocalDateTime.parse("2026-03-10T14:00:00"));
+            assertThat(filed).isNotNull();
+            assertThat(filed.getDemographicId()).isEqualTo(42);
+        }
+
+        // The other patient's report is neither archived nor looked at.
+        verify(measurementDao, org.mockito.Mockito.never()).findByValue("lab_no", "5000");
+    }
+
     @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {"0", "-42", "invalid", " 42 ", "2147483648"})

@@ -451,6 +451,38 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(extensions);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"lab", "labRef", "rxincl", "inclRef"})
+    void shouldCountAFiledTextBloodPressureAsOmitted_andKeepBothSeries(String method) throws Exception {
+        // #6142 review: 120/80 and a final Pending filed as text in the same history. The request must not
+        // fail with 422; the text reading is counted as not shown and the numeric pair keeps both series.
+        request.setParameter("method", method);
+        request.setParameter("type", "BP");
+        AtomicReference<MeasurementChart> rendered = new AtomicReference<>();
+        EctMeasurementsDataBean filed = measurement("BP", "Blood pressure", "mmHg", "Pending");
+        filed.setFiledAsText(true);
+        executeChartFrom(type -> List.of(measurement("BP", "Blood pressure", "mmHg", "120/80"), filed), rendered);
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(rendered.get().toConfig()).containsEntry("note",
+                "Results not shown on this chart: 1. Open the full report to see them.");
+        assertThat(datasets(rendered.get())).filteredOn(dataset -> "line".equals(dataset.get("kind")))
+                .extracting(dataset -> dataset.get("label"), dataset -> points(dataset).getFirst().get("y"))
+                .containsExactly(tuple("Diastolic", 80.0), tuple("Systolic", 120.0));
+    }
+
+    @Test
+    void shouldStillAnswer422_whenAnUnmarkedBloodPressureIsMalformedBesideAFiledText() throws Exception {
+        request.setParameter("type", "BP");
+        AtomicReference<MeasurementChart> rendered = new AtomicReference<>();
+        EctMeasurementsDataBean filed = measurement("BP", "Blood pressure", "mmHg", "Pending");
+        filed.setFiledAsText(true);
+        executeChartFrom(type -> List.of(filed, measurement("BP", "Blood pressure", "mmHg", "120")), rendered);
+
+        assertThat(rendered).hasNullValue();
+        assertThat(response.getStatus()).isEqualTo(422);
+    }
+
     @Test
     void shouldAnswer422_whenAStoredBloodPressureIsNotTwoValues() throws Exception {
         request.setParameter("type", "BP");

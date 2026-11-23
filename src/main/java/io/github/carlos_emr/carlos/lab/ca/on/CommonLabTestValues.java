@@ -481,38 +481,37 @@ public class CommonLabTestValues {
                 String lab_no = String.valueOf(lNo);
 
                 MessageHandler handler = Factory.getHandler(lab_no);
-                HashMap<String, Serializable> h = new HashMap<String, Serializable>();
-                int i = 0;
-                while (i < handler.getOBRCount() && h.get("testName") == null) {
+                // One history row for each observation of this identifier in the report, each marked by its
+                // own OBR-OBX position: a report can hold 5.7 and then a filed Not detected with the same
+                // code, and the graph can then count the text result it leaves out (#6142 review).
+                for (int i = 0; i < handler.getOBRCount(); i++) {
                     for (int j = 0; j < handler.getOBXCount(i); j++) {
-                        if (handler.getOBXIdentifier(i, j).equals(identCode)) {
+                        if (!handler.getOBXIdentifier(i, j).equals(identCode)) {
+                            continue;
+                        }
+                        String result = handler.getOBXResult(i, j);
 
-                            String result = handler.getOBXResult(i, j);
-
-                            // only add measurements with actual results
-                            if (!result.equals("")) {
-                                h.put("testName", testName);
-                                h.put("abn", handler.getOBXAbnormalFlag(i, j));
-                                h.put("result", result);
-                                h.put("range", handler.getOBXReferenceRange(i, j));
-                                h.put("units", handler.getOBXUnits(i, j));
-                                h.put("lab_no", lab_no);
-                                if (textResults.contains(lab_no + "/" + i + "-" + j)) {
-                                    h.put(VALUE_TYPE, MeasurementsExt.TEXT_VALUE_TYPE);
-                                }
-
-                                String collDate = handler.getServiceDate();
-                                if (collDate == null || collDate.isEmpty()) {
-                                    collDate = handler.getTimeStamp(i, j);
-                                }
-                                h.put("collDate", collDate);
-                                labList.add(h);
-                                break;
+                        // only add measurements with actual results
+                        if (!result.equals("")) {
+                            HashMap<String, Serializable> h = new HashMap<String, Serializable>();
+                            h.put("testName", testName);
+                            h.put("abn", handler.getOBXAbnormalFlag(i, j));
+                            h.put("result", result);
+                            h.put("range", handler.getOBXReferenceRange(i, j));
+                            h.put("units", handler.getOBXUnits(i, j));
+                            h.put("lab_no", lab_no);
+                            if (textResults.contains(lab_no + "/" + i + "-" + j)) {
+                                h.put(VALUE_TYPE, MeasurementsExt.TEXT_VALUE_TYPE);
                             }
 
+                            String collDate = handler.getServiceDate();
+                            if (collDate == null || collDate.isEmpty()) {
+                                collDate = handler.getTimeStamp(i, j);
+                            }
+                            h.put("collDate", collDate);
+                            labList.add(h);
                         }
                     }
-                    i++;
                 }
             }
 

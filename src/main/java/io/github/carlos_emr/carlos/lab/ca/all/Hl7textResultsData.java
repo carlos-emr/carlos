@@ -138,7 +138,7 @@ public class Hl7textResultsData {
             throw new IllegalStateException("Lab report could not be read; its measurements were not filed");
         }
         //Check for other versions of this lab
-        String[] matchingLabs = getMatchingLabs(lab_no).split(",");
+        String[] matchingLabs = ownVersions(getMatchingLabs(lab_no).split(","), lab_no, patient);
 
         if (!java.util.Arrays.asList(matchingLabs).contains(lab_no)) {
             throw new IllegalStateException("The incoming lab is absent from its resolved version chain");
@@ -175,6 +175,42 @@ public class Hl7textResultsData {
     }
 
     /**
+     * The versions of a report that belong to this patient. The chain is resolved by accession number
+     * alone, so a recycled or colliding accession can put another patient's report in it, and such a
+     * report with a later revision would otherwise be chosen as the current version and skip this
+     * patient's incoming result (#6142 review). A version routed to a different patient is left out
+     * before the current version is chosen and before anything is superseded; a version with no routing
+     * (not yet matched), and the incoming report itself, stay. The chain's order is kept.
+     */
+    static String[] ownVersions(String[] chain, String incoming, Integer patient) {
+        List<String> own = new ArrayList<>();
+        for (String version : chain) {
+            String trimmed = version.trim();
+            if (!trimmed.equals(incoming.trim()) && routedToAnotherPatient(trimmed, patient)) {
+                continue;
+            }
+            own.add(version);
+        }
+        return own.toArray(new String[0]);
+    }
+
+    private static boolean routedToAnotherPatient(String labNo, Integer patient) {
+        int number;
+        try {
+            number = Integer.parseInt(labNo);
+        } catch (NumberFormatException notANumber) {
+            return false;
+        }
+        for (PatientLabRouting routing : patientLabRoutingDao.findByLabNoAndLabType(number, "HL7")) {
+            Integer routed = routing.getDemographicNo();
+            if (routed != null && routed > 0 && !routed.equals(patient)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Files the current version of a report that has no measurements yet, whichever of its versions
      * the caller names. A patient match made after upload uses this: the version to file is decided
      * here, by the same rule as at upload, not by the caller's position in the display order.
@@ -189,7 +225,8 @@ public class Hl7textResultsData {
         if (named == null) {
             throw new IllegalStateException("Lab report could not be read; its measurements were not filed");
         }
-        String[] matchingLabs = getMatchingLabs(lab_no).split(",");
+        Integer patient = ConversionUtils.fromIntString(demographic_no);
+        String[] matchingLabs = ownVersions(getMatchingLabs(lab_no).split(","), lab_no, patient);
         populateMeasurementsTable(
                 currentVersion(matchingLabs, named instanceof io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler),
                 demographic_no);

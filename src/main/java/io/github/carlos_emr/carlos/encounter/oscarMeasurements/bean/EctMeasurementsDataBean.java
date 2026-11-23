@@ -54,6 +54,8 @@ public class EctMeasurementsDataBean {
     private Date dateEnteredAsDate = null;
     private String indicationColour = null;
     private Integer sourceLabNo;
+    /** The result was filed whole as the lab's own words (value_type = text, #6122): a graph cannot plot it. */
+    private boolean filedAsText;
 
     public EctMeasurementsDataBean() {
     }
@@ -104,6 +106,14 @@ public class EctMeasurementsDataBean {
     /** HL7 report identity from measurementsExt.lab_no, absent for manually entered readings. */
     public Integer getSourceLabNo() {
         return sourceLabNo;
+    }
+
+    public boolean isFiledAsText() {
+        return filedAsText;
+    }
+
+    public void setFiledAsText(boolean filedAsText) {
+        this.filedAsText = filedAsText;
     }
 
     public void setSourceLabNo(Integer sourceLabNo) {

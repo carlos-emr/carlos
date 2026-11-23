@@ -144,11 +144,12 @@ class CommonLabTestValuesUnitTest extends CarlosUnitTestBase {
     }
 
     /**
-     * The history shows the first result for the code in each report. When that report also holds another
-     * result for the code, the label follows the result filed as text, not the report (#6122 review).
+     * The history has a row for each result of the code in a report, each labelled by its own position: a
+     * report holding 5.7 and then a filed Not detected shows both, and only the second is text (#6122, #6142
+     * review: the history used to stop at the report's first nonempty result).
      */
     @Test
-    void shouldLabelOnlyTheResultFiledAsText_whenItsReportHoldsTwoResultsForTheCode() {
+    void shouldGiveEachResultOfTheCodeItsOwnRow_andLabelOnlyTheOneFiledAsText() {
         var dao = createAndRegisterMock(MeasurementDao.class);
         when(dao.findLabNumbers(17, "FAKE-3007")).thenReturn(List.of("100", "200"));
         // Report 100: a number first, then the text result. Report 200: the text result first, then a number.
@@ -163,11 +164,10 @@ class CommonLabTestValuesUnitTest extends CarlosUnitTestBase {
 
             var rows = CommonLabTestValues.findValuesForTest("HL7", 17, "FAKE GLUCOSE", "FAKE-3007");
 
-            assertThat(rows).hasSize(2);
-            assertThat(rows.get(0)).containsEntry("result", "Not detected").containsEntry("lab_no", "200");
-            assertThat(CommonLabTestValues.isTextResult(rows.get(0))).isTrue();
-            assertThat(rows.get(1)).containsEntry("result", "5.7").containsEntry("lab_no", "100");
-            assertThat(CommonLabTestValues.isTextResult(rows.get(1))).as("the number in a report with a text result").isFalse();
+            assertThat(rows).extracting(row -> row.get("lab_no") + "/" + row.get("result") + "/"
+                            + CommonLabTestValues.isTextResult(row))
+                    .containsExactlyInAnyOrder("100/5.7/false", "100/Not detected/true",
+                            "200/Not detected/true", "200/5.9/false");
         }
     }
 
