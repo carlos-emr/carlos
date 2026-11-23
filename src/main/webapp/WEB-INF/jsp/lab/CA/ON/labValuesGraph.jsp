@@ -68,7 +68,11 @@
     StringBuffer sb = new StringBuffer();
     Hashtable h = new Hashtable();
     String drugForGraph = "";
-    if (request.getParameterValues("drug") != null) {
+    // The gate decides whether this user may see this patient's prescriptions (_rx on the patient):
+    // without it the picker, its query and the drugs on the graph are all left out (#6325).
+    boolean medicationsAllowed = Boolean.TRUE.equals(
+            request.getAttribute(io.github.carlos_emr.carlos.lab.gate.ViewLabValuesGraph2Action.MEDICATIONS_ALLOWED));
+    if (medicationsAllowed && request.getParameterValues("drug") != null) {
         String[] drugs = request.getParameterValues("drug");
 
         for (String d : drugs) {
@@ -238,6 +242,7 @@
                     </td>
                 </tr>
             </table>
+            <% if (medicationsAllowed) { %>
             <form action="<%= request.getContextPath() %>/lab/CA/ON/ViewLabValuesGraph">
                 <input type="hidden" name="labType" value="<carlos:encode value='<%= labType %>' context="htmlAttribute"/>"/>
                 <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demographicNo %>' context="htmlAttribute"/>"/>
@@ -273,6 +278,7 @@
                 </ul>
                 <input type="submit" value="Add Meds to Graph"/>
             </form>
+            <% } %>
 
         </td>
     </tr>

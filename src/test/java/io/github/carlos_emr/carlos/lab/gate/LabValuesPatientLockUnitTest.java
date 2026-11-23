@@ -152,6 +152,37 @@ class LabValuesPatientLockUnitTest extends CarlosUnitTestBase {
         verify(security, never()).isAllowedAccessToPatientRecord(login, 999);
     }
 
+    @org.junit.jupiter.api.Test
+    @DisplayName("should offer the lab graph's medication picker only to a user holding _rx on the patient")
+    void shouldOfferMedicationPickerOnlyWithRxOnThePatient() throws Exception {
+        request.setParameter("demographic_no", "123");
+        when(security.hasPrivilege(login, "_rx", "r", "123")).thenReturn(false);
+
+        // A lab-only user still gets the lab graph page, but the page is told to leave medications out.
+        assertThat(new ViewLabValuesGraph2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute(ViewLabValuesGraph2Action.MEDICATIONS_ALLOWED)).isEqualTo(false);
+
+        when(security.hasPrivilege(login, "_rx", "r", "123")).thenReturn(true);
+        assertThat(new ViewLabValuesGraph2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute(ViewLabValuesGraph2Action.MEDICATIONS_ALLOWED)).isEqualTo(true);
+    }
+
+    @org.junit.jupiter.api.Test
+    @DisplayName("should not offer medications for a prescription right held on another patient or no patient")
+    void shouldNotOfferMedications_whenRxIsMissingOnThisPatientOrNoPatientIsNamed() throws Exception {
+        when(security.hasPrivilege(login, "_rx", "r", "123")).thenReturn(false);
+        when(security.hasPrivilege(login, "_rx", "r", "456")).thenReturn(true);
+        request.setParameter("demographic_no", "123");
+        new ViewLabValuesGraph2Action().execute();
+        assertThat(request.getAttribute(ViewLabValuesGraph2Action.MEDICATIONS_ALLOWED)).isEqualTo(false);
+
+        MockHttpServletRequest none = new MockHttpServletRequest("GET", "/lab/CA/ON/values");
+        servlet.when(ServletActionContext::getRequest).thenReturn(none);
+        sessions.when(() -> LoggedInInfo.getLoggedInInfoFromSession(none)).thenReturn(login);
+        new ViewLabValuesGraph2Action().execute();
+        assertThat(none.getAttribute(ViewLabValuesGraph2Action.MEDICATIONS_ALLOWED)).isEqualTo(false);
+    }
+
     static Stream<Arguments> noPatientValues() {
         return cases(new String[] {null, "", "null", "undefined", "0"});
     }
