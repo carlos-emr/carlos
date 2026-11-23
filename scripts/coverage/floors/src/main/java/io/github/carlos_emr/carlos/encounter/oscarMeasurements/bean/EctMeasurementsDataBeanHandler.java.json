@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/bean/EctMeasurementsDataBeanHandler.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 92.85714285714286,
+    "sourceBlob": "683be6ef52cafa2660d850a51629d2f38fa134b8"
+  },
+  "evidenceSha256": "2a62d880533d92a73a49731f8e6bc896d86dbcefd550c1da566c195e5f5a0552"
+}
