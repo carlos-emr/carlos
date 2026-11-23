@@ -195,12 +195,15 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     private static final Set<String> NOTE_LOCK_METHODS = Set.of("isNoteEdited", "updateNoteLock");
     private static final String AUTHORIZED_NOTE_PROGRAM = CaseManagementEntry2Action.class.getName() + ".authorizedNoteProgram";
     /**
-     * Suffix of the session key that holds the form a read-only GET displays. It is kept apart from
-     * the active editor's form (under {@link ChartProgramContext#formKey}), so reading a note never
-     * replaces the form of a note this session is editing; Edit binds the reader's form to the
-     * active editor only once it succeeds (#6132).
+     * Suffix of the session key that holds the forms read-only GETs display, one per note and the most
+     * recent {@link #MAX_READER_FORMS} of them. They are kept apart from the active editor's form (under
+     * {@link ChartProgramContext#formKey}), so reading a note never replaces the form of a note this
+     * session is editing, and two windows reading different notes of one chart each keep their own;
+     * Edit binds the reader's form to the active editor only once it succeeds (#6132).
      */
-    public static final String READER_FORM_SUFFIX = ".reader";
+    public static final String READER_FORM_SUFFIX = ".readers";
+    /** How many notes' reader forms a session keeps per chart: the least recently opened is dropped. */
+    static final int MAX_READER_FORMS = 8;
     /** Request attribute carrying the form the classic page displays for a read-only GET. */
     public static final String READER_FORM_ATTRIBUTE = CaseManagementEntry2Action.class.getName() + ".readerForm";
     /** Request attribute the classic page reads: this session's server-verified lock owns the note it renders. */
@@ -848,7 +851,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 // A read-only GET shows its own form. It must not replace the form of a note this
                 // session holds the lock on, or that editor's Save would load this note's form
                 // (#6132). Edit binds the displayed note and its form together once it succeeds.
-                mySessionMap.put(frmName + READER_FORM_SUFFIX, cform);
+                rememberReaderForm(frmName, cform);
                 request.setAttribute(READER_FORM_ATTRIBUTE, cform);
                 if (!activeEditorHoldsItsLock(demono, (CaseManagementEntryFormBean) mySessionMap.get(frmName))) {
                     mySessionMap.put(frmName, cform);
@@ -1090,6 +1093,39 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
     }
 
+    /** The reader forms of a chart context, by note id, most recently opened last. Under the session mutex. */
+    @SuppressWarnings("unchecked")
+    private LinkedHashMap<Long, CaseManagementEntryFormBean> readerForms(String frmName, boolean create) {
+        if (mySessionMap == null) return null;
+        Object held = mySessionMap.get(frmName + READER_FORM_SUFFIX);
+        if (held instanceof LinkedHashMap<?, ?> map) return (LinkedHashMap<Long, CaseManagementEntryFormBean>) map;
+        if (!create) return null;
+        LinkedHashMap<Long, CaseManagementEntryFormBean> fresh = new LinkedHashMap<>();
+        mySessionMap.put(frmName + READER_FORM_SUFFIX, fresh); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- the form this request built for the authorized patient and chart
+        return fresh;
+    }
+
+    /** Keeps the form a read-only GET displays, under its note, dropping the least recently opened beyond the cap. */
+    private void rememberReaderForm(String frmName, CaseManagementEntryFormBean form) {
+        LinkedHashMap<Long, CaseManagementEntryFormBean> forms = readerForms(frmName, true);
+        if (forms == null) return;
+        Long noteId = noteIdOf(form);
+        forms.remove(noteId); // an open of the same note again moves it to the end
+        forms.put(noteId, form);
+        while (forms.size() > MAX_READER_FORMS) {
+            forms.remove(forms.keySet().iterator().next());
+        }
+    }
+
+    /** The form a read-only GET displayed for this note, or null. */
+    private CaseManagementEntryFormBean readerFormFor(String frmName, long noteId) {
+        synchronized (org.springframework.web.util.WebUtils.getSessionMutex(request.getSession())) {
+            LinkedHashMap<Long, CaseManagementEntryFormBean> forms = readerForms(frmName, false);
+            CaseManagementEntryFormBean form = forms == null ? null : forms.get(noteId);
+            return form != null && form.getCaseNote() != null && noteIdOf(form) == noteId ? form : null;
+        }
+    }
+
     /**
      * Whether the form in the chart's active-editor slot belongs to a note this session still holds
      * the lock on: an editor that is open and must not be replaced by a form opened only to read.
@@ -1161,6 +1197,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 casemgmtNoteLock.setSessionId(sessionId);
                 casemgmtNoteLock.setLockAcquired(new Date());
                 casemgmtNoteLockDao.persist(casemgmtNoteLock);
+                casemgmtNoteLock.setCreatedByThisRequest(true);
             }
         } else {
             logger.debug("STATIC isNoteEdited CREATING NEW LOCK DEMO: " + demographicNo + " PROVIDER: " + providerNo);
@@ -1172,6 +1209,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             casemgmtNoteLock.setSessionId(sessionId);
             casemgmtNoteLock.setLockAcquired(new Date());
             casemgmtNoteLockDao.persist(casemgmtNoteLock);
+            casemgmtNoteLock.setCreatedByThisRequest(true);
         }
 
         return casemgmtNoteLock;
@@ -1196,9 +1234,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String frmName = ChartProgramContext.formKey(request, demoNo);
         // The classic page opened this note read-only by GET; its Edit button is what calls here. The
         // form that page displays waits in the reader slot until Edit succeeds (#6132).
-        CaseManagementEntryFormBean reader = mySessionMap == null ? null
-                : (CaseManagementEntryFormBean) mySessionMap.get(frmName + READER_FORM_SUFFIX);
-        if (reader != null && (reader.getCaseNote() == null || noteIdOf(reader) != noteId)) reader = null;
+        // Looked up by this note: a second window reading another note of the chart does not hide it.
+        CaseManagementEntryFormBean reader = readerFormFor(frmName, noteId);
 
         if (reader != null) {
             // Edit grants nothing over a revision that is no longer the latest: the page shows an
@@ -1219,7 +1256,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         CasemgmtNoteLockDao lockDao = SpringUtils.getBean(CasemgmtNoteLockDao.class);
-        boolean lockExisted = noteId >= 0 && lockDao.findByNoteDemo(patient, noteId) != null;
         CasemgmtNoteLock casemgmtNoteLock = isNoteEdited(noteId, patient, providerNo, ipAddress, sessionId);
 
         String ret = "unlocked";
@@ -1229,8 +1265,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             ret = "user";
         }
         boolean ownedBySession = !casemgmtNoteLock.isLocked() && Objects.equals(casemgmtNoteLock.getSessionId(), sessionId);
-        // This request took the lock when no row stood before it.
-        boolean lockTaken = ownedBySession && !lockExisted && noteId >= 0;
+        // The call that took the lock reports whether it persisted the row itself, in the same step,
+        // so a row that appeared or went away between a look and the lock cannot be mistaken.
+        boolean lockTaken = ownedBySession && casemgmtNoteLock.isCreatedByThisRequest();
         if (ownedBySession && reader != null && isStaleRevision(noteId)) {
             // A newer revision was saved between the check above and the lock: give back the lock this
             // request took, and refuse Edit.

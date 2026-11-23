@@ -19,7 +19,8 @@
  *     request and does not move the cursor.
  *  5. An Edit the server refuses as stale or while another note is open keeps the page read-only.
  *
- * Run: NODE_PATH=$(npm root -g) node scripts/classic-note-editor-lock-fixture-playwright-checks.js
+ * Not part of the live-stack Playwright suite (no scripts/playwright-suite.json entry): it needs no CARLOS server or login.
+ * Run: NODE_PATH=$(npm root -g) node scripts/classic-note-editor-lock-fixture-check.js
  */
 const fs = require('node:fs');
 const path = require('node:path');

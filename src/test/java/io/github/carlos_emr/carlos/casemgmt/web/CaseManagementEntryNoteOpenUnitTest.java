@@ -314,6 +314,23 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
         verify(locks, never()).merge(any());
     }
 
+    /** Puts a form where a read-only GET of its note leaves it, as the action keeps them (per note). */
+    @SuppressWarnings("unchecked")
+    private void putReader(CaseManagementEntryFormBean form) {
+        String key = "caseManagementEntryForm" + PATIENT + CaseManagementEntry2Action.READER_FORM_SUFFIX;
+        java.util.LinkedHashMap<Long, CaseManagementEntryFormBean> readers =
+                (java.util.LinkedHashMap<Long, CaseManagementEntryFormBean>) forms.computeIfAbsent(key, k -> new java.util.LinkedHashMap<Long, CaseManagementEntryFormBean>());
+        readers.put(form.getCaseNote().getId(), form);
+    }
+
+    /** The reader form kept for a note, or null. */
+    @SuppressWarnings("unchecked")
+    private CaseManagementEntryFormBean readerOf(long noteId) {
+        var readers = (java.util.LinkedHashMap<Long, CaseManagementEntryFormBean>) forms.get(
+                "caseManagementEntryForm" + PATIENT + CaseManagementEntry2Action.READER_FORM_SUFFIX);
+        return readers == null ? null : readers.get(noteId);
+    }
+
     /** A form for a saved note, as an editor this session opened would hold it. */
     private static CaseManagementEntryFormBean editorForm(long noteId) {
         CaseManagementEntryFormBean form = new CaseManagementEntryFormBean();
@@ -341,7 +358,7 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
 
         // The editor of A is untouched, so A's Save loads A's form; B is shown from its own slot.
         assertThat(form()).isSameAs(editing);
-        CaseManagementEntryFormBean reader = (CaseManagementEntryFormBean) forms.get("caseManagementEntryForm" + PATIENT + ".reader");
+        CaseManagementEntryFormBean reader = readerOf(5009L);
         assertThat(reader.getCaseNote().getId()).isEqualTo(5009L);
         assertThat(request.getAttribute(CaseManagementEntry2Action.READER_FORM_ATTRIBUTE)).isSameAs(reader);
         verify(locks, never()).persist(any());
@@ -375,9 +392,14 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
 
     /** Runs the classic Edit button's request and gives the JSON it answers. */
     private com.fasterxml.jackson.databind.JsonNode pressEdit(long noteId) throws Exception {
+        return pressEdit(noteId, note(noteId, ORIGINAL_TEXT));
+    }
+
+    /** As {@link #pressEdit(long)}, with the note the database holds under that id. */
+    private com.fasterxml.jackson.databind.JsonNode pressEdit(long noteId, CaseManagementNote stored) throws Exception {
         when(security.hasPrivilege(login, "_eChart", "w", PATIENT)).thenReturn(true);
         when(security.hasPrivilege(login, "_casemgmt.notes", "w", PATIENT)).thenReturn(true);
-        when(manager.getNote(Long.toString(noteId))).thenReturn(note(noteId, ORIGINAL_TEXT));
+        when(manager.getNote(Long.toString(noteId))).thenReturn(stored);
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/carlos/CaseManagementEntry");
         request.setSession(session);
         request.setParameter("demographicNo", PATIENT);
@@ -391,7 +413,7 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
     @DisplayName("should bind the displayed note and its form to the editor when Edit succeeds")
     void shouldBindTheReadersFormToTheEditor_whenEditSucceeds() throws Exception {
         CaseManagementEntryFormBean reader = editorForm(5009L);
-        forms.put("caseManagementEntryForm" + PATIENT + ".reader", reader);
+        putReader(reader);
 
         var answer = pressEdit(5009L);
 
@@ -407,7 +429,7 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
         CaseManagementEntryFormBean editing = editorForm(5001L);
         forms.put("caseManagementEntryForm" + PATIENT, editing);
         holdLock(5001L, 10L);
-        forms.put("caseManagementEntryForm" + PATIENT + ".reader", editorForm(5009L));
+        putReader(editorForm(5009L));
 
         var answer = pressEdit(5009L);
 
@@ -425,7 +447,7 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
         CaseManagementNote newer = note(5010L, REVISED_TEXT);
         newer.setUuid("FAKE-chain");
         when(manager.getMostRecentNote("FAKE-chain")).thenReturn(newer);
-        forms.put("caseManagementEntryForm" + PATIENT + ".reader", editorForm(5009L));
+        putReader(editorForm(5009L));
         when(manager.getNote("5009")).thenReturn(shown);
         when(security.hasPrivilege(login, "_eChart", "w", PATIENT)).thenReturn(true);
         when(security.hasPrivilege(login, "_casemgmt.notes", "w", PATIENT)).thenReturn(true);
@@ -454,7 +476,7 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
         newer.setUuid("FAKE-chain");
         // Latest at the first check, replaced by the time the lock is held.
         when(manager.getMostRecentNote("FAKE-chain")).thenReturn(shown, newer);
-        forms.put("caseManagementEntryForm" + PATIENT + ".reader", editorForm(5009L));
+        putReader(editorForm(5009L));
         when(manager.getNote("5009")).thenReturn(shown);
         when(security.hasPrivilege(login, "_eChart", "w", PATIENT)).thenReturn(true);
         when(security.hasPrivilege(login, "_casemgmt.notes", "w", PATIENT)).thenReturn(true);
@@ -471,6 +493,56 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
         assertThat(answer.path("ownedBySession").booleanValue()).isFalse();
         verify(locks).removeForSession(PROVIDER, Integer.valueOf(PATIENT), 5009L, session.getId());
         assertThat(form()).isNull();
+    }
+
+    @Test
+    @DisplayName("should keep each window's reader form apart: reading C does not hide B's, so B's Edit is still checked")
+    void shouldCheckEdit_whenAnotherWindowReadAnotherNoteOfTheChart() throws Exception {
+        // A is open for editing; window X reads B, then window Y reads C.
+        CaseManagementEntryFormBean editing = editorForm(5001L);
+        forms.put("caseManagementEntryForm" + PATIENT, editing);
+        holdLock(5001L, 10L);
+        openSaved("GET", 5009L);
+        openSaved("GET", 5010L);
+        assertThat(readerOf(5009L)).isNotNull();
+        assertThat(readerOf(5010L)).isNotNull();
+        assertThat(form()).isSameAs(editing);
+
+        // X's Edit of B still sees B's reader form: another note is open for editing, so it is refused.
+        var refused = pressEdit(5009L);
+        assertThat(refused.path("isNoteEdited").asText()).isEqualTo("editorOpen");
+        assertThat(refused.path("ownedBySession").booleanValue()).isFalse();
+        assertThat(form()).isSameAs(editing);
+        verify(locks, never()).persist(any());
+    }
+
+    @Test
+    @DisplayName("should refuse a stale Edit even when another window has read a different note since")
+    void shouldRefuseAStaleEdit_whenAnotherWindowReadAnotherNote() throws Exception {
+        CaseManagementNote shown = note(5009L, ORIGINAL_TEXT);
+        shown.setUuid("FAKE-chain");
+        CaseManagementNote newer = note(5011L, REVISED_TEXT);
+        newer.setUuid("FAKE-chain");
+        when(manager.getMostRecentNote("FAKE-chain")).thenReturn(newer);
+        openSaved("GET", 5009L);
+        openSaved("GET", 5010L);
+
+        var answer = pressEdit(5009L, shown);
+
+        assertThat(answer.path("isNoteEdited").asText()).isEqualTo("stale");
+        verify(locks, never()).persist(any());
+    }
+
+    @Test
+    @DisplayName("should keep only the most recent reader forms of a chart")
+    void shouldBoundTheReaderForms() throws Exception {
+        for (long id = 6001L; id < 6001L + CaseManagementEntry2Action.MAX_READER_FORMS + 3; id++) {
+            openSaved("GET", id);
+        }
+        assertThat(readerOf(6001L)).isNull();
+        assertThat(readerOf(6003L)).isNull();
+        assertThat(readerOf(6004L)).isNotNull();
+        assertThat(readerOf(6001L + CaseManagementEntry2Action.MAX_READER_FORMS + 2)).isNotNull();
     }
 
     @Test
