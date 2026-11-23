@@ -251,6 +251,29 @@ class EctMeasurementsDataBeanHandlerUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    @DisplayName("should mark only the readings filed as the lab's own words (value_type = text), and read no other extension as one")
+    void shouldMarkReadingsFiledAsText_fromTheValueTypeExtension() {
+        EctMeasurementsDataBean text = new EctMeasurementsDataBean();
+        text.setId(7);
+        EctMeasurementsDataBean number = new EctMeasurementsDataBean();
+        number.setId(8);
+        EctMeasurementsDataBean otherKind = new EctMeasurementsDataBean();
+        otherKind.setId(9);
+        when(extensions.findByMeasurementIdsAndKey(anyList(), eq("lab_no"))).thenReturn(List.of());
+        when(extensions.findByMeasurementIdsAndKey(anyList(), eq(MeasurementsExt.VALUE_TYPE_KEY))).thenReturn(List.of(
+                extension(7, MeasurementsExt.VALUE_TYPE_KEY, MeasurementsExt.TEXT_VALUE_TYPE),
+                extension(9, MeasurementsExt.VALUE_TYPE_KEY, "number")));
+
+        EctMeasurementsDataBeanHandler.populateSourceLabs(List.of(text, number, otherKind));
+
+        assertThat(text.isFiledAsText()).isTrue();
+        assertThat(number.isFiledAsText()).isFalse();
+        assertThat(otherKind.isFiledAsText()).isFalse();
+        text.setFiledAsText(false);
+        assertThat(text.isFiledAsText()).isFalse();
+    }
+
     private static MeasurementsExt extension(int measurementId, String key, String value) {
         MeasurementsExt extension = new MeasurementsExt(measurementId);
         extension.setKeyVal(key);

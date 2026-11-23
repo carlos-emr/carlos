@@ -171,6 +171,36 @@ class CommonLabTestValuesUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    /**
+     * Observations of other codes and empty results are not rows, and a report with no service date takes
+     * each observation's own time (#6142 review: the loop now walks every observation).
+     */
+    @Test
+    void shouldSkipOtherCodesAndEmptyResults_andTakeTheObservationTimeWithoutAServiceDate() {
+        var dao = createAndRegisterMock(MeasurementDao.class);
+        when(dao.findLabNumbers(17, "FAKE-3007")).thenReturn(List.of("300"));
+        when(dao.findTextResultPositions(17, "FAKE-3007")).thenReturn(List.<Object[]>of());
+        MessageHandler report = mock(MessageHandler.class);
+        when(report.getOBRCount()).thenReturn(1);
+        when(report.getOBXCount(0)).thenReturn(3);
+        when(report.getOBXIdentifier(0, 0)).thenReturn("OTHER-CODE");
+        when(report.getOBXIdentifier(0, 1)).thenReturn("FAKE-3007");
+        when(report.getOBXResult(0, 1)).thenReturn("");
+        when(report.getOBXIdentifier(0, 2)).thenReturn("FAKE-3007");
+        when(report.getOBXResult(0, 2)).thenReturn("6.2");
+        when(report.getServiceDate()).thenReturn("");
+        when(report.getTimeStamp(0, 2)).thenReturn("2026-02-03 09:00");
+
+        try (MockedStatic<Factory> factory = mockStatic(Factory.class)) {
+            factory.when(() -> Factory.getHandler("300")).thenReturn(report);
+
+            var rows = CommonLabTestValues.findValuesForTest("HL7", 17, "FAKE GLUCOSE", "FAKE-3007");
+
+            assertThat(rows).hasSize(1);
+            assertThat(rows.get(0)).containsEntry("result", "6.2").containsEntry("collDate", "2026-02-03 09:00");
+        }
+    }
+
     private static MessageHandler handler(String collected, String... results) {
         MessageHandler handler = mock(MessageHandler.class);
         when(handler.getOBRCount()).thenReturn(1);

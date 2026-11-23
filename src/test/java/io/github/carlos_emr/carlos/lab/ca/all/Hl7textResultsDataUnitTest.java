@@ -338,6 +338,21 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         verify(measurementDao, org.mockito.Mockito.never()).findByValue("lab_no", "5000");
     }
 
+    @Test
+    @DisplayName("should keep a version whose number is not numeric, or whose routing names no patient yet, in the chain")
+    void shouldKeepVersionsWithNoUsableOwner_inTheChain() {
+        io.github.carlos_emr.carlos.commn.model.PatientLabRouting unassigned = new io.github.carlos_emr.carlos.commn.model.PatientLabRouting();
+        unassigned.setDemographicNo(0);
+        io.github.carlos_emr.carlos.commn.model.PatientLabRouting noPatient = new io.github.carlos_emr.carlos.commn.model.PatientLabRouting();
+        noPatient.setDemographicNo(null);
+        var routing = (io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao) mockedBeans.get(io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao.class);
+        when(routing.findByLabNoAndLabType(5001, "HL7")).thenReturn(List.of(unassigned));
+        when(routing.findByLabNoAndLabType(5002, "HL7")).thenReturn(List.of(noPatient));
+
+        assertThat(Hl7textResultsData.ownVersions(new String[] {"4616", "x1", "5001", "5002"}, "4616", 42))
+                .containsExactly("4616", "x1", "5001", "5002");
+    }
+
     @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {"0", "-42", "invalid", " 42 ", "2147483648"})
