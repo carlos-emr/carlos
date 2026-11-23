@@ -313,6 +313,7 @@ public class CaseManagementPrint {
             cpp = new HashMap<>();
             // Every CPP entry of the patient, printed in its section or left out of it.
             Set<Long> allCppIds = new HashSet<>();
+            List<CaseManagementNote> allCppEntries = new ArrayList<>();
             String[] issueCodes = {"OMeds", "SocHistory", "MedHistory", "Concerns", "Reminders", "FamHistory", "RiskFactors"};
             for (String issueCode : issueCodes) {
                 List<Issue> issues = caseManagementMgr.getIssueInfoByCode(providerNo, issueCode);
@@ -321,6 +322,7 @@ public class CaseManagementPrint {
                 issueNotes = new ArrayList<>();
                 for (CaseManagementNote tmpNote : tmpNotes) {
                     allCppIds.add(tmpNote.getId());
+                    allCppEntries.add(tmpNote);
                     if (!tmpNote.isLocked() && !tmpNote.isArchived()) {
                         List<CaseManagementNoteExt> exts = caseManagementMgr.getExtByNote(tmpNote.getId());
                         boolean exclude = false;
@@ -344,7 +346,19 @@ public class CaseManagementPrint {
             // A CPP entry left out of its section (archived, locked, "Hide Cpp") stays in the body of the
             // chart's own print; the Messenger attachment leaves it out too.
             Set<Long> notInBody = leaveOutArchivedAndHiddenNotes ? allCppIds : printedCppIds;
-            notes.removeIf(note -> notInBody.contains(note.getId()));
+            // The ids are revision rows: the body was collected first, and the CPP query keeps only the
+            // latest row of each note UUID. A CPP entry edited while this print runs can reach the body
+            // as an older revision whose id the CPP query never returns, so a hidden entry's text would
+            // survive (#6324 review). Classify the body's rows by note UUID as well as by row id.
+            Set<String> uuidsNotInBody = new HashSet<>();
+            for (List<CaseManagementNote> section : cpp.values()) {
+                section.forEach(entry -> addUuid(uuidsNotInBody, entry));
+            }
+            if (leaveOutArchivedAndHiddenNotes) {
+                allCppEntries.forEach(entry -> addUuid(uuidsNotInBody, entry));
+            }
+            notes.removeIf(note -> notInBody.contains(note.getId())
+                    || (note.getUuid() != null && uuidsNotInBody.contains(note.getUuid())));
         }
         String demoNo = null;
         List<CaseManagementNote> othermeds = null;
@@ -758,6 +772,12 @@ public class CaseManagementPrint {
         } catch (IOException | RuntimeException ex) {
             logger.warn("Failed to delete {}; leaving it for the OS temp sweep ({})", description, ex.getClass().getSimpleName());
             return false;
+        }
+    }
+
+    private static void addUuid(Set<String> uuids, CaseManagementNote note) {
+        if (note.getUuid() != null) {
+            uuids.add(note.getUuid());
         }
     }
 }

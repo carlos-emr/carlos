@@ -96,6 +96,9 @@ class CaseManagementPrintMessengerNotesUnitTest extends CarlosUnitTestBase {
     private final CaseManagementNote cppArchived = note(52L, false, true);
     private final CaseManagementNote cppHidden = note(53L, false, false);
     private final CaseManagementNote cppLocked = note(54L, true, false);
+    // An older revision of the hidden CPP entry (same note UUID, lower row id): the body can hold it
+    // when the entry is edited while a print runs, though the CPP query returns only the latest row.
+    private final CaseManagementNote cppHiddenOlderRevision = note(50L, false, false);
 
     private static CaseManagementNote note(long id, boolean isLocked, boolean isArchived) {
         CaseManagementNote note = new CaseManagementNote();
@@ -117,7 +120,10 @@ class CaseManagementPrintMessengerNotesUnitTest extends CarlosUnitTestBase {
         createAndRegisterMock(ProgramManager2.class);
         createAndRegisterMock(ProgramManager.class);
         createAndRegisterMock(PreventionManager.class);
-        List<CaseManagementNote> all = List.of(current, locked, archived, cppShown, cppArchived, cppHidden, cppLocked);
+        cppHidden.setUuid("11111111-1111-4111-8111-111111111153");
+        cppHiddenOlderRevision.setUuid(cppHidden.getUuid());
+        List<CaseManagementNote> all = List.of(current, locked, archived, cppShown, cppArchived, cppHidden, cppLocked,
+                cppHiddenOlderRevision);
         when(notes.getNotes(String.valueOf(PATIENT))).thenReturn(all);
         for (CaseManagementNote note : all) {
             when(notes.getNote(note.getId().toString())).thenReturn(note);
@@ -211,10 +217,20 @@ class CaseManagementPrintMessengerNotesUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should leave an older revision of a hidden CPP entry out of the Messenger attachment too")
+    void shouldLeaveOutAnOlderRevisionOfAHiddenCppEntry_forTheMessengerAttachment() throws Exception {
+        // The body holds revision 50 of the hidden entry; the CPP query returns only its latest row, 53.
+        assertThat(printedNotes(messengerPrint(), chartRequest()))
+                .doesNotContain(cppHiddenOlderRevision, cppHidden)
+                .containsExactly(current);
+    }
+
+    @Test
     @DisplayName("should keep printing archived notes and hidden CPP entries in the chart's own Print All")
     void shouldKeepArchivedNotesAndHiddenCppEntries_inTheChartsOwnPrintAll() throws Exception {
         assertThat(printedNotes(new CaseManagementPrint(), chartRequest()))
-                .containsExactlyInAnyOrder(current, locked, archived, cppArchived, cppHidden, cppLocked);
+                .containsExactlyInAnyOrder(current, locked, archived, cppArchived, cppHidden, cppLocked,
+                        cppHiddenOlderRevision);
     }
 
     @Test
