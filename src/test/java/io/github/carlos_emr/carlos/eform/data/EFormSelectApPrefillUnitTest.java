@@ -547,6 +547,11 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
         // one that only matches by its raw spelling.
         assertThat(rendered("<select name=\"a\" oscarDB=choice>" + ampersand + "</select>", "Smith &amp; Sons")
                 .selectFirst("option[selected]").text()).isEqualTo("raw");
+        // The other way round: the raw-spelling match comes FIRST and the exact submitted value LATER. A
+        // first-match-by-any-rule implementation would pick the first option; the exact one still wins.
+        String swapped = "<option value=\"Smith &amp; Sons\">decoded</option><option value=\"Smith &amp;amp; Sons\">raw</option>";
+        assertThat(rendered("<select name=\"a\" oscarDB=choice>" + swapped + "</select>", "Smith &amp; Sons")
+                .select("option[selected]").stream().map(org.jsoup.nodes.Element::text).toList()).containsExactly("raw");
         // `MG` before `mg`: the stored `mg` code is not changed to `MG`.
         String codes = "<option value=\"MG\">upper</option><option value=\"mg\">lower</option>";
         assertThat(rendered("<select name=\"c\" oscarDB=choice>" + codes + "</select>", "mg")
@@ -580,6 +585,102 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
                     + "<option value=\"Smith &amp; Sons\">s</option></select></form>");
             form.setDatabaseAPs();
             assertThat(fieldValue(form, "pick")).isEqualTo("Smith & Sons");
+        }
+    }
+
+    @Test
+    void shouldSelectTheRightOption_whenTextBeforeAndBetweenTheSelectsShiftsOffsets() throws Exception {
+        // Positions are read from the parser and used on the template's own text: non-ASCII letters, an emoji
+        // (two UTF-16 units), CRLF line ends, and entities, before and between the selects, must not move them.
+        String drift = "<p>Caf\u00e9 \u00fcber \u6f22\u5b57 \uD83D\uDE00 &amp; &lt;b&gt; &eacute;</p>\r\n\r\n";
+        String body = drift
+                + "<select name=\"first\" oscarDB=choice><option value=\"A\">a</option><option value=\"B\">b</option></select>\r\n"
+                + drift + "<p>\uD83D\uDE00\uD83D\uDE00 &copy; &#128512;</p>\r\n"
+                + "<select name=\"second\" oscarDB=choice><option value=\"B\">b</option><option value=\"A\" selected>a</option></select>\r\n"
+                + drift;
+
+        Document page = rendered(body, "B");
+
+        assertThat(submitted(page, "first")).isEqualTo("B");
+        assertThat(submitted(page, "second")).isEqualTo("B");
+        // Only the intended options changed: one selected option in each select.
+        assertThat(page.select("select[name=first] option[selected]").size()).isEqualTo(1);
+        assertThat(page.select("select[name=second] option[selected]").size()).isEqualTo(1);
+        // The text around them is byte for byte as the template had it.
+        assertThat(page.body().html().replace("\n", "")).contains("Caf\u00e9 \u00fcber \u6f22\u5b57 \uD83D\uDE00");
+    }
+
+    @Test
+    void shouldLeaveTheTemplateAsItIs_whenItsMarkupIsPathological() throws Exception {
+        // Very deep nesting, an unterminated select and a select inside a tag that never closes: the form
+        // still opens, the select keeps the template's own default, and nothing throws.
+        String deep = "<div>".repeat(5_000);
+        String body = deep + "<select name=\"deep\" oscarDB=choice><option value=\"A\">a</option>"
+                + "<option value=\"B\" selected>b</option></select>";
+        Document page = rendered(body, "A");
+        assertThat(page.select("select[name=deep]").size()).isEqualTo(1);
+
+        String unterminated = "<select name=\"open\" oscarDB=choice><option value=\"A\">a<option value=\"B\" selected>b";
+        assertThat(rendered(unterminated, "A").select("select[name=open]").size()).isEqualTo(1);
+
+        String brokenTag = "<select name=\"cut\" oscarDB=choice><option value=\"A\" title=\"unclosed>a</option>";
+        assertThat(rendered(brokenTag, "A").select("select").size()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldFillManySelectsInALargeForm_withinAGenerousTime() throws Exception {
+        // About 300 database-filled selects in about 300 KB: each is parsed once per fill, so the whole form
+        // must still come up in seconds, not minutes.
+        StringBuilder body = new StringBuilder();
+        for (int i = 0; i < 300; i++) {
+            body.append("<select name=\"s").append(i).append("\" oscarDB=choice>");
+            for (int o = 0; o < 10; o++) {
+                body.append("<option value=\"").append("Option number ").append(o).append("\">Option label ")
+                        .append(o).append(" with some padding text to give it weight</option>");
+            }
+            body.append("</select>\n");
+        }
+        assertThat(body.length()).isBetween(250_000, 400_000);
+
+        java.time.Duration[] took = new java.time.Duration[1];
+        Document page = org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(java.time.Duration.ofSeconds(60), () -> {
+            long start = System.nanoTime();
+            Document result = rendered(body.toString(), "Option number 7");
+            took[0] = java.time.Duration.ofNanos(System.nanoTime() - start);
+            return result;
+        });
+
+        assertThat(page.select("select option[selected]").size()).isEqualTo(300);
+        assertThat(took[0]).isLessThan(java.time.Duration.ofSeconds(60));
+    }
+
+    @Test
+    void shouldProduceExactlyTheSharedFixtureMarkup_thatChromiumReadsAsTheSubmittedValue() throws Exception {
+        // The same file drives scripts/eform-select-prefill-fixture-check.js, which loads each "after" markup into
+        // Chromium and asserts the value the browser submits: the server's parser and the browser agree.
+        java.nio.file.Path file = java.nio.file.Path.of("scripts", "fixtures", "eform", "select-prefill-cases.json");
+        java.nio.file.Path dir = java.nio.file.Path.of(System.getProperty("maven.multiModuleProjectDirectory",
+                System.getProperty("user.dir"))).toAbsolutePath();
+        while (dir != null && !java.nio.file.Files.exists(dir.resolve(file))) {
+            dir = dir.getParent();
+        }
+        assertThat(dir).as("the shared fixture file").isNotNull();
+        com.fasterxml.jackson.databind.JsonNode cases = new com.fasterxml.jackson.databind.ObjectMapper()
+                .readTree(java.nio.file.Files.readString(dir.resolve(file), java.nio.charset.StandardCharsets.UTF_8))
+                .get("cases");
+        assertThat(cases).isNotEmpty();
+        for (com.fasterxml.jackson.databind.JsonNode testCase : cases) {
+            DatabaseAP ap = new DatabaseAP("choice", "", testCase.get("wanted").asText());
+            try (var loader = mockStatic(EFormLoader.class)) {
+                loader.when(EFormLoader::getMarker).thenReturn("oscarDB");
+                loader.when(() -> EFormLoader.getAP("choice")).thenReturn(ap);
+                EForm form = new EForm();
+                form.setDemographicNo("7");
+                form.setFormHtml("<form id=\"f\">" + testCase.get("before").asText() + "</form>");
+                form.setDatabaseAPs();
+                assertThat(form.getFormHtml()).as(testCase.get("name").asText())
+                        .isEqualTo("<form id=\"f\">" + testCase.get("after").asText() + "</form>");
+            }
         }
     }
 }

@@ -1293,13 +1293,38 @@ public class EForm extends EFormBase {
             // marked selected, so the template's own default after the matching option would hide the stored
             // value: it comes out, and only that attribute does. A select with multiple, one without a match
             // and an empty output are left to the insert alone.
-            EFormSelectMarkup.SelectEdit edit = EFormSelectMarkup.edit(html, pointer, output);
+            EFormSelectMarkup.SelectEdit edit = selectEdit(html, pointer, output);
             if (edit == null) return html;
             edit.applyTo(html);
         } else { //type=input
             html.insert(pointer, " value=\"" + SafeEncode.forHtmlAttribute(output) + "\"");
         }
         return (html);
+    }
+
+    /**
+     * The select edit for a database tag's output, or null. A template is administrator-authored markup of any
+     * quality: whatever the HTML parser makes of it, the form must still open, so a failure here leaves the
+     * select exactly as the template has it (the same result as "no matching option"). Only the exception's
+     * class is logged, never the markup or the value, which can hold patient data.
+     */
+    private static EFormSelectMarkup.SelectEdit selectEdit(StringBuilder html, int pointer, String output) {
+        try {
+            return EFormSelectMarkup.edit(html, pointer, output);
+        } catch (RuntimeException e) {
+            log.warn("eForm select left unchanged: its markup could not be read ({})", e.getClass().getSimpleName());
+            return null;
+        }
+    }
+
+    /** The submitted value of the option shown as selected, or null; as {@link #selectEdit}, never throws. */
+    private static String selectedOptionValue(StringBuilder html, int pointer) {
+        try {
+            return EFormSelectMarkup.selectedValue(html, pointer);
+        } catch (RuntimeException e) {
+            log.warn("eForm select value not read: its markup could not be read ({})", e.getClass().getSimpleName());
+            return null;
+        }
     }
 
     /**
@@ -1493,7 +1518,7 @@ public class EForm extends EFormBase {
             // What the browser submits for the option shown as selected: its value attribute, or, with none,
             // its text, decoded (the same calculation the prefill uses), so a dependent database tag binds
             // the submitted value and not the markup's raw spelling.
-            String shown = EFormSelectMarkup.selectedValue(html, fieldIndex + 1);
+            String shown = selectedOptionValue(html, fieldIndex + 1);
             if (shown != null) value = shown;
         } else if (header.toLowerCase().startsWith("<textarea ")) {
             int fieldEnd = html.indexOf("</textarea>", fieldIndex);

@@ -1,0 +1,68 @@
+{
+  "description": "Shared by EFormSelectApPrefillUnitTest (the server edit) and scripts/eform-select-prefill-fixture-check.js (a real browser reads the edited markup). Each case: the select as the template has it, the database output, the markup after the edit, and the value a browser submits for it. FAKE data only.",
+  "cases": [
+    {
+      "name": "an end tag written with a space",
+      "before": "<select name=\"a\" oscarDB=choice><option value=\"A\">a</option><option value=\"B\">b</option></select >",
+      "wanted": "B",
+      "after": "<select name=\"a\" oscarDB=choice><option value=\"A\">a</option><option selected value=\"B\">b</option></select >",
+      "submitted": "B"
+    },
+    {
+      "name": "an optgroup label that looks like an option",
+      "before": "<select name=\"a\" oscarDB=choice><optgroup label=\"<option value=B>\"><option value=\"A\">a</option><option value=\"B\">b</option></optgroup></select>",
+      "wanted": "B",
+      "after": "<select name=\"a\" oscarDB=choice><optgroup label=\"<option value=B>\"><option value=\"A\">a</option><option selected value=\"B\">b</option></optgroup></select>",
+      "submitted": "B"
+    },
+    {
+      "name": "an option inside inert template content",
+      "before": "<select name=\"a\" oscarDB=choice><option value=\"A\">a</option><template><option value=\"B\">tpl</option></template><option value=\"B\">b</option></select>",
+      "wanted": "B",
+      "after": "<select name=\"a\" oscarDB=choice><option value=\"A\">a</option><template><option value=\"B\">tpl</option></template><option selected value=\"B\">b</option></select>",
+      "submitted": "B"
+    },
+    {
+      "name": "a script that holds select markup",
+      "before": "<script>var s='<select name=\"a\" oscarDB=choice><option value=\"B\">';</script><select name=\"a\" oscarDB=choice><option value=\"A\">a</option><option value=\"B\">b</option></select>",
+      "wanted": "B",
+      "after": "<script>var s='<select name=\"a\" oscarDB=choice><option value=\"B\">';</script><select name=\"a\" oscarDB=choice><option value=\"A\">a</option><option selected value=\"B\">b</option></select>",
+      "submitted": "B"
+    },
+    {
+      "name": "a comment inside an option's text",
+      "before": "<select name=\"a\" oscarDB=choice><option>Yes<!-- note --> now</option><option value=\"Yes\">real</option></select>",
+      "wanted": "Yes",
+      "after": "<select name=\"a\" oscarDB=choice><option>Yes<!-- note --> now</option><option selected value=\"Yes\">real</option></select>",
+      "submitted": "Yes"
+    },
+    {
+      "name": "a bare value attribute",
+      "before": "<select name=\"a\" oscarDB=choice><option value>Yes</option><option value=\"Yes\">real</option></select>",
+      "wanted": "Yes",
+      "after": "<select name=\"a\" oscarDB=choice><option value>Yes</option><option selected value=\"Yes\">real</option></select>",
+      "submitted": "Yes"
+    },
+    {
+      "name": "a raw spelling match first, the exact submitted value later",
+      "before": "<select name=\"a\" oscarDB=choice><option value=\"Smith &amp; Sons\">decoded</option><option value=\"Smith &amp;amp; Sons\">raw</option></select>",
+      "wanted": "Smith &amp; Sons",
+      "after": "<select name=\"a\" oscarDB=choice><option value=\"Smith &amp; Sons\">decoded</option><option selected value=\"Smith &amp;amp; Sons\">raw</option></select>",
+      "submitted": "Smith &amp; Sons"
+    },
+    {
+      "name": "a template default after the stored value's option",
+      "before": "<select name=\"a\" oscarDB=choice><option value=\"B\">b</option><option value=\"A\" selected>a</option></select>",
+      "wanted": "B",
+      "after": "<select name=\"a\" oscarDB=choice><option selected value=\"B\">b</option><option value=\"A\">a</option></select>",
+      "submitted": "B"
+    },
+    {
+      "name": "a select that holds a style element is left as the template has it",
+      "before": "<select name=\"a\" oscarDB=choice><option value=\"A\" selected>a</option><style><option value=\"B\"></style><option value=\"B\">b</option></select>",
+      "wanted": "B",
+      "after": "<select name=\"a\" oscarDB=choice><option value=\"A\" selected>a</option><style><option value=\"B\"></style><option value=\"B\">b</option></select>",
+      "submitted": "A"
+    }
+  ]
+}
