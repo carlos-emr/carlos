@@ -82,7 +82,7 @@
             // Generating an eform configuration.
             if (typeof options == "undefined" || options == null || options.eform) {
                 options = typeof options == "undefined" ? {} : options;
-                element.sigHTML = "<%= request.getContextPath() %>/signature_pad/tabletSignature?inWindow=true&saveToDB=true&demographicNo=";
+                element.sigHTML = "${carlos:forJavaScript(signatureContextPath)}/signature_pad/tabletSignature?inWindow=true&saveToDB=true&demographicNo=";
                 element.signatureDisplay = "#signatureDisplay";
                 element.signatureInput = "#signatureInput";
                 element.signatureValue = "#signatureValue"

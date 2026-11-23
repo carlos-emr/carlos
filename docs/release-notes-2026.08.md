@@ -1,5 +1,14 @@
 # CARLOS 2026.08 release notes
 
+## eForm signatures
+
+A saved eForm signature is shown only when its stored address is this server's own: the deployed
+context path (read from the server, so a context such as `/clinic+east` works), then
+`/imageRenderingServlet?source=signature_stored` and a numeric signature id. eForms saved while
+CARLOS was deployed under a different context path now show the note that the saved signature
+cannot be shown, instead of an image, until the signature is captured again. The signature
+source and the numeric-id checks are unchanged.
+
 ## Measurement charts, CML revisions and CDM forms
 
 Single-point and constant-value measurement charts now draw useful markers and axes.

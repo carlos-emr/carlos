@@ -18,6 +18,18 @@ const STORED = `${CONTEXT}/imageRenderingServlet?source=signature_stored&digital
 const NOTE = 'FAKE note: the saved signature cannot be shown here.';
 const NOT_ADDED = 'FAKE note: the new signature could not be added to this form.';
 
+/** What carlos:forJavaScript (OWASP's forJavaScript) makes of text that lands in a JavaScript string:
+ * a backslash, quotes, a slash and anything outside printable ASCII are escaped, so a context path
+ * with a quote or a backslash reaches the page as the same text. The test renders through it so the
+ * encoding step is exercised, not bypassed. */
+function forJavaScript(text) {
+  return text.replace(/[\\'"\/&<>\u0000-\u001f\u007f-\uffff]/g, ch => {
+    if ('\\\'"/'.includes(ch)) return `\\${ch}`;
+    const code = ch.charCodeAt(0);
+    return code < 256 ? `\\x${code.toString(16).padStart(2, '0')}` : `\\u${code.toString(16).padStart(4, '0')}`;
+  });
+}
+
 /** The library as the server sends it, with eForm signatures on. */
 function render(contextPath) {
   const script = jsp
@@ -28,7 +40,7 @@ function render(contextPath) {
     // Only the tags that print nothing: a message without var= would write text into the script.
     .replace(/<fmt:(?:setLocale|setBundle)\b[^>]*\/>/g, '')
     .replace(/<fmt:message\b[^>]*\bvar="[^"]+"[^>]*\/>/g, '')
-    .replaceAll('${carlos:forJavaScript(signatureContextPath)}', contextPath)
+    .replaceAll('${carlos:forJavaScript(signatureContextPath)}', forJavaScript(contextPath))
     .replaceAll('${carlos:forJavaScript(signatureNotShownNote)}', NOTE)
     .replaceAll('${carlos:forJavaScript(signatureNotAddedNote)}', NOT_ADDED);
   assert.doesNotMatch(script, /<%|<fmt:|\$\{/, 'the library carries a server expression this test does not render');
@@ -223,7 +235,7 @@ test('a refused pad save on an unsigned form adds nothing and says so', () => {
 // a character outside letters and digits (a plus, a percent sign, a semicolon, several segments, or none at
 // all) shows its signature, keeps a replacement, and reads the older escaped form, while the signature
 // source and the numeric id stay strict.
-for (const contextPath of ['', '/clinic+east', '/a%20b', '/c@l!n(i)c;x=y', '/clinic.east~1', '/clinic/east', '/(a)[b]']) {
+for (const contextPath of ['', '/clinic+east', '/a%20b', '/c@l!n(i)c;x=y', '/clinic.east~1', '/clinic/east', '/(a)[b]', "/it's", '/say"hi"', '/back\\slash', '/caf\u00e9', '/a&b<c>']) {
   const label = contextPath === '' ? 'the root context' : `the context ${contextPath}`;
   const stored = `${contextPath}/imageRenderingServlet?source=signature_stored&digitalSignatureId=`;
 
