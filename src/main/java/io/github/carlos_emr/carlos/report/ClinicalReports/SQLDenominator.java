@@ -38,6 +38,7 @@ import java.util.List;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.report.data.ConfiguredReportQuery;
+import io.github.carlos_emr.carlos.report.data.ReportLimitNotice;
 
 /**
  * This is for straight SQLDenominators  not sure if it should return a more specialised list
@@ -86,7 +87,11 @@ public class SQLDenominator implements Denominator {
             MiscUtils.getLogger().debug("SQL Statement: " + exeSql);
             list.addAll(ConfiguredReportQuery.identifierColumn(exeSql, resultString, paramValues.toArray()));
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Clinical report denominator query failed", e);
+            // A row, size or time refusal is the user's to fix: RunClinicalReport2Action logs it once as a
+            // warning and the error page names the limit. Only other failures are errors here.
+            if (ReportLimitNotice.find(e) == null) {
+                MiscUtils.getLogger().error("Clinical report denominator query failed", e);
+            }
             throw new IllegalStateException("Clinical report could not be completed; narrow the filters or retry", e);
         }
         return list;

@@ -21,13 +21,12 @@ async function editorFormDelete(s, chart, issueId) {
   const submitted = await chart.evaluate(id => {
     const form = document.forms.caseManagementEntryForm;
     const issue = form.querySelector(`input[data-issue-id="${id}"]`);
-    const index = issue && /^issueCheckList\[(\d+)\]\.checked$/.exec(issue.name);
-    if (!index) throw new Error('The owned issue has no rendered editor-form index');
+    if (!issue) throw new Error('The owned issue is missing from the rendered editor form');
     const body = new URLSearchParams(new FormData(form));
     const token = globalThis.CarlosAjax?.getCsrfToken();
     if (!body.get('chartContext') || !token) throw new Error('The editor form has no authenticated chart context or CSRF token');
     body.set('method', 'issueDelete');
-    body.set('deleteId', index[1]);
+    body.set('caseIssueId', issue.dataset.issueId);
     body.set('ajax', 'true');
     body.set('CSRF-TOKEN', token);
     return { body: body.toString(), token };

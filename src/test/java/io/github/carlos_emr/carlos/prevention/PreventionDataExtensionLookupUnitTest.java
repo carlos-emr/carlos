@@ -43,8 +43,10 @@ class PreventionDataExtensionLookupUnitTest extends CarlosUnitTestBase {
         DHIRSubmissionManager dhir = createAndRegisterMock(DHIRSubmissionManager.class);
         when(dhir.findByPreventionId(anyInt())).thenReturn(List.of());
         originalPreventionDao = ReflectionTestUtils.getField(PreventionData.class, "preventionDao");
-        originalExtensionDao = ReflectionTestUtils.getField(PreventionData.class, "preventionExtDao");
-        originalPartialDateDao = ReflectionTestUtils.getField(PreventionData.class, "partialDateDao");
+        originalExtensionDao =
+                ReflectionTestUtils.getField(PreventionData.class, "preventionExtDao");
+        originalPartialDateDao =
+                ReflectionTestUtils.getField(PreventionData.class, "partialDateDao");
         ReflectionTestUtils.setField(PreventionData.class, "preventionDao", preventionDao);
         ReflectionTestUtils.setField(PreventionData.class, "preventionExtDao", extensionDao);
         ReflectionTestUtils.setField(PreventionData.class, "partialDateDao", partialDateDao);
@@ -53,8 +55,78 @@ class PreventionDataExtensionLookupUnitTest extends CarlosUnitTestBase {
     @AfterEach
     void restoreLookups() {
         ReflectionTestUtils.setField(PreventionData.class, "preventionDao", originalPreventionDao);
-        ReflectionTestUtils.setField(PreventionData.class, "preventionExtDao", originalExtensionDao);
-        ReflectionTestUtils.setField(PreventionData.class, "partialDateDao", originalPartialDateDao);
+        ReflectionTestUtils.setField(
+                PreventionData.class, "preventionExtDao", originalExtensionDao);
+        ReflectionTestUtils.setField(
+                PreventionData.class, "partialDateDao", originalPartialDateDao);
+    }
+
+    @Test
+    void shouldReturnLegacyFields_whenThePreventionHasNoDemographicAssociation() {
+        var prevention = injection(41);
+        prevention.setDemographicId(null);
+        when(preventionDao.find(Integer.valueOf(41))).thenReturn(prevention);
+        try (MockedStatic<ProviderData> providers = mockStatic(ProviderData.class)) {
+            assertThat(PreventionData.getPreventionById("41"))
+                    .containsEntry("id", "41")
+                    .doesNotContainKey("demographicNo");
+        }
+    }
+
+    @Test
+    void shouldRefuseASourceFailure_insteadOfReturningTheAlreadyReadClinicalRows() {
+        when(extensionDao.findByKeyAndValue("workflowId", "17"))
+                .thenReturn(List.of(link(41), link(42)));
+        when(preventionDao.find(Integer.valueOf(41))).thenReturn(injection(41));
+        when(preventionDao.find(Integer.valueOf(42)))
+                .thenThrow(
+                        new org.springframework.dao.DataAccessResourceFailureException(
+                                CLINICAL_MARKER));
+        try (MockedStatic<ProviderData> providers = mockStatic(ProviderData.class);
+                LogCapture logs = LogCapture.forLogger(PreventionData.class)) {
+            org.assertj.core.api.Assertions.assertThatThrownBy(
+                            () -> PreventionData.getPreventionDataFromExt("workflowId", "17"))
+                    .isExactlyInstanceOf(
+                            io.github.carlos_emr.carlos.prevention.dto
+                                    .PreventionSourceUnavailableException.class)
+                    .hasCauseInstanceOf(
+                            org.springframework.dao.DataAccessResourceFailureException.class)
+                    // The exception's own text is fixed: it never repeats the failure's.
+                    .hasMessageNotContaining(CLINICAL_MARKER);
+            assertThat(logs.messages()).noneMatch(message -> message.contains(CLINICAL_MARKER));
+            // The record read failed inside the extension lookup: reported once, not once per reader.
+            assertThat(logs.messages())
+                    .filteredOn(message -> message.contains("PREVENTION_SOURCE_UNAVAILABLE"))
+                    .hasSize(1);
+        }
+    }
+
+    @Test
+    void shouldLogOneSanitizedLine_whenACallerShowsTheReadAsUnreadable() {
+        try (LogCapture logs = LogCapture.forLogger(PreventionData.class)) {
+            PreventionData.logUnreadable("flowsheet\r\nforged entry", "7\nforged entry");
+
+            assertThat(logs.messages()).hasSize(1);
+            assertThat(logs.messages().get(0))
+                    .startsWith("PREVENTION_SOURCE_UNAVAILABLE shown as unreadable by flowsheet")
+                    .contains("demographicNo=7")
+                    .doesNotContain("\r", "\n");
+        }
+    }
+
+    @Test
+    void shouldPassTheDateReviewRefusalThrough_insteadOfReportingAnUnavailableSource() {
+        when(extensionDao.findByKeyAndValue("workflowId", "17")).thenReturn(List.of(link(41)));
+        when(preventionDao.find(Integer.valueOf(41))).thenReturn(injection(41));
+        // A partial_date tag no reader understands makes the injection's date need review.
+        when(partialDateDao.getFormat(anyInt(), eq(41), anyInt())).thenReturn("unrecognised");
+        try (MockedStatic<ProviderData> providers = mockStatic(ProviderData.class)) {
+            org.assertj.core.api.Assertions.assertThatThrownBy(
+                            () -> PreventionData.getPreventionDataFromExt("workflowId", "17"))
+                    .isExactlyInstanceOf(
+                            io.github.carlos_emr.carlos.prevention.dto
+                                    .PreventionDatePrecisionException.class);
+        }
     }
 
     @Test
@@ -62,24 +134,34 @@ class PreventionDataExtensionLookupUnitTest extends CarlosUnitTestBase {
         Prevention injection = injection(41);
         when(extensionDao.findByKeyAndValue("workflowId", "17")).thenReturn(List.of(link(41)));
         when(preventionDao.find(Integer.valueOf(41))).thenReturn(injection);
-        when(extensionDao.findByPreventionId(41)).thenReturn(List.of(
-                field(41, "lot", CLINICAL_MARKER), field(41, "dose", "300"),
-                field(41, "reason", "antepartum"), field(41, "name", "synthetic product")));
+        when(extensionDao.findByPreventionId(41))
+                .thenReturn(
+                        List.of(
+                                field(41, "lot", CLINICAL_MARKER), field(41, "dose", "300"),
+                                field(41, "reason", "antepartum"),
+                                        field(41, "name", "synthetic product")));
 
         // Diagnostic text is deliberately nonnumeric and must never be parsed as an identifier.
-        assertThat(injection.toString()).isEqualTo("Prevention[id=41]").doesNotContain(CLINICAL_MARKER);
+        assertThat(injection.toString())
+                .isEqualTo("Prevention[id=41]")
+                .doesNotContain(CLINICAL_MARKER);
+        injection.setPreventionExts(new org.hibernate.collection.spi.PersistentBag<>());
         try (MockedStatic<ProviderData> providers = mockStatic(ProviderData.class);
                 LogCapture logs = LogCapture.forLogger(PreventionData.class)) {
             assertThat(PreventionData.getPreventionDataFromExt("workflowId", "17"))
-                    .singleElement().satisfies(row -> {
-                        assertThat(row).containsEntry("id", "41")
-                                .containsEntry("demographicNo", "7")
-                                .containsEntry("lot", CLINICAL_MARKER)
-                                .containsEntry("dose", "300")
-                                .containsEntry("name", "synthetic product");
-                        assertThat(row.get("summary")).asString().contains(CLINICAL_MARKER);
-                    });
-            assertThat(logs.events()).noneMatch(event -> event.getLevel().isMoreSpecificThan(Level.WARN));
+                    .singleElement()
+                    .satisfies(
+                            row -> {
+                                assertThat(row)
+                                        .containsEntry("id", "41")
+                                        .containsEntry("demographicNo", "7")
+                                        .containsEntry("lot", CLINICAL_MARKER)
+                                        .containsEntry("dose", "300")
+                                        .containsEntry("name", "synthetic product");
+                                assertThat(row.get("summary")).asString().contains(CLINICAL_MARKER);
+                            });
+            assertThat(logs.events())
+                    .noneMatch(event -> event.getLevel().isMoreSpecificThan(Level.WARN));
             assertThat(logs.messages()).noneMatch(message -> message.contains(CLINICAL_MARKER));
         }
         verify(preventionDao, times(1)).find(Integer.valueOf(41));
@@ -97,8 +179,10 @@ class PreventionDataExtensionLookupUnitTest extends CarlosUnitTestBase {
         try (MockedStatic<ProviderData> providers = mockStatic(ProviderData.class);
                 LogCapture logs = LogCapture.forLogger(PreventionData.class)) {
             assertThat(PreventionData.getPreventionDataFromExt("workflowId", "17"))
-                    .singleElement().satisfies(row -> assertThat(row).containsEntry("id", "42"));
-            assertThat(logs.events()).noneMatch(event -> event.getLevel().isMoreSpecificThan(Level.WARN));
+                    .singleElement()
+                    .satisfies(row -> assertThat(row).containsEntry("id", "42"));
+            assertThat(logs.events())
+                    .noneMatch(event -> event.getLevel().isMoreSpecificThan(Level.WARN));
             assertThat(logs.messages()).noneMatch(message -> message.contains(CLINICAL_MARKER));
         }
         verify(preventionDao, never()).find(null);

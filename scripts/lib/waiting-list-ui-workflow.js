@@ -95,8 +95,10 @@ async function prepareWaitingLists(s, { members = false, providerChoices = false
   await ui.clickAndAwaitReload(manager, manager.locator('input[onclick*="goToPage"]'),
     { timeout: 20000, label: 'Generate Report' });
   await h.assertNotErrorPage(manager, 'waiting-list manager');
-  const row = patient => manager.locator('tr').filter({has: manager.locator(`a[onclick*="demographic_no=${patient}'"]`)});
-  // The master-record link contains the exact patient ID, avoiding a match on
+  const row = patient => manager.locator('tr').filter({
+    has: manager.locator(`[onclick*="popupDemographicPage("][onclick*="demographic_no=${patient}'"]`),
+  });
+  // The Master Record control contains the exact patient ID, avoiding a match on
   // another patient's notes, names, or a numeric ID prefix.
   function patientRow(patient) {
     return row(patient).filter({has: manager.locator('textarea[name$="].note"]')}).last();

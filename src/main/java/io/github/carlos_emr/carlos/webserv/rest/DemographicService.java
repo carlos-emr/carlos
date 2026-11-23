@@ -77,6 +77,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.WaitingList;
 import io.github.carlos_emr.carlos.commn.model.WaitingListName;
 import io.github.carlos_emr.carlos.managers.AllergyManager;
+import io.github.carlos_emr.carlos.managers.DemographicExtensionNotFoundException;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.MeasurementManager;
 import io.github.carlos_emr.carlos.managers.NoteManager;
@@ -92,6 +93,7 @@ import io.github.carlos_emr.carlos.webserv.rest.conversion.MeasurementConverter;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.ProfessionalSpecialistConverter;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.ProviderConverter;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.WaitingListNameConverter;
+import io.github.carlos_emr.carlos.webserv.rest.response.ErrorResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.AbstractSearchResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.OscarSearchResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicContactFewTo1;
@@ -105,6 +107,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.ProfessionalSpecialistT
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ProviderTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.StatusValueTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.WaitingListNameTo1;
+import io.github.carlos_emr.carlos.webserv.rest.util.DemographicWriteConflict;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -281,7 +284,7 @@ public class DemographicService extends AbstractServiceImpl {
         result.setTotal(demographicManager.getActiveDemographicCount(loggedInInfo).intValue());
 
         for (Demographic demo : demographicManager.getActiveDemographics(loggedInInfo, offset, limit)) {
-            result.getContent().add(demoConverter.getAsListTransferObject(loggedInInfo, demo));
+            result.getContent().add(demoConverter.getAsTransferObject(loggedInInfo, demo));
         }
 
         return result;
@@ -649,12 +652,35 @@ public class DemographicService extends AbstractServiceImpl {
         }
         Demographic demographic = demoConverter.getAsDomainObject(loggedInInfo, data);
         validateFieldLengths(demographic);
-        demographicManager.createDemographic(loggedInInfo, demographic, data.getAdmissionProgramId());
+        try {
+            demographicManager.createDemographic(loggedInInfo, demographic, data.getAdmissionProgramId());
+        } catch (RuntimeException failure) {
+            throw extensionWriteFailure(failure);
+        }
         return demoConverter.getAsTransferObject(loggedInInfo, demographic);
     }
 
     /**
-     * Updates demographic information.
+     * Updates demographic information as one command (issue #5298).
+     *
+     * <p>Everything this method writes is one transaction, committed together or not at all: the
+     * custom fields and their archive copy, the waiting-list entry, the archive copy of the stored
+     * patient, the patient row, each extension with its archive copy, and the audit rows the
+     * manager writes for them. The patient row is locked first, so the identifiers kept from the
+     * stored row are the committed ones. A request refused for missing privilege, an invalid
+     * field, or a failed write changes nothing.</p>
+     *
+     * <p>These refusals are answered HTTP 409 with a JSON error code, and likewise change nothing:
+     * {@code WAITING_LIST_ENTRY_NOT_FOUND} when the patient has no current entry on the waiting list the
+     * request names, {@code WAITING_LIST_CHANGED} when the database refuses a conflicting list update,
+     * {@code DEMOGRAPHIC_EXTENSION_NOT_FOUND} when an extension id is not one of
+     * this patient's stored extensions, and {@code DUPLICATE_DEMOGRAPHIC_EXTENSION_KEY} when the
+     * database refuses a second extension with a key the patient already holds. Every extension
+     * is saved under this patient, whatever patient number it carries.</p>
+     *
+     * <p>One record is deliberately outside that transaction: the web-service access log row
+     * ({@code WebServiceLoggingAdvice}), which is written after the transaction has ended so that a
+     * failed request is still recorded.</p>
      *
      * @param data Detailed demographic data to be updated
      * @return Returns the updated demographic data
@@ -671,15 +697,18 @@ public class DemographicService extends AbstractServiceImpl {
         LoggedInInfo loggedInInfo = requireDemographicPrivilege("u", data.getDemographicNo());
         Demographic demographic = demoConverter.getAsDomainObject(loggedInInfo, data);
         // Reject the whole request before custom fields or waiting-list entries can be changed.
-        validateFieldLengths(demographic);
+        validateFieldLengths(demographic, data);
         applyIdentifierWritePolicy(data, demographic);
         //update demographiccust
         if (data.getNurse() != null || data.getResident() != null || data.getAlert() != null || data.getMidwife() != null || data.getNotes() != null) {
-            DemographicCust demoCust = demographicManager.getDemographicCust(loggedInInfo, data.getDemographicNo());
-            if (demoCust == null) {
-                demoCust = new DemographicCust();
-                demoCust.setId(data.getDemographicNo());
-            }
+            // The stored row used to be read here and changed in place. Inside this transaction that
+            // row is the managed one the manager compares the new values with, so the comparison
+            // found nothing changed and the previous custom fields were overwritten without being
+            // archived. The new values now go in an object of their own; the read privilege that
+            // read required is still checked.
+            demographicManager.checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
+            DemographicCust demoCust = new DemographicCust();
+            demoCust.setId(data.getDemographicNo());
             demoCust.setNurse(data.getNurse());
             demoCust.setResident(data.getResident());
             demoCust.setAlert(data.getAlert());
@@ -688,14 +717,58 @@ public class DemographicService extends AbstractServiceImpl {
             demographicManager.createUpdateDemographicCust(loggedInInfo, demoCust);
         }
 
-        //update waitingList
-        if (data.getWaitingListID() != null) {
-            WLWaitingListUtil.updateWaitingListRecord(data.getWaitingListID().toString(), data.getWaitingListNote(), data.getDemographicNo().toString(), null);
+        //update waitingList (0 is the form's "no list" value, which the helper skips)
+        if (data.getWaitingListID() != null && data.getWaitingListID() != 0 && !updateWaitingListNote(data)) {
+            // The patient has no current entry on the list this request names, typically because
+            // it was removed after the client loaded the form (a removal keeps the entry as
+            // history, which does not count). Saving the rest and answering success would drop
+            // the note silently, or put the patient back on the list; refusing rolls back the
+            // custom fields saved above.
+            throw staleRequest("WAITING_LIST_ENTRY_NOT_FOUND",
+                    "The patient has no current entry on the submitted waiting list; reload before retrying.");
         }
 
-        demographicManager.updateDemographic(loggedInInfo, demographic);
+        try {
+            demographicManager.updateDemographic(loggedInInfo, demographic);
+        } catch (RuntimeException failure) {
+            throw extensionWriteFailure(failure);
+        }
 
         return demoConverter.getAsTransferObject(loggedInInfo, demographic);
+    }
+
+    private static boolean updateWaitingListNote(DemographicTo1 data) {
+        try {
+            return WLWaitingListUtil.updateCurrentWaitingListRecord(data.getWaitingListID().toString(),
+                    data.getWaitingListNote(), data.getDemographicNo().toString(), null);
+        } catch (RuntimeException failure) {
+            if (DemographicWriteConflict.isConflict(failure)) {
+                throw staleRequest("WAITING_LIST_CHANGED", "The waiting list changed; reload before retrying.");
+            }
+            throw failure;
+        }
+    }
+
+    private static RuntimeException extensionWriteFailure(RuntimeException failure) {
+        if (failure instanceof DemographicExtensionNotFoundException) {
+            // The manager refused before its first write, and the transaction rolls back what this
+            // method saved before calling it. The message names neither the id nor another patient.
+            return staleRequest("DEMOGRAPHIC_EXTENSION_NOT_FOUND",
+                    "A submitted extension is not a stored extension of this patient; reload before retrying.");
+        }
+        if (!DemographicWriteConflict.isDuplicateExtensionKey(failure)) {
+            return failure;
+        }
+        ErrorResponse error = ErrorResponse.of(
+                "DUPLICATE_DEMOGRAPHIC_EXTENSION_KEY", "The request would create a duplicate demographic extension key.");
+        return new WebApplicationException(failure, Response.status(Response.Status.CONFLICT)
+                .type(MediaType.APPLICATION_JSON).entity(error).build());
+    }
+
+    /** HTTP 409 with a JSON error code: the request no longer matches what is stored. Rolls the update back. */
+    private static WebApplicationException staleRequest(String code, String message) {
+        return new WebApplicationException(Response.status(Response.Status.CONFLICT)
+                .type(MediaType.APPLICATION_JSON).entity(ErrorResponse.of(code, message)).build());
     }
 
     /** Resolve omitted identifiers under the row lock before related records are changed. */
@@ -723,7 +796,28 @@ public class DemographicService extends AbstractServiceImpl {
     }
 
     private static void validateFieldLengths(Demographic demographic) {
-        List<String> errors = demographic.validateFieldLengths();
+        refuseFieldLengthErrors(demographic.validateFieldLengths());
+    }
+
+    /**
+     * The update also writes the custom fields and, when a list is named, the waiting-list note;
+     * both are VARCHAR(255) and are checked with the patient row before anything is written (#5869).
+     */
+    private static void validateFieldLengths(Demographic demographic, DemographicTo1 data) {
+        List<String> errors = new ArrayList<>(demographic.validateFieldLengths());
+        DemographicCust posted = new DemographicCust();
+        posted.setNurse(data.getNurse());
+        posted.setResident(data.getResident());
+        posted.setAlert(data.getAlert());
+        posted.setMidwife(data.getMidwife());
+        errors.addAll(posted.validateFieldLengths());
+        if (data.getWaitingListID() != null) {
+            errors.addAll(WaitingList.validateNoteLength(data.getWaitingListNote()));
+        }
+        refuseFieldLengthErrors(errors);
+    }
+
+    private static void refuseFieldLengthErrors(List<String> errors) {
         if (!errors.isEmpty()) {
             // The validator names fields and limits; it never includes submitted patient values.
             throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST)

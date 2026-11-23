@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/dao/Hl7TextInfoDaoImpl.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 90.9090909090909,
+    "instructions": 80.88235294117646,
+    "branches": 100.0,
+    "sourceBlob": "40ea13cb602cf0a9656c39036d06871ff8a6189e"
+  },
+  "evidenceSha256": "8cab3d16435b80a0bb690170532922c0d1cb8891b55f9604eb693d325682cef5"
+}

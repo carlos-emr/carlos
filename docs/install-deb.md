@@ -266,7 +266,10 @@ install leaves other services running unless you explicitly opt in by preseeding
 `echo 'carlos-emr carlos-emr/stop-port-conflicts boolean true' | sudo debconf-set-selections`. Every service stopped (or a refusal)
 is printed in the install output, kept in `/var/log/apt/term.log`, and logged
 to the journal: `journalctl -t carlos-emr`. Non-interactive runs already decline
-by default unless explicitly preseeded true. Interactive runs ask again on every
+by default on fresh installations. Debconf retains answers across upgrades,
+including true inherited from an older installer; an unattended configure uses
+that retained answer and announces it before stopping services. To revoke it,
+preseed the same question `false` before upgrading. Interactive runs ask again on every
 configure that finds a conflict; preseeding false does not suppress the question.
 
 **10. Done (only if you accepted the seeded-admin replacement)** — a final
@@ -559,7 +562,7 @@ sudo carlos-ctl check
 | Symptom | Where to look | Usual cause |
 |---|---|---|
 | Install reported no error, but `carlos-ctl check` says the installation never finished, or that the database has **no tables** | `sudo carlos-ctl finish-install`, then `journalctl -u mariadb` | One or more provisioning steps failed or did not run; read the recorded reason and installation output. Those steps are deliberately non-fatal (a database problem must not leave dpkg half-configured), so apt still reports success. `finish-install` completes the install — schema, accounts, administrator credential, demo data if you asked for it — and returns nonzero while any requested step is unfinished. Boot retries require the marker and never migrate a populated invalid schema. If the DrugRef database is empty, also run `sudo dpkg-reconfigure carlos-emr-drugref`, then `sudo carlos-ctl check`. Existing DrugRef tables without a completion marker need a backup and administrator review before any reload |
-| Install ends with "NOT ready to use", and nginx logged `bind() to 0.0.0.0:80 failed (98: Address already in use)` | The "What failed" line of that dialog; `sudo /usr/lib/carlos-emr/carlos-emr-host-conflicts front-door --report 0.0.0.0` | Another program held port 80 or 443. The installer offers to stop any other system service there (a Debian package such as apache2, a snap such as Nextcloud, or your own unit), and does so without asking on a non-interactive install; `journalctl -t carlos-emr` lists what it stopped or what you declined. It names a container or a program started by hand and leaves it running. Stop that program, then `sudo carlos-ctl finish-install` |
+| Install ends with "NOT ready to use", and nginx logged `bind() to 0.0.0.0:80 failed (98: Address already in use)` | The "What failed" line of that dialog; `sudo /usr/lib/carlos-emr/carlos-emr-host-conflicts front-door --report 0.0.0.0` | Another program held port 80 or 443. The installer asks to stop another system service there, and unattended installs use the saved/preseeded debconf answer (fresh default false). A retained true is announced before stopping services. `journalctl -t carlos-emr` lists the result. Containers and programs started by hand are left running. Free the ports, then run `sudo carlos-ctl finish-install` |
 | The install says MariaDB "refuses the system root user", or that it could not reach MariaDB as root | `sudo /usr/lib/carlos-emr/carlos-emr-host-conflicts mariadb` | MariaDB is stopped or failed (the helper names what holds port 3306, or quotes its last error), or a MariaDB set up before CARLOS gave root a password. For the password case follow "MariaDB root access" in `README.Debian` section 6, then `sudo carlos-ctl finish-install` |
 | Drug lookups silent **and** the EMR is stopped | `sudo carlos-ctl check` | One failure, not two: DrugRef is a second webapp in the EMR's Tomcat, so it answers nothing while the EMR is not running. Fix the EMR first |
 | Browser cannot connect at all | `sudo journalctl -u nginx -n 50` | nginx not running, or the listen address is `127.0.0.1` while you are connecting remotely |

@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "00e6c7cc2436356941a077cf80bddff73b67d7f7",
+  "comparisonSha256": "baeb04a7108d86076a5ae0140c0789c709a01ec3adaab3df368c6fc8d6c049d9",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/EmailLog.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "0e74e96803ac14f9e797bdc5d1aaca186a9f5879"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/email/admin/ManageEmails2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 94.44444444444444,
+      "sourceBlob": "4250f35ec637e382292162d6af5a7b8c9c59530d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/EmailManager.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "74e0bf236dbbcb6738b33b851f49ddd7ef8d4b50"
+    }
+  },
+  "baselineCommit": "465217be8253562a6181ac2826464182eed16a05",
+  "baselineSourceTree": "00e6c7cc2436356941a077cf80bddff73b67d7f7",
+  "baselineReportSha256": "8cfd562d4c8a11d285dc980e2977097940edb98176584da1c1d3043b9a12a8d5",
+  "baselineLane": "Focused JDK 25 email lifecycle, administration, SMTP and DAO unit tests. The three changed production sources and thirteen selected test classes were freshly compiled using release-locked dependencies. Only these changed sources are measured.",
+  "baselineTestCounts": {
+    "tests": 70,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "77cdcf602051f284c75c424d774149cde9553cebb54aad2e6c816ee78a633418",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineReportHeaderCollisions": 0
+}

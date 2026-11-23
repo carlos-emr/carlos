@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/inboxhub/inboxdata/LabDataController.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 66.66666666666667,
+    "instructions": 76.08695652173913,
+    "branches": 50.0,
+    "sourceBlob": "48c2172d5d3aa907ab4441266a6d7d977053969b"
+  },
+  "evidenceSha256": "8cab3d16435b80a0bb690170532922c0d1cb8891b55f9604eb693d325682cef5"
+}

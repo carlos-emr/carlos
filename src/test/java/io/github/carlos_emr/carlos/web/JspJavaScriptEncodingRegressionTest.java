@@ -220,12 +220,13 @@ class JspJavaScriptEncodingRegressionTest {
     @DisplayName("should encode decision textarea file content in HTML body context")
     @Tag("security")
     void shouldEncodeDecisionTextareaFileContent_inHtmlBodyContext() throws Exception {
+        // provider/obarriskedit_99_12.jsp and provider/obarchecklistedit_99_12.jsp
+        // were removed (#3438): unlinked stale copies of the decision/antenatal
+        // editors that still carried the pre-hardening scriptlet writer.
         List<String> decisionTextareaEditors = List.of(
                 "decision/antenatal/obarriskedit_99_12.jsp",
                 "decision/annualreview/riskedit.jsp",
-                "decision/annualreview/checklistedit.jsp",
-                "provider/obarriskedit_99_12.jsp",
-                "provider/obarchecklistedit_99_12.jsp");
+                "decision/annualreview/checklistedit.jsp");
 
         for (String jspPath : decisionTextareaEditors) {
             assertThat(readJsp(jspPath))

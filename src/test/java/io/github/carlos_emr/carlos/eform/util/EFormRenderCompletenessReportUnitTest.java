@@ -333,8 +333,11 @@ class EFormRenderCompletenessReportUnitTest {
             assertThat(components)
                     .describedAs("%s must publish every completeness component as an output "
                             + "expression; approval binds a digest over all of them", surface.getKey())
-                    .allSatisfy(component -> assertThat(source)
-                            .contains(surface.getValue().formatted(component)));
+                    .allSatisfy(component -> assertThat(source).containsAnyOf(
+                            surface.getValue().formatted(component),
+                            // #6162: the JSPs print a yes/no flag as a translated word; the component is
+                            // still the expression's subject, so deleting the value cell still fails.
+                            "${%s ? 'eform.renderIssue.yes' : 'eform.renderIssue.no'}".formatted(component)));
             // The PHI-safe per-error console descriptions are display-only (never a record
             // component, never in the digest) but ride the same offer surfaces — the clinician
             // cannot weigh script errors they are not shown.
@@ -359,7 +362,10 @@ class EFormRenderCompletenessReportUnitTest {
                 // Producer, thrower and pass-through — not surfaces.
                 "src/main/java/io/github/carlos_emr/carlos/eform/util/EFormBrowserPdfService.java",
                 "src/main/java/io/github/carlos_emr/carlos/utility/EformContentUnavailableException.java",
-                "src/main/java/io/github/carlos_emr/carlos/managers/EformDataManagerImpl.java");
+                "src/main/java/io/github/carlos_emr/carlos/managers/EformDataManagerImpl.java",
+                // The CDS export renders with no approval, ever: an omission makes the eForm's
+                // rendering unavailable (its data summary carries a note); nothing is offered.
+                "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportEformRenderService.java");
         try (Stream<Path> files = java.nio.file.Files.walk(Path.of("src/main/java"))) {
             List<String> consumers = files
                     .filter(path -> path.toString().endsWith(".java"))

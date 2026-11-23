@@ -606,6 +606,55 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
                     eq("drugid=55"), any(), any(), any()));
         }
 
+        @Test
+        @DisplayName("should audit a saved script by its ids, never by the drug or instruction text")
+        void shouldAuditScriptByIdsWithoutClinicalText_whenRenewalBatchSaved() {
+            card.setDrugReferenceId(55);
+            bean.addReRxDrugIdList("55");
+            when(mockRxManager.archiveDrug(mockLoggedInInfo, 55, DEMOGRAPHIC_NO, Drug.REPRESCRIBED)).thenReturn(true);
+            card.setDrugReasonCodeSystem("icd9");
+            card.setDrugReasonCode("401");
+            var reasons = mock(io.github.carlos_emr.carlos.commn.dao.DrugReasonDao.class);
+            when(reasons.addNewDrugReason(any())).thenReturn(true);
+            registerMock(io.github.carlos_emr.carlos.commn.dao.DrugReasonDao.class, reasons);
+
+            try (var _ = mockConstruction(io.github.carlos_emr.carlos.managers.CodingSystemManager.class,
+                    (mock, context) -> when(mock.isCodeAvailable(anyString(), anyString())).thenReturn(true))) {
+                assertThat(save()).isEqualTo("77");
+            }
+
+            String patient = String.valueOf(DEMOGRAPHIC_NO);
+            // The script row lists the medication rows it wrote; each companion row names the script.
+            logActionMock.verify(() -> LogAction.addLogStrict(eq("999998"), eq(LogConst.ADD), eq(LogConst.CON_PRESCRIPTION),
+                    eq("77"), any(), eq(patient), eq("drugIds=501")));
+            logActionMock.verify(() -> LogAction.addLogStrict(eq("999998"), eq(LogConst.REPRESCRIBE), eq(LogConst.CON_MEDICATION),
+                    eq("drugid=55"), any(), eq(patient), eq("scriptNo=77")));
+            logActionMock.verify(() -> LogAction.addLogStrict(eq("-1"), eq(LogConst.DISCONTINUE), eq(LogConst.CON_MEDICATION),
+                    eq("drugid=55"), any(), eq(patient), eq("scriptNo=77")));
+            // The reason row names the medication row; its diagnostic code and comment are clinical.
+            logActionMock.verify(() -> LogAction.addLogStrict(any(), eq(LogConst.ADD), eq(LogConst.CON_DRUGREASON),
+                    any(), any(), eq(patient), eq("drugId=501")));
+            logActionMock.verify(() -> LogAction.addLogStrict(any(String.class), any(), any(), any(), any(), any(),
+                    org.mockito.ArgumentMatchers.argThat((String data) -> data != null
+                            && (data.contains("SYNTHETIC") || data.contains("tab PO") || data.contains("401")))), never());
+        }
+
+        @Test
+        @DisplayName("should name the script, not the drug text, on the row of a superseded earlier save")
+        void shouldAuditSupersededRowByScript_whenCardIsSavedAgain() {
+            save();
+            when(mockDrugDao.find(501)).thenReturn(row(501, false));
+            when(mockRxManager.archiveDrug(mockLoggedInInfo, 501, DEMOGRAPHIC_NO, Drug.REPRESCRIBED)).thenReturn(true);
+            card.setSpecial("1 tab PO BID x 14 days");
+
+            save();
+
+            logActionMock.verify(() -> LogAction.addLogStrict(eq("999998"), eq(LogConst.REPRESCRIBE), eq(LogConst.CON_MEDICATION),
+                    eq("drugid=501"), any(), eq(String.valueOf(DEMOGRAPHIC_NO)), eq("scriptNo=77")));
+            logActionMock.verify(() -> LogAction.addLogStrict(eq("999998"), eq(LogConst.ADD), eq(LogConst.CON_PRESCRIPTION),
+                    eq("77"), any(), eq(String.valueOf(DEMOGRAPHIC_NO)), eq("drugIds=502")));
+        }
+
         @ParameterizedTest
         @ValueSource(booleans = {false, true})
         void shouldKeepNewBatchConsumed_whenCommitOutcomeIsUnknown(boolean translatedJdbcFailure) {

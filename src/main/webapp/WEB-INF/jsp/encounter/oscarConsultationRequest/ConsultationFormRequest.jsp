@@ -56,6 +56,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="consultation.hrm.removeFailed" var="hrmDetachFailureText"/>
 
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -117,6 +118,29 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationFormPatientResolver" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao" %>
+<%
+    Integer verifiedConsultPatient;
+    String suppliedPatient = request.getParameter("de");
+    if (suppliedPatient == null || suppliedPatient.isBlank()) suppliedPatient = (String) request.getAttribute("demographicId");
+    String suppliedRequest = request.getParameter("requestId");
+    if (suppliedRequest == null || suppliedRequest.isBlank()) suppliedRequest = (String) request.getAttribute("reqId");
+    try {
+        verifiedConsultPatient = new ConsultationFormPatientResolver(SpringUtils.getBean(ConsultationRequestDao.class),
+                SpringUtils.getBean(SecurityInfoManager.class)).resolve(
+                LoggedInInfo.getLoggedInInfoFromSession(request), suppliedRequest, suppliedPatient);
+    } catch (SecurityException deniedConsultPatient) {
+        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN);
+        return;
+    } catch (java.util.NoSuchElementException missingConsultation) {
+        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_NOT_FOUND);
+        return;
+    } catch (IllegalArgumentException invalidConsultation) {
+        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_BAD_REQUEST);
+        return;
+    }
+%>
 <jsp:useBean id="displayServiceUtil" scope="request"
              class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConDisplayServiceUtil"/>
 <!DOCTYPE html>
@@ -156,8 +180,9 @@
             }
         }
         String demo_mrp = null;
-        String demo = StringUtils.isNullOrEmpty(request.getParameter("de")) ? ((String) request.getAttribute("demographicId")) : request.getParameter("de");
+        String demo = verifiedConsultPatient == null ? null : verifiedConsultPatient.toString();
         String requestId = StringUtils.isNullOrEmpty(request.getParameter("requestId")) ? ((String) request.getAttribute("reqId")) : request.getParameter("requestId");
+        if (requestId != null && (requestId.isBlank() || "null".equals(requestId))) requestId = null;
         // segmentId is != null when viewing a remote consultation request from an hl7 source
         String segmentId = request.getParameter("segmentId");
         String team = request.getParameter("teamVar");
@@ -306,6 +331,22 @@
             List<EctFormData.PatientForm> attachedForms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(requestId), Integer.parseInt(demo), storedForms);
             List<EFormData> attachedEForms = consultationManager.getAttachedEForms(requestId);
             ArrayList<HashMap<String, ? extends Object>> attachedHRMDocuments = consultationManager.getAttachedHRMDocuments(loggedInInfo, demo, requestId, storedHRMDocuments);
+            if (canWriteConsult && CarlosProperties.getInstance().isOntarioBillingRegion()
+                    && securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", SecurityInfoManager.READ, (String) null)) {
+                java.util.Set<String> availableHrmIds = attachedHRMDocuments.stream()
+                        .map(row -> String.valueOf(row.get("id"))).collect(java.util.stream.Collectors.toSet());
+                java.util.Map<Integer, ConsultDocs> unavailable = new java.util.LinkedHashMap<>();
+                for (ConsultDocs stored : storedHRMDocuments) {
+                    if (!availableHrmIds.contains(Integer.toString(stored.getDocumentNo())))
+                        unavailable.putIfAbsent(stored.getDocumentNo(), stored);
+                }
+                request.setAttribute("unavailableConsultHrms", unavailable.values());
+            }
+
+
+            pageContext.setAttribute("unavailableHrmSelection", SpringUtils.getBean(
+                io.github.carlos_emr.carlos.documentManager.UnavailableHrmAttachmentService.class)
+                .prepare(loggedInInfo, Integer.parseInt(requestId), request.getSession()));
 
             Collections.sort(attachedLabs);
             List<LabResultData> attachedLabsSortedByVersions = new ArrayList<>();
@@ -493,10 +534,10 @@
     <%--
 	// Read the Health Care Team from the pageScope into a Javascript globalScope;
  --%>
+    <script type="text/javascript">
+        var consultationServices = [];
+    </script>
     <c:if test="${ not empty consultationServices }">
-        <script type="text/javascript">
-            var consultationServices = [];
-        </script>
         <c:forEach items="${ consultationServices }" var="consultationService" varStatus="loop">
             <script type="text/javascript">
                 //<!--
@@ -565,12 +606,10 @@
 
                 var service = healthCareTeam[specialistIndex].service;
 
-                if (!service) {
-
-                    form.service.value = '57';
-
-                } else {
-                    form.service.value = "";
+                // This variant has no service picker and posts 0 until a role maps
+                // to a service, matching the rendered hctService field's default.
+                form.service.value = "0";
+                if (service) {
                     for (var i = 0; i < consultationServices.length; i++) {
                         var specialistService = consultationServices[i];
                         if (specialistService.description === service) {
@@ -979,6 +1018,35 @@
         //-------------------------------------------------------------------
 
         //-----------------disableDateFields() disables date fields if "Patient Will Book" selected
+        document.addEventListener('click', async function (event) {
+            const button = event.target.closest('.remove-unavailable-hrm');
+            if (!button || button.disabled) return;
+            event.preventDefault();
+            const result = button.parentElement.querySelector('.hrm-detach-result');
+            const token = document.querySelector('#EctConsultationFormRequest2Form input[name="CSRF-TOKEN"]');
+            button.disabled = true;
+            try {
+                if (!token || !token.value) throw new Error('Missing CSRF token');
+                const response = await fetch('<carlos:encode value='<%= request.getContextPath() + "/encounter/DetachConsultationHrm" %>' context="javaScript"/>', {
+                    method: 'POST', credentials: 'same-origin',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': token.value},
+                    body: new URLSearchParams({requestId: button.dataset.request, associationId: button.dataset.association})
+                });
+                if (response.status !== 204) throw new Error('Detach refused');
+                await response.text();
+                button.closest('tr').remove();
+                if (!document.querySelector('.remove-unavailable-hrm')) {
+                    document.querySelectorAll('#consultAttachmentsNotIncluded li[data-hrm-omission="true"]').forEach(row => row.remove());
+                    const notice = document.getElementById('consultAttachmentsNotIncluded');
+                    if (notice && !notice.querySelector('li')) notice.remove();
+                }
+            } catch (error) {
+                result.textContent = '<carlos:encode value="${hrmDetachFailureText}" context="javaScript"/>';
+                button.disabled = false;
+            }
+        });
+
         var readOnlyConsult = <%= canWriteConsult ? "false" : "true" %>;
         var disableFields = readOnlyConsult;
 
@@ -2444,9 +2512,6 @@ if (userAgent != null) {
 
                         if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_MEDICATIONS", "true"))) {
                             if (props.getProperty("currentMedications", "").equalsIgnoreCase("otherMedications")) {
-                                if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, Integer.valueOf(demo))) {
-                                    throw new SecurityException("Patient record access denied");
-                                }
                                 if (securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", demo)
                                         && securityInfoManager.hasPrivilege(loggedInInfo, "_eChart", "r", demo)
                                         && securityInfoManager.hasPrivilege(loggedInInfo, "_casemgmt.notes", "r", demo)) {
@@ -2683,10 +2748,26 @@ if (userAgent != null) {
 
                                     <tr>
                                         <td>
+                                            <c:if test="${not empty unavailableHrmSelection}">
+                                                <button type="button" id="removeUnavailableHrm" data-selection="${carlos:forHtmlAttribute(unavailableHrmSelection)}"
+                                                    onclick="removeUnavailableHrmAttachments(this)"><fmt:message key="consult.removeUnavailable"/></button>
+                                                <output id="removeUnavailableHrmStatus" aria-live="polite"></output>
+                                            </c:if>
                                             <table id="attachedHRMDocumentsTable">
                                                 <tr>
                                                     <td><h3><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.sectionHRM"/></h3></td>
                                                 </tr>
+                                                <c:forEach items="${unavailableConsultHrms}" var="unavailableHrm">
+                                                    <tr class="unavailable-consult-hrm"><td>
+                                                        <fmt:message key="consultation.hrm.unavailable"/>
+                                                        <button type="button" class="remove-unavailable-hrm btn btn-sm btn-outline-secondary"
+                                                            data-request="<carlos:encode value='<%= requestId %>' context="htmlAttribute"/>"
+                                                            data-association="${carlos:forHtmlAttribute(unavailableHrm.id)}">
+                                                            <fmt:message key="consultation.hrm.remove"/>
+                                                        </button>
+                                                        <span class="hrm-detach-result" role="status"></span>
+                                                    </td></tr>
+                                                </c:forEach>
                                                 <c:forEach items="${ attachedHRMDocuments }" var="attachedHrm">
                                                     <tr id="entry_hrmNo${ attachedHrm['id'] }">
                                                         <td>
@@ -3632,7 +3713,30 @@ if (userAgent != null) {
     </script>
     <% } %>
     </form>
-    </body>
+    <fmt:message key="consult.removeUnavailableConfirm" var="removeHrmConfirm"/>
+<fmt:message key="consult.removeUnavailableDone" var="removeHrmDone"/>
+<fmt:message key="consult.removeUnavailableFailed" var="removeHrmFailed"/>
+<script>
+function removeUnavailableHrmAttachments(button) {
+    var csrf = document.querySelector('input[name="CSRF-TOKEN"]');
+    if (!csrf || !csrf.value) { window.alert('<carlos:encode value="${removeHrmFailed}" context="javaScript"/>'); return; }
+    if (!window.confirm('<carlos:encode value="${removeHrmConfirm}" context="javaScript"/>')) { return; }
+    button.disabled = true;
+    var data = new URLSearchParams({selection: button.dataset.selection, 'CSRF-TOKEN': csrf.value});
+    fetch('${carlos:forJavaScript(pageContext.request.contextPath)}/documentManager/removeUnavailableHrm', {
+        method:'POST', body:data, credentials:'same-origin', headers:{'CSRF-TOKEN':csrf.value}
+    })
+        .then(function(response) { if (!response.ok) throw new Error('unconfirmed'); return response.json(); })
+        .then(function(result) {
+            if (!result.success) throw new Error('unconfirmed');
+            button.hidden = true;
+            document.getElementById('removeUnavailableHrmStatus').textContent = '<carlos:encode value="${removeHrmDone}" context="javaScript"/>';
+        }).catch(function() {
+            document.getElementById('removeUnavailableHrmStatus').textContent = '<carlos:encode value="${removeHrmFailed}" context="javaScript"/>';
+        });
+}
+</script>
+</body>
 
     <fmt:message var="saveAndCloseText" key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnSaveAndClose"/>
     <script type="text/javascript">

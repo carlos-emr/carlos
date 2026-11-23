@@ -98,35 +98,57 @@ public class CdsImmunizationPersister {
         Prevention prevention = candidate(demographicNo, auditProviderNo, source);
         preventions.persist(prevention);
         preventions.flush();
+        // Every row written is returned, so the unit's receipt names these rows and no other
+        // extension or date row that happens to carry the same prevention id (neither table has
+        // a foreign key). The receipt keeps its order: the prevention, its extensions, its date.
+        Map<String, String> written = new java.util.LinkedHashMap<>();
+        written.put("preventions", String.valueOf(prevention.getId()));
+        String date = null;
         if (source.date().legacyPartialFormat() != null) {
-            dates.persist(new PartialDate(PartialDate.PREVENTION, prevention.getId(),
-                    PartialDate.PREVENTION_PREVENTIONDATE, source.date().legacyPartialFormat()));
+            PartialDate partial = new PartialDate(PartialDate.PREVENTION, prevention.getId(),
+                    PartialDate.PREVENTION_PREVENTIONDATE, source.date().legacyPartialFormat());
+            dates.persist(partial);
+            date = written(partial.getId());
         }
-        extra(prevention.getId(), "manufacture", source.manufacturer());
-        extra(prevention.getId(), "lot", source.lot());
-        extra(prevention.getId(), "route", source.route());
-        extra(prevention.getId(), "location", source.site());
-        extra(prevention.getId(), "dose", source.dose());
-        extra(prevention.getId(), "comments", source.notes());
-        extra(prevention.getId(), "instructions", source.instructions());
-        extra(prevention.getId(), "cdsDateOriginal", source.date().original());
-        extra(prevention.getId(), "cdsDatePrecision", source.date().precision().name());
-        extra(prevention.getId(), "cdsCode", source.code());
-        extra(prevention.getId(), "cdsCodeSystem", source.codeSystem());
-        extra(prevention.getId(), "cdsType", source.type());
-        extra(prevention.getId(), "cdsName", source.name());
-        return Map.of("preventions", String.valueOf(prevention.getId()));
+        extra(prevention.getId(), "manufacture", source.manufacturer(), written);
+        extra(prevention.getId(), "lot", source.lot(), written);
+        extra(prevention.getId(), "route", source.route(), written);
+        extra(prevention.getId(), "location", source.site(), written);
+        extra(prevention.getId(), "dose", source.dose(), written);
+        extra(prevention.getId(), "comments", source.notes(), written);
+        extra(prevention.getId(), "instructions", source.instructions(), written);
+        extra(prevention.getId(), "cdsDateOriginal", source.date().original(), written);
+        extra(prevention.getId(), "cdsDatePrecision", source.date().precision().name(), written);
+        extra(prevention.getId(), "cdsCode", source.code(), written);
+        extra(prevention.getId(), "cdsCodeSystem", source.codeSystem(), written);
+        extra(prevention.getId(), "cdsType", source.type(), written);
+        extra(prevention.getId(), "cdsName", source.name(), written);
+        // The free-text "Other" provider restored from a CARLOS sender's carrier (#6198), saved
+        // as the prevention form saves it.
+        extra(prevention.getId(), "providerName", source.providerName(), written);
+        if (date != null) written.put("partial_date#date", date);
+        return written;
     }
 
     Prevention candidate(int demographicNo, String auditProviderNo, CdsImmunizationDto source) {
         if (demographicNo < 1) throw new IllegalArgumentException("Invalid target patient");
         Prevention prevention = new Prevention();
         prevention.setDemographicId(demographicNo);
-        prevention.setProviderNo(""); // Import does not identify an administering clinician.
+        // Import does not identify a local administering clinician. A CARLOS sender's free-text
+        // "Other" provider (#6198) is restored as the form records it: provider -1 with the name
+        // in the providerName extension, which the chart shows only for -1.
+        prevention.setProviderNo(source.providerName() == null ? "" : "-1");
         prevention.setCreatorProviderNo(auditProviderNo);
         prevention.setPreventionType(preventionType(source.type()));
+        // A CARLOS sender's own type, restored from its carrier, is stored as it was.
+        if (source.nativeType() != null) prevention.setPreventionType(source.nativeType());
         prevention.setRefused(source.refused());
         prevention.setPreventionDate(nativeDate(source));
+        // The native reminder date restored from the carrier; a DATE has no clock or zone.
+        prevention.setNextDate(
+                source.reminderDate() == null
+                        ? null
+                        : java.sql.Date.valueOf(java.time.LocalDate.parse(source.reminderDate())));
         return prevention;
     }
 
@@ -152,10 +174,10 @@ public class CdsImmunizationPersister {
                 : java.nio.file.Files.newInputStream(io.github.carlos_emr.carlos.utility.PathValidationUtils
                         .resolveTrustedPath(new java.io.File(preventionItems)).toPath())) {
             if (input == null) throw new IOException("Prevention configuration unavailable");
-            byte[] bytes = input.readNBytes(1048577);
-            if (bytes.length > 1048576) throw new IOException("Prevention configuration exceeds its bound");
+            // The clinic's whole configuration, of any size, as the export reads it: the secure
+            // builder refuses a DTD and external entities, so nothing in the file expands.
             var document = io.github.carlos_emr.carlos.utility.XmlUtils.createSecureSAXBuilder()
-                    .build(new java.io.ByteArrayInputStream(bytes));
+                    .build(input);
             Map<String, String> mapped = new java.util.LinkedHashMap<>();
             var addedSnomeds = new java.util.HashSet<String>();
             boolean fallback = false;
@@ -201,12 +223,19 @@ public class CdsImmunizationPersister {
         return clinicZone;
     }
 
-    private void extra(int preventionId, String key, String value) {
+    private void extra(int preventionId, String key, String value, Map<String, String> written) {
         if (value == null) return;
         PreventionExt ext = new PreventionExt();
         ext.setPreventionId(preventionId);
         ext.setKeyval(key);
         ext.setVal(value);
         extensions.persist(ext);
+        written.put("preventionsExt#" + key, written(ext.getId()));
+    }
+
+    /** The id the database gave a row this unit inserted; a row without one is never receipted. */
+    private static String written(Integer id) {
+        if (id == null || id < 1) throw new CdsImportException("IMMUNIZATION_NATIVE_ROW_ID_MISSING");
+        return id.toString();
     }
 }

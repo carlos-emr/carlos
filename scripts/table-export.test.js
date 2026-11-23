@@ -18,9 +18,35 @@ test('normalizes header whitespace without changing line breaks in data', () => 
   assert.equal(exportCsv([' SERVICE\n  DATE '], 'TH'), '\uFEFFSERVICE DATE\r\n');
   assert.equal(exportCsv(['line one\nline two']), '\uFEFF"line one\nline two"\r\n');
 });
+test('keeps leading control characters for the export cell guard', () => {
+  for (const prefix of ['\t', '\r', '\n', '\r\n']) {
+    assert.equal(exportCsv([prefix + '-12.5']), `\uFEFF"\t${prefix}-12.5"\r\n`);
+    assert.equal(exportCsv([prefix + '  SERVICE\n  DATE  '], 'TH'), `\uFEFF"\t${prefix}SERVICE DATE"\r\n`);
+  }
+});
+
 test('exports negative adjustments as numeric CSV values', () => {
   assert.equal(exportCsv(['-12.50', '-0.01', '-123']), '\uFEFF-12.50,-0.01,-123\r\n');
 });
 for (const value of ['=1+1', '+SUM(A1)', '-1+2', '-1E3+2', '@SUM(A1)', '-cmd|x']) {
   test(`neutralizes formula ${value}`, () => assert.equal(exportCsv([value]), `\uFEFF"\t${value}"\r\n`));
+}
+// Issue #5846: the browser export and the server's SpreadsheetCsv.sanitizeCell guard the same
+// cells. SpreadsheetCsvUnitTest reads this fixture too, so the two policies cannot drift apart.
+const sharedCases = JSON.parse(fs.readFileSync('scripts/fixtures/spreadsheet-csv-cell-cases.json', 'utf8')).cases;
+function cellPolicy() {
+  const context = {document: {getElementById: () => null}, btoa: s => Buffer.from(s, 'binary').toString('base64')};
+  vm.runInNewContext(fs.readFileSync('src/main/webapp/js/table-export.js', 'utf8'), context);
+  return context.TableExport.sanitizeCell;
+}
+test('applies the shared spreadsheet cell policy to every fixture case', () => {
+  const sanitizeCell = cellPolicy();
+  assert.ok(sharedCases.length > 0);
+  for (const {input, expected} of sharedCases) {
+    assert.equal(sanitizeCell(input), expected, JSON.stringify(input));
+  }
+});
+for (const value of ['＝1+1', '＋SUM(A1)', '＠SUM(A1)']) {
+  test(`neutralizes full-width formula ${JSON.stringify(value)} in an exported cell`, () =>
+    assert.equal(exportCsv([value]), `﻿"\t${value}"\r\n`));
 }

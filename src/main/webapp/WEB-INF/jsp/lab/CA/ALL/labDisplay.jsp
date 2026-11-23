@@ -669,6 +669,11 @@ input[id^='acklabel_']{
                     comment = "";
                 }
             }
+            // A comment the server did not save stays on this page; offer it again, not the saved one.
+            var unsaved = addComment.unsaved[String(segmentId)];
+            if (unsaved != null) {
+                comment = unsaved;
+            }
             var commentVal = prompt('${carlos:forJavaScript(msgComment)}',comment);
 
             var ackForm = document.forms['acknowledgeForm_' + segmentId];
@@ -720,11 +725,15 @@ input[id^='acklabel_']{
 
         function handleLab(formid, labid, action, beforeAcknowledge) {
             var url = '<%= request.getContextPath() %>/documentManager/inboxManage';
-            var data = 'method=isLabLinkedToDemographic&labid=' + labid + '&CSRF-TOKEN=' + encodeURIComponent(getCsrfToken());
-            return fetch(url, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: data
+            var params = new URLSearchParams({method: 'isLabLinkedToDemographic', labid: labid});
+            // This link check gates Acknowledge and Comment; the page's CSRF-TOKEN input can still be
+            // empty here, and a rejected check would stop either action (#1408).
+            return carlosEnsureCsrfParam(params, '<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptBlock"/>').then(function () {
+                return fetch(url, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: params.toString()
+                });
             })
             .then(function(response) { return response.json(); })
             .then(function(json) {
@@ -887,21 +896,33 @@ input[id^='acklabel_']{
                 return;
             }
             var params = new URLSearchParams(new FormData(formEl));
-            if (!params.has('CSRF-TOKEN')) { params.append('CSRF-TOKEN', getCsrfToken()); }
             console.log(url);
-            fetch(url, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: params.toString()
+            // The form's CSRF-TOKEN input can still be empty here; never post an empty token (#1408).
+            carlosEnsureCsrfParam(params, '<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptBlock"/>').then(function () {
+                return fetch(url, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: params.toString()
+                });
             })
-            .then(function() {
+            .then(function(response) {
+                // fetch resolves on an HTTP error too; only a saved comment may reload the viewer.
+                if (!response.ok) {
+                    throw new Error('Add comment failed with HTTP ' + response.status);
+                }
+                delete addComment.unsaved[String(labid)];
                 window.location.reload();
             })
             .catch(function(error) {
                 console.error('Failed to add comment:', error);
-                alert('An error occurred while adding the comment. Please refresh and try again.');
+                if (formEl.comment) {
+                    addComment.unsaved[String(labid)] = formEl.comment.value;
+                }
+                alert('The comment was not saved. Your text is retained on this page: choose Comment to try again. Refreshing will clear it.');
             });
         }
+        // Comments the server refused, by report, so a retry does not lose the clinician's text.
+        addComment.unsaved = {};
         function submitLabel(lblval, segmentID) {
             var ackForm = document.forms['acknowledgeForm_' + segmentID];
             var labForm = document.forms['labLabelForm_' + segmentID];
@@ -1186,12 +1207,15 @@ input[id^='acklabel_']{
     //first check to see if lab is linked, if it is, we can send the demographicNo to the macro
     function runMacro(name, formid, closeOnSuccess) {
         var url = '<%=request.getContextPath()%>/documentManager/inboxManage';
-        var data = 'method=isLabLinkedToDemographic&labid=<carlos:encode value='<%= segmentID %>' context="javaScript"/>&CSRF-TOKEN=' + encodeURIComponent(getCsrfToken());
-        fetch(url, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: data,
-            credentials: 'same-origin'
+        var params = new URLSearchParams({method: 'isLabLinkedToDemographic', labid: '<carlos:encode value='<%= segmentID %>' context="javaScript"/>'});
+        // The macro's link check is a POST too; it must not go out with an empty token either (#1408).
+        carlosEnsureCsrfParam(params, '<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptBlock"/>').then(function () {
+            return fetch(url, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: params.toString(),
+                credentials: 'same-origin'
+            });
         })
         .then(function(response) { return response.json(); })
         .then(function(json) {
@@ -1214,13 +1238,15 @@ input[id^='acklabel_']{
         var url = '<%=request.getContextPath()%>' + "/oscarMDS/RunMacro?name=" + encodeURIComponent(name) + (demographicNo.length > 0 ? "&demographicNo=" + encodeURIComponent(demographicNo) : "");
         var formEl = document.getElementById(formid);
         var params = new URLSearchParams(new FormData(formEl));
-        if (!params.has('CSRF-TOKEN')) { params.append('CSRF-TOKEN', getCsrfToken()); }
 
-        fetch(url, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: params.toString(),
-            credentials: 'same-origin'
+        // The form's CSRF-TOKEN input can still be empty here; never post an empty token (#1408).
+        carlosEnsureCsrfParam(params, '<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptBlock"/>').then(function () {
+            return fetch(url, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: params.toString(),
+                credentials: 'same-origin'
+            });
         })
         .then(function(response) {
             if (!response.ok) {

@@ -37,6 +37,9 @@
     - LoginResourceBean.supportLink: URL for support contact link (optional)
     - LoginResourceBean.supportName: Support contact display name (optional)
     - LoginResourceBean.supportText: Support contact descriptive text or HTML (optional)
+    - carlosReportLimitKey / carlosReportLimitValue / carlosReportLimitSetting: request attributes set by
+      ReportLimitNotice when a configured report was stopped by a limit (optional)
+    - carlosMessengerAttachmentUnavailable: request flag set by Messenger when a selection has gone stale (optional)
   @since 2026-03
 --%>
 <%@ page isErrorPage="true" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
@@ -204,13 +207,28 @@
         <h2><fmt:message key="error.msgException"/>:</h2>
         <p>CARLOS Error: ${carlos:forHtml(_responseStatus)}</p>
         <%-- Set by CarlosExceptionMappingInterceptor when an action's uncaught exception was
-             mapped here. The same id is on the log line that carries the trace, so this is the
-             one thing worth asking a clinician to read back. Nothing else about the failure is
-             rendered outside the developer block below. --%>
+             mapped here. The same id appears on the server log entry with the trace. --%>
         <c:if test="${not empty carlosIncidentId}">
             <p id="incident-reference"><fmt:message key="error.incidentReference"/>:
                 <code>${carlos:forHtml(carlosIncidentId)}</code><br/>
                 <small><fmt:message key="error.incidentReferenceHint"/></small></p>
+        </c:if>
+
+        <%-- Published by ReportLimitNotice when a configured report was stopped by one of its
+             configured_report.* limits: a bundle message naming the limit and, while an administrator
+             can still raise it, its carlos.properties setting. No exception text is rendered. --%>
+        <c:if test="${not empty carlosReportLimitKey}">
+            <p id="report-limit" class="alert alert-warning" role="alert"><fmt:message key="${carlosReportLimitKey}"><fmt:param value="${carlosReportLimitValue}"/></fmt:message><c:if test="${not empty carlosReportLimitSetting}"> <fmt:message key="report.limit.administratorCanRaise"><fmt:param value="${carlosReportLimitSetting}"/></fmt:message></c:if></p>
+        </c:if>
+        <%-- Published by RefusalNotice for a 4xx refusal: a resource-bundle key the application
+             chose, never request text, so nothing the user or an attacker sent is echoed (#5897). --%>
+        <c:if test="${not empty carlosRefusalKey and _responseStatus >= 400 and _responseStatus < 500}">
+            <p id="refusal-reason" class="alert alert-warning" role="alert"><fmt:message key="${carlosRefusalKey}"/></p>
+        </c:if>
+        <c:if test="${_responseStatus == 400 and requestScope.carlosMessengerAttachmentUnavailable}">
+            <p id="messenger-attachment-unavailable" class="alert alert-warning" role="alert">
+                <fmt:message key="messenger.attachment.selectionUnavailable"/>
+            </p>
         </c:if>
 
         <div id="navigation">

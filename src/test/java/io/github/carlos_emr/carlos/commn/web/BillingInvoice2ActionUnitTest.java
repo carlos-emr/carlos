@@ -12,8 +12,11 @@
  */
 package io.github.carlos_emr.carlos.commn.web;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Locale;
@@ -28,7 +31,10 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.ActionSupport;
 import org.junit.jupiter.api.AfterEach;
@@ -47,6 +53,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
@@ -348,6 +355,31 @@ class BillingInvoice2ActionUnitTest extends CarlosUnitTestBase {
             verify(billingManager, never()).addPrintedBillingComment(eq(1), eq(Locale.CANADA));
             verify(billingManager, never()).addPrintedBillingComment(eq(8), eq(Locale.CANADA));
         }
+    }
+
+    @Test
+    void shouldRefuseTheEntireInvoiceList_whenTheSecondStagingFileCannotBeCreated() throws Exception {
+        request.setParameter("invoiceAction", "1", "8");
+        byte[] invoice;
+        try (var document = new PDDocument(); var bytes = new ByteArrayOutputStream()) {
+            document.addPage(new PDPage());
+            document.save(bytes);
+            invoice = bytes.toByteArray();
+        }
+        Path firstStage = Files.createTempFile(tempDir, "merge-", ".pdf");
+        try (MockedConstruction<PdfRecordPrinter> printers = mockPdfPrinterWriting(invoice);
+             var paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS)) {
+            paths.when(() -> PathValidationUtils.createSecureTempFile("pdf-merge-source-", ".pdf"))
+                    .thenReturn(firstStage.toFile())
+                    .thenThrow(new IOException("FAKE merger staging unavailable"));
+
+            assertThat(new BillingInvoice2Action().getListPrintPDF()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(500);
+            assertThat(response.getContentAsByteArray()).isEmpty();
+            assertThat(printers.constructed()).hasSize(2);
+            verify(billingManager, never()).addPrintedBillingComment(any(Integer.class), any(Locale.class));
+        }
+        assertThat(firstStage).doesNotExist();
     }
 
     private MockedConstruction<PdfRecordPrinter> mockPdfPrinterWriting(byte[] bytes) {

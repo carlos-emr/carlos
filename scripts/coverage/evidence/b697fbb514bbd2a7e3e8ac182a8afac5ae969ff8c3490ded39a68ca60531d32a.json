@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "eb2abd3327c101580f0b5dc80ff4d8b20866e2a3",
+  "comparisonSha256": "e91edde1ab1fc27e86eaf37a126dca9ef21d97398839c9eb09ff5f0bf42f2492",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/service/ProviderDocumentQueueService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "805092f2e02df956e72b34f52a748589b740f8be"
+    }
+  },
+  "baselineCommit": "3aa0e14a5db73687eaa0797902c5250a39b3dd08",
+  "baselineSourceTree": "eb2abd3327c101580f0b5dc80ff4d8b20866e2a3",
+  "baselineReportSha256": "6283a456b9b6f96bacac0d263ca6a4af873c553d594d36696bf48c1e314fe274",
+  "baselineLane": "Focused provider queue and preference tests with Flyway-migrated MariaDB",
+  "baselineTestCounts": {
+    "tests": 112,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "6400106fa8cdac1da7472aed0b7036f4b79b28cb7d438aedec94bc55ed26fbb5",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

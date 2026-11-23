@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "49a1f3442465cf7422e7f51bd0c47e741c65f3c4",
+  "comparisonSha256": "daa9bf951ce3721a177a8570737332223de0e92f4072789c45fb3d981f3f3b27",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentCleanupInterceptor.java": {
+      "lines": 92.3076923076923,
+      "instructions": 91.35802469135803,
+      "branches": 75.0,
+      "sourceBlob": "b90cbb489b31566e77d3f2f23c20b3b6f411fb5d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/DynamicWSS4JInInterceptor.java": {
+      "lines": 100.0,
+      "instructions": 98.76543209876543,
+      "branches": 77.77777777777777,
+      "sourceBlob": "b2f1d3f14d03e7d2f8cc0807cb3ff66eb991c7b2"
+    }
+  },
+  "baselineCommit": "5e437432afc8da9c66f1a5bc72321db3bae4dcfa",
+  "baselineSourceTree": "49a1f3442465cf7422e7f51bd0c47e741c65f3c4",
+  "baselineReportSha256": "ec1040345707117c5cd2c0ece2ce7d8de081c0deb329c3db1ef3c6ed8752fd7f",
+  "baselineLane": "Java 25 CXF spill cleanup and HTTPS transport regression",
+  "baselineTestCounts": {
+    "tests": 119,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "009d527652d0ef5b99ea45bb0bb423dc5ff112246b08382f577fd9686da41f15",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

@@ -101,6 +101,7 @@
             }
         </script>
 
+        <link href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/reportByTemplateLayout.css" rel="stylesheet">
     </head>
 
     <%
@@ -112,7 +113,7 @@
         int step = 0;
     %>
 
-    <body>
+    <body class="rbt-page">
 
         <%@ include file="rbtTopNav.jspf" %>
 
@@ -128,7 +129,12 @@
     <c:if test="${ not empty errormsg }">
     <div class="alert alert-danger">
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        ${carlos:forHtml(errormsg)}
+        <%-- A limit refusal names its limit in the user's language (#5849) and, while an administrator can still
+             raise that limit, the carlos.properties setting to change; other errors keep their English text. --%>
+        <c:choose>
+            <c:when test="${not empty errormsgKey}"><fmt:message key="${errormsgKey}"><fmt:param value="${errormsgArg}"/></fmt:message><c:if test="${not empty errormsgSetting}"> <fmt:message key="report.limit.administratorCanRaise"><fmt:param value="${errormsgSetting}"/></fmt:message></c:if></c:when>
+            <c:otherwise>${carlos:forHtml(errormsg)}</c:otherwise>
+        </c:choose>
     </div>
     </c:if>
 

@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "cf45a9a14c3ed5468ecd255fefdf2ba0171970a7",
+  "comparisonSha256": "d35045610157156caf92ad17412c4190b5a2d69199369bdfb054c31b2c6dd0d4",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/OscarJobService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "cc1f03ee2a76440fa9d16c35f8c58d9480cb5111"
+    }
+  },
+  "baselineCommit": "54fcb6a2cb199e5129ddc412a2660d1a61559859",
+  "baselineSourceTree": "cf45a9a14c3ed5468ecd255fefdf2ba0171970a7",
+  "baselineReportSha256": "63769a2bc0db74ed79cce7972d76109acfce695acaf6edb664ee66a997511c62",
+  "baselineLane": "JDK 25 scheduler and REST tests for missing schedule jobs and missing saved job types",
+  "baselineTestCounts": {
+    "tests": 36,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "5b531c830c9b8483321262ecf35cbb6f4c1d707e9e2b17c67de4b7a52f490cce",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.commn.jobs.OscarJobSchedulingUnitTest",
+    "io.github.carlos_emr.carlos.webserv.rest.OscarJobServiceEndpointTest",
+    "io.github.carlos_emr.carlos.webserv.rest.OscarJobServiceSecurityTest"
+  ]
+}

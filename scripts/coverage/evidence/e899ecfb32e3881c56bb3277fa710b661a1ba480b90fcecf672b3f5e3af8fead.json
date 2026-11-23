@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "66480c51ed4aefdd66547e2ad21a81e127013ef1",
+  "comparisonSha256": "36ecce4d465a25cf4b6f326211006f796973f1562324035991c368bf3875d2c4",
+  "baselineCommit": "990ecc3890f93e980d272681073db4cd5655de12",
+  "baselineSourceTree": "66480c51ed4aefdd66547e2ad21a81e127013ef1",
+  "baselineReportSha256": "e4bd278a4f75c78d9a3f3079533f2341af0c794d5f12b3808bb0e2034d7250cb",
+  "baselineLane": "Java 25 focused release issues, Spring and embedded Tomcat regressions",
+  "baselineTestCounts": {
+    "tests": 1967,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 10
+  },
+  "baselineTestReportsSha256": "c66f9f858523388abb5608a4892ac1f86d5d6949e10a900f6dbd650e806445f5",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/PMmodule/web/ClientManager2Action.java": {
+      "sourceBlob": "3e8b74a9b79f2d89776e183a12522ce0afee81b5",
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/app/CsrfGuardScriptInjectionFilter.java": {
+      "sourceBlob": "b8c697685c0843dbdf422cb28d0d91a04e9ce809",
+      "lines": 86.95652173913044,
+      "instructions": 87.09677419354838,
+      "branches": 83.33333333333333
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctSaveEncounter2Action.java": {
+      "sourceBlob": "d8d5ccea308e43486c930dc4e38fa0dc45ba6be9",
+      "lines": 21.428571428571427,
+      "instructions": 14.838709677419354,
+      "branches": 27.272727272727273
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/pdfservlet/PrescriptionPdfServlet.java": {
+      "sourceBlob": "c368548bd6c12d9f5bac981a5acd700e080002fc",
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/SecurityInfoManagerImpl.java": {
+      "sourceBlob": "851efbf941fa94eac907ed2b0455153c077bcdba",
+      "lines": 73.38709677419355,
+      "instructions": 76.48,
+      "branches": 73.61111111111111
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/pageUtil/RptDownloadCSVServlet.java": {
+      "sourceBlob": "0190f99c07dab319943083b15500a81c36efb116",
+      "lines": 98.18181818181819,
+      "instructions": 97.31663685152057,
+      "branches": 81.81818181818181
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/pageUtil/RptFormQuery.java": {
+      "sourceBlob": "47f06302521bc889dc0611b457246d832d88b7ce",
+      "lines": 77.77777777777777,
+      "instructions": 71.03448275862068,
+      "branches": 55.55555555555556
+    },
+    "src/main/java/io/github/carlos_emr/carlos/schedule/service/ScheduleDateOverrideService.java": {
+      "sourceBlob": "fdf1f78294f4b3f705371a965d4c6697ed74d609",
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 50.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/schedule/web/ScheduleDateSave2Action.java": {
+      "sourceBlob": "55f33efc5c148e7408e0b193dab82c7e42cdb376",
+      "lines": 96.36363636363636,
+      "instructions": 95.52845528455285,
+      "branches": 70.83333333333333
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/ContextStartupListener.java": {
+      "sourceBlob": "efcdbb1fdc14810141a27b6f245b79e09a9e5e7d",
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/RefusalNotice.java": {
+      "sourceBlob": "f2e920d3c83b83f3cd0b8e90eb3aa10850eab267",
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/LabService.java": {
+      "sourceBlob": "c2c3800816573e05834d19382d74d4313d7fd71f",
+      "lines": 50.0,
+      "instructions": 37.5,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/MessagingService.java": {
+      "sourceBlob": "7fd348fe80877cebf19c201bec4db48feb780745",
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/ScheduleService.java": {
+      "sourceBlob": "644fa5d96cf63f5812eb8d30991412ac4f3c598f",
+      "lines": 84.44444444444444,
+      "instructions": 80.81632653061224,
+      "branches": 63.9344262295082
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/util/PatientApiPages.java": {
+      "sourceBlob": "6c2f157eed611a3ef45f330e96138f40457d7846",
+      "lines": 96.875,
+      "instructions": 88.0,
+      "branches": 76.08695652173913
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "table": "clinical_source_catalogue",
+  "engine": "TRUSTED_SOURCE_CATALOGUE",
+  "columns": [
+    {
+      "name": "catalogueSha256",
+      "type": "char(64)",
+      "nullable": "NO",
+      "charset": "ascii",
+      "collation": "ascii_bin",
+      "expression": "2e4d1ab5c790475c83e250cc515a3206342a432fb4d2bc5703b0babb7ad0ec78"
+    }
+  ],
+  "primaryKeyColumns": []
+}

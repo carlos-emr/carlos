@@ -97,6 +97,8 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
 
     private ScheduleService service;
     private LoggedInInfo loggedInInfo;
+    /** Headers of the request being served; these tests call the resource without a CXF message. */
+    private final java.util.Map<String, List<String>> requestHeaders = new java.util.HashMap<>();
 
     @BeforeEach
     void setUp() {
@@ -105,6 +107,11 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
             @Override
             protected LoggedInInfo getLoggedInInfo() {
                 return loggedInInfo;
+            }
+
+            @Override
+            protected List<String> getRequestHeader(String name) {
+                return requestHeaders.get(name);
             }
         };
 
@@ -124,6 +131,33 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> service.getAppointment(new AppointmentTo1()))
                 .isInstanceOf(jakarta.ws.rs.BadRequestException.class);
         verifyNoInteractions(appointmentManager);
+    }
+
+    @Test
+    void shouldRequireAnAppointmentPayload_evenWithWriteAccess() {
+        assertThatThrownBy(() -> service.addAppointment(null))
+                .isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        verifyNoInteractions(appointmentManager);
+    }
+
+    @Test
+    void shouldRejectInvalidDeleteIds_beforeCallingManager() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "d", null)).thenReturn(true);
+        AppointmentTo1 zeroId = new AppointmentTo1();
+        zeroId.setId(0);
+
+        assertThatThrownBy(() -> service.deleteAppointment(null)).isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        assertThatThrownBy(() -> service.deleteAppointment(new AppointmentTo1()))
+                .isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        assertThatThrownBy(() -> service.deleteAppointment(zeroId)).isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        verifyNoInteractions(appointmentManager);
+    }
+
+    @Test
+    void shouldRefuseAppointmentHistory_whenTheCallerLacksModuleAccess() {
+        assertThatThrownBy(() -> service.findExistAppointments(123))
+                .isInstanceOf(jakarta.ws.rs.ForbiddenException.class);
+        verifyNoInteractions(appointmentManager, scheduleManager);
     }
 
     @Test
@@ -419,9 +453,7 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"", "unknown", "guarded,legacy-echo"})
     void shouldRejectUnknownWriteMode_beforeCallingTheUpdateManager(String mode) {
-        var headers = Mockito.mock(jakarta.ws.rs.core.HttpHeaders.class);
-        when(headers.getRequestHeader(ScheduleService.APPOINTMENT_WRITE_MODE_HEADER)).thenReturn(List.of(mode));
-        injectDependency(service, "httpHeaders", headers);
+        requestHeaders.put(ScheduleService.APPOINTMENT_WRITE_MODE_HEADER, List.of(mode));
         var submitted = new AppointmentTo1();
         submitted.setEditVersion("read-token");
         assertThatThrownBy(() -> service.updateAppointmentUrgency(42, submitted))
@@ -431,24 +463,43 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldRequireAToken_whenGuardedModeIsExplicit() {
-        var headers = Mockito.mock(jakarta.ws.rs.core.HttpHeaders.class);
-        when(headers.getRequestHeader(ScheduleService.APPOINTMENT_WRITE_MODE_HEADER)).thenReturn(List.of("guarded"));
-        injectDependency(service, "httpHeaders", headers);
+        requestHeaders.put(ScheduleService.APPOINTMENT_WRITE_MODE_HEADER, List.of("guarded"));
         assertThatThrownBy(() -> service.updateAppointmentUrgency(42, new AppointmentTo1()))
                 .isInstanceOf(jakarta.ws.rs.BadRequestException.class);
         verifyNoInteractions(scheduleManager);
     }
 
-    @Test
-    void shouldRejectDuplicateWriteModes_withoutSilentlyDisablingProtection() {
-        var headers = Mockito.mock(jakarta.ws.rs.core.HttpHeaders.class);
-        when(headers.getRequestHeader(ScheduleService.APPOINTMENT_WRITE_MODE_HEADER))
-                .thenReturn(List.of("guarded", "legacy-echo"));
-        injectDependency(service, "httpHeaders", headers);
+    /** Two header lines, the same value twice included: the caller's intent is not one mode. */
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"guarded,legacy-echo", "guarded,guarded", "legacy-echo,legacy-echo"})
+    void shouldRejectDuplicateWriteModes_withoutSilentlyDisablingProtection(String first, String second) {
+        requestHeaders.put(ScheduleService.APPOINTMENT_WRITE_MODE_HEADER, List.of(first, second));
         var submitted = new AppointmentTo1();
         submitted.setEditVersion("read-token");
         assertThatThrownBy(() -> service.updateAppointmentUrgency(42, submitted))
                 .isInstanceOf(jakarta.ws.rs.BadRequestException.class);
+        verifyNoInteractions(scheduleManager);
+    }
+
+    /**
+     * The header is read from CXF's current message. Without one, the resource must not carry on as
+     * if the caller had sent no write mode: that would silently drop a requested guard.
+     */
+    @Test
+    void shouldRefuseToGuessWriteMode_whenNoRestRequestIsBeingProcessed() {
+        ScheduleService unproxiedOutsideCxf = new ScheduleService() {
+            @Override
+            protected LoggedInInfo getLoggedInInfo() {
+                return loggedInInfo;
+            }
+        };
+        injectDependency(unproxiedOutsideCxf, "securityInfoManager", securityInfoManager);
+        injectDependency(unproxiedOutsideCxf, "scheduleManager", scheduleManager);
+        var submitted = new AppointmentTo1();
+        submitted.setEditVersion("read-token");
+
+        assertThatThrownBy(() -> unproxiedOutsideCxf.updateAppointmentUrgency(42, submitted))
+                .isInstanceOf(IllegalStateException.class);
         verifyNoInteractions(scheduleManager);
     }
 
@@ -482,9 +533,10 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
         current.setCreator("server-creator");
         current.setLastUpdateUser("server-updater");
         current.setUpdateDateTime(new Date(123000));
-        when(scheduleManager.updateAppointment(eq(loggedInInfo), eq(42), eq("123000"), any()))
+        when(scheduleManager.updateAppointment(eq(loggedInInfo), eq(42), eq("123000"),
+                eq(io.github.carlos_emr.carlos.managers.ScheduleManager.AppointmentUpdateAction.valueOf(field.toUpperCase(java.util.Locale.ROOT))), any()))
                 .thenAnswer(call -> {
-                    java.util.function.Consumer<Appointment> edit = call.getArgument(3);
+                    java.util.function.Consumer<Appointment> edit = call.getArgument(4);
                     edit.accept(current);
                     return current;
                 });

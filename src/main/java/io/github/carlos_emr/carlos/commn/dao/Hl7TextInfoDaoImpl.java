@@ -58,6 +58,39 @@ import io.github.carlos_emr.CarlosProperties;
 
 @Repository
 public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements Hl7TextInfoDao {
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column> readCdsExportReceiptColumns() {
+        return CdsExportNativeMetadataReadSupport.read(entityManager, CdsExportNativeMetadataReadSupport.Table.LABORATORY_INFORMATION);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportSourceSchema() {
+        return CdsExportPatientTableReadSupport.schema(entityManager, CdsExportPatientTableReadSupport.Plan.LABORATORY_INFORMATION);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public long countCdsExportRows(int patient) {
+        CdsExportPatientTableReadSupport.requireLocalLaboratoryAssociations(entityManager, patient);
+        return CdsExportPatientTableReadSupport.count(entityManager, CdsExportPatientTableReadSupport.Plan.LABORATORY_INFORMATION, patient);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> findCdsExportRowsAfter(int patient, Long afterId, int limit) {
+        CdsExportPatientTableReadSupport.requireLocalLaboratoryAssociations(entityManager, patient);
+        return CdsExportPatientTableReadSupport.page(entityManager, CdsExportPatientTableReadSupport.Plan.LABORATORY_INFORMATION, patient, afterId, limit);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public byte[] readCdsExportValueChunk(int patient, long rowId, String column, long offset, int length) {
+        CdsExportPatientTableReadSupport.requireLocalLaboratoryAssociations(entityManager, patient);
+        return CdsExportPatientTableReadSupport.chunk(entityManager, CdsExportPatientTableReadSupport.Plan.LABORATORY_INFORMATION, patient, rowId, column, offset, length);
+    }
+
 
     public Hl7TextInfoDaoImpl() {
         super(Hl7TextInfo.class);
@@ -67,7 +100,7 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
     public List<LabStatus> findRecentLabStatuses(int limit) {
         if (limit <= 0) return Collections.emptyList();
         List<?> rows = entityManager.createQuery(
-                "SELECT x.labNumber, x.resultStatus FROM Hl7TextInfo x ORDER BY x.labNumber DESC")
+                "SELECT x.labNumber, x.resultStatus FROM Hl7TextInfo x ORDER BY x.labNumber DESC, x.id DESC")
                 .setMaxResults(limit).getResultList();
         return rows.stream().map(value -> {
             Object[] row = (Object[]) value;

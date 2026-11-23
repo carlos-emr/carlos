@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingObecOutputApplyService.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "e5e24125be51b56d76980446e0022ecc55fae0cf"
+  },
+  "evidenceSha256": "6a013cb1a9fb3bff9dae9fb2f249e1bb47135db0fa019961fb744bc4b3e6884c"
+}

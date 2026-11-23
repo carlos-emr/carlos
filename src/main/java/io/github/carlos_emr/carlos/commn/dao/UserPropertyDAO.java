@@ -39,6 +39,9 @@ import io.github.carlos_emr.carlos.commn.model.UserProperty;
 public interface UserPropertyDAO extends AbstractDao<UserProperty> {
     void delete(UserProperty prop);
 
+    /** Locks the existing provider row before reading or creating that provider's preferences. */
+    boolean lockProviderPreferences(String providerNo);
+
     /** Atomically replaces the owner's tickler assignee, or removes all copies for Default. */
     void replaceTicklerTaskAssignee(String providerNo, String value);
 

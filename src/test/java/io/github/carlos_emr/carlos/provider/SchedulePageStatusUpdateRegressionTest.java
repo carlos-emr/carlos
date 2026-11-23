@@ -123,10 +123,13 @@ class SchedulePageStatusUpdateRegressionTest {
             "\"XMLHttpRequest\"\\.equals(IgnoreCase)?\\(\\s*request\\.getHeader", Pattern.DOTALL);
     private static final Pattern ADD_STATUS_RETURNS_URL_FOR_AJAX = Pattern.compile(
             "out\\.print\\s*\\(\\s*displaypage\\s*\\)", Pattern.DOTALL);
+    // The last argument is the signed-in user: the service audits the committed change with that
+    // login's client address (an audit row written from the JSP could not be unit tested).
     private static final Pattern ADD_STATUS_DELEGATES_ATOMIC_TRANSITION = Pattern.compile(
             "appointmentStatusTransitionService\\.transition\\s*\\(\\s*appointmentNo\\s*,"
                     + "\\s*providerNoParam\\s*,\\s*submittedCurrentStatus\\s*,"
-                    + "\\s*appointmentStatus\\s*,\\s*curUser_no\\s*\\)",
+                    + "\\s*appointmentStatus\\s*,\\s*curUser_no\\s*,"
+                    + "[^;]*?LoggedInInfo\\.getLoggedInInfoFromSession\\(\\s*request\\s*\\)\\s*\\)",
             Pattern.DOTALL);
     private static final Pattern ADD_STATUS_MAPS_STALE_STATUS_TO_CONFLICT = Pattern.compile(
             "Reason\\.STALE_STATUS\\s*\\).*?sendStatusError\\s*\\([^;]*SC_CONFLICT",

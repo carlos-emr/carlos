@@ -1168,8 +1168,9 @@ property is absent or explicitly set to `false`. Devcontainer and Debian install
 therefore both use the modern chart and do not mirror modern notes/CPP into `eChart`.
 Existing legacy records are retained as historical snapshots. Non-Exit legacy editor
 save requests return HTTP 410 before changing clinical data or layout; Exit retains
-its layout-only behavior. Authorized report readers can open Historical chart from
-the modern chart header and view or print patient-owned historical revisions. These
+its layout-only behavior. Authorized report readers can open the historical chart at
+`/report/ViewReportecharthistory?demographic_no=<id>` (the modern chart header no longer links it)
+and view or print patient-owned historical revisions. These
 prints are labeled historical and do not include subsequent modern notes or CPP;
 use the modern chart print workflow for current care. Messaging offers historical
 encounter PDFs only when a retained row contains clinical text. A loaded `false`,
@@ -1865,13 +1866,18 @@ each entry citing the check, the issue or the findings-log row behind it:
 - recorded defects (findings 137, 138, 139, 141, 142 and 144), so that a new
   error stands out from the ones already recorded.
 
-`FaxImporter.java:406` ("Fax provider error for account ...") is deliberately NOT in the
-baseline. `fax-configure` saves a fake SRFax account that the fax scheduler would poll
-every minute, so the check restores the `fax_config` row about a second after the save
-(`scripts/lib/fax-config-state.js`). One such line within seconds of that check is the
-narrow race with the scheduler's first cycle (3 s after the save that starts it); a line
-every minute means the restore did not take, and `--residue-audit` names the table. The
-underlying missing backoff is app-findings-log.md finding 180.
+The initial inbound fax outage ERROR from `FaxImporter.recordPollFailure` is deliberately
+absent from the baseline: it signals a real provider or client-setup failure. The
+`fax-configure` check restores its unreachable `fax_config` account about a second after
+the save (`scripts/lib/fax-config-state.js`). One initial-outage ERROR within seconds of
+that check can be the narrow race with the scheduler's first cycle (3 s after the save
+that starts it); verify its account and timing before explaining it. Repeated ERRORs
+mean distinct outage streaks or unexpected failures, not the normal retry cadence.
+Inbound polling backs off from one minute to one hour; after reaching the cap, failed
+hourly retries log WARN with the consecutive failure count. Use `--include-warn` when
+checking persistent outages. Recovery logs one WARN. `--residue-audit` checks whether the
+fixture account was restored. Finding 180 records the original missing-backoff defect;
+#6016 tracks the later outage-visibility regression.
 
 An entry that names neither a stack frame nor an exception is pinned to its exact
 source line, because one class can log many different failures by name alone.

@@ -154,7 +154,9 @@ public class MSPReconcile {
      * @return String decoded dollars, or the report-specific malformed-field representation
      */
     private String csvPaymentAmount(String value, boolean summary, MSPBill bill) {
-        if (value == null || value.isBlank()) bill.recordUnparsedAmount();
+        // A blank amount is not a parse failure: it is what every held (S04) remittance line stores, and it
+        // decodes to zero. Counting it as unparsed kept those lines in the Payments/Refunds reports as $0.00
+        // rows under a "known amounts only" notice. Only a non-blank field that cannot be decoded is flagged.
         try {
             return convertReportAmount(value);
         } catch (NumberFormatException invalid) {
@@ -1301,6 +1303,7 @@ public class MSPReconcile {
                 b.reason = this.getStatusDesc(b.reason);
                 Provider accountProvider = this.getProvider(b.accountNo, 0);
                 b.accountName = accountProvider.getFullName();
+                b.acctInit = accountProvider.getInitials();
                 b.payeeName = accountProvider.getInitials();
                 b.provName = this.getProvider(b.apptDoctorNo, 1).getInitials();
 

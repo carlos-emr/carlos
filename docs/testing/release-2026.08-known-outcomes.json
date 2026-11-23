@@ -9,27 +9,9 @@
     },
     {
       "check": "admin-issue-editor",
-      "finding": 331,
-      "step": "Issue Editor adds a coded issue and lists it",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
-      "check": "admin-api-keygen",
-      "finding": 163,
-      "step": "a GET of Create Key that names a service is refused and registers no key pair",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
-      "check": "prevention-dose-route-amendment",
-      "finding": 322,
-      "step": "a dose saved with no unit reopens with that dose and survives an unchanged save",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
-      "check": "prevention-brand-picker-units-routes",
-      "finding": 323,
-      "step": "every dose unit and route the catalogue prefills is shown by the Add Prevention form as given",
-      "disposition": "required installed retake; blocks release readiness"
+      "finding": 362,
+      "step": "the refused duplicate shows \"Issue code already exists.\" on the form",
+      "disposition": "Required installed retake; blocks release readiness. After the CSRF repair, native creation, chart assignment, duplicate-row refusal and GET refusal pass, but the duplicate-code error message remains absent (finding362, #5479 item6). The broader check stays a failure; the isolated Save/Cancel/CSRF check must pass."
     },
     {
       "check": "authz-read-admin-objects",
@@ -41,12 +23,6 @@
       "check": "authz-read-print-export",
       "finding": 343,
       "step": "the E-Chart print hands only the sections a role holds the object for (lists every section that leaks)",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
-      "check": "audit-log-locked-patient",
-      "finding": 344,
-      "step": "the refused attempt is itself in the audit log, naming the patient and the refused login",
       "disposition": "required installed retake; blocks release readiness"
     },
     {
@@ -62,12 +38,6 @@
       "disposition": "required installed retake; blocks release readiness"
     },
     {
-      "check": "xss-poison-note-history",
-      "finding": 148,
-      "step": "the popup found no output-encoding defect",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
       "check": "xss-poison-admin-reports-system",
       "finding": 122,
       "step": "the walk found no output-encoding defect",
@@ -77,12 +47,6 @@
       "check": "legacy-lab-display-pathnet",
       "finding": 195,
       "step": "PathNet display shows the lab's values and its patient",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
-      "check": "authz-write-role-matrix",
-      "finding": 198,
-      "step": "chart note save: the restricted login's replay with its own valid token is refused, and the full login's replay writes",
       "disposition": "required installed retake; blocks release readiness"
     },
     {
@@ -107,24 +71,6 @@
       "check": "patient-set-repeat-save",
       "finding": 82,
       "step": "saving the same patient into the same set twice retains one membership",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
-      "check": "appointment-email-option",
-      "finding": 329,
-      "step": "requested reminder has an implemented and visible persisted outcome",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
-      "check": "login-mfa-no-pin",
-      "finding": 347,
-      "step": "Enable MFA on the security record sets usingMfa and stores no secret yet",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
-      "check": "chart-informed-consent",
-      "finding": 332,
-      "step": "cancelled informed-consent confirmation leaves the banner and stored consent unchanged",
       "disposition": "required installed retake; blocks release readiness"
     }
   ],
@@ -156,6 +102,12 @@
     }
   ],
   "retiredBrowserExpectations": [
+    {
+      "check": "appointment-email-option",
+      "finding": 329,
+      "step": "requested reminder has an implemented and visible persisted outcome",
+      "disposition": "Source fix for #5887 removes the option until appointment reminder delivery is implemented. The updated installed check exercises Add and Edit with the legacy setting enabled and verifies the appointment writes. A fresh installed PASS is still required."
+    },
     {
       "check": "echart-forms-list-paging",
       "finding": 335,
@@ -215,6 +167,54 @@
       "finding": 337,
       "step": "dismissing task Delete confirms once and preserves every task and status history",
       "disposition": "Source fix in #5687 for #5683: Delete on the patient and main task lists asks for one localized confirmation, and Cancel leaves the selection, tasks and status history unchanged. Manifest pin retired; retained as an active regression. A fresh installed PASS is still required."
+    },
+    {
+      "check": "authz-write-role-matrix",
+      "finding": 198,
+      "step": "chart note save: the restricted login's replay with its own valid token is refused, and the full login's replay writes",
+      "disposition": "Source fix #5250 (a1592126): a chart note write is refused without _eChart w and _casemgmt.notes w before the session's editor is read, so the restricted replay answers 403 and writes nothing. The check's own write control was corrected with the retirement (it now opens a new note editor before the full login's replay, which the stale-form guard otherwise answers 409). Manifest pin retired; retained as an active regression. Installed PASS of every step on the packaged Ubuntu 26.04 Ontario install of 72c9a836 (2026.09.0~snapshot30 packages, nginx HTTPS, shipped Chromium 154.0.8025.0; 2026-11-12). Retaken after the retirement on the packaged Ubuntu 26.04 Ontario install of 291e630c (2026-11-12): every step passed as an ordinary PASS. A retake on the final release build is still required."
+    },
+    {
+      "check": "audit-log-locked-patient",
+      "finding": 344,
+      "step": "the refused attempt is itself in the audit log, naming the patient and the refused login",
+      "disposition": "Source fix in this release line (4c1b7daf): DemographicEdit2Action queues a 'no right' audit row naming the patient, the refused login and the client address before it refuses a locked patient's Master Record. Manifest pin retired; retained as an active regression. Installed result on the packaged Ubuntu 26.04 Ontario install of the fix (2026-11-12): every step passed with the pin still present (reported unexpected-pass). Retaken after the retirement on the packaged Ubuntu 26.04 Ontario install of 291e630c (2026-11-12): every step passed as an ordinary PASS. A retake on the final release build is still required."
+    },
+    {
+      "check": "xss-poison-note-history",
+      "finding": 148,
+      "step": "the popup found no output-encoding defect",
+      "disposition": "Source fix in this release line (0af51af0): casemgmt/showHistory.jsp encodes the heading and the patient name with the CARLOS HTML encoder. Manifest pin retired; retained as an active regression. Installed result on the packaged Ubuntu 26.04 Ontario install of the fix (2026-11-12): every step passed with the pin still present (reported unexpected-pass). Retaken after the retirement on the packaged Ubuntu 26.04 Ontario install of 291e630c (2026-11-12): every step passed as an ordinary PASS. A retake on the final release build is still required."
+    },
+    {
+      "check": "prevention-brand-picker-units-routes",
+      "finding": 323,
+      "step": "every dose unit and route the catalogue prefills is shown by the Add Prevention form as given",
+      "disposition": "Source fix for issue #5432: the Add Prevention form maps each catalogue route and dose unit to its own code (PreventionFormCodes) and shows any other value as given. Manifest pin retired and retained as an active regression. PASS on a local release/2026.08 server build (2026-11-11); a fresh installed PASS is still required."
+    },
+    {
+      "check": "admin-issue-editor",
+      "finding": 331,
+      "step": "Issue Editor adds a coded issue and lists it",
+      "disposition": "Fixed for #6078 in release PR6258, adapted from PR6116. The isolated admin-issue-editor-save active regression verifies Save/Cancel tokens and token-less POST refusal. Strict exact-JSP component PASS on Ubuntu26.04 (11.828s), zero residue and byte-exact JSP/property restoration. New combined DEB and integrated release retake remain required."
+    },
+    {
+      "check": "chart-informed-consent",
+      "finding": 332,
+      "step": "cancelled informed-consent confirmation leaves the banner and stored consent unchanged",
+      "disposition": "Fixed for #5886 in release PR6257. Active native regression: Cancel stores nothing; confirming records the originating patient and survives reopening. Strict exact-JSP component PASS on Ubuntu26.04 (47.226s), zero residue and byte-exact JSP/property restoration. New combined DEB and integrated release retake remain required."
+    },
+    {
+      "check": "login-mfa-no-pin",
+      "finding": 347,
+      "step": "Enable MFA on the security record sets usingMfa and stores no secret yet",
+      "disposition": "Source fix for #5885: guard PIN validation with the same legacy-PIN setting that renders the controls. The existing complete MFA lifecycle remains an active regression in the no-pin profile. Strict installed PASS on rebuilt Ubuntu 26.04 packages (Chromium154.0.8025.0): default PIN48.4s and no-PIN50.1s, zero residue/unexpected restarts, exact configuration and credential preservation. A final integrated release retake is still required."
+    },
+    {
+      "check": "prevention-dose-route-amendment",
+      "finding": 322,
+      "step": "a dose saved with no unit reopens with that dose and survives an unchanged save",
+      "disposition": "Fixed in PR #6220 for #5431. Retained as an active regression; strict installed PASS on Ubuntu 26.04, Ontario, complete 2026.09.0~snapshot30 packages, nginx HTTPS and shipped Chromium 154.0.8025.0 (2026-11-16, 111.8 seconds). Exact form/database roundtrips include unitless and legacy values, trailing spaces, nonnumeric doses, Unicode and markup; zero residue, restarts or server-log errors. A final release-build retake remains required."
     }
   ]
 }

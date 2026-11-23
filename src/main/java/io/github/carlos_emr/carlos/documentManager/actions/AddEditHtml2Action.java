@@ -34,7 +34,6 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.Date;
 import java.util.Hashtable;
 import java.util.Optional;
 
@@ -44,8 +43,8 @@ import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.documentManager.DocumentLink;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
+import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
-import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.documentManager.data.AddEditDocument2Form;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -54,7 +53,6 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.ScheduleNav;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -77,10 +75,42 @@ public class AddEditHtml2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc)");
         }
 
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST"); response.setStatus(405); return NONE;
+        }
+        LoggedInInfo actor = LoggedInInfo.getLoggedInInfoFromSession(request);
+        boolean creating = "addLink".equals(this.getMode()) || "addHtml".equals(this.getMode());
+        String module = this.getFunction() == null ? "" : com.google.common.base.Ascii.toLowerCase(this.getFunction().trim());
+        if (!java.util.List.of("demographic", "provider", "providers").contains(module)) {
+            throw new SecurityException("Invalid document target module");
+        }
+        this.setFunction(module);
+        if (creating) {
+            if ("demographic".equals(module)) io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse
+                    .requirePatientDocumentWriteAccess(securityInfoManager, actor, this.getFunctionId());
+        } else {
+            io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse
+                    .requireStoredDocumentWriteAccess(securityInfoManager, actor, this.getMode());
+        }
+        // Posted attestation fields are neither stored nor echoed as a successful review.
+        this.setReviewerId(""); this.setReviewDateTime("");
         Hashtable errors = new Hashtable();
         String fileName = "";
         if ((this.getDocDesc().length() == 0) || (this.getDocDesc().equals("Enter Title"))) {
             errors.put("descmissing", "dms.error.descriptionInvalid");
+            request.setAttribute("linkhtmlerrors", errors);
+            request.setAttribute("completedForm", submittedForm());
+            request.setAttribute("function", request.getParameter("function"));
+            request.setAttribute("functionid", request.getParameter("functionid"));
+            request.setAttribute("editDocumentNo", this.getMode());
+            return "failed";
+        }
+        // document.docdesc holds Document.DESCRIPTION_MAX_LENGTH characters and the packaged database
+        // cuts a longer description off without an error. Add Link stores the typed text with
+        // DocumentLink.DESCRIPTION_SUFFIX after it, so the limit is measured on what is stored and
+        // the message says how much a link description can hold.
+        if (!Document.descriptionFits(storedDescription())) {
+            errors.put("desctoolong", isAddLink() ? "dms.error.linkDescriptionTooLong" : "dms.error.descriptionTooLong");
             request.setAttribute("linkhtmlerrors", errors);
             request.setAttribute("completedForm", submittedForm());
             request.setAttribute("function", request.getParameter("function"));
@@ -134,21 +164,12 @@ public class AddEditHtml2Action extends ActionSupport {
             fileName = "html";
         }
 
-        // Validate the whole submission before creating shared document-type metadata.
-        if (!EDocUtil.getDoctypes(this.getFunction()).contains(this.getDocType())) {
-            EDocUtil.addDocTypeSQL(this.getDocType(), this.getFunction());
-        }
-
-        String reviewerId = filled(this.getReviewerId()) ? this.getReviewerId() : "";
-        String reviewDateTime = filled(this.getReviewDateTime()) ? this.getReviewDateTime() : "";
-
-        if (!filled(reviewerId) && this.getReviewDoc()) {
-            reviewerId = (String) request.getSession().getAttribute("user");
-            reviewDateTime = UtilDateUtilities.DateToString(new Date(), EDocUtil.REVIEW_DATETIME_FORMAT);
-        }
+        String reviewerId = "";
+        String reviewDateTime = "";
+        try {
         EDoc currentDoc;
         MiscUtils.getLogger().debug("mode: " + this.getMode());
-        if (this.getMode().indexOf("add") != -1) {
+        if (creating) {
             currentDoc = new EDoc(this.getDocDesc(), this.getDocType(), fileName, this.getHtml(), this.getDocCreator(), this.getResponsibleId(), this.getSource(), 'H', this.getObservationDate(), reviewerId, reviewDateTime, this.getFunction(), this.getFunctionId());
             currentDoc.setContentType("text/html");
             currentDoc.setDocPublic(this.getDocPublic());
@@ -165,7 +186,8 @@ public class AddEditHtml2Action extends ActionSupport {
             }
 
             currentDoc.setAppointmentNo(parsedAppointment);
-            EDocUtil.addDocumentSQL(currentDoc);
+            SpringUtils.getBean(io.github.carlos_emr.carlos.documentManager.DocumentReviewService.class)
+                    .create(actor, currentDoc, this.getReviewDoc());
         } else {
             currentDoc = new EDoc(this.getDocDesc(), this.getDocType(), "", this.getHtml(), this.getDocCreator(), this.getResponsibleId(), this.getSource(), 'H', this.getObservationDate(), reviewerId, reviewDateTime, this.getFunction(), this.getFunctionId());
             currentDoc.setDocId(this.getMode());
@@ -174,7 +196,23 @@ public class AddEditHtml2Action extends ActionSupport {
             currentDoc.setDocClass(this.getDocClass());
             currentDoc.setDocSubClass(this.getDocSubClass());
             currentDoc.setSourceFacility(this.getSourceFacility());
-            EDocUtil.editDocumentSQL(currentDoc, this.getReviewDoc());
+            SpringUtils.getBean(io.github.carlos_emr.carlos.documentManager.DocumentReviewService.class)
+                    .edit(actor, currentDoc, this.getReviewDoc(), false, true,
+                            request.getParameter("contentRevision"), request.getParameter("metadataRevision"));
+        }
+        } catch (io.github.carlos_emr.carlos.documentManager.DocumentReviewService.SaveFailure failure) {
+            Throwable cause = failure.getCause();
+            if (cause instanceof SecurityException denied) throw denied;
+            String key = cause instanceof io.github.carlos_emr.carlos.documentManager.DocumentReviewService.MissingDocument
+                    ? "dms.error.documentMissing" : cause instanceof io.github.carlos_emr.carlos.documentManager.DocumentReviewService.Conflict
+                    ? "dms.error.documentChanged" : failure.rollbackConfirmed() ? "dms.error.saveFailed" : "dms.error.saveUnconfirmed";
+            errors.put("savefailure", key);
+            request.setAttribute("linkhtmlerrors", errors);
+            request.setAttribute("completedForm", submittedForm());
+            request.setAttribute("editDocumentNo", this.getMode());
+            request.setAttribute("function", this.getFunction());
+            request.setAttribute("functionid", this.getFunctionId());
+            return "failed";
         }
         String contextPath = request.getContextPath();
         StringBuffer redirect = new StringBuffer(contextPath + "/documentManager/ViewDocumentReport");
@@ -192,6 +230,16 @@ public class AddEditHtml2Action extends ActionSupport {
             throw new RuntimeException(e);
         }
         return NONE;
+    }
+
+    private boolean isAddLink() {
+        return "addLink".equals(this.getMode());
+    }
+
+    /** The description as {@link EDoc} will store it: trimmed, and for Add Link with its suffix. */
+    private String storedDescription() {
+        String typed = this.getDocDesc() == null ? "" : this.getDocDesc();
+        return (isAddLink() ? typed + DocumentLink.DESCRIPTION_SUFFIX : typed).trim();
     }
 
     /** A new document can reference only an existing appointment for its patient; zero means no appointment. */
@@ -407,7 +455,8 @@ public class AddEditHtml2Action extends ActionSupport {
         return docFile;
     }
 
-    @StrutsParameter
+    // Not a @StrutsParameter: Struts 7 never binds an uploaded file from request parameters, so the
+    // annotation bound nothing, and a request value must never name a server-side file (#2212).
     public void setDocFile(File docFile) {
         this.docFile = docFile;
     }
@@ -488,7 +537,8 @@ public class AddEditHtml2Action extends ActionSupport {
         return filedata;
     }
 
-    @StrutsParameter
+    // Not a @StrutsParameter: Struts 7 never binds an uploaded file from request parameters, so the
+    // annotation bound nothing, and a request value must never name a server-side file (#2212).
     public void setFiledata(File Filedata) {
         this.filedata = Filedata;
     }

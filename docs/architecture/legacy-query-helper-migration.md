@@ -207,8 +207,12 @@ READ_COMMITTED / REQUIRES_NEW transaction and checksum lock.
 MariaDB's `UPDATE LOW_PRIORITY`. `InboxCategoryDao` owns count SQL, including
 HIGH_PRIORITY, distinct accession/document counts, status/date/HIN filters and
 HRM sign-off semantics. Its per-call query state returns immutable count/patient
-projections; `CategoryData` retains UI aggregation and does not create an
-EntityManager. `WorkFlowDao.findLatestRhFormId` binds patient and workflow and
+projections; `CategoryData` retains UI aggregation, builds the `PatientInfo` web
+model and does not create an EntityManager. The `inboxDateSearchType` mode is a
+required `DateSearchType` on the count `Filter`: `CategoryData` resolves it once
+per population through `InboxDateSearchTypeResolver` and every count of that
+population, including the lazy abnormal count, uses the same snapshot. The DAO
+injects no other DAO and does not depend on `mds.data` (#5772). `WorkFlowDao.findLatestRhFormId` binds patient and workflow and
 orders by edit time then ID, without changing state/workflow creation methods.
 
 `DocumentTransferDao` is the metadata exception: the packaged transfer definition

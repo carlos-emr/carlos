@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "89551e34580fc24be43ba26ac21b9f9d1758020b",
+  "comparisonSha256": "27d26bc57c7aa96cd5eb0fbb9fc6964d87e06c63862a99f99d88eaf3fb5d561c",
+  "baselineCommit": "ba65ca291054ba669e4f98c40ced4119994d1699",
+  "baselineSourceTree": "89551e34580fc24be43ba26ac21b9f9d1758020b",
+  "baselineReportSha256": "f7c3de9723f0523daf8f835c06ae7979c24547444d018d98b8e46ad7208ab1c5",
+  "baselineLane": "Java 25 encoder and waiting-list regressions, with only Javadoc changed in the Java source",
+  "baselineTestCounts": {
+    "tests": 103,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "e593d0c459896fa9d9964dbe8d0ed21f750ae81ecda9d1ce8568e7b085235bb0",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/utility/tld/CarlosEncodeTag.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "d9d0ba396c29f1621f46e16182e38bc39445d21a"
+    }
+  }
+}

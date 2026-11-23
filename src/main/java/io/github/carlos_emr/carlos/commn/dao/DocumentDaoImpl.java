@@ -55,6 +55,52 @@ import io.github.carlos_emr.carlos.documentManager.EDocUtil.EDocSort;
 @Repository
 public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements DocumentDao {
 
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column> readCdsExportReceiptColumns() {
+        return CdsExportNativeMetadataReadSupport.read(entityManager, CdsExportNativeMetadataReadSupport.Table.DOCUMENTS);
+    }
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportSourceSchema() {
+        return CdsExportPatientTableReadSupport.schema(entityManager, CdsExportPatientTableReadSupport.Plan.DOCUMENTS);
+    }
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public long countCdsExportRows(int patient) {
+        CdsExportPatientTableReadSupport.requireLocalDocumentAssociations(entityManager, patient);
+        return CdsExportPatientTableReadSupport.count(entityManager, CdsExportPatientTableReadSupport.Plan.DOCUMENTS, patient);
+    }
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> findCdsExportRowsAfter(int patient, Long afterId, int limit) {
+        CdsExportPatientTableReadSupport.requireLocalDocumentAssociations(entityManager, patient);
+        return CdsExportPatientTableReadSupport.page(entityManager, CdsExportPatientTableReadSupport.Plan.DOCUMENTS, patient, afterId, limit);
+    }
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.SortedMap<Integer, Integer> readCdsExportProgramRestrictions(int patient) {
+        return CdsExportPatientTableReadSupport.documentProgramRestrictions(entityManager, patient);
+    }
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public long countCdsExportFileRows(int patient) {
+        CdsExportPatientTableReadSupport.requireLocalDocumentAssociations(entityManager, patient);
+        return CdsExportPatientTableReadSupport.count(entityManager, CdsExportPatientTableReadSupport.Plan.DOCUMENT_FILES, patient);
+    }
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> findCdsExportFileRowsAfter(int patient, Long afterId, int limit) {
+        CdsExportPatientTableReadSupport.requireLocalDocumentAssociations(entityManager, patient);
+        return CdsExportPatientTableReadSupport.page(entityManager, CdsExportPatientTableReadSupport.Plan.DOCUMENT_FILES, patient, afterId, limit);
+    }
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public byte[] readCdsExportValueChunk(int patient, long rowId, String column, long offset, int length) {
+        CdsExportPatientTableReadSupport.requireLocalDocumentAssociations(entityManager, patient);
+        return CdsExportPatientTableReadSupport.chunk(entityManager, CdsExportPatientTableReadSupport.Plan.DOCUMENTS, patient, rowId, column, offset, length);
+    }
+
     /** Description candidates, newest first: the first page. Both pages bind every value. */
     private static final String DESCRIPTION_CANDIDATES_FIRST_PAGE =
             "SELECT d FROM Document d WHERE d.status != 'D' AND d.docdesc LIKE ?1"
@@ -69,6 +115,19 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
 
     public DocumentDaoImpl() {
         super(Document.class);
+    }
+
+    @Override
+    public java.util.List<io.github.carlos_emr.carlos.commn.model.DocumentReview> findCurrentReviewRows(Integer documentNo) {
+        return entityManager.createQuery("SELECT r FROM DocumentReview r WHERE r.documentNo = :id",
+                io.github.carlos_emr.carlos.commn.model.DocumentReview.class).setParameter("id", documentNo).getResultList();
+    }
+
+    @Override
+    public void retireCurrentReviewRows(Integer documentNo) {
+        for (var review : findCurrentReviewRows(documentNo)) entityManager.remove(review);
+        var document = entityManager.find(Document.class, documentNo);
+        if (document != null) document.getReviews().clear();
     }
 
     @Override

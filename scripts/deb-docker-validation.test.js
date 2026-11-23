@@ -229,12 +229,14 @@ test('should refuse a reset password that quoting could not carry into the conta
   assert.equal(run(['print-preseed'], { ...box.env, RESET_PASSWORD: 'Carlos2026!Verify' }).status, 0);
 });
 
-test('should preserve literal HOME_DIR through the container shell and generated environment', t => {
-  const box = sandbox(t);
-  const directory = path.join(box.dir, "clinic space $HOME `touch injected` $(touch injected2) 'single'");
-  fs.mkdirSync(directory);
+/**
+ * Run the real write_suite_env with every container path pointed into the sandbox, and return the
+ * spawn result and the suite-env.sh it wrote. `helpers` is shell that defines what the function
+ * calls from outside itself (suite_province, seeds_patient_list_fixture).
+ */
+function writeSuiteEnv(box, { homeDirectory, helpers }) {
   const properties = path.join(box.dir, 'carlos.properties');
-  fs.writeFileSync(properties, `HOME_DIR=${directory}\n`);
+  fs.writeFileSync(properties, `HOME_DIR=${homeDirectory}\n`);
   const buildProperties = path.join(box.dir, 'carlos-build.properties');
   fs.writeFileSync(buildProperties, 'build.version=test\nbuild.job=validation\nbuild.number=1\n');
   const initialAdmin = path.join(box.dir, 'initial-admin.txt');
@@ -259,7 +261,7 @@ test('should preserve literal HOME_DIR through the container shell and generated
   const functionSource = source.slice(source.indexOf('\nwrite_suite_env() {'), source.indexOf('\ncmd_suite() {'));
   assert.match(functionSource, /^\nwrite_suite_env\(\) \{/);
   const result = spawnSync('bash', ['-c', `set -euo pipefail
-    suite_province() { printf BC; }
+    ${helpers}
     in_container() { CONTAINER_COMMAND="$1" node "$TEST_CHILD_RUNNER"; }
     ${functionSource}
     write_suite_env
@@ -267,6 +269,15 @@ test('should preserve literal HOME_DIR through the container shell and generated
     TEST_CHILD_RUNNER: childRunner, TEST_TEMP: box.dir, TEST_HOME_SCRIPT: path.join(__dirname, 'packaged-home-dir.js'),
     TEST_PROPERTIES: properties, TEST_SUITE_ENV: environment, TEST_BUILD_PROPERTIES: buildProperties,
     TEST_INITIAL_ADMIN: initialAdmin, TEST_REPO: path.resolve(__dirname, '..') } });
+  return { result, environment };
+}
+
+test('should preserve literal HOME_DIR through the container shell and generated environment', t => {
+  const box = sandbox(t);
+  const directory = path.join(box.dir, "clinic space $HOME `touch injected` $(touch injected2) 'single'");
+  fs.mkdirSync(directory);
+  const { result, environment } = writeSuiteEnv(box, { homeDirectory: directory,
+    helpers: 'suite_province() { printf BC; }\n    seeds_patient_list_fixture() { return 1; }' });
   assert.equal(result.status, 0, result.stdout + result.stderr);
   const sourced = spawnSync('bash', ['-c', 'mariadb() { printf fixturehash; }; . "$1"; printf %s "$HOME_DIR"', 'source-env', environment],
     { encoding: 'utf8', cwd: box.dir });
@@ -274,6 +285,54 @@ test('should preserve literal HOME_DIR through the container shell and generated
   assert.equal(sourced.stdout, directory);
   assert.equal(fs.existsSync(path.join(box.dir, 'injected')), false, 'backtick command ran');
   assert.equal(fs.existsSync(path.join(box.dir, 'injected2')), false, 'dollar command substitution ran');
+});
+
+/** The real seeds_patient_list_fixture, cut from the script. */
+function seedsPatientListFixtureSource() {
+  const source = fs.readFileSync(SCRIPT, 'utf8');
+  const start = source.indexOf('\nseeds_patient_list_fixture() {');
+  const end = source.indexOf('\n}\n', start);
+  assert.ok(start > 0 && end > start, 'seeds_patient_list_fixture is defined');
+  return source.slice(start, end + 3);
+}
+
+test('should seed the patient-list appointments only on a demo install that is not British Columbia', () => {
+  const helper = seedsPatientListFixtureSource();
+  const expected = { 'on/true': 0, 'other/true': 0, 'bc/true': 1, 'on/false': 1, 'other/false': 1, 'bc/false': 1 };
+  for (const [combination, status] of Object.entries(expected)) {
+    const [province, demo] = combination.split('/');
+    const r = spawnSync('bash', ['-c', `set -euo pipefail\n${helper}\nif seeds_patient_list_fixture; then exit 0; else exit 1; fi`],
+      { encoding: 'utf8', env: { ...process.env, CARLOS_PROVINCE: province, INSTALL_DEMO_DATA: demo } });
+    assert.equal(r.status, status, `${combination}: ${r.stderr}`);
+  }
+});
+
+test('should name the patient-list fixture profile exactly when its appointments were seeded', t => {
+  const source = fs.readFileSync(SCRIPT, 'utf8');
+  // One condition decides both: the insert in stage_fixtures and the profile in write_suite_env.
+  const stage = source.slice(source.indexOf('\nstage_fixtures() {'), source.indexOf('\nsuite_province() {'));
+  assert.match(stage, /if seeds_patient_list_fixture; then seed_patient_list=true; fi/);
+  assert.match(stage, /if \[ '\$seed_patient_list' = true \]; then\s+mariadb -u root carlos -e \\"\s+INSERT INTO appointment /);
+  assert.equal((stage.match(/LOCAL_SEED_OBEC_REPORT_1/g) || []).length, 1);
+  assert.equal((source.match(/PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1/g) || []).length, 1,
+    'the profile is exported in one place, under the seeding condition');
+  assert.doesNotMatch(source, /^export PATIENT_LIST_FIXTURE_PROFILE=/m, 'the profile is not exported unconditionally');
+
+  const helper = seedsPatientListFixtureSource();
+  for (const [province, demo, seeded] of [['on', 'true', true], ['other', 'true', true], ['bc', 'true', false], ['on', 'false', false]]) {
+    const box = sandbox(t);
+    const directory = path.join(box.dir, 'home');
+    fs.mkdirSync(directory);
+    box.env = { ...box.env, CARLOS_PROVINCE: province, INSTALL_DEMO_DATA: demo };
+    const { result, environment } = writeSuiteEnv(box, { homeDirectory: directory,
+      helpers: `suite_province() { printf ${province === 'bc' ? 'BC' : 'ON'}; }\n${helper}` });
+    assert.equal(result.status, 0, `${province}/${demo}: ${result.stdout}${result.stderr}`);
+    const sourced = spawnSync('bash', ['-c', 'unset PATIENT_LIST_FIXTURE_PROFILE; mariadb() { printf fixturehash; }; . "$1"; '
+      + 'printf "%s|%s" "${PATIENT_LIST_FIXTURE_PROFILE-unset}" "$BILLING_APPOINTMENT_NO"', 'source-env', environment],
+    { encoding: 'utf8', cwd: box.dir });
+    assert.equal(sourced.status, 0, sourced.stderr);
+    assert.equal(sourced.stdout, `${seeded ? 'local-seed-obec-report-v1' : 'unset'}|11`, `${province}/${demo}`);
+  }
 });
 
 test('should refuse an unknown profile, and every profile without CARLOS_DISPOSABLE_HOST=true, before calling docker', (t) => {

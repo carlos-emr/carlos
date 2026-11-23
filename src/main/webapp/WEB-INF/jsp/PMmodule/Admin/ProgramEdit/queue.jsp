@@ -37,7 +37,7 @@ function removeFromRemoteQueue(remoteReferralId) {
 	document.programManagerForm.submit();
 }
 </script>
-<html:hidden property="queue.id" />
+<input type="hidden" name="queue.id" />
 <div class="tabs" id="tabs">
 	<table cellpadding="3" cellspacing="0" border="0">
 		<tr>

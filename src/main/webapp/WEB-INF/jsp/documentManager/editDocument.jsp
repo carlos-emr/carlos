@@ -70,6 +70,7 @@
 <%@ page import="io.github.carlos_emr.carlos.documentManager.data.AddEditDocument2Form" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Document" %>
 
 <%
     DocumentExtraReviewerDao documentExtraReviewerDao = SpringUtils.getBean(DocumentExtraReviewerDao.class);
@@ -82,6 +83,12 @@
         editDocumentNo = request.getParameter("editDocumentNo");
     }
 
+    io.github.carlos_emr.carlos.documentManager.DocumentReviewService.Baseline editBaseline = null;
+    if (editDocumentNo != null && editDocumentNo.matches("[1-9][0-9]*")
+            && request.getAttribute("docerrors") == null && request.getAttribute("linkhtmlerrors") == null) {
+        editBaseline = SpringUtils.getBean(io.github.carlos_emr.carlos.documentManager.DocumentReviewService.class)
+            .baseline(io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request), Integer.parseInt(editDocumentNo));
+    }
     String module = "";
     String moduleid = "";
     if (request.getParameter("function") != null) {
@@ -174,6 +181,15 @@
     <link rel="stylesheet" type="text/css" media="all"
           href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
     <style type="text/css">
+        span.warning {
+            color: #e26e6e;
+        }
+
+        span.comment {
+            font-size: 10px;
+            vertical-align: super;
+        }
+
         .autocomplete_style {
             background: #fff;
             text-align: left;
@@ -195,6 +211,7 @@
     <script type="text/javascript"
             src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
+    <fmt:message key="dms.error.descriptionTooLong" var="msgDescriptionTooLongText"/>
     <script type="text/javascript">
         window.onload = function () {
             // Vanilla autocomplete replacing Autocompleter.Local
@@ -240,7 +257,14 @@
         function submitUpload(object) {
             object.Submit.disabled = true;
             var ans = true;
-            if (object.reviewerId.value != "") {
+            // document.docdesc counts code points (utf8mb4), as Array.from does; AddEditDocument2Action
+            // refuses a longer description too, and that is the check that holds.
+            if (Array.from(object.docDesc.value.replace(/^[\x00-\x20]+|[\x00-\x20]+$/g, '')).length > <%= Document.DESCRIPTION_MAX_LENGTH %>) {
+                alert('${carlos:forJavaScript(msgDescriptionTooLongText)}');
+                object.docDesc.focus();
+                ans = false;
+            }
+            if (ans && object.reviewerId.value != "") {
                 ans = confirm("Updating this document will remove reviewer information. Confirm?");
             }
             if (ans && !validDate("observationDate")) {
@@ -253,11 +277,13 @@
 
         function reviewed(ths) {
             var thisForm = ths.form;
-            // Ask for a review by the signed-in provider. The action decides from the stored
-            // document, under its row lock, whether this is the first review or an additional one,
-            // because the reviewer shown on this page can be out of date (issue #6081).
+            // The server decides the review mode; validation and confirmation must still run.
             thisForm.reviewDoc.value = true;
-            thisForm.submit();
+            if (submitUpload(thisForm) && thisForm.reportValidity()) {
+                thisForm.submit();
+            } else {
+                thisForm.reviewDoc.value = false;
+            }
         }
 
         var docSubClassList = [
@@ -271,9 +297,18 @@
 <div class="maindiv">
     <div class="maindivheading">Edit Document</div>
     <%-- Lists docerrors --%> <% for (Enumeration errorkeys = docerrors.keys(); errorkeys.hasMoreElements(); ) {%>
-    <font class="warning">Error: <fmt:message key="<%=(String) docerrors.get(errorkeys.nextElement())%>"/></font><br/>
-    <% } %> <form action="${pageContext.request.contextPath}/documentManager/addEditDocument" method="POST"
+    <span class="warning">Error: <fmt:message key="<%=(String) docerrors.get(errorkeys.nextElement())%>"/></span><br/>
+    <% } %>
+    <% if (editBaseline != null && editBaseline.content().isEmpty()) { %>
+    <div role="alert" class="warning"><fmt:message key="documentMutation.sourceUnavailable"/></div>
+    <% } %>
+    <form action="${pageContext.request.contextPath}/documentManager/addEditDocument" method="POST"
                        enctype="multipart/form-data" onsubmit="return submitUpload(this);">
+    <input type="hidden" name="contentRevision" value="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(
+        editBaseline == null ? request.getParameter("contentRevision") : editBaseline.content()) %>">
+    <input type="hidden" name="metadataRevision" value="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(
+        editBaseline == null ? request.getParameter("metadataRevision") : editBaseline.metadata()) %>">
+
     <input type="hidden" name="function"
            value="<carlos:encode value='<%= formdata.getFunction() %>' context="htmlAttribute"/>" size="20"/>
     <input type="hidden" name="functionId"
@@ -327,9 +362,12 @@
             </td>
         </tr>
         <tr>
-            <td>Description:</td>
-            <td><input <% if (docerrors.containsKey("descmissing")) {%>
-                    class="warning" <%}%> type="text" name="docDesc" size="30"
+            <td><label for="docDesc">Description:</label></td>
+            <%-- No maxlength: a browser clips a paste to maxlength in UTF-16 units before any check
+                 runs. submitUpload and the action refuse a description longer than
+                 Document.DESCRIPTION_MAX_LENGTH code points. --%>
+            <td><input <% if (docerrors.containsKey("descmissing") || docerrors.containsKey("desctoolong")) {%>
+                    class="warning" <%}%> type="text" name="docDesc" id="docDesc" size="30"
                     value="<carlos:encode value='<%= formdata.getDocDesc() %>' context="htmlAttribute"/>">
             <td>
         </tr>
@@ -424,12 +462,12 @@
 
             <td>
                 <div style="<%=updatableContent==true?"":"visibility: hidden"%>">
-                    File: <font class="comment">(blank to keep file)</font>
+                    <label for="replacementDocFile">File: <span class="comment">(blank to keep file)</span></label>
                 </div>
             </td>
             <td>
                 <div style="<%=updatableContent==true?"":"visibility: hidden"%>">
-                    <input type="file" name="docFile" size="20"
+                    <input type="file" id="replacementDocFile" name="docFile" size="20" <%= editBaseline != null && editBaseline.content().isEmpty() ? "disabled" : "" %>
                             <% if (docerrors.containsKey("uploaderror")) {%> class="warning"
                             <%}%>>
                 </div>
@@ -461,7 +499,7 @@
 
                 <%if (!reviewedByMe) { %>
                 <br/>
-                <input type="button" value="Reviewed" title="Click to set Reviewed" onclick="reviewed(this);"/>
+                <input type="button" value="Reviewed" title="Click to set Reviewed" <%= editBaseline != null && editBaseline.content().isEmpty() ? "disabled" : "" %> onclick="reviewed(this);"/>
                 <% } %>
             </td>
         </tr>

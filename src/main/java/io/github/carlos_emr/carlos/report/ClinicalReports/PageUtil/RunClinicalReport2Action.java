@@ -35,13 +35,16 @@ import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.UUID;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 import java.util.Map;
 import java.util.AbstractMap;
+import io.github.carlos_emr.carlos.app.CarlosExceptionMappingInterceptor;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -51,9 +54,11 @@ import io.github.carlos_emr.carlos.report.ClinicalReports.ClinicalReportManager;
 import io.github.carlos_emr.carlos.report.ClinicalReports.Denominator;
 import io.github.carlos_emr.carlos.report.ClinicalReports.Numerator;
 import io.github.carlos_emr.carlos.report.ClinicalReports.ReportEvaluator;
+import io.github.carlos_emr.carlos.report.data.ReportLimitNotice;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.springframework.web.util.WebUtils;
 
 public class RunClinicalReport2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -84,9 +89,16 @@ public class RunClinicalReport2Action extends ActionSupport {
         int maxNumerator = -1;
 
         MiscUtils.getLogger().debug("numerator " + numeratorId + " denominator " + denominatorId);
+        if (!chosen(numeratorId) && !chosen(denominatorId)) {
+            // A plain open of the page (nothing posted yet): show the empty form, with no message.
+            return SUCCESS;
+        }
         ClinicalReportManager reports = ClinicalReportManager.getInstance();
 
         Denominator d = reports.getDenominatorById(denominatorId);
+        if (d == null) {
+            return unknownReport("denominator", denominatorId);
+        }
         if (d.hasReplaceableValues()) {
             String[] denomReplaceKeys = d.getReplaceableKeys();
             Hashtable h = new Hashtable();
@@ -119,6 +131,9 @@ public class RunClinicalReport2Action extends ActionSupport {
         // User-controlled input cannot influence the URL target, only which preconfigured
         // numerator is selected. // lgtm[java/ssrf]
         Numerator n = reports.getNumeratorById(numeratorId); // nosemgrep: java.lang.security.audit.ssrf.ssrf-java
+        if (n == null) {
+            return unknownReport("numerator", numeratorId);
+        }
         MiscUtils.getLogger().debug("n" + n + " " + n.hasReplaceableValues());
         if (n.hasReplaceableValues()) {
             String[] denomReplaceKeys = n.getReplaceableKeys();
@@ -148,6 +163,10 @@ public class RunClinicalReport2Action extends ActionSupport {
 
         for (int x = 0; x < 11; x++) {
             numerators[x] = reports.getNumeratorById(numeratorIds[x]);
+            // An extra numerator left at "Select Below" posts an empty id; any other id must be listed.
+            if (numerators[x] == null && chosen(numeratorIds[x])) {
+                return unknownReport("numerator" + x, numeratorIds[x]);
+            }
             if (numerators[x] != null) {
                 maxNumerator = x;
                 MiscUtils.getLogger().debug("n" + x + numerators[x] + " " + numerators[x].hasReplaceableValues());
@@ -194,13 +213,37 @@ public class RunClinicalReport2Action extends ActionSupport {
         }
 
 
-        request.setAttribute("showfields", request.getParameterValues("showfields"));
+        request.setAttribute("showfields", chosenFields(request.getParameterValues("showfields")));
 
         //Need to change the out put fields here On the JSP use an getDisplay MEthod that checks for instance of.
 
 
         ReportEvaluator re = new ReportEvaluator();
-        re.evaluate(LoggedInInfo.getLoggedInInfoFromSession(request), d, n, numerators, extraVal, inclNonPositiveResults);
+        try {
+            re.evaluate(LoggedInInfo.getLoggedInInfoFromSession(request), d, n, numerators, extraVal, inclNonPositiveResults);
+        } catch (IllegalStateException e) {
+            var refusal = ReportLimitNotice.find(e);
+            if (refusal == null) {
+                // Any other failure is a defect: rethrown, so the exception mapping logs it as an error
+                // with its trace and an incident id, and renders the error page with status 500. That is
+                // the mapping's one entry; the numerator or denominator that failed has already logged its
+                // own error line for the query, so an unexpected failure leaves two error entries.
+                throw e;
+            }
+            // A configured_report.* limit stopped the report. That is the user's to fix (narrow the
+            // report, or ask for the limit to be raised), not a defect, so it is logged once, as a
+            // warning without the trace, and is not rethrown. The user gets what the exception mapping
+            // would render: the same error page, status 500 and an incident reference, plus the notice
+            // naming the limit. The incident id is created here and logged with the warning, so a
+            // reported reference still finds its log line.
+            String incidentId = UUID.randomUUID().toString();
+            MiscUtils.getLogger().warn("Clinical report refused by its {} limit of {} [incident {}]",
+                    refusal.limit().setting(), refusal.value(), incidentId);
+            ReportLimitNotice.publish(request, refusal.limit(), refusal.value());
+            request.setAttribute(CarlosExceptionMappingInterceptor.INCIDENT_ID_ATTRIBUTE, incidentId);
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return ERROR;
+        }
 
         int num = re.getNumeratorCount();
         int denom = re.getDenominatorCount();
@@ -208,12 +251,7 @@ public class RunClinicalReport2Action extends ActionSupport {
         float percentage = re.getPercentage();
 
 
-        ArrayList arrList = (ArrayList) request.getSession().getAttribute("ClinicalReports");
-        if (arrList == null) {
-            arrList = new ArrayList();
-        }
-        arrList.add(re);
-        request.getSession().setAttribute("ClinicalReports", arrList); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- arrList contains ReportEvaluator results computed server-side from DAO queries
+        appendToHistory(request.getSession(), re);
 
         request.setAttribute("extraValues", extraVal);
         request.setAttribute("name", re.getName());
@@ -233,5 +271,40 @@ public class RunClinicalReport2Action extends ActionSupport {
 
         request.setAttribute("max_numerator", maxNumerator);
         return SUCCESS;
+    }
+
+    /** Appends the completed report without modifying any history a page is already reading. */
+    static void appendToHistory(HttpSession session, ReportEvaluator report) {
+        synchronized (WebUtils.getSessionMutex(session)) {
+            List<?> previous = (List<?>) session.getAttribute("ClinicalReports");
+            ArrayList<Object> history = previous == null ? new ArrayList<>() : new ArrayList<>(previous);
+            history.add(report);
+            session.setAttribute("ClinicalReports", history); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- completed report and previous entries are computed server-side
+        }
+    }
+
+    /** Whether a numerator or denominator was posted; "Select Below" posts an empty value. */
+    static boolean chosen(String id) {
+        return id != null && !id.isEmpty();
+    }
+
+    /**
+     * A numerator or denominator id that is not a usable entry of ClinicalReports.xml (a stale page, or a
+     * report removed from the file): the report page says so instead of failing, and the log names the
+     * entry so an administrator can find it. The id names a report definition, not a patient.
+     */
+    private String unknownReport(String parameter, String id) {
+        MiscUtils.getLogger().warn("Clinical report {} is not a usable entry of ClinicalReports.xml: {}", parameter,
+                io.github.carlos_emr.carlos.utility.LogSafe.sanitize(id));
+        request.setAttribute("clinicalReportUnknown", Boolean.TRUE);
+        return SUCCESS;
+    }
+
+    /**
+     * The "Fields to include" boxes that were ticked. With none ticked the browser sends no
+     * {@code showfields} at all; the results table then has no extra columns rather than failing.
+     */
+    static String[] chosenFields(String[] posted) {
+        return posted == null ? new String[0] : posted;
     }
 }

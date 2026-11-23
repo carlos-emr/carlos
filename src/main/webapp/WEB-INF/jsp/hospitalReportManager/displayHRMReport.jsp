@@ -14,7 +14,7 @@
 
 --%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="org.apache.commons.lang3.StringUtils,io.github.carlos_emr.carlos.log.*" %>
+<%@page import="io.github.carlos_emr.carlos.log.*" %>
 <%@page import="java.text.SimpleDateFormat" %>
 <%@page import="io.github.carlos_emr.carlos.hospitalReportManager.HRMReportPatientLink" %>
 <%@page import="java.util.Objects" %>
@@ -64,6 +64,7 @@
 <%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.dao.*" %>
 <%@ page import="io.github.carlos_emr.carlos.hospitalReportManager.model.HRMReportCriteria" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <!DOCTYPE html>
 
@@ -78,10 +79,28 @@
     String hrmReportTime = "";
     Integer hrmDuplicateNum = null;
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-    HRMDocument document = hrmDocumentDao.findById(hrmReportId).get(0);
+
+    // Patient access is decided before the report row or its file is read: a report filed to a
+    // patient this provider is locked out of is refused as the chart is. HRMDisplayReport2Action
+    // has already refused a direct request; the check is repeated here because the inbox
+    // (oscarMDS/Page.jsp) includes this page without going through that action. An included page
+    // cannot set a status, so there the refusal is a line of text in place of the report, and
+    // nothing of the report or the patient is written either way.
+    if (!HRMReportAccess.mayReadReport(SpringUtils.getBean(SecurityInfoManager.class),
+            hrmDocumentToDemographicDao, loggedInInfo, hrmReportId)) {
+        if (request.getAttribute(RequestDispatcher.INCLUDE_REQUEST_URI) == null) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+        } else {
+%><div class="hrm-report-refused" role="alert"><fmt:message key="demographic.demographiceditdemographic.accessDenied"/></div><%
+        }
+        return;
+    }
+
+    HRMDocument document = hrmDocumentDao.find(hrmReportId.intValue());
+    if (document == null) { response.sendError(404); return; }
     HRMReport hrmReport = null;
-    Map<Integer, Date> dupReportDates = new HashMap<Integer, Date>();
-    Map<Integer, Date> dupTimeReceived = new HashMap<Integer, Date>();
+    io.github.carlos_emr.carlos.hospitalReportManager.HrmVersionService.History versionHistory =
+        new io.github.carlos_emr.carlos.hospitalReportManager.HrmVersionService.History(java.util.List.of(), false);
     HRMDocumentToDemographic demographicLink = null;
     List<HRMDocumentToDemographic> demographicLinkList = null;
     List<HRMCategory> hrmCategories = null;
@@ -100,7 +119,7 @@
 
         if (hrmReport != null) {
             hrmCategories = hrmCategoryDao.findAll();
-            hrmReportTime = document.getTimeReceived().toString();
+            hrmReportTime = java.util.Objects.toString(document.getTimeReceived(), "");
             hrmDuplicateNum = document.getNumDuplicatesReceived();
 
             demographicLinkList = hrmDocumentToDemographicDao.findByHrmDocumentId(document.getId());
@@ -160,24 +179,9 @@
             documentComments = hrmDocumentCommentDao.getCommentsForDocument(hrmReportId);
 
 
-            String duplicateLabIdsString = StringUtils.trimToNull(request.getParameter("duplicateLabIds"));
+            versionHistory = SpringUtils.getBean(io.github.carlos_emr.carlos.hospitalReportManager.HrmVersionService.class)
+                .history(loggedInInfo, document, hrmReport, request.getParameter("duplicateLabIds"), request.getLocale());
 
-
-            if (duplicateLabIdsString != null) {
-                String[] duplicateLabIdsStringSplit = duplicateLabIdsString.split(",");
-                for (String tempId : duplicateLabIdsStringSplit) {
-                    tempId = tempId.trim();
-                    int parsedId;
-                    try { parsedId = Integer.parseInt(tempId); } catch (NumberFormatException e) {
-                        MiscUtils.getLogger().warn("Skipping invalid HRM duplicate lab ID: {}", tempId);
-                        continue;
-                    }
-                    HRMDocument doc = hrmDocumentDao.find(parsedId);
-                    dupReportDates.put(parsedId, doc.getReportDate());
-                    dupTimeReceived.put(parsedId, doc.getTimeReceived());
-                }
-
-            }
         }
     }
 
@@ -864,8 +868,15 @@
     </div>
     <div id="descriptionBox">
 
-        Add a description:
+        <label for="descriptionField_<%=hrmReportId %>_hrm">Add a description:</label>
+        <%-- HRMDocument.description holds DESCRIPTION_MAX_LENGTH code points. No maxlength: a browser
+             clips a paste to maxlength in UTF-16 units before any check runs. hrmActions.js
+             setDescription() and HRMModifyDocument2Action refuse a longer description with the
+             message below. --%>
+        <fmt:message key="dms.error.descriptionTooLong" var="hrmDescriptionTooLongText"/>
         <input type="text" id="descriptionField_<%=hrmReportId %>_hrm" size="100"
+               data-max-code-points="<%= HRMDocument.DESCRIPTION_MAX_LENGTH %>"
+               data-too-long-message="${carlos:forHtmlAttribute(hrmDescriptionTooLongText)}"
                value="<carlos:encode value='<%= document.getDescription() %>' context="htmlAttribute"/>"/><br/>
 
         <div class="boxButton">
@@ -972,59 +983,26 @@
     </script>
 
     <%
-        String duplicateLabIdsString = StringUtils.trimToNull(request.getParameter("duplicateLabIds"));
-        if (duplicateLabIdsString != null) {
-
-            SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd hh:mm");
-    %>
-    <div id="duplicatesMessage">
-        Duplicate Report History:<br/><br/>
-
-        <table>
-            <tr>
-                <th>ID</th>
-                <th>Report Date</th>
-                <th>Date Received</th>
-                <th></th>
-            </tr>
-            <%
-                //need datetime of report.
-                String[] duplicateLabIdsStringSplit = duplicateLabIdsString.split(",");
-                for (String tempId : duplicateLabIdsStringSplit) {
-                    tempId = tempId.trim();
-                    int parsedId;
-                    try { parsedId = Integer.parseInt(tempId); } catch (NumberFormatException e) {
-                        MiscUtils.getLogger().warn("Skipping invalid HRM duplicate lab ID in display: {}", tempId);
-                        continue;
-                    }
-            %>
-            <tr>
-                <td><carlos:encode value='<%= String.valueOf(parsedId) %>' context="html"/>
-                </td>
-                                    <c:set var="__enc_1"><carlos:encode value='<%= tempId %>' context="uriComponent"/></c:set>
-                           <c:set var="__enc_2"><carlos:encode value='<%= tempId %>' context="uriComponent"/></c:set>
-                           <c:set var="__enc_3"><carlos:encode value='<%= request.getParameter("providerNo") != null ? request.getParameter("providerNo") : "" %>' context="uriComponent"/></c:set><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
-                           <c:set var="__enc_4"><carlos:encode value='<%= request.getParameter("searchProviderNo") != null ? request.getParameter("searchProviderNo") : "" %>' context="uriComponent"/></c:set><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
-                           <c:set var="__enc_5"><carlos:encode value='<%= request.getParameter("status") != null ? request.getParameter("status") : "" %>' context="uriComponent"/></c:set><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
-                           <c:set var="__enc_6"><carlos:encode value='<%= request.getParameter("demoName") != null ? request.getParameter("demoName") : "" %>' context="uriComponent"/></c:set><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
-       <td><%=formatter.format(dupReportDates.get(parsedId)) %>
-                </td>
-                <td><%=formatter.format(dupTimeReceived.get(parsedId)) %>
-                </td>
-                <td><input type="button" value="Open Report"
-                           onclick="window.open('?id=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>&segmentId=<carlos:encode value='${__enc_2}' context="javaScriptAttribute"/>&providerNo=<carlos:encode value='${__enc_3}' context="javaScriptAttribute"/>&searchProviderNo=<carlos:encode value='${__enc_4}' context="javaScriptAttribute"/>&status=<carlos:encode value='${__enc_5}' context="javaScriptAttribute"/>&demoName=<carlos:encode value='${__enc_6}' context="javaScriptAttribute"/>', null)"/>
-                </td>
-            </tr>
-
-            <%
-                }
-
-            %></table>
-    </div>
-    <%
+        if (versionHistory.incomplete()) {
+    %><div role="alert"><fmt:message key="hrm.version.unavailable"/></div><%
+        }
+        if (!versionHistory.versions().isEmpty()) {
+    %><div id="duplicatesMessage"><table><thead><tr><th>ID</th><th><fmt:message key="hrm.version.history"/></th></tr></thead><tbody><%
+            for (io.github.carlos_emr.carlos.hospitalReportManager.HrmVersionService.Version version : versionHistory.versions()) {
+    %><c:url value="/hospitalReportManager/Display" var="historyUrl">
+        <c:param name="id" value="<%=String.valueOf(version.id())%>"/>
+        <c:param name="segmentId" value="<%=String.valueOf(version.id())%>"/>
+        <c:param name="providerNo" value="${param.providerNo}"/>
+        <c:param name="searchProviderNo" value="${param.searchProviderNo}"/>
+        <c:param name="status" value="${param.status}"/>
+        <c:param name="demoName" value="${param.demoName}"/>
+    </c:url><%-- Keep the existing report-window opener used by HRM refresh paths. --%>
+    <tr><td><a href="<carlos:encode value='${historyUrl}' context='htmlAttribute'/>" onclick="window.open(this.href, null); return false;"><%=version.id()%></a></td>
+    <td><carlos:encode value='<%=version.label()%>' context="html"/></td></tr><%
+            }
+    %></tbody></table></div><%
         }
     %>
-
 
 </div>
 </body>

@@ -49,6 +49,39 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting> implements PatientLabRoutingDao {
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column> readCdsExportReceiptColumns() {
+        return CdsExportNativeMetadataReadSupport.read(entityManager, CdsExportNativeMetadataReadSupport.Table.LABORATORY_ROUTING);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportSourceSchema() {
+        return CdsExportPatientTableReadSupport.schema(entityManager, CdsExportPatientTableReadSupport.Plan.LABORATORY_ROUTING);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public long countCdsExportRows(int patient) {
+        CdsExportPatientTableReadSupport.requireLocalLaboratoryAssociations(entityManager, patient);
+        return CdsExportPatientTableReadSupport.count(entityManager, CdsExportPatientTableReadSupport.Plan.LABORATORY_ROUTING, patient);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> findCdsExportRowsAfter(int patient, Long afterId, int limit) {
+        CdsExportPatientTableReadSupport.requireLocalLaboratoryAssociations(entityManager, patient);
+        return CdsExportPatientTableReadSupport.page(entityManager, CdsExportPatientTableReadSupport.Plan.LABORATORY_ROUTING, patient, afterId, limit);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public byte[] readCdsExportValueChunk(int patient, long rowId, String column, long offset, int length) {
+        CdsExportPatientTableReadSupport.requireLocalLaboratoryAssociations(entityManager, patient);
+        return CdsExportPatientTableReadSupport.chunk(entityManager, CdsExportPatientTableReadSupport.Plan.LABORATORY_ROUTING, patient, rowId, column, offset, length);
+    }
+
 
 
     public PatientLabRoutingDaoImpl() {
@@ -291,16 +324,17 @@ public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting>
     @Override
     public List<PatientLabRouting> findLabNosByDemographic(Integer demographicNo, String[] labTypes) {
 
-        StringBuilder sb = new StringBuilder();
-        for (String t : labTypes) {
-            sb.append("'" + t + "'");
+        if (demographicNo == null || demographicNo <= 0) {
+            throw new IllegalArgumentException("A positive demographic number is required");
         }
-
-        String query = "select x from " + this.modelClass.getName() + " x where x.labNo=?1 and x.labType in (" + sb.toString()
-                + ")";
-        Query q = entityManager.createQuery(query);
-
-        q.setParameter(1, demographicNo);
+        if (labTypes == null || labTypes.length == 0) return java.util.Collections.emptyList();
+        for (String type : labTypes) {
+            if (type == null || type.isBlank()) throw new IllegalArgumentException("A lab type is required");
+        }
+        Query q = entityManager.createQuery("SELECT x FROM PatientLabRouting x"
+                + " WHERE x.demographicNo = :patient AND x.labType IN :types");
+        q.setParameter("patient", demographicNo);
+        q.setParameter("types", java.util.Arrays.asList(labTypes));
 
         return q.getResultList();
     }

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/managers/EmailManager.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "74e0bf236dbbcb6738b33b851f49ddd7ef8d4b50"
+  },
+  "evidenceSha256": "610bf02a26932b42a643c7922a3c02b80ed73f62d1282bb6e654bd99ddcedf89"
+}

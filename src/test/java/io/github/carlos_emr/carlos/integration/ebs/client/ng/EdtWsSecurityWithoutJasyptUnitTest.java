@@ -32,8 +32,10 @@ import jakarta.jws.WebMethod;
 import jakarta.jws.WebService;
 import jakarta.xml.soap.SOAPMessage;
 import jakarta.xml.ws.BindingProvider;
+import jakarta.xml.ws.WebServiceException;
 import org.apache.cxf.frontend.ClientProxy;
 import org.apache.cxf.binding.soap.Soap11;
+import org.apache.cxf.binding.soap.SoapFault;
 import org.apache.cxf.binding.soap.SoapMessage;
 import org.apache.cxf.binding.soap.interceptor.AbstractSoapInterceptor;
 import org.apache.cxf.interceptor.Fault;
@@ -114,7 +116,7 @@ class EdtWsSecurityWithoutJasyptUnitTest {
             Merlin.OLD_PREFIX + ",JKS", Merlin.PREFIX + ",JKS"})
     void shouldSignAndDecrypt_withProductionCryptoConfiguration(String prefix, String storeType) throws Exception {
         EdtClientBuilder builder = builder(prefix, PASSWORD, storeType);
-        var outbound = new WSS4JOutInterceptor(builder.newWSSOutInterceptorConfiguration());
+        var outbound = builder.newWSSOutInterceptor();
         Crypto signing = outbound.loadSignatureCrypto(request(builder));
         var inbound = new CryptoLoadingInInterceptor(builder.newWSSInInterceptorConfiguration());
         Crypto decrypting = inbound.loadDecryptionCrypto(request(builder));
@@ -196,39 +198,65 @@ class EdtWsSecurityWithoutJasyptUnitTest {
         }
     }
 
+    @ParameterizedTest
+    @CsvSource({Merlin.PREFIX + "," + Merlin.KEYSTORE_PASSWORD,
+            Merlin.OLD_PREFIX + "," + Merlin.KEYSTORE_PASSWORD,
+            Merlin.PREFIX + "," + Merlin.TRUSTSTORE_PASSWORD,
+            Merlin.OLD_PREFIX + "," + Merlin.TRUSTSTORE_PASSWORD})
+    void shouldExplainEncryptedPassword_onFirstOutboundProxyCall(String prefix, String passwordProperty)
+            throws Exception {
+        String ciphertext = "synthetic-secret-ciphertext";
+        EdtClientBuilder builder = proxyBuilder(prefix);
+        Path propertiesFile = signaturePropertiesPath(builder);
+        builder.setClientKeystoreFilename(propertiesFile.toUri().toString());
+        SyntheticService proxy = builder.build(SyntheticService.class);
+        try {
+            // The deployed client reads the updated properties at the first signing operation.
+            updateCryptoProperty(propertiesFile, prefix + passwordProperty, "ENC(" + ciphertext + ")");
+            Throwable failure = catchThrowable(() -> proxy.echo("synthetic request"));
+            assertThat(failure).isInstanceOf(WebServiceException.class)
+                    .hasMessageContaining("ENC(...) WS-Security Crypto passwords are not supported")
+                    .hasMessageContaining("docs/migration/ebs-without-jasypt.md");
+            assertThat(org.apache.commons.lang3.exception.ExceptionUtils.getStackTrace(failure))
+                    .doesNotContain(ciphertext);
+        } finally {
+            ClientProxy.getClient(proxy).destroy();
+        }
+    }
+
     @Test
     void shouldDeferSignatureProperties_untilFirstUse() throws Exception {
         EdtClientBuilder builder = builder(Merlin.PREFIX, PASSWORD);
-        Path existingFile = Path.of((String) builder.newWSSOutInterceptorConfiguration()
-                .get(WSHandlerConstants.SIG_PROP_FILE));
-        Path provisionedLater = directory.resolve("provisioned-later.properties");
+        Path existingFile = signaturePropertiesPath(builder);
+        // A bare path with a space exercises the WSS4J lookup fallback when CXF cannot parse a URI.
+        Path provisionedLater = directory.resolve("provisioned later.properties");
         builder.setClientKeystoreFilename(provisionedLater.toString());
 
         // Building the client must not require the signature file to exist yet.
-        var properties = builder.newWSSOutInterceptorConfiguration();
+        var outbound = builder.newWSSOutInterceptor();
         Files.copy(existingFile, provisionedLater);
 
-        Crypto crypto = new WSS4JOutInterceptor(properties).loadSignatureCrypto(request(builder));
+        Crypto crypto = outbound.loadSignatureCrypto(request(builder));
         assertThat(crypto.getPrivateKey(ALIAS, PASSWORD)).isNotNull();
     }
 
     @Test
     void shouldReadSignatureProperties_atFirstUseRatherThanClientCreation() throws Exception {
         EdtClientBuilder builder = builder(Merlin.PREFIX, "incorrect-initial-password");
-        var properties = builder.newWSSOutInterceptorConfiguration();
-        Path configFile = Path.of((String) properties
-                .get(WSHandlerConstants.SIG_PROP_FILE));
-        Properties updated = new Properties();
-        try (var in = Files.newInputStream(configFile)) {
-            updated.load(in);
-        }
-        updated.setProperty(Merlin.PREFIX + Merlin.KEYSTORE_PASSWORD, PASSWORD);
-        try (var out = Files.newOutputStream(configFile)) {
-            updated.store(out, "Synthetic fixture updated before first use");
-        }
+        var outbound = builder.newWSSOutInterceptor();
+        updateCryptoProperty(signaturePropertiesPath(builder), Merlin.PREFIX + Merlin.KEYSTORE_PASSWORD, PASSWORD);
 
-        Crypto crypto = new WSS4JOutInterceptor(properties).loadSignatureCrypto(request(builder));
+        Crypto crypto = outbound.loadSignatureCrypto(request(builder));
         assertThat(crypto.getPrivateKey(ALIAS, PASSWORD)).isNotNull();
+    }
+
+    @Test
+    void shouldKeepKeystoreFailure_whenPlaintextPasswordIsWrong() throws Exception {
+        EdtClientBuilder builder = builder(Merlin.PREFIX, "incorrect-synthetic-password");
+        Throwable failure = catchThrowable(() -> builder.newWSSOutInterceptor().loadSignatureCrypto(request(builder)));
+        assertThat(failure).isInstanceOf(WSSecurityException.class)
+                .hasStackTraceContaining("java.io.IOException");
+        assertThat(failure.getMessage()).doesNotContain("ENC(...)");
     }
 
     @ParameterizedTest
@@ -241,20 +269,16 @@ class EdtWsSecurityWithoutJasyptUnitTest {
                 new CryptoLoadingInInterceptor(builder.newWSSInInterceptorConfiguration())
                         .loadDecryptionCrypto(request(builder));
             } else {
-                new WSS4JOutInterceptor(builder.newWSSOutInterceptorConfiguration())
-                        .loadSignatureCrypto(request(builder));
+                builder.newWSSOutInterceptor().loadSignatureCrypto(request(builder));
             }
         });
-        assertThat(failure).isInstanceOf(WSSecurityException.class);
+        assertThat(failure).isInstanceOf(inbound ? WSSecurityException.class : SoapFault.class);
         assertThat(org.apache.commons.lang3.exception.ExceptionUtils.getStackTrace(failure))
                 .doesNotContain(ciphertext);
-        // Preserve CXF's existing outbound file-loading fallback, which wraps load errors.
-        if (inbound) {
-            assertThat(failure).hasRootCauseInstanceOf(UnsupportedOperationException.class)
-                    .hasStackTraceContaining("deployment-managed Crypto properties")
-                    .hasStackTraceContaining("ebs-without-jasypt.md")
-                    .hasStackTraceContaining("ENC(...)");
-        }
+        assertThat(failure).hasRootCauseInstanceOf(UnsupportedOperationException.class)
+                .hasStackTraceContaining("deployment-managed Crypto properties")
+                .hasStackTraceContaining("ebs-without-jasypt.md")
+                .hasStackTraceContaining("ENC(...)");
     }
 
     private static EdtClientBuilder builder(String prefix, String storePassword) throws Exception {
@@ -262,11 +286,30 @@ class EdtWsSecurityWithoutJasyptUnitTest {
     }
 
     private static EdtClientBuilder proxyBuilder() throws Exception {
-        EdtClientBuilder builder = builder(Merlin.PREFIX, PASSWORD);
+        return proxyBuilder(Merlin.PREFIX);
+    }
+
+    private static EdtClientBuilder proxyBuilder(String prefix) throws Exception {
+        EdtClientBuilder builder = builder(prefix, PASSWORD);
         builder.getConfig().setServiceUrl("http://localhost:1/synthetic-ebs");
         builder.getConfig().setConformanceKey("synthetic-conformance");
         builder.getConfig().setServiceId("synthetic-service");
         return builder;
+    }
+
+    private static Path signaturePropertiesPath(EdtClientBuilder builder) {
+        return Path.of((String) builder.newWSSOutInterceptorConfiguration().get(WSHandlerConstants.SIG_PROP_FILE));
+    }
+
+    private static void updateCryptoProperty(Path file, String key, String value) throws IOException {
+        Properties properties = new Properties();
+        try (var in = Files.newInputStream(file)) {
+            properties.load(in);
+        }
+        properties.setProperty(key, value);
+        try (var out = Files.newOutputStream(file)) {
+            properties.store(out, "Synthetic fixture updated before first use");
+        }
     }
 
     private static EdtClientBuilder builder(String prefix, String storePassword, String storeType) throws Exception {

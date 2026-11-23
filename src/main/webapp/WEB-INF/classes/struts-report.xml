@@ -140,7 +140,9 @@
             <result name="deleted">/WEB-INF/jsp/oscarReport/reportByTemplate/homePage.jsp</result>
         </action>
         <action name="oscarReport/reportByTemplate/generateOutFilesAction" class="io.github.carlos_emr.carlos.report.reportByTemplate.actions.GenerateOutFiles2Action">
-            <result name="success">/WEB-INF/jsp/oscarReport/reportByTemplate/resultReport.jsp</result>
+            <!-- Downloads are written directly (NONE). A result token this session no longer holds, or a
+                 pre-upgrade page that posts its CSV, gets the 410 "run the report again" page. -->
+            <result name="unavailable">/WEB-INF/jsp/oscarReport/reportByTemplate/resultUnavailable.jsp</result>
         </action>
         <action name="oscarReport/reportByTemplate/uploadTemplates" class="io.github.carlos_emr.carlos.report.reportByTemplate.actions.UploadTemplates2Action">
             <!-- "input": where the workflow interceptor lands when the multipart layer
@@ -157,9 +159,11 @@
         </action>
         <action name="oscarReport/reportByTemplate/actions/addGroup" class="io.github.carlos_emr.carlos.report.reportByTemplate.actions.RBTAddGroup2Action">
             <result name="success">/oscarReport/reportByTemplate/rbtGroup</result>
+            <result name="input">/oscarReport/reportByTemplate/rbtGroup</result>
         </action>
         <action name="oscarReport/reportByTemplate/actions/rbtAddToGroup" class="io.github.carlos_emr.carlos.report.reportByTemplate.actions.RBTAddToGroup2Action">
             <result name="success">/oscarReport/reportByTemplate/actions/tempInGroup</result>
+            <result name="input">/oscarReport/reportByTemplate/rbtGroup</result>
         </action>
         <action name="oscarReport/reportByTemplate/actions/remFromGroup" class="io.github.carlos_emr.carlos.report.reportByTemplate.actions.RBTRemoveFromGroup2Action">
             <result name="success">/oscarReport/reportByTemplate/actions/tempInGroup</result>
@@ -301,7 +305,7 @@
         <action name="report/ViewReportResult" class="io.github.carlos_emr.carlos.report.gate.ViewReport2Action">
             <result name="success">/WEB-INF/jsp/report/reportResult.jsp</result>
         </action>
-        <action name="report/ViewReportdaysheet" class="io.github.carlos_emr.carlos.report.gate.ViewReport2Action">
+        <action name="report/ViewReportdaysheet" class="io.github.carlos_emr.carlos.report.gate.ViewReportDaySheet2Action">
             <result name="success">/WEB-INF/jsp/report/reportdaysheet.jsp</result>
         </action>
         <action name="report/ViewReportecharthistory" class="io.github.carlos_emr.carlos.report.gate.ViewReportEChartHistory2Action">
