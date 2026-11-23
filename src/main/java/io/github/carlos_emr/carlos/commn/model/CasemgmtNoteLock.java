@@ -151,20 +151,26 @@ public class CasemgmtNoteLock extends AbstractModel<Long> implements Serializabl
     /**
      * @param lockedBySameUser the lockedBySameUser to set
      */
+    public void setLockedBySameUser(boolean lockedBySameUser) {
+        this.lockedBySameUser = lockedBySameUser;
+    }
+
     /**
      * Whether the call that returned this lock persisted its row itself, as opposed to finding one
-     * that stood before it. The classic editor's Cancel gives back only a lock its own request created.
+     * that stood before it (for example the same user's other window already holds it). The classic
+     * editor's Cancel gives back only a lock its own request created.
+     *
+     * @return true only on the object returned by the call that persisted the row; never stored
      */
     public boolean isCreatedByThisRequest() {
         return createdByThisRequest;
     }
 
+    /**
+     * @param createdByThisRequest whether the call that returned this lock persisted its row
+     */
     public void setCreatedByThisRequest(boolean createdByThisRequest) {
         this.createdByThisRequest = createdByThisRequest;
-    }
-
-    public void setLockedBySameUser(boolean lockedBySameUser) {
-        this.lockedBySameUser = lockedBySameUser;
     }
 
     /**

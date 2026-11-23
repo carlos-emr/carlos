@@ -1236,6 +1236,14 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         // form that page displays waits in the reader slot until Edit succeeds (#6132).
         // Looked up by this note: a second window reading another note of the chart does not hide it.
         CaseManagementEntryFormBean reader = readerFormFor(frmName, noteId);
+        // The classic page says so when it is the one asking (the chart's own editor does not). Its
+        // reader form can be gone (more than MAX_READER_FORMS notes were opened since, or the session
+        // was replaced): then the stale and editorOpen checks cannot be made, so Edit is refused and
+        // the clinician reloads the note, rather than being granted a lock the checks never saw.
+        if ("true".equals(request.getParameter("classicEdit")) && reader == null) {
+            writeLockAnswer("reload", false, false);
+            return null;
+        }
 
         if (reader != null) {
             // Edit grants nothing over a revision that is no longer the latest: the page shows an

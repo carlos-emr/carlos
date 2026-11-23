@@ -368,7 +368,10 @@
             var chartContext = '<%= SafeEncode.forJavaScript(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>';
             return (chartContext ? "chartContext=" + encodeURIComponent(chartContext) + "&" : "")
                 + "method=" + method + "&demographicNo=" + encodeURIComponent(demographicNo)
-                + "&noteId=" + encodeURIComponent(noteId);
+                + "&noteId=" + encodeURIComponent(noteId)
+                // Says this page is asking, so the server refuses (reload) when the form this page
+                // displayed is no longer kept, instead of skipping its stale-note checks.
+                + (method === 'isNoteEdited' ? "&classicEdit=true" : "");
         }
 
         // Gives back a lock this page's Edit request took, then closes the window. Only when the answer

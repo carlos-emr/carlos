@@ -577,6 +577,8 @@ test('Edit takes the lock and starts editing only once this session owns it', ()
   h.context.takeNoteLock();
   assert.equal(h.requests.length, 1);
   assert.equal(new URLSearchParams(h.requests[0].body).get('method'), 'isNoteEdited');
+  // The page says it is the one asking, so the server can refuse a reload when its form is gone.
+  assert.equal(new URLSearchParams(h.requests[0].body).get('classicEdit'), 'true');
   assert.equal(h.note.readOnly, true, 'nothing is editable while the request is in flight');
   h.requests[0].answer(200, { isNoteEdited: 'unlocked', ownedBySession: true, lockTaken: true });
   assert.equal(h.note.readOnly, false);
@@ -586,7 +588,7 @@ test('Edit takes the lock and starts editing only once this session owns it', ()
 });
 
 test('Edit refused as stale or while another note is open keeps the page read-only and says so', () => {
-  for (const state of ['stale', 'editorOpen', 'other']) {
+  for (const state of ['stale', 'editorOpen', 'other', 'reload']) {
     const h = classicEditor();
     h.context.takeNoteLock();
     h.requests[0].answer(200, { isNoteEdited: state, ownedBySession: false, lockTaken: false });
@@ -612,6 +614,7 @@ test('Cancel while Edit is in flight waits, releases the lock Edit took, and clo
   assert.equal(release.get('method'), 'releaseNoteLock');
   assert.equal(release.get('noteId'), '5009');
   assert.equal(release.get('demographicNo'), '101');
+  assert.equal(release.get('classicEdit'), null, 'only the Edit request carries it');
   assert.equal(h.requests[1].method, 'POST');
   assert.deepEqual(h.closed, [], 'closed only after the release answers');
   h.requests[1].answer(200, '');

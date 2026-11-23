@@ -404,6 +404,8 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
         request.setSession(session);
         request.setParameter("demographicNo", PATIENT);
         request.setParameter("noteId", Long.toString(noteId));
+        // The classic page's Edit button says so; the chart's own editor does not.
+        request.setParameter("classicEdit", "true");
         CaseManagementEntry2Action edit = action(request);
         edit.isNoteEdited();
         return new ObjectMapper().readTree(((MockHttpServletResponse) edit.response).getContentAsString());
@@ -531,6 +533,66 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
 
         assertThat(answer.path("isNoteEdited").asText()).isEqualTo("stale");
         verify(locks, never()).persist(any());
+    }
+
+    @Test
+    @DisplayName("should refuse the classic Edit, asking for a reload, when its reader form was dropped")
+    void shouldRefuseEditAndAskForAReload_whenTheReaderFormWasEvicted() throws Exception {
+        // B is read; then more notes than the chart keeps are opened; B's page then presses Edit.
+        CaseManagementEntryFormBean editing = editorForm(5001L);
+        forms.put("caseManagementEntryForm" + PATIENT, editing);
+        holdLock(5001L, 10L);
+        openSaved("GET", 5009L);
+        for (long id = 6001L; id < 6001L + CaseManagementEntry2Action.MAX_READER_FORMS; id++) {
+            openSaved("GET", id);
+        }
+        assertThat(readerOf(5009L)).isNull();
+
+        var answer = pressEdit(5009L);
+
+        // The stale and editorOpen checks could not be made, so nothing is granted and nothing is locked.
+        assertThat(answer.path("isNoteEdited").asText()).isEqualTo("reload");
+        assertThat(answer.path("ownedBySession").booleanValue()).isFalse();
+        assertThat(answer.path("lockTaken").booleanValue()).isFalse();
+        verify(locks, never()).persist(any());
+        assertThat(form()).isSameAs(editing);
+    }
+
+    @Test
+    @DisplayName("should not refuse a lock request from the chart's own editor that has no reader form")
+    void shouldNotRequireAReaderForm_ofTheChartsOwnEditor() throws Exception {
+        when(security.hasPrivilege(login, "_eChart", "w", PATIENT)).thenReturn(true);
+        when(security.hasPrivilege(login, "_casemgmt.notes", "w", PATIENT)).thenReturn(true);
+        when(manager.getNote("5001")).thenReturn(note(5001L, ORIGINAL_TEXT));
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/carlos/CaseManagementEntry");
+        request.setSession(session);
+        request.setParameter("demographicNo", PATIENT);
+        request.setParameter("noteId", "5001");
+        CaseManagementEntry2Action edit = action(request);
+
+        edit.isNoteEdited();
+
+        var answer = new ObjectMapper().readTree(((MockHttpServletResponse) edit.response).getContentAsString());
+        assertThat(answer.path("ownedBySession").booleanValue()).isTrue();
+        assertThat(answer.path("isNoteEdited").asText()).isNotEqualTo("reload");
+    }
+
+    @Test
+    @DisplayName("should say it took no lock when the same user's other window already holds the row, so Cancel keeps it")
+    void shouldReportLockTakenFalse_whenTheSameUsersOtherWindowHoldsTheRow() throws Exception {
+        putReader(editorForm(5009L));
+        // The other window of this session already holds the persisted row.
+        CasemgmtNoteLock held = lock(5009L, PROVIDER, session.getId());
+        held.setId(11L);
+        when(locks.findByNoteDemo(Integer.valueOf(PATIENT), 5009L)).thenReturn(held);
+
+        var answer = pressEdit(5009L);
+
+        assertThat(answer.path("ownedBySession").booleanValue()).isTrue();
+        // Not this request's lock: the page's Cancel must never give it back.
+        assertThat(answer.path("lockTaken").booleanValue()).isFalse();
+        verify(locks, never()).persist(any());
+        verify(locks, never()).removeForSession(anyString(), any(), anyLong(), anyString());
     }
 
     @Test

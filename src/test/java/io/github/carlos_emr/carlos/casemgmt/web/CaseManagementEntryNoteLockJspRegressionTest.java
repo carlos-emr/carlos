@@ -57,6 +57,7 @@ class CaseManagementEntryNoteLockJspRegressionTest {
                 .doesNotContain("'GET'");
         assertThat(body).contains(
                 "\"&noteId=\" + encodeURIComponent(noteId)",
+                "(method === 'isNoteEdited' ? \"&classicEdit=true\" : \"\")",
                 "\"method=\" + method + \"&demographicNo=\" + encodeURIComponent(demographicNo)",
                 "\"chartContext=\" + encodeURIComponent(chartContext)",
                 "var demographicNo = '${carlos:forJavaScript(param.demographicNo)}';");

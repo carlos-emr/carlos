@@ -150,7 +150,7 @@ const readOnly = page => page.$eval('#caseNote_note', note => note.readOnly);
     }
 
     // 5. A refused Edit keeps the page read-only and says so.
-    for (const state of ['stale', 'editorOpen', 'other']) {
+    for (const state of ['stale', 'editorOpen', 'other', 'reload']) {
       const h = await open(browser);
       const dialogs = [];
       h.page.on('dialog', dialog => { dialogs.push(dialog.message()); dialog.dismiss(); });
