@@ -314,7 +314,217 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
         verify(locks, never()).merge(any());
     }
 
+    /** A form for a saved note, as an editor this session opened would hold it. */
+    private static CaseManagementEntryFormBean editorForm(long noteId) {
+        CaseManagementEntryFormBean form = new CaseManagementEntryFormBean();
+        form.setCaseNote(note(noteId, null));
+        return form;
+    }
+
+    /** This session holds the persisted lock on a note, cached as an open editor's is. */
+    private CasemgmtNoteLock holdLock(long noteId, long lockRowId) {
+        CasemgmtNoteLock held = lock(noteId, PROVIDER, session.getId());
+        held.setId(lockRowId);
+        session.setAttribute(CACHE_KEY, held);
+        when(locks.find(lockRowId)).thenReturn(held);
+        return held;
+    }
+
+    @Test
+    @DisplayName("should keep an open editor's form when another note is opened by GET only to read it")
+    void shouldKeepTheActiveEditorsForm_whenAnotherNoteIsOpenedByGetToRead() throws Exception {
+        CaseManagementEntryFormBean editing = editorForm(5001L);
+        forms.put("caseManagementEntryForm" + PATIENT, editing);
+        holdLock(5001L, 10L);
+
+        MockHttpServletRequest request = openSaved("GET", 5009L);
+
+        // The editor of A is untouched, so A's Save loads A's form; B is shown from its own slot.
+        assertThat(form()).isSameAs(editing);
+        CaseManagementEntryFormBean reader = (CaseManagementEntryFormBean) forms.get("caseManagementEntryForm" + PATIENT + ".reader");
+        assertThat(reader.getCaseNote().getId()).isEqualTo(5009L);
+        assertThat(request.getAttribute(CaseManagementEntry2Action.READER_FORM_ATTRIBUTE)).isSameAs(reader);
+        verify(locks, never()).persist(any());
+    }
+
+    @Test
+    @DisplayName("should show the opened note from the active slot as before when no editor holds a lock")
+    void shouldFillTheActiveSlot_whenNoEditorHoldsItsLock() throws Exception {
+        CaseManagementEntryFormBean idle = editorForm(5001L);
+        forms.put("caseManagementEntryForm" + PATIENT, idle);
+
+        MockHttpServletRequest request = openSaved("GET", 5009L);
+
+        assertThat(form()).isNotSameAs(idle);
+        assertThat(form().getCaseNote().getId()).isEqualTo(5009L);
+        assertThat(request.getAttribute(CaseManagementEntry2Action.READER_FORM_ATTRIBUTE)).isSameAs(form());
+    }
+
+    @Test
+    @DisplayName("should replace the active form when the chart editor opens another note by POST")
+    void shouldReplaceTheActiveForm_whenTheEditorOpensAnotherNoteByPost() throws Exception {
+        forms.put("caseManagementEntryForm" + PATIENT, editorForm(5001L));
+        holdLock(5001L, 10L);
+        when(security.hasPrivilege(login, "_eChart", "w", PATIENT)).thenReturn(true);
+
+        MockHttpServletRequest request = openSaved("POST", 5009L);
+
+        assertThat(form().getCaseNote().getId()).isEqualTo(5009L);
+        assertThat(request.getAttribute(CaseManagementEntry2Action.READER_FORM_ATTRIBUTE)).isNull();
+    }
+
+    /** Runs the classic Edit button's request and gives the JSON it answers. */
+    private com.fasterxml.jackson.databind.JsonNode pressEdit(long noteId) throws Exception {
+        when(security.hasPrivilege(login, "_eChart", "w", PATIENT)).thenReturn(true);
+        when(security.hasPrivilege(login, "_casemgmt.notes", "w", PATIENT)).thenReturn(true);
+        when(manager.getNote(Long.toString(noteId))).thenReturn(note(noteId, ORIGINAL_TEXT));
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/carlos/CaseManagementEntry");
+        request.setSession(session);
+        request.setParameter("demographicNo", PATIENT);
+        request.setParameter("noteId", Long.toString(noteId));
+        CaseManagementEntry2Action edit = action(request);
+        edit.isNoteEdited();
+        return new ObjectMapper().readTree(((MockHttpServletResponse) edit.response).getContentAsString());
+    }
+
+    @Test
+    @DisplayName("should bind the displayed note and its form to the editor when Edit succeeds")
+    void shouldBindTheReadersFormToTheEditor_whenEditSucceeds() throws Exception {
+        CaseManagementEntryFormBean reader = editorForm(5009L);
+        forms.put("caseManagementEntryForm" + PATIENT + ".reader", reader);
+
+        var answer = pressEdit(5009L);
+
+        assertThat(answer.path("ownedBySession").booleanValue()).isTrue();
+        // This request created the lock, so a Cancel that races it may give it back.
+        assertThat(answer.path("lockTaken").booleanValue()).isTrue();
+        assertThat(form()).isSameAs(reader);
+    }
+
+    @Test
+    @DisplayName("should refuse Edit and keep the active form when another note of this chart is open for editing")
+    void shouldRefuseEdit_whenAnotherNoteIsOpenForEditing() throws Exception {
+        CaseManagementEntryFormBean editing = editorForm(5001L);
+        forms.put("caseManagementEntryForm" + PATIENT, editing);
+        holdLock(5001L, 10L);
+        forms.put("caseManagementEntryForm" + PATIENT + ".reader", editorForm(5009L));
+
+        var answer = pressEdit(5009L);
+
+        assertThat(answer.path("isNoteEdited").asText()).isEqualTo("editorOpen");
+        assertThat(answer.path("ownedBySession").booleanValue()).isFalse();
+        assertThat(form()).isSameAs(editing);
+        verify(locks, never()).persist(any());
+    }
+
+    @Test
+    @DisplayName("should not confirm ownership of a displayed revision that is no longer the latest")
+    void shouldRefuseEdit_whenTheDisplayedRevisionIsStale() throws Exception {
+        CaseManagementNote shown = note(5009L, ORIGINAL_TEXT);
+        shown.setUuid("FAKE-chain");
+        CaseManagementNote newer = note(5010L, REVISED_TEXT);
+        newer.setUuid("FAKE-chain");
+        when(manager.getMostRecentNote("FAKE-chain")).thenReturn(newer);
+        forms.put("caseManagementEntryForm" + PATIENT + ".reader", editorForm(5009L));
+        when(manager.getNote("5009")).thenReturn(shown);
+        when(security.hasPrivilege(login, "_eChart", "w", PATIENT)).thenReturn(true);
+        when(security.hasPrivilege(login, "_casemgmt.notes", "w", PATIENT)).thenReturn(true);
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/carlos/CaseManagementEntry");
+        request.setSession(session);
+        request.setParameter("demographicNo", PATIENT);
+        request.setParameter("noteId", "5009");
+        CaseManagementEntry2Action edit = action(request);
+
+        edit.isNoteEdited();
+
+        var answer = new ObjectMapper().readTree(((MockHttpServletResponse) edit.response).getContentAsString());
+        assertThat(answer.path("isNoteEdited").asText()).isEqualTo("stale");
+        assertThat(answer.path("ownedBySession").booleanValue()).isFalse();
+        // Nothing was locked and the stale form did not become the editor.
+        verify(locks, never()).persist(any());
+        assertThat(form()).isNull();
+    }
+
+    @Test
+    @DisplayName("should give back the lock this request took when the note went stale between the check and the lock")
+    void shouldReleaseTheNewLock_whenTheRevisionWentStaleAfterTheFirstCheck() throws Exception {
+        CaseManagementNote shown = note(5009L, ORIGINAL_TEXT);
+        shown.setUuid("FAKE-chain");
+        CaseManagementNote newer = note(5010L, REVISED_TEXT);
+        newer.setUuid("FAKE-chain");
+        // Latest at the first check, replaced by the time the lock is held.
+        when(manager.getMostRecentNote("FAKE-chain")).thenReturn(shown, newer);
+        forms.put("caseManagementEntryForm" + PATIENT + ".reader", editorForm(5009L));
+        when(manager.getNote("5009")).thenReturn(shown);
+        when(security.hasPrivilege(login, "_eChart", "w", PATIENT)).thenReturn(true);
+        when(security.hasPrivilege(login, "_casemgmt.notes", "w", PATIENT)).thenReturn(true);
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/carlos/CaseManagementEntry");
+        request.setSession(session);
+        request.setParameter("demographicNo", PATIENT);
+        request.setParameter("noteId", "5009");
+        CaseManagementEntry2Action edit = action(request);
+
+        edit.isNoteEdited();
+
+        var answer = new ObjectMapper().readTree(((MockHttpServletResponse) edit.response).getContentAsString());
+        assertThat(answer.path("isNoteEdited").asText()).isEqualTo("stale");
+        assertThat(answer.path("ownedBySession").booleanValue()).isFalse();
+        verify(locks).removeForSession(PROVIDER, Integer.valueOf(PATIENT), 5009L, session.getId());
+        assertThat(form()).isNull();
+    }
+
+    @Test
+    @DisplayName("should tell the classic page it still owns the note after a POST, and never after a GET")
+    void shouldMarkTheLockOwned_onlyForAPostThatRendersTheNoteItHolds() throws Exception {
+        forms.put("caseManagementEntryForm" + PATIENT, editorForm(5001L));
+        holdLock(5001L, 10L);
+
+        MockHttpServletRequest post = new MockHttpServletRequest("POST", "/carlos/CaseManagementEntry");
+        post.setSession(session);
+        post.setParameter("demographicNo", PATIENT);
+        ReflectionTestUtils.invokeMethod(action(post), "markNoteLockOwned", PATIENT);
+        assertThat(post.getAttribute(CaseManagementEntry2Action.NOTE_LOCK_OWNED_ATTRIBUTE)).isEqualTo("true");
+
+        MockHttpServletRequest get = new MockHttpServletRequest("GET", "/carlos/CaseManagementEntry");
+        get.setSession(session);
+        get.setParameter("demographicNo", PATIENT);
+        ReflectionTestUtils.invokeMethod(action(get), "markNoteLockOwned", PATIENT);
+        assertThat(get.getAttribute(CaseManagementEntry2Action.NOTE_LOCK_OWNED_ATTRIBUTE)).isNull();
+
+        // A lock another session holds does not count.
+        CasemgmtNoteLock theirs = lock(5001L, PROVIDER, "FAKE-other-session");
+        theirs.setId(10L);
+        when(locks.find(10L)).thenReturn(theirs);
+        MockHttpServletRequest other = new MockHttpServletRequest("POST", "/carlos/CaseManagementEntry");
+        other.setSession(session);
+        other.setParameter("demographicNo", PATIENT);
+        ReflectionTestUtils.invokeMethod(action(other), "markNoteLockOwned", PATIENT);
+        assertThat(other.getAttribute(CaseManagementEntry2Action.NOTE_LOCK_OWNED_ATTRIBUTE)).isNull();
+    }
+
     private void open(String httpMethod, OpenPath path) throws Exception {
+        openRequest(httpMethod, path);
+    }
+
+    /** Opens a saved note other than the one {@link OpenPath#SAVED_NOTE} stands for. */
+    private MockHttpServletRequest openSaved(String httpMethod, long noteId) throws Exception {
+        CaseManagementNote saved = note(noteId, null);
+        when(manager.getNote(Long.toString(noteId))).thenReturn(saved);
+        MockHttpServletRequest request = new MockHttpServletRequest(httpMethod, "/carlos/CaseManagementEntry");
+        request.setContextPath("/carlos");
+        request.setSession(session);
+        request.setParameter("demographicNo", PATIENT);
+        request.setParameter("from", "casemgmt");
+        request.setParameter("noteId", Long.toString(noteId));
+        try (var props = mockStatic(CarlosProperties.class);
+             var _ = mockConstruction(CaseManagementView2Action.class)) {
+            props.when(CarlosProperties::getInstance).thenReturn(properties);
+            assertThat(action(request).edit()).isEqualTo("view");
+        }
+        return request;
+    }
+
+    private MockHttpServletRequest openRequest(String httpMethod, OpenPath path) throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest(httpMethod, "/carlos/CaseManagementEntry");
         request.setContextPath("/carlos");
         request.setSession(session);
@@ -344,6 +554,7 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
             props.when(CarlosProperties::getInstance).thenReturn(properties);
             assertThat(action(request).edit()).isEqualTo("view");
         }
+        return request;
     }
 
     private CaseManagementEntry2Action action(MockHttpServletRequest request) {
@@ -353,6 +564,7 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
         action.caseManagementMgr = manager;
         ReflectionTestUtils.setField(action, "securityInfoManager", security);
         action.withSession(forms);
+        ReflectionTestUtils.setField(action, "casemgmtNoteLockDao", locks);
         doReturn("FAKE Patient").when(action).getDemoName(anyString());
         doReturn("40").when(action).getDemoAge(anyString());
         doReturn("1986-01-01").when(action).getDemoDOB(anyString());

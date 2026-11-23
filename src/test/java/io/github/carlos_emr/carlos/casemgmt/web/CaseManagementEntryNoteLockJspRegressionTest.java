@@ -49,14 +49,17 @@ class CaseManagementEntryNoteLockJspRegressionTest {
     @DisplayName("should post method=isNoteEdited for this chart's patient and note to the editor action")
     void shouldPostTheLockRequest_toTheEditorAction() {
         String lock = function("takeNoteLock");
+        String body = function("legacyNoteLockBody");
 
         assertThat(lock).contains(
                 "lockRequest.open('POST', '<%=request.getContextPath() %>/CaseManagementEntry', true);",
-                "\"method=isNoteEdited&demographicNo=\" + encodeURIComponent(demographicNo)",
-                "\"&noteId=\" + encodeURIComponent(noteId)",
-                "\"chartContext=\" + encodeURIComponent(chartContext)",
-                "var demographicNo = '${carlos:forJavaScript(param.demographicNo)}';")
+                "lockRequest.send(legacyNoteLockBody('isNoteEdited'));")
                 .doesNotContain("'GET'");
+        assertThat(body).contains(
+                "\"&noteId=\" + encodeURIComponent(noteId)",
+                "\"method=\" + method + \"&demographicNo=\" + encodeURIComponent(demographicNo)",
+                "\"chartContext=\" + encodeURIComponent(chartContext)",
+                "var demographicNo = '${carlos:forJavaScript(param.demographicNo)}';");
     }
 
     @Test
@@ -67,9 +70,50 @@ class CaseManagementEntryNoteLockJspRegressionTest {
         assertThat(page).contains("<fmt:message var=\"noteLockLostLabel\" key=\"encounter.noteLockLostError.msg\"/>");
         assertThat(lock).contains(
                 "alert('${carlos:forJavaScriptBlock(noteLockLostLabel)}');",
-                "owned = JSON.parse(lockRequest.responseText).ownedBySession === true;",
-                "if (lockRequest.status === 200) {", "if (!owned)", "note.readOnly = false;", "setTimer();");
-        assertThat(lock.indexOf("if (!owned)")).isLessThan(lock.indexOf("note.readOnly = false;"));
+                "owned = answer.ownedBySession === true;",
+                "if (lockRequest.status === 200) {", "if (!owned)", "beginLegacyEditing(true);");
+        assertThat(lock.indexOf("if (!owned)")).isLessThan(lock.indexOf("beginLegacyEditing(true);"));
+        // Editing starts only through this one function, which enables the fields and the autosave.
+        assertThat(function("beginLegacyEditing")).contains("legacyNoteLockOwned = true;",
+                "note.readOnly = false;", "setTimer();");
+    }
+
+    @Test
+    @DisplayName("should give back a lock the Edit request took when Cancel was chosen while it was in flight")
+    void shouldCoordinateCancelWithAPendingEdit_soNoLockOutlivesTheClosedReader() {
+        String lock = function("takeNoteLock");
+        String cancel = function("cancelLegacyNote");
+        String release = function("releaseLegacyNoteLock");
+
+        // Cancel waits for the answer instead of closing at once, and does not touch the form.
+        assertThat(cancel).contains("if (legacyLockRequestPending) {", "legacyCancelRequested = true;");
+        assertThat(cancel.indexOf("legacyLockRequestPending"))
+                .isLessThan(cancel.indexOf("window.close();"));
+        // The answer is read first; a cancelled reader never starts editing, and a lock this request
+        // took (and no other lock) is released before the window closes.
+        assertThat(lock).contains("legacyLockRequestPending = true;", "legacyLockRequestPending = false;",
+                "taken = answer.lockTaken === true;", "releaseLegacyNoteLock(owned && taken);");
+        assertThat(lock.indexOf("if (legacyCancelRequested)")).isLessThan(lock.indexOf("beginLegacyEditing(true);"));
+        assertThat(release).contains("legacyNoteLockBody('releaseNoteLock')", "closeWindow()")
+                .contains("if (!release || !window.XMLHttpRequest)");
+    }
+
+    @Test
+    @DisplayName("should keep a clinician who just saved editing, from the server-verified lock only")
+    void shouldContinueEditing_afterASaveThatForwardsBackToThePage() {
+        // The action sets the attribute for a POST whose persisted lock owns the note the page shows;
+        // a fresh read-only GET never does. Only that flag starts editing on load.
+        assertThat(page).contains("var noteLockOwnedAtRender = <%= \"true\".equals(request.getAttribute(",
+                "CaseManagementEntry2Action.NOTE_LOCK_OWNED_ATTRIBUTE)) %>;");
+        assertThat(function("init")).contains("if (noteLockOwnedAtRender) beginLegacyEditing(false);");
+        assertThat(function("init")).doesNotContain("takeNoteLock()", "legacyNoteLockOwned = true");
+    }
+
+    @Test
+    @DisplayName("should show the form a read-only GET opened, not the active editor's, when the action sets one")
+    void shouldShowTheReadersForm_whenTheActionKeepsItApart() {
+        assertThat(page).contains("CaseManagementEntry2Action.READER_FORM_ATTRIBUTE);",
+                "if (form == null) form=(CaseManagementEntryFormBean) session.getAttribute(sessionFrmName);");
     }
 
     @Test
@@ -80,7 +124,7 @@ class CaseManagementEntryNoteLockJspRegressionTest {
 
     /** The body of a top-level page function, up to the next function at the same indent. */
     private static String function(String name) {
-        Matcher start = Pattern.compile("\\n        function " + Pattern.quote(name) + "\\(\\) \\{").matcher(page);
+        Matcher start = Pattern.compile("\\n        function " + Pattern.quote(name) + "\\([^)]*\\) \\{").matcher(page);
         assertThat(start.find()).as("function %s() in %s", name, EDITOR).isTrue();
         int end = page.indexOf("\n        }\n", start.end());
         assertThat(end).as("end of function %s()", name).isPositive();

@@ -2106,6 +2106,47 @@ public class CaseManagementManagerImpl implements CaseManagementManager {
             copy.setOtherId(old.getOtherId());
             saveNoteLink(copy);
         }
+        repairChainLinks(revision);
+    }
+
+    /**
+     * Gives the latest revision of a document or prescription note the association its chain's first
+     * revision holds, when the copy above did not carry it (#6132). An older chain whose current row
+     * has no history and whose prescription or document link sits only on its first revision copies
+     * no link at all from the previous row. Opening such a note to read no longer repairs it (a read
+     * writes nothing, and the classic Edit button does not reach the repair done when the chart's
+     * editor opens by POST), so the repair belongs to the revision save itself, in its transaction.
+     * It adds a link only when the revision holds none of that kind, so a chain that was already
+     * repaired is left alone.
+     */
+    private void repairChainLinks(CaseManagementNote revision) {
+        String uuid = revision.getUuid();
+        if (revision.getId() == null || uuid == null || uuid.isBlank()) return;
+        CaseManagementNote first = null;
+        for (CaseManagementNote row : caseManagementNoteDAO.getNotesByUUID(uuid)) {
+            if (row.getId() != null && (first == null || row.getId() < first.getId())) first = row;
+        }
+        if (first == null || first.getId().equals(revision.getId())) return;
+        List<CaseManagementNoteLink> held = caseManagementNoteLinkDAO.getLinkByNoteForUpdate(revision.getId());
+        if (first.isDocumentNote()) {
+            if (held.stream().anyMatch(link -> Objects.equals(CaseManagementNoteLink.DOCUMENT, link.getTableName()))) return;
+            Long tableId = EDocUtil.getTableIdFromNoteId(first.getId());
+            if (tableId == null || tableId == 0L) return;
+            CaseManagementNoteLink link = new CaseManagementNoteLink();
+            link.setNoteId(revision.getId());
+            link.setTableName(CaseManagementNoteLink.DOCUMENT);
+            link.setTableId(tableId);
+            saveNoteLink(link);
+        } else if (first.isRxAnnotation()) {
+            if (held.stream().anyMatch(link -> Objects.equals(CaseManagementNoteLink.DRUGS, link.getTableName()))) return;
+            CaseManagementNoteLink latest = getLatestLinkByNote(first.getId());
+            if (latest == null) return;
+            CaseManagementNoteLink link = new CaseManagementNoteLink();
+            link.setNoteId(revision.getId());
+            link.setTableName(CaseManagementNoteLink.DRUGS);
+            link.setTableId(latest.getTableId());
+            saveNoteLink(link);
+        }
     }
 
     @Override

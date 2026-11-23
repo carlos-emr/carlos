@@ -79,7 +79,11 @@
 
             String demographicNo = request.getParameter("demographicNo");
             String sessionFrmName = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.formKey(request, demographicNo);
-            CaseManagementEntryFormBean form=(CaseManagementEntryFormBean) session.getAttribute(sessionFrmName);
+            // A read-only GET shows its own form, kept apart from the active editor's (#6132); every
+            // other request shows the active editor's form from the session.
+            CaseManagementEntryFormBean form=(CaseManagementEntryFormBean) request.getAttribute(
+                    io.github.carlos_emr.carlos.casemgmt.web.CaseManagementEntry2Action.READER_FORM_ATTRIBUTE);
+            if (form == null) form=(CaseManagementEntryFormBean) session.getAttribute(sessionFrmName);
             request.setAttribute("caseManagementEntryForm", form);
 
         int size = (form.getIssueCheckList() != null) ? form.getIssueCheckList().size() : 0;
@@ -99,6 +103,12 @@
         <%}%>
 
         var issueSize =<%=size%>;
+
+        // True when the action verified that this session's lock owns the note on this page, as after an
+        // ordinary Save, which forwards back here: the clinician keeps editing without Edit (#6132).
+        // A fresh read-only GET never sets it.
+        var noteLockOwnedAtRender = <%= "true".equals(request.getAttribute(
+                io.github.carlos_emr.carlos.casemgmt.web.CaseManagementEntry2Action.NOTE_LOCK_OWNED_ATTRIBUTE)) %>;
 
         function setChangeFlag(change) {
             flag = change;
@@ -283,7 +293,26 @@
 
         function init() {
             if (window.opener && !window.opener.closed) window.opener.location.reload(true);
+            if (noteLockOwnedAtRender) beginLegacyEditing(false);
         }
+
+        // The lock is this session's: the form accepts changes and autosave starts.
+        function beginLegacyEditing(focusNote) {
+            legacyNoteLockOwned = true;
+            var edit = document.getElementById('editLegacyNote');
+            if (edit) edit.hidden = true;
+            document.querySelectorAll('#caseManagementEntryForm [data-note-lock-edit]').forEach(function (field) {
+                field.disabled = false;
+            });
+            var note = document.getElementById('caseNote_note');
+            note.readOnly = false;
+            if (focusNote) note.focus();
+            setTimer();
+        }
+
+        // The Edit request that has been sent and not answered, and whether Cancel was chosen meanwhile.
+        var legacyLockRequestPending = false;
+        var legacyCancelRequested = false;
 
         // The reader can view and copy the note before asking to edit it.
         function takeNoteLock() {
@@ -295,46 +324,81 @@
                 return;
             }
             edit.disabled = true;
+            legacyLockRequestPending = true;
             lockRequest.onreadystatechange = function () {
                 if (lockRequest.readyState !== 4) return;
+                legacyLockRequestPending = false;
                 var owned = false;
+                var taken = false;
                 if (lockRequest.status === 200) {
                     try {
-                        owned = JSON.parse(lockRequest.responseText).ownedBySession === true;
+                        var answer = JSON.parse(lockRequest.responseText);
+                        owned = answer.ownedBySession === true;
+                        taken = answer.lockTaken === true;
                     } catch (e) {
                         owned = false;
                     }
                 }
+                if (legacyCancelRequested) {
+                    // Cancel was chosen while this request was in flight: the lock it took belongs to a
+                    // reader that is closing, so it is given back before the window closes.
+                    releaseLegacyNoteLock(owned && taken);
+                    return;
+                }
                 if (!owned) {
                     edit.disabled = false;
+                    // Also the answer when the displayed revision is no longer the latest ("stale") or
+                    // another note of this chart is open for editing: the page stays read-only and the
+                    // clinician reopens the chart to get the current note.
                     alert('${carlos:forJavaScriptBlock(noteLockLostLabel)}');
                     return;
                 }
-                legacyNoteLockOwned = true;
-                edit.hidden = true;
-                document.querySelectorAll('#caseManagementEntryForm [data-note-lock-edit]').forEach(function (field) {
-                    field.disabled = false;
-                });
-                var note = document.getElementById('caseNote_note');
-                note.readOnly = false;
-                note.focus();
-                setTimer();
+                beginLegacyEditing(true);
             };
             lockRequest.open('POST', '<%=request.getContextPath() %>/CaseManagementEntry', true);
             lockRequest.timeout = 45000;
             lockRequest.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            lockRequest.send(legacyNoteLockBody('isNoteEdited'));
+        }
+
+        // The body of a lock request for this page's patient and note.
+        function legacyNoteLockBody(method) {
             var demographicNo = '${carlos:forJavaScript(param.demographicNo)}';
             var noteId = '<carlos:encode value='<%= String.valueOf(form.getCaseNote().getId() == null || form.getCaseNote().getId() <= 0 ? 0 : form.getCaseNote().getId()) %>' context="javaScriptBlock"/>';<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
             var chartContext = '<%= SafeEncode.forJavaScript(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>';
-            lockRequest.send((chartContext ? "chartContext=" + encodeURIComponent(chartContext) + "&" : "")
-                + "method=isNoteEdited&demographicNo=" + encodeURIComponent(demographicNo)
-                + "&noteId=" + encodeURIComponent(noteId));
+            return (chartContext ? "chartContext=" + encodeURIComponent(chartContext) + "&" : "")
+                + "method=" + method + "&demographicNo=" + encodeURIComponent(demographicNo)
+                + "&noteId=" + encodeURIComponent(noteId);
+        }
+
+        // Gives back a lock this page's Edit request took, then closes the window. Only when the answer
+        // said this request created the lock: one this session already held (the chart's own editor
+        // open on the same note) is not this page's to release.
+        function releaseLegacyNoteLock(release) {
+            var closeWindow = function () { window.close(); };
+            if (!release || !window.XMLHttpRequest) {
+                closeWindow();
+                return;
+            }
+            var releaseRequest = new XMLHttpRequest();
+            releaseRequest.onreadystatechange = function () {
+                if (releaseRequest.readyState === 4) closeWindow();
+            };
+            releaseRequest.open('POST', '<%=request.getContextPath() %>/CaseManagementEntry', true);
+            releaseRequest.timeout = 15000;
+            releaseRequest.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            releaseRequest.send(legacyNoteLockBody('releaseNoteLock'));
         }
 
         function cancelLegacyNote(form) {
             if (legacyNoteLockOwned) {
                 form.elements['method'].value = 'cancel';
                 return true;
+            }
+            if (legacyLockRequestPending) {
+                // Wait for the answer: closing now could leave the lock it takes behind a closed reader.
+                legacyCancelRequested = true;
+                return false;
             }
             window.close();
             return false;

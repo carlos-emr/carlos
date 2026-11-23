@@ -194,6 +194,17 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             "issueNoteSave", "issueNoteSaveJson", "ajaxsave", "save", "saveAndExit", "ticklerSaveNote");
     private static final Set<String> NOTE_LOCK_METHODS = Set.of("isNoteEdited", "updateNoteLock");
     private static final String AUTHORIZED_NOTE_PROGRAM = CaseManagementEntry2Action.class.getName() + ".authorizedNoteProgram";
+    /**
+     * Suffix of the session key that holds the form a read-only GET displays. It is kept apart from
+     * the active editor's form (under {@link ChartProgramContext#formKey}), so reading a note never
+     * replaces the form of a note this session is editing; Edit binds the reader's form to the
+     * active editor only once it succeeds (#6132).
+     */
+    public static final String READER_FORM_SUFFIX = ".reader";
+    /** Request attribute carrying the form the classic page displays for a read-only GET. */
+    public static final String READER_FORM_ATTRIBUTE = CaseManagementEntry2Action.class.getName() + ".readerForm";
+    /** Request attribute the classic page reads: this session's server-verified lock owns the note it renders. */
+    public static final String NOTE_LOCK_OWNED_ATTRIBUTE = "noteLockOwnedByThisSession";
 
     public String execute() throws Exception {
         String operation = request.getParameter("method") != null ? request.getParameter("method")
@@ -222,6 +233,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String result = dispatchRequest();
         if ("view".equals(result)) {
             prepareBillingUrl(getDemographicNo(request));
+            markNoteLockOwned(getDemographicNo(request));
         }
         return result;
     }
@@ -830,7 +842,18 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                 cform.getCaseNote_note() == null ? 0 : cform.getCaseNote_note().length());
         synchronized (org.springframework.web.util.WebUtils.getSessionMutex(session)) {
             cacheNoteLock(session, demono, noteOpenLock.lock());
-            mySessionMap.put(frmName, cform);
+            if (opensForEditing) {
+                mySessionMap.put(frmName, cform);
+            } else {
+                // A read-only GET shows its own form. It must not replace the form of a note this
+                // session holds the lock on, or that editor's Save would load this note's form
+                // (#6132). Edit binds the displayed note and its form together once it succeeds.
+                mySessionMap.put(frmName + READER_FORM_SUFFIX, cform);
+                request.setAttribute(READER_FORM_ATTRIBUTE, cform);
+                if (!activeEditorHoldsItsLock(demono, (CaseManagementEntryFormBean) mySessionMap.get(frmName))) {
+                    mySessionMap.put(frmName, cform);
+                }
+            }
         }
 
         String fwd, finalFwd = null;
@@ -1068,6 +1091,36 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     }
 
     /**
+     * Whether the form in the chart's active-editor slot belongs to a note this session still holds
+     * the lock on: an editor that is open and must not be replaced by a form opened only to read.
+     * Read-only: it changes no lock, session entry or response status.
+     */
+    private boolean activeEditorHoldsItsLock(String patient, CaseManagementEntryFormBean active) {
+        if (active == null || active.getCaseNote() == null) return false;
+        return findOwnedNoteLock(patient, noteIdOf(active)) != null;
+    }
+
+    /** The id of the note a form edits, 0 for a note not saved yet. */
+    private static long noteIdOf(CaseManagementEntryFormBean form) {
+        Long id = form.getCaseNote().getId();
+        return id == null ? 0L : Math.max(0L, id);
+    }
+
+    /**
+     * Tells the classic page, for a POST it renders again (an ordinary Save forwards back to it), that
+     * this session's lock owns the note the page shows, so the clinician can keep editing without
+     * going back to Edit. A fresh read-only GET never sets it: reading stays behind the Edit button.
+     * Verified against the persisted lock, not just the cache.
+     */
+    private void markNoteLockOwned(String patient) {
+        if (!"POST".equals(request.getMethod()) || mySessionMap == null) return;
+        CaseManagementEntryFormBean active = (CaseManagementEntryFormBean) mySessionMap.get(ChartProgramContext.formKey(request, patient));
+        if (active != null && activeEditorHoldsItsLock(patient, active)) {
+            request.setAttribute(NOTE_LOCK_OWNED_ATTRIBUTE, "true");
+        }
+    }
+
+    /**
      * Whether another provider holds the lock on this saved note of the chart: the case in which
      * {@link #isNoteEdited(Long, Integer, String, String, String)} reports the note as locked. It
      * only reads, and takes or changes no lock. A new note (id 0) is never locked by another provider.
@@ -1138,7 +1191,36 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         String sessionId = request.getSession().getId();
 
         logger.debug("WEB isNoteEdited CALLED");
-        CasemgmtNoteLock casemgmtNoteLock = isNoteEdited(noteId, Integer.parseInt(demoNo), providerNo, ipAddress, sessionId);
+        HttpSession session = request.getSession();
+        Integer patient = Integer.parseInt(demoNo);
+        String frmName = ChartProgramContext.formKey(request, demoNo);
+        // The classic page opened this note read-only by GET; its Edit button is what calls here. The
+        // form that page displays waits in the reader slot until Edit succeeds (#6132).
+        CaseManagementEntryFormBean reader = mySessionMap == null ? null
+                : (CaseManagementEntryFormBean) mySessionMap.get(frmName + READER_FORM_SUFFIX);
+        if (reader != null && (reader.getCaseNote() == null || noteIdOf(reader) != noteId)) reader = null;
+
+        if (reader != null) {
+            // Edit grants nothing over a revision that is no longer the latest: the page shows an
+            // old row, `previousRevision` would refuse the Save, and the answer `ownedBySession`
+            // would let the clinician type into a note that cannot be saved.
+            if (isStaleRevision(noteId)) {
+                writeLockAnswer("stale", false, false);
+                return null;
+            }
+            // Another note of this chart is open for editing by this session: the classic page may
+            // not take over the form its Save would load. Finish or cancel that editor first.
+            CaseManagementEntryFormBean active = (CaseManagementEntryFormBean) mySessionMap.get(frmName);
+            if (active != null && active.getCaseNote() != null && noteIdOf(active) != noteId
+                    && activeEditorHoldsItsLock(demoNo, active)) {
+                writeLockAnswer("editorOpen", false, false);
+                return null;
+            }
+        }
+
+        CasemgmtNoteLockDao lockDao = SpringUtils.getBean(CasemgmtNoteLockDao.class);
+        boolean lockExisted = noteId >= 0 && lockDao.findByNoteDemo(patient, noteId) != null;
+        CasemgmtNoteLock casemgmtNoteLock = isNoteEdited(noteId, patient, providerNo, ipAddress, sessionId);
 
         String ret = "unlocked";
         if (casemgmtNoteLock.isLocked()) {
@@ -1147,18 +1229,55 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             ret = "user";
         }
         boolean ownedBySession = !casemgmtNoteLock.isLocked() && Objects.equals(casemgmtNoteLock.getSessionId(), sessionId);
-        if (ownedBySession) {
-            storeCachedNoteLock(request.getSession(), NOTE_LOCK_SESSION_PREFIX + demoNo, casemgmtNoteLock);
+        // This request took the lock when no row stood before it.
+        boolean lockTaken = ownedBySession && !lockExisted && noteId >= 0;
+        if (ownedBySession && reader != null && isStaleRevision(noteId)) {
+            // A newer revision was saved between the check above and the lock: give back the lock this
+            // request took, and refuse Edit.
+            if (lockTaken) {
+                lockDao.removeForSession(providerNo, patient, noteId, sessionId);
+            }
+            writeLockAnswer("stale", false, false);
+            return null;
         }
+        if (ownedBySession) {
+            storeCachedNoteLock(session, NOTE_LOCK_SESSION_PREFIX + demoNo, casemgmtNoteLock);
+            if (reader != null) {
+                // Edit succeeded: the displayed note and its form become the active editor together.
+                synchronized (org.springframework.web.util.WebUtils.getSessionMutex(session)) {
+                    CaseManagementEntryFormBean active = (CaseManagementEntryFormBean) mySessionMap.get(frmName);
+                    if (active == null || active.getCaseNote() == null || noteIdOf(active) != noteId) {
+                        mySessionMap.put(frmName, reader);
+                    }
+                }
+            }
+        }
+        writeLockAnswer(ret, ownedBySession, lockTaken);
+        return null;
+    }
 
+    /**
+     * Whether the saved note the page shows is no longer the latest revision of its chain. A new
+     * note (id 0 or the -1 sentinel) and a note with no chain identity are never stale.
+     */
+    private boolean isStaleRevision(long noteId) {
+        if (noteId <= 0) return false;
+        CaseManagementNote note = caseManagementMgr.getNote(Long.toString(noteId));
+        if (note == null || StringUtils.isBlank(note.getUuid())) return false;
+        CaseManagementNote latest = caseManagementMgr.getMostRecentNote(note.getUuid());
+        return latest != null && latest.getId() != null && !latest.getId().equals(noteId);
+    }
+
+    /** The JSON the classic page reads: the lock state, whether this session owns it, and whether this request took it. */
+    private void writeLockAnswer(String state, boolean ownedBySession, boolean lockTaken) throws IOException {
         Map<String, String> jsonMap = new HashMap<String, String>();
-        jsonMap.put("isNoteEdited", ret);
+        jsonMap.put("isNoteEdited", state);
         ObjectNode json = objectMapper.valueToTree(jsonMap);
         json.put("ownedBySession", ownedBySession);
+        json.put("lockTaken", lockTaken);
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         response.getWriter().write(json.toString());
-        return null;
     }
 
     //Change IP Address and Session Id of note lock
@@ -2629,6 +2748,13 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
     /** Resolves this editor's persisted lock without replacing another window's patient cache. */
     private CasemgmtNoteLock ownedNoteLock(String patient, long selectedId) {
+        CasemgmtNoteLock owned = findOwnedNoteLock(patient, selectedId);
+        if (owned == null) response.setStatus(HttpServletResponse.SC_CONFLICT);
+        return owned;
+    }
+
+    /** The persisted lock this session holds on the note, or null. Changes no response status or session entry. */
+    private CasemgmtNoteLock findOwnedNoteLock(String patient, long selectedId) {
         String sessionId = request.getSession().getId();
         String provider = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
         CasemgmtNoteLock cached = (CasemgmtNoteLock) request.getSession().getAttribute(NOTE_LOCK_SESSION_PREFIX + patient); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- authorized patient's cached lock
@@ -2647,7 +2773,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         } catch (RuntimeException failedLockRead) {
             logger.warn("Note lock validation failed ({})", failedLockRead.getClass().getSimpleName());
         }
-        response.setStatus(HttpServletResponse.SC_CONFLICT);
         return null;
     }
 
