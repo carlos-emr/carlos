@@ -28,6 +28,7 @@ function render(contextPath) {
     // Only the tags that print nothing: a message without var= would write text into the script.
     .replace(/<fmt:(?:setLocale|setBundle)\b[^>]*\/>/g, '')
     .replace(/<fmt:message\b[^>]*\bvar="[^"]+"[^>]*\/>/g, '')
+    .replaceAll('${carlos:forJavaScript(signatureContextPath)}', contextPath)
     .replaceAll('${carlos:forJavaScript(signatureNotShownNote)}', NOTE)
     .replaceAll('${carlos:forJavaScript(signatureNotAddedNote)}', NOT_ADDED);
   assert.doesNotMatch(script, /<%|<fmt:|\$\{/, 'the library carries a server expression this test does not render');
@@ -40,7 +41,7 @@ function element(tag) {
 }
 
 /** A jQuery stand-in for the calls the library makes, over a page with the eForm's signature elements. */
-function page(savedValue) {
+function page(savedValue, contextPath = CONTEXT) {
   const nodes = {
     '#signatureDisplay': element('div'),
     '#signatureInput': element('div'),
@@ -85,7 +86,7 @@ function page(savedValue) {
   const context = vm.createContext({ jQuery, alert() {}, Math });
   context.$ = jQuery;
   context.window = context;
-  vm.runInContext(`${render(CONTEXT)}\nthis.signatureControl = signatureControl;`, context);
+  vm.runInContext(`${render(contextPath)}\nthis.signatureControl = signatureControl;`, context);
   return { context, nodes };
 }
 
@@ -217,3 +218,54 @@ test('a refused pad save on an unsigned form adds nothing and says so', () => {
   assert.deepEqual(notes(nodes), [NOT_ADDED]);
   assert.equal(nodes['#signatureValue'].value, '');
 });
+
+// The address check uses the deployed context path as the server reports it, so a valid context that holds
+// a character outside letters and digits (a plus, a percent sign, a semicolon, several segments, or none at
+// all) shows its signature, keeps a replacement, and reads the older escaped form, while the signature
+// source and the numeric id stay strict.
+for (const contextPath of ['', '/clinic+east', '/a%20b', '/c@l!n(i)c;x=y', '/clinic.east~1', '/clinic/east', '/(a)[b]']) {
+  const label = contextPath === '' ? 'the root context' : `the context ${contextPath}`;
+  const stored = `${contextPath}/imageRenderingServlet?source=signature_stored&digitalSignatureId=`;
+
+  test(`in ${label}, reopening an eForm shows its saved signature`, () => {
+    const saved = `${stored}42&r=17`;
+    const { context, nodes } = page(saved, contextPath);
+    context.signatureControl.initialize({ eform: true });
+    assert.deepEqual(images(nodes), [{ src: saved, alt: 'signature' }]);
+    assert.deepEqual(notes(nodes), []);
+  });
+
+  test(`in ${label}, the older escaped address is shown at its plain address`, () => {
+    const saved = `${contextPath}/imageRenderingServlet?source=signature_stored&amp;digitalSignatureId=42&amp;r=17`;
+    const { context, nodes } = page(saved, contextPath);
+    context.signatureControl.initialize({ eform: true });
+    assert.deepEqual(images(nodes), [{ src: `${stored}42&r=17`, alt: 'signature' }]);
+    assert.equal(nodes['#signatureValue'].value, saved);
+  });
+
+  test(`in ${label}, replacing the signature shows the new one and replaces the form's value`, () => {
+    const { context, nodes } = page(`${stored}5`, contextPath);
+    context.signatureControl.initialize({ eform: true });
+    context.signatureHandler({ isDirty: false, isSave: true, storedImageUrl: `${stored}99` });
+    const [image] = images(nodes);
+    assert.ok(image.src.startsWith(`${stored}99&r=`), image.src);
+    assert.equal(nodes['#signatureValue'].value, image.src);
+    assert.deepEqual(notes(nodes), []);
+  });
+
+  test(`in ${label}, an address under another context, another source or a bad id is still refused`, () => {
+    for (const refused of [
+      `/other${stored}1`,
+      `${contextPath}/x/imageRenderingServlet?source=signature_stored&digitalSignatureId=1`,
+      `${contextPath}/imageRenderingServlet?source=signature_preview&digitalSignatureId=1`,
+      `${stored}1a`,
+      `${stored}1&r=2&next=3`,
+      `https://example.invalid${stored}1`,
+    ]) {
+      const { context, nodes } = page(refused, contextPath);
+      context.signatureControl.initialize({ eform: true });
+      assert.deepEqual(images(nodes), [], refused);
+      assert.deepEqual(notes(nodes), [NOTE], refused);
+    }
+  });
+}

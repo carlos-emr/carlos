@@ -26,6 +26,9 @@
 
     <%
     CarlosProperties props = CarlosProperties.getInstance();
+    // The deployed context path, for the signature address check below (read through EL, and encoded
+    // for the JavaScript string it lands in).
+    request.setAttribute("signatureContextPath", request.getContextPath());
     if (props.isEFormSignatureEnabled()) {
     %>
 
@@ -36,15 +39,23 @@
     var signaturePadIFrameStart = "Signature:<br/><iframe style=\"width:500px; height:132px;\"id=\"signatureFrame\" src=\"";
     var signaturePadIFrameEnd = "\" ></iframe>";
     // The stored-signature address CARLOS gives a signature (tabletSignature.jsp, EForm.setSignatureCode),
-    // with the refresh number the pad adds: a root-relative path ending in /imageRenderingServlet, the
-    // stored source and a numeric id. A saved value of any other shape is not shown.
-    // A context-path segment may not be "." or "..".
-    var storedSignatureAddress = /^(?:\/(?!\.{1,2}\/)[A-Za-z0-9._~-]+)*\/imageRenderingServlet\?source=signature_stored&digitalSignatureId=[0-9]+(?:&r=[0-9]+)?$/;
+    // with the refresh number the pad adds: this deployment's own context path (exactly as the server
+    // reports it, so a context such as /clinic+east is accepted) followed by /imageRenderingServlet, the
+    // stored source and a numeric id. A saved value of any other shape, including one under another
+    // context path, is not shown.
+    var signatureContextPath = "${carlos:forJavaScript(signatureContextPath)}";
+    // The text of this context path as a regular expression, every special character taken literally.
+    function signatureRegExpText(text) {
+        return text.replace(/[.*+?^()|[\]\\{}$]/g, "\\$&");
+    }
+    var storedSignatureAddress = new RegExp("^" + signatureRegExpText(signatureContextPath)
+        + "/imageRenderingServlet\\?source=signature_stored&digitalSignatureId=[0-9]+(?:&r=[0-9]+)?$");
     // Older eForms saved the same address HTML-escaped ("&amp;" for each "&"), which the old page
     // decoded by writing it into markup; the PDF path reads that form too
     // (EFormSignatureViewForPdfGenerationServlet). Only this exact shape is accepted, and only its
     // "&amp;" separators are turned back into "&" before the check above; nothing else is decoded.
-    var escapedStoredSignatureAddress = /^((?:\/(?!\.{1,2}\/)[A-Za-z0-9._~-]+)*\/imageRenderingServlet\?source=signature_stored)&amp;(digitalSignatureId=[0-9]+)(?:&amp;(r=[0-9]+))?$/;
+    var escapedStoredSignatureAddress = new RegExp("^(" + signatureRegExpText(signatureContextPath)
+        + "/imageRenderingServlet\\?source=signature_stored)&amp;(digitalSignatureId=[0-9]+)(?:&amp;(r=[0-9]+))?$");
     var signatureNotShownNote = "${carlos:forJavaScript(signatureNotShownNote)}";
     var signatureNotAddedNote = "${carlos:forJavaScript(signatureNotAddedNote)}";
     // The stored-signature address a saved value stands for, or null when it is not one.
