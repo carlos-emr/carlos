@@ -44,6 +44,8 @@
 <%
     String mcedtUsername = (String) session.getAttribute("mcedtUsername");
     Boolean passwordChangeOutcome = (Boolean) request.getAttribute("isPassChange");
+    // A lost commit acknowledgement: the replacement may or may not have been stored.
+    boolean passwordChangeUnconfirmed = Boolean.TRUE.equals(request.getAttribute("isPassChangeUnconfirmed"));
 %>
 <html>
 <head>
@@ -60,7 +62,12 @@
         window.onload = function () {
 
             var isSucess = <%=passwordChangeOutcome%>;
-            if (isSucess != null && isSucess == true) {
+            var isUnconfirmed = <%=passwordChangeUnconfirmed%>;
+            if (isUnconfirmed) {
+                // Not "unable to change": the database may already hold the new password, so neither
+                // password can be assumed to be the active one, and submitting again is not the advice.
+                alert('Unable to confirm the EDT password change. Do not assume the previous password is still in effect: check the MCEDT connection with the new password, and contact your administrator if it does not work.');
+            } else if (isSucess != null && isSucess == true) {
                 alert('EDT Password has been changed successfully.');
                 return gobacktoedthome();
                 //return true;

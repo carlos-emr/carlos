@@ -79,17 +79,35 @@ public class User2Action extends ActionSupport {
         if (actor == null) {
             throw new SecurityException("MCEDT password change requires an authenticated provider");
         }
-        boolean outcome;
         try {
             credentials.savePassword(getPassword(), actor);
-            outcome = true;
+            request.setAttribute("isPassChange", true);
         } catch (RuntimeException failure) {
-            MiscUtils.getLogger().warn("MCEDT password change failed; credential storage was not updated");
-            outcome = false;
+            if (isConfirmedNotSaved(failure)) {
+                MiscUtils.getLogger().warn("MCEDT password change failed; credential storage was not updated");
+                request.setAttribute("isPassChange", false);
+            } else {
+                // The service is transactional: an exception that did not come from its own body (a lost
+                // commit acknowledgement, a failed rollback, a connection that dropped) says nothing about
+                // whether the new password was stored. Do not tell the administrator it was not.
+                MiscUtils.getLogger().warn("MCEDT password change could not be confirmed; credential storage may have been updated");
+                request.removeAttribute("isPassChange");
+                request.setAttribute("isPassChangeUnconfirmed", true);
+            }
         }
-        request.setAttribute("isPassChange", outcome);
 
         return SUCCESS;
+    }
+
+    /**
+     * Whether {@code failure} proves the password was NOT stored: the service's own refusal (it throws
+     * {@link IllegalStateException} before or while writing, and its transaction then rolls back) or a
+     * transaction the framework reports as rolled back. Anything else, such as an exception raised at commit,
+     * leaves the outcome unknown.
+     */
+    static boolean isConfirmedNotSaved(RuntimeException failure) {
+        return failure.getClass() == IllegalStateException.class
+                || failure instanceof org.springframework.transaction.UnexpectedRollbackException;
     }
 
     public String cancel() throws Exception {

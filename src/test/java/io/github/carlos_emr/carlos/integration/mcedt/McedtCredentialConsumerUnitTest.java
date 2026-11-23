@@ -106,6 +106,63 @@ class McedtCredentialConsumerUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldSayTheOutcomeIsUnknown_whenTheCommitAcknowledgementIsLost() throws Exception {
+        // The credential service is transactional. An exception that does not come from its own body (here a
+        // transaction exception raised at commit) can mean the database already holds the new password, so
+        // the action must not report "not updated" nor offer the confirmed-failure state.
+        var request = authenticatedRequest();
+        doThrow(new org.springframework.transaction.TransactionSystemException("FAKE commit acknowledgement lost"))
+                .when(credentials).savePassword(anyString(), eq(AUDIT_ACTOR));
+        try (MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class);
+                var log = LogCapture.forLogger(User2Action.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+            var action = new User2Action();
+            action.setPassword("FAKE-input");
+            assertEquals("success", action.changePassword());
+            assertNull(request.getAttribute("isPassChange"));
+            assertEquals(Boolean.TRUE, request.getAttribute("isPassChangeUnconfirmed"));
+            assertEquals(List.of("MCEDT password change could not be confirmed; credential storage may have been updated"),
+                    log.messages());
+            assertNull(log.events().getFirst().getThrown());
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"service", "rolledBack"})
+    void shouldKeepTheConfirmedFailureState_forARefusalOrAConfirmedRollback(String kind) throws Exception {
+        var request = authenticatedRequest();
+        RuntimeException refusal = kind.equals("service")
+                ? new IllegalStateException("FAKE service refusal")
+                : new org.springframework.transaction.UnexpectedRollbackException("FAKE rolled back");
+        doThrow(refusal).when(credentials).savePassword(anyString(), eq(AUDIT_ACTOR));
+        try (MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+            var action = new User2Action();
+            action.setPassword("FAKE-input");
+            assertEquals("success", action.changePassword());
+            assertEquals(Boolean.FALSE, request.getAttribute("isPassChange"));
+            assertNull(request.getAttribute("isPassChangeUnconfirmed"));
+        }
+    }
+
+    @Test
+    void shouldGiveAnUnconfirmedSaveItsOwnMessage_andNeverTellTheAdministratorToResubmit() throws Exception {
+        var page = java.nio.file.Files.readString(java.nio.file.Path.of(
+                "src/main/webapp/WEB-INF/jsp/mcedt/mailbox/changepass.jsp"));
+        var unconfirmed = page.substring(page.indexOf("if (isUnconfirmed)"), page.indexOf("} else if (isSucess != null"));
+        assertTrue(unconfirmed.contains("Unable to confirm the EDT password change"));
+        assertTrue(unconfirmed.contains("Do not assume the previous password is still in effect"));
+        assertFalse(unconfirmed.contains("try again"));
+        assertFalse(unconfirmed.contains("Unable to change the EDT password"));
+        // The confirmed failure keeps its own wording and the success path is unchanged.
+        assertTrue(page.contains("Unable to change the EDT password. Please try again or contact your administrator."));
+        assertTrue(page.contains("EDT Password has been changed successfully."));
+        assertTrue(page.contains("request.getAttribute(\"isPassChangeUnconfirmed\")"));
+    }
+
+    @Test
     void shouldRetainTheSuccessOutcome_whenLogoutInvalidatesFeedbackAfterCommit() throws Exception {
         var request = authenticatedRequest();
         var session = request.getSession(false);
