@@ -99,6 +99,8 @@ class CaseManagementPrintMessengerNotesUnitTest extends CarlosUnitTestBase {
     // An older revision of the hidden CPP entry (same note UUID, lower row id): the body can hold it
     // when the entry is edited while a print runs, though the CPP query returns only the latest row.
     private final CaseManagementNote cppHiddenOlderRevision = note(50L, false, false);
+    // An older revision of the SHOWN CPP entry: it is printed in its CPP section, so the body must not repeat it.
+    private final CaseManagementNote cppShownOlderRevision = note(49L, false, false);
 
     private static CaseManagementNote note(long id, boolean isLocked, boolean isArchived) {
         CaseManagementNote note = new CaseManagementNote();
@@ -122,8 +124,10 @@ class CaseManagementPrintMessengerNotesUnitTest extends CarlosUnitTestBase {
         createAndRegisterMock(PreventionManager.class);
         cppHidden.setUuid("11111111-1111-4111-8111-111111111153");
         cppHiddenOlderRevision.setUuid(cppHidden.getUuid());
+        cppShown.setUuid("11111111-1111-4111-8111-111111111151");
+        cppShownOlderRevision.setUuid(cppShown.getUuid());
         List<CaseManagementNote> all = List.of(current, locked, archived, cppShown, cppArchived, cppHidden, cppLocked,
-                cppHiddenOlderRevision);
+                cppHiddenOlderRevision, cppShownOlderRevision);
         when(notes.getNotes(String.valueOf(PATIENT))).thenReturn(all);
         for (CaseManagementNote note : all) {
             when(notes.getNote(note.getId().toString())).thenReturn(note);
@@ -223,6 +227,14 @@ class CaseManagementPrintMessengerNotesUnitTest extends CarlosUnitTestBase {
         assertThat(printedNotes(messengerPrint(), chartRequest()))
                 .doesNotContain(cppHiddenOlderRevision, cppHidden)
                 .containsExactly(current);
+    }
+
+    @Test
+    @DisplayName("should not repeat an older revision of a shown CPP entry in the body of the chart's own Print All")
+    void shouldNotRepeatAnOlderRevisionOfAShownCppEntry_inThePrintAllBody() throws Exception {
+        // The shown entry is printed in its CPP section; its older revision (same UUID) must not repeat it.
+        assertThat(printedNotes(new CaseManagementPrint(), chartRequest()))
+                .doesNotContain(cppShown, cppShownOlderRevision);
     }
 
     @Test

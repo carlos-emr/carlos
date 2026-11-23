@@ -350,6 +350,8 @@ public class CaseManagementPrint {
             // latest row of each note UUID. A CPP entry edited while this print runs can reach the body
             // as an older revision whose id the CPP query never returns, so a hidden entry's text would
             // survive (#6324 review). Classify the body's rows by note UUID as well as by row id.
+            // A row with no UUID (legacy data from before notes carried one) can only be classified by its row id,
+            // so such an older revision of a hidden entry is not recognised here; every current note has one.
             Set<String> uuidsNotInBody = new HashSet<>();
             for (List<CaseManagementNote> section : cpp.values()) {
                 section.forEach(entry -> addUuid(uuidsNotInBody, entry));
