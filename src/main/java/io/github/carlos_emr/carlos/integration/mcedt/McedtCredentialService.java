@@ -160,6 +160,12 @@ public class McedtCredentialService {
             store(encrypted, actor);
             removeLegacy(legacy);
         } catch (Exception failure) {
+            // Contract: every failure of the body above, whatever its type, leaves here as exactly this
+            // IllegalStateException, with no cause (a secret must not travel in one). The transaction
+            // then rolls back, which is what lets User2Action treat this class as "not saved". An
+            // exception that does NOT come from here (a lost commit acknowledgement raised by the
+            // transaction proxy) is an unknown outcome. Pinned by
+            // McedtCredentialConsumerUnitTest#savePasswordRaisesOnlyAnIllegalStateExceptionWithoutACause.
             throw new IllegalStateException("Unable to securely save the MCEDT password");
         }
     }

@@ -55,6 +55,22 @@ class McedtCredentialConsumerUnitTest extends CarlosUnitTestBase {
     private static <T> T cache(String name) throws Exception {
         Field field=DelegateFactory.class.getDeclaredField(name);field.setAccessible(true);return (T)field.get(null);
     }
+    @Test void savePasswordRaisesOnlyAnIllegalStateExceptionWithoutACause() throws Exception {
+        // The service's contract that User2Action.isConfirmedNotSaved relies on: whatever fails inside
+        // the transactional body, the caller sees exactly IllegalStateException and no cause.
+        McedtCredentialService real=new McedtCredentialService();
+        jakarta.persistence.EntityManager failing=mock(jakarta.persistence.EntityManager.class);
+        when(failing.createNativeQuery(anyString(),any(Class.class))).thenThrow(new RuntimeException("FAKE database failure"));
+        when(failing.createNativeQuery(anyString())).thenThrow(new RuntimeException("FAKE database failure"));
+        Field entityManager=McedtCredentialService.class.getDeclaredField("entityManager");
+        entityManager.setAccessible(true);entityManager.set(real,failing);
+        for (String password : new String[]{"FAKE-password", "x".repeat(4001)}) {
+            IllegalStateException refused=assertThrows(IllegalStateException.class,()->real.savePassword(password,"611"));
+            assertEquals(IllegalStateException.class,refused.getClass());
+            assertNull(refused.getCause());
+            assertFalse(refused.getMessage().contains(password));
+        }
+    }
     @BeforeEach void prepare() throws Exception {
         credentials=mock(McedtCredentialService.class);
         registerMock(McedtCredentialService.class,credentials);
