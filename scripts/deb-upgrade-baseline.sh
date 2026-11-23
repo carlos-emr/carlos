@@ -185,6 +185,64 @@ OAUTH_ACCESS_MIGRATIONS=(oauth.scope.enforcement.enabled oauth.scope.legacy.acce
 # unseen. Keep in step with LAB_FILTER_OLD_SHA in deb-upgrade-verify.sh.
 value=$({ grep -E '^[[:space:]]*HL7_LAB_MEASUREMENT_FILTER([[:space:]=:]|$)' "$CARLOS_ETC_DIR/carlos.properties" || true; } | sha256sum) || exit 1
 emit cfg.labFilter.sha "${value:0:16}"
+# How many LOGICAL definitions of the key the file has, as java.util.Properties reads it and as the
+# postinst's rewrite counts it: continuation lines are joined and the key's escapes are decoded
+# (HL7_LAB_MEASUREMENT\_FILTER and HL7_LAB_\u004dEASUREMENT_FILTER are the same key). The digest above
+# sees only the plain spelling, so on its own it can mistake the stock physical line for the
+# effective definition when a later, differently spelled one overrides it; the rewrite then rightly
+# leaves the file alone. The verifier expects the rewrite only when this is 1 (or absent: an older
+# snapshot). A test holds this parser to the postinst's (debian/assets/tests/test_lab_filter_logical_count.py).
+value=$(python3 - "$CARLOS_ETC_DIR/carlos.properties" <<'PY' || true
+import re
+import sys
+
+configuration_key = "HL7_LAB_MEASUREMENT_FILTER"
+property_key = re.compile(rb"^((?:\\.|[^\\ \t\f=:])*)(?:[ \t\f=:]|$)")
+key_escape = re.compile(r"\\u([0-9a-fA-F]{4})|\\(.)")
+
+def decode_key_escape(match):
+    if match[1] is not None:
+        return chr(int(match[1], 16))
+    return {"t": "\t", "n": "\n", "r": "\r", "f": "\f"}.get(match[2], match[2])
+
+def is_filter_definition(logical):
+    key = property_key.match(logical)
+    return key is not None and key_escape.sub(
+        decode_key_escape, key[1].decode("latin-1")
+    ) == configuration_key
+
+def filter_definitions(content):
+    start = None
+    parts = []
+    for physical in re.finditer(rb"[^\r\n]*(?:\r\n|\r|\n|$)", content):
+        if not physical[0]:
+            break
+        line = physical[0].rstrip(b"\r\n").lstrip(b" \t\f")
+        if start is None:
+            if not line or line.startswith((b"#", b"!")):
+                continue
+            start = physical.start()
+        if (len(line) - len(line.rstrip(b"\\"))) % 2:
+            parts.append(line[:-1])
+            continue
+        logical = b"".join([*parts, line])
+        if is_filter_definition(logical):
+            yield start, physical.end(), logical
+        start = None
+        parts.clear()
+    if start is not None:
+        logical = b"".join(parts)
+        if is_filter_definition(logical):
+            yield start, len(content), logical
+
+try:
+    with open(sys.argv[1], "rb") as handle:
+        print(len(list(filter_definitions(handle.read()))))
+except OSError:
+    print(0)
+PY
+)
+emit cfg.labFilter.logical "${value:-unknown}"
 value=''
 if [[ -r $CARLOS_SHARE_DIR/skel/carlos.properties ]]; then
     value=$({ grep -E '^HL7_LAB_MEASUREMENT_FILTER=' "$CARLOS_SHARE_DIR/skel/carlos.properties" || true; } | sha256sum) || exit 1

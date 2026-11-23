@@ -68,7 +68,7 @@ class TestDefaultSiteRecovery(unittest.TestCase):
         source = POSTINST.read_text()
         call = source.index("        if ! retire_nginx_default_site; then")
         self.assertLess(call, source.index('            free_front_door "${2:-}"'))
-        self.assertLess(call, source.index("carlos-ctl init-config ||"))
+        self.assertLess(call, source.index("run_init_config_keeping_link ||"))
 
 
 class TestCertificateServiceState(unittest.TestCase):

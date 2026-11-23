@@ -220,7 +220,7 @@ class TestLabFilterWordsMigration(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.properties.read_bytes(), before)
-        self.assertIn("still matches its words at the start of a result", result.stderr)
+        self.assertIn("contains an alternative that starts", result.stderr)
         self.assertIn("#6121", result.stderr)
         self.assertTrue((self.state / SENTINEL).exists())
 
@@ -234,7 +234,25 @@ class TestLabFilterWordsMigration(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.properties.read_bytes(), before)
-        self.assertIn("still matches its words at the start of a result", result.stderr)
+        self.assertIn("contains an alternative that starts", result.stderr)
+        self.assertTrue((self.state / SENTINEL).exists())
+
+    def test_describes_the_detected_syntax_without_claiming_what_the_filter_does(self):
+        # An effective Java pattern ^\\b(no)\\b$ matches "No" and REJECTS "No organisms seen": the
+        # prefix check cannot tell it from the stock ^\\b(no)\\b, so the warning must only say that
+        # the syntax is there and ask the operator to inspect it, never that a result is filed as a word.
+        self.write_properties(KEY + "^\\\\b(no)\\\\b$")
+        before = self.properties.read_bytes()
+
+        result = self.run_block()
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.properties.read_bytes(), before)
+        self.assertIn("contains an alternative that starts", result.stderr)
+        self.assertIn("inspect it", result.stderr)
+        self.assertIn("Whether yours does depends on how the whole expression ends", result.stderr)
+        for claim in ('files "No organisms seen"', 'as "No"', "files lab results", "may match dates anywhere"):
+            self.assertNotIn(claim, result.stderr)
         self.assertTrue((self.state / SENTINEL).exists())
 
     def test_warns_about_a_word_alternative_on_a_continued_property(self):
@@ -246,7 +264,7 @@ class TestLabFilterWordsMigration(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.properties.read_bytes(), before)
-        self.assertIn("still matches its words at the start of a result", result.stderr)
+        self.assertIn("contains an alternative that starts", result.stderr)
         self.assertTrue((self.state / SENTINEL).exists())
 
     def test_keeps_a_stock_looking_physical_line_inside_another_property(self):
@@ -258,7 +276,7 @@ class TestLabFilterWordsMigration(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.properties.read_bytes(), before)
-        self.assertIn("still matches its words at the start of a result", result.stderr)
+        self.assertIn("contains an alternative that starts", result.stderr)
         self.assertTrue((self.state / SENTINEL).exists())
 
     def test_restores_the_inode_contents_when_sync_fails(self):
@@ -492,6 +510,14 @@ class TestLabFilterWordsMigration(unittest.TestCase):
         self.assertIn("sudo dpkg --configure -a", refused.stderr)
         # A deferred recovery leaves the package configured: dpkg --configure -a does nothing then.
         self.assertIn("sudo dpkg-reconfigure carlos-emr", refused.stderr)
+        # The guard says what the CLI does NOT do: carlos-ctl 1.3.5's start and restart do not relay it, so
+        # the header must not promise that, and the release notes tell the operator where to look.
+        header = guard.read_text(encoding="utf-8")
+        self.assertNotIn("start|restart relay", header)
+        self.assertIn("do NOT relay it", header)
+        notes = (ROOT / "docs" / "release-notes-2026.08.md").read_text(encoding="utf-8")
+        self.assertIn("`carlos-ctl start` and `restart`", notes)
+        self.assertIn("rather than relying on their exit status", notes)
         self.assertIn(str(record), refused.stderr)
         self.assertIn("remove the", refused.stderr)
 
@@ -499,6 +525,78 @@ class TestLabFilterWordsMigration(unittest.TestCase):
         record.symlink_to("missing-target")
         dangling = subprocess.run(["sh", str(guard), str(record)], capture_output=True, text=True)
         self.assertEqual(dangling.returncode, 1, "a dangling link is still something left behind")
+
+    def test_the_boot_provisioner_leaves_the_file_and_record_untouched_until_recovery_finishes(self):
+        # carlos-emr-provision.service is pulled in by carlos-emr.service and finishes before it; its
+        # `carlos-ctl finish-install --boot` runs init-config, whose first property write replaces the
+        # file's inode (a recovery record describes the OLD inode and would then refuse for good).
+        # Evaluate the shipped unit the way systemd does: each ExecCondition= must exit 0, else the unit
+        # is skipped before ExecStart=. The fake carlos-ctl replaces the file as init-config does.
+        unit = (ROOT / "debian" / "carlos-emr.carlos-emr-provision.service").read_text(encoding="utf-8")
+        service = unit.split("[Service]", 1)[1].split("[Install]", 1)[0]
+        conditions = [line.split("=", 1)[1] for line in service.splitlines() if line.startswith("ExecCondition=")]
+        starts = [line.split("=", 1)[1] for line in service.splitlines() if line.startswith("ExecStart=")]
+        guard_path = "/usr/lib/carlos-emr/carlos-emr-config-recovery-guard"
+        self.assertEqual(conditions, ["+" + guard_path], "the provisioner must run the same guard as the service")
+        self.assertEqual(starts, ["/usr/sbin/carlos-ctl finish-install --boot"])
+        # A [Unit] condition would skip silently before the guard could say why.
+        self.assertNotIn("lab-filter-recovery", "".join(line for line in unit.splitlines(True)
+                                                        if line.startswith("Condition")))
+        guard = ROOT / "debian" / "assets" / "bin" / "carlos-emr-config-recovery-guard"
+
+        bin_dir = Path(self.tmp.name) / "bin"
+        bin_dir.mkdir()
+        called = Path(self.tmp.name) / "carlos-ctl-called"
+        fake = bin_dir / "carlos-ctl"
+        fake.write_text(
+            "#!/bin/sh\n"
+            ": > '{called}'\n"
+            # What init-config's first prop_set does: write a temp file and rename it over the path.
+            "printf 'rewritten\\n' > '{props}.tmp' && mv '{props}.tmp' '{props}'\n".format(
+                called=called, props=self.properties),
+            encoding="ascii")
+        fake.chmod(0o755)
+        marker = self.state / ".install-incomplete"
+        record = self.properties.with_suffix(".properties.lab-filter-recovery")
+
+        def boot(record_present):
+            """Run the unit as systemd would: the Unit conditions, then each ExecCondition, then ExecStart."""
+            if not marker.exists():                      # ConditionPathExists=/var/lib/carlos-emr/.install-incomplete
+                return "skipped (no marker)", None
+            for condition in conditions:
+                self.assertTrue(condition.startswith("+"))
+                self.assertEqual(condition[1:], guard_path)
+                guarded = subprocess.run(["sh", str(guard), str(record)], capture_output=True, text=True)
+                if guarded.returncode != 0:
+                    # 1..254: "condition failed", the unit is skipped and is not failed.
+                    self.assertEqual(guarded.returncode, 1)
+                    return "skipped (condition)", guarded
+            subprocess.run(["sh", "-c", starts[0].replace("/usr/sbin/carlos-ctl", str(fake))], check=True)
+            return "ran", None
+
+        self.write_properties("kept=as-it-was")
+        self.properties.chmod(0o640)
+        marker.write_text("", encoding="ascii")
+        record.write_bytes(b"[]")
+        record.chmod(0o600)
+        before = (self.properties.read_bytes(), self.properties.stat().st_ino, record.read_bytes(), record.stat().st_ino)
+
+        outcome, guarded = boot(record_present=True)
+
+        self.assertEqual(outcome, "skipped (condition)")
+        self.assertIn("NOT starting", guarded.stderr)
+        self.assertFalse(called.exists(), "carlos-ctl finish-install ran on a file awaiting recovery")
+        self.assertEqual(before, (self.properties.read_bytes(), self.properties.stat().st_ino,
+                                  record.read_bytes(), record.stat().st_ino))
+        self.assertTrue(marker.exists(), "the marker stays, so the next boot after the recovery provisions")
+
+        # The recovery finished (the record is gone): the same boot now provisions, so the fake is
+        # really reachable through the shipped ExecStart (the test above is not vacuous).
+        record.unlink()
+        outcome, _ = boot(record_present=False)
+        self.assertEqual(outcome, "ran")
+        self.assertTrue(called.exists())
+        self.assertEqual(self.properties.read_bytes(), b"rewritten\n")
 
     def test_removes_the_private_staging_file_from_an_interrupted_journal_write(self):
         self.write_properties(KEY + "^custom$")
@@ -528,15 +626,175 @@ class TestLabFilterWordsMigration(unittest.TestCase):
         self.assertEqual(managed.read_text(encoding="utf-8"), shipped_line() + "\n")
         self.assertTrue((self.state / SENTINEL).exists())
 
+    def run_install_once_then_block(self):
+        """The postinst's skeleton installation, then this migration, as one configure runs them."""
+        text = POSTINST.read_text(encoding="utf-8")
+        function = re.search(r'^install_once\(\) \{.*?^\}\n', text, re.S | re.M)
+        self.assertIsNotNone(function, "no install_once() in carlos-emr.postinst")
+        owner = "{0}:{1}".format(os.getuid(), os.getgid())
+        script = ("set -e\n" + function.group(0)
+                  + 'install_once "${SHARE}/skel/carlos.properties" "${PROPERTIES}" 0640 ' + owner + "\n"
+                  + migration_block())
+        env = dict(os.environ, PROVISION_LOCK_HELD="1", STATE=str(self.state), SHARE=str(self.share),
+                   PROPERTIES=str(self.properties))
+        return subprocess.run(["sh", "-c", script], env=env, capture_output=True, text=True,
+                              check=False, timeout=10)
+
     def test_leaves_a_dangling_managed_link_eligible_for_retry(self):
+        # The earlier install_once call is part of the case: on an upgrade whose managed target is
+        # briefly unavailable, `[ ! -e dest ]` used to read the link as a fresh install, GNU install
+        # replaced it with the stock skeleton, and the migration then wrote its completion marker.
         self.properties.symlink_to("missing-clinic.properties")
 
-        result = self.run_block()
+        result = self.run_install_once_then_block()
 
         self.assertEqual(result.returncode, 1, result.stderr)
         self.assertIn("fix the configuration target", result.stderr)
+        self.assertIn("left as it is", result.stderr)
+        self.assertTrue(self.properties.is_symlink(), "the managed link was replaced by the skeleton")
         self.assertEqual(self.properties.readlink(), Path("missing-clinic.properties"))
+        self.assertFalse((self.etc / "missing-clinic.properties").exists())
         self.assertFalse((self.state / SENTINEL).exists())
+
+        # The target comes back holding the #4613 line: the retry migrates it through the link.
+        target = self.etc / "missing-clinic.properties"
+        target.write_text(old_line() + "\n", encoding="utf-8")
+        target.chmod(0o640)
+
+        retry = self.run_install_once_then_block()
+
+        self.assertEqual(retry.returncode, 0, retry.stderr)
+        self.assertTrue(self.properties.is_symlink())
+        self.assertEqual(target.read_text(encoding="utf-8"), shipped_line() + "\n")
+        self.assertTrue((self.state / SENTINEL).exists())
+
+    def init_config_run(self, new_content, *, exit_status=0, replace=True):
+        """The postinst's init-config step with a fake carlos-ctl that writes ``new_content`` the way
+        carlos-ctl 1.3.5's property writer does: a temporary file renamed over the path."""
+        text = POSTINST.read_text(encoding="utf-8")
+        function = re.search(r'^run_init_config_keeping_link\(\) \{.*?^\}\n', text, re.S | re.M)
+        self.assertIsNotNone(function, "no run_init_config_keeping_link() in carlos-emr.postinst")
+        bin_dir = Path(self.tmp.name) / "init-config-bin"
+        bin_dir.mkdir(exist_ok=True)
+        fake = bin_dir / "carlos-ctl"
+        if replace:
+            body = ("printf '%s' '{c}' > '{p}.tmp' && mv '{p}.tmp' '{p}'\n").format(c=new_content, p=self.properties)
+        else:
+            # A carlos-ctl that writes through the link keeps it.
+            body = "printf '%s' '{c}' > '{p}'\n".format(c=new_content, p=self.properties)
+        fake.write_text("#!/bin/sh\n" + body + "exit {0}\n".format(exit_status), encoding="ascii")
+        fake.chmod(0o755)
+        env = dict(os.environ, PATH="{0}:{1}".format(bin_dir, os.environ["PATH"]), PROPERTIES=str(self.properties))
+        return subprocess.run(["sh", "-c", function.group(0) + "run_init_config_keeping_link\necho status=$?\n"],
+                              env=env, capture_output=True, text=True, check=False, timeout=20)
+
+    def test_init_config_keeps_a_managed_symlink_its_target_inode_and_attributes(self):
+        # The normal configure path: postinst calls `carlos-ctl init-config`, whose first property write
+        # replaces the live path with a temporary file. The managed target must still get the new
+        # settings in place, with its inode, mode and extended attribute, and the link must come back.
+        managed = self.etc / "clinic.properties"
+        managed.write_text("old=settings\n", encoding="utf-8")
+        managed.chmod(0o640)
+        attribute = None
+        try:
+            os.setxattr(managed, "user.mycarlos-test", b"kept")
+            attribute = "user.mycarlos-test"
+        except OSError:
+            pass                                           # a filesystem without user xattrs: the rest still runs
+        self.properties.symlink_to(managed.name)
+        opened = managed.stat()
+
+        result = self.init_config_run("new=settings\n")
+
+        self.assertIn("status=0", result.stdout, result.stderr)
+        self.assertTrue(self.properties.is_symlink(), "init-config left a regular file where the link was")
+        self.assertEqual(self.properties.readlink(), Path(managed.name))
+        self.assertTrue(os.path.samestat(opened, managed.stat()), "the managed target's inode changed")
+        self.assertEqual(managed.read_text(encoding="utf-8"), "new=settings\n")
+        self.assertEqual(stat.S_IMODE(managed.stat().st_mode), 0o640)
+        if attribute:
+            self.assertEqual(os.getxattr(managed, attribute), b"kept")
+        self.assertEqual(sorted(path.name for path in self.etc.iterdir()),
+                         ["carlos.properties", "clinic.properties"], "a temporary file was left behind")
+
+    def test_init_config_passes_its_exit_status_on_and_still_keeps_the_link(self):
+        managed = self.etc / "clinic.properties"
+        managed.write_text("old=settings\n", encoding="utf-8")
+        self.properties.symlink_to(managed.name)
+
+        failed = self.init_config_run("partial=settings\n", exit_status=3)
+
+        self.assertIn("status=3", failed.stdout, failed.stderr)
+        self.assertTrue(self.properties.is_symlink())
+        self.assertEqual(managed.read_text(encoding="utf-8"), "partial=settings\n")
+
+    def test_init_config_leaves_a_regular_file_and_a_link_it_did_not_break_alone(self):
+        # A regular file: nothing to carry anywhere.
+        self.properties.write_text("old=settings\n", encoding="utf-8")
+        inode = self.properties.stat().st_ino
+        regular = self.init_config_run("new=settings\n", replace=False)
+        self.assertIn("status=0", regular.stdout, regular.stderr)
+        self.assertEqual(self.properties.read_text(encoding="utf-8"), "new=settings\n")
+        self.assertEqual(self.properties.stat().st_ino, inode)
+        self.assertFalse(self.properties.is_symlink())
+        self.assertEqual(regular.stdout.count("carried"), 0)
+        # A link a (fixed) carlos-ctl wrote through: untouched, and no message about carrying.
+        self.properties.unlink()
+        managed = self.etc / "clinic.properties"
+        managed.write_text("old=settings\n", encoding="utf-8")
+        self.properties.symlink_to(managed.name)
+        through = self.init_config_run("through=link\n", replace=False)
+        self.assertIn("status=0", through.stdout, through.stderr)
+        self.assertTrue(self.properties.is_symlink())
+        self.assertEqual(managed.read_text(encoding="utf-8"), "through=link\n")
+        self.assertNotIn("carried", through.stdout)
+        # A dangling link is not ours to touch (the steps that need the file refuse it).
+        managed.unlink()
+        dangling = self.init_config_run("x=y\n", replace=False)
+        self.assertIn("status=", dangling.stdout)
+
+    def test_init_config_says_so_when_the_managed_target_cannot_be_written(self):
+        managed = self.etc / "clinic.properties"
+        managed.write_text("old=settings\n", encoding="utf-8")
+        managed.chmod(0o440)
+        self.properties.symlink_to(managed.name)
+        if os.access(managed, os.W_OK):
+            self.skipTest("running as a user that can write a read-only file (root)")
+
+        result = self.init_config_run("new=settings\n")
+
+        self.assertIn("status=0", result.stdout, result.stderr)
+        self.assertIn("could not be written into", result.stderr)
+        # The live settings are not lost: they stay in the regular file the writer made.
+        self.assertFalse(self.properties.is_symlink())
+        self.assertEqual(self.properties.read_text(encoding="utf-8"), "new=settings\n")
+        self.assertEqual(managed.read_text(encoding="utf-8"), "old=settings\n")
+
+    def test_install_once_still_installs_a_missing_file_and_keeps_an_existing_one(self):
+        text = POSTINST.read_text(encoding="utf-8")
+        function = re.search(r'^install_once\(\) \{.*?^\}\n', text, re.S | re.M).group(0)
+        owner = "{0}:{1}".format(os.getuid(), os.getgid())
+        skel, dest = self.share / "skel" / "carlos.properties", self.etc / "installed.properties"
+
+        def run():
+            return subprocess.run(["sh", "-c", "set -e\n" + function + 'install_once "{0}" "{1}" 0640 {2}\n'.format(
+                skel, dest, owner)], capture_output=True, text=True, check=False, timeout=10)
+
+        fresh = run()
+        self.assertEqual(fresh.returncode, 0, fresh.stderr)
+        self.assertEqual(dest.read_bytes(), skel.read_bytes())
+        self.assertEqual(stat.S_IMODE(dest.stat().st_mode), 0o640)
+        dest.write_text("operator=edit\n", encoding="utf-8")
+        again = run()
+        self.assertEqual(again.returncode, 0, again.stderr)
+        self.assertEqual(dest.read_text(encoding="utf-8"), "operator=edit\n")
+        # A link to a file that is there is also kept (its target's mode is applied, never replaced).
+        link = self.etc / "linked.properties"
+        link.symlink_to(dest.name)
+        subprocess.run(["sh", "-c", "set -e\n" + function + 'install_once "{0}" "{1}" 0600 {2}\n'.format(
+            skel, link, owner)], check=True, timeout=10)
+        self.assertTrue(link.is_symlink())
+        self.assertEqual(dest.read_text(encoding="utf-8"), "operator=edit\n")
 
     def test_keeps_writes_from_a_process_that_holds_the_configuration_lock(self):
         self.write_properties(old_line())

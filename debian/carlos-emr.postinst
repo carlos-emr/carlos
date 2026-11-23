@@ -454,12 +454,71 @@ o19_import_in_progress() {
 # after an upgrade.
 install_once() {
     src="$1"; dest="$2"; mode="$3"; owner="$4"
+    if [ -L "${dest}" ] && [ ! -e "${dest}" ]; then
+        # A managed link whose target is not there right now (an unmounted or not yet restored
+        # volume, a target removed by mistake) is the operator's file, not a missing one:
+        # `install` would replace the link with the stock skeleton, and the migrations after this
+        # would then treat the skeleton as the operator's configuration. Leave it. The steps that
+        # need the file refuse a dangling link, say so and stay retryable (`dpkg --configure -a`
+        # once the target is back).
+        echo "carlos-emr: WARNING: ${dest} is a link to a target that is not there; left as it is, the stock file was NOT installed over it. Restore the target, then run sudo dpkg --configure -a" >&2
+        return 0
+    fi
     if [ ! -e "${dest}" ]; then
         install -m "${mode}" -o "${owner%:*}" -g "${owner#*:}" "${src}" "${dest}"
     else
         chown "${owner}" "${dest}"
         chmod "${mode}" "${dest}"
     fi
+}
+
+# Runs `carlos-ctl init-config` and keeps a managed carlos.properties link through it. carlos-ctl's
+# property writer (1.3.5) writes a temporary file and renames it over the path, so a symlink to a
+# managed file (configuration management, a shared volume) becomes a regular file: the managed target
+# keeps its old settings, loses nothing else but is no longer read, and later edits of it never reach
+# CARLOS. When that happens, carry the new bytes into the managed target IN PLACE (its inode, owner,
+# mode, ACLs and extended attributes stay; under the same POSIX record lock CarlosProperties takes)
+# and put the link back. If the target cannot be written, the regular file stays (the settings are
+# live) and the operator is told. A carlos-ctl that already writes through the link needs none of this.
+# The exit status of init-config is the function's.
+run_init_config_keeping_link() {
+    ric_link=""; ric_target=""
+    if [ -L "${PROPERTIES}" ] && [ -f "${PROPERTIES}" ]; then
+        ric_link="$(readlink "${PROPERTIES}")"
+        ric_target="$(readlink -f "${PROPERTIES}")"
+    fi
+    ric_status=0
+    carlos-ctl init-config || ric_status=$?
+    if [ -n "${ric_link}" ] && [ ! -L "${PROPERTIES}" ] && [ -f "${PROPERTIES}" ] && [ -f "${ric_target}" ]; then
+        if python3 - "${PROPERTIES}" "${ric_target}" <<'PY'
+import fcntl
+import os
+import sys
+
+source, target = sys.argv[1:3]
+with open(source, "rb") as written:
+    content = written.read()
+with open(target, "r+b") as managed:
+    fcntl.lockf(managed, fcntl.LOCK_EX)
+    managed.seek(0)
+    managed.write(content)
+    managed.flush()
+    managed.truncate(len(content))
+    os.fsync(managed.fileno())
+PY
+        then
+            if ln -s "${ric_link}" "${PROPERTIES}.managed-link" \
+                && mv -T "${PROPERTIES}.managed-link" "${PROPERTIES}"; then
+                echo "carlos-emr: ${PROPERTIES} is a link to ${ric_target}; the settings init-config wrote were carried into that file and the link was put back"
+            else
+                rm -f "${PROPERTIES}.managed-link"
+                echo "carlos-emr: WARNING: the settings were carried into ${ric_target}, but ${PROPERTIES} could not be linked to it again and is a regular file with the same settings. Restore the link by hand: ln -sfn '${ric_link}' ${PROPERTIES}" >&2
+            fi
+        else
+            echo "carlos-emr: WARNING: init-config replaced the link ${PROPERTIES} with a regular file and the new settings could not be written into ${ric_target}. ${PROPERTIES} holds the live settings; compare it with ${ric_target} and restore the link by hand." >&2
+        fi
+    fi
+    return "${ric_status}"
 }
 
 case "$1" in
@@ -1399,7 +1458,7 @@ OAUTH_ACCESS_DEFAULTS
                     # change, but the definition in effect (java.util.Properties
                     # keeps the last) still carries the alternative that cuts
                     # values: say so once, when the sentinel is written.
-                    echo "carlos-emr: WARNING: HL7_LAB_MEASUREMENT_FILTER in ${PROPERTIES} still has the alternative ^([+-\\?]{1,4}), which files lab results of five or more digits and signs as their first four characters (#4613); it was left as it is because it is not the exact stock line. Compare it with ${SHARE}/skel/carlos.properties." >&2
+                    echo "carlos-emr: WARNING: HL7_LAB_MEASUREMENT_FILTER in ${PROPERTIES} was left as it is because it is not the exact stock line. It contains the alternative ^([+-\\?]{1,4}) of the earlier stock filter, which took only the first four characters of a longer number or sign string (#4613); whether yours still does depends on how the whole expression is written: inspect it and compare it with ${SHARE}/skel/carlos.properties." >&2
                 fi
                 mkdir -p "${STATE}"
                 : > "${LAB_FILTER_SENTINEL}"
@@ -1448,7 +1507,7 @@ OAUTH_ACCESS_DEFAULTS
                     # last) still has a #4613-style word alternative (^\\b(word),
                     # any word) that matches the start of a result. The new stock
                     # line has none. Say so once, when the sentinel is written.
-                    echo "carlos-emr: WARNING: HL7_LAB_MEASUREMENT_FILTER in ${PROPERTIES} still matches its words at the start of a result (^\\b(word)\\b), which files \"No organisms seen\" as \"No\", and may match dates anywhere in it (#6121); it was left as it is because it is not the stock line" >&2
+                    echo "carlos-emr: WARNING: HL7_LAB_MEASUREMENT_FILTER in ${PROPERTIES} was left as it is because it is not the stock line. It contains an alternative that starts ^\\b( , the form the earlier stock filter used for its words (#4613); with no end anchor such an alternative matches a word at the start of a longer result, which the new stock filter does not (#6121). Whether yours does depends on how the whole expression ends: inspect it and compare it with ${SHARE}/skel/carlos.properties." >&2
                 fi
                 mkdir -p "${STATE}"
                 : > "${LAB_FILTER_WORDS_SENTINEL}"
@@ -1912,7 +1971,7 @@ OAUTH_ACCESS_DEFAULTS
         fi
         [ -e /etc/nginx/sites-enabled/carlos-emr ] || export CARLOS_CONFIGURE_FIRST_RUN=1
         if [ "${PROVISION_LOCK_HELD}" = 1 ]; then
-            carlos-ctl init-config || {
+            run_init_config_keeping_link || {
                 echo "carlos-emr: WARNING: init-config reported a problem applying the front-door" >&2
                 echo "carlos-emr: WARNING: configuration (see above). The install continues; fix the" >&2
                 echo "carlos-emr: WARNING: cause and re-run 'carlos-ctl init-config'." >&2

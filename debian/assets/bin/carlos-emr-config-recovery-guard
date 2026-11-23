@@ -10,9 +10,13 @@
 #         must not start on it.
 #
 # Exit 1 (not 255) on purpose: systemd then skips the start cleanly, while 255 would mark the unit failed
-# and let any restart policy retry it. carlos-ctl start|restart relay this message to the terminal.
-# carlos-emr.service consults it as ExecCondition=, so the refusal is a clean "condition
-# failed" skip, and the reason below lands in the journal (journalctl -u carlos-emr).
+# and let any restart policy retry it. carlos-emr.service and carlos-emr-provision.service consult it as
+# ExecCondition=, so the refusal is a clean "condition failed" skip, and the reason below lands in the
+# journal (journalctl -u carlos-emr). carlos-ctl 1.3.5's start and restart do NOT relay it: they
+# consult only the OSCAR 19 guard before they call systemctl, so with a recovery pending systemd skips
+# the start and the command can still return success without printing this remedy. The operator
+# checks `systemctl status carlos-emr` or the journal; having the CLI report a skipped start is a change
+# in the carlos-ctl repository, not in this package.
 # Deliberately separate from carlos-emr-o19-guard, which other callers (the postinst, the
 # DrugRef packaging) read as "an OSCAR 19 import is in progress".
 #

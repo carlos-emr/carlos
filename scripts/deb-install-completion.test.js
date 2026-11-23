@@ -407,11 +407,15 @@ echo rendered
         const block = (cleanup + '\n' + postinst.slice(start, end))
           .replaceAll('/etc/nginx/sites-available/default', target)
           .replaceAll('/etc/nginx/sites-enabled', root);
+        // The step calls the postinst's init-config wrapper, which keeps a managed properties link.
+        const keepLink = postinst.match(/\nrun_init_config_keeping_link\(\) \{[\s\S]*?\n\}\n/)[0];
         const result = spawnSync('sh', ['-c', `set -eu
 PROVISION_LOCK_HELD=${locked}
+PROPERTIES='${root}/carlos.properties'
 PATH='${root}':$PATH
 mark_incomplete() { echo incomplete; }
 free_front_door() { :; }
+${keepLink}
 ${block}
 `], { encoding: 'utf8' });
         assert.equal(result.status, 0, result.stdout + result.stderr);
@@ -766,9 +770,12 @@ test('configure removes only the stock nginx symlink before its first configurat
         + 'printf "init-config\\n"\n'
         + '[ ! -e "$CARLOS_TEST_DEFAULT_SITE" ] || exit 1\n'
         + 'exit "$CARLOS_TEST_INIT_STATUS"\n', {mode: 0o755});
+      const keepLink = postinst.match(/\nrun_init_config_keeping_link\(\) \{[\s\S]*?\n\}\n/)[0];
       const script = 'set -e\nPROVISION_LOCK_HELD=' + (locked ? '1' : '0') + '\n'
+        + 'PROPERTIES=' + JSON.stringify(path.join(nginx, 'carlos.properties')) + '\n'
         + 'free_front_door() { :; }\n'
         + 'mark_incomplete() { printf "incomplete\\n"; }\n'
+        + keepLink + '\n'
         + block;
       const result = spawnSync('sh', ['-c', script], {
         encoding: 'utf8',

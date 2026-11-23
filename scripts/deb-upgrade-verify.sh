@@ -235,6 +235,12 @@ done
 lf_pre=$(g "$PRE" cfg.labFilter.sha 2>/dev/null || true); lf_post=$(g "$POST" cfg.labFilter.sha 2>/dev/null || true)
 lf_skel=$(g "$POST" cfg.labFilter.skel.sha 2>/dev/null || true)
 lf_sentinel_pre=$(g "$PRE" sentinel..lab-measurement-filter-migrated 2>/dev/null || true)
+# The digests above see only the plain spelling of the key. The rewrites run only when the key has ONE logical
+# definition (java.util.Properties: continuations joined, key escapes decoded), so a stock physical line that a
+# later, differently spelled definition overrides is not a rewrite the upgrade owed. The baseline records the
+# count; a snapshot without it (an older baseline) keeps the earlier expectation.
+lf_logical_pre=$(g "$PRE" cfg.labFilter.logical 2>/dev/null || true)
+lf_unique() { [ -z "$lf_logical_pre" ] || [ "$lf_logical_pre" = unknown ] || [ "$lf_logical_pre" = 1 ]; }
 lfw_sentinel_pre=$(g "$PRE" sentinel..lab-measurement-filter-words-migrated 2>/dev/null || true)
 # The skeleton's line counts only when it exists and is not the old line itself.
 lf_skel_fixed() { [ -n "$lf_skel" ] && [ "$lf_skel" != "$LAB_FILTER_OLD_SHA" ] && [ "$lf_skel" != "$LAB_FILTER_NONE_SHA" ]; }
@@ -243,9 +249,9 @@ lf_skel_words_fixed() { lf_skel_fixed && [ "$lf_skel" != "$LAB_FILTER_WORDS_OLD_
 lf_ok=0; lf_changed=no
 if [ -n "$lf_pre" ] && [ "$lf_pre" = "$lf_post" ]; then
   lf_ok=1
-elif [ "$lf_pre" = "$LAB_FILTER_OLD_SHA" ] && lf_skel_fixed && [ "$lf_post" = "$lf_skel" ] && [ "$lf_sentinel_pre" != yes ]; then
+elif [ "$lf_pre" = "$LAB_FILTER_OLD_SHA" ] && lf_unique && lf_skel_fixed && [ "$lf_post" = "$lf_skel" ] && [ "$lf_sentinel_pre" != yes ]; then
   lf_ok=1; lf_changed=yes
-elif [ "$lf_pre" = "$LAB_FILTER_WORDS_OLD_SHA" ] && lf_skel_words_fixed && [ "$lf_post" = "$lf_skel" ] && [ "$lfw_sentinel_pre" != yes ]; then
+elif [ "$lf_pre" = "$LAB_FILTER_WORDS_OLD_SHA" ] && lf_unique && lf_skel_words_fixed && [ "$lf_post" = "$lf_skel" ] && [ "$lfw_sentinel_pre" != yes ]; then
   lf_ok=1; lf_changed=yes
 fi
 # The Help link either stayed put or, on the upgrade that first writes its
@@ -333,13 +339,13 @@ if [ "$ht_pre" = health_tracker=false ] && [ "$ht_sentinel_pre" != yes ]; then
 fi
 # The lab filter rewrite is asserted when the PRE snapshot carries exactly the
 # old stock line and the migration has not run yet.
-if [ "$lf_pre" = "$LAB_FILTER_OLD_SHA" ] && [ "$lf_sentinel_pre" != yes ]; then
+if [ "$lf_pre" = "$LAB_FILTER_OLD_SHA" ] && [ "$lf_sentinel_pre" != yes ] && lf_unique; then
   lf_skel_fixed && [ "$lf_post" = "$lf_skel" ] && ok "the old stock HL7_LAB_MEASUREMENT_FILTER was migrated to the skeleton's" || bad "HL7_LAB_MEASUREMENT_FILTER was not migrated: digest '$lf_post', skeleton '$lf_skel'"
   [ "$(g "$POST" sentinel..lab-measurement-filter-migrated)" = yes ] && ok "lab-filter migration sentinel written" || bad "lab-filter migration sentinel missing after upgrade"
 fi
 # The whole-word rewrite (#6121) is asserted when the PRE snapshot carries exactly
 # the #4613 stock line, the skeleton has moved on from it and it has not run yet.
-if [ "$lf_pre" = "$LAB_FILTER_WORDS_OLD_SHA" ] && [ "$lfw_sentinel_pre" != yes ] && lf_skel_words_fixed; then
+if [ "$lf_pre" = "$LAB_FILTER_WORDS_OLD_SHA" ] && [ "$lfw_sentinel_pre" != yes ] && lf_unique && lf_skel_words_fixed; then
   [ "$lf_post" = "$lf_skel" ] && ok "the #4613 stock HL7_LAB_MEASUREMENT_FILTER was migrated to the skeleton's whole-word line" || bad "HL7_LAB_MEASUREMENT_FILTER was not migrated from the #4613 line: digest '$lf_post', skeleton '$lf_skel'"
   [ "$(g "$POST" sentinel..lab-measurement-filter-words-migrated)" = yes ] && ok "lab-filter whole-word migration sentinel written" || bad "lab-filter whole-word migration sentinel missing after upgrade"
 fi

@@ -241,7 +241,7 @@ class TestModernChartCutover(unittest.TestCase):
     def test_cutover_runs_after_configuration_render_and_before_service_start(self):
         source = POSTINST.read_text(encoding="utf-8")
         cutover = source.index("# BEGIN MODERN_CHART_CUTOVER")
-        self.assertGreater(cutover, source.index("carlos-ctl init-config ||"))
+        self.assertGreater(cutover, source.index("run_init_config_keeping_link ||"))
         self.assertGreater(cutover, source.index("if ! carlos-ctl db-users; then"))
         self.assertLess(cutover, source.index('emr_verb=start', cutover))
         self.assertNotIn('if [ "${PROVISION_LOCK_HELD}" = 1 ]', migration_block())

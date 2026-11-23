@@ -22,6 +22,16 @@ Before=carlos-emr.service
 [Service]
 Type=oneshot
 RemainAfterExit=no
+# Never provision on a carlos.properties that may be torn. An interrupted in-place rewrite of it
+# (the lab-filter and Help link migrations) leaves a record beside the file, and the postinst
+# restores the file from that record on the next `dpkg --configure` or `dpkg-reconfigure`. This
+# unit is pulled in by carlos-emr.service and finishes before it, and `finish-install --boot` runs
+# `carlos-ctl init-config`, whose first property write replaces the file's inode: the record then
+# no longer matches and the recovery would refuse for good. The same guard as carlos-emr.service
+# makes the start a clean "condition failed" skip (the file and the record untouched, the
+# reason and the remedy in the journal); .install-incomplete stays, so the next boot after the
+# recovery finishes the provisioning. The `+` runs it outside any sandbox, as there.
+ExecCondition=+/usr/lib/carlos-emr/carlos-emr-config-recovery-guard
 # --boot is the guarded mode: it does nothing without the marker, and it
 # refuses to migrate a schema that already has tables — an upgrade migration
 # is a decision an operator takes after a verified backup, never one a boot

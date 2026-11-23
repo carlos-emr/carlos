@@ -185,7 +185,7 @@ class TestLabFilterMigration(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.properties.read_bytes(), before)
-        self.assertIn("still has the alternative", result.stderr)
+        self.assertIn("contains the alternative", result.stderr)
         self.assertIn("#4613", result.stderr)
         self.assertTrue((self.state / SENTINEL).exists())
 
@@ -197,7 +197,7 @@ class TestLabFilterMigration(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.properties.read_bytes(), before)
-        self.assertIn("still has the alternative", result.stderr)
+        self.assertIn("contains the alternative", result.stderr)
 
     def test_rewrites_a_file_without_a_final_newline(self):
         self.properties.write_text("before=1\n" + old_line(),

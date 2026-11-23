@@ -580,17 +580,27 @@ See [Jasper/OpenPDF migration](jasperreports-openpdf3.md).
     two-digit year (`10/09/26 repeat` as `10/09/26`, `09-Oct-26` as `09-`), `2026-Oct-09` (as
     `2026-`), and `9 Sept. 2026` or `9 mai 2026` (as `9`).
   - The package rewrites the exact previous stock line in `/etc/carlos-emr/carlos.properties`
-    once. It leaves an edited line alone, and warns when that line still matches words at the
-    start of a result.
+    once. It leaves an edited line alone, and warns when that line contains the `^\\b(` word
+    alternative of the earlier stock filter. The warning only asks you to inspect the setting: whether
+    your whole expression still matches a word at the start of a longer result depends on how it ends
+    (`^\\b(no)\\b$` does not, `^\\b(no)\\b` does).
   - The package rewrites `carlos.properties` in place, under its lock, so a symlink to a managed
     file, the file's owner, mode and ACLs stay as they are. The one-time Help link rewrite
-    (`resource_base_url`) does the same. If an upgrade is interrupted mid-rewrite, a private
+    (`resource_base_url`) does the same. The configure step that then runs `carlos-ctl init-config`
+    keeps such a link too: carlos-ctl's own writer replaces the link with a regular file, so the
+    package carries the settings it wrote into the managed file in place (its owner, mode, ACLs and
+    extended attributes stay) and puts the link back, and says so if it cannot. A dangling link is left
+    alone, not replaced by the stock file, and the configure stops until the target is back. If an upgrade is interrupted mid-rewrite, a private
     record `/etc/carlos-emr/carlos.properties.lab-filter-recovery` is left beside the file and
     CARLOS does not start until the next `dpkg --configure -a` (or, when an OSCAR 19 import held the
     provisioning lock and the package shows as configured, `sudo dpkg-reconfigure carlos-emr` once the import has
     finished) restores the file and removes it. `systemctl status carlos-emr` shows the start as skipped, and
-    `journalctl -u carlos-emr` says why and what to run. While the recovery is deferred, no other setting in the file
-    is changed by that configure.
+    `journalctl -u carlos-emr` says why and what to run. `carlos-emr-provision.service` is skipped the same way, so
+    the boot provisioner does not touch the file or the record either. `carlos-ctl start` and `restart`
+    (carlos-ctl 1.3.5) consult only the OSCAR 19 guard before they call systemd, so they can report success while
+    the start is skipped: after an interrupted upgrade, check `systemctl status carlos-emr` or
+    `journalctl -u carlos-emr` rather than relying on their exit status. While the recovery is deferred, no
+    other setting in the file is changed by that configure.
     If that command refuses (you edited or restored `carlos.properties` meanwhile), check the
     file, remove the record (it is a copy of the whole configuration, secrets included) and run
     `sudo dpkg --configure -a` again.
