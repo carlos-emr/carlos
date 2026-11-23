@@ -6,6 +6,9 @@ package io.github.carlos_emr.carlos.eform.data;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mockStatic;
 
 import java.util.stream.Stream;
@@ -681,6 +684,51 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
                 assertThat(form.getFormHtml()).as(testCase.get("name").asText())
                         .isEqualTo("<form id=\"f\">" + testCase.get("after").asText() + "</form>");
             }
+        }
+    }
+
+    private static final String TEMPLATE_SELECT = "<select name=\"Pick\" oscarDB=choice>"
+            + "<option value=\"No\" selected>No</option><option value=\"Yes\">Yes</option></select>";
+
+    @Test
+    void shouldLeaveTheSelectAsTheTemplateHasIt_whenTheParserFailsWhileChoosingTheOption() throws Exception {
+        DatabaseAP ap = new DatabaseAP("choice", "", "Yes");
+        try (var loader = mockStatic(EFormLoader.class);
+                var markup = mockStatic(EFormSelectMarkup.class, CALLS_REAL_METHODS)) {
+            loader.when(EFormLoader::getMarker).thenReturn("oscarDB");
+            loader.when(() -> EFormLoader.getAP("choice")).thenReturn(ap);
+            markup.when(() -> EFormSelectMarkup.edit(any(), anyInt(), any()))
+                    .thenThrow(new IllegalStateException("the parser failed"));
+            EForm form = new EForm();
+            form.setDemographicNo("7");
+            form.setFormHtml("<form>" + TEMPLATE_SELECT + "</form>");
+
+            form.setDatabaseAPs(); // never throws
+
+            // The template's own default stays, and the dependent value is what the markup shows.
+            assertThat(form.getFormHtml()).isEqualTo("<form>" + TEMPLATE_SELECT + "</form>");
+            assertThat(fieldValue(form, "pick")).isEqualTo("No");
+        }
+    }
+
+    @Test
+    void shouldGoOnWithoutADependentValue_whenTheParserFailsWhileReadingTheSelectedOption() throws Exception {
+        DatabaseAP ap = new DatabaseAP("choice", "", "Yes");
+        try (var loader = mockStatic(EFormLoader.class);
+                var markup = mockStatic(EFormSelectMarkup.class, CALLS_REAL_METHODS)) {
+            loader.when(EFormLoader::getMarker).thenReturn("oscarDB");
+            loader.when(() -> EFormLoader.getAP("choice")).thenReturn(ap);
+            markup.when(() -> EFormSelectMarkup.selectedValue(any(), anyInt()))
+                    .thenThrow(new IllegalStateException("the parser failed"));
+            EForm form = new EForm();
+            form.setDemographicNo("7");
+            form.setFormHtml("<form>" + TEMPLATE_SELECT + "</form>");
+
+            form.setDatabaseAPs(); // never throws
+
+            // The prefill itself worked; only the value a dependent tag would read is missing.
+            assertThat(Jsoup.parse(form.getFormHtml()).selectFirst("option[selected]").text()).isEqualTo("Yes");
+            assertThat(fieldValue(form, "pick")).isEmpty();
         }
     }
 }
