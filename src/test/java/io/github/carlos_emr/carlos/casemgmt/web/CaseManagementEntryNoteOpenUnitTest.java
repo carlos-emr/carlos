@@ -597,7 +597,7 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should keep only the most recent reader forms of a chart")
-    void shouldBoundTheReaderForms() throws Exception {
+    void shouldBoundTheReaderForms_toTheMostRecentOnes() throws Exception {
         for (long id = 6001L; id < 6001L + CaseManagementEntry2Action.MAX_READER_FORMS + 3; id++) {
             openSaved("GET", id);
         }
