@@ -71,6 +71,27 @@ class McedtCredentialConsumerUnitTest extends CarlosUnitTestBase {
             assertFalse(refused.getMessage().contains(password));
         }
     }
+    @Test void currentRowStatementsFollowTheDatabaseProduct() throws Exception {
+        // The MariaDB form of each current-row statement is chosen when the product name says MariaDB, the standard one
+        // otherwise. The H2 lane never takes the MariaDB branch (the physical MariaDB lane does), so both are driven here.
+        for (boolean mariaDb : new boolean[]{true, false}) {
+            McedtCredentialService real=new McedtCredentialService();
+            jakarta.persistence.EntityManager manager=mock(jakarta.persistence.EntityManager.class);
+            org.hibernate.Session session=mock(org.hibernate.Session.class);
+            when(manager.unwrap(org.hibernate.Session.class)).thenReturn(session);
+            when(session.doReturningWork(any(org.hibernate.jdbc.ReturningWork.class))).thenReturn(mariaDb);
+            AtomicReference<String> sql=new AtomicReference<>();
+            when(manager.createNativeQuery(anyString(),any(Class.class))).thenAnswer(call -> {
+                sql.set(call.getArgument(0));
+                throw new RuntimeException("FAKE stop after the statement is chosen");
+            });
+            Field entityManager=McedtCredentialService.class.getDeclaredField("entityManager");
+            entityManager.setAccessible(true);entityManager.set(real,manager);
+            assertThrows(IllegalStateException.class,()->real.getPassword("fallback"));
+            assertTrue(sql.get().contains("encrypted_password FROM mcedt_credential WHERE id = 1 FOR UPDATE"));
+            assertEquals(mariaDb,sql.get().contains("SET STATEMENT innodb_snapshot_isolation=OFF FOR"));
+        }
+    }
     @BeforeEach void prepare() throws Exception {
         credentials=mock(McedtCredentialService.class);
         registerMock(McedtCredentialService.class,credentials);
