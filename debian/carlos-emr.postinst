@@ -478,7 +478,12 @@ install_once() {
 # keeps its old settings, loses nothing else but is no longer read, and later edits of it never reach
 # CARLOS. When that happens, carry the new bytes into the managed target IN PLACE (its inode, owner,
 # mode, ACLs and extended attributes stay; under the same POSIX record lock CarlosProperties takes)
-# and put the link back. If the target cannot be written, the regular file stays (the settings are
+# and put the link back. The write is in place (write, then truncate) and so is NOT atomic: a power cut
+# or a kill in the middle can leave the managed target torn (new bytes over old ones, or cut short). It
+# is taken only when the settings init-config just wrote would otherwise sit in a regular file nobody
+# reads, and the file it came from is still there to compare; nothing here can make the in-place write
+# itself crash-safe without replacing the target's inode, which is what keeping the link's target (and
+# its owner, mode and ACLs) rules out. If the target cannot be written, the regular file stays (the settings are
 # live) and the operator is told. A carlos-ctl that already writes through the link needs none of this.
 # The exit status of init-config is the function's.
 run_init_config_keeping_link() {

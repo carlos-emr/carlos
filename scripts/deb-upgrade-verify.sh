@@ -339,14 +339,20 @@ if [ "$ht_pre" = health_tracker=false ] && [ "$ht_sentinel_pre" != yes ]; then
 fi
 # The lab filter rewrite is asserted when the PRE snapshot carries exactly the
 # old stock line and the migration has not run yet.
-if [ "$lf_pre" = "$LAB_FILTER_OLD_SHA" ] && [ "$lf_sentinel_pre" != yes ] && lf_unique; then
-  lf_skel_fixed && [ "$lf_post" = "$lf_skel" ] && ok "the old stock HL7_LAB_MEASUREMENT_FILTER was migrated to the skeleton's" || bad "HL7_LAB_MEASUREMENT_FILTER was not migrated: digest '$lf_post', skeleton '$lf_skel'"
+# The sentinel is written whether or not the key has several logical definitions (the migration then
+# leaves the file alone but is done); only the digest check needs the single definition the rewrite owed.
+if [ "$lf_pre" = "$LAB_FILTER_OLD_SHA" ] && [ "$lf_sentinel_pre" != yes ]; then
+  if lf_unique; then
+    lf_skel_fixed && [ "$lf_post" = "$lf_skel" ] && ok "the old stock HL7_LAB_MEASUREMENT_FILTER was migrated to the skeleton's" || bad "HL7_LAB_MEASUREMENT_FILTER was not migrated: digest '$lf_post', skeleton '$lf_skel'"
+  fi
   [ "$(g "$POST" sentinel..lab-measurement-filter-migrated)" = yes ] && ok "lab-filter migration sentinel written" || bad "lab-filter migration sentinel missing after upgrade"
 fi
 # The whole-word rewrite (#6121) is asserted when the PRE snapshot carries exactly
 # the #4613 stock line, the skeleton has moved on from it and it has not run yet.
-if [ "$lf_pre" = "$LAB_FILTER_WORDS_OLD_SHA" ] && [ "$lfw_sentinel_pre" != yes ] && lf_unique && lf_skel_words_fixed; then
-  [ "$lf_post" = "$lf_skel" ] && ok "the #4613 stock HL7_LAB_MEASUREMENT_FILTER was migrated to the skeleton's whole-word line" || bad "HL7_LAB_MEASUREMENT_FILTER was not migrated from the #4613 line: digest '$lf_post', skeleton '$lf_skel'"
+if [ "$lf_pre" = "$LAB_FILTER_WORDS_OLD_SHA" ] && [ "$lfw_sentinel_pre" != yes ] && lf_skel_words_fixed; then
+  if lf_unique; then
+    [ "$lf_post" = "$lf_skel" ] && ok "the #4613 stock HL7_LAB_MEASUREMENT_FILTER was migrated to the skeleton's whole-word line" || bad "HL7_LAB_MEASUREMENT_FILTER was not migrated from the #4613 line: digest '$lf_post', skeleton '$lf_skel'"
+  fi
   [ "$(g "$POST" sentinel..lab-measurement-filter-words-migrated)" = yes ] && ok "lab-filter whole-word migration sentinel written" || bad "lab-filter whole-word migration sentinel missing after upgrade"
 fi
 # The Help link rewrite is asserted when the PRE snapshot carries exactly the old

@@ -377,6 +377,18 @@ for (const [name, extra] of [
     assert.equal(result.status, 0, result.stdout + result.stderr);
     assert.doesNotMatch(result.stdout, /FAIL/);
     assert.doesNotMatch(result.stdout, /was not migrated/);
+    // The sentinel is still asserted; only the digest-equals-skeleton check is waived.
+    assert.match(result.stdout, /PASS lab-filter whole-word migration sentinel written/);
+  });
+
+  test(`upgrade verifier rejects a preserved #4613 lab filter whose migration wrote no sentinel when ${name} overrides it`, t => {
+    const fixture = labFilterWordsFixture(t);
+    fs.writeFileSync(fixture.props, `rx_fax_enabled=true\n${LAB_FILTER_WORDS_OLD}\n${extra}\nother=kept\n`);
+    fixture.baseline();
+    const result = fixture.run('deb-upgrade-verify.sh');
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stdout, /FAIL lab-filter whole-word migration sentinel missing/);
+    assert.doesNotMatch(result.stdout, /was not migrated/);
   });
 
   test(`upgrade verifier still rejects a changed lab filter when ${name} is present`, t => {

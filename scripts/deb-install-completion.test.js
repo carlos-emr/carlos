@@ -191,8 +191,11 @@ print("ok")
   // not merely before the provisioning verbs. Every mutating step is inside it.
   assert.ok(postinst.indexOf('acquire_provision_lock ||') <
     postinst.indexOf('DB_NAME_SENTINEL="${STATE}/.db-name-default-migrated"'));
+  // init-config is run through the postinst's wrapper (which keeps a managed properties link); the
+  // wrapper only defines it, the lock must come before its call.
+  assert.match(postinst, /run_init_config_keeping_link\(\) \{[\s\S]*?carlos-ctl init-config/);
   assert.ok(postinst.indexOf('acquire_provision_lock ||') <
-    postinst.indexOf('carlos-ctl init-config'));
+    postinst.indexOf('run_init_config_keeping_link ||'));
   assert.match(postinst,
     /if \[ "\$\{PROVISION_LOCK_HELD\}" = 1 \] && \[ ! -e "\$\{DB_NAME_SENTINEL\}" \]; then/);
   // init-config rewrites carlos.properties and reloads nginx: shared state.
