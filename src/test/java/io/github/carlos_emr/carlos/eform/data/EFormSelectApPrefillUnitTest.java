@@ -731,4 +731,16 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
             assertThat(fieldValue(form, "pick")).isEmpty();
         }
     }
+
+    @Test
+    void shouldKeepNothingForAnAuthoredTextThatIsMissing_whenTheSubmittedValueIsBlank() throws Exception {
+        // The marker guard is null-safe for authored text although its callers (an attribute value and a
+        // control's text) never pass null; the guard is driven directly so that its null branch is held.
+        java.lang.reflect.Method keeps = EForm.class.getDeclaredMethod("keepsFdidMarker", String.class, String.class);
+        keeps.setAccessible(true);
+        EForm form = new EForm();
+        assertThat((Boolean) keeps.invoke(form, null, "")).isFalse();
+        assertThat((Boolean) keeps.invoke(form, "no marker here", "")).isFalse();
+        assertThat((Boolean) keeps.invoke(form, "text", "typed")).isFalse();
+    }
 }
