@@ -41,10 +41,21 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
         registerMock(EFormValueDao.class, mock(EFormValueDao.class));
     }
 
-    /** The select markup with {@code " selected"} put in by {@link EForm#selectedOptionInsertAt}, or unchanged. */
-    private static String choose(String select, String wanted) {
-        int at = EForm.selectedOptionInsertAt(select, 0, select.length(), wanted);
-        return at < 0 ? select : select.substring(0, at) + " selected" + select.substring(at);
+    private static final String OPEN = "<select name=\"f\" oscarDB=x";
+
+    /** The edit for the select written as {@code OPEN + attributes + ">" + options + "</select>"}, applied, or null. */
+    private static String editedSelect(String attributes, String options, String wanted) {
+        String html = OPEN + attributes + ">" + options + "</select>";
+        EFormSelectMarkup.SelectEdit edit = EFormSelectMarkup.edit(html, html.indexOf("oscarDB=x") + 9, wanted);
+        if (edit == null) return null;
+        StringBuilder out = new StringBuilder(html);
+        edit.applyTo(out);
+        return out.toString();
+    }
+
+    /** The options with {@code " selected"} put in by the parser-based edit (a single select), or unchanged. */
+    private static String choose(String options, String wanted) {
+        return chooseOnly(options, wanted, false);
     }
 
     static Stream<Arguments> options() {
@@ -165,18 +176,21 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
                         "<option>\n  Yes,\n   with help </option>",
                         "Yes, with help",
                         "<option selected>\n  Yes,\n   with help </option>"),
-                Arguments.of("W unterminated tag",
+                // The select's own end tag ends a tag left open, as a browser reads it: the option exists.
+                Arguments.of("W unterminated tag closed by the select's end tag",
                         "<option value=\"Yes\"",
                         "Yes",
-                        "<option value=\"Yes\""),
+                        "<option selected value=\"Yes\""),
                 Arguments.of("X stray equals sign before the attributes",
                         "<option =x value=\"Yes\">y</option>",
                         "Yes",
                         "<option selected =x value=\"Yes\">y</option>"),
-                Arguments.of("Y style body hides an option",
+                // A style inside a select is raw text to current browsers and markup to jsoup: not told apart,
+                // so the select is left as the template has it rather than guessed at.
+                Arguments.of("Y a style inside the select leaves it alone",
                         "<style>.a{content:\"<option value=Yes>\"}</style><option value=\"Yes\">y</option>",
                         "Yes",
-                        "<style>.a{content:\"<option value=Yes>\"}</style><option selected value=\"Yes\">y</option>"),
+                        "<style>.a{content:\"<option value=Yes>\"}</style><option value=\"Yes\">y</option>"),
                 Arguments.of("Z script never closed",
                         "<script>var s=1;<option value=\"Yes\">y</option>",
                         "Yes",
@@ -256,14 +270,6 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldOnlyLookInsideTheGivenRange_whenAnotherSelectFollows() {
-        String first = "<option value=\"Yes\">a</option>";
-        String both = first + "</select><select><option value=\"No\">b</option>";
-
-        assertThat(EForm.selectedOptionInsertAt(both, 0, first.length(), "No")).isEqualTo(-1);
-    }
-
-    @Test
     void shouldPrefillTheRenderedSelect_throughTheDatabaseTagRun() throws Exception {
         assertThat(renderedSelection("Yes", "<option value=\"Yes, with help\">a</option><option value=\"Yes\">b</option>"))
                 .isEqualTo("Yes");
@@ -272,13 +278,13 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
         assertThat(renderedSelection("Smith & Sons", "<option value=\"Other\">o</option>")).isNull();
     }
 
-    /** The select markup after {@link EForm#selectedOptionEdit} is applied, or unchanged when no option matches. */
-    private static String chooseOnly(String select, String wanted, boolean single) {
-        EForm.SelectEdit edit = EForm.selectedOptionEdit(select, 0, select.length(), wanted, single);
-        if (edit == null) return select;
-        StringBuilder html = new StringBuilder(select);
-        edit.applyTo(html);
-        return html.toString();
+    /** The options after the edit for a single select, or for one with {@code multiple} (the template's other
+     * defaults stay), or unchanged when no option matches. */
+    private static String chooseOnly(String options, String wanted, boolean single) {
+        String edited = editedSelect(single ? "" : " multiple", options, wanted);
+        if (edited == null) return options;
+        String head = OPEN + (single ? "" : " multiple") + ">";
+        return edited.substring(head.length(), edited.length() - "</select>".length());
     }
 
     static Stream<Arguments> singleSelects() {
@@ -346,19 +352,19 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
                         "<option value=\"No\" selected>n</option><!-- never closed <option value=\"Yes\">y</option>",
                         "Yes",
                         "<option value=\"No\" selected>n</option><!-- never closed <option value=\"Yes\">y</option>"),
-                Arguments.of("an unreadable tag after the match keeps the insert and removes nothing",
+                Arguments.of("a tag that never closes its selected attribute is not selected, and is left as it is",
                         "<option value=\"Yes\">y</option><option value=\"No\" selected>n</option><option value=\"C\" selected",
                         "Yes",
-                        "<option selected value=\"Yes\">y</option><option value=\"No\" selected>n</option>"
+                        "<option selected value=\"Yes\">y</option><option value=\"No\">n</option>"
                                 + "<option value=\"C\" selected"),
-                Arguments.of("an unclosed comment after the match keeps the insert and removes nothing",
+                Arguments.of("an unclosed comment after the options leaves the options before it as they are read",
                         "<option value=\"Yes\">y</option><option value=\"No\" selected>n</option><!-- never closed",
                         "Yes",
-                        "<option selected value=\"Yes\">y</option><option value=\"No\" selected>n</option><!-- never closed"),
-                Arguments.of("an unclosed quote after the match keeps the insert and removes nothing",
+                        "<option selected value=\"Yes\">y</option><option value=\"No\">n</option><!-- never closed"),
+                Arguments.of("an unclosed quote makes no option, so only the real options are touched",
                         "<option value=\"Yes\">y</option><option value=\"No\" selected>n</option><option value=\"C>c</option>",
                         "Yes",
-                        "<option selected value=\"Yes\">y</option><option value=\"No\" selected>n</option>"
+                        "<option selected value=\"Yes\">y</option><option value=\"No\">n</option>"
                                 + "<option value=\"C>c</option>"));
     }
 
@@ -386,33 +392,6 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
                 .isEqualTo("<option selected value=\"A\" disabled>x</option><option value=\"B\">y</option>");
         assertThat(choose("<option value=\"A\" disabled>x</option>", "A"))
                 .isEqualTo("<option selected value=\"A\" disabled>x</option>");
-    }
-
-    @Test
-    void shouldOnlyTakeSelectedOutOfTheGivenRange_whenAnotherSelectFollows() {
-        String first = "<option value=\"Yes\">a</option><option value=\"No\" selected>b</option>";
-        String both = first + "</select><select><option value=\"C\" selected>c</option>";
-        EForm.SelectEdit edit = EForm.selectedOptionEdit(both, 0, first.length(), "Yes", true);
-        StringBuilder html = new StringBuilder(both);
-        edit.applyTo(html);
-
-        assertThat(html.toString()).isEqualTo("<option selected value=\"Yes\">a</option><option value=\"No\">b</option>"
-                + "</select><select><option value=\"C\" selected>c</option>");
-    }
-
-    @Test
-    void shouldReadWhetherASelectIsSingle_orSayNoOnAnyDoubt() {
-        String single = "<select name=\"a\" oscarDB=x class=\"c\"><option value=\"Yes\">y</option>";
-        String multiple = "<select oscarDB=x MULTIPLE><option value=\"Yes\">y</option>";
-        int pointer = single.indexOf("oscarDB=x") + 9;
-
-        assertThat(EForm.isSingleSelect(single, pointer, single.length())).isTrue();
-        assertThat(EForm.isSingleSelect(multiple, multiple.indexOf("oscarDB=x") + 9, multiple.length())).isFalse();
-        // No tag before the pointer, a tag that is not a select, and a start tag that cannot be read.
-        assertThat(EForm.isSingleSelect("oscarDB=x>", 9, 10)).isFalse();
-        assertThat(EForm.isSingleSelect("<div oscarDB=x><option value=\"Yes\">", 14, 35)).isFalse();
-        assertThat(EForm.isSingleSelect("<select oscarDB=x title=\"never closed><option>", 15, 47)).isFalse();
-        assertThat(EForm.isSingleSelect("<select oscarDB=x", 17, 400)).isFalse();
     }
 
     @Test
@@ -459,6 +438,148 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
             Document page = Jsoup.parse(form.getFormHtml());
             assertThat(page.select("option[selected]").size()).isLessThanOrEqualTo(1);
             return page.selectFirst("option[selected]") == null ? null : page.selectFirst("option[selected]").val();
+        }
+    }
+
+    // ---- Review of the select prefill: each case is the markup and the browser behaviour that was reported ----
+
+    /** The whole form's markup after the database tag run, as a browser would load it. */
+    private static Document rendered(String formBody, String output) throws Exception {
+        DatabaseAP ap = new DatabaseAP("choice", "", output);
+        try (var loader = mockStatic(EFormLoader.class)) {
+            loader.when(EFormLoader::getMarker).thenReturn("oscarDB");
+            loader.when(() -> EFormLoader.getAP("choice")).thenReturn(ap);
+            EForm form = new EForm();
+            form.setDemographicNo("7");
+            form.setFormHtml("<form>" + formBody + "</form>");
+            form.setDatabaseAPs();
+            return Jsoup.parse(form.getFormHtml());
+        }
+    }
+
+    /** The value a dependent database tag would read for {@code {name}}: what the form recorded for the field. */
+    private static String fieldValue(EForm form, String name) throws Exception {
+        java.lang.reflect.Method read = EForm.class.getDeclaredMethod("findValueInForm", String.class);
+        read.setAccessible(true);
+        return (String) read.invoke(form, "{" + name + "}");
+    }
+
+    /** What a browser submits for the select named {@code name}: its first (single) selected option's value. */
+    private static String submitted(Document page, String name) {
+        org.jsoup.nodes.Element select = page.selectFirst("select[name=" + name + "]");
+        org.jsoup.nodes.Element shown = null;
+        for (org.jsoup.nodes.Element option : select.select("option[selected]")) shown = option;
+        return shown == null ? null : EFormSelectMarkup.submittedValue(shown);
+    }
+
+    @Test
+    void shouldLimitTheEditToTheOwningSelect_whenItsEndTagHasASpaceOrACommentHoldsAnEndTag() throws Exception {
+        // `</select >` is a valid end tag; the second select's authored default must not be touched.
+        String first = "<select name=\"a\" oscarDB=choice><option value=\"Yes\">y</option><option value=\"No\">n</option></select >";
+        String second = "<select name=\"m\"><option value=\"Jan\">a</option><option value=\"Jun\" selected>b</option></select>";
+
+        Document page = rendered(first + second, "Yes");
+
+        assertThat(submitted(page, "a")).isEqualTo("Yes");
+        assertThat(submitted(page, "m")).isEqualTo("Jun");
+        // A `</select>` inside a comment does not end the select early.
+        String commented = "<select name=\"c\" oscarDB=choice><option value=\"No\">n</option><!-- </select> -->"
+                + "<option value=\"Yes\">y</option></select>";
+        assertThat(submitted(rendered(commented, "Yes"), "c")).isEqualTo("Yes");
+    }
+
+    @Test
+    void shouldIgnoreOptionLookingTextInAnOptgroupLabelAndInertTemplateContent() throws Exception {
+        String label = "<select name=\"l\" oscarDB=choice><optgroup label=\"<option value=Yes>\">"
+                + "<option value=\"No\">n</option></optgroup><option value=\"Yes\">y</option></select>";
+        String template = "<select name=\"t\" oscarDB=choice><template><option value=\"Yes\">t</option></template>"
+                + "<option value=\"No\">n</option><option value=\"Yes\">y</option></select>";
+
+        assertThat(submitted(rendered(label, "Yes"), "l")).isEqualTo("Yes");
+        Document page = rendered(template, "Yes");
+        assertThat(submitted(page, "t")).isEqualTo("Yes");
+        // The template's own content is intact: its option is still there and was not selected.
+        assertThat(page.select("template option[value=Yes]").size()).isEqualTo(1);
+        assertThat(page.select("template option[selected]").size()).isZero();
+    }
+
+    @Test
+    void shouldConsumeTheWholeScriptElement_beforeLookingForOptions() throws Exception {
+        String inert = "<select name=\"s\" oscarDB=choice><script type=\"application/json\">"
+                + "{\"a\":\"</scripture>\",\"b\":\"<option value=Yes>\"}</script>"
+                + "<option value=\"No\">n</option><option value=\"Yes\">y</option></select>";
+
+        Document page = rendered(inert, "Yes");
+
+        assertThat(submitted(page, "s")).isEqualTo("Yes");
+        // The script text is as authored.
+        assertThat(page.html()).contains("\"b\":\"<option value=Yes>\"");
+    }
+
+    @Test
+    void shouldCompareTheCompleteSubmittedText_whenAnOptionHasACommentInsideItsText() throws Exception {
+        String options = "<option>Yes<!-- annotation --> now</option><option value=\"Yes\">real</option>";
+
+        // The first option submits "Yes now", not "Yes": the option whose value is Yes is the one chosen.
+        assertThat(submitted(rendered("<select name=\"c\" oscarDB=choice>" + options + "</select>", "Yes"), "c"))
+                .isEqualTo("Yes");
+        // And "Yes now" is found by its whole submitted text.
+        assertThat(submitted(rendered("<select name=\"c\" oscarDB=choice>" + options + "</select>", "Yes now"), "c"))
+                .isEqualTo("Yes now");
+    }
+
+    @Test
+    void shouldReadABareValueAttributeAsAnExplicitEmptyString() throws Exception {
+        String options = "<option value>Yes</option><option value=\"Yes\">real</option>";
+
+        Document page = rendered("<select name=\"b\" oscarDB=choice>" + options + "</select>", "Yes");
+
+        // `<option value>` submits "", so the later option whose value is Yes is the one selected.
+        assertThat(submitted(page, "b")).isEqualTo("Yes");
+        assertThat(page.select("option[selected]").size()).isEqualTo(1);
+        assertThat(page.selectFirst("option[selected]").text()).isEqualTo("real");
+    }
+
+    @Test
+    void shouldPreferAnExactSubmittedValue_beforeAnyCompatibilityMatch() throws Exception {
+        String ampersand = "<option value=\"Smith &amp;amp; Sons\">raw</option><option value=\"Smith &amp; Sons\">decoded</option>";
+        // The stored text is the literal `Smith &amp; Sons`: the option that submits exactly that wins over the
+        // one that only matches by its raw spelling.
+        assertThat(rendered("<select name=\"a\" oscarDB=choice>" + ampersand + "</select>", "Smith &amp; Sons")
+                .selectFirst("option[selected]").text()).isEqualTo("raw");
+        // `MG` before `mg`: the stored `mg` code is not changed to `MG`.
+        String codes = "<option value=\"MG\">upper</option><option value=\"mg\">lower</option>";
+        assertThat(rendered("<select name=\"c\" oscarDB=choice>" + codes + "</select>", "mg")
+                .selectFirst("option[selected]").text()).isEqualTo("lower");
+        // With no exact match the compatibility fallbacks still apply.
+        assertThat(rendered("<select name=\"c\" oscarDB=choice>" + codes.replace("mg", "kg") + "</select>", "MG")
+                .selectFirst("option[selected]").text()).isEqualTo("upper");
+        assertThat(rendered("<select name=\"a\" oscarDB=choice><option value=\"Smith &amp; Sons\">d</option></select>",
+                "Smith & Sons").selectFirst("option[selected]").text()).isEqualTo("d");
+    }
+
+    @Test
+    void shouldBindTheSubmittedValueInADependentDatabaseTag_notTheMarkupsRawSpelling() throws Exception {
+        // The field a dependent lookup reads is the value a browser submits: the decoded text of a text-only
+        // option, and the decoded value attribute.
+        DatabaseAP ap = new DatabaseAP("choice", "", "Yes");
+        try (var loader = mockStatic(EFormLoader.class)) {
+            loader.when(EFormLoader::getMarker).thenReturn("oscarDB");
+            loader.when(() -> EFormLoader.getAP("choice")).thenReturn(ap);
+            EForm form = new EForm();
+            form.setDemographicNo("7");
+            form.setFormHtml("<form><select name=\"Pick\" oscarDB=choice><option>No</option><option>Yes</option></select></form>");
+            form.setDatabaseAPs();
+            assertThat(fieldValue(form, "pick")).isEqualTo("Yes");
+
+            ap = new DatabaseAP("choice", "", "Smith & Sons");
+            loader.when(() -> EFormLoader.getAP("choice")).thenReturn(ap);
+            form = new EForm();
+            form.setDemographicNo("7");
+            form.setFormHtml("<form><select name=\"Pick\" oscarDB=choice><option value=\"x\">x</option>"
+                    + "<option value=\"Smith &amp; Sons\">s</option></select></form>");
+            form.setDatabaseAPs();
+            assertThat(fieldValue(form, "pick")).isEqualTo("Smith & Sons");
         }
     }
 }

@@ -43,7 +43,6 @@ import org.apache.logging.log4j.Logger;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
-import org.jsoup.parser.Parser;
 import org.jsoup.parser.TokenQueue;
 import org.jsoup.select.Elements;
 import org.owasp.encoder.Encode;
@@ -1160,266 +1159,6 @@ public class EForm extends EFormBase {
     }
 
     /**
-     * Where to insert {@code " selected"} so the option of the select between {@code from} and {@code to}
-     * that a browser would submit as exactly {@code wanted} is chosen, or -1 when none is (the select is then
-     * left as the template has it). An EMPTY {@code wanted} marks the first option that has a {@code value}
-     * attribute, whatever it holds. This is kept for compatibility with the earlier text search for
-     * {@code " value="}, which marked the same option for options written the usual way (one space before
-     * {@code value}, {@code value="..."}); it is not a design, and it is not bug-for-bug: it no longer
-     * misfires on a tab or newline before {@code value}, {@code value ="..."}, an {@code <optgroup value>},
-     * or {@code value=} inside a title, a comment or option text, where it marks the first valued option
-     * instead. The text differs from the old result (the old code put {@code selected} after the value
-     * attribute, this puts it right after {@code <option>}), the selection a browser makes is the same.
-     *
-     * <p>The options are read the way a browser reads them:</p>
-     * <ul>
-     *   <li>only {@code <option>} start tags count; HTML comments, {@code <script>} and {@code <style>}
-     *       bodies are skipped, and a tag is read to its own {@code >} (quoted attribute values, with
-     *       {@code >} inside them, and attributes without a value are stepped over);</li>
-     *   <li>an option's submitted value is its first {@code value} attribute (double-quoted, single-quoted or
-     *       bare, character references decoded: {@code Smith &amp; Sons} is {@code Smith & Sons}), or, with
-     *       no {@code value} attribute, its text with character references decoded and white space
-     *       collapsed (as {@link #submittedOptionValue}, which works on a parsed document);</li>
-     *   <li>the whole value is compared, case-insensitively as the earlier text search was; a longer
-     *       sibling that only starts with the wanted text ("Yes, with help" for "Yes") does not match, and
-     *       nothing is built into a pattern from the value. A template value that literally holds
-     *       character-reference text ({@code Smith &amp; Sons}) also matches that same text in the
-     *       database, as it did before the decoding;</li>
-     *   <li>the first match wins. A matching option that is already {@code selected} keeps it. This method
-     *       only finds the place for the insert; {@link #selectedOptionEdit} also takes {@code selected} out
-     *       of the other options of a single select, so the stored value is the one shown.</li>
-     * </ul>
-     *
-     * <p>The insert position is right after {@code <option}, so {@code selected} lands in the matched tag
-     * whatever its other attributes are. Unterminated markup (comment, quote or tag) stops the search: the
-     * select is left untouched.</p>
-     */
-    static int selectedOptionInsertAt(CharSequence html, int from, int to, String wanted) {
-        SelectEdit edit = selectedOptionEdit(html, from, to, wanted, false);
-        return edit == null ? -1 : edit.insertAt;
-    }
-
-    /**
-     * What to change in a select so the option {@link #selectedOptionInsertAt} chooses is the one a browser
-     * shows: {@code " selected"} put in after {@code <option}, and, when {@code single} is true and
-     * {@code wanted} is not empty, the {@code selected} attribute taken out of every OTHER option of the
-     * select (any case and form: {@code selected}, {@code SELECTED}, {@code selected=""},
-     * {@code selected="selected"}), together with the white space before it. A single select shows the
-     * last {@code selected} option in the markup, so a template default after the stored value's option
-     * would otherwise hide the stored value. Only the attribute is removed: option text, other selects and
-     * the option groups' structure are not touched. A matching option that is already {@code selected}
-     * keeps it. With no matching option nothing is changed (the template's default stays), as for a
-     * {@code multiple} select (the caller passes {@code single} false) and for an empty {@code wanted}
-     * (the compatibility case above, which marks the first valued option and has never been a stored value).
-     * Unterminated markup before the match changes nothing; after the match it only drops the removals, so
-     * the result is the one without them.
-     *
-     * @return the edit, or null when no option matches
-     */
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of a template option value with a database value; not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an eForm option value with a database value; not a security or authorization decision")
-    static SelectEdit selectedOptionEdit(CharSequence html, int from, int to, String wanted, boolean single) {
-        if (wanted == null) return null;
-        boolean collect = single && !wanted.isEmpty();
-        int base = Math.max(0, from);
-        String region = html.subSequence(base, Math.min(to, html.length())).toString();
-        int length = region.length();
-        SelectEdit found = null;
-        List<int[]> removals = new ArrayList<>();
-        boolean doubt = false;
-        int i = 0;
-        while (i < length) {
-            int open = region.indexOf('<', i);
-            if (open < 0) break;
-            if (region.startsWith("<!--", open)) {
-                int close = region.indexOf("-->", open + 4);
-                if (close < 0) {
-                    doubt = true;
-                    break;
-                }
-                i = close + 3;
-                continue;
-            }
-            String rawText = rawTextElementAt(region, open);
-            if (rawText != null) {
-                int close = indexOfIgnoreCase(region, "</" + rawText, open + 1);
-                int closeEnd = close < 0 ? -1 : region.indexOf('>', close);
-                if (closeEnd < 0) {
-                    doubt = true;
-                    break;
-                }
-                i = closeEnd + 1;
-                continue;
-            }
-            if (!isTagNameAt(region, open + 1, "option")) {
-                i = open + 1;
-                continue;
-            }
-            TagAttributes tag = readTagAttributes(region, open + 7);
-            if (tag == null) { // an unterminated tag or an unclosed quote
-                doubt = true;
-                break;
-            }
-            String value = tag.value;
-            int end = tag.end;
-            boolean chosen = false;
-            if (found == null) {
-                if (wanted.isEmpty()) {
-                    // Kept for compatibility; not a design: an empty output marks the first option that has a value
-                    // attribute, as the earlier text search for " value=" did.
-                    chosen = value != null;
-                } else if (value != null) {
-                    chosen = Parser.unescapeEntities(value, true).equalsIgnoreCase(wanted) || value.equalsIgnoreCase(wanted);
-                } else {
-                    int next = region.indexOf('<', end + 1);
-                    String text = region.substring(end + 1, next < 0 ? length : next);
-                    text = StringUtils.strip(Parser.unescapeEntities(text, false).replaceAll("[ \\t\\r\\n\\f]+", " "), " ");
-                    chosen = text.equalsIgnoreCase(wanted);
-                }
-            }
-            if (chosen) {
-                found = new SelectEdit(base + open + 7);
-                if (!collect) return found;
-            } else if (collect) {
-                for (int[] range : tag.selectedRanges) removals.add(new int[] {base + range[0], base + range[1]});
-            }
-            i = end + 1;
-        }
-        if (found == null) return null;
-        if (!doubt) found.removals.addAll(removals);
-        return found;
-    }
-
-    /** Where {@code " selected"} goes and which {@code selected} attributes of the other options come out. */
-    static final class SelectEdit {
-        final int insertAt;
-        /** Ascending, non-overlapping {@code [start, end)} ranges, none inside the matched option's tag. */
-        final List<int[]> removals = new ArrayList<>();
-
-        private SelectEdit(int insertAt) {
-            this.insertAt = insertAt;
-        }
-
-        /** Applies the removals and the insert, from the end of the markup backwards so positions stay valid. */
-        void applyTo(StringBuilder html) {
-            boolean inserted = false;
-            for (int r = removals.size() - 1; r >= 0; r--) {
-                int[] range = removals.get(r);
-                if (!inserted && range[0] < insertAt) {
-                    html.insert(insertAt, " selected");
-                    inserted = true;
-                }
-                html.delete(range[0], range[1]);
-            }
-            if (!inserted) html.insert(insertAt, " selected");
-        }
-    }
-
-    /** One tag's attributes as the option scan needs them (see {@link #readTagAttributes}). */
-    private static final class TagAttributes {
-        int end;
-        String value;
-        final List<int[]> selectedRanges = new ArrayList<>();
-        boolean multiple;
-    }
-
-    /**
-     * Reads the attributes of the tag whose name ends at {@code p}, up to its own {@code >} (quoted values
-     * with {@code >} inside them, single-quoted and bare values, attributes without a value and a stray
-     * {@code =} are stepped over). Returns the position of the {@code >}, the first {@code value} attribute
-     * that has a value, the {@code [start, end)} range of every {@code selected} attribute (with the white
-     * space before it) and whether {@code multiple} is there; or null for an unterminated tag or an
-     * unclosed quote, where nothing can be trusted.
-     */
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive match of HTML attribute names (value, selected, multiple) in eForm markup, as a browser matches them; not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive match of HTML attribute names in eForm markup; not a security or authorization decision")
-    private static TagAttributes readTagAttributes(String region, int p) {
-        int length = region.length();
-        int bodyStart = p;
-        TagAttributes tag = new TagAttributes();
-        while (true) {
-            while (p < length && (Character.isWhitespace(region.charAt(p)) || region.charAt(p) == '/')) p++;
-            if (p >= length) return null; // an unterminated tag
-            if (region.charAt(p) == '>') {
-                tag.end = p;
-                return tag;
-            }
-            int nameStart = p;
-            while (p < length && !Character.isWhitespace(region.charAt(p)) && "=>/".indexOf(region.charAt(p)) < 0) p++;
-            if (p == nameStart) { // a stray "=": step over it
-                p++;
-                continue;
-            }
-            String name = region.substring(nameStart, p);
-            int attributeEnd = p;
-            int q = p;
-            while (q < length && Character.isWhitespace(region.charAt(q))) q++;
-            if (q < length && region.charAt(q) == '=') {
-                p = q + 1;
-                while (p < length && Character.isWhitespace(region.charAt(p))) p++;
-                int valueStart;
-                int valueEnd;
-                if (p < length && (region.charAt(p) == '"' || region.charAt(p) == '\'')) {
-                    valueStart = p + 1;
-                    valueEnd = region.indexOf(region.charAt(p), valueStart);
-                    if (valueEnd < 0) return null; // an unclosed quote: not a value to trust
-                    p = valueEnd + 1;
-                } else {
-                    valueStart = p;
-                    while (p < length && !Character.isWhitespace(region.charAt(p)) && region.charAt(p) != '>') p++;
-                    valueEnd = p;
-                }
-                attributeEnd = p;
-                if (tag.value == null && name.equalsIgnoreCase("value")) {
-                    tag.value = region.substring(valueStart, valueEnd);
-                }
-            }
-            if (name.equalsIgnoreCase("selected")) {
-                int spaceStart = nameStart;
-                while (spaceStart > bodyStart && Character.isWhitespace(region.charAt(spaceStart - 1))) spaceStart--;
-                tag.selectedRanges.add(new int[] {spaceStart, attributeEnd});
-            } else if (name.equalsIgnoreCase("multiple")) {
-                tag.multiple = true;
-            }
-        }
-    }
-
-    /**
-     * Whether the select whose start tag holds {@code pointer} (right after its database attribute) is a
-     * single select: its start tag is read to its own {@code >} and has no {@code multiple} attribute. False
-     * on any doubt (no {@code <select} before the pointer, an unreadable tag), so nothing is removed.
-     */
-    static boolean isSingleSelect(CharSequence html, int pointer, int selectEnd) {
-        int tagStart = html.subSequence(0, Math.min(pointer, html.length())).toString().lastIndexOf('<');
-        if (tagStart < 0) return false;
-        String tag = html.subSequence(tagStart, Math.min(selectEnd, html.length())).toString();
-        if (!isTagNameAt(tag, 1, "select")) return false;
-        TagAttributes read = readTagAttributes(tag, 7);
-        return read != null && !read.multiple;
-    }
-
-    /** {@code script} or {@code style} when a tag of that name starts at {@code open}, else null. */
-    private static String rawTextElementAt(String region, int open) {
-        if (isTagNameAt(region, open + 1, "script")) return "script";
-        if (isTagNameAt(region, open + 1, "style")) return "style";
-        return null;
-    }
-
-    /** Whether {@code name} is the tag name at {@code at} (any case), ended by white space, {@code >} or {@code /}. */
-    private static boolean isTagNameAt(String region, int at, String name) {
-        int after = at + name.length();
-        return region.regionMatches(true, at, name, 0, name.length()) && after < region.length()
-                && (Character.isWhitespace(region.charAt(after)) || region.charAt(after) == '>' || region.charAt(after) == '/');
-    }
-
-    private static int indexOfIgnoreCase(String text, String part, int from) {
-        for (int i = Math.max(0, from); i + part.length() <= text.length(); i++) {
-            if (text.regionMatches(true, i, part, 0, part.length())) return i;
-        }
-        return -1;
-    }
-
-    /**
      * The value a browser submits for an option: its {@code value} attribute when it has one,
      * otherwise its text with whitespace stripped and collapsed. jsoup reads a missing attribute
      * as an empty string, which is why the attribute alone cannot be compared: every value-less
@@ -1547,18 +1286,16 @@ public class EForm extends EFormBase {
             pointer = html.indexOf(">", pointer) + 1;
             html.insert(pointer, SafeEncode.forHtml(output));
         } else if (type.equals("select")) {
-            int selectEnd = StringBuilderUtils.indexOfIgnoreCase(html, "</select>", pointer);
-            if (selectEnd >= 0) {
-                // The option a browser would submit as exactly the output (see selectedOptionInsertAt): never a
-                // prefix of a longer value, never a pattern built from the value, and an entity-encoded template
-                // value ("Smith &amp; Sons") matches the raw output ("Smith & Sons").
-                // A single select shows the LAST option marked selected, so the template's own default after the
-                // matching option would hide the stored value: it comes out, and only that attribute does. A select
-                // with multiple, one without a match and an empty output are left to the insert alone.
-                SelectEdit edit = selectedOptionEdit(html, pointer, selectEnd, output, isSingleSelect(html, pointer, selectEnd));
-                if (edit == null) return html;
-                edit.applyTo(html);
-            }
+            // The option a browser would submit as exactly the output, found with an HTML parser (see
+            // EFormSelectMarkup): never a prefix of a longer value, never a pattern built from the value, an
+            // entity-encoded template value ("Smith &amp; Sons") matches the raw output ("Smith & Sons"), and
+            // only the select that holds this database tag is touched. A single select shows the LAST option
+            // marked selected, so the template's own default after the matching option would hide the stored
+            // value: it comes out, and only that attribute does. A select with multiple, one without a match
+            // and an empty output are left to the insert alone.
+            EFormSelectMarkup.SelectEdit edit = EFormSelectMarkup.edit(html, pointer, output);
+            if (edit == null) return html;
+            edit.applyTo(html);
         } else { //type=input
             html.insert(pointer, " value=\"" + SafeEncode.forHtmlAttribute(output) + "\"");
         }
@@ -1753,17 +1490,11 @@ public class EForm extends EFormBase {
                 if (StringUtils.isBlank(checked) || !checked.equalsIgnoreCase("checked")) return;
             }
         } else if (header.toLowerCase().startsWith("<select ")) {
-            String selects = html.substring(fieldIndex, html.indexOf("</select>", fieldIndex));
-            int pos = selects.indexOf("<option ", 0);
-            while (pos >= 0) {
-                String option = getFieldHeader(selects, pos);
-                String selected = EFormUtil.removeQuotes(EFormUtil.getAttribute("selected", option));
-                if (!StringUtils.isBlank(selected) && selected.equalsIgnoreCase("selected")) {
-                    value = EFormUtil.removeQuotes(EFormUtil.getAttribute(VALUE_ATTRIBUTE, option));
-                    break;
-                }
-                pos = selects.indexOf("<option ", pos + 1);
-            }
+            // What the browser submits for the option shown as selected: its value attribute, or, with none,
+            // its text, decoded (the same calculation the prefill uses), so a dependent database tag binds
+            // the submitted value and not the markup's raw spelling.
+            String shown = EFormSelectMarkup.selectedValue(html, fieldIndex + 1);
+            if (shown != null) value = shown;
         } else if (header.toLowerCase().startsWith("<textarea ")) {
             int fieldEnd = html.indexOf("</textarea>", fieldIndex);
             value = html.substring(fieldIndex + header.length(), fieldEnd).trim();
