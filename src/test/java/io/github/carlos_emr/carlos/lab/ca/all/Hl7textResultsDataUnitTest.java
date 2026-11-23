@@ -322,6 +322,22 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         verify(measurementDao, org.mockito.Mockito.never()).findByValue("lab_no", "5000");
     }
 
+    @Test
+    @DisplayName("should still count a later version with no patient routing yet in the chain, so it is the current one")
+    void shouldKeepAnUnroutedLaterVersionInTheChain_whenChoosingTheCurrentVersion() {
+        // Deliberate (#6142 review): only a version routed to a DIFFERENT patient is left out. A later version
+        // with no routing yet (not matched to anyone) stays, because it may be this patient's own newer
+        // delivery waiting for its match; filing the older one now would put superseded values on the chart.
+        // So the incoming 4616 is not filed here while 5000 is the newest version; the match of 5000 files it.
+        // Routing is not scoped by source: the chain is one accession's HL7 reports and no reliable source key exists.
+        try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("4616,5000");
+            Measurement filed = fileResult("6.1", ".*", "2026-03-10 12:00:00", LocalDateTime.parse("2026-03-10T14:00:00"));
+            assertThat(filed).isNull();
+        }
+        verify(measurementDao, org.mockito.Mockito.never()).findByValue("lab_no", "5000");
+    }
+
     @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {"0", "-42", "invalid", " 42 ", "2147483648"})

@@ -178,6 +178,25 @@ class LabTextResultLabelJspRegressionTest {
             assertThat(bundle.getProperty(key)).as(language + " " + key).contains(label)
                     .contains("CARLOS");
         }
+        // The "filing turned off" clause, checked the same way in every language: the translation carries
+        // as many sentences/clauses as the English text (it was written clause for clause), and it is not the
+        // English text left untranslated.
+        Properties english = new Properties();
+        try (InputStream in = Files.newInputStream(projectRoot().resolve("src/main/resources/oscarResources_en.properties"));
+             Reader reader = new InputStreamReader(in, StandardCharsets.ISO_8859_1)) {
+            english.load(reader);
+        }
+        for (String key : new String[] {"lab.measurementGrid.scope", "lab.measurementHistory.unavailable"}) {
+            String text = bundle.getProperty(key);
+            String base = english.getProperty(key);
+            int separators = text.replaceAll("[^,;.]", "").length();
+            int expected = base.replaceAll("[^,;.]", "").length();
+            assertThat(separators).as(language + " " + key + " clause count").isBetween(expected - 3, expected + 3);
+            assertThat(text.length()).as(language + " " + key + " length").isGreaterThan(base.length() / 2);
+            if (!"en".equals(language)) {
+                assertThat(text).as(language + " " + key + " is translated").isNotEqualTo(base);
+            }
+        }
         if ("en".equals(language)) {
             for (String key : new String[] {"lab.measurementGrid.scope", "lab.measurementHistory.unavailable"}) {
                 assertThat(bundle.getProperty(key)).contains("did not match this site's measurement filter")
