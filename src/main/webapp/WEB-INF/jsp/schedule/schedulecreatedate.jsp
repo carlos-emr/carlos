@@ -59,7 +59,7 @@
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page
-        import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*"
+        import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.lang.*,java.net.*"
         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -112,36 +112,24 @@
 
 /////////////////////////////////////
     boolean applyTemplate = request.getParameter("bFirstDisp") == null || "1".equals(request.getParameter("bFirstDisp"));
-    RscheduleBean scheduleRscheduleBean = null;
-    Map<String, Object> scheduleDateBean = Map.of();
+    RscheduleBean scheduleRscheduleBean;
+    Map<String, Object> scheduleDateBean;
     if (applyTemplate) {
-        scheduleRscheduleBean = ScheduleCalendarCache.ruleForTemplate(session, provider_no);
-    } else {
-        ScheduleCalendarCache.Month monthView = ScheduleCalendarCache.readMonth(session, provider_no, scheduleDateDao);
-        if (monthView != null) {
-            scheduleRscheduleBean = monthView.rule();
-            scheduleDateBean = monthView.days();
+        ScheduleCalendarCache.TemplatePeriod original = ScheduleCalendarCache.templateForApply(request, provider_no);
+        if (original == null) {
+            RefusalNotice.send(request, response, jakarta.servlet.http.HttpServletResponse.SC_CONFLICT,
+                    "error.refusal.scheduleTemplateChanged", "Reopen the schedule template for this provider and period, then try again.");
+            return;
         }
-    }
-    if (scheduleRscheduleBean == null) {
-        RefusalNotice.send(request, response, jakarta.servlet.http.HttpServletResponse.SC_CONFLICT,
-                "error.refusal.scheduleCalendarChanged", "The calendar open in this session is for another provider.");
-        return;
-    }
-    if (applyTemplate) {
+        scheduleRscheduleBean = new RscheduleBean();
         int y = Integer.parseInt(request.getParameter("syear")); //cal.get(Calendar.YEAR);
         int m = Integer.parseInt(request.getParameter("smonth")); //cal.get(Calendar.MONTH)+1;
         int d = Integer.parseInt(request.getParameter("sday")); //cal.get(Calendar.DATE);
 
         String sdate = MyDateFormat.getMysqlStandardDate(y, m, d);
         String edate = MyDateFormat.getMysqlStandardDate(Integer.parseInt(request.getParameter("eyear")), Integer.parseInt(request.getParameter("emonth")), Integer.parseInt(request.getParameter("eday")));
-        String origEdate;
-        if (request.getParameter("origeyear").equals(""))
-            origEdate = "1970-01-01";
-        else
-            origEdate = MyDateFormat.getMysqlStandardDate(Integer.parseInt(request.getParameter("origeyear")), Integer.parseInt(request.getParameter("origemonth")), Integer.parseInt(request.getParameter("origeday")));
-
-        boolean replaceSameStart = sdate.equals(scheduleRscheduleBean.sdate);
+        java.util.Date originalEnd = original.end().isEmpty() ? null : MyDateFormat.getSysDate(original.end());
+        boolean replaceSameStart = sdate.equals(original.start());
 
         //save rschedule data
         if (bAlternate)
@@ -168,10 +156,6 @@
         }
 
         //create scheduledate record by 'b' rate
-        SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd");
-        java.util.Date dnewEdate = df.parse(edate);
-        java.util.Date dorigEdate = df.parse(origEdate);
-
         List<ScheduleDate> ruleDays = new ArrayList<>();
         GregorianCalendar cal = new GregorianCalendar(y, m - 1, d);
 //  GregorianCalendar cal = new GregorianCalendar(year,month-1,1);
@@ -196,15 +180,28 @@
         }
         // Apply the header and its days together, checking custom overrides under the provider lock.
         ScheduleTemplateService templates = SpringUtils.getBean(ScheduleTemplateService.class);
-        ScheduleTemplateService.Result result = templates.apply(submittedRule, replaceSameStart,
-                MyDateFormat.getSysDate(dnewEdate.before(dorigEdate) ? origEdate : edate), ruleDays);
+        ScheduleTemplateService.Result result = templates.apply(submittedRule, replaceSameStart, originalEnd, ruleDays);
         if (!result.providerFound()) {
             RefusalNotice.send(request, response, jakarta.servlet.http.HttpServletResponse.SC_BAD_REQUEST,
                     "error.refusal.scheduleDateIncomplete", "The schedule's provider does not exist.");
             return;
         }
+        if (result.stalePeriod()) {
+            RefusalNotice.send(request, response, jakarta.servlet.http.HttpServletResponse.SC_CONFLICT,
+                    "error.refusal.scheduleTemplateChanged", "Reopen the schedule template for this provider and period, then try again.");
+            return;
+        }
         scheduleOverlaps = result.overlaps();
         scheduleDateBean = ScheduleCalendarCache.openMonth(session, scheduleRscheduleBean, scheduleDateDao);
+    } else {
+        ScheduleCalendarCache.Month monthView = ScheduleCalendarCache.readMonth(session, provider_no, scheduleDateDao);
+        if (monthView == null) {
+            RefusalNotice.send(request, response, jakarta.servlet.http.HttpServletResponse.SC_CONFLICT,
+                    "error.refusal.scheduleCalendarChanged", "The calendar open in this session is for another provider.");
+            return;
+        }
+        scheduleRscheduleBean = monthView.rule();
+        scheduleDateBean = monthView.days();
     }
 %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>

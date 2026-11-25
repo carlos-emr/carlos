@@ -96,9 +96,20 @@ public class ScheduleDateOverrideService {
      */
     @Transactional
     public boolean replaceRuleDays(String providerNo, Date from, Date retireThrough, List<ScheduleDate> generatedDays) {
-        if (!scheduleDateDao.lockProviderForScheduleChange(providerNo)) {
+        if (!lockProviderForChange(providerNo)) {
             return false;
         }
+        replaceLockedRuleDays(providerNo, from, retireThrough, generatedDays);
+        return true;
+    }
+
+    /** The enclosing template transaction holds this same provider lock through its header update. */
+    boolean lockProviderForChange(String providerNo) {
+        return scheduleDateDao.lockProviderForScheduleChange(providerNo);
+    }
+
+    /** Called with the provider row locked by either the bulk date command or the template command. */
+    void replaceLockedRuleDays(String providerNo, Date from, Date retireThrough, List<ScheduleDate> generatedDays) {
         Set<String> customDates = new HashSet<>();
         for (ScheduleDate existing : scheduleDateDao.findRuleDaysForUpdate(providerNo, from, retireThrough)) {
             if (existing.getPriority() == 'c') {
@@ -117,7 +128,6 @@ public class ScheduleDateOverrideService {
                 scheduleDateDao.persist(candidate);
             }
         }
-        return true;
     }
 
     /**

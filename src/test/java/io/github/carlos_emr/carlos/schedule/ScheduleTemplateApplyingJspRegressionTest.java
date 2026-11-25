@@ -101,7 +101,8 @@ class ScheduleTemplateApplyingJspRegressionTest {
         String jsp = Files.readString(TEMPLATE_APPLYING_JSP, StandardCharsets.UTF_8);
 
         assertThat(jsp).contains("RscheduleBean scheduleRscheduleBean = new RscheduleBean()",
-                "scheduleRscheduleBean.provider_no = reqProviderNo", "if (selectedRule != null)")
+                "scheduleRscheduleBean.provider_no = reqProviderNo", "if (selectedRule != null)",
+                "name=\"templateSelection\"", "value='<%= templateSelection %>' context=\"htmlAttribute\"")
                 .doesNotContain("<jsp:useBean id=\"scheduleRscheduleBean\"", "scheduleRscheduleBean.clear()");
         int selected = jsp.indexOf("ScheduleCalendarCache.selectTemplate(session, reqProviderNo, scheduleRscheduleBean)");
         assertThat(selected).isGreaterThan(jsp.indexOf("scheduleRscheduleBean.setRscheduleBean("))

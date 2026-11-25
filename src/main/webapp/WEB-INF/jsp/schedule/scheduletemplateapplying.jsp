@@ -273,7 +273,8 @@
                         selectedRule.getAvailHourB(), selectedRule.getAvailHour(), selectedRule.getCreator());
                 bOrigAlt = "A".equals(selectedRule.getAvailable()) && request.getParameter("bFirstDisp") == null;
             }
-            if (!ScheduleCalendarCache.selectTemplate(session, reqProviderNo, scheduleRscheduleBean)) {
+            String templateSelection = ScheduleCalendarCache.selectTemplate(session, reqProviderNo, scheduleRscheduleBean);
+            if (templateSelection == null) {
                 RefusalNotice.send(request, response, HttpServletResponse.SC_CONFLICT,
                         "error.refusal.scheduleCalendarChanged", "The calendar open in this session is for another provider.");
                 return;
@@ -1081,6 +1082,7 @@
                             <tr>
                                 <td colspan="2">
                                     <div class="text-end">
+                                        <input type="hidden" name="templateSelection" value="<carlos:encode value='<%= templateSelection %>' context="htmlAttribute"/>">
                                         <input type="hidden" name="provider_no" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("provider_no")) %>' context="htmlAttribute"/>">
                                         <input type="hidden" name="available" value="<%=bAlternate||bOrigAlt?"A":"1"%>">
                                         <input type="submit" class="btn btn-primary" value="<carlos:encode value='<%= (String)pageContext.getAttribute("btnNext") %>' context="htmlAttribute"/>">

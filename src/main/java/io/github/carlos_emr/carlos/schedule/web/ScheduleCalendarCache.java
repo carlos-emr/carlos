@@ -21,11 +21,16 @@
  */
 package io.github.carlos_emr.carlos.schedule.web;
 
+import java.time.DateTimeException;
+import java.time.LocalDate;
 import java.util.Hashtable;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Supplier;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 
 import org.apache.logging.log4j.Logger;
@@ -58,6 +63,8 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 public final class ScheduleCalendarCache {
     private static final String RULE_SCHEDULE = "scheduleRscheduleBean";
     private static final String OPEN_RULE = "scheduleCalendarRule";
+    private static final String TEMPLATE_PERIODS = "scheduleTemplatePeriods";
+    private static final int MAX_TEMPLATE_PERIODS = 32;
 
     /** Session attribute of the JSP {@code scheduleDateBean}: {@code yyyy-MM-dd} to {@link HScheduleDate}. */
     static final String DAYS = "scheduleDateBean";
@@ -74,26 +81,57 @@ public final class ScheduleCalendarCache {
     /** A provider's rule and custom days captured together for rendering a single month request. */
     public record Month(RscheduleBean rule, Map<String, Object> days) {}
 
-    /**
-     * Reads the prior template for an Apply request. A new template has an empty prior rule.
-     * A rule already selected for another provider makes this request stale.
-     */
-    public static RscheduleBean ruleForTemplate(HttpSession session, String providerNo) {
-        if (!(session.getAttribute(RULE_SCHEDULE) instanceof RscheduleBean rule)) {
-            return new RscheduleBean();
+    /** Only the provider and dates of the period originally rendered in an editor tab. */
+    public record TemplatePeriod(String providerNo, String start, String end) implements java.io.Serializable {}
+
+    /** Reads the server-held date range for the submitted form, while its provider is selected. */
+    public static TemplatePeriod templateForApply(HttpServletRequest request, String providerNo) {
+        HttpSession session = request.getSession();
+        synchronized (WebUtils.getSessionMutex(session)) {
+            if (!(session.getAttribute(RULE_SCHEDULE) instanceof RscheduleBean selected)) return null;
+            RscheduleBean current = selected.snapshotForProvider(providerNo);
+            if (current == null) return null;
+
+            String selection = request.getParameter("templateSelection");
+            if (session.getAttribute(TEMPLATE_PERIODS) instanceof Map<?, ?> periods) {
+                Object value = periods.get(selection);
+                return value instanceof TemplatePeriod period && providerNo.equals(period.providerNo()) ? period : null;
+            }
+
+            // A form rendered before this version has no selection key. Accept an ordinary
+            // edit only when its submitted start and original end corroborate the session's rule.
+            if (selection != null || !matchesDate(request, "s", current.sdate)
+                    || !matchesDate(request, "orige", current.edate)) return null;
+            return new TemplatePeriod(providerNo, current.sdate, current.edate);
         }
-        RscheduleBean snapshot = rule.snapshotForProvider(providerNo);
-        return snapshot != null ? snapshot : rule.snapshotForProvider("");
     }
 
-    /** Publishes a completed editor selection without changing the rule displayed in the open month. */
-    public static boolean selectTemplate(HttpSession session, String providerNo, RscheduleBean rule) {
+    private static boolean matchesDate(HttpServletRequest request, String prefix, String expected) {
+        try {
+            LocalDate posted = LocalDate.of(Integer.parseInt(request.getParameter(prefix + "year")),
+                    Integer.parseInt(request.getParameter(prefix + "month")), Integer.parseInt(request.getParameter(prefix + "day")));
+            return posted.toString().equals(expected);
+        } catch (NumberFormatException | DateTimeException invalid) {
+            return false;
+        }
+    }
+
+    /** Publishes the provider selection and returns the form's session-bound original period key. */
+    @SuppressWarnings("unchecked")
+    public static String selectTemplate(HttpSession session, String providerNo, RscheduleBean rule) {
         RscheduleBean selected = rule.snapshotForProvider(providerNo);
-        if (selected == null) return false;
+        if (selected == null) return null;
         synchronized (WebUtils.getSessionMutex(session)) {
             session.setAttribute(RULE_SCHEDULE, selected);
+            LinkedHashMap<String, TemplatePeriod> periods =
+                    (LinkedHashMap<String, TemplatePeriod>) session.getAttribute(TEMPLATE_PERIODS);
+            if (periods == null) periods = new LinkedHashMap<>();
+            if (periods.size() >= MAX_TEMPLATE_PERIODS) periods.pollFirstEntry();
+            String key = UUID.randomUUID().toString();
+            periods.put(key, new TemplatePeriod(providerNo, selected.sdate, selected.edate));
+            session.setAttribute(TEMPLATE_PERIODS, periods);
+            return key;
         }
-        return true;
     }
 
     /** Publishes a completed request-local rule and returns its provider's own custom days. */

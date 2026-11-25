@@ -19,6 +19,7 @@ import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.web.util.WebUtils;
 
@@ -82,6 +83,13 @@ class ScheduleCalendarCacheUnitTest {
         return new RscheduleBean(provider, "2032-01-01", "2032-12-31", "1", "1", "", hours, "FAKE");
     }
 
+    private MockHttpServletRequest form(String selection) {
+        var request = new MockHttpServletRequest();
+        request.setSession(session);
+        if (selection != null) request.setParameter("templateSelection", selection);
+        return request;
+    }
+
     @Test
     void shouldKeepEachRequestsRulesAndDaysTogetherWhenAnotherProviderOpensTheCalendar() {
         var dao = mock(ScheduleDateDao.class);
@@ -103,7 +111,7 @@ class ScheduleCalendarCacheUnitTest {
 
         assertThat(((HScheduleDate) appliedDays.get("2032-02-29")).reason).isEqualTo("first provider");
         assertThat(((HScheduleDate) display.days().get("2032-02-29")).reason).isEqualTo("first provider");
-        assertThat(ScheduleCalendarCache.ruleForTemplate(session, PROVIDER)).isNull();
+        assertThat(ScheduleCalendarCache.templateForApply(form(null), PROVIDER)).isNull();
         assertThat(ScheduleCalendarCache.readMonth(session, PROVIDER, dao)).isNull();
         var current = ScheduleCalendarCache.readMonth(session, OTHER_PROVIDER, dao);
         assertThat(current.rule().getDateAvailHour("2032-02-29")).isEqualTo("1400");
@@ -113,15 +121,12 @@ class ScheduleCalendarCacheUnitTest {
     @Test
     void shouldOpenNewTemplatesAndReloadOnlyTheCurrentProvidersStaleMonth() {
         var dao = mock(ScheduleDateDao.class);
-        assertThat(ScheduleCalendarCache.ruleForTemplate(session, PROVIDER).sdate).isEmpty();
+        assertThat(ScheduleCalendarCache.templateForApply(form(null), PROVIDER)).isNull();
         session.setAttribute("scheduleRscheduleBean", new RscheduleBean());
-        assertThat(ScheduleCalendarCache.ruleForTemplate(session, PROVIDER).sdate).isEmpty();
+        assertThat(ScheduleCalendarCache.templateForApply(form(null), PROVIDER)).isNull();
         assertThat(ScheduleCalendarCache.readMonth(session, PROVIDER, dao)).isNull();
         when(dao.search_scheduledate_c(PROVIDER)).thenReturn(List.of(override('c', "opened")));
         ScheduleCalendarCache.openMonth(session, rule(PROVIDER, "<SUN>0800</SUN>"), dao);
-        var selected = ScheduleCalendarCache.ruleForTemplate(session, PROVIDER);
-        assertThat(selected.sdate).isEqualTo("2032-01-01");
-        selected.clear();
         clearInvocations(dao);
         when(dao.search_scheduledate_c(PROVIDER)).thenReturn(List.of(override('c', "updated")));
         session.setAttribute(ScheduleCalendarCache.STALE, Boolean.TRUE);
@@ -141,21 +146,24 @@ class ScheduleCalendarCacheUnitTest {
         ScheduleCalendarCache.openMonth(session, first, dao);
 
         var nextTemplate = rule(PROVIDER, "<SUN>1100</SUN>");
-        assertThat(ScheduleCalendarCache.selectTemplate(session, PROVIDER, nextTemplate)).isTrue();
-        assertThat(ScheduleCalendarCache.ruleForTemplate(session, PROVIDER).avail_hour).isEqualTo(nextTemplate.avail_hour);
+        nextTemplate.sdate = "2032-02-01";
+        String nextForm = ScheduleCalendarCache.selectTemplate(session, PROVIDER, nextTemplate);
+        assertThat(ScheduleCalendarCache.templateForApply(form(nextForm), PROVIDER).start()).isEqualTo(nextTemplate.sdate);
         assertThat(ScheduleCalendarCache.readMonth(session, PROVIDER, dao).rule().avail_hour).isEqualTo(first.avail_hour);
         assertThat(ScheduleCalendarCache.openRule(session, PROVIDER).avail_hour).isEqualTo(first.avail_hour);
 
         // Another editor started before Apply completed, then finished its own lookup.
         ScheduleCalendarCache.openMonth(session, nextTemplate, dao);
-        assertThat(ScheduleCalendarCache.selectTemplate(session, OTHER_PROVIDER, second)).isTrue();
+        String secondForm = ScheduleCalendarCache.selectTemplate(session, OTHER_PROVIDER, second);
         second.clear();
-        assertThat(ScheduleCalendarCache.ruleForTemplate(session, OTHER_PROVIDER).avail_hour).isEqualTo("<SUN>1400</SUN>");
-        assertThat(ScheduleCalendarCache.ruleForTemplate(session, PROVIDER)).isNull();
+        assertThat(ScheduleCalendarCache.templateForApply(form(secondForm), OTHER_PROVIDER).start()).isEqualTo("2032-01-01");
+        assertThat(ScheduleCalendarCache.templateForApply(form(nextForm), OTHER_PROVIDER)).isNull();
+        assertThat(ScheduleCalendarCache.templateForApply(form(nextForm), PROVIDER)).isNull();
+        assertThat(ScheduleCalendarCache.templateForApply(form(null), PROVIDER)).isNull();
         assertThat(ScheduleCalendarCache.readMonth(session, PROVIDER, dao)).isNull();
 
-        assertThat(ScheduleCalendarCache.selectTemplate(session, OTHER_PROVIDER, first)).isFalse();
-        assertThat(ScheduleCalendarCache.ruleForTemplate(session, OTHER_PROVIDER).avail_hour).isEqualTo("<SUN>1400</SUN>");
+        assertThat(ScheduleCalendarCache.selectTemplate(session, OTHER_PROVIDER, first)).isNull();
+        assertThat(ScheduleCalendarCache.templateForApply(form(secondForm), OTHER_PROVIDER).end()).isEqualTo("2032-12-31");
     }
 
     @Test
@@ -168,13 +176,49 @@ class ScheduleCalendarCacheUnitTest {
 
         var newTemplate = new RscheduleBean();
         newTemplate.provider_no = OTHER_PROVIDER;
-        assertThat(ScheduleCalendarCache.selectTemplate(session, OTHER_PROVIDER, newTemplate)).isTrue();
-        assertThat(ScheduleCalendarCache.ruleForTemplate(session, OTHER_PROVIDER).sdate).isEmpty();
-        assertThat(ScheduleCalendarCache.ruleForTemplate(session, PROVIDER)).isNull();
+        String newForm = ScheduleCalendarCache.selectTemplate(session, OTHER_PROVIDER, newTemplate);
+        assertThat(ScheduleCalendarCache.templateForApply(form(newForm), OTHER_PROVIDER))
+                .isEqualTo(new ScheduleCalendarCache.TemplatePeriod(OTHER_PROVIDER, "", ""));
+        assertThat(ScheduleCalendarCache.templateForApply(form(null), PROVIDER)).isNull();
         assertThat(ScheduleCalendarCache.openRule(session, PROVIDER)).isNull();
         var applied = rule(OTHER_PROVIDER, "<SUN>1000</SUN>");
         ScheduleCalendarCache.openMonth(session, applied, dao);
         assertThat(ScheduleCalendarCache.readMonth(session, OTHER_PROVIDER, dao).rule().avail_hour).isEqualTo(applied.avail_hour);
+    }
+
+    @Test
+    void shouldRecognizeAnOldFormOnlyWhenItsProviderAndPeriodAreCorroborated() {
+        session.setAttribute("scheduleRscheduleBean", rule(PROVIDER, "<SUN>0800</SUN>"));
+        var request = form(null);
+        request.setParameter("syear", "2032");
+        request.setParameter("smonth", "1");
+        request.setParameter("sday", "1");
+        request.setParameter("origeyear", "2032");
+        request.setParameter("origemonth", "12");
+        request.setParameter("origeday", "31");
+        assertThat(ScheduleCalendarCache.templateForApply(request, PROVIDER))
+                .isEqualTo(new ScheduleCalendarCache.TemplatePeriod(PROVIDER, "2032-01-01", "2032-12-31"));
+        request.setParameter("origeday", "30");
+        assertThat(ScheduleCalendarCache.templateForApply(request, PROVIDER)).isNull();
+        request.setParameter("origeday", "32");
+        assertThat(ScheduleCalendarCache.templateForApply(request, PROVIDER)).isNull();
+        request.removeParameter("smonth");
+        assertThat(ScheduleCalendarCache.templateForApply(request, PROVIDER)).isNull();
+        assertThat(ScheduleCalendarCache.templateForApply(form("unknown-selection"), PROVIDER)).isNull();
+    }
+
+    @Test
+    void shouldRefuseStrippedUnknownAndExpiredSelectionsWithoutDiscardingOtherOpenTabs() {
+        var template = rule(PROVIDER, "<SUN>0900</SUN>");
+        String first = ScheduleCalendarCache.selectTemplate(session, PROVIDER, template);
+        String second = ScheduleCalendarCache.selectTemplate(session, PROVIDER, template);
+        for (int tab = 0; tab < 31; tab++) {
+            ScheduleCalendarCache.selectTemplate(session, PROVIDER, template);
+        }
+        assertThat(ScheduleCalendarCache.templateForApply(form(first), PROVIDER)).isNull();
+        assertThat(ScheduleCalendarCache.templateForApply(form(null), PROVIDER)).isNull();
+        assertThat(ScheduleCalendarCache.templateForApply(form("unknown-selection"), PROVIDER)).isNull();
+        assertThat(ScheduleCalendarCache.templateForApply(form(second), PROVIDER).start()).isEqualTo(template.sdate);
     }
 
     @Test

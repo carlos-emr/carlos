@@ -1,10 +1,13 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 package io.github.carlos_emr.carlos.schedule.service;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.commn.dao.RScheduleDao;
@@ -23,28 +26,38 @@ public class ScheduleTemplateService {
     }
 
     /** The provider lookup and the existing overlap warning shown by the month editor. */
-    public record Result(boolean providerFound, boolean overlaps) {}
+    public record Result(boolean providerFound, boolean overlaps, boolean stalePeriod) {}
 
     /** Applies the editor's rule, retaining custom dates and the existing same-start rule semantics. */
-    @Transactional
-    public Result apply(RSchedule submittedRule, boolean replaceSameStart, Date retireThrough,
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public Result apply(RSchedule submittedRule, boolean replaceSameStart, Date originalEnd,
                         List<ScheduleDate> generatedDays) {
         String providerNo = submittedRule.getProviderNo();
         Date start = submittedRule.getsDate();
         Date end = submittedRule.geteDate();
-        // The date service takes the provider lock before its first read. It remains held through
-        // the rule updates and the commit of this enclosing transaction.
-        if (!dates.replaceRuleDays(providerNo, start, retireThrough, generatedDays)) {
-            return new Result(false, false);
+        // Acquire the provider lock before this command establishes its first consistent read.
+        if (!dates.lockProviderForChange(providerNo)) {
+            return new Result(false, false, false);
         }
+        Date retireThrough = later(originalEnd, end);
         if (replaceSameStart) {
-            for (String availability : List.of("1", "A")) {
-                for (RSchedule previous : rules.findByProviderAvailableAndDate(providerNo, availability, start)) {
-                    previous.setStatus("D");
-                    rules.merge(previous);
+            var previousRules = new ArrayList<>(rules.findByProviderAvailableAndDate(providerNo, "1", start));
+            previousRules.addAll(rules.findByProviderAvailableAndDate(providerNo, "A", start));
+            boolean originalStillActive = false;
+            for (RSchedule previous : previousRules) {
+                if ("A".equals(previous.getStatus())) {
+                    originalStillActive |= Objects.equals(originalEnd, previous.geteDate());
+                    // Older data can have overlapping active headers at the same start.
+                    retireThrough = later(previous.geteDate(), retireThrough);
                 }
             }
+            if (!originalStillActive) return new Result(true, false, true);
+            for (RSchedule previous : previousRules) {
+                previous.setStatus("D");
+                rules.merge(previous);
+            }
         }
+        dates.replaceLockedRuleDays(providerNo, start, retireThrough, generatedDays);
         boolean overlaps = rules.search_rschedule_overlaps(providerNo, start, end, start, end, start, end,
                 start, end, start, end, start, end, start, end) > 0;
         if (rules.search_rschedule_exists(providerNo, start, end) > 0) {
@@ -59,6 +72,10 @@ public class ScheduleTemplateService {
         } else {
             rules.persist(submittedRule);
         }
-        return new Result(true, overlaps);
+        return new Result(true, overlaps, false);
+    }
+
+    private static Date later(Date previousEnd, Date end) {
+        return previousEnd != null && previousEnd.after(end) ? previousEnd : end;
     }
 }

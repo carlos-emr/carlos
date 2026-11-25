@@ -38,6 +38,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
@@ -46,12 +48,15 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.interceptor.TransactionInterceptor;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import io.github.carlos_emr.carlos.commn.dao.ScheduleDateDao;
+import io.github.carlos_emr.RscheduleBean;
 import io.github.carlos_emr.carlos.commn.dao.RScheduleDao;
+import io.github.carlos_emr.carlos.commn.dao.ScheduleDateDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.RSchedule;
 import io.github.carlos_emr.carlos.commn.model.ScheduleDate;
+import io.github.carlos_emr.carlos.schedule.web.ScheduleCalendarCache;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
  * Issue #5297: a schedule override replacement is all or nothing against a real database. When
@@ -273,6 +278,41 @@ class ScheduleDateOverrideServiceIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    void shouldRefuseAnOlderSameStartFormAfterAnExtension_thenAllowShorteningTheCurrentPeriod() {
+        var templates = templates(rScheduleDao);
+        RSchedule original = header("Original period");
+        assertThat(templates.apply(original, false, null, List.of(ruleDay("Original day"))).providerFound()).isTrue();
+        RSchedule extended = header("Extended period");
+        extended.seteDate(FOLLOWING);
+        ScheduleDate extra = ruleDay("Day added by extension");
+        extra.setDate(FOLLOWING);
+        RSchedule shortened = header("Shorter period");
+        shortened.seteDate(DATE);
+
+        // The older request has already read the original header on its own connection. The first
+        // editor commits its extension before that older form tries to shorten the same start.
+        var stale = transaction().execute(status -> {
+            assertThat(rScheduleDao.find(original.getId()).getStatus()).isEqualTo("A");
+            assertThat(templates.apply(extended, true, FORMER_END,
+                    List.of(ruleDay("Current day"), extra)).stalePeriod()).isFalse();
+            return templates.apply(shortened, true, FORMER_END, List.of(ruleDay("Stale day")));
+        });
+        assertThat(stale.providerFound()).isTrue();
+        assertThat(stale.stalePeriod()).isTrue();
+        assertThat(shortened.getId()).isNull();
+        List<RSchedule> headers = transaction().execute(status -> rScheduleDao.findByProviderAvailableAndDate(PROVIDER, "1", DATE));
+        assertThat(headers).hasSize(2).filteredOn(rule -> "A".equals(rule.getStatus()))
+                .extracting(RSchedule::getId).containsExactly(extended.getId());
+        assertThat(active()).extracting(ScheduleDate::getReason).containsExactly("Current day");
+        assertThat(service(scheduleDateDao).currentOverride(PROVIDER, FOLLOWING).getId()).isEqualTo(extra.getId());
+
+        var fresh = templates.apply(shortened, true, FOLLOWING, List.of(ruleDay("Shortened day")));
+        assertThat(fresh.stalePeriod()).isFalse();
+        assertThat(active()).extracting(ScheduleDate::getReason).containsExactly("Shortened day");
+        assertThat(service(scheduleDateDao).currentOverride(PROVIDER, FOLLOWING)).isNull();
+    }
+
+    @Test
     void shouldRollBackBothRuleAndDates_whenTheFinalHeaderWriteFails() {
         RSchedule original = header("Old rule");
         assertThat(templates(rScheduleDao).apply(original, false, FORMER_END,
@@ -336,6 +376,44 @@ class ScheduleDateOverrideServiceIntegrationTest extends CarlosTestBase {
         List<String> statuses = transaction().execute(status -> List.of(first, alternate, overlapping, replacement).stream()
                 .map(rule -> rScheduleDao.find(rule.getId()).getStatus()).toList());
         assertThat(statuses).containsExactly("D", "D", "A", "A");
+    }
+
+    @Test
+    void shouldReplaceOnlyThePeriodRenderedInTheSubmittedTab_whenAnotherTabSelectsTheSameProvider() {
+        var templates = templates(rScheduleDao);
+        var original = header("Original period");
+        var later = header("Later period");
+        later.setsDate(java.sql.Date.valueOf("2031-06-01"));
+        later.seteDate(java.sql.Date.valueOf("2031-06-30"));
+        transaction().executeWithoutResult(status -> {
+            rScheduleDao.persist(original);
+            rScheduleDao.persist(later);
+        });
+        var session = new MockHttpSession();
+        String originalForm = ScheduleCalendarCache.selectTemplate(session, PROVIDER, editorRule(original));
+        String laterForm = ScheduleCalendarCache.selectTemplate(session, PROVIDER, editorRule(later));
+        var submitted = new MockHttpServletRequest();
+        submitted.setSession(session);
+        submitted.setParameter("templateSelection", originalForm);
+        submitted.setParameter("origeyear", "2099");
+        var period = ScheduleCalendarCache.templateForApply(submitted, PROVIDER);
+        assertThat(period.start()).isEqualTo(DATE.toString());
+        assertThat(period.end()).isEqualTo(FORMER_END.toString());
+
+        var extended = header("Extended period");
+        extended.seteDate(FOLLOWING);
+        assertThat(templates.apply(extended, DATE.toString().equals(period.start()), java.sql.Date.valueOf(period.end()),
+                List.of(ruleDay("Extended period"))).providerFound()).isTrue();
+        List<String> statuses = transaction().execute(status -> List.of(original, extended, later).stream()
+                .map(rule -> rScheduleDao.find(rule.getId()).getStatus()).toList());
+        assertThat(statuses).containsExactly("D", "A", "A");
+        submitted.setParameter("templateSelection", laterForm);
+        assertThat(ScheduleCalendarCache.templateForApply(submitted, PROVIDER).start()).isEqualTo("2031-06-01");
+    }
+
+    private static RscheduleBean editorRule(RSchedule rule) {
+        return new RscheduleBean(rule.getProviderNo(), ConversionUtils.toDateString(rule.getsDate()), ConversionUtils.toDateString(rule.geteDate()),
+                rule.getAvailable(), rule.getDayOfWeek(), rule.getAvailHourB(), rule.getAvailHour(), rule.getCreator());
     }
 
     @Test
