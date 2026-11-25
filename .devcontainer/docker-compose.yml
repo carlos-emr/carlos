@@ -77,11 +77,13 @@ services:
         condition: service_healthy
     healthcheck:
       # Current XML-RPC servlet accepts POST and answers GET with 405. Older builds also serve GET.
+      # curl prints the status line it received even when the transfer then fails (timeout,
+      # truncated body), so a curl error fails the probe before that status is checked.
       test:
         - CMD-SHELL
         - >-
-          case "$$(curl -sS --max-time 8 -o /dev/null -w '%{http_code}' http://localhost:8080/drugref2/DrugrefService)" in
-          200|405) exit 0 ;; *) exit 1 ;; esac
+          code="$$(curl -sS --max-time 8 -o /dev/null -w '%{http_code}' http://localhost:8080/drugref2/DrugrefService)" || exit 1;
+          case "$$code" in 200|405) exit 0 ;; *) exit 1 ;; esac
       timeout: 10s
       retries: 5
       interval: 30s
