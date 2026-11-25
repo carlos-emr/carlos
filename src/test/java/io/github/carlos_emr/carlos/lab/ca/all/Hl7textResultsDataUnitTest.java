@@ -25,6 +25,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
@@ -53,14 +54,20 @@ import org.mockito.MockedStatic;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao;
+import io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementsDeletedDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementMapDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.model.Hl7TextInfo;
+import io.github.carlos_emr.carlos.commn.model.Hl7TextMessage;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.commn.model.MeasurementMap;
 import io.github.carlos_emr.carlos.commn.model.MeasurementType;
 import io.github.carlos_emr.carlos.commn.model.MeasurementsExt;
+import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
@@ -265,7 +272,7 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldSupersedeEveryOtherVersion_forANonCmlSource() {
         try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
-            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("1111,2222,4616");
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616", 42)).thenReturn("1111,2222,4616");
             assertThat(fileResult("6.1", ".*", "2026-03-10 12:00:00", LocalDateTime.parse("2026-03-10T14:00:00")))
                     .isNotNull();
         }
@@ -291,7 +298,7 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         when(measurementDao.findByValue("lab_no", "1111")).thenReturn(List.of(otherPatients, unknownPatient));
         when(measurementDao.findByValue("lab_no", "2222")).thenReturn(java.util.List.of(samePatients));
         try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
-            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("1111,2222,4616");
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616", 42)).thenReturn("1111,2222,4616");
             Measurement filed = fileResult("6.1", ".*", "2026-03-10 12:00:00", LocalDateTime.parse("2026-03-10T14:00:00"));
             assertThat(filed).isNotNull();
             assertThat(filed.getDemographicId()).isEqualTo(42);
@@ -307,19 +314,17 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         // #6142 review: the chain is resolved by accession alone. Another patient's report (5000, routed to
         // patient 4711) arrived later, so it would be chosen as the current version and this patient's
         // incoming report (4616, patient 42) would be skipped before anything was filed.
-        io.github.carlos_emr.carlos.commn.model.PatientLabRouting otherPatient = new io.github.carlos_emr.carlos.commn.model.PatientLabRouting();
-        otherPatient.setDemographicNo(4711);
-        var routing = (io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao) mockedBeans.get(io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao.class);
-        when(routing.findByLabNoAndLabType(5000, "HL7")).thenReturn(List.of(otherPatient));
-        try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
-            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("4616,5000");
-            Measurement filed = fileResult("6.1", ".*", "2026-03-10 12:00:00", LocalDateTime.parse("2026-03-10T14:00:00"));
-            assertThat(filed).isNotNull();
-            assertThat(filed.getDemographicId()).isEqualTo(42);
-        }
+        accessionShared(5000);
+        routedTo(5000, 4711);
 
+        Measurement filed = fileResult("6.1", ".*", "2026-03-10 12:00:00", LocalDateTime.parse("2026-03-10T14:00:00"));
+
+        assertThat(filed).isNotNull();
+        assertThat(filed.getDemographicId()).isEqualTo(42);
         // The other patient's report is neither archived nor looked at.
         verify(measurementDao, org.mockito.Mockito.never()).findByValue("lab_no", "5000");
+        // Only the chain a report is filed by leaves it out; the display chain still shows every version.
+        assertThat(Hl7textResultsData.getMatchingLabs("4616")).isEqualTo("4616,5000");
     }
 
     @Test
@@ -330,12 +335,49 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         // delivery waiting for its match; filing the older one now would put superseded values on the chart.
         // So the incoming 4616 is not filed here while 5000 is the newest version; the match of 5000 files it.
         // Routing is not scoped by source: the chain is one accession's HL7 reports and no reliable source key exists.
-        try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
-            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("4616,5000");
-            Measurement filed = fileResult("6.1", ".*", "2026-03-10 12:00:00", LocalDateTime.parse("2026-03-10T14:00:00"));
-            assertThat(filed).isNull();
-        }
+        accessionShared(5000);
+
+        Measurement filed = fileResult("6.1", ".*", "2026-03-10 12:00:00", LocalDateTime.parse("2026-03-10T14:00:00"));
+
+        assertThat(filed).isNull();
         verify(measurementDao, org.mockito.Mockito.never()).findByValue("lab_no", "5000");
+    }
+
+    @Test
+    @DisplayName("should leave another patient's version out of the CLS chain a report is filed by, but not out of the display chain")
+    void shouldLeaveAnotherPatientsVersionOut_whenResolvingAClsChainForFiling() {
+        Hl7TextMessage cls = new Hl7TextMessage();
+        cls.setType("CLS");
+        when(((Hl7TextMessageDao) mockedBeans.get(Hl7TextMessageDao.class)).find(4616)).thenReturn(cls);
+        accessionShared(5000, 1111);
+        routedTo(5000, 4711);
+
+        assertThat(Hl7textResultsData.getMatchingLabs("4616", 42)).isEqualTo("1111,4616");
+        assertThat(Hl7textResultsData.getMatchingLabs("4616")).isEqualTo("1111,4616,5000");
+    }
+
+    /** Report 4616 and these other reports share one accession, dated within the window that joins versions. */
+    private void accessionShared(int... others) {
+        Hl7TextInfo incoming = reportInfo(4616);
+        List<Object[]> pairs = new ArrayList<>();
+        pairs.add(new Object[] {incoming, incoming});
+        for (int other : others) {
+            pairs.add(new Object[] {reportInfo(other), incoming});
+        }
+        when(((Hl7TextInfoDao) mockedBeans.get(Hl7TextInfoDao.class)).findByLabIdViaMagic(4616)).thenReturn(pairs);
+    }
+
+    private static Hl7TextInfo reportInfo(int labNo) {
+        Hl7TextInfo info = new Hl7TextInfo();
+        info.setLabNumber(labNo);
+        info.setObrDate("2026-03-10 12:00:00");
+        return info;
+    }
+
+    /** Routes a report to a patient, as a match does. */
+    private void routedTo(int labNo, int patient) {
+        when(((PatientLabRoutingDao) mockedBeans.get(PatientLabRoutingDao.class)).findByLabNoAndLabType(labNo, "HL7"))
+                .thenReturn(List.of(new PatientLabRouting(labNo, "HL7", patient)));
     }
 
     @Test
@@ -358,10 +400,10 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
     @ValueSource(strings = {"0", "-42", "invalid", " 42 ", "2147483648"})
     void shouldRejectInvalidPatientBeforeArchivingMeasurements(String demographicNo) {
         MessageHandler handler = mock(MessageHandler.class);
-        try (var factory = mockStatic(Factory.class);
-                var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
+        // Another version of the report is on file, so filing that went on would archive its measurements.
+        accessionShared(2222);
+        try (var factory = mockStatic(Factory.class)) {
             factory.when(() -> Factory.getHandler("4616")).thenReturn(handler);
-            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("2222,4616");
 
             assertThatThrownBy(() -> Hl7textResultsData.populateMeasurementsTable("4616", demographicNo))
                     .isInstanceOf(IllegalArgumentException.class)
@@ -383,7 +425,7 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         when(measurementDao.findByValue("lab_no", "2222")).thenReturn(java.util.List.of(original));
         Measurement filed;
         try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
-            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn(chain);
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616", 42)).thenReturn(chain);
             filed = fileResult("12.7", ".*", "2026-03-10 12:00:00", LocalDateTime.parse("2026-03-10T14:00:00"));
         }
 
@@ -412,7 +454,7 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         Measurement filed;
         try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
             // The normal progression: more final results, a later report, a higher lab number.
-            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("1111,4616");
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616", 42)).thenReturn("1111,4616");
             filed = fileResult("5.2", ".*", "2026-03-10 12:00:00", LocalDateTime.parse("2026-03-10T14:00:00"));
         }
 
@@ -424,7 +466,7 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
     @DisplayName("should not archive anything for the only version of a report")
     void shouldFileWithoutArchiving_whenTheReportHasOneVersion() {
         try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
-            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("4616");
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616", 42)).thenReturn("4616");
             assertThat(fileResult("6.1", ".*", "2026-03-10 12:00:00", LocalDateTime.parse("2026-03-10T14:00:00")))
                     .isNotNull();
         }
@@ -439,7 +481,7 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         // highest lab number). For CML the order is the lab's revision evidence: 2222 is current, and the
         // late delivery of an older version must not replace its measurements (#5820).
         try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
-            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("4616,2222");
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616", 42)).thenReturn("4616,2222");
             assertThat(fileResult(io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler.class, "4.3", ".*",
                     "2026-03-10 07:00:00", LocalDateTime.parse("2026-03-10T14:00:00"))).isNull();
         }
@@ -451,7 +493,7 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
     @DisplayName("should file the newest CML revision and archive every earlier version")
     void shouldFileTheCurrentCmlVersion_andArchiveEveryEarlierVersion() {
         try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
-            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("9999,1111,4616");
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616", 42)).thenReturn("9999,1111,4616");
             assertThat(fileResult(io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler.class, "12.7", ".*",
                     "2026-03-10 12:00:00", LocalDateTime.parse("2026-03-10T14:00:00"))).isNotNull();
         }
@@ -477,8 +519,8 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         // The display order ends with the original (2222: five final results); the correction (4616) is current.
         Measurement filed;
         try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
-            versions.when(() -> Hl7textResultsData.getMatchingLabs("2222")).thenReturn("4616,2222");
-            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("4616,2222");
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("2222", 42)).thenReturn("4616,2222");
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616", 42)).thenReturn("4616,2222");
             filed = fileResult(MessageHandler.class, "12.7", ".*", "2026-03-10 12:00:00",
                     LocalDateTime.parse("2026-03-10T14:00:00"),
                     () -> Hl7textResultsData.populateCurrentVersionMeasurements("2222", "42"));
@@ -579,7 +621,7 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
     void shouldRefuseAnUnresolvedIncomingVersion_beforeChangingClinicalMeasurements() {
         LocalDateTime received = LocalDateTime.parse("2026-03-10T14:00:00");
         try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
-            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("1111,9999");
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616", 42)).thenReturn("1111,9999");
             org.assertj.core.api.Assertions.assertThatThrownBy(() -> fileResult("4.3", ".*",
                     "2026-03-10 07:00:00", received))
                     .isInstanceOf(IllegalStateException.class).hasMessageContaining("absent");
@@ -593,7 +635,7 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
     @ValueSource(strings = {"4616,9999", "1111,4616,9999"})
     void shouldLeaveActiveMeasurementsUntouched_whenAnOlderVersionArrivesLast(String chain) {
         try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
-            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn(chain);
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616", 42)).thenReturn(chain);
             assertThat(fileResult("4.3", ".*", "2026-03-10 07:00:00",
                     LocalDateTime.parse("2026-03-10T14:00:00"))).isNull();
         }

@@ -3,8 +3,10 @@ package io.github.carlos_emr.carlos.lab.ca.all;
 
 import io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao;
 import io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextInfo;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextMessage;
+import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -17,6 +19,7 @@ import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -153,6 +156,42 @@ class CmlCorrectedVersionUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    void shouldRankOnlyThisPatientsRevisions_whenAnotherPatientsUndatedFinalSharesTheAccession() throws Exception {
+        // #6142 review: this patient's newer revision (11) arrived before its older one (12). Another patient's
+        // final (13) shares the accession and carries no revision time (OBR-22). Ranked together, the missing
+        // time sends every final back to arrival order and makes the stale 12 current. The chain a report is
+        // filed by leaves 13 out before it is read or ranked.
+        Hl7TextInfo newer = info(11, "2026-03-10 12:00:00", 1);
+        Hl7TextInfo older = info(12, "2026-03-10 08:00:00", 1);
+        Hl7TextInfo foreign = info(13, "2026-03-10 10:00:00", 1);
+        Hl7TextInfoDao infos = (Hl7TextInfoDao) mockedBeans.get(Hl7TextInfoDao.class);
+        when(infos.findByLabIdViaMagic(12)).thenReturn(List.of(new Object[]{newer, older},
+                new Object[]{foreign, older}, new Object[]{older, older}));
+        PatientLabRoutingDao routing = (PatientLabRoutingDao) mockedBeans.get(PatientLabRoutingDao.class);
+        when(routing.findByLabNoAndLabType(11, "HL7")).thenReturn(List.of(new PatientLabRouting(11, "HL7", 42)));
+        when(routing.findByLabNoAndLabType(13, "HL7")).thenReturn(List.of(new PatientLabRouting(13, "HL7", 4711)));
+        Hl7TextMessageDao messages = (Hl7TextMessageDao) mockedBeans.get(Hl7TextMessageDao.class);
+        Map<Integer, Hl7TextMessage> stored = new LinkedHashMap<>();
+        for (int id : List.of(11, 12, 13)) {
+            Hl7TextMessage message = new Hl7TextMessage();
+            org.springframework.test.util.ReflectionTestUtils.setField(message, "id", id);
+            message.setType("CML");
+            when(messages.find(id)).thenReturn(message);
+            stored.put(id, message);
+        }
+        try (var parsers = mockStatic(Factory.class)) {
+            parsers.when(() -> Factory.getHandler(stored.get(11))).thenReturn(source("F", "20260310120000"));
+            parsers.when(() -> Factory.getHandler(stored.get(12))).thenReturn(source("F", "20260310080000"));
+            parsers.when(() -> Factory.getHandler(stored.get(13))).thenReturn(source("F", "20260310100000", ""));
+
+            assertThat(Hl7textResultsData.getMatchingLabs("12", 42)).isEqualTo("12,11");
+            parsers.verify(() -> Factory.getHandler(stored.get(13)), never());
+            // The display chain still holds every version, and with the undated final it falls back to arrival order.
+            assertThat(Hl7textResultsData.getMatchingLabs("12")).isEqualTo("11,12,13");
+        }
+    }
+
     private static Hl7TextInfo info(int id, String date, int count) {
         Hl7TextInfo info = new Hl7TextInfo();
         info.setLabNumber(id);
@@ -162,10 +201,15 @@ class CmlCorrectedVersionUnitTest extends CarlosUnitTestBase {
     }
 
     private static CMLHandler source(String status, String time) throws Exception {
+        return source(status, time, time);
+    }
+
+    /** As above, with the lab's revision time (OBR-22) given apart from the collection time; empty when none was sent. */
+    private static CMLHandler source(String status, String time, String revision) throws Exception {
         String[] obr = new String[26], obx = new String[15];
         Arrays.fill(obr, ""); Arrays.fill(obx, "");
         obr[0] = "OBR"; obr[1] = "1"; obr[2] = "SYNTHETIC-CML"; obr[4] = "ML70^SYNTHETIC PANEL";
-        obr[7] = time; obr[22] = time; obr[25] = status;
+        obr[7] = time; obr[22] = revision; obr[25] = status;
         obx[0] = "OBX"; obx[1] = "1"; obx[2] = "NM"; obx[3] = "7010^SYNTHETIC RESULT";
         obx[5] = "12.7"; obx[6] = "mmol/L"; obx[8] = "H"; obx[11] = status; obx[14] = time;
         CMLHandler handler = new CMLHandler();

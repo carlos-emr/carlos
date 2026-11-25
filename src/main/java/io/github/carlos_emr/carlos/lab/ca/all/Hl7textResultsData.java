@@ -138,7 +138,7 @@ public class Hl7textResultsData {
             throw new IllegalStateException("Lab report could not be read; its measurements were not filed");
         }
         //Check for other versions of this lab
-        String[] matchingLabs = ownVersions(getMatchingLabs(lab_no).split(","), lab_no, patient);
+        String[] matchingLabs = getMatchingLabs(lab_no, patient).split(",");
 
         if (!java.util.Arrays.asList(matchingLabs).contains(lab_no)) {
             throw new IllegalStateException("The incoming lab is absent from its resolved version chain");
@@ -175,12 +175,10 @@ public class Hl7textResultsData {
     }
 
     /**
-     * The versions of a report that belong to this patient. The chain is resolved by accession number
-     * alone, so a recycled or colliding accession can put another patient's report in it, and such a
-     * report with a later revision would otherwise be chosen as the current version and skip this
-     * patient's incoming result (#6142 review). A version routed to a different patient is left out
-     * before the current version is chosen and before anything is superseded; a version with no routing
-     * (not yet matched), and the incoming report itself, stay. The chain's order is kept.
+     * The versions of a CLS report that belong to this patient (see {@link #getMatchingLabs(String, Integer)}).
+     * A CLS chain is not ranked, its current version being the highest lab number, so another patient's
+     * versions can be left out after it is resolved. A version routed to a different patient is left out; a
+     * version with no routing (not yet matched), and the incoming report itself, stay. The chain's order is kept.
      */
     static String[] ownVersions(String[] chain, String incoming, Integer patient) {
         List<String> own = new ArrayList<>();
@@ -226,7 +224,7 @@ public class Hl7textResultsData {
             throw new IllegalStateException("Lab report could not be read; its measurements were not filed");
         }
         Integer patient = ConversionUtils.fromIntString(demographic_no);
-        String[] matchingLabs = ownVersions(getMatchingLabs(lab_no).split(","), lab_no, patient);
+        String[] matchingLabs = getMatchingLabs(lab_no, patient).split(",");
         populateMeasurementsTable(
                 currentVersion(matchingLabs, named instanceof io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler),
                 demographic_no);
@@ -250,7 +248,7 @@ public class Hl7textResultsData {
      * with one difference: every other version is superseded, so two versions' values never stay
      * on the chart together.</p>
      *
-     * @param chain the report's versions as {@link #getMatchingLabs(String)} resolved them
+     * @param chain the report's versions as {@link #getMatchingLabs(String, Integer)} resolved them
      * @param revisionOrdered true when the chain's order is the source's revision order (CML)
      * @return the lab number of the current version
      */
@@ -722,12 +720,34 @@ public class Hl7textResultsData {
     }
 
     public static String getMatchingLabs(String lab_no) {
+        return getMatchingLabs(lab_no, null);
+    }
+
+    /**
+     * The versions of a report, as {@link #getMatchingLabs(String)} resolves them, that can be the given
+     * patient's: the chain a report is filed by.
+     *
+     * <p>The chain is found by accession number alone, so a recycled or colliding accession can put another
+     * patient's report in it. A version routed to a different patient is left out as it is found, before any
+     * version is read or ranked (#6142 review). Ranked with this patient's CML revisions, one such report
+     * without a revision time sent the whole chain back to arrival order, so a stale revision delivered late
+     * could replace newer measurements; one that cannot be read would refuse this patient's filing. A version
+     * with no routing yet, which may be this patient's own newer delivery waiting for its match, and
+     * {@code lab_no} itself stay.</p>
+     *
+     * @param lab_no any version of the report
+     * @param patient the patient the report is filed for; {@code null} keeps every version (the display chain)
+     * @return the chain's lab numbers, comma-separated, in the order {@link #getMatchingLabs(String)} gives them
+     */
+    static String getMatchingLabs(String lab_no, Integer patient) {
         String ret = "";
         int monthsBetween = 0;
 
-        Hl7TextMessage hl7Msg = hl7TxtMsgDao.find(Integer.parseInt(lab_no));
+        int incoming = Integer.parseInt(lab_no);
+        Hl7TextMessage hl7Msg = hl7TxtMsgDao.find(incoming);
         if (hl7Msg != null && "CLS".equals(hl7Msg.getType())) {
-            return getMatchingLabs_CLS(lab_no);
+            String chain = getMatchingLabs_CLS(lab_no);
+            return patient == null ? chain : String.join(",", ownVersions(chain.split(","), lab_no, patient));
         }
 
         boolean cml = hl7Msg != null && "CML".equals(hl7Msg.getType());
@@ -758,6 +778,9 @@ public class Hl7textResultsData {
             logger.debug("lab_no: " + labNo + " lab: " + lab_no);
 
             if (monthsBetween < 4) {
+                if (patient != null && labNo != incoming && routedToAnotherPatient(String.valueOf(labNo), patient)) {
+                    continue;
+                }
                 if (cml) {
                     if (!seenVersions.add(labNo)) continue;
                     Hl7TextMessage version = labNo == Integer.parseInt(lab_no)
