@@ -1,6 +1,7 @@
 # Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
 """Exercise native verdicts with real subprocess exits, including python -O."""
 import importlib.util
+import json
 import os
 from pathlib import Path
 import re
@@ -183,11 +184,18 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
         }
         self.assertEqual(MODULE.REQUIRED_CASES[family], names)
         self.assertEqual(MODULE.REQUIRED['flyway'][family], len(names))
-        workflow = (Path(__file__).resolve().parents[2] / '.github/workflows/maven-project.yml').read_text()
+        root = Path(__file__).resolve().parents[2]
+        workflow = (root / '.github/workflows/maven-project.yml').read_text()
         on = next(block for block in workflow.split('      - name: ')
                   if block.startswith('Verify critical DAO paths against the Flyway schema\n'))
+        self.assertIn('CARLOS_TEST_MARIADB_PROVINCE=on', on)
         selected = re.search(r'-Dtest=([^\s\'"\\]+)', on).group(1).split(',')
         self.assertIn(family, selected)
+        plan = json.loads((root / 'docs/testing/release-2026.08-verification.json').read_text())
+        h2 = next(check for check in plan['checks'] if check['id'] == 'java-all')
+        route = h2['routedSkips'][MODULE.BOUND_FAMILIES[family]]
+        self.assertEqual(route['check'], 'java-native-flyway')
+        self.assertEqual({(case['name'], case['container']) for case in route['cases']}, {(name, '') for name in names})
         self.seed()
         report = self.reports / f'TEST-{self.suite(family)}-flyway.xml'
         original = report.read_text()

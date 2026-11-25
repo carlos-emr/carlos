@@ -5184,6 +5184,23 @@
               "container": ""
             }
           ]
+        },
+        "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnSiteVisibilityIntegrationTest": {
+          "check": "java-native-flyway",
+          "cases": [
+            {
+              "name": "shouldShowUnassignedBillersAndDisks_whenSingleSiteHasSeededPrivacyGrant",
+              "container": ""
+            },
+            {
+              "name": "shouldRestrictBothViewsAndDiskRows_whenMultisitePrivacyIsGranted",
+              "container": ""
+            },
+            {
+              "name": "shouldShowUnassignedBillersAndDisks_whenMultisiteHasNoPrivacyGrant",
+              "container": ""
+            }
+          ]
         }
       },
       "runtimeConstraints": {
