@@ -604,7 +604,7 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
 
     @Test
     @DisplayName("should log and leave out a printable document that is neither an image nor a PDF")
-    void shouldLeaveOutPrintableDocument_whenItIsNeitherImageNorPdf() throws Exception {
+    void shouldLeaveOutPrintableDocument_whenItIsNeitherImageNorPdf() {
         EDoc spreadsheet = mock(EDoc.class);
         when(spreadsheet.getDocId()).thenReturn("10");
         when(spreadsheet.isPrintable()).thenReturn(true);
