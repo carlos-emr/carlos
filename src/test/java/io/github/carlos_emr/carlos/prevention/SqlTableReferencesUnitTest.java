@@ -34,6 +34,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @Tag("unit")
 class SqlTableReferencesUnitTest {
+    /** A join to preventions inside a block comment whose opening each case supplies. */
+    private static final String COMMENTED_JOIN =
+            "SELECT 1 FROM demographic d %s JOIN preventions p ON p.demographic_no = d.demographic_no */";
 
     @Test
     void shouldReportEveryTableReference_inFromListsAndJoins() {
@@ -97,6 +100,29 @@ class SqlTableReferencesUnitTest {
         assertThat(SqlTableReferences.tableNames("SELECT 1 FROM demographic d"
                 + " /*!50000 JOIN preventions p ON p.demographic_no = d.demographic_no */ /*M!100100 , allergies */"))
                 .containsExactly("demographic", "preventions", "allergies");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/*!", "/*!40101", "/*!50699", "/*!100100", "/*!110806", "/*!110899", "/*M!",
+            "/*M!50700", "/*M!80000", "/*M!100100", "/*M!110806", "/*M!110899"})
+    void shouldReadExecutableComment_whenMariaDbRunsIt(String opening) {
+        // 110899 closes the qualified 11.8 series: 11.8.6 skips anything above 110806, a later 11.8 runs it.
+        assertThat(SqlTableReferences.tableNames(COMMENTED_JOIN.formatted(opening)))
+                .containsExactly("demographic", "preventions");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/*!50700", "/*!80000", "/*!99999", "/*!110900", "/*!120000", "/*M!110900",
+            "/*M!120000", "/*M!999999", "/*m!100100", "/*+"})
+    void shouldSkipComment_whenMariaDbDoesNotRunIt(String opening) {
+        assertThat(SqlTableReferences.tableNames(COMMENTED_JOIN.formatted(opening))).containsExactly("demographic");
+    }
+
+    @Test
+    void shouldEndSkippedVersionedComment_afterOneNestedComment() {
+        assertThat(SqlTableReferences.tableNames("SELECT 1 FROM demographic d /*!80000 JOIN allergies a"
+                + " ON a.demographic_no = d.demographic_no /* nested */ JOIN preventions p ON 1 = 1 */, measurements m"))
+                .containsExactly("demographic", "measurements");
     }
 
     @Test

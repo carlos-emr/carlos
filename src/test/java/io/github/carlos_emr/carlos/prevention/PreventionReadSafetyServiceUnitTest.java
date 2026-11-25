@@ -97,8 +97,9 @@ class PreventionReadSafetyServiceUnitTest {
     void shouldRecognizePreventionsTable_whereParserReadsMariaDbCodeAsComment() throws Exception {
         // JSqlParser parses both, taking "--1 FROM preventions" and the executable comment for comments;
         // MariaDB runs that text and reads preventions.
-        for (String sql : new String[] {"SELECT 1--1 FROM preventions", "SELECT 1 FROM demographic d"
-                + " /*!50000 JOIN preventions p ON p.demographic_no = d.demographic_no */"}) {
+        for (String sql : new String[] {"SELECT 1--1 FROM preventions",
+                "SELECT 1 FROM demographic d /*!50000 JOIN preventions p ON p.demographic_no = d.demographic_no */",
+                "SELECT 1 FROM demographic d /*M!100100 JOIN preventions p ON p.demographic_no = d.demographic_no */"}) {
             assertThat(new TablesNamesFinder<Void>().getTables(CCJSqlParserUtil.parse(sql)))
                     .doesNotContain("preventions");
             assertThat(PreventionReadSafetyService.readsPreventions(sql)).isTrue();
@@ -174,6 +175,19 @@ class PreventionReadSafetyServiceUnitTest {
                 .isExactlyInstanceOf(PreventionDatePrecisionException.class);
         verify(dao).hasUncertainPreventionDates(PATIENT);
         verifyNoMoreInteractions(dao);
+    }
+
+    @Test
+    void shouldLeaveSqlUnguarded_whenMariaDbSkipsVersionedComment() {
+        // MariaDB never runs MySQL 5.7+ versioned comments, so this definition reads demographic only.
+        PreventionDao dao = mock(PreventionDao.class);
+        String sql = "SELECT d.last_name FROM demographic d"
+                + " /*!80000 JOIN preventions p ON p.demographic_no = d.demographic_no */"
+                + " WHERE d.demographic_no = ${demographic}";
+        assertThat(PreventionReadSafetyService.readsPreventions(sql)).isFalse();
+        assertThatCode(() -> new PreventionReadSafetyService(dao).requireSafeSql(sql, PATIENT))
+                .doesNotThrowAnyException();
+        verifyNoInteractions(dao);
     }
 
     @Test

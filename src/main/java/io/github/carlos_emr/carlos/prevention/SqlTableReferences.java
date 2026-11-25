@@ -46,13 +46,32 @@ import java.util.Set;
  * is reported under its own name.</p>
  *
  * <p>The lexical rules are MariaDB's: {@code #} comments, {@code --} comments (only when blank or
- * control text follows the dashes) and block comments are skipped, but the body of an executable
- * comment ({@code /*!} or {@code /*M!}) is read, because MariaDB runs it. Single- and double-quoted
- * text is a literal, except that a double-quoted name in a table position is read as the name
- * {@code ANSI_QUOTES} makes it. Backtick-quoted names are unquoted, and a qualified name such as
- * {@code `clinic`.`preventions`} or {@code clinic . preventions} is reported by its last part.</p>
+ * control text follows the dashes) and block comments are skipped. The body of an executable comment
+ * ({@code /*!} or {@code /*M!}) is read as code when MariaDB runs it: always when no version follows
+ * the marker, and after a 5- or 6-digit version only when that version is at most the server's and,
+ * for {@code /*!}, outside the MySQL 5.7+ range 50700-99999, which MariaDB never runs. A skipped
+ * versioned comment ends at its own close, after at most one nested comment, as in MariaDB.
+ * Single- and double-quoted text is a literal, except that a double-quoted name in a table position
+ * is read as the name {@code ANSI_QUOTES} makes it. Backtick-quoted names are unquoted, and a
+ * qualified name such as {@code `clinic`.`preventions`} or {@code clinic . preventions} is reported
+ * by its last part.</p>
  */
 final class SqlTableReferences {
+
+    /**
+     * The server version that versioned executable comments are compared with: the last of the
+     * MariaDB 11.8 series this release is qualified on ({@code debian/control} requires 11.4 or
+     * later). A comment versioned within 11.8 is read as code, since an 11.8 server at or past that
+     * release runs it; a later version is skipped, as every qualified server skips it.
+     */
+    private static final int SERVER_VERSION_CEILING = 110_899;
+
+    /** First and last MySQL 5.7+ version, whose {@code /*!} comments MariaDB skips. */
+    private static final int MYSQL_ONLY_FIRST = 50_700;
+    private static final int MYSQL_ONLY_LAST = 99_999;
+
+    /** A version follows an executable-comment marker as 5 digits, or 6 when a sixth digit follows. */
+    private static final int VERSION_DIGITS = 5;
 
     /** What a keyword does to the table positions of its parenthesis level. */
     private enum Role { QUERY, FROM, JOIN, STRAIGHT_JOIN, CLAUSE, FOR, OTHER }
@@ -187,7 +206,7 @@ final class SqlTableReferences {
                 int end = sql.indexOf('\n', pos);
                 pos = end < 0 ? sql.length() : end;
             } else if (sql.startsWith("/*", pos)) {
-                skipBlockCommentOpening();
+                skipBlockComment();
             } else if (inExecutableComment && sql.startsWith("*/", pos)) {
                 inExecutableComment = false;
                 pos += 2;
@@ -202,33 +221,50 @@ final class SqlTableReferences {
             return sql.startsWith("--", pos) && (pos + 2 == sql.length() || sql.charAt(pos + 2) <= ' ');
         }
 
-        /** Skips a whole comment, or only the opening (and version) of an executable one. */
-        private void skipBlockCommentOpening() {
-            int body = pos + 2;
-            int code = executableCodeStart(body);
-            if (code > 0) {
+        /** Skips a comment MariaDB does not run, or only the marker and version of one it runs. */
+        private void skipBlockComment() {
+            int marker = pos + 2;
+            boolean mariaDbOnly = sql.startsWith("M!", marker);
+            if (!mariaDbOnly && !sql.startsWith("!", marker)) {
+                pos = commentEnd(marker, false);
+                return;
+            }
+            int version = marker + (mariaDbOnly ? 2 : 1);
+            int code = versionEnd(version);
+            if (code == version || runs(Integer.parseInt(sql.substring(version, code)), mariaDbOnly)) {
                 inExecutableComment = true;
                 pos = code;
             } else {
-                int end = sql.indexOf("*/", body);
-                pos = end < 0 ? sql.length() : end + 2;
+                pos = commentEnd(code, true);
             }
         }
 
-        /** Where the code of an executable comment starts, after an optional version number; 0 if none. */
-        private int executableCodeStart(int body) {
-            int code;
-            if (sql.startsWith("!", body)) {
-                code = body + 1;
-            } else if (sql.startsWith("M!", body)) {
-                code = body + 2;
-            } else {
-                return 0;
+        /** The end of the version after an executable-comment marker, or {@code start} without one. */
+        private int versionEnd(int start) {
+            int end = start;
+            while (end < sql.length() && end - start <= VERSION_DIGITS && isAsciiDigit(sql.charAt(end))) {
+                end++;
             }
-            while (code < sql.length() && sql.charAt(code) >= '0' && sql.charAt(code) <= '9') {
-                code++;
+            return end - start >= VERSION_DIGITS ? end : start;
+        }
+
+        /** MariaDB runs a versioned comment up to its own version, except plain MySQL 5.7+ ones. */
+        private static boolean runs(int version, boolean mariaDbOnly) {
+            boolean mysqlOnly = !mariaDbOnly && version >= MYSQL_ONLY_FIRST && version <= MYSQL_ONLY_LAST;
+            return version <= SERVER_VERSION_CEILING && !mysqlOnly;
+        }
+
+        /** Where a skipped comment ends; a skipped versioned comment may hold one nested comment. */
+        private int commentEnd(int from, boolean nestedAllowed) {
+            int i = from;
+            while (i < sql.length() && !sql.startsWith("*/", i)) {
+                i = nestedAllowed && sql.startsWith("/*", i) ? commentEnd(i + 2, false) : i + 1;
             }
-            return code;
+            return Math.min(i + 2, sql.length());
+        }
+
+        private static boolean isAsciiDigit(char c) {
+            return c >= '0' && c <= '9';
         }
 
         /** Reads quoted text after its opening quote; a doubled quote stands for itself. */
