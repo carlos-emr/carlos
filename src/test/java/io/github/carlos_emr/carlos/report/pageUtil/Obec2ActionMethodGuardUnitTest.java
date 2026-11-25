@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.report.pageUtil;
 
+import io.github.carlos_emr.carlos.utility.BoundedSessionAttributes;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.report.data.ObecData;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -128,7 +129,8 @@ class Obec2ActionMethodGuardUnitTest extends CarlosUnitTestBase {
             assertThat(action("2026-10-01").execute()).isEqualTo(ActionSupport.SUCCESS);
             assertThat(builder.constructed()).hasSize(1);
         }
-        assertThat(request.getSession().getAttribute(Obec2Action.DOWNLOAD_PREFIX + filename)).isNull();
+        assertThat(BoundedSessionAttributes.containsKey(request.getSession(), Obec2Action.DOWNLOAD_CATEGORY,
+                Obec2Action.DOWNLOAD_PREFIX + filename)).isFalse();
     }
 
     @Test
@@ -143,7 +145,8 @@ class Obec2ActionMethodGuardUnitTest extends CarlosUnitTestBase {
             assertThat(obec.constructed()).hasSize(1);
         }
         assertThat(request.getAttribute("obectxt")).isEqualTo("OBECE1.TXT");
-        assertThat(request.getSession().getAttribute(Obec2Action.DOWNLOAD_PREFIX + "OBECE1.TXT")).isEqualTo(true);
+        assertThat(BoundedSessionAttributes.containsKey(request.getSession(), Obec2Action.DOWNLOAD_CATEGORY,
+                Obec2Action.DOWNLOAD_PREFIX + "OBECE1.TXT")).isTrue();
         assertThat(response.getStatus()).isEqualTo(200);
     }
 }

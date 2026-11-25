@@ -1,5 +1,7 @@
 package io.github.carlos_emr.carlos.util;
 
+import io.github.carlos_emr.carlos.report.pageUtil.Obec2Action;
+import io.github.carlos_emr.carlos.utility.BoundedSessionAttributes;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnFileAccessService;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -235,7 +237,7 @@ class OscarDownloadUnitTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"ON ", " on", "", "unsupported"})
+    @ValueSource(strings = {"ON ", " on", "", "unsupported", "ＢＣ", "BÇ"})
     void shouldRefuseUnownedBillingFileBeforeResponse_whenOntarioOrProvinceIsAmbiguous(String region) throws Exception {
         var config = CarlosProperties.getInstance();
         Object oldRegion = config.put("billregion", region);
@@ -265,11 +267,12 @@ class OscarDownloadUnitTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"BC", "padded-bc", "obec", "not-issued"})
+    @ValueSource(strings = {"BC", "Bc", "bC", " bc ", "obec", "not-issued", "unregistered-flag", "evicted"})
     void shouldKeepTeleplanAndPreviouslyGeneratedNonbillingObecDownloads_whenUsingSharedKeys(String mode) throws Exception {
-        boolean bc = mode.equals("BC") || mode.equals("padded-bc");
+        boolean bc = List.of("BC", "Bc", "bC", " bc ").contains(mode);
+        boolean allowed = bc || mode.equals("obec");
         var config = CarlosProperties.getInstance();
-        Object oldRegion = config.put("billregion", bc ? (mode.equals("BC") ? "BC" : " bc ") : "ON");
+        Object oldRegion = config.put("billregion", bc ? mode : "ON");
         Object oldHome = config.put("HOME_DIR", tempDir.toString());
         try {
             var request = new MockHttpServletRequest("GET", "/servlet/OscarDownload");
@@ -279,16 +282,25 @@ class OscarDownloadUnitTest {
             String key = bc ? "ohipdownload" : "obecdownload";
             String name = bc ? "teleplan.001" : "OBECE100.TXT";
             request.getSession().setAttribute(key, tempDir.toString());
-            if (mode.equals("obec")) request.getSession().setAttribute(
-                    io.github.carlos_emr.carlos.report.pageUtil.Obec2Action.DOWNLOAD_PREFIX + name, Boolean.TRUE);
+            String entry = Obec2Action.DOWNLOAD_PREFIX + name;
+            if (mode.equals("obec") || mode.equals("evicted")) {
+                BoundedSessionAttributes.put(request.getSession(), Obec2Action.DOWNLOAD_CATEGORY, entry, Boolean.TRUE);
+            }
+            if (mode.equals("evicted")) {
+                for (int i = 0; i < BoundedSessionAttributes.MAX_ENTRIES; i++) {
+                    BoundedSessionAttributes.put(request.getSession(), Obec2Action.DOWNLOAD_CATEGORY,
+                            Obec2Action.DOWNLOAD_PREFIX + "OBECE" + (1000 + i) + ".TXT", Boolean.TRUE);
+                }
+            }
+            if (mode.equals("unregistered-flag")) request.getSession().setAttribute(entry, Boolean.TRUE);
             request.addParameter("homepath", key);
             request.addParameter("filename", name);
             Mockito.when(fileAccess.canDownload(login, name, false)).thenReturn(false);
             var response = new MockHttpServletResponse();
             var servlet = new RecordingOscarDownload();
             servlet.service(request, response);
-            assertThat(response.getStatus()).isEqualTo(mode.equals("not-issued") ? 403 : 200);
-            assertThat(servlet.transferCalled).isEqualTo(!mode.equals("not-issued"));
+            assertThat(response.getStatus()).isEqualTo(allowed ? 200 : 403);
+            assertThat(servlet.transferCalled).isEqualTo(allowed);
             if (bc) Mockito.verifyNoInteractions(fileAccess);
             else Mockito.verify(fileAccess).canDownload(login, name, mode.equals("obec"));
         } finally {

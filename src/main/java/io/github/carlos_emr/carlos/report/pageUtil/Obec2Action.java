@@ -62,6 +62,7 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * @since 2003-07-22
  */
 public class Obec2Action extends ActionSupport {
+    public static final String DOWNLOAD_CATEGORY = "obecDownloads";
     public static final String DOWNLOAD_PREFIX = "obec.generatedDownload.";
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -123,7 +124,7 @@ public class Obec2Action extends ActionSupport {
       
       String obectxt = obecData1.generateOBEC(startDate, endDate, proppies);
       if (obectxt != null && !obectxt.isBlank() && !"0".equals(obectxt)) {
-         BoundedSessionAttributes.put(request.getSession(), "obecDownloads",
+         BoundedSessionAttributes.put(request.getSession(), DOWNLOAD_CATEGORY,
                  DOWNLOAD_PREFIX + obectxt, Boolean.TRUE);
       }
       request.setAttribute("obectxt", obectxt);

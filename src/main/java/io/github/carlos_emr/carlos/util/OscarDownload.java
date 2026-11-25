@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingImportedFiles;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnFileAccessService;
 import io.github.carlos_emr.carlos.report.pageUtil.Obec2Action;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.BoundedSessionAttributes;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingFileWriteException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
@@ -57,6 +58,8 @@ public class OscarDownload extends GenericDownload {
 
     private static final long serialVersionUID = 1L;
     private static final Logger log = MiscUtils.getLogger();
+
+    private static final Set<String> BC_BILLING_REGIONS = Set.of("BC", "Bc", "bC", "bc");
 
     private static final Set<String> ALLOWED_HOMEPATH_KEYS = Set.of(
             "homepath", "ohipdownload", "obecdownload"
@@ -129,9 +132,10 @@ public class OscarDownload extends GenericDownload {
                     // Only the BC Teleplan route shares these download keys. An absent or malformed
                     // province must not disable the Ontario ownership check on its generated files.
                     String region = CarlosProperties.getInstance().getProperty("billregion", "");
-                    if (!"BC".equalsIgnoreCase(StringUtils.trimToEmpty(region))) {
+                    if (!BC_BILLING_REGIONS.contains(StringUtils.trimToEmpty(region))) {
                         boolean generatedObec = "obecdownload".equals(homepath) && filename.equals(rawFilename)
-                                && Boolean.TRUE.equals(session.getAttribute(Obec2Action.DOWNLOAD_PREFIX + filename));
+                                && BoundedSessionAttributes.containsKey(session, Obec2Action.DOWNLOAD_CATEGORY,
+                                        Obec2Action.DOWNLOAD_PREFIX + filename);
                         BillingOnFileAccessService access = SpringUtils.getBean(BillingOnFileAccessService.class);
                         LoggedInInfo login = LoggedInInfo.getLoggedInInfoFromSession(session);
                         if (!access.canDownload(login, filename, generatedObec)
