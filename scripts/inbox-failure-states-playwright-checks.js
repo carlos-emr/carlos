@@ -61,7 +61,12 @@ async function workflow(s) {
       items.scrollTop = items.scrollHeight;
       items.dispatchEvent(new Event('scroll'));
     });
-    for (const doc of docs) await inbox.locator(`#labdoc_DOC_${doc.id}`).waitFor({ state: 'attached' });
+    for (const doc of docs) {
+      const card = inbox.locator(`#labdoc_DOC_${doc.id}`);
+      await card.locator('iframe').scrollIntoViewIfNeeded();
+      // A card can exist before its lazy viewer succeeds. Finish both real reads before altering the HRM table.
+      await card.frameLocator('iframe').locator(`input[name="segmentID"][value="${doc.id}"]`).waitFor({ state: 'attached' });
+    }
   });
   const backup = `carlos_test_hrm_fault_${marker.replace('FAKE-PW', '')}`;
   h.assert(/^carlos_test_hrm_fault_[a-f0-9]+$/.test(backup), 'Invalid owned fault table name');
