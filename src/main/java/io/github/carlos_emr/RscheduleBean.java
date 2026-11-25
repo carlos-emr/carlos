@@ -30,9 +30,14 @@
 
 package io.github.carlos_emr;
 
+import java.io.IOException;
+import java.io.ObjectOutputStream;
+import java.io.Serial;
+import java.io.Serializable;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
 import java.util.StringTokenizer;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -54,9 +59,12 @@ import org.apache.commons.lang3.StringUtils;
  *   <li>Site-specific day tags: A7, A1, A2, A3, A4, A5, A6</li>
  * </ul>
  */
-public class RscheduleBean {
+public class RscheduleBean implements Serializable {
+    @Serial
+    private static final long serialVersionUID = 1L;
 
-    private final Object ruleLock = new Object();
+    // ReentrantLock deserializes unlocked, keeping the rule writable after session activation.
+    private final ReentrantLock ruleLock = new ReentrantLock();
 
     /** Provider number */
     public String provider_no = "";
@@ -145,7 +153,8 @@ public class RscheduleBean {
 
     private void replaceRule(String providerNo, String startDate, String endDate, String availability,
                              String days, String hoursB, String hours, String createdBy) {
-        synchronized (ruleLock) {
+        ruleLock.lock();
+        try {
             provider_no = providerNo;
             sdate = startDate;
             edate = endDate;
@@ -154,6 +163,18 @@ public class RscheduleBean {
             avail_hourB = hoursB;
             avail_hour = hours;
             creator = createdBy;
+        } finally {
+            ruleLock.unlock();
+        }
+    }
+
+    @Serial
+    private void writeObject(ObjectOutputStream out) throws IOException {
+        ruleLock.lock();
+        try {
+            out.defaultWriteObject();
+        } finally {
+            ruleLock.unlock();
         }
     }
 
@@ -165,12 +186,15 @@ public class RscheduleBean {
      * @return an independent rule for the request, or null when the provider is missing or changed
      */
     public RscheduleBean snapshotForProvider(String providerNo) {
-        synchronized (ruleLock) {
+        ruleLock.lock();
+        try {
             if (providerNo == null || !providerNo.equals(provider_no)) return null;
             RscheduleBean copy = new RscheduleBean(provider_no, sdate, edate, available, day_of_week,
                     avail_hourB, avail_hour, creator);
             copy.active = active;
             return copy;
+        } finally {
+            ruleLock.unlock();
         }
     }
 

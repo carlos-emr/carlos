@@ -12,10 +12,17 @@
  */
 package io.github.carlos_emr.carlos.schedule.web;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.List;
 
+import org.apache.catalina.core.StandardContext;
+import org.apache.catalina.session.StandardManager;
+import org.apache.catalina.session.StandardSession;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -88,6 +95,69 @@ class ScheduleCalendarCacheUnitTest {
         request.setSession(session);
         if (selection != null) request.setParameter("templateSelection", selection);
         return request;
+    }
+
+    @Test
+    void shouldReactivateAPopulatedCalendar_andKeepItsProviderRuleCustomDaysAndEditorSelection() throws Exception {
+        var context = new StandardContext();
+        context.setDistributable(true);
+        var manager = new StandardManager();
+        manager.setContext(context);
+        var original = new StandardSession(manager);
+        original.setValid(true);
+        original.setCreationTime(System.currentTimeMillis());
+
+        var dao = mock(ScheduleDateDao.class);
+        when(dao.search_scheduledate_c(PROVIDER)).thenReturn(List.of(override('c', "Leap day")));
+        var monthRule = rule(PROVIDER, "<SUN>0900</SUN>");
+        monthRule.active = "D";
+        ScheduleCalendarCache.openMonth(original, monthRule, dao);
+        var editor = new RscheduleBean(PROVIDER, "2032-05-01", "2032-06-30", "A", "1|2", "1300", "0800", "FAKE");
+        String selection = ScheduleCalendarCache.selectTemplate(original, PROVIDER, editor);
+
+        var bytes = new ByteArrayOutputStream();
+        try (var out = new ObjectOutputStream(bytes)) {
+            original.writeObjectData(out);
+        }
+        var restored = new StandardSession(manager);
+        try (var in = new ObjectInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {
+            restored.readObjectData(in);
+        }
+
+        var month = ScheduleCalendarCache.readMonth(restored, PROVIDER, dao);
+        assertThat(month.rule().getDateAvailHour("2032-02-29")).isEqualTo("0900");
+        assertThat(month.rule().active).isEqualTo("D");
+        var day = (HScheduleDate) month.days().get("2032-02-29");
+        assertThat(List.of(day.available, day.priority, day.reason, day.hour, day.creator))
+                .containsExactly("0", "c", "Leap day", "0800", "FAKE,Tester");
+        var request = new MockHttpServletRequest();
+        request.setSession(restored);
+        request.setParameter("templateSelection", selection);
+        assertThat(ScheduleCalendarCache.templateForApply(request, PROVIDER))
+                .isEqualTo(new ScheduleCalendarCache.TemplatePeriod(PROVIDER, "2032-05-01", "2032-06-30"));
+
+        ScheduleCalendarCache.refreshDay(restored, PROVIDER, LEAP_DAY, () -> override('c', "Updated after activation"));
+        var updated = ScheduleCalendarCache.readMonth(restored, PROVIDER, dao);
+        assertThat(((HScheduleDate) updated.days().get("2032-02-29")).reason).isEqualTo("Updated after activation");
+        assertThat(((HScheduleDate) ScheduleCalendarCache.readMonth(original, PROVIDER, dao).days().get("2032-02-29")).reason)
+                .isEqualTo("Leap day");
+        var restoredSelection = (RscheduleBean) restored.getAttribute("scheduleRscheduleBean");
+        restoredSelection.setRscheduleBean(OTHER_PROVIDER, "2032-07-01", "2032-07-31", "1", "2", "", "1400", "OTHER");
+        assertThat(restoredSelection.snapshotForProvider(OTHER_PROVIDER).avail_hour).isEqualTo("1400");
+        assertThat(ScheduleCalendarCache.readMonth(restored, PROVIDER, dao)).isNull();
+    }
+
+    @Test
+    void shouldNotifyTheSessionOfUpdatedDays_whenRefreshingOrReloadingAnExistingCalendar() {
+        var replicated = org.mockito.Mockito.spy(new MockHttpSession());
+        ScheduleCalendarCache.load(replicated, PROVIDER, List.of(override('c', "Original")));
+        Object sameMap = replicated.getAttribute(ScheduleCalendarCache.DAYS);
+        clearInvocations(replicated);
+        ScheduleCalendarCache.refreshDay(replicated, PROVIDER, LEAP_DAY, () -> null);
+        verify(replicated).setAttribute(ScheduleCalendarCache.DAYS, sameMap);
+        clearInvocations(replicated);
+        ScheduleCalendarCache.load(replicated, PROVIDER, List.of(override('c', "Reloaded")));
+        verify(replicated).setAttribute(ScheduleCalendarCache.DAYS, sameMap);
     }
 
     @Test

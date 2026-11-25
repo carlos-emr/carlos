@@ -185,6 +185,7 @@ public final class ScheduleCalendarCache {
             for (ScheduleDate override : customOverrides) {
                 days.put(ConversionUtils.toDateString(override.getDate()), entry(override));
             }
+            session.setAttribute(DAYS, days);
             session.setAttribute(PROVIDER, providerNo);
             session.removeAttribute(STALE);
         }
@@ -248,6 +249,7 @@ public final class ScheduleCalendarCache {
                 } else {
                     days.remove(day);
                 }
+                session.setAttribute(DAYS, days);
             } catch (RuntimeException readFailure) {
                 session.setAttribute(STALE, Boolean.TRUE);
                 // No provider number or date: they would tie the log line to a patient's schedule.
