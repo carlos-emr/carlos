@@ -10365,10 +10365,13 @@
       "reason": "Date overrides use the submitted provider’s rule snapshot. Opening another provider’s calendar cannot substitute its hours or reclaim its stale cache.",
       "tests": [
         "src/test/java/io/github/carlos_emr/carlos/schedule/web/Schedule2ActionsTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/schedule/web/ScheduleCalendarCacheUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/schedule/web/ScheduleCalendarCacheUnitTest.java",
+        "scripts/schedule-template-day-sheet-playwright-checks.js",
+        "src/test/java/io/github/carlos_emr/RscheduleBeanUnitTest.java"
       ],
       "checks": [
-        "java-all"
+        "java-all",
+        "packaged-full"
       ],
       "workstreams": [
         "T09"
@@ -10378,10 +10381,12 @@
       "reason": "Date overrides use the submitted provider’s rule snapshot. Opening another provider’s calendar cannot substitute its hours or reclaim its stale cache.",
       "tests": [
         "src/test/java/io/github/carlos_emr/carlos/schedule/web/Schedule2ActionsTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/schedule/web/ScheduleCalendarCacheUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/schedule/web/ScheduleCalendarCacheUnitTest.java",
+        "scripts/schedule-template-day-sheet-playwright-checks.js"
       ],
       "checks": [
-        "java-all"
+        "java-all",
+        "packaged-full"
       ],
       "workstreams": [
         "T09"
@@ -10391,10 +10396,12 @@
       "reason": "Date overrides use the submitted provider’s rule snapshot. Opening another provider’s calendar cannot substitute its hours or reclaim its stale cache.",
       "tests": [
         "src/test/java/io/github/carlos_emr/carlos/schedule/web/Schedule2ActionsTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/schedule/web/ScheduleCalendarCacheUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/schedule/web/ScheduleCalendarCacheUnitTest.java",
+        "scripts/schedule-template-day-sheet-playwright-checks.js"
       ],
       "checks": [
-        "java-all"
+        "java-all",
+        "packaged-full"
       ],
       "workstreams": [
         "T09"
@@ -10528,6 +10535,23 @@
       ],
       "workstreams": [
         "T20"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/schedule/schedulecreatedate.jsp": {
+      "reason": "The month view uses the requested provider’s rule and overrides during generation and display. The installed workflow verifies normal persistence, refuses a second provider in a stale tab and redraws the original provider’s month.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/schedule/ScheduleDateSaveJspRegressionTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/schedule/web/ScheduleCalendarCacheUnitTest.java",
+        "scripts/schedule-template-day-sheet-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "jsp-compile",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T09",
+        "T40"
       ]
     }
   },
