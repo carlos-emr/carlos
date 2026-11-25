@@ -98,6 +98,11 @@ public class AppointmentReminderService {
     static final int MAX_ATTEMPTS = 2;
     /** How long a failed send waits before its one retry. */
     static final Duration RETRY_AFTER = Duration.ofMinutes(30);
+    /**
+     * Same-visit checks per reminder and run. A booking moved, or given to another patient, between its check and
+     * its marking is checked again for what it is now; one still changing after this many is left to the next run.
+     */
+    static final int MAX_VISIT_CHECKS = 3;
 
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -130,7 +135,8 @@ public class AppointmentReminderService {
 
     /**
      * Records the staff choice for one appointment. Unticking keeps the row and its history; a box never
-     * ticked leaves no row. Joins the caller's transaction, so the choice commits with the appointment.
+     * ticked leaves no row. Joins the caller's transaction, so the choice commits with the appointment, and so
+     * does its audit row: a choice that rolls back leaves no audit, and a failed audit write fails the choice.
      *
      * @return {@code true} when the stored choice changed
      */
@@ -159,7 +165,8 @@ public class AppointmentReminderService {
             reminders.merge(reminder);
         }
         if (user != null) {
-            LogAction.addLog(user, requested ? "AppointmentReminder.requested" : "AppointmentReminder.withdrawn",
+            // In this transaction, not queued: the audit commits with the choice it describes.
+            LogAction.addLogStrict(user, requested ? "AppointmentReminder.requested" : "AppointmentReminder.withdrawn",
                     LogConst.CON_APPT, String.valueOf(appointmentNo),
                     demographicNo > 0 ? String.valueOf(demographicNo) : null, "channel=" + channel);
         }
@@ -169,7 +176,7 @@ public class AppointmentReminderService {
     /**
      * Group Update deletes each appointment and books it again under a new number (#5887). The reminder rows move
      * to the new number, so the choice, and the start a reminder was already sent for, stay with the booking. A row
-     * already on the new number is kept as it is.
+     * already on the new number is kept as it is. The audit row commits with the move, as in {@link #recordRequest}.
      *
      * @return the number of rows moved
      */
@@ -190,8 +197,8 @@ public class AppointmentReminderService {
             reminders.merge(reminder.get());
             moved++;
             if (user != null) {
-                LogAction.addLog(user, "AppointmentReminder.moved", LogConst.CON_APPT, String.valueOf(toAppointmentNo),
-                        null, "channel=" + channel + "&from=" + fromAppointmentNo);
+                LogAction.addLogStrict(user, "AppointmentReminder.moved", LogConst.CON_APPT,
+                        String.valueOf(toAppointmentNo), null, "channel=" + channel + "&from=" + fromAppointmentNo);
             }
         }
         return moved;
@@ -204,8 +211,8 @@ public class AppointmentReminderService {
 
     /**
      * What Edit Appointment shows under the Email Reminder box: what happened to the reminder for the
-     * appointment's current start, or when it will go. Empty when no reminder is requested, the appointment
-     * is cancelled, a no-show or past, or it has no patient.
+     * appointment's current start and patient, or when it will go. Empty when no reminder is requested, the
+     * appointment is cancelled, a no-show or past, or it has no patient.
      */
     public Optional<ReminderStatusLine> statusLine(Appointment appointment, Locale locale) {
         if (appointment == null || appointment.getId() == null || appointment.getDemographicNo() <= 0
@@ -226,7 +233,9 @@ public class AppointmentReminderService {
                 .withLocale(locale == null ? Locale.ENGLISH : locale);
         LocalDateTime attempted = toLocal(reminder.getLastAttemptAt());
         String attemptedAt = attempted == null ? "" : shown.format(attempted);
-        if (start.equals(toLocal(reminder.getSentFor())) && reminder.getLastStatus() != null) {
+        // An attempt for another patient (the booking was given to this one since) says nothing about this one.
+        if (start.equals(attemptedStart(reminder, appointment.getDemographicNo()))
+                && reminder.getLastStatus() != null) {
             return Optional.of(switch (reminder.getLastStatus()) {
                 case SENT -> new ReminderStatusLine("appointment.reminder.status.sent", attemptedAt);
                 // A send in progress lasts seconds; one a stopped server left becomes UNCONFIRMED when recovered.
@@ -270,8 +279,10 @@ public class AppointmentReminderService {
             LocalDateTime now = LocalDateTime.now(clock);
             recoverAbandoned(channel.channel(), now);
             List<Long> due = new ArrayList<>();
+            // Rows another run holds a fresh claim on are left out before the batch is counted: they would fill it
+            // and then be skipped by the claim, leaving free due rows unread until that claim lapses.
             for (ReminderCandidate candidate : reminders.findDue(channel.channel(), window.earliestStart(now),
-                    window.latestStart(now), MAX_ATTEMPTS, MAX_CANDIDATES)) {
+                    window.latestStart(now), MAX_ATTEMPTS, toDate(now.minus(STALE_CLAIM)), MAX_CANDIDATES)) {
                 if (due.size() >= batchSize) {
                     break;
                 }
@@ -329,28 +340,30 @@ public class AppointmentReminderService {
      * One claimed reminder: marked SENDING in its own transaction, sent, and its outcome recorded. Whatever
      * fails ends this reminder only; the others in the run carry on.
      *
+     * <p>The same-visit check and the marking read the appointment in separate transactions. The check's decision
+     * holds only for the patient and start it saw ({@link VisitCheck}): if the booking was moved or given to
+     * another patient in between, it is checked again for what it is now, up to {@link #MAX_VISIT_CHECKS} times,
+     * and otherwise left to the next run.
+     *
      * @return the outcome, or empty when nothing was sent (no longer due, or it could not be started)
      */
     private Optional<ReminderOutcome> sendOne(AppointmentReminderChannel channel, long reminderId, String claimToken) {
-        SameVisit visit = sameVisit(channel.channel(), reminderId);
-        if (visit == SameVisit.WAIT) {
-            // Another booking for this visit is being sent right now: not attempted, so the next run looks again.
+        VisitCheck visit = checkVisit(channel.channel(), reminderId);
+        Started started = startChecked(reminderId, claimToken, visit);
+        for (int checks = 1; started.visitChanged() && checks < MAX_VISIT_CHECKS; checks++) {
+            visit = checkVisit(channel.channel(), reminderId);
+            started = startChecked(reminderId, claimToken, visit);
+        }
+        if (started.visitChanged()) {
+            // Still changing under the check: not attempted, so the next run looks again.
             release(List.of(reminderId), claimToken);
             return Optional.empty();
         }
-        Optional<ClaimedReminder> started;
-        try {
-            started = transactions.execute(status -> start(reminderId, claimToken, LocalDateTime.now(clock)));
-        } catch (RuntimeException e) {
-            // Not marked and not sent: the claim lapses and a later run takes the row. The class only.
-            logger.error("Appointment reminder {} could not be started ({})", reminderId, e.getClass().getName());
+        if (started.claimed() == null) {
             return Optional.empty();
         }
-        if (started.isEmpty()) {
-            return Optional.empty();
-        }
-        ClaimedReminder claimed = started.get();
-        ReminderOutcome outcome = switch (visit) {
+        ClaimedReminder claimed = started.claimed();
+        ReminderOutcome outcome = switch (visit.visit()) {
             case COVERED -> ReminderOutcome.of(AppointmentReminderStatus.DUPLICATE);
             // Not sent: a definite failure, so its one retry runs the check again.
             case UNCHECKED -> ReminderOutcome.because(AppointmentReminderStatus.FAILED, "sameVisitUnchecked");
@@ -363,6 +376,34 @@ public class AppointmentReminderService {
             logger.error("Appointment reminder {} could not be audited ({})", reminderId, e.getClass().getName());
         }
         return Optional.of(outcome);
+    }
+
+    /** {@link #start}, in its own transaction, for a reminder whose visit was checked as {@code visit}. */
+    private Started startChecked(long reminderId, String claimToken, VisitCheck visit) {
+        if (visit.visit() == SameVisit.WAIT) {
+            // Another booking for this visit is being sent right now: not attempted, so the next run looks again.
+            release(List.of(reminderId), claimToken);
+            return Started.NOT_STARTED;
+        }
+        try {
+            Started started = transactions.execute(
+                    status -> start(reminderId, claimToken, LocalDateTime.now(clock), visit));
+            return started == null ? Started.NOT_STARTED : started;
+        } catch (RuntimeException e) {
+            // Not marked and not sent: the claim lapses and a later run takes the row. The class only.
+            logger.error("Appointment reminder {} could not be started ({})", reminderId, e.getClass().getName());
+            return Started.NOT_STARTED;
+        }
+    }
+
+    /**
+     * What {@link #start} did: marked the reminder as being sent ({@code claimed}), or not; {@code visitChanged}
+     * when it did not because the booking is no longer the one its same-visit check saw, its claim kept for the
+     * check to run again.
+     */
+    private record Started(ClaimedReminder claimed, boolean visitChanged) {
+        static final Started NOT_STARTED = new Started(null, false);
+        static final Started VISIT_CHANGED = new Started(null, true);
     }
 
     /**
@@ -387,51 +428,77 @@ public class AppointmentReminderService {
     }
 
     /**
+     * A same-visit decision, and the booking it was made for: its patient and its start when checked. Marking the
+     * reminder as being sent reads the booking again, and applies the decision only to that patient and start.
+     * {@code checked} is false for {@link SameVisit#UNCHECKED}: no booking was read, and it is not sent anyway.
+     */
+    record VisitCheck(SameVisit visit, int demographicNo, LocalDateTime start, boolean checked) {
+
+        static final VisitCheck UNCHECKED = new VisitCheck(SameVisit.UNCHECKED, 0, null, false);
+
+        static VisitCheck of(SameVisit visit, int demographicNo, LocalDateTime start) {
+            return new VisitCheck(visit, demographicNo, start, true);
+        }
+
+        /** Whether this decision was made for the booking as it is now: the same patient at the same start. */
+        boolean madeFor(int patient, LocalDateTime at) {
+            return !checked || (demographicNo == patient && Objects.equals(start, at));
+        }
+    }
+
+    /**
      * Where this reminder stands against the patient's other bookings for the same visit (#5887): the same patient
      * at the same start, as Group Appt books one per provider, whose box can be ticked on Edit later. The patient
      * must never get two reminders for one visit, so:
      * <ul>
-     *   <li>a reminder already sent, or that may have been, for this start covers it, whatever staff did to its
-     *       booking after: unticked it, cancelled it or moved it;</li>
+     *   <li>a reminder already sent to this patient, or that may have been, for this start covers it, whatever staff
+     *       did to its booking after: unticked it, cancelled it, moved it or gave it to another patient;</li>
      *   <li>while another booking's reminder for this start is being sent, this one waits for the next run, so an
      *       earlier reminder that joins the visit mid-send never goes out beside it;</li>
-     *   <li>an earlier reminder still in the visit (ticked, not cancelled or a no-show, at this start) covers this
-     *       one, unless it already ended this start without one going: a refusal, or a failure whose one retry the
-     *       window no longer allows (the patient would get none).</li>
+     *   <li>an earlier reminder still in the visit (ticked, this patient's, not cancelled or a no-show, at this
+     *       start) covers this one, unless it already ended this start without one going: a refusal, a failure
+     *       whose one retry the window no longer allows (the patient would get none), or a reminder itself covered
+     *       ({@link AppointmentReminderStatus#DUPLICATE}), whose cover may have gone since.</li>
      * </ul>
      * Exactly one is sent whichever server runs first. If the check fails, the reminder is not sent: a failure,
      * retried once.
+     *
+     * @return the decision, with the patient and start it was made for
      */
-    SameVisit sameVisit(ReminderChannel channel, long reminderId) {
+    VisitCheck checkVisit(ReminderChannel channel, long reminderId) {
         try {
-            SameVisit found = transactions.execute(status -> {
+            VisitCheck found = transactions.execute(status -> {
                 AppointmentReminder reminder = reminders.find(reminderId);
                 Appointment appointment = reminder == null ? null : appointments.find(reminder.getAppointmentNo());
                 LocalDateTime start = appointment == null ? null : toLocal(appointment.getStartTimeAsFullDate());
-                if (start == null || appointment.getDemographicNo() <= 0) {
+                int patient = appointment == null ? 0 : appointment.getDemographicNo();
+                if (start == null || patient <= 0) {
                     // Nothing to compare: the start step decides whether it is still due.
-                    return SameVisit.SEND;
+                    return VisitCheck.of(SameVisit.SEND, patient, start);
                 }
                 LocalDateTime now = LocalDateTime.now(clock);
                 SameVisit visit = SameVisit.SEND;
                 LocalDateTime since = null;
                 boolean historyRead = false;
-                for (ReminderCandidate sibling : reminders.findSameVisit(channel, appointment.getDemographicNo(), start,
-                        reminderId, HANDED_OVER)) {
+                for (ReminderCandidate sibling : reminders.findSameVisit(channel, patient, start, reminderId,
+                        HANDED_OVER)) {
                     AppointmentReminder other = sibling.reminder();
-                    // What the other booking's reminder did for this start; null when it has not been tried for it.
-                    AppointmentReminderStatus done = start.equals(toLocal(other.getSentFor())) ? other.getLastStatus() : null;
+                    // What the other booking's reminder did for this patient at this start; null when it has not
+                    // been tried for them (an attempt for the booking's earlier patient says nothing here).
+                    AppointmentReminderStatus done = start.equals(attemptedStart(other, patient))
+                            ? other.getLastStatus() : null;
                     Appointment booking = sibling.appointment();
-                    // Still in this visit: ticked, not cancelled or a no-show, and at this start.
-                    boolean live = other.isRequested() && booking != null && !isCancelledOrNoShow(booking.getStatus())
+                    // Still in this visit: ticked, this patient's, not cancelled or a no-show, and at this start.
+                    boolean live = other.isRequested() && booking != null && booking.getDemographicNo() == patient
+                            && !isCancelledOrNoShow(booking.getStatus())
                             && start.equals(toLocal(booking.getStartTimeAsFullDate()));
-                    // Sent, or may have been. A DUPLICATE never covers in return: it may be covered by this one.
+                    // Sent, or may have been. A DUPLICATE never covers: nothing went from it.
                     if (done == AppointmentReminderStatus.SENT || done == AppointmentReminderStatus.UNCONFIRMED) {
                         // A booking still here covers the visit. One that left this start since (unticked, cancelled,
                         // moved) covers only a booking that was already here when its reminder went: a booking moved
                         // or booked into this start later is reminded for it.
                         if (live) {
-                            return SameVisit.COVERED;
+                            return VisitCheck.of(SameVisit.COVERED, patient, start);
                         }
                         if (!historyRead) {
                             // Every departed sibling compares the same booking history; read it only once.
@@ -439,7 +506,7 @@ public class AppointmentReminderService {
                             historyRead = true;
                         }
                         if (hereWhenHandedOver(since, other)) {
-                            return SameVisit.COVERED;
+                            return VisitCheck.of(SameVisit.COVERED, patient, start);
                         }
                         continue;
                     }
@@ -451,20 +518,22 @@ public class AppointmentReminderService {
                     if (!live) {
                         continue;
                     }
-                    boolean endedUnsent = done != null && done != AppointmentReminderStatus.DUPLICATE
-                            && !retryPossible(other, start, now);
+                    // Any outcome other than a failed attempt with its retry left ended this start without a reminder
+                    // going from that booking: a refusal, a spent failure, or DUPLICATE (covered by a third booking,
+                    // which may have gone since). Such a booking never covers this one.
+                    boolean endedUnsent = done != null && !retryPossible(other, start, now);
                     if (other.getId() < reminderId && !endedUnsent) {
-                        return SameVisit.COVERED;
+                        return VisitCheck.of(SameVisit.COVERED, patient, start);
                     }
                 }
-                return visit;
+                return VisitCheck.of(visit, patient, start);
             });
             // The transaction's contract allows no answer; that is not a checked visit, so fail closed like an error.
-            return Objects.requireNonNullElse(found, SameVisit.UNCHECKED);
+            return Objects.requireNonNullElse(found, VisitCheck.UNCHECKED);
         } catch (RuntimeException e) {
             logger.warn("Appointment reminder {} could not be checked for the same visit ({}); not sent",
                     reminderId, e.getClass().getName());
-            return SameVisit.UNCHECKED;
+            return VisitCheck.UNCHECKED;
         }
     }
 
@@ -523,24 +592,29 @@ public class AppointmentReminderService {
     }
 
     /**
-     * Must run in a transaction: marks one claimed reminder as being sent for the appointment's start now, just
-     * before the send. Empty when the claim is no longer this run's, the box was unticked, or the
-     * appointment is no longer due (its claim is then released).
+     * Must run in a transaction: marks one claimed reminder as being sent for the appointment's start and patient
+     * now, just before the send. Not started when the claim is no longer this run's, the box was unticked, or the
+     * appointment is no longer due (its claim is then released), or when the appointment is no longer the booking
+     * {@code visit} was decided for (moved, or given to another patient, since): its claim is kept, for the
+     * same-visit check to run again.
      */
-    private Optional<ClaimedReminder> start(long reminderId, String claimToken, LocalDateTime now) {
+    private Started start(long reminderId, String claimToken, LocalDateTime now, VisitCheck visit) {
         AppointmentReminder reminder = reminders.find(reminderId);
         if (reminder == null || !claimToken.equals(reminder.getClaimToken())) {
-            return Optional.empty();
+            return Started.NOT_STARTED;
         }
         Appointment appointment = appointments.find(reminder.getAppointmentNo());
         if (!reminder.isRequested() || appointment == null || !isDue(appointment, reminder, now)) {
             reminder.releaseClaim();
-            return Optional.empty();
+            return Started.NOT_STARTED;
         }
         Date start = appointment.getStartTimeAsFullDate();
-        reminder.startSending(start, toDate(now));
-        return Optional.of(new ClaimedReminder(reminder.getId(), appointment.getId(), appointment.getDemographicNo(),
-                toLocal(start)));
+        if (!visit.madeFor(appointment.getDemographicNo(), toLocal(start))) {
+            return Started.VISIT_CHANGED;
+        }
+        reminder.startSending(start, appointment.getDemographicNo(), toDate(now));
+        return new Started(new ClaimedReminder(reminder.getId(), appointment.getId(), appointment.getDemographicNo(),
+                toLocal(start)), false);
     }
 
     /**
@@ -595,7 +669,7 @@ public class AppointmentReminderService {
 
     /**
      * Records as unconfirmed the reminders a stopped run left SENDING: it may have sent them, so they are never
-     * sent again, and Edit says the mail server did not confirm it.
+     * sent again, and Edit says its delivery could not be confirmed.
      */
     private void recoverAbandoned(ReminderChannel channel, LocalDateTime now) {
         List<ClaimedReminder> recovered;
@@ -604,9 +678,14 @@ public class AppointmentReminderService {
                 List<ClaimedReminder> found = new ArrayList<>();
                 for (AppointmentReminder reminder : reminders.findAbandonedSending(channel, toDate(now.minus(STALE_CLAIM)))) {
                     reminder.finish(AppointmentReminderStatus.UNCONFIRMED, reminder.getLastEmailLogId(), toDate(now));
-                    Appointment appointment = appointments.find(reminder.getAppointmentNo());
-                    found.add(new ClaimedReminder(reminder.getId(), reminder.getAppointmentNo(),
-                            appointment == null ? 0 : appointment.getDemographicNo(), toLocal(reminder.getSentFor())));
+                    // Audited under the patient that attempt was for, who may no longer be the booking's.
+                    Integer patient = reminder.getSentForDemographicNo();
+                    if (patient == null) {
+                        Appointment appointment = appointments.find(reminder.getAppointmentNo());
+                        patient = appointment == null ? 0 : appointment.getDemographicNo();
+                    }
+                    found.add(new ClaimedReminder(reminder.getId(), reminder.getAppointmentNo(), patient,
+                            toLocal(reminder.getSentFor())));
                 }
                 return found;
             });
@@ -649,16 +728,17 @@ public class AppointmentReminderService {
     }
 
     /**
-     * Due for its current start, or due for the one retry: the same start, whose only attempt failed
-     * definitely ({@link AppointmentReminderStatus#FAILED}) at least {@link #RETRY_AFTER} ago, while the start
-     * is still inside the window. A refusal (consent, address, setup) or an unconfirmed send is never retried.
+     * Due for its current start and patient, or due for the one retry: the same start and patient, whose only
+     * attempt failed definitely ({@link AppointmentReminderStatus#FAILED}) at least {@link #RETRY_AFTER} ago, while
+     * the start is still inside the window. A refusal (consent, address, setup) or an unconfirmed send is never
+     * retried. An attempt for another patient (the booking was given to this one since) does not count.
      */
     private boolean isDue(Appointment appointment, AppointmentReminder reminder, LocalDateTime now) {
         if (appointment == null || appointment.getDemographicNo() <= 0 || isCancelledOrNoShow(appointment.getStatus())) {
             return false;
         }
         LocalDateTime start = toLocal(appointment.getStartTimeAsFullDate());
-        LocalDateTime sentFor = toLocal(reminder.getSentFor());
+        LocalDateTime sentFor = attemptedStart(reminder, appointment.getDemographicNo());
         if (window.isDue(start, now, sentFor)) {
             return true;
         }
@@ -668,6 +748,14 @@ public class AppointmentReminderService {
                 && reminder.getAttempts() < MAX_ATTEMPTS
                 && lastAttempt != null && !lastAttempt.plus(RETRY_AFTER).isAfter(now)
                 && window.isDue(start, now, null);
+    }
+
+    /**
+     * The start this reminder's last attempt was for, when that attempt was for patient {@code demographicNo};
+     * otherwise {@code null}, as for a reminder never attempted.
+     */
+    private LocalDateTime attemptedStart(AppointmentReminder reminder, int demographicNo) {
+        return reminder.attemptWasFor(demographicNo) ? toLocal(reminder.getSentFor()) : null;
     }
 
     /** Cancelled ({@code C}, including its {@code S}/{@code V} variants) or no-show ({@code N}). */

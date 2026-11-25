@@ -45,8 +45,9 @@ import java.util.Objects;
  *
  * <p>The choice lives here rather than on {@code appointment}: every edit copies the appointment into
  * {@code appointmentArchive}, and several paths insert appointments with raw SQL. {@code sentFor} is the
- * appointment start a reminder last went (or was attempted) for, so a start is reminded once and a moved
- * appointment is due again. Rows are claimed with {@code claimToken} before sending, so two servers or two
+ * appointment start a reminder last went (or was attempted) for, and {@code sentForDemographicNo} the patient it
+ * went to, so a start is reminded once per patient: a moved appointment, or one given to another patient, is due
+ * again. Rows are claimed with {@code claimToken} before sending, so two servers or two
  * runs never send the same reminder. The table {@code appointment_reminder} is created by its own migration
  * (#5887); tests build it from this mapping.
  *
@@ -91,6 +92,13 @@ public class AppointmentReminder extends AbstractModel<Long> {
     @Temporal(TemporalType.TIMESTAMP)
     @Column(name = "sent_for")
     private Date sentFor;
+
+    /**
+     * The patient the last attempt was for. Edit can give a booking to another patient without changing its number
+     * or start, and that patient has not been reminded.
+     */
+    @Column(name = "sent_for_demographic_no")
+    private Integer sentForDemographicNo;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "last_status", length = 32)
@@ -175,21 +183,24 @@ public class AppointmentReminder extends AbstractModel<Long> {
     }
 
     /**
-     * About to send for {@code start}. Recorded before the channel is called, so a crash after the send can
-     * leave this attempt unconfirmed but can never send the same start twice. The claim is renewed: its age
-     * then measures this send, not the batch it was claimed with, so a slow batch's later send is not taken
-     * for abandoned.
+     * About to send for {@code start} to patient {@code demographicNo}. Recorded before the channel is called, so a
+     * crash after the send can leave this attempt unconfirmed but can never send the same start twice. The claim is
+     * renewed: its age then measures this send, not the batch it was claimed with, so a slow batch's later send is
+     * not taken for abandoned.
      */
-    public void startSending(Date start, Date now) {
+    public void startSending(Date start, int demographicNo, Date now) {
         if (claimToken != null) {
             claimedAt = now;
         }
-        // Attempts count per start: a moved appointment starts again from its first attempt. Compared by time,
-        // because a value read back from the database is a java.sql.Timestamp, never equal() to a Date.
-        if (sentFor == null || start == null || sentFor.getTime() != start.getTime()) {
+        // Attempts count per start and patient: a moved appointment, or one given to another patient, starts again
+        // from its first attempt. Compared by time, because a value read back from the database is a
+        // java.sql.Timestamp, never equal() to a Date.
+        if (sentFor == null || start == null || sentFor.getTime() != start.getTime()
+                || !attemptWasFor(demographicNo)) {
             attempts = 0;
         }
         sentFor = start;
+        sentForDemographicNo = demographicNo;
         lastStatus = AppointmentReminderStatus.SENDING;
         lastAttemptAt = now;
         lastEmailLogId = null;
@@ -240,6 +251,18 @@ public class AppointmentReminder extends AbstractModel<Long> {
 
     public Date getSentFor() {
         return sentFor;
+    }
+
+    public Integer getSentForDemographicNo() {
+        return sentForDemographicNo;
+    }
+
+    /**
+     * Whether the last attempt was for patient {@code demographicNo}. An attempt that recorded no patient counts as
+     * theirs: one reminder rather than two.
+     */
+    public boolean attemptWasFor(int demographicNo) {
+        return sentForDemographicNo == null || sentForDemographicNo == demographicNo;
     }
 
     public AppointmentReminderStatus getLastStatus() {

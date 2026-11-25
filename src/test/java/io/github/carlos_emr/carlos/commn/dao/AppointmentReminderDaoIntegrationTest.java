@@ -132,14 +132,22 @@ class AppointmentReminderDaoIntegrationTest extends CarlosTestBase {
                 .isInstanceOfAny(PersistenceException.class, DataAccessException.class);
     }
 
-    /** The reminder attempted for {@code start}, ending with {@code status}, {@code times} times. */
+    /**
+     * The reminder attempted for {@code start}, for the bookings' patient 42, ending with {@code status},
+     * {@code times} times.
+     */
     private void attempted(AppointmentReminder reminder, LocalDate day, LocalTime start, AppointmentReminderStatus status,
                            int times) {
         for (int i = 0; i < times; i++) {
-            reminder.startSending(at(day, start), now);
+            reminder.startSending(at(day, start), 42, now);
             reminder.finish(status, null, now);
         }
         reminders.merge(reminder);
+    }
+
+    /** As the job reads due rows: a claim taken before this, 15 minutes ago, has lapsed. */
+    private Date staleBefore() {
+        return new Date(now.getTime() - 15 * 60_000L);
     }
 
     @Test
@@ -177,7 +185,8 @@ class AppointmentReminderDaoIntegrationTest extends CarlosTestBase {
         reminder(smsOnly, ReminderChannel.SMS);
         entityManager.flush();
 
-        List<ReminderCandidate> candidates = reminders.findDue(ReminderChannel.EMAIL, earliest, latest, 2, 10);
+        List<ReminderCandidate> candidates = reminders.findDue(ReminderChannel.EMAIL, earliest, latest, 2, staleBefore(),
+                10);
 
         // Not the start already reminded, nor the second failure, nor anything outside the window: those can
         // never crowd the due ones out of the limit.
@@ -185,9 +194,9 @@ class AppointmentReminderDaoIntegrationTest extends CarlosTestBase {
                 .containsExactly(earliestReminder, dueReminder, movedReminder, movedDayReminder, retry);
         assertThat(candidates).extracting(candidate -> candidate.appointment().getId())
                 .containsExactly(earliestDue.getId(), due.getId(), moved.getId(), movedDay.getId(), failedOnce.getId());
-        assertThat(reminders.findDue(ReminderChannel.EMAIL, earliest, latest, 2, 1))
+        assertThat(reminders.findDue(ReminderChannel.EMAIL, earliest, latest, 2, staleBefore(), 1))
                 .extracting(ReminderCandidate::reminder).containsExactly(earliestReminder);
-        assertThat(reminders.findDue(ReminderChannel.EMAIL, latest, earliest, 2, 10)).isEmpty();
+        assertThat(reminders.findDue(ReminderChannel.EMAIL, latest, earliest, 2, staleBefore(), 10)).isEmpty();
     }
 
     /**
@@ -219,11 +228,59 @@ class AppointmentReminderDaoIntegrationTest extends CarlosTestBase {
         }
         entityManager.flush();
 
-        assertThat(reminders.findDue(ReminderChannel.EMAIL, earliest, latest, 2, 10))
+        assertThat(reminders.findDue(ReminderChannel.EMAIL, earliest, latest, 2, staleBefore(), 10))
                 .extracting(ReminderCandidate::reminder).containsExactlyElementsOf(kept);
         // The excluded earlier appointments must not consume even the smallest candidate cap.
-        assertThat(reminders.findDue(ReminderChannel.EMAIL, earliest, latest, 2, 1))
+        assertThat(reminders.findDue(ReminderChannel.EMAIL, earliest, latest, 2, staleBefore(), 1))
                 .extracting(ReminderCandidate::reminder).containsExactly(kept.getFirst());
+    }
+
+    /**
+     * #5887 (review): a row another run holds cannot be claimed, so it must not take the place of one that can, not
+     * even under the smallest cap. A claim older than the cutoff was abandoned, and its row is read again.
+     */
+    @Test
+    void shouldLeaveOutRowsAnotherRunHolds_whenReadingDueRows() {
+        LocalDateTime earliest = DAY.minusDays(1).atTime(12, 0);
+        LocalDateTime latest = DAY.atTime(10, 0);
+        AppointmentReminder held = reminder(appointment(DAY, LocalTime.of(8, 0)), ReminderChannel.EMAIL);
+        held.claim("FAKE-other-run", now);
+        reminders.merge(held);
+        AppointmentReminder abandoned = reminder(appointment(DAY, LocalTime.of(8, 15)), ReminderChannel.EMAIL);
+        abandoned.claim("FAKE-stopped-run", new Date(now.getTime() - 20 * 60_000L));
+        reminders.merge(abandoned);
+        AppointmentReminder free = reminder(appointment(DAY, LocalTime.of(8, 30)), ReminderChannel.EMAIL);
+        entityManager.flush();
+
+        assertThat(reminders.findDue(ReminderChannel.EMAIL, earliest, latest, 2, staleBefore(), 1))
+                .extracting(ReminderCandidate::reminder).containsExactly(abandoned);
+        assertThat(reminders.findDue(ReminderChannel.EMAIL, earliest, latest, 2, staleBefore(), 10))
+                .extracting(ReminderCandidate::reminder).containsExactly(abandoned, free);
+    }
+
+    /**
+     * #5887 (review): Edit can give a booking to another patient without changing its number or start. A reminder
+     * that went to the earlier patient is no reminder for the new one, so the row is read as due again.
+     */
+    @Test
+    void shouldReadARowAgain_whenItsBookingWasGivenToAnotherPatientAfterItsReminder() {
+        LocalDateTime earliest = DAY.minusDays(1).atTime(12, 0);
+        LocalDateTime latest = DAY.atTime(10, 0);
+        AppointmentReminder sentToEarlierPatient = reminder(appointment(DAY, LocalTime.of(9, 0)), ReminderChannel.EMAIL);
+        sentToEarlierPatient.startSending(at(DAY, LocalTime.of(9, 0)), 43, now);
+        sentToEarlierPatient.finish(AppointmentReminderStatus.SENT, 900, now);
+        reminders.merge(sentToEarlierPatient);
+        AppointmentReminder sentToThisPatient = reminder(appointment(DAY, LocalTime.of(9, 15)), ReminderChannel.EMAIL);
+        attempted(sentToThisPatient, DAY, LocalTime.of(9, 15), AppointmentReminderStatus.SENT, 1);
+        entityManager.flush();
+
+        // Both bookings are patient 42's now; the first one's reminder went to patient 43.
+        assertThat(reminders.findDue(ReminderChannel.EMAIL, earliest, latest, 2, staleBefore(), 10))
+                .extracting(ReminderCandidate::reminder).containsExactly(sentToEarlierPatient);
+        // The patient is a column of its own, under the name the table's migration must create.
+        assertThat(entityManager.createNativeQuery(
+                        "SELECT sent_for_demographic_no FROM appointment_reminder WHERE id = ?1")
+                .setParameter(1, sentToEarlierPatient.getId()).getSingleResult()).isEqualTo(43);
     }
 
     @Test
@@ -232,19 +289,19 @@ class AppointmentReminderDaoIntegrationTest extends CarlosTestBase {
         Date staleBefore = new Date(now.getTime() - 15 * 60_000L);
         AppointmentReminder abandoned = reminder(appointment(DAY, LocalTime.of(9, 0)), ReminderChannel.EMAIL);
         abandoned.claim("FAKE-stopped", stale);
-        abandoned.startSending(at(DAY, LocalTime.of(9, 0)), stale);
+        abandoned.startSending(at(DAY, LocalTime.of(9, 0)), 42, stale);
         AppointmentReminder unclaimed = reminder(appointment(DAY, LocalTime.of(9, 15)), ReminderChannel.EMAIL);
-        unclaimed.startSending(at(DAY, LocalTime.of(9, 15)), stale);
+        unclaimed.startSending(at(DAY, LocalTime.of(9, 15)), 42, stale);
         AppointmentReminder live = reminder(appointment(DAY, LocalTime.of(9, 30)), ReminderChannel.EMAIL);
         live.claim("FAKE-running", now);
-        live.startSending(at(DAY, LocalTime.of(9, 30)), now);
+        live.startSending(at(DAY, LocalTime.of(9, 30)), 42, now);
         AppointmentReminder finished = reminder(appointment(DAY, LocalTime.of(9, 45)), ReminderChannel.EMAIL);
         finished.claim("FAKE-done", stale);
-        finished.startSending(at(DAY, LocalTime.of(9, 45)), stale);
+        finished.startSending(at(DAY, LocalTime.of(9, 45)), 42, stale);
         finished.finish(AppointmentReminderStatus.SENT, null, stale);
         AppointmentReminder sms = reminder(appointment(DAY, LocalTime.of(10, 0)), ReminderChannel.SMS);
         sms.claim("FAKE-stopped", stale);
-        sms.startSending(at(DAY, LocalTime.of(10, 0)), stale);
+        sms.startSending(at(DAY, LocalTime.of(10, 0)), 42, stale);
         for (AppointmentReminder reminder : List.of(abandoned, unclaimed, live, finished, sms)) {
             reminders.merge(reminder);
         }
@@ -252,7 +309,7 @@ class AppointmentReminderDaoIntegrationTest extends CarlosTestBase {
 
         AppointmentReminder slowBatch = reminder(appointment(DAY, LocalTime.of(10, 15)), ReminderChannel.EMAIL);
         slowBatch.claim("FAKE-slow-batch", stale);
-        slowBatch.startSending(at(DAY, LocalTime.of(10, 15)), now);
+        slowBatch.startSending(at(DAY, LocalTime.of(10, 15)), 42, now);
         reminders.merge(slowBatch);
         entityManager.flush();
 
@@ -310,7 +367,7 @@ class AppointmentReminderDaoIntegrationTest extends CarlosTestBase {
     /** A reminder already sent for {@code start}, on a booking for {@code start}. */
     private AppointmentReminder sentFor(LocalDateTime start, Appointment appointment) {
         AppointmentReminder sent = reminder(appointment, ReminderChannel.EMAIL);
-        sent.startSending(at(start.toLocalDate(), start.toLocalTime()), now);
+        sent.startSending(at(start.toLocalDate(), start.toLocalTime()), appointment.getDemographicNo(), now);
         sent.finish(AppointmentReminderStatus.SENT, 900, now);
         reminders.merge(sent);
         entityManager.flush();
@@ -345,13 +402,35 @@ class AppointmentReminderDaoIntegrationTest extends CarlosTestBase {
         // A reminder sent for another start, or failed for this one, does not count from another time.
         reminder(appointment(DAY, LocalTime.of(10, 0)), ReminderChannel.EMAIL);
         AppointmentReminder failedElsewhere = reminder(appointment(DAY, LocalTime.of(10, 30)), ReminderChannel.EMAIL);
-        failedElsewhere.startSending(at(DAY, LocalTime.of(9, 0)), now);
+        failedElsewhere.startSending(at(DAY, LocalTime.of(9, 0)), 42, now);
         failedElsewhere.finish(AppointmentReminderStatus.FAILED, null, now);
         reminders.merge(failedElsewhere);
         entityManager.flush();
 
         assertThat(reminders.findSameVisit(ReminderChannel.EMAIL, 42, DAY.atTime(9, 0), mine.getId(), HANDED_OVER))
                 .extracting(found -> found.reminder().getId()).containsExactly(sent.getId());
+    }
+
+    /**
+     * #5887 (review): a reminder handed over for the visit counts for the patient it went to. After its booking was
+     * given to another patient (and its box unticked), it still covers the first patient's visit, and nothing for the
+     * new patient, who was never reminded.
+     */
+    @Test
+    void shouldFindAReminderAlreadySentForTheVisit_byThePatientItWentTo() {
+        AppointmentReminder mine = reminder(appointment(DAY, LocalTime.of(9, 0)), ReminderChannel.EMAIL);
+        Appointment reassigned = appointment(DAY, LocalTime.of(9, 0));
+        AppointmentReminder sent = sentFor(DAY.atTime(9, 0), reassigned);
+        reassigned.setDemographicNo(43);
+        entityManager.merge(reassigned);
+        sent.withdraw("999998", now);
+        reminders.merge(sent);
+        entityManager.flush();
+
+        assertThat(reminders.findSameVisit(ReminderChannel.EMAIL, 42, DAY.atTime(9, 0), mine.getId(), HANDED_OVER))
+                .extracting(found -> found.reminder().getId()).containsExactly(sent.getId());
+        assertThat(reminders.findSameVisit(ReminderChannel.EMAIL, 43, DAY.atTime(9, 0), mine.getId(), HANDED_OVER))
+                .as("it never went to the booking's new patient").isEmpty();
     }
 
     /** The versions an appointment's changes archived, newest first, for its patient only. */

@@ -25,6 +25,8 @@ import io.github.carlos_emr.carlos.commn.dao.AppointmentReminderDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.AppointmentReminder;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -58,6 +60,7 @@ import java.util.ResourceBundle;
 import java.util.function.Function;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -132,7 +135,7 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
 
     /** The DAOs as the database would answer: the candidate, the claim, and the row read back by id. */
     private void stored(AppointmentReminder reminder, Appointment candidate, Appointment atClaim) {
-        when(reminders.findDue(eq(ReminderChannel.EMAIL), any(), any(), anyInt(), anyInt()))
+        when(reminders.findDue(eq(ReminderChannel.EMAIL), any(), any(), anyInt(), any(), anyInt()))
                 .thenReturn(List.of(new ReminderCandidate(reminder, candidate)));
         when(reminders.claim(any(), anyString(), any(), any())).thenAnswer(call -> {
             Collection<Long> ids = call.getArgument(0);
@@ -163,7 +166,7 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
                     at(NOW.minusDays(1)));
             ReflectionTestUtils.setField(reminder, "id", id);
             if (outcome != null) {
-                reminder.startSending(at(start), at(NOW.minusHours(1)));
+                reminder.startSending(at(start), PATIENT, at(NOW.minusHours(1)));
                 if (outcome != AppointmentReminderStatus.SENDING) {
                     reminder.finish(outcome, 899, at(NOW.minusHours(1)));
                 }
@@ -174,7 +177,7 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
         /** A sibling that failed this start and has no retry left: both of its attempts are spent. */
         private ReminderCandidate failedForGood(long id) {
             ReminderCandidate sibling = sibling(id, "t", AppointmentReminderStatus.FAILED);
-            sibling.reminder().startSending(at(start), at(NOW.minusMinutes(40)));
+            sibling.reminder().startSending(at(start), PATIENT, at(NOW.minusMinutes(40)));
             sibling.reminder().finish(AppointmentReminderStatus.FAILED, null, at(NOW.minusMinutes(40)));
             return sibling;
         }
@@ -263,7 +266,7 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             AppointmentReminderService silent = new AppointmentReminderService(reminders, appointments, List::of, noAnswer,
                     new ReminderWindow(Duration.ofHours(24), Duration.ofHours(2)), Clock.fixed(NOW.atZone(ZONE).toInstant(), ZONE));
 
-            assertThat(silent.sameVisit(ReminderChannel.EMAIL, 7L)).isEqualTo(AppointmentReminderService.SameVisit.UNCHECKED);
+            assertThat(silent.checkVisit(ReminderChannel.EMAIL, 7L).visit()).isEqualTo(AppointmentReminderService.SameVisit.UNCHECKED);
         }
 
         /**
@@ -371,7 +374,7 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
                     at(NOW.minusDays(1)));
             ReflectionTestUtils.setField(failed, "id", 3L);
             // Failed 5 minutes ago: its retry would be at 10:25, after the 10:20 cutoff.
-            failed.startSending(at(soon), at(NOW.minusMinutes(5)));
+            failed.startSending(at(soon), PATIENT, at(NOW.minusMinutes(5)));
             failed.finish(AppointmentReminderStatus.FAILED, null, at(NOW.minusMinutes(5)));
             when(reminders.findSameVisit(eq(ReminderChannel.EMAIL), eq(PATIENT), eq(soon), eq(7L), any()))
                     .thenReturn(List.of(new ReminderCandidate(failed, other)));
@@ -405,7 +408,7 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             ReminderCandidate earlier = changed(sibling(12L, "t", AppointmentReminderStatus.SENT), "moved");
             ReminderCandidate later = changed(sibling(14L, "t", AppointmentReminderStatus.SENT), "moved");
             // This booking arrived after the first handover but before the second.
-            later.reminder().startSending(at(start), at(NOW.minusMinutes(20)));
+            later.reminder().startSending(at(start), PATIENT, at(NOW.minusMinutes(20)));
             later.reminder().finish(AppointmentReminderStatus.SENT, null, at(NOW.minusMinutes(20)));
             siblings(earlier, later);
 
@@ -508,10 +511,92 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             assertThat(handed).hasSize(1);
         }
 
+        /**
+         * #5887 (review): a booking recorded as covered sent nothing itself, so it never covers another. Here the
+         * booking that covered it has since been deleted, and the earlier, covered booking is the only one left.
+         */
+        @Test
+        void shouldSend_whenTheOnlyEarlierBookingWasItselfCovered() {
+            Appointment appointment = appointment(start, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+            siblings(sibling(3L, "t", AppointmentReminderStatus.DUPLICATE));
+
+            service.processDue(10);
+
+            assertThat(handed).hasSize(1);
+            assertThat(reminder.getLastStatus()).isEqualTo(AppointmentReminderStatus.SENT);
+        }
+
+        /**
+         * #5887 (review): a reminder that went to a booking's earlier patient (Edit gave the booking to this patient
+         * since) is no reminder for this patient: it covers nothing here.
+         */
+        @Test
+        void shouldSend_whenTheOtherBookingsReminderWentToItsEarlierPatient() {
+            Appointment appointment = appointment(start, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+            ReminderCandidate reassigned = sibling(12L, "t", null);
+            reassigned.reminder().startSending(at(start), PATIENT + 1, at(NOW.minusHours(1)));
+            reassigned.reminder().finish(AppointmentReminderStatus.SENT, 899, at(NOW.minusHours(1)));
+            siblings(reassigned);
+
+            service.processDue(10);
+
+            // That later booking is due again for this patient, and yields to this one: one reminder, from here.
+            assertThat(handed).hasSize(1);
+            assertThat(reminder.getLastStatus()).isEqualTo(AppointmentReminderStatus.SENT);
+        }
+
+        /**
+         * #5887 (review): the same-visit check and the marking read the booking in separate transactions. A booking
+         * moved between them, from a time another booking already covers to a free one, is checked again for its new
+         * time and sent: the old time's decision is not applied to it.
+         */
+        @Test
+        void shouldCheckAgain_whenTheBookingMovedBetweenItsCheckAndItsMarking() {
+            LocalDateTime free = start.plusHours(1);
+            Appointment covered = appointment(start, PATIENT, "t");
+            Appointment moved = appointment(free, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            stored(reminder, covered, covered);
+            // Read by the claim and by the check at the covered time; moved before the marking reads it.
+            when(appointments.find(Integer.valueOf(APPOINTMENT))).thenReturn(covered, covered, moved);
+            siblings(sibling(12L, "t", AppointmentReminderStatus.SENT));
+
+            service.processDue(10);
+
+            assertThat(handed).extracting(ClaimedReminder::start).containsExactly(free);
+            assertThat(reminder.getLastStatus()).isEqualTo(AppointmentReminderStatus.SENT);
+            assertThat(reminder.getSentFor()).isEqualTo(at(free));
+        }
+
+        /** A booking that keeps changing under the check is not attempted, and is left to the next run. */
+        @Test
+        void shouldLeaveTheReminderToTheNextRun_whenItsBookingKeepsMovingUnderTheCheck() {
+            AppointmentReminder reminder = requested();
+            List<Appointment> reads = new ArrayList<>();
+            for (int read = 0; read <= 2 * AppointmentReminderService.MAX_VISIT_CHECKS; read++) {
+                // The claim and the first check see one time; each marking sees the booking moved since its check.
+                reads.add(appointment(start.plusMinutes(15L * (read / 2)), PATIENT, "t"));
+            }
+            stored(reminder, reads.getFirst(), reads.getFirst());
+            when(appointments.find(Integer.valueOf(APPOINTMENT)))
+                    .thenReturn(reads.getFirst(), reads.subList(1, reads.size()).toArray(new Appointment[0]));
+
+            ReminderRun run = service.processDue(10);
+
+            assertThat(handed).isEmpty();
+            assertThat(run.sent()).isZero();
+            assertThat(reminder.getLastStatus()).as("never marked as being sent").isNull();
+            assertThat(reminder.getClaimToken()).as("released for the next run").isNull();
+        }
+
         @Test
         void shouldSayAnotherBookingCarriesTheReminder_onTheStatusLine() {
             AppointmentReminder reminder = requested();
-            reminder.startSending(at(start), at(NOW.minusMinutes(5)));
+            reminder.startSending(at(start), PATIENT, at(NOW.minusMinutes(5)));
             reminder.finish(AppointmentReminderStatus.DUPLICATE, null, at(NOW.minusMinutes(5)));
             when(reminders.findByAppointment(APPOINTMENT, ReminderChannel.EMAIL)).thenReturn(Optional.of(reminder));
 
@@ -547,7 +632,7 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             LocalDateTime start = NOW.plusHours(20);
             Appointment appointment = appointment(start, PATIENT, "t");
             AppointmentReminder reminder = requested();
-            reminder.startSending(at(start), at(NOW.minusHours(1)));
+            reminder.startSending(at(start), PATIENT, at(NOW.minusHours(1)));
             reminder.finish(AppointmentReminderStatus.SENT, 899, at(NOW.minusHours(1)));
             stored(reminder, appointment, appointment);
 
@@ -561,7 +646,7 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             LocalDateTime oldStart = NOW.plusHours(4);
             LocalDateTime newStart = NOW.plusHours(22);
             AppointmentReminder reminder = requested();
-            reminder.startSending(at(oldStart), at(NOW.minusHours(2)));
+            reminder.startSending(at(oldStart), PATIENT, at(NOW.minusHours(2)));
             reminder.finish(AppointmentReminderStatus.SENT, 899, at(NOW.minusHours(2)));
             Appointment moved = appointment(newStart, PATIENT, "t");
             stored(reminder, moved, moved);
@@ -571,6 +656,26 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             assertThat(handed).extracting(ClaimedReminder::start).containsExactly(newStart);
             assertThat(reminder.getSentFor()).isEqualTo(at(newStart));
             assertThat(reminder.getAttempts()).as("attempts count per start").isEqualTo(1);
+        }
+
+        /**
+         * #5887 (review): Edit can give a booking to another patient without changing its number or start. Its
+         * reminder went to the earlier patient; the new one is reminded too.
+         */
+        @Test
+        void shouldRemindTheNewPatient_whenTheBookingWasGivenToAnotherPatientAfterItsReminder() {
+            LocalDateTime start = NOW.plusHours(20);
+            AppointmentReminder reminder = requested();
+            reminder.startSending(at(start), PATIENT + 1, at(NOW.minusHours(1)));
+            reminder.finish(AppointmentReminderStatus.SENT, 899, at(NOW.minusHours(1)));
+            Appointment reassigned = appointment(start, PATIENT, "t");
+            stored(reminder, reassigned, reassigned);
+
+            service.processDue(10);
+
+            assertThat(handed).containsExactly(new ClaimedReminder(7L, APPOINTMENT, PATIENT, start));
+            assertThat(reminder.getSentForDemographicNo()).isEqualTo(PATIENT);
+            assertThat(reminder.getAttempts()).as("attempts count per patient").isEqualTo(1);
         }
 
         @ParameterizedTest(name = "status {0}")
@@ -635,15 +740,17 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
         @Test
         void shouldSendNothing_forABatchOfZero() {
             assertThat(service.processDue(0)).isEqualTo(ReminderRun.NONE);
-            verify(reminders, never()).findDue(any(), any(), any(), anyInt(), anyInt());
+            verify(reminders, never()).findDue(any(), any(), any(), anyInt(), any(), anyInt());
         }
 
         @Test
         void shouldAskOnlyForStartsInsideTheWindow_notYetRemindedOrDueTheirRetry() {
             service.processDue(10);
 
+            // Rows another run holds a claim on that is not yet stale are left out before the batch is counted.
             verify(reminders).findDue(ReminderChannel.EMAIL, NOW.plusHours(2), NOW.plusHours(24),
-                    AppointmentReminderService.MAX_ATTEMPTS, AppointmentReminderService.MAX_CANDIDATES);
+                    AppointmentReminderService.MAX_ATTEMPTS, at(NOW.minus(AppointmentReminderService.STALE_CLAIM)),
+                    AppointmentReminderService.MAX_CANDIDATES);
         }
     }
 
@@ -665,10 +772,14 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
 
         @BeforeEach
         void table() {
-            when(reminders.findDue(eq(ReminderChannel.EMAIL), any(), any(), anyInt(), anyInt())).thenAnswer(call ->
-                    rows.values().stream()
-                            .map(reminder -> new ReminderCandidate(reminder, booked.get(reminder.getAppointmentNo())))
-                            .toList());
+            when(reminders.findDue(eq(ReminderChannel.EMAIL), any(), any(), anyInt(), any(), anyInt())).thenAnswer(call -> {
+                // As the query does: a row another run holds a claim on that is not yet stale is left out.
+                Date staleBefore = call.getArgument(4);
+                return rows.values().stream()
+                        .filter(reminder -> reminder.getClaimToken() == null || reminder.getClaimedAt().before(staleBefore))
+                        .map(reminder -> new ReminderCandidate(reminder, booked.get(reminder.getAppointmentNo())))
+                        .toList();
+            });
             when(reminders.claim(any(), anyString(), any(), any())).thenAnswer(call -> {
                 Collection<Long> ids = call.getArgument(0);
                 Date staleBefore = call.getArgument(3);
@@ -819,10 +930,10 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             LocalDateTime start = NOW.plusHours(20);
             AppointmentReminder abandoned = row(7L, start);
             abandoned.claim("FAKE-stopped-run", at(NOW.minus(AppointmentReminderService.STALE_CLAIM).minusMinutes(1)));
-            abandoned.startSending(at(start), at(NOW.minusMinutes(16)));
+            abandoned.startSending(at(start), PATIENT, at(NOW.minusMinutes(16)));
             AppointmentReminder live = row(8L, NOW.plusHours(21));
             live.claim("FAKE-running", at(NOW.minusMinutes(1)));
-            live.startSending(at(NOW.plusHours(21)), at(NOW.minusMinutes(1)));
+            live.startSending(at(NOW.plusHours(21)), PATIENT, at(NOW.minusMinutes(1)));
 
             ReminderRun run = service.processDue(10);
 
@@ -840,7 +951,7 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             LocalDateTime start = NOW.plusHours(20);
             AppointmentReminder slow = row(7L, start);
             slow.claim("FAKE-slow-batch", at(NOW.minusMinutes(20)));
-            slow.startSending(at(start), at(NOW.minusMinutes(1)));
+            slow.startSending(at(start), PATIENT, at(NOW.minusMinutes(1)));
 
             service.processDue(10);
 
@@ -866,6 +977,25 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             assertThat(reminder.getClaimToken()).isNull();
             assertThat(reminder.getLastStatus()).isNull();
         }
+
+        /**
+         * #5887 (review): a reminder another run holds does not count in this run's batch. With a batch of one, a
+         * held first reminder must not keep the run from the free second one until the other claim lapses.
+         */
+        @Test
+        void shouldFillTheBatch_withRemindersNoOtherRunHolds() {
+            AppointmentReminder held = row(7L, NOW.plusHours(20));
+            held.claim("FAKE-other-run", at(NOW.minusMinutes(1)));
+            AppointmentReminder free = row(8L, NOW.plusHours(21));
+
+            ReminderRun run = service.processDue(1);
+
+            assertThat(run).isEqualTo(new ReminderRun(1, 1, 0));
+            assertThat(handed).extracting(ClaimedReminder::reminderId).containsExactly(8L);
+            assertThat(free.getLastStatus()).isEqualTo(AppointmentReminderStatus.SENT);
+            assertThat(held.getClaimToken()).as("left to the run that holds it").isEqualTo("FAKE-other-run");
+            assertThat(held.getLastStatus()).isNull();
+        }
     }
 
     /** One retry (#5887), for a definite transport failure only. */
@@ -875,7 +1005,7 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
 
         private AppointmentReminder attempted(LocalDateTime start, AppointmentReminderStatus status, LocalDateTime when) {
             AppointmentReminder reminder = requested();
-            reminder.startSending(at(start), at(when));
+            reminder.startSending(at(start), PATIENT, at(when));
             reminder.finish(status, null, at(when));
             return reminder;
         }
@@ -910,7 +1040,7 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             LocalDateTime start = NOW.plusHours(20);
             Appointment appointment = appointment(start, PATIENT, "t");
             AppointmentReminder reminder = attempted(start, AppointmentReminderStatus.FAILED, NOW.minusHours(2));
-            reminder.startSending(at(start), at(NOW.minusHours(1)));
+            reminder.startSending(at(start), PATIENT, at(NOW.minusHours(1)));
             reminder.finish(AppointmentReminderStatus.FAILED, null, at(NOW.minusHours(1)));
             stored(reminder, appointment, appointment);
 
@@ -926,7 +1056,7 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             LocalDateTime start = NOW.plusHours(20);
             Appointment appointment = appointment(start, PATIENT, "t");
             AppointmentReminder reminder = requested();
-            reminder.startSending(at(start), at(NOW.minusHours(3)));
+            reminder.startSending(at(start), PATIENT, at(NOW.minusHours(3)));
             if (!"SENDING".equals(status)) {
                 reminder.finish(AppointmentReminderStatus.valueOf(status), null, at(NOW.minusHours(3)));
             }
@@ -990,11 +1120,34 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             verify(reminders, never()).merge(any());
         }
 
+        /**
+         * #5887 (review): the staff audit is written in the choice's own transaction, by the call that lets a failure
+         * through, never queued: a choice that rolls back leaves no audit row, and none is stored without one.
+         */
+        @Test
+        void shouldWriteTheAuditInTheChoicesTransaction_andFailTheChoiceWithIt() {
+            when(reminders.findByAppointment(APPOINTMENT, ReminderChannel.EMAIL)).thenReturn(Optional.empty());
+
+            service.recordRequest(user, APPOINTMENT, PATIENT, ReminderChannel.EMAIL, true);
+
+            logActionMock.verify(() -> LogAction.addLogStrict(user, "AppointmentReminder.requested", LogConst.CON_APPT,
+                    String.valueOf(APPOINTMENT), String.valueOf(PATIENT), "channel=EMAIL"));
+            logActionMock.verify(() -> LogAction.addLog(any(LoggedInInfo.class), anyString(), anyString(), anyString(),
+                    any(), any()), never());
+
+            logActionMock.when(() -> LogAction.addLogStrict(any(LoggedInInfo.class), anyString(), anyString(),
+                    anyString(), any(), anyString())).thenThrow(new IllegalStateException("FAKE audit failure"));
+            when(reminders.findByAppointment(APPOINTMENT, ReminderChannel.EMAIL)).thenReturn(Optional.of(requested()));
+
+            assertThatThrownBy(() -> service.recordRequest(user, APPOINTMENT, PATIENT, ReminderChannel.EMAIL, false))
+                    .isInstanceOf(IllegalStateException.class);
+        }
+
         /** Group Update deletes the appointment and books it again under a new number. */
         @Test
         void shouldMoveTheReminderWithItsRemindedStart_whenGroupUpdateRebooksTheAppointment() {
             AppointmentReminder reminder = requested();
-            reminder.startSending(at(NOW.plusHours(20)), at(NOW));
+            reminder.startSending(at(NOW.plusHours(20)), PATIENT, at(NOW));
             when(reminders.findByAppointment(APPOINTMENT, ReminderChannel.EMAIL)).thenReturn(Optional.of(reminder));
             when(reminders.findByAppointment(201, ReminderChannel.EMAIL)).thenReturn(Optional.empty());
 
@@ -1005,6 +1158,9 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             assertThat(reminder.getSentFor()).as("the same start is not reminded twice").isEqualTo(at(NOW.plusHours(20)));
             assertThat(reminder.getUpdatedBy()).isEqualTo("999998");
             verify(reminders).merge(reminder);
+            // Its audit commits with the move.
+            logActionMock.verify(() -> LogAction.addLogStrict(user, "AppointmentReminder.moved", LogConst.CON_APPT,
+                    "201", null, "channel=EMAIL&from=" + APPOINTMENT));
         }
 
         @Test
@@ -1079,7 +1235,7 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
         void shouldSayWhenItWasSent_forTheCurrentStart() {
             LocalDateTime start = NOW.plusHours(20);
             AppointmentReminder reminder = requested();
-            reminder.startSending(at(start), at(NOW.minusHours(1)));
+            reminder.startSending(at(start), PATIENT, at(NOW.minusHours(1)));
             reminder.finish(AppointmentReminderStatus.SENT, 900, at(NOW.minusHours(1)));
 
             assertThat(line(appointment(start, PATIENT, "t"), reminder))
@@ -1089,11 +1245,24 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
         @Test
         void shouldIgnoreAReminderSentForAnEarlierStart_afterTheAppointmentMoved() {
             AppointmentReminder reminder = requested();
-            reminder.startSending(at(NOW.plusHours(3)), at(NOW.minusHours(1)));
+            reminder.startSending(at(NOW.plusHours(3)), PATIENT, at(NOW.minusHours(1)));
             reminder.finish(AppointmentReminderStatus.SENT, 900, at(NOW.minusHours(1)));
 
             assertThat(line(appointment(NOW.plusDays(3), PATIENT, "t"), reminder)).map(ReminderStatusLine::messageKey)
                     .contains("appointment.reminder.status.scheduled");
+        }
+
+        /** #5887 (review): a reminder that went to the booking's earlier patient is not shown as sent to this one. */
+        @Test
+        void shouldNotSayItWasSent_toAPatientItWasNotSentTo() {
+            LocalDateTime start = NOW.plusHours(20);
+            AppointmentReminder reminder = requested();
+            reminder.startSending(at(start), PATIENT + 1, at(NOW.minusHours(1)));
+            reminder.finish(AppointmentReminderStatus.SENT, 900, at(NOW.minusHours(1)));
+
+            // Given to this patient since: their reminder is still to go.
+            assertThat(line(appointment(start, PATIENT, "t"), reminder))
+                    .contains(new ReminderStatusLine("appointment.reminder.status.due", ""));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -1102,7 +1271,7 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
         void shouldNameWhatHappened_forEveryOutcome(String status) {
             LocalDateTime start = NOW.plusHours(20);
             AppointmentReminder reminder = requested();
-            reminder.startSending(at(start), at(NOW.minusMinutes(10)));
+            reminder.startSending(at(start), PATIENT, at(NOW.minusMinutes(10)));
             if (!"SENDING".equals(status)) {
                 reminder.finish(AppointmentReminderStatus.valueOf(status), null, at(NOW.minusMinutes(10)));
             }
@@ -1128,7 +1297,7 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
         void shouldCarryOnlyATime_forEveryOutcome(AppointmentReminderStatus status) {
             LocalDateTime start = NOW.plusHours(20);
             AppointmentReminder reminder = requested();
-            reminder.startSending(at(start), at(NOW.minusMinutes(10)));
+            reminder.startSending(at(start), PATIENT, at(NOW.minusMinutes(10)));
             if (status != AppointmentReminderStatus.SENDING) {
                 reminder.finish(status, 900, at(NOW.minusMinutes(10)));
             }

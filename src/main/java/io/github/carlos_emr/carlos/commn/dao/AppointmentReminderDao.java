@@ -45,20 +45,23 @@ public interface AppointmentReminderDao extends AbstractDao<AppointmentReminder>
     /**
      * Requested reminders on {@code channel} that may be due now, with their appointments, earliest start first:
      * the appointment starts from {@code earliestStart} to {@code latestStart}, and the reminder was never
-     * attempted for that start, or its attempt for it failed with fewer than {@code maxAttempts} attempts.
-     * Rows already reminded for their current start are left out in the query, so they never crowd out the due
-     * ones. Read without locks: the caller checks what is due exactly and claims it.
+     * attempted for that start and the appointment's patient, or its attempt for them failed with fewer than
+     * {@code maxAttempts} attempts. Rows already reminded for their current start and patient, and rows another
+     * run holds a claim on that is not older than {@code staleBefore}, are left out in the query, so they never
+     * crowd out the due ones that can be claimed. Read without locks: the caller checks what is due exactly and
+     * claims it.
      */
     List<ReminderCandidate> findDue(ReminderChannel channel, LocalDateTime earliestStart, LocalDateTime latestStart,
-                                    int maxAttempts, int limit);
+                                    int maxAttempts, Date staleBefore, int limit);
 
     /**
      * The patient's other reminders on {@code channel} for the same visit, with their appointments as they are now:
      * <ul>
      *   <li>the requested reminders of the patient's other bookings at {@code start} (as Group Appt books one per
      *       provider), whatever the appointment's status;</li>
-     *   <li>and any reminder already handed over for {@code start} (its last attempt was for that start and ended
-     *       in one of {@code handedOver}), whatever happened to its booking since: unticked, cancelled or moved.</li>
+     *   <li>and any reminder already handed over to this patient for {@code start} (its last attempt was for that
+     *       start and patient and ended in one of {@code handedOver}), whatever happened to its booking since:
+     *       unticked, cancelled, moved or given to another patient.</li>
      * </ul>
      * Each reminder once, by id. Read without locks; empty without a patient or a start.
      *
