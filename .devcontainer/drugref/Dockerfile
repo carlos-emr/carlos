@@ -40,9 +40,13 @@ RUN rm -rf /usr/local/tomcat/webapps/ROOT/* \
 # Copy only the WAR from builder stage
 COPY --from=builder /build/drugref/target/drugref2.war /usr/local/tomcat/webapps/drugref2.war
 
-# Note: drugref2.properties is not baked into the image.
-# It is mounted at runtime via docker-compose to /root/drugref2.properties
-# and DrugRef loads its configuration from that path by default.
+# The image carries no runtime configuration. Without the external context
+# descriptor (conf/Catalina/localhost/drugref2.xml), drugref2.properties at
+# /root/drugref2.properties, the Hibernate dialect in CATALINA_OPTS and a
+# database holding the drugref2 schema, Tomcat still starts but the drugref2
+# context does not deploy. Run it as .devcontainer/docker-compose.yml does;
+# docs/drugref-service.md ("Running the Standalone Image") lists the settings,
+# and scripts/ci/check-drugref-deployment.sh holds CI to them.
 
 EXPOSE 8080
 CMD ["catalina.sh", "run"]
