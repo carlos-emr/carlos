@@ -106,6 +106,13 @@ class PreventionReadSafetyServiceUnitTest {
         }
     }
 
+    @Test
+    void shouldRecognizePreventionsTable_afterQualifiedReservedWord() {
+        // JSqlParser rejects f.where; MariaDB reads it as a column and still reads preventions.
+        assertThat(PreventionReadSafetyService.readsPreventions("SELECT d.demographic_no FROM demographic d"
+                + " JOIN (SELECT 1 AS `where`) f ON f.where = d.demographic_no, preventions p")).isTrue();
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {
             "preventions",
@@ -140,7 +147,8 @@ class PreventionReadSafetyServiceUnitTest {
             "demographic d WHERE EXTRACT(YEAR FROM d.preventions) > 0",
             "demographic d -- JOIN preventions p ON 1 = 1\n",
             "demographic d # JOIN preventions p ON 1 = 1\n",
-            "demographic d /* JOIN preventions p ON 1 = 1 */"})
+            "demographic d /* JOIN preventions p ON 1 = 1 */",
+            "(SELECT 1 AS `join`, 2 AS preventions) d GROUP BY d.join, preventions"})
     void shouldIgnoreLookalikeNames_inShapeParserRejects(String fromClause) {
         assertThat(PreventionReadSafetyService.readsPreventions(LEGACY_SELECT + fromClause)).isFalse();
     }

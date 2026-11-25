@@ -21,9 +21,11 @@
  */
 package io.github.carlos_emr.carlos.prevention;
 
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -37,6 +39,14 @@ class SqlTableReferencesUnitTest {
     /** A join to preventions inside a block comment whose opening each case supplies. */
     private static final String COMMENTED_JOIN =
             "SELECT 1 FROM demographic d %s JOIN preventions p ON p.demographic_no = d.demographic_no */";
+
+    /** A keyword used as a column, qualified in ON, before a comma-joined preventions table. */
+    private static final String QUALIFIED_KEYWORD_IN_ON = "SELECT 1 FROM demographic d"
+            + " JOIN (SELECT 1 AS `%1$s`) f ON f.%1$s = d.demographic_no, preventions p";
+
+    /** A keyword used as a column, qualified in the select list before a comma and a column named preventions. */
+    private static final String QUALIFIED_KEYWORD_IN_SELECT =
+            "SELECT d.%1$s, preventions FROM (SELECT 1 AS `%1$s`, 2 AS preventions) d";
 
     @Test
     void shouldReportEveryTableReference_inFromListsAndJoins() {
@@ -125,6 +135,42 @@ class SqlTableReferencesUnitTest {
         assertThat(SqlTableReferences.tableNames("SELECT 1 FROM demographic d /*!80000 JOIN allergies a"
                 + " ON a.demographic_no = d.demographic_no /* nested */ JOIN preventions p ON 1 = 1 */, measurements m"))
                 .containsExactly("demographic", "measurements");
+    }
+
+    /** Every word the scan gives a keyword role. */
+    static Stream<String> scannerKeywords() {
+        return Stream.of("select", "with", "from", "join", "straight_join", "for", "where", "group", "having",
+                "order", "limit", "window", "union", "except", "intersect", "set", "update", "returning");
+    }
+
+    @ParameterizedTest
+    @MethodSource("scannerKeywords")
+    void shouldKeepFromList_whenKeywordFollowsQualifyingDot(String keyword) {
+        // MariaDB reads a word right after a qualifying dot as a name, never as a keyword.
+        assertThat(SqlTableReferences.tableNames(QUALIFIED_KEYWORD_IN_ON.formatted(keyword)))
+                .containsExactly("demographic", "preventions");
+    }
+
+    @ParameterizedTest
+    @MethodSource("scannerKeywords")
+    void shouldOpenNoTablePosition_whenKeywordFollowsQualifyingDot(String keyword) {
+        assertThat(SqlTableReferences.tableNames(QUALIFIED_KEYWORD_IN_SELECT.formatted(keyword))).isEmpty();
+    }
+
+    @Test
+    void shouldReadQualifiedReservedWords_inSelectOnAndWhere() {
+        assertThat(SqlTableReferences.tableNames("SELECT q.select, q.from AS x"
+                + " FROM (SELECT 1 AS `select`, 2 AS `from`, 3 AS `where`) q"
+                + " JOIN demographic d ON d.demographic_no = q.select, preventions p WHERE q.where = 3"))
+                .containsExactly("demographic", "preventions");
+    }
+
+    @Test
+    void shouldReportSchemaQualifiedTable_afterJoin() {
+        assertThat(SqlTableReferences.tableNames("SELECT 1 FROM demographic d"
+                + " JOIN clinic.preventions p ON p.demographic_no = d.demographic_no"
+                + " JOIN `clinic`.`drugs` dr ON dr.demographic_no = d.demographic_no"))
+                .containsExactly("demographic", "preventions", "drugs");
     }
 
     @Test

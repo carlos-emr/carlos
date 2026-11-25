@@ -42,8 +42,10 @@ import java.util.Set;
  * {@code STRAIGHT_JOIN}, after a comma of a {@code FROM} list, and the first entry of a
  * parenthesised {@code FROM} list. Select-list and predicate columns, aliases, literals, schema
  * qualifiers and the {@code FROM} of a function call such as {@code EXTRACT(YEAR FROM ...)} are not
- * table references. Views, stored functions and common table expressions are not resolved: a CTE
- * is reported under its own name.</p>
+ * table references. A word right after a qualifying dot is a name even when it spells a keyword, as
+ * in MariaDB, so a column such as {@code f.where} neither ends a {@code FROM} list nor opens a table
+ * position. Views, stored functions and common table expressions are not resolved: a CTE is
+ * reported under its own name.</p>
  *
  * <p>The lexical rules are MariaDB's: {@code #} comments, {@code --} comments (only when blank or
  * control text follows the dashes) and block comments are skipped. The body of an executable comment
@@ -320,6 +322,7 @@ final class SqlTableReferences {
         private final Deque<Scope> scopes = new ArrayDeque<>();
         private final Set<String> names = new LinkedHashSet<>();
         private boolean afterFor;
+        private boolean afterDot;
 
         TableScan(String sql) {
             lexer = new Lexer(sql);
@@ -338,19 +341,32 @@ final class SqlTableReferences {
         private Token accept(Token token) {
             Scope scope = scopes.element();
             boolean followsFor = afterFor;
+            Role role = roleOf(token);
             afterFor = false;
-            if (scope.expectTable && isTableName(token)) {
+            afterDot = token.isSymbol('.');
+            // SELECT or WITH in a table position opens a derived table rather than naming one.
+            if (scope.expectTable && token.isName() && role != Role.QUERY) {
                 scope.expectTable = false;
                 return readQualifiedName(token);
             }
             if (token.kind() == Kind.SYMBOL) {
                 acceptSymbol(scope, token.text().charAt(0));
-            } else if (token.kind() == Kind.WORD) {
-                acceptWord(scope, role(token), followsFor);
             } else {
-                scope.expectTable = false;
+                acceptWord(scope, role, followsFor);
             }
             return lexer.next();
+        }
+
+        /**
+         * The keyword role of a bare word. A word right after a qualifying dot is a name, never a keyword:
+         * MariaDB reads {@code f.where} as the column {@code where}, so it neither ends a FROM list nor
+         * opens a table position.
+         */
+        private Role roleOf(Token token) {
+            if (afterDot || token.kind() != Kind.WORD) {
+                return Role.OTHER;
+            }
+            return KEYWORDS.getOrDefault(foldAsciiCase(token.text()), Role.OTHER);
         }
 
         /**
@@ -366,15 +382,6 @@ final class SqlTableReferences {
             } else {
                 acceptKeyword(scope, role);
             }
-        }
-
-        /** SELECT or WITH in a table position opens a derived table rather than naming one. */
-        private static boolean isTableName(Token token) {
-            return token.kind() == Kind.QUOTED || (token.kind() == Kind.WORD && role(token) != Role.QUERY);
-        }
-
-        private static Role role(Token word) {
-            return KEYWORDS.getOrDefault(foldAsciiCase(word.text()), Role.OTHER);
         }
 
         /** Records the last part of {@code name}, {@code schema.name} or {@code `schema` . `name`}. */
