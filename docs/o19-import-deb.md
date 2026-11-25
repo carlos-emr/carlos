@@ -687,6 +687,28 @@ gate has no override.
    something *different* — consultation auto-include, lab display, the
    contacts UI. Each row names both values; restore any the clinic wants
    by adding the key to `/etc/carlos-emr/carlos.properties` yourself.
+
+   **Confirm the clinic’s site-access policy before clinical use.** An active
+   `multisites` entry in OSCAR’s `oscar.properties` appears in the reviewed
+   fragment for Ontario and BC. When OSCAR used `on`, `yes` or `true`
+   (case-insensitive), check that the effective `multisites` value in
+   `/etc/carlos-emr/carlos.properties` also enables the mode, unless the clinic
+   has approved a change. A commented or absent key leaves CARLOS’s configured
+   value in place. Older OSCAR Ontario billing screens could filter by site
+   even with multisite mode off. If the clinic relied on that behavior, confirm
+   its intended billing access with the clinic before opening CARLOS to staff.
+   After the restart, use a site-restricted account to verify that it can see
+   its assigned site and cannot see a different site.
+
+   **Previously completed imports.** Earlier properties reports listed an
+   explicit `multisites` entry as `unknown` and omitted it from the fragment.
+   `--resume` keeps a completed properties phase’s existing fragment. Compare
+   the original OSCAR setting with the deployed CARLOS setting, apply the
+   clinic-approved value and restart if it changed. This configuration
+   check can be completed on the existing import. CARLOS seeds the admin
+   `_site_access_privacy` grant in both provinces, and a single-site clinic
+   can also have site records.
+
 2. `carlos-ctl backup full` — the post-import snapshot.
 3. **Technical review before clinical use**: start at
    `/var/lib/carlos-emr/o19-import/import-report.txt` — the validation

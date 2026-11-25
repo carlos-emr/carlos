@@ -21,7 +21,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from carlos_ctl import o19etl, o19manifest, o19map_props, o19map_schema
+from carlos_ctl import o19etl, o19manifest, o19map_props, o19map_schema, o19props
 
 
 def load_generator():
@@ -600,6 +600,36 @@ class TestPropsManifest(unittest.TestCase):
     def test_prefix_dispositions_are_valid(self):
         for prefix, spec in o19map_props.PREFIX_RULES:
             self.assertIn(spec["d"], VALID_DISPOSITIONS, prefix)
+
+    def test_explicit_multisites_survives_dry_run_and_import_without_changing_live_properties(self):
+        cases = (("multisites=on", "on"), ("multisites=YeS", "YeS"), ("multisites=true", "true"),
+                 ("multisites=on\nmultisites=off", "off"), ("# multisites=on", None), ("", None))
+        for province in ("on", "bc"):
+            for source_setting, expected in cases:
+                with self.subTest(province=province, source_setting=source_setting), tempfile.TemporaryDirectory() as tmp:
+                    root = Path(tmp)
+                    source = root / "oscar.properties"
+                    source.write_text("multioffice.formalize.provider.id=true\n" + source_setting + "\n")
+                    target = root / "carlos.properties"
+                    target_config = "billregion=" + province.upper() + "\nmultisites=off\n"
+                    target.write_text(target_config)
+                    fragment = root / "o19-derived-carlos.properties"
+                    fragment.write_text("# previously reviewed\n")
+                    ctx = {"properties": str(source), "deploy_properties": str(target),
+                           "state_dir": tmp, "state": {}, "province": province}
+
+                    for dry_run in (True, False):
+                        ctx["dry_run"] = dry_run
+                        with contextlib.redirect_stdout(io.StringIO()):
+                            o19props.run_props(ctx)
+                        output = root / (fragment.name + ".dry-run") if dry_run else fragment
+                        translated = dict(o19props.load_clinic_properties(str(output)))
+                        self.assertEqual(translated.get("multisites"), expected)
+                        self.assertEqual(translated["multioffice.formalize.provider.id"], "true")
+                        if dry_run:
+                            self.assertEqual(fragment.read_text(), "# previously reviewed\n")
+                        self.assertEqual(target.read_text(), target_config)
+                    self.assertEqual(ctx["state"]["phases"]["props"]["unknown"], 0)
 
     def test_translate_keys_name_a_translator(self):
         for key, spec in o19map_props.KEYS.items():
