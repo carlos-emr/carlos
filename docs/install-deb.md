@@ -406,6 +406,13 @@ preserves that file, rolls back this attempt's published outputs and retires
 its provisional disk records. The billing screen requests reconciliation when
 CARLOS cannot confirm cleanup.
 
+If the service stops abruptly during generation or database cleanup fails, the
+disk and provider rows allocated for that attempt may remain. Before downloading,
+regenerating or submitting that disk, have the billing administrator reconcile
+its claim and HTML files with the recorded providers and the last confirmed
+submission. Provider-restricted downloads briefly share the generation lock while
+opening the authorized file. Keep `.carlos-ohip-disk.lock` in place during service use.
+
 ### Incoming document storage
 
 The filesystems containing `DOCUMENT_DIR`, the incoming queues under
