@@ -95,8 +95,8 @@ class PreventionReadSafetyServiceUnitTest {
 
     @Test
     void shouldRecognizePreventionsTable_whereParserReadsMariaDbCodeAsComment() throws Exception {
-        // JSqlParser parses both, taking "--1 FROM preventions" and the executable comment for comments;
-        // MariaDB runs that text and reads preventions.
+        // JSqlParser parses these but takes the text after 1-- and the executable comment bodies for
+        // comments. MariaDB runs that text and reads preventions.
         for (String sql : new String[] {"SELECT 1--1 FROM preventions",
                 "SELECT 1 FROM demographic d /*!50000 JOIN preventions p ON p.demographic_no = d.demographic_no */",
                 "SELECT 1 FROM demographic d /*M!100100 JOIN preventions p ON p.demographic_no = d.demographic_no */"}) {
@@ -160,8 +160,8 @@ class PreventionReadSafetyServiceUnitTest {
     void shouldAdmitPatientScopedLegacyDefinition_whenPatientDatesAreExact() {
         PreventionDao dao = mock(PreventionDao.class);
         when(dao.hasUncertainPreventionDates(PATIENT)).thenReturn(false);
-        assertThatCode(() -> new PreventionReadSafetyService(dao).requireSafeSql(PATIENT_LEGACY_SQL, PATIENT))
-                .doesNotThrowAnyException();
+        var safety = new PreventionReadSafetyService(dao);
+        assertThatCode(() -> safety.requireSafeSql(PATIENT_LEGACY_SQL, PATIENT)).doesNotThrowAnyException();
         verify(dao).hasUncertainPreventionDates(PATIENT);
         verifyNoMoreInteractions(dao);
     }
@@ -171,7 +171,8 @@ class PreventionReadSafetyServiceUnitTest {
         // The DAO reports an imported YYYY / YYYY-MM or unknown date for this patient only.
         PreventionDao dao = mock(PreventionDao.class);
         when(dao.hasUncertainPreventionDates(PATIENT)).thenReturn(true);
-        assertThatThrownBy(() -> new PreventionReadSafetyService(dao).requireSafeSql(PATIENT_LEGACY_SQL, PATIENT))
+        var safety = new PreventionReadSafetyService(dao);
+        assertThatThrownBy(() -> safety.requireSafeSql(PATIENT_LEGACY_SQL, PATIENT))
                 .isExactlyInstanceOf(PreventionDatePrecisionException.class);
         verify(dao).hasUncertainPreventionDates(PATIENT);
         verifyNoMoreInteractions(dao);
@@ -185,8 +186,8 @@ class PreventionReadSafetyServiceUnitTest {
                 + " /*!80000 JOIN preventions p ON p.demographic_no = d.demographic_no */"
                 + " WHERE d.demographic_no = ${demographic}";
         assertThat(PreventionReadSafetyService.readsPreventions(sql)).isFalse();
-        assertThatCode(() -> new PreventionReadSafetyService(dao).requireSafeSql(sql, PATIENT))
-                .doesNotThrowAnyException();
+        var safety = new PreventionReadSafetyService(dao);
+        assertThatCode(() -> safety.requireSafeSql(sql, PATIENT)).doesNotThrowAnyException();
         verifyNoInteractions(dao);
     }
 
@@ -194,8 +195,8 @@ class PreventionReadSafetyServiceUnitTest {
     void shouldLeaveUnparseableSqlUnguarded_whenItNamesNoPreventionsTable() {
         PreventionDao dao = mock(PreventionDao.class);
         String sql = LEGACY_SELECT + "demographic d LEFT JOIN preventionsExt pe ON pe.prevention_id = d.demographic_no";
-        assertThatCode(() -> new PreventionReadSafetyService(dao).requireSafeSql(sql, PATIENT))
-                .doesNotThrowAnyException();
+        var safety = new PreventionReadSafetyService(dao);
+        assertThatCode(() -> safety.requireSafeSql(sql, PATIENT)).doesNotThrowAnyException();
         verifyNoInteractions(dao);
     }
 

@@ -87,8 +87,10 @@ class SqlTableReferencesUnitTest {
 
     @Test
     void shouldSkipComments_followingMariaDbRules() {
-        assertThat(SqlTableReferences.tableNames("SELECT 1 FROM demographic d -- , preventions p\n"
-                + "# , preventions p\n/* , preventions p */ WHERE 1 = 1"))
+        assertThat(SqlTableReferences.tableNames("""
+                SELECT 1 FROM demographic d -- , preventions p
+                # , preventions p
+                /* , preventions p */ WHERE 1 = 1"""))
                 .containsExactly("demographic");
     }
 

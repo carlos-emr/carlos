@@ -129,10 +129,6 @@ final class SqlTableReferences {
         return new String(chars);
     }
 
-    private static Role role(Token word) {
-        return KEYWORDS.getOrDefault(foldAsciiCase(word.text()), Role.OTHER);
-    }
-
     /** A lexical token; the text of a quoted name or literal is unquoted. */
     private record Token(Kind kind, String text) {
         boolean isSymbol(char symbol) {
@@ -377,6 +373,10 @@ final class SqlTableReferences {
             return token.kind() == Kind.QUOTED || (token.kind() == Kind.WORD && role(token) != Role.QUERY);
         }
 
+        private static Role role(Token word) {
+            return KEYWORDS.getOrDefault(foldAsciiCase(word.text()), Role.OTHER);
+        }
+
         /** Records the last part of {@code name}, {@code schema.name} or {@code `schema` . `name`}. */
         private Token readQualifiedName(Token first) {
             String name = first.text();
@@ -391,23 +391,31 @@ final class SqlTableReferences {
 
         private void acceptSymbol(Scope scope, char symbol) {
             switch (symbol) {
-                case '(' -> {
-                    scopes.push(new Scope(scope.expectTable));
-                    scope.expectTable = false;
-                }
-                case ')' -> {
-                    if (scopes.size() > 1) {
-                        scopes.pop();
-                    }
-                }
+                case '(' -> openScope(scope);
+                case ')' -> closeScope();
                 case ',' -> scope.expectTable = scope.tableList;
-                case ';' -> {
-                    scopes.clear();
-                    scopes.push(new Scope(false));
-                }
+                case ';' -> restart();
                 // A leading dot (ODBC ".tbl_name", the default database) keeps the table position.
                 default -> scope.expectTable = scope.expectTable && symbol == '.';
             }
+        }
+
+        private void openScope(Scope parent) {
+            scopes.push(new Scope(parent.expectTable));
+            parent.expectTable = false;
+        }
+
+        /** An unbalanced closing parenthesis leaves the statement level in place. */
+        private void closeScope() {
+            if (scopes.size() > 1) {
+                scopes.pop();
+            }
+        }
+
+        /** A statement separator starts the next statement afresh. */
+        private void restart() {
+            scopes.clear();
+            scopes.push(new Scope(false));
         }
 
         private static void acceptKeyword(Scope scope, Role role) {
