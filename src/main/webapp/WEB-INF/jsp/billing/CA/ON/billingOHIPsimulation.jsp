@@ -117,10 +117,12 @@
                 <div class="col-md-3">
                     Select Provider<br>
                     <select name="providers">
-                        <c:choose>
-                            <c:when test="${simulationModel.multisites}"><option value="all">Select Providers</option></c:when>
-                            <c:otherwise><option value="all">All Providers</option></c:otherwise>
-                        </c:choose>
+                        <c:if test="${not empty simulationModel.providers}">
+                            <c:choose>
+                                <c:when test="${simulationModel.multisites}"><option value="all">Select Providers</option></c:when>
+                                <c:otherwise><option value="all">All Providers</option></c:otherwise>
+                            </c:choose>
+                        </c:if>
                         <c:forEach var="opt" items="${simulationModel.providers}">
                             <c:set var="isSelected" value="${simulationModel.providerView eq opt.providerNo or fn:length(simulationModel.providers) == 1}"/>
                             <option value="<carlos:encode value='${opt.providerNo}' context='htmlAttribute'/>"
@@ -160,7 +162,8 @@
 
                 <div class="col-md-2">
                     <br>
-                    <button class="btn btn-primary " type="submit" name="submit" value="Create Report">Create Report
+                    <button class="btn btn-primary" type="submit" name="submit" value="Create Report"
+                            <c:if test="${empty simulationModel.providers}">disabled</c:if>>Create Report
                     </button>
                 </div>
 
