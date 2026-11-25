@@ -1357,7 +1357,7 @@ runbook's username lockout setting and vascular dictionary first. Keep it serial
 with every other install/profile mutation. This is additional coverage; the full
 `harness-crash-qualification` inventory and SIGKILL recovery remain required.
 
-The required `package-clean-reinstall`, `package-main-upgrade` and `package-beta5-upgrade` ON/BC slots run on the dedicated disposable
+The required `package-clean-reinstall`, `package-main-upgrade`, `package-beta5-upgrade` and `package-beta8-upgrade` ON/BC slots run on the dedicated disposable
 Docker host using [the lifecycle configuration](../testing/release-2026.08-package-lifecycle.md).
 Keep the broader unsupported/interrupted lifecycle acceptance blocking until its
 separate cases are implemented and executed. The orchestrated deployment scope

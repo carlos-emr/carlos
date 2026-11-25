@@ -354,6 +354,7 @@ jobs:
           # Attesting is not repeated (see the previous step); operators verify
           # this asset with `gh attestation verify ... --repo carlos-emr/carlos-ctl`.
           debian/fetch-carlos-ctl.sh /tmp/carlos-ctl
+          python3 scripts/ci/candidate_cli_package.py verify --destination /tmp/carlos-ctl
           cp /tmp/carlos-ctl/carlos-ctl_*_all.deb /tmp/carlos-ctl/carlos-ctl_*_all.deb.sha256 release-assets/
           ls -la release-assets
 

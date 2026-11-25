@@ -750,6 +750,7 @@
         "package-clean-reinstall",
         "package-main-upgrade",
         "package-beta5-upgrade",
+        "package-beta8-upgrade",
         "packaged-o19-migrated"
       ]
     },
@@ -786,7 +787,8 @@
         "manual-deb-login",
         "package-clean-reinstall",
         "package-main-upgrade",
-        "package-beta5-upgrade"
+        "package-beta5-upgrade",
+        "package-beta8-upgrade"
       ]
     },
     {
@@ -843,7 +845,7 @@
         "scripts/ci/lifecycle_baselines.py",
         "scripts/ci/test_lifecycle_baselines.py"
       ],
-      "implementation": "Execute actual clinical JavaScript and persisted workflows for the older-main form/measurement/prevention/rule changes; promote the HDL defect regressions once the product is fixed. Require distinct pinned beta5 and current-main beta6 installs on ON/BC; beta5 exercises V1.0.59.27–32 and CLI 1.3.0-to-1.3.1. A source-identical current-main install alone does not cover historical migration.",
+      "implementation": "Execute actual clinical JavaScript and persisted workflows for the older-main form/measurement/prevention/rule changes; promote the HDL defect regressions once the product is fixed. Require distinct pinned beta5, current-main beta6 and previous beta8 installs on ON/BC. Beta5 exercises V1.0.59.27–32 and the CLI transition from 1.3.0, beta6 starts on 1.3.1, and beta8 upgrades directly from 1.3.5. A source-identical current-main install alone does not cover historical migration.",
       "cases": "Framingham/UKPDS HDL equal/greater than total and stale-answer clearing; renal thresholds/source selection; WHtR and waist units; valid/impossible dates and leap/DST days; missing patient/catalog/rules; age/sex/hide filters; shared/private/null flowsheet scopes; selected preventions in print; duplicate linked diagnosis/drug and intact long lab values.",
       "acceptance": "Clinical calculations use the intended inputs, invalid input clears stale results, persisted dates/values are exact, and no missing-data case logs an error per prevention type.",
       "requiredChecks": [
@@ -7558,6 +7560,53 @@
       "timeoutSeconds": 18000,
       "lifecycleRoles": [
         "historical"
+      ],
+      "runtimeConstraints": {
+        "node": "22"
+      }
+    },
+    {
+      "id": "package-beta8-upgrade",
+      "kind": "command",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "packaged": true,
+      "deploymentScope": "orchestrated-package-lifecycle",
+      "requiresEnvironment": [
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE",
+        "CARLOS_PACKAGE_LIFECYCLE_CONFIG"
+      ],
+      "requiresExecutables": [
+        "docker",
+        "dpkg-deb",
+        "dpkg",
+        "node"
+      ],
+      "command": [
+        "python3",
+        "scripts/ci/run-package-lifecycle.py",
+        "--profile",
+        "{profile}",
+        "--artifact",
+        "{artifact}",
+        "--output",
+        "{run}/lifecycle-result.json",
+        "--role",
+        "previous"
+      ],
+      "resultContract": {
+        "file": "lifecycle-result.json",
+        "assertions": [
+          "complete-lifecycle-core"
+        ]
+      },
+      "timeoutSeconds": 18000,
+      "lifecycleRoles": [
+        "previous"
       ],
       "runtimeConstraints": {
         "node": "22"

@@ -4,7 +4,8 @@ import re
 from pathlib import Path
 from evidence_errors import EvidenceError
 
-REQUIRED_TAGS = {'2026.08.0-beta6', '2026.08.0-beta5'}
+BASELINE_TAGS = {'main': '2026.08.0-beta6', 'historical': '2026.08.0-beta5', 'previous': '2026.08.0-beta8'}
+CANDIDATE_CLI_FLOOR = '1.3.5'
 PACKAGE_PREFIXES = ('carlos-emr_', 'carlos-emr-drugref_', 'carlos-ctl_')
 
 
@@ -54,11 +55,13 @@ def required_baselines(document):
            or not isinstance(row.get('sourceCommit'), str) or not isinstance(row.get('baselineRoles'), list)
            for row in rows):
         raise EvidenceError('Lifecycle baseline identity and roles are incomplete')
-    if (len(rows) != 2 or {row.get('tag') for row in rows} != REQUIRED_TAGS
-            or len({row.get('sourceCommit') for row in rows}) != 2
-            or 'currentMain' not in document.get('baselineRoles', [])
-            or not any('supported-prior-release' in row.get('baselineRoles', []) for row in additional)):
-        raise EvidenceError('Current main cannot stand in for the distinct historical upgrade')
+    by_tag = {row['tag']: row for row in rows}
+    if (len(rows) != len(BASELINE_TAGS) or set(by_tag) != set(BASELINE_TAGS.values())
+            or len({row['sourceCommit'] for row in rows}) != len(rows)
+            or document['tag'] != BASELINE_TAGS['main'] or 'currentMain' not in document['baselineRoles']
+            or 'supported-prior-release' not in by_tag[BASELINE_TAGS['historical']]['baselineRoles']
+            or 'previous-release' not in by_tag[BASELINE_TAGS['previous']]['baselineRoles']):
+        raise EvidenceError('Lifecycle requires independent current main, historical and previous release pins')
     for row in rows:
         if (not matches(r'[0-9a-f]{40}', row.get('sourceCommit'))
                 or not matches(r'[0-9a-f]{40}', row.get('tagObject'))
@@ -81,7 +84,7 @@ def required_baselines(document):
                     or type(asset.get('bytes')) is not int or asset['bytes'] <= 0
                     or asset.get('url') != expected):
                 raise EvidenceError('Lifecycle asset lacks its exact published identity')
-    return rows
+    return [by_tag[tag] for tag in BASELINE_TAGS.values()]
 
 
 def select_baseline(document, tag=None):
