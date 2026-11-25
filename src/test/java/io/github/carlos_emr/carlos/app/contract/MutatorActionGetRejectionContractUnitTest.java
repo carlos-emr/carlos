@@ -581,6 +581,13 @@ class MutatorActionGetRejectionContractUnitTest {
                         "io.github.carlos_emr.carlos.mds.pageUtil.PatientMatch2Action",
                         "_lab",
                         "w"),
+                // Clears a lab's patient routing and archives the readings it filed to the chart
+                // (#6214). Its only caller posts; the lab.ca.all.pageUtil package is not in
+                // IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly.
+                Arguments.of(
+                        "io.github.carlos_emr.carlos.lab.ca.all.pageUtil.UnlinkDemographic2Action",
+                        "_lab",
+                        "u"),
                 // Send to MRP: routes a document or lab into the patient's MRP's inbox. Every
                 // caller posts.
                 Arguments.of(
@@ -1113,6 +1120,7 @@ class MutatorActionGetRejectionContractUnitTest {
                     "io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action",
                     "io.github.carlos_emr.carlos.admin.web.SaveProviderLinkingRules2Action",
                     "io.github.carlos_emr.carlos.mds.pageUtil.PatientMatch2Action",
+                    "io.github.carlos_emr.carlos.lab.ca.all.pageUtil.UnlinkDemographic2Action",
                     // BC billing administration is not in IN_SCOPE_PACKAGE_PREFIXES; the WCB
                     // correction registers explicitly.
                     "io.github.carlos_emr.carlos.billings.ca.bc.administration.TeleplanCorrectionActionWCB2Action",

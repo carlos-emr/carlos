@@ -25,6 +25,9 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * <p>
+ * Modified by the CARLOS EMR Project in 2026: unlink archives the readings the report filed
+ * (issue #6214) and accepts only POST.
  */
 package io.github.carlos_emr.carlos.lab.ca.all.pageUtil;
 
@@ -33,99 +36,110 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
-import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
-import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
-import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
+import io.github.carlos_emr.carlos.lab.service.LabPatientAccess;
+import io.github.carlos_emr.carlos.lab.service.LabPatientUnlinkService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.OscarAuditLogger;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.form.JSONUtil;
-import io.github.carlos_emr.carlos.log.LogConst;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.util.Date;
-import java.util.List;
+import java.io.IOException;
 
+/**
+ * Unlinks an HL7 lab report from the patient it was matched to: the Unlink button of the lab
+ * display ({@code labDisplay.jsp}), which posts {@code labNo} and the clinician's {@code reason}
+ * and reads a JSON answer.
+ *
+ * <p>The work is done by {@link LabPatientUnlinkService} in one transaction: the report's patient
+ * routing is cleared, the readings it filed to the chart are archived (issue #6214) and the report
+ * returns to its providers' inboxes as new. The answer carries {@code success},
+ * {@code unlinkedDemographicNo}, {@code labNo}, {@code reason} and
+ * {@code archivedMeasurementCount}, which the page uses to tell the clinician the readings were
+ * archived.</p>
+ *
+ * <p>Security: POST only (GET and HEAD answer 405 before anything else runs, since CSRFGuard does
+ * not protect GET and unlink now archives clinical data), then the global {@code _lab} update
+ * privilege, then the service's patient-specific {@code _lab} update right and record lock on every
+ * chart the unlink changes.</p>
+ *
+ * @since 2004-02-04
+ */
 public class UnlinkDemographic2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private final Logger logger = MiscUtils.getLogger();
-    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-
-    private final PatientLabRoutingDao plrDao = SpringUtils.getBean(PatientLabRoutingDao.class);
-
-    private final ProviderLabRoutingDao providerLabRoutingDao = SpringUtils.getBean(ProviderLabRoutingDao.class);
-
-    public UnlinkDemographic2Action() {
-    }
-
+    private static final Logger logger = MiscUtils.getLogger();
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    // transient: ActionSupport implements Serializable; Spring-managed beans are not serializable.
+    private final transient SecurityInfoManager securityInfoManager;
+    private final transient LabPatientUnlinkService unlinkService;
+
+    public UnlinkDemographic2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(LabPatientUnlinkService.class));
+    }
+
+    UnlinkDemographic2Action(SecurityInfoManager securityInfoManager, LabPatientUnlinkService unlinkService) {
+        this.securityInfoManager = securityInfoManager;
+        this.unlinkService = unlinkService;
+    }
+
+    /**
+     * Unlinks the posted report and writes the JSON outcome.
+     *
+     * @return {@link #NONE}: the response is completed here
+     * @throws IOException if the response cannot be written
+     */
     @Override
-    public String execute() {
+    public String execute() throws IOException {
+        // Unlinking rewrites the report's patient routing and archives the readings it filed, so a
+        // crafted link must not reach it: CSRFGuard does not protect GET. The only caller posts.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "u", null)) {
             throw new SecurityException("missing required sec object (_lab)");
         }
-        boolean success = false;
-        //set the demographicNo in the patientLabRouting table
+
         String reason = request.getParameter("reason");
-        String labNoStr = request.getParameter("labNo");
-        Integer labNo = Integer.parseInt(labNoStr);
-
-        List<PatientLabRouting> plr = plrDao.findByLabNoAndLabType(labNo, ProviderLabRoutingDao.LAB_TYPE.HL7.name());
-        Integer demoNo = PatientLabRoutingDao.UNMATCHED;
-
-        for (PatientLabRouting patientLabRouting : plr) {
-            demoNo = patientLabRouting.getDemographicNo();
-            patientLabRouting.setDemographicNo(PatientLabRoutingDao.UNMATCHED);
-            patientLabRouting.setDateModified(new Date());
-            plrDao.merge(patientLabRouting);
-            if (patientLabRouting.getDemographicNo().equals(PatientLabRoutingDao.UNMATCHED)) {
-                success = true;
-                if (logger.isDebugEnabled()) {
-                    logger.debug("Unlinked lab segmentID={} from demographic={}",
-                            LogSafe.sanitizeObject(labNo), LogSafe.sanitizeObject(demoNo));
-                }
-                OscarAuditLogger.getInstance().log(loggedInInfo, LogConst.UNLINK, LogConst.CON_HL7_LAB, String.valueOf(labNo), request.getRemoteAddr(), demoNo, reason);
-            } else {
-                break;
-            }
+        Integer labNo = LabPatientAccess.positiveIdentity(request.getParameter("labNo"));
+        if (labNo == null) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
         }
 
-        /* ensure the lab requisitioning providers is aware by inserting lab back into their inbox.
-         * or into the unattached inbox if no providers is identified.
-         */
-        if (success) {
-            List<ProviderLabRoutingModel> providerLabRoutingModel = providerLabRoutingDao.findAllLabRoutingByIdandType(labNo, ProviderLabRoutingDao.LAB_TYPE.HL7.name());
-            for (ProviderLabRoutingModel providerLabRouting : providerLabRoutingModel) {
-                String currentStatus = providerLabRouting.getStatus();
-                providerLabRouting.setStatus(ProviderLabRoutingDao.STATUS.N.name());
-                String comment = providerLabRouting.getComment() + " Lab unlinked from incorrect demographic number: " + demoNo;
-                providerLabRouting.setComment(comment.trim());
-                providerLabRouting.setTimestamp(new Date());
-                providerLabRoutingDao.merge(providerLabRouting);
-                OscarAuditLogger.getInstance().log(loggedInInfo, LogConst.UNLINK, LogConst.CON_HL7_LAB, String.valueOf(labNo), request.getRemoteAddr(), demoNo, "Provider " + providerLabRouting.getProviderNo() + " Ack status from " + currentStatus + " to " + ProviderLabRoutingDao.STATUS.N.name());
-            }
+        LabPatientUnlinkService.Result result;
+        try {
+            result = unlinkService.unlinkReport(loggedInInfo, labNo, reason, request.getRemoteAddr());
+        } catch (SecurityException refused) {
+            throw refused;
+        } catch (RuntimeException failure) {
+            // Nothing was saved: the routing change, the archive and their audit rows roll back
+            // together. The page keeps the reason for a retry when the answer is not a success.
+            // The trace carries exception types and frames only: a nested database message can
+            // quote the reading being archived.
+            logger.error("Lab {} could not be unlinked: {}", LogSafe.sanitizeObject(labNo),
+                    LogSafe.exceptionTrace(failure));
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return NONE;
         }
 
         ObjectNode jsonObject = objectMapper.createObjectNode();
-        jsonObject.put("success", success);
-        jsonObject.put("unlinkedDemographicNo", demoNo);
+        jsonObject.put("success", result.unlinked());
+        jsonObject.put("unlinkedDemographicNo", result.unlinkedDemographicNo());
         jsonObject.put("labNo", labNo);
         jsonObject.put("reason", reason);
+        jsonObject.put("archivedMeasurementCount", result.archivedMeasurements());
 
         JSONUtil.jsonResponse(response, jsonObject);
-
-        return null;
+        return NONE;
     }
-
-
 }
