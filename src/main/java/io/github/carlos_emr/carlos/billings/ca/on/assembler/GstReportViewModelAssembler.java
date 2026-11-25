@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.GstReportService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingDataLoadException;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.GstReportViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnLookupService;
+import io.github.carlos_emr.carlos.commn.SiteChoice;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -77,8 +78,7 @@ public class GstReportViewModelAssembler {
         // the provider list; otherwise the dropdown shows only the logged-in
         // provider.
         String curProvider = loggedInInfo == null ? "" : loggedInInfo.getLoggedInProviderNo();
-        boolean isSitePrivacy = loggedInInfo != null
-                && securityInfoManager.hasPrivilege(loggedInInfo, "_site_access_privacy", "r", null);
+        boolean isSitePrivacy = SiteChoice.isSiteAccessRestricted(securityInfoManager, loggedInInfo);
         boolean isTeamPrivacy = loggedInInfo != null
                 && securityInfoManager.hasPrivilege(loggedInInfo, "_team_access_privacy", "r", null);
 

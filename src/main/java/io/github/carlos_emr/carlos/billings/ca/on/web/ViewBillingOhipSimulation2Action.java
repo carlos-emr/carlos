@@ -26,6 +26,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOhipSimulationViewModel;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.commn.SiteChoice;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -72,8 +73,7 @@ public class ViewBillingOhipSimulation2Action extends ActionSupport {
 
         boolean teamBillingOnly = securityInfoManager.hasPrivilege(
                 loggedInInfo, "_team_billing_only", "r", null);
-        boolean siteAccessPrivacy = securityInfoManager.hasPrivilege(
-                loggedInInfo, "_site_access_privacy", "r", null);
+        boolean siteAccessPrivacy = SiteChoice.isSiteAccessRestricted(securityInfoManager, loggedInInfo);
         boolean teamAccessPrivacy = securityInfoManager.hasPrivilege(
                 loggedInInfo, "_team_access_privacy", "r", null);
 

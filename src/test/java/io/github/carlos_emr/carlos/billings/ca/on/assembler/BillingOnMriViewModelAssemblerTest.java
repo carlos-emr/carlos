@@ -15,6 +15,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingDataLoadExcepti
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnLookupService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewLoader;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnMriViewModel;
+import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import io.github.carlos_emr.carlos.commn.dao.ProviderBillCenterDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -282,7 +283,10 @@ class BillingOnMriViewModelAssemblerTest {
                 .thenReturn(true);
         when(providerDataDao.findByProviderTeam("999998")).thenReturn(List.of());
 
-        assembler().assemble(requestForYear("2026"), loggedInInfo);
+        try (var settings = org.mockito.Mockito.mockStatic(IsPropertiesOn.class)) {
+            settings.when(IsPropertiesOn::isMultisitesEnable).thenReturn(true);
+            assembler().assemble(requestForYear("2026"), loggedInInfo);
+        }
 
         org.mockito.Mockito.verify(providerDataDao).findByProviderTeam("999998");
         org.mockito.Mockito.verify(providerDataDao, org.mockito.Mockito.never()).findByProviderSite(anyString());

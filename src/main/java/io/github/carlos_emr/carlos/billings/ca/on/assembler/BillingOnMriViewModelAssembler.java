@@ -50,6 +50,7 @@ import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderBillCenter;
 import io.github.carlos_emr.carlos.commn.model.ProviderData;
+import io.github.carlos_emr.carlos.commn.SiteChoice;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
@@ -125,7 +126,7 @@ public class BillingOnMriViewModelAssembler {
                 ? "" : loggedInInfo.getLoggedInProviderNo();
 
         boolean isTeamBillingOnly = hasPrivilege(loggedInInfo, "_team_billing_only");
-        boolean isSiteAccessPrivacy = hasPrivilege(loggedInInfo, "_site_access_privacy");
+        boolean isSiteAccessPrivacy = SiteChoice.isSiteAccessRestricted(securityInfoManager, loggedInInfo);
         boolean isTeamAccessPrivacy = hasPrivilege(loggedInInfo, "_team_access_privacy");
 
         GregorianCalendar now = new GregorianCalendar();

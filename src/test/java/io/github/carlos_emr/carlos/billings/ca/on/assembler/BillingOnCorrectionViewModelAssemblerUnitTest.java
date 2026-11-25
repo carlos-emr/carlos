@@ -26,6 +26,7 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnCorrectionViewModel;
+import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao;
@@ -158,7 +159,11 @@ class BillingOnCorrectionViewModelAssemblerUnitTest extends CarlosUnitTestBase {
         teamProvider.setProviderNo("777777");
         when(providerDao.getBillableProvidersOnTeam(userProvider)).thenReturn(List.of(teamProvider));
 
-        BillingOnCorrectionViewModel m = assembler.assemble(request, loggedInInfo);
+        BillingOnCorrectionViewModel m;
+        try (var settings = Mockito.mockStatic(IsPropertiesOn.class)) {
+            settings.when(IsPropertiesOn::isMultisitesEnable).thenReturn(true);
+            m = assembler.assemble(request, loggedInInfo);
+        }
 
         assertThat(m.getUserProviderNo()).isEqualTo("999998");
         assertThat(m.getUserFirstName()).isEqualTo("doctor");
@@ -301,7 +306,11 @@ class BillingOnCorrectionViewModelAssemblerUnitTest extends CarlosUnitTestBase {
         request.setParameter("billing_no", "12345");
         when(bCh1Dao.findWithItems(Integer.valueOf(12345))).thenReturn(bCh1);
 
-        BillingOnCorrectionViewModel m = assembler.assemble(request, loggedInInfo);
+        BillingOnCorrectionViewModel m;
+        try (var settings = Mockito.mockStatic(IsPropertiesOn.class)) {
+            settings.when(IsPropertiesOn::isMultisitesEnable).thenReturn(true);
+            m = assembler.assemble(request, loggedInInfo);
+        }
 
         assertThat(m.isBillLoaded()).isTrue();
         assertThat(m.isMultiSiteProvider()).isFalse();

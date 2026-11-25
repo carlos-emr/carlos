@@ -53,6 +53,7 @@ import io.github.carlos_emr.carlos.commn.model.ProviderSite;
 import io.github.carlos_emr.carlos.commn.model.RaDetail;
 import io.github.carlos_emr.carlos.commn.model.Site;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
+import io.github.carlos_emr.carlos.commn.SiteChoice;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -133,8 +134,7 @@ public class BillingOnCorrectionViewModelAssembler {
 
         Provider userProvider = providerNo.isEmpty() ? null : providerDao.getProvider(providerNo);
 
-        boolean siteAccessPrivacy = loggedInInfo != null
-                && securityInfoManager.hasPrivilege(loggedInInfo, "_site_access_privacy", "r", null);
+        boolean siteAccessPrivacy = SiteChoice.isSiteAccessRestricted(securityInfoManager, loggedInInfo);
         boolean teamAccessPrivacy = loggedInInfo != null
                 && securityInfoManager.hasPrivilege(loggedInInfo, "_team_access_privacy", "r", null);
         boolean teamBillingOnly = loggedInInfo != null
