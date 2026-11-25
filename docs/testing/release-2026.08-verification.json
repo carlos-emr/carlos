@@ -10413,7 +10413,7 @@
       ]
     },
     "src/main/java/io/github/carlos_emr/RscheduleBean.java": {
-      "reason": "Date overrides use the submitted provider’s rule snapshot. Opening another provider’s calendar cannot substitute its hours or reclaim its stale cache.",
+      "reason": "A date override uses the selected provider’s rule snapshot. Tomcat session persistence must preserve the rule and restore its independent lock so the next edit can update it.",
       "tests": [
         "src/test/java/io/github/carlos_emr/carlos/schedule/web/Schedule2ActionsTest.java",
         "src/test/java/io/github/carlos_emr/carlos/schedule/web/ScheduleCalendarCacheUnitTest.java",
@@ -10444,7 +10444,7 @@
       ]
     },
     "src/main/java/io/github/carlos_emr/carlos/schedule/web/ScheduleCalendarCache.java": {
-      "reason": "Date overrides use the submitted provider’s rule snapshot. Opening another provider’s calendar cannot substitute its hours or reclaim its stale cache.",
+      "reason": "Date overrides use the submitted provider’s rule and calendar. A restored Tomcat session retains the open period, and changes to a populated day notify the session manager so it can replicate the edit.",
       "tests": [
         "src/test/java/io/github/carlos_emr/carlos/schedule/web/Schedule2ActionsTest.java",
         "src/test/java/io/github/carlos_emr/carlos/schedule/web/ScheduleCalendarCacheUnitTest.java",
@@ -11647,6 +11647,20 @@
       "workstreams": [
         "T23",
         "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/HScheduleDate.java": {
+      "reason": "Tomcat must be able to persist and restore a populated calendar. Its day entries retain the expected hours and can be changed after the session is activated.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/schedule/web/ScheduleCalendarCacheUnitTest.java",
+        "scripts/schedule-template-day-sheet-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T09"
       ]
     }
   },
