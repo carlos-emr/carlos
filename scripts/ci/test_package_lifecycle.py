@@ -281,6 +281,34 @@ class PackageLifecycleTest(unittest.TestCase):
                 row['sha256'] = gate.digest(path)
             self.validate(root, source, document)
 
+    def test_dependency_probe_uses_the_shipped_floor_and_each_installed_cli(self):
+        import importlib.util
+        from lifecycle_baselines import CANDIDATE_CLI_FLOOR
+        spec = importlib.util.spec_from_file_location('lifecycle_dependency', Path(__file__).with_name('run-package-lifecycle-cell.py'))
+        cell = importlib.util.module_from_spec(spec); spec.loader.exec_module(cell)
+        dependency = f'carlos-ctl (>= {CANDIDATE_CLI_FLOOR})'
+        self.assertIn('\n ' + dependency + ',\n', (gate.ROOT / 'debian/control').read_text())
+        packages = {name: {'path': '/' + name + '.deb'} for name in ('emr', 'ctl', 'drugref')}
+        for role, version, below_floor in [('clean', '1.3.6', False), ('previous', '1.3.5', False),
+                                          ('main', '1.3.1', True), ('historical', '1.3.0', True)]:
+            with self.subTest(role=role), tempfile.TemporaryDirectory() as directory, \
+                    patch.object(cell, 'OUTPUT', Path(directory)), \
+                    patch.object(cell.subprocess, 'check_output', side_effect=['nginx, ' + dependency, version, version + '\n']), \
+                    patch.object(cell.state, 'clinical_state', return_value={}), patch.object(cell.state, 'stored_files', return_value={}), \
+                    patch.object(cell.state, 'encryption_key', return_value='key'):
+                def apt_probe(command, name, **_options):
+                    self.assertEqual(command[:3], ['apt-get', '-s', 'install'])
+                    if name == 'older-cli-refusal':
+                        (Path(directory) / (name + '.log')).write_text(f'Depends: {dependency} but {version} is to be installed\n')
+                        return 100
+                    self.assertEqual(command[-1], packages['ctl']['path'])
+                    return 0
+                with patch.object(cell, 'run', side_effect=apt_probe) as apt:
+                    result = cell.dependency_contract({'role': role, 'target': packages, 'baseline': packages})
+                self.assertEqual(result['installedCli'], version)
+                self.assertEqual(apt.call_count, 2 if below_floor else 0)
+                self.assertEqual(result.get('statePreserved', False), below_floor)
+
     def test_green_cell_without_same_source_province_war_or_cleanup_cannot_qualify(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary); source, document = self.fixture(root)
