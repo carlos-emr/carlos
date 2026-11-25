@@ -29,7 +29,7 @@ class BISUnitTest {
         var login = mock(LoggedInInfo.class);
         String form = includeForms ? "synthetic" : null;
         try (var resources = mockStatic(OscarFhirResourceManager.class);
-             var configuration = mockConstruction(OscarFhirConfigurationManager.class);
+             var _ = mockConstruction(OscarFhirConfigurationManager.class);
              var builders = mockConstruction(FhirCommunicationBuilder.class)) {
             resources.when(() -> OscarFhirResourceManager.getPatientByDemographicNumber(any(), eq(1)))
                     .thenReturn(patient);

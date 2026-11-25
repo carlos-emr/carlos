@@ -67,7 +67,7 @@ class MeasurementTypesSnapshotUnitTest {
     private MeasurementTypes initial() {
         MeasurementTypeDao dao = mock(MeasurementTypeDao.class);
         when(dao.findAll()).thenReturn(List.of(type(101, "OLD")));
-        try (var ignored = beans(dao)) { return MeasurementTypes.getInstance(); }
+        try (var _ = beans(dao)) { return MeasurementTypes.getInstance(); }
     }
 
     @Test
@@ -85,7 +85,7 @@ class MeasurementTypesSnapshotUnitTest {
             return List.of(type(202, "NEW"));
         });
         try (var worker = Executors.newSingleThreadExecutor()) {
-            var reloaded = worker.submit(() -> { try (var ignored = beans(replacement)) { catalog.reInit(); } });
+            var reloaded = worker.submit(() -> { try (var _ = beans(replacement)) { catalog.reInit(); } });
             try {
                 assertThat(loading.await(5, TimeUnit.SECONDS)).isTrue();
                 assertThat(catalog.getByType("OLD")).isSameAs(old);
@@ -111,7 +111,7 @@ class MeasurementTypesSnapshotUnitTest {
             return List.of(type(202, "NEW"));
         });
         try (var reloader = Executors.newSingleThreadExecutor(); var reader = Executors.newSingleThreadExecutor()) {
-            var reloaded = reloader.submit(() -> { try (var ignored = beans(replacement)) { catalog.reInit(); } });
+            var reloaded = reloader.submit(() -> { try (var _ = beans(replacement)) { catalog.reInit(); } });
             try {
                 assertThat(loading.await(5, TimeUnit.SECONDS)).isTrue();
                 // A reader fetching the singleton must not queue behind the paused database read.
@@ -130,7 +130,7 @@ class MeasurementTypesSnapshotUnitTest {
         var old = catalog.getByType("OLD");
         MeasurementTypeDao failed = mock(MeasurementTypeDao.class);
         when(failed.findAll()).thenThrow(new IllegalStateException("FAKE database unavailable"));
-        try (var ignored = beans(failed)) { catalog.reInit(); }
+        try (var _ = beans(failed)) { catalog.reInit(); }
         assertThat(catalog.getByType("OLD")).isSameAs(old);
         assertThat(catalog.getById("101")).isSameAs(old);
     }
