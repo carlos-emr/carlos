@@ -49,9 +49,9 @@ New patient measurements use `POST /ws/services/measurements/{demographicNo}/new
 with a measurement `type` and `dataField`, plus optional comments, instructions,
 and observation timestamp. This records a separate reading and does not edit a
 previous measurement, preserving CARLOS EMR's measurement immutability and audit
-history. `dataField` is limited to 255 characters, further limited by the
-type's configured validation rule; `comments` and `measuringInstruction` are
-also limited to 255.
+history. `dataField` may be free text of up to 4,000 characters (for example an
+OCR'd ECG or echocardiogram report), further limited by the type's configured
+validation rule; `comments` and `measuringInstruction` are limited to 255.
 The type must be a configured measurement type. `measuringInstruction` may be
 left out only when the type is configured with one instruction; for a type such
 as BP or WT, configured per site with several, send the exact configured

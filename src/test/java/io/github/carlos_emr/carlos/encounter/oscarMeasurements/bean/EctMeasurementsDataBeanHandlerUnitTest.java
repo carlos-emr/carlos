@@ -23,6 +23,7 @@
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean;
 
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
+import io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao;
 import io.github.carlos_emr.carlos.commn.dao.ValidationsDao;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
@@ -79,6 +80,95 @@ class EctMeasurementsDataBeanHandlerUnitTest extends CarlosUnitTestBase {
         registerMock(MeasurementDao.class, measurementDao);
         extensions = mock(MeasurementsExtDao.class);
         registerMock(MeasurementsExtDao.class, extensions);
+        // Consulted when a type is missing from the cached catalog; empty unless a test adds one.
+        measurementTypeDao = mock(MeasurementTypeDao.class);
+        registerMock(MeasurementTypeDao.class, measurementTypeDao);
+    }
+
+    private MeasurementTypeDao measurementTypeDao;
+
+    /** A clinic text type, e.g. OCR'd ECG reports, with the given rule id ("" for none). */
+    private static MeasurementType textType(int id, String validation) {
+        MeasurementType type = new MeasurementType();
+        ReflectionTestUtils.setField(type, "id", id);
+        type.setType("ECGT");
+        type.setTypeDisplayName("ECG Report");
+        type.setTypeDescription("ECG report text");
+        type.setValidation(validation);
+        return type;
+    }
+
+    private static Measurement ecgReading(int id, Date observed, Date entered) {
+        Measurement m = new Measurement();
+        ReflectionTestUtils.setField(m, "id", id);
+        m.setDemographicId(3);
+        m.setType("ECGT");
+        m.setDataField("FAKE sinus rhythm, rate " + id + " bpm");
+        m.setDateObserved(observed);
+        m.setCreateDate(entered);
+        return m;
+    }
+
+    @Test
+    @DisplayName("should list a type's readings newest first when its rule names no validations row")
+    void shouldListReadingsNewestFirst_whenTypeRuleIsMissing() {
+        MeasurementTypes catalog = mock(MeasurementTypes.class);
+        EctMeasurementTypesBean type = mock(EctMeasurementTypesBean.class);
+        when(catalog.getByType("ECGT")).thenReturn(type);
+        when(type.getTypeDisplayName()).thenReturn("ECG Report");
+        when(type.getValidation()).thenReturn("");
+        ValidationsDao validationsDao = mock(ValidationsDao.class);
+        registerMock(ValidationsDao.class, validationsDao);
+        registerMock(ProviderDao.class, mock(ProviderDao.class));
+        Measurement older = ecgReading(1, new Date(1_000), new Date(1_000));
+        Measurement newer = ecgReading(2, new Date(5_000), new Date(5_000));
+        Measurement undated = ecgReading(3, null, new Date(9_000));
+        when(measurementDao.findByType(3, "ECGT")).thenReturn(List.of(older, undated, newer));
+
+        try (var catalogAccess = mockStatic(MeasurementTypes.class)) {
+            catalogAccess.when(MeasurementTypes::getInstance).thenReturn(catalog);
+            var readings = new EctMeasurementsDataBeanHandler(3, "ECGT", false).getMeasurementsDataVector();
+
+            assertThat(readings).extracting(EctMeasurementsDataBean::getId).containsExactly(2, 1, 3);
+            assertThat(readings).extracting(EctMeasurementsDataBean::getTypeDisplayName).containsOnly("ECG Report");
+            // No rule, so nothing to plot.
+            assertThat(readings).extracting(EctMeasurementsDataBean::getCanPlot).containsOnlyNulls();
+        }
+    }
+
+    @Test
+    @DisplayName("should find a type added since the catalog was cached")
+    void shouldFindType_whenMissingFromCachedCatalog() {
+        MeasurementTypes catalog = mock(MeasurementTypes.class);
+        ValidationsDao validationsDao = mock(ValidationsDao.class);
+        registerMock(ValidationsDao.class, validationsDao);
+        registerMock(ProviderDao.class, mock(ProviderDao.class));
+        Validations noValidations = new Validations();
+        noValidations.setName("No Validations");
+        // An older definition first: the newest one (highest id) names the type, as the chart's list does.
+        when(measurementTypeDao.findByType("ECGT")).thenReturn(List.of(textType(40, "7"), textType(41, "11")));
+        Measurement reading = ecgReading(5, new Date(0), new Date(0));
+        when(validationsDao.findValidationsBy(3, "ECGT", 11))
+                .thenReturn(Collections.singletonList(new Object[] {noValidations, reading}));
+
+        try (var catalogAccess = mockStatic(MeasurementTypes.class)) {
+            catalogAccess.when(MeasurementTypes::getInstance).thenReturn(catalog);
+            var readings = new EctMeasurementsDataBeanHandler(3, "ECGT", false).getMeasurementsDataVector();
+
+            assertThat(readings).extracting(EctMeasurementsDataBean::getId).containsExactly(5);
+            assertThat(readings).extracting(EctMeasurementsDataBean::getTypeDisplayName).containsExactly("ECG Report");
+        }
+    }
+
+    @Test
+    @DisplayName("should list nothing when the type does not exist")
+    void shouldListNothing_whenTypeDoesNotExist() {
+        MeasurementTypes catalog = mock(MeasurementTypes.class);
+        try (var catalogAccess = mockStatic(MeasurementTypes.class)) {
+            catalogAccess.when(MeasurementTypes::getInstance).thenReturn(catalog);
+            assertThat(new EctMeasurementsDataBeanHandler(3, "NOPE", false).getMeasurementsDataVector()).isEmpty();
+            verifyNoInteractions(measurementDao);
+        }
     }
 
     private static Object[] row(String comments, Date observed) {

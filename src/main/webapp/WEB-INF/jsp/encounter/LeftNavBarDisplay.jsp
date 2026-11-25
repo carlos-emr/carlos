@@ -408,7 +408,8 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
                 }
 
                 if (item.getValue() != null && !item.getValue().trim().equals("")) {
-                    out.println(item.getValue());
+                    // Only the Measurements box sets a value: the patient's stored reading, as text.
+                    out.println(SafeEncode.forHtmlContent(item.getValue()));
                 }
                 out.println(DateUtils.getDate(item.getDate(), dateFormat, request.getLocale()));
                 out.println("</a>");

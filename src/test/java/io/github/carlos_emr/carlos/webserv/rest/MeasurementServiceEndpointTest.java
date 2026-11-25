@@ -504,7 +504,7 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
         }
 
         static Stream<Arguments> malformedMeasurementBodies() {
-            String tooLong = "x".repeat(Measurement.DATA_FIELD_MAX_LENGTH + 1);
+            String tooLong = "x".repeat(MeasurementService.API_DATA_FIELD_MAX_LENGTH + 1);
             return Stream.of(
                 Arguments.of("empty object", "{}"),
                 Arguments.of("blank type", "{\"type\":\"  \",\"dataField\":\"1\"}"),
@@ -512,7 +512,7 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
                     "{\"type\":\"" + "T".repeat(51) + "\",\"dataField\":\"1\"}"),
                 Arguments.of("non-text type", "{\"type\":5,\"dataField\":\"1\"}"),
                 Arguments.of("blank dataField", "{\"type\":\"BP\",\"dataField\":\" \"}"),
-                Arguments.of("dataField longer than the column",
+                Arguments.of("dataField longer than the API ceiling",
                     "{\"type\":\"BP\",\"dataField\":\"" + tooLong + "\"}"),
                 Arguments.of("non-text dataField", "{\"type\":\"BP\",\"dataField\":120}"),
                 Arguments.of("null type", "{\"type\":null,\"dataField\":\"1\"}"),
@@ -588,6 +588,51 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
             assertThat(response.getStatus()).as(description).isEqualTo(400);
             assertThat(responseJson(response).at("/code").textValue()).isEqualTo("DATE_OBSERVED_IN_FUTURE");
             verifyNoInteractions(mockSecurityInfoManager, mockMeasurementTypeDao, mockMeasurementManager);
+        }
+
+        /** A clinic text type for OCR'd ECG reports; validation "11" is the seeded "No Validations" rule. */
+        private void configureEcgTextType(Integer maxLength) {
+            configureType("ECGT", "", "11");
+            Validations rule = new Validations();
+            rule.setName("No Validations");
+            rule.setMaxLength(maxLength);
+            when(mockValidationsDao.find(11)).thenReturn(rule);
+        }
+
+        private static String ecgReport(int length) {
+            String text = "FAKE sinus rhythm, rate 72 bpm.\nNo acute ST changes. ";
+            return text.repeat(length / text.length() + 1).substring(0, length);
+        }
+
+        @ParameterizedTest(name = "{0} characters")
+        @ValueSource(ints = {256, 511, MeasurementService.API_DATA_FIELD_MAX_LENGTH})
+        @DisplayName("should record a free-text report longer than 255 characters up to the API ceiling")
+        void shouldRecordFreeTextReport_upToApiCeiling(int length) throws Exception {
+            allowWriteToExistingPatient();
+            configureEcgTextType(null);
+            when(mockMeasurementManager.addMeasurement(any(LoggedInInfo.class), any(Measurement.class)))
+                .thenAnswer(invocation -> invocation.getArgument(1));
+            String report = ecgReport(length);
+
+            Response response = postNew(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(
+                java.util.Map.of("type", "ECGT", "dataField", report)));
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            verify(mockMeasurementManager).addMeasurement(any(LoggedInInfo.class),
+                argThat(measurement -> report.equals(measurement.getDataField())));
+        }
+
+        @Test
+        @DisplayName("should refuse a report longer than its type's own maxLength rule")
+        void shouldRefuseReport_whenLongerThanTypeMaxLength() throws Exception {
+            allowWriteToExistingPatient();
+            configureEcgTextType(300);
+
+            Response response = postNew(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(
+                java.util.Map.of("type", "ECGT", "dataField", ecgReport(301))));
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            verifyNoInteractions(mockMeasurementManager);
         }
 
         @Test

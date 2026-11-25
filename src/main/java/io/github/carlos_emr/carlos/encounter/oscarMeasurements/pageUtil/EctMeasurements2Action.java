@@ -186,11 +186,14 @@ public class EctMeasurements2Action extends ActionSupport {
                 continue;
             }
 
+            // Every rule field is per row: a row whose type has no rule must not inherit the
+            // previous row's (e.g. a numeric rule refusing a free-text ECG report).
             regExp = null;
             dMax = Double.valueOf(0);
             dMin = Double.valueOf(0);
             iMax = 0;
             iMin = 0;
+            numeric = null;
 
             vs = ectValidation.getValidationType(inputType, mInstrc);
             regCharExp = ectValidation.getRegCharacterExp();

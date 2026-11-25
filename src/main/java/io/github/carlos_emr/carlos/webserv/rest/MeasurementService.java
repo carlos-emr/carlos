@@ -257,9 +257,18 @@ public class MeasurementService extends AbstractServiceImpl {
     }
 
     /**
+     * The longest {@code dataField} the API accepts, in characters, whatever the type's rule says.
+     * {@code measurements.dataField} is MEDIUMTEXT, so this is a sanity ceiling rather than a column
+     * limit: it fits a free-text result such as an OCR'd ECG, echocardiogram, Holter or stress-test
+     * report, and refuses a pasted document. A type's own {@code maxLength} rule still applies
+     * beneath it.
+     */
+    static final int API_DATA_FIELD_MAX_LENGTH = 4_000;
+
+    /**
      * Records a new measurement for a patient without changing any existing measurement.
      *
-     * <p>{@code dataField} may be up to {@link Measurement#DATA_FIELD_MAX_LENGTH} characters, further
+     * <p>{@code dataField} may be up to {@link #API_DATA_FIELD_MAX_LENGTH} characters, further
      * limited by the type's configured validation rule; {@code comments} and
      * {@code measuringInstruction} are limited to 255, the width of their columns.</p>
      *
@@ -348,7 +357,7 @@ public class MeasurementService extends AbstractServiceImpl {
         if (!isNonBlankText(json, FIELD_TYPE, TYPE_MAX_LENGTH)) {
             throw badRequest("INVALID_TYPE", "A valid measurement type is required");
         }
-        if (!isNonBlankText(json, FIELD_DATA, Measurement.DATA_FIELD_MAX_LENGTH)) {
+        if (!isNonBlankText(json, FIELD_DATA, API_DATA_FIELD_MAX_LENGTH)) {
             throw badRequest("INVALID_VALUE", "A valid measurement dataField is required");
         }
     }

@@ -41,6 +41,7 @@ import java.util.Map;
 import java.util.Vector;
 
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
+import io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao;
 import io.github.carlos_emr.carlos.commn.dao.ValidationsDao;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
@@ -95,27 +96,38 @@ public class EctMeasurementsDataBeanHandler {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private boolean init(Integer demo, String type, boolean loadSourceLabs) {
-        MeasurementTypes mt = MeasurementTypes.getInstance();
-        EctMeasurementTypesBean mBean = mt.getByType(type);
-        if (mBean != null) {
+        TypeLabels labels = typeLabels(type);
+        if (labels != null) {
             ValidationsDao dao = SpringUtils.getBean(ValidationsDao.class);
             ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
             Provider provider = null;
 
-            for (Object[] o : dao.findValidationsBy(demo, type, ConversionUtils.fromIntString(mBean.getValidation()))) {
-                Validations v = (Validations) o[0];
-                Measurement m = (Measurement) o[1];
+            Integer validationId = ConversionUtils.fromIntString(labels.validation());
+            Validations rule = null;
+            List<Measurement> readings = new ArrayList<>();
+            for (Object[] o : dao.findValidationsBy(demo, type, validationId)) {
+                rule = (Validations) o[0];
+                readings.add((Measurement) o[1]);
+            }
+            // That query joins the type's rule, so it finds nothing for a type whose rule is blank
+            // or names no validations row, such as a clinic's own text type for OCR'd ECG reports.
+            // Such a type still has readings: list them, just without a graph.
+            if (readings.isEmpty() && dao.find(validationId) == null) {
+                readings.addAll(SpringUtils.getBean(MeasurementDao.class).findByType(demo, type));
+                readings.sort(NEWEST_FIRST);
+            }
+
+            String canPlot = null;
+            if (rule != null && ((rule.isNumeric() != null && rule.isNumeric())
+                    || "Blood Pressure".equalsIgnoreCase(rule.getName()))) {
+                canPlot = "true";
+            }
+
+            for (Measurement m : readings) {
                 provider = providerDao.getProvider(m.getProviderNo());
 
-                String canPlot = null;
                 String firstName = null;
                 String lastName = null;
-
-                boolean isNumeric = v.isNumeric() != null && v.isNumeric();
-                if (isNumeric || v.getName().equalsIgnoreCase("Blood Pressure"))
-                    canPlot = "true";
-                else
-                    canPlot = null;
 
                 if (provider != null) {
                     firstName = provider.getFirstName();
@@ -130,8 +142,8 @@ public class EctMeasurementsDataBeanHandler {
                 EctMeasurementsDataBean data = new EctMeasurementsDataBean(
                         m.getId().intValue(),
                         m.getType(),
-                        mBean.getTypeDisplayName(),
-                        mBean.getTypeDesc(),
+                        labels.displayName(),
+                        labels.description(),
                         "" + m.getDemographicId(),
                         firstName, lastName,
                         m.getDataField(),
@@ -151,6 +163,40 @@ public class EctMeasurementsDataBeanHandler {
             }
         }
         return true;
+    }
+
+    /** Newest first, as the validations query orders them: observed date, then entered date; nulls last. */
+    private static final Comparator<Measurement> NEWEST_FIRST = Comparator
+            .comparing(Measurement::getDateObserved, Comparator.nullsFirst(Comparator.<java.util.Date>naturalOrder()))
+            .thenComparing(Measurement::getCreateDate, Comparator.nullsFirst(Comparator.<java.util.Date>naturalOrder()))
+            .reversed();
+
+    /** The names and rule id a history shows for a measurement type. */
+    private record TypeLabels(String displayName, String description, String validation) {
+    }
+
+    /**
+     * The type from the cached catalog, or from the database when the catalog has not been
+     * reloaded since the type was added (for example by SQL). Null when no such type exists.
+     */
+    private static TypeLabels typeLabels(String type) {
+        EctMeasurementTypesBean cached = MeasurementTypes.getInstance().getByType(type);
+        if (cached != null) {
+            return new TypeLabels(cached.getTypeDisplayName(), cached.getTypeDesc(), cached.getValidation());
+        }
+        if (type == null || type.isBlank()) {
+            return null;
+        }
+        // The newest definition, as the patient's type list (findMeasurementsTypes) picks it.
+        MeasurementType stored = null;
+        for (MeasurementType candidate : SpringUtils.getBean(MeasurementTypeDao.class).findByType(type)) {
+            if (stored == null || (candidate.getId() != null && stored.getId() != null
+                    && candidate.getId() > stored.getId())) {
+                stored = candidate;
+            }
+        }
+        return stored == null ? null
+                : new TypeLabels(stored.getTypeDisplayName(), stored.getTypeDescription(), stored.getValidation());
     }
 
     public Collection<EctMeasurementsDataBean> getMeasurementsDataVector() {
