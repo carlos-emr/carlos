@@ -70,16 +70,15 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleDate" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleDateDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.RSchedule" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.RScheduleDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleHoliday" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ScheduleHolidayDao" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@page import="io.github.carlos_emr.carlos.schedule.web.ScheduleCalendarCache" %>
+<%@page import="io.github.carlos_emr.carlos.schedule.service.ScheduleTemplateService" %>
 <%@page import="io.github.carlos_emr.carlos.utility.RefusalNotice" %>
 <%
     ScheduleDateDao scheduleDateDao = SpringUtils.getBean(ScheduleDateDao.class);
-    RScheduleDao rScheduleDao = (RScheduleDao) SpringUtils.getBean(RScheduleDao.class);
     ScheduleHolidayDao scheduleHolidayDao = SpringUtils.getBean(ScheduleHolidayDao.class);
 %>
 <%
@@ -142,36 +141,7 @@
         else
             origEdate = MyDateFormat.getMysqlStandardDate(Integer.parseInt(request.getParameter("origeyear")), Integer.parseInt(request.getParameter("origemonth")), Integer.parseInt(request.getParameter("origeday")));
 
-        int rowsAffected = 0;
-        if (sdate.equals(scheduleRscheduleBean.sdate)) {
-            List<RSchedule> rsl = rScheduleDao.findByProviderAvailableAndDate(request.getParameter("provider_no"), "1", MyDateFormat.getSysDate(sdate));
-            for (RSchedule rs : rsl) {
-                rs.setStatus("D");
-                rScheduleDao.merge(rs);
-            }
-            rsl = rScheduleDao.findByProviderAvailableAndDate(request.getParameter("provider_no"), "A", MyDateFormat.getSysDate(sdate));
-            for (RSchedule rs : rsl) {
-                rs.setStatus("D");
-                rScheduleDao.merge(rs);
-            }
-        }
-
-
-        Long overLapResult = rScheduleDao.search_rschedule_overlaps(request.getParameter("provider_no"), ConversionUtils.fromDateString(sdate), ConversionUtils.fromDateString(edate),
-                ConversionUtils.fromDateString(sdate), ConversionUtils.fromDateString(edate), ConversionUtils.fromDateString(sdate), ConversionUtils.fromDateString(edate),
-                ConversionUtils.fromDateString(sdate), ConversionUtils.fromDateString(edate), ConversionUtils.fromDateString(sdate), ConversionUtils.fromDateString(edate),
-                ConversionUtils.fromDateString(sdate), ConversionUtils.fromDateString(edate), ConversionUtils.fromDateString(sdate), ConversionUtils.fromDateString(edate));
-
-
-        scheduleOverlaps = overLapResult > 0;
-
-
-        //if the schedule is the same we are editing instead
-
-        Long existsResult = rScheduleDao.search_rschedule_exists(request.getParameter("provider_no"), ConversionUtils.fromDateString(sdate), ConversionUtils.fromDateString(edate));
-        boolean editingSchedule = false;
-        editingSchedule = existsResult > 0;
-
+        boolean replaceSameStart = sdate.equals(scheduleRscheduleBean.sdate);
 
         //save rschedule data
         if (bAlternate)
@@ -179,32 +149,16 @@
         else
             scheduleRscheduleBean.setRscheduleBean(provider_no, sdate, edate, request.getParameter("available"), request.getParameter("day_of_week"), request.getParameter("avail_hourB"), request.getParameter("avail_hour"), user_name);
 
-        if (editingSchedule) {
-            List<RSchedule> rsl = rScheduleDao.findByProviderAvailableAndDate(scheduleRscheduleBean.provider_no, scheduleRscheduleBean.available, MyDateFormat.getSysDate(scheduleRscheduleBean.sdate));
-            for (RSchedule rs : rsl) {
-                rs.setDayOfWeek(scheduleRscheduleBean.day_of_week);
-                rs.setAvailHourB(scheduleRscheduleBean.avail_hourB);
-                rs.setAvailHour(scheduleRscheduleBean.avail_hour);
-                rs.setCreator(scheduleRscheduleBean.creator);
-                rs.setStatus(scheduleRscheduleBean.active);
-                rScheduleDao.merge(rs);
-            }
-        } else {
-            RSchedule rs = new RSchedule();
-            rs.setProviderNo(scheduleRscheduleBean.provider_no);
-            rs.setsDate(MyDateFormat.getSysDate(scheduleRscheduleBean.sdate));
-            rs.seteDate(MyDateFormat.getSysDate(scheduleRscheduleBean.edate));
-            rs.setAvailable(scheduleRscheduleBean.available);
-            rs.setDayOfWeek(scheduleRscheduleBean.day_of_week);
-            rs.setAvailHourB(scheduleRscheduleBean.avail_hourB);
-            rs.setAvailHour(scheduleRscheduleBean.avail_hour);
-            rs.setCreator(scheduleRscheduleBean.creator);
-            rs.setStatus(scheduleRscheduleBean.active);
-            rScheduleDao.persist(rs);
-        }
-
-        // Keep this request's custom days when regenerating and drawing the provider's schedule.
-        scheduleDateBean = ScheduleCalendarCache.openMonth(session, scheduleRscheduleBean, scheduleDateDao);
+        RSchedule submittedRule = new RSchedule();
+        submittedRule.setProviderNo(provider_no);
+        submittedRule.setsDate(MyDateFormat.getSysDate(sdate));
+        submittedRule.seteDate(MyDateFormat.getSysDate(edate));
+        submittedRule.setAvailable(scheduleRscheduleBean.available);
+        submittedRule.setDayOfWeek(scheduleRscheduleBean.day_of_week);
+        submittedRule.setAvailHourB(scheduleRscheduleBean.avail_hourB);
+        submittedRule.setAvailHour(scheduleRscheduleBean.avail_hour);
+        submittedRule.setCreator(user_name);
+        submittedRule.setStatus(scheduleRscheduleBean.active);
 
         //initial scheduleHolidayBean record
         if (scheduleHolidayBean.isEmpty()) {
@@ -218,20 +172,14 @@
         java.util.Date dnewEdate = df.parse(edate);
         java.util.Date dorigEdate = df.parse(origEdate);
 
-        List<ScheduleDate> sds = scheduleDateDao.findByProviderPriorityAndDateRange(provider_no, 'b', MyDateFormat.getSysDate(sdate), MyDateFormat.getSysDate(dnewEdate.before(dorigEdate) ? origEdate : edate));
-        for (ScheduleDate sd : sds) {
-            sd.setStatus('D');
-            scheduleDateDao.merge(sd);
-        }
-
-        String[] param3 = new String[8];
+        List<ScheduleDate> ruleDays = new ArrayList<>();
         GregorianCalendar cal = new GregorianCalendar(y, m - 1, d);
 //  GregorianCalendar cal = new GregorianCalendar(year,month-1,1);
         for (int i = 0; i < 365 * yearLimit; i++) {
             y = cal.get(Calendar.YEAR);
             m = cal.get(Calendar.MONTH) + 1;
             d = cal.get(Calendar.DATE);
-            if (scheduleDateBean.get(y + "-" + MyDateFormat.getDigitalXX(m) + "-" + MyDateFormat.getDigitalXX(d)) == null && scheduleRscheduleBean.getDateAvail(cal)) {
+            if (scheduleRscheduleBean.getDateAvail(cal)) {
                 ScheduleDate sd = new ScheduleDate();
                 sd.setDate(MyDateFormat.getSysDate(y + "-" + m + "-" + d));
                 sd.setProviderNo(provider_no);
@@ -241,14 +189,22 @@
                 sd.setHour(scheduleRscheduleBean.getDateAvailHour(cal));
                 sd.setCreator(user_name);
                 sd.setStatus(scheduleRscheduleBean.active.toCharArray()[0]);
-                scheduleDateDao.persist(sd);
-
-
+                ruleDays.add(sd);
             }
             if ((y + "-" + MyDateFormat.getDigitalXX(m) + "-" + MyDateFormat.getDigitalXX(d)).equals(edate)) break;
             cal.add(Calendar.DATE, 1);
         }
-
+        // Apply the header and its days together, checking custom overrides under the provider lock.
+        ScheduleTemplateService templates = SpringUtils.getBean(ScheduleTemplateService.class);
+        ScheduleTemplateService.Result result = templates.apply(submittedRule, replaceSameStart,
+                MyDateFormat.getSysDate(dnewEdate.before(dorigEdate) ? origEdate : edate), ruleDays);
+        if (!result.providerFound()) {
+            RefusalNotice.send(request, response, jakarta.servlet.http.HttpServletResponse.SC_BAD_REQUEST,
+                    "error.refusal.scheduleDateIncomplete", "The schedule's provider does not exist.");
+            return;
+        }
+        scheduleOverlaps = result.overlaps();
+        scheduleDateBean = ScheduleCalendarCache.openMonth(session, scheduleRscheduleBean, scheduleDateDao);
     }
 %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
@@ -407,7 +363,7 @@
                                                 bgcolor = new StringBuffer("gold");
                                                 if (aHScheduleDate.available.equals("0"))
                                                     bgcolor = new StringBuffer("navy");
-                                                strHour = new StringBuffer(aHScheduleDate.hour);
+                                                strHour = new StringBuffer(aHScheduleDate.hour != null ? aHScheduleDate.hour : "");
                                                 strReason = new StringBuffer(aHScheduleDate.reason != null ? aHScheduleDate.reason : "");
                                             }
 

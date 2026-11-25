@@ -57,6 +57,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  */
 public final class ScheduleCalendarCache {
     private static final String RULE_SCHEDULE = "scheduleRscheduleBean";
+    private static final String OPEN_RULE = "scheduleCalendarRule";
 
     /** Session attribute of the JSP {@code scheduleDateBean}: {@code yyyy-MM-dd} to {@link HScheduleDate}. */
     static final String DAYS = "scheduleDateBean";
@@ -85,12 +86,24 @@ public final class ScheduleCalendarCache {
         return snapshot != null ? snapshot : rule.snapshotForProvider("");
     }
 
+    /** Publishes a completed editor selection without changing the rule displayed in the open month. */
+    public static boolean selectTemplate(HttpSession session, String providerNo, RscheduleBean rule) {
+        RscheduleBean selected = rule.snapshotForProvider(providerNo);
+        if (selected == null) return false;
+        synchronized (WebUtils.getSessionMutex(session)) {
+            session.setAttribute(RULE_SCHEDULE, selected);
+        }
+        return true;
+    }
+
     /** Publishes a completed request-local rule and returns its provider's own custom days. */
     public static Map<String, Object> openMonth(HttpSession session, RscheduleBean rule, ScheduleDateDao dao) {
         synchronized (WebUtils.getSessionMutex(session)) {
             String providerNo = rule.provider_no;
             load(session, providerNo, dao.search_scheduledate_c(providerNo));
-            session.setAttribute(RULE_SCHEDULE, rule.snapshotForProvider(providerNo));
+            RscheduleBean opened = rule.snapshotForProvider(providerNo);
+            session.setAttribute(RULE_SCHEDULE, opened);
+            session.setAttribute(OPEN_RULE, opened);
             return Map.copyOf(days(session));
         }
     }
@@ -111,7 +124,11 @@ public final class ScheduleCalendarCache {
             if (!isFor(session, providerNo) || !(session.getAttribute(RULE_SCHEDULE) instanceof RscheduleBean rule)) {
                 return null;
             }
-            return rule.snapshotForProvider(providerNo);
+            RscheduleBean selected = rule.snapshotForProvider(providerNo);
+            if (selected != null && session.getAttribute(OPEN_RULE) instanceof RscheduleBean opened) {
+                return opened.snapshotForProvider(providerNo);
+            }
+            return selected;
         }
     }
 

@@ -94,7 +94,7 @@ class ScheduleCalendarCacheUnitTest {
         var display = ScheduleCalendarCache.readMonth(session, PROVIDER, dao);
         assertThat(display.rule()).isNotSameAs(original);
 
-        // A template editor can change the session bean while the first request generates days.
+        // A session created before request-local template selection may still expose a mutable bean.
         ((RscheduleBean) session.getAttribute("scheduleRscheduleBean")).clear();
         assertThat(ScheduleCalendarCache.readMonth(session, PROVIDER, dao)).isNull();
         assertThat(original.getDateAvailHour("2032-02-29")).isEqualTo("0900");
@@ -131,6 +131,50 @@ class ScheduleCalendarCacheUnitTest {
         assertThat(current.rule().getDateAvailHour("2032-02-29")).isEqualTo("0800");
         assertThat(ScheduleCalendarCache.readMonth(session, PROVIDER, dao).days()).containsKeys("2032-02-29");
         verify(dao).search_scheduledate_c(PROVIDER);
+    }
+
+    @Test
+    void shouldPublishTheLastCompletedTemplateWithoutChangingTheMonthsDisplayedRule() {
+        var dao = mock(ScheduleDateDao.class);
+        var first = rule(PROVIDER, "<SUN>0800</SUN>");
+        var second = rule(OTHER_PROVIDER, "<SUN>1400</SUN>");
+        ScheduleCalendarCache.openMonth(session, first, dao);
+
+        var nextTemplate = rule(PROVIDER, "<SUN>1100</SUN>");
+        assertThat(ScheduleCalendarCache.selectTemplate(session, PROVIDER, nextTemplate)).isTrue();
+        assertThat(ScheduleCalendarCache.ruleForTemplate(session, PROVIDER).avail_hour).isEqualTo(nextTemplate.avail_hour);
+        assertThat(ScheduleCalendarCache.readMonth(session, PROVIDER, dao).rule().avail_hour).isEqualTo(first.avail_hour);
+        assertThat(ScheduleCalendarCache.openRule(session, PROVIDER).avail_hour).isEqualTo(first.avail_hour);
+
+        // Another editor started before Apply completed, then finished its own lookup.
+        ScheduleCalendarCache.openMonth(session, nextTemplate, dao);
+        assertThat(ScheduleCalendarCache.selectTemplate(session, OTHER_PROVIDER, second)).isTrue();
+        second.clear();
+        assertThat(ScheduleCalendarCache.ruleForTemplate(session, OTHER_PROVIDER).avail_hour).isEqualTo("<SUN>1400</SUN>");
+        assertThat(ScheduleCalendarCache.ruleForTemplate(session, PROVIDER)).isNull();
+        assertThat(ScheduleCalendarCache.readMonth(session, PROVIDER, dao)).isNull();
+
+        assertThat(ScheduleCalendarCache.selectTemplate(session, OTHER_PROVIDER, first)).isFalse();
+        assertThat(ScheduleCalendarCache.ruleForTemplate(session, OTHER_PROVIDER).avail_hour).isEqualTo("<SUN>1400</SUN>");
+    }
+
+    @Test
+    void shouldRetainTheSelectedProviderForANewTemplateAndReadAnExistingSessionAfterUpgrade() {
+        var dao = mock(ScheduleDateDao.class);
+        ScheduleCalendarCache.load(session, PROVIDER, List.of());
+        var oldRule = rule(PROVIDER, "<SUN>0900</SUN>");
+        session.setAttribute("scheduleRscheduleBean", oldRule);
+        assertThat(ScheduleCalendarCache.readMonth(session, PROVIDER, dao).rule().avail_hour).isEqualTo(oldRule.avail_hour);
+
+        var newTemplate = new RscheduleBean();
+        newTemplate.provider_no = OTHER_PROVIDER;
+        assertThat(ScheduleCalendarCache.selectTemplate(session, OTHER_PROVIDER, newTemplate)).isTrue();
+        assertThat(ScheduleCalendarCache.ruleForTemplate(session, OTHER_PROVIDER).sdate).isEmpty();
+        assertThat(ScheduleCalendarCache.ruleForTemplate(session, PROVIDER)).isNull();
+        assertThat(ScheduleCalendarCache.openRule(session, PROVIDER)).isNull();
+        var applied = rule(OTHER_PROVIDER, "<SUN>1000</SUN>");
+        ScheduleCalendarCache.openMonth(session, applied, dao);
+        assertThat(ScheduleCalendarCache.readMonth(session, OTHER_PROVIDER, dao).rule().avail_hour).isEqualTo(applied.avail_hour);
     }
 
     @Test

@@ -96,6 +96,18 @@ class ScheduleTemplateApplyingJspRegressionTest {
         assertThat(jsp).doesNotContain("<html lang=\"en\">");
     }
 
+    @Test
+    void shouldRenderItsOwnProviderAndPublishTheCompletedTemplateSelection() throws IOException {
+        String jsp = Files.readString(TEMPLATE_APPLYING_JSP, StandardCharsets.UTF_8);
+
+        assertThat(jsp).contains("RscheduleBean scheduleRscheduleBean = new RscheduleBean()",
+                "scheduleRscheduleBean.provider_no = reqProviderNo", "if (selectedRule != null)")
+                .doesNotContain("<jsp:useBean id=\"scheduleRscheduleBean\"", "scheduleRscheduleBean.clear()");
+        int selected = jsp.indexOf("ScheduleCalendarCache.selectTemplate(session, reqProviderNo, scheduleRscheduleBean)");
+        assertThat(selected).isGreaterThan(jsp.indexOf("scheduleRscheduleBean.setRscheduleBean("))
+                .isLessThan(jsp.indexOf("<head>"));
+    }
+
     private static Path projectRoot() {
         return Path.of(System.getProperty(
                 "maven.multiModuleProjectDirectory",

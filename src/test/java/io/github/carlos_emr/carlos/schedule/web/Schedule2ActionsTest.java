@@ -319,6 +319,18 @@ class Schedule2ActionsTest extends CarlosWebTestBase {
         }
 
         @Test
+        void shouldResolveTheOverrideServiceForANewlyConstructedPopupAction() throws Exception {
+            postedSave("Save");
+            addRequestParameter("available", "1");
+            replaceSpringUtilsBean(io.github.carlos_emr.carlos.schedule.service.ScheduleDateOverrideService.class,
+                    overrides);
+            ScheduleDateSave2Action action = inject(new ScheduleDateSave2Action());
+
+            assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+            verify(overrides).currentOverride("999998", java.sql.Date.valueOf("2031-05-14"));
+        }
+
+        @Test
         @DisplayName("should refuse, and keep the session cache, when the provider does not exist (#5297)")
         void shouldRefuseAndKeepCache_whenTheProviderDoesNotExist() throws Exception {
             ScheduleDateSave2Action action = postedSave("Save");

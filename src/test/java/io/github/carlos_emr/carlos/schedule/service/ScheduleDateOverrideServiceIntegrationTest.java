@@ -28,6 +28,7 @@ import java.util.concurrent.TimeoutException;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 
+import org.aopalliance.intercept.MethodInterceptor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -46,7 +47,9 @@ import org.springframework.transaction.interceptor.TransactionInterceptor;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import io.github.carlos_emr.carlos.commn.dao.ScheduleDateDao;
+import io.github.carlos_emr.carlos.commn.dao.RScheduleDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.commn.model.RSchedule;
 import io.github.carlos_emr.carlos.commn.model.ScheduleDate;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 
@@ -76,6 +79,8 @@ class ScheduleDateOverrideServiceIntegrationTest extends CarlosTestBase {
     @Autowired
     private ScheduleDateDao scheduleDateDao;
     @Autowired
+    private RScheduleDao rScheduleDao;
+    @Autowired
     private PlatformTransactionManager transactionManager;
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
@@ -100,6 +105,8 @@ class ScheduleDateOverrideServiceIntegrationTest extends CarlosTestBase {
     @AfterEach
     void removeOwnedRows() {
         transaction().executeWithoutResult(status -> {
+            entityManager.createQuery("delete from RSchedule r where r.providerNo = :provider")
+                    .setParameter("provider", PROVIDER).executeUpdate();
             for (ScheduleDate row : scheduleDateDao.findByProviderAndDateRange(PROVIDER, DATE, FOLLOWING)) {
                 scheduleDateDao.remove(row.getId());
             }
@@ -250,6 +257,88 @@ class ScheduleDateOverrideServiceIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    void shouldRefuseTheWholeTemplate_whenTheProviderNoLongerExists() {
+        String missing = "995298";
+        RSchedule submitted = header("New rule");
+        submitted.setProviderNo(missing);
+        ScheduleDate day = ruleDay("Would have been generated");
+        day.setProviderNo(missing);
+
+        var result = templates(rScheduleDao).apply(submitted, false, FORMER_END, List.of(day));
+
+        assertThat(result.providerFound()).isFalse();
+        assertThat(result.overlaps()).isFalse();
+        assertThat(transaction().execute(status -> rScheduleDao.findByProviderAvailableAndDate(missing, "1", DATE)).size()).isZero();
+        assertThat(transaction().execute(status -> scheduleDateDao.findByProviderAndDateRange(missing, DATE, FORMER_END)).size()).isZero();
+    }
+
+    @Test
+    void shouldRollBackBothRuleAndDates_whenTheFinalHeaderWriteFails() {
+        RSchedule original = header("Old rule");
+        assertThat(templates(rScheduleDao).apply(original, false, FORMER_END,
+                List.of(ruleDay("Original day"))).providerFound()).isTrue();
+        var failingHeader = new ProxyFactory(rScheduleDao);
+        failingHeader.addAdvice((MethodInterceptor) call -> {
+            Object value = call.proceed();
+            if ("persist".equals(call.getMethod().getName())) {
+                entityManager.flush();
+                throw new IllegalStateException("synthetic failure after the final header insert");
+            }
+            return value;
+        });
+        var templates = templates((RScheduleDao) failingHeader.getProxy());
+
+        assertThatThrownBy(() -> templates.apply(header("New rule"), true, FORMER_END, List.of(ruleDay("New day"))))
+                .isInstanceOf(IllegalStateException.class).hasMessage("synthetic failure after the final header insert");
+
+        List<RSchedule> rules = transaction().execute(status -> rScheduleDao.findByProviderAvailableAndDate(PROVIDER, "1", DATE));
+        assertThat(rules).singleElement().satisfies(rule -> {
+            assertThat(rule.getId()).isEqualTo(original.getId());
+            assertThat(rule.getStatus()).isEqualTo("A");
+            assertThat(rule.getAvailHour()).isEqualTo("Old rule");
+        });
+        List<ScheduleDate> rows = transaction().execute(status -> scheduleDateDao.findByProviderAndDateRange(PROVIDER, DATE, DATE));
+        assertThat(rows).singleElement().satisfies(day -> {
+            assertThat(day.getStatus()).isEqualTo('A');
+            assertThat(day.getReason()).isEqualTo("Original day");
+        });
+    }
+
+    @Test
+    void shouldPreserveSameStartReplacement_editsAndTheExistingOverlapWarning() {
+        var templates = templates(rScheduleDao);
+        RSchedule first = header("Initial hours");
+        var newRule = templates.apply(first, false, FORMER_END, List.of());
+        assertThat(newRule.providerFound()).isTrue();
+        assertThat(newRule.overlaps()).isFalse();
+        RSchedule edit = header("Edited hours");
+        edit.setAvailHourB("Alternate hours");
+        edit.setDayOfWeek("3 4");
+        edit.setCreator("Second editor");
+        assertThat(templates.apply(edit, false, FORMER_END, List.of()).providerFound()).isTrue();
+        RSchedule stored = transaction().execute(status -> rScheduleDao.find(first.getId()));
+        assertThat(stored.getAvailHour()).isEqualTo("Edited hours");
+        assertThat(stored.getAvailHourB()).isEqualTo("Alternate hours");
+        assertThat(stored.getDayOfWeek()).isEqualTo("3 4");
+        assertThat(stored.getCreator()).isEqualTo("Second editor");
+
+        RSchedule alternate = header("Old alternate");
+        alternate.setAvailable("A");
+        RSchedule overlapping = header("Overlapping range");
+        overlapping.setsDate(java.sql.Date.valueOf("2031-05-13"));
+        overlapping.seteDate(FOLLOWING);
+        transaction().executeWithoutResult(status -> {
+            rScheduleDao.persist(alternate);
+            rScheduleDao.persist(overlapping);
+        });
+        RSchedule replacement = header("Replacement");
+        assertThat(templates.apply(replacement, true, FORMER_END, List.of()).overlaps()).isTrue();
+        List<String> statuses = transaction().execute(status -> List.of(first, alternate, overlapping, replacement).stream()
+                .map(rule -> rScheduleDao.find(rule.getId()).getStatus()).toList());
+        assertThat(statuses).containsExactly("D", "D", "A", "A");
+    }
+
+    @Test
     @DisplayName("should retire every active override when a date already holds more than one")
     void shouldRetireEveryActiveOverride_whenTheDateHoldsDuplicates() {
         activeOverride("Duplicate one");
@@ -328,12 +417,33 @@ class ScheduleDateOverrideServiceIntegrationTest extends CarlosTestBase {
         return row;
     }
 
+    private static RSchedule header(String hours) {
+        RSchedule rule = new RSchedule();
+        rule.setProviderNo(PROVIDER);
+        rule.setsDate(DATE);
+        rule.seteDate(FORMER_END);
+        rule.setAvailable("1");
+        rule.setDayOfWeek("1 2");
+        rule.setAvailHour(hours);
+        rule.setCreator("FAKE,Tester");
+        rule.setStatus("A");
+        return rule;
+    }
+
     /** The service behind the transaction proxy Spring gives it in production. */
     private ScheduleDateOverrideService service(ScheduleDateDao dao) {
-        ProxyFactory factory = new ProxyFactory(new ScheduleDateOverrideService(dao));
+        return transactional(new ScheduleDateOverrideService(dao), ScheduleDateOverrideService.class);
+    }
+
+    private ScheduleTemplateService templates(RScheduleDao rules) {
+        return transactional(new ScheduleTemplateService(rules, service(scheduleDateDao)), ScheduleTemplateService.class);
+    }
+
+    private <T> T transactional(T target, Class<T> type) {
+        ProxyFactory factory = new ProxyFactory(target);
         factory.setProxyTargetClass(true);
         factory.addAdvice(new TransactionInterceptor(transactionManager, new AnnotationTransactionAttributeSource()));
-        return (ScheduleDateOverrideService) factory.getProxy();
+        return type.cast(factory.getProxy());
     }
 
     /** The real DAO, except that inserting the replacement fails after the retirement was written. */
