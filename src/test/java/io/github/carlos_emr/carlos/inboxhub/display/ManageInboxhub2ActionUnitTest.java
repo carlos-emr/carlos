@@ -41,6 +41,7 @@ class ManageInboxhub2ActionUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest(); request.setParameter("method", method);
         request.setParameter("page", "2"); request.setParameter("pageSize", "10");
         request.setParameter("demographicFilter", "770001"); request.setParameter("typeFilter", "DOC");
+        request.getSession().setAttribute("user", "999998");
         if (omitted) request.setAttribute("inboxDocumentsIncomplete", true);
         var items = new ArrayList<LabResultData>();
         if (hasVisibleItem) items.add(mock(LabResultData.class));
@@ -59,6 +60,8 @@ class ManageInboxhub2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(request.getAttribute("hasMoreData")).isEqualTo(omitted || hasVisibleItem);
             assertThat(request.getAttribute("labDocs")).isSameAs(items);
             verify(controllers.constructed().get(0)).sanitizeInboxFormQuery(info, action.getQuery(), "770001", "DOC");
+            verify(controllers.constructed().get(0), times(hasVisibleItem ? 1 : 0))
+                    .getLabLink(items, action.getQuery(), request.getContextPath(), "999998");
         }
     }
     @ParameterizedTest @NullSource @ValueSource(strings = {"displayInboxForm", "unexpected"})
