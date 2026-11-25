@@ -205,7 +205,7 @@
         "scripts/admin-jobs-save-browser-checks.js"
       ],
       "source": "scripts/admin-jobs-save-browser-checks.js",
-      "sourceSha256": "92df6f06adb6fc02679dece197b73656663e2152a13ee262995c18f2c131d5c6",
+      "sourceSha256": "50d5eb22654db38c45f578b2ead8bcd4eef96d5fce09d940c9c4ca83716b3ec8",
       "minimumAssertions": 98,
       "requiredCases": [
         "shouldKeepJobDialogOpen_whileItsSaveIsPending",
