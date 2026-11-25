@@ -45,6 +45,7 @@ async function workflow(s) {
   const ohip = unusedNumber('8', 6, id => sql.value(`SELECT COUNT(*) FROM provider WHERE ohip_no=${q(id)}`) !== '0');
   const disk = `${marker}.ohip`, html = `${marker}.html`;
   const diskDir = checkedDiskDirectory(process.env.OHIP_DISK_DIR);
+  const diskGroup = fs.statSync(diskDir).gid;
   const contents = new Map([[disk, Buffer.from(`Synthetic billing disk ${marker}\n`)],
     [html, Buffer.from(`<p>Synthetic billing summary ${marker}</p>\n`)]]);
   const createdFiles = new Map();
@@ -76,10 +77,14 @@ async function workflow(s) {
     VALUES (${q(doctor)},'Billing',${q(marker)},'doctor','F',${q(ohip)},'1',${q(admin)},NOW())`);
   function writeOwnedFile(name, bytes) {
     const file = path.join(diskDir, name);
-    const fd = fs.openSync(file, 'wx', 0o644);
+    const fd = fs.openSync(file, 'wx', 0o600);
     try {
-      createdFiles.set(file, fs.fstatSync(fd));
+      const original = fs.fstatSync(fd);
+      createdFiles.set(file, original);
       fs.writeFileSync(fd, bytes);
+      // The package runs the browser runner and Tomcat under different users.
+      if (original.gid !== diskGroup) fs.fchownSync(fd, -1, diskGroup);
+      fs.fchmodSync(fd, 0o640);
     } finally { fs.closeSync(fd); }
   }
   for (const [name, bytes] of contents) writeOwnedFile(name, bytes);
