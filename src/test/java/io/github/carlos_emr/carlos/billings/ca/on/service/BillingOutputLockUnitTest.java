@@ -175,6 +175,27 @@ class BillingOutputLockUnitTest {
     }
 
     @Test
+    void shouldReleaseTheSharedLease_whenTheDownloadOpenerFailsBeforeReturningAHandle() {
+        BillingOutputLock.run(() -> { });
+        var expected = new IllegalStateException("fixture open failed");
+        assertThatThrownBy(() -> BillingOutputLock.openDownload(() -> { throw expected; })).isSameAs(expected);
+        BillingOutputLock.run(() -> { });
+    }
+
+    @Test
+    void shouldKeepTheBusyResult_whenAnExternalWriterAppearsAfterAnEmptyOpen() {
+        assertThatThrownBy(() -> BillingOutputLock.openDownload(() -> {
+            try { Files.createFile(directory.resolve(".carlos-ohip-disk.lock")); }
+            catch (java.io.IOException failure) { throw new java.io.UncheckedIOException(failure); }
+            return null;
+        })).isInstanceOfSatisfying(BillingFileWriteException.class, failure -> {
+            assertThat(failure.reason()).isEqualTo(BillingFileWriteException.Reason.BUSY);
+            assertThat(failure.getSuppressed()).isEmpty();
+        });
+        BillingOutputLock.run(() -> { });
+    }
+
+    @Test
     void shouldPreserveAHandleCleanupFailure_whenTheFirstExternalWriterAppears() {
         assertThatThrownBy(() -> BillingOutputLock.openDownload(() -> {
             try { Files.createFile(directory.resolve(".carlos-ohip-disk.lock")); }
@@ -260,13 +281,13 @@ class BillingOutputLockUnitTest {
             var lock = org.mockito.Mockito.mock(java.nio.channels.FileLock.class);
             channels.when(() -> FileChannel.open(path, StandardOpenOption.READ, java.nio.file.LinkOption.NOFOLLOW_LINKS)).thenReturn(channel);
             org.mockito.Mockito.when(channel.tryLock(0, Long.MAX_VALUE, true)).thenReturn(lock);
-            org.mockito.Mockito.when(lock.channel()).thenReturn(channel);
             org.mockito.Mockito.doThrow(new java.io.IOException("private fixture")).when(lock).release();
             assertThatThrownBy(() -> BillingOutputLock.openDownload(() -> () -> closed.set(true)))
                     .isInstanceOfSatisfying(BillingFileWriteException.class, failure -> {
                         assertThat(failure.reason()).isEqualTo(BillingFileWriteException.Reason.LOCK_FAILED);
                         assertThat(failure.getMessage()).doesNotContain("private fixture");
                     });
+            org.mockito.Mockito.verify(channel).close();
         }
         assertThat(closed).isTrue();
         BillingOutputLock.run(() -> { });

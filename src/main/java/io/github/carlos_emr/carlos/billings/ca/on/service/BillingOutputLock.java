@@ -64,47 +64,70 @@ final class BillingOutputLock {
     static <T extends AutoCloseable> T openDownload(Supplier<T> open) {
         long stamp = LOCAL.tryReadLock();
         if (stamp == 0) throw BillingFileWriteException.forReason(BillingFileWriteException.Reason.BUSY, null);
-        T opened = null;
         try {
             Path path = PathValidationUtils.getRequiredHomeDirectory().toPath().resolve(LOCK_NAME);
-            try (var read = SharedRead.acquire(path)) {
-                opened = open.get();
-                read.checkFirstWriter();
-            }
-            return opened;
-        } catch (IOException | RuntimeException failure) {
-            if (opened != null) {
-                try { opened.close(); } catch (Exception cleanup) { failure.addSuppressed(cleanup); }
-            }
-            if (failure instanceof OverlappingFileLockException) {
-                throw BillingFileWriteException.forReason(BillingFileWriteException.Reason.BUSY, failure);
-            }
-            if (failure instanceof IOException) {
-                throw BillingFileWriteException.forReason(BillingFileWriteException.Reason.LOCK_FAILED, failure);
-            }
-            throw (RuntimeException) failure;
+            return openUnderLease(SharedRead.acquire(path), open);
+        } catch (OverlappingFileLockException failure) {
+            throw BillingFileWriteException.forReason(BillingFileWriteException.Reason.BUSY, failure);
+        } catch (IOException failure) {
+            throw BillingFileWriteException.forReason(BillingFileWriteException.Reason.LOCK_FAILED, failure);
         } finally {
             LOCAL.unlockRead(stamp);
         }
+    }
+
+    private static <T extends AutoCloseable> T openUnderLease(SharedRead lease, Supplier<T> open) throws IOException {
+        final T download;
+        try {
+            download = open.get();
+        } catch (RuntimeException | Error failure) {
+            closeAfterFailure(lease, failure);
+            throw failure;
+        }
+        try (lease) {
+            lease.checkFirstWriter();
+        } catch (IOException | RuntimeException | Error failure) {
+            closeAfterFailure(download, failure);
+            throw failure;
+        }
+        return download;
+    }
+
+    private static void closeAfterFailure(AutoCloseable resource, Throwable failure) {
+        if (resource == null) return;
+        try { resource.close(); }
+        catch (Exception cleanup) { failure.addSuppressed(cleanup); }
     }
 
     /** POSIX releases process locks when another descriptor for the same inode closes. Share one channel per directory. */
     private static final class SharedRead implements AutoCloseable {
         private static final Map<Path, SharedRead> ACTIVE = new HashMap<>();
         private final Path path;
+        private final FileChannel channel;
         private final FileLock lock;
         private int readers;
 
-        private SharedRead(Path path, FileLock lock) {
+        private SharedRead(Path path, FileChannel channel) throws IOException {
             this.path = path;
-            this.lock = lock;
+            this.channel = channel;
+            if (channel == null) {
+                lock = null;
+                return;
+            }
+            try {
+                lock = channel.tryLock(0L, Long.MAX_VALUE, true);
+                if (lock == null) throw BillingFileWriteException.forReason(BillingFileWriteException.Reason.BUSY, null);
+            } catch (IOException | RuntimeException | Error failure) {
+                closeAfterFailure(channel, failure);
+                throw failure;
+            }
         }
 
         static SharedRead acquire(Path path) throws IOException {
             synchronized (ACTIVE) {
                 SharedRead read = ACTIVE.get(path);
                 if (read == null) {
-                    read = new SharedRead(path, openSharedLock(path));
+                    read = new SharedRead(path, openExistingChannel(path));
                     ACTIVE.put(path, read);
                 }
                 read.readers++;
@@ -112,20 +135,9 @@ final class BillingOutputLock {
             }
         }
 
-        private static FileLock openSharedLock(Path path) throws IOException {
-            FileChannel channel;
-            try { channel = FileChannel.open(path, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS); }
+        private static FileChannel openExistingChannel(Path path) throws IOException {
+            try { return FileChannel.open(path, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS); }
             catch (NoSuchFileException missing) { return null; }
-            try {
-                var lock = channel.tryLock(0L, Long.MAX_VALUE, true);
-                if (lock == null) {
-                    throw BillingFileWriteException.forReason(BillingFileWriteException.Reason.BUSY, null);
-                }
-                return lock;
-            } catch (IOException | RuntimeException failure) {
-                try { channel.close(); } catch (IOException cleanup) { failure.addSuppressed(cleanup); }
-                throw failure;
-            }
         }
 
         private void checkFirstWriter() throws IOException {
@@ -142,8 +154,8 @@ final class BillingOutputLock {
             synchronized (ACTIVE) {
                 if (--readers == 0) {
                     ACTIVE.remove(path);
-                    if (lock != null) {
-                        try (var channel = lock.channel()) { lock.release(); }
+                    try (channel) {
+                        if (lock != null) lock.release();
                     }
                 }
             }
