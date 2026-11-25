@@ -1761,7 +1761,7 @@
         "LabResultDataAcknowledgementCountUnitTest": 10,
         "IncomingDocumentQueuePreferenceIntegrationTest": 9,
         "ScheduleDateOverrideServiceIntegrationTest": 19,
-        "BillingOnSiteVisibilityIntegrationTest": 7,
+        "BillingOnSiteVisibilityIntegrationTest": 8,
         "BillingOnFileAccessServiceIntegrationTest": 3,
         "BillingOnOutputFilenamesIntegrationTest": 3
       },
@@ -5217,6 +5217,10 @@
             {
               "name": "shouldMarkOnlyTheAuthorizedLegacyClaim_whenTwoBillersShareAnOhipNumber",
               "container": ""
+            },
+            {
+              "name": "shouldRemoveOnlyProvisionalDiskOwnership_whenNewOutputCollides(Path)",
+              "container": ""
             }
           ]
         }
@@ -5399,7 +5403,7 @@
         "DemographicUpdateDaoTransactionIntegrationTest": 30,
         "IncomingDocumentQueuePreferenceIntegrationTest": 9,
         "ScheduleDateOverrideServiceIntegrationTest": 19,
-        "BillingOnSiteVisibilityIntegrationTest": 7,
+        "BillingOnSiteVisibilityIntegrationTest": 8,
         "BillingOnFileAccessServiceIntegrationTest": 3,
         "BillingOnOutputFilenamesIntegrationTest": 3
       },

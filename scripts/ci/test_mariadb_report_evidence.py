@@ -185,6 +185,7 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
             'shouldRequireTeamAndSiteForHistory_whenOnlyTeamBillingAndMultisiteGrantsArePresent',
             'shouldRetainTeamAccessPrecedence_whenBothMultisiteAndTeamPrivacyAreGranted',
             'shouldMarkOnlyTheAuthorizedLegacyClaim_whenTwoBillersShareAnOhipNumber',
+            'shouldRemoveOnlyProvisionalDiskOwnership_whenNewOutputCollides(Path)',
         }
         self.assertEqual(MODULE.REQUIRED_CASES[family], names)
         self.assertEqual(MODULE.REQUIRED['flyway'][family], len(names))
