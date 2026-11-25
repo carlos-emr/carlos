@@ -48,6 +48,8 @@ public class HrmVersionService {
         }
 
         static ReportGroup of(HRMReport report, Set<Integer> patients, int document) {
+            // The viewer cannot establish a shared patient for unfiled reports. Keep each one selectable.
+            if (patients.isEmpty()) return single(document);
             String facility = report.getSendingFacilityId();
             String number = report.getSendingFacilityReportNo();
             String recipient = report.getDeliverToUserId();

@@ -106,15 +106,28 @@ class HRMResultsDataUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest
     @CsvSource({
-            "'42,42,42',true", "'41,41,42,42,40,40',true", "'42,41,42,40,41,40',true",
-            "'40,41,42,40,41,42',true", "'41,42',false"
+            "'42,42,42',true,true", "'41,41,42,42,40,40',true,true", "'42,41,42,40,41,40',true,true",
+            "'40,41,42,40,41,42',true,true", "'41,42',false,true", "'41,42,41,42',true,false"
     })
-    void shouldGroupDistinctVersionsWithoutSelfDuplicates_whenReportsHaveMultipleProviderRoutes(String routedIds, boolean numbered) {
+    void shouldGroupDistinctVersionsWithoutSelfDuplicates_whenReportsHaveMultipleProviderRoutes(
+            String routedIds, boolean numbered, boolean filed) {
         var providers = createAndRegisterMock(HRMDocumentToProviderDao.class);
         var documents = createAndRegisterMock(HRMDocumentDao.class);
-        createAndRegisterMock(HRMDocumentToDemographicDao.class);
-        createAndRegisterMock(DemographicManager.class);
+        var links = createAndRegisterMock(HRMDocumentToDemographicDao.class);
+        var demographics = createAndRegisterMock(DemographicManager.class);
         var info = mock(LoggedInInfo.class);
+        if (filed) {
+            var match = new HRMDocumentToDemographic();
+            match.setDemographicNo(100);
+            when(links.findByHrmDocumentId(anyInt())).thenReturn(List.of(match));
+            var security = createAndRegisterMock(SecurityInfoManager.class);
+            when(security.isAllowedAccessToPatientRecord(info, 100)).thenReturn(true);
+            when(security.hasPrivilegeReadOnly(info, "_demographic", "r", "100")).thenReturn(true);
+            var patient = new Demographic();
+            patient.setFirstName("Test");
+            patient.setLastName("Patient");
+            when(demographics.getDemographic(info, 100)).thenReturn(patient);
+        }
         List<Integer> ids = java.util.Arrays.stream(routedIds.split(",")).map(Integer::valueOf).toList();
         List<HRMDocumentToProvider> routes = ids.stream().map(id -> {
             var route = new HRMDocumentToProvider();
@@ -144,7 +157,7 @@ class HRMResultsDataUnitTest extends CarlosUnitTestBase {
             var results = new HRMResultsData().populateHRMdocumentsResultsData(
                     info, "", "", null, null, false, 0, 100);
 
-            if (numbered) {
+            if (numbered && filed) {
                 assertThat(results).singleElement().satisfies(result -> {
                     assertThat(result.getSegmentID()).isEqualTo("42");
                     assertThat(result.dateTime).isEmpty();
@@ -152,7 +165,8 @@ class HRMResultsDataUnitTest extends CarlosUnitTestBase {
                             ids.stream().distinct().filter(id -> id != 42).toList());
                 });
             } else {
-                assertThat(results).hasSize(2).allSatisfy(result ->
+                assertThat(results).extracting(result -> result.getSegmentID()).containsExactlyInAnyOrder("41", "42");
+                assertThat(results).allSatisfy(result ->
                         assertThat(result.getDuplicateLabIds()).isEmpty());
             }
             for (Integer id : ids.stream().distinct().toList()) {
