@@ -116,6 +116,8 @@ async function workflow(s) {
       await form.locator('select[name="providers"]').selectOption(doctor);
       h.assert(await form.locator('select[name="providers"]').inputValue() === doctor, 'The independent physician could not be selected');
     }
+    h.assert(await simulationForm.locator('button[type="submit"]').isEnabled()
+      && await generationForm.locator('input[type="submit"][name="Submit"]').isEnabled(), 'A provider was selectable but Create Report was disabled');
     for (const [name, bytes] of contents) {
       const link = row.getByRole('link', { name, exact: true });
       const download = await authenticatedProbe({ context, config: s.config }, new URL(await link.getAttribute('href'), generation.url()));
@@ -162,7 +164,13 @@ async function checkTeamHistory(s, { disk, html, doctor, writeOwnedFile }) {
   const page = await context.newPage();
   const url = '/billing/CA/ON/ViewBillingOHIPreport';
   const form = page.locator('form[name="form1"]');
-  await s.step('a team with no eligible biller gets an empty provider list and cannot create a report', async () => {
+  await s.step('a team with no eligible biller gets empty provider lists and cannot simulate or generate a report', async () => {
+    await h.gotoApp(page, s.config.baseUrl, '/billing/CA/ON/ViewBillingOHIPsimulation');
+    const simulation = page.locator('form#serviceform');
+    await simulation.waitFor();
+    h.assert(await simulation.locator('select[name="providers"] option').count() === 0, 'Simulation offered a provider to an empty billing team');
+    const simulate = simulation.locator('button[type="submit"]');
+    h.assert(await simulate.count() === 1 && await simulate.isDisabled(), 'Simulation was available without an eligible provider');
     await h.gotoApp(page, s.config.baseUrl, url);
     await form.waitFor();
     h.assert(await form.locator('select[name="providers"] option').count() === 0, 'An empty billing team was offered provider options');
