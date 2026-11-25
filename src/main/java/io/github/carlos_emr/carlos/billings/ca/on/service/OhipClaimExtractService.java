@@ -32,7 +32,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.Date;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
+import java.util.List;
 
 import io.github.carlos_emr.SxmlMisc;
 import org.apache.logging.log4j.Logger;
@@ -369,6 +369,18 @@ public class OhipClaimExtractService implements Serializable {
      * {@code eFlag} is {@code "1"}.
      */
     public void dbQuery() {
+        loadClaims(null);
+    }
+
+    /** A restricted batch must not pick up another provider's claims under a reused OHIP number. */
+    public void dbQueryForProvider(String billingProviderNo) {
+        if (billingProviderNo == null || billingProviderNo.isBlank()) {
+            throw new IllegalArgumentException("Missing internal billing provider");
+        }
+        loadClaims(billingProviderNo);
+    }
+
+    private void loadClaims(String billingProviderNo) {
         try {
             batchOrder = 4 - batchCount.length();
             // check length
@@ -378,7 +390,11 @@ public class OhipClaimExtractService implements Serializable {
             // Initialize the fixed-width file body with the batch header.
             value = batchHeader;
 
-            for (Billing b : billingDao.findByProviderStatusAndDates(providerNo, Arrays.asList(new String[]{"O", "W"}), dateRange)) {
+            List<String> statuses = List.of("O", "W");
+            List<Billing> claims = billingProviderNo == null
+                    ? billingDao.findByProviderStatusAndDates(providerNo, statuses, dateRange)
+                    : billingDao.findByProviderStatusAndDates(providerNo, billingProviderNo, statuses, dateRange);
+            for (Billing b : claims) {
                 patientCount++;
                 invNo = "" + b.getId();
                 //   ohipVer = b.getorganization_spec_code");

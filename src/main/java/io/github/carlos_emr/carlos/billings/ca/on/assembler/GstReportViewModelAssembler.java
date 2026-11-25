@@ -93,14 +93,15 @@ public class GstReportViewModelAssembler {
             providerOptions.add(new GstReportViewModel.ProviderOption(p.providerNo(), p.lastName(), p.firstName()));
         }
 
-        if (scope.restricted() && !providerNo.isEmpty()
+        boolean selectedProvider = !providerNo.isBlank() && !"all".equals(providerNo);
+        if (scope.restricted() && selectedProvider
                 && providerOptions.stream().noneMatch(p -> providerNo.equals(p.value()))) {
             throw new SecurityException("Selected billing provider is not available.");
         }
 
         // Aggregate the GST rows. Filter to rows where gst > 0 (matches the
         // scriptlet's `if (gst.doubleValue() > 0)` wrap around the <TR>).
-        List<Properties> rawRows = gstReport.getGST(loggedInInfo, providerNo, startDate, endDate);
+        List<Properties> rawRows = selectedProvider ? gstReport.getGST(loggedInInfo, providerNo, startDate, endDate) : List.of();
         List<GstReportViewModel.Row> rows = new ArrayList<>();
         BigDecimal gstTotal = BigDecimal.ZERO;
         BigDecimal earnedTotal = BigDecimal.ZERO;

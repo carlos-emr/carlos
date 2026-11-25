@@ -65,8 +65,11 @@ class GstReportViewModelAssemblerUnitTest {
                 new ProviderDropdownEntry("803601", "FAKE", "Biller", "123456", "0000", "00")));
         var assembler = new GstReportViewModelAssembler(security, reports, lookup);
         var request = new MockHttpServletRequest();
+        assertThat(assembler.assemble(request, login).getRows()).isEmpty();
+        request.setParameter("providerview", "all");
+        assertThat(assembler.assemble(request, login).getRows()).isEmpty();
+        org.mockito.Mockito.verifyNoInteractions(reports);
         request.setParameter("providerview", "803602");
-
         assertThatThrownBy(() -> assembler.assemble(request, login)).isInstanceOf(SecurityException.class);
         org.mockito.Mockito.verifyNoInteractions(reports);
         request.setParameter("providerview", "803601");
@@ -108,12 +111,14 @@ class GstReportViewModelAssemblerUnitTest {
         Properties row = new Properties();
         row.setProperty("total", "100.00");
         row.setProperty("gst", "not-money");
-        when(gstReport.getGST(eq(loggedInInfo), eq(""), eq(""), eq("")))
+        when(gstReport.getGST(eq(loggedInInfo), eq("803601"), eq(""), eq("")))
                 .thenReturn(new ArrayList<>(java.util.List.of(row)));
         GstReportViewModelAssembler assembler =
                 new GstReportViewModelAssembler(securityInfoManager, gstReport, lookupService);
 
-        assertThatThrownBy(() -> assembler.assemble(new MockHttpServletRequest(), loggedInInfo))
+        var request = new MockHttpServletRequest();
+        request.setParameter("providerview", "803601");
+        assertThatThrownBy(() -> assembler.assemble(request, loggedInInfo))
                 .isInstanceOf(BillingDataLoadException.class)
                 .hasMessageContaining("GST report amount");
     }

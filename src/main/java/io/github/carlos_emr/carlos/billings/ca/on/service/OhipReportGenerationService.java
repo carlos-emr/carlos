@@ -196,7 +196,8 @@ public class OhipReportGenerationService {
         List<String> hybridProviders = hybridProviderList();
         int curYear = new GregorianCalendar().get(Calendar.YEAR);
 
-        List<Provider> providersToProcess = resolveProviders(providerParam, eligibleProviders(request));
+        Optional<Set<String>> eligible = eligibleProviders(request);
+        List<Provider> providersToProcess = resolveProviders(providerParam, eligible);
 
         int batchOrdinal = 1;
         for (Provider p : providersToProcess) {
@@ -247,33 +248,24 @@ public class OhipReportGenerationService {
                     // Throwing a RuntimeException out of the lambda is the
                     // load-bearing rollback trigger; TransactionTemplate calls
                     // rollback automatically on RuntimeException propagation.
-                    extract.dbQuery();
+                    extractClaims(extract, eligible, p);
                     extract.writeFile(extract.getValue());
                     extract.writeHtml(extract.getHtmlCode());
                     persistBillActivity(monthCode, batchCount, filenames[0], filenames[1],
                             proOHIP, groupNo, curUser, extract);
                 });
             } catch (RuntimeException ex) {
-                // BillingFileWriteException, BillingDataLoadException, and
-                // every other unchecked failure all roll back the
-                // per-provider tx and surface the same shape of FailedProvider
-                // record; multi-catching them adds no information at this
-                // point. The cause class is captured so the JSP can branch
-                // file-vs-data-vs-other if it needs to.
                 String causeClass = ex.getClass().getSimpleName();
-                // Default null exception messages (e.g. NPE with no message)
-                // to a placeholder so the JSP banner doesn't render the
-                // literal word "null" — operators need to know the message
-                // is absent and to look at the server log.
-                String causeMessage = ex.getMessage() == null
-                        ? "<no message; check server log>"
-                        : ex.getMessage();
+                String causeMessage = ex instanceof BillingFileWriteException
+                        ? "The billing file could not be written. Check storage and file permissions."
+                        : "Billing generation failed; check server log.";
+                // Driver and filesystem messages may include claim values or private paths.
+                StackTraceElement[] trace = ex.getStackTrace();
+                String origin = trace.length == 0 ? "unavailable" : trace[0].getClassName() + "." + trace[0].getMethodName()
+                        + "(" + trace[0].getLineNumber() + ")";
                 MiscUtils.getLogger().error(
-                        "OhipReportGeneration: per-provider failure for provider {} (ohip={}, cause={}); tx rolled back, prior providers stay committed",
-                        LogSafe.sanitize(p.getProviderNo()),
-                        LogSafe.sanitize(proOHIP),
-                        causeClass,
-                        ex);
+                        "OHIP {} rolled back for provider {} (exception={}, origin={}); earlier providers remain committed",
+                        mode, LogSafe.sanitize(p.getProviderNo()), LogSafe.sanitize(causeClass), LogSafe.sanitize(origin));
                 skipped.add(new FailedProvider(
                         p.getProviderNo(), proOHIP, causeClass, causeMessage));
                 continue;
@@ -336,7 +328,7 @@ public class OhipReportGenerationService {
             extract.setGroupNo(groupNo);
             extract.setSpecialty(specialty);
             extract.setBatchCount("1");
-            extract.dbQuery();
+            extractClaims(extract, eligible, p);
 
             htmlValue.append(extract.getHtmlValue());
         }
@@ -345,10 +337,19 @@ public class OhipReportGenerationService {
                 dateEnd == null ? "" : dateEnd.toString());
     }
 
+    private static void extractClaims(OhipClaimExtractService extract, Optional<Set<String>> eligible, Provider provider) {
+        if (eligible.isPresent()) {
+            extract.dbQueryForProvider(provider.getProviderNo());
+        } else {
+            extract.dbQuery();
+        }
+    }
+
     private Optional<Set<String>> eligibleProviders(HttpServletRequest request) {
         LoggedInInfo login = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (login == null) throw new SecurityException("missing session");
         return BillingOnProviderScope.forLogin(securityInfoManager, login).selectableProviderNumbers(
-                reviews, login == null ? null : login.getLoggedInProviderNo());
+                reviews, login.getLoggedInProviderNo());
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
