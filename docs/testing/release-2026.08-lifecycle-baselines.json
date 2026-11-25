@@ -51,7 +51,7 @@
         "ON",
         "BC"
       ],
-      "purpose": "Exercise V1.0.59.27\u201332 on existing data and carlos-ctl 1.3.0 to 1.3.1, separately from current main.",
+      "purpose": "Exercise V1.0.59.27–32 on existing data and carlos-ctl 1.3.0 to 1.3.1, separately from current main.",
       "assets": [
         {
           "name": "carlos-ctl_1.3.0_all.deb",
@@ -115,10 +115,10 @@
     "tag": "1.3.6",
     "version": "1.3.6",
     "name": "carlos-ctl_1.3.6_all.deb",
-    "bytes": 386608,
-    "sha256": "b34d906b754d7dceb6173e960de2ab7776b783de162542c87466fc6e7b0d9c4e",
+    "bytes": 386616,
+    "sha256": "5cbf9d36b380558b3991f88529093cb87101ebf14a0676a93f0935177eca12a4",
     "sourceRepository": "https://github.com/carlos-emr/carlos-ctl",
-    "sourceCommit": "e4c4e0ee78f078b2e0243981faed71d857d3f7a0"
+    "sourceCommit": "0821d929978ea9f74a68dd108ec6015577692cd7"
   },
   "candidateCliEvidence": {
     "scope": "Two independent local dpkg-buildpackage builds from the exact fallback commit produced byte-identical packages in the Ubuntu 26.04 image pinned by CI. Each ran 2,100 tests with 216 explicit prerequisite skips. CARLOS verifies the same package digest when rebuilding the candidate and when attaching the published CLI to its release."
