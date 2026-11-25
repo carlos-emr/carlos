@@ -11444,6 +11444,77 @@
         "T25",
         "T33"
       ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnOutputFilenames.java": {
+      "reason": "Normal Ontario allocation must skip names in both historical billing tables, the import record and the output directory, including files with no recorded owner.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnOutputFilenamesIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnDiskLoaderUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnDiskLoader.java": {
+      "reason": "Both modern disk and HTML name lookups must reserve the actual shared destination and names already used by either Ontario generator.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnOutputFilenamesIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnDiskLoaderUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOutputLock.java": {
+      "reason": "The legacy and modern generators share the Ontario output lock. The service tests cover a busy writer and retry through the same entry point.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOutputLockUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/OhipReportGenerationServiceDependencyInjectionUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingFileWriteException.java": {
+      "reason": "Sequence exhaustion and output failures must return an actionable result without exposing a filename or a patient’s details.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/OhipReportGenerationServiceDependencyInjectionUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/OhipClaimExtractServiceUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/web/ViewGenGroupReport2Action.java": {
+      "reason": "The second pass of a hybrid OHIP run must retain the first pass’s failed providers alongside any new failure.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/web/ReportActionDependencyInjectionUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
     }
   },
   "lifecycleBaselineManifest": "docs/testing/release-2026.08-lifecycle-baselines.json",
