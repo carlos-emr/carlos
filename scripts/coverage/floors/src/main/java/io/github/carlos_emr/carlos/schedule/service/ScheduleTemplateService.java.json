@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/schedule/service/ScheduleTemplateService.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "5a685a2af8e2b30b4f53e55f23a8c7a5dd922200"
+  },
+  "evidenceSha256": "7ad5bc2d90ba675879c4814d286e55ddf4c79cffd005fddd9a7dc8a13a103a3a"
+}
