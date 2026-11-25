@@ -279,6 +279,25 @@ class BillingOnCorrectionViewModelAssemblerUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldKeepOtherProvidersBillPrivate_whenSingleSiteLoginHasBillingOnlyAndSeededSiteGrants() {
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("803601");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_team_billing_only", "r", null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_site_access_privacy", "r", null)).thenReturn(true);
+        when(providerDao.getCurrentTeamProviders("803601")).thenReturn(List.of(new Provider("803601")));
+        var claim = new BillingONCHeader1();
+        claim.setProviderNo("803602");
+        claim.setDemographicName("FAKE patient");
+        when(bCh1Dao.findWithItems(14)).thenReturn(claim);
+        request.setParameter("billing_no", "14");
+
+        var result = assembler.assemble(request, loggedInInfo);
+
+        assertThat(result.getProviderAccessList()).containsExactly("803601");
+        assertThat(result.isMultiSiteProvider()).isFalse();
+        assertThat(result.getDemoName()).isEmpty();
+    }
+
+    @Test
     void shouldDenyMultiSiteAccess_whenBillProviderNotInAccessList() {
         // Site-access-privacy gate: bill belongs to provider 555555 (NOT in
         // the 999998 user's access list). Expect multiSiteProvider=false and

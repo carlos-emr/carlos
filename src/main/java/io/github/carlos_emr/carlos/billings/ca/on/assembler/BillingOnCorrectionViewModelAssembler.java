@@ -158,6 +158,10 @@ public class BillingOnCorrectionViewModelAssembler {
             for (Provider p : providerDao.getBillableProvidersOnTeam(userProvider)) {
                 providerAccessList.add(p.getProviderNo());
             }
+        } else if (teamBillingOnly && !siteAccessPrivacy) {
+            for (Provider p : providerDao.getCurrentTeamProviders(providerNo)) {
+                providerAccessList.add(p.getProviderNo());
+            }
         }
 
         boolean multisites = IsPropertiesOn.isMultisitesEnable();
@@ -180,7 +184,7 @@ public class BillingOnCorrectionViewModelAssembler {
                 .mgrSites(mgrSites);
 
         BillRecordContext billCtx = loadBillRecord(loggedInInfo, request, builder, providerAccessList, mgrSites,
-                siteAccessPrivacy, teamAccessPrivacy, multisites);
+                siteAccessPrivacy || teamAccessPrivacy || teamBillingOnly, multisites);
 
         if (renderContextComposer != null) {
             renderContextComposer.compose(builder, request, loggedInInfo,
@@ -329,8 +333,7 @@ public class BillingOnCorrectionViewModelAssembler {
                                              BillingOnCorrectionViewModel.Builder b,
                                              Set<String> providerAccessList,
                                              List<String> mgrSites,
-                                             boolean siteAccessPrivacy,
-                                             boolean teamAccessPrivacy,
+                                             boolean restrictProviders,
                                              boolean multisites) {
         String billNoParam = request.getParameter("billing_no");
         String claimNoParam = request.getParameter("claim_no");
@@ -379,7 +382,7 @@ public class BillingOnCorrectionViewModelAssembler {
 
         // Multisite / team-billing access guard
         boolean multiSiteProvider = true;
-        if ((siteAccessPrivacy || teamAccessPrivacy) && !providerAccessList.contains(bCh1.getProviderNo())) {
+        if (restrictProviders && !providerAccessList.contains(bCh1.getProviderNo())) {
             multiSiteProvider = false;
         }
         if (multisites && !mgrSites.contains(clinicSite)) {

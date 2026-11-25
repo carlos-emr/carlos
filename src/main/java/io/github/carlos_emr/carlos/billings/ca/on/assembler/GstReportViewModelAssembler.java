@@ -36,7 +36,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.GstReportService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingDataLoadException;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.GstReportViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnLookupService;
-import io.github.carlos_emr.carlos.commn.SiteChoice;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnProviderScope;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -74,18 +74,12 @@ public class GstReportViewModelAssembler {
         String endDate = nullToEmpty(request.getParameter("xml_appointment_date"));
         String today = DateUtils.sumDate("yyyy-MM-dd", "0");
 
-        // Privacy gating mirrors the legacy JSP: site / team privacy widen
-        // the provider list; otherwise the dropdown shows only the logged-in
-        // provider.
         String curProvider = loggedInInfo == null ? "" : loggedInInfo.getLoggedInProviderNo();
-        boolean isSitePrivacy = SiteChoice.isSiteAccessRestricted(securityInfoManager, loggedInInfo);
-        boolean isTeamPrivacy = loggedInInfo != null
-                && securityInfoManager.hasPrivilege(loggedInInfo, "_team_access_privacy", "r", null);
-
+        var scope = BillingOnProviderScope.forLogin(securityInfoManager, loggedInInfo);
         List<io.github.carlos_emr.carlos.billings.ca.on.dto.ProviderDropdownEntry> rawProviders;
-        if (isTeamPrivacy) {
+        if (scope.teamAccessPrivacy() || (scope.teamBillingOnly() && !scope.siteAccessPrivacy())) {
             rawProviders = lookupService.getCurTeamProviderStr(curProvider);
-        } else if (isSitePrivacy) {
+        } else if (scope.siteAccessPrivacy()) {
             rawProviders = lookupService.getCurSiteProviderStr(curProvider);
         } else {
             rawProviders = lookupService.getCurProviderStr();
@@ -97,6 +91,11 @@ public class GstReportViewModelAssembler {
         List<GstReportViewModel.ProviderOption> providerOptions = new ArrayList<>(rawProviders.size());
         for (io.github.carlos_emr.carlos.billings.ca.on.dto.ProviderDropdownEntry p : rawProviders) {
             providerOptions.add(new GstReportViewModel.ProviderOption(p.providerNo(), p.lastName(), p.firstName()));
+        }
+
+        if (scope.restricted() && !providerNo.isEmpty()
+                && providerOptions.stream().noneMatch(p -> providerNo.equals(p.value()))) {
+            throw new SecurityException("Selected billing provider is not available.");
         }
 
         // Aggregate the GST rows. Filter to rows where gst > 0 (matches the

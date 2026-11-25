@@ -23,6 +23,8 @@ package io.github.carlos_emr.carlos.billings.ca.on.assembler;
 
 import java.util.ArrayList;
 import java.util.Properties;
+import java.util.List;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.ProviderDropdownEntry;
 
 import io.github.carlos_emr.carlos.billings.ca.on.service.GstReportService;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.GstReportViewModel;
@@ -49,6 +51,28 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("billing")
 class GstReportViewModelAssemblerUnitTest {
+
+    @Test
+    void shouldLimitGstRowsToTheTeam_whenSingleSiteLoginHasBillingOnlyAndSeededSiteGrants() {
+        var security = mock(SecurityInfoManager.class);
+        var reports = mock(GstReportService.class);
+        var lookup = mock(BillingOnLookupService.class);
+        var login = mock(LoggedInInfo.class);
+        when(login.getLoggedInProviderNo()).thenReturn("803601");
+        when(security.hasPrivilege(login, "_team_billing_only", "r", null)).thenReturn(true);
+        when(security.hasPrivilege(login, "_site_access_privacy", "r", null)).thenReturn(true);
+        when(lookup.getCurTeamProviderStr("803601")).thenReturn(List.of(
+                new ProviderDropdownEntry("803601", "FAKE", "Biller", "123456", "0000", "00")));
+        var assembler = new GstReportViewModelAssembler(security, reports, lookup);
+        var request = new MockHttpServletRequest();
+        request.setParameter("providerview", "803602");
+
+        assertThatThrownBy(() -> assembler.assemble(request, login)).isInstanceOf(SecurityException.class);
+        org.mockito.Mockito.verifyNoInteractions(reports);
+        request.setParameter("providerview", "803601");
+        assertThat(assembler.assemble(request, login).getProviderOptions()).hasSize(1);
+        org.mockito.Mockito.verify(reports).getGST(login, "803601", "", "");
+    }
 
     @Test
     void shouldTreatNullProviderLookup_asEmptyList() {
