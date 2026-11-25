@@ -33,6 +33,7 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.login.LoginCheckLogin;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.commn.SiteChoice;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -46,7 +47,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * <p>Requires any of {@code _admin r}, {@code _admin.userAdmin r}, or
  * {@code _admin.unlockAccount r} privilege. On POST with a {@code submit} parameter,
  * unlocks the specified username via {@link LoginCheckLogin} and adds an audit log entry.
- * When site-access privacy is enabled, both listing and unlocking are restricted
+ * On a multisite installation with site-access privacy, both listing and unlocking are restricted
  * to accounts sharing a site with the administrator, but only in username lock mode
  * ({@code login_lock=true}). In the default IP-based mode the lock list is keyed by client
  * address, which no site owns, so filtering by username would hide every entry and refuse
@@ -77,7 +78,7 @@ public class UnLock2Action extends ActionSupport {
         // Site scoping is meaningful only when lock keys are usernames (login_lock=true); with it
         // unset the keys are client addresses, which have no site (see LoginCheckLogin.isBlock).
         boolean isSiteAccessPrivacy = "true".equals(CarlosProperties.getInstance().getProperty("login_lock", "").trim())
-                && securityInfoManager.hasPrivilege(loggedInInfo, "_site_access_privacy", "r", null);
+                && SiteChoice.isSiteAccessRestricted(securityInfoManager, loggedInInfo);
         Set<String> permittedUsers = new HashSet<>();
         if (isSiteAccessPrivacy) {
             for (Security account : securityDao.findByProviderSite(loggedInInfo.getLoggedInProviderNo())) {

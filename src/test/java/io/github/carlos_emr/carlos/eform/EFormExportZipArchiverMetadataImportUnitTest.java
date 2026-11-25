@@ -17,6 +17,8 @@
  */
 package io.github.carlos_emr.carlos.eform;
 
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -96,18 +98,77 @@ class EFormExportZipArchiverMetadataImportUnitTest {
     }
 
     private Result runImport(byte[] zip) throws Exception {
+        return runImport(zip, false);
+    }
+
+    private Result runImport(byte[] zip, boolean existing) throws Exception {
         List<EForm> saved = new ArrayList<>();
         try (MockedStatic<ImageUpload2Action> images = mockStatic(ImageUpload2Action.class);
              MockedStatic<EFormUtil> forms = mockStatic(EFormUtil.class)) {
             images.when(ImageUpload2Action::getImageFolder).thenReturn(imageFolder.toFile());
-            forms.when(() -> EFormUtil.formExistsInDB(any())).thenReturn(false);
+            forms.when(() -> EFormUtil.formExistsInDB(any())).thenReturn(existing);
             forms.when(() -> EFormUtil.saveEForm(any(EForm.class))).thenAnswer(invocation -> {
                 saved.add(invocation.getArgument(0));
                 return "1";
             });
-            List<String> errors = new EFormExportZip().importForm(new ByteArrayInputStream(zip));
+            List<String> errors = new EFormExportZip(Runnable::run).importForm(new ByteArrayInputStream(zip));
             return new Result(errors, saved);
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"nameless", "missing-filename", "existing", "valid"})
+    void shouldRetainFormValidationAndPublicationContracts_withOperationalLoggingEnabled(String variant) throws Exception {
+        String properties = "form.name=" + (variant.equals("nameless") ? "" : "FAKE metadata control") + "\n"
+                + (variant.equals("missing-filename") ? "" : "form.htmlFilename=form.html\n");
+        Map<String, byte[]> entries = new LinkedHashMap<>();
+        entries.put(".DS_Store", utf8("FAKE metadata"));
+        entries.put("eform.properties", utf8(properties));
+        if (!variant.equals("missing-filename")) entries.put("form.html", utf8(HTML));
+        List<EForm> saved = new ArrayList<>();
+        try (var capture = LogCapture.forLogger(EFormExportZip.class);
+             MockedStatic<ImageUpload2Action> images = mockStatic(ImageUpload2Action.class);
+             MockedStatic<EFormUtil> forms = mockStatic(EFormUtil.class)) {
+            images.when(ImageUpload2Action::getImageFolder).thenReturn(imageFolder.toFile());
+            forms.when(() -> EFormUtil.formExistsInDB(any())).thenReturn(variant.equals("existing"));
+            forms.when(() -> EFormUtil.saveEForm(any(EForm.class))).thenAnswer(call -> {saved.add(call.getArgument(0)); return "FAKE";});
+            var errors = new EFormExportZip(Runnable::run).importForm(new ByteArrayInputStream(zip(entries)));
+            if (variant.equals("valid")) {
+                assertThat(errors).isEmpty();
+                assertThat(saved).singleElement().satisfies(form -> assertThat(form.getFormHtml()).isEqualTo(HTML));
+            } else {
+                assertThat(errors).singleElement().asString().contains("Skipped form");
+                assertThat(saved).isEmpty();
+            }
+            assertThat(publishedNames()).isEmpty();
+            assertThat(capture.messages()).noneSatisfy(message -> assertThat(message).contains(HTML));
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"<img src=\"${oscar_image_path}kept.png?v=1#section\">",
+            "<img src=\"kept.png\">", "<img src='kept.png'>", "<img src=kept.png>"})
+    void shouldKeepReferencedAndDedicatedAssets_andDropDuplicateFormOrphans(String html) throws Exception {
+        Map<String, byte[]> entries = new LinkedHashMap<>();
+        entries.put("kept/eform.properties", utf8("form.name=FAKE kept\nform.htmlFilename=kept.html\n"));
+        entries.put("kept/kept.html", utf8(html + "<img src='missing.png'>"));
+        entries.put("kept/indirect.css", utf8("FAKE indirect stylesheet"));
+        entries.put("refused/eform.properties", utf8("form.name=FAKE existing\nform.htmlFilename=refused.html\n"));
+        entries.put("refused/refused.html", utf8("FAKE refused HTML"));
+        entries.put("refused/orphan.png", utf8("FAKE orphan"));
+        entries.put("kept.png", utf8("FAKE shared referenced image"));
+        entries.put("unassigned.png", utf8("FAKE image from a shared location"));
+        var saved = new ArrayList<EForm>();
+        try (var images = mockStatic(ImageUpload2Action.class); var forms = mockStatic(EFormUtil.class)) {
+            images.when(ImageUpload2Action::getImageFolder).thenReturn(imageFolder.toFile());
+            forms.when(() -> EFormUtil.formExistsInDB(any())).thenAnswer(call -> "FAKE existing".equals(call.getArgument(0)));
+            forms.when(() -> EFormUtil.saveEForm(any(EForm.class))).thenAnswer(call -> { saved.add(call.getArgument(0)); return "1"; });
+            assertThat(new EFormExportZip(Runnable::run).importForm(new ByteArrayInputStream(zip(entries))))
+                    .singleElement().asString().contains("FAKE existing", "already exists");
+        }
+        assertThat(saved).singleElement().satisfies(form -> assertThat(form.getFormHtml()).contains(html));
+        assertThat(publishedNames()).containsExactly("indirect.css", "kept.png", "unassigned.png");
+        assertThat(Files.readString(imageFolder.resolve("kept.png"))).isEqualTo("FAKE shared referenced image");
     }
 
     /** Everything the import left in the image folder, except its own staging parent. */
@@ -115,6 +176,52 @@ class EFormExportZipArchiverMetadataImportUnitTest {
         try (Stream<Path> files = Files.list(imageFolder)) {
             return files.map(path -> path.getFileName().toString())
                     .filter(name -> !"extractFolder".equals(name)).sorted().toList();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"form.name=\n", "form.name=FAKE rejected\n"})
+    void shouldPublishNothing_whenRejectedMetadataCannotIdentifyItsHtml(String properties) throws Exception {
+        Map<String, byte[]> entries = new LinkedHashMap<>();
+        entries.put("eform.properties", utf8(properties));
+        entries.put("unattributed.html", utf8(HTML));
+        entries.put("valid/eform.properties", utf8("form.name=FAKE valid\nform.htmlFilename=valid.html\n"));
+        entries.put("valid.html", utf8(HTML));
+        entries.put("image.png", utf8("PNG-BYTES"));
+        Result result = runImport(zip(entries));
+        assertThat(result.errors()).hasSize(1);
+        assertThat(result.saved()).isEmpty();
+        assertThat(publishedNames()).isEmpty();
+        try (Stream<Path> staged = Files.list(imageFolder.resolve("extractFolder"))) {
+            assertThat(staged).isEmpty();
+        }
+    }
+
+    @Test
+    void shouldKeepExistingFormsAndTheirHtmlUnchanged_whenMetadataNamesAnExistingForm() throws Exception {
+        byte[] archive = zip(Map.of("eform.properties", utf8("form.name=FAKE existing\nform.htmlFilename=existing.html\n"),
+                "existing.html", utf8(HTML)));
+        try (var capture = LogCapture.forLogger(EFormExportZip.class)) {
+            Result result = runImport(archive, true);
+            assertThat(result.errors()).singleElement().asString().contains("already exists");
+            assertThat(result.saved()).isEmpty();
+            assertThat(publishedNames()).isEmpty();
+            assertThat(capture.messages()).anySatisfy(message -> assertThat(message).contains("form already exists"));
+        }
+    }
+
+    @Test
+    void shouldKeepDebugDiagnosticsFreeOfFormHtml_whenImportingAcceptedMetadata() throws Exception {
+        Map<String, byte[]> entries = new LinkedHashMap<>();
+        entries.put("valid/", null);
+        entries.put("valid/eform.properties", utf8("form.name=FAKE valid\nform.htmlFilename=valid.html\n"));
+        entries.put("valid.html", utf8(HTML));
+        try (var capture = LogCapture.forLogger(EFormExportZip.class)) {
+            Result result = runImport(zip(entries));
+            assertThat(result.errors()).isEmpty();
+            assertThat(result.saved()).hasSize(1);
+            assertThat(capture.messages()).anySatisfy(message -> assertThat(message).contains("Importing eForm record"));
+            assertThat(capture.messages()).noneSatisfy(message -> assertThat(message).contains(HTML));
         }
     }
 
@@ -202,5 +309,34 @@ class EFormExportZipArchiverMetadataImportUnitTest {
         assertThat(EFormExportZip.isArchiverMetadataEntry("pkg/__MACOSX/form.html")).isFalse();
         assertThat(EFormExportZip.isArchiverMetadataEntry("__macosx/._form.html")).isTrue();
         assertThat(EFormExportZip.isArchiverMetadataEntry("__macosx/form.html")).isFalse();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"form.name=\n", "form.name=\nform.htmlFilename=\n"})
+    void shouldReportMissingName_whenHtmlFilenameIsAlsoMissing(String properties) throws Exception {
+        Result result = runImport(zip(Map.of("eform.properties", utf8(properties))));
+
+        assertThat(result.errors()).containsExactly("Skipped form because it has no form name.");
+        assertThat(result.saved()).isEmpty();
+        assertThat(publishedNames()).isEmpty();
+        try (Stream<Path> staged = Files.list(imageFolder.resolve("extractFolder"))) {
+            assertThat(staged).isEmpty();
+        }
+    }
+
+    @Test
+    void shouldKeepRejectedHtmlPrivate_whenOnlyTheFormNameIsMissing() throws Exception {
+        Map<String, byte[]> entries = new LinkedHashMap<>();
+        entries.put("eform.properties", utf8("form.name=\nform.htmlFilename=rejected.html\n"));
+        entries.put("rejected.html", utf8(HTML));
+        entries.put("valid/eform.properties", utf8("form.name=Synthetic valid\nform.htmlFilename=valid.html\n"));
+        entries.put("valid.html", utf8(HTML));
+
+        Result result = runImport(zip(entries));
+
+        assertThat(result.errors()).containsExactly("Skipped form because it has no form name.");
+        assertThat(result.saved()).extracting(EForm::getFormName).containsExactly("Synthetic valid");
+        assertThat(result.saved()).extracting(EForm::getFormHtml).containsExactly(HTML);
+        assertThat(publishedNames()).isEmpty();
     }
 }

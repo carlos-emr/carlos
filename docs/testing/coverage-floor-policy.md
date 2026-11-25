@@ -5,20 +5,35 @@ verification plan. Source freshness and coverage acceptance are separate checks.
 CI checks freshness on PRs targeting `release/2026.08` and release-branch pushes.
 It does not approve a coverage waiver or establish release readiness.
 
-The baseline records the Java source tree, complete comparison fingerprint,
-each source blob, measured report hash, baseline commit and actual test-case
-counts. Test/document-only commits can retain that baseline. Changed Java
-sources, a different comparison base, missing/stale floors, dirty Java files or
-a baseline from another source tree fail freshness. A failed invocation removes
-any previous result file before validation, so an old success cannot survive.
-Squash/rebase merges may rewrite or discard the historical baseline commit.
-Freshness therefore requires the exact source tree, comparison and per-file
-blobs rather than commit ancestry. When the historical commit is available,
-its source tree is also checked; its availability is recorded explicitly.
-An absent commit does not waive any source identity or coverage requirement.
+`scripts/coverage/release-coverage-floors.json` is a stable v2 manifest. It pins
+the reviewed comparison base and the SHA-256 of a frozen seed in `evidence/`.
+The seed retains the entire former policy, byte for byte, including its floors,
+refusal lines, exclusions, test counts and nested prior evidence. A small
+immutable companion binds legacy exclusions to their exact source blobs. Migration
+does not create a new coverage measurement or qualify existing coverage gaps.
 
-`baselineSourceTree` retains the measured tree if the original commit object
-becomes unavailable; when that object is present, its tree must also match.
+Future updates go in `scripts/coverage/floors/<source-path>.json`, one record
+per changed source. Each record points to an immutable, SHA-256-named run
+document in `evidence/`. Unchanged sources inherit their seed records. Two PRs
+that change different Java sources therefore edit different files and retain
+their own run provenance after merging. There is no shared candidate-tree
+fingerprint or latest-run pointer to refresh on every merge. Concurrent changes
+to the same source still require an explicit source/evidence reconciliation.
+
+Each run retains its complete measured Java tree, comparison fingerprint,
+source blobs, report hash, baseline commit and test counts. Freshness requires
+the candidate's **individual source blob** and fixed comparison base to match
+its evidence. Together they identify exactly the changed lines measured for
+that source. An unrelated source change does not invalidate those lines. When
+a measured commit is available, its full recorded tree, comparison fingerprint
+and individual source blobs are also checked. After squash/rebase pruning,
+`baselineSourceTree` retains the original tree identity and the immutable run
+document retains the individual bindings. Exclusions are also source-bound.
+
+Changed sources without matching evidence, a different comparison base,
+missing/stale floors, dirty Java files, corrupt evidence or records attached
+to another source still fail. A failed invocation removes any previous result
+file before validation, so an old success cannot survive.
 
 Run freshness independently:
 
@@ -49,6 +64,75 @@ changed floor. Keep higher existing metric floors and required refusal lines;
 do not lower them to obtain a pass. Enumerate every changed source, retaining
 only the documented nonexecutable exclusions. Record current source blobs and
 report/test evidence hashes. Never carry a waiver to changed source bytes.
+
+To update floors after a measured run, prepare a v1-shaped run document with
+the existing source identity and baseline evidence fields plus the measured
+`files` rows (and any documented `exclusions`). A focused document may include
+only the selected sources; its metadata must describe the actual run, including
+whether it is a focused run or a complete release lane. Import the owned paths:
+
+```sh
+python3 scripts/coverage/manage-coverage-floors.py \
+  --import-from /private/run/measured-floors.json \
+  --source src/main/java/example/Changed.java \
+  --source src/main/java/example/OtherChanged.java
+```
+
+The importer archives the input unchanged and writes only those source records.
+For legacy exclusions without explicit blob fields, it also writes an immutable
+companion binding to the original run. Exclusion records must match that binding
+even when the measured Git commit is no longer available.
+It keeps higher active metric floors and all required refusal checks; it does
+not copy unrelated rows from the input. New zero-floor review metadata must be
+explicitly present in the input and refer to the measured source blob. An active
+review persists when reimporting the same zero-floor source blob, retaining its
+original immutable evidence reference. A changed source blob cannot inherit
+that review; a floor raised above zero retires the no-longer-needed waiver.
+Neither importing evidence nor passing freshness establishes release readiness.
+The full ratchet still requires its fresh, passing, same-class native-lane union
+for the complete candidate, even though historical per-source floors compose.
+
+Refusal lines are absolute positions within a particular source blob. For
+unchanged source bytes the importer retains their union. When that source
+changes, the run document must explicitly map every active refusal to its
+measured position in the new source, for example:
+
+```json
+"refusalLineMappings": {
+  "src/main/java/example/Changed.java": {
+    "fromSourceBlob": "<previous-source-blob>",
+    "lines": {"58": 60, "59": 61}
+  }
+}
+```
+
+Every destination must also appear in that source's measured
+`requiredRefusalLines`. Missing mappings, mappings from another blob or dropped
+requirements are refused before any source record is updated. Review these
+mappings against the source change; old line numbers are never carried blindly
+to different source bytes.
+
+If a source is deleted or restored exactly to the reviewed comparison base,
+add a source record at its normal path with `schemaVersion: 1`, its `path` and
+`kind: "remove"`. Removal of a still-changed source fails as a missing floor.
+For exclusion updates, import the path with a documented nonexecutable
+`exclusions` entry; its measured source tree must be available to resolve the
+blob, or the input must explicitly retain it in `exclusionSourceBlobs`.
+
+For an existing open PR that still edits the old shared v1 file:
+
+1. Save that PR's v1 document outside the checkout **before** merging the new
+   release policy, for example with `git show HEAD:scripts/coverage/release-coverage-floors.json`.
+2. Incorporate `release/2026.08` and keep the release's v2 manifest when resolving
+   the one-time policy-file conflict.
+3. Use `--import-from` on the saved document, selecting only the Java paths owned
+   by this PR. Existing higher release floors and refusal lines are retained.
+4. Run freshness. If the merge changed an owned source's bytes, measure that
+   source again and import its evidence. Unrelated incoming Java changes use
+   their own records and do not require rewriting this PR's metadata.
+
+Do not edit the manifest or seed for routine floor updates. A change of reviewed
+comparison base is a separate policy migration with newly measured comparisons.
 
 The `0f47111d0e0` merged-source H2 refresh has 34,768 actual test cases,
 no failures/errors, and 167 explicit prerequisite/routed skips. It records
@@ -106,6 +190,130 @@ retained floors. The wider currentMain comparison still refuses 80 unreviewed
 zero floors and misses 36 line, 44 instruction and 32 branch assertions.
 These are retained failures; no waiver or lower threshold is introduced.
 The complete same-source native-lane coverage union remains required.
+
+The `f69b87ad0ff0` refresh is PR #6113 (#5969, #5968), merged with release
+`38cfc10c0ae7` (#6100). It changes the source blobs of
+`MariaDbCompatibilityDriver.java` and `MariaDbJdbcCompatibility.java` only.
+Every other floor and exclusion is unchanged. Its evidence is CI run
+42762907938 ("Check Carlos EMR", `tests` job) for that head. The PR merge ref
+it checked out has the same tree as `f69b87ad0ff0`. The H2 run records 35,937
+cases with 218 explicit routed/prerequisite skips and zero failures or errors.
+`baselineReportSha256` is the SHA-256 of that run's
+`target/site/jacoco/jacoco.xml` (artifact `java-coverage-42762907938-1`).
+`baselineTestReportsSha256` is the SHA-256 over the 2,649
+`TEST-*.xml` reports of artifact `java-test-reports`, taken in sorted filename
+order as one `<name>\0<sha256 hex of file>\n` line per report.
+The driver's changed-line floors rise from 3.29/2.47/1.25 to 48.02/47.62/40.97
+(lines/instructions/branches). That is because `MariaDbCompatibilityDriverNumberUnitTest` now runs the
+#5968 conversions in the H2 lane. Previously only the physical-MariaDB test
+exercised them. `MariaDbJdbcCompatibility.java` rises from 95.36/96.24/88.34 to
+97.77/98.14/90.45. No floor was lowered and no waiver was added. Both changed
+files meet their floors in this report. The wider currentMain comparison in
+this run still refuses 80 unreviewed zero floors and misses 37 line,
+45 instruction and 33 branch assertions, all in other files. The same misses
+appear in the CI run of `0e86503` without the new tests. That run also
+missed all three of the driver's previous floors, which the new tests cover.
+These remain open release failures; the complete same-source native-lane union is
+still required.
+
+The `2255c1b31db3` review refresh fixes TINYINT(1) object reads for negative
+values other than -1 and adds the corresponding numeric-truth boundary cases.
+Its clean Ubuntu 26.04/JDK 25 H2 execution records 36,078 actual test cases,
+213 explicitly routed/prerequisite skips and zero failures/errors. Counts use
+the individual `testcase` elements: Surefire's nested-container header counters
+collapse some equal method names. The release evidence parser accepts every
+retained identity and skip route across the 2,643 reports. Their digest uses
+the same sorted filename/NUL/file-SHA-256 protocol described above.
+All 6,292 production class hashes match the separate 35-case physical MariaDB
+execution. The driver's floors rise to 51.72/51.34/45.40 percent
+(lines/instructions/branches); its source blob and the baseline's source,
+comparison and report hashes are refreshed. Every other file floor and all
+refusal lines are retained. No floor is lowered and no waiver is added; the
+comparison-wide qualification requirements and 80 unreviewed zero floors from
+the preceding baseline remain.
+
+The `2766d0fffb89` checkpoint also retains SQL NULL for supported primitive-class
+`getObject` requests, while primitive getters still return zero plus `wasNull()`.
+Its clean Ubuntu 26.04/JDK 25 H2 run passes 36,087 actual cases with the same
+213 explicitly registered skips, zero failures/errors and 2,643 reports. All
+6,292 production class hashes match the separate 60-case adapter/physical
+MariaDB execution and the source-built packaged WAR. The original Connector/J
+9.6.0 jar agrees on all 80 additional typed-NULL observations in both protocols.
+The driver's floors rise again to 54.08/53.09/48.79 percent; only that row and
+the source/report provenance change. Other floors, refusal lines and the
+comparison-wide qualification requirements remain intact, with no lower floor
+or new waiver.
+
+The `6b679afc3659` checkpoint extends the same TINYINT(1) truth rule to
+`transformedBitIsBoolean=true`. The seven boundary/NULL unit cases exercise
+both BIT and BOOLEAN metadata, and the physical cases exercise all four
+`tinyInt1isBit`/`transformedBitIsBoolean` combinations in both protocols,
+including the integer-object controls. The original Connector/J 9.6.0 oracle
+agrees throughout that configuration matrix. Its clean Ubuntu 26.04/JDK 25
+H2 execution again passes 36,087 actual cases, with 213 explicitly registered
+skips, zero failures/errors and 2,643 reports accepted by the release evidence
+parser. All 6,292 production class hashes match the separate 60-case
+adapter/physical MariaDB execution and the source-built packaged WAR. The
+driver's floors rise to 54.20/53.32/49.00 percent; its source blob and the
+source/report provenance are refreshed. Every other floor and refusal line
+is retained, including the comparison-wide qualification requirements and
+80 unreviewed zero floors. No floor is lowered and no waiver is added.
+
+The `79af8359433b` refresh rebinds PR #6113 to release `070c90d534de` (#6174).
+Merging the release had kept an older release identity and the release's
+adapter blobs, so freshness failed. The rebuilt file starts from the release's
+own floors, which stay authoritative for every row this PR does not change: 1,595
+floors, exclusions, refusal lines and the 76 unreviewed zero floors the release
+reports. Only the two adapter rows change. Each metric takes the highest of the
+release floor, the PR's earlier measurement on the same blob, and a focused
+Temurin JDK 25.0.5+8 JaCoCo union run on the merged sources. That union combines
+every H2 test class that names either adapter (459 cases) with the 35-case
+physical MariaDB 11.8.8 `JdbcConnectorMariaDbIntegrationTest`: 494 cases with
+no skips, failures or errors. The driver's floors become 93.89/92.07/84.80
+(lines/instructions/branches), up from the release's 62.87/57.25/44.39.
+`MariaDbJdbcCompatibility.java` becomes 98.27/98.14/90.45. Its branch floor is
+the full H2 suite's 90.45 on this unchanged blob; the focused union reaches
+90.21. The release's prior evidence is archived in `baselinePriorEvidence`.
+This run proves source freshness and focused PR coverage only, not acceptance
+of the complete release-lane union.
+
+The `f9b1b18286d8` refresh follows the CodeRabbit fix for a real BIT(1) column
+that `transformedBitIsBoolean=true` reports as BOOLEAN. It changes only the
+driver's source blob. The same focused union, now 460 H2 cases plus the 35
+physical cases (495 in all, no skips, failures or errors), measures the driver
+at 94.00/92.18/85.04. That is above both its release floor and the
+93.89/92.07/84.80 recorded for the previous blob, so those are the new floors.
+`MariaDbJdbcCompatibility.java` is unchanged and keeps 98.27/98.14/90.45, its
+branch floor again the full H2 suite's measurement on that blob. Every other
+row, the release evidence in `baselinePriorEvidence` and the release-lane
+qualification requirements are unchanged; no floor is lowered and no waiver is
+added.
+
+The `ca5a91ac8727` refresh merges release `9c2014ef3867` (#6134) into the PR.
+The release's floors file (1,614 rows plus exclusions, refusal lines and its
+77 unreviewed zero floors) again supplies every row the PR does not change.
+The adapter blobs are unchanged, and the same 495-case focused union rerun on
+the merged sources measures them as before: the driver at 94.00/92.18/85.04 and
+`MariaDbJdbcCompatibility.java` at 98.27/98.14/90.21, which keeps its retained
+90.45 branch floor. Both adapter rows keep their floors; no floor is lowered
+and no waiver is added.
+
+The `b75252bf2c47` refresh repeats that procedure for release `0ba9d149d105`
+(#6169, #6235, #6155, #6143): the release file supplies every other row, and the
+same 495-case union on the merged sources measures both unchanged adapter blobs
+exactly as before, so their floors stand.
+
+The `29104a75e4b4`, `50b73f8f1018` and `1c0835e27d85` refreshes do the same for
+releases `0c9a1d8414a4` (#6234), `8d45b8007ffa` (#6218) and `8b8b058100c9`
+(#6253), with the same measurements and floors.
+
+When #6252 moved the release to per-source records, PR #6113 followed the
+documented open-PR procedure. It saved its v1 document from `f340112577`, kept
+the release's v2 manifest and imported only its two adapter paths. The importer
+archived that document unchanged as evidence `e3805cb4…` and wrote
+`floors/…/MariaDbCompatibilityDriver.java.json` and
+`floors/…/MariaDbJdbcCompatibility.java.json` with the same floors. Unrelated
+release merges no longer require rebinding these records.
 
 The `dd7321db79ee` PR #6102 merged-source refresh uses Debian 13 and Temurin
 25.0.3. Its complete H2 run records 35,947 actual cases: 35,736 passes,
@@ -338,3 +546,41 @@ old floor entries are outside the current comparison because their sources
 were removed or restored to the reviewed base. No executable exclusion, lower
 floor or zero-coverage waiver was added. Passing PR source freshness does not
 certify those outstanding release-wide coverage requirements.
+
+The PR #6133 checkpoint at `5a02e389bda` records a fresh complete H2 execution:
+36,211 actual cases, zero failures/errors and 219 exact registered routed or
+prerequisite skips. Seven physical MariaDB audit-purge cases and five permission
+cases pass separately without skips against identical production/test classes.
+All 6,311 production class hashes match the isolated source-built WAR. Fifteen
+packaging fixtures also exercise a byte-identical preflight helper with JaCoCo.
+Two CDS families abort in `BeforeAll` without their protected native selector;
+their required 12 and 7 cases remain in `java-cds-native` and are explicitly
+recorded in the baseline rather than counted as H2 executions.
+
+The refreshed metadata binds 739 floors and the same six nonexecutable exclusions
+to the final Java tree, report and testcase inventory. Every Java file changed by
+this PR meets its retained floors. Higher historical metrics and every required
+refusal line remain intact. The wider comparison still refuses 194 assertions,
+including 79 existing unreviewed zero floors, pending the complete native-lane
+union and review. This adds no waiver or lower threshold and does not qualify
+the full release matrix.
+
+PR #6135 refreshes the inbox/review source at `3e6960be26b` from a complete
+36,223-case H2 run with zero failures/errors and 212 registered routed/prerequisite
+skips. Complete final retakes of four augmented action/upload/report-identity
+classes pass 144 cases without skips; replacing only those four reports yields
+36,230 verified cases (36,018 passes, 212 routed skips). Both focused physical
+MariaDB 11.8.8 Flyway lanes pass 116 cases separately for ON and BC, without skips.
+All 6,320 production class hashes match across these executions and the
+browser-tested WAR; all five Ontario browser checks pass their 19 steps.
+
+The fresh comparison records 752 source floors and the same six nonexecutable
+exclusions, preserving 114 higher historical metrics across 53 files and every
+required refusal line. All 22 Java paths changed against this PR's release base
+meet their retained floors. The wider release comparison still refuses 191
+assertions, including 77 unreviewed zero floors; no waiver or threshold reduction
+is introduced. This establishes source freshness and measured PR coverage, and
+does not replace the complete same-source native-lane union for release
+qualification. Node 22.22.1 passes all 7,914 regression cases without skips,
+cancellations or source mutation; the release/coverage Python self-tests pass
+405 and 30 cases respectively.

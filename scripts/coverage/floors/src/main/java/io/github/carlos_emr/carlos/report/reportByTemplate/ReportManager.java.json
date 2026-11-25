@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/report/reportByTemplate/ReportManager.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "daa62737cb33d253e5982f54181e468cebf46928"
+  },
+  "evidenceSha256": "4e4eda64e2489ba1dcf74bcf269d565e31d567e1b6dc98ac64af977f15ab506b"
+}

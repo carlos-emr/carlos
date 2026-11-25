@@ -256,7 +256,9 @@ async function workflow(s) {
       { timeout: 20000, label: 'Generate Report' });
     await manager.waitForURL(url => url.searchParams.get('waitingListId') === listId, { timeout: 20000 });
     await h.assertNotErrorPage(manager, 'the waiting-list report');
-    h.assert(await manager.locator('a', { hasText: marker }).count() === 1, 'The waiting-list report does not list the patient once');
+    // The patient's name is the row's Master Record control (a button since #5477, formerly an anchor).
+    h.assert(await manager.locator('[onclick*="popupDemographicPage("]', { hasText: marker }).count() === 1,
+      'The waiting-list report does not list the patient once');
     const notes = await manager.locator('textarea[name$="].note"]').evaluateAll(areas => areas.map(area => area.value));
     h.assert(JSON.stringify(notes) === JSON.stringify([secondNote]), 'The waiting-list report does not show the current note');
     await shot(manager, 'manager-report');

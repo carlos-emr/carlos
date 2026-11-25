@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "26b257b4ab086e289196ab22a20219f852a28a73",
+  "comparisonSha256": "feb4fe41d406c016f46e75a7c02aefa92627ea92135ad43cf707addea8a8e143",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementView2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "19892ec50e244d5399b356b968a74fd96f31d753"
+    }
+  },
+  "baselineCommit": "6a4d9e16273ed0fccca9d3455ed4873ead1b6ccc",
+  "baselineSourceTree": "26b257b4ab086e289196ab22a20219f852a28a73",
+  "baselineReportSha256": "6b9431fa03a400ae52fee026124fd87e3a201f7712e6a4a71e401dc85fbdf45a",
+  "baselineLane": "Merged chart access, patient isolation, CPP response and case-management Java 25 validation",
+  "baselineTestCounts": {
+    "tests": 177,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "87ab4cd0db0b585c30ee2c33d78314ad2dd943463558ad5af5b0806bc9626cee",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementEntryRequestIsolationUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementGroupNoteDisplayRoleUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewFilterUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewGroupNoteAccessIntegrationTest",
+    "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewNoteAccessUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewPatientIsolationUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewStaleNotePreferencesUnitTest"
+  ]
+}

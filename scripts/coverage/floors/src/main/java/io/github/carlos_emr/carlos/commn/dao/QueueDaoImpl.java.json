@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/dao/QueueDaoImpl.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "4c6b7ad1a64f8341dace4478881379b7c5adf63e"
+  },
+  "evidenceSha256": "961f2037021181b38b9cb79b22541d13b422505910a674f3c9ac2089c9e159b7"
+}

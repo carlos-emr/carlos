@@ -393,7 +393,8 @@ public final class ConfiguredReportQuery {
     private static String readValue(ResultSet rows, int column, long remainingCharacters, int maximumCharacters)
             throws SQLException {
         // Connector/J cannot stream scalar values as characters; their database types are bounded.
-        boolean scalar = switch (rows.getMetaData().getColumnType(column)) {
+        int jdbcType = rows.getMetaData().getColumnType(column);
+        boolean scalar = switch (jdbcType) {
             case Types.NULL, Types.BOOLEAN, Types.BIT, Types.TINYINT, Types.SMALLINT,
                     Types.INTEGER, Types.BIGINT, Types.REAL, Types.FLOAT, Types.DOUBLE,
                     Types.NUMERIC, Types.DECIMAL, Types.DATE, Types.TIME, Types.TIMESTAMP,
@@ -407,7 +408,7 @@ public final class ConfiguredReportQuery {
             }
             return value;
         }
-        try (Reader reader = rows.getCharacterStream(column)) {
+        try (Reader reader = ReportJdbcTextReader.open(rows, column, jdbcType)) {
             if (reader == null) return null;
             StringBuilder value = new StringBuilder();
             char[] buffer = new char[2048];

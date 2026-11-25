@@ -3,47 +3,11 @@ name: CDS import native contracts
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, edited]
     branches: [main, develop, experimental, 'release/*', 'staging/*', 'hotfix/*']
-    paths:
-      # Shared clinical models, DAOs and guarded datasources participate in these contracts.
-      - 'src/main/java/**'
-      - 'src/main/resources/cds-import/**'
-      - 'src/main/resources/cds-export/**'
-      - 'src/test/java/**/cdsimport/**'
-      - 'src/test/java/**/cdsexport/**'
-      - 'src/test/resources/demographic/cds-import-*.xml'
-      - 'src/test/resources/cds-spec/**'
-      - 'docs/cds-spec*'
-      - 'scripts/cds-spec*'
-      - 'database/mysql/migration/**'
-      - 'scripts/ci/*cds*'
-      - 'scripts/ci/CdsImportMariaDbBootstrap.java'
-      - 'scripts/ci/CdsSyntheticSessionExpiry*.java'
-      - 'scripts/ci/requirements.txt'
-      - 'scripts/ci/test_run_cds_native_tier.py'
-      - 'pom.xml'
-      - '.github/workflows/cds-import-native.yml'
   push:
+    tags: ['20*']
     branches: [main, 'release/**']
-    paths:
-      # Shared clinical models, DAOs and guarded datasources participate in these contracts.
-      - 'src/main/java/**'
-      - 'src/main/resources/cds-import/**'
-      - 'src/main/resources/cds-export/**'
-      - 'src/test/java/**/cdsimport/**'
-      - 'src/test/java/**/cdsexport/**'
-      - 'src/test/resources/demographic/cds-import-*.xml'
-      - 'src/test/resources/cds-spec/**'
-      - 'docs/cds-spec*'
-      - 'scripts/cds-spec*'
-      - 'database/mysql/migration/**'
-      - 'scripts/ci/*cds*'
-      - 'scripts/ci/CdsImportMariaDbBootstrap.java'
-      - 'scripts/ci/CdsSyntheticSessionExpiry*.java'
-      - 'scripts/ci/requirements.txt'
-      - 'scripts/ci/test_run_cds_native_tier.py'
-      - 'pom.xml'
-      - '.github/workflows/cds-import-native.yml'
   workflow_dispatch:
 
 concurrency:
@@ -55,7 +19,12 @@ permissions:
   packages: read
 
 jobs:
+  changes:
+    uses: ./.github/workflows/cds-change-detection.yml
+
   native-contracts:
+    needs: changes
+    if: needs.changes.outputs.run-tests == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:

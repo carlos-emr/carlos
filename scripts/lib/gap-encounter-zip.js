@@ -1,6 +1,6 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 'use strict';
-// A minimal ZIP writer (stored entries, no compression) for upload fixtures, so a check needs no zip tool.
+// Minimal stored/deflated ZIP fixtures, so browser checks need no external ZIP tool.
 const zlib = require('node:zlib');
 
 function crc32(buffer) {
@@ -14,28 +14,30 @@ function crc32(buffer) {
 }
 
 /** @param entries array of {name, data} (data: string or Buffer); returns the archive bytes. */
-function zipStored(entries) {
+function zipEntries(entries, deflate) {
   const locals = [];
   const centrals = [];
   let offset = 0;
   for (const { name, data } of entries) {
     const nameBytes = Buffer.from(name, 'utf8');
     const body = Buffer.isBuffer(data) ? data : Buffer.from(String(data), 'utf8');
+    const payload = deflate ? zlib.deflateRawSync(body) : body;
+    const method = deflate ? 8 : 0;
     const crc = crc32(body);
     const local = Buffer.alloc(30);
     local.writeUInt32LE(0x04034b50, 0); local.writeUInt16LE(20, 4); local.writeUInt16LE(0x0800, 6);
-    local.writeUInt16LE(0, 8); local.writeUInt16LE(0, 10); local.writeUInt16LE(0x21, 12);
-    local.writeUInt32LE(crc, 14); local.writeUInt32LE(body.length, 18); local.writeUInt32LE(body.length, 22);
+    local.writeUInt16LE(method, 8); local.writeUInt16LE(0, 10); local.writeUInt16LE(0x21, 12);
+    local.writeUInt32LE(crc, 14); local.writeUInt32LE(payload.length, 18); local.writeUInt32LE(body.length, 22);
     local.writeUInt16LE(nameBytes.length, 26); local.writeUInt16LE(0, 28);
-    locals.push(local, nameBytes, body);
+    locals.push(local, nameBytes, payload);
     const central = Buffer.alloc(46);
     central.writeUInt32LE(0x02014b50, 0); central.writeUInt16LE(20, 4); central.writeUInt16LE(20, 6);
-    central.writeUInt16LE(0x0800, 8); central.writeUInt16LE(0, 10); central.writeUInt16LE(0, 12);
-    central.writeUInt16LE(0x21, 14); central.writeUInt32LE(crc, 16); central.writeUInt32LE(body.length, 20);
+    central.writeUInt16LE(0x0800, 8); central.writeUInt16LE(method, 10); central.writeUInt16LE(0, 12);
+    central.writeUInt16LE(0x21, 14); central.writeUInt32LE(crc, 16); central.writeUInt32LE(payload.length, 20);
     central.writeUInt32LE(body.length, 24); central.writeUInt16LE(nameBytes.length, 28);
     central.writeUInt32LE(offset, 42);
     centrals.push(central, nameBytes);
-    offset += local.length + nameBytes.length + body.length;
+    offset += local.length + nameBytes.length + payload.length;
   }
   const centralBytes = Buffer.concat(centrals);
   const end = Buffer.alloc(22);
@@ -44,4 +46,10 @@ function zipStored(entries) {
   return Buffer.concat([...locals, centralBytes, end]);
 }
 
-module.exports = { zipStored, crc32 };
+/** Stored entries retain the original fixture bytes for all existing callers. */
+function zipStored(entries) { return zipEntries(entries, false); }
+
+/** Deflated entries let actual expansion budgets be exercised below multipart upload limits. */
+function zipDeflated(entries) { return zipEntries(entries, true); }
+
+module.exports = { zipStored, zipDeflated, crc32 };

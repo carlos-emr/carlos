@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "4945ef24a42538d1071310951850c86a06e50629",
+  "comparisonSha256": "9ee67f1cc4f9657bc6804ae520961e7009a275d6d5fa53d27ff934114ed91dfc",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/messenger/pageUtil/MsgAttachPDF2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "a4c3760d7d06517688f9e5870d807882ca7e04a5"
+    }
+  },
+  "baselineCommit": "dfa60197713e9977ffcb49049bc3f140e49136d5",
+  "baselineSourceTree": "4945ef24a42538d1071310951850c86a06e50629",
+  "baselineReportSha256": "621c3872a8777cee59a5707df67d017e0600c726e0505be64c8d3e9d7b3c92ac",
+  "baselineLane": "Focused JDK 25 Messenger action and Jasper error dispatch tests, freshly compiling the changed action and test classes against the release build dependencies. Selected-source comparison covers all 3 executable changed lines and 12 instructions, with no changed branches.",
+  "baselineTestCounts": {
+    "tests": 41,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "f7a39049a136cfbda4e7184bc9be2ab133d18b18ffa9285781c3c6b856a9d270",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

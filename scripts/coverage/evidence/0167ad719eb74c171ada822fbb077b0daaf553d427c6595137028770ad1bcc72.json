@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "cf31456dc23545fddb1203371e810df81fe0a135",
+  "comparisonSha256": "3e140a42e92e555761f9737ee4a2072882362ff5847d9106b77095ee3369f8a4",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/PMmodule/service/VacancyTemplateManagerImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "2e3eadd51c9a8a5336020b202c59f2be784d7b0a"
+    }
+  },
+  "baselineCommit": "2bbcfab99bda7652edafa68ddd24b91f786c22f3",
+  "baselineSourceTree": "cf31456dc23545fddb1203371e810df81fe0a135",
+  "baselineReportSha256": "049c0efb4ed19c80a00c3c008231ebd14cdddf70c1653059f9f3a957ecc3313a",
+  "baselineLane": "Focused JDK 25 vacancy manager Spring component-registration and PMmodule action-routing regression tests. The production import and service stereotype add no executable changed lines or branches. Spring constructs the actual registered class, covering its one constructor line and all three instructions.",
+  "baselineTestCounts": {
+    "tests": 38,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "32cdf1e617cb55728f2fdafd4fd35627b41cb49ba0a99f57f3c65600aa3c1f86",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

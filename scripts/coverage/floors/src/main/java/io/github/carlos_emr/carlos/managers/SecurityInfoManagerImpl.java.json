@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/managers/SecurityInfoManagerImpl.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "2913f5c17fe332e5d672fe2e81a3dcfff7dae504"
+  },
+  "evidenceSha256": "4960abb625a4c79b94f22d0b166ae798cafe4b2939f28d917422daa3c6ebda13"
+}

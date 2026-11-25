@@ -39,6 +39,35 @@ class RequiredExecutionsTest(unittest.TestCase):
             stream = next(row for row in plan['workstreams'] if row['id'] == stream_id)
             self.assertIn(lane_id, stream['requiredChecks'])
 
+    def test_legacy_note_flag_skips_route_every_native_invocation(self):
+        checks = {check['id']: check for check in gate.load_plan()['checks']}
+        family = 'CaseManagementNoteLegacyFlagsMariaDbIntegrationTest'
+        classname = 'io.github.carlos_emr.carlos.casemgmt.dao.' + family
+        route = checks['java-all']['routedSkips'][classname]
+        self.assertEqual(route['check'], 'java-native-flyway')
+        expected = {
+            'shouldLoadNullableFlags_whenReadingANoteById(Boolean, Integer, boolean, int)': 9,
+            'shouldLoadNullableFlags_whenReadingANoteIdList(Boolean, Integer, boolean, int)': 9,
+            'shouldLoadNullableFlags_whenReadingTheNativePatientNoteList(Boolean, Integer, boolean, int)': 9,
+            'shouldPersistExplicitFlagChanges_whenUpdatingALegacyNullNote(boolean)': 2,
+            'shouldUseTheNullablePublishedColumnTypes_onThePhysicalSchema': 1,
+        }
+        self.assertEqual(len(route['cases']), len(expected))
+        self.assertEqual({row['name'] for row in route['cases']}, set(expected))
+        for row in route['cases']:
+            self.assertEqual(row.get('container', ''), '')
+            count = expected[row['name']]
+            if count > 1:
+                self.assertEqual(row['destinations'], [
+                    {'name': row['name'] + f'[{index}]', 'container': ''}
+                    for index in range(1, count + 1)])
+        for lane_id in ('java-native-flyway', 'java-native-bc-flyway'):
+            lane = checks[lane_id]
+            self.assertGreaterEqual(lane['requiredFamilies'][family], sum(expected.values()))
+            selection = next(arg.removeprefix('-Dtest=') for arg in lane['command']
+                             if arg.startswith('-Dtest='))
+            self.assertIn(family, selection.split(','))
+
     def test_path_bindings_reject_non_object_entries(self):
         plan = gate.read_json(gate.DEFAULT_PLAN)
         with tempfile.TemporaryDirectory() as temporary:
@@ -81,10 +110,20 @@ class RequiredExecutionsTest(unittest.TestCase):
         checks = {check['id']: check for check in plan['checks']}
         source = checks['java-all']['routedSkips']['io.github.carlos_emr.carlos.utility.JdbcConnectorMariaDbIntegrationTest']
         self.assertEqual(source['check'], 'java-native-generated')
-        self.assertEqual(len(source['cases']), 16)
-        for case in source['cases']:
-            self.assertEqual([row['name'] for row in case['destinations']],
-                             [case['name'] + '[1]', case['name'] + '[2]'])
+        parameterized = [case for case in source['cases'] if case['name'].endswith('(boolean)')]
+        self.assertEqual(len(parameterized), 23)
+        self.assertEqual(checks['java-native-generated']['requiredFamilies']['JdbcConnectorMariaDbIntegrationTest'], 47)
+        for case in parameterized:
+            name = case['name']
+            with self.subTest(case=name):
+                self.assertEqual(case.get('container', ''), '')
+                self.assertEqual([(row.get('container', ''), row['name']) for row in case['destinations']],
+                                 [('', name + '[1]'), ('', name + '[2]')])
+        # A plain @Test runs once natively under its own name, so it routes without destinations.
+        plain = [case for case in source['cases'] if case not in parameterized]
+        self.assertEqual([(case.get('container', ''), case['name']) for case in plain],
+                         [('', 'shouldConnectAndApplyConnectorJYesNo_forLegacyBooleanOptions')])
+        self.assertTrue(all('destinations' not in case for case in plain))
         self.assertIn('JdbcConnectorMariaDbIntegrationTest', ' '.join(checks['java-native-generated']['command']))
 
     def test_browser_smoke_routes_match_the_lane_selection_and_test_sources(self):

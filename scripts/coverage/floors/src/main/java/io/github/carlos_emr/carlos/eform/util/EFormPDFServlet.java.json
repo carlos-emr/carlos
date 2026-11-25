@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/eform/util/EFormPDFServlet.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 63.63636363636363,
+    "instructions": 57.69230769230769,
+    "branches": 100.0,
+    "sourceBlob": "2f8da7c3aa08d2239b5bc212d9fd92a65088844c"
+  },
+  "evidenceSha256": "08bf119dec4f8910f7205ab2a4e55fd33174c68e49705bfe4397375d70df7090"
+}

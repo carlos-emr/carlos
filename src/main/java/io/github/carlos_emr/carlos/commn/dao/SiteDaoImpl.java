@@ -76,9 +76,12 @@ public class SiteDaoImpl extends AbstractDaoImpl<Site> implements SiteDao {
                 query.setParameter(2, old.getName());
                 query.executeUpdate();
 
-                query = entityManager.createNativeQuery("update appointment set location = ?1, updatedatetime = greatest(current_timestamp, coalesce(timestampadd(second, 1, updatedatetime), current_timestamp)) where location = ?2");
+                query = entityManager.createNativeQuery("update appointment set location = ?1, updatedatetime = greatest(?3, coalesce(timestampadd(second, 1, updatedatetime), ?3)) where location = ?2");
                 query.setParameter(1, s.getName());
                 query.setParameter(2, old.getName());
+                // Use the same clinic/JVM clock as Appointment's entity lifecycle. A database
+                // session in another zone must not push sync cursors hours into the future.
+                query.setParameter(3, new java.sql.Timestamp(System.currentTimeMillis() / 1000 * 1000));
                 query.executeUpdate();
 
                 // billing_on_cheader1 is an Ontario billing table: a BC install's schema has no such table, and

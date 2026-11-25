@@ -283,6 +283,8 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <fmt:message key="SearchDrug.js.staleDraft"                var="msg_staleDraft"/>
         <fmt:message key="SearchDrug.js.removeRefused"             var="msg_removeRefused"/>
         <fmt:message key="SearchDrug.js.requestRefused"            var="msg_requestRefused"/>
+        <fmt:message key="SearchDrug.js.limitedUseLookupFailed"    var="msg_limitedUseLookupFailed"/>
+        <fmt:message key="SearchDrug.js.costLookupFailed"          var="msg_costLookupFailed"/>
         <fmt:message key="SearchDrug.js.deleteRefused"             var="msg_deleteRefused"/>
         <fmt:message key="SearchDrug.js.previewUnavailable"        var="msg_previewUnavailable"/>
         <fmt:message key="SearchDrug.js.dateNotOnCalendar"         var="msg_dateNotOnCalendar"/>
@@ -336,6 +338,8 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
                 staleDraft: '${carlos:forJavaScript(msg_staleDraft)}',
                 removeRefused: '${carlos:forJavaScript(msg_removeRefused)}',
                 requestRefused: '${carlos:forJavaScript(msg_requestRefused)}',
+                limitedUseLookupFailed: '${carlos:forJavaScript(msg_limitedUseLookupFailed)}',
+                costLookupFailed: '${carlos:forJavaScript(msg_costLookupFailed)}',
                 deleteRefused: '${carlos:forJavaScript(msg_deleteRefused)}',
                 previewUnavailable: '${carlos:forJavaScript(msg_previewUnavailable)}',
                 dateNotOnCalendar: '${carlos:forJavaScript(msg_dateNotOnCalendar)}',
@@ -1773,7 +1777,7 @@ function renderRxStage() {
         var target = document.getElementById('inactive_' + id);
         if (!target) return;
         target.setAttribute('role', 'status');
-        target.textContent = 'Checking drug status…';
+        target.textContent = 'Checking drug status\u2026';
         var unavailable = function() { target.textContent = 'Drug status could not be checked. Please verify before prescribing.'; };
         var data = 'method=inactiveDate&din=' + encodeURIComponent(dinNumber) + '&id=' + encodeURIComponent(id);
         CarlosAjax.request(ctx + '/rx/searchDrug', {method: 'post', postBody: data,
@@ -2905,10 +2909,21 @@ function updateQty(element){
                    }
                }});
          }
-         function getLUC(divId,randomId,din){
+         function getLUC(divId, randomId, din) {
+             var panel = document.getElementById(divId);
+             if (!panel) return;
              var url = ctx + "/rx/ViewLimitedUseCode";
-             var params="randomId="+randomId+"&din="+encodeURIComponent(din);
-             CarlosAjax.updater(divId,url,{method:'get',parameters:params,insertion: 'bottom'});
+             var params = "randomId=" + randomId + "&din=" + encodeURIComponent(din);
+             CarlosAjax.updater({success: panel}, url, {
+                 method: 'get',
+                 parameters: params,
+                 onSuccess: function (response) {
+                     checkRxLookupFragment(panel, jsMsg.limitedUseLookupFailed, url, response);
+                 },
+                 onFailure: function (response) {
+                     showRxLookupError(panel, jsMsg.limitedUseLookupFailed, response.status);
+                 }
+             });
          }
 
          function getCost(divId, randomId, din, qty) {
@@ -2918,16 +2933,44 @@ function updateQty(element){
             if (!costElement) return;
             // A slower response for the previous quantity must not overwrite this price.
             if (costElement._priceRequest) costElement._priceRequest.abort();
-            costElement.innerHTML = '';
-            var request = CarlosAjax.updater(costElement, url, {
+            costElement.textContent = '';
+            var request = CarlosAjax.updater({success: costElement}, url, {
                 method: 'get',
                 parameters: params,
+                onSuccess: function (response) {
+                    checkRxLookupFragment(costElement, jsMsg.costLookupFailed, url, response);
+                },
+                onFailure: function (response) {
+                    if (costElement._priceRequest === request) {
+                        showRxLookupError(costElement, jsMsg.costLookupFailed, response.status);
+                    }
+                },
                 onComplete: function () {
                     if (costElement._priceRequest === request) costElement._priceRequest = null;
                 }
             });
             costElement._priceRequest = request;
-        }  
+         }
+
+         function checkRxLookupFragment(panel, message, url, response) {
+             // An expired session can return an HTTP 200 sign-in page. The updater
+             // calls onSuccess before insertion, and skips a null response body.
+             try {
+                 var expected = new URL(url, window.location.href);
+                 var actual = new URL(response.responseURL, window.location.href);
+                 if (response.responseURL && actual.origin === expected.origin && actual.pathname === expected.pathname
+                         && !/<(?:!doctype\s+html|html)\b/i.test(response.responseText || '')) return;
+             } catch (invalidUrl) { /* An unrecognizable landing cannot confirm this lookup. */ }
+             response.responseText = null;
+             showRxLookupError(panel, message);
+         }
+
+         function showRxLookupError(panel, message, status) {
+             var notice = document.createElement('span');
+             notice.setAttribute('role', 'alert');
+             notice.textContent = status > 0 ? message + ' (HTTP ' + status + ')' : message;
+             panel.replaceChildren(notice);
+         }
 
          function validateRxDate() {
          	var x = true;

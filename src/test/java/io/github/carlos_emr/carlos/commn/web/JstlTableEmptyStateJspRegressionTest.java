@@ -33,7 +33,24 @@ class JstlTableEmptyStateJspRegressionTest {
     private static final Pattern EMPTY_GUARD = Pattern.compile("</table>\\s*</c:if>\\s*<c:if test=\"\\$\\{empty ([A-Za-z_][\\w.]*)\\}\">");
     /** Every migrated table answers an empty list (30 at the time of the displaytag removal, #5472). */
     private static final int MINIMUM_GUARDS = 30;
-    private static final Pattern CARLOS_TABLE = Pattern.compile("<table\\b[^>]*\\bdata-carlos-table\\b[^>]*>");
+    // Attach Client now posts sorting/paging to the server and no longer uses data-carlos-table.
+    // It is still one of the migrated tables and must retain the same empty-list guard.
+    private static final Pattern TABLE_START = Pattern.compile("<table\\b");
+    private static final Pattern MIGRATED_ATTRIBUTE = Pattern.compile("\\s(?:data-carlos-table\\b|id=\"client\")");
+
+    private static int lastMigratedTable(String before) {
+        Matcher tables = TABLE_START.matcher(before);
+        Matcher attributes = MIGRATED_ATTRIBUTE.matcher(before);
+        int last = -1;
+        int offset = 0;
+        while (tables.find(offset)) {
+            int end = before.indexOf('>', tables.end());
+            if (end < 0) break;
+            if (attributes.region(tables.end(), end).find()) last = tables.start();
+            offset = end + 1;
+        }
+        return last;
+    }
 
     @Test
     @DisplayName("should hide the table, header included, when its list is empty")
@@ -49,9 +66,7 @@ class JstlTableEmptyStateJspRegressionTest {
                     String before = page.substring(0, guard.start());
                     // A cell can contain a nested layout table (for example, staff teams).
                     // Find the migrated table itself so nested markup cannot bypass this check.
-                    Matcher tables = CARLOS_TABLE.matcher(before);
-                    int table = -1;
-                    while (tables.find()) table = tables.start();
+                    int table = lastMigratedTable(before);
                     if (table < 0) continue;
                     guards++;
                     if (!before.substring(0, table).contains("<c:if test=\"${not empty " + attribute + "}\">")) {

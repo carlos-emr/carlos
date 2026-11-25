@@ -23,7 +23,15 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import java.util.List;
 
+import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONDiskName;
+import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONFilename;
+import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONHeader;
+import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.PersistenceContext;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -36,6 +44,44 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  */
 @Service
 public class BillingOnDiskTransactionService {
+
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
+
+    /**
+     * Removes the allocation of a new disk after its no-replace file publication reports a collision.
+     * The caller holds the OHIP generation lock and supplies the disk ID returned by that allocation.
+     * Leave any disk with finalized metadata or an attached clinical claim for reconciliation.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void retireUnpublishedDisk(int diskId) {
+        BillingONDiskName disk = entityManager.find(BillingONDiskName.class, diskId, LockModeType.PESSIMISTIC_WRITE);
+        if (disk == null || !unpublished(disk.getStatus(), disk.getClaimRecord(), disk.getTotal())) {
+            throw new IllegalStateException("Cannot retire an unverified OHIP disk allocation");
+        }
+        var filenames = entityManager.createQuery("from BillingONFilename where diskId = :disk", BillingONFilename.class)
+                .setParameter("disk", diskId).getResultList();
+        var headers = entityManager.createQuery("from BillingONHeader where diskId = :disk", BillingONHeader.class)
+                .setParameter("disk", diskId).getResultList();
+        if (filenames.isEmpty() || filenames.stream().anyMatch(file -> !unpublished(file.getStatus(),
+                file.getClaimRecord(), file.getTotal())) || headers.stream().anyMatch(header ->
+                !BillingOnConstants.BILLINGACTION_CREATE.equals(header.getAction()) || !"".equals(header.gethCount())
+                        || !"".equals(header.getrCount()) || !"".equals(header.gettCount()))) {
+            throw new IllegalStateException("Cannot retire finalized OHIP disk metadata");
+        }
+        if (!entityManager.createQuery("select c.id from BillingONCHeader1 c where c.headerId in "
+                        + "(select h.id from BillingONHeader h where h.diskId = :disk)", Integer.class)
+                .setParameter("disk", diskId).setMaxResults(1).getResultList().isEmpty()) {
+            throw new IllegalStateException("Cannot retire an OHIP disk with an attached claim");
+        }
+        headers.forEach(entityManager::remove);
+        filenames.forEach(entityManager::remove);
+        entityManager.remove(disk);
+    }
+
+    private static boolean unpublished(String status, String claimRecord, String total) {
+        return BillingOnConstants.BILLINGFILE_STATUS_UNCERT.equals(status) && "".equals(claimRecord) && "".equals(total);
+    }
 
     /** Completion acknowledgement used to protect files when a database commit is uncertain. */
     public static final class Outcome {

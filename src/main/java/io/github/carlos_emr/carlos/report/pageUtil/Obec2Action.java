@@ -42,6 +42,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.BoundedSessionAttributes;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctValidation;
@@ -61,6 +62,8 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * @since 2003-07-22
  */
 public class Obec2Action extends ActionSupport {
+    public static final String DOWNLOAD_CATEGORY = "obecDownloads";
+    public static final String DOWNLOAD_PREFIX = "obec.generatedDownload.";
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -120,6 +123,10 @@ public class Obec2Action extends ActionSupport {
       String endDate = dateUtils.NextDay(startDay, startMonth, startYear, numDays);
       
       String obectxt = obecData1.generateOBEC(startDate, endDate, proppies);
+      if (obectxt != null && !obectxt.isBlank() && !"0".equals(obectxt)) {
+         BoundedSessionAttributes.put(request.getSession(), DOWNLOAD_CATEGORY,
+                 DOWNLOAD_PREFIX + obectxt, Boolean.TRUE);
+      }
       request.setAttribute("obectxt", obectxt);
       
       return SUCCESS;

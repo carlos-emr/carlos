@@ -1,6 +1,7 @@
 # Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
 import importlib.util
 import json
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -130,6 +131,59 @@ class ResultInventoryTest(unittest.TestCase):
         self.assertFalse(gate.browser_results(path, check, self.root)["ready"])
 
 
+    def test_browser_retains_named_runner_failures_and_keeps_messages_private(self):
+        (self.root / "scripts/playwright-suite.json").write_text(json.dumps({"checks": [
+            {"name": "required", "provinces": ["all"]}]}))
+        path = self.root / "browser.xml"
+        path.write_text('<testsuites><testsuite><testcase name="required"/>'
+            '<testcase name="residue-audit"><failure message="private synthetic details"/></testcase>'
+            '<testcase name="application-identity"><failure/></testcase></testsuite></testsuites>')
+        result = gate.browser_results(path, {"selectedProfile": "ON"}, self.root)
+        self.assertEqual(result["tests"], 3)
+        self.assertEqual(result["failed"], 2)
+        self.assertFalse(result["ready"])
+        self.assertEqual(result["runnerFailures"], ["residue-audit", "application-identity"])
+        self.assertNotIn("private synthetic", json.dumps(result))
+
+    def test_browser_names_navigation_failure_even_when_the_check_could_not_start(self):
+        (self.root / "scripts/playwright-suite.json").write_text(json.dumps({"checks": [
+            {"name": "required", "provinces": ["all"]}]}))
+        path = self.root / "browser.xml"
+        path.write_text('<testsuites><testsuite><testcase name="required-navigation-fixture">'
+            '<failure message="private synthetic owner"/></testcase></testsuite></testsuites>')
+        with self.assertRaisesRegex(EvidenceError, "runner failures: required-navigation-fixture") as caught:
+            gate.browser_results(path, {"selectedProfile": "ON"}, self.root)
+        self.assertNotIn("private synthetic", str(caught.exception))
+
+    def test_browser_retains_navigation_cleanup_failure_after_a_passing_check(self):
+        (self.root / "scripts/playwright-suite.json").write_text(json.dumps({"checks": [
+            {"name": "required", "provinces": ["all"]}]}))
+        path = self.root / "browser.xml"
+        path.write_text('<testsuites><testsuite><testcase name="required"/>'
+            '<testcase name="required-navigation-cleanup"><error/></testcase></testsuite></testsuites>')
+        result = gate.browser_results(path, {"selectedProfile": "ON"}, self.root)
+        self.assertFalse(result["ready"])
+        self.assertEqual(result["runnerFailures"], ["required-navigation-cleanup"])
+        self.assertEqual(result["failed"], 1)
+
+    def test_browser_runner_diagnostics_do_not_accept_unknown_extra_rows_or_weaken_selection(self):
+        (self.root / "scripts/playwright-suite.json").write_text(json.dumps({"checks": [
+            {"name": "required", "provinces": ["all"]}]}))
+        path = self.root / "browser.xml"
+        for cases in (
+            '<testcase name="required"/><testcase name="residue-audit"/>',
+            '<testcase name="required"/><testcase name="unknown"><failure/></testcase>',
+            '<testcase name="required"/><testcase name="required"/>'
+                '<testcase name="application-identity"><failure/></testcase>',
+            '<testcase name="required"/><testcase name="residue-audit"><failure/></testcase>'
+                '<testcase name="residue-audit"><failure/></testcase>',
+        ):
+            with self.subTest(cases=cases):
+                path.write_text('<testsuites><testsuite>' + cases + '</testsuite></testsuites>')
+                with self.assertRaises(EvidenceError):
+                    gate.browser_results(path, {"selectedProfile": "ON"}, self.root)
+
+
 class ScopeInventoryTest(unittest.TestCase):
     def test_reviewed_ownership_does_not_waive_rewritten_shared_migration_bytes(self):
         scope = module_from('scope_migration_command', 'release-scope-audit.py')
@@ -158,6 +212,16 @@ class ScopeInventoryTest(unittest.TestCase):
             result = gate.read_json(output / 'scope-result.json')
             self.assertTrue(result['assertions']['complete-production-ownership'])
             self.assertFalse(result['assertions']['published-migrations-byte-identical'])
+            (output / 'scope-result.json').unlink()
+            with patch.object(scope, 'load_plan', return_value=plan), patch.object(scope, 'inventory',
+                    side_effect=lambda p: inventory(p, root)):
+                self.assertEqual(scope.main(['--migration-integrity-only',
+                    '--output', str(output / 'scope.json'),
+                    '--result-output', str(output / 'scope-result.json')]), 1)
+            result = gate.read_json(output / 'scope-result.json')
+            self.assertNotIn('complete-production-ownership', result['assertions'])
+            self.assertFalse(result['assertions']['published-migrations-byte-identical'])
+            self.assertFalse(gate.read_json(output / 'scope.json')['ready'])
 
     def test_scope_command_retains_real_unowned_paths_and_cannot_qualify_inventory_only(self):
         scope = module_from("scope_command", "release-scope-audit.py")
@@ -186,6 +250,23 @@ class ScopeInventoryTest(unittest.TestCase):
                     "assertions": ["complete-production-ownership", "main-only-migration-dispositions", "published-migrations-byte-identical"]}}
                 self.assertFalse(gate.summarize(contract, out, 0)["ready"])
                 self.assertEqual(gate.read_json(details)["unownedProductionPaths"], ["src/main/java/example/Guard.java"])
+                result.unlink()
+                self.assertEqual(scope.main(["--migration-integrity-only", "--output", str(details),
+                    "--result-output", str(result)]), 0)
+                report = gate.read_json(details)
+                self.assertFalse(report['ownershipRequired'])
+                self.assertTrue(report['ready'])
+                self.assertEqual(report['unownedProductionPaths'], ['src/main/java/example/Guard.java'])
+                self.assertNotIn('complete-production-ownership', gate.read_json(result)['assertions'])
+                registered = {row['id']: row for row in gate.load_plan()['checks']}
+                for name in ('scope-and-main-disposition', 'scope-inventory'):
+                    self.assertIn('--migration-integrity-only', registered[name]['command'])
+                self.assertTrue(gate.summarize(registered['scope-and-main-disposition'], out, 0)['ready'])
+                with self.assertRaisesRegex(EvidenceError, 'omitted or added assertions'):
+                    gate.summarize(contract, out, 0)
+                inventory_report = out / 'scope.json'
+                self.assertEqual(scope.main(['--migration-integrity-only', '--output', str(inventory_report)]), 0)
+                self.assertTrue(gate.summarize(registered['scope-inventory'], out, 0, root)['ready'])
                 result.unlink()
                 self.assertEqual(scope.main(["--output", str(details), "--result-output", str(result), "--inventory-only"]), 1)
                 self.assertFalse(result.exists())
@@ -218,6 +299,11 @@ class ScopeInventoryTest(unittest.TestCase):
             plan["pathBindings"][migration]["workstreams"] = ["T01"]
             report = scope.inventory(plan, root)
             sha256 = report["mainOnlyMigrations"][0]["sha256"]
+            inventory = scope.inventory
+            with patch.object(scope, 'load_plan', return_value=plan), patch.object(scope, 'inventory',
+                    side_effect=lambda p: inventory(p, root)):
+                self.assertEqual(scope.main(['--migration-integrity-only',
+                    '--output', str(root / 'migration-audit.json')]), 1)
             for disposition in (None, "TODO", {}, {"reason": "reviewed"},
                                 {"sha256": "0" * 64, "reason": "reviewed"},
                                 {"sha256": sha256, "reason": "  "}):
@@ -226,6 +312,10 @@ class ScopeInventoryTest(unittest.TestCase):
                     self.assertEqual(scope.inventory(plan, root)["unresolvedMainOnlyMigrations"], [migration])
             plan["mainOnlyMigrationDispositions"][migration] = {"sha256": sha256, "reason": "reviewed exclusion"}
             self.assertTrue(scope.inventory(plan, root)["ready"])
+            with patch.object(scope, 'load_plan', return_value=plan), patch.object(scope, 'inventory',
+                    side_effect=lambda p: inventory(p, root)):
+                self.assertEqual(scope.main(['--migration-integrity-only',
+                    '--output', str(root / 'migration-audit.json')]), 0)
         with tempfile.TemporaryDirectory() as temporary:
             document = gate.read_json(gate.DEFAULT_PLAN)
             document.pop('lifecycleBaselineManifest')
@@ -259,6 +349,49 @@ class ScopeInventoryTest(unittest.TestCase):
             result = scope.inventory({"baselines": {"olderMain": baseline, "currentMain": baseline}, "checks": [], "workstreams": []}, root)
             self.assertEqual(len(result["unownedProductionPaths"]), 321)
             self.assertFalse(result["ready"])
+
+    def test_changed_release_build_inputs_need_ownership_but_test_scripts_do_not(self):
+        scope = module_from("release_scope_build_inputs", "release-scope-audit.py")
+        paths = ("scripts/build-demo-additive.sh", "scripts/check-demo-additive.sh",
+                 "scripts/schema-contract.py", "scripts/check-war-container-apis.py",
+                 "scripts/test-o19-input-lifecycle.py", "scripts/migration/o19/generate_manifests.py",
+                 "scripts/ci/check-release-base-image.sh",
+                 ".github/workflows/deb-packages.yml", ".github/workflows/publish-release.yml")
+        for path in paths:
+            with self.subTest(path=path):
+                self.assertTrue(scope.runtime_path(path), path)
+        for path in ("scripts/build-demo-additive.test.js", "scripts/ci/test_release_adapters.py",
+                     ".github/workflows/script-regressions.yml", "docs/testing/coverage-floor-policy.md"):
+            with self.subTest(path=path):
+                self.assertFalse(scope.runtime_path(path), path)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            def git(*args):
+                return subprocess.check_output(["git", *args], cwd=root,
+                    env=gate.separate_checkout_environment(), stderr=subprocess.DEVNULL).decode().strip()
+            git("init", "--quiet"); git("config", "user.email", "synthetic@example.invalid")
+            git("config", "user.name", "Synthetic test")
+            (root / "README").write_text("synthetic baseline")
+            git("add", "."); git("commit", "--quiet", "-m", "test: build baseline")
+            base = git("rev-parse", "HEAD")
+            for path in paths:
+                file = root / path; file.parent.mkdir(parents=True, exist_ok=True)
+                file.write_text("synthetic changed build input")
+            test_file = root / "scripts/ci/test_example.py"; test_file.parent.mkdir(parents=True, exist_ok=True)
+            test_file.write_text("synthetic test-only change")
+            git("add", "."); git("commit", "--quiet", "-m", "test: changed build inputs")
+            result = scope.inventory({"baselines": {"currentMain": base}, "checks": [], "workstreams": []}, root)
+            self.assertEqual(set(result["unownedProductionPaths"]), set(paths))
+            self.assertFalse(result["ready"])
+
+    def test_scripts_named_by_debian_rules_are_production_inputs(self):
+        scope = module_from("release_scope_rules_inputs", "release-scope-audit.py")
+        rules = (Path(__file__).resolve().parents[2] / "debian/rules").read_text()
+        inputs = set(re.findall(r"scripts/[A-Za-z0-9_./-]+\.(?:sh|py)\b", rules))
+        self.assertGreaterEqual(len(inputs), 6)
+        for path in inputs:
+            with self.subTest(path=path):
+                self.assertTrue(scope.runtime_path(path), path)
 
     def test_production_classification_does_not_hide_migrations_or_package_scripts(self):
         scope = module_from("release_scope", "release-scope-audit.py")

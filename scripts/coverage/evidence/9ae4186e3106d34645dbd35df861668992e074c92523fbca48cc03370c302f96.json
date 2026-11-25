@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "5b7d291554bc30577fe580b6155571d2d281b8f9",
+  "comparisonSha256": "95f2f934ff69fe17d1e727326337837dec0f982902a49e96f62a1f8b42058156",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/service/ProviderDocumentQueueService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "92c92faede3d791954341d5b2312b7b42f1daf9c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/UserPropertyDAOImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "0de073a9fac1c70cf713af0deb29afee84ba091c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/UserPropertyDAO.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "4c440342aa632e5e37743503f0a6b5f963bdf91c"
+    }
+  },
+  "baselineCommit": "cbe9da2f353463103b6c0fb556f9084f2e7dc8a0",
+  "baselineSourceTree": "5b7d291554bc30577fe580b6155571d2d281b8f9",
+  "baselineReportSha256": "84750c52e163d612d669abfdc8ef22434daaa227c3d048a0964ffb0d515019c3",
+  "baselineLane": "Fresh exact JDK25 selected-source classes and existing/regression controls. All33 unique actual JUnit cases pass with zero failures/errors/skips. Component inputs and exact JUnit hashes retained; selected-source evidence only.",
+  "baselineTestCounts": {
+    "tests": 33,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "1252a634e8b4540aaf206ae607fcc7f9fcd81bab6c3b90b81c4797722617a525",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineReportHeaderCollisions": 0
+}

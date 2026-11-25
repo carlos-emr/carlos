@@ -28,6 +28,7 @@ import java.util.Vector;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
@@ -52,12 +53,14 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -73,6 +76,7 @@ class LogReport2ActionTest extends CarlosUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
+    private MockedStatic<IsPropertiesOn> features;
 
     @Mock
     private SecurityInfoManager securityInfoManager;
@@ -117,16 +121,78 @@ class LogReport2ActionTest extends CarlosUnitTestBase {
                 .thenReturn(loggedInInfo);
 
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)).thenReturn(true);
+        features = mockStatic(IsPropertiesOn.class);
+        features.when(IsPropertiesOn::isMultisitesEnable).thenReturn(true);
     }
 
     @AfterEach
     void tearDown() {
+        features.close();
         if (loggedInInfoMock != null) {
             loggedInInfoMock.close();
         }
         if (servletActionContextMock != null) {
             servletActionContextMock.close();
         }
+    }
+
+    @Test
+    void shouldListAndReportAllProviders_forSingleSiteReportingAdminWithSiteGrant() throws Exception {
+        features.when(IsPropertiesOn::isMultisitesEnable).thenReturn(false);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)).thenReturn(false);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin.reporting", "r", null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_site_access_privacy", "r", null)).thenReturn(true);
+        when(providerDataDao.findAllOrderByLastName()).thenReturn(
+                new ArrayList<>(List.of(createProvider("prov-target", "Target", "Provider"))));
+        request.setParameter("providerNo", "*");
+
+        assertThat(new LogReport2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        assertThat((Properties) request.getAttribute("propName")).containsKey("prov-target");
+        verify(oscarLogDao).findForReport(any(), any(), eq("%"), isNull(), isNull());
+        verify(providerDataDao, never()).findByProviderSite(any());
+    }
+
+    @Test
+    void shouldRequireAdminOrReportingRead_evenWhenSitePrivacyIsGranted() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)).thenReturn(false);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_site_access_privacy", "r", null)).thenReturn(true);
+
+        assertThatThrownBy(() -> new LogReport2Action().execute()).isInstanceOf(SecurityException.class);
+        verifyNoInteractions(providerDataDao, oscarLogDao);
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldSortProviderNamesIgnoringCase_withoutChangingSiteScopeOrNullOrdering(boolean siteRestricted) throws Exception {
+        request.removeParameter("submit");
+        var providers = new ArrayList<>(List.of(
+                createProvider("alice-z", "alice", "Zebra"),
+                createProvider("bob-a", "Bob", "Able"),
+                createProvider("alice-a", "Alice", "able"),
+                createProvider("bob-z", "bob", "zebra"),
+                createProvider("alice-null", "ALICE", null),
+                createProvider("null-both", null, null),
+                createProvider("null-first", null, "Z"),
+                createProvider("equal-name", "aLiCe", "ABLE")));
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_site_access_privacy", "r", null)).thenReturn(siteRestricted);
+        if (siteRestricted) when(providerDataDao.findByProviderSite("site-user")).thenReturn(providers);
+        else when(providerDataDao.findAllOrderByLastName()).thenReturn(providers);
+
+        assertThat(new LogReport2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        @SuppressWarnings("unchecked")
+        Vector<Properties> choices = (Vector<Properties>) request.getAttribute("vecProvider");
+        assertThat(choices).extracting(row -> row.getProperty("providerNo"))
+                .containsExactly("null-both", "null-first", "alice-null", "alice-a", "equal-name", "alice-z", "bob-a", "bob-z");
+        if (siteRestricted) {
+            verify(providerDataDao).findByProviderSite("site-user");
+            verify(providerDataDao, never()).findAllOrderByLastName();
+        } else {
+            verify(providerDataDao).findAllOrderByLastName();
+            verify(providerDataDao, never()).findByProviderSite(any());
+        }
+        org.mockito.Mockito.verifyNoInteractions(oscarLogDao);
     }
 
     @Test

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "bd6a5740eea8c190d2b6f702a0c21d4a2b1a0606",
+  "comparisonSha256": "c65bac604e754a98255c6610796940b1bea4824a1a7edaae5ca2a820b23f737e",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/form/Frm2Action.java": {
+      "lines": 28.571428571428573,
+      "instructions": 19.047619047619047,
+      "branches": 50.0,
+      "sourceBlob": "40cb7bdbbdea57660d3b46c168c51e73d08d87eb"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/FrmBCAR2020Record.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "c028829b85570e2853e6885ef2b51630303659f4"
+    }
+  },
+  "baselineCommit": "07841885381c94325d262539c6d81e304935b5a2",
+  "baselineSourceTree": "bd6a5740eea8c190d2b6f702a0c21d4a2b1a0606",
+  "baselineReportSha256": "3183824f72e954253f43ad7ecca5c3b82e968279cce560b5731107a316891a17",
+  "baselineLane": "Java 25 BCAR save, route, access and form ownership controls. The retired generic form-letter operation is refused before any write or audit.",
+  "baselineTestCounts": {
+    "tests": 43,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "d2ff4f652f9e027e3f6f0370b33958644940d412f4edfb3b36491e3f0277f166",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

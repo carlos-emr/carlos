@@ -155,14 +155,14 @@ def load_plan(path=DEFAULT_PLAN, root=ROOT):
     role_checks = {check['id']: check['lifecycleRoles'] for check in checks if 'lifecycleRoles' in check}
     if role_checks:
         expected_roles = {'package-clean-reinstall': ['clean'], 'package-main-upgrade': ['main'],
-                          'package-beta5-upgrade': ['historical']}
+                          'package-beta5-upgrade': ['historical'], 'package-beta8-upgrade': ['previous']}
         required_checks = {name for workstream in work for name in workstream.get('requiredChecks', [])}
         if (role_checks != expected_roles or not set(role_checks) <= required_checks
                 or any(set(check.get('profiles', [])) != {'ON', 'BC'}
                        or check.get('repetitions', 1) != 1
                        or check.get('deploymentScope') != 'orchestrated-package-lifecycle'
                        for check in checks if check['id'] in role_checks)):
-            raise EvidenceError('All independent clean/main/historical lifecycle checks must remain required on ON and BC')
+            raise EvidenceError('All independent clean/main/historical/previous lifecycle checks must remain required on ON and BC')
     for check in checks:
         if 'deploymentScope' in check and (check['deploymentScope'] != 'orchestrated-package-lifecycle'
                 or not check.get('packaged') or check.get('kind') != 'command'
@@ -401,10 +401,27 @@ def browser_results(path: Path, check, root=ROOT):
                 and c.get("profile", "") == check.get("propertyProfile", "")
                 and any(p.lower() in ("all", profile.lower()) for p in c["provinces"])}
     names = [c.get("name") for c in cases]
-    if not expected or len(set(names)) != len(names) or set(names) != expected:
-        raise EvidenceError("Browser selection is empty, duplicated, or incomplete")
-    failed = sum(any(c.find(tag) is not None for tag in ("failure", "error", "skipped")) for c in cases)
-    return {"tests": len(cases), "failed": failed, "ready": not failed}
+    # The runner adds these failed cases after (or instead of) a selected check.
+    # Preserve their names as readiness failures, while keeping potentially private
+    # diagnostic messages in the retained browser.xml rather than public summaries.
+    runner_names = {"application-identity", "residue-audit"} | {
+        name + suffix for name in expected
+        for suffix in ("-navigation-fixture", "-navigation-cleanup")}
+    def unsuccessful(case):
+        return any(case.find(tag) is not None for tag in ("failure", "error", "skipped"))
+
+    runner_failures = [case.get("name") for case in cases
+                       if case.get("name") in runner_names - expected and unsuccessful(case)]
+    product_names = [name for name in names if name in expected]
+    if (not expected or len(set(names)) != len(names) or set(product_names) != expected
+            or set(names) - expected - set(runner_failures)):
+        details = "; runner failures: " + ", ".join(runner_failures) if runner_failures else ""
+        raise EvidenceError("Browser selection is empty, duplicated, or incomplete" + details)
+    failed = sum(unsuccessful(case) for case in cases)
+    result = {"tests": len(cases), "failed": failed, "ready": not failed}
+    if runner_failures:
+        result["runnerFailures"] = runner_failures
+    return result
 
 
 def summarize(check, run_dir: Path, exit_code, root=ROOT):
@@ -460,7 +477,7 @@ def summarize(check, run_dir: Path, exit_code, root=ROOT):
     return summary
 
 
-def run_check(plan_path, check_id, evidence: Path, profile, iteration, artifact=None, root=ROOT):
+def run_check(plan_path, check_id, evidence: Path, profile, iteration, artifact=None, root=ROOT, *, extra_environment=None):
     plan = load_plan(plan_path, root)
     matches = [c for c in plan["checks"] if c["id"] == check_id]
     if len(matches) != 1:
@@ -513,6 +530,7 @@ def run_check(plan_path, check_id, evidence: Path, profile, iteration, artifact=
                 argv[0] = sys.executable
             receipt["command"] = check["command"]  # Template only: no expanded credentials/paths.
             environment = separate_checkout_environment()
+            environment.update(extra_environment or {})
             environment.update({key: value.format_map(substitutions) for key, value in check.get("environment", {}).items()})
             if check.get('requireClassIdentity'):
                 # A clean Git checkout alone says nothing about ignored class files.
@@ -585,7 +603,7 @@ def evidence_files(check, directory):
     return sorted(files)
 
 
-def verify(plan_path, evidence: Path, artifact: Path, root=ROOT):
+def verify(plan_path, evidence: Path, artifact: Path, root=ROOT, *, target_package_hash=None):
     plan = load_plan(plan_path, root)
     source = source_identity(root)
     if not source["clean"]:
@@ -642,10 +660,14 @@ def verify(plan_path, evidence: Path, artifact: Path, root=ROOT):
             continue
         if receipt.get("command") != check.get("command") or check["kind"] == "external":
             raise EvidenceError("Receipt was not produced by its reviewed executable check")
-        if check.get('deploymentScope') and validate_lifecycle_inventory(read_json(path.parent / 'lifecycle.json'),
-                source, key[1], artifact_hash, path.parent, read_json, digest, check.get('lifecycleRoles'),
-                target_package_hash=receipt.get('targetPackageSha256')) != receipt.get('deployment'):
-            raise EvidenceError('Lifecycle installed-byte binding changed')
+        if check.get('deploymentScope'):
+            receipt_package_hash = receipt.get('targetPackageSha256')
+            if target_package_hash is not None and receipt_package_hash != target_package_hash:
+                raise EvidenceError('Lifecycle evidence belongs to a different candidate package')
+            if validate_lifecycle_inventory(read_json(path.parent / 'lifecycle.json'),
+                    source, key[1], artifact_hash, path.parent, read_json, digest, check.get('lifecycleRoles'),
+                    target_package_hash=receipt_package_hash) != receipt.get('deployment'):
+                raise EvidenceError('Lifecycle installed-byte binding changed')
         actual_inputs = {str(p.relative_to(path.parent)) for p in evidence_files(check, path.parent)}
         if actual_inputs != set(input_names):
             raise EvidenceError("Evidence file inventory changed")

@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "b4115a6d7f414eae80ca2369967ed47d6783746e",
+  "comparisonSha256": "b88c7ab35d492dad810dd4e7c2de0527d602cf613313510c9885453cb5703ecf",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/Update2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 90.0,
+      "sourceBlob": "9976e614dd6159159082ede051b020a42835069c"
+    }
+  },
+  "exclusions": {},
+  "zeroCoverageWaivers": {},
+  "baselineCommit": "18254ff44bb689c6021d0ef5eec8aae9f9370bec",
+  "baselineSourceTree": "b4115a6d7f414eae80ca2369967ed47d6783746e",
+  "baselineReportSha256": "1260197dd4e4665fef6fef19b71ebe8805cd90f5796ec65404f957556391d8f3",
+  "baselineLane": "PR #6326: focused Java 25 run (JDK Temurin 25.0.5, Maven 3.9.11) of the MCEDT Update Upload unit tests and upload-binding security tests, with the JaCoCo 0.8.16 agent, measured on commit 18254ff4 after the upload is validated from its content",
+  "baselineTestCounts": {
+    "tests": 18,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "2fa637d21ae3610f4d7ebc4b0bddd9e6cdfdb3db790347ad57dc4c893468a04e",
+  "baselineTestReportsHashFormat": "SHA-256 of a sha256sum-style manifest of the run's Surefire TEST-*.xml report files: one '<sha256>  <file name>' line each, sorted by name",
+  "baselineTestRunCommit": "18254ff44bb689c6021d0ef5eec8aae9f9370bec",
+  "baselineAdditionalTestRuns": []
+}

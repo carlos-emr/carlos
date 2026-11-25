@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "b3cb367beff992fce72ab87b2b6b2e520c03df3d",
+  "comparisonSha256": "f659da80e84c2279d9658844ddc38e2abf8a3b26d836ee5d3e4702fa19b9abec",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/utility/MariaDbCompatibilityDriver.java": {
+      "lines": 95.03386004514672,
+      "instructions": 93.22643979057591,
+      "branches": 86.67820069204153,
+      "sourceBlob": "6b2fbeb542f14007216d9d5b802147f8884d5382"
+    }
+  },
+  "baselineCommit": "724194ccf676139eee8eaa3877549ef876b5930d",
+  "baselineSourceTree": "b3cb367beff992fce72ab87b2b6b2e520c03df3d",
+  "baselineReportSha256": "5f7f5b43a99281c6d936f3ab69ab03e8b0c531d300ddc1885e7a78af6efccc2b",
+  "baselineLane": "Java 25 JDBC compatibility units and physical MariaDB 11.8.8 integration tests, covering server and client prepared statements. Connector/J 9.6.0 reference retake matched both numeric contracts.",
+  "baselineTestCounts": {
+    "tests": 134,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "7b867ac0fc0b654a1e4bf46c724b4c9d44c4e9a40ddd8d01e39ebe12111c5902",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

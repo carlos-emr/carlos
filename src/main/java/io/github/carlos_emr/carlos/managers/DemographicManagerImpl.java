@@ -342,10 +342,31 @@ public class DemographicManagerImpl implements DemographicManager {
         return result;
     }
 
+    /**
+     * Saves a patient's custom fields (alert, notes, nurse, resident, midwife) and, when they differ
+     * from the stored ones, archives the stored ones first. The archive row, the saved row and the
+     * audit row are one transaction: a failure leaves none of them. Called from a transaction that
+     * is already open, such as the REST demographic update, it joins that one.
+     *
+     * <p>{@code demoCust} must be the caller's own copy of the fields. Inside a transaction the row
+     * returned by {@link #getDemographicCust} is the stored row itself, and changing it in place
+     * leaves no previous values to compare or archive; such a call is refused.</p>
+     *
+     * @param loggedInInfo {@link LoggedInInfo} the acting provider; must hold write access to the demographic security object
+     * @param demoCust {@link DemographicCust} the custom fields to save, keyed by the patient's demographic number
+     * @throws IllegalArgumentException if {@code demoCust} is the stored row itself, changed in place
+     */
     @Override
+    @Transactional
     public void createUpdateDemographicCust(LoggedInInfo loggedInInfo, DemographicCust demoCust) {
         checkPrivilege(loggedInInfo, SecurityInfoManager.WRITE);
         if (demoCust != null) {
+            if (demographicCustDao.contains(demoCust)) {
+                // Fail loudly: a managed row is the very object the lookup below returns, so comparing
+                // it with itself always finds it unchanged and the previous values would be
+                // overwritten without an archive row and without an error.
+                throw new IllegalArgumentException("Custom fields must be saved from a copy, not from the stored row.");
+            }
             // Archive previous demoCust
             DemographicCust prevCust = demographicCustDao.find(demoCust.getId());
             if (prevCust != null) {
@@ -543,7 +564,37 @@ public class DemographicManagerImpl implements DemographicManager {
 
     }
 
+    /**
+     * Updates a patient as one transaction: the archive copy of the stored row, the patient row,
+     * each extension with its own archive copy, and the audit rows are saved all together or not
+     * at all (issue #5298). A caller that already has a transaction open, such as the REST update
+     * with its custom fields and waiting-list entry, has these writes join it.
+     *
+     * <p>The stored merge links are kept whatever the caller supplied, and the row is attributed
+     * to the signed-in provider. The audit rows are written in the same transaction, so a failed
+     * update leaves no record claiming that it happened.</p>
+     *
+     * <p>The extensions are written in the order given. A change to a stored extension is executed
+     * as it is saved, as the insert of a new one is, so a refusal by the database (for example a key
+     * the patient already holds) is thrown by this call and not by the caller's commit, and a later
+     * extension may take a key an earlier one gave up.</p>
+     *
+     * <p>Pass a copy of the patient, not the stored row changed in place: a caller already inside
+     * a transaction holds the stored row itself, and the archive would then record the new values
+     * (see {@code DemographicProviderReassignmentService}).</p>
+     *
+     * <p>Every extension is saved under this patient, whatever patient number it carries, and a
+     * stored extension (one with an id) must already be this patient's. The check runs before the
+     * first write: the caller holds update access to this patient only, and an id or a patient
+     * number taken from a request must not reach into another chart.</p>
+     *
+     * @param loggedInInfo {@link LoggedInInfo} the acting provider; must hold update access to the demographic security object
+     * @param demographic {@link Demographic} the patient's new values, with optional extras; must name an existing patient
+     * @throws IllegalArgumentException if the birth date cannot be parsed or the patient does not exist
+     * @throws DemographicExtensionNotFoundException if an extension names a stored row that is not this patient's
+     */
     @Override
+    @Transactional
     public void updateDemographic(LoggedInInfo loggedInInfo, Demographic demographic) {
         checkPrivilege(loggedInInfo, SecurityInfoManager.UPDATE);
         try {
@@ -554,6 +605,8 @@ public class DemographicManagerImpl implements DemographicManager {
 
         // Archive previous demo
         Demographic prevDemo = demographicDao.getDemographicById(demographic.getDemographicNo());
+        // Before the first write, so an update that is refused here has changed neither chart.
+        bindExtensionsToPatient(demographic);
         demographicArchiveDao.archiveRecord(prevDemo);
 
         // retain merge info
@@ -565,9 +618,20 @@ public class DemographicManagerImpl implements DemographicManager {
 
         if (demographic.getExtras() != null) {
             for (DemographicExt ext : demographic.getExtras()) {
-                LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.updateDemographic ext",
-                        "id=" + ext.getId() + "(" + ext.toString() + ")");
+                boolean storedExtension = ext.isPersistent();
                 updateExtension(loggedInInfo, ext);
+                if (storedExtension) {
+                    // A new extension row is inserted as it is saved, but the UPDATE of a stored one
+                    // waits for the next flush, which would otherwise be the commit of whichever
+                    // transaction this command joined. The database can refuse it (a key the patient
+                    // already holds violates uk_demo_ext_single_value), and a refusal at the commit
+                    // reaches the caller after its own code has finished: the REST update then answers
+                    // 500 instead of the conflict it documents. Executing it here also keeps the writes
+                    // in the order given, so a later extension can take the key this one gave up.
+                    demographicExtDao.flush();
+                }
+                LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.updateDemographic ext",
+                        extensionAuditData(ext));
             }
         }
 
@@ -575,6 +639,32 @@ public class DemographicManagerImpl implements DemographicManager {
         LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.updateDemographic",
                 "demographicNo=" + demographic.getDemographicNo());
 
+    }
+
+    /**
+     * Ties every submitted extension to the patient being updated.
+     *
+     * <p>An extension carries its own patient number and, for a stored row, an id, and both come
+     * from the caller: the REST converter keeps what the client sent. Trusted as they are, the id
+     * would let an update of one patient re-point and overwrite another patient's row, and the
+     * number would create a row in another patient's chart.</p>
+     */
+    private void bindExtensionsToPatient(Demographic demographic) {
+        if (demographic.getExtras() == null) {
+            return;
+        }
+        Integer patient = demographic.getDemographicNo();
+        for (DemographicExt ext : demographic.getExtras()) {
+            if (ext.isPersistent()) {
+                DemographicExt stored = demographicExtDao.find(ext.getId());
+                // One answer for a row that is gone and for another patient's row: the refusal must
+                // not tell a caller which ids exist elsewhere.
+                if (stored == null || !Objects.equals(patient, stored.getDemographicNo())) {
+                    throw new DemographicExtensionNotFoundException();
+                }
+            }
+            ext.setDemographicNo(patient);
+        }
     }
 
     /**
@@ -640,9 +730,9 @@ public class DemographicManagerImpl implements DemographicManager {
 
         if (demographic.getExtras() != null) {
             for (DemographicExt ext : demographic.getExtras()) {
-                LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.addDemographic ext",
-                        "id=" + ext.getId() + "(" + ext.toString() + ")");
                 updateExtension(loggedInInfo, ext);
+                LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.addDemographic ext",
+                        extensionAuditData(ext));
             }
         }
 
@@ -658,7 +748,7 @@ public class DemographicManagerImpl implements DemographicManager {
         demographicExtDao.saveEntity(ext);
 
         // --- log action ---
-        LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.createExtension", "id=" + ext.getId());
+        LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.createExtension", extensionAuditData(ext));
     }
 
     @Override
@@ -668,7 +758,12 @@ public class DemographicManagerImpl implements DemographicManager {
         demographicExtDao.saveEntity(ext);
 
         // --- log action ---
-        LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.updateExtension", "id=" + ext.getId());
+        LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.updateExtension", extensionAuditData(ext));
+    }
+
+    /** Identifies the extension field and saved row without recording its clinical value. */
+    private static String extensionAuditData(DemographicExt ext) {
+        return "id=" + ext.getId() + ";key=" + io.github.carlos_emr.carlos.utility.LogSafe.sanitize(ext.getKey());
     }
 
     @Override
@@ -704,7 +799,7 @@ public class DemographicManagerImpl implements DemographicManager {
 
         for (DemographicExt ext : getDemographicExts(loggedInInfo, demographic.getDemographicNo())) {
             LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.deleteDemographic ext",
-                    "id=" + ext.getId() + "(" + ext.toString() + ")");
+                    extensionAuditData(ext));
             deleteExtension(loggedInInfo, ext);
         }
 
@@ -720,7 +815,7 @@ public class DemographicManagerImpl implements DemographicManager {
         demographicExtDao.removeDemographicExt(ext.getId());
 
         // --- log action ---
-        LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.removeDemographicExt", "id=" + ext.getId());
+        LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.removeDemographicExt", extensionAuditData(ext));
     }
 
     @Override

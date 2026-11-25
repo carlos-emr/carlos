@@ -205,6 +205,9 @@ public class SecurityInfoManagerImpl implements SecurityInfoManager {
         List<Object> v = null;
         if (demographicNo != null) {
             v = privilegeLookup.apply(objectName + "$" + demographicNo);
+            if (!READ.equals(privilege) && isReadOnlyForEveryone(v)) {
+                return false;
+            }
             List<String> roleInObj = (List<String>) v.get(1);
 
             for (String objRole : roleInObj) {
@@ -249,6 +252,33 @@ public class SecurityInfoManagerImpl implements SecurityInfoManager {
         }
 
         return false;
+    }
+
+    /** The group a patient-specific privilege row applies to everyone through. */
+    static final String EVERYONE = "_all";
+
+    /**
+     * Whether a patient-specific object carries a read-only row for {@link #EVERYONE}.
+     *
+     * <p>Merge Records writes {@code _all / _eChart$<chart> / |or|} for each chart merged into
+     * another, so the merged-away chart stays readable but can no longer be written. The legacy
+     * encounter editor honoured that row through its JSP tag (Index2.jsp); the modern chart checks
+     * {@code _eChart} write through this manager, which only matched rows for the user's own roles,
+     * so the merged-away chart stayed writable there (#5890). The row now caps every user's rights
+     * on that object for that patient at read. It never grants anything.</p>
+     */
+    @SuppressWarnings("unchecked")
+    private static boolean isReadOnlyForEveryone(List<Object> patientSpecific) {
+        if (patientSpecific == null || patientSpecific.size() < 2
+                || !((List<String>) patientSpecific.get(1)).contains(EVERYONE)) {
+            return false;
+        }
+        Properties privileges = (Properties) patientSpecific.get(0);
+        List<String> roles = (List<String>) patientSpecific.get(1);
+        return OscarRoleObjectPrivilege.checkPrivilege(EVERYONE, privileges, roles, null, READ)
+                && !OscarRoleObjectPrivilege.checkPrivilege(EVERYONE, privileges, roles, null, WRITE)
+                && !OscarRoleObjectPrivilege.checkPrivilege(EVERYONE, privileges, roles, null, UPDATE)
+                && !OscarRoleObjectPrivilege.checkPrivilege(EVERYONE, privileges, roles, null, DELETE);
     }
 
     @Override

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/webserv/rest/to/OscarJobResponse.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "aa4be5a0d9e28ee58678451adfab501e7fd61cef"
+  },
+  "evidenceSha256": "9e3d88b59a993d41de12e3ecc4486272c838a39dd18fc891077d23971112af2f"
+}

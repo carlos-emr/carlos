@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/printing/PrivacyStatementAppendingFilter.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "1fbed2719b972f692b45dee38a08a0998462b7b5"
+  },
+  "evidenceSha256": "255264e34cc7ca6d36f4d03ecbd168ea1717d2063a5dbf93f1c1da5ae5ae5887"
+}

@@ -22,6 +22,16 @@
       "minimumAssertions": 47
     },
     {
+      "id": "server-table-page-playwright-checks",
+      "command": [
+        "node",
+        "scripts/server-table-page-playwright-checks.js"
+      ],
+      "source": "scripts/server-table-page-playwright-checks.js",
+      "sourceSha256": "0e9044cb73540afafd5275a2f9e54fc6b39d4d89e7a7f2c7e2255003e7a92abb",
+      "minimumAssertions": 52
+    },
+    {
       "id": "navigation-cancellation-browser-checks",
       "command": [
         "node",
@@ -87,7 +97,7 @@
         "scripts/dashboard-tickler-picker-browser-check.js"
       ],
       "source": "scripts/dashboard-tickler-picker-browser-check.js",
-      "sourceSha256": "de2dc855f2337fa4bb5434b8c069e4cc058f91ccb2b06e5006fd307a52a89e85",
+      "sourceSha256": "2baca8498457900f458c6c68ce9d68f278a9cbceea1584ba8ed6bed81bf3be48",
       "minimumAssertions": 314
     },
     {
@@ -157,8 +167,8 @@
         "scripts/tickler-crud-browser-check.js"
       ],
       "source": "scripts/tickler-crud-browser-check.js",
-      "sourceSha256": "d9ce7b57af867d4fabad48cd8bf6f27e928c5def2724d1568406d0441fe3f4c9",
-      "minimumAssertions": 17
+      "sourceSha256": "68fb769439f6b1772eb063e4f819ba48129fece389e4e9e908fe337e515c9a26",
+      "minimumAssertions": 44
     },
     {
       "id": "ui-scroll-quick-pick-browser-check",
@@ -171,6 +181,23 @@
       "minimumAssertions": 61
     },
     {
+      "id": "facility-disable-browser-checks",
+      "command": [
+        "node",
+        "--test",
+        "scripts/facility-disable-browser-checks.js"
+      ],
+      "source": "scripts/facility-disable-browser-checks.js",
+      "sourceSha256": "3cd54d75ab5cfab984ed36e255b989d51118125edeb5b3d8efc606e5a57730a9",
+      "minimumAssertions": 12,
+      "requiredCases": [
+        "every parsed row retains its own POST form, including the first facility",
+        "Disable submits only the selected facility: 20959291",
+        "Disable submits only the selected facility: 20959292",
+        "Cancel leaves every facility unsubmitted"
+      ]
+    },
+    {
       "id": "job-types-datatable-browser-check",
       "command": [
         "node",
@@ -179,7 +206,36 @@
       "source": "scripts/job-types-datatable-browser-check.js",
       "sourceSha256": "0bc46bfb85b6521d75ccd670c13c631ff630d7f47f4c20eb29ad30d32e319fb2",
       "minimumAssertions": 139
+    },
+    {
+      "id": "admin-jobs-save-browser-checks",
+      "command": [
+        "node",
+        "--test",
+        "scripts/admin-jobs-save-browser-checks.js"
+      ],
+      "source": "scripts/admin-jobs-save-browser-checks.js",
+      "sourceSha256": "50d5eb22654db38c45f578b2ead8bcd4eef96d5fce09d940c9c4ca83716b3ec8",
+      "minimumAssertions": 98,
+      "requiredCases": [
+        "shouldKeepJobDialogOpen_whileItsSaveIsPending",
+        "shouldRetainJobDialogEntries_andRequireReadbackAfterALostReply",
+        "shouldKeepScheduleDialogOpen_whileItsSaveIsPending",
+        "shouldRetainScheduleDialogEntries_andRequireReadbackAfterALostReply",
+        "shouldKeepTheEditorOpen_forHtmlAcknowledgement",
+        "shouldKeepTheEditorOpen_forWrongAcknowledgement",
+        "shouldKeepTheEditorOpen_forEmptyAcknowledgement",
+        "shouldKeepTheEditorOpen_forZeroAcknowledgement",
+        "shouldKeepTheEditorOpen_forMultipleAcknowledgement",
+        "shouldKeepTheEditorOpen_forNullAcknowledgement",
+        "shouldBlockBlindCreationRetry_whenTheInsertCannotBeConfirmed",
+        "shouldIgnoreAnOldEditorLoad_afterOpeningANewDraft",
+        "shouldKeepTheDialogOpen_whenSavedChangesCannotBeScheduled (scheduleDialog)",
+        "shouldKeepTheDialogOpen_whenSavedChangesCannotBeScheduled (new-job)",
+        "shouldReleaseTheDialog_andKeepTheDraft_whenAnAcceptedPostTimesOut",
+        "shouldRetryTheSavedRow_whenNewJobActivationFails"
+      ]
     }
   ],
-  "workflowSha256": "5ccdf51a4ce6735ce0f3ebf511d3304cb279d630d1740cec65eec94ac1b037dc"
+  "workflowSha256": "eae9205f49d3dde9f8f2fa1e56e16495087d3ef19c61779a570a2e4f00d46876"
 }

@@ -8,6 +8,7 @@ from one immutable WAR; standalone fixture/oracle helpers never enter its classp
 
 from __future__ import annotations
 import argparse
+from functools import partial
 import hashlib
 import importlib.util
 import json
@@ -22,6 +23,8 @@ import time
 import urllib.request
 import uuid
 import zipfile
+
+from cds_database_readiness import database_client, run_logged, wait_for_database
 
 SPEC = importlib.util.spec_from_file_location(
     "cds_war_manifest", Path(__file__).with_name("cds_war_manifest.py")
@@ -86,15 +89,7 @@ def main() -> int:
     try:
         with log_path.open("w") as log:
 
-            def execute(command, *, capture=False, check=True, timeout=1800):
-                return subprocess.run(
-                    command,
-                    text=True,
-                    stdout=subprocess.PIPE if capture else log,
-                    stderr=log,
-                    check=check,
-                    timeout=timeout,
-                )
+            execute = partial(run_logged, log=log, timeout=1800)
 
             def build(command, **kw):
                 return execute(
@@ -251,17 +246,8 @@ def main() -> int:
                 ]
             )
             owned_db = True
-            mysql = docker + [
-                "exec",
-                database,
-                "mariadb",
-                "--defaults-extra-file=/run/cds-ci/client.cnf",
-            ]
-            deadline = time.monotonic() + 90
-            while execute(mysql + ["-e", "SELECT 1"], check=False).returncode:
-                if time.monotonic() > deadline:
-                    raise RuntimeError("Owned MariaDB startup timeout")
-                time.sleep(1)
+            mysql = database_client(docker, database, "/run/cds-ci/client.cnf")
+            wait_for_database(mysql, execute)
             execute(
                 mysql
                 + [

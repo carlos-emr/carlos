@@ -417,7 +417,7 @@ Console shows `ReferenceError: insertEditControl is not defined`.
 **Symptom**: The template selector shows "loading..." and never populates.
 
 **Cause**: `efmformrtl_templates.jsp` is returning an error. Check:
-- OWASP taglib URI: must be `owasp.encoder.jakarta` (not the legacy HTTPS URI)
+- Encoder taglib: the page must declare `<%@ taglib uri="carlos" prefix="carlos" %>`, never the OWASP `owasp.encoder.jakarta` taglib, which is not shipped (#5477) and fails JSP translation
 - `EFormUtil.listRichTextLetterTemplates()` needs the eForm images directory to exist
 - Only `.rtl` files in the images directory are listed as templates
 

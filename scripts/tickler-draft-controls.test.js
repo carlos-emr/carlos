@@ -52,6 +52,7 @@ function recipientForm({value='100',disabled=true}={}) {
  const context={document:{ADDAPPT:{keyword:{focus(){},select(){}},elements:{taskTo}},serviceform:form},
   _providers:{Alpha:'<option value="100">A</option>',Beta:'<option value="200">B</option>'},
   focus(){},addQuickPick(){}};
+ context.window = context;
  vm.createContext(context);
  for(const name of ['rememberTicklerRecipient','initTicklerAdd','changeSite']) {
   const match=add.match(new RegExp('(^[ \\t]*)function '+name+'\\([^)]*\\) \\{[\\s\\S]*?^\\1\\}', 'm'));

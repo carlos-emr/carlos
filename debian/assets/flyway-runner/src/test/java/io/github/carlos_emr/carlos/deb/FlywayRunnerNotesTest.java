@@ -22,6 +22,8 @@ public final class FlywayRunnerNotesTest {
 
     private static final String PROCEDURE = "DB: PROCEDURE carlos.carlos_cds_provider_index68 does not exist "
             + "(SQL State:  - Error Code: 1305)";
+    private static final String ROSTER_PROCEDURE = "DB: PROCEDURE carlos.carlos_ensure_historical_roster_lookup "
+            + "does not exist (SQL State:  - Error Code: 1305)";
 
     public static void main(String[] args) {
         RecordingLog sink = new RecordingLog();
@@ -31,10 +33,11 @@ public final class FlywayRunnerNotesTest {
         logger.warn(INDEX);
         logger.warn(COLUMN);
         logger.warn(PROCEDURE);
+        logger.warn(ROSTER_PROCEDURE);
         require(sink.events.isEmpty(), "expected existing-object notes must not look like warnings");
         require(summary(notes).equals("schema setup: 1 index(es) and 1 column(s) were already present; "
                 + "kept their existing definitions." + System.lineSeparator()
-                + "schema setup: 1 temporary procedure(s) were already absent before creation."
+                + "schema setup: 2 temporary procedure(s) were already absent before creation."
                 + System.lineSeparator()), "summary must explain the no-ops");
 
         // Only the exact message/state/code combination is an expected note.
@@ -45,6 +48,7 @@ public final class FlywayRunnerNotesTest {
                 "DB: Data truncated for column 'value' (SQL State: 01000 - Error Code: 1265)",
                 "DB: Unknown column 'missing' (SQL State: 42S22 - Error Code: 1054)",
                 PROCEDURE.replace("carlos_cds_provider_index68", "unknown_routine"),
+                ROSTER_PROCEDURE.replace("roster_lookup", "roster_lookup_clinic"),
                 PROCEDURE.replace("1305", "1304"), INDEX.replace("State:  ", "State: 01000 "),
                 COLUMN.replace("1060", "1062"),
                 "different prefix: " + INDEX, INDEX + " more details", "duplicate key", "DB: other warning");

@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "0896b739805dad9284d64efea0f041f346509ea7",
+  "comparisonSha256": "3aed691a460caf4d327896a4d2cab02e538b2c671a4f4c06bccb528aa630b7f9",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/fax/core/FaxImporter.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "cb539fa1f77479f6ea160d02f6ab6cee79535c7c"
+    }
+  },
+  "baselineCommit": "62b1355becd87133d297a05b69c13dbda1187130",
+  "baselineSourceTree": "0896b739805dad9284d64efea0f041f346509ea7",
+  "baselineReportSha256": "f51483623de4ae189ccb324a5b607eb92761b8d8f95864493bec8bee56d1214f",
+  "baselineLane": "Fresh JDK25 FaxImporter and FaxPollBackoff classes;63 focused real poll/backoff/import/deduplication/rollback JUnit cases, all unique and passing without skips. Two new outage-logging cases fail against unmodified release source. Selected-source evidence only.",
+  "baselineTestCounts": {
+    "tests": 63,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "2065e7327a7ad4a19cf240362c979f3c7850836c0a0aed46f7dafa2cdae7faca",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineReportHeaderCollisions": 0
+}

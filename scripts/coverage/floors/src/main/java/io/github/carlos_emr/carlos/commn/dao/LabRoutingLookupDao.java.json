@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/dao/LabRoutingLookupDao.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 94.66666666666667,
+    "instructions": 93.69747899159664,
+    "branches": 82.8125,
+    "sourceBlob": "1ab3b8dfb803d45f98337b26c3991eb8ad937b44"
+  },
+  "evidenceSha256": "0ff276b8f6254303c0ec33a71a091fae65329c9a43db5a764dd003563e907c2d"
+}

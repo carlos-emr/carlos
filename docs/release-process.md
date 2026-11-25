@@ -152,7 +152,9 @@ Then:
    and provenance verification:
 
    ```bash
-   debian/fetch-carlos-ctl.sh "$(mktemp -d)"
+   cli_candidate_dir=$(mktemp -d)
+   debian/fetch-carlos-ctl.sh "$cli_candidate_dir"
+   python3 scripts/ci/candidate_cli_package.py verify --destination "$cli_candidate_dir"
    ```
 
    Run with authenticated `gh` and without `CARLOS_CTL_DEB` or
@@ -173,14 +175,29 @@ Then:
    git push origin "$RELEASE_TAG"
    ```
 
-6. The tag workflow re-runs the full build and tests, creates a clean WAR and
-   CycloneDX SBOM inside a minimal, digest-pinned JDK 25 + Maven image built
-   from `.github/release-build/Dockerfile` in the tagged source, generates signed
-   provenance attestations, attaches and verifies checksums, then publishes
-   the verified draft as an immutable GitHub release.
-7. Confirm prerelease/latest classification and asset attestations, then unfreeze
-   the source branch.
-8. If publication occurred from `main`, back-merge the tagged commit into its
+6. The tag workflow runs the full build and tests, creates a draft release with the
+   WAR and CycloneDX SBOM, and dispatches the Debian build. Wait for the candidate
+   packages, checksums, attestations and required checks on the tagged commit.
+7. Qualify the frozen assets on the dedicated release runner. The qualification
+   workflow must run on the tag's own ref. For example, with the tag from step 5:
+
+   ```bash
+   gh workflow run release-verification.yml --ref "refs/tags/$RELEASE_TAG" -f "tag=$RELEASE_TAG"
+   ```
+
+8. After the qualification run succeeds, pass its numeric run ID to the promotion
+   workflow. It rechecks the evidence and publishes the verified draft assets.
+
+   ```bash
+   gh workflow run publish-release.yml --ref "refs/tags/$RELEASE_TAG" \
+     -f "tag=$RELEASE_TAG" -f "qualification_run_id=$QUALIFICATION_RUN_ID"
+   ```
+
+   The qualification prerequisites and retry procedure are in the
+   [release publication guide](testing/release-publication.md).
+9. Confirm the prerelease/latest classification and asset attestations, then
+   unfreeze the source branch.
+10. If publication occurred from `main`, back-merge the tagged commit into its
    maintenance branch. Advance that branch to the next planned snapshot through
    a reviewed PR, then forward-merge the maintenance branch into newer lines.
    If publication occurred directly from an older maintenance branch, advance

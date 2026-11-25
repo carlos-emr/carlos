@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/service/ReportConfigurationService.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 69.84126984126983,
+    "instructions": 79.28994082840237,
+    "branches": 75.0,
+    "sourceBlob": "06d5c72d04b51521c50d611cbdeb2b23b4b6e468"
+  },
+  "evidenceSha256": "741e675860e324ba74906527b0fa1f75030d12dcfd1b55d45c02da72c68992ec"
+}

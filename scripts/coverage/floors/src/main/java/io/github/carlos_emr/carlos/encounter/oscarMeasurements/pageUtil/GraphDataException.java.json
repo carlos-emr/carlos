@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/pageUtil/GraphDataException.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "e3964101d95664debb45d46ea1e9c7057d728973"
+  },
+  "evidenceSha256": "4053cd8322653fa03b3d81ccc47ded1226681ee45c4e755147bd596b973f678e"
+}

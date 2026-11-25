@@ -64,9 +64,6 @@ public class ContextStartupListener implements jakarta.servlet.ServletContextLis
     @Override
     public void contextInitialized(jakarta.servlet.ServletContextEvent sce) {
 
-        // ensure cxf uses log4j2
-        System.setProperty("org.apache.cxf.Logger", "org.apache.cxf.commons.logging.Log4j2Logger");
-
         /*
          * Map log4j version 1 to version 2
          */

@@ -181,16 +181,29 @@ class OhipClaimFileServiceUnitTest {
     void shouldDeleteGeneratedFilesQuietly_whenCleanupRequested() throws IOException {
         Path ohipFile = tempDir.resolve("claim.cleanup.txt");
         Path htmlFile = tempDir.resolve("claim.cleanup.html");
-        Files.writeString(ohipFile, "ohip");
-        Files.writeString(htmlFile, "html");
         service.setOhipFilename("claim.cleanup.txt");
         service.setHtmlFilename("claim.cleanup.html");
-
-        service.deleteOhipFileQuietly();
-        service.deleteHtmlFileQuietly();
+        try (var files = new BillingOutputFiles.NewFiles()) {
+            service.writeNewFile("ohip", files);
+            service.writeNewHtml("html", files);
+            service.deleteOhipFileQuietly();
+            service.deleteHtmlFileQuietly();
+        }
 
         assertThat(ohipFile).doesNotExist();
         assertThat(htmlFile).doesNotExist();
+    }
+
+    @Test
+    void shouldKeepPreexistingFiles_whenOnlyTheirNamesWereSet() throws IOException {
+        service.setOhipFilename("prior.001");
+        service.setHtmlFilename("prior.html");
+        Path claim = Files.writeString(tempDir.resolve("prior.001"), "prior claim");
+        Path html = Files.writeString(tempDir.resolve("prior.html"), "prior preview");
+        service.deleteOhipFileQuietly();
+        service.deleteHtmlFileQuietly();
+        assertThat(claim).hasContent("prior claim");
+        assertThat(html).hasContent("prior preview");
     }
 
     @Test
@@ -733,6 +746,15 @@ class OhipClaimFileServiceUnitTest {
 
         service.readInBillingNo();
 
+        assertThat(service.getErrorFatalMsg()).isEmpty();
+    }
+
+    @Test
+    void shouldLeaveAnUnrecordedCompanionAlone_whenTheLegacyHtmlFilenameIsBlank() {
+        service.setOhipFilename("prior.001");
+        service.setHtmlFilename(" ");
+        service.readInBillingNo();
+        org.mockito.Mockito.verify(diskNameDao, org.mockito.Mockito.never()).importedFilenameReviews(" ");
         assertThat(service.getErrorFatalMsg()).isEmpty();
     }
 

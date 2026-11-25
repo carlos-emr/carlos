@@ -65,4 +65,23 @@ class InboxReportIdentityUnitTest {
         assertThat(DmsInboxManage2Action.preserveSelectedReports(List.of(first, duplicate, reused, undated)))
                 .containsExactly(undated, reused, first);
     }
+
+    @Test
+    void shouldKeepTheFirstSelectedLegacyReport_whenDatesArriveInReverseOrder() {
+        var newer = row("CML", "10", "shared");
+        var older = row("CML", "20", "shared");
+        when(newer.getDateObj()).thenReturn(java.sql.Date.valueOf("2026-02-01"));
+        when(older.getDateObj()).thenReturn(java.sql.Date.valueOf("2026-01-01"));
+        assertThat(DmsInboxManage2Action.preserveSelectedReports(List.of(newer, older)))
+                .containsExactly(newer);
+    }
+
+    @Test
+    void shouldKeepAnUndatedLegacyReport_whenADatedReportFollowsIt() {
+        var undated = row("CML", "10", "shared");
+        var dated = row("CML", "20", "shared");
+        when(dated.getDateObj()).thenReturn(java.sql.Date.valueOf("2026-01-01"));
+        assertThat(DmsInboxManage2Action.preserveSelectedReports(List.of(undated, dated)))
+                .containsExactly(dated, undated);
+    }
 }

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/schedule/service/ScheduleDateOverrideService.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "54378680308d34a76ba9e1e246f960d0a93ade4d"
+  },
+  "evidenceSha256": "04339a3957f43cd299c5ba33ef4936e65fc43f27323fc50e32e068f4bad16584"
+}

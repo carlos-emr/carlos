@@ -6,6 +6,7 @@ name: Script Regressions
 on:
   pull_request:
   push:
+    tags: ['20*']
     branches:
       - main
       - develop
@@ -33,6 +34,11 @@ jobs:
         with:
           node-version: '22'
           cache: npm
+      - name: Set up Java Properties fixture runtime
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v4.7.1
+        with:
+          distribution: temurin
+          java-version: '25'
       - name: Install supported npm
         run: npm install --global npm@10.9.9 --ignore-scripts --no-audit --no-fund
       - name: Install locked dependencies without lifecycle scripts
@@ -127,6 +133,8 @@ jobs:
           retention-days: 14
       - name: Check migrated table interactions in Chromium
         run: node scripts/dependency-tables-playwright-checks.js
+      - name: Check server-paged table navigation and retry in Chromium
+        run: node scripts/server-table-page-playwright-checks.js
       - name: Check CARLOS navigation cancellation diagnostics in Chromium
         run: node --test scripts/navigation-cancellation-browser-checks.js
       - name: Check measurement calculation DOM events in Chromium
@@ -165,5 +173,9 @@ jobs:
         run: node scripts/tickler-crud-browser-check.js
       - name: Check nested scroll chaining and tickler quick picks in Chromium
         run: node scripts/ui-scroll-quick-pick-browser-check.js
+      - name: Check facility Disable form parsing and submission in Chromium
+        run: node --test scripts/facility-disable-browser-checks.js
       - name: Check job type table refresh and save lifecycle in Chromium
         run: node scripts/job-types-datatable-browser-check.js
+      - name: Check job and schedule save acknowledgements in Chromium
+        run: node --test scripts/admin-jobs-save-browser-checks.js

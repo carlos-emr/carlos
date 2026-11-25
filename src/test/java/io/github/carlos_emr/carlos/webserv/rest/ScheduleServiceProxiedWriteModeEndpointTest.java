@@ -196,8 +196,7 @@ class ScheduleServiceProxiedWriteModeEndpointTest extends CarlosRestTestBase {
     @DisplayName("guarded with an editVersion is checked by the manager: 409 when stale, 404 when missing")
     void shouldReportManagerRefusal_whenModeIsGuarded(String route, AppointmentUpdateException.Reason reason,
             int status, String code) {
-        when(scheduleManager.updateAppointment(any(), eq(42), eq("1000"), any()))
-                .thenThrow(new AppointmentUpdateException(reason));
+        stubUpdate(route, "1000", reason);
 
         try (Response response = post(route, "\"editVersion\":\"1000\",", "guarded")) {
             assertThat(response.getStatus()).isEqualTo(status);
@@ -209,7 +208,7 @@ class ScheduleServiceProxiedWriteModeEndpointTest extends CarlosRestTestBase {
     @MethodSource("updateRoutes")
     @DisplayName("guarded with a current editVersion updates and returns the next editVersion")
     void shouldUpdateWithVersion_whenModeIsGuarded(String route) {
-        when(scheduleManager.updateAppointment(any(), eq(42), eq("1000"), any())).thenReturn(updatedAppointment());
+        stubUpdate(route, "1000", null);
 
         try (Response response = post(route, "\"editVersion\":\"1000\",", "guarded")) {
             assertThat(response.getStatus()).isEqualTo(200);
@@ -222,37 +221,59 @@ class ScheduleServiceProxiedWriteModeEndpointTest extends CarlosRestTestBase {
     @MethodSource("updateRoutes")
     @DisplayName("legacy-echo ignores an echoed editVersion and still returns the next one")
     void shouldIgnoreEchoedVersion_whenModeIsLegacyEcho(String route) {
-        when(scheduleManager.updateAppointment(any(), eq(42), isNull(), any())).thenReturn(updatedAppointment());
+        stubUpdate(route, null, null);
 
         try (Response response = post(route, "\"editVersion\":\"stale-unaware-echo\",", "legacy-echo")) {
             assertThat(response.getStatus()).isEqualTo(200);
             assertThat(response.readEntity(SchedulingResponse.class).getAppointment().getEditVersion())
                     .isEqualTo("2000");
         }
-        verify(scheduleManager).updateAppointment(any(), eq(42), isNull(), any());
+        verifyUpdate(route, null);
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("updateRoutes")
     @DisplayName("without the header a supplied editVersion still reaches the manager")
     void shouldKeepTokenAwareBehaviour_whenHeaderIsAbsent(String route) {
-        when(scheduleManager.updateAppointment(any(), eq(42), eq("1000"), any())).thenReturn(updatedAppointment());
+        stubUpdate(route, "1000", null);
 
         try (Response response = post(route, "\"editVersion\":\"1000\",")) {
             assertThat(response.getStatus()).isEqualTo(200);
         }
-        verify(scheduleManager).updateAppointment(any(), eq(42), eq("1000"), any());
+        verifyUpdate(route, "1000");
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("updateRoutes")
     @DisplayName("without the header and without an editVersion the edit is unconditional")
     void shouldKeepLastWriterWins_whenHeaderAndVersionAreAbsent(String route) {
-        when(scheduleManager.updateAppointment(any(), eq(42), isNull(), any())).thenReturn(updatedAppointment());
+        stubUpdate(route, null, null);
 
         try (Response response = post(route, "")) {
             assertThat(response.getStatus()).isEqualTo(200);
         }
-        verify(scheduleManager).updateAppointment(any(), eq(42), isNull(), any());
+        verifyUpdate(route, null);
     }
+    private void stubUpdate(String route, String version, AppointmentUpdateException.Reason refusal) {
+        org.mockito.stubbing.Answer<Appointment> answer = invocation -> {
+            if (refusal != null) throw new AppointmentUpdateException(refusal);
+            return updatedAppointment();
+        };
+        if (route.endsWith("updateAppointment")) {
+            when(scheduleManager.updateAppointment(any(), eq(42), eq(version), any())).thenAnswer(answer);
+        } else {
+            when(scheduleManager.updateAppointment(any(), eq(42), eq(version),
+                    any(ScheduleManager.AppointmentUpdateAction.class), any())).thenAnswer(answer);
+        }
+    }
+
+    private void verifyUpdate(String route, String version) {
+        if (route.endsWith("updateAppointment")) {
+            verify(scheduleManager).updateAppointment(any(), eq(42), eq(version), any());
+        } else {
+            verify(scheduleManager).updateAppointment(any(), eq(42), eq(version),
+                    any(ScheduleManager.AppointmentUpdateAction.class), any());
+        }
+    }
+
 }

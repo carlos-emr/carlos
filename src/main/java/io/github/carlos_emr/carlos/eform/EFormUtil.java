@@ -737,9 +737,7 @@ public class EFormUtil {
     }
 
     public static boolean formExistsInDB(String eFormName) {
-
-        io.github.carlos_emr.carlos.commn.model.EForm eform = eformDao().findByName(eFormName);
-        return eform != null;
+        return eformDao().findMaxIdForActiveForm(eFormName) != null;
     }
 
     public static int formExistsInDBn(String formName, String fid) {
@@ -1279,11 +1277,15 @@ public class EFormUtil {
         if (files == null) {
             files = new ArrayList<String>();
         }
-        if (dir.isDirectory()) {
-            for (String fileName : dir.list()) {
-                if (fileName.toLowerCase().matches(ext)) {
-                    files.add(fileName);
-                }
+        if (!dir.isDirectory()) return files;
+        String[] names = dir.list();
+        if (names == null) {
+            logger.warn("Unable to list the eForm template directory");
+            return files;
+        }
+        for (String fileName : names) {
+            if (fileName.toLowerCase(Locale.ROOT).matches(ext)) {
+                files.add(fileName);
             }
         }
         return files;

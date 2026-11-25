@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/util/OscarDownload.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 96.47058823529412,
+    "instructions": 96.4735516372796,
+    "branches": 88.46153846153847,
+    "sourceBlob": "2be385fa6b68da1680a1526b692ad2cbcdd15671"
+  },
+  "evidenceSha256": "26ac1a3945234ef531feb6d9045249cfe96fe1e8eaca1ab7b04bfc531ad04c03"
+}

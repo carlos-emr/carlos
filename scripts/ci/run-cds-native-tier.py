@@ -37,6 +37,7 @@ import stat
 import subprocess
 import sys
 import time
+from cds_database_readiness import run_logged as run, wait_for_database as wait_for_final_database
 import uuid
 from xml.etree.ElementTree import ElementTree
 from compiled_classes import fingerprints, validate_output_paths
@@ -107,13 +108,11 @@ def wait_for_database(client, run, log, monotonic=time.monotonic, sleep=time.sle
     # Only the final daemon listens on TCP; SELECT 1 on a socket is not readiness.
     if '--protocol=TCP' not in client or '--host=127.0.0.1' not in client:
         raise RuntimeError('Native database readiness requires its final TCP listener')
-    deadline = monotonic() + 90
-    while True:
-        if run(client + ['-e', 'SELECT 1'], log, check=False).returncode == 0:
-            return
-        if monotonic() > deadline:
-            raise RuntimeError('Disposable MariaDB did not become ready')
-        sleep(1)
+    try:
+        wait_for_final_database(client, lambda command, **kw: run(command, log, **kw),
+                                monotonic=monotonic, sleep=sleep)
+    except RuntimeError as failure:
+        raise RuntimeError('Disposable MariaDB did not become ready') from failure
 
 
 def collect_reports(required, source, destination):
@@ -160,6 +159,16 @@ def collect_reports(required, source, destination):
         ElementTree(suite).write(destination / files[0].name, encoding='utf-8', xml_declaration=True)
     return total, incomplete
 
+
+def verify_native_test_results(returncode, required, source, destination):
+    """Report the Maven outcome before parsing any private test evidence."""
+    raw_xml = sum(1 for _ in source.glob('TEST-*.xml'))
+    print(f'CDS native phase=REPORT_VALIDATION mavenExit={returncode:d} '
+          f'requiredSuites={len(required)} rawXmlEntries={raw_xml}', flush=True)
+    total, incomplete = collect_reports(required, source, destination)
+    if returncode or incomplete:
+        raise RuntimeError('Required native contracts incomplete: ' + ', '.join(incomplete))
+    return total
 
 
 def verify_admission_seeds(repository, client, run, log):
@@ -375,10 +384,6 @@ def main():
     docker = ['docker', '--host=unix:///var/run/docker.sock']
     log_path = output / 'native-tier.log'
 
-    def run(command, log, check=True, capture=False):
-        return subprocess.run(command, check=check, text=True,
-                              stdout=subprocess.PIPE if capture else log, stderr=log)
-
     def build(command, log, check=True):
         identity = ['--user', str(args.container_user)] if args.container_user is not None else []
         return run(docker + ['exec'] + identity + ['--workdir', args.container_workspace, args.container] + command, log, check=check)
@@ -386,6 +391,7 @@ def main():
     maven = [args.maven, '-B', '-q']
     if args.maven_repository:
         maven.append('-Dmaven.repo.local=' + args.maven_repository)
+    phase = 'PREPARATION'
     try:
         with log_path.open('w') as log:
             host_commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=repository, text=True).strip()
@@ -485,6 +491,7 @@ def main():
                 return 0
 
             if args.release_upgrade:
+                phase = 'RELEASE_UPGRADE'
                 return run_release_upgrade()
             build(['javac', '-cp', classpath, '-d', container_output + '/classes',
                    'scripts/ci/CdsImportMariaDbBootstrap.java'], log)
@@ -494,6 +501,7 @@ def main():
                        'database/mysql/migration', province], log)
             verify_admission_seeds(repository, client, run, log)
             if args.refresh_schema_contracts:
+                phase = 'SCHEMA_CONTRACT'
                 for database, province in [('carlos_cds_test', 'on'), ('cds_full_test', 'bc')]:
                     command = ['python3', 'scripts/schema-contract.py', '--database', database, '--province', province,
                                '--client-arg=--defaults-extra-file=' + container_private + '/client.cnf',
@@ -530,10 +538,12 @@ def main():
                 test_command.append('-Dcds.export.test.documentRoot=' + document_root)
             else:
                 test_command.append('-Dgroups=integration')
+            phase = 'NATIVE_TESTS'
+            print(f'CDS native phase={phase} requiredSuites={len(required)}', flush=True)
             tested = build(test_command, log, check=False)
-            total, incomplete = collect_reports(required, original_reports, reports)
-            if tested.returncode or incomplete:
-                raise RuntimeError('Required native contracts incomplete: ' + ', '.join(incomplete))
+            phase = 'REPORT_VALIDATION'
+            total = verify_native_test_results(tested.returncode, required, original_reports, reports)
+            phase = 'CANDIDATE_VERIFICATION'
             if args.fresh_classes:
                 after = json.loads(run(docker + ['exec', '--workdir', args.container_workspace, args.container,
                     'python3', 'scripts/ci/compiled_classes.py', 'fingerprints'], log, capture=True).stdout)
@@ -549,9 +559,9 @@ def main():
             print(f'CDS native tier passed: {total} tests across {len(required)} required suites; zero skips.')
             print('Sanitized reports: ' + str(output / 'reports'))
         return 0
-    except (subprocess.CalledProcessError, RuntimeError, OSError, ET.ParseError, DefusedXmlException, ValueError) as failure:
-        # Do not expose command arguments/configuration or captured database/Java output.
-        print('CDS native tier failed (' + type(failure).__name__ + '); inspect protected ' + str(log_path), file=sys.stderr)
+    except (subprocess.CalledProcessError, RuntimeError, OSError, ET.ParseError, DefusedXmlException, ValueError):
+        # Commands, paths, exception details and database/Java output stay private.
+        print(f'CDS native tier failed phase={phase}; inspect the protected native-tier.log.', file=sys.stderr)
         return 1
     finally:
         cleanup_failures = []
