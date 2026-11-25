@@ -5,14 +5,12 @@
 # renderer's vendored Chromium, and carlos-emr-drugref), attach them to
 # the release together with the pinned carlos-ctl package (built and attested
 # by carlos-emr/carlos-ctl's own release workflow; debian/carlos-ctl.pin names
-# the release). A separate dispatch with verified qualification promotes the
-# frozen draft; a build dispatch never publishes it.
+# the release), and publish the completed release as the final step.
 #
 # DESIGN — a SEPARATE workflow from publish-release.yml, but it FINALIZES the
-# release: publish-release.yml leaves a DRAFT carrying the WAR + SBOM. A build
-# dispatch downloads that WAR, builds the .debs and attaches them. A later
-# promotion dispatch revalidates raw qualification evidence and the complete
-# frozen asset hashes before publication. The order matters because the
+# release: publish-release.yml leaves a DRAFT carrying the WAR + SBOM. This
+# workflow downloads that WAR, builds the .debs, attaches and verifies every
+# asset, and then publishes the same release. The order matters because the
 # repository enables immutable releases — assets cannot be added once a release
 # is published, so every asset (WAR, SBOM, every .deb) must be in place while it
 # is still a draft.
@@ -22,7 +20,7 @@
 #     with no second Maven compile and a byte-preserving final identity stamp.
 #   * If this workflow fails, the release simply stays a draft (nothing is
 #     half-published); the workflow_dispatch input re-runs it to finish the job
-#     (qualification must be repeated if the candidate bytes change).
+#     against the same annotated tag.
 #
 # The build runs inside an ubuntu:26.04 container so the toolchain and the
 # runtime dependency versions are exactly the target distribution's,
@@ -41,11 +39,11 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing tag to build a draft candidate or promote qualified assets
+        description: Existing tag whose draft release will receive packages and be published
         required: true
         type: string
       qualification_run_id:
-        description: Completed qualification run to promote; blank builds a draft candidate only
+        description: Optional completed qualification run for promoting existing frozen draft assets
         required: false
         type: string
 
@@ -408,14 +406,25 @@ jobs:
           /tmp/release-gate/bin/python scripts/ci/release_publication.py promote \
             --repo "$REPO" --tag "$RELEASE_TAG" --run "$QUALIFICATION_RUN" --assets /tmp/promotion-assets
 
-      - name: Leave the frozen candidate as a draft for qualification
+      - name: Verify every completed draft asset before publication
         if: env.SKIP != 'true' && env.QUALIFICATION_RUN == ''
         run: |
-          echo "Draft candidate is complete. Run release-verification.yml on refs/tags/$RELEASE_TAG with tag=$RELEASE_TAG."
-          echo "Publication requires that completed qualification run ID; rebuilding invalidates its hashes."
+          set -euo pipefail
+          # Debian packaging updates its changelog and staging tree. Verify from
+          # a clean tag checkout so the final archive and package identity are
+          # checked against the exact source that produced this release.
+          git worktree add --detach /tmp/release-publication "refs/tags/$RELEASE_TAG"
+          python3 -m venv /tmp/release-gate
+          /tmp/release-gate/bin/pip install --require-hashes \
+            -r /tmp/release-publication/scripts/ci/requirements.txt
+          gh release download "$RELEASE_TAG" --repo "$REPO" --dir /tmp/promotion-assets \
+            --pattern '*'
+          cd /tmp/release-publication
+          /tmp/release-gate/bin/python scripts/ci/release_publication.py verify-assets \
+            --repo "$REPO" --tag "$RELEASE_TAG" --assets /tmp/promotion-assets
 
       - name: Publish the release
-        if: env.SKIP != 'true' && env.QUALIFICATION_RUN != ''
+        if: env.SKIP != 'true'
         run: |
           set -euo pipefail
           # Every asset (WAR, SBOM, every .deb) is now attached to the draft.

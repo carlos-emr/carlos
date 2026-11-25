@@ -1,5 +1,5 @@
 # Copyright (C) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
-"""Freeze final release bytes and revalidate trusted qualification before publication."""
+"""Verify release assets, freeze candidates and replay requested qualification."""
 import argparse
 import json
 from pathlib import Path
@@ -39,7 +39,7 @@ def checked_tag(tag):
     source = source_identity()
     commit = subprocess.check_output(["git", "rev-parse", tag + "^{commit}"], cwd=ROOT, text=True).strip()
     if not source["clean"] or source["commit"] != commit:
-        raise EvidenceError("Qualification requires the clean tagged source")
+        raise EvidenceError("Release verification requires the clean tagged source")
     return source
 
 
@@ -90,6 +90,10 @@ def candidate(assets, tag, source, root=ROOT):
             raise EvidenceError("Candidate package set has a duplicate, missing or incorrect version")
         if fields.get("Architecture") != ("amd64" if package == "carlos-emr" else "all"):
             raise EvidenceError("Candidate package architecture differs from the supported release")
+        debian_name = f"{package}_{fields['Version']}_{fields['Architecture']}.deb"
+        # GitHub stores a Debian prerelease separator (~) as a dot in asset names.
+        if deb.name not in (debian_name, debian_name.replace("~", ".")):
+            raise EvidenceError(f"Candidate package filename {deb.name!r} differs from its control metadata")
         seen.add(package)
         payload_names.add(deb.name)
         if package == "carlos-emr":
@@ -168,7 +172,7 @@ def verify_draft_assets(repo, tag, verified_assets):
     expected = {file.name: "sha256:" + digest(file) for file in verified_assets.iterdir()}
     actual = {asset["name"]: asset.get("digest") for asset in assets if asset.get("state") == "uploaded"}
     if len(assets) != len(expected) or actual != expected:
-        raise EvidenceError("Draft assets changed after qualification replay")
+        raise EvidenceError("Draft assets changed after verification")
 
 
 def verify_provenance(repo, source, assets):
@@ -237,7 +241,7 @@ def collect_evidence(source, destination):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("operation", choices=("freeze", "promote", "verify-draft"))
+    parser.add_argument("operation", choices=("freeze", "promote", "verify-assets", "verify-draft"))
     parser.add_argument("--repo", required=True)
     parser.add_argument("--tag", required=True)
     parser.add_argument("--assets", type=Path, required=True)
@@ -254,6 +258,10 @@ def main(argv=None):
             write_json(manifest, candidate(args.assets, args.tag, checked_tag(args.tag)))
         elif args.operation == "promote":
             promotion(args.repo, args.tag, args.run, args.assets)
+        elif args.operation == "verify-assets":
+            source = checked_tag(args.tag)
+            candidate(args.assets, args.tag, source)
+            verify_provenance(args.repo, source, args.assets)
         else:
             verify_draft_assets(args.repo, args.tag, args.assets)
         return 0
