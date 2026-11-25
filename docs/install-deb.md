@@ -389,6 +389,23 @@ tool shares its name, language, and overlapping verb set (`check`, `db`,
 `rotate`) with the carlos-podman deployment's `carlos-ctl`, so operators can
 move between the two without relearning.
 
+### Ontario billing output storage
+
+CARLOS stages complete OHIP claim and HTML files in `HOME_DIR` before publishing
+them. The billing service needs write access to this directory and support for
+file locking. The default Ubuntu filesystem publishes new files with a hard
+link. On Linux mounts that disallow hard links, CARLOS uses
+`renameat2(RENAME_NOREPLACE)` and a filesystem-provided file identity. This
+includes CIFS mounts whose server and client support that operation.
+
+When both publication methods are unavailable, the billing screen identifies
+the storage requirement. Configure a compatible `HOME_DIR` before retrying.
+If the JVM prohibits native calls, the hard-link method remains available.
+If another program places a file under a newly allocated basename, CARLOS
+preserves that file, rolls back this attempt's published outputs and retires
+its provisional disk records. The billing screen requests reconciliation when
+CARLOS cannot confirm cleanup.
+
 ### Incoming document storage
 
 The filesystems containing `DOCUMENT_DIR`, the incoming queues under

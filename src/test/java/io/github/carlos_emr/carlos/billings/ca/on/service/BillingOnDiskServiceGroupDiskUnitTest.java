@@ -165,7 +165,7 @@ class BillingOnDiskServiceGroupDiskUnitTest extends CarlosUnitTestBase {
 
         verify(diskCreationService).createNewGrpDiskName(List.of("101"), List.of("010100"), GROUP_NO, CURRENT_USER);
         verify(diskCreationService, never()).createNewSoloDiskName(any(), any());
-        verify(output).writeFile("team-file");
+        verify(output).writeNewFile(eq("team-file"), any(BillingOutputFiles.NewFiles.class));
     }
 
     @Test
@@ -192,9 +192,9 @@ class BillingOnDiskServiceGroupDiskUnitTest extends CarlosUnitTestBase {
 
         service.generateNewDisk(allProvidersRequest());
 
-        verify(ohipFile).writeFile("zero-bodypaid-body");
-        verify(zeroTotal).writeHtml("<html>zero-body</html>");
-        verify(paid).writeHtml("<html>paid-body</html>");
+        verify(ohipFile).writeNewFile(eq("zero-bodypaid-body"), any(BillingOutputFiles.NewFiles.class));
+        verify(zeroTotal).writeNewHtml(eq("<html>zero-body</html>"), any(BillingOutputFiles.NewFiles.class));
+        verify(paid).writeNewHtml(eq("<html>paid-body</html>"), any(BillingOutputFiles.NewFiles.class));
         verify(transactionService).finalizeGeneratedDisks(eq(List.of(zeroTotal, paid)), eq(DISK_ID), any(BillingOnDiskTransactionService.Outcome.class));
     }
 
@@ -207,7 +207,7 @@ class BillingOnDiskServiceGroupDiskUnitTest extends CarlosUnitTestBase {
 
         service.generateNewDisk(allProvidersRequest());
 
-        verify(ohipFile).writeFile("net-zero-body");
+        verify(ohipFile).writeNewFile(eq("net-zero-body"), any(BillingOutputFiles.NewFiles.class));
         verify(transactionService).finalizeGeneratedDisks(eq(List.of(netZero)), eq(DISK_ID), any(BillingOnDiskTransactionService.Outcome.class));
     }
 
@@ -221,8 +221,8 @@ class BillingOnDiskServiceGroupDiskUnitTest extends CarlosUnitTestBase {
 
         service.generateNewDisk(allProvidersRequest());
 
-        verify(ohipFile).writeFile("paid-body");
-        verify(empty, never()).writeHtml(anyString());
+        verify(ohipFile).writeNewFile(eq("paid-body"), any(BillingOutputFiles.NewFiles.class));
+        verify(empty, never()).writeNewHtml(anyString(), any(BillingOutputFiles.NewFiles.class));
         verify(transactionService).finalizeGeneratedDisks(eq(List.of(paid)), eq(DISK_ID), any(BillingOnDiskTransactionService.Outcome.class));
     }
 
@@ -238,11 +238,11 @@ class BillingOnDiskServiceGroupDiskUnitTest extends CarlosUnitTestBase {
 
         service.generateNewDisk(allProvidersRequest());
 
-        verify(first, never()).writeFile(anyString());
-        verify(second, never()).writeFile(anyString());
-        verify(first, never()).writeHtml(anyString());
+        verify(first, never()).writeNewFile(anyString(), any(BillingOutputFiles.NewFiles.class));
+        verify(second, never()).writeNewFile(anyString(), any(BillingOutputFiles.NewFiles.class));
+        verify(first, never()).writeNewHtml(anyString(), any(BillingOutputFiles.NewFiles.class));
         verify(output).setOhipFilename("group.txt");
-        verify(output).writeFile("");
+        verify(output).writeNewFile(eq(""), any(BillingOutputFiles.NewFiles.class));
         verify(transactionService, never()).finalizeGeneratedDisks(anyList(), anyInt(), any(BillingOnDiskTransactionService.Outcome.class));
     }
 
@@ -254,17 +254,66 @@ class BillingOnDiskServiceGroupDiskUnitTest extends CarlosUnitTestBase {
         OhipClaimFileService output = mock(OhipClaimFileService.class);
         givenGroupMembers(provider("101"));
         when(claimFileFactory.getObject()).thenReturn(first, output);
-        org.mockito.Mockito.doThrow(new BillingFileWriteException("disk full")).when(output).writeFile("");
+        org.mockito.Mockito.doThrow(new BillingFileWriteException("disk full")).when(output).writeNewFile(eq(""), any(BillingOutputFiles.NewFiles.class));
         MockHttpServletRequest request = allProvidersRequest();
 
         service.generateNewDisk(request);
 
-        verify(output).writeFile("");
+        verify(output).writeNewFile(eq(""), any(BillingOutputFiles.NewFiles.class));
         verify(transactionService, never()).finalizeGeneratedDisks(anyList(), anyInt(), any(BillingOnDiskTransactionService.Outcome.class));
         // The operator is told on the MRI page which disk lacks its file.
         @SuppressWarnings("unchecked")
         List<String> warnings = (List<String>) request.getAttribute(BillingOnDiskService.GENERATION_WARNINGS_ATTRIBUTE);
         assertThat(warnings).singleElement().asString().contains("disk " + DISK_ID).contains("Regenerate");
+    }
+
+    @Test
+    void shouldPreserveAFileAppearingAfterAllocation_whenPublishingAnEmptyGroup() throws Exception {
+        var emptyMember = memberWriter("empty", BigDecimal.ZERO, 0);
+        var output = mock(OhipClaimFileService.class);
+        givenGroupMembers(provider("101"));
+        org.mockito.Mockito.doCallRealMethod().when(output).setOhipFilename(anyString());
+        org.mockito.Mockito.doCallRealMethod().when(output).writeNewFile(anyString(), any());
+        var existing = outputDirectory.resolve("group.txt");
+        when(claimFileFactory.getObject()).thenReturn(emptyMember).thenAnswer(call -> {
+            java.nio.file.Files.writeString(existing, "independent submission");
+            return output;
+        });
+        var request = allProvidersRequest();
+        service.generateNewDisk(request);
+        assertThat(existing).hasContent("independent submission");
+        assertThat((List<?>) request.getAttribute(BillingOnDiskService.GENERATION_WARNINGS_ATTRIBUTE))
+                .singleElement().asString().contains("Reconcile the existing file");
+        verify(transactionService).retireUnpublishedDisk(DISK_ID);
+        verify(transactionService, never()).finalizeGeneratedDisks(anyList(), anyInt(), any());
+    }
+
+    @Test
+    void shouldRollBackOnlyPublishedGroupPreviews_whenTheNewClaimNameBecomesOccupied() throws Exception {
+        var first = memberWriter("first", BigDecimal.ONE, 1);
+        var second = memberWriter("second", BigDecimal.ONE, 1);
+        var output = mock(OhipClaimFileService.class);
+        givenGroupMembers(provider("101"), provider("102"));
+        when(diskCreationService.getHtmlfilename(DISK_ID, "101")).thenReturn("first.html");
+        when(diskCreationService.getHtmlfilename(DISK_ID, "102")).thenReturn("second.html");
+        for (var member : List.of(first, second)) {
+            org.mockito.Mockito.doCallRealMethod().when(member).setHtmlFilename(anyString());
+            org.mockito.Mockito.doCallRealMethod().when(member).writeNewHtml(anyString(), any());
+        }
+        org.mockito.Mockito.doCallRealMethod().when(output).setOhipFilename(anyString());
+        org.mockito.Mockito.doAnswer(call -> {
+            assertThat(outputDirectory.resolve("first.html")).hasContent("<html>first</html>");
+            assertThat(outputDirectory.resolve("second.html")).hasContent("<html>second</html>");
+            java.nio.file.Files.writeString(outputDirectory.resolve("group.txt"), "prior claim");
+            return call.callRealMethod();
+        }).when(output).writeNewFile(anyString(), any());
+        when(claimFileFactory.getObject()).thenReturn(first, second, output);
+        assertThatThrownBy(() -> service.generateNewDisk(allProvidersRequest())).isInstanceOf(BillingFileWriteException.class);
+        assertThat(outputDirectory.resolve("group.txt")).hasContent("prior claim");
+        assertThat(outputDirectory.resolve("first.html")).doesNotExist();
+        assertThat(outputDirectory.resolve("second.html")).doesNotExist();
+        verify(transactionService).retireUnpublishedDisk(DISK_ID);
+        verify(transactionService, never()).finalizeGeneratedDisks(anyList(), anyInt(), any());
     }
 
     @Test
@@ -474,7 +523,7 @@ class BillingOnDiskServiceGroupDiskUnitTest extends CarlosUnitTestBase {
 
         verify(diskCreationService).createNewGrpDiskName(
                 List.of("101"), List.of("010100"), GROUP_NO, CURRENT_USER);
-        verify(output).writeFile("selected-body");
+        verify(output).writeNewFile(eq("selected-body"), any(BillingOutputFiles.NewFiles.class));
         verify(transactionService).finalizeGeneratedDisks(
                 eq(List.of(member)), eq(DISK_ID), any(BillingOnDiskTransactionService.Outcome.class));
     }
@@ -538,7 +587,7 @@ class BillingOnDiskServiceGroupDiskUnitTest extends CarlosUnitTestBase {
 
         verify(diskCreationService).createNewGrpDiskName(
                 List.of("101"), List.of("010100"), GROUP_NO, CURRENT_USER);
-        verify(output).writeFile("selected-body");
+        verify(output).writeNewFile(eq("selected-body"), any(BillingOutputFiles.NewFiles.class));
     }
 
     @Test
@@ -584,7 +633,7 @@ class BillingOnDiskServiceGroupDiskUnitTest extends CarlosUnitTestBase {
         verify(diskCreationService).createNewGrpDiskName(
                 List.of("101"), List.of("010100"), "0123", CURRENT_USER);
         verify(diskCreationService, never()).createNewSoloDiskName(anyString(), anyString());
-        verify(output).writeFile("padded-body");
+        verify(output).writeNewFile(eq("padded-body"), any(BillingOutputFiles.NewFiles.class));
     }
 
     @Test
@@ -680,8 +729,8 @@ class BillingOnDiskServiceGroupDiskUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> service.generateNewDisk(allProvidersRequest()))
                 .isInstanceOf(io.github.carlos_emr.carlos.billings.ca.on.validator.ClaimFileValidationException.class);
 
-        verify(output, never()).writeFile(anyString());
-        verify(broken, never()).writeHtml(anyString());
+        verify(output, never()).writeNewFile(anyString(), any(BillingOutputFiles.NewFiles.class));
+        verify(broken, never()).writeNewHtml(anyString(), any(BillingOutputFiles.NewFiles.class));
         verify(transactionService, never()).finalizeGeneratedDisks(anyList(), anyInt(), any(BillingOnDiskTransactionService.Outcome.class));
     }
 

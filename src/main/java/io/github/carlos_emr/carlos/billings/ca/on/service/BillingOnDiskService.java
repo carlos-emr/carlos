@@ -387,12 +387,15 @@ public class BillingOnDiskService {
                 // groups of an All Providers run: it is logged and reported on the MRI page,
                 // and regenerating the disk there recreates the missing file.
                 try {
-                    finalize.writeFile("");
+                    createNewOutputs(diskId, new BillingOnDiskTransactionService.Outcome(), files -> finalize.writeNewFile("", files));
                 } catch (BillingFileWriteException failure) {
+                    if (failure.reason() == BillingFileWriteException.Reason.RESTORE_FAILED) throw failure;
                     MiscUtils.getLogger().warn("Could not write the empty OHIP file for claimless group disk {} ({})",
                             diskId, failure.getClass().getSimpleName());
+                    String guidance = failure.reason() == BillingFileWriteException.Reason.GENERAL
+                            ? "Regenerate the disk from this page." : failure.reason().publicMessage();
                     addGenerationWarning(request, "Group " + groupNo + " has no claims; its empty OHIP file (disk "
-                            + diskId + ") could not be written. Regenerate the disk from this page.");
+                            + diskId + ") could not be written. " + guidance);
                 }
             }
         }
@@ -565,15 +568,11 @@ public class BillingOnDiskService {
 
     private void writeNewDiskFilesAndFinalize(OhipClaimFileService writer, int diskId) {
         var outcome = new BillingOnDiskTransactionService.Outcome();
-        try {
-            writer.writeFile(writer.getValue());
-            writer.writeHtml(writer.getHtmlCode());
+        createNewOutputs(diskId, outcome, files -> {
+            writer.writeNewFile(writer.getValue(), files);
+            writer.writeNewHtml(writer.getHtmlCode(), files);
             transactionService.finalizeGeneratedDisk(writer, diskId, outcome);
-        } catch (RuntimeException failure) {
-            if (outcome.mayHaveCommitted()) throw uncertainCommit(failure);
-            cleanupNewFiles(List.of(writer), writer);
-            throw failure;
-        }
+        });
     }
 
     private void regenerateSoloDiskFilesAndFinalize(OhipClaimFileService writer,
@@ -611,15 +610,11 @@ public class BillingOnDiskService {
                                                    OhipClaimFileService ohipWriter,
                                                    int diskId) {
         var outcome = new BillingOnDiskTransactionService.Outcome();
-        try {
-            for (OhipClaimFileService writer : generation.writers()) writer.writeHtml(writer.getHtmlCode());
-            ohipWriter.writeFile(generation.claimBody());
+        createNewOutputs(diskId, outcome, files -> {
+            for (OhipClaimFileService writer : generation.writers()) writer.writeNewHtml(writer.getHtmlCode(), files);
+            ohipWriter.writeNewFile(generation.claimBody(), files);
             transactionService.finalizeGeneratedDisks(generation.writers(), diskId, outcome);
-        } catch (RuntimeException failure) {
-            if (outcome.mayHaveCommitted()) throw uncertainCommit(failure);
-            cleanupNewFiles(generation.writers(), ohipWriter);
-            throw failure;
-        }
+        });
     }
 
     private void writeRegeneratedGroupDiskFileAndFinalize(List<OhipClaimFileService> writers,
@@ -649,10 +644,30 @@ public class BillingOnDiskService {
         return BillingFileWriteException.forReason(BillingFileWriteException.Reason.UNCERTAIN_COMMIT, cause);
     }
 
-    private static void cleanupNewFiles(List<OhipClaimFileService> htmlWriters,
-                                       OhipClaimFileService ohipWriter) {
-        if (ohipWriter != null) ohipWriter.deleteOhipFileQuietly();
-        for (OhipClaimFileService writer : htmlWriters) writer.deleteHtmlFileQuietly();
+    private void createNewOutputs(int diskId, BillingOnDiskTransactionService.Outcome outcome,
+                                  java.util.function.Consumer<BillingOutputFiles.NewFiles> operation) {
+        try (var files = new BillingOutputFiles.NewFiles()) {
+            try {
+                operation.accept(files);
+            } catch (RuntimeException failure) {
+                if (outcome.mayHaveCommitted()) throw uncertainCommit(failure);
+                boolean retirementFailed = false;
+                if (failure instanceof BillingFileWriteException writeFailure
+                        && writeFailure.reason() == BillingFileWriteException.Reason.NEW_OUTPUT_OCCUPIED) {
+                    // The preallocated disk and child rows must never grant history access to independently supplied bytes.
+                    try { transactionService.retireUnpublishedDisk(diskId); }
+                    catch (RuntimeException retirement) {
+                        failure.addSuppressed(retirement);
+                        retirementFailed = true;
+                    }
+                }
+                files.rollback(failure);
+                if (retirementFailed) {
+                    throw BillingFileWriteException.forReason(BillingFileWriteException.Reason.RESTORE_FAILED, failure);
+                }
+                throw failure;
+            }
+        }
     }
 
     private static void restoreRegeneratedFiles(List<OhipClaimFileService> htmlWriters,

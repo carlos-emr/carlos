@@ -127,8 +127,8 @@ class BillingOnDiskServiceUnitTest {
         verify(claimFileService).setHtmlFilename("ohip.html");
         verify(claimFileService).createBillingFileStr(eq(loggedInInfo), eq("34"),
                 aryEq(new String[]{"O", "W", "I"}), eq(false), eq("4"), eq(false), eq(false));
-        verify(claimFileService).writeFile("claim-body");
-        verify(claimFileService).writeHtml("<html>claim</html>");
+        verify(claimFileService).writeNewFile(eq("claim-body"), any(BillingOutputFiles.NewFiles.class));
+        verify(claimFileService).writeNewHtml(eq("<html>claim</html>"), any(BillingOutputFiles.NewFiles.class));
         verify(transactionService).finalizeGeneratedDisk(eq(claimFileService), eq(12), any(BillingOnDiskTransactionService.Outcome.class));
     }
 
@@ -179,8 +179,8 @@ class BillingOnDiskServiceUnitTest {
         service.generateNewDisk(request);
 
         InOrder order = inOrder(claimFileService, transactionService);
-        order.verify(claimFileService).writeFile("claim-body");
-        order.verify(claimFileService).writeHtml("<html>claim</html>");
+        order.verify(claimFileService).writeNewFile(eq("claim-body"), any(BillingOutputFiles.NewFiles.class));
+        order.verify(claimFileService).writeNewHtml(eq("<html>claim</html>"), any(BillingOutputFiles.NewFiles.class));
         order.verify(transactionService).finalizeGeneratedDisk(eq(claimFileService), eq(12), any(BillingOnDiskTransactionService.Outcome.class));
     }
 
@@ -194,13 +194,13 @@ class BillingOnDiskServiceUnitTest {
         when(diskCreationService.getOhipfilename(12)).thenReturn("ohip.txt");
         when(diskCreationService.getHtmlfilename(12, "999998")).thenReturn("ohip.html");
         doThrow(new BillingFileWriteException("disk full"))
-                .when(claimFileService).writeFile("claim-body");
+                .when(claimFileService).writeNewFile(eq("claim-body"), any(BillingOutputFiles.NewFiles.class));
 
         assertThatThrownBy(() -> service.generateNewDisk(request))
                 .isInstanceOf(BillingFileWriteException.class)
                 .hasMessageContaining("disk full");
 
-        verify(claimFileService, never()).writeHtml(anyString());
+        verify(claimFileService, never()).writeNewHtml(anyString(), any(BillingOutputFiles.NewFiles.class));
         verify(transactionService, never()).finalizeGeneratedDisk(eq(claimFileService), eq(12), any(BillingOnDiskTransactionService.Outcome.class));
     }
 
@@ -213,15 +213,53 @@ class BillingOnDiskServiceUnitTest {
         when(diskCreationService.createBatchHeader(provider, "12", "4", "1", "999998")).thenReturn(34);
         when(diskCreationService.getOhipfilename(12)).thenReturn("ohip.txt");
         when(diskCreationService.getHtmlfilename(12, "999998")).thenReturn("ohip.html");
-        doThrow(new IllegalStateException("db down"))
-                .when(transactionService).finalizeGeneratedDisk(eq(claimFileService), eq(12), any(BillingOnDiskTransactionService.Outcome.class));
+        Mockito.doCallRealMethod().when(claimFileService).setOhipFilename(anyString());
+        Mockito.doCallRealMethod().when(claimFileService).setHtmlFilename(anyString());
+        Mockito.doCallRealMethod().when(claimFileService).writeNewFile(anyString(), any());
+        Mockito.doCallRealMethod().when(claimFileService).writeNewHtml(anyString(), any());
+        Mockito.doAnswer(call -> {
+            assertThat(outputDirectory.resolve("ohip.txt")).hasContent("claim-body");
+            assertThat(outputDirectory.resolve("ohip.html")).hasContent("<html>claim</html>");
+            throw new IllegalStateException("db down");
+        }).when(transactionService).finalizeGeneratedDisk(eq(claimFileService), eq(12), any(BillingOnDiskTransactionService.Outcome.class));
 
         assertThatThrownBy(() -> service.generateNewDisk(request))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("db down");
 
-        verify(claimFileService).deleteOhipFileQuietly();
-        verify(claimFileService).deleteHtmlFileQuietly();
+        assertThat(outputDirectory.resolve("ohip.txt")).doesNotExist();
+        assertThat(outputDirectory.resolve("ohip.html")).doesNotExist();
+        verify(transactionService, never()).retireUnpublishedDisk(12);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"false,false", "true,false", "false,true"})
+    void shouldKeepAFileArrivingAfterAllocation_whenPublishingANewSoloDisk(boolean occupiedClaim, boolean retirementFails) throws Exception {
+        var provider = provider("999998", "0000");
+        when(diskCreationService.getProviderObj("999998")).thenReturn(provider);
+        when(diskCreationService.createNewSoloDiskName("999998", "999998")).thenReturn(12);
+        when(diskCreationService.createBatchHeader(provider, "12", "4", "1", "999998")).thenReturn(34);
+        when(diskCreationService.getOhipfilename(12)).thenReturn("ohip.txt");
+        when(diskCreationService.getHtmlfilename(12, "999998")).thenReturn("ohip.html");
+        Mockito.doCallRealMethod().when(claimFileService).setOhipFilename(anyString());
+        Mockito.doCallRealMethod().when(claimFileService).setHtmlFilename(anyString());
+        Mockito.doCallRealMethod().when(claimFileService).writeNewHtml(anyString(), any());
+        var occupied = outputDirectory.resolve(occupiedClaim ? "ohip.txt" : "ohip.html");
+        Mockito.doAnswer(call -> {
+            java.nio.file.Files.writeString(occupied, "prior submission");
+            return call.callRealMethod();
+        }).when(claimFileService).writeNewFile(anyString(), any());
+        if (retirementFails) {
+            doThrow(new IllegalStateException("fixture retirement failed")).when(transactionService).retireUnpublishedDisk(12);
+        }
+        assertThatThrownBy(() -> service.generateNewDisk(newDiskRequest("999998")))
+                .isInstanceOfSatisfying(BillingFileWriteException.class, failure ->
+                        assertThat(failure.reason()).isEqualTo(retirementFails ? BillingFileWriteException.Reason.RESTORE_FAILED
+                                : BillingFileWriteException.Reason.NEW_OUTPUT_OCCUPIED));
+        assertThat(occupied).hasContent("prior submission");
+        assertThat(outputDirectory.resolve(occupiedClaim ? "ohip.html" : "ohip.txt")).doesNotExist();
+        verify(transactionService, never()).finalizeGeneratedDisk(any(), any(Integer.class), any());
+        verify(transactionService).retireUnpublishedDisk(12);
     }
 
     @Test
@@ -349,8 +387,13 @@ class BillingOnDiskServiceUnitTest {
             if (regenerate) service.regenerateDisk(regenerateRequest("12"));
             else service.generateNewDisk(newDiskRequest("999998"));
         }).isInstanceOf(BillingFileWriteException.class).hasMessageContaining("Reconcile");
-        verify(claimFileService).writeFile("claim-body");
-        verify(claimFileService).writeHtml("<html>claim</html>");
+        if (regenerate) {
+            verify(claimFileService).writeFile("claim-body");
+            verify(claimFileService).writeHtml("<html>claim</html>");
+        } else {
+            verify(claimFileService).writeNewFile(eq("claim-body"), any());
+            verify(claimFileService).writeNewHtml(eq("<html>claim</html>"), any());
+        }
         verify(claimFileService, never()).deleteOhipFileQuietly();
         verify(claimFileService, never()).deleteHtmlFileQuietly();
         verify(claimFileService, never()).restoreRenamedFile();
