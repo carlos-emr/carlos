@@ -6716,9 +6716,9 @@
       "provinces": ["ON"],
       "timeoutSec": 120,
       "env": ["OHIP_DISK_DIR"],
-      "mutates": ["provider", "security", "secUserRole", "billing_on_diskname", "billing_on_filename", "file:owned-ohip-disk"],
-      "fixtures": "Single-site installation with the stock administrator site restriction. A separate unassigned active physician and one uniquely named prior billing disk and provider summary, including their files and database rows, are created and removed. If the configured administrator has memberships or team restrictions, an unassigned temporary login uses the stock admin role. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "Checks the native OHIP Simulation and Generate OHIP File selectors and the disk history, using read-only billing navigation."
+      "mutates": ["provider", "security", "secRole", "secUserRole", "secObjPrivilege", "billing_on_diskname", "billing_on_filename", "file:owned-ohip-disk"],
+      "fixtures": "Single-site installation with the stock administrator site restriction. Creates and removes an independent unassigned physician, synthetic disk and member reports, files, a scoped login and an owned team restriction. A second unassigned login uses the seeded admin and doctor roles if the configured user already has sites or team restrictions. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Checks both native OHIP selectors and the disk history, an empty team selector, and a mixed disk with one authorized member report."
     },
     {
       "name": "billing-on-ohip-simulation-report",
