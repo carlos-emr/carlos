@@ -33,6 +33,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -68,6 +70,8 @@ class ScheduleDateOverrideServiceIntegrationTest extends CarlosTestBase {
 
     private static final String PROVIDER = "995297";
     private static final java.sql.Date DATE = java.sql.Date.valueOf("2031-05-14");
+    private static final java.sql.Date FORMER_END = java.sql.Date.valueOf("2031-05-15");
+    private static final java.sql.Date FOLLOWING = java.sql.Date.valueOf("2031-05-16");
 
     @Autowired
     private ScheduleDateDao scheduleDateDao;
@@ -96,7 +100,7 @@ class ScheduleDateOverrideServiceIntegrationTest extends CarlosTestBase {
     @AfterEach
     void removeOwnedRows() {
         transaction().executeWithoutResult(status -> {
-            for (ScheduleDate row : scheduleDateDao.findByProviderAndDateRange(PROVIDER, DATE, DATE)) {
+            for (ScheduleDate row : scheduleDateDao.findByProviderAndDateRange(PROVIDER, DATE, FOLLOWING)) {
                 scheduleDateDao.remove(row.getId());
             }
             Provider provider = entityManager.find(Provider.class, PROVIDER);
@@ -166,6 +170,85 @@ class ScheduleDateOverrideServiceIntegrationTest extends CarlosTestBase {
         assertThat(active()).isEmpty();
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void shouldGenerateFromCommittedDays_whenAnOverlappingPopupSavesOrDeletes(boolean save) throws Exception {
+        ScheduleDate candidate = ruleDay("New weekly rule");
+        ScheduleDate popupDay;
+        if (save) {
+            popupDay = override("Closed");
+            popupDay.setAvailable('0');
+        } else {
+            activeOverride("Old custom day");
+            popupDay = ruleDay("Fallback before template generation");
+        }
+
+        var popupInserting = new CountDownLatch(1);
+        var releasePopup = new CountDownLatch(1);
+        var bulkStarting = new CountDownLatch(1);
+        var popup = service(pausedInsert(scheduleDateDao, popupInserting, releasePopup));
+        var bulk = service(scheduleDateDao);
+        var threads = Executors.newFixedThreadPool(2);
+        try {
+            Future<Boolean> first = threads.submit(() -> popup.replaceOverride(PROVIDER, DATE, popupDay));
+            assertThat(popupInserting.await(10, TimeUnit.SECONDS)).isTrue();
+            Future<Boolean> second = threads.submit(() -> {
+                bulkStarting.countDown();
+                return bulk.replaceRuleDays(PROVIDER, DATE, DATE, List.of(candidate));
+            });
+            assertThat(bulkStarting.await(10, TimeUnit.SECONDS)).isTrue();
+            assertThatThrownBy(() -> second.get(250, TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
+            releasePopup.countDown();
+            assertThat(first.get(10, TimeUnit.SECONDS)).isTrue();
+            assertThat(second.get(10, TimeUnit.SECONDS)).isTrue();
+        } finally {
+            releasePopup.countDown();
+            threads.shutdownNow();
+        }
+
+        ScheduleDate expected = save ? popupDay : candidate;
+        assertThat(active()).singleElement().satisfies(row -> {
+            assertThat(row.getReason()).isEqualTo(expected.getReason());
+            assertThat(row.getPriority()).isEqualTo(expected.getPriority());
+            assertThat(row.getAvailable()).isEqualTo(expected.getAvailable());
+        });
+    }
+
+    @Test
+    void shouldRetireOnlyTheOldRuleRange_andAllowRegenerationAfterACustomDayWasRetired() {
+        var bulk = service(scheduleDateDao);
+        activeOverride("Previous custom day");
+        assertThat(bulk.replaceOverride(PROVIDER, DATE, null)).isTrue();
+        for (var date : List.of(DATE, FORMER_END, FOLLOWING)) {
+            ScheduleDate old = ruleDay("Old rule");
+            old.setDate(date);
+            assertThat(bulk.replaceOverride(PROVIDER, date, old)).isTrue();
+        }
+
+        assertThat(bulk.replaceRuleDays(PROVIDER, DATE, FORMER_END, List.of(ruleDay("Shorter rule")))).isTrue();
+        assertThat(bulk.currentOverride(PROVIDER, DATE).getReason()).isEqualTo("Shorter rule");
+        assertThat(bulk.currentOverride(PROVIDER, FORMER_END)).isNull();
+        assertThat(bulk.currentOverride(PROVIDER, FOLLOWING).getReason()).isEqualTo("Old rule");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"other provider", "custom priority", "before range", "after range"})
+    void shouldRollBackTheEntireGeneration_whenACandidateDoesNotBelongToTheRule(String invalid) {
+        var bulk = service(scheduleDateDao);
+        assertThat(bulk.replaceOverride(PROVIDER, DATE, ruleDay("Before generation"))).isTrue();
+        ScheduleDate candidate = ruleDay("Invalid candidate");
+        switch (invalid) {
+            case "other provider" -> candidate.setProviderNo("995298");
+            case "custom priority" -> candidate.setPriority('c');
+            case "before range" -> candidate.setDate(java.sql.Date.valueOf("2031-05-13"));
+            case "after range" -> candidate.setDate(FOLLOWING);
+            default -> throw new AssertionError(invalid);
+        }
+        assertThatThrownBy(() -> bulk.replaceRuleDays(PROVIDER, DATE, DATE,
+                List.of(ruleDay("Would have been inserted"), candidate))).isInstanceOf(IllegalArgumentException.class);
+        assertThat(active()).extracting(ScheduleDate::getReason).containsExactly("Before generation");
+    }
+
     @Test
     @DisplayName("should retire every active override when a date already holds more than one")
     void shouldRetireEveryActiveOverride_whenTheDateHoldsDuplicates() {
@@ -185,6 +268,7 @@ class ScheduleDateOverrideServiceIntegrationTest extends CarlosTestBase {
         replacement.setProviderNo(missing);
 
         assertThat(service(scheduleDateDao).replaceOverride(missing, DATE, replacement)).isFalse();
+        assertThat(service(scheduleDateDao).replaceRuleDays(missing, DATE, DATE, List.of())).isFalse();
 
         List<ScheduleDate> written = transaction().execute(
                 status -> scheduleDateDao.findByProviderAndDateRange(missing, DATE, DATE));
@@ -235,6 +319,12 @@ class ScheduleDateOverrideServiceIntegrationTest extends CarlosTestBase {
         row.setStatus('A');
         row.setReason(reason);
         row.setCreator("FAKE,Tester");
+        return row;
+    }
+
+    private static ScheduleDate ruleDay(String reason) {
+        ScheduleDate row = override(reason);
+        row.setPriority('b');
         return row;
     }
 

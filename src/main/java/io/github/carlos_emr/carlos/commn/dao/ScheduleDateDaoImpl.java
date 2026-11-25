@@ -77,6 +77,19 @@ public class ScheduleDateDaoImpl extends AbstractDaoImpl<ScheduleDate> implement
     }
 
     @Override
+    public List<ScheduleDate> findRuleDaysForUpdate(String providerNo, Date from, Date through) {
+        return entityManager.createQuery("select s from ScheduleDate s where s.providerNo = :provider "
+                        + "and s.date between :fromDate and :throughDate "
+                        + "and ((s.priority = 'b' and s.status <> 'D') or (s.priority = 'c' and s.status = 'A'))",
+                        ScheduleDate.class)
+                .setParameter("provider", providerNo)
+                .setParameter("fromDate", from)
+                .setParameter("throughDate", through)
+                .setLockMode(LockModeType.PESSIMISTIC_WRITE)
+                .getResultList();
+    }
+
+    @Override
     public List<ScheduleDate> findByProviderPriorityAndDateRange(String providerNo, char priority, Date date, Date date2) {
         Query query = entityManager.createQuery("select s from ScheduleDate s where s.providerNo=?1 and s.priority=?2 and s.date>=?3 and s.date <=?4");
         query.setParameter(1, providerNo);
