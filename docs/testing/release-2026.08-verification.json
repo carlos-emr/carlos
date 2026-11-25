@@ -10457,6 +10457,20 @@
         "T23",
         "T40"
       ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/eform/EFormUtil.java": {
+      "reason": "An eForm template directory can become unreadable between inspection and enumeration. The picker preserves previously collected filenames and reports the failed listing. Import cleanup tests distinguish failures before and after publication locking.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/eform/EFormUtilUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/eform/EFormImportDefensiveMetadataUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T24",
+        "T27"
+      ]
     }
   },
   "lifecycleBaselineManifest": "docs/testing/release-2026.08-lifecycle-baselines.json",

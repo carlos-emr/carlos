@@ -17,19 +17,21 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.test.util.ReflectionTestUtils;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
 @Tag("unit")
 class HRMUtilAttachmentHistoryUnitTest extends CarlosUnitTestBase {
-    @Test
-    void shouldKeepCurrentSelectionAndDatedHistory_whenDuplicateReportsHaveDifferentClinicalDates() {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void shouldKeepCurrentSelectionAndDatedHistory_whenDuplicateReportsHaveDifferentClinicalDates(boolean hasLocale) {
         var properties = mock(CarlosProperties.class);
         when(properties.isOntarioBillingRegion()).thenReturn(true);
         var info = mock(LoggedInInfo.class);
-        when(info.getLocale()).thenReturn(Locale.ENGLISH);
+        when(info.getLocale()).thenReturn(hasLocale ? Locale.ENGLISH : null);
         var security = mock(SecurityInfoManager.class);
         when(security.hasPrivilege(info, "_hrm", "r", null)).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(info, 5)).thenReturn(true);
@@ -53,6 +55,7 @@ class HRMUtilAttachmentHistoryUnitTest extends CarlosUnitTestBase {
         HRMDocument shared = document(906, null);
         HRMDocument restricted = document(907, null);
         HRMDocument relinked = document(908, null);
+        HRMDocument unreadableFile = document(909, null);
         var other = link(906);
         other.setDemographicNo(6);
         shared.setMatchedDemographics(List.of(link(906), other));
@@ -64,8 +67,8 @@ class HRMUtilAttachmentHistoryUnitTest extends CarlosUnitTestBase {
         restricted.setMatchedDemographics(List.of(link(907), denied));
         relinked.setMatchedDemographics(List.of(other));
         when(patients.findByDemographicNo("5")).thenReturn(List.of(link(901), link(902), link(903),
-                link(901), link(904), link(905), link(906), link(907), link(908)));
-        for (var row : List.of(olderMessage, current, undated, anonymous, alsoAnonymous, shared, restricted, relinked)) {
+                link(901), link(904), link(905), link(906), link(907), link(908), link(909)));
+        for (var row : List.of(olderMessage, current, undated, anonymous, alsoAnonymous, shared, restricted, relinked, unreadableFile)) {
             when(documents.findById(row.getId())).thenReturn(List.of(row));
         }
         HRMReport first = report("20260101000000"), latest = report("20260103000000"), last = report("20260102000000");
@@ -93,8 +96,11 @@ class HRMUtilAttachmentHistoryUnitTest extends CarlosUnitTestBase {
             @SuppressWarnings("unchecked")
             var versions = (List<HrmVersionService.Version>) latestRow.get("versions");
             assertThat(versions).extracting(HrmVersionService.Version::id).containsExactly(901, 903);
-            assertThat(versions.getFirst().label()).contains("Report:", "received:", "Unknown date");
-            assertThat(versions.getLast().reportDate()).isEqualTo("Unknown date");
+            String unknownDate = java.util.ResourceBundle.getBundle("oscarResources",
+                    hasLocale ? Locale.ENGLISH : Locale.getDefault()).getString("hrm.version.unknownDate");
+            assertThat(versions.getFirst().getLabel()).contains(versions.getFirst().reportDate(), unknownDate);
+            assertThat(versions.getFirst().getId()).isEqualTo(901);
+            assertThat(versions.getLast().reportDate()).isEqualTo(unknownDate);
         }
     }
 
