@@ -118,6 +118,19 @@ class Obec2ActionMethodGuardUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(200);
     }
 
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @ValueSource(strings = {"0"})
+    void shouldIssueNoDownload_whenNoObecFileWasCreated(String filename) throws Exception {
+        request.setMethod("POST");
+        try (var builder = mockConstruction(ObecData.class, (data, context) ->
+                when(data.generateOBEC(eq("2026-10-01"), any(), any())).thenReturn(filename))) {
+            assertThat(action("2026-10-01").execute()).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(builder.constructed()).hasSize(1);
+        }
+        assertThat(request.getSession().getAttribute(Obec2Action.DOWNLOAD_PREFIX + filename)).isNull();
+    }
+
     @Test
     @DisplayName("should create the report when the form posts a Begin Date")
     void shouldCreateReport_whenBeginDateIsPosted() throws Exception {

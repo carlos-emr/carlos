@@ -297,6 +297,31 @@ class OscarDownloadUnitTest {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void shouldRequireBothFileIdentities_whenTheBillingNameNormalizes(boolean originalPermitted) throws Exception {
+        var properties = Mockito.mock(CarlosProperties.class);
+        Mockito.when(properties.getProperty("billregion", "")).thenReturn("ON");
+        try (var config = Mockito.mockStatic(CarlosProperties.class)) {
+            config.when(CarlosProperties::getInstance).thenReturn(properties);
+            var request = new MockHttpServletRequest("GET", "/servlet/OscarDownload");
+            var login = new LoggedInInfo();
+            LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), login);
+            request.getSession().setAttribute("user", "999998");
+            request.getSession().setAttribute("ohipdownload", tempDir.toString());
+            request.addParameter("homepath", "ohipdownload");
+            request.addParameter("filename", "old drawing.html");
+            Mockito.when(fileAccess.canDownload(login, "old drawing.html", false)).thenReturn(originalPermitted);
+            var response = new MockHttpServletResponse();
+            var servlet = new RecordingOscarDownload();
+            servlet.service(request, response);
+            assertThat(response.getStatus()).isEqualTo(originalPermitted ? 200 : 403);
+            assertThat(servlet.transferCalled).isEqualTo(originalPermitted);
+            Mockito.verify(fileAccess).canDownload(login, "old_drawing.html", false);
+            Mockito.verify(fileAccess).canDownload(login, "old drawing.html", false);
+        }
+    }
+
     private static final class RecordingOscarDownload extends OscarDownload {
         private boolean rejectBilling;
         private boolean billingChecked;
