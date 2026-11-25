@@ -1761,7 +1761,8 @@
         "LabResultDataAcknowledgementCountUnitTest": 10,
         "IncomingDocumentQueuePreferenceIntegrationTest": 9,
         "ScheduleDateOverrideServiceIntegrationTest": 19,
-        "BillingOnSiteVisibilityIntegrationTest": 6
+        "BillingOnSiteVisibilityIntegrationTest": 7,
+        "BillingOnFileAccessServiceIntegrationTest": 3
       },
       "requireCoverage": true,
       "routedSkips": {
@@ -5211,6 +5212,10 @@
             {
               "name": "shouldRetainTeamAccessPrecedence_whenBothMultisiteAndTeamPrivacyAreGranted",
               "container": ""
+            },
+            {
+              "name": "shouldMarkOnlyTheAuthorizedLegacyClaim_whenTwoBillersShareAnOhipNumber",
+              "container": ""
             }
           ]
         }
@@ -5348,7 +5353,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicWebUnmergeIntegrationTest,SiteRenameClockMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,Growth0To36FormPersistenceIntegrationTest,EncounterFormDaoGroupedHistoryIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest,CaseManagementNoteLegacyFlagsMariaDbIntegrationTest,DemographicUpdateDaoTransactionIntegrationTest,IncomingDocumentQueuePreferenceIntegrationTest,ScheduleDateOverrideServiceIntegrationTest,BillingOnSiteVisibilityIntegrationTest",
+        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicWebUnmergeIntegrationTest,SiteRenameClockMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,Growth0To36FormPersistenceIntegrationTest,EncounterFormDaoGroupedHistoryIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest,CaseManagementNoteLegacyFlagsMariaDbIntegrationTest,DemographicUpdateDaoTransactionIntegrationTest,IncomingDocumentQueuePreferenceIntegrationTest,ScheduleDateOverrideServiceIntegrationTest,BillingOnSiteVisibilityIntegrationTest,BillingOnFileAccessServiceIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -5393,7 +5398,8 @@
         "DemographicUpdateDaoTransactionIntegrationTest": 30,
         "IncomingDocumentQueuePreferenceIntegrationTest": 9,
         "ScheduleDateOverrideServiceIntegrationTest": 19,
-        "BillingOnSiteVisibilityIntegrationTest": 6
+        "BillingOnSiteVisibilityIntegrationTest": 7,
+        "BillingOnFileAccessServiceIntegrationTest": 3
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"

@@ -184,6 +184,7 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
             'shouldLimitHistoryToTheTeam_whenSingleSiteLoginHasOnlyTeamBillingAndSeededSiteGrants',
             'shouldRequireTeamAndSiteForHistory_whenOnlyTeamBillingAndMultisiteGrantsArePresent',
             'shouldRetainTeamAccessPrecedence_whenBothMultisiteAndTeamPrivacyAreGranted',
+            'shouldMarkOnlyTheAuthorizedLegacyClaim_whenTwoBillersShareAnOhipNumber',
         }
         self.assertEqual(MODULE.REQUIRED_CASES[family], names)
         self.assertEqual(MODULE.REQUIRED['flyway'][family], len(names))
@@ -199,6 +200,33 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
         route = h2['routedSkips'][MODULE.BOUND_FAMILIES[family]]
         self.assertEqual(route['check'], 'java-native-flyway')
         self.assertEqual({(case['name'], case['container']) for case in route['cases']}, {(name, '') for name in names})
+        self.seed()
+        report = self.reports / f'TEST-{self.suite(family)}-flyway.xml'
+        original = report.read_text()
+        for name in names:
+            with self.subTest(name=name):
+                report.write_text(original.replace(f'name="{name}"', 'name="unrelatedCase"'))
+                self.assert_refused(self.invoke(), f'Required MariaDB flyway cases missing: {family}')
+
+    def test_ontario_requires_every_file_ownership_case_on_its_real_schema(self):
+        family = 'BillingOnFileAccessServiceIntegrationTest'
+        names = {
+            'shouldCheckEveryDiskMember_whileAllowingTheirIndividualHtml',
+            'shouldRequireAUniqueLegacyOhipOwner_acrossInactiveProvidersAndBothFileTables',
+            'shouldKeepTheBillingReadGateAndAllowAnIssuedNonbillingReport_inACoLocatedDirectory',
+        }
+        root = Path(__file__).resolve().parents[2]
+        plan = json.loads((root / 'docs/testing/release-2026.08-verification.json').read_text())
+        for lane in ('java-all', 'java-native-flyway'):
+            check = next(check for check in plan['checks'] if check['id'] == lane)
+            self.assertEqual(check['requiredFamilies'][family], len(names))
+        workflow = (root / '.github/workflows/maven-project.yml').read_text()
+        on = next(block for block in workflow.split('      - name: ')
+                  if block.startswith('Verify critical DAO paths against the Flyway schema\n'))
+        selected = next(line for line in on.splitlines() if '-Dtest=' in line).split('-Dtest=')[1].split()[0].split(',')
+        self.assertIn(family, selected)
+        self.assertEqual(MODULE.REQUIRED_CASES[family], names)
+        self.assertEqual(MODULE.REQUIRED['flyway'][family], len(names))
         self.seed()
         report = self.reports / f'TEST-{self.suite(family)}-flyway.xml'
         original = report.read_text()

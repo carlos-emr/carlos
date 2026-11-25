@@ -12,6 +12,8 @@ UNMERGE_FAMILY = "DemographicWebUnmergeIntegrationTest"
 UNMERGE_CLASS = "io.github.carlos_emr.carlos.demographic.pageUtil." + UNMERGE_FAMILY
 BOUND_FAMILIES = {
     UNMERGE_FAMILY: UNMERGE_CLASS,
+    "BillingOnFileAccessServiceIntegrationTest":
+        "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnFileAccessServiceIntegrationTest",
     "BillingOnSiteVisibilityIntegrationTest":
         "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnSiteVisibilityIntegrationTest",
     "IncomingDocumentQueuePreferenceIntegrationTest":
@@ -30,6 +32,11 @@ CRITICAL = {
 # Surefire's default JUnit 5 names distinguish both boolean invocations. Counts
 # alone cannot prove archive-failure or demographic-audit regressions executed.
 REQUIRED_CASES = {
+    "BillingOnFileAccessServiceIntegrationTest": {
+        "shouldCheckEveryDiskMember_whileAllowingTheirIndividualHtml",
+        "shouldRequireAUniqueLegacyOhipOwner_acrossInactiveProvidersAndBothFileTables",
+        "shouldKeepTheBillingReadGateAndAllowAnIssuedNonbillingReport_inACoLocatedDirectory",
+    },
     "BillingOnSiteVisibilityIntegrationTest": {
         "shouldShowUnassignedBillersAndDisks_whenSingleSiteHasSeededPrivacyGrant",
         "shouldRestrictBothViewsAndDiskRows_whenMultisitePrivacyIsGranted",
@@ -37,6 +44,7 @@ REQUIRED_CASES = {
         "shouldLimitHistoryToTheTeam_whenSingleSiteLoginHasOnlyTeamBillingAndSeededSiteGrants",
         "shouldRequireTeamAndSiteForHistory_whenOnlyTeamBillingAndMultisiteGrantsArePresent",
         "shouldRetainTeamAccessPrecedence_whenBothMultisiteAndTeamPrivacyAreGranted",
+        "shouldMarkOnlyTheAuthorizedLegacyClaim_whenTwoBillersShareAnOhipNumber",
     },
     "IncomingDocumentQueuePreferenceIntegrationTest": {
         "shouldReadDefaultWithoutCreatingRows_whenConcurrentPreviewsFindNoPreference",
@@ -286,7 +294,8 @@ REQUIRED = {"generated": {"AppointmentFieldAuditTransactionIntegrationTest": 3, 
                        "CaseManagementNoteLockMariaDbIntegrationTest": 15,
                        "CaseManagementNoteLegacyFlagsMariaDbIntegrationTest": 30,
                        "CaseManagementIssueDAOIntegrationTest": 22,
-                       "BillingOnSiteVisibilityIntegrationTest": 6,
+                       "BillingOnFileAccessServiceIntegrationTest": 3,
+                       "BillingOnSiteVisibilityIntegrationTest": 7,
                        "IncomingDocumentQueuePreferenceIntegrationTest": 9,
                        "ScheduleDateOverrideServiceIntegrationTest": 19,
                        "ConsultationListProjectionIntegrationTest": 17,
