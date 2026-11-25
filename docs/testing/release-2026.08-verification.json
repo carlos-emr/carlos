@@ -11337,7 +11337,7 @@
       ]
     },
     "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnDiskService.java": {
-      "reason": "Generation and regeneration check the selected doctors and the recorded owners of shared Ontario outputs before writing. Independent member reports remain available.",
+      "reason": "Generation and regeneration check eligible billers and historical file ownership. The file and transaction tests exercise successful creation, contention, an occupied filename and recovery when a commit outcome is uncertain.",
       "tests": [
         "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnDiskServiceUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnDiskServiceGroupDiskUnitTest.java",
@@ -11574,6 +11574,64 @@
       "workstreams": [
         "T23",
         "T29"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOutputFiles.java": {
+      "reason": "New OHIP output must be complete and exclusive. Rollback removes only files published for the failed attempt and preserves any independent replacement.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOutputFilesUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnDiskServiceGroupDiskUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/LinuxNoReplaceMove.java": {
+      "reason": "Billing storage without hard links uses the Linux atomic no-replace operation. The filesystem cases exercise a successful fallback, an existing target and withdrawal after replacement.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOutputFilesUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/OhipClaimFileService.java": {
+      "reason": "New generation writes complete output without overwriting an earlier file. Regeneration retains its established backup and replacement behavior.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/OhipClaimFileServiceUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnDiskServiceUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOutputFilesUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnDiskTransactionService.java": {
+      "reason": "After a publication collision, the Ontario transaction removes only the new disk allocation and its provisional children. Finalized rows, attached claims and earlier generations retain their ownership.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnDiskTransactionServiceUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnSiteVisibilityIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnDiskServiceGroupDiskUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
       ]
     }
   },
