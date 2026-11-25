@@ -21,6 +21,7 @@ import java.util.*;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.*;
+import io.github.carlos_emr.carlos.hospitalReportManager.HrmVersionService.ReportGroup;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMCategory;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
@@ -101,23 +102,11 @@ public class HRMUtil {
 
         //get a list of all HRM documents linked to a particular demographic
         List<HRMDocumentToDemographic> hrmDocResultsDemographic = hrmDocumentToDemographicDao().findByDemographicNo(demographicNo);
-        List<HRMDocument> hrmDocumentsAll = new LinkedList<HRMDocument>();
-        HashMap<String, ArrayList<Integer>> duplicateLabIds = new HashMap<String, ArrayList<Integer>>();
+        Map<ReportGroup, List<HRMDocument>> previousVersions = new HashMap<>();
+        var docsToDisplay = documentsToDisplay(loggedInInfo, patient, hrmDocResultsDemographic,
+                filterDuplicates, previousVersions);
 
-        //multiple versions of essentially the same HRM document are possible
-        //create a list of documents to display that include / exclude duplicates based on filterDuplicates parameter
-        HashMap<String, HRMDocument> docsToDisplay = null;
-        if (filterDuplicates) {
-            docsToDisplay = filterDuplicates(loggedInInfo, hrmDocResultsDemographic, duplicateLabIds);
-        } else {
-            docsToDisplay = noFilterDuplicates(loggedInInfo, hrmDocResultsDemographic);
-        }
-
-        //iterate over this set to generate a hashmap of summary information for each HRM document
-        //(e.g. id, time received, type, status, etc...)
-        //the set of HRM documents should not be changed, this is simply generating the most appropriate summary in the circumstances
-        for (Map.Entry<String, HRMDocument> entry : docsToDisplay.entrySet()) {
-            String duplicateKey = entry.getKey();
+        for (var entry : docsToDisplay.entrySet()) {
             HRMDocument hrmDocument = entry.getValue();
             HRMReport hrmReport = HRMReportParser.parseReport(loggedInInfo, hrmDocument.getReportFile());
             if (hrmReport == null) {
@@ -172,17 +161,11 @@ public class HRMUtil {
             curht.put("name", displayHRMDocumentName);
 
             if (filterDuplicates) {
-                StringBuilder duplicateLabIdQueryString = new StringBuilder();
-                ArrayList<Integer> duplicateIdList = duplicateLabIds.get(duplicateKey);
-                if (duplicateIdList != null) {
-                    for (Integer duplicateLabIdTemp : duplicateIdList) {
-                        if (duplicateLabIdQueryString.length() > 0) duplicateLabIdQueryString.append(',');
-                        duplicateLabIdQueryString.append(duplicateLabIdTemp);
-                    }
-                }
-                curht.put("duplicateLabIds", duplicateLabIdQueryString.toString());
-                curht.put("versions", SpringUtils.getBean(HrmVersionService.class).describe(
-                        duplicateIdList == null ? java.util.List.of() : duplicateIdList, loggedInInfo.getLocale() == null ? java.util.Locale.getDefault() : loggedInInfo.getLocale()));
+                List<HRMDocument> versions = previousVersions.getOrDefault(entry.getKey(), List.of());
+                curht.put("duplicateLabIds", versions.stream().map(row -> row.getId().toString())
+                        .collect(java.util.stream.Collectors.joining(",")));
+                curht.put("versions", HrmVersionService.format(versions,
+                        loggedInInfo.getLocale() == null ? Locale.getDefault() : loggedInInfo.getLocale()));
             }
 
             hrmdocslist.add(curht);
@@ -231,69 +214,44 @@ public class HRMUtil {
 
     }
 
-    private static HashMap<String, HRMDocument> noFilterDuplicates(LoggedInInfo loggedInInfo, List<HRMDocumentToDemographic> hrmDocumentToDemographics) {
-        HashMap<String, HRMDocument> docsToDisplay = new HashMap<String, HRMDocument>();
-        for (HRMDocumentToDemographic hrmDocumentToDemographic : hrmDocumentToDemographics) {
-            int id = hrmDocumentToDemographic.getHrmDocumentId() != null ? hrmDocumentToDemographic.getHrmDocumentId() : 0;
-            List<HRMDocument> hrmDocuments = hrmDocumentDao().findById(id);
-            for (HRMDocument hrmDocument : hrmDocuments) {
-                docsToDisplay.put(Integer.toString(id), hrmDocument);
-            }
-        }
-        return (docsToDisplay);
-    }
-
-
-    private static HashMap<String, HRMDocument> filterDuplicates(LoggedInInfo loggedInInfo, List<HRMDocumentToDemographic> hrmDocumentToDemographics, HashMap<String, ArrayList<Integer>> duplicateLabIds) {
-
-        HashMap<String, HRMDocument> docsToDisplay = new HashMap<String, HRMDocument>();
-        HashMap<String, HRMReport> labReports = new HashMap<String, HRMReport>();
-
-        for (HRMDocumentToDemographic hrmDocumentToDemographic : hrmDocumentToDemographics) {
-            int id = hrmDocumentToDemographic.getHrmDocumentId() != null ? hrmDocumentToDemographic.getHrmDocumentId() : 0;
-            List<HRMDocument> hrmDocuments = hrmDocumentDao().findById(id);
-
-            for (HRMDocument hrmDocument : hrmDocuments) {
-                HRMReport hrmReport = HRMReportParser.parseReport(loggedInInfo, hrmDocument.getReportFile());
-                if (hrmReport == null) continue;
-                hrmReport.setHrmDocumentId(hrmDocument.getId());
-                String duplicateKey = hrmReport.getSendingFacilityId() + ':' + hrmReport.getSendingFacilityReportNo() + ':' + hrmReport.getDeliverToUserId();
-
-                // if no duplicate
-                if (!docsToDisplay.containsKey(duplicateKey)) {
-                    docsToDisplay.put(duplicateKey, hrmDocument);
-                    labReports.put(duplicateKey, hrmReport);
-                } else // there exists an entry like this one
-                {
-                    HRMReport previousHrmReport = labReports.get(duplicateKey);
-
-                    logger.debug("Duplicate report found : previous=" + previousHrmReport.getHrmDocumentId() + ", current=" + hrmReport.getHrmDocumentId());
-
-                    Integer duplicateIdToAdd;
-
-                    // if the current entry is newer than the previous one then replace it, other wise just keep the previous entry
-                    if (HRMResultsData.isNewer(hrmReport, previousHrmReport)) {
-                        HRMDocument previousHRMDocument = docsToDisplay.get(duplicateKey);
-                        duplicateIdToAdd = previousHRMDocument.getId();
-
-                        docsToDisplay.put(duplicateKey, hrmDocument);
-                        labReports.put(duplicateKey, hrmReport);
-                    } else {
-                        duplicateIdToAdd = hrmDocument.getId();
+    private static Map<ReportGroup, HRMDocument> documentsToDisplay(LoggedInInfo user, Integer patient,
+            List<HRMDocumentToDemographic> links, boolean groupVersions,
+            Map<ReportGroup, List<HRMDocument>> previousVersions) {
+        Map<ReportGroup, HRMDocument> current = new HashMap<>();
+        Map<ReportGroup, HRMReport> currentReports = new HashMap<>();
+        Set<Integer> seen = new HashSet<>();
+        var readable = HRMReportAccess.listFilter(securityInfoManager(), user, true);
+        for (var link : links) {
+            Integer id = link.getHrmDocumentId();
+            if (id == null || !seen.add(id)) continue;
+            for (var document : hrmDocumentDao().findById(id)) {
+                // Recheck the chart link and all other linked patients before reading any report content.
+                var matches = document.getMatchedDemographics();
+                Set<Integer> scope = HrmVersionService.patientIds(matches);
+                if (!scope.contains(patient) || !readable.test(matches)) continue;
+                if (!groupVersions) {
+                    current.put(ReportGroup.single(id), document);
+                    continue;
+                }
+                HRMReport report = HRMReportParser.parseReport(user, document.getReportFile());
+                if (report == null) continue;
+                report.setHrmDocumentId(id);
+                ReportGroup group = ReportGroup.of(report, scope, id);
+                HRMReport previous = currentReports.get(group);
+                if (previous == null) {
+                    current.put(group, document);
+                    currentReports.put(group, report);
+                } else {
+                    HRMDocument older = document;
+                    if (HRMResultsData.isNewer(report, previous)) {
+                        older = current.put(group, document);
+                        currentReports.put(group, report);
                     }
-
-                    ArrayList<Integer> duplicateIds = duplicateLabIds.get(duplicateKey);
-                    if (duplicateIds == null) {
-                        duplicateIds = new ArrayList<Integer>();
-                        duplicateLabIds.put(duplicateKey, duplicateIds);
-                    }
-
-                    duplicateIds.add(duplicateIdToAdd);
+                    previousVersions.computeIfAbsent(group, ignored -> new ArrayList<>()).add(older);
                 }
             }
         }
-
-        return (docsToDisplay);
+        return current;
     }
 
     public static ArrayList<HashMap<String, ? extends Object>> listMappings() {

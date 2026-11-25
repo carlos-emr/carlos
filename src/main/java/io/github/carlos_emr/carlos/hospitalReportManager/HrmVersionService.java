@@ -7,6 +7,7 @@ package io.github.carlos_emr.carlos.hospitalReportManager;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
+import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.text.DateFormat;
@@ -35,14 +36,24 @@ public class HrmVersionService {
         public History { versions = List.copyOf(versions); }
     }
 
-    /** Metadata for a group already resolved by the authorized patient attachment list. */
-    public List<Version> describe(Collection<Integer> ids, Locale locale) {
-        List<HRMDocument> rows = new ArrayList<>();
-        for (Integer id : new LinkedHashSet<>(ids)) {
-            HRMDocument row = documents.find(id.intValue());
-            if (row != null) rows.add(row);
+    /** Incomplete source identifiers cannot establish that two messages are versions of one report. */
+    public record ReportGroup(String facility, String reportNumber, String recipient, Set<Integer> patients, Integer singleDocument) {
+        static ReportGroup single(int document) {
+            return new ReportGroup(null, null, null, Set.of(), document);
         }
-        return format(rows, locale);
+
+        /** Groups inbox messages using the same source fields and patient links as the chart viewer. */
+        public static ReportGroup forLinks(HRMReport report, Collection<HRMDocumentToDemographic> links, int document) {
+            return of(report, patientIds(links), document);
+        }
+
+        static ReportGroup of(HRMReport report, Set<Integer> patients, int document) {
+            String facility = report.getSendingFacilityId();
+            String number = report.getSendingFacilityReportNo();
+            String recipient = report.getDeliverToUserId();
+            if (org.apache.commons.lang3.StringUtils.isAnyBlank(facility, number, recipient)) return single(document);
+            return new ReportGroup(facility, number, recipient, Set.copyOf(patients), null);
+        }
     }
 
     /** Request IDs are only hints: every rendered row is checked against the stored group and patient scope. */
@@ -52,8 +63,9 @@ public class HrmVersionService {
         if (requested.length() > 16384) return new History(List.of(), true);
         String[] candidates = requested.split(",", MAX_HISTORY_IDS + 1);
         if (candidates.length > MAX_HISTORY_IDS) return new History(List.of(), true);
-        Set<Integer> scope = patientIds(displayed.getId());
+        Set<Integer> scope = patientIds(patients.findByHrmDocumentId(displayed.getId()));
         if (scope.isEmpty() || !canRead(info, scope)) return new History(List.of(), true);
+        var group = ReportGroup.of(report, scope, displayed.getId());
         List<HRMDocument> rows = new ArrayList<>();
         Set<Integer> seen = new HashSet<>();
         boolean incomplete = false;
@@ -64,36 +76,28 @@ public class HrmVersionService {
             if (id <= 0) { incomplete = true; continue; }
             if (!seen.add(id) || id == displayed.getId()) continue;
             HRMDocument candidate = documents.find(id);
-            if (candidate == null || !scope.equals(patientIds(id))) {
+            if (candidate == null || !scope.equals(patientIds(patients.findByHrmDocumentId(id)))) {
                 incomplete = true; continue;
             }
             HRMReport other = HRMReportParser.parseReport(info, candidate.getReportFile());
-            if (other == null || !sameGroup(report, other)) { incomplete = true; continue; }
+            if (other == null || !group.equals(ReportGroup.of(other, scope, id))) { incomplete = true; continue; }
             rows.add(candidate);
         }
         return new History(format(rows, locale), incomplete);
     }
 
     private boolean canRead(LoggedInInfo info, Set<Integer> scope) {
-        for (int id : scope) if (!security.isAllowedAccessToPatientRecord(info, id)) return false;
+        for (int id : scope) if (!HRMReportAccess.mayReadPatient(security, info, id)) return false;
         return true;
     }
 
-    private Set<Integer> patientIds(int document) {
+    static Set<Integer> patientIds(Collection<HRMDocumentToDemographic> links) {
         Set<Integer> ids = new HashSet<>();
-        for (var link : patients.findByHrmDocumentId(document)) {
+        for (var link : links) {
             Integer patient = link.getDemographicNo();
             if (patient != null && patient > 0) ids.add(patient);
         }
         return ids;
-    }
-
-    static boolean sameGroup(HRMReport a, HRMReport b) {
-        return a.getSendingFacilityId() != null && a.getSendingFacilityReportNo() != null
-                && a.getDeliverToUserId() != null
-                && Objects.equals(a.getSendingFacilityId(), b.getSendingFacilityId())
-                && Objects.equals(a.getSendingFacilityReportNo(), b.getSendingFacilityReportNo())
-                && Objects.equals(a.getDeliverToUserId(), b.getDeliverToUserId());
     }
 
     static List<Version> format(List<HRMDocument> documents, Locale locale) {
