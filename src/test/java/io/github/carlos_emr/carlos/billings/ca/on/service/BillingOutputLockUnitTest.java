@@ -129,6 +129,11 @@ class BillingOutputLockUnitTest {
             var ran = new AtomicBoolean();
             assertThatThrownBy(() -> BillingOutputLock.run(() -> ran.set(true)))
                     .isInstanceOf(BillingFileWriteException.class).hasMessageContaining("already in progress");
+            assertThatThrownBy(() -> BillingOutputLock.openDownload(() -> {
+                ran.set(true);
+                return () -> { };
+            })).isInstanceOfSatisfying(BillingFileWriteException.class, failure ->
+                    assertThat(failure.reason()).isEqualTo(BillingFileWriteException.Reason.BUSY));
             assertThat(ran).isFalse();
         } finally {
             child.getOutputStream().close();
@@ -137,6 +142,139 @@ class BillingOutputLockUnitTest {
         assertThat(child.exitValue()).isZero();
         BillingOutputLock.run(() -> { });
         assertThat(directory.resolve(".carlos-ohip-disk.lock")).isRegularFile();
+    }
+
+    @Test
+    void shouldReadHistoricalFilesWithoutCreatingALock_whenTheStoreIsReadOnly() throws Exception {
+        Path lock = directory.resolve(".carlos-ohip-disk.lock");
+        Path archive = Files.writeString(directory.resolve("archived"), "original");
+        Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("r-x------"));
+        try (var handle = BillingOutputLock.openDownload(() -> openArchive(archive))) {
+            assertThat(handle.readAllBytes()).isEqualTo("original".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            assertThat(lock).doesNotExist();
+        } finally {
+            Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("rwx------"));
+        }
+        Files.createFile(lock, PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("r--------")));
+        try (var handle = BillingOutputLock.openDownload(() -> openArchive(archive))) {
+            assertThat(handle.readAllBytes()).isEqualTo("original".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+    }
+
+    @Test
+    void shouldCloseTheOpenedHandle_whenTheFirstExternalWriterAppears() {
+        var closed = new AtomicBoolean();
+        assertThatThrownBy(() -> BillingOutputLock.openDownload(() -> {
+            try { Files.createFile(directory.resolve(".carlos-ohip-disk.lock")); }
+            catch (java.io.IOException failure) { throw new java.io.UncheckedIOException(failure); }
+            return () -> closed.set(true);
+        })).isInstanceOfSatisfying(BillingFileWriteException.class, failure ->
+                assertThat(failure.reason()).isEqualTo(BillingFileWriteException.Reason.BUSY));
+        assertThat(closed).isTrue();
+        BillingOutputLock.run(() -> { });
+    }
+
+    @Test
+    void shouldPreserveAHandleCleanupFailure_whenTheFirstExternalWriterAppears() {
+        assertThatThrownBy(() -> BillingOutputLock.openDownload(() -> {
+            try { Files.createFile(directory.resolve(".carlos-ohip-disk.lock")); }
+            catch (java.io.IOException failure) { throw new java.io.UncheckedIOException(failure); }
+            return () -> { throw new java.io.IOException("fixture close failure"); };
+        })).isInstanceOfSatisfying(BillingFileWriteException.class, failure -> {
+            assertThat(failure.reason()).isEqualTo(BillingFileWriteException.Reason.BUSY);
+            assertThat(failure.getSuppressed()).singleElement().isInstanceOf(java.io.IOException.class);
+        });
+    }
+
+    @Test
+    void shouldRefuseTheReadBeforeOpening_whenThisProcessIsGenerating() {
+        var ran = new AtomicBoolean();
+        BillingOutputLock.run(() -> assertThatThrownBy(() -> BillingOutputLock.openDownload(() -> {
+            ran.set(true);
+            return () -> { };
+        })).isInstanceOfSatisfying(BillingFileWriteException.class, failure ->
+                assertThat(failure.reason()).isEqualTo(BillingFileWriteException.Reason.BUSY)));
+        assertThat(ran).isFalse();
+    }
+
+    @Test
+    void shouldClassifyDeniedWriterAndOverlappingReaderLocks_whenChannelOperationsFail() throws Exception {
+        var path = Files.createFile(directory.resolve(".carlos-ohip-disk.lock"));
+        try (var channels = org.mockito.Mockito.mockStatic(FileChannel.class, org.mockito.Mockito.CALLS_REAL_METHODS)) {
+            channels.when(() -> FileChannel.open(path, StandardOpenOption.CREATE, StandardOpenOption.WRITE,
+                    java.nio.file.LinkOption.NOFOLLOW_LINKS)).thenThrow(new java.nio.file.AccessDeniedException("private"));
+            assertThatThrownBy(() -> BillingOutputLock.run(() -> { })).isInstanceOfSatisfying(
+                    BillingFileWriteException.class, failure -> assertThat(failure.reason())
+                            .isEqualTo(BillingFileWriteException.Reason.OUTPUT_FOLDER_UNAVAILABLE));
+            var channel = org.mockito.Mockito.mock(FileChannel.class);
+            channels.when(() -> FileChannel.open(path, StandardOpenOption.READ, java.nio.file.LinkOption.NOFOLLOW_LINKS)).thenReturn(channel);
+            org.mockito.Mockito.when(channel.tryLock(0L, Long.MAX_VALUE, true)).thenThrow(new java.nio.channels.OverlappingFileLockException());
+            org.mockito.Mockito.doThrow(new java.io.IOException("private cleanup")).when(channel).close();
+            assertThatThrownBy(() -> BillingOutputLock.openDownload(() -> () -> { })).isInstanceOfSatisfying(
+                    BillingFileWriteException.class, failure -> {
+                        assertThat(failure.reason()).isEqualTo(BillingFileWriteException.Reason.BUSY);
+                        assertThat(failure.getCause().getSuppressed()).singleElement().isInstanceOf(java.io.IOException.class);
+                    });
+        }
+        BillingOutputLock.run(() -> { });
+    }
+
+    @Test
+    void shouldShareTheOpenLeaseAndAllowGenerationWhileStreaming_whenMultipleDownloadsRun() throws Exception {
+        BillingOutputLock.run(() -> { });
+        var archive = Files.writeString(directory.resolve("archived"), "historical bytes");
+        var started = new java.util.concurrent.CountDownLatch(1);
+        var proceed = new java.util.concurrent.CountDownLatch(1);
+        try (var executor = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+            var first = executor.submit(() -> BillingOutputLock.openDownload(() -> {
+                started.countDown();
+                try {
+                    if (!proceed.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("fixture timed out");
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException(interrupted);
+                }
+                return openArchive(archive);
+            }));
+            try {
+                assertThat(started.await(5, TimeUnit.SECONDS)).isTrue();
+                try (var second = BillingOutputLock.openDownload(() -> openArchive(archive))) {
+                    assertThat(second.read()).isEqualTo((int) 'h');
+                }
+                assertThatThrownBy(() -> BillingOutputLock.run(() -> { })).isInstanceOfSatisfying(
+                        BillingFileWriteException.class, failure -> assertThat(failure.reason()).isEqualTo(BillingFileWriteException.Reason.BUSY));
+            } finally { proceed.countDown(); }
+            try (var handle = first.get(5, TimeUnit.SECONDS)) {
+                BillingOutputLock.run(() -> { });
+                assertThat(handle.readAllBytes()).isEqualTo("historical bytes".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            }
+        }
+    }
+
+    @Test
+    void shouldCloseTheOpenedHandle_whenTheSharedFilesystemLockCannotBeReleased() throws Exception {
+        var path = Files.createFile(directory.resolve(".carlos-ohip-disk.lock"));
+        var closed = new AtomicBoolean();
+        try (var channels = org.mockito.Mockito.mockStatic(FileChannel.class, org.mockito.Mockito.CALLS_REAL_METHODS)) {
+            var channel = org.mockito.Mockito.mock(FileChannel.class);
+            var lock = org.mockito.Mockito.mock(java.nio.channels.FileLock.class);
+            channels.when(() -> FileChannel.open(path, StandardOpenOption.READ, java.nio.file.LinkOption.NOFOLLOW_LINKS)).thenReturn(channel);
+            org.mockito.Mockito.when(channel.tryLock(0, Long.MAX_VALUE, true)).thenReturn(lock);
+            org.mockito.Mockito.when(lock.channel()).thenReturn(channel);
+            org.mockito.Mockito.doThrow(new java.io.IOException("private fixture")).when(lock).release();
+            assertThatThrownBy(() -> BillingOutputLock.openDownload(() -> () -> closed.set(true)))
+                    .isInstanceOfSatisfying(BillingFileWriteException.class, failure -> {
+                        assertThat(failure.reason()).isEqualTo(BillingFileWriteException.Reason.LOCK_FAILED);
+                        assertThat(failure.getMessage()).doesNotContain("private fixture");
+                    });
+        }
+        assertThat(closed).isTrue();
+        BillingOutputLock.run(() -> { });
+    }
+
+    private static java.io.InputStream openArchive(Path archive) {
+        try { return Files.newInputStream(archive); }
+        catch (java.io.IOException failure) { throw new java.io.UncheckedIOException(failure); }
     }
 
     /** Separate JVM proving that exclusion is enforced by the shared filesystem lock. */
