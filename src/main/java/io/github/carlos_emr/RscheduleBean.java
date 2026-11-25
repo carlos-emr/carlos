@@ -56,6 +56,8 @@ import org.apache.commons.lang3.StringUtils;
  */
 public class RscheduleBean {
 
+    private final Object ruleLock = new Object();
+
     /** Provider number */
     public String provider_no = "";
     /** Schedule start date */
@@ -99,14 +101,7 @@ public class RscheduleBean {
      * @param creator1 the creator identifier
      */
     public RscheduleBean(String provider_no1, String sdate1, String edate1, String bAvailable1, String day_of_week1, String avail_hourB1, String avail_hour1, String creator1) {
-        provider_no = provider_no1;
-        sdate = sdate1;
-        edate = edate1;
-        available = bAvailable1;
-        day_of_week = day_of_week1;
-        avail_hourB = avail_hourB1;
-        avail_hour = avail_hour1;
-        creator = creator1;
+        replaceRule(provider_no1, sdate1, edate1, bAvailable1, day_of_week1, avail_hourB1, avail_hour1, creator1);
     }
 
     /**
@@ -121,15 +116,8 @@ public class RscheduleBean {
      * @param avail_hour1 the available hours
      * @param creator1 the creator identifier
      */
-    public synchronized void setRscheduleBean(String provider_no1, String sdate1, String edate1, String bAvailable1, String day_of_week1, String avail_hourB1, String avail_hour1, String creator1) {
-        provider_no = provider_no1;
-        sdate = sdate1;
-        edate = edate1;
-        available = bAvailable1;
-        day_of_week = day_of_week1;
-        avail_hourB = avail_hourB1;
-        avail_hour = avail_hour1;
-        creator = creator1;
+    public void setRscheduleBean(String provider_no1, String sdate1, String edate1, String bAvailable1, String day_of_week1, String avail_hourB1, String avail_hour1, String creator1) {
+        replaceRule(provider_no1, sdate1, edate1, bAvailable1, day_of_week1, avail_hourB1, avail_hour1, creator1);
     }
 
     /**
@@ -146,26 +134,27 @@ public class RscheduleBean {
      * @param avail_hour1 the available hours
      * @param creator1 the creator identifier
      */
-    public synchronized void setRscheduleBean(String provider_no1, String sdate1, String edate1, String bAvailable1, String day_of_week1, String day_of_week2, String avail_hourB1, String avail_hour1, String creator1) {
-        provider_no = provider_no1;
-        sdate = sdate1;
-        edate = edate1;
-        available = bAvailable1;
-        day_of_week = day_of_week1 + "|" + day_of_week2;
-        avail_hourB = avail_hourB1;
-        avail_hour = avail_hour1;
-        creator = creator1;
+    public void setRscheduleBean(String provider_no1, String sdate1, String edate1, String bAvailable1, String day_of_week1, String day_of_week2, String avail_hourB1, String avail_hour1, String creator1) {
+        replaceRule(provider_no1, sdate1, edate1, bAvailable1, day_of_week1 + "|" + day_of_week2,
+                avail_hourB1, avail_hour1, creator1);
     }
 
-    public synchronized void clear() {
-        provider_no = "";
-        sdate = "";
-        edate = "";
-        available = "";
-        day_of_week = "";
-        avail_hourB = "";
-        avail_hour = "";
-        creator = "";
+    public void clear() {
+        replaceRule("", "", "", "", "", "", "", "");
+    }
+
+    private void replaceRule(String providerNo, String startDate, String endDate, String availability,
+                             String days, String hoursB, String hours, String createdBy) {
+        synchronized (ruleLock) {
+            provider_no = providerNo;
+            sdate = startDate;
+            edate = endDate;
+            available = availability;
+            day_of_week = days;
+            avail_hourB = hoursB;
+            avail_hour = hours;
+            creator = createdBy;
+        }
     }
 
     /**
@@ -173,14 +162,16 @@ public class RscheduleBean {
      * can replace or clear the session bean.
      *
      * @param providerNo the provider whose calendar was opened
-     * @return an independent rule for the request, or null when the provider changed
+     * @return an independent rule for the request, or null when the provider is missing or changed
      */
-    public synchronized RscheduleBean snapshotForProvider(String providerNo) {
-        if (!providerNo.equals(provider_no)) return null;
-        RscheduleBean copy = new RscheduleBean(provider_no, sdate, edate, available, day_of_week,
-                avail_hourB, avail_hour, creator);
-        copy.active = active;
-        return copy;
+    public RscheduleBean snapshotForProvider(String providerNo) {
+        synchronized (ruleLock) {
+            if (providerNo == null || !providerNo.equals(provider_no)) return null;
+            RscheduleBean copy = new RscheduleBean(provider_no, sdate, edate, available, day_of_week,
+                    avail_hourB, avail_hour, creator);
+            copy.active = active;
+            return copy;
+        }
     }
 
     public boolean getEvenWeek(GregorianCalendar aDate) {
