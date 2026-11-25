@@ -118,7 +118,7 @@
     "bytes": 386608,
     "sha256": "b34d906b754d7dceb6173e960de2ab7776b783de162542c87466fc6e7b0d9c4e",
     "sourceRepository": "https://github.com/carlos-emr/carlos-ctl",
-    "sourceCommit": "a4a614f2a96ab7ce58390460c8dac78e35211056"
+    "sourceCommit": "03ac886e7ed24f278072350fe17190af9dd0429b"
   },
   "candidateCliEvidence": {
     "scope": "Two independent local dpkg-buildpackage builds from the exact fallback commit produced byte-identical packages in the Ubuntu 26.04 image pinned by CI. Each ran 2,100 tests with 216 explicit prerequisite skips. CARLOS verifies the same package digest when rebuilding the candidate and when attaching the published CLI to its release."
