@@ -252,14 +252,23 @@ def compose_config(drugref=None, db=None):
     return json.dumps({'services': {'drugref': service, 'db': {'environment': db or {}}}})
 
 
+def compose_escaped(value):
+    """VALUE as `docker compose config` renders it: every literal $ doubled."""
+    return value.replace('$', '$$')
+
+
 class ComposeTranslationTest(ScriptTestCase):
-    def deployment_args(self, config):
-        return self.call('COMPOSE_JSON=$1; deployment_args', config)
+    def load(self, config):
+        """Runs load_deployment on CONFIG; returns its status, the DEPLOYMENT options and the run."""
+        status, _, result = self.call(
+            'COMPOSE_JSON=$1; load_deployment && printf "%s\\0" "${DEPLOYMENT[@]}" && echo', config)
+        records = result.stdout.rpartition('status=')[0].removesuffix('\n')
+        return status, records.split('\0')[:-1], result
 
     def test_bind_mounts_and_environment_become_docker_run_options(self):
-        status, _, result = self.deployment_args(compose_config())
+        status, options, result = self.load(compose_config())
         self.assertEqual(status, 0, result.stderr)
-        self.assertEqual(result.stdout.splitlines()[:-2], [
+        self.assertEqual(options, [
             '--mount=type=bind,source=/repo/volumes/drugref2.properties,'
             'target=/root/drugref2.properties,readonly',
             '--mount=type=bind,source=/repo/.devcontainer/drugref/drugref2.xml,'
@@ -269,15 +278,35 @@ class ComposeTranslationTest(ScriptTestCase):
             '--env=PASSED_THROUGH',
         ])
 
+    def test_an_environment_value_keeps_its_newlines_in_one_option(self):
+        config = compose_config({'environment': {'CATALINA_OPTS': '-Xms256m\n-Xmx512m'}})
+        status, options, result = self.load(config)
+        self.assertEqual(status, 0, result.stderr)
+        self.assertEqual(options[2:], ['--env=CATALINA_OPTS=-Xms256m\n-Xmx512m'])
+
+    def test_compose_dollar_escaping_is_decoded_in_values_and_paths(self):
+        volume = {'type': 'bind', 'source': compose_escaped('/repo/dir$name/drugref2.xml'),
+                  'target': compose_escaped('/conf/dir$name.xml'), 'read_only': True}
+        environment = {'ONE': compose_escaped('pa$word'), 'TWO': compose_escaped('a$$b')}
+        config = compose_config({'environment': environment, 'volumes': [volume]})
+        status, options, result = self.load(config)
+        self.assertEqual(status, 0, result.stderr)
+        self.assertEqual(options, [
+            '--mount=type=bind,source=/repo/dir$name/drugref2.xml,target=/conf/dir$name.xml,readonly',
+            '--env=ONE=pa$word',
+            '--env=TWO=a$$b',
+        ])
+
     def test_a_setting_the_check_cannot_reproduce_fails(self):
-        status, _, result = self.deployment_args(compose_config({'user': 'tomcat'}))
-        self.assertNotEqual(status, 0)
+        status, _, result = self.load(compose_config({'user': 'tomcat'}))
+        self.assertEqual(status, 1)
         self.assertIn('sets user', result.stderr)
+        self.assertIn('::error::The Compose drugref service cannot be reproduced', result.stderr)
 
     def test_a_non_bind_volume_fails(self):
         volume = {'type': 'volume', 'source': 'drugref-data', 'target': '/data'}
-        status, _, result = self.deployment_args(compose_config({'volumes': [volume]}))
-        self.assertNotEqual(status, 0)
+        status, _, result = self.load(compose_config({'volumes': [volume]}))
+        self.assertEqual(status, 1)
         self.assertIn('bind mounts only', result.stderr)
 
 
@@ -294,6 +323,12 @@ class DatabaseSettingsTest(ScriptTestCase):
         status, _, result = self.root_password({'MYSQL_ROOT_PASSWORD': mysql_value})
         self.assertEqual(status, 0, result.stderr)
         self.assertEqual(result.stdout.splitlines()[0], mysql_value)
+
+    def test_compose_dollar_escaping_in_the_root_password_is_decoded(self):
+        value = secrets.token_hex(4) + '$' + secrets.token_hex(4)
+        status, _, result = self.root_password({'MARIADB_ROOT_PASSWORD': compose_escaped(value)})
+        self.assertEqual(status, 0, result.stderr)
+        self.assertEqual(result.stdout.splitlines()[0], value)
 
     def test_a_db_service_without_a_root_password_fails(self):
         status, _, result = self.root_password({'TZ': 'America/Toronto'})

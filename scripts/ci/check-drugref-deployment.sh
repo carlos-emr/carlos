@@ -47,12 +47,16 @@ readonly INITDB_DIR=/docker-entrypoint-initdb.d
 # the database populate_db.sh creates.
 readonly DATABASE_HOST=db
 readonly DATABASE_NAME=drugref2
+# `docker compose config` writes every literal $ as $$ so that its output stays valid Compose
+# input, JSON included. Values the check uses are decoded with this jq function.
+readonly JQ_LITERAL='def literal: gsub("\\$\\$"; "$");'
 
 IMAGE=""
 NETWORK=""
 COMPOSE_JSON=""
 PROBE_RESULT=""
 CONTAINERS=()
+DEPLOYMENT=()
 
 error() {
   local message=$1
@@ -215,12 +219,13 @@ expect_deployed() {
   return 1
 }
 
-# Prints, one per line, the docker run options that reproduce the runtime configuration of the
-# Compose drugref service: its bind mounts and its environment. The check supplies the image,
-# ports, network, start order and readiness check itself. Any other setting fails here rather
-# than being dropped, so the check keeps running the image the way Compose does.
+# Prints, each terminated by NUL so a value may hold newlines, the docker run options that
+# reproduce the runtime configuration of the Compose drugref service: its bind mounts and its
+# environment. The check supplies the image, ports, network, start order and readiness check
+# itself. Any other setting fails here rather than being dropped, so the check keeps running
+# the image the way Compose does.
 deployment_args() {
-  jq --raw-output '
+  jq --join-output "$JQ_LITERAL"'
     .services.drugref
     | (to_entries
         | map(select(.value != null
@@ -231,17 +236,32 @@ deployment_args() {
     | if ($unsupported | length) > 0 then
         error("the Compose drugref service sets \($unsupported | join(", ")), which this check does not reproduce")
       else
-        ((.volumes // [])[]
+        (((.volumes // [])[]
           | if .type == "bind" then
-              "--mount=type=bind,source=\(.source),target=\(.target)"
+              "--mount=type=bind,source=\(.source | literal),target=\(.target | literal)"
                 + (if .read_only then ",readonly" else "" end)
             else
               error("the Compose drugref service mounts a \(.type) volume at \(.target); this check reproduces bind mounts only")
             end),
         ((.environment // {}) | to_entries[]
-          | "--env=\(.key)" + (if .value == null then "" else "=\(.value)" end))
+          | "--env=\(.key)" + (if .value == null then "" else "=\(.value | tostring | literal)" end)))
+        + "\u0000"
       end
   ' <<<"$COMPOSE_JSON" || return 1
+  return 0
+}
+
+# Reads the deployment_args records into DEPLOYMENT, one docker run option per element.
+load_deployment() {
+  local records
+  records=$(mktemp)
+  if ! deployment_args >"$records"; then
+    rm -f "$records"
+    error "The Compose drugref service cannot be reproduced; see the jq error above"
+    return 1
+  fi
+  mapfile -d '' -t DEPLOYMENT <"$records"
+  rm -f "$records"
   return 0
 }
 
@@ -249,8 +269,8 @@ deployment_args() {
 # drugref2.properties has to match it.
 database_root_password() {
   local password
-  password=$(jq --raw-output \
-    '.services.db.environment | .MARIADB_ROOT_PASSWORD // .MYSQL_ROOT_PASSWORD // empty' \
+  password=$(jq --raw-output "$JQ_LITERAL"'
+    .services.db.environment | (.MARIADB_ROOT_PASSWORD // .MYSQL_ROOT_PASSWORD // empty) | literal' \
     <<<"$COMPOSE_JSON") || return 1
   if [[ -z $password ]]; then
     error "The Compose db service sets no MARIADB_ROOT_PASSWORD or MYSQL_ROOT_PASSWORD"
@@ -389,21 +409,15 @@ main() {
     return 1
   fi
 
-  local options prefix="drugref-check-$$"
-  local -a deployment=()
+  local prefix="drugref-check-$$" compose_version
   if ! COMPOSE_JSON=$(docker compose --file "$COMPOSE_FILE" config --format json drugref); then
     error "docker compose could not render the drugref service of ${COMPOSE_FILE#"$REPO_ROOT"/}"
     return 1
   fi
-  if ! options=$(deployment_args); then
-    error "The Compose drugref service cannot be reproduced; see the jq error above"
-    return 1
-  fi
-  if [[ -n $options ]]; then
-    mapfile -t deployment <<<"$options"
-  fi
-  echo "Deployment configuration from ${COMPOSE_FILE#"$REPO_ROOT"/} (service drugref):"
-  printf '  %s\n' "${deployment[@]}"
+  load_deployment
+  compose_version=$(docker compose version --short 2>/dev/null) || compose_version=unknown
+  echo "Deployment configuration from ${COMPOSE_FILE#"$REPO_ROOT"/} (service drugref, rendered by Docker Compose $compose_version):"
+  printf '  %s\n' "${DEPLOYMENT[@]}"
 
   NETWORK=$prefix
   trap cleanup EXIT
@@ -419,13 +433,13 @@ main() {
   remove_container "$prefix-bare"
 
   wait_for_database "$prefix-db"
-  start_drugref "$prefix-deployed" "${deployment[@]}"
+  start_drugref "$prefix-deployed" "${DEPLOYMENT[@]}"
   expect_deployed "the Compose deployment configuration and the $DATABASE_NAME database" "$prefix-deployed"
   remove_container "$prefix-deployed"
 
   # Once the database container is gone, its host name no longer resolves on the network.
   remove_container "$prefix-db"
-  start_drugref "$prefix-without-database" "${deployment[@]}"
+  start_drugref "$prefix-without-database" "${DEPLOYMENT[@]}"
   expect_rejected "the Compose deployment configuration without its database" "$prefix-without-database"
 
   echo "DrugRef deploys as CARLOS runs it, and the check rejects the image without that configuration."
