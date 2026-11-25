@@ -8,9 +8,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -111,5 +116,48 @@ class RetiredObarProviderRoutesUnitTest {
             assertThat(target).as(route).isEqualTo("/WEB-INF/jsp/decision/antenatal/" + editor + ".jsp");
             assertThat(Path.of("src/main/webapp" + target)).as(route).isRegularFile();
         }
+    }
+
+    private static final Pattern MARKUP_COMMENT = Pattern.compile("<!--.*?-->|<%--.*?--%>", Pattern.DOTALL);
+    private static final Pattern BLOCK_COMMENT = Pattern.compile("/\\*.*?\\*/", Pattern.DOTALL);
+    private static final Pattern LINE_COMMENT = Pattern.compile("(?m)^\\s*//.*$");
+    private static final Pattern RETIRED_REFERENCE = Pattern.compile(
+            "ViewObarRiskEdit|ViewObarChecklistEdit|provider/obarriskedit_99_12|provider/obarchecklistedit_99_12");
+
+    /** Source text with markup comments (and, for code files, Java/JS comments) removed. */
+    private static String withoutComments(String name, String text) {
+        String stripped = MARKUP_COMMENT.matcher(text).replaceAll("");
+        if (name.endsWith(".java") || name.endsWith(".js") || name.endsWith(".jsp") || name.endsWith(".jspf")
+                || name.endsWith(".tag")) {
+            stripped = BLOCK_COMMENT.matcher(stripped).replaceAll("");
+            stripped = LINE_COMMENT.matcher(stripped).replaceAll("");
+        }
+        return stripped;
+    }
+
+    @Test
+    @DisplayName("should leave no live reference to the retired routes, gate classes or JSPs")
+    void shouldLeaveNoLiveReference_toRetiredRoutes() throws Exception {
+        List<String> offenders = new ArrayList<>();
+        int scanned = 0;
+        for (String root : new String[] {"src/main/java", "src/main/webapp"}) {
+            List<Path> files;
+            try (Stream<Path> walk = Files.walk(Path.of(root))) {
+                files = walk.filter(Files::isRegularFile).filter(p -> {
+                    String n = p.getFileName().toString();
+                    return n.endsWith(".java") || n.endsWith(".jsp") || n.endsWith(".jspf") || n.endsWith(".tag")
+                            || n.endsWith(".js") || n.endsWith(".html") || n.endsWith(".xml");
+                }).toList();
+            }
+            for (Path file : files) {
+                scanned++;
+                String text = Files.readString(file, StandardCharsets.UTF_8);
+                if (RETIRED_REFERENCE.matcher(withoutComments(file.getFileName().toString(), text)).find()) {
+                    offenders.add(file.toString());
+                }
+            }
+        }
+        assertThat(scanned).isGreaterThan(1000);
+        assertThat(offenders).as("sources still linking or mapping the retired provider/ViewObar* routes").isEmpty();
     }
 }
