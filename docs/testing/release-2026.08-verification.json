@@ -11353,7 +11353,7 @@
       ]
     },
     "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnFileAccessService.java": {
-      "reason": "The same historical basename can identify more than one provider. Ownership checks account for every recorded member and ambiguous legacy OHIP identities.",
+      "reason": "A scoped Ontario download checks every historical owner under the publication lock. The tests also cover ambiguous legacy OHIP identities, clinic-wide billing access and independently authorized nonbilling downloads.",
       "tests": [
         "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnFileAccessServiceIntegrationTest.java",
         "src/test/java/io/github/carlos_emr/carlos/util/OscarDownloadUnitTest.java",
@@ -11402,7 +11402,7 @@
       ]
     },
     "src/main/java/io/github/carlos_emr/carlos/util/OscarDownload.java": {
-      "reason": "Ontario billing downloads verify historical ownership and preserve separately authorized BC Teleplan and session-issued OBEC downloads.",
+      "reason": "Restricted Ontario billers receive the permitted regular file opened under the generation lock or a digest-verified import snapshot. The servlet tests cover busy, missing, denied and replaced files, BC Teleplan and session-issued OBEC.",
       "tests": [
         "src/test/java/io/github/carlos_emr/carlos/util/OscarDownloadUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnFileAccessServiceIntegrationTest.java",
@@ -11480,7 +11480,7 @@
       ]
     },
     "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOutputLock.java": {
-      "reason": "The legacy and modern generators share the Ontario output lock. The service tests cover a busy writer and retry through the same entry point.",
+      "reason": "Ontario generators hold the output lock while writing. Scoped downloads verify ownership and open the file under a shared lock, with concurrent-reader and independent-process checks on writable and historical read-only storage.",
       "tests": [
         "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOutputLockUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/OhipReportGenerationServiceDependencyInjectionUnitTest.java"
@@ -11628,6 +11628,21 @@
       "checks": [
         "java-all",
         "java-native-flyway"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/billing/CA/ON/billingOHIPsimulation.jsp": {
+      "reason": "OHIP Simulation offers Create Report only when the operator can choose an eligible provider. The browser exercises a single-site physician with no assignment and an explicitly empty team.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billing/CA/ON/BillingOnJspRoutingTest.java",
+        "scripts/billing-on-single-site-visibility-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
       ],
       "workstreams": [
         "T23",
