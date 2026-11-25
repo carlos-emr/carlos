@@ -14,15 +14,20 @@ import org.mockito.ArgumentMatchers;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import java.io.IOException;
+import java.io.FilterInputStream;
+import java.io.InputStream;
 import java.nio.file.Path;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.channels.FileChannel;
+import java.nio.channels.Channels;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingFilenameImportDao.FileReview;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingImportedFiles;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingFileWriteException;
@@ -40,6 +45,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DisplayName("OscarDownload filename validation")
 @Tag("unit")
@@ -320,8 +326,8 @@ class OscarDownloadUnitTest {
     }
 
     @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    void shouldRequireBothFileIdentities_whenTheBillingNameNormalizes(boolean originalPermitted) throws Exception {
+    @ValueSource(strings = {"permitted", "outside", "unreconciled"})
+    void shouldRequireBothFileIdentities_whenTheBillingNameNormalizes(String original) throws Exception {
         var properties = Mockito.mock(CarlosProperties.class);
         Mockito.when(properties.getProperty("billregion", "")).thenReturn("ON");
         Mockito.when(properties.getProperty("HOME_DIR")).thenReturn(tempDir.toString());
@@ -337,12 +343,14 @@ class OscarDownloadUnitTest {
             request.addParameter("filename", "old drawing.html");
             Files.writeString(tempDir.resolve("old_drawing.html"), "owned historical bytes");
             Mockito.when(fileAccess.downloadAccess(login, "old_drawing.html", false)).thenReturn(DownloadAccess.VERIFY_OWNERS);
-            Mockito.when(fileAccess.canDownload(login, "old drawing.html", false)).thenReturn(originalPermitted);
+            Mockito.when(fileAccess.canDownload(login, "old drawing.html", false)).thenReturn(!original.equals("outside"));
             var response = new MockHttpServletResponse();
             var servlet = new RecordingOscarDownload();
+            servlet.rejectBilling = original.equals("unreconciled");
             servlet.service(request, response);
-            assertThat(response.getStatus()).isEqualTo(originalPermitted ? 200 : 403);
-            assertThat(response.getContentAsString()).isEqualTo(originalPermitted ? "owned historical bytes" : "");
+            int status = switch (original) { case "permitted" -> 200; case "outside" -> 403; default -> 409; };
+            assertThat(response.getStatus()).isEqualTo(status);
+            assertThat(response.getContentAsString()).isEqualTo(original.equals("permitted") ? "owned historical bytes" : "");
             Mockito.verify(fileAccess).canDownload(login, "old_drawing.html", false);
             Mockito.verify(fileAccess).canDownload(login, "old drawing.html", false);
         }
@@ -407,6 +415,58 @@ class OscarDownloadUnitTest {
         if (mode.equals("writer-busy")) {
             Mockito.verify(fileAccess, Mockito.never()).canDownload(login, name, false);
             assertThat(response.getErrorMessage()).contains("already in progress");
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldCloseTheScopedInputAndLeaveTheResponseOpen_whenTheTransferCompletesOrFails(boolean disconnected) throws Exception {
+        String name = "owned.001";
+        Files.writeString(tempDir.resolve(name), "verified fixture");
+        var request = new MockHttpServletRequest("GET", "/servlet/OscarDownload");
+        var login = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), login);
+        request.getSession().setAttribute("user", "999998");
+        request.getSession().setAttribute("ohipdownload", tempDir.toString());
+        request.addParameter("homepath", "ohipdownload");
+        request.addParameter("filename", name);
+        Mockito.when(fileAccess.downloadAccess(login, name, false)).thenReturn(DownloadAccess.VERIFY_OWNERS);
+
+        var body = new MockHttpServletResponse();
+        var output = Mockito.spy(body.getOutputStream());
+        var failure = new IOException("fixture client disconnected");
+        if (disconnected) Mockito.doThrow(failure).when(output).write(ArgumentMatchers.any(byte[].class),
+                ArgumentMatchers.anyInt(), ArgumentMatchers.anyInt());
+        var response = new MockHttpServletResponse() {
+            @Override public ServletOutputStream getOutputStream() { return output; }
+        };
+        var opened = new AtomicReference<FileChannel>();
+        var closes = new AtomicInteger();
+        var config = CarlosProperties.getInstance();
+        Object oldHome = config.put("HOME_DIR", tempDir.toString());
+        Object oldRegion = config.put("billregion", "ON");
+        try (var channels = Mockito.mockStatic(Channels.class)) {
+            channels.when(() -> Channels.newInputStream(ArgumentMatchers.any(FileChannel.class))).thenAnswer(call -> {
+                opened.set(call.getArgument(0, FileChannel.class));
+                return new FilterInputStream((InputStream) call.callRealMethod()) {
+                    @Override public void close() throws IOException {
+                        closes.incrementAndGet();
+                        super.close();
+                    }
+                };
+            });
+            if (disconnected) {
+                assertThatThrownBy(() -> new OscarDownload().service(request, response)).isSameAs(failure);
+            } else {
+                new OscarDownload().service(request, response);
+                assertThat(body.getContentAsString()).isEqualTo("verified fixture");
+            }
+            assertThat(closes.get()).isOne();
+            assertThat(opened.get().isOpen()).isFalse();
+            Mockito.verify(output, Mockito.never()).close();
+        } finally {
+            if (oldRegion == null) config.remove("billregion"); else config.put("billregion", oldRegion);
+            if (oldHome == null) config.remove("HOME_DIR"); else config.put("HOME_DIR", oldHome);
         }
     }
 

@@ -196,7 +196,8 @@ public class OscarDownload extends GenericDownload {
         private static final ScopedBillingFile DENIED = new ScopedBillingFile(null, List.of());
 
         @Override public void close() throws IOException {
-            if (input != null) input.close();
+            // Before a response stream is created, this handle still owns the open channel.
+            if (input != null && input.isOpen()) input.close();
         }
     }
 
@@ -226,7 +227,9 @@ public class OscarDownload extends GenericDownload {
                 requireBillingFile(rawFilename, PathValidationUtils.validatePath(rawFilename, directory).toPath());
             }
             if (file.input() != null) {
-                sendOpenedFile(res, filename, Channels.newInputStream(file.input()), file.input().size());
+                try (InputStream input = Channels.newInputStream(file.input())) {
+                    sendOpenedFile(res, filename, input, file.input().size());
+                }
             } else {
                 try (var reviewed = BillingImportedFiles.openReviewed(file.reviews(), filename, path)) {
                     sendOpenedFile(res, filename, reviewed.input(), reviewed.size());
