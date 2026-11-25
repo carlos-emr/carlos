@@ -167,8 +167,8 @@
         "scripts/tickler-crud-browser-check.js"
       ],
       "source": "scripts/tickler-crud-browser-check.js",
-      "sourceSha256": "d9ce7b57af867d4fabad48cd8bf6f27e928c5def2724d1568406d0441fe3f4c9",
-      "minimumAssertions": 17
+      "sourceSha256": "68fb769439f6b1772eb063e4f819ba48129fece389e4e9e908fe337e515c9a26",
+      "minimumAssertions": 44
     },
     {
       "id": "ui-scroll-quick-pick-browser-check",

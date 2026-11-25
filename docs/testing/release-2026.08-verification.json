@@ -11649,6 +11649,21 @@
         "T34"
       ]
     },
+    "src/main/webapp/WEB-INF/jsp/tickler/ticklerAdd.jsp": {
+      "reason": "Add Tickler requests focus and selects patient search on an untouched form. The Chromium fixture holds page load open and checks that a clinician’s reminder edit or patient-search selection survives. The installed CRUD workflow submits the reminder and reads its saved text.",
+      "tests": [
+        "scripts/tickler-crud-browser-check.js",
+        "scripts/tickler-crud-playwright-checks.js"
+      ],
+      "checks": [
+        "fixture-ci-browser",
+        "jsp-compile",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T40"
+      ]
+    },
     "src/main/java/io/github/carlos_emr/HScheduleDate.java": {
       "reason": "Tomcat must be able to persist and restore a populated calendar. Its day entries retain the expected hours and can be changed after the session is activated.",
       "tests": [
