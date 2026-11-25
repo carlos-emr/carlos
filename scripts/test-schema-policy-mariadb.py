@@ -15,6 +15,7 @@ import uuid
 ROOT = Path(__file__).resolve().parents[1]
 COLLATION = (ROOT / "database/mysql/migration/common/V1.0.59.6__align_clinical_text_and_status_collations.sql").read_text()
 INDEXES = (ROOT / "database/mysql/migration/common/V1.0.59.7__reconcile_managed_performance_indexes.sql").read_text()
+ROSTER_INDEX = (ROOT / "database/mysql/migration/common/V1.0.59.50.2__ensure_historical_roster_lookup.sql").read_text()
 CONNECTION = ["--no-defaults", "-h", os.environ.get("MYSQL_HOST", "localhost"), "-u", os.environ.get("MYSQL_USER", "root")]
 
 
@@ -95,6 +96,64 @@ class TestClinicalCollations(DatabaseTest):
                        "FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='demographic' "
                        "AND column_name='first_name'").stdout.strip()
         self.assertEqual(row, "varchar(200)\tYES\t'Unknown'\tclinic width\tutf8mb4_uca1400_ai_ci")
+
+
+class TestHistoricalRosterIndex(DatabaseTest):
+    name = "idx_demographicArchive_provider_roster_date"
+
+    def setUp(self):
+        super().setUp()
+        self.sql("CREATE TABLE demographicArchive (id INT PRIMARY KEY, provider_no VARCHAR(25), roster_date DATE);"
+                 "INSERT INTO demographicArchive VALUES (1,'000001','2000-01-01');")
+
+    def indexes(self):
+        result = self.sql("SELECT index_name, non_unique, ignored, GROUP_CONCAT(CONCAT(column_name, "
+                          "IFNULL(CONCAT('(',sub_part,')'),'')) ORDER BY seq_in_index) "
+                          "FROM information_schema.statistics WHERE table_schema=DATABASE() "
+                          "AND table_name='demographicArchive' GROUP BY index_name, non_unique, ignored")
+        return set(result.stdout.splitlines())
+
+    def test_missing_and_stock_indexes_converge_once(self):
+        before = self.indexes()
+        self.sql(ROSTER_INDEX)
+        expected = before | {self.name + "\t1\tNO\tprovider_no,roster_date"}
+        self.assertEqual(self.indexes(), expected)
+        self.sql(ROSTER_INDEX)
+        self.assertEqual(self.indexes(), expected)
+
+    def test_custom_unique_ignored_and_prefix_indexes_are_preserved(self):
+        self.sql("ALTER TABLE demographicArchive ADD UNIQUE INDEX " + self.name + "(roster_date), "
+                 "ADD UNIQUE INDEX provider_no(id), ADD INDEX clinic_prefix(provider_no(2),roster_date), "
+                 "ADD INDEX clinic_ignored(provider_no,roster_date) IGNORED")
+        before = self.indexes()
+        self.sql(ROSTER_INDEX)
+        added = self.indexes() - before
+        self.assertEqual(len(added), 1)
+        self.assertTrue(added.pop().endswith("\t1\tNO\tprovider_no,roster_date"))
+        self.assertTrue(before <= self.indexes())
+        after = self.indexes()
+        self.sql(ROSTER_INDEX)
+        self.assertEqual(self.indexes(), after)
+        self.assertEqual(self.sql("SELECT id,provider_no,roster_date FROM demographicArchive").stdout.strip(),
+                         "1\t000001\t2000-01-01")
+
+    def test_existing_compound_lookup_with_another_name_is_reused(self):
+        self.sql("ALTER TABLE demographicArchive ADD INDEX " + self.name + "(roster_date), "
+                 "ADD INDEX clinic_history(provider_no,roster_date,id)")
+        before = self.indexes()
+        self.sql(ROSTER_INDEX)
+        self.assertEqual(self.indexes(), before)
+
+    def test_index_limit_does_not_block_upgrade_or_remove_clinic_indexes(self):
+        indexes = ["ADD INDEX " + self.name + "(roster_date)"]
+        indexes.extend("ADD INDEX clinic_{}(roster_date)".format(n) for n in range(62))
+        self.sql("ALTER TABLE demographicArchive " + ", ".join(indexes))
+        before = self.indexes()
+        # Inspect the warning immediately after CALL, before its cleanup statement.
+        result = self.sql(ROSTER_INDEX.replace("CALL carlos_ensure_historical_roster_lookup();",
+                          "CALL carlos_ensure_historical_roster_lookup(); SHOW WARNINGS;"))
+        self.assertIn("Roster lookup index exceeds local index limits", result.stdout)
+        self.assertEqual(self.indexes(), before)
 
 
 @unittest.skipUnless(os.environ.get("SCHEMA_POLICY_REFERENCE"), "set SCHEMA_POLICY_REFERENCE for full index tests")
