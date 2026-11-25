@@ -114,10 +114,27 @@ class ReleasePublicationTest(unittest.TestCase):
                     path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(value)
             subprocess.run(["dpkg-deb", "--build", "--root-owner-group", str(staging),
                             str(assets / f"{name}_{deb_version.replace('~', '.')}_{arch}.deb")], check=True, stdout=subprocess.DEVNULL)
+        cli = assets / "carlos-ctl_1.3.2_all.deb"
+        manifest = self.root / "docs/testing/release-2026.08-lifecycle-baselines.json"
+        manifest.parent.mkdir(parents=True)
+        manifest.write_text(json.dumps({"candidateCli": {"tag": "1.3.2", "version": "1.3.2", "name": cli.name,
+            "bytes": cli.stat().st_size, "sha256": gate.digest(cli),
+            "url": "https://github.com/carlos-emr/carlos-ctl/releases/download/1.3.2/" + cli.name}}))
         (assets / f"carlos-{tag}-cyclonedx.json").write_text('{"bomFormat":"CycloneDX"}')
         for file in list(assets.iterdir()):
             (assets / (file.name + ".sha256")).write_text(gate.digest(file) + "  " + file.name + "\n")
         return assets, tag
+
+    def test_same_version_rebuilt_cli_with_matching_adjacent_checksum_cannot_qualify(self):
+        assets, tag = self.make_candidate()
+        cli = assets / "carlos-ctl_1.3.2_all.deb"
+        staging = self.root / "carlos-ctl"
+        (staging / "different-payload").write_bytes(b"different package contents")
+        subprocess.run(["dpkg-deb", "--build", "--root-owner-group", str(staging), str(cli)],
+                       check=True, stdout=subprocess.DEVNULL)
+        (assets / (cli.name + ".sha256")).write_text(gate.digest(cli) + "  " + cli.name + "\n")
+        with self.assertRaisesRegex(gate.EvidenceError, "reviewed bytes|reviewed SHA-256"):
+            gate.candidate(assets, tag, self.source, self.root)
 
     def test_final_payload_and_checksums_are_bound_after_all_stamping(self):
         assets, tag = self.make_candidate()

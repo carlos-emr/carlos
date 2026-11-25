@@ -13,9 +13,8 @@ def matches(pattern, value):
     return isinstance(value, str) and re.fullmatch(pattern, value) is not None
 
 
-def candidate_cli(document):
+def candidate_cli(document, pin=Path(__file__).resolve().parents[2] / 'debian/carlos-ctl.pin'):
     """Keep the shipped CLI independent of unchanged published predecessors."""
-    pin = Path(__file__).resolve().parents[2] / 'debian/carlos-ctl.pin'
     text = pin.read_text()
     tags = re.findall(r'^tag=(.+)$', text, re.M)
     fallbacks = re.findall(r'^fallback=(.+)$', text, re.M)

@@ -9,6 +9,7 @@ import subprocess
 import tempfile
 import zipfile
 
+from candidate_cli_package import specification as cli_specification, verify_package as verify_cli_package
 from cds_war_manifest import build_manifest
 from junit_evidence import EvidenceError
 from release_deployment import PACKAGE_TRANSFORMS, package_contents
@@ -75,8 +76,8 @@ def candidate(assets, tag, source, root=ROOT):
         file = root / filename
         expected[name] = {"bytes": file.stat().st_size, "sha256": digest(file)}
     packages = set(re.findall(r"^Package:\s*(\S+)", (root / "debian/control").read_text(), re.M))
-    ctl = dict(line.split("=", 1) for line in (root / "debian/carlos-ctl.pin").read_text().splitlines()
-               if line and not line.startswith("#") and "=" in line)["tag"].replace("-", "~")
+    ctl = cli_specification(root)
+    verify_cli_package(assets / ctl['name'], ctl)
     packages.add("carlos-ctl")
     seen = set()
     payload_names = {war.name}
@@ -85,7 +86,7 @@ def candidate(assets, tag, source, root=ROOT):
         fields = subprocess.check_output(["dpkg-deb", "-f", str(deb), "Package", "Version", "Architecture"], text=True)
         fields = dict(line.split(": ", 1) for line in fields.splitlines())
         package = fields.get("Package")
-        if package not in packages or package in seen or fields.get("Version") != (ctl if package == "carlos-ctl" else version):
+        if package not in packages or package in seen or fields.get("Version") != (ctl['version'] if package == "carlos-ctl" else version):
             raise EvidenceError("Candidate package set has a duplicate, missing or incorrect version")
         if fields.get("Architecture") != ("amd64" if package == "carlos-emr" else "all"):
             raise EvidenceError("Candidate package architecture differs from the supported release")
