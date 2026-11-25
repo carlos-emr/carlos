@@ -11020,7 +11020,8 @@
       "reason": "Remittance advice retains its billing gate and team selection and applies provider-site restrictions in multisite mode.",
       "tests": [
         "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/web/BillingReportViewActionsAuthorizedUnitTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/web/SiblingViewBillingOnActionPrivilegeUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/web/SiblingViewBillingOnActionPrivilegeUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/OnRaViewModelAssemblerUnitTest.java"
       ],
       "checks": [
         "java-all"
@@ -11237,6 +11238,209 @@
       ],
       "workstreams": [
         "T26"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/BillingDao.java": {
+      "reason": "Restricted legacy claim lookup matches both internal provider and OHIP number when two physicians share a billing number.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/commn/dao/BillingDaoIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnSiteVisibilityIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/BillingDaoImpl.java": {
+      "reason": "The physical claim query must select only the authorized internal provider before billing status can be written.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/commn/dao/BillingDaoIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnSiteVisibilityIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/Billing.java": {
+      "reason": "An imported claim can have a null appointment. Hibernate must read it, the existing getter must remain usable and a billing status update must preserve the stored null.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/commn/dao/BillingDaoIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnSiteVisibilityIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/OhipClaimExtractService.java": {
+      "reason": "The restricted extractor must apply the internal provider identity and OHIP number before displaying a claim or changing its billing status.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/OhipClaimExtractServiceUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnSiteVisibilityIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/OhipReportGenerationService.java": {
+      "reason": "Supported OHIP generation and simulation honor explicit provider selections and reject out-of-scope providers before accessing their claims.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/OhipReportGenerationServiceDependencyInjectionUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnSiteVisibilityIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/PMmodule/dao/ProviderDaoImpl.java": {
+      "reason": "The team picker must retain the current physician while excluding unrelated physicians who also have no team.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOhipSimulationViewModelAssemblerUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnSiteVisibilityIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnDiskService.java": {
+      "reason": "Generation and regeneration check the selected doctors and the recorded owners of shared Ontario outputs before writing. Independent member reports remain available.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnDiskServiceUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnDiskServiceGroupDiskUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnFileAccessServiceIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnFileAccessService.java": {
+      "reason": "The same historical basename can identify more than one provider. Ownership checks account for every recorded member and ambiguous legacy OHIP identities.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnFileAccessServiceIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/util/OscarDownloadUnitTest.java",
+        "scripts/billing-on-single-site-visibility-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/viewmodel/BillingOnMriViewModel.java": {
+      "reason": "Historical file and regenerate controls reflect whether the operator can open the shared disk or an individual HTML report.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOnMriViewModelAssemblerTest.java",
+        "scripts/billing-on-single-site-visibility-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/billing/CA/ON/billingONMRI.jsp": {
+      "reason": "The generation page must distinguish a visible individual report from a shared disk, and omit All Providers for a restricted login with no eligible doctors.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOnMriViewModelAssemblerTest.java",
+        "scripts/billing-on-single-site-visibility-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "jsp-compile",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T23",
+        "T34",
+        "T40"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/util/OscarDownload.java": {
+      "reason": "Ontario billing downloads verify historical ownership and preserve separately authorized BC Teleplan and session-issued OBEC downloads.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/util/OscarDownloadUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnFileAccessServiceIntegrationTest.java",
+        "scripts/billing-on-single-site-visibility-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/pageUtil/Obec2Action.java": {
+      "reason": "Ontario eligibility checks retain the session-issued output identity so a legitimate nonbilling download is authorized in a shared directory.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/report/pageUtil/Obec2ActionMethodGuardUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/util/OscarDownloadUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "database/mysql/migration/on/V1.0.59.50.3__index_ohip_billing_file_owners.sql": {
+      "reason": "Historical billing file checks reuse suitable leading indexes, including clinic-defined indexes. The MariaDB upgrade tests exercise all three lookups, repeated runs and index limits on Ontario.",
+      "tests": [
+        "scripts/test-schema-policy-mariadb.py",
+        "scripts/ci/verify-flyway-baseline.sh",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnFileAccessServiceIntegrationTest.java"
+      ],
+      "checks": [
+        "java-native-flyway",
+        "package-beta8-upgrade"
+      ],
+      "workstreams": [
+        "T04",
+        "T25",
+        "T33"
       ]
     }
   },
