@@ -40,6 +40,7 @@ const WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const CODE_CANDIDATES = ['Q', 'Z', 'X', 'Y', 'J', 'K', '7', '8', '9', '0', '4', '5'];
 const DATE_SAVE = bundleMessage('schedule.scheduledatepopup.btnSave', 'Save');
 const CODE_SAVE = bundleMessage('schedule.scheduletemplatecodesetting.btnSave', 'Save');
+const CALENDAR_CHANGED = bundleMessage('error.refusal.scheduleCalendarChanged', '');
 
 /** Quarter-hour labels from start for count slots, e.g. ('09:00', 3) -> 09:00, 09:15, 09:30. */
 function quarterHours(start, count) {
@@ -207,14 +208,18 @@ async function workflow(s) {
     h.assert(month.searchParams.get('provider_no') === owner && provider !== owner, 'Expected two distinct schedule providers');
     const otherMonth = new URL(month);
     otherMonth.searchParams.set('provider_no', provider);
-    const stale = await context.request.get(otherMonth.href);
+    const stale = await context.request.get(otherMonth.href, { headers: { 'Accept-Language': 'en' } });
     try {
-      h.assert(stale.status() === 409 && !(await stale.text()).includes('function showCalendarMonth'),
+      const html = await stale.text();
+      h.assert(stale.status() === 409 && !html.includes('function showCalendarMonth'),
         'A stale month rendered the open calendar under another provider');
+      const reason = html.match(/id="refusal-reason"[^>]*>([^<]*)<\/p>/)?.[1].trim();
+      h.assert(CALENDAR_CHANGED && reason === CALENDAR_CHANGED, 'The stale month did not explain how to reopen this provider’s calendar');
     } finally { await stale.dispose(); }
     const current = await context.request.get(month.href);
     try {
-      h.assert(current.status() === 200 && (await current.text()).includes('function showCalendarMonth'),
+      const html = await current.text();
+      h.assert(current.status() === 200 && html.includes('function showCalendarMonth') && html.includes(`name="provider_no" value="${owner}"`),
         'The open provider could not redisplay the month after the stale tab was refused');
     } finally { await current.dispose(); }
   });
