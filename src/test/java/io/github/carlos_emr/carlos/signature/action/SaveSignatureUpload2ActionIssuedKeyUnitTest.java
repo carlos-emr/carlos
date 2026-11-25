@@ -25,6 +25,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
@@ -296,6 +297,32 @@ class SaveSignatureUpload2ActionIssuedKeyUnitTest extends CarlosUnitTestBase {
 
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
 
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        assertThat(Files.readAllBytes(capture.toPath())).isEqualTo(original);
+        verifyNoInteractions(mockDigitalSignatureManager);
+    }
+
+    @Test
+    @DisplayName("should refuse and leave the capture untouched when the pad expires before the upload takes its lock")
+    void shouldRefuseWithoutTouchingTheCapture_whenThePadExpiresBeforeTheUploadTakesItsLock() throws Exception {
+        File capture = new File(DigitalSignatureUtils.getTempFilePath(issuedKey));
+        byte[] original = {9, 8, 7};
+        Files.write(capture.toPath(), original);
+        HttpSession session = mockRequest.getSession();
+        configureCapture(mockRequest);
+
+        try (MockedStatic<DigitalSignatureUtils> utils = mockStatic(DigitalSignatureUtils.class, CALLS_REAL_METHODS)) {
+            // The key passes the first check, then 200 newer pads of this session retire it before the
+            // upload takes the pad's lock. By then lockFor can hand out a new lock for the expired pad.
+            utils.when(() -> DigitalSignatureUtils.uploadReceipts(session)).thenAnswer(invocation -> {
+                for (int i = 0; i < 200; i++) DigitalSignatureUtils.generateSignatureRequestId(session);
+                return invocation.callRealMethod();
+            });
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        }
+
+        assertThat(DigitalSignatureUtils.isIssued(session, issuedKey)).isFalse();
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
         assertThat(Files.readAllBytes(capture.toPath())).isEqualTo(original);
         verifyNoInteractions(mockDigitalSignatureManager);

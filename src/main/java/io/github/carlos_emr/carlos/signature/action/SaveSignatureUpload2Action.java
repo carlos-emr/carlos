@@ -153,6 +153,12 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
 
         var receipts = DigitalSignatureUtils.uploadReceipts(session);
         synchronized (receipts.lockFor(session, signatureKey)) {
+            // The pad can expire after the check above. Once it has, lockFor may drop its lock entry
+            // while an earlier upload still holds that lock, and this request then holds a new one.
+            // An expired pad is never issued again, so check again before touching its capture.
+            if (!DigitalSignatureUtils.isIssued(session, signatureKey)) {
+                return refuseInvalidPad(response);
+            }
             return storeCapture(request, response, loggedInInfo, signatureKey, demographicNo, receipts);
         }
     }
