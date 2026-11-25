@@ -90,13 +90,18 @@ for(const [label,build]of Object.entries({
 test('actual main orders durable intent before DML and completes proof only after child/browser cleanup',async()=>{
  const vm=require('node:vm');const source=fs.readFileSync(path.join(__dirname,'eform-apcache-renderer-playwright-checks.js'),'utf8');
  const start=source.indexOf('async function main() {');const end=source.lastIndexOf("\nif (process.env.APCACHE_NEGATIVE_FAULT_ARTIFACT_DIR)");
- for (const failureMode of ['none','closed-write','create','name-collision']) {
+ for (const failureMode of ['none','closed-write','create','name-collision','non-UTC journal']) {
  const failClosedReceipt=failureMode==='closed-write';
  const calls=[];const diagnostics=[];const proof={attach(){calls.push('attach')},bindFixture(){calls.push('bind')},update(v){calls.push(Object.keys(v)[0]);if(failClosedReceipt&&v.browserClosed)throw new Error('Synthetic receipt write failure')},async drain(){calls.push('drain')},close(){calls.push('close')}};
  let imports=0;const html=Buffer.from('synthetic fixture');const sql={value:q=>q.includes('FROM security')?'1':q.startsWith('UPDATE demographic')?'1':q.includes('HEX(form_html)')?html.toString('hex'):failureMode==='name-collision'&&q.includes('SELECT COUNT(*) FROM eform WHERE')?'1':'0',execute(){calls.push('sql.delete')},dispose(){calls.push('sql.dispose')}};
  const context={};const processRef={pid:123,env:{APCACHE_NEGATIVE_FAULT_ARTIFACT_DIR:'/tmp/private'},exitCode:undefined};
  const fakeRequire=()=>({});fakeRequire.resolve=()=>'/fake-helper';
- const sandbox={Date,Set,Buffer,Number,require:fakeRequire,__filename:'/fake-script',__dirname:'/fake-scripts',path,os,process:processRef,
+ // The journal and its clock are simulated in this VM. Exercise the UTC prerequisite
+ // explicitly so success and refusal both run regardless of the host's local zone.
+ class JournalDate extends Date {
+   getTimezoneOffset() { return failureMode === 'non-UTC journal' ? 300 : 0; }
+ }
+ const sandbox={Date:JournalDate,Set,Buffer,Number,require:fakeRequire,__filename:'/fake-script',__dirname:'/fake-scripts',path,os,process:processRef,
   config:{journalUnit:'carlos-emr.service',probeUrl:'http://localhost/carlos',fixtureHtmlPath:'/fake-fixture',baseUrl:new URL('https://localhost/carlos')},
   LITERAL_LOOKUPS:[{expected:null}],h:{createSqlRunner:()=>sql,readConfig:()=>({mysql:{}}),sqlString:s=>"'"+s+"'"},eformRows:()=>({}),newOwnedMarker:()=>intent.ownedMarker,
   createApNegativeProof(){calls.push('intent');if(failureMode==='create')throw new Error('Synthetic receipt collision');return proof},assert,sha,fs:{readFileSync:()=>html,mkdtempSync:()=>'/tmp/fake',rmSync(){}},
@@ -110,6 +115,11 @@ test('actual main orders durable intent before DML and completes proof only afte
   removeOwnedPatient(){calls.push('patient.cleanup')},redactSensitiveFailureText:String,buildFailureDetails:()=>({})};
  vm.createContext(sandbox);await vm.runInContext(source.slice(start,end)+';main();',sandbox);
  assert.equal(processRef.exitCode,failureMode==='none'?undefined:1,diagnostics.join('\n'));
+ if (failureMode === 'non-UTC journal') {
+   assert.match(diagnostics.join('\n'), /requires UTC log time/);
+   assert.deepEqual(calls, ['sql.dispose']);
+   continue;
+ }
  if(failureMode==='create'||failureMode==='name-collision'){assert(calls.includes('sql.dispose'));assert(!calls.includes('sql.delete'));assert(!calls.includes('template.import'));if(failureMode==='create')assert(!calls.includes('patient.insert'));continue;}assert(calls.indexOf('intent')<calls.indexOf('patient.insert'));
  assert(calls.indexOf('bind')<calls.indexOf('positive'));assert(calls.indexOf('negativeWorkflowCompleted')<calls.indexOf('drain'));
  assert(calls.indexOf('browser.close')<calls.indexOf('patient.cleanup'));if(failClosedReceipt)assert(!calls.includes('cleanupAcknowledged'));else{assert(calls.indexOf('patient.cleanup')<calls.indexOf('cleanupAcknowledged'));assert(calls.indexOf('cleanupAcknowledged')<calls.indexOf('close'));}
