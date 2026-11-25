@@ -96,6 +96,12 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
                 billActivityDao, providerDao, billingDao, billingDetailDao, factory, txManager, security, reviews);
     }
 
+    private static CarlosProperties singleSiteProperties() {
+        CarlosProperties props = mock(CarlosProperties.class);
+        when(props.getProperty("multisites", "")).thenReturn("");
+        return props;
+    }
+
     private static MockHttpServletRequest authenticatedRequest() {
         var request = new MockHttpServletRequest();
         var login = new LoggedInInfo();
@@ -216,7 +222,7 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
         // the chain so the property lookup returns the empty default. The
         // service should treat anything other than literal "on" as off.
         try (MockedStatic<CarlosProperties> propsMock = mockStatic(CarlosProperties.class)) {
-            CarlosProperties props = mock(CarlosProperties.class);
+            CarlosProperties props = singleSiteProperties();
             when(props.getProperty("hybrid_billing", "")).thenReturn("");
             propsMock.when(CarlosProperties::getInstance).thenReturn(props);
 
@@ -227,7 +233,7 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
     @Test
     void shouldReturnTrue_whenHybridBillingPropertyOn() {
         try (MockedStatic<CarlosProperties> propsMock = mockStatic(CarlosProperties.class)) {
-            CarlosProperties props = mock(CarlosProperties.class);
+            CarlosProperties props = singleSiteProperties();
             when(props.getProperty("hybrid_billing", "")).thenReturn("on");
             propsMock.when(CarlosProperties::getInstance).thenReturn(props);
 
@@ -270,7 +276,7 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
         when(providerDao.getActiveProviders()).thenReturn(java.util.List.of(p1, p2));
 
         try (MockedStatic<CarlosProperties> propsMock = mockStatic(CarlosProperties.class)) {
-            CarlosProperties props = mock(CarlosProperties.class);
+            CarlosProperties props = singleSiteProperties();
             when(props.getProperty("hybrid_billing", "")).thenReturn("");
             propsMock.when(CarlosProperties::getInstance).thenReturn(props);
 
@@ -313,7 +319,7 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
         request.setParameter("monthCode", "OB");
         request.setParameter("providers", "all");
         try (MockedStatic<CarlosProperties> properties = mockStatic(CarlosProperties.class)) {
-            CarlosProperties props = mock(CarlosProperties.class);
+            CarlosProperties props = singleSiteProperties();
             when(props.getProperty("hybrid_billing", "")).thenReturn("");
             properties.when(CarlosProperties::getInstance).thenReturn(props);
             assertThat(generator.generateReport(request, OhipReportGenerationService.Mode.SOLO_REPORT)).isEmpty();
@@ -364,7 +370,7 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
 
         java.util.List<OhipReportGenerationService.FailedProvider> skipped;
         try (MockedStatic<CarlosProperties> propsMock = mockStatic(CarlosProperties.class)) {
-            CarlosProperties props = mock(CarlosProperties.class);
+            CarlosProperties props = singleSiteProperties();
             when(props.getProperty("hybrid_billing", "")).thenReturn("");
             propsMock.when(CarlosProperties::getInstance).thenReturn(props);
 
@@ -413,7 +419,7 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
 
         java.util.List<OhipReportGenerationService.FailedProvider> skipped;
         try (MockedStatic<CarlosProperties> propsMock = mockStatic(CarlosProperties.class)) {
-            CarlosProperties props = mock(CarlosProperties.class);
+            CarlosProperties props = singleSiteProperties();
             when(props.getProperty("hybrid_billing", "")).thenReturn("");
             propsMock.when(CarlosProperties::getInstance).thenReturn(props);
 
@@ -446,7 +452,7 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
 
         java.util.List<OhipReportGenerationService.FailedProvider> skipped;
         try (MockedStatic<CarlosProperties> propsMock = mockStatic(CarlosProperties.class)) {
-            CarlosProperties props = mock(CarlosProperties.class);
+            CarlosProperties props = singleSiteProperties();
             when(props.getProperty("hybrid_billing", "")).thenReturn("");
             propsMock.when(CarlosProperties::getInstance).thenReturn(props);
 
