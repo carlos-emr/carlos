@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.ArrayList;
 import jakarta.servlet.http.HttpServletRequest;
@@ -37,7 +38,9 @@ import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationExc
 import io.github.carlos_emr.carlos.billings.ca.on.validator.ClaimFileValidationException;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidBillingGroupException;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidOhipProviderFieldsException;
+import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.providers.data.ProviderBillCenter;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.DateRange;
@@ -74,17 +77,27 @@ public class BillingOnDiskService {
     private final BillingOnDiskLoader diskQueryService;
     private final ObjectFactory<OhipClaimFileService> ohipClaimFileFactory;
     private final BillingOnDiskTransactionService transactionService;
+    private final SecurityInfoManager securityInfoManager;
+    private final BillingReviewLoader reviewLoader;
+    private final ProviderDataDao providerDataDao;
+    private final BillingOnFileAccessService fileAccess;
 
     BillingOnDiskService(ProviderDao providerDao,
                          BillingDiskCreationService prep,
                          BillingOnDiskLoader diskQueryService,
                          ObjectFactory<OhipClaimFileService> ohipClaimFileFactory,
-                         BillingOnDiskTransactionService transactionService) {
+                         BillingOnDiskTransactionService transactionService,
+                         SecurityInfoManager securityInfoManager, BillingReviewLoader reviewLoader,
+                         ProviderDataDao providerDataDao, BillingOnFileAccessService fileAccess) {
         this.providerDao = providerDao;
         this.prep = prep;
         this.diskQueryService = diskQueryService;
         this.ohipClaimFileFactory = ohipClaimFileFactory;
         this.transactionService = transactionService;
+        this.securityInfoManager = securityInfoManager;
+        this.reviewLoader = reviewLoader;
+        this.providerDataDao = providerDataDao;
+        this.fileAccess = fileAccess;
     }
 
     /**
@@ -99,6 +112,7 @@ public class BillingOnDiskService {
 
     private void generateNewDiskLocked(HttpServletRequest request) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) throw new SecurityException("missing session");
         String provider = request.getParameter("providers");
         String mohOffice = request.getParameter("billcenter");
         String useProviderMOH = request.getParameter("useProviderMOH");
@@ -109,6 +123,13 @@ public class BillingOnDiskService {
                 request.getParameter("xml_appointment_date"),
                 request.getParameter("curDate"));
 
+        var scope = BillingOnProviderScope.forLogin(securityInfoManager, loggedInInfo);
+        Optional<Set<String>> eligible = scope.selectableProviderNumbers(reviewLoader,
+                loggedInInfo.getLoggedInProviderNo());
+        if (eligible.isPresent() && (eligible.get().isEmpty()
+                || (!"all".equals(provider) && !eligible.get().contains(provider)))) {
+            throw new BillingValidationException("Select an available provider to generate an OHIP file.");
+        }
         boolean groupReport = isGroupProvider(provider);
 
         if ("all".equals(provider) || groupReport) {
@@ -118,7 +139,7 @@ public class BillingOnDiskService {
             // into an OHIP group number at all; that is reported per provider
             // instead of letting "All Providers" commit other disks first.
             // Reuse this snapshot for generation so validation and writing see the same configuration.
-            List<BillingProviderDto> groupProviders = prep.getCurGrpProvider();
+            List<BillingProviderDto> groupProviders = visibleProviders(prep.getCurGrpProvider(), eligible);
             if (groupReport && groupProviders.stream().noneMatch(member -> provider.equals(member.getProviderNo()))) {
                 throw new BillingValidationException("Selected provider is not available for group billing.");
             }
@@ -131,7 +152,7 @@ public class BillingOnDiskService {
             if (!invalidProviders.isEmpty()) {
                 throw new InvalidBillingGroupException(invalidProviders);
             }
-            List<BillingProviderDto> soloProviders = groupReport ? List.of() : prep.getCurSoloProvider();
+            List<BillingProviderDto> soloProviders = groupReport ? List.of() : visibleProviders(prep.getCurSoloProvider(), eligible);
             List<BillingProviderDto> runProviders = new ArrayList<>(soloProviders);
             groupProviders.stream()
                     .filter(member -> !groupReport || provider.equals(member.getProviderNo()))
@@ -200,11 +221,19 @@ public class BillingOnDiskService {
         String defaultMOH = mohOffice;
         String currentUser = (String) request.getSession().getAttribute("user");
 
+        if (loggedInInfo == null) throw new SecurityException("missing session");
+        var scope = BillingOnProviderScope.forLogin(securityInfoManager, loggedInInfo)
+                .historyProviderNumbers(providerDataDao, loggedInInfo.getLoggedInProviderNo());
+        List<String> recordedMembers = prep.getDiskProviderNos(diskId);
+        if (scope.isPresent()) {
+            requireRegenerationAccess(diskId, recordedMembers, scope.get());
+        }
+
         String dateEnd = diskQueryService.getDiskCreateDate(diskId);
         DateRange dateRange = new DateRange(null, ConversionUtils.fromDateString(dateEnd));
 
         List<BillingProviderDto> lProvider = prep.getProvider(diskId);
-        reportOmittedMembers(diskId, lProvider, request);
+        reportOmittedMembers(diskId, recordedMembers, lProvider, request);
 
         if (lProvider != null && lProvider.size() == 1
                 && isSoloGroupNo(lProvider.get(0).getBillingGroupNo())) {
@@ -223,6 +252,26 @@ public class BillingOnDiskService {
         } else if (lProvider != null && !lProvider.isEmpty()) {
             regenerateGroupDisk(prep, lProvider, loggedInInfo, request, dateRange, mohOffice,
                     diskId, currentUser);
+        }
+    }
+
+    private static List<BillingProviderDto> visibleProviders(List<BillingProviderDto> providers, Optional<Set<String>> eligible) {
+        return eligible.map(allowed -> providers.stream().filter(p -> allowed.contains(p.getProviderNo())).toList())
+                .orElse(providers);
+    }
+
+    private void requireRegenerationAccess(String diskId, List<String> recordedMembers, Set<String> permittedProviders) {
+        if (recordedMembers.isEmpty() || recordedMembers.stream()
+                .anyMatch(member -> member == null || member.isBlank() || !permittedProviders.contains(member))) {
+            throw new SecurityException("OHIP disk is outside the permitted provider scope");
+        }
+        int id = Integer.parseInt(diskId);
+        Set<String> outputs = new HashSet<>();
+        outputs.add(prep.getOhipfilename(id));
+        for (String provider : recordedMembers) outputs.add(prep.getHtmlfilename(id, provider));
+        var permissions = fileAccess.filePermissions(outputs, permittedProviders);
+        if (outputs.stream().anyMatch(name -> name == null || name.isBlank() || !Boolean.TRUE.equals(permissions.get(name)))) {
+            throw new SecurityException("OHIP disk output ownership is unresolved or outside the permitted provider scope");
         }
     }
 
@@ -488,8 +537,7 @@ public class BillingOnDiskService {
      * on this disk; say so instead of regenerating silently, and refuse when no
      * member is left.
      */
-    private void reportOmittedMembers(String diskId, List<BillingProviderDto> billable, HttpServletRequest request) {
-        List<String> all = prep.getDiskProviderNos(diskId);
+    private void reportOmittedMembers(String diskId, List<String> all, List<BillingProviderDto> billable, HttpServletRequest request) {
         if (all.isEmpty()) return;
         Set<String> kept = new HashSet<>();
         if (billable != null) for (BillingProviderDto p : billable) kept.add(p.getProviderNo());

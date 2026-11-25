@@ -5,6 +5,8 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONDiskNameDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONFilenameDao;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillActivityDao;
+import io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao;
+import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOhipSimulationViewModelAssembler;
 import io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOnMriViewModelAssembler;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOhipSimulationViewModel;
@@ -46,9 +48,14 @@ class BillingOnSiteVisibilityIntegrationTest extends CarlosTestBase {
     private static final String ADMIN = "847210";
     private static final String LOCAL = "847211";
     private static final String OTHER = "847212";
+    private static final String ADMIN_HTML = "visibility-own.html";
     private static final String LOCAL_HTML = "visibility-local.html";
     private static final String OTHER_HTML = "visibility-other.html";
     @Autowired private DataSource dataSource;
+    @Autowired private BillingDao billingDao;
+    @Autowired private BillingDetailDao billingDetailDao;
+    @jakarta.persistence.PersistenceContext(unitName = "entityManagerFactory")
+    private jakarta.persistence.EntityManager entityManager;
     @Autowired private ProviderDao providerDao;
     @Autowired private ProviderSiteDao providerSiteDao;
     @Autowired private ProviderDataDao providerDataDao;
@@ -98,11 +105,7 @@ class BillingOnSiteVisibilityIntegrationTest extends CarlosTestBase {
     @Test
     void shouldRestrictBothViewsAndDiskRows_whenMultisitePrivacyIsGranted() throws Exception {
         assertViews(true, true, List.of(), List.of());
-        jdbc.update("INSERT INTO site (name, short_name, status) VALUES ('OHIP visibility fixture', 'ohip-vis', 1)");
-        Integer siteId = jdbc.queryForObject("SELECT site_id FROM site WHERE short_name='ohip-vis'", Integer.class);
-        for (String provider : List.of(ADMIN, LOCAL)) {
-            jdbc.update("INSERT INTO providersite (provider_no, site_id) VALUES (?, ?)", provider, siteId);
-        }
+        shareSiteWithLocalProvider();
         assertViews(true, true, List.of(LOCAL), List.of(LOCAL_HTML));
     }
 
@@ -111,8 +114,75 @@ class BillingOnSiteVisibilityIntegrationTest extends CarlosTestBase {
         assertViews(true, false, List.of(LOCAL, OTHER), List.of(LOCAL_HTML, OTHER_HTML));
     }
 
+    @Test
+    void shouldLimitHistoryToTheTeam_whenSingleSiteLoginHasOnlyTeamBillingAndSeededSiteGrants() throws Exception {
+        jdbc.update("UPDATE provider SET team='ohip-team' WHERE provider_no IN (?, ?)", ADMIN, LOCAL);
+        assertViews(false, true, "_team_billing_only", List.of(LOCAL), List.of(LOCAL_HTML));
+        jdbc.update("UPDATE provider SET team='' WHERE provider_no IN (?, ?, ?)", ADMIN, LOCAL, OTHER);
+        jdbc.update("UPDATE provider SET ohip_no=? WHERE provider_no=?", ADMIN, ADMIN);
+        jdbc.update("""
+                INSERT INTO billing_on_filename (disk_id, htmlfilename, providerohipno, providerno, claimrecord, status, total)
+                SELECT id, ?, ?, ?, '1', 'U', '2.00' FROM billing_on_diskname WHERE ohipfilename='visibility.ohip'
+                """, ADMIN_HTML, ADMIN, ADMIN);
+        assertViews(false, true, "_team_billing_only", List.of(ADMIN), List.of(ADMIN_HTML));
+    }
+
+    @Test
+    void shouldRequireTeamAndSiteForHistory_whenOnlyTeamBillingAndMultisiteGrantsArePresent() throws Exception {
+        jdbc.update("UPDATE provider SET team='ohip-team' WHERE provider_no IN (?, ?, ?)", ADMIN, LOCAL, OTHER);
+        assertViews(true, true, "_team_billing_only", List.of(LOCAL, OTHER), List.of());
+        shareSiteWithLocalProvider();
+        assertViews(true, true, "_team_billing_only", List.of(LOCAL, OTHER), List.of(LOCAL_HTML));
+    }
+
+    @Test
+    void shouldRetainTeamAccessPrecedence_whenBothMultisiteAndTeamPrivacyAreGranted() throws Exception {
+        jdbc.update("UPDATE provider SET team='ohip-team' WHERE provider_no IN (?, ?)", ADMIN, OTHER);
+        shareSiteWithLocalProvider();
+        assertViews(true, true, "_team_access_privacy", List.of(OTHER), List.of(OTHER_HTML));
+    }
+
+    @Test
+    void shouldMarkOnlyTheAuthorizedLegacyClaim_whenTwoBillersShareAnOhipNumber() {
+        jdbc.update("UPDATE provider SET ohip_no=? WHERE provider_no IN (?, ?)", LOCAL, LOCAL, OTHER);
+        for (String id : List.of(LOCAL, OTHER)) {
+            jdbc.update("""
+                    INSERT INTO billing (provider_no, provider_ohip_no, billing_date, visitdate, visittype, dob, hin,
+                                         demographic_name, clinic_ref_code, content, status)
+                    VALUES (?, ?, '2025-04-03', '2025-04-03', '00', '19700101', '9999999999',
+                            'FAKE billing test', '', '', 'O')
+                    """, id, LOCAL);
+        }
+        var extract = new OhipClaimExtractService(billingDao, billingDetailDao);
+        extract.setProviderNo(LOCAL);
+        extract.setBatchCount("1");
+        extract.setOhipVer("V03");
+        extract.setOhipCenter("4");
+        extract.setGroupNo("0000");
+        extract.setSpecialty("00");
+        extract.seteFlag("1");
+        extract.dbQueryForProvider(LOCAL);
+        entityManager.flush();
+
+        assertThat(jdbc.queryForList("SELECT status FROM billing WHERE provider_ohip_no=? ORDER BY provider_no",
+                String.class, LOCAL)).containsExactly("B", "O");
+    }
+
+    private void shareSiteWithLocalProvider() {
+        jdbc.update("INSERT INTO site (name, short_name, status) VALUES ('OHIP visibility fixture', 'ohip-vis', 1)");
+        Integer siteId = jdbc.queryForObject("SELECT site_id FROM site WHERE short_name='ohip-vis'", Integer.class);
+        for (String provider : List.of(ADMIN, LOCAL)) {
+            jdbc.update("INSERT INTO providersite (provider_no, site_id) VALUES (?, ?)", provider, siteId);
+        }
+    }
+
     private void assertViews(boolean multisites, boolean siteGrant, List<String> expectedProviders,
                              List<String> expectedHtmlFiles) throws Exception {
+        assertViews(multisites, siteGrant, "", expectedProviders, expectedHtmlFiles);
+    }
+
+    private void assertViews(boolean multisites, boolean siteGrant, String teamGrant,
+                             List<String> expectedProviders, List<String> expectedHtmlFiles) throws Exception {
         var request = new MockHttpServletRequest();
         request.addParameter("year", "2025");
         var login = new LoggedInInfo();
@@ -121,9 +191,14 @@ class BillingOnSiteVisibilityIntegrationTest extends CarlosTestBase {
         SecurityInfoManager security = mock(SecurityInfoManager.class);
         when(security.hasPrivilege(login, "_billing", "r", null)).thenReturn(true);
         when(security.hasPrivilege(login, "_site_access_privacy", "r", null)).thenReturn(siteGrant);
+        if (!teamGrant.isEmpty()) {
+            when(security.hasPrivilege(login, teamGrant, "r", null)).thenReturn(true);
+        }
         var simulation = new BillingOhipSimulationViewModelAssembler(reviews, lookup, null);
+        var fileAccess = new BillingOnFileAccessService(security, providerDataDao);
+        applicationContext.getAutowireCapableBeanFactory().autowireBean(fileAccess);
         var generation = new BillingOnMriViewModelAssembler(providerDao, billActivityDao, providerDataDao,
-                providerBillCenterDao, security, reviews, lookup);
+                providerBillCenterDao, security, reviews, lookup, fileAccess);
 
         try (var properties = mockStatic(IsPropertiesOn.class); var struts = mockStatic(ServletActionContext.class)) {
             properties.when(IsPropertiesOn::isMultisitesEnable).thenReturn(multisites);
@@ -133,12 +208,13 @@ class BillingOnSiteVisibilityIntegrationTest extends CarlosTestBase {
         }
         var simulationView = (BillingOhipSimulationViewModel) request.getAttribute("simulationModel");
         var generationView = (BillingOnMriViewModel) request.getAttribute("mriModel");
-        var fixtureIds = List.of(LOCAL, OTHER);
+        var fixtureIds = List.of(ADMIN, LOCAL, OTHER);
         assertThat(simulationView.getProviders()).extracting(BillingOhipSimulationViewModel.ProviderOption::providerNo)
                 .filteredOn(fixtureIds::contains).containsExactlyInAnyOrderElementsOf(expectedProviders);
         assertThat(generationView.getProviderOptions()).extracting(BillingOnMriViewModel.ProviderEntry::providerNo)
                 .filteredOn(fixtureIds::contains).containsExactlyInAnyOrderElementsOf(expectedProviders);
-        assertThat(generationView.getMriRows()).filteredOn(row -> "visibility.ohip".equals(row.ohipFile()))
+        int diskId = jdbc.queryForObject("SELECT id FROM billing_on_diskname WHERE ohipfilename='visibility.ohip'", Integer.class);
+        assertThat(generationView.getMriRows()).filteredOn(row -> row.diskId() == diskId)
                 .extracting(BillingOnMriViewModel.MriRow::htmlFile).containsExactlyInAnyOrderElementsOf(expectedHtmlFiles);
     }
 }

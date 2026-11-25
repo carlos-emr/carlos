@@ -1,5 +1,14 @@
 package io.github.carlos_emr.carlos.util;
 
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnFileAccessService;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.mockito.ArgumentMatchers;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Files;
@@ -30,6 +39,24 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("unit")
 @Tag("security")
 class OscarDownloadUnitTest {
+
+    private BillingOnFileAccessService fileAccess;
+    private MockedStatic<SpringUtils> spring;
+
+    @BeforeEach
+    void permitExistingIntegrityFixtures() {
+        fileAccess = Mockito.mock(BillingOnFileAccessService.class);
+        Mockito.when(fileAccess.canDownload(ArgumentMatchers.any(), ArgumentMatchers.anyString(),
+                ArgumentMatchers.anyBoolean())).thenReturn(true);
+        spring = Mockito.mockStatic(SpringUtils.class);
+        spring.when(() -> SpringUtils.getBean(
+                BillingOnFileAccessService.class)).thenReturn(fileAccess);
+    }
+
+    @AfterEach
+    void closeSpring() {
+        spring.close();
+    }
 
     @TempDir
     Path tempDir;
@@ -187,11 +214,11 @@ class OscarDownloadUnitTest {
 
     @Test
     void shouldRefuseDownload_whenAlternateSessionKeyPointsToBillingDirectory() throws Exception {
-        try (org.mockito.MockedStatic<io.github.carlos_emr.CarlosProperties> properties =
-                     org.mockito.Mockito.mockStatic(io.github.carlos_emr.CarlosProperties.class)) {
-            io.github.carlos_emr.CarlosProperties props = org.mockito.Mockito.mock(io.github.carlos_emr.CarlosProperties.class);
-            org.mockito.Mockito.when(props.getProperty("HOME_DIR")).thenReturn(tempDir.toString());
-            properties.when(io.github.carlos_emr.CarlosProperties::getInstance).thenReturn(props);
+        try (MockedStatic<CarlosProperties> properties =
+                     Mockito.mockStatic(CarlosProperties.class)) {
+            CarlosProperties props = Mockito.mock(CarlosProperties.class);
+            Mockito.when(props.getProperty("HOME_DIR")).thenReturn(tempDir.toString());
+            properties.when(CarlosProperties::getInstance).thenReturn(props);
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/servlet/OscarDownload");
             request.addParameter("filename", "shared.001");
             request.addParameter("homepath", "homepath");
@@ -204,6 +231,36 @@ class OscarDownloadUnitTest {
             assertThat(response.getStatus()).isEqualTo(409);
             assertThat(servlet.billingChecked).isTrue();
             assertThat(servlet.transferCalled).isFalse();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"ON ", " on", "", "unsupported"})
+    void shouldRefuseUnownedBillingFileBeforeResponse_whenOntarioOrProvinceIsAmbiguous(String region) throws Exception {
+        var config = CarlosProperties.getInstance();
+        Object oldRegion = config.put("billregion", region);
+        Object oldHome = config.put("HOME_DIR", tempDir.toString());
+        try {
+            var login = new LoggedInInfo();
+            Mockito.when(fileAccess.canDownload(login, "mixed.001", false)).thenReturn(false);
+            for (String alias : List.of("ohipdownload", "homepath", "obecdownload")) {
+                var request = new MockHttpServletRequest("GET", "/servlet/OscarDownload");
+                LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), login);
+                request.getSession().setAttribute("user", "999998");
+                request.getSession().setAttribute(alias, tempDir.toString());
+                request.addParameter("homepath", alias);
+                request.addParameter("filename", "mixed.001");
+                var response = new MockHttpServletResponse();
+                var servlet = new RecordingOscarDownload();
+                servlet.service(request, response);
+                assertThat(response.getStatus()).as(alias).isEqualTo(403);
+                assertThat(response.getHeader("Content-Disposition")).isNull();
+                assertThat(response.getContentAsByteArray()).isEmpty();
+                assertThat(servlet.billingChecked).isFalse();
+            }
+        } finally {
+            if (oldRegion == null) config.remove("billregion"); else config.put("billregion", oldRegion);
+            if (oldHome == null) config.remove("HOME_DIR"); else config.put("HOME_DIR", oldHome);
         }
     }
 

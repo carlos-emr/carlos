@@ -21,6 +21,11 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
+import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.ProviderDropdownEntry;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
+
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.InvalidOhipProviderFieldsException;
@@ -82,6 +87,9 @@ class BillingOnDiskServiceGroupDiskUnitTest extends CarlosUnitTestBase {
     private ObjectFactory<OhipClaimFileService> claimFileFactory;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
     private BillingOnDiskService service;
+    private SecurityInfoManager security;
+    private BillingReviewLoader reviews;
+    private LoggedInInfo login;
 
     @org.junit.jupiter.api.io.TempDir java.nio.file.Path outputDirectory;
     private Object oldHome;
@@ -98,9 +106,11 @@ class BillingOnDiskServiceGroupDiskUnitTest extends CarlosUnitTestBase {
         transactionService = mock(BillingOnDiskTransactionService.class);
         claimFileFactory = mock(ObjectFactory.class);
 
+        login = mock(LoggedInInfo.class);
+        when(login.getLoggedInProviderNo()).thenReturn(CURRENT_USER);
         loggedInInfoMock = mockStatic(LoggedInInfo.class);
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
-                .thenReturn(mock(LoggedInInfo.class));
+                .thenReturn(login);
 
         when(diskCreationService.getCurSoloProvider()).thenReturn(List.of());
         when(diskCreationService.createNewGrpDiskName(anyList(), anyList(), eq(GROUP_NO), eq(CURRENT_USER)))
@@ -115,8 +125,11 @@ class BillingOnDiskServiceGroupDiskUnitTest extends CarlosUnitTestBase {
         when(diskCreationService.getHtmlfilename(anyInt(), anyString())).thenReturn("group.html");
 
         providerDao = mock(ProviderDao.class);
+        security = mock(SecurityInfoManager.class);
+        reviews = mock(BillingReviewLoader.class);
         service = new BillingOnDiskService(providerDao, diskCreationService,
-                mock(BillingOnDiskLoader.class), claimFileFactory, transactionService);
+                mock(BillingOnDiskLoader.class), claimFileFactory, transactionService,
+                security, reviews, mock(ProviderDataDao.class), mock(BillingOnFileAccessService.class));
     }
 
     @AfterEach
@@ -126,6 +139,47 @@ class BillingOnDiskServiceGroupDiskUnitTest extends CarlosUnitTestBase {
         if (loggedInInfoMock != null) {
             loggedInInfoMock.close();
         }
+    }
+
+    @Test
+    void shouldRejectMissingSession_beforeResolvingGenerationProviders() {
+        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class))).thenReturn(null);
+        assertThatThrownBy(() -> service.generateNewDisk(allProvidersRequest())).isInstanceOf(SecurityException.class);
+        org.mockito.Mockito.verifyNoInteractions(security, reviews, providerDao, diskCreationService, claimFileFactory);
+    }
+
+    @Test
+    void shouldGenerateOnlyEligibleTeamMembers_whenAllProvidersIncludesOtherSoloAndGroupBillers() {
+        when(security.hasPrivilege(login, "_team_billing_only", "r", null)).thenReturn(true);
+        when(reviews.getTeamProviderBillingStr(CURRENT_USER)).thenReturn(List.of(
+                new ProviderDropdownEntry("101", "FAKE", "Biller", "010100", GROUP_NO, "00")));
+        var otherSolo = provider("103");
+        otherSolo.setBillingGroupNo("0000");
+        when(diskCreationService.getCurSoloProvider()).thenReturn(List.of(otherSolo));
+        givenGroupMembers(provider("101"), provider("102"));
+        var member = memberWriter("team-file", BigDecimal.TEN, 1);
+        var output = mock(OhipClaimFileService.class);
+        when(claimFileFactory.getObject()).thenReturn(member, output);
+
+        service.generateNewDisk(allProvidersRequest());
+
+        verify(diskCreationService).createNewGrpDiskName(List.of("101"), List.of("010100"), GROUP_NO, CURRENT_USER);
+        verify(diskCreationService, never()).createNewSoloDiskName(any(), any());
+        verify(output).writeFile("team-file");
+    }
+
+    @Test
+    void shouldRefuseOutsideProviderAndEmptyRestrictedSet_beforeAnyDiskOrClaimReads() {
+        when(security.hasPrivilege(login, "_team_billing_only", "r", null)).thenReturn(true);
+        var request = allProvidersRequest();
+        request.setParameter("providers", "102");
+        when(reviews.getTeamProviderBillingStr(CURRENT_USER)).thenReturn(List.of(
+                new ProviderDropdownEntry("101", "FAKE", "Biller", "010100", GROUP_NO, "00")));
+
+        assertThatThrownBy(() -> service.generateNewDisk(request)).isInstanceOf(BillingValidationException.class);
+        when(reviews.getTeamProviderBillingStr(CURRENT_USER)).thenReturn(List.of());
+        assertThatThrownBy(() -> service.generateNewDisk(allProvidersRequest())).isInstanceOf(BillingValidationException.class);
+        org.mockito.Mockito.verifyNoInteractions(providerDao, diskCreationService, claimFileFactory, transactionService);
     }
 
     @Test

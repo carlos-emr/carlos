@@ -5,6 +5,15 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
+import io.github.carlos_emr.carlos.commn.model.ProviderData;
+import java.util.Map;
+import java.util.Set;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mockito;
+import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingProviderDto;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -53,6 +62,9 @@ class BillingOnDiskServiceUnitTest {
     private LoggedInInfo loggedInInfo;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
     private BillingOnDiskService service;
+    private SecurityInfoManager security;
+    private ProviderDataDao providerData;
+    private BillingOnFileAccessService fileAccess;
 
     @org.junit.jupiter.api.io.TempDir java.nio.file.Path outputDirectory;
     private Object oldHome;
@@ -76,8 +88,11 @@ class BillingOnDiskServiceUnitTest {
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(loggedInInfo);
 
+        security = mock(SecurityInfoManager.class);
+        providerData = mock(ProviderDataDao.class);
+        fileAccess = mock(BillingOnFileAccessService.class);
         service = new BillingOnDiskService(providerDao, diskCreationService, diskLoader,
-                claimFileFactory, transactionService);
+                claimFileFactory, transactionService, security, mock(BillingReviewLoader.class), providerData, fileAccess);
     }
 
     @AfterEach
@@ -131,7 +146,7 @@ class BillingOnDiskServiceUnitTest {
 
         verify(diskCreationService, never()).createNewSoloDiskName(anyString(), anyString());
         verify(diskCreationService, never()).createBatchHeader(any(), anyString(), anyString(), anyString(), anyString());
-        org.mockito.Mockito.verifyNoInteractions(claimFileFactory, transactionService);
+        Mockito.verifyNoInteractions(claimFileFactory, transactionService);
     }
 
     @Test
@@ -148,7 +163,7 @@ class BillingOnDiskServiceUnitTest {
                                 "Provider 999998: the OHIP billing number must be exactly 6 digits."));
 
         verify(diskCreationService, never()).createNewSoloDiskName(anyString(), anyString());
-        org.mockito.Mockito.verifyNoInteractions(claimFileFactory, transactionService);
+        Mockito.verifyNoInteractions(claimFileFactory, transactionService);
     }
 
     @Test
@@ -302,8 +317,8 @@ class BillingOnDiskServiceUnitTest {
         verify(transactionService, never()).finalizeGeneratedDisk(eq(claimFileService), eq(55), any(BillingOnDiskTransactionService.Outcome.class));
     }
 
-    @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
     void shouldRetainPublishedFiles_whenCommitAcknowledgementIsLost(boolean regenerate) {
         var provider = provider("999998", "0000");
         when(diskCreationService.getProviderObj("999998")).thenReturn(provider);
@@ -326,7 +341,7 @@ class BillingOnDiskServiceUnitTest {
         factory.addAdvice(new org.springframework.transaction.interceptor.TransactionInterceptor(manager,
                 new org.springframework.transaction.annotation.AnnotationTransactionAttributeSource()));
         var transactional = (BillingOnDiskTransactionService) factory.getProxy();
-        org.mockito.Mockito.doAnswer(call -> {
+        Mockito.doAnswer(call -> {
             transactional.finalizeGeneratedDisk(call.getArgument(0), call.getArgument(1), call.getArgument(2));
             return null;
         }).when(transactionService).finalizeGeneratedDisk(eq(claimFileService), eq(12), any(BillingOnDiskTransactionService.Outcome.class));
@@ -381,6 +396,39 @@ class BillingOnDiskServiceUnitTest {
         provider.setSpecialtyCode("00");
         provider.setBillingGroupNo(groupNo);
         return provider;
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"mixed", "missing", "unowned-output", "owned"})
+    void shouldCheckAllRecordedPeopleAndOutputsBeforeRegenerating(String scenario) {
+        var request = regenerateRequest("55");
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        when(security.hasPrivilege(loggedInInfo, "_team_billing_only", "r", null)).thenReturn(true);
+        var member = mock(ProviderData.class);
+        when(member.getId()).thenReturn("999998");
+        when(providerData.findByProviderTeam("999998")).thenReturn(List.of(member));
+        when(diskCreationService.getDiskProviderNos("55")).thenReturn(switch (scenario) {
+            case "mixed" -> List.of("999998", "999997");
+            case "missing" -> List.of();
+            default -> List.of("999998");
+        });
+        when(diskCreationService.getOhipfilename(55)).thenReturn("own.001");
+        when(diskCreationService.getHtmlfilename(55, "999998")).thenReturn("own.html");
+        when(fileAccess.filePermissions(Set.of("own.001", "own.html"), Set.of("999998")))
+                .thenReturn(Map.of("own.001", true, "own.html", "owned".equals(scenario)));
+        if ("owned".equals(scenario)) {
+            var provider = provider("999998", "0000");
+            when(diskLoader.getDiskCreateDate("55")).thenReturn("2026-04-30");
+            when(diskCreationService.getProvider("55")).thenReturn(List.of(provider));
+            when(diskCreationService.prepareBatchHeader(provider, "55", "4", "1", "999998")).thenReturn(preparedHeader(78));
+            service.regenerateDisk(request);
+            verify(claimFileService).writeFile("claim-body");
+            verify(transactionService).finalizeGeneratedDisk(eq(claimFileService), eq(55), any(BillingOnDiskTransactionService.Outcome.class));
+        } else {
+            assertThatThrownBy(() -> service.regenerateDisk(request)).isInstanceOf(SecurityException.class);
+            Mockito.verifyNoInteractions(diskLoader, claimFileFactory, transactionService);
+            if (!"unowned-output".equals(scenario)) Mockito.verifyNoInteractions(fileAccess);
+        }
     }
 
     @Test

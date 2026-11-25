@@ -39,8 +39,12 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import org.apache.logging.log4j.Logger;
+import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingFilenameImportDao;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingImportedFiles;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnFileAccessService;
+import io.github.carlos_emr.carlos.report.pageUtil.Obec2Action;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingFileWriteException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
@@ -122,6 +126,20 @@ public class OscarDownload extends GenericDownload {
                     return;
                 }
                 if ("ohipdownload".equals(homepath) || billingDirectory) {
+                    // Only the BC Teleplan route shares these download keys. An absent or malformed
+                    // province must not disable the Ontario ownership check on its generated files.
+                    String region = CarlosProperties.getInstance().getProperty("billregion", "");
+                    if (!"BC".equalsIgnoreCase(StringUtils.trimToEmpty(region))) {
+                        boolean generatedObec = "obecdownload".equals(homepath) && filename.equals(rawFilename)
+                                && Boolean.TRUE.equals(session.getAttribute(Obec2Action.DOWNLOAD_PREFIX + filename));
+                        BillingOnFileAccessService access = SpringUtils.getBean(BillingOnFileAccessService.class);
+                        LoggedInInfo login = LoggedInInfo.getLoggedInInfoFromSession(session);
+                        if (!access.canDownload(login, filename, generatedObec)
+                                || (!filename.equals(rawFilename) && !access.canDownload(login, rawFilename, false))) {
+                            res.sendError(HttpServletResponse.SC_FORBIDDEN);
+                            return;
+                        }
+                    }
                     if (!filename.equals(rawFilename)) {
                         requireBillingFile(rawFilename, PathValidationUtils.validatePath(rawFilename, downloadDir).toPath());
                     }

@@ -5,6 +5,7 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.assembler;
 
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnFileAccessService;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillActivityDao;
 import io.github.carlos_emr.carlos.billing.CA.model.BillActivity;
@@ -61,6 +62,7 @@ class BillingOnMriViewModelAssemblerTest {
     private SecurityInfoManager securityInfoManager;
     private BillingReviewLoader reviewLoader;
     private BillingOnLookupService lookupService;
+    private BillingOnFileAccessService fileAccess;
     private LoggedInInfo loggedInInfo;
     private LogCapture logCapture;
 
@@ -73,6 +75,7 @@ class BillingOnMriViewModelAssemblerTest {
         securityInfoManager = mock(SecurityInfoManager.class);
         reviewLoader = mock(BillingReviewLoader.class);
         lookupService = mock(BillingOnLookupService.class);
+        fileAccess = mock(BillingOnFileAccessService.class);
         loggedInInfo = mock(LoggedInInfo.class);
 
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
@@ -224,7 +227,7 @@ class BillingOnMriViewModelAssemblerTest {
                 providerBillCenterDao,
                 securityInfoManager,
                 reviewLoader,
-                lookupService);
+                lookupService, fileAccess);
     }
 
     private MockHttpServletRequest requestForYear(String year) {
