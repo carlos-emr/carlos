@@ -120,9 +120,6 @@ class HRMResultsDataUnitTest extends CarlosUnitTestBase {
             var match = new HRMDocumentToDemographic();
             match.setDemographicNo(100);
             when(links.findByHrmDocumentId(anyInt())).thenReturn(List.of(match));
-            var security = createAndRegisterMock(SecurityInfoManager.class);
-            when(security.isAllowedAccessToPatientRecord(info, 100)).thenReturn(true);
-            when(security.hasPrivilegeReadOnly(info, "_demographic", "r", "100")).thenReturn(true);
             var patient = new Demographic();
             patient.setFirstName("Test");
             patient.setLastName("Patient");
