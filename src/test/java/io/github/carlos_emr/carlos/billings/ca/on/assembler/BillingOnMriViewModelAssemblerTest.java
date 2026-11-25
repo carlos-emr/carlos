@@ -244,7 +244,8 @@ class BillingOnMriViewModelAssemblerTest {
         var other = billActivity("OHIP200", new Date(), "old-other", "2.00", "legacy.001", "old-east.htm");
         var ambiguous = billActivity("REUSED", new Date(), "ambiguous", "3.00", "conflict.001", "unknown.htm");
         when(billActivityDao.findCurrentByDateRange(any(), any())).thenReturn(List.of(own, other, ambiguous));
-        when(fileAccess.uniqueLegacyOwners(List.of("OHIP100", "OHIP200", "REUSED")))
+        when(fileAccess.uniqueLegacyOwners(org.mockito.ArgumentMatchers.argThat(
+                numbers -> numbers != null && Set.copyOf(numbers).equals(Set.of("OHIP100", "OHIP200", "REUSED")))))
                 .thenReturn(Map.of("OHIP100", "100", "OHIP200", "200", "REUSED", ""));
         when(fileAccess.filePermissions(Set.of("claim.ohip", "west.html"), Set.of("100")))
                 .thenReturn(Map.of("claim.ohip", false, "west.html", true));
