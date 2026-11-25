@@ -10905,6 +10905,206 @@
         "T23",
         "T25"
       ]
+    },
+    "src/main/resources/carlos.properties": {
+      "reason": "Site privacy is inactive in the shipped configuration even for a stock administrator. The unit suite loads the shipped file and the Ontario installed workflow exercises unassigned billing providers and disk history.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/commn/SiteChoiceUnitTest.java",
+        "scripts/billing-on-single-site-visibility-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T23",
+        "T26",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/admin/web/LogReport2Action.java": {
+      "reason": "Administrative audit report access remains privilege-gated. Its provider query applies the site restriction only with multisite enabled.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/admin/web/LogReport2ActionTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T23",
+        "T29"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/admin/web/UnLock2Action.java": {
+      "reason": "Username-keyed account unlocks work when site assignments are absent in single-site mode. Multisite scope still excludes accounts from other sites.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/admin/web/UnLock2ActionUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/admin/web/UnLock2ActionLockListIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T23",
+        "T29",
+        "T37"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/report/reportindex.jsp": {
+      "reason": "The provider and group choices use the configured clinic mode and the independent team restriction. The day sheet checks the visible appointments for the selected provider.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/AppointmentMainBeanReportIntegrationTest.java",
+        "scripts/report-daysheet-labs-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "jsp-compile",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T23",
+        "T29",
+        "T40"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/report/reportdaysheet.jsp": {
+      "reason": "The provider and group choices use the configured clinic mode and the independent team restriction. The day sheet checks the visible appointments for the selected provider.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/AppointmentMainBeanReportIntegrationTest.java",
+        "scripts/report-daysheet-labs-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "jsp-compile",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T23",
+        "T29",
+        "T40"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOnCorrectionViewModelAssembler.java": {
+      "reason": "Correction choices and access to the selected bill respect team billing in a single-site clinic.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOnCorrectionViewModelAssemblerUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/GstReportViewModelAssembler.java": {
+      "reason": "The GST report checks the selected provider against the independently restricted provider list before loading the report.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/GstReportViewModelAssemblerUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/OnRaViewModelAssembler.java": {
+      "reason": "Remittance advice retains its billing gate and team selection and applies provider-site restrictions in multisite mode.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/web/BillingReportViewActionsAuthorizedUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/web/SiblingViewBillingOnActionPrivilegeUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOnStatusViewModelAssembler.java": {
+      "reason": "Ontario billing status keeps its established routing, provider filter and status count error handling.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOnStatusViewModelAssemblerRoutingUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOnStatusViewModelAssemblerUnreadableCountUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOnMriViewModelAssembler.java": {
+      "reason": "The OHIP generation form must show eligible billers and the corresponding disk rows on a single-site import. Real assignments restrict the list in a multisite clinic.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOnMriViewModelAssemblerTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnSiteVisibilityIntegrationTest.java",
+        "scripts/billing-on-single-site-visibility-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOhipSimulationViewModelAssembler.java": {
+      "reason": "Ontario simulation uses the same selectable providers for the form and for the requested preview.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOhipSimulationViewModelAssemblerUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnSiteVisibilityIntegrationTest.java",
+        "scripts/billing-on-single-site-visibility-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/web/ViewBillingOhipSimulation2Action.java": {
+      "reason": "The OHIP simulation route retains the billing permission check and supplies the effective team and site restrictions to its preview.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/web/BillingReportViewActionsAuthorizedUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnSiteVisibilityIntegrationTest.java",
+        "scripts/billing-on-single-site-visibility-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnProviderScope.java": {
+      "reason": "Provider selection and historical access depend on the actual site and team settings, including the signed-in biller and clinics without assignments.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOnMriViewModelAssemblerTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnSiteVisibilityIntegrationTest.java",
+        "scripts/billing-on-single-site-visibility-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
     }
   },
   "lifecycleBaselineManifest": "docs/testing/release-2026.08-lifecycle-baselines.json",
