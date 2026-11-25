@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "0604414feee671c40d579b3e91c2c30d55ec92a2",
+  "comparisonSha256": "de2df990318b25e9f86f27aaab62c51c2b6c01e3ae34109db6e8202f252d34c1",
+  "baselineCommit": "db56a19cff9f4f8770b2e006d76a112238a6d15c",
+  "baselineSourceTree": "0604414feee671c40d579b3e91c2c30d55ec92a2",
+  "baselineReportSha256": "c0d7fb4a177cd9c4985dd67afee9b78d2ffd7a35d09ca76280bab0da8754ce90",
+  "baselineLane": "Ubuntu 26.04.1, OpenJDK 25 and JaCoCo 0.8.16. Five complete Surefire unit/H2 integration suites exercised issuance into a bounded registry, forged and evicted entries, session and category separation, exact ASCII BC spelling with whitespace, Ontario authorization, ordinary and reconciled download bytes.",
+  "baselineTestCounts": {
+    "tests": 57,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONDiskNameDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.report.pageUtil.Obec2ActionMethodGuardUnitTest",
+    "io.github.carlos_emr.carlos.util.DownloadMissingFileUnitTest",
+    "io.github.carlos_emr.carlos.util.OscarDownloadUnitTest",
+    "io.github.carlos_emr.carlos.utility.BoundedSessionAttributesUnitTest"
+  ],
+  "baselineTestReportsSha256": "dd8fc65c8a0baf4db4126bc9eb7fc1d6bab9a30e6c9b1cfa73690d3a38b99277",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/utility/BoundedSessionAttributes.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "0594f40fb24a987a295957e16ca06ec853e95c96"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/pageUtil/Obec2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "d041dd492df6f015064ad6f9ff7ef4ef73ffcded"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/util/OscarDownload.java": {
+      "lines": 94.11764705882354,
+      "instructions": 94.9771689497717,
+      "branches": 87.5,
+      "sourceBlob": "bef26ee0c2c0e1b4bc497b7bccae6ba247e3f685"
+    }
+  },
+  "exclusions": {}
+}
