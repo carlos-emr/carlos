@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.schedule.web;
 
 import java.util.Hashtable;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
 
 import jakarta.servlet.http.HttpSession;
@@ -31,6 +32,7 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.web.util.WebUtils;
 
 import io.github.carlos_emr.HScheduleDate;
+import io.github.carlos_emr.RscheduleBean;
 import io.github.carlos_emr.carlos.commn.dao.ScheduleDateDao;
 import io.github.carlos_emr.carlos.commn.model.ScheduleDate;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -54,6 +56,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * @since 2026-11-19
  */
 public final class ScheduleCalendarCache {
+    private static final String RULE_SCHEDULE = "scheduleRscheduleBean";
 
     /** Session attribute of the JSP {@code scheduleDateBean}: {@code yyyy-MM-dd} to {@link HScheduleDate}. */
     static final String DAYS = "scheduleDateBean";
@@ -65,6 +68,51 @@ public final class ScheduleCalendarCache {
     private static final Logger logger = MiscUtils.getLogger();
 
     private ScheduleCalendarCache() {
+    }
+
+    /** A provider's rule and custom days captured together for rendering a single month request. */
+    public record Month(RscheduleBean rule, Map<String, Object> days) {}
+
+    /**
+     * Reads the prior template for an Apply request. A new template has an empty prior rule.
+     * A rule already selected for another provider makes this request stale.
+     */
+    public static RscheduleBean ruleForTemplate(HttpSession session, String providerNo) {
+        if (!(session.getAttribute(RULE_SCHEDULE) instanceof RscheduleBean rule)) {
+            return new RscheduleBean();
+        }
+        RscheduleBean snapshot = rule.snapshotForProvider(providerNo);
+        return snapshot != null ? snapshot : rule.snapshotForProvider("");
+    }
+
+    /** Publishes a completed request-local rule and returns its provider's own custom days. */
+    public static Map<String, Object> openMonth(HttpSession session, RscheduleBean rule, ScheduleDateDao dao) {
+        synchronized (WebUtils.getSessionMutex(session)) {
+            String providerNo = rule.provider_no;
+            load(session, providerNo, dao.search_scheduledate_c(providerNo));
+            session.setAttribute(RULE_SCHEDULE, rule.snapshotForProvider(providerNo));
+            return Map.copyOf(days(session));
+        }
+    }
+
+    /** Captures the open provider's month, or returns null when the tab was superseded. */
+    public static Month readMonth(HttpSession session, String providerNo, ScheduleDateDao dao) {
+        synchronized (WebUtils.getSessionMutex(session)) {
+            RscheduleBean rule = openRule(session, providerNo);
+            if (rule == null) return null;
+            reloadIfStale(session, providerNo, dao);
+            return new Month(rule, Map.copyOf(days(session)));
+        }
+    }
+
+    /** Reads the rule and calendar ownership together for both the popup and the month view. */
+    static RscheduleBean openRule(HttpSession session, String providerNo) {
+        synchronized (WebUtils.getSessionMutex(session)) {
+            if (!isFor(session, providerNo) || !(session.getAttribute(RULE_SCHEDULE) instanceof RscheduleBean rule)) {
+                return null;
+            }
+            return rule.snapshotForProvider(providerNo);
+        }
     }
 
     /**

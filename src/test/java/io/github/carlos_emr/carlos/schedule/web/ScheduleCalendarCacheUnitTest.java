@@ -23,6 +23,7 @@ import org.springframework.mock.web.MockHttpSession;
 import org.springframework.web.util.WebUtils;
 
 import io.github.carlos_emr.HScheduleDate;
+import io.github.carlos_emr.RscheduleBean;
 import io.github.carlos_emr.carlos.commn.dao.ScheduleDateDao;
 import io.github.carlos_emr.carlos.commn.model.ScheduleDate;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
@@ -31,6 +32,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.verify;
 
 /**
  * Tests the schedule month view's session copy of a provider's custom overrides: who it belongs
@@ -73,6 +76,61 @@ class ScheduleCalendarCacheUnitTest {
         ScheduleCalendarCache.load(session, PROVIDER, List.of());
         days().put("2032-02-29", new HScheduleDate("1", "c", "stale", "0900", "FAKE"));
         return days();
+    }
+
+    private static RscheduleBean rule(String provider, String hours) {
+        return new RscheduleBean(provider, "2032-01-01", "2032-12-31", "1", "1", "", hours, "FAKE");
+    }
+
+    @Test
+    void shouldKeepEachRequestsRulesAndDaysTogetherWhenAnotherProviderOpensTheCalendar() {
+        var dao = mock(ScheduleDateDao.class);
+        when(dao.search_scheduledate_c(PROVIDER)).thenReturn(List.of(override('c', "first provider")));
+        var otherDay = override('c', "second provider");
+        otherDay.setProviderNo(OTHER_PROVIDER);
+        when(dao.search_scheduledate_c(OTHER_PROVIDER)).thenReturn(List.of(otherDay));
+        var original = rule(PROVIDER, "<SUN>0900</SUN>");
+        var appliedDays = ScheduleCalendarCache.openMonth(session, original, dao);
+        var display = ScheduleCalendarCache.readMonth(session, PROVIDER, dao);
+        assertThat(display.rule()).isNotSameAs(original);
+
+        // A template editor can change the session bean while the first request generates days.
+        ((RscheduleBean) session.getAttribute("scheduleRscheduleBean")).clear();
+        assertThat(ScheduleCalendarCache.readMonth(session, PROVIDER, dao)).isNull();
+        assertThat(original.getDateAvailHour("2032-02-29")).isEqualTo("0900");
+        assertThat(display.rule().getDateAvailHour("2032-02-29")).isEqualTo("0900");
+        ScheduleCalendarCache.openMonth(session, rule(OTHER_PROVIDER, "<SUN>1400</SUN>"), dao);
+
+        assertThat(((HScheduleDate) appliedDays.get("2032-02-29")).reason).isEqualTo("first provider");
+        assertThat(((HScheduleDate) display.days().get("2032-02-29")).reason).isEqualTo("first provider");
+        assertThat(ScheduleCalendarCache.ruleForTemplate(session, PROVIDER)).isNull();
+        assertThat(ScheduleCalendarCache.readMonth(session, PROVIDER, dao)).isNull();
+        var current = ScheduleCalendarCache.readMonth(session, OTHER_PROVIDER, dao);
+        assertThat(current.rule().getDateAvailHour("2032-02-29")).isEqualTo("1400");
+        assertThat(((HScheduleDate) current.days().get("2032-02-29")).reason).isEqualTo("second provider");
+    }
+
+    @Test
+    void shouldOpenNewTemplatesAndReloadOnlyTheCurrentProvidersStaleMonth() {
+        var dao = mock(ScheduleDateDao.class);
+        assertThat(ScheduleCalendarCache.ruleForTemplate(session, PROVIDER).sdate).isEmpty();
+        session.setAttribute("scheduleRscheduleBean", new RscheduleBean());
+        assertThat(ScheduleCalendarCache.ruleForTemplate(session, PROVIDER).sdate).isEmpty();
+        assertThat(ScheduleCalendarCache.readMonth(session, PROVIDER, dao)).isNull();
+        when(dao.search_scheduledate_c(PROVIDER)).thenReturn(List.of(override('c', "opened")));
+        ScheduleCalendarCache.openMonth(session, rule(PROVIDER, "<SUN>0800</SUN>"), dao);
+        var selected = ScheduleCalendarCache.ruleForTemplate(session, PROVIDER);
+        assertThat(selected.sdate).isEqualTo("2032-01-01");
+        selected.clear();
+        clearInvocations(dao);
+        when(dao.search_scheduledate_c(PROVIDER)).thenReturn(List.of(override('c', "updated")));
+        session.setAttribute(ScheduleCalendarCache.STALE, Boolean.TRUE);
+
+        var current = ScheduleCalendarCache.readMonth(session, PROVIDER, dao);
+        assertThat(((HScheduleDate) current.days().get("2032-02-29")).reason).isEqualTo("updated");
+        assertThat(current.rule().getDateAvailHour("2032-02-29")).isEqualTo("0800");
+        assertThat(ScheduleCalendarCache.readMonth(session, PROVIDER, dao).days()).containsKeys("2032-02-29");
+        verify(dao).search_scheduledate_c(PROVIDER);
     }
 
     @Test

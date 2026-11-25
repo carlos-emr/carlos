@@ -202,6 +202,21 @@ async function workflow(s) {
     for (const [date] of days) {
       h.assert(JSON.stringify(dateRows(date)) === JSON.stringify([['1', A.name, 'A']]), `The week setting did not schedule template A on ${date}`);
     }
+    const month = new URL(await f.locator('a[href*="bFirstDisp=0"]').first().getAttribute('href'), f.url());
+    month.searchParams.set('delta', '0');
+    h.assert(month.searchParams.get('provider_no') === owner && provider !== owner, 'Expected two distinct schedule providers');
+    const otherMonth = new URL(month);
+    otherMonth.searchParams.set('provider_no', provider);
+    const stale = await context.request.get(otherMonth.href);
+    try {
+      h.assert(stale.status() === 409 && !(await stale.text()).includes('function showCalendarMonth'),
+        'A stale month rendered the open calendar under another provider');
+    } finally { await stale.dispose(); }
+    const current = await context.request.get(month.href);
+    try {
+      h.assert(current.status() === 200 && (await current.text()).includes('function showCalendarMonth'),
+        'The open provider could not redisplay the month after the stale tab was refused');
+    } finally { await current.dispose(); }
   });
 
   await s.step('today\'s and tomorrow\'s day sheets show A\'s code, colour and description on exactly 09:00-10:45', async () => {

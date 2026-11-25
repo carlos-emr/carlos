@@ -65,8 +65,6 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<jsp:useBean id="scheduleRscheduleBean" class="io.github.carlos_emr.RscheduleBean" scope="session"/>
-<jsp:useBean id="scheduleDateBean" class="java.util.Hashtable" scope="session"/>
 <jsp:useBean id="scheduleHolidayBean" class="java.util.Hashtable" scope="session"/>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ScheduleDate" %>
@@ -78,6 +76,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@page import="io.github.carlos_emr.carlos.schedule.web.ScheduleCalendarCache" %>
+<%@page import="io.github.carlos_emr.carlos.utility.RefusalNotice" %>
 <%
     ScheduleDateDao scheduleDateDao = SpringUtils.getBean(ScheduleDateDao.class);
     RScheduleDao rScheduleDao = (RScheduleDao) SpringUtils.getBean(RScheduleDao.class);
@@ -113,7 +112,24 @@
     }
 
 /////////////////////////////////////
-    if (request.getParameter("bFirstDisp") == null || request.getParameter("bFirstDisp").compareTo("1") == 0) {
+    boolean applyTemplate = request.getParameter("bFirstDisp") == null || "1".equals(request.getParameter("bFirstDisp"));
+    RscheduleBean scheduleRscheduleBean = null;
+    Map<String, Object> scheduleDateBean = Map.of();
+    if (applyTemplate) {
+        scheduleRscheduleBean = ScheduleCalendarCache.ruleForTemplate(session, provider_no);
+    } else {
+        ScheduleCalendarCache.Month monthView = ScheduleCalendarCache.readMonth(session, provider_no, scheduleDateDao);
+        if (monthView != null) {
+            scheduleRscheduleBean = monthView.rule();
+            scheduleDateBean = monthView.days();
+        }
+    }
+    if (scheduleRscheduleBean == null) {
+        RefusalNotice.send(request, response, jakarta.servlet.http.HttpServletResponse.SC_CONFLICT,
+                "error.refusal.scheduleCalendarChanged", "The calendar open in this session is for another provider.");
+        return;
+    }
+    if (applyTemplate) {
         int y = Integer.parseInt(request.getParameter("syear")); //cal.get(Calendar.YEAR);
         int m = Integer.parseInt(request.getParameter("smonth")); //cal.get(Calendar.MONTH)+1;
         int d = Integer.parseInt(request.getParameter("sday")); //cal.get(Calendar.DATE);
@@ -187,9 +203,8 @@
             rScheduleDao.persist(rs);
         }
 
-        // Load the provider's custom overrides into scheduleDateBean, recording whose they are so the
-        // date popup can refuse a provider whose calendar is no longer the one open here (#5297).
-        ScheduleCalendarCache.load(session, provider_no, scheduleDateDao.search_scheduledate_c(provider_no));
+        // Keep this request's custom days when regenerating and drawing the provider's schedule.
+        scheduleDateBean = ScheduleCalendarCache.openMonth(session, scheduleRscheduleBean, scheduleDateDao);
 
         //initial scheduleHolidayBean record
         if (scheduleHolidayBean.isEmpty()) {
@@ -235,12 +250,6 @@
         }
 
     }
-
-/////////////////////////////////////
-
-    // A date save that committed but could not read its change back marks scheduleDateBean stale;
-    // reload it, read-only, before drawing the month (#5297).
-    ScheduleCalendarCache.reloadIfStale(session, provider_no, scheduleDateDao);
 %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Site" %>
 <%@page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>

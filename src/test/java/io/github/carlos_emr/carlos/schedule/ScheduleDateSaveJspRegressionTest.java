@@ -76,22 +76,14 @@ class ScheduleDateSaveJspRegressionTest {
     void shouldLoadAndReloadTheCalendarDays_throughTheOwnedCache() throws IOException {
         String calendar = Files.readString(CALENDAR, StandardCharsets.UTF_8);
 
-        // The days are loaded with their provider recorded, so the date popup can refuse another
-        // provider's calendar (#5297).
         assertThat(calendar)
-                .contains("ScheduleCalendarCache.load(session, provider_no, scheduleDateDao.search_scheduledate_c(provider_no));")
-                .doesNotContain("scheduleDateBean.clear()");
-        // A save that could not read its change back leaves the days to be reloaded before the month
-        // is drawn, on every request including the display-only one.
-        int reload = calendar.indexOf("ScheduleCalendarCache.reloadIfStale(session, provider_no, scheduleDateDao);");
-        assertThat(reload).as("the calendar reloads stale days, before drawing")
-                .isPositive()
-                .isLessThan(calendar.indexOf("<html>"));
-        // Outside the block that builds the calendar, so the bFirstDisp=0 redisplay reloads too.
-        int build = calendar.indexOf("if (request.getParameter(\"bFirstDisp\") == null || request.getParameter(\"bFirstDisp\").compareTo(\"1\") == 0) {");
-        assertThat(build).as("the calendar's build block").isPositive().isLessThan(reload);
-        String between = calendar.substring(build, reload);
-        long depth = between.chars().filter(c -> c == '{').count() - between.chars().filter(c -> c == '}').count();
-        assertThat(depth).as("braces still open at the reload").isZero();
+                .contains("ScheduleCalendarCache.ruleForTemplate(session, provider_no)",
+                        "ScheduleCalendarCache.readMonth(session, provider_no, scheduleDateDao)",
+                        "scheduleRscheduleBean = monthView.rule()", "scheduleDateBean = monthView.days()",
+                        "scheduleDateBean = ScheduleCalendarCache.openMonth(session, scheduleRscheduleBean, scheduleDateDao)")
+                .doesNotContain("<jsp:useBean id=\"scheduleRscheduleBean\"", "<jsp:useBean id=\"scheduleDateBean\"");
+        int refused = calendar.indexOf("\"error.refusal.scheduleCalendarChanged\"");
+        assertThat(refused).as("a stale calendar is refused before any database writes or page rendering")
+                .isPositive().isLessThan(calendar.indexOf("rScheduleDao.merge(")).isLessThan(calendar.indexOf("<html>"));
     }
 }
