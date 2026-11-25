@@ -21,7 +21,9 @@ import io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.util.OscarDownload;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -36,10 +38,12 @@ import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -197,24 +201,45 @@ class BillingOnSiteVisibilityIntegrationTest extends CarlosTestBase {
             return new int[]{candidate, previous};
         });
         Object previousHome = CarlosProperties.getInstance().put("HOME_DIR", home.toString());
+        Object previousRegion = CarlosProperties.getInstance().put("billregion", "ON");
         try {
             Files.writeString(home.resolve(occupied + ".001"), "independent fixture bytes");
             var transaction = applicationContext.getAutowireCapableBeanFactory().createBean(BillingOnDiskTransactionService.class);
             assertThatThrownBy(() -> transaction.retireUnpublishedDisk(ids[1])).isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("attached claim");
-            transaction.retireUnpublishedDisk(ids[0]);
-
             var request = new MockHttpServletRequest();
             request.addParameter("year", "2025");
             request.addParameter("diskId", String.valueOf(ids[0]));
+            request.addParameter("filename", occupied + ".001");
+            request.addParameter("homepath", "ohipdownload");
+            request.getSession().setAttribute("ohipdownload", home.toString());
+            request.getSession().setAttribute("user", LOCAL);
             var login = new LoggedInInfo();
             login.setLoggedInProvider(new Provider(LOCAL));
             LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), login);
             SecurityInfoManager security = mock(SecurityInfoManager.class);
             when(security.hasPrivilege(login, "_billing", "r", null)).thenReturn(true);
             when(security.hasPrivilege(login, "_team_billing_only", "r", null)).thenReturn(true);
-            var access = new BillingOnFileAccessService(security, providerDataDao);
-            applicationContext.getAutowireCapableBeanFactory().autowireBean(access);
+            var factory = applicationContext.getAutowireCapableBeanFactory();
+            var target = new BillingOnFileAccessService(security, providerDataDao);
+            factory.autowireBean(target);
+            var access = (BillingOnFileAccessService) factory.initializeBean(target, "retirementFileAccess");
+            var snapshot = new TransactionTemplate(transactions);
+            snapshot.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+            snapshot.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
+            snapshot.executeWithoutResult(status -> {
+                assertThat(access.canDownload(login, occupied + ".001", false)).isTrue();
+                transaction.retireUnpublishedDisk(ids[0]);
+                // The surrounding transaction still sees the attempted allocation. The guarded servlet must start a fresh read.
+                assertThat(access.canDownload(login, occupied + ".001", false)).isTrue();
+                try (var spring = mockStatic(SpringUtils.class)) {
+                    spring.when(() -> SpringUtils.getBean(BillingOnFileAccessService.class)).thenReturn(access);
+                    var response = new MockHttpServletResponse();
+                    assertDoesNotThrow(() -> new OscarDownload().doGet(request, response));
+                    assertThat(response.getStatus()).isEqualTo(403);
+                    assertThat(response.getContentAsByteArray()).isEmpty();
+                }
+            });
             var history = new BillingOnMriViewModelAssembler(providerDao, billActivityDao, providerDataDao,
                     providerBillCenterDao, security, reviews, lookup, access);
             var prep = new BillingDiskCreationService(null, null, lookup);
@@ -236,6 +261,8 @@ class BillingOnSiteVisibilityIntegrationTest extends CarlosTestBase {
         } finally {
             if (previousHome == null) CarlosProperties.getInstance().remove("HOME_DIR");
             else CarlosProperties.getInstance().put("HOME_DIR", previousHome);
+            if (previousRegion == null) CarlosProperties.getInstance().remove("billregion");
+            else CarlosProperties.getInstance().put("billregion", previousRegion);
             fresh.executeWithoutResult(status -> {
                 jdbc.update("""
                         DELETE FROM billing_on_cheader1 WHERE provider_no = ?
