@@ -55,6 +55,7 @@
 <fmt:message var="draftSaveConflictLabel" key="encounter.draftSaveConflict.msg"/>
 <fmt:message var="draftSavedLabel" key="encounter.draftSaved.msg"/>
 <fmt:message var="noteLockLostLabel" key="encounter.noteLockLostError.msg"/>
+<fmt:message var="noteLockReleaseFailedLabel" key="encounter.noteLockReleaseFailed.msg"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 
@@ -206,6 +207,8 @@
         var legacyAutosaveStopped = false;
         var legacyAutosaveSuspended = false;
         var legacyNoteLockOwned = false;
+        // Cancel is giving back this page's lock: no draft is sent meanwhile (#6132).
+        var legacyReleasePending = false;
 
         function showLegacyAutosaveStatus(state, text) {
             var status = document.getElementById('legacyAutosaveStatus');
@@ -229,7 +232,7 @@
 
         function autoSave() {
             clearTimeout(legacyAutosaveTimer);
-            if (!legacyNoteLockOwned || legacyAutosavePending || legacyAutosaveStopped) return;
+            if (!legacyNoteLockOwned || legacyAutosavePending || legacyAutosaveStopped || legacyReleasePending) return;
             XMLHttpRequestObject = window.XMLHttpRequest ? new XMLHttpRequest()
                 : window.ActiveXObject ? new ActiveXObject("Microsoft.XMLHTTP") : false;
             if (XMLHttpRequestObject) {
@@ -296,11 +299,14 @@
             if (noteLockOwnedAtRender) beginLegacyEditing(false);
         }
 
-        // The lock is this session's: the form accepts changes and autosave starts.
+        // The lock is this session's: the form accepts changes and autosave starts. The form carries the
+        // Edit attempt, so a Save that renders this page again continues it.
         function beginLegacyEditing(focusNote) {
             legacyNoteLockOwned = true;
             var edit = document.getElementById('editLegacyNote');
             if (edit) edit.hidden = true;
+            var attemptField = document.getElementById('editAttemptField');
+            if (attemptField) attemptField.value = legacyEditAttempt;
             document.querySelectorAll('#caseManagementEntryForm [data-note-lock-edit]').forEach(function (field) {
                 field.disabled = false;
             });
@@ -313,21 +319,37 @@
         // The Edit request that has been sent and not answered, and whether Cancel was chosen meanwhile.
         var legacyLockRequestPending = false;
         var legacyCancelRequested = false;
+        // This page's Edit attempt (#6132): 32 hex digits sent with Edit and with Cancel's release, so the
+        // server gives back exactly the lock this attempt created, even when the answer to Edit was lost.
+        // A retried Edit after a lost answer repeats it. The action gives it when it renders the page
+        // again for an editor an attempt opened (after a Save); it is empty on a page opened to read.
+        var legacyEditAttempt = '<%= SafeEncode.forJavaScript((String) request.getAttribute(
+                io.github.carlos_emr.carlos.casemgmt.web.CaseManagementEntry2Action.EDIT_ATTEMPT_ATTRIBUTE)) %>';
+
+        function newLegacyEditAttempt() {
+            var bytes = new Uint8Array(16);
+            window.crypto.getRandomValues(bytes);
+            var attempt = '';
+            for (var i = 0; i < bytes.length; i++) attempt += (bytes[i] < 16 ? '0' : '') + bytes[i].toString(16);
+            return attempt;
+        }
 
         // The reader can view and copy the note before asking to edit it.
         function takeNoteLock() {
             var edit = document.getElementById('editLegacyNote');
             if (edit.disabled || legacyNoteLockOwned) return;
             var lockRequest = window.XMLHttpRequest ? new XMLHttpRequest() : null;
-            if (!lockRequest) {
+            if (!lockRequest || !window.crypto) {
                 alert('${carlos:forJavaScriptBlock(noteLockLostLabel)}');
                 return;
             }
+            if (!legacyEditAttempt) legacyEditAttempt = newLegacyEditAttempt();
             edit.disabled = true;
             legacyLockRequestPending = true;
             lockRequest.onreadystatechange = function () {
                 if (lockRequest.readyState !== 4) return;
                 legacyLockRequestPending = false;
+                var answered = false;
                 var owned = false;
                 var taken = false;
                 if (lockRequest.status === 200) {
@@ -335,14 +357,23 @@
                         var answer = JSON.parse(lockRequest.responseText);
                         owned = answer.ownedBySession === true;
                         taken = answer.lockTaken === true;
+                        answered = true;
                     } catch (e) {
                         owned = false;
                     }
                 }
+                // A refused Edit took nothing, so the next Edit is a new attempt. An attempt whose answer
+                // was lost keeps its identity: the server may have granted it.
+                if (answered && !owned) legacyEditAttempt = '';
                 if (legacyCancelRequested) {
-                    // Cancel was chosen while this request was in flight: the lock it took belongs to a
-                    // reader that is closing, so it is given back before the window closes.
-                    releaseLegacyNoteLock(owned && taken);
+                    // Cancel was chosen while this request was in flight: the reader is closing. A lock
+                    // this attempt took, or may have taken when its answer was lost, is given back first;
+                    // a lock the session already held (another editor of the note) is not.
+                    if (taken || !answered) {
+                        releaseLegacyNoteLock(closeLegacyWindow);
+                    } else {
+                        closeLegacyWindow();
+                    }
                     return;
                 }
                 if (!owned) {
@@ -361,7 +392,7 @@
             lockRequest.send(legacyNoteLockBody('isNoteEdited'));
         }
 
-        // The body of a lock request for this page's patient and note.
+        // The body of a lock request for this page's patient, note and Edit attempt.
         function legacyNoteLockBody(method) {
             var demographicNo = '${carlos:forJavaScript(param.demographicNo)}';
             var noteId = '<carlos:encode value='<%= String.valueOf(form.getCaseNote().getId() == null || form.getCaseNote().getId() <= 0 ? 0 : form.getCaseNote().getId()) %>' context="javaScriptBlock"/>';<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
@@ -371,21 +402,37 @@
                 + "&noteId=" + encodeURIComponent(noteId)
                 // Says this page is asking, so the server refuses (reload) when the form this page
                 // displayed is no longer kept, instead of skipping its stale-note checks.
-                + (method === 'isNoteEdited' ? "&classicEdit=true" : "");
+                + (method === 'isNoteEdited' ? "&classicEdit=true" : "")
+                + "&editAttempt=" + encodeURIComponent(legacyEditAttempt);
         }
 
-        // Gives back a lock this page's Edit request took, then closes the window. Only when the answer
-        // said this request created the lock: one this session already held (the chart's own editor
-        // open on the same note) is not this page's to release.
-        function releaseLegacyNoteLock(release) {
-            var closeWindow = function () { window.close(); };
-            if (!release || !window.XMLHttpRequest) {
-                closeWindow();
-                return;
-            }
+        // Asks the server to give back what this page's Edit attempt took, then calls done. The server
+        // knows which lock the attempt created; one the session held before it (the chart's own editor
+        // open on the same note) is kept. Only an answer confirming that nothing of this attempt is left
+        // counts: after an error, a timeout or an unreadable answer the lock may still stand, so the
+        // window stays open, says so, and Cancel asks again.
+        function releaseLegacyNoteLock(done) {
+            legacyReleasePending = true;
+            clearTimeout(legacyAutosaveTimer);
             var releaseRequest = new XMLHttpRequest();
             releaseRequest.onreadystatechange = function () {
-                if (releaseRequest.readyState === 4) closeWindow();
+                if (releaseRequest.readyState !== 4) return;
+                legacyReleasePending = false;
+                var state = null;
+                if (releaseRequest.status === 200) {
+                    try {
+                        state = JSON.parse(releaseRequest.responseText).releaseNoteLock;
+                    } catch (e) {
+                        state = null;
+                    }
+                }
+                if (state === 'released' || state === 'notHeld' || state === 'cancelled') {
+                    legacyEditAttempt = '';
+                    done();
+                    return;
+                }
+                setTimer();
+                alert('${carlos:forJavaScriptBlock(noteLockReleaseFailedLabel)}');
             };
             releaseRequest.open('POST', '<%=request.getContextPath() %>/CaseManagementEntry', true);
             releaseRequest.timeout = 15000;
@@ -393,15 +440,35 @@
             releaseRequest.send(legacyNoteLockBody('releaseNoteLock'));
         }
 
+        function closeLegacyWindow() {
+            window.close();
+        }
+
         function cancelLegacyNote(form) {
-            if (legacyNoteLockOwned) {
-                form.elements['method'].value = 'cancel';
-                return true;
-            }
+            // A release is on its way: its answer closes the window or offers Cancel again.
+            if (legacyReleasePending) return false;
             if (legacyLockRequestPending) {
                 // Wait for the answer: closing now could leave the lock it takes behind a closed reader.
                 legacyCancelRequested = true;
                 return false;
+            }
+            var close = closeLegacyWindow;
+            if (legacyNoteLockOwned) {
+                // The cancel request discards this editor's draft, then closes the window.
+                close = function () {
+                    form.elements['method'].value = 'cancel';
+                    form.submit();
+                };
+            }
+            if (legacyEditAttempt) {
+                // The editor goes only after the server confirms what this page's Edit attempt took is
+                // given back.
+                releaseLegacyNoteLock(close);
+                return false;
+            }
+            if (legacyNoteLockOwned) {
+                form.elements['method'].value = 'cancel';
+                return true;
             }
             window.close();
             return false;
@@ -438,6 +505,9 @@
         <input type="hidden" name="caseNote.program_no" value="<carlos:encode value='<%= pId %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="method" value="save"/>
         <input type="hidden" name="noteId" value="<carlos:encode value='<%= String.valueOf(form.getCaseNote().getId() == null || form.getCaseNote().getId() <= 0 ? 0 : form.getCaseNote().getId()) %>' context="htmlAttribute"/>"/>
+        <%-- The Edit attempt this editor continues (#6132): filled once editing starts, so a Save that
+             renders the page again keeps it for Cancel. --%>
+        <input type="hidden" name="editAttempt" id="editAttemptField" value=""/>
         <c:if test="${param.from=='casemgmt'||requestScope.from=='casemgmt'}">
             <input type="hidden" name="from" value="casemgmt"/>
         </c:if>

@@ -31,7 +31,8 @@ const legacySource = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WE
 const resourceSource = fs.readFileSync(path.join(__dirname, '../src/main/resources/oscarResources_en.properties'), 'utf8');
 const recoveryMessage = /^encounter\.draftSaveConflict\.msg=(.*)$/m.exec(resourceSource)[1];
 const labels = { noteLockLostLabel: 'Your note lock has been lost.', draftSavingLabel: 'Saving draft...', draftSaveFailedLabel: 'Draft failed; retrying.',
-  draftSaveConflictLabel: recoveryMessage, draftSavedLabel: 'Draft saved' };
+  draftSaveConflictLabel: recoveryMessage, draftSavedLabel: 'Draft saved',
+  noteLockReleaseFailedLabel: 'Your note lock could not be released.' };
 const renderLabels = source => source.replace(/\$\{carlos:forJavaScriptBlock\((\w+)\)\}/g,
   (_, key) => { assert.ok(labels[key]); return labels[key]; });
 
@@ -531,7 +532,7 @@ test('both editors expose an atomic polite status region', () => {
 
 // The classic editor's Edit and Cancel buttons (#6132). The page script is loaded as the JSP ships it,
 // with its server-rendered values filled in.
-function classicEditor({ ownedAtRender = false } = {}) {
+function classicEditor({ ownedAtRender = false, attemptAtRender = '' } = {}) {
   const requests = [];
   const closed = [];
   const alerts = [];
@@ -546,45 +547,57 @@ function classicEditor({ ownedAtRender = false } = {}) {
   const fields = [{ disabled: true }, { disabled: true }];
   const edit = { disabled: false, hidden: false };
   const note = { readOnly: true, value: 'text', focused: false, focus() { this.focused = true; } };
+  const attemptField = { value: '' };
   const timers = [];
+  let draws = 0;
+  // A distinct, repeatable "random" draw per attempt.
+  const crypto = { getRandomValues(bytes) { draws += 1; for (let i = 0; i < bytes.length; i += 1) bytes[i] = (draws * 37 + i * 11) & 255; return bytes; } };
   const context = {
     alert: message => alerts.push(message), URL,
     XMLHttpRequest: FakeXhr, clearTimeout() {}, setTimeout: fn => { timers.push(fn); return timers.length; },
     document: {
-      getElementById: id => ({ editLegacyNote: edit, caseNote_note: note }[id] || { setAttribute() {} }),
+      getElementById: id => ({ editLegacyNote: edit, caseNote_note: note, editAttemptField: attemptField }[id] || { setAttribute() {} }),
       querySelectorAll: () => fields,
     },
-    window: { XMLHttpRequest: FakeXhr, close: () => closed.push('closed'), opener: null,
+    window: { XMLHttpRequest: FakeXhr, close: () => closed.push('closed'), opener: null, crypto,
       location: { href: 'https://clinic.example/carlos/CaseManagementEntry' }, addEventListener() {} },
   };
   const fill = text => renderLabels(text)
     .replace(/<%=request\.getContextPath\(\) %>/g, '/carlos')
     .replace(/var demographicNo = '\$\{carlos:forJavaScript\(param\.demographicNo\)\}';/, "var demographicNo = '101';")
     .replace(/var noteId = '<carlos:encode[\s\S]+?<%--[\s\S]+?--%>/, "var noteId = '5009';")
-    .replace(/var chartContext = '<%=[\s\S]+?%>';/, "var chartContext = 'valid';");
+    .replace(/var chartContext = '<%=[\s\S]+?%>';/, "var chartContext = 'valid';")
+    .replace(/var legacyEditAttempt = '<%=[\s\S]+?%>';/, `var legacyEditAttempt = '${attemptAtRender}';`);
   const first = legacySource.indexOf('        var XMLHttpRequestObject = false;');
   const second = legacySource.indexOf('        function init() {', first);
   const third = legacySource.indexOf('        function restore() {', second);
   vm.createContext(context);
   vm.runInContext(fill(legacySource.slice(first, second)) + fill(legacySource.slice(second, third)), context);
   context.noteLockOwnedAtRender = ownedAtRender;
-  const form = { elements: { method: { value: 'save' } } };
-  return { context, requests, closed, alerts, fields, edit, note, timers, form };
+  const submitted = [];
+  const form = { elements: { method: { value: 'save' } }, submit() { submitted.push(this.elements.method.value); } };
+  return { context, requests, closed, alerts, fields, edit, note, timers, form, submitted, attemptField };
 }
+
+const fields = request => new URLSearchParams(request.body);
+const GRANTED = { isNoteEdited: 'unlocked', ownedBySession: true, lockTaken: true };
 
 test('Edit takes the lock and starts editing only once this session owns it', () => {
   const h = classicEditor();
   h.context.takeNoteLock();
   assert.equal(h.requests.length, 1);
-  assert.equal(new URLSearchParams(h.requests[0].body).get('method'), 'isNoteEdited');
+  assert.equal(fields(h.requests[0]).get('method'), 'isNoteEdited');
   // The page says it is the one asking, so the server can refuse a reload when its form is gone.
-  assert.equal(new URLSearchParams(h.requests[0].body).get('classicEdit'), 'true');
+  assert.equal(fields(h.requests[0]).get('classicEdit'), 'true');
+  // The attempt's identity, which Cancel names later.
+  assert.match(fields(h.requests[0]).get('editAttempt'), /^[0-9a-f]{32}$/);
   assert.equal(h.note.readOnly, true, 'nothing is editable while the request is in flight');
-  h.requests[0].answer(200, { isNoteEdited: 'unlocked', ownedBySession: true, lockTaken: true });
+  h.requests[0].answer(200, GRANTED);
   assert.equal(h.note.readOnly, false);
   assert.ok(h.fields.every(field => field.disabled === false));
   assert.equal(h.edit.hidden, true);
   assert.equal(h.timers.length, 1, 'autosave starts');
+  assert.equal(h.attemptField.value, fields(h.requests[0]).get('editAttempt'), 'the form carries the attempt into a Save');
 });
 
 test('Edit refused as stale or while another note is open keeps the page read-only and says so', () => {
@@ -599,34 +612,51 @@ test('Edit refused as stale or while another note is open keeps the page read-on
   }
 });
 
+test('a retried Edit repeats an attempt whose answer was lost, and a refused Edit starts a new one', () => {
+  const h = classicEditor();
+  h.context.takeNoteLock();
+  const first = fields(h.requests[0]).get('editAttempt');
+  h.requests[0].answer(0, '');
+  assert.equal(h.note.readOnly, true);
+  assert.equal(h.edit.disabled, false);
+  h.context.takeNoteLock();
+  assert.equal(fields(h.requests[1]).get('editAttempt'), first, 'the server may have granted it: the same attempt asks again');
+  h.requests[1].answer(200, { isNoteEdited: 'other', ownedBySession: false, lockTaken: false });
+  h.context.takeNoteLock();
+  const third = fields(h.requests[2]).get('editAttempt');
+  assert.match(third, /^[0-9a-f]{32}$/);
+  assert.notEqual(third, first, 'a refused attempt took nothing');
+});
+
 test('Cancel while Edit is in flight waits, releases the lock Edit took, and closes only afterwards', () => {
   const h = classicEditor();
   h.context.takeNoteLock();
   assert.equal(h.context.cancelLegacyNote(h.form), false, 'the form is not submitted');
   assert.deepEqual(h.closed, [], 'the window stays open until the answer is in');
   assert.equal(h.requests.length, 1, 'no release before the lock is known');
-  h.requests[0].answer(200, { isNoteEdited: 'unlocked', ownedBySession: true, lockTaken: true });
+  h.requests[0].answer(200, GRANTED);
   // A cancelled reader never starts editing.
   assert.equal(h.note.readOnly, true);
   assert.equal(h.timers.length, 0);
   assert.equal(h.requests.length, 2);
-  const release = new URLSearchParams(h.requests[1].body);
+  const release = fields(h.requests[1]);
   assert.equal(release.get('method'), 'releaseNoteLock');
   assert.equal(release.get('noteId'), '5009');
   assert.equal(release.get('demographicNo'), '101');
+  assert.equal(release.get('editAttempt'), fields(h.requests[0]).get('editAttempt'), 'Cancel names the attempt Edit sent');
   assert.equal(release.get('classicEdit'), null, 'only the Edit request carries it');
   assert.equal(h.requests[1].method, 'POST');
   assert.deepEqual(h.closed, [], 'closed only after the release answers');
-  h.requests[1].answer(200, '');
+  h.requests[1].answer(200, { releaseNoteLock: 'released' });
   assert.deepEqual(h.closed, ['closed']);
+  assert.deepEqual(h.alerts, []);
 });
 
-test('Cancel while Edit is in flight releases nothing the page did not take, or when Edit failed', () => {
+test('Cancel while Edit is in flight releases nothing when Edit was refused or took no lock', () => {
   for (const answer of [
     [200, { isNoteEdited: 'user', ownedBySession: true, lockTaken: false }],
     [200, { isNoteEdited: 'other', ownedBySession: false, lockTaken: false }],
-    [403, 'Forbidden'],
-    [200, 'not json'],
+    [200, { isNoteEdited: 'editorOpen', ownedBySession: false, lockTaken: false }],
   ]) {
     const h = classicEditor();
     h.context.takeNoteLock();
@@ -638,21 +668,84 @@ test('Cancel while Edit is in flight releases nothing the page did not take, or 
   }
 });
 
-test('Cancel with no Edit in flight closes at once, and Cancel after Edit submits the cancel', () => {
+test('Cancel while Edit is in flight asks the server to settle the attempt when the Edit answer is lost', () => {
+  for (const [lost, settled] of [
+    [[0, ''], 'released'], [[403, 'Forbidden'], 'notHeld'], [[500, 'Server error'], 'cancelled'], [[200, 'not json'], 'notHeld'],
+  ]) {
+    const h = classicEditor();
+    h.context.takeNoteLock();
+    h.context.cancelLegacyNote(h.form);
+    h.requests[0].answer(...lost);
+    assert.equal(h.requests.length, 2, `${JSON.stringify(lost)}: the server knows whether this attempt took the lock`);
+    const release = fields(h.requests[1]);
+    assert.equal(release.get('method'), 'releaseNoteLock');
+    assert.equal(release.get('editAttempt'), fields(h.requests[0]).get('editAttempt'));
+    assert.deepEqual(h.closed, []);
+    h.requests[1].answer(200, { releaseNoteLock: settled });
+    assert.deepEqual(h.closed, ['closed'], JSON.stringify(lost));
+    assert.equal(h.note.readOnly, true);
+  }
+});
+
+test('a failed or uncertain release keeps the window open, says so, and Cancel asks again for the same attempt', () => {
+  for (const failure of [
+    [500, { releaseNoteLock: 'failed' }], [0, ''], [200, ''], [200, '<html>Login</html>'], [200, { releaseNoteLock: 'surprise' }],
+  ]) {
+    const h = classicEditor();
+    h.context.takeNoteLock();
+    h.context.cancelLegacyNote(h.form);
+    h.requests[0].answer(200, GRANTED);
+    const attempt = fields(h.requests[1]).get('editAttempt');
+    assert.equal(h.context.cancelLegacyNote(h.form), false);
+    assert.equal(h.requests.length, 2, 'a second Cancel waits for the release on its way');
+    h.requests[1].answer(...failure);
+    assert.deepEqual(h.closed, [], JSON.stringify(failure));
+    assert.deepEqual(h.alerts, [labels.noteLockReleaseFailedLabel], JSON.stringify(failure));
+    assert.equal(h.context.cancelLegacyNote(h.form), false);
+    assert.equal(h.requests.length, 3, 'Cancel asks again');
+    assert.equal(fields(h.requests[2]).get('method'), 'releaseNoteLock');
+    assert.equal(fields(h.requests[2]).get('editAttempt'), attempt);
+    h.requests[2].answer(200, { releaseNoteLock: 'released' });
+    assert.deepEqual(h.closed, ['closed'], JSON.stringify(failure));
+  }
+});
+
+test('Cancel with no Edit closes at once; Cancel after Edit gives the lock back first, then submits the cancel', () => {
   const idle = classicEditor();
   assert.equal(idle.context.cancelLegacyNote(idle.form), false);
   assert.deepEqual(idle.closed, ['closed']);
   assert.equal(idle.requests.length, 0);
+
   const editing = classicEditor();
   editing.context.takeNoteLock();
-  editing.requests[0].answer(200, { ownedBySession: true, lockTaken: true });
-  assert.equal(editing.context.cancelLegacyNote(editing.form), true);
-  assert.equal(editing.form.elements.method.value, 'cancel');
+  editing.requests[0].answer(200, GRANTED);
+  assert.equal(editing.timers.length, 1);
+  assert.equal(editing.context.cancelLegacyNote(editing.form), false, 'nothing is submitted before the lock is given back');
+  assert.equal(editing.requests.length, 2);
+  assert.equal(fields(editing.requests[1]).get('method'), 'releaseNoteLock');
+  assert.equal(fields(editing.requests[1]).get('editAttempt'), fields(editing.requests[0]).get('editAttempt'));
+  // No draft is sent while the lock is being given back.
+  editing.timers[0]();
+  assert.equal(editing.requests.length, 2);
+  assert.deepEqual(editing.submitted, []);
+  editing.requests[1].answer(200, { releaseNoteLock: 'released' });
+  assert.deepEqual(editing.submitted, ['cancel'], 'the cancel request discards the draft and closes the window');
   assert.deepEqual(editing.closed, []);
+
+  // A failed release leaves the clinician editing, autosave included.
+  const kept = classicEditor();
+  kept.context.takeNoteLock();
+  kept.requests[0].answer(200, GRANTED);
+  kept.context.cancelLegacyNote(kept.form);
+  kept.requests[1].answer(500, { releaseNoteLock: 'failed' });
+  assert.deepEqual(kept.submitted, []);
+  assert.equal(kept.note.readOnly, false);
+  assert.equal(kept.timers.length, 2, 'autosave is scheduled again');
 });
 
 test('a page rendered after a Save that kept the lock goes straight to editing; a fresh GET does not', () => {
-  const saved = classicEditor({ ownedAtRender: true });
+  const attempt = '0123456789abcdef0123456789abcdef';
+  const saved = classicEditor({ ownedAtRender: true, attemptAtRender: attempt });
   saved.context.init();
   assert.equal(saved.note.readOnly, false);
   assert.ok(saved.fields.every(field => field.disabled === false));
@@ -660,6 +753,21 @@ test('a page rendered after a Save that kept the lock goes straight to editing; 
   assert.equal(saved.timers.length, 1);
   assert.equal(saved.note.focused, false, 'the cursor is not moved');
   assert.equal(saved.requests.length, 0, 'no second lock request');
+  assert.equal(saved.attemptField.value, attempt, 'the next Save carries the attempt on');
+  // Its Cancel gives back what the attempt that opened this editor took, then submits the cancel.
+  assert.equal(saved.context.cancelLegacyNote(saved.form), false);
+  assert.equal(fields(saved.requests[0]).get('method'), 'releaseNoteLock');
+  assert.equal(fields(saved.requests[0]).get('editAttempt'), attempt);
+  saved.requests[0].answer(200, { releaseNoteLock: 'notHeld' });
+  assert.deepEqual(saved.submitted, ['cancel']);
+
+  // An editor that no Edit attempt opened submits its cancel as before.
+  const unnamed = classicEditor({ ownedAtRender: true });
+  unnamed.context.init();
+  assert.equal(unnamed.context.cancelLegacyNote(unnamed.form), true);
+  assert.equal(unnamed.form.elements.method.value, 'cancel');
+  assert.equal(unnamed.requests.length, 0);
+
   const fresh = classicEditor();
   fresh.context.init();
   assert.equal(fresh.note.readOnly, true);

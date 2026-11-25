@@ -84,19 +84,53 @@ class CaseManagementEntryNoteLockJspRegressionTest {
     void shouldCoordinateCancelWithAPendingEdit_soNoLockOutlivesTheClosedReader() {
         String lock = function("takeNoteLock");
         String cancel = function("cancelLegacyNote");
-        String release = function("releaseLegacyNoteLock");
 
         // Cancel waits for the answer instead of closing at once, and does not touch the form.
         assertThat(cancel).contains("if (legacyLockRequestPending) {", "legacyCancelRequested = true;");
         assertThat(cancel.indexOf("legacyLockRequestPending"))
                 .isLessThan(cancel.indexOf("window.close();"));
-        // The answer is read first; a cancelled reader never starts editing, and a lock this request
-        // took (and no other lock) is released before the window closes.
+        // The answer is read first; a cancelled reader never starts editing. A lock this attempt took,
+        // or may have taken when the answer was lost, is given back before the window closes.
         assertThat(lock).contains("legacyLockRequestPending = true;", "legacyLockRequestPending = false;",
-                "taken = answer.lockTaken === true;", "releaseLegacyNoteLock(owned && taken);");
+                "taken = answer.lockTaken === true;", "if (taken || !answered) {",
+                "releaseLegacyNoteLock(closeLegacyWindow);");
         assertThat(lock.indexOf("if (legacyCancelRequested)")).isLessThan(lock.indexOf("beginLegacyEditing(true);"));
-        assertThat(release).contains("legacyNoteLockBody('releaseNoteLock')", "closeWindow()")
-                .contains("if (!release || !window.XMLHttpRequest)");
+    }
+
+    @Test
+    @DisplayName("should name each Edit attempt, so Cancel gives back only what that attempt took, even after a lost answer")
+    void shouldNameTheEditAttempt_inEditAndInCancelsRelease() {
+        String lock = function("takeNoteLock");
+        String body = function("legacyNoteLockBody");
+
+        assertThat(page).contains("var legacyEditAttempt = '<%= SafeEncode.forJavaScript((String) request.getAttribute(",
+                "CaseManagementEntry2Action.EDIT_ATTEMPT_ATTRIBUTE)) %>';",
+                "<input type=\"hidden\" name=\"editAttempt\" id=\"editAttemptField\" value=\"\"/>");
+        assertThat(function("newLegacyEditAttempt")).contains("window.crypto.getRandomValues(bytes);");
+        // A retry after a lost answer repeats the attempt; a refused one starts afresh.
+        assertThat(lock).contains("if (!legacyEditAttempt) legacyEditAttempt = newLegacyEditAttempt();",
+                "if (answered && !owned) legacyEditAttempt = '';");
+        assertThat(body).contains("\"&editAttempt=\" + encodeURIComponent(legacyEditAttempt)");
+        assertThat(function("beginLegacyEditing")).contains("attemptField.value = legacyEditAttempt;");
+    }
+
+    @Test
+    @DisplayName("should close the editor only after the server confirms the lock is given back, and offer Cancel again otherwise")
+    void shouldCloseOnlyAfterAConfirmedRelease_andKeepARetry() {
+        String release = function("releaseLegacyNoteLock");
+        String cancel = function("cancelLegacyNote");
+
+        assertThat(page).contains("<fmt:message var=\"noteLockReleaseFailedLabel\" key=\"encounter.noteLockReleaseFailed.msg\"/>");
+        assertThat(release).contains("legacyNoteLockBody('releaseNoteLock')", "if (releaseRequest.status === 200) {",
+                "if (state === 'released' || state === 'notHeld' || state === 'cancelled') {", "done();",
+                "alert('${carlos:forJavaScriptBlock(noteLockReleaseFailedLabel)}');")
+                .doesNotContain("window.close()");
+        assertThat(release.indexOf("done();")).isLessThan(release.indexOf("noteLockReleaseFailedLabel"));
+        // Cancel of an editor an attempt opened gives the lock back first, then submits the cancel.
+        assertThat(cancel).contains("if (legacyReleasePending) return false;", "releaseLegacyNoteLock(close);",
+                "form.elements['method'].value = 'cancel';", "form.submit();");
+        assertThat(cancel.indexOf("releaseLegacyNoteLock(close);"))
+                .isLessThan(cancel.lastIndexOf("return true;"));
     }
 
     @Test
@@ -118,7 +152,7 @@ class CaseManagementEntryNoteLockJspRegressionTest {
     }
 
     @Test
-    void shouldUseEachIssueDescriptionAsItsCheckboxLabel() {
+    void shouldUseEachIssueDescription_asItsCheckboxLabel() {
         assertThat(page).contains("id=\"note-issue-select-${status.index}\"",
                 "<label for=\"note-issue-select-${status.index}\">${cbb.issueDisplay.description}</label>");
     }
