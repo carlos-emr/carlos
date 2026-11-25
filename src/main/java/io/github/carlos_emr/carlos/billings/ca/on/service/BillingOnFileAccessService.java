@@ -11,7 +11,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /** Ownership of the bytes behind Ontario's shared claim files and per-provider HTML reports. */
@@ -86,13 +88,33 @@ public class BillingOnFileAccessService {
         }
     }
 
-    /** An OBEC file in a co-located directory must be session-issued and have no Ontario billing owner. */
-    public boolean canDownload(LoggedInInfo login, String filename, boolean generatedObec) {
-        if (login == null || filename == null || filename.isBlank()) return false;
+    public enum DownloadAccess { DENIED, GRANTED, VERIFY_OWNERS }
+
+    private DownloadAccess billingOrReportAccess(LoggedInInfo login, String filename, boolean generatedObec) {
+        if (login == null || filename == null || filename.isBlank()) return DownloadAccess.DENIED;
         if (generatedObec && security.hasPrivilege(login, "_report", SecurityInfoManager.READ, null)
-                && !filePermissions(List.of(filename), Set.of()).containsKey(filename)) return true;
-        if (!security.hasPrivilege(login, "_billing", SecurityInfoManager.READ, null)) return false;
+                && !filePermissions(List.of(filename), Set.of()).containsKey(filename)) return DownloadAccess.GRANTED;
+        if (!security.hasPrivilege(login, "_billing", SecurityInfoManager.READ, null)) return DownloadAccess.DENIED;
+        return DownloadAccess.VERIFY_OWNERS;
+    }
+
+    /** A session-issued OBEC file or clinic-wide billing access can be authorized independently of a current disk. */
+    public DownloadAccess downloadAccess(LoggedInInfo login, String filename, boolean generatedObec) {
+        DownloadAccess access = billingOrReportAccess(login, filename, generatedObec);
+        if (access != DownloadAccess.VERIFY_OWNERS) return access;
+        return BillingOnProviderScope.forLogin(security, login).restricted() ? DownloadAccess.VERIFY_OWNERS : DownloadAccess.GRANTED;
+    }
+
+    public boolean canDownload(LoggedInInfo login, String filename, boolean generatedObec) {
+        DownloadAccess access = billingOrReportAccess(login, filename, generatedObec);
+        if (access != DownloadAccess.VERIFY_OWNERS) return access == DownloadAccess.GRANTED;
         var scope = BillingOnProviderScope.forLogin(security, login).historyProviderNumbers(providers, login.getLoggedInProviderNo());
         return scope.isEmpty() || Boolean.TRUE.equals(filePermissions(List.of(filename), scope.get()).get(filename));
+    }
+
+    /** Start the servlet's ownership queries after acquiring the publication guard, with no earlier transaction snapshot. */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public <T extends AutoCloseable> T openScopedDownload(Supplier<T> open) {
+        return BillingOutputLock.openDownload(open);
     }
 }

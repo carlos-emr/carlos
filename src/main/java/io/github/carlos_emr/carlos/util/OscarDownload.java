@@ -29,7 +29,18 @@
 package io.github.carlos_emr.carlos.util;
 
 import java.io.File;
+import java.io.Closeable;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
+import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.util.List;
 import java.util.Set;
 import io.github.carlos_emr.CarlosProperties;
 
@@ -41,6 +52,7 @@ import jakarta.servlet.http.HttpSession;
 import org.apache.logging.log4j.Logger;
 import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingFilenameImportDao;
+import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingFilenameImportDao.FileReview;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingImportedFiles;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnFileAccessService;
 import io.github.carlos_emr.carlos.report.pageUtil.Obec2Action;
@@ -138,8 +150,12 @@ public class OscarDownload extends GenericDownload {
                                         Obec2Action.DOWNLOAD_PREFIX + filename);
                         BillingOnFileAccessService access = SpringUtils.getBean(BillingOnFileAccessService.class);
                         LoggedInInfo login = LoggedInInfo.getLoggedInInfoFromSession(session);
-                        if (!access.canDownload(login, filename, generatedObec)
-                                || (!filename.equals(rawFilename) && !access.canDownload(login, rawFilename, false))) {
+                        var permission = access.downloadAccess(login, filename, generatedObec);
+                        if (permission == BillingOnFileAccessService.DownloadAccess.VERIFY_OWNERS) {
+                            serveScopedDownload(res, access, login, downloadDir, filename, rawFilename);
+                            return;
+                        }
+                        if (permission != BillingOnFileAccessService.DownloadAccess.GRANTED) {
                             res.sendError(HttpServletResponse.SC_FORBIDDEN);
                             return;
                         }
@@ -150,12 +166,7 @@ public class OscarDownload extends GenericDownload {
                     try (var reviewed = reviewedBillingFile(filename,
                             PathValidationUtils.validatePath(filename, downloadDir).toPath())) {
                         if (reviewed != null) {
-                            String headerFilename = filename.replaceAll("[\\r\\n\\p{Cntrl}]", "");
-                            res.setContentType("application/octet-stream");
-                            res.setHeader("X-Content-Type-Options", "nosniff");
-                            res.setHeader("Content-Disposition", "attachment;filename=\"" + headerFilename + "\"");
-                            res.setContentLengthLong(reviewed.size());
-                            reviewed.input().transferTo(res.getOutputStream()); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- verified binary response
+                            sendOpenedFile(res, filename, reviewed.input(), reviewed.size());
                             return;
                         }
                     }
@@ -181,15 +192,72 @@ public class OscarDownload extends GenericDownload {
         }
     }
 
+    private record ScopedBillingFile(FileChannel input, List<FileReview> reviews) implements Closeable {
+        private static final ScopedBillingFile DENIED = new ScopedBillingFile(null, List.of());
+
+        @Override public void close() throws IOException {
+            if (input != null) input.close();
+        }
+    }
+
+    private void serveScopedDownload(HttpServletResponse res, BillingOnFileAccessService access, LoggedInInfo login,
+                                     File directory, String filename, String rawFilename) throws IOException {
+        Path path = PathValidationUtils.validatePath(filename, directory).toPath();
+        try (var file = access.openScopedDownload(() -> {
+            if (!access.canDownload(login, filename, false)
+                    || (!filename.equals(rawFilename) && !access.canDownload(login, rawFilename, false))) {
+                return ScopedBillingFile.DENIED;
+            }
+            // A reconciled file is pinned by its recorded digest. Its private snapshot can be made after releasing the guard.
+            var reviews = billingFileReviews(filename);
+            if (!reviews.isEmpty()) return new ScopedBillingFile(null, reviews);
+            try {
+                if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) throw new FileNotFoundException();
+                return new ScopedBillingFile(FileChannel.open(path, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS), List.of());
+            } catch (IOException unavailable) {
+                throw new UncheckedIOException(unavailable);
+            }
+        })) {
+            if (file == ScopedBillingFile.DENIED) {
+                res.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return;
+            }
+            if (!filename.equals(rawFilename)) {
+                requireBillingFile(rawFilename, PathValidationUtils.validatePath(rawFilename, directory).toPath());
+            }
+            if (file.input() != null) {
+                sendOpenedFile(res, filename, Channels.newInputStream(file.input()), file.input().size());
+            } else {
+                try (var reviewed = BillingImportedFiles.openReviewed(file.reviews(), filename, path)) {
+                    sendOpenedFile(res, filename, reviewed.input(), reviewed.size());
+                }
+            }
+        } catch (UncheckedIOException missing) {
+            DownloadStorageWarnings.reportIfUnavailable(directory);
+            res.sendError(HttpServletResponse.SC_NOT_FOUND, "Download file not found.");
+        }
+    }
+
+    private static void sendOpenedFile(HttpServletResponse res, String filename, InputStream input, long size) throws IOException {
+        String headerFilename = filename.replaceAll("[\\r\\n\\p{Cntrl}]", "");
+        res.setContentType("application/octet-stream");
+        res.setHeader("X-Content-Type-Options", "nosniff");
+        res.setHeader("Content-Disposition", "attachment;filename=\"" + headerFilename + "\"");
+        res.setContentLengthLong(size);
+        input.transferTo(res.getOutputStream()); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- validated binary response
+    }
+
+    private List<FileReview> billingFileReviews(String filename) {
+        return SpringUtils.getBean(BillingFilenameImportDao.class).findFileReviews(filename);
+    }
+
     protected void requireBillingFile(String filename, java.nio.file.Path path) {
-        BillingFilenameImportDao dao = SpringUtils.getBean(BillingFilenameImportDao.class);
-        BillingImportedFiles.requireResolved(dao.findFileReviews(filename), filename, path);
+        BillingImportedFiles.requireResolved(billingFileReviews(filename), filename, path);
     }
 
     /** Opens the verified snapshot used for both validation and delivery of an audited file. */
     protected BillingImportedFiles.ReviewedFile reviewedBillingFile(String filename, java.nio.file.Path path) {
-        BillingFilenameImportDao dao = SpringUtils.getBean(BillingFilenameImportDao.class);
-        return BillingImportedFiles.openReviewed(dao.findFileReviews(filename), filename, path);
+        return BillingImportedFiles.openReviewed(billingFileReviews(filename), filename, path);
     }
 
     private void sendErrorForCaughtException(HttpServletResponse res, int statusCode, String message) {

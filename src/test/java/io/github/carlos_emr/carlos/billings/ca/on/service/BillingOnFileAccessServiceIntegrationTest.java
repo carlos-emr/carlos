@@ -62,6 +62,7 @@ class BillingOnFileAccessServiceIntegrationTest extends CarlosTestBase {
                 .containsEntry("fixture-no-members.001", false)
                 .doesNotContainKeys("fixture-unknown.001", "FIXTURE-WEST.HTML");
         assertThat(access.canDownload(login, "fixture-west.html", false)).isTrue();
+        assertThat(access.downloadAccess(login, "fixture-west.html", false)).isEqualTo(BillingOnFileAccessService.DownloadAccess.VERIFY_OWNERS);
         assertThat(access.canDownload(login, "fixture-mixed.001", false)).isFalse();
         assertThat(access.canDownload(login, "fixture-unknown.001", false)).isFalse();
         assertThat(access.filePermissions(List.of("fixture-mixed.001"), Set.of(WEST, EAST)))
@@ -99,10 +100,13 @@ class BillingOnFileAccessServiceIntegrationTest extends CarlosTestBase {
         assertThat(access.canDownload(login, " ", true)).isFalse();
         assertThat(access.canDownload(login, "fixture-local.html", false)).isFalse();
         assertThat(access.canDownload(login, "fixture-local.html", true)).isFalse();
+        assertThat(access.downloadAccess(login, "fixture-local.html", true)).isEqualTo(BillingOnFileAccessService.DownloadAccess.DENIED);
         assertThat(access.canDownload(login, "OBECE0123456789.TXT", true)).isTrue();
+        assertThat(access.downloadAccess(login, "OBECE0123456789.TXT", true)).isEqualTo(BillingOnFileAccessService.DownloadAccess.GRANTED);
         when(security.hasPrivilege(login, "_billing", "r", null)).thenReturn(true);
         when(security.hasPrivilege(login, "_team_billing_only", "r", null)).thenReturn(false);
         assertThat(access.canDownload(login, "ordinary-historical-file.001", false)).isTrue();
+        assertThat(access.downloadAccess(login, "ordinary-historical-file.001", false)).isEqualTo(BillingOnFileAccessService.DownloadAccess.GRANTED);
     }
 
     private int disk(String filename) {
