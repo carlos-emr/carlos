@@ -4,6 +4,10 @@
 // as shipped on a deterministic DOM: run with `node --test scripts/mycarlos-send-dialog.test.js`.
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const h = require('./lib/playwright-harness');
 const {Element, FakeDocument, sendRoot, load, tick, delivery, state} = require('./lib/mycarlos-send-fake-dom');
 
 const MINTED = delivery(500).deliveryId;
@@ -369,4 +373,42 @@ test('a link with no dialog on the page is left to open the standalone page', ()
     stray.dataset.mycarlosDialog = 'mycarlos-send-dialog-missing';
     assert.equal(stray.click().defaultPrevented, false);
     assert.equal(view.calls.length, 0);
+});
+
+// The live-portal browser check (scripts/e2e/mycarlos/send-dialog-live-portal-check.js) sends real
+// deliveries. It is loaded as npm runs it, with runWorkflow replaced by a recorder of its options.
+function liveCheck(env) {
+    const module = {exports: {}};
+    let options;
+    const loader = name => {
+        if (name === '../../lib/playwright-harness') return h;
+        if (name === '../../lib/workflow-session') return {runWorkflow: (_name, _workflow, registered) => { options = registered; }};
+        throw new Error('the live check requires ' + name);
+    };
+    loader.main = module;
+    vm.runInNewContext(fs.readFileSync(path.join(__dirname, 'e2e/mycarlos/send-dialog-live-portal-check.js'), 'utf8'),
+        {require: loader, module, process: {env}});
+    return options;
+}
+
+test('the live-portal check skips an unconfigured run before the database or a browser is opened', () => {
+    for (const env of [{}, {MYCARLOS_PATIENT: '6001', MYCARLOS_DOCUMENTS: '44,45'}, {MYCARLOS_SEND_DIALOG_THROWAWAY: 'yes'}]) {
+        const options = liveCheck(env);
+        assert.equal(typeof options.preflightConfig, 'function', 'the opt-in is checked before SQL setup');
+        assert.throws(() => options.preflightConfig({config: {}}), error => error instanceof h.SkipCheck, JSON.stringify(env));
+    }
+});
+
+test("the live-portal check starts only when both documents are the patient's own", () => {
+    const options = liveCheck({MYCARLOS_SEND_DIALOG_THROWAWAY: 'yes', MYCARLOS_PATIENT: '6001', MYCARLOS_DOCUMENTS: '44,45'});
+    assert.doesNotThrow(() => options.preflightConfig({config: {}}));
+    const asked = [];
+    const sql = owned => ({value: (query, parameters) => {
+        assert.match(query, /ctl_document/);
+        asked.push([...parameters]);
+        return owned.includes(parameters[1]) ? '1' : '0';
+    }});
+    options.preflight({sql: sql([44, 45])});
+    assert.deepEqual(asked, [[6001, 44], [6001, 45]], 'each document is checked against the patient');
+    assert.throws(() => options.preflight({sql: sql([44])}), /MYCARLOS_DOCUMENTS 45 /, 'a mistyped second document is refused');
 });

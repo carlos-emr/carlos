@@ -11,7 +11,9 @@
 //   MYCARLOS_PATIENT    a FAKE patient whose myCarlos device is approved, with delivery on;
 //   MYCARLOS_DOCUMENTS  two of that patient's documents, comma-separated (e.g. 55,56);
 // plus the usual BASE_URL, TEST_USER/TEST_PASSWORD/TEST_PIN and MYSQL_* for the harness. The
-// deliveries it makes stay in the throwaway portal; nothing else is written.
+// deliveries it makes stay in the throwaway portal; nothing else is written. Without the opt-in it
+// reports SKIP before opening the database or a browser, and it refuses to start unless both
+// documents are the patient's own.
 //
 // NOT part of scripts/playwright-suite.json, and named without "-playwright-checks" on purpose: it needs a live
 // portal that no release-qualification lane has, so listing it would make the release plan require it.
@@ -32,6 +34,24 @@ function fixture() {
     throw new h.SkipCheck('MYCARLOS_PATIENT and two MYCARLOS_DOCUMENTS are needed');
   }
   return { patient, documents };
+}
+
+// runWorkflow runs this before the database or a browser is opened, so an unconfigured run skips.
+function preflightConfig() {
+  fixture();
+}
+
+// Before the browser opens: each document must be a live document of MYCARLOS_PATIENT, by the
+// server's own test (CtlDocumentDao.findDocumentNosForDemographic). A mistyped id could otherwise open
+// another accessible patient's dialog and send that patient a real portal delivery.
+function preflight({ sql }) {
+  const { patient, documents } = fixture();
+  for (const documentId of documents) {
+    const owned = sql.value(`SELECT COUNT(*) FROM document d JOIN ctl_document c ON c.document_no=d.document_no
+      WHERE c.module='demographic' AND c.module_id=? AND d.document_no=? AND d.status<>'D'
+      AND (c.status IS NULL OR c.status<>'D')`, [Number(patient), Number(documentId)]);
+    h.assert(owned === '1', `MYCARLOS_DOCUMENTS ${documentId} is not a live document of MYCARLOS_PATIENT`);
+  }
 }
 
 // Every PortalDelivery call a page makes, with its parsed operation and body.
@@ -162,6 +182,9 @@ async function workflow(s) {
       return route.abort('failed');
     }, { times: 1 });
     const dialog = await openDialog(other.page, second);
+    const reads = other.calls.filter(call => call.operation === 'read');
+    h.assert(reads.length === 1 && reads[0].url.searchParams.get('documentId') === second
+      && reads[0].url.searchParams.get('demographicNo') === patient, 'the second read is not for its document and this patient');
     const id = await dialog.getAttribute('data-delivery');
     h.assert(UUID_V4.test(id || '') && id !== minted, 'the second document has no operation id of its own');
     await button(dialog, 'Send to myCarlos').click();
@@ -239,6 +262,6 @@ async function workflow(s) {
   });
 }
 
-if (require.main === module) runWorkflow('mycarlos-send-dialog', workflow, { openPatient: false });
+if (require.main === module) runWorkflow('mycarlos-send-dialog', workflow, { openPatient: false, preflightConfig, preflight });
 
-module.exports = { workflow, fixture };
+module.exports = { workflow, fixture, preflightConfig, preflight };
