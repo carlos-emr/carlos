@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/dao/BillingDaoImpl.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 83.33333333333333,
+    "instructions": 74.07407407407408,
+    "branches": 50.0,
+    "sourceBlob": "989b277237adfe6a47d6c9c4be810a11bcc0f5c9"
+  },
+  "evidenceSha256": "349654937dac73d392cfa713fb3847d5cb449c908f0aaa92917c9cbf6d5135a5"
+}
