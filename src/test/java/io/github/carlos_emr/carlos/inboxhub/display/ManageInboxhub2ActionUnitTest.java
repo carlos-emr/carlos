@@ -32,11 +32,13 @@ class ManageInboxhub2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(controllers.constructed()).isEmpty();
         }
     }
-    @ParameterizedTest @CsvSource({"displayInboxList,displayList", "displayInboxView,displayView"})
-    void shouldRenderEmptyResults_withRequestedPaginationAndFilters(String method, String result) throws Exception {
+    @ParameterizedTest @CsvSource({"displayInboxList,displayList,false", "displayInboxView,displayView,false",
+            "displayInboxList,displayList,true", "displayInboxView,displayView,true"})
+    void shouldContinueAnEmptyPageOnlyWhenSourceRowsWereOmitted(String method, String result, boolean omitted) throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest(); request.setParameter("method", method);
         request.setParameter("page", "2"); request.setParameter("pageSize", "10");
         request.setParameter("demographicFilter", "770001"); request.setParameter("typeFilter", "DOC");
+        if (omitted) request.setAttribute("inboxDocumentsIncomplete", true);
         LoggedInInfo info = mock(LoggedInInfo.class); LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), info);
         SecurityInfoManager security = createAndRegisterMock(SecurityInfoManager.class);
         when(security.hasPrivilege(info, "_appointment.doctorLink", SecurityInfoManager.READ, null)).thenReturn(true);
@@ -49,7 +51,7 @@ class ManageInboxhub2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(action.getQuery().getPage()).isEqualTo(2); assertThat(action.getQuery().getPageSize()).isEqualTo(10);
             assertThat(request.getAttribute("page")).isEqualTo("2");
             assertThat(request.getAttribute("pageSize")).isEqualTo("10");
-            assertThat(request.getAttribute("hasMoreData")).isEqualTo(false);
+            assertThat(request.getAttribute("hasMoreData")).isEqualTo(omitted);
             assertThat((ArrayList<?>) request.getAttribute("labDocs")).isEmpty();
             verify(controllers.constructed().get(0)).sanitizeInboxFormQuery(info, action.getQuery(), "770001", "DOC");
         }

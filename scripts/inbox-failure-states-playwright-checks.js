@@ -34,17 +34,34 @@ async function workflow(s) {
   sql.execute(`INSERT INTO document (document_no,doctype,docdesc,docfilename,doccreator,responsible,status,contenttype,
     contentdatetime,observationdate,public1,number_of_pages,restrictToProgram)
     VALUES (${bad},'others',${h.sqlString(`${marker} invalid`)},'unavailable.pdf',${h.sqlString(provider)},${h.sqlString(provider)},
-      'A','application/pdf','2026-12-31 12:00:00','2026-12-31',0,1,0);
+      'A','application/pdf','2099-12-31 12:00:00','2099-12-31',0,1,0);
     INSERT INTO ctl_document (module,module_id,document_no,status) VALUES ('demographic',${patient},${bad},'A');
     INSERT INTO providerLabRouting (provider_no,lab_no,lab_type,status,timestamp) VALUES (${h.sqlString(provider)},${bad},'DOC','N',NOW())`);
   const route = `/web/inboxhub/Inboxhub?method=displayInboxForm&query.patientLastName=${encodeURIComponent(marker)}&query.viewMode=false&query.searchAll=true`;
   const inbox = await s.context.newPage();
-  await s.step('a bad document row has a visible completeness warning and later valid documents still render', async () => {
+  // A missing item can occupy a whole database page. Keep the real endpoint
+  // and isolate that case without creating a full page of invalid clinical rows.
+  await inbox.route(/\/web\/inboxhub\/Inboxhub\?method=displayInbox(?:List|View)$/, async routed => {
+    const data = new URLSearchParams(routed.request().postData());
+    data.set('pageSize', '1');
+    await routed.continue({ postData: data.toString() });
+  });
+  await s.step('an omitted page warns and the list still loads later valid documents', async () => {
     await h.gotoApp(inbox, s.config.baseUrl, route);
     await inbox.locator('#inboxhubIncompleteNotice').waitFor({ state: 'visible' });
     for (const doc of docs) await inbox.locator(`#labdoc_DOC_${doc.id}`).waitFor({ state: 'attached' });
     h.assert(await inbox.locator(`#labdoc_DOC_${bad}`).count() === 0, 'An invalid identity became a clinical row');
     h.assert(!(await inbox.locator('#inboxhubIncompleteNotice').innerText()).includes(String(bad)), 'The notice exposes an invalid source identity');
+  });
+  await s.step('an omitted preview page advances before any card can be scrolled', async () => {
+    await h.gotoApp(inbox, s.config.baseUrl, route.replace('viewMode=false', 'viewMode=true'));
+    await inbox.locator('#inboxhubIncompleteNotice').waitFor({ state: 'visible' });
+    await inbox.locator('#inboxViewItems .document-card').first().waitFor({ state: 'attached' });
+    await inbox.locator('#inboxViewItems').evaluate(items => {
+      items.scrollTop = items.scrollHeight;
+      items.dispatchEvent(new Event('scroll'));
+    });
+    for (const doc of docs) await inbox.locator(`#labdoc_DOC_${doc.id}`).waitFor({ state: 'attached' });
   });
   const backup = `carlos_test_hrm_fault_${marker.replace('FAKE-PW', '')}`;
   h.assert(/^carlos_test_hrm_fault_[a-f0-9]+$/.test(backup), 'Invalid owned fault table name');
