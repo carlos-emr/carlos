@@ -360,11 +360,12 @@ for (const [name, after, sentinel, error] of [
 // A later definition of the same key under another spelling (an escape, a continuation) overrides the stock physical
 // line in java.util.Properties, so the postinst rightly leaves the file alone (it rewrites only a key defined once),
 // writes its sentinel, and the verifier must not call that an upgrade that missed its rewrite.
-for (const [name, extra] of [
+const LAB_FILTER_OVERRIDES = [
   ['an escaped underscore', 'HL7_LAB_MEASUREMENT\\_FILTER=clinic-specific'],
   ['a unicode escape', 'HL7_LAB_\\u004dEASUREMENT_FILTER=clinic-specific'],
   ['a continued key', 'HL7_LAB_MEASUREMENT_\\\n   FILTER=clinic-specific'],
-]) {
+];
+for (const [name, extra] of LAB_FILTER_OVERRIDES) {
   test(`upgrade verifier accepts the preserved #4613 lab filter when ${name} overrides it`, t => {
     const fixture = labFilterWordsFixture(t);
     fs.writeFileSync(fixture.props, `rx_fax_enabled=true\n${LAB_FILTER_WORDS_OLD}\n${extra}\nother=kept\n`);
@@ -421,15 +422,51 @@ test('upgrade verifier still fails a single eligible stock definition left uncha
   assert.match(result.stdout, /FAIL HL7_LAB_MEASUREMENT_FILTER was not migrated from the #4613 line/);
 });
 
-test('upgrade verifier keeps the earlier expectation for a snapshot without the logical count', t => {
+// A PRE snapshot from a baseline that predates cfg.labFilter.logical. The verifier then takes the count from POST,
+// which a correct upgrade leaves as it was: the rewrite turns the one definition it owes into one, and nothing else
+// in an upgrade writes the key.
+function withoutLogicalCount(snapshot) {
+  const lines = fs.readFileSync(snapshot, 'utf8').split('\n');
+  fs.writeFileSync(snapshot, lines.filter(line => !line.startsWith('cfg.labFilter.logical=')).join('\n'));
+  assert.doesNotMatch(fs.readFileSync(snapshot, 'utf8'), /^cfg\.labFilter\.logical=/m);
+}
+
+test('upgrade verifier still fails a single stock definition left unchanged after a pre-change baseline', t => {
   const fixture = labFilterWordsFixture(t);
-  const pre = fs.readFileSync(fixture.env.PRE, 'utf8').split('\n').filter(line => !line.startsWith('cfg.labFilter.logical=')).join('\n');
-  fs.writeFileSync(fixture.env.PRE, pre);
+  withoutLogicalCount(fixture.env.PRE);
   fs.writeFileSync(fixture.props, `rx_fax_enabled=true\n${LAB_FILTER_WORDS_OLD}\nother=kept\n`);
   const result = fixture.run('deb-upgrade-verify.sh');
   assert.equal(result.status, 1, result.stdout + result.stderr);
   assert.match(result.stdout, /FAIL HL7_LAB_MEASUREMENT_FILTER was not migrated from the #4613 line/);
 });
+
+test('upgrade verifier accepts the one-time whole-word lab-filter migration after a pre-change baseline', t => {
+  const fixture = labFilterWordsFixture(t);
+  withoutLogicalCount(fixture.env.PRE);
+  fs.writeFileSync(fixture.props, `rx_fax_enabled=true\n${LAB_FILTER_NEW}\nother=kept\n`);
+  fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, LAB_FILTER_WORDS_SENTINEL), '');
+  const result = fixture.run('deb-upgrade-verify.sh');
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /changed only by the one-time stock-default migrations .*lab filter: yes/);
+  assert.match(result.stdout, /PASS the #4613 stock HL7_LAB_MEASUREMENT_FILTER was migrated to the skeleton's whole-word line/);
+});
+
+for (const [name, extra] of LAB_FILTER_OVERRIDES) {
+  test(`upgrade verifier accepts the preserved #4613 lab filter after a pre-change baseline when ${name} overrides it`, t => {
+    const fixture = labFilterWordsFixture(t);
+    fs.writeFileSync(fixture.props, `rx_fax_enabled=true\n${LAB_FILTER_WORDS_OLD}\n${extra}\nother=kept\n`);
+    fixture.baseline();
+    withoutLogicalCount(fixture.env.PRE);
+    // The real migration left the file byte for byte and wrote its sentinel.
+    fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, LAB_FILTER_WORDS_SENTINEL), '');
+    const result = fixture.run('deb-upgrade-verify.sh');
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.doesNotMatch(result.stdout, /FAIL/);
+    assert.doesNotMatch(result.stdout, /was not migrated|could not be established/);
+    assert.match(result.stdout, /PASS lab-filter whole-word migration sentinel written/);
+    assert.match(fs.readFileSync(fixture.env.POST, 'utf8'), /^cfg\.labFilter\.logical=2$/m);
+  });
+}
 
 test('upgrade verifier rejects an unmigrated lab filter when the skeleton itself still has the old line', t => {
   // The skeleton's digest equals the old one, so "post equals skeleton" proves nothing.
