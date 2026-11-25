@@ -3,10 +3,10 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/util/OscarDownload.java",
   "kind": "floor",
   "floor": {
-    "lines": 94.11764705882354,
-    "instructions": 94.9771689497717,
-    "branches": 87.5,
-    "sourceBlob": "bef26ee0c2c0e1b4bc497b7bccae6ba247e3f685"
+    "lines": 96.42857142857143,
+    "instructions": 96.41943734015345,
+    "branches": 88.0,
+    "sourceBlob": "c65db2c6aa5cb9bcbd501b93d3026ddd0fe87c11"
   },
-  "evidenceSha256": "630232882d27295a85197453af3fe5958ad7cadec3ae5c9740a0efe30e44dd81"
+  "evidenceSha256": "a6f965d3df18a1690bb86dbfb1f5824b6f21ee54978ec299a95a0bfb91cb18ab"
 }
