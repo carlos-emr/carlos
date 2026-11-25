@@ -10568,6 +10568,104 @@
         "T25",
         "T26"
       ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/ScheduleDateDao.java": {
+      "reason": "The DAO contract supplies a locking read of both active custom override rows and generated dates for the selected provider and date range.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/schedule/service/ScheduleDateOverrideServiceIntegrationTest.java",
+        "scripts/schedule-template-day-sheet-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway",
+        "java-native-bc-flyway",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/ScheduleDateDaoImpl.java": {
+      "reason": "The physical query must see the committed custom overrides for the current provider and leave unrelated providers and dates untouched.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/schedule/service/ScheduleDateOverrideServiceIntegrationTest.java",
+        "scripts/schedule-template-day-sheet-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway",
+        "java-native-bc-flyway",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/schedule/service/ScheduleDateOverrideService.java": {
+      "reason": "Template generation and single-date overrides share the provider lock. The database suite interleaves Save and Delete and verifies rollback when a generated date is invalid.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/schedule/service/ScheduleDateOverrideServiceIntegrationTest.java",
+        "scripts/schedule-template-day-sheet-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway",
+        "java-native-bc-flyway",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/schedule/service/ScheduleTemplateService.java": {
+      "reason": "The template header and rule-made dates must commit together. Database tests exercise missing providers, a failed header write, same-start replacement and overlap reporting.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/schedule/service/ScheduleDateOverrideServiceIntegrationTest.java",
+        "scripts/schedule-template-day-sheet-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway",
+        "java-native-bc-flyway",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/schedule/scheduletemplateapplying.jsp": {
+      "reason": "Template selection must render and publish the selected provider’s rule. The calendar tests check a new template, switching providers and opening a second template while an existing month is visible.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/schedule/ScheduleTemplateApplyingJspRegressionTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/schedule/web/ScheduleCalendarCacheUnitTest.java",
+        "scripts/schedule-template-day-sheet-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "jsp-compile",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T09",
+        "T40"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/documentManager/IncomingDocUtil.java": {
+      "reason": "Document preview GETs share a provider preference. Concurrent reads must preserve absent, NULL and existing values while an explicit queue selection persists. The installed Inbox check waits for both document previews to render.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/documentManager/IncomingDocumentQueuePreferenceIntegrationTest.java",
+        "scripts/inbox-failure-states-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway",
+        "java-native-bc-flyway",
+        "manual-inbox-failure-states"
+      ],
+      "workstreams": [
+        "T04",
+        "T14"
+      ]
     }
   },
   "lifecycleBaselineManifest": "docs/testing/release-2026.08-lifecycle-baselines.json",
