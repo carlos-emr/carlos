@@ -71,7 +71,8 @@ test('a send says it is sending, then that it was sent', async () => {
     const {parts, calls} = mount([]);
     parts.form.dispatch('submit'); await tick();
     assert.equal(parts.message.textContent, 'sending');
-    calls[0].resolve(state([{...delivery(999, 'staged'), deviceKeyId: 'FAKE-current-device'}])); await tick();
+    // The portal took the upload: the copy waits for pickup.
+    calls[0].resolve(state([{...delivery(999, 'waiting'), deviceKeyId: 'FAKE-current-device'}])); await tick();
     assert.equal(parts.message.textContent, 'sent');
     assert.equal(parts.send.disabled, true, 'this operation id is queued: the same copy is not sent twice');
 });

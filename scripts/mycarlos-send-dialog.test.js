@@ -72,7 +72,7 @@ test('Close and Esc wait while a send runs, until its result shows', async () =>
     assert.equal(root.open, true, 'Close does not close while sending');
     assert.equal(root.pressEscape(), false, 'Esc does not close while sending');
     assert.equal(root.open, true);
-    view.calls[1].resolve(state([{...delivery(500, 'staged'), deviceKeyId: 'FAKE-current-device'}])); await tick();
+    view.calls[1].resolve(state([{...delivery(500, 'waiting'), deviceKeyId: 'FAKE-current-device'}])); await tick();
     assert.equal(parts.message.textContent, 'sent');
     assert.equal(parts.close.disabled, false);
     assert.equal(root.pressEscape(), true);
@@ -90,7 +90,7 @@ test('a send keeps the focus in the dialog, on its status line, not on the disab
     // A browser drops the focus from a disabled control out of the dialog; the status line keeps it.
     assert.equal(view.document.focused, parts.message);
     assert.equal(parts.message.tabIndex, -1);
-    view.calls[1].resolve(state([{...delivery(500, 'staged'), deviceKeyId: 'FAKE-current-device'}])); await tick();
+    view.calls[1].resolve(state([{...delivery(500, 'waiting'), deviceKeyId: 'FAKE-current-device'}])); await tick();
     assert.equal(view.document.focused, parts.message, 'the result is read where the focus is');
     assert.equal(parts.message.textContent, 'sent');
 });
@@ -171,7 +171,7 @@ test('a send that hears nothing back ends at its deadline: the error shows, Clos
     assert.equal(parts.send.disabled, false);
     parts.form.dispatch('submit'); await tick();
     assert.equal(new URLSearchParams(view.calls[2].options.body).get('deliveryId'), MINTED, 'the same operation id, so no second copy');
-    view.calls[2].resolve(state([{...delivery(500, 'staged'), deviceKeyId: 'FAKE-current-device'}])); await tick();
+    view.calls[2].resolve(state([{...delivery(500, 'waiting'), deviceKeyId: 'FAKE-current-device'}])); await tick();
     assert.equal(parts.message.textContent, 'sent');
     assert.equal(root.pressEscape({focusInside: false}), true);
     assert.equal(root.open, false);
@@ -218,6 +218,23 @@ test('a failed send shows what went wrong, then lets the dialog close', async ()
     assert.equal(root.open, false);
 });
 
+// The action answers 200 whatever the outbox recorded for the copy, a refused upload (error) or one
+// still to send (staged) included.
+test('a send says Sent only for an upload the portal took, otherwise the state of the copy it submitted', async () => {
+    for (const [status, shown] of [['waiting', 'sent'], ['picked_up', 'sent'], ['staged', 'staged'], ['error', 'error'],
+        ['fenced', 'fenced'], ['expired', 'expired'], ['removed', 'removed'], [null, 'error']]) {
+        const view = page();
+        const {parts} = view.dialogs['44'];
+        await openRead(view);
+        parts.form.dispatch('submit'); await tick();
+        // An earlier copy of this document, picked up, is listed too: only the submitted copy's row counts.
+        const rows = [delivery(400, 'picked_up')];
+        if (status) rows.unshift({...delivery(500, status), deviceKeyId: 'FAKE-current-device'});
+        view.calls[1].resolve(state(rows)); await tick();
+        assert.equal(parts.message.textContent, shown, `a copy recorded as ${status}`);
+    }
+});
+
 test('reading or checking status does not hold the dialog open', async () => {
     const view = page();
     const {root, parts} = view.dialogs['44'];
@@ -261,6 +278,62 @@ test('reopening reads again and keeps the same operation id; a new copy takes a 
     assert.equal(root.dataset.delivery, delivery(502).deliveryId);
     assert.equal(parts.send.disabled, false);
     assert.equal(parts.new.hidden, true);
+});
+
+// The server lists the patient's deliveries 20 at a time, then keeps this document's: once 20 later
+// deliveries of other documents follow, the first page lists none of this document's copies.
+test('a queued copy whose row is on an older page still offers a new copy, and its id is never sent again', async () => {
+    const view = page();
+    const {root, parts} = view.dialogs['44'];
+    await openRead(view);
+    parts.form.dispatch('submit'); await tick();
+    view.calls[1].resolve(state([{...delivery(500, 'waiting'), deviceKeyId: 'FAKE-current-device'}])); await tick();
+    parts.close.click();
+    await openRead(view, '44', delivery(501).deliveryId, []);
+    assert.equal(root.dataset.delivery, MINTED);
+    assert.equal(parts.history.rows.length, 0, "the copy's row is on an older page");
+    assert.equal(parts.send.disabled, true, 'the queued id is not sent again');
+    assert.equal(parts.new.hidden, false, 'a new copy is offered');
+    parts.new.click(); await tick();
+    view.calls.at(-1).resolve(state([], {deliveryId: delivery(502).deliveryId})); await tick();
+    assert.equal(root.dataset.delivery, delivery(502).deliveryId);
+    assert.equal(parts.send.disabled, false);
+    assert.equal(parts.new.hidden, true);
+});
+
+test('a send the server took is queued even when its reply lists no row for it', async () => {
+    const view = page();
+    const {parts} = view.dialogs['44'];
+    await openRead(view);
+    parts.form.dispatch('submit'); await tick();
+    view.calls[1].resolve(state([])); await tick();
+    assert.equal(parts.message.textContent, 'error', 'no outcome is claimed for a copy the reply does not list');
+    assert.equal(parts.send.disabled, true, 'the queued id is not sent again');
+    assert.equal(parts.new.hidden, false, 'a new copy is offered');
+});
+
+test('a device choice the patient removed stays unmade across a read that offers no device, until one is picked', async () => {
+    const device = id => ({deviceKeyId: id, acceptedAt: '2026-10-26T00:00:00Z', fingerprint: '0'.repeat(64)});
+    const view = page();
+    const {parts} = view.dialogs['44'];
+    await openRead(view);
+    assert.equal(parts.device.value, 'FAKE-current-device', 'the first read offers the first device');
+    const refresh = async ids => {
+        parts.check.click(); await tick();
+        view.calls.at(-1).resolve(state([], {devices: ids.map(device)})); await tick();
+    };
+    await refresh([]);
+    assert.equal(parts.device.value, '');
+    for (const round of [1, 2]) {
+        await refresh(['FAKE-device-b']);
+        assert.equal(parts.device.value, '', `refresh ${round}: a device approved later is not chosen for the clinician`);
+        assert.equal(parts.send.disabled, true, `refresh ${round}: Send waits for a deliberate choice`);
+    }
+    parts.device.value = 'FAKE-device-b'; parts.device.dispatch('change');
+    assert.equal(parts.send.disabled, false, 'the clinician picked a replacement');
+    await refresh(['FAKE-device-b']);
+    assert.equal(parts.device.value, 'FAKE-device-b', 'the picked device stays chosen');
+    assert.equal(parts.send.disabled, false);
 });
 
 test('two documents on one inbox page each send their own document', async () => {

@@ -74,7 +74,13 @@
         copyBox.querySelectorAll('[data-status]').forEach(node => { statuses[node.dataset.status] = node.textContent; });
         let next = root.dataset.next || null;
         let busy = false;
-        const alreadyQueued = () => Array.from(history.rows).some(row => row.dataset.delivery === root.dataset.delivery);
+        // Every operation id known to be queued: each row a reply listed and each send the server took.
+        // The server lists the patient's deliveries a page at a time and keeps this document's, so the
+        // current operation's row can drop off the first page while the operation stays queued.
+        const queued = new Set(Array.from(history.rows, row => row.dataset.delivery));
+        // Set when the chosen device is no longer offered; cleared only by the clinician's own choice.
+        let choiceLost = false;
+        const alreadyQueued = () => queued.has(root.dataset.delivery);
         const updateButtons = () => {
             chooser.disabled = busy || chooser.options.length === 0;
             send.disabled = busy || !chooser.value || !root.dataset.delivery || alreadyQueued();
@@ -98,6 +104,7 @@
         }
         const append = rows => {
             rows.forEach(item => {
+                queued.add(item.deliveryId);
                 if (Array.from(history.rows).some(row => row.dataset.delivery === item.deliveryId && row.dataset.device === item.deviceKeyId)) return;
                 const row = document.createElement('tr');
                 row.dataset.delivery = item.deliveryId;
@@ -126,10 +133,22 @@
                 chooser.append(option);
             });
             // A removed selection requires a deliberate new device choice, on this read and every
-            // later one. Only when nothing was on offer yet (the dialog's first read) is the first
-            // device offered, as the standalone page offers it.
-            if (selected || offered) chooser.value = selected;
+            // later one, a read that offered no device at all included. Only when nothing was on offer
+            // yet and no choice was lost (the dialog's first read) is the first device offered, as the
+            // standalone page offers it.
+            if (offered && !devices.some(device => device.deviceKeyId === selected)) choiceLost = true;
+            if (choiceLost) chooser.value = '';
+            else if (offered) chooser.value = selected;
             if (noDevice) noDevice.hidden = devices.length !== 0;
+        };
+        // What became of the copy a send submitted, from its own row in the reply. The action answers
+        // 200 whatever the outbox recorded, so "Sent" is kept for an upload the portal took (waiting
+        // for pickup, or picked up since); a copy still to send or refused shows its state, and one
+        // the reply does not list claims nothing ("Needs checking").
+        const outcome = (deliveries, deliveryId, deviceKeyId) => {
+            const own = deliveries.find(item => item.deliveryId === deliveryId && item.deviceKeyId === deviceKeyId);
+            const status = own ? own.status : '';
+            return status === 'waiting' || status === 'picked_up' ? (copy.sent || '') : (statuses[status] || statuses.error);
         };
         const addRetryControls = () => {
             Array.from(history.rows).forEach(row => {
@@ -198,6 +217,8 @@
                     failure.userMessage = typeof result.message === 'string' ? result.message : copy.error;
                     throw failure;
                 }
+                // The server staged this operation, or found it staged: it is never a new copy again.
+                if (operation === 'send') queued.add(params.get('deliveryId'));
                 // A read names the operation id for the next send; the dialog takes it when it has none,
                 // or when a new copy was asked for.
                 if (operation === 'read' && typeof result.deliveryId === 'string' && (renew || !root.dataset.delivery)) {
@@ -212,7 +233,7 @@
                 message.textContent = result.syncStatus === 'quarantined' ? copy.sync
                     : result.syncStatus === 'busy' ? copy.busy
                     : retry ? copy.retried
-                    : operation === 'send' ? (copy.sent || '') : '';
+                    : operation === 'send' ? outcome(result.deliveries, params.get('deliveryId'), params.get('deviceKeyId')) : '';
             } catch (failure) {
                 message.textContent = (failure && failure.userMessage) || copy.error;
             } finally {
@@ -222,7 +243,10 @@
             }
         }
         addRetryControls();
-        chooser.addEventListener('change', updateButtons);
+        chooser.addEventListener('change', () => {
+            choiceLost = false;
+            updateButtons();
+        });
         form.addEventListener('submit', event => { event.preventDefault(); request('send', false); });
         check.addEventListener('click', () => request('refresh', false));
         if (more) more.addEventListener('click', () => request('read', true));
