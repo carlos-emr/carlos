@@ -10723,6 +10723,176 @@
         "T04",
         "T14"
       ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/RScheduleDaoImpl.java": {
+      "reason": "Editing an open-ended or dated schedule must compare the original stored period. The transaction tests cover both legacy rows and a second edit after the original period changes.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/schedule/service/ScheduleDateOverrideServiceIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/resources/oscarResources_en.properties": {
+      "reason": "The schedule edit refusal must resolve in this locale. The Java suite loads each bundle and checks its message keys. The installed schedule workflow verifies the recoverable refusal on a stale template.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/i18n/OscarResourcesBundleParseTest.java",
+        "scripts/schedule-template-day-sheet-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T09",
+        "T30",
+        "T40"
+      ]
+    },
+    "src/main/resources/oscarResources_fr.properties": {
+      "reason": "The schedule edit refusal must resolve in this locale. The Java suite loads each bundle and checks its message keys. The installed schedule workflow verifies the recoverable refusal on a stale template.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/i18n/OscarResourcesBundleParseTest.java",
+        "scripts/schedule-template-day-sheet-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T09",
+        "T30",
+        "T40"
+      ]
+    },
+    "src/main/resources/oscarResources_es.properties": {
+      "reason": "The schedule edit refusal must resolve in this locale. The Java suite loads each bundle and checks its message keys. The installed schedule workflow verifies the recoverable refusal on a stale template.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/i18n/OscarResourcesBundleParseTest.java",
+        "scripts/schedule-template-day-sheet-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T09",
+        "T30",
+        "T40"
+      ]
+    },
+    "src/main/resources/oscarResources_pl.properties": {
+      "reason": "The schedule edit refusal must resolve in this locale. The Java suite loads each bundle and checks its message keys. The installed schedule workflow verifies the recoverable refusal on a stale template.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/i18n/OscarResourcesBundleParseTest.java",
+        "scripts/schedule-template-day-sheet-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T09",
+        "T30",
+        "T40"
+      ]
+    },
+    "src/main/resources/oscarResources_pt_BR.properties": {
+      "reason": "The schedule edit refusal must resolve in this locale. The Java suite loads each bundle and checks its message keys. The installed schedule workflow verifies the recoverable refusal on a stale template.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/i18n/OscarResourcesBundleParseTest.java",
+        "scripts/schedule-template-day-sheet-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T09",
+        "T30",
+        "T40"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/SiteChoice.java": {
+      "reason": "The site restriction requires multisite mode and a valid user with the site right. Team privacy applies independently. Ontario billing exercises the resulting scope on real provider assignments and disk history.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/commn/SiteChoiceUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnSiteVisibilityIntegrationTest.java",
+        "scripts/billing-on-single-site-visibility-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/admin/gate/ViewAdminDisplayMyGroup2Action.java": {
+      "reason": "The administrator or schedule administrator can read the group list. The restriction right on its own grants no access. Changes use the schedule group write actions.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/admin/gate/ViewAdminDisplayMyGroup2ActionTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/admin/web/AdminGroupActionsTest.java",
+        "scripts/my-groups-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T09",
+        "T23"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/admin/admindisplaymygroup.jsp": {
+      "reason": "The installed group workflow creates two memberships, reads the administrative list and checks the second member is visible in single-site mode.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/admin/gate/ViewAdminDisplayMyGroup2ActionTest.java",
+        "scripts/my-groups-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "jsp-compile",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T09",
+        "T23",
+        "T40"
+      ]
+    },
+    "scripts/migration/o19/overrides_props.py": {
+      "reason": "The property manifest carries the explicit OSCAR multisite setting into review. The paired importer exercises the dry run and transfer for enabled, disabled and absent configurations.",
+      "tests": [
+        "scripts/migration/o19/tests/test_manifest_integrity.py"
+      ],
+      "checks": [
+        "o19-generator-python"
+      ],
+      "workstreams": [
+        "T23",
+        "T25"
+      ]
+    },
+    "debian/assets/o19-manifest/o19map_props.json": {
+      "reason": "The property manifest carries the explicit OSCAR multisite setting into review. The paired importer exercises the dry run and transfer for enabled, disabled and absent configurations.",
+      "tests": [
+        "scripts/migration/o19/tests/test_manifest_integrity.py"
+      ],
+      "checks": [
+        "o19-generator-python"
+      ],
+      "workstreams": [
+        "T23",
+        "T25"
+      ]
     }
   },
   "lifecycleBaselineManifest": "docs/testing/release-2026.08-lifecycle-baselines.json",
