@@ -10159,6 +10159,274 @@
       "tests": [
         "src/test/java/io/github/carlos_emr/carlos/utility/MariaDbJdbcCompatibilityUnitTest.java"
       ]
+    },
+    "debian/assets/skel/carlos-emr.env": {
+      "reason": "The packaged launcher must apply the required JVM setting on fresh installs and after site overrides. The Node test invokes the launcher with each environment.",
+      "tests": [
+        "scripts/debian-build.test.js"
+      ],
+      "checks": [
+        "node-all"
+      ],
+      "workstreams": [
+        "T26"
+      ]
+    },
+    "debian/assets/flyway-runner/src/test/java/io/github/carlos_emr/carlos/deb/FlywayRunnerNotesTest.java": {
+      "reason": "The Debian package build compiles this test against the actual WAR libraries and runs it before packaging the Flyway runner. It checks which database warnings an operator will see.",
+      "tests": [
+        "debian/build-flyway-runner.sh",
+        "debian/assets/flyway-runner/src/test/java/io/github/carlos_emr/carlos/deb/FlywayRunnerNotesTest.java"
+      ],
+      "checks": [
+        "package-clean-reinstall"
+      ],
+      "workstreams": [
+        "T26"
+      ]
+    },
+    "debian/carlos-ctl.pin": {
+      "reason": "The package qualification and publication paths independently require the selected companion source, version, architecture and actual Debian bytes, including a draft promotion retry.",
+      "tests": [
+        "scripts/ci/test_candidate_cli_package.py",
+        "scripts/ci/test_release_publication.py"
+      ],
+      "checks": [
+        "evidence-self-tests",
+        "package-beta8-upgrade"
+      ],
+      "workstreams": [
+        "T26"
+      ]
+    },
+    ".github/workflows/deb-packages.yml": {
+      "reason": "The package qualification and publication paths independently require the selected companion source, version, architecture and actual Debian bytes, including a draft promotion retry.",
+      "tests": [
+        "scripts/ci/test_candidate_cli_package.py",
+        "scripts/ci/test_release_publication.py"
+      ],
+      "checks": [
+        "evidence-self-tests",
+        "package-beta8-upgrade"
+      ],
+      "workstreams": [
+        "T26"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/DemographicService.java": {
+      "reason": "The waiting-list sentinel in the submitted form leaves the list untouched. A genuine list update must still validate its note and roll back the patient change if it fails.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/DemographicServiceEndpointTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T39"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementView2Action.java": {
+      "reason": "Each requested and resolved CPP section must be authorized for the patient before fetching chart notes. The action tests both combined permitted sections and denied sections.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementViewPatientIsolationUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T23"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/SecurityInfoManagerImpl.java": {
+      "reason": "The patient-level role encoding distinguishes read-only access from grants containing delete or other mutation rights.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/SecurityInfoManagerUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T23"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/PMmodule/web/admin/FacilityManager2Action.java": {
+      "reason": "Only an exact POST can dispatch an authorized facility mutation. The action tests require 405 and no DAO call for other methods.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/PMmodule/web/admin/PmmoduleJspMigrationActionRoutingTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T23"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/hospitalReportManager/HRMUtil.java": {
+      "reason": "The HRM attachment list, history and inbox must retain the identity of each report, validate its linked patients and keep incomplete or unfiled reports individually selectable.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/hospitalReportManager/HRMUtilAttachmentHistoryUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/hospitalReportManager/HRMUtilPatientAccessUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/hospitalReportManager/HrmVersionServiceUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/on/HRMResultsDataUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T14",
+        "T23"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/hospitalReportManager/HrmVersionService.java": {
+      "reason": "The HRM attachment list, history and inbox must retain the identity of each report, validate its linked patients and keep incomplete or unfiled reports individually selectable.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/hospitalReportManager/HRMUtilAttachmentHistoryUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/hospitalReportManager/HRMUtilPatientAccessUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/hospitalReportManager/HrmVersionServiceUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/on/HRMResultsDataUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T14",
+        "T23"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/on/HRMResultsData.java": {
+      "reason": "The HRM attachment list, history and inbox must retain the identity of each report, validate its linked patients and keep incomplete or unfiled reports individually selectable.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/hospitalReportManager/HRMUtilAttachmentHistoryUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/hospitalReportManager/HRMUtilPatientAccessUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/hospitalReportManager/HrmVersionServiceUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/on/HRMResultsDataUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T14",
+        "T23"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/inboxhub/display/ManageInboxhub2Action.java": {
+      "reason": "An incomplete document page must expose its warning and allow navigation to later valid inbox results in list and preview modes.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/inboxhub/display/ManageInboxhub2ActionUnitTest.java",
+        "scripts/inbox-failure-states-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "manual-inbox-failure-states"
+      ],
+      "workstreams": [
+        "T14"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/web/inboxhub/InboxhubForm.jsp": {
+      "reason": "An incomplete document page must expose its warning and allow navigation to later valid inbox results in list and preview modes.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/inboxhub/display/ManageInboxhub2ActionUnitTest.java",
+        "scripts/inbox-failure-states-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "manual-inbox-failure-states"
+      ],
+      "workstreams": [
+        "T14"
+      ]
+    },
+    "src/main/webapp/js/newCaseManagementView.js.jsp": {
+      "reason": "A failed or superseded signing action must leave the next ordinary encounter save unsigned. Successful deferred signing retains its own flags.",
+      "tests": [
+        "scripts/echart-note-save-signed-out.test.js"
+      ],
+      "checks": [
+        "node-all"
+      ],
+      "workstreams": [
+        "T13"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/rx/SearchDrug3.jsp": {
+      "reason": "The prescribing card distinguishes signed-in price and limited-use fragments from sign-in responses, and recovers on a subsequent lookup.",
+      "tests": [
+        "scripts/rx-quantity-price.test.js"
+      ],
+      "checks": [
+        "node-all"
+      ],
+      "workstreams": [
+        "T05"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/RscheduleBean.java": {
+      "reason": "Date overrides use the submitted provider’s rule snapshot. Opening another provider’s calendar cannot substitute its hours or reclaim its stale cache.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/schedule/web/Schedule2ActionsTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/schedule/web/ScheduleCalendarCacheUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/schedule/web/ScheduleDateSave2Action.java": {
+      "reason": "Date overrides use the submitted provider’s rule snapshot. Opening another provider’s calendar cannot substitute its hours or reclaim its stale cache.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/schedule/web/Schedule2ActionsTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/schedule/web/ScheduleCalendarCacheUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/schedule/web/ScheduleCalendarCache.java": {
+      "reason": "Date overrides use the submitted provider’s rule snapshot. Opening another provider’s calendar cannot substitute its hours or reclaim its stale cache.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/schedule/web/Schedule2ActionsTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/schedule/web/ScheduleCalendarCacheUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/reportByTemplate/ReportManager.java": {
+      "reason": "Legacy report literals and malformed attribute text must leave neighboring parameter metadata and parameterized queries intact.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/report/reportByTemplate/ReportTemplateEmptyParameterUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T29"
+      ]
+    },
+    "database/mysql/migration/common/V1.0.59.50.2__ensure_historical_roster_lookup.sql": {
+      "reason": "Fresh and previously migrated Ontario and BC schemas must preserve custom indexes and use an available full provider/date index. The MariaDB regression checks the resulting columns and repeated execution.",
+      "tests": [
+        "scripts/test-schema-policy-mariadb.py",
+        "scripts/ci/verify-flyway-baseline.sh"
+      ],
+      "checks": [
+        "java-native-flyway",
+        "java-native-bc-flyway",
+        "package-beta8-upgrade"
+      ],
+      "workstreams": [
+        "T04",
+        "T25"
+      ]
     }
   },
   "lifecycleBaselineManifest": "docs/testing/release-2026.08-lifecycle-baselines.json",
