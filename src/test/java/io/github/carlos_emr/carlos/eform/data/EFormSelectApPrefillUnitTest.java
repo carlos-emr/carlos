@@ -8,9 +8,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 
+import java.util.List;
 import java.util.stream.Stream;
 
 import org.jsoup.Jsoup;
@@ -241,7 +245,13 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
                 Arguments.of("Z12 self-closing right after the tag name",
                         "<option/>Yes",
                         "Yes",
-                        "<option selected/>Yes"));
+                        "<option selected/>Yes"),
+                // A browser keeps the first of repeated attributes: the bare value submits "", so the raw spelling
+                // of the second one is no match.
+                Arguments.of("Z13 a repeated value attribute: the first, bare one is the value",
+                        "<option value value=\"Smith &amp; Sons\">a</option>",
+                        "Smith &amp; Sons",
+                        "<option value value=\"Smith &amp; Sons\">a</option>"));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -368,7 +378,23 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
                         "<option value=\"Yes\">y</option><option value=\"No\" selected>n</option><option value=\"C>c</option>",
                         "Yes",
                         "<option selected value=\"Yes\">y</option><option value=\"No\">n</option>"
-                                + "<option value=\"C>c</option>"));
+                                + "<option value=\"C>c</option>"),
+                // Only HTML white space separates attributes: an em space starts the name "\u2003selected", and an
+                // "=" before a name belongs to it ("=selected"); neither is the selected attribute, so both stay.
+                Arguments.of("an em space before selected is part of another attribute's name, which stays",
+                        "<option value=\"Yes\">y</option><option value=\"No\"\u2003selected>n</option>",
+                        "Yes",
+                        "<option selected value=\"Yes\">y</option><option value=\"No\"\u2003selected>n</option>"),
+                Arguments.of("an attribute named =selected is not the selected attribute, and stays",
+                        "<option value=\"Yes\">y</option><option value=\"No\" =selected>n</option>",
+                        "Yes",
+                        "<option selected value=\"Yes\">y</option><option value=\"No\" =selected>n</option>"),
+                Arguments.of("selected right after a quoted value, and before a slash, comes out too",
+                        "<option value=\"Yes\">y</option><option value=\"No\"selected>n</option>"
+                                + "<option value=\"C\" selected/>c</option>",
+                        "Yes",
+                        "<option selected value=\"Yes\">y</option><option value=\"No\">n</option>"
+                                + "<option value=\"C\"/>c</option>"));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -566,28 +592,138 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
                 "Smith & Sons").selectFirst("option[selected]").text()).isEqualTo("d");
     }
 
-    @Test
-    void shouldBindTheSubmittedValueInADependentDatabaseTag_notTheMarkupsRawSpelling() throws Exception {
-        // The field a dependent lookup reads is the value a browser submits: the decoded text of a text-only
-        // option, and the decoded value attribute.
-        DatabaseAP ap = new DatabaseAP("choice", "", "Yes");
+    /**
+     * A database tag that names {@code field} ({@code var$value="{field}"}), as a count of saved eForm values does:
+     * the database tag run reads the form's field values for it.
+     */
+    private static String dependentTag(String field) {
+        return "<input type=\"hidden\" oscarDB=\"e$count#x\" var$value=\"{" + field + "}\">";
+    }
+
+    /** The value a database tag that names {@code field} binds after the database tag run over {@code body}. */
+    private static String boundValue(String body, String output, String field) throws Exception {
+        DatabaseAP ap = new DatabaseAP("choice", "", output);
         try (var loader = mockStatic(EFormLoader.class)) {
             loader.when(EFormLoader::getMarker).thenReturn("oscarDB");
             loader.when(() -> EFormLoader.getAP("choice")).thenReturn(ap);
             EForm form = new EForm();
             form.setDemographicNo("7");
-            form.setFormHtml("<form><select name=\"Pick\" oscarDB=choice><option>No</option><option>Yes</option></select></form>");
+            form.setFormHtml(body + dependentTag(field));
             form.setDatabaseAPs();
-            assertThat(fieldValue(form, "pick")).isEqualTo("Yes");
+            return fieldValue(form, field.toLowerCase(java.util.Locale.ROOT));
+        }
+    }
 
-            ap = new DatabaseAP("choice", "", "Smith & Sons");
+    @Test
+    void shouldBindTheSubmittedValueInADependentDatabaseTag_notTheMarkupsRawSpelling() throws Exception {
+        // The field a dependent lookup reads is the value a browser submits: the decoded text of a text-only
+        // option, and the decoded value attribute.
+        assertThat(boundValue("<form><select name=\"Pick\" oscarDB=choice><option>No</option><option>Yes</option></select></form>",
+                "Yes", "Pick")).isEqualTo("Yes");
+        assertThat(boundValue("<form><select name=\"Pick\" oscarDB=choice><option value=\"x\">x</option>"
+                + "<option value=\"Smith &amp; Sons\">s</option></select></form>", "Smith & Sons", "Pick"))
+                .isEqualTo("Smith & Sons");
+    }
+
+    @Test
+    void shouldBindWhatChromiumSubmits_forEverySharedRead() throws Exception {
+        // scripts/eform-select-prefill-fixture-check.js asserts each "submitted" in Chromium (FormData of the page's
+        // first form, the one a save posts): a database tag that names the select binds that same value, and an
+        // empty one when the browser submits none.
+        com.fasterxml.jackson.databind.JsonNode reads = sharedFixtures().get("reads");
+        assertThat(reads).isNotEmpty();
+        for (com.fasterxml.jackson.databind.JsonNode read : reads) {
+            String expected = read.get("submitted").isNull() ? "" : read.get("submitted").asText();
+            assertThat(boundValue(read.get("form").asText(), "", "a")).as(read.get("name").asText()).isEqualTo(expected);
+        }
+    }
+
+    @Test
+    void shouldKeepTheLastNonBlankValueInDocumentOrder_acrossInputsAndSelects() throws Exception {
+        String typed = "<input type=\"text\" name=\"Pick\" value=\"Typed\">";
+        String chosen = "<select name=\"Pick\"><option>Chosen</option></select>";
+        // A later select's submitted value wins over an earlier typed one, and the other way round.
+        assertThat(boundValue("<form>" + typed + chosen + "</form>", "", "Pick")).isEqualTo("Chosen");
+        assertThat(boundValue("<form>" + chosen + typed + "</form>", "", "Pick")).isEqualTo("Typed");
+        // A later field with nothing to submit leaves the earlier value: a blank text box, a list box with none marked.
+        assertThat(boundValue("<form>" + chosen + "<input type=\"text\" name=\"Pick\"></form>", "", "Pick"))
+                .isEqualTo("Chosen");
+        assertThat(boundValue("<form>" + typed + "<select name=\"Pick\" size=\"3\"><option>x</option></select></form>",
+                "", "Pick")).isEqualTo("Typed");
+        // Inputs alone are read without the HTML parser's select reading.
+        assertThat(boundValue("<form>" + typed + "</form>", "", "Pick")).isEqualTo("Typed");
+    }
+
+    @Test
+    void shouldReadEverySelectOfAPageWithoutAForm_asBefore() throws Exception {
+        // With no form there is no save form to tell controls apart by: a select is read as before, unless it is
+        // inert template content.
+        assertThat(boundValue("<select name=\"Pick\"><option>Yes</option></select>", "", "Pick")).isEqualTo("Yes");
+        assertThat(boundValue("<select name=\"Pick\"><option>Yes</option></select>"
+                + "<template><select name=\"Pick\"><option selected>Archived</option></select></template>", "", "Pick"))
+                .isEqualTo("Yes");
+    }
+
+    @Test
+    void shouldReadOptionTextAsABrowserSubmitsIt_withOnlyHtmlWhiteSpaceCollapsed() {
+        // Tab, line feed, form feed, carriage return and space are stripped and collapsed; a no-break space and an
+        // em space are text. A comment's text is left out (the text on both sides joins), and so is the text of a
+        // script and of template content.
+        Document page = Jsoup.parse("<select><option>\t A\u2003 \r\n B&nbsp; \f<!-- c --><script>var s = 1;</script>"
+                + "<template>t</template>C </option><option>&nbsp;Yes </option><option>  </option></select>");
+        List<org.jsoup.nodes.Element> options = page.select("option");
+
+        assertThat(EFormSelectMarkup.optionText(options.get(0))).isEqualTo("A\u2003 B\u00a0 C");
+        assertThat(EFormSelectMarkup.optionText(options.get(1))).isEqualTo("\u00a0Yes");
+        assertThat(EFormSelectMarkup.optionText(options.get(2))).isEmpty();
+    }
+
+    @Test
+    void shouldNotReadAnySelectValue_whenNoDatabaseTagNamesAField() throws Exception {
+        // The values are only for a database tag that names another field: without one, no select is parsed for its
+        // value, however many there are (a large form such as the bundled Rourke Baby Record has none).
+        StringBuilder body = new StringBuilder("<form><input type=\"hidden\" name=\"filled\" oscarDB=choice>");
+        for (int i = 0; i < 40; i++) {
+            body.append("<select name=\"s").append(i).append("\"><option>a</option><option selected>b</option></select>");
+        }
+        body.append("</form>");
+        DatabaseAP ap = new DatabaseAP("choice", "", "Yes");
+        try (var loader = mockStatic(EFormLoader.class);
+                var markup = mockStatic(EFormSelectMarkup.class, CALLS_REAL_METHODS)) {
+            loader.when(EFormLoader::getMarker).thenReturn("oscarDB");
             loader.when(() -> EFormLoader.getAP("choice")).thenReturn(ap);
-            form = new EForm();
+            EForm form = new EForm();
             form.setDemographicNo("7");
-            form.setFormHtml("<form><select name=\"Pick\" oscarDB=choice><option value=\"x\">x</option>"
-                    + "<option value=\"Smith &amp; Sons\">s</option></select></form>");
+            form.setFormHtml(body.toString());
+
             form.setDatabaseAPs();
-            assertThat(fieldValue(form, "pick")).isEqualTo("Smith & Sons");
+
+            markup.verify(() -> EFormSelectMarkup.submittedValues(any(), any()), never());
+            assertThat(form.getFormHtml()).contains("name=\"filled\" oscarDB=choice value=\"Yes\"");
+        }
+    }
+
+    @Test
+    void shouldReadEverySelectFromOneParse_whenADatabaseTagNamesAField() throws Exception {
+        StringBuilder body = new StringBuilder("<form>");
+        for (int i = 0; i < 40; i++) {
+            body.append("<select name=\"s").append(i).append("\"><option>a</option><option selected>b").append(i)
+                    .append("</option></select>");
+        }
+        body.append("</form>").append(dependentTag("s39"));
+        try (var loader = mockStatic(EFormLoader.class);
+                var markup = mockStatic(EFormSelectMarkup.class, CALLS_REAL_METHODS)) {
+            loader.when(EFormLoader::getMarker).thenReturn("oscarDB");
+            EForm form = new EForm();
+            form.setDemographicNo("7");
+            form.setFormHtml(body.toString());
+
+            form.setDatabaseAPs();
+
+            // One call for all forty selects, and that call parses the form once.
+            markup.verify(() -> EFormSelectMarkup.submittedValues(any(), argThat(starts -> starts.size() == 40)), times(1));
+            assertThat(fieldValue(form, "s39")).isEqualTo("b39");
+            assertThat(fieldValue(form, "s0")).isEqualTo("b0");
         }
     }
 
@@ -657,10 +793,8 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
         assertThat(took[0]).isLessThan(java.time.Duration.ofSeconds(60));
     }
 
-    @Test
-    void shouldProduceExactlyTheSharedFixtureMarkup_thatChromiumReadsAsTheSubmittedValue() throws Exception {
-        // The same file drives scripts/eform-select-prefill-fixture-check.js, which loads each "after" markup into
-        // Chromium and asserts the value the browser submits: the server's parser and the browser agree.
+    /** scripts/fixtures/eform/select-prefill-cases.json, which scripts/eform-select-prefill-fixture-check.js also reads. */
+    private static com.fasterxml.jackson.databind.JsonNode sharedFixtures() throws Exception {
         java.nio.file.Path file = java.nio.file.Path.of("scripts", "fixtures", "eform", "select-prefill-cases.json");
         java.nio.file.Path dir = java.nio.file.Path.of(System.getProperty("maven.multiModuleProjectDirectory",
                 System.getProperty("user.dir"))).toAbsolutePath();
@@ -668,9 +802,15 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
             dir = dir.getParent();
         }
         assertThat(dir).as("the shared fixture file").isNotNull();
-        com.fasterxml.jackson.databind.JsonNode cases = new com.fasterxml.jackson.databind.ObjectMapper()
-                .readTree(java.nio.file.Files.readString(dir.resolve(file), java.nio.charset.StandardCharsets.UTF_8))
-                .get("cases");
+        return new com.fasterxml.jackson.databind.ObjectMapper()
+                .readTree(java.nio.file.Files.readString(dir.resolve(file), java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    @Test
+    void shouldProduceExactlyTheSharedFixtureMarkup_thatChromiumReadsAsTheSubmittedValue() throws Exception {
+        // The same file drives scripts/eform-select-prefill-fixture-check.js, which loads each "after" markup into
+        // Chromium and asserts the value the browser submits: the server's parser and the browser agree.
+        com.fasterxml.jackson.databind.JsonNode cases = sharedFixtures().get("cases");
         assertThat(cases).isNotEmpty();
         for (com.fasterxml.jackson.databind.JsonNode testCase : cases) {
             DatabaseAP ap = new DatabaseAP("choice", "", testCase.get("wanted").asText());
@@ -701,12 +841,12 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
                     .thenThrow(new IllegalStateException("the parser failed"));
             EForm form = new EForm();
             form.setDemographicNo("7");
-            form.setFormHtml("<form>" + TEMPLATE_SELECT + "</form>");
+            form.setFormHtml("<form>" + TEMPLATE_SELECT + "</form>" + dependentTag("Pick"));
 
             form.setDatabaseAPs(); // never throws
 
             // The template's own default stays, and the dependent value is what the markup shows.
-            assertThat(form.getFormHtml()).isEqualTo("<form>" + TEMPLATE_SELECT + "</form>");
+            assertThat(form.getFormHtml()).isEqualTo("<form>" + TEMPLATE_SELECT + "</form>" + dependentTag("Pick"));
             assertThat(fieldValue(form, "pick")).isEqualTo("No");
         }
     }
@@ -718,15 +858,16 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
                 var markup = mockStatic(EFormSelectMarkup.class, CALLS_REAL_METHODS)) {
             loader.when(EFormLoader::getMarker).thenReturn("oscarDB");
             loader.when(() -> EFormLoader.getAP("choice")).thenReturn(ap);
-            markup.when(() -> EFormSelectMarkup.selectedValue(any(), anyInt()))
+            markup.when(() -> EFormSelectMarkup.submittedValues(any(), any()))
                     .thenThrow(new IllegalStateException("the parser failed"));
             EForm form = new EForm();
             form.setDemographicNo("7");
-            form.setFormHtml("<form>" + TEMPLATE_SELECT + "</form>");
+            form.setFormHtml("<form>" + TEMPLATE_SELECT + "</form>" + dependentTag("Pick"));
 
             form.setDatabaseAPs(); // never throws
 
             // The prefill itself worked; only the value a dependent tag would read is missing.
+            markup.verify(() -> EFormSelectMarkup.submittedValues(any(), any()), times(1));
             assertThat(Jsoup.parse(form.getFormHtml()).selectFirst("option[selected]").text()).isEqualTo("Yes");
             assertThat(fieldValue(form, "pick")).isEmpty();
         }

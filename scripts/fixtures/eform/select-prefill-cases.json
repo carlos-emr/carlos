@@ -1,5 +1,5 @@
 {
-  "description": "Shared by EFormSelectApPrefillUnitTest (the server edit) and scripts/eform-select-prefill-fixture-check.js (a real browser reads the edited markup). Each case: the select as the template has it, the database output, the markup after the edit, and the value a browser submits for it. FAKE data only.",
+  "description": "Shared by EFormSelectApPrefillUnitTest (the server) and scripts/eform-select-prefill-fixture-check.js (a real browser). Each case: the select as the template has it, the database output, the markup after the edit, and the value a browser submits for it; the edit must change no option's value or text. Each read: a page, and the value a browser submits for its select named a with the page's first form (null: none), which a database tag that names the field must bind. FAKE data only.",
   "cases": [
     {
       "name": "an end tag written with a space",
@@ -62,6 +62,155 @@
       "before": "<select name=\"a\" oscarDB=choice><option value=\"A\" selected>a</option><style><option value=\"B\"></style><option value=\"B\">b</option></select>",
       "wanted": "B",
       "after": "<select name=\"a\" oscarDB=choice><option value=\"A\" selected>a</option><style><option value=\"B\"></style><option value=\"B\">b</option></select>",
+      "submitted": "A"
+    },
+    {
+      "name": "a comment in the select that mentions a style tag",
+      "before": "<select name=\"a\" oscarDB=choice><option value=\"No\" selected>n</option><!-- old <style> block was removed --><option value=\"Yes\">y</option></select>",
+      "wanted": "Yes",
+      "after": "<select name=\"a\" oscarDB=choice><option value=\"No\">n</option><!-- old <style> block was removed --><option selected value=\"Yes\">y</option></select>",
+      "submitted": "Yes"
+    },
+    {
+      "name": "an option group label that holds a style tag",
+      "before": "<select name=\"a\" oscarDB=choice><optgroup label=\"<style>\"><option value=\"No\" selected>n</option><option value=\"Yes\">y</option></optgroup></select>",
+      "wanted": "Yes",
+      "after": "<select name=\"a\" oscarDB=choice><optgroup label=\"<style>\"><option value=\"No\">n</option><option selected value=\"Yes\">y</option></optgroup></select>",
+      "submitted": "Yes"
+    },
+    {
+      "name": "a script in the select that holds a style tag",
+      "before": "<select name=\"a\" oscarDB=choice><option value=\"No\" selected>n</option><script>var s = '<style>';</script><option value=\"Yes\">y</option></select>",
+      "wanted": "Yes",
+      "after": "<select name=\"a\" oscarDB=choice><option value=\"No\">n</option><script>var s = '<style>';</script><option selected value=\"Yes\">y</option></select>",
+      "submitted": "Yes"
+    },
+    {
+      "name": "a no-break space in an option's text is not the stored space",
+      "before": "<select name=\"a\" oscarDB=choice><option>Not&nbsp;done</option><option value=\"Not done\">d</option></select>",
+      "wanted": "Not done",
+      "after": "<select name=\"a\" oscarDB=choice><option>Not&nbsp;done</option><option selected value=\"Not done\">d</option></select>",
+      "submitted": "Not done"
+    },
+    {
+      "name": "a stored no-break space chooses the option whose text holds one",
+      "before": "<select name=\"a\" oscarDB=choice><option value=\"Pending\" selected>p</option><option>Not&nbsp;done</option></select>",
+      "wanted": "Not\u00a0done",
+      "after": "<select name=\"a\" oscarDB=choice><option value=\"Pending\">p</option><option selected>Not&nbsp;done</option></select>",
+      "submitted": "Not\u00a0done"
+    },
+    {
+      "name": "an em space inside an unquoted value belongs to the value",
+      "before": "<select name=\"a\" oscarDB=choice><option value=Plan\u2003selected>p</option><option value=\"B\" selected>b</option><option value=\"C\">c</option></select>",
+      "wanted": "C",
+      "after": "<select name=\"a\" oscarDB=choice><option value=Plan\u2003selected>p</option><option value=\"B\">b</option><option selected value=\"C\">c</option></select>",
+      "submitted": "C"
+    }
+  ],
+  "reads": [
+    {
+      "name": "a drop-down with no option marked submits its first enabled option",
+      "form": "<form><select name=\"a\"><option disabled>Old</option><option>Current</option></select></form>",
+      "submitted": "Current"
+    },
+    {
+      "name": "a list box with no option marked submits nothing",
+      "form": "<form><select name=\"a\" size=\"4\"><option>x</option></select></form>",
+      "submitted": null
+    },
+    {
+      "name": "a size of 0 still shows a drop-down",
+      "form": "<form><select name=\"a\" size=\"0\"><option>x</option></select></form>",
+      "submitted": "x"
+    },
+    {
+      "name": "a size is read past white space and a plus sign",
+      "form": "<form><select name=\"a\" size=\" +3\"><option>x</option></select></form>",
+      "submitted": null
+    },
+    {
+      "name": "a size is read up to the first character that is not a digit",
+      "form": "<form><select name=\"a\" size=\"2px\"><option>x</option></select></form>",
+      "submitted": null
+    },
+    {
+      "name": "a size of 1.5 reads as 1",
+      "form": "<form><select name=\"a\" size=\"1.5\"><option>x</option></select></form>",
+      "submitted": "x"
+    },
+    {
+      "name": "a multiple select submits its first selected option that is not disabled",
+      "form": "<form><select name=\"a\" multiple><optgroup label=\"old\" disabled><option selected>Legacy</option></optgroup><option selected>Current</option><option selected>Later</option></select></form>",
+      "submitted": "Current"
+    },
+    {
+      "name": "a multiple select with no option marked submits nothing",
+      "form": "<form><select name=\"a\" multiple><option>x</option></select></form>",
+      "submitted": null
+    },
+    {
+      "name": "a select without options submits nothing",
+      "form": "<form><select name=\"a\"></select></form>",
+      "submitted": null
+    },
+    {
+      "name": "a shown option that is disabled submits nothing",
+      "form": "<form><select name=\"a\"><option selected>A</option><option selected disabled>B</option></select></form>",
+      "submitted": null
+    },
+    {
+      "name": "a selected option in a disabled option group submits nothing",
+      "form": "<form><select name=\"a\"><optgroup label=\"old\" disabled><option selected>X</option></optgroup><option>Y</option></select></form>",
+      "submitted": null
+    },
+    {
+      "name": "the first enabled option is past a disabled option group, in an enabled one",
+      "form": "<form><select name=\"a\"><optgroup label=\"old\" disabled><option>X</option></optgroup><optgroup label=\"now\"><option>Y</option></optgroup></select></form>",
+      "submitted": "Y"
+    },
+    {
+      "name": "a same-named select in inert template content",
+      "form": "<form><select name=\"a\"><option selected>Yes</option></select><template><select name=\"a\"><option selected>Archived</option></select></template></form>",
+      "submitted": "Yes"
+    },
+    {
+      "name": "a same-named select in another form",
+      "form": "<form id=\"f1\"><select name=\"a\"><option>Yes</option></select></form><form id=\"f2\"><select name=\"a\"><option selected>Archived</option></select></form>",
+      "submitted": "Yes"
+    },
+    {
+      "name": "a same-named select whose form attribute names another form",
+      "form": "<form id=\"f1\"><select name=\"a\"><option>Yes</option></select><select name=\"a\" form=\"f2\"><option selected>Archived</option></select></form><form id=\"f2\"></form>",
+      "submitted": "Yes"
+    },
+    {
+      "name": "a same-named select whose form attribute is empty",
+      "form": "<form id=\"f1\"><select name=\"a\"><option>Yes</option></select><select name=\"a\" form=\"\"><option selected>Archived</option></select></form>",
+      "submitted": "Yes"
+    },
+    {
+      "name": "a select outside the saved form whose form attribute names it",
+      "form": "<form id=\"f1\"></form><select name=\"a\" form=\"f1\"><option selected>Yes</option></select>",
+      "submitted": "Yes"
+    },
+    {
+      "name": "a form written between table and tr owns the select of its row",
+      "form": "<table><form id=\"f1\"><tr><td><select name=\"a\"><option>T</option></select></td></tr></form></table>",
+      "submitted": "T"
+    },
+    {
+      "name": "a commented-out select is not read",
+      "form": "<form><select name=\"a\"><option>Yes</option></select><!-- <select name=\"a\"><option selected>Old</option></select> --></form>",
+      "submitted": "Yes"
+    },
+    {
+      "name": "option text keeps a no-break space and leaves out a comment, a script and template content",
+      "form": "<form><select name=\"a\"><option> Not&nbsp;done<!-- c -->\n now<script>var s = 1;</script><template>t</template> </option></select></form>",
+      "submitted": "Not\u00a0done now"
+    },
+    {
+      "name": "a select that holds a style element submits the option a browser lists",
+      "form": "<form><select name=\"a\"><option value=\"A\" selected>a</option><style><option value=\"B\" selected></style><template><option value=\"T\" selected>t</option></template><option value=\"B\">b</option></select></form>",
       "submitted": "A"
     }
   ]

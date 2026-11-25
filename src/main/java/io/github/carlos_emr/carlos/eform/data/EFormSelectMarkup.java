@@ -22,12 +22,21 @@
 package io.github.carlos_emr.carlos.eform.data;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.jsoup.nodes.Node;
 import org.jsoup.nodes.Range;
+import org.jsoup.nodes.TextNode;
 import org.jsoup.parser.Parser;
+import org.jsoup.select.NodeFilter;
+import org.jsoup.select.NodeTraversor;
+
+import com.google.common.base.Ascii;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -45,6 +54,11 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * {@code " selected"} put in after {@code <option}, and the {@code selected} attribute taken out of the other
  * options of the same single select. Nothing else in the markup is touched.</p>
  *
+ * <p>What a select submits is also the value a database tag that names the field ({@code {name}}) binds
+ * ({@link #submittedValues}): the option a browser shows as selected for the select's display size (a drop-down
+ * with none marked shows its first enabled option), never a disabled one, and nothing for a select a save does not
+ * submit (inert {@code template} content, or a select that belongs to another form).</p>
+ *
  * <p>Anything that cannot be resolved with certainty (the select is not found, a start tag cannot be read)
  * changes nothing: the template's own default stays.</p>
  */
@@ -53,6 +67,11 @@ final class EFormSelectMarkup {
     /** Length of {@code "<option"}. */
     private static final int OPTION_OPEN = 7;
     private static final String VALUE_ATTRIBUTE = "value";
+    /**
+     * HTML's white space in a tag and in option text: tab, line feed, form feed, carriage return and space. A
+     * no-break space or an em space is not white space to HTML: it is part of a name, a value or the text.
+     */
+    private static final String HTML_SPACE = " \t\n\f\r";
 
     private EFormSelectMarkup() {
     }
@@ -90,7 +109,7 @@ final class EFormSelectMarkup {
      * <p>Candidates are the options the select owns (its own, and those in its option groups; never an option in
      * a nested select or in {@code template} content). The wanted text is compared with each option's submitted
      * value (its {@code value} attribute, which may be a bare attribute and then submits an empty string, or its
-     * text with character references decoded and white space collapsed). The whole value is compared, never a
+     * text as {@link #optionText} reads it). The whole value is compared, never a
      * prefix, and nothing is built into a pattern from it. An <em>exact</em> submitted value anywhere in the
      * select wins over every compatibility match; only when no option submits exactly the wanted text is it
      * compared without regard to case, and then against the option's raw attribute spelling (a template value
@@ -109,7 +128,9 @@ final class EFormSelectMarkup {
         if (wanted == null) return null;
         String source = html.toString();
         Element select = selectHolding(parse(source), pointer);
-        if (select == null || hasStyleInside(select, source)) return null;
+        if (select == null) return null;
+        String inside = markupInside(select, source);
+        if (inside == null || holdsStyleElement(inside)) return null;
         List<Element> options = ownedOptions(select);
         Element chosen = chosenOption(options, source, wanted);
         if (chosen == null) return null;
@@ -132,32 +153,150 @@ final class EFormSelectMarkup {
     }
 
     /**
-     * The value a browser submits for the option of the select whose start tag holds {@code pointer} that is
-     * shown as selected (the last {@code selected} option of a single select, the first of one with
-     * {@code multiple}), or null when none is marked selected or the select is not found. Used to carry the
-     * submitted value to the database tags that depend on the field.
+     * What a browser submits, with the form a save posts, for each select whose start tag begins at one of
+     * {@code selectStarts}: the value a database tag that names the field binds. The whole form is parsed once for
+     * all of them, and not at all when there is none. A select has no entry when it submits nothing (see
+     * {@link #valueSubmittedBy}), when the parser does not read a select there (one inside a comment, say), or when
+     * a save does not submit it (see {@link #submittedWith}).
      */
-    static String selectedValue(CharSequence html, int pointer) {
+    static Map<Integer, String> submittedValues(CharSequence html, List<Integer> selectStarts) {
+        Map<Integer, String> submitted = new HashMap<>();
+        if (selectStarts.isEmpty()) return submitted;
         String source = html.toString();
-        Element select = selectHolding(parse(source), pointer);
-        if (select == null || hasStyleInside(select, source)) return null;
-        Element shown = null;
-        for (Element option : ownedOptions(select)) {
-            if (!option.hasAttr("selected")) continue;
-            shown = option;
-            if (select.hasAttr("multiple")) break;
+        Document document = parse(source);
+        Element savedForm = document.selectFirst("form");
+        for (int start : selectStarts) {
+            Element select = selectHolding(document, start + 1);
+            String value = select == null ? null : valueSubmittedBy(select, source, document, savedForm);
+            if (value != null) submitted.put(start, value);
         }
-        return shown == null ? null : submittedValue(shown);
+        return submitted;
+    }
+
+    /**
+     * The value a browser submits for {@code select} with {@code savedForm}, or null when it submits none. A select
+     * with {@code multiple} submits each selected option that is not disabled; its first one is the value. Any
+     * other select shows its last selected option or, as a drop-down with none marked, its first option that is not
+     * disabled, and submits it unless it is disabled; a list box with none marked submits nothing. The options of a
+     * select that holds a style element are those a browser lists (see {@link #holdsStyleElement}).
+     */
+    private static String valueSubmittedBy(Element select, String source, Document document, Element savedForm) {
+        String inside = markupInside(select, source);
+        if (inside == null || !submittedWith(select, document, savedForm)) return null;
+        List<Element> options = holdsStyleElement(inside) ? optionsOutsideSelect(inside) : ownedOptions(select);
+        boolean multiple = select.hasAttr("multiple");
+        Element shown = null;
+        for (Element option : options) {
+            if (!option.hasAttr("selected")) continue;
+            if (multiple && !isDisabled(option, select)) return submittedValue(option);
+            if (!multiple) shown = option;
+        }
+        if (shown == null && isDropDown(select)) {
+            for (Element option : options) {
+                if (!isDisabled(option, select)) return submittedValue(option);
+            }
+        }
+        return shown == null || isDisabled(shown, select) ? null : submittedValue(shown);
+    }
+
+    /**
+     * Whether a save submits {@code select} with {@code savedForm}, the page's first form (the one
+     * {@code EForm.setAction} makes the save form). Never a select in inert {@code template} content, nor one whose
+     * {@code form} attribute names another element or nothing, nor one inside another form. A select outside every
+     * form is read as before: a form written between {@code <table>} and {@code <tr>} owns the controls of its rows
+     * without holding them. So is every select of a page that has no form.
+     */
+    private static boolean submittedWith(Element select, Document document, Element savedForm) {
+        if (ancestorNamed(select, "template", null) != null) return false;
+        if (savedForm == null) return true;
+        if (select.hasAttr("form")) {
+            String id = select.attr("form");
+            return !id.isEmpty() && document.getElementById(id) == savedForm;
+        }
+        Element form = ancestorNamed(select, "form", null);
+        return form == null || form == savedForm;
+    }
+
+    /** The nearest ancestor of {@code element} named {@code name} below {@code stop} (null: anywhere), or null. */
+    private static Element ancestorNamed(Element element, String name, Element stop) {
+        for (Element ancestor = element.parent(); ancestor != null && ancestor != stop; ancestor = ancestor.parent()) {
+            if (ancestor.normalName().equals(name)) return ancestor;
+        }
+        return null;
+    }
+
+    /** Whether a browser treats the option as disabled: its own {@code disabled}, or that of its option group. */
+    private static boolean isDisabled(Element option, Element select) {
+        Element group = ancestorNamed(option, "optgroup", select);
+        return option.hasAttr("disabled") || group != null && group.hasAttr("disabled");
+    }
+
+    /**
+     * Whether a browser shows the select as a drop-down, which always has an option selected: no {@code multiple},
+     * and a {@code size} that is absent, unreadable or at most 1 when read as HTML reads a non-negative integer
+     * (leading white space and a "+" skipped, then the digits up to the first other character), as Chromium does.
+     */
+    private static boolean isDropDown(Element select) {
+        if (select.hasAttr("multiple")) return false;
+        String size = select.attr("size");
+        int p = 0;
+        while (p < size.length() && isHtmlSpace(size.charAt(p))) p++;
+        if (p < size.length() && size.charAt(p) == '+') p++;
+        int rows = 0;
+        while (p < size.length() && size.charAt(p) >= '0' && size.charAt(p) <= '9') {
+            rows = Math.min(rows * 10 + size.charAt(p++) - '0', 2); // only "at most 1" matters
+        }
+        return rows <= 1;
     }
 
     /**
      * The value a browser submits for an option: its {@code value} attribute when it has one (a bare
-     * {@code value} is an explicit empty string), otherwise its text with character references decoded and
-     * white space stripped and collapsed. The parser leaves a comment's text out and joins the text on both
-     * sides of it.
+     * {@code value} is an explicit empty string), otherwise its text (see {@link #optionText}).
      */
     static String submittedValue(Element option) {
-        return option.hasAttr(VALUE_ATTRIBUTE) ? option.attr(VALUE_ATTRIBUTE) : option.text();
+        return option.hasAttr(VALUE_ATTRIBUTE) ? option.attr(VALUE_ATTRIBUTE) : optionText(option);
+    }
+
+    /**
+     * An option's text as a browser submits it when the option has no value attribute: its text with character
+     * references decoded, HTML white space stripped from both ends and every run of it collapsed to one space. Any
+     * other space, such as a no-break space ({@code &nbsp;}) or an em space, is text and stays, so the value read
+     * here is the value posted. A comment's text is left out (the text on both sides is joined), and so is the text
+     * of a script and of template content.
+     */
+    static String optionText(Element option) {
+        StringBuilder text = new StringBuilder();
+        NodeTraversor.filter(new NodeFilter() {
+            @Override
+            public FilterResult head(Node node, int depth) {
+                if (node instanceof TextNode textNode) text.append(textNode.getWholeText());
+                return node instanceof Element element
+                        && (element.normalName().equals("script") || element.normalName().equals("template"))
+                        ? FilterResult.SKIP_ENTIRELY : FilterResult.CONTINUE;
+            }
+
+            @Override
+            public FilterResult tail(Node node, int depth) {
+                return FilterResult.CONTINUE;
+            }
+        }, option);
+        StringBuilder collapsed = new StringBuilder(text.length());
+        boolean space = false;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (isHtmlSpace(c)) {
+                space = collapsed.length() > 0;
+                continue;
+            }
+            if (space) collapsed.append(' ');
+            space = false;
+            collapsed.append(c);
+        }
+        return collapsed.toString();
+    }
+
+    private static boolean isHtmlSpace(char c) {
+        return HTML_SPACE.indexOf(c) >= 0;
     }
 
     private static Document parse(String html) {
@@ -174,18 +313,41 @@ final class EFormSelectMarkup {
     }
 
     /**
-     * Whether the select's own markup holds a {@code <style} start. A style element inside a select is
-     * raw text to current browsers, but jsoup's parser (like older browsers) drops the start tag and reads
-     * the style's text as markup, so an option-looking string in it would be taken for an option. The two
-     * parsers cannot be told to agree here, so such a select is left exactly as the template has it.
+     * The select's own markup, between its start tag and its end tag, or null when the parser's positions do not
+     * give it.
      */
-    private static boolean hasStyleInside(Element select, String source) {
+    private static String markupInside(Element select, String source) {
         Range open = select.sourceRange();
         Range close = select.endSourceRange();
         int from = open.isTracked() ? open.end().pos() : 0;
         int to = close.isTracked() ? close.start().pos() : source.length();
-        if (from < 0 || to > source.length() || from > to) return true;
-        return source.substring(from, to).toLowerCase(java.util.Locale.ROOT).contains("<style");
+        return from < 0 || to > source.length() || from > to ? null : source.substring(from, to);
+    }
+
+    /**
+     * Whether a select's own markup holds a style element. A style element inside a select is raw text to current
+     * browsers, but jsoup's parser (like older browsers) drops the start tag and reads the style's text as markup,
+     * so an option-looking string in it would be taken for an option: such a select is never edited (the template's
+     * own default stays), and its options are read outside a select ({@link #optionsOutsideSelect}). Text that only
+     * looks like a style tag (in a comment, in an attribute value such as an option group's label, in a script) is
+     * no style element: the markup is read again outside a select, where the parser keeps a style element as one,
+     * and only an element counts.
+     */
+    private static boolean holdsStyleElement(String markup) {
+        return Ascii.toLowerCase(markup).contains("<style")
+                && !Jsoup.parseBodyFragment(markup).getElementsByTag("style").isEmpty();
+    }
+
+    /**
+     * The options of a select's own markup read outside a select, where the parser keeps a style element's text as
+     * text, as a browser does inside a select; not those in template content.
+     */
+    private static List<Element> optionsOutsideSelect(String markup) {
+        List<Element> options = new ArrayList<>();
+        for (Element option : Jsoup.parseBodyFragment(markup).getElementsByTag("option")) {
+            if (ancestorNamed(option, "template", null) == null) options.add(option);
+        }
+        return options;
     }
 
     /** Options in tree order that this select owns: not those of a nested select, not those in a template. */
@@ -224,7 +386,7 @@ final class EFormSelectMarkup {
             if (!option.hasAttr(VALUE_ATTRIBUTE)) continue;
             Integer start = tagStart(option);
             TagAttributes tag = start == null ? null : readTagAttributes(source, start + OPTION_OPEN);
-            if (tag != null && tag.value != null && tag.value.equalsIgnoreCase(wanted)) return option;
+            if (tag != null && wanted.equalsIgnoreCase(tag.value)) return option;
         }
         return null;
     }
@@ -242,57 +404,49 @@ final class EFormSelectMarkup {
     }
 
     /**
-     * Reads the attributes of the start tag whose name ends at {@code p}, up to its own {@code >} (quoted
-     * values with {@code >} inside them, single-quoted and bare values, attributes without a value and a stray
-     * {@code =} are stepped over): the first {@code value} attribute that has a value, as written, and the
-     * {@code [start, end)} range of every {@code selected} attribute with the white space before it. The tag's
-     * start is known from the parser, so this only reads inside one tag; null for an unterminated tag or an
-     * unclosed quote, where nothing can be trusted.
+     * Reads the attributes of the start tag whose name ends at {@code from}, up to its own {@code >}, splitting
+     * them the way the HTML tokenizer does: only HTML white space separates attributes (a no-break or an em space
+     * belongs to the name or the unquoted value it is in), a name may begin with {@code =}, a quoted value may
+     * hold {@code >}, an unquoted value ends at white space or {@code >}, and a {@code /} between attributes is
+     * stepped over. It records the first {@code value} attribute as written (a bare one is empty), since a
+     * browser keeps the first of repeated attributes, and the {@code [start, end)} range of every
+     * {@code selected} attribute with the white space before it. Names are matched as HTML matches them, ASCII
+     * letters in any case. The tag's start is known from the parser, so this only reads inside one tag; null for
+     * an unterminated tag or an unclosed quote, where nothing can be trusted.
      */
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive match of HTML attribute names (value, selected) in eForm markup, as a browser matches them; not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive match of HTML attribute names in eForm markup; not a security or authorization decision")
     private static TagAttributes readTagAttributes(String text, int from) {
         int length = text.length();
         int p = from;
         TagAttributes tag = new TagAttributes();
         while (true) {
-            while (p < length && (Character.isWhitespace(text.charAt(p)) || text.charAt(p) == '/')) p++;
+            while (p < length && (isHtmlSpace(text.charAt(p)) || text.charAt(p) == '/')) p++;
             if (p >= length) return null;
             if (text.charAt(p) == '>') return tag;
-            int nameStart = p;
-            while (p < length && !Character.isWhitespace(text.charAt(p)) && "=>/".indexOf(text.charAt(p)) < 0) p++;
-            if (p == nameStart) { // a stray "=": step over it
-                p++;
-                continue;
-            }
+            int nameStart = p++; // the first character is the name's, even "="
+            while (p < length && !isHtmlSpace(text.charAt(p)) && "=>/".indexOf(text.charAt(p)) < 0) p++;
             String name = text.substring(nameStart, p);
-            int attributeEnd = p;
+            String value = "";
             int q = p;
-            while (q < length && Character.isWhitespace(text.charAt(q))) q++;
+            while (q < length && isHtmlSpace(text.charAt(q))) q++;
             if (q < length && text.charAt(q) == '=') {
                 p = q + 1;
-                while (p < length && Character.isWhitespace(text.charAt(p))) p++;
-                int valueStart;
-                int valueEnd;
+                while (p < length && isHtmlSpace(text.charAt(p))) p++;
                 if (p < length && (text.charAt(p) == '"' || text.charAt(p) == '\'')) {
-                    valueStart = p + 1;
-                    valueEnd = text.indexOf(text.charAt(p), valueStart);
-                    if (valueEnd < 0) return null;
-                    p = valueEnd + 1;
+                    int close = text.indexOf(text.charAt(p), p + 1);
+                    if (close < 0) return null;
+                    value = text.substring(p + 1, close);
+                    p = close + 1;
                 } else {
-                    valueStart = p;
-                    while (p < length && !Character.isWhitespace(text.charAt(p)) && text.charAt(p) != '>') p++;
-                    valueEnd = p;
-                }
-                attributeEnd = p;
-                if (tag.value == null && name.equalsIgnoreCase(VALUE_ATTRIBUTE)) {
-                    tag.value = text.substring(valueStart, valueEnd);
+                    int valueStart = p;
+                    while (p < length && !isHtmlSpace(text.charAt(p)) && text.charAt(p) != '>') p++;
+                    value = text.substring(valueStart, p);
                 }
             }
-            if (name.equalsIgnoreCase("selected")) {
+            if (tag.value == null && Ascii.equalsIgnoreCase(name, VALUE_ATTRIBUTE)) tag.value = value;
+            if (Ascii.equalsIgnoreCase(name, "selected")) {
                 int spaceStart = nameStart;
-                while (spaceStart > from && Character.isWhitespace(text.charAt(spaceStart - 1))) spaceStart--;
-                tag.selectedRanges.add(new int[] {spaceStart, attributeEnd});
+                while (spaceStart > from && isHtmlSpace(text.charAt(spaceStart - 1))) spaceStart--;
+                tag.selectedRanges.add(new int[] {spaceStart, p});
             }
         }
     }

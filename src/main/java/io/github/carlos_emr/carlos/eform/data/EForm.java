@@ -81,6 +81,11 @@ public class EForm extends EFormBase {
     private String parentAjaxId = null;
     private String eform_link = null;
     private HashMap<String, String> fieldValues = new HashMap<String, String>();
+    /**
+     * The named fields of the first database-tag pass, in document order, until {@link #readFieldValues} puts their
+     * values in {@link #fieldValues}. A select is kept by where it starts: its value takes the HTML parser.
+     */
+    private final List<FieldReading> fieldReadings = new ArrayList<>();
     private int needValueInForm = 0;
     private boolean setAP2nd = false;
     /** Every submitted value by field name while {@link #setValues} runs; a multiple select reads it. */
@@ -464,8 +469,14 @@ public class EForm extends EFormBase {
                 log.debug("=================End Cycle==============");
             }
             formHtml = html.toString();
-            if (needValueInForm > 0) setAP2nd = true;
-            else i = 2;
+            if (needValueInForm > 0) {
+                // A database tag reads other fields ({name}): their values now, from the form as this pass left it.
+                readFieldValues(html);
+                setAP2nd = true;
+            } else {
+                fieldReadings.clear(); // no database tag reads them: a select is never parsed for its value
+                i = 2;
+            }
         }
     }
 
@@ -1317,13 +1328,38 @@ public class EForm extends EFormBase {
         }
     }
 
-    /** The submitted value of the option shown as selected, or null; as {@link #selectEdit}, never throws. */
-    private static String selectedOptionValue(StringBuilder html, int pointer) {
+    /** A named field of the first pass: its value, or, for a select, where its start tag begins (else -1). */
+    private record FieldReading(String name, String value, int selectStart) {
+    }
+
+    /**
+     * Puts the first pass's field values where {@link #findValueInForm} reads them for a database tag that names
+     * another field ({@code {name}}), in document order, so a later non-blank value of a name wins, as before. A
+     * select's value is what a browser submits for it ({@link EFormSelectMarkup#submittedValues}), and all the
+     * selects are read from one parse of the form as the pass left it: only a form with such a tag is parsed for
+     * them, once. A first-pass edit changes only the field being filled, after its start, so the start kept for an
+     * earlier select still holds.
+     */
+    private void readFieldValues(StringBuilder html) {
+        List<Integer> selectStarts = new ArrayList<>();
+        for (FieldReading reading : fieldReadings) {
+            if (reading.selectStart() >= 0) selectStarts.add(reading.selectStart());
+        }
+        Map<Integer, String> submitted = submittedSelectValuesAt(html, selectStarts);
+        for (FieldReading reading : fieldReadings) {
+            String value = reading.selectStart() < 0 ? reading.value() : submitted.get(reading.selectStart());
+            if (!StringUtils.isBlank(value)) fieldValues.put(reading.name(), value);
+        }
+        fieldReadings.clear();
+    }
+
+    /** What a browser submits for the selects starting at {@code selectStarts}; as {@link #selectEdit}, never throws. */
+    private static Map<Integer, String> submittedSelectValuesAt(StringBuilder html, List<Integer> selectStarts) {
         try {
-            return EFormSelectMarkup.selectedValue(html, pointer);
+            return EFormSelectMarkup.submittedValues(html, selectStarts);
         } catch (RuntimeException e) {
-            log.warn("eForm select value not read: its markup could not be read ({})", e.getClass().getSimpleName());
-            return null;
+            log.warn("eForm select values not read: the form's markup could not be read ({})", e.getClass().getSimpleName());
+            return Map.of();
         }
     }
 
@@ -1515,11 +1551,11 @@ public class EForm extends EFormBase {
                 if (StringUtils.isBlank(checked) || !checked.equalsIgnoreCase("checked")) return;
             }
         } else if (header.toLowerCase().startsWith("<select ")) {
-            // What the browser submits for the option shown as selected: its value attribute, or, with none,
-            // its text, decoded (the same calculation the prefill uses), so a dependent database tag binds
-            // the submitted value and not the markup's raw spelling.
-            String shown = selectedOptionValue(html, fieldIndex + 1);
-            if (shown != null) value = shown;
+            // What a browser submits for the select (the prefill's own calculation, so a dependent database tag
+            // binds the submitted value and not the markup's raw spelling) takes the HTML parser: kept by where
+            // the select starts, and read only if a database tag needs it (readFieldValues).
+            fieldReadings.add(new FieldReading(name.toLowerCase(), null, fieldIndex));
+            return;
         } else if (header.toLowerCase().startsWith("<textarea ")) {
             int fieldEnd = html.indexOf("</textarea>", fieldIndex);
             value = html.substring(fieldIndex + header.length(), fieldEnd).trim();
@@ -1527,7 +1563,7 @@ public class EForm extends EFormBase {
             else if (value.startsWith("\r\n")) value = value.substring(2); // remove 1st line break, WINDOWS style
         }
         name = name.toLowerCase();
-        if (!StringUtils.isBlank(value)) fieldValues.put(name, value);
+        if (!StringUtils.isBlank(value)) fieldReadings.add(new FieldReading(name, value, -1));
     }
 
     private String getRefFid(String eform_name) {
