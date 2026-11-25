@@ -31,6 +31,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.Collections;
+import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,6 +43,9 @@ import org.springframework.mock.web.MockHttpServletRequest;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.ProviderDropdownEntry;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillActivityDao;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
@@ -69,6 +73,8 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
     private BillingDao billingDao;
     private BillingDetailDao billingDetailDao;
     private OhipReportGenerationService service;
+    private final SecurityInfoManager security = mock(SecurityInfoManager.class);
+    private final BillingReviewLoader reviews = mock(BillingReviewLoader.class);
 
     @BeforeEach
     void setUp() {
@@ -87,7 +93,7 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
         org.springframework.transaction.PlatformTransactionManager txManager =
                 mock(org.springframework.transaction.PlatformTransactionManager.class);
         service = new OhipReportGenerationService(
-                billActivityDao, providerDao, billingDao, billingDetailDao, factory, txManager);
+                billActivityDao, providerDao, billingDao, billingDetailDao, factory, txManager, security, reviews);
     }
 
     @Test
@@ -139,6 +145,51 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
     }
 
     @Test
+    void shouldRefuseOutOfScopeLegacyPreviewAndGeneration_beforeQueryingClaimsOrWritingFiles() {
+        var request = new MockHttpServletRequest();
+        request.setParameter("monthCode", "A");
+        request.setParameter("providers", "803602");
+        var login = new LoggedInInfo();
+        login.setLoggedInProvider(new Provider("803601"));
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), login);
+        when(security.hasPrivilege(login, "_team_billing_only", "r", null)).thenReturn(true);
+        when(reviews.getTeamProviderBillingStr("803601")).thenReturn(List.of(
+                new ProviderDropdownEntry("803601", "FAKE", "Biller", "803601", "0000", "00")));
+
+        assertThatThrownBy(() -> service.generateSimulation(request)).isInstanceOf(SecurityException.class);
+        assertThatThrownBy(() -> service.generateReport(request, OhipReportGenerationService.Mode.SOLO_REPORT))
+                .isInstanceOf(SecurityException.class);
+        verifyNoInteractions(providerDao, billingDao, billingDetailDao, billActivityDao);
+    }
+
+    @Test
+    void shouldProcessOnlyTheAllowedProvider_whenLegacySimulationAndGenerationSelectAll() {
+        var request = new MockHttpServletRequest();
+        request.setParameter("monthCode", "A");
+        request.setParameter("providers", "all");
+        var login = new LoggedInInfo();
+        login.setLoggedInProvider(new Provider("803601"));
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), login);
+        when(security.hasPrivilege(login, "_team_billing_only", "r", null)).thenReturn(true);
+        when(reviews.getTeamProviderBillingStr("803601")).thenReturn(List.of(
+                new ProviderDropdownEntry("803601", "FAKE", "Biller", "123456", "0000", "00")));
+        var allowed = new Provider("803601");
+        allowed.setOhipNo("123456");
+        var other = new Provider("803602");
+        other.setOhipNo("654321");
+        when(providerDao.getActiveProviders()).thenReturn(List.of(other, allowed));
+        var extract = mock(OhipClaimExtractService.class);
+        when(extract.getHtmlValue()).thenReturn("allowed-preview");
+        var scopedService = new OhipReportGenerationService(billActivityDao, providerDao, billingDao,
+                billingDetailDao, () -> extract, mock(org.springframework.transaction.PlatformTransactionManager.class), security, reviews);
+
+        assertThat(scopedService.generateSimulation(request).htmlPreview()).isEqualTo("allowed-preview");
+        assertThat(scopedService.generateReport(request, OhipReportGenerationService.Mode.SOLO_REPORT)).isEmpty();
+        verify(extract, org.mockito.Mockito.times(2)).setProviderNo("123456");
+        verify(extract, org.mockito.Mockito.never()).setProviderNo("654321");
+    }
+
+    @Test
     void shouldReturnFalse_whenHybridBillingPropertyAbsent() {
         // CarlosProperties is a singleton with a static getInstance(); stub
         // the chain so the property lookup returns the empty default. The
@@ -185,7 +236,7 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
         org.springframework.transaction.PlatformTransactionManager txManager =
                 mock(org.springframework.transaction.PlatformTransactionManager.class);
         OhipReportGenerationService twoProviderService = new OhipReportGenerationService(
-                billActivityDao, providerDao, billingDao, billingDetailDao, trackingFactory, txManager);
+                billActivityDao, providerDao, billingDao, billingDetailDao, trackingFactory, txManager, security, reviews);
 
         Provider p1 = mock(Provider.class);
         when(p1.getOhipNo()).thenReturn("111111");
@@ -236,7 +287,7 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
         when(billActivityDao.isImportedFilenameReserved("HOB111111_002.htm")).thenReturn(true);
         OhipReportGenerationService generator = new OhipReportGenerationService(
                 billActivityDao, providerDao, billingDao, billingDetailDao, factory,
-                mock(org.springframework.transaction.PlatformTransactionManager.class));
+                mock(org.springframework.transaction.PlatformTransactionManager.class), security, reviews);
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setParameter("monthCode", "OB");
         request.setParameter("providers", "all");
@@ -278,7 +329,7 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
         org.springframework.transaction.PlatformTransactionManager txManager =
                 mock(org.springframework.transaction.PlatformTransactionManager.class);
         OhipReportGenerationService twoProviderService = new OhipReportGenerationService(
-                billActivityDao, providerDao, billingDao, billingDetailDao, trackingFactory, txManager);
+                billActivityDao, providerDao, billingDao, billingDetailDao, trackingFactory, txManager, security, reviews);
 
         Provider p1 = mock(Provider.class);
         when(p1.getOhipNo()).thenReturn("111111");
@@ -331,7 +382,7 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
         org.springframework.transaction.PlatformTransactionManager txManager =
                 mock(org.springframework.transaction.PlatformTransactionManager.class);
         OhipReportGenerationService oneProviderService = new OhipReportGenerationService(
-                billActivityDao, providerDao, billingDao, billingDetailDao, trackingFactory, txManager);
+                billActivityDao, providerDao, billingDao, billingDetailDao, trackingFactory, txManager, security, reviews);
 
         Provider p = mock(Provider.class);
         when(p.getOhipNo()).thenReturn("111111");
@@ -366,7 +417,7 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
         org.springframework.transaction.PlatformTransactionManager txManager =
                 mock(org.springframework.transaction.PlatformTransactionManager.class);
         OhipReportGenerationService oneProviderService = new OhipReportGenerationService(
-                billActivityDao, providerDao, billingDao, billingDetailDao, trackingFactory, txManager);
+                billActivityDao, providerDao, billingDao, billingDetailDao, trackingFactory, txManager, security, reviews);
 
         Provider p = mock(Provider.class);
         when(p.getOhipNo()).thenReturn("");

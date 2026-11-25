@@ -21,6 +21,10 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import java.util.Optional;
+import java.util.Set;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -78,6 +82,8 @@ public class OhipReportGenerationService {
     private static final int PROVIDER_SPECIALTYCODE_LENGTH = 2;
 
     private final BillActivityDao billActivityDao;
+    private final SecurityInfoManager securityInfoManager;
+    private final BillingReviewLoader reviews;
     private final ProviderDao providerDao;
     private final BillingDao billingDao;
     private final BillingDetailDao billingDetailDao;
@@ -106,8 +112,11 @@ public class OhipReportGenerationService {
                                 BillingDao billingDao,
                                 BillingDetailDao billingDetailDao,
                                 org.springframework.beans.factory.ObjectFactory<OhipClaimExtractService> ohipClaimExtractFactory,
-                                org.springframework.transaction.PlatformTransactionManager txManager) {
+                                org.springframework.transaction.PlatformTransactionManager txManager,
+                                SecurityInfoManager securityInfoManager, BillingReviewLoader reviews) {
         this.billActivityDao = billActivityDao;
+        this.securityInfoManager = securityInfoManager;
+        this.reviews = reviews;
         this.providerDao = providerDao;
         this.billingDao = billingDao;
         this.billingDetailDao = billingDetailDao;
@@ -187,7 +196,7 @@ public class OhipReportGenerationService {
         List<String> hybridProviders = hybridProviderList();
         int curYear = new GregorianCalendar().get(Calendar.YEAR);
 
-        List<Provider> providersToProcess = resolveProviders(providerParam);
+        List<Provider> providersToProcess = resolveProviders(providerParam, eligibleProviders(request));
 
         int batchOrdinal = 1;
         for (Provider p : providersToProcess) {
@@ -294,7 +303,12 @@ public class OhipReportGenerationService {
         DateRange dateRange = new DateRange(dateBegin, dateEnd);
 
         StringBuilder htmlValue = new StringBuilder();
-        for (Provider p : providerDao.getActiveProviders()) {
+        // The legacy unrestricted simulation previews the clinic. A restricted request uses
+        // the same eligible set and explicit provider selection as the Ontario billing form.
+        Optional<Set<String>> eligible = eligibleProviders(request);
+        List<Provider> simulationProviders = eligible.isPresent()
+                ? resolveProviders(provider, eligible) : providerDao.getActiveProviders();
+        for (Provider p : simulationProviders) {
             if (p.getOhipNo() == null || p.getOhipNo().isEmpty()) continue;
 
             String proOHIP = p.getOhipNo();
@@ -331,15 +345,29 @@ public class OhipReportGenerationService {
                 dateEnd == null ? "" : dateEnd.toString());
     }
 
+    private Optional<Set<String>> eligibleProviders(HttpServletRequest request) {
+        LoggedInInfo login = LoggedInInfo.getLoggedInInfoFromSession(request);
+        return BillingOnProviderScope.forLogin(securityInfoManager, login).selectableProviderNumbers(
+                reviews, login == null ? null : login.getLoggedInProviderNo());
+    }
+
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private List<Provider> resolveProviders(String providerParam) {
+    private List<Provider> resolveProviders(String providerParam, Optional<Set<String>> eligible) {
         if ("all".equalsIgnoreCase(providerParam)) {
-            return providerDao.getActiveProviders();
+            if (eligible.isPresent() && eligible.get().isEmpty()) {
+                throw new SecurityException("No available billing providers.");
+            }
+            List<Provider> active = providerDao.getActiveProviders();
+            return eligible.map(allowed -> active.stream().filter(p -> allowed.contains(p.getProviderNo())).toList())
+                    .orElse(active);
         }
-        // Single provider — first 6 chars of the param value.
-        String pn = providerParam.length() > PROVIDER_BILLINGNO_LENGTH
+        // Some legacy forms append an OHIP number to the six-character provider number.
+        String pn = providerParam != null && providerParam.length() > PROVIDER_BILLINGNO_LENGTH
                 ? providerParam.substring(0, PROVIDER_BILLINGNO_LENGTH) : providerParam;
+        if (eligible.isPresent() && (pn == null || !eligible.get().contains(pn))) {
+            throw new SecurityException("Selected billing provider is not available.");
+        }
         Provider p = providerDao.getProvider(pn);
         List<Provider> out = new ArrayList<>();
         if (p != null) out.add(p);

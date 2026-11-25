@@ -26,7 +26,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOhipSimulationViewModel;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
-import io.github.carlos_emr.carlos.commn.SiteChoice;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnProviderScope;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -71,15 +71,9 @@ public class ViewBillingOhipSimulation2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        boolean teamBillingOnly = securityInfoManager.hasPrivilege(
-                loggedInInfo, "_team_billing_only", "r", null);
-        boolean siteAccessPrivacy = SiteChoice.isSiteAccessRestricted(securityInfoManager, loggedInInfo);
-        boolean teamAccessPrivacy = securityInfoManager.hasPrivilege(
-                loggedInInfo, "_team_access_privacy", "r", null);
-
-        BillingOhipSimulationViewModel model = billingOHIPSimulationAssembler
-                .assemble(request, loggedInInfo, teamBillingOnly,
-                        siteAccessPrivacy, teamAccessPrivacy);
+        var scope = BillingOnProviderScope.forLogin(securityInfoManager, loggedInInfo);
+        BillingOhipSimulationViewModel model = billingOHIPSimulationAssembler.assemble(request, loggedInInfo,
+                scope.teamBillingOnly(), scope.siteAccessPrivacy(), scope.teamAccessPrivacy());
         request.setAttribute("simulationModel", model);
         // Audit the dry run as OSCAR 19's billingOHIPsimulation.jsp did: only when a
         // report was requested, not when the form is merely displayed.
