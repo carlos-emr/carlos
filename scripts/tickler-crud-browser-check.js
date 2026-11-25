@@ -97,7 +97,9 @@ vm.runInNewContext(
         sender.postMessage({action: 'refresh'});
         sender.close();
       });
-      window.addEventListener('unload', () => listener.close());
+      // pagehide, not unload: where Chrome's unload deprecation is active, adding an unload
+      // listener logs a permissions-policy console error, which the errors check below reports.
+      window.addEventListener('pagehide', () => listener.close());
     });
     await helpers.ready(page);
     holdReset = true;
