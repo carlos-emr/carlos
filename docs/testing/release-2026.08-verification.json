@@ -11105,6 +11105,133 @@
         "T23",
         "T34"
       ]
+    },
+    ".github/workflows/package-smoke.yml": {
+      "reason": "The smoke build checks out the pinned companion source. The candidate checks require a literal reviewed commit and verify the package digest before installation.",
+      "tests": [
+        "scripts/ci/test_candidate_cli_package.py",
+        "scripts/deb-docker-validation.sh"
+      ],
+      "checks": [
+        "evidence-self-tests",
+        "package-beta8-upgrade"
+      ],
+      "workstreams": [
+        "T26"
+      ]
+    },
+    ".github/workflows/publish-release.yml": {
+      "reason": "The release workflow fetches the attested companion package and checks it against the qualified bytes before attaching it. Publication tests cover a mismatched artifact and replay of a draft.",
+      "tests": [
+        "scripts/ci/test_candidate_cli_package.py",
+        "scripts/ci/test_release_publication.py"
+      ],
+      "checks": [
+        "evidence-self-tests"
+      ],
+      "workstreams": [
+        "T26"
+      ]
+    },
+    "package.json": {
+      "reason": "The npm script map must expose each registered installed browser workflow. The manifest test checks each script and the packaged suite executes the Ontario single-site case.",
+      "tests": [
+        "scripts/playwright-suite-manifest.test.js",
+        "scripts/billing-on-single-site-visibility-playwright-checks.js"
+      ],
+      "checks": [
+        "node-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T03",
+        "T23",
+        "T26"
+      ]
+    },
+    "debian/assets/tomcat/Catalina/localhost/carlos.xml": {
+      "reason": "Debian conffile tests check the published Tomcat context bytes and verify a real package upgrade preserves the operator’s local changes.",
+      "tests": [
+        "debian/assets/tests/test_install_configuration_recovery.py",
+        "scripts/deb-docker-validation.sh"
+      ],
+      "checks": [
+        "debian-python",
+        "package-beta8-upgrade"
+      ],
+      "workstreams": [
+        "T26"
+      ]
+    },
+    "debian/assets/tomcat/logging.properties": {
+      "reason": "Debian conffile tests check the published logging defaults and verify a real package upgrade preserves the operator’s local changes.",
+      "tests": [
+        "debian/assets/tests/test_install_configuration_recovery.py",
+        "scripts/deb-docker-validation.sh"
+      ],
+      "checks": [
+        "debian-python",
+        "package-beta8-upgrade"
+      ],
+      "workstreams": [
+        "T26"
+      ]
+    },
+    "debian/changelog": {
+      "reason": "The candidate version must sort after the published development baseline. The packaging matrix upgrades an actual beta 8 installation.",
+      "tests": [
+        "debian/assets/tests/test_install_configuration_recovery.py",
+        "scripts/deb-docker-validation.sh"
+      ],
+      "checks": [
+        "debian-python",
+        "package-beta8-upgrade"
+      ],
+      "workstreams": [
+        "T26"
+      ]
+    },
+    "debian/carlos-emr.postinst": {
+      "reason": "Installation recovery must preserve customized nginx configuration, handle service state and allow both fresh installation and an upgrade.",
+      "tests": [
+        "debian/assets/tests/test_install_configuration_recovery.py",
+        "scripts/deb-docker-validation.sh"
+      ],
+      "checks": [
+        "debian-python",
+        "package-beta8-upgrade"
+      ],
+      "workstreams": [
+        "T26"
+      ]
+    },
+    "debian/assets/bin/carlos-emr-cert": {
+      "reason": "Certificate handling must preserve the service state across both successful and failed operations. The fixture executes the shipped decision logic.",
+      "tests": [
+        "debian/assets/tests/test_install_configuration_recovery.py",
+        "scripts/deb-docker-validation.sh"
+      ],
+      "checks": [
+        "debian-python",
+        "package-beta8-upgrade"
+      ],
+      "workstreams": [
+        "T26"
+      ]
+    },
+    "debian/stamp-war-build-identity.sh": {
+      "reason": "Stamping the same Debian identity must preserve frozen WAR bytes. The build tests also reject a qualification request for a different source or identity.",
+      "tests": [
+        "debian/assets/tests/test_install_configuration_recovery.py",
+        "scripts/ci/test_build_release_war.py"
+      ],
+      "checks": [
+        "debian-python",
+        "package-beta8-upgrade"
+      ],
+      "workstreams": [
+        "T26"
+      ]
     }
   },
   "lifecycleBaselineManifest": "docs/testing/release-2026.08-lifecycle-baselines.json",
