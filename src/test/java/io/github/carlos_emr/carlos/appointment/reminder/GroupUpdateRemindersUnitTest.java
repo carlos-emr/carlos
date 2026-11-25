@@ -44,6 +44,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -121,8 +122,8 @@ class GroupUpdateRemindersUnitTest extends CarlosUnitTestBase {
 
     /**
      * The bookings always save. Group Update rebooks two appointments in one transaction;
-     * storing the reminders then fails. Both bookings stay saved, nothing is rolled back, the later reminder step
-     * still runs, and the page is told to say the reminder was not recorded.
+     * storing the reminders then fails. Both bookings stay saved, nothing is rolled back, the later reminder steps
+     * still run, and the page is told to say the reminder was not recorded.
      */
     @Test
     void shouldLeaveEveryGroupBookingSaved_whenAReminderFails() {
@@ -139,14 +140,36 @@ class GroupUpdateRemindersUnitTest extends CarlosUnitTestBase {
             transactions.pending.add(rebooking[1]);
             steps.moveReminders(rebooking[0], booking(rebooking[1]));
         }
-        steps.recordAfterGroupUpdate(booking(201));
+        steps.recordAfterGroupUpdate(booking(202));
         transactions.commit(groupTx);
 
         assertThatCode(steps::runAfterCommit).doesNotThrowAnyException();
         assertThat(transactions.saved).containsExactly(201, 202);
         assertThat(transactions.rollbacks).isZero();
         verify(reminders).moveReminders(user, 102, 202);
-        verify(reminders).recordRequest(user, 201, 42, ReminderChannel.EMAIL, true);
+        verify(reminders).recordRequest(user, 202, 42, ReminderChannel.EMAIL, true);
+        assertThat(AppointmentReminderChoice.notRecorded(request)).isTrue();
+    }
+
+    /**
+     * #5887 (review): the rebooked appointment's reminder rows did not move, so the start already reminded for stayed
+     * with the removed booking. A fresh choice on the new one would forget it and could remind the patient again, so
+     * the Edit form's box is not written for it either, and the page says the setting was not recorded.
+     */
+    @Test
+    void shouldNotWriteTheChoice_forARebookedAppointmentWhoseRemindersDidNotMove() {
+        AppointmentReminderService reminders = createAndRegisterMock(AppointmentReminderService.class);
+        when(reminders.moveReminders(any(), eq(101), anyInt())).thenThrow(new IllegalStateException("FAKE"));
+        MockHttpServletRequest request = groupForm();
+        GroupUpdateReminders steps = new GroupUpdateReminders(request, user);
+        steps.moveReminders(101, booking(201));
+        steps.moveReminders(102, booking(202));
+        steps.recordAfterGroupUpdate(booking(201));
+
+        steps.runAfterCommit();
+
+        verify(reminders).moveReminders(user, 102, 202);
+        verify(reminders, never()).recordRequest(any(), anyInt(), anyInt(), any(), anyBoolean());
         assertThat(AppointmentReminderChoice.notRecorded(request)).isTrue();
     }
 

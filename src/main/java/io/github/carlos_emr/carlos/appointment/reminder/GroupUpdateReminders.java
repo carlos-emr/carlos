@@ -26,7 +26,10 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.function.BooleanSupplier;
 
 /**
  * The reminder steps of a Group Update (#5887), held while the group page's transaction is open and run only once
@@ -40,13 +43,26 @@ import java.util.List;
  * ({@link AppointmentReminderChoice#notRecorded}); the page then says the appointments were saved but the reminder
  * was not, and nothing is undone.</p>
  *
+ * <p>The Edit form's choice for a rebooked appointment depends on its move: the move carries the start already
+ * reminded for. If the move failed, that history stayed with the removed booking, and a fresh choice on the new one
+ * could remind the patient of the same start again. So the choice is not written for it either; the page says so,
+ * and staff reopen the appointment to save the choice they intended.</p>
+ *
  * @since 2026-11-16
  */
 public final class GroupUpdateReminders {
 
     private final HttpServletRequest request;
     private final LoggedInInfo user;
-    private final List<Runnable> steps = new ArrayList<>();
+    private final List<Step> steps = new ArrayList<>();
+
+    /**
+     * One held step for the booking numbered {@code appointmentNo} (null when it has none): a move of its reminder
+     * rows when {@code move}, else the Edit form's choice for it. {@code call} never throws: it answers whether it
+     * completed, a failure already logged and marked on the request ({@link AppointmentReminderChoice#onGroupPage}).
+     */
+    private record Step(Integer appointmentNo, boolean move, BooleanSupplier call) {
+    }
 
     /**
      * @param request the group page's request: the form it carries decides whether reminders are on
@@ -59,23 +75,34 @@ public final class GroupUpdateReminders {
 
     /** Once committed: {@link AppointmentReminderChoice#moveReminders} from the removed booking to its new one. */
     public void moveReminders(Integer replacedNo, Appointment rebooked) {
-        steps.add(() -> AppointmentReminderChoice.moveReminders(request, user, replacedNo, rebooked));
+        steps.add(new Step(rebooked == null ? null : rebooked.getId(), true,
+                () -> AppointmentReminderChoice.moveReminders(request, user, replacedNo, rebooked)));
     }
 
     /** Once committed: {@link AppointmentReminderChoice#recordAfterGroupUpdate} for the appointment Edit opened. */
     public void recordAfterGroupUpdate(Appointment edited) {
-        steps.add(() -> AppointmentReminderChoice.recordAfterGroupUpdate(request, user, edited));
+        steps.add(new Step(edited == null ? null : edited.getId(), false,
+                () -> AppointmentReminderChoice.recordAfterGroupUpdate(request, user, edited)));
     }
 
     /**
      * Runs the held steps in order. Call it only after the group transaction has committed, and never when it
-     * rolled back (the bookings the steps name are then gone). A failing step does not stop the next one.
+     * rolled back (the bookings the steps name are then gone). A failing step does not stop the next one, but a
+     * booking whose reminder rows did not move gets no choice written: the page says its setting was not recorded.
      */
     public void runAfterCommit() {
-        List<Runnable> held = List.copyOf(steps);
+        List<Step> held = List.copyOf(steps);
         steps.clear();
-        for (Runnable step : held) {
-            AppointmentReminderChoice.onGroupPage(request, step);
+        Set<Integer> notMoved = new HashSet<>();
+        for (Step step : held) {
+            if (!step.move() && step.appointmentNo() != null && notMoved.contains(step.appointmentNo())) {
+                // Its history stayed with the removed booking: a fresh choice here could remind the same start twice.
+                AppointmentReminderChoice.markNotRecorded(request);
+                continue;
+            }
+            if (!step.call().getAsBoolean() && step.move() && step.appointmentNo() != null) {
+                notMoved.add(step.appointmentNo());
+            }
         }
     }
 }
