@@ -15,6 +15,23 @@ import java.util.function.Function;
 public final class PatientApiPages {
     private static final int BATCH = 500;
     private PatientApiPages() { }
+
+    /**
+     * The REST list paging rule: a non-negative position and a size from 0 to
+     * {@link io.github.carlos_emr.carlos.commn.dao.AbstractDao#MAX_LIST_RETURN_SIZE}. Endpoints
+     * that hand paging straight to a DAO call this first, so a malformed request is a 400 rather
+     * than a DAO exception surfacing as a 500 (#5596, #6038). The rule is public and carries no
+     * patient data, so it may be checked before the manager's own authorization.
+     *
+     * @param offset first row requested
+     * @param limit page size requested
+     * @throws BadRequestException when either value is outside the rule
+     */
+    public static void requireValidPage(int offset, int limit) {
+        if (offset < 0 || limit < 0 || limit > io.github.carlos_emr.carlos.commn.dao.AbstractDao.MAX_LIST_RETURN_SIZE) {
+            throw new BadRequestException("Invalid page position or size");
+        }
+    }
     public record Page<T>(List<T> rows, int total) {
         public Page { rows = List.copyOf(rows); }
     }
@@ -22,7 +39,7 @@ public final class PatientApiPages {
     public static <T> Page<T> read(LoggedInInfo actor, SecurityInfoManager permissions, String module,
             int offset, int limit, BiFunction<Integer, Integer, List<T>> fetch, Function<T, Integer> patientId,
             Function<T, Object> identity, String... additionalModules) {
-        if (offset < 0 || limit < 0 || limit > io.github.carlos_emr.carlos.commn.dao.AbstractDao.MAX_LIST_RETURN_SIZE) throw new BadRequestException("Invalid page position or size");
+        requireValidPage(offset, limit);
         var selected = new ArrayList<T>(); int rawOffset=0, readable=0; Object previousLast=null;
         while (true) {
             List<T> raw=fetch.apply(rawOffset, BATCH);

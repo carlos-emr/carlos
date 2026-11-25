@@ -36,6 +36,7 @@
 <%
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     boolean authed = true;
+    boolean canAcknowledge = true;
 %>
 <security:oscarSec roleName="<%=roleName$%>" objectName="_report,_admin.reporting" rights="r" reverse="<%=true%>">
     <%authed = false; %>
@@ -46,6 +47,9 @@
         return;
     }
 %>
+<security:oscarSec roleName="<%=roleName$%>" objectName="_appointment" rights="w" reverse="<%=true%>">
+    <%canAcknowledge = false;%>
+</security:oscarSec>
 <%@ page import="java.util.*, io.github.carlos_emr.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
@@ -56,6 +60,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.AppointmentDaySheetRow" %>
 <%@ page import="io.github.carlos_emr.carlos.appointment.service.AppointmentDaySheetService" %>
+<%@ page import="io.github.carlos_emr.carlos.appointment.service.DaySheetSelection" %>
 <jsp:useBean id="myGroupBean" class="java.util.Properties" scope="page"/>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 
@@ -135,10 +140,23 @@
                 && "true".equals(request.getParameter("acknowledge"));
         Set<String> groupProviders = provider_no.startsWith("_grp_") ? myGroupBean.stringPropertyNames() : null;
         Set<String> permittedProviders = isSiteAccessPrivacy || isTeamAccessPrivacy ? providerMap.keySet() : null;
-        daySheetRows = acknowledge ? daySheetService.acknowledge(daySheetRows,
-                groupProviders, permittedProviders, nonRosteredOnly, curProvider_no)
-                : daySheetService.prepare(daySheetRows,
-                groupProviders, permittedProviders, nonRosteredOnly);
+        int skippedAppointments = 0;
+        if (acknowledge) {
+            DaySheetSelection selection;
+            try {
+                selection = DaySheetSelection.fromParameters(request.getParameterValues("displayedAppointment"),
+                        request.getParameter("displayedAppointmentCount"));
+            } catch (IllegalArgumentException invalidSelection) {
+                response.sendError(400);
+                return;
+            }
+            daySheetRows = daySheetService.acknowledge(selection.matching(daySheetRows),
+                    groupProviders, permittedProviders, nonRosteredOnly, curProvider_no);
+            skippedAppointments = selection.size() - daySheetRows.size();
+        } else {
+            daySheetRows = daySheetService.prepare(daySheetRows,
+                    groupProviders, permittedProviders, nonRosteredOnly);
+        }
 %>
 <html>
     <head>
@@ -184,8 +202,16 @@
 
     </div>
 
+    <% if (acknowledge) { %>
+    <div role="status" class="alert alert-info searchBox">
+        <fmt:message key="report.reportdaysheet.msgAcknowledged">
+            <fmt:param value="<%=daySheetRows.size()%>"/>
+            <fmt:param value="<%=skippedAppointments%>"/>
+        </fmt:message>
+    </div>
+    <% } %>
     <%
-        if (newOnly && !acknowledge && !daySheetRows.isEmpty()) {
+        if (newOnly && canAcknowledge && !acknowledge && !daySheetRows.isEmpty()) {
     %>
     <form method="post" action="${ctx}/report/ViewReportdaysheet" class="searchBox">
         <input type="hidden" name="acknowledge" value="true"/>
@@ -201,6 +227,10 @@
         <c:if test="${not empty param.eTime}">
             <input type="hidden" name="eTime" value="${carlos:forHtmlAttribute(param.eTime)}"/>
         </c:if>
+        <input type="hidden" name="displayedAppointmentCount" value="<%=daySheetRows.size()%>"/>
+        <% for (AppointmentDaySheetRow displayedRow : daySheetRows) { %>
+        <input type="hidden" name="displayedAppointment" value="<%=SafeEncode.forHtmlAttribute(displayedRow.appointmentNo() + ":" + displayedRow.editVersion())%>"/>
+        <% } %>
         <button type="submit" class="btn btn-sm btn-primary"><fmt:message key="report.reportdaysheet.btnAcknowledge"/></button>
     </form>
     <%

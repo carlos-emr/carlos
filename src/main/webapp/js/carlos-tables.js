@@ -291,6 +291,7 @@
     }
 
     function initializeAll() { document.querySelectorAll('table[data-carlos-table]').forEach(initialize); }
+    globalThis.CarlosTables = {initializeAll};
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initializeAll);
     else initializeAll();
 })();

@@ -47,6 +47,7 @@ class HrmReportViewerPatientAccessJspRegressionTest {
     private static final Path VIEWER = Path.of("src/main/webapp/WEB-INF/jsp/hospitalReportManager/displayHRMReport.jsp");
     private static final Path LIST = Path.of("src/main/webapp/WEB-INF/jsp/hospitalReportManager/displayHRMDocList.jsp");
     private static final Path INBOX = Path.of("src/main/webapp/WEB-INF/jsp/oscarMDS/Page.jsp");
+    private static final String REPORT_READ = "hrmDocumentDao.find(hrmReportId.intValue())";
 
     @Test
     @DisplayName("should decide patient access in the viewer before the report row, its file or its links are read")
@@ -55,9 +56,10 @@ class HrmReportViewerPatientAccessJspRegressionTest {
 
         int decision = jsp.indexOf("HRMReportAccess.mayReadReport(");
         assertThat(decision).as("the viewer asks HRMReportAccess").isPositive();
-        for (String read : new String[] {"hrmDocumentDao.findById(hrmReportId)", "HRMReportParser.parseReport(",
+        for (String read : new String[] {REPORT_READ, "HRMReportParser.parseReport(",
                 "hrmDocumentToDemographicDao.findByHrmDocumentId(", "hrmDocumentCommentDao.getCommentsForDocument(",
-                "hrmDocumentToProviderDao.findByHrmDocumentIdNoSystemUser(", "LogAction.addLog("}) {
+                "hrmDocumentToProviderDao.findByHrmDocumentIdNoSystemUser(",
+                ".history(loggedInInfo, document, hrmReport,", "LogAction.addLog("}) {
             assertThat(jsp.indexOf(read)).as("%s comes after the decision", read).isGreaterThan(decision);
         }
         // The decision uses the id the page then reads, parsed once.
@@ -69,7 +71,9 @@ class HrmReportViewerPatientAccessJspRegressionTest {
     void shouldRefuseWithStatusOrText_whenViewerDeniesAccess() throws IOException {
         String jsp = Files.readString(VIEWER, StandardCharsets.UTF_8);
         int decision = jsp.indexOf("HRMReportAccess.mayReadReport(");
-        int firstRead = jsp.indexOf("hrmDocumentDao.findById(hrmReportId)");
+        int firstRead = jsp.indexOf(REPORT_READ);
+        assertThat(decision).as("the viewer asks HRMReportAccess").isPositive();
+        assertThat(firstRead).as("the first report read follows the patient decision").isGreaterThan(decision);
         String refusal = jsp.substring(decision, firstRead);
 
         assertThat(refusal)

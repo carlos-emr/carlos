@@ -9,8 +9,18 @@ async function workflow(s) {
   const page = await s.context.newPage();
   const base = String(s.config.baseUrl).replace(/\/$/, '');
   let reportId, billingId;
+  // #5831: a report's WHERE predicates are its stored reportFilter rows; a request only ticks
+  // filter_<order no> and supplies bound ${...} values, and SQL posted in value_<n> is ignored.
+  // The owned report's filters are removed with it by the cleanup above.
+  function storeFilter(orderNo, predicate) {
+    h.assert(/^[1-9]\d*$/.test(String(reportId)), 'The owned report is required before its filters');
+    sql.execute('DELETE FROM reportFilter WHERE report_id=? AND order_no=?', [reportId, orderNo]);
+    sql.execute(`INSERT INTO reportFilter (report_id,description,value,position,status,order_no,javascript,date_format)
+      VALUES (?,?,?,'',1,?,'','')`, [reportId, `${marker} filter ${orderNo}`, predicate, orderNo]);
+  }
   const roleProvider = `R${marker.slice(-5)}`;
   let ownsRoleProvider = false;
+  let extensionPatient, ownsExtensionPatient = false;
   s.cleanup(() => {
     if (ownsRoleProvider) {
       sql.execute(`DELETE FROM secUserRole WHERE provider_no=${q(roleProvider)}; DELETE FROM provider WHERE provider_no=${q(roleProvider)} AND last_name=${q(marker)}`);
@@ -29,6 +39,24 @@ async function workflow(s) {
     }
     h.assert(sql.value(`SELECT COUNT(*) FROM reportItem WHERE report_name=${q(marker)}`) === '0', 'Owned report remains');
     h.assert(sql.value(`SELECT COUNT(*) FROM billing WHERE demographic_no=${patient} AND demographic_name=${q(marker)}`) === '0', 'Owned billing remains');
+  });
+  s.cleanup(() => {
+    if (!ownsExtensionPatient) return;
+    const owned = sql.rows('SELECT demographic_no FROM demographic WHERE last_name=? AND first_name=? AND provider_no=?',
+      [marker, 'Extension', provider]).map(row => row[0]);
+    h.assert(owned.length <= 1 && (!extensionPatient || owned.length === 0 || owned[0] === extensionPatient),
+      'The extension report patient ownership changed');
+    for (const id of [patient, ...owned]) {
+      h.assert(/^[1-9]\d*$/.test(id), 'Invalid extension report patient identifier');
+      sql.execute('DELETE FROM demographicExt WHERE demographic_no=? AND provider_no=? AND key_val IN (?,?)',
+        [id, provider, 'prefer_language', 'excludeIndicator']);
+      h.assert(sql.value('SELECT COUNT(*) FROM demographicExt WHERE demographic_no=?', [id]) === '0',
+        'An unexpected extension remains on the owned report patient');
+    }
+    for (const id of owned) sql.execute('DELETE FROM demographic WHERE demographic_no=? AND last_name=? AND first_name=? AND provider_no=?',
+      [id, marker, 'Extension', provider]);
+    h.assert(sql.value('SELECT COUNT(*) FROM demographic WHERE last_name=? AND first_name=? AND provider_no=?',
+      [marker, 'Extension', provider]) === '0', 'The extension report patient remains');
   });
   await s.step('report configuration creates an identifier and commits a field add/delete', async () => {
     await page.goto(`${base}/report/ViewReportFormRecord`);
@@ -52,6 +80,66 @@ async function workflow(s) {
     await page.goto(`${base}/report/ViewReportFilter?id=${reportId}`);
     await h.assertNotErrorPage(page, 'typed report filter list');
   });
+  await s.step('Move here retains configured fields through downward, upward, unchanged and legacy NULL moves', async () => {
+    await page.goto(`${base}/report/ViewReportFormConfig?id=${reportId}&tableName=formAlpha`);
+    const fields = await page.locator('select[name="selField"] option').evaluateAll(options =>
+      [...new Set(options.map(option => option.value).filter(value => value.includes('|')))].slice(0, 3));
+    h.assert(fields.length === 3, 'The synthetic report needs three selectable fields');
+    for (const field of fields) {
+      await page.locator('select[name="selField"]').selectOption(field);
+      await Promise.all([page.waitForEvent('framenavigated', {predicate: frame => frame === page.mainFrame()}),
+        page.locator('input[type="submit"][value="Add"]').click()]);
+    }
+    const rows = () => sql.rows(`SELECT id,name,caption,order_no,table_name,save FROM reportConfig
+      WHERE report_id=? ORDER BY order_no,id`, [reportId]);
+    const initial = rows();
+    h.assert(initial.length === 3 && initial.every(row => /^[1-9]\d*$/.test(row[0])),
+      'The three configured fields did not commit');
+    const ids = initial.map(row => row[0]);
+    const metadata = () => JSON.stringify(sql.rows(`SELECT id,name,caption,table_name,save FROM reportConfig
+      WHERE report_id=? ORDER BY id`, [reportId]));
+    const before = metadata();
+    const orderUrl = `${base}/report/ViewReportFormOrder?id=${reportId}&save=${encodeURIComponent(initial[0][5])}&tableName=formAlpha`;
+    await page.goto(orderUrl);
+    await h.assertNotErrorPage(page, 'report field ordering');
+    async function move(selected, target, expected) {
+      await page.locator(`input[name="nameSelected"][value="${selected}"]`).check();
+      const targetRow = page.locator(`input[name="nameSelected"][value="${target}"]`).locator('xpath=ancestor::tr[1]');
+      await Promise.all([page.waitForEvent('framenavigated', {predicate: frame => frame === page.mainFrame()}),
+        targetRow.locator('input[type="submit"][name="submit"]').click()]);
+      // A frame commits before the replacement HTML is parsed. Keep the blank/error
+      // checks, but apply them to the completed document rather than its empty body.
+      await page.waitForLoadState('domcontentloaded');
+      await h.assertNotErrorPage(page, 'report field move');
+      h.assert(metadata() === before, 'Move here deleted or changed configured field metadata');
+      h.assert(JSON.stringify(rows().map(row => row[0])) === JSON.stringify(expected),
+        'Move here did not retain the requested field ordering');
+      const rendered = await page.locator('input[name="nameSelected"]').evaluateAll(inputs => inputs.map(input => input.value));
+      h.assert(JSON.stringify(rendered) === JSON.stringify(expected), 'The reopened ordering page disagrees with stored fields');
+    }
+    await move(ids[0], ids[2], [ids[1], ids[0], ids[2]]);
+    await move(ids[2], ids[1], [ids[2], ids[1], ids[0]]);
+    const noOpBefore = JSON.stringify(rows());
+    await move(ids[2], ids[2], [ids[2], ids[1], ids[0]]);
+    h.assert(JSON.stringify(rows()) === noOpBefore, 'Moving a field to its current position changed the stored order numbers');
+    sql.execute('UPDATE reportConfig SET order_no=NULL WHERE report_id=? AND id=?', [reportId, ids[2]]);
+    // The previous document is a POST response. Reopen with GET so the browser does not
+    // resubmit the previous move and overwrite the independently seeded legacy NULL.
+    await page.goto(orderUrl, {waitUntil: 'domcontentloaded'});
+    h.assert(sql.value('SELECT order_no IS NULL FROM reportConfig WHERE report_id=? AND id=?',
+      [reportId, ids[2]]) === '1', 'The legacy NULL fixture changed before its move');
+    await move(ids[0], ids[2], [ids[0], ids[2], ids[1]]);
+    h.assert(sql.value('SELECT order_no FROM reportConfig WHERE report_id=? AND id=?',
+      [reportId, ids[2]]) === '1', 'Moving before a legacy NULL order did not shift its effective zero position');
+    sql.execute('UPDATE reportConfig SET order_no=0 WHERE report_id=? AND save=?', [reportId, initial[0][5]]);
+    await page.goto(orderUrl, {waitUntil: 'domcontentloaded'});
+    await move(ids[2], ids[1], [ids[0], ids[2], ids[1]]);
+    const tiedNoOpBefore = JSON.stringify(rows());
+    await move(ids[2], ids[2], [ids[0], ids[2], ids[1]]);
+    h.assert(JSON.stringify(rows()) === tiedNoOpBefore, 'Moving to the same specific row changed tied positions');
+    await page.goto(orderUrl, {waitUntil: 'domcontentloaded'});
+    h.assert(await page.locator('input[name="nameSelected"]').count() === 3, 'A moved field disappeared after reload');
+  });
   await s.step('typed provider-role and PHCP report pages render native billed counts', async () => {
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM provider WHERE provider_no=${q(roleProvider)}) + (SELECT COUNT(*) FROM secUserRole WHERE provider_no=${q(roleProvider)})`) === '0', 'Synthetic role provider identifier is already in use');
     ownsRoleProvider = true;
@@ -74,22 +162,107 @@ async function workflow(s) {
     h.assert(cells[0].trim()==='Q5549' && cells[1].trim()===marker, 'Report lost service code or description');
     h.assert(cells[2].trim()==='1' && cells[3].trim()==='1', 'Native report did not render one patient and visit');
   });
+  await s.step('demographic CSV includes each patient’s current extension, including NULL timestamps', async () => {
+    h.assert(sql.value('SELECT COUNT(*) FROM demographic WHERE last_name=? AND first_name=? AND provider_no=?',
+      [marker, 'Extension', provider]) === '0', 'The secondary report patient namespace is occupied');
+    h.assert(sql.value('SELECT COUNT(*) FROM demographicExt WHERE demographic_no=?', [patient]) === '0',
+      'The primary report patient has preexisting extensions');
+    ownsExtensionPatient = true;
+    extensionPatient = sql.insertId(`INSERT INTO demographic
+      (last_name,first_name,year_of_birth,month_of_birth,date_of_birth,sex,patient_status,
+       provider_no,hc_type,province,roster_status,lastUpdateDate)
+      VALUES (?,?,'1980','01','02','F','AC',?,'ON','ON','NR',NOW())`,
+    [marker, 'Extension', provider]);
+    h.assert(/^[1-9]\d*$/.test(extensionPatient), 'The secondary report patient was not created');
+    for (const [id, value, date] of [
+      [patient, 'French', '2026-08-02 00:00:00'], [extensionPatient, 'English', '2026-08-03 00:00:00']
+    ]) sql.execute('INSERT INTO demographicExt (demographic_no,provider_no,key_val,value,date_time,hidden) VALUES (?,?,?,?,?,0)',
+      [id, provider, 'prefer_language', value, date]);
+    const keyRows = sql.rows(`SELECT x.demographic_no,k.extension_key,x.value FROM demographicExt x
+      JOIN (SELECT ? AS extension_key UNION ALL SELECT ? AS extension_key) k ON x.key_val=k.extension_key
+      WHERE x.demographic_no IN (?,?) ORDER BY x.date_time,x.id`,
+    ['prefer_language', 'PREFER_LANGUAGE', patient, extensionPatient]);
+    const expectedKeys = new Set([
+      `${patient}|prefer_language|French`, `${patient}|PREFER_LANGUAGE|French`,
+      `${extensionPatient}|prefer_language|English`, `${extensionPatient}|PREFER_LANGUAGE|English`
+    ]);
+    h.assert(keyRows.length === 4 && keyRows.every(row => expectedKeys.delete(row.join('|'))) && expectedKeys.size === 0,
+      'The physical database did not preserve both bound key spellings for each current patient value');
+    const historyValues = ['null-date', 'earlier-date', 'same-date-lower-id', 'same-date-higher-id'].map(value => `${marker}-${value}`);
+    for (const [index, date] of [null, '2026-08-01 00:00:00', '2026-08-02 00:00:00', '2026-08-02 00:00:00'].entries()) {
+      sql.execute('INSERT INTO demographicExt (demographic_no,provider_no,key_val,value,date_time,hidden) VALUES (?,?,?,?,?,0)',
+        [patient, provider, 'excludeIndicator', historyValues[index], date]);
+    }
+    const history = sql.rows(`SELECT x.demographic_no,k.extension_key,x.value FROM demographicExt x
+      JOIN (SELECT ? AS extension_key) k ON x.key_val=k.extension_key
+      WHERE x.demographic_no IN (?) ORDER BY x.date_time,x.id`, ['excludeIndicator', patient]);
+    h.assert(history.length === 4 && history.every((row, index) => row[2] === historyValues[index]),
+      'Dashboard exclusion history did not retain NULL-first dates and ascending ID ties');
+    await page.goto(`${base}/report/ViewReportFormRecord`);
+    const token = await page.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+    async function verifyCohort() {
+      storeFilter(1, `demographic.demographic_no IN (${patient},${extensionPatient})`);
+      const response = await s.context.request.post(`${base}/report/ViewReportResult`, {headers:{'CSRF-TOKEN':token}, form:{
+        'CSRF-TOKEN':token, submit:'Report in CSV', demoReport:'true', id:reportId, last_name:'on', first_name:'on',
+        prefer_language:'on', filter_1:'on'
+      }});
+      h.assert(response.status() === 200, `The cohort extension CSV failed with HTTP ${response.status()}`);
+      const rows = (await response.text()).trimEnd().split(/\r?\n/).map(line => line.split('\t'));
+      h.assert(rows.length === 3, 'The cohort CSV did not contain exactly two patients');
+      const nameIndex = rows[0].indexOf('First Name'), languageIndex = rows[0].indexOf('Preferred Language');
+      h.assert(nameIndex >= 0 && languageIndex >= 0, 'The cohort CSV lost its selected columns');
+      const first = rows.slice(1).find(row => row[nameIndex] === 'Workflow');
+      const second = rows.slice(1).find(row => row[nameIndex] === 'Extension');
+      h.assert(first && first[languageIndex] === 'French', 'The first patient lost its current extension value');
+      h.assert(second && second[languageIndex] === 'English', 'The second patient lost its current extension value');
+      await response.dispose();
+    }
+    await verifyCohort();
+    sql.execute('UPDATE demographicExt SET date_time=NULL WHERE demographic_no=? AND provider_no=? AND key_val=?',
+      [extensionPatient, provider, 'prefer_language']);
+    await verifyCohort();
+  });
+  await s.step('demographic CSV guards formula-like extension cells and preserves decimal controls', async () => {
+    const token = await page.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+    for (const [value, expected] of [['=1+1', '"\t=1+1"'], ['-5', '-5']]) {
+      sql.execute('UPDATE demographicExt SET value=? WHERE demographic_no=? AND provider_no=? AND key_val=?',
+        [value, extensionPatient, provider, 'prefer_language']);
+      storeFilter(1, `demographic.demographic_no IN (${patient},${extensionPatient})`);
+      const response = await s.context.request.post(`${base}/report/ViewReportResult`, {headers:{'CSRF-TOKEN':token}, form:{
+        'CSRF-TOKEN':token, submit:'Report in CSV', demoReport:'true', id:reportId, last_name:'on', first_name:'on',
+        prefer_language:'on', filter_1:'on'
+      }});
+      h.assert(response.status() === 200, 'The guarded extension CSV failed');
+      const lines = (await response.text()).trimEnd().split(/\r?\n/);
+      h.assert(lines.length === 3 && lines.some(line => line.endsWith(`\tExtension\t${expected}`)),
+        'The exported extension did not preserve the guarded formula or decimal control');
+      await response.dispose();
+    }
+  });
   await s.step('detached demographic CSV preserves the selected synthetic row', async () => {
     // An authenticated form POST exercises the gated CSV dispatch and its download response.
     await page.goto(`${base}/report/ViewReportFormRecord`);
     const token = await page.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+    storeFilter(1, `demographic.demographic_no=${patient}`);
+    // The posted value_1 is a decoy: only the stored predicate may select the cohort (#5831).
     const response = await s.context.request.post(`${base}/report/ViewReportResult`, {headers:{'CSRF-TOKEN':token},form:{
-      'CSRF-TOKEN':token, submit:'Report in CSV', demoReport:'true', last_name:'on', filter_1:'on',
-      value_1:`demographic.demographic_no=${patient}`, dateFormat_1:''
+      'CSRF-TOKEN':token, submit:'Report in CSV', demoReport:'true', id:reportId, last_name:'on', filter_1:'on',
+      value_1:'1=1', dateFormat_1:''
     }});
     h.assert(response.status()===200, `CSV failed with HTTP ${response.status()}`);
     h.assert((response.headers()['content-disposition'] || '').startsWith('attachment;'), 'CSV lost its attachment response header');
     h.assert((response.headers()['content-type'] || '').includes('text/csv'), 'CSV lost its content type');
     const csv = await response.text();
     h.assert(csv.includes(marker) && csv.includes('Last Name'), 'CSV omitted the selected synthetic demographic or header');
+    h.assert(csv.trimEnd().split(/\r?\n/).length === 2, 'CSV followed the posted value_1 instead of the stored filter');
+    const unknown = await s.context.request.post(`${base}/report/ViewReportResult`, {headers:{'CSRF-TOKEN':token},form:{
+      'CSRF-TOKEN':token, submit:'Report in CSV', demoReport:'true', id:reportId, last_name:'on', filter_9:'on',
+      value_9:'1=1', dateFormat_9:''
+    }});
+    h.assert(unknown.status() === 400, `A filter the report does not define answered HTTP ${unknown.status()}, not 400`);
+    storeFilter(1, 'demographic.missing_report_column_5549=1');
     const failed = await s.context.request.post(`${base}/report/ViewReportResult`, {headers:{'CSRF-TOKEN':token},form:{
-      'CSRF-TOKEN':token, submit:'Report in CSV', demoReport:'true', last_name:'on', filter_1:'on',
-      value_1:'demographic.missing_report_column_5549=1', dateFormat_1:''
+      'CSRF-TOKEN':token, submit:'Report in CSV', demoReport:'true', id:reportId, last_name:'on', filter_1:'on'
     }});
     h.assert(failed.status() === 500, 'Failed gated CSV query did not retain its HTTP error status');
   });

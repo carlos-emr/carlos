@@ -50,7 +50,7 @@
 <c:if test="${onGenRAErrorModel.partial}">
     <div style="background:#fff3cd;color:#7a5b00;border:1px solid #d4a700;padding:8px;margin:4px 0;">
         <strong>Reconciliation grid may be incomplete.</strong>
-        A loader error truncated this list — refresh, or contact admin if persistent.
+        A loader error truncated this list &#8212; refresh, or contact admin if persistent.
     </div>
 </c:if>
 

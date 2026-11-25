@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/dao/PatientLabRoutingDao.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "d59222282d274a8f3c62ed5eecb58b75554f2a5c"
+  },
+  "evidenceSha256": "37d93fc289060e2d2e8a19dbcd971185a48d1c4b7dc51d9578db4afd05238960"
+}

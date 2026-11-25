@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "052100bed9e03d8adf804b4f5298ce27c4935523",
+  "comparisonSha256": "d7dbceb73869d5c46e8130558e8850e06bb40e94f2e1b30e08649a673a540728",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/schedule/web/ScheduleDateSave2Action.java": {
+      "lines": 98.24561403508773,
+      "instructions": 98.25783972125436,
+      "branches": 97.22222222222223,
+      "sourceBlob": "7a406935759d343c23c6b371ed294dbc455517cf"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/schedule/web/ScheduleCalendarCache.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "d97816c68ca56cb202951538c10404c0f521caf8"
+    }
+  },
+  "baselineCommit": "0ac2af43cae7f50ab18b7ed41b6e4840fd9b4d2c",
+  "baselineSourceTree": "052100bed9e03d8adf804b4f5298ce27c4935523",
+  "baselineReportSha256": "a86f9ebe2ec809b07ae2dbe3afba07ef08691d2bb1f7b33ebeaef34bc580fa1a",
+  "baselineLane": "Java 25 schedule date override service (H2 integration), schedule calendar cache, schedule action (including the other-provider refusals, failed-readback acknowledgement and missing-input refusals), schedule date DAO, schedule JSP regressions and mutator contract tests, for the stale-calendar and readback review fixes",
+  "baselineTestCounts": {
+    "tests": 242,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "8e7d936f83c195bbbc709eb73f3ced4b5e5e088d04e6196936eccb79de038afb",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

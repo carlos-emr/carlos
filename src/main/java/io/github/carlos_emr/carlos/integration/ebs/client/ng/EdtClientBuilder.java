@@ -20,16 +20,24 @@ import jakarta.xml.soap.SOAPFactory;
 import jakarta.xml.ws.BindingProvider;
 import jakarta.xml.ws.soap.SOAPBinding;
 
+import org.apache.cxf.binding.soap.SoapFault;
+import org.apache.cxf.binding.soap.SoapMessage;
 import org.apache.cxf.configuration.jsse.TLSClientParameters;
 import org.apache.cxf.endpoint.Client;
 import org.apache.cxf.frontend.ClientProxy;
 import org.apache.cxf.headers.Header;
 import org.apache.cxf.jaxws.JaxWsProxyFactoryBean;
+import org.apache.cxf.rt.security.utils.SecurityUtils;
 import org.apache.cxf.transport.http.HTTPConduit;
 import org.apache.cxf.transports.http.configuration.HTTPClientPolicy;
 import org.apache.cxf.ws.security.SecurityConstants;
 import org.apache.cxf.ws.security.wss4j.WSS4JOutInterceptor;
+import org.apache.cxf.ws.security.wss4j.WSS4JUtils;
+import org.apache.wss4j.common.crypto.Crypto;
+import org.apache.wss4j.common.crypto.CryptoFactory;
+import org.apache.wss4j.common.ext.WSSecurityException;
 import org.apache.wss4j.dom.WSConstants;
+import org.apache.wss4j.dom.handler.RequestData;
 import org.apache.wss4j.dom.handler.WSHandlerConstants;
 import org.apache.xml.security.exceptions.AlgorithmAlreadyRegisteredException;
 import org.apache.xml.security.transforms.Transform;
@@ -294,10 +302,43 @@ public class EdtClientBuilder {
         if (getConfig().isLoggingRequired()) {
             client.getEndpoint().getOutInterceptors().add(DownloadInInterceptor.outbound());
         }
-        Map<String, Object> outProps = newWSSOutInterceptorConfiguration();
-        WSS4JOutInterceptor wssOut = new WSS4JOutInterceptor(outProps);
-        // MTOM is enabled on the SOAPBinding, so remove deprecated setAllowMTOM
-        client.getEndpoint().getOutInterceptors().add(wssOut);
+        client.getEndpoint().getOutInterceptors().add(newWSSOutInterceptor());
+    }
+
+    WSS4JOutInterceptor newWSSOutInterceptor() {
+        WSS4JOutInterceptor interceptor = new WSS4JOutInterceptor(newWSSOutInterceptorConfiguration()) {
+            @Override
+            protected Crypto loadCryptoFromPropertiesFile(String filename, RequestData request)
+                    throws WSSecurityException {
+                ClassLoader loader = getClassLoader();
+                SoapMessage message = (SoapMessage) request.getMsgContext();
+                Properties properties = resolveSignatureProperties(message, filename, loader);
+                try {
+                    return CryptoFactory.getInstance(properties, loader, getPasswordEncryptor(request));
+                } catch (WSSecurityException failure) {
+                    if (failure.getCause() instanceof PlaintextCryptoPasswordEncryptor.EncryptedPasswordException refusal) {
+                        // CXF turns ordinary WSSecurityExceptions into a generic SOAP fault.
+                        throw new SoapFault(refusal.getMessage(), refusal, message.getVersion().getSender());
+                    }
+                    throw failure;
+                }
+            }
+        };
+        // Keep the standard CXF ID so other interceptors can order themselves after signing.
+        interceptor.setId(WSS4JOutInterceptor.class.getName());
+        return interceptor;
+    }
+
+    private static Properties resolveSignatureProperties(SoapMessage message, String filename, ClassLoader loader)
+            throws WSSecurityException {
+        Properties properties = null;
+        try {
+            properties = WSS4JUtils.getProps(filename, SecurityUtils.loadResource(message, filename));
+        } catch (IllegalArgumentException ignored) {
+            // WSS4J also accepts filesystem paths that CXF cannot parse as a URI.
+        }
+        // Keep both resource lookups. CXF's built-in fallback also retries Crypto creation with a null encryptor.
+        return properties != null ? properties : CryptoFactory.getProperties(filename, loader);
     }
 
     /**

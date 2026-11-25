@@ -141,6 +141,19 @@ class MessagingServiceEndpointTest extends CarlosRestTestBase {
             assertThat(wireJson.at("/messages").isArray()).isTrue();
             assertThat(wireJson.at("/messages")).hasSize(0);
         }
+
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.CsvSource({"-1,20", "0,-1", "0,5001"})
+        @DisplayName("should answer 400 without reading messages for a negative or oversized page (#6038)")
+        void shouldReturnBadRequest_whenPagingIsInvalid(int startIndex, int limit) {
+            Response response = request().path("/messaging/unread")
+                .query("startIndex", startIndex)
+                .query("limit", limit)
+                .get();
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            org.mockito.Mockito.verifyNoInteractions(mockMessagingManager);
+        }
     }
 
     @Nested

@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "98f5adef480d4a8131ad8d18344c9b2ed3798553",
+  "comparisonSha256": "0030cf3709079393bbbb60246e2f118247e977eadf916efbcd83064471cbfd07",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/PatientLabRoutingDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "d59222282d274a8f3c62ed5eecb58b75554f2a5c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/documentManager/actions/AddEditDocument2Action.java": {
+      "lines": 100.0,
+      "instructions": 99.4,
+      "branches": 91.89189189189189,
+      "sourceBlob": "1a1b4e88c45aa968ce86237734addbfa07fa797b"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/documentManager/actions/AddEditHtml2Action.java": {
+      "lines": 69.56521739130434,
+      "instructions": 70.98039215686275,
+      "branches": 65.625,
+      "sourceBlob": "805b7f5c0906a50209299401ea15f61902b69755"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/Update2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 98.21428571428571,
+      "sourceBlob": "cc2c89cc1e3644ec50da20549145d96186efaa7a"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/data/RptDemographicQueryBuilder.java": {
+      "lines": 97.5,
+      "instructions": 98.14814814814815,
+      "branches": 80.55555555555556,
+      "sourceBlob": "ed209c7fa6eb9721d3106e4bfc2eaebb9c60cc59"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/data/RptDemographicQuery2Builder.java": {
+      "lines": 97.5,
+      "instructions": 98.14814814814815,
+      "branches": 80.55555555555556,
+      "sourceBlob": "24d3bc8602cbb8acacc2f2fdd9bc341520653823"
+    }
+  },
+  "baselineCommit": "5b9bb6ba74aad1a3003bc74ff6c90c1fbed04062",
+  "baselineSourceTree": "98f5adef480d4a8131ad8d18344c9b2ed3798553",
+  "baselineReportSha256": "b5fdbecccc7dbd400c9909115a92e327ee096de208fb9a296179aee81561c845",
+  "baselineLane": "Local Maven combined MCEDT, demographic history, DAO, document, and mutator-refusal verification",
+  "baselineTestCounts": {
+    "tests": 341,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "917571141edac3dbd1dc3951292c26d2744c7b19d7a4fb3d11700e65311d2dba",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.admin.service.DemographicProviderReassignmentTransactionIntegrationTest",
+    "io.github.carlos_emr.carlos.app.contract.MutatorActionGetRejectionContractUnitTest",
+    "io.github.carlos_emr.carlos.app.security.UploadActionBindingSecurityUnitTest",
+    "io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.documentManager.AddEditHtmlDocumentJspRegressionTest",
+    "io.github.carlos_emr.carlos.documentManager.actions.AddEditDocument2ActionAtomicUploadUnitTest",
+    "io.github.carlos_emr.carlos.documentManager.actions.AddEditDocument2ActionUnitTest",
+    "io.github.carlos_emr.carlos.documentManager.actions.AddEditHtml2ActionUnitTest",
+    "io.github.carlos_emr.carlos.documentManager.actions.DocumentReviewPersistenceIntegrationTest",
+    "io.github.carlos_emr.carlos.integration.mcedt.Update2ActionUploadUnitTest",
+    "io.github.carlos_emr.carlos.report.data.RptDemographicQueryAsOfRosterUnitTest"
+  ]
+}

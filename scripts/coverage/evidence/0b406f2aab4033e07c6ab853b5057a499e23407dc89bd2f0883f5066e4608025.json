@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "2eef557839cb528741e294b7726a1b4dcea4269a",
+  "comparisonSha256": "b2906b162e22c6367b790ebbf58010407b356c15fcab6b4f2cf23f482163b7c6",
+  "baselineCommit": "df1920be26a748f0fbe317dfc24b94d2fd17ef57",
+  "baselineSourceTree": "2eef557839cb528741e294b7726a1b4dcea4269a",
+  "baselineReportSha256": "dc34ceee5b5c85257f74f24b97f3c60909664271ec8781bdd58c05a6695a08cf",
+  "baselineLane": "Focused Java 25 regression run on fax polling, retry state, and the configuration action.",
+  "baselineTestCounts": {
+    "tests": 118,
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "15d38bd196e06c61009e849592c535254691533b08e07c1e431da00fd78cab5b",
+  "baselineTestReportsHashFormat": "SHA-256 of a filename-to-SHA-256 JSON object with sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.fax.admin.ConfigureFax2ActionUnitTest",
+    "io.github.carlos_emr.carlos.fax.core.FaxImporterPollTest",
+    "io.github.carlos_emr.carlos.fax.core.FaxPollBackoffUnitTest"
+  ],
+  "priorSourceEvidenceSha256": [
+    "f0e4d170864e152babe29e45564ef5ef5b8611eeb5196d5286d685aa8388be9e",
+    "fde38daddb0bfb4371ba7a682baa47ec21db61e550cf75a5f85ec3896f312e35"
+  ],
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/fax/admin/ConfigureFax2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "f3fd7714057a9d5b599bf76f29866b402b25fabb"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/fax/core/FaxImporter.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "6ef583ca56d04e85c8b03d0ddd77110324d8ca38"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/fax/core/FaxPollBackoff.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "6ae339604deeb6b24cbbcc8488b6c6f71bdfaa78"
+    }
+  }
+}

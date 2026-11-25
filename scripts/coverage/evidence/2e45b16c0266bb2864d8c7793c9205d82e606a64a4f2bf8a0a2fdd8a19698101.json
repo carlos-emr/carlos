@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "f194420005b1e71cf7b11eb9590f329f5ec3f9fe",
+  "comparisonSha256": "8f6fcdfa563ac6df06353764eb8a63a52f989f99d87f1a02a162d2f6ecc315e2",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementView2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "f4556b50ec5c0b41ab7fa01382d4157716a1a3b1"
+    }
+  },
+  "baselineCommit": "88803b43409b6c561cfd1345c765972034adf977",
+  "baselineSourceTree": "f194420005b1e71cf7b11eb9590f329f5ec3f9fe",
+  "baselineReportSha256": "e0fb5b789e76f2bc65cf7530950e608fc1349e0542ace59284b54278c807080c",
+  "baselineLane": "Java 25 patient isolation and CPP list response regression",
+  "baselineTestCounts": {
+    "tests": 51,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "67aabeb90dc12c3516346839352199a407329f0c9d90bd624220e4936116041a",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

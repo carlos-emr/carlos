@@ -1609,7 +1609,17 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
         }
     }
 
+    function consumeInboxCompletenessNotice(data) {
+        if (page === 1) jQuery('#inboxhubIncompleteNotice').remove();
+        return data.replace(/<div data-inbox-incomplete="true"[^>]*>[\s\S]*?<\/div>/g, function(notice) {
+            jQuery('#inboxhubIncompleteNotice').remove();
+            jQuery('#inboxhubMode').before(jQuery(notice).attr('id', 'inboxhubIncompleteNotice'));
+            return '';
+        });
+    }
+
     function addDataInInboxhubListTable(data) {
+        data = consumeInboxCompletenessNotice(data);
         if (page == 1) {
             jQuery("#inboxhubMode").html(data);
             jQuery('#inbox_table').DataTable().draw(false); // `draw(false)` prevents resetting the scroll position
@@ -1661,6 +1671,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     }
 
     function addDataInInboxhubViewTable(data) {
+        data = consumeInboxCompletenessNotice(data);
         if (page == 1) {
             jQuery("#inboxhubMode").html(data);
         } else {
@@ -1774,6 +1785,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
     }
 
     function updateInboxhubListProgress() {
+        if (document.getElementById('inboxhubIncompleteNotice')) {
+            stopInboxhubListProgress(0);
+            return;
+        }
         const totalResultsCount = jQuery("#totalResultsCount").val();
         const currentlyLoadedResultsCount = jQuery('#inboxhubListModeTableBody tr').length;
 

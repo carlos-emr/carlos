@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "05877e0d88251318977185b7fe89fea28a7cb886",
+  "comparisonSha256": "5f0380abe29a0fe508cc139633d13dfc5ad0d2fb3efc29859f34cd8a7295eee8",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/managers/DemographicManagerImpl.java": {
+      "lines": 97.02970297029702,
+      "instructions": 96.48473635522664,
+      "branches": 84.92063492063492,
+      "sourceBlob": "c061c0bfe391f29a9322eea73f9e6710d295db83"
+    }
+  },
+  "baselineCommit": "f999fc67321b318196f7eb644acfe7772fbd62bf",
+  "baselineSourceTree": "05877e0d88251318977185b7fe89fea28a7cb886",
+  "baselineReportSha256": "a2197e2a22a5706144938715fbf13c8c26335d4cb4b13f8624ab2afa632afc2f",
+  "baselineLane": "Fresh JDK25 compilation at the measured commit, clean tree. Selected-source evidence for the demographic update transaction (#5298) after the update began executing a changed stored extension in the order given: 422 H2 cases (manager unit and transaction tests, REST unit and endpoint tests, the eighteen update-transaction cases, reassignment, OBEC apply and schedule controls) and 64 native MariaDB 11.8.8 cases with 32K pages on the generated schema (the same eighteen update-transaction cases, merge, web unmerge, identifier preservation, schedule sync, reporting audit). All 486 executed JUnit cases pass with zero failures, errors or skips. Existing higher floors retained; not full release qualification.",
+  "baselineTestCounts": {
+    "tests": 486,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "7c69c44532a8c87cd6008f2cb8cc7399a1031c6204cc6bfc9f1799cd2ef116e6",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineReportHeaderCollisions": 0
+}

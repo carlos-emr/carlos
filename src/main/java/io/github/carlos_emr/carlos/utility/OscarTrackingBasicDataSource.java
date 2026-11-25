@@ -182,6 +182,21 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
         return (c);
     }
 
+    /**
+     * Transfers a tracked lease from request-end cleanup to an asynchronous resource owner.
+     * Call before dispatching that work, which must eventually close the connection. The
+     * captured original owner is used even when a deadline fires on another thread, and
+     * diagnostic/shutdown tracking remains until the connection is actually closed.
+     *
+     * @param connection lease whose asynchronous owner will perform the final close;
+     *                   connections from other data sources are left unchanged
+     */
+    public static void detachFromRequestCleanup(Connection connection) {
+        if (connection instanceof TrackingJdbcConnection tracked && tracked.ownerConnections != null) {
+            tracked.ownerConnections.remove(tracked);
+        }
+    }
+
     public static void releaseThreadConnections() {
         OwnerState threadConnections = connections.get();
         if (threadConnections != null) {
@@ -327,8 +342,10 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
         try {
             Properties configured = MariaDbJdbcCompatibility.settings(url, new Properties()).properties();
             return configured.containsKey("connectionTimeZone") || configured.containsKey("timezone");
-        } catch (SQLException _) {
-            throw new IllegalArgumentException("Invalid database connection configuration");
+        } catch (SQLException invalid) {
+            // The compatibility boundary emits only fixed reason codes/option
+            // names. Preserve those diagnostics instead of discarding the cause.
+            throw new IllegalArgumentException(invalid.getMessage());
         }
     }
 

@@ -40,6 +40,9 @@ public interface ReportConfigDao extends AbstractDao<ReportConfig> {
     /** Ordered configuration, including shadow fields, for a saved report. */
     List<ReportConfig> findByReportIdAndSave(int reportId, String save);
 
+    /** Locks the existing rows of one saved variant in identifier order before reordering. */
+    List<ReportConfig> findByReportIdAndSaveForUpdate(int reportId, String save);
+
     /** All configured fields in report order. */
     List<ReportConfig> findByReportId(int reportId);
 

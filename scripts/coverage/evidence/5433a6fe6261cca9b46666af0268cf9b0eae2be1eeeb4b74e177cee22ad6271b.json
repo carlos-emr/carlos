@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "6d87d97ba2235385c7f193fef5bea2fe0ddc45bd",
+  "comparisonSha256": "d202282d58b771abdbcd0c5420ddd883efdb8a398bdf469c23ed00b85b87479e",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/report/ClinicalReports/PageUtil/RunClinicalReport2Action.java": {
+      "lines": 96.66666666666667,
+      "instructions": 93.79310344827586,
+      "branches": 100.0,
+      "sourceBlob": "142bc60a5b105ddc009872acbe39f456c102d906"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/ClinicalReports/PageUtil/RemoveClinicalReportFromHistory2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "0e1a95c8ce2f7604d219370a764c17bced8c0ce0"
+    }
+  },
+  "baselineCommit": "edb91bbcbc5ff387ba8aff2fe9b46e214e1b6873",
+  "baselineSourceTree": "6d87d97ba2235385c7f193fef5bea2fe0ddc45bd",
+  "baselineReportSha256": "88f93a287d350f953ec8197102beff53962c0cce55f1d2dadaf3ef0be0e6a04e",
+  "baselineLane": "PR #6180 focused JDK 25 clinical history and JSP regressions",
+  "baselineTestCounts": {
+    "tests": 41,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "396d147c8e365ac48e4076c7dcc39790796a8ef973be62ed54421c995010b136",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.report.ClinicalReports.PageUtil.ClinicalReportsJspEncodingRegressionTest",
+    "io.github.carlos_emr.carlos.report.ClinicalReports.PageUtil.ClinicalReportsLinksJspRegressionTest",
+    "io.github.carlos_emr.carlos.report.ClinicalReports.PageUtil.RemoveClinicalReportFromHistory2ActionUnitTest",
+    "io.github.carlos_emr.carlos.report.ClinicalReports.PageUtil.RunClinicalReport2ActionPostedValuesUnitTest",
+    "io.github.carlos_emr.carlos.report.ClinicalReports.PageUtil.RunClinicalReport2ActionUnitTest"
+  ]
+}

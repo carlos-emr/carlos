@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/dao/DocumentTransferDao.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "6fcfff3300702ba2719f6ecb4db87d07d2abb5b1"
+  },
+  "evidenceSha256": "0ff276b8f6254303c0ec33a71a091fae65329c9a43db5a764dd003563e907c2d"
+}

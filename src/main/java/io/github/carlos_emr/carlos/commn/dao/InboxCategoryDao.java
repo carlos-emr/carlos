@@ -30,16 +30,14 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
-import io.github.carlos_emr.carlos.commn.model.SystemPreferences;
-import io.github.carlos_emr.carlos.mds.data.PatientInfo;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
 import jakarta.persistence.Tuple;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,6 +45,14 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Inbox count SQL and typed projections. Query state is local to each invocation.
+ *
+ * <p>This DAO reads only the inbox routing, lab, document and HRM tables. The configured
+ * date-search mode arrives in each {@link Filter}, resolved once by the caller through
+ * {@code InboxDateSearchTypeResolver}, so the DAO neither injects another DAO nor re-reads the
+ * preference per count (issue #5772). Patient summaries leave as {@link PatientCount} records;
+ * the inbox web model ({@code mds.data.PatientInfo}) is assembled by {@code CategoryData}, which
+ * keeps {@code commn.dao} free of a dependency back on {@code mds.data}.</p>
+ *
  * @since 2026-11-06
  */
 @Repository
@@ -68,10 +74,40 @@ public class InboxCategoryDao {
 
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
-    private final SystemPreferencesDao preferences;
 
-    /** @param preferences SystemPreferencesDao supplying inbox date-search preferences */
-    public InboxCategoryDao(SystemPreferencesDao preferences) { this.preferences = preferences; }
+    /**
+     * Which stored dates the inbox lab and document date bounds compare, from the
+     * {@code inboxDateSearchType} system preference: the clinical (service/observation) date or the
+     * date CARLOS received or created the item. The counts must use the same mode as the inbox
+     * result lists, which read that preference too. HRM counts compare the received time in both
+     * modes.
+     */
+    public enum DateSearchType {
+        /** Lab {@code hl7TextInfo.obr_date} and document {@code observationdate}; the default. */
+        SERVICE_OBSERVATION("serviceObservation"),
+        /** Lab {@code hl7TextMessage.created} and document {@code contentdatetime}. */
+        RECEIVED_CREATED("receivedCreated");
+
+        private final String preferenceValue;
+
+        DateSearchType(String preferenceValue) { this.preferenceValue = preferenceValue; }
+
+        /** @return String the {@code inboxDateSearchType} preference value naming this mode */
+        public String preferenceValue() { return preferenceValue; }
+
+        /**
+         * Maps a stored preference value to its mode. Only the exact value {@code receivedCreated}
+         * selects received dates; a missing, blank or unrecognised value keeps the observation
+         * dates, exactly as the inbox result lists (which compare with {@code equals}) treat it,
+         * so the counts never disagree with the rows they summarise.
+         *
+         * @param value String stored preference value, possibly null
+         * @return DateSearchType the mode the inbox applies for that value
+         */
+        public static DateSearchType fromPreference(String value) {
+            return RECEIVED_CREATED.preferenceValue.equals(value) ? RECEIVED_CREATED : SERVICE_OBSERVATION;
+        }
+    }
 
     /**
      * Immutable request filters; SQL values are bound separately from the query shape.
@@ -85,10 +121,21 @@ public class InboxCategoryDao {
      * @param abnormalStatus String optional normal/abnormal restriction
      * @param startDate String optional inclusive start date
      * @param endDate String optional inclusive end date
+     * @param dateSearchType DateSearchType required date columns the bounds compare; callers resolve
+     *                       the preference once per inbox load and reuse it for every category
      */
     public record Filter(String lastName, String firstName, String healthNumber, boolean patientSearch,
                          boolean providerSearch, String providerNo, String status, String abnormalStatus,
-                         String startDate, String endDate) { }
+                         String startDate, String endDate, DateSearchType dateSearchType) {
+        /**
+         * Requires the date mode. There is deliberately no default: a filter built without the
+         * configured mode would silently count by observation date while the result list, which
+         * reads the preference, filtered by received date.
+         */
+        public Filter {
+            Objects.requireNonNull(dateSearchType, "dateSearchType");
+        }
+    }
     /** Selects the lab, document or HRM count and patient-summary operation. */
     public enum Operation { LAB_UNMATCHED, ABNORMAL, NORMAL, DOCUMENT_UNMATCHED, LAB_PATIENT,
                             LAB_DEMOGRAPHIC, DOCUMENT_PATIENT, HRM_PATIENT, HRM_UNMATCHED }
@@ -112,14 +159,8 @@ public class InboxCategoryDao {
         public Counts { patients = List.copyOf(patients); }
     }
 
-    /** @return String current date-search preference, defaulting to serviceObservation */
-    public String getDateSearchType() {
-        var preference = preferences.findPreferenceByName(SystemPreferences.LAB_DISPLAY_PREFERENCE_KEYS.inboxDateSearchType);
-        return preference == null || StringUtils.isEmpty(preference.getValue()) ? "serviceObservation" : preference.getValue();
-    }
-
     /**
-     * Counts one category using a consistent per-invocation date preference.
+     * Counts one category using the filter's date mode.
      * @param filter Filter bound search values
      * @param operation Operation count category to execute
      * @param demographicNo String patient identifier for LAB_DEMOGRAPHIC, otherwise unused
@@ -128,7 +169,7 @@ public class InboxCategoryDao {
      * @throws IllegalArgumentException if LAB_DEMOGRAPHIC has a blank demographicNo
      */
     public Counts count(Filter filter, Operation operation, String demographicNo) throws SQLException {
-        QueryState state = new QueryState(entityManager, preferences, filter.lastName(), filter.firstName(),
+        QueryState state = new QueryState(entityManager, filter.dateSearchType(), filter.lastName(), filter.firstName(),
                 filter.healthNumber(), filter.patientSearch(), filter.providerSearch(), filter.providerNo(),
                 filter.status(), filter.abnormalStatus(), filter.startDate(), filter.endDate());
         int total = switch (operation) {
@@ -142,8 +183,7 @@ public class InboxCategoryDao {
             case HRM_PATIENT -> state.getHRMDocumentCountForPatient();
             case HRM_UNMATCHED -> state.getHRMDocumentCountForUnmatched();
         };
-        return new Counts(total, state.patients.values().stream().map(patient -> new PatientCount(patient.getId(),
-                patient.getFirstName(), patient.getLastName(), patient.getLabCount(), patient.getDocCount(), patient.getHrmCount())).toList());
+        return new Counts(total, state.patients);
     }
 
     private static final class QueryState {
@@ -153,11 +193,17 @@ public class InboxCategoryDao {
         private static final String SQL_IS_NOT_NULL = " IS NOT NULL ";
         private static final String SQL_IS_NOT_NULL_NO_PREFIX = "IS NOT NULL ";
 
-        private final String dateSearchType;
+        /** True when the bounds compare received/created dates rather than observation dates. */
+        private final boolean receivedCreated;
 
         private final EntityManager entityManager;
 
-        private final HashMap<Integer, PatientInfo> patients;
+        /**
+         * One summary per patient row of the single count this state serves. Every patient query
+         * groups by demographic number, so a row is a whole patient; merging a patient's lab,
+         * document and HRM summaries across counts is the caller's job.
+         */
+        private final List<PatientCount> patients = new ArrayList<>();
 
         private final String patientLastName;
         private final String searchProviderNo;
@@ -194,10 +240,11 @@ public class InboxCategoryDao {
          * @param abnormalStatus optional normal/abnormal result restriction
          * @param startDate optional inclusive start date
          * @param endDate optional inclusive end date
+         * @param dateSearchType which date columns the bounds compare
          */
         // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
         @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-        private QueryState(EntityManager entityManager, SystemPreferencesDao systemPreferencesDao, String patientLastName, String patientFirstName, String patientHealthNumber, boolean patientSearch,
+        private QueryState(EntityManager entityManager, DateSearchType dateSearchType, String patientLastName, String patientFirstName, String patientHealthNumber, boolean patientSearch,
                             boolean providerSearch, String searchProviderNo, String status, String abnormalStatus,
                             String startDate, String endDate) {
 
@@ -214,19 +261,10 @@ public class InboxCategoryDao {
             this.providerSearch = providerSearch;
             this.abnormalStatus = abnormalStatus;
 
-            String dateSearchType = "serviceObservation";
-
-            SystemPreferences systemPreferences = systemPreferencesDao.findPreferenceByName(SystemPreferences.LAB_DISPLAY_PREFERENCE_KEYS.inboxDateSearchType);
-            if (systemPreferences != null) {
-                if (systemPreferences.getValue() != null && !systemPreferences.getValue().isEmpty()) {
-                    dateSearchType = systemPreferences.getValue();
-                }
-            }
-
-            this.dateSearchType = dateSearchType;
+            this.receivedCreated = dateSearchType == DateSearchType.RECEIVED_CREATED;
 
             if (startDate != null && !startDate.equals("")) {
-                if (dateSearchType.equals("receivedCreated")) {
+                if (receivedCreated) {
                     documentDateSql += "AND doc.contentdatetime >= ? ";
                     documentDateParams.add(startDate + " 00:00:00");
                     labDateSql += "AND message.created >= ? ";
@@ -243,7 +281,7 @@ public class InboxCategoryDao {
             }
 
             if (endDate != null && !endDate.equals("")) {
-                if (dateSearchType.equals("receivedCreated")) {
+                if (receivedCreated) {
                     documentDateSql += "AND doc.contentdatetime <= ? ";
                     documentDateParams.add(endDate + " 23:59:59");
                     labDateSql += "AND message.created < ? ";
@@ -290,9 +328,6 @@ public class InboxCategoryDao {
                 hrmSignedOff = " AND hp.signedOff = :hrmSignedOff ";
                 hrmParams.put("hrmSignedOff", "A".equalsIgnoreCase(status) || "F".equalsIgnoreCase(status) ? 1 : 0);
             }
-
-            patients = new HashMap<Integer, PatientInfo>();
-
         }
 
         private static String normalizeDate(String date) {
@@ -315,17 +350,14 @@ public class InboxCategoryDao {
             return !matchesAnyStatus();
         }
 
-        private String getDateSearchType() { return dateSearchType; }
-
         /** Counts distinct unmatched HL7 reports within this request's provider, status and date filters. */
         public int getLabCountForUnmatched()
                 throws SQLException {
-            String dateSearchType = getDateSearchType();
             String sql = " SELECT HIGH_PRIORITY COUNT(DISTINCT info.lab_no) as count "
                     + " FROM providerLabRouting plr "
                     + " LEFT JOIN patientLabRouting plr2 ON plr.lab_no = plr2.lab_no AND plr2.lab_type = 'HL7'"
                     + " RIGHT JOIN hl7TextInfo info ON plr.lab_no = info.lab_no"
-                    + (dateSearchType.equals("receivedCreated") ? " RIGHT JOIN hl7TextMessage message ON plr.lab_no = message.lab_id" : "")
+                    + (receivedCreated ? " RIGHT JOIN hl7TextMessage message ON plr.lab_no = message.lab_id" : "")
                     + " WHERE plr.lab_type = 'HL7' "
                     + (providerSearch ? " AND plr.provider_no = ? " : "")
                     + " AND plr.status " + (matchesAnyStatus() ? SQL_IS_NOT_NULL : SQL_EQUALS_PARAM)
@@ -347,7 +379,7 @@ public class InboxCategoryDao {
         public int getAbnormalCount(boolean isAbnormal) throws SQLException {
             String sql = " SELECT HIGH_PRIORITY COUNT(DISTINCT info.lab_no) as count "
                     + " FROM providerLabRouting plr JOIN hl7TextInfo info ON info.lab_no = plr.lab_no "
-                    + (getDateSearchType().equals("receivedCreated")
+                    + (receivedCreated
                         ? " JOIN hl7TextMessage message ON message.lab_id = info.lab_no " : "")
                     + (patientSearch ? " JOIN patientLabRouting cd ON cd.lab_no = plr.lab_no AND cd.lab_type = 'HL7' "
                         + " JOIN demographic d ON d.demographic_no = cd.demographic_no " : "")
@@ -388,19 +420,17 @@ public class InboxCategoryDao {
 
         /** Accumulates one patient summary per patient, counting each matching raw report once. */
         public int getLabCountForPatientSearch() throws SQLException {
-            PatientInfo info;
-            String dateSearchType = getDateSearchType();
             String sql = " SELECT HIGH_PRIORITY d.demographic_no, d.last_name, d.first_name, COUNT(DISTINCT info.lab_no) as count "
                     + " FROM patientLabRouting cd"
                     + " LEFT JOIN demographic d ON cd.demographic_no = d.demographic_no"
                     + " LEFT JOIN providerLabRouting plr ON cd.lab_no = plr.lab_no"
                     + " LEFT JOIN hl7TextInfo info ON cd.lab_no = info.lab_no"
-                    + (dateSearchType.equals("receivedCreated") ? " LEFT JOIN hl7TextMessage message ON cd.lab_no = message.lab_id" : "")
+                    + (receivedCreated ? " LEFT JOIN hl7TextMessage message ON cd.lab_no = message.lab_id" : "")
                     + " WHERE " + patientFiltersSql()
                     + " AND plr.lab_type = 'HL7' "
                     + " AND cd.lab_type = 'HL7' "
                     + " AND plr.status " + (matchesAnyStatus() ? SQL_IS_NOT_NULL : SQL_EQUALS_PARAM)
-                    + (dateSearchType.equals("receivedCreated") ? " AND message.lab_id" + SQL_IS_NOT_NULL : " AND info.lab_no" + SQL_IS_NOT_NULL)
+                    + (receivedCreated ? " AND message.lab_id" + SQL_IS_NOT_NULL : " AND info.lab_no" + SQL_IS_NOT_NULL)
                     + (providerSearch ? " AND plr.provider_no = ? " : "")
                     + labAbnormalSql
                     + labDateSql
@@ -415,27 +445,15 @@ public class InboxCategoryDao {
             if (providerSearch) params.add(searchProviderNo);
             params.addAll(labDateParams);
 
-            {
-                List<Tuple> rows = queryRows(sql, params);
-                int totalCount = 0;
-                for (Tuple row : rows) {
-                    int id = number(row.get("demographic_no"));
-                    int count = number(row.get(COUNT_COLUMN));
-                    // Updating patient info if it already exists.
-                    if (patients.containsKey(id)) {
-                        info = patients.get(id);
-                        info.setLabCount(count);
-                    }
-                    // Otherwise adding a new patient record.
-                    else {
-                        info = new PatientInfo(id, row.get("first_name", String.class), row.get("last_name", String.class));
-                        info.setLabCount(count);
-                        patients.put(info.getId(), info);
-                    }
-                    totalCount += count;
-                }
-                return totalCount;
+            List<Tuple> rows = queryRows(sql, params);
+            int totalCount = 0;
+            for (Tuple row : rows) {
+                int count = number(row.get(COUNT_COLUMN));
+                patients.add(new PatientCount(number(row.get("demographic_no")),
+                        row.get("first_name", String.class), row.get("last_name", String.class), count, 0, 0));
+                totalCount += count;
             }
+            return totalCount;
         }
 
         /** Counts distinct routed reports for one demographic without multiplying duplicate provider routes. */
@@ -479,14 +497,8 @@ public class InboxCategoryDao {
             return queryTrustedCount(sql.toString(), params);
         }
 
-        /*
-         * This will return the total documents found for this patients.
-         * it will also add to the patients map (demographicNo, PatientInfo) with a document count for the patient.
-         *
-         */
+        /** Counts matched patient documents and records one document summary per patient. */
         public int getDocumentCountForPatientSearch() throws SQLException {
-            PatientInfo info;
-
             String sql = " SELECT HIGH_PRIORITY demographic_no, last_name, first_name, COUNT( distinct cd.document_no) as count "
                     + " FROM ctl_document cd "
                     + "LEFT JOIN demographic d  ON cd.module_id = d.demographic_no "
@@ -509,18 +521,15 @@ public class InboxCategoryDao {
             if (providerSearch) params.add(searchProviderNo);
             params.addAll(documentDateParams);
 
-            {
-                List<Tuple> rows = queryRows(sql, params);
-                int count = 0;
-                for (Tuple row : rows) {
-                    info = new PatientInfo(number(row.get("demographic_no")), row.get("first_name", String.class), row.get("last_name", String.class));
-                    info.setDocCount(number(row.get(COUNT_COLUMN)));
-                    patients.put(info.getId(), info);
-                    count += info.getDocCount();
-                }
-
-                return count;
+            List<Tuple> rows = queryRows(sql, params);
+            int count = 0;
+            for (Tuple row : rows) {
+                int documents = number(row.get(COUNT_COLUMN));
+                patients.add(new PatientCount(number(row.get("demographic_no")),
+                        row.get("first_name", String.class), row.get("last_name", String.class), 0, documents, 0));
+                count += documents;
             }
+            return count;
         }
 
         private int queryTrustedCount(String sql, List<Object> params) {
@@ -566,7 +575,6 @@ public class InboxCategoryDao {
          */
         public int getHRMDocumentCountForPatient() throws SQLException {
             int count = 0;
-            PatientInfo info;
 
             StringBuilder sql = new StringBuilder();
             sql.append("SELECT HIGH_PRIORITY d.demographic_no, d.first_name, d.last_name, COUNT(DISTINCT h.id) AS count ")
@@ -599,22 +607,13 @@ public class InboxCategoryDao {
             List<Tuple> results = query.getResultList();
 
             for (Tuple result : results) {
-                    int hrmCount = ((Number) result.get(COUNT_COLUMN)).intValue(); // Extracting count
-                Integer id = result.get("demographic_no", Integer.class); // Extracting demographicNo as Integer
-
-                // Updating patient info if it already exists
-                if (patients.containsKey(id)) {
-                    info = patients.get(id);
-                    info.setDocCount(info.getDocCount() + hrmCount);
-                    info.setHrmCount(hrmCount);
-                } else {
-                    // Otherwise, adding a new patient record
-                    info = new PatientInfo(id, result.get("first_name", String.class), result.get("last_name", String.class));
-                    info.setDocCount(hrmCount);
-                    info.setHrmCount(hrmCount);
-                    patients.put(info.getId(), info);
-                }
-
+                int hrmCount = ((Number) result.get(COUNT_COLUMN)).intValue();
+                // A hospital report is also a document in the inbox sidebar, so the summary carries
+                // the HRM count as both its document and its HRM figure (CategoryData adds the
+                // document figure to the patient's document count).
+                patients.add(new PatientCount(result.get("demographic_no", Integer.class),
+                        result.get("first_name", String.class), result.get("last_name", String.class),
+                        0, hrmCount, hrmCount));
                 count += hrmCount;
             }
 

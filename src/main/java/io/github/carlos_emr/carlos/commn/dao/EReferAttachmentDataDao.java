@@ -12,4 +12,10 @@ public interface EReferAttachmentDataDao extends AbstractDao<EReferAttachmentDat
      *                      patient with the same document id is never returned (issue #3867)
      */
     public EReferAttachmentData getRecentByDocumentId(Integer docId, String type, Integer demographicNo, Date expiry);
+
+    /** Removes a selected pending row and its parent only when the queue becomes empty. */
+    void removeFromPendingQueue(EReferAttachmentData data);
+
+    /** Removes this patient's recent, unarchived queue entries for one explicitly detached source. */
+    int removeRecentByDocumentId(int docId, String type, int demographicNo, Date expiry);
 }

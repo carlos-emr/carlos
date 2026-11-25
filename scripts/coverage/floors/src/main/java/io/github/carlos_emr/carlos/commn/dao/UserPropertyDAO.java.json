@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/dao/UserPropertyDAO.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "4c440342aa632e5e37743503f0a6b5f963bdf91c"
+  },
+  "evidenceSha256": "9ae4186e3106d34645dbd35df861668992e074c92523fbca48cc03370c302f96"
+}

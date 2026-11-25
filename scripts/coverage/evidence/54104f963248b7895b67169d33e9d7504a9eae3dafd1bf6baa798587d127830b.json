@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "d6e5cca8e1217bf772c93809e413a99b3fc010e5",
+  "comparisonSha256": "64b1ded5fd54958ee5d2fbe8af8edf5c61660484be7b098405274e5f81dfdc41",
+  "baselineCommit": "131afc16053313ab330ec116f4e7c9e66d48e552",
+  "baselineSourceTree": "d6e5cca8e1217bf772c93809e413a99b3fc010e5",
+  "baselineReportSha256": "86bab4aef40f07731550927787b9d3004ea8272b2c422b0eb6ce37ed4068689e",
+  "baselineLane": "Focused JDBC coverage on Java 25 and MariaDB 11.8.8 with a 32 KiB InnoDB page size, including the physical driver matrix.",
+  "baselineTestCounts": {
+    "tests": 463,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "60bbaca77512306924b75e067ec8ff0ad408a7229b80d59e079480c5e108c4f9",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/utility/MariaDbCompatibilityDriver.java": {
+      "lines": 95.23809523809524,
+      "instructions": 93.57884796978281,
+      "branches": 87.60330578512396,
+      "sourceBlob": "e5b5c7d1652ad70b46de6512a2ab8ea181119686"
+    }
+  },
+  "exclusions": {}
+}

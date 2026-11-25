@@ -287,6 +287,26 @@ class AddPrevention2ActionUnitTest extends CarlosWebTestBase {
         verifyNoInteractions(manager);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"half\nvial", "half\rvial", "half\r\nvial", "\nleading", "trailing\r", "first\rsecond\nthird\r\nfourth"})
+    void shouldPreserveStoredLineEndings_whenAnUnchangedDoseIsSubmitted(String original) throws Exception {
+        mockRequest.setParameter("id", "100");
+        mockRequest.setParameter("dose", original.replace("\r\n", "\n").replace('\r', '\n').replace("\n", "\r\n"));
+        mockRequest.setParameter("doseUnit", "");
+        mockRequest.setParameter("comments", "FAKE unrelated comment");
+        data.when(() -> PreventionData.getPreventionKeyValues("100")).thenReturn(java.util.Map.of("dose", original));
+        data.when(() -> PreventionData.updatetPreventionData(eq("100"), any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any())).thenAnswer(call -> {
+                    java.util.ArrayList<java.util.Map<String, String>> values = call.getArgument(10);
+                    assertThat(values).contains(java.util.Map.of("comments", "FAKE unrelated comment"));
+                    assertThat(values.stream().filter(entry -> entry.containsKey("dose")).findFirst().orElseThrow().get("dose"))
+                            .isEqualTo(original);
+                    return 101;
+                });
+        assertThat(executeAction(new AddPrevention2Action())).isEqualTo("success");
+        verify(manager).removePrevention("42");
+    }
+
     @Test void shouldPreservePreviousRecordLink_whenUpdating() throws Exception {
         mockRequest.setParameter("id", "100");
         data.when(() -> PreventionData.updatetPreventionData(eq("100"), eq("999998"), eq("42"), eq("2026-09"),

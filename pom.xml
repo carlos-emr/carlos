@@ -4,7 +4,7 @@
     <groupId>io.github.carlos_emr</groupId>
     <artifactId>carlos</artifactId>
     <packaging>war</packaging>
-    <version>2026.08.0-beta8</version>
+    <version>2026.08.0-beta8-SNAPSHOT</version>
     <name>CARLOS</name>
     <description>CARLOS EMR (Clinical Assisting Recording Ledger Open Source) is a web-based electronic medical record system for Canadian healthcare.</description>
     <inceptionYear>2024</inceptionYear>
@@ -19,7 +19,7 @@
         <url>https://github.com/carlos-emr/carlos</url>
         <connection>scm:git:https://github.com/carlos-emr/carlos.git</connection>
         <developerConnection>scm:git:ssh://git@github.com:carlos-emr/carlos.git</developerConnection>
-        <tag>2026.08.0-beta8</tag>
+        <tag>HEAD</tag>
     </scm>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -1416,12 +1416,11 @@
 
         <!-- ==================== Security (OWASP, CSRFGuard) ==================== -->
 
-        <!-- OWASP Encoder (encoder-jakarta-jsp is used in JSPs via ${e:forHtml()} EL functions) -->
-        <dependency>
-            <groupId>org.owasp.encoder</groupId>
-            <artifactId>encoder-jakarta-jsp</artifactId>
-            <version>${owasp-encoder.version}</version>
-        </dependency>
+        <!-- OWASP Encoder: org.owasp.encoder.Encode, used by SafeEncode and through it by the
+             null-safe <carlos:encode> tag and ${carlos:forXxx()} EL functions (carlos-tag.tld).
+             The OWASP JSP taglib (encoder-jakarta-jsp, URI owasp.encoder.jakarta.advanced) is
+             not shipped: no JSP uses it, and scripts/lint/check-encoder-null-safety.py fails a
+             JSP that declares it or calls an e:forXxx function (#5477). -->
         <dependency>
             <groupId>org.owasp.encoder</groupId>
             <artifactId>encoder</artifactId>
