@@ -27,6 +27,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -162,9 +163,12 @@ class CaseManagementPrintMessengerNotesUnitTest extends CarlosUnitTestBase {
         return print;
     }
 
-    /** The notes body the print hands its PDF writer, for an "All notes" print with the CPP. */
-    private List<CaseManagementNote> printedNotes(CaseManagementPrint print, HttpServletRequest request)
-            throws Exception {
+    /** What the print hands its PDF writer: the notes body and the CPP sections by issue code. */
+    private record Printed(List<CaseManagementNote> notes, Map<String, List<CaseManagementNote>> cpp) {
+    }
+
+    /** Runs an "All notes" print with the CPP and returns what reached the PDF writer. */
+    private Printed printAllNotesWithCpp(CaseManagementPrint print, HttpServletRequest request) throws Exception {
         try (var configuration = mockStatic(CarlosProperties.class);
              var pdfs = mockConstruction(CaseManagementPrintPdf.class);
              var _ = mockStatic(ConcatPDF.class)) {
@@ -173,11 +177,21 @@ class CaseManagementPrintMessengerNotesUnitTest extends CarlosUnitTestBase {
             print.doPrint(login, PATIENT, true, new String[0], true, false, false, false, false, false,
                     null, null, request, new ByteArrayOutputStream());
 
+            CaseManagementPrintPdf pdf = pdfs.constructed().getFirst();
             @SuppressWarnings("unchecked")
             ArgumentCaptor<List<CaseManagementNote>> printed = ArgumentCaptor.forClass(List.class);
-            verify(pdfs.constructed().getFirst()).printNotes(printed.capture());
-            return printed.getValue();
+            verify(pdf).printNotes(printed.capture());
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<HashMap<String, List<CaseManagementNote>>> sections = ArgumentCaptor.forClass(HashMap.class);
+            verify(pdf).printCPP(sections.capture());
+            return new Printed(printed.getValue(), sections.getValue());
         }
+    }
+
+    /** The notes body the print hands its PDF writer, for an "All notes" print with the CPP. */
+    private List<CaseManagementNote> printedNotes(CaseManagementPrint print, HttpServletRequest request)
+            throws Exception {
+        return printAllNotesWithCpp(print, request).notes();
     }
 
     /** A chart print request of this patient with no program chosen (the print then filters nothing). */
@@ -280,5 +294,34 @@ class CaseManagementPrintMessengerNotesUnitTest extends CarlosUnitTestBase {
         assertThat(printed).containsExactly(current);
         // Once for the body and once per CPP issue code.
         verify(notes, atLeastOnce()).filterNotes(eq(login), eq(PROVIDER), anyCollection(), eq(PROGRAM));
+    }
+
+    @Test
+    @DisplayName("should leave out a readable older CPP revision whose latest revision the program filter refuses")
+    void shouldLeaveOutAReadableOlderCppRevision_whenTheProgramFilterRefusesTheLatestRevision() throws Exception {
+        MockHttpServletRequest chart = new MockHttpServletRequest();
+        chart.setParameter("demographicNo", Integer.toString(PATIENT));
+        ChartProgramContext.remember(chart, PROGRAM);
+        // filterNotes reads each revision row by the role that saved it, and an edit records the editing
+        // provider's role. The body holds rows 50 (hidden entry) and 49 (shown entry), saved under the reader's
+        // role; the edits that made their latest rows, 53 and 51, recorded a role this program refuses.
+        String readerRole = "1";
+        for (CaseManagementNote readable : List.of(current, cppHiddenOlderRevision, cppShownOlderRevision)) {
+            readable.setReporter_caisi_role(readerRole);
+        }
+        cppHidden.setReporter_caisi_role("2");
+        cppShown.setReporter_caisi_role("2");
+        when(notes.filterNotes(eq(login), eq(PROVIDER), anyCollection(), eq(PROGRAM))).thenAnswer(call -> {
+            Collection<CaseManagementNote> given = call.getArgument(2);
+            return given.stream().filter(note -> readerRole.equals(note.getReporter_caisi_role())).toList();
+        });
+        MockHttpServletRequest messenger = new MockHttpServletRequest("POST", "/messenger/Doc2PDF");
+        messenger.setSession(chart.getSession());
+
+        Printed printed = printAllNotesWithCpp(messengerPrint(), parameterless(messenger));
+
+        assertThat(printed.notes()).containsExactly(current);
+        // The CPP sections keep the program filter: the refused latest rows are not printed there either.
+        assertThat(printed.cpp().get("SocHistory")).isEmpty();
     }
 }

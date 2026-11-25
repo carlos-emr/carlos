@@ -311,18 +311,26 @@ public class CaseManagementPrint {
         HashMap<String, List<CaseManagementNote>> cpp = null;
         if (printCPP) {
             cpp = new HashMap<>();
-            // Every CPP entry of the patient, printed in its section or left out of it.
+            // Every CPP entry of the patient, printed in its section or left out of it, including those the
+            // program filter keeps from this reader. They are used only to take rows out of the notes body.
             Set<Long> allCppIds = new HashSet<>();
             List<CaseManagementNote> allCppEntries = new ArrayList<>();
             String[] issueCodes = {"OMeds", "SocHistory", "MedHistory", "Concerns", "Reminders", "FamHistory", "RiskFactors"};
             for (String issueCode : issueCodes) {
                 List<Issue> issues = caseManagementMgr.getIssueInfoByCode(providerNo, issueCode);
                 String[] issueIds = getIssueIds(issues);
-                tmpNotes = readableNotes(loggedInInfo, caseManagementMgr.getNotes(demono, issueIds), program);
+                List<CaseManagementNote> patientCppEntries = caseManagementMgr.getNotes(demono, issueIds);
+                // Recognise the entries before the program filter. filterNotes reads each revision row by the
+                // role that saved it, and an edit records the editing provider's role, so the body can hold a
+                // readable older revision of an entry whose latest row this reader may not read (#6324 review).
+                for (CaseManagementNote entry : patientCppEntries) {
+                    allCppIds.add(entry.getId());
+                    allCppEntries.add(entry);
+                }
+                // The CPP sections print only what the program filter lets this reader read.
+                tmpNotes = readableNotes(loggedInInfo, patientCppEntries, program);
                 issueNotes = new ArrayList<>();
                 for (CaseManagementNote tmpNote : tmpNotes) {
-                    allCppIds.add(tmpNote.getId());
-                    allCppEntries.add(tmpNote);
                     if (!tmpNote.isLocked() && !tmpNote.isArchived()) {
                         List<CaseManagementNoteExt> exts = caseManagementMgr.getExtByNote(tmpNote.getId());
                         boolean exclude = false;
