@@ -10553,6 +10553,21 @@
         "T09",
         "T40"
       ]
+    },
+    "debian/assets/flyway-runner/src/main/java/io/github/carlos_emr/carlos/deb/FlywayRunner.java": {
+      "reason": "The installed Flyway runner counts the expected absence of the roster migration’s temporary procedure on a fresh database. Its packaging test checks that unrelated routine warnings and database errors remain visible.",
+      "tests": [
+        "debian/assets/flyway-runner/src/test/java/io/github/carlos_emr/carlos/deb/FlywayRunnerNotesTest.java",
+        ".github/workflows/package-smoke.yml"
+      ],
+      "checks": [
+        "package-clean-reinstall",
+        "package-beta8-upgrade"
+      ],
+      "workstreams": [
+        "T25",
+        "T26"
+      ]
     }
   },
   "lifecycleBaselineManifest": "docs/testing/release-2026.08-lifecycle-baselines.json",
