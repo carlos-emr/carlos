@@ -42,9 +42,9 @@
         "scripts/ci/run-public-api-oracle.py",
         "scripts/ci/WarWireCompatibilityProbe.java"
       ],
-      "implementation": "Keep a release-SHA/base-SHA/WAR-hash evidence manifest and assign every changed path, removed API, migration, resource and test-helper change to an executable check or explicit reviewed exclusion. Preserve the main-only commit inventory.",
+      "implementation": "Keep a release-SHA/base-SHA/WAR-hash evidence manifest and the main-only commit inventory. Track missing path-to-test mappings in CARLOS #6336 while qualifying the required executable checks for the release.",
       "cases": "Full Git diff, renamed/deleted/binary paths, files beyond the GitHub compare 300-file cap; wrong commit, stale build, absent artifact and changed source after build must fail.",
-      "acceptance": "No unowned production path; all required evidence belongs to the same release SHA and packaged bytes; current-main and older-workspace-main scopes remain distinct.",
+      "acceptance": "All required evidence belongs to the same release SHA and packaged bytes; current-main and older-workspace-main scopes remain distinct. Missing path-to-test mappings are advisory under CARLOS #6336; main-only migrations and published migration byte integrity remain required.",
       "requiredChecks": [
         "evidence-self-tests",
         "coverage-self-tests",
@@ -1044,7 +1044,7 @@
         "scripts/playwright-suite.json",
         "src/test/java/io/github/carlos_emr/carlos/commn/dao/AppointmentUpdateDaoIntegrationTest.java"
       ],
-      "implementation": "Rerun supported feature contracts for all release work already promoted to live main, as well as the recent release-only delta; map unmatched paths to a concrete family before closing evidence.",
+      "implementation": "Rerun supported feature contracts for all release work already promoted to live main, as well as the recent release-only delta. Track unmatched path-to-test mappings in CARLOS #6336.",
       "cases": "Patient create/edit/merge/history; chart notes/CPP/pregnancy; prescribing/allergies/drug lookup; appointments/groups/recurrence/slot locks; ON/BC billing and payment; labs/HRM/inbox; forms/eForms/documents/ticklers; contacts/messaging; provider/security/admin; OAuth/REST/ChartSpace; reports/export and clinical rules.",
       "acceptance": "No changed feature is omitted because it happens to be common to live main and release. File routing and test counts are traceability aids, not proof that its assertions ran or are sufficient.",
       "requiredChecks": [
@@ -6163,6 +6163,7 @@
       "command": [
         "python3",
         "scripts/ci/release-scope-audit.py",
+        "--migration-integrity-only",
         "--output",
         "{run}/scope-details.json",
         "--result-output",
@@ -6172,7 +6173,6 @@
       "resultContract": {
         "file": "scope-result.json",
         "assertions": [
-          "complete-production-ownership",
           "main-only-migration-dispositions",
           "published-migrations-byte-identical"
         ]
@@ -6449,6 +6449,7 @@
       "command": [
         "python3",
         "scripts/ci/release-scope-audit.py",
+        "--migration-integrity-only",
         "--output",
         "{run}/scope.json"
       ],

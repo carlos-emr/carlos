@@ -43,6 +43,13 @@ receipt cannot qualify a later tag, even when the source changes appear small.
 Both release workflows share a publication concurrency group so an automated
 candidate rebuild cannot race final promotion.
 
+Missing path-to-test mappings are currently advisory under CARLOS #6336. The scope command
+runs with `--migration-integrity-only` during qualification and retains the full
+inventory with `ownershipRequired: false`. Main-only migration dispositions and
+published migration byte integrity remain required. Restoring the ownership
+gate requires a reviewed change to the qualification command and its assertions.
+[Ownership follow-up](https://github.com/carlos-emr/carlos/issues/6336)
+
 The wider release plan still contains explicitly external or incomplete
 acceptance work. This change does **not** turn that work green: those rows
 continue to block readiness until their reviewed executable adapters and actual

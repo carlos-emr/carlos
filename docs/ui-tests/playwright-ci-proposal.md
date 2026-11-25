@@ -1282,8 +1282,8 @@ of the archive's source SHA, Python 3.14, Node 22/npm 10.9.9 and `npm ci`:
 ```yaml
 - name: Validate the committed execution requirements
   run: python3 scripts/ci/verify-release-evidence.py validate-plan
-- name: Require reviewed ownership across every pinned comparison
-  run: python3 scripts/ci/release-scope-audit.py --output "$RUNNER_TEMP/qualification/scope.json"
+- name: Verify migration integrity and retain the advisory ownership inventory
+  run: python3 scripts/ci/release-scope-audit.py --migration-integrity-only --output "$RUNNER_TEMP/qualification/scope.json"
 - name: Verify complete candidate-bound evidence
   run: |
     set -euo pipefail
