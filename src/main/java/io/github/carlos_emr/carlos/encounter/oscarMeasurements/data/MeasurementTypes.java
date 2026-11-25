@@ -53,6 +53,7 @@ public class MeasurementTypes {
 
     private static Logger log = MiscUtils.getLogger();
 
+    private static final Object RELOAD_LOCK = new Object();
     private static MeasurementTypes measurementTypes;
 
     private record Catalog(Map<String, EctMeasurementTypesBean> byId,
@@ -76,35 +77,39 @@ public class MeasurementTypes {
         return catalog.get().byId().get(type);
     }
 
-    public static synchronized MeasurementTypes getInstance() {
-        if (measurementTypes == null) {
-            measurementTypes = new MeasurementTypes();
-            measurementTypes.reInit();
+    public static MeasurementTypes getInstance() {
+        synchronized (RELOAD_LOCK) {
+            if (measurementTypes == null) {
+                measurementTypes = new MeasurementTypes();
+                measurementTypes.reInit();
+            }
+            return measurementTypes;
         }
-        return measurementTypes;
     }
 
-    public synchronized void reInit() {
-        try {
-            Map<String, EctMeasurementTypesBean> byId = new HashMap<>();
-            Map<String, EctMeasurementTypesBean> byType = new HashMap<>();
-            MeasurementTypeDao mtDao = SpringUtils.getBean(MeasurementTypeDao.class);
-            ValidationsDao vDao = SpringUtils.getBean(ValidationsDao.class);
+    public void reInit() {
+        synchronized (RELOAD_LOCK) {
+            try {
+                Map<String, EctMeasurementTypesBean> byId = new HashMap<>();
+                Map<String, EctMeasurementTypesBean> byType = new HashMap<>();
+                MeasurementTypeDao mtDao = SpringUtils.getBean(MeasurementTypeDao.class);
+                ValidationsDao vDao = SpringUtils.getBean(ValidationsDao.class);
 
-            for (MeasurementType t : mtDao.findAll()) {
-                EctMeasurementTypesBean ret = new EctMeasurementTypesBean(t.getId(), t.getType(), t.getTypeDisplayName(), t.getTypeDescription(), t.getMeasuringInstruction(), t.getValidation());
+                for (MeasurementType t : mtDao.findAll()) {
+                    EctMeasurementTypesBean ret = new EctMeasurementTypesBean(t.getId(), t.getType(), t.getTypeDisplayName(), t.getTypeDescription(), t.getMeasuringInstruction(), t.getValidation());
 
-                Validations v = vDao.find(ConversionUtils.fromIntString(t.getValidation()));
-                if (v != null) {
-                    ret.setValidationName(v.getName());
+                    Validations v = vDao.find(ConversionUtils.fromIntString(t.getValidation()));
+                    if (v != null) {
+                        ret.setValidationName(v.getName());
+                    }
+                    byId.put(t.getId().toString(), ret);
+                    byType.put(t.getType(), ret);
+
                 }
-                byId.put(t.getId().toString(), ret);
-                byType.put(t.getType(), ret);
-
+                catalog.set(new Catalog(Collections.unmodifiableMap(byId), Collections.unmodifiableMap(byType)));
+            } catch (Exception e) {
+                log.warn("Unable to refresh measurement types ({})", e.getClass().getSimpleName());
             }
-            catalog.set(new Catalog(Collections.unmodifiableMap(byId), Collections.unmodifiableMap(byType)));
-        } catch (Exception e) {
-            log.warn("Unable to refresh measurement types ({})", e.getClass().getSimpleName());
         }
     }
 }
