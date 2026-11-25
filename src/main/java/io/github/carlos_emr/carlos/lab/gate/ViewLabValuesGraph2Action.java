@@ -61,13 +61,15 @@ public final class ViewLabValuesGraph2Action extends ActionSupport {
         // The page lists the patient's prescriptions (a picker) and can draw them on the graph. That
         // takes the prescription read right on this patient, as the graph image action requires (#6322):
         // a lab-only user still sees the lab graph, without the medication picker (#6325 review).
-        String patient = request.getParameter("demographic_no");
+        // Decide it for the patient the lab gate above accepted, by canonical number: a zero-padded
+        // demographic_no such as 00123 is patient 123 there and in the embedded graph, so here too.
+        Integer patient = LabPatientAccess.positiveIdentity(request.getParameter("demographic_no"));
         boolean medicationsAllowed = false;
-        if (patient != null && patient.matches("[1-9][0-9]{0,9}")) {
+        if (patient != null) {
             try {
-                PatientRecordAccess.require(securityInfoManager, loggedInInfo, patient, "_rx", "r");
+                PatientRecordAccess.require(securityInfoManager, loggedInInfo, patient.toString(), "_rx", "r");
                 medicationsAllowed = true;
-            } catch (SecurityException | NumberFormatException noPrescriptionAccess) {
+            } catch (SecurityException noPrescriptionAccess) {
                 medicationsAllowed = false;
             }
         }

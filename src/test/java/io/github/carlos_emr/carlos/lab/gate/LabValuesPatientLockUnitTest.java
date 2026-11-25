@@ -22,6 +22,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -165,6 +166,21 @@ class LabValuesPatientLockUnitTest extends CarlosUnitTestBase {
         when(security.hasPrivilege(login, "_rx", "r", "123")).thenReturn(true);
         assertThat(new ViewLabValuesGraph2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
         assertThat(request.getAttribute(ViewLabValuesGraph2Action.MEDICATIONS_ALLOWED)).isEqualTo(true);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    @DisplayName("should decide the medication picker for the canonical patient when demographic_no is zero-padded")
+    void shouldDecideMedicationsForTheCanonicalPatient_whenDemographicNoIsZeroPadded(boolean mayReadRx) throws Exception {
+        // The lab gate and the embedded graph both read 00123 as patient 123; the _rx decision must too.
+        request.setParameter("demographic_no", "00123");
+        when(security.hasPrivilege(login, "_rx", "r", "123")).thenReturn(mayReadRx);
+
+        assertThat(new ViewLabValuesGraph2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        assertThat(request.getAttribute(ViewLabValuesGraph2Action.MEDICATIONS_ALLOWED)).isEqualTo(mayReadRx);
+        verify(security).hasPrivilege(login, "_rx", "r", "123");
+        verify(security, never()).hasPrivilege(login, "_rx", "r", "00123");
     }
 
     @org.junit.jupiter.api.Test
