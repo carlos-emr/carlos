@@ -264,6 +264,39 @@ class OscarDownloadUnitTest {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"BC", "padded-bc", "obec", "not-issued"})
+    void shouldKeepTeleplanAndPreviouslyGeneratedNonbillingObecDownloads(String mode) throws Exception {
+        boolean bc = mode.equals("BC") || mode.equals("padded-bc");
+        var config = CarlosProperties.getInstance();
+        Object oldRegion = config.put("billregion", bc ? (mode.equals("BC") ? "BC" : " bc ") : "ON");
+        Object oldHome = config.put("HOME_DIR", tempDir.toString());
+        try {
+            var request = new MockHttpServletRequest("GET", "/servlet/OscarDownload");
+            var login = new LoggedInInfo();
+            LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), login);
+            request.getSession().setAttribute("user", "999998");
+            String key = bc ? "ohipdownload" : "obecdownload";
+            String name = bc ? "teleplan.001" : "OBECE100.TXT";
+            request.getSession().setAttribute(key, tempDir.toString());
+            if (mode.equals("obec")) request.getSession().setAttribute(
+                    io.github.carlos_emr.carlos.report.pageUtil.Obec2Action.DOWNLOAD_PREFIX + name, Boolean.TRUE);
+            request.addParameter("homepath", key);
+            request.addParameter("filename", name);
+            Mockito.when(fileAccess.canDownload(login, name, false)).thenReturn(false);
+            var response = new MockHttpServletResponse();
+            var servlet = new RecordingOscarDownload();
+            servlet.service(request, response);
+            assertThat(response.getStatus()).isEqualTo(mode.equals("not-issued") ? 403 : 200);
+            assertThat(servlet.transferCalled).isEqualTo(!mode.equals("not-issued"));
+            if (bc) Mockito.verifyNoInteractions(fileAccess);
+            else Mockito.verify(fileAccess).canDownload(login, name, mode.equals("obec"));
+        } finally {
+            if (oldRegion == null) config.remove("billregion"); else config.put("billregion", oldRegion);
+            if (oldHome == null) config.remove("HOME_DIR"); else config.put("HOME_DIR", oldHome);
+        }
+    }
+
     private static final class RecordingOscarDownload extends OscarDownload {
         private boolean rejectBilling;
         private boolean billingChecked;

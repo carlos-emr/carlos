@@ -400,7 +400,7 @@ class BillingOnDiskServiceUnitTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"mixed", "missing", "unowned-output", "owned"})
-    void shouldCheckAllRecordedPeopleAndOutputsBeforeRegenerating(String scenario) {
+    void shouldCheckAllRecordedPeopleAndOutputs_beforeRegenerating(String scenario) {
         var request = regenerateRequest("55");
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
         when(security.hasPrivilege(loggedInInfo, "_team_billing_only", "r", null)).thenReturn(true);

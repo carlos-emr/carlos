@@ -130,6 +130,7 @@ class Obec2ActionMethodGuardUnitTest extends CarlosUnitTestBase {
             assertThat(obec.constructed()).hasSize(1);
         }
         assertThat(request.getAttribute("obectxt")).isEqualTo("OBECE1.TXT");
+        assertThat(request.getSession().getAttribute(Obec2Action.DOWNLOAD_PREFIX + "OBECE1.TXT")).isEqualTo(true);
         assertThat(response.getStatus()).isEqualTo(200);
     }
 }

@@ -49,7 +49,7 @@ class BillingOnFileAccessServiceIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    void shouldCheckEveryDiskMemberWhileAllowingTheirIndividualHtml() {
+    void shouldCheckEveryDiskMember_whileAllowingTheirIndividualHtml() {
         int disk = disk("fixture-mixed.001");
         child(disk, WEST, "fixture-west.html", "U");
         child(disk, EAST, "fixture-east.html", "D");
@@ -69,7 +69,7 @@ class BillingOnFileAccessServiceIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    void shouldRequireAUniqueLegacyOhipOwnerAcrossInactiveProvidersAndBothFileTables() {
+    void shouldRequireAUniqueLegacyOhipOwner_acrossInactiveProvidersAndBothFileTables() {
         provider(WEST, "846711", "1");
         provider(EAST, "846712", "1");
         provider("827663", "846713", "1");
@@ -90,7 +90,7 @@ class BillingOnFileAccessServiceIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    void shouldKeepTheBillingReadGateAndAllowAnIssuedNonbillingReportInACoLocatedDirectory() {
+    void shouldKeepTheBillingReadGateAndAllowAnIssuedNonbillingReport_inACoLocatedDirectory() {
         when(security.hasPrivilege(login, "_billing", "r", null)).thenReturn(false);
         when(security.hasPrivilege(login, "_report", "r", null)).thenReturn(true);
         child(disk("fixture-mixed.001"), WEST, "fixture-local.html", "U");

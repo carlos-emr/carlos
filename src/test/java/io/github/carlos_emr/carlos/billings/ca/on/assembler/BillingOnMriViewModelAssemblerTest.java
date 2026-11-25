@@ -28,6 +28,9 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Properties;
+import java.util.Map;
+import java.util.Set;
+import io.github.carlos_emr.carlos.commn.model.ProviderData;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -217,6 +220,51 @@ class BillingOnMriViewModelAssemblerTest {
         assertThat(model.getBillActivityRows())
                 .extracting(BillingOnMriViewModel.BillActivityRow::claimRecord)
                 .containsExactly("dated", "null-date");
+    }
+
+    @Test
+    void shouldKeepOnlyThePermittedBillingActivityAndPerProviderFile_onAMixedDisk() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_team_access_privacy", "r", null)).thenReturn(true);
+        var local = mock(ProviderData.class);
+        when(local.getId()).thenReturn("100");
+        when(providerDataDao.findByProviderTeam("999998")).thenReturn(List.of(local));
+        var localProvider = provider("100", "Fixture", "West", "OHIP100");
+        var otherProvider = provider("200", "Fixture", "East", "OHIP200");
+        when(providerDao.getActiveProviders()).thenReturn(List.of(localProvider, otherProvider));
+        when(providerDao.getBillableProviders()).thenReturn(List.of(localProvider, otherProvider));
+        when(reviewLoader.getTeamProviderBillingStr("999998"))
+                .thenReturn(List.of(new ProviderDropdownEntry("100", "Fixture", "West", "OHIP100", "", "")));
+        when(providerBillCenterDao.find("100")).thenReturn(billCenter("100", "LOCAL"));
+        var ownRow = new DiskFilenameRow("1", "west.html", "OHIP100", "100", "local", "U", "1.00");
+        var otherRow = new DiskFilenameRow("2", "east.html", "OHIP200", "200", "other", "U", "2.00");
+        var mixed = disk("7", "2026-02-03 04:05:06", "2026-02-03 04:05:06", ownRow);
+        mixed.setFilenames(List.of(ownRow, otherRow));
+        when(reviewLoader.getMRIList(anyString(), anyString(), eq("U"))).thenReturn(List.of(mixed));
+        var own = billActivity("OHIP100", new Date(), "old-local", "1.00", "legacy.001", "old-west.htm");
+        var other = billActivity("OHIP200", new Date(), "old-other", "2.00", "legacy.001", "old-east.htm");
+        var ambiguous = billActivity("REUSED", new Date(), "ambiguous", "3.00", "conflict.001", "unknown.htm");
+        when(billActivityDao.findCurrentByDateRange(any(), any())).thenReturn(List.of(own, other, ambiguous));
+        when(fileAccess.uniqueLegacyOwners(List.of("OHIP100", "OHIP200", "REUSED")))
+                .thenReturn(Map.of("OHIP100", "100", "OHIP200", "200", "REUSED", ""));
+        when(fileAccess.filePermissions(Set.of("claim.ohip", "west.html"), Set.of("100")))
+                .thenReturn(Map.of("claim.ohip", false, "west.html", true));
+        when(fileAccess.filePermissions(Set.of("legacy.001", "old-west.htm"), Set.of("100")))
+                .thenReturn(Map.of("legacy.001", false, "old-west.htm", true));
+
+        var model = assembler().assemble(requestForYear("2026"), loggedInInfo);
+        assertThat(model.getProviderBillCenterMap()).containsOnlyKeys("100");
+        assertThat(model.getMriRows()).singleElement().satisfies(row -> {
+            assertThat(row.claimRecord()).isEqualTo("local");
+            assertThat(row.ohipFile()).isEmpty();
+            assertThat(row.htmlFile()).isEqualTo("west.html");
+            assertThat(row.mayRegenerate()).isFalse();
+        });
+        assertThat(model.getBillActivityRows()).singleElement().satisfies(row -> {
+            assertThat(row.claimRecord()).isEqualTo("old-local");
+            assertThat(row.ohipFile()).isEmpty();
+            assertThat(row.htmlFile()).isEqualTo("old-west.htm");
+        });
+        org.mockito.Mockito.verify(providerBillCenterDao, org.mockito.Mockito.never()).find("200");
     }
 
     private BillingOnMriViewModelAssembler assembler() {
