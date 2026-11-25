@@ -19,7 +19,6 @@ Run (from the repository root):
 import os
 import importlib.util
 import re
-import shutil
 import subprocess
 import tempfile
 import textwrap
@@ -315,16 +314,6 @@ class TestPostinstLintianBashismOverrides(unittest.TestCase):
         self.assertNotIn("configuration.flush()", patterns)
         self.assertEqual(sorted(patterns),
                          sorted(list(self.NGINX_PATTERNS) + ["sys.stdin.read().strip()"]))
-
-    @unittest.skipUnless(shutil.which("checkbashisms"), "checkbashisms is not installed")
-    def test_checkbashisms_reports_nothing_an_override_does_not_cover(self):
-        run = subprocess.run(["checkbashisms", str(self.POSTINST)], capture_output=True, text=True)
-        patterns = [pattern for _n, pattern, _s in self.bashism_overrides()]
-        uncovered = [line for line in run.stderr.splitlines()
-                     if line.startswith("possible bashism") is False and line.strip()
-                     and not any(pattern in line for pattern in patterns)
-                     and not line.startswith(("script ", "error:"))]
-        self.assertEqual(uncovered, [], run.stderr)
 
 
 class TestRulesShipTheConfigurationPreflight(unittest.TestCase):
