@@ -4,7 +4,6 @@ package io.github.carlos_emr.carlos.schedule.service;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.Objects;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -41,18 +40,17 @@ public class ScheduleTemplateService {
         }
         Date retireThrough = later(originalEnd, end);
         if (replaceSameStart) {
+            // The editor can load historical availability codes as well as current weekly rules.
+            if (rules.search_rschedule_exists(providerNo, start, originalEnd) == 0) {
+                return new Result(true, false, true);
+            }
             var previousRules = new ArrayList<>(rules.findByProviderAvailableAndDate(providerNo, "1", start));
             previousRules.addAll(rules.findByProviderAvailableAndDate(providerNo, "A", start));
-            boolean originalStillActive = false;
             for (RSchedule previous : previousRules) {
                 if ("A".equals(previous.getStatus())) {
-                    originalStillActive |= Objects.equals(originalEnd, previous.geteDate());
                     // Older data can have overlapping active headers at the same start.
                     retireThrough = later(previous.geteDate(), retireThrough);
                 }
-            }
-            if (!originalStillActive) return new Result(true, false, true);
-            for (RSchedule previous : previousRules) {
                 previous.setStatus("D");
                 rules.merge(previous);
             }

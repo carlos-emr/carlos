@@ -278,6 +278,35 @@ class ScheduleDateOverrideServiceIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    void shouldAcceptAnActiveLegacyUnavailablePeriodSelectedByTheEditor() {
+        var templates = templates(rScheduleDao);
+        for (java.sql.Date start : List.of(DATE, FOLLOWING)) {
+            // Both dated and open-ended unavailable periods exist in the historical header schema.
+            RSchedule legacy = header("Unavailable");
+            legacy.setAvailable("0");
+            legacy.setsDate(start);
+            legacy.seteDate(start.equals(DATE) ? FORMER_END : null);
+            transaction().executeWithoutResult(status -> rScheduleDao.persist(legacy));
+            RSchedule selected = transaction().execute(status -> rScheduleDao.search_rschedule_current1(PROVIDER, start));
+            assertThat(selected.getId()).isEqualTo(legacy.getId());
+
+            RSchedule weekly = header("New weekly hours");
+            weekly.setsDate(start);
+            weekly.seteDate(FOLLOWING);
+            ScheduleDate generated = ruleDay("New weekly day");
+            generated.setDate(start);
+            var result = templates.apply(weekly, true, selected.geteDate(), List.of(generated));
+
+            assertThat(result.stalePeriod()).isFalse();
+            assertThat(weekly.getId()).isNotNull();
+            assertThat(service(scheduleDateDao).currentOverride(PROVIDER, start).getReason()).isEqualTo("New weekly day");
+            // Historically Apply retires the editable weekly/alternating headers only.
+            RSchedule retained = transaction().execute(status -> rScheduleDao.find(legacy.getId()));
+            assertThat(retained.getStatus()).isEqualTo("A");
+        }
+    }
+
+    @Test
     void shouldRefuseAnOlderSameStartFormAfterAnExtension_thenAllowShorteningTheCurrentPeriod() {
         var templates = templates(rScheduleDao);
         RSchedule original = header("Original period");
