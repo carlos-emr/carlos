@@ -25,6 +25,8 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * <p>
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 
@@ -43,6 +45,7 @@ import io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDao;
 import io.github.carlos_emr.carlos.commn.model.MeasurementType;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.MeasurementTypes;
@@ -60,6 +63,11 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * @since 2004-02-23
  */
 public class EctAddMeasurementType2Action extends ActionSupport {
+    /**
+     * Width of the {@code typeDescription}, {@code typeDisplayName} and {@code measuringInstruction}
+     * columns of {@code measurementType}: VARCHAR(255) in the V1 baseline schema.
+     */
+    private static final int TEXT_COLUMN_MAX_LENGTH = 255;
     private static final String ERRORS_INVALID = "errors.invalid";
     private static final String ERRORS_MAXLENGTH = "errors.maxlength";
 
@@ -149,8 +157,7 @@ public class EctAddMeasurementType2Action extends ActionSupport {
             addActionError(getText(ERRORS_INVALID, errorField));
             isValid = false;
         }
-        if (!validate.maxLength(255, type)) {
-            addActionError(getText(ERRORS_MAXLENGTH, new String[]{errorField, "255"}));
+        if (!checkMaxLength(validate, errorField, typeDesc, TEXT_COLUMN_MAX_LENGTH)) {
             isValid = false;
         }
 
@@ -159,8 +166,7 @@ public class EctAddMeasurementType2Action extends ActionSupport {
             addActionError(getText(ERRORS_INVALID, errorField));
             isValid = false;
         }
-        if (!validate.maxLength(255, type)) {
-            addActionError(getText(ERRORS_MAXLENGTH, new String[]{errorField, "255"}));
+        if (!checkMaxLength(validate, errorField, typeDisplayName, TEXT_COLUMN_MAX_LENGTH)) {
             isValid = false;
         }
 
@@ -169,11 +175,31 @@ public class EctAddMeasurementType2Action extends ActionSupport {
             addActionError(getText(ERRORS_INVALID, errorField));
             isValid = false;
         }
-        if (!validate.maxLength(255, type)) {
-            addActionError(getText(ERRORS_MAXLENGTH, new String[]{errorField, "255"}));
+        if (!checkMaxLength(validate, errorField, measuringInstrc, TEXT_COLUMN_MAX_LENGTH)) {
             isValid = false;
         }
         return isValid;
+    }
+
+    /**
+     * Checks one submitted value against the width of the {@code measurementType} column that
+     * stores it, and reports the field on the form when the value is too long.
+     *
+     * @param validate   the validator shared by this submission's checks
+     * @param errorField how the form names the field: its label followed by the submitted text.
+     *                   The form prints action errors as markup, so it is HTML-encoded here.
+     * @param value      the submitted text of that same field; {@code null} has no length to check
+     * @param maxLength  the width of the column that stores the value
+     * @return {@code true} if the value fits its column
+     */
+    private boolean checkMaxLength(EctValidation validate, String errorField, String value, int maxLength) {
+        // EctValidation.maxLength dereferences its input, and a request may omit a parameter.
+        if (value == null || validate.maxLength(maxLength, value)) {
+            return true;
+        }
+        addActionError(getText(ERRORS_MAXLENGTH,
+                new String[]{SafeEncode.forHtmlContent(errorField), String.valueOf(maxLength)}));
+        return false;
     }
 
 
