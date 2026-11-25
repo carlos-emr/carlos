@@ -108,15 +108,16 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
 
 
     private static final Logger logger = MiscUtils.getLogger();
-    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    // Spring beans belong to this request-scoped action, not its serializable form.
+    private final transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
-    private final ConsultationManager consultationManager = SpringUtils.getBean(ConsultationManager.class);
+    private final transient ConsultationManager consultationManager = SpringUtils.getBean(ConsultationManager.class);
 
     private static FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
 
-    private final AttachmentOwnershipService attachmentOwnershipService;
+    private final transient AttachmentOwnershipService attachmentOwnershipService;
 
-    private final ConsultationRequestDao consultationRequestDao;
+    private final transient ConsultationRequestDao consultationRequestDao;
 
     public EctConsultationFormRequestPrintAction22Action() {
         // Struts creates this legacy action with a no-arg constructor.
@@ -247,7 +248,7 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
 
                     } else if (doc.isPDF()) {
                         alist.add(path + doc.getFileName());
-                    } else {
+                    } else if (logger.isErrorEnabled()) {
                         logger.error("EctConsultationFormRequestPrintAction: {} is marked as printable but no means have been established to print it.", LogSafe.sanitize(doc.getType()));
                     }
                 }
