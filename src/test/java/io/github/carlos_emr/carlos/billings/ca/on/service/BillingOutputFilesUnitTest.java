@@ -51,7 +51,9 @@ class BillingOutputFilesUnitTest {
             files.write("preview.html", "ours", StandardCharsets.UTF_8);
             Path independent = Files.writeString(directory.resolve("independent"), "preserved");
             Files.move(independent, claim, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-            files.rollback(new IllegalStateException("confirmed rollback"));
+            var result = files.rollback(new IllegalStateException("confirmed rollback"));
+            assertThat(result.independentReplacement()).isTrue();
+            assertThat(result.complete()).isTrue();
         }
         assertThat(claim).hasContent("preserved");
         assertThat(preview).doesNotExist();
@@ -74,12 +76,10 @@ class BillingOutputFilesUnitTest {
                 }
                 return call.callRealMethod();
             })) {
-                if (anotherFileArrives) {
-                    assertThatThrownBy(() -> files.rollback(cause)).isInstanceOfSatisfying(BillingFileWriteException.class,
-                            failure -> assertThat(failure.reason()).isEqualTo(BillingFileWriteException.Reason.RESTORE_FAILED));
-                } else {
-                    files.rollback(cause);
-                }
+                var result = files.rollback(cause);
+                assertThat(result.independentReplacement()).isTrue();
+                assertThat(result.complete()).isEqualTo(!anotherFileArrives);
+                assertThat(cause.getSuppressed()).hasSize(anotherFileArrives ? 1 : 0);
             }
         }
         assertThat(target).hasContent(anotherFileArrives ? "newest bytes" : "independent bytes");
@@ -87,6 +87,17 @@ class BillingOutputFilesUnitTest {
             var retained = paths.filter(path -> path.getFileName().toString().startsWith(".ohip-rollback-")).toList();
             if (anotherFileArrives) assertThat(retained).singleElement().satisfies(path -> assertThat(path).hasContent("independent bytes"));
             else assertThat(retained).isEmpty();
+        }
+    }
+
+    @Test
+    void shouldKeepOrdinaryRecoveryAvailable_whenAnOwnedOutputAlreadyDisappeared() throws Exception {
+        try (var files = new BillingOutputFiles.NewFiles()) {
+            files.write("missing.001", "ours", StandardCharsets.US_ASCII);
+            Files.delete(directory.resolve("missing.001"));
+            var result = files.rollback(new IllegalStateException("confirmed rollback"));
+            assertThat(result.independentReplacement()).isFalse();
+            assertThat(result.complete()).isTrue();
         }
     }
 

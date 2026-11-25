@@ -85,18 +85,20 @@ final class BillingOutputFiles {
             }
         }
 
-        void rollback(RuntimeException originalFailure) {
-            boolean incomplete = false;
+        record Rollback(boolean independentReplacement, boolean complete) { }
+
+        Rollback rollback(RuntimeException originalFailure) {
+            boolean complete = true;
+            boolean independentReplacement = false;
             for (Publication receipt : published) {
                 try { receipt.withdraw(); }
                 catch (IOException | RuntimeException cleanup) {
-                    incomplete = true;
+                    complete = false;
                     originalFailure.addSuppressed(cleanup);
                 }
+                independentReplacement |= receipt.independentReplacement;
             }
-            if (incomplete) {
-                throw BillingFileWriteException.forReason(BillingFileWriteException.Reason.RESTORE_FAILED, originalFailure);
-            }
+            return new Rollback(independentReplacement, complete);
         }
 
         @Override
@@ -110,6 +112,7 @@ final class BillingOutputFiles {
         private Path witness;
         private FileChannel pinned;
         private Object fileKey;
+        private boolean independentReplacement;
 
         private Publication(Path output, Path witness) {
             this.output = output;
@@ -141,16 +144,20 @@ final class BillingOutputFiles {
         }
 
         private boolean owns(Path candidate) throws IOException {
-            try {
-                var actual = Files.readAttributes(candidate, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
-                return actual.isRegularFile() && (pinned == null ? Files.isSameFile(candidate, witness) : fileKey.equals(actual.fileKey()));
-            } catch (NoSuchFileException missing) {
-                return false;
-            }
+            var actual = Files.readAttributes(candidate, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+            return actual.isRegularFile() && (pinned == null ? Files.isSameFile(candidate, witness) : fileKey.equals(actual.fileKey()));
         }
 
         void withdraw() throws IOException {
-            if ((witness == null && pinned == null) || !owns(output)) return;
+            if (witness == null && pinned == null) return;
+            try {
+                if (!owns(output)) {
+                    independentReplacement = true;
+                    return;
+                }
+            } catch (NoSuchFileException missing) {
+                return;
+            }
             Path detached = temporarySibling(output, ".ohip-rollback-", ".tmp");
             boolean preserve = false;
             try {
@@ -159,6 +166,7 @@ final class BillingOutputFiles {
                 try { Files.move(output, detached, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING); }
                 catch (NoSuchFileException disappeared) { return; }
                 if (!owns(detached)) {
+                    independentReplacement = true;
                     preserve = true;
                     // A newer target wins; keep the detached entry for recovery.
                     if (pinned != null) LinuxNoReplaceMove.move(detached, output);

@@ -651,9 +651,11 @@ public class BillingOnDiskService {
                 operation.accept(files);
             } catch (RuntimeException failure) {
                 if (outcome.mayHaveCommitted()) throw uncertainCommit(failure);
+                var rollback = files.rollback(failure);
                 boolean retirementFailed = false;
-                if (failure instanceof BillingFileWriteException writeFailure
-                        && writeFailure.reason() == BillingFileWriteException.Reason.NEW_OUTPUT_OCCUPIED) {
+                boolean occupied = failure instanceof BillingFileWriteException writeFailure
+                        && writeFailure.reason() == BillingFileWriteException.Reason.NEW_OUTPUT_OCCUPIED;
+                if (occupied || rollback.independentReplacement()) {
                     // The preallocated disk and child rows must never grant history access to independently supplied bytes.
                     try { transactionService.retireUnpublishedDisk(diskId); }
                     catch (RuntimeException retirement) {
@@ -661,9 +663,11 @@ public class BillingOnDiskService {
                         retirementFailed = true;
                     }
                 }
-                files.rollback(failure);
-                if (retirementFailed) {
+                if (retirementFailed || !rollback.complete()) {
                     throw BillingFileWriteException.forReason(BillingFileWriteException.Reason.RESTORE_FAILED, failure);
+                }
+                if (!occupied && rollback.independentReplacement()) {
+                    throw BillingFileWriteException.forReason(BillingFileWriteException.Reason.NEW_OUTPUT_OCCUPIED, failure);
                 }
                 throw failure;
             }

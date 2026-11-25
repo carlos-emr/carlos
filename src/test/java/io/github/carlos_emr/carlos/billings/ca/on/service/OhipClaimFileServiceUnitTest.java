@@ -750,6 +750,15 @@ class OhipClaimFileServiceUnitTest {
     }
 
     @Test
+    void shouldLeaveAnUnrecordedCompanionAlone_whenTheLegacyHtmlFilenameIsBlank() {
+        service.setOhipFilename("prior.001");
+        service.setHtmlFilename(" ");
+        service.readInBillingNo();
+        org.mockito.Mockito.verify(diskNameDao, org.mockito.Mockito.never()).importedFilenameReviews(" ");
+        assertThat(service.getErrorFatalMsg()).isEmpty();
+    }
+
+    @Test
     void shouldRefuseEmptyDedup_whenImportedFileIsAmbiguous() {
         String filename = "o19-claim-2021-2-0.claim";
         service.setOhipFilename(filename);

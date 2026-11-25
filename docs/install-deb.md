@@ -401,10 +401,10 @@ includes CIFS mounts whose server and client support that operation.
 When both publication methods are unavailable, the billing screen identifies
 the storage requirement. Configure a compatible `HOME_DIR` before retrying.
 If the JVM prohibits native calls, the hard-link method remains available.
-If another program places a file under a newly allocated basename, CARLOS
-preserves that file, rolls back this attempt's published outputs and retires
-its provisional disk records. The billing screen requests reconciliation when
-CARLOS cannot confirm cleanup.
+If another program occupies a newly allocated basename or replaces a file
+before a confirmed rollback, CARLOS preserves the independent file, withdraws
+this attempt's remaining outputs and retires its provisional disk records.
+The billing screen requests reconciliation when CARLOS cannot confirm cleanup.
 
 If the service stops abruptly during generation or database cleanup fails, the
 disk and provider rows allocated for that attempt may remain. Before downloading,

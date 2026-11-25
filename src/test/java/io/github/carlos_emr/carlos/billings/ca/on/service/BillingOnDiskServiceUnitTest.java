@@ -206,17 +206,7 @@ class BillingOnDiskServiceUnitTest {
 
     @Test
     void shouldDeleteWrittenFiles_whenDbFinalizationFails() {
-        MockHttpServletRequest request = newDiskRequest("999998");
-        BillingProviderDto provider = provider("999998", "0000");
-        when(diskCreationService.getProviderObj("999998")).thenReturn(provider);
-        when(diskCreationService.createNewSoloDiskName("999998", "999998")).thenReturn(12);
-        when(diskCreationService.createBatchHeader(provider, "12", "4", "1", "999998")).thenReturn(34);
-        when(diskCreationService.getOhipfilename(12)).thenReturn("ohip.txt");
-        when(diskCreationService.getHtmlfilename(12, "999998")).thenReturn("ohip.html");
-        Mockito.doCallRealMethod().when(claimFileService).setOhipFilename(anyString());
-        Mockito.doCallRealMethod().when(claimFileService).setHtmlFilename(anyString());
-        Mockito.doCallRealMethod().when(claimFileService).writeNewFile(anyString(), any());
-        Mockito.doCallRealMethod().when(claimFileService).writeNewHtml(anyString(), any());
+        var request = prepareNewSoloDiskWithRealFiles();
         Mockito.doAnswer(call -> {
             assertThat(outputDirectory.resolve("ohip.txt")).hasContent("claim-body");
             assertThat(outputDirectory.resolve("ohip.html")).hasContent("<html>claim</html>");
@@ -235,15 +225,7 @@ class BillingOnDiskServiceUnitTest {
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({"false,false", "true,false", "false,true"})
     void shouldKeepAFileArrivingAfterAllocation_whenPublishingANewSoloDisk(boolean occupiedClaim, boolean retirementFails) throws Exception {
-        var provider = provider("999998", "0000");
-        when(diskCreationService.getProviderObj("999998")).thenReturn(provider);
-        when(diskCreationService.createNewSoloDiskName("999998", "999998")).thenReturn(12);
-        when(diskCreationService.createBatchHeader(provider, "12", "4", "1", "999998")).thenReturn(34);
-        when(diskCreationService.getOhipfilename(12)).thenReturn("ohip.txt");
-        when(diskCreationService.getHtmlfilename(12, "999998")).thenReturn("ohip.html");
-        Mockito.doCallRealMethod().when(claimFileService).setOhipFilename(anyString());
-        Mockito.doCallRealMethod().when(claimFileService).setHtmlFilename(anyString());
-        Mockito.doCallRealMethod().when(claimFileService).writeNewHtml(anyString(), any());
+        var request = prepareNewSoloDiskWithRealFiles();
         var occupied = outputDirectory.resolve(occupiedClaim ? "ohip.txt" : "ohip.html");
         Mockito.doAnswer(call -> {
             java.nio.file.Files.writeString(occupied, "prior submission");
@@ -252,7 +234,7 @@ class BillingOnDiskServiceUnitTest {
         if (retirementFails) {
             doThrow(new IllegalStateException("fixture retirement failed")).when(transactionService).retireUnpublishedDisk(12);
         }
-        assertThatThrownBy(() -> service.generateNewDisk(newDiskRequest("999998")))
+        assertThatThrownBy(() -> service.generateNewDisk(request))
                 .isInstanceOfSatisfying(BillingFileWriteException.class, failure ->
                         assertThat(failure.reason()).isEqualTo(retirementFails ? BillingFileWriteException.Reason.RESTORE_FAILED
                                 : BillingFileWriteException.Reason.NEW_OUTPUT_OCCUPIED));
@@ -260,6 +242,50 @@ class BillingOnDiskServiceUnitTest {
         assertThat(outputDirectory.resolve(occupiedClaim ? "ohip.html" : "ohip.txt")).doesNotExist();
         verify(transactionService, never()).finalizeGeneratedDisk(any(), any(Integer.class), any());
         verify(transactionService).retireUnpublishedDisk(12);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldRetireProvisionalOwnership_whenPublishedBytesAreReplacedBeforeConfirmedRollback(boolean retirementFails) throws Exception {
+        var request = prepareNewSoloDiskWithRealFiles();
+        var claim = outputDirectory.resolve("ohip.txt");
+        var preview = outputDirectory.resolve("ohip.html");
+        var failure = new IllegalStateException("fixture database failure");
+        Mockito.doAnswer(call -> {
+            assertThat(claim).hasContent("claim-body");
+            assertThat(preview).hasContent("<html>claim</html>");
+            var other = java.nio.file.Files.writeString(outputDirectory.resolve("independent"), "independent archive");
+            java.nio.file.Files.move(other, claim, java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            throw failure;
+        }).when(transactionService).finalizeGeneratedDisk(eq(claimFileService), eq(12), any());
+        if (retirementFails) {
+            doThrow(new IllegalStateException("fixture retirement failure")).when(transactionService).retireUnpublishedDisk(12);
+        }
+        assertThatThrownBy(() -> service.generateNewDisk(request)).isInstanceOfSatisfying(BillingFileWriteException.class, error -> {
+            assertThat(error.reason()).isEqualTo(retirementFails ? BillingFileWriteException.Reason.RESTORE_FAILED
+                    : BillingFileWriteException.Reason.NEW_OUTPUT_OCCUPIED);
+            assertThat(error.getCause()).isSameAs(failure);
+            assertThat(error.getMessage()).doesNotContain("fixture");
+        });
+        assertThat(claim).hasContent("independent archive");
+        assertThat(preview).doesNotExist();
+        verify(transactionService).retireUnpublishedDisk(12);
+    }
+
+    private MockHttpServletRequest prepareNewSoloDiskWithRealFiles() {
+        MockHttpServletRequest request = newDiskRequest("999998");
+        BillingProviderDto provider = provider("999998", "0000");
+        when(diskCreationService.getProviderObj("999998")).thenReturn(provider);
+        when(diskCreationService.createNewSoloDiskName("999998", "999998")).thenReturn(12);
+        when(diskCreationService.createBatchHeader(provider, "12", "4", "1", "999998")).thenReturn(34);
+        when(diskCreationService.getOhipfilename(12)).thenReturn("ohip.txt");
+        when(diskCreationService.getHtmlfilename(12, "999998")).thenReturn("ohip.html");
+        Mockito.doCallRealMethod().when(claimFileService).setOhipFilename(anyString());
+        Mockito.doCallRealMethod().when(claimFileService).setHtmlFilename(anyString());
+        Mockito.doCallRealMethod().when(claimFileService).writeNewFile(anyString(), any());
+        Mockito.doCallRealMethod().when(claimFileService).writeNewHtml(anyString(), any());
+        return request;
     }
 
     @Test
@@ -399,6 +425,7 @@ class BillingOnDiskServiceUnitTest {
         verify(claimFileService, never()).restoreRenamedFile();
         verify(claimFileService, never()).restoreHtmlForRollback();
         verify(claimFileService, never()).discardHtmlBackup();
+        verify(transactionService, never()).retireUnpublishedDisk(12);
     }
 
     private static BillingDiskCreationService.PreparedBatchHeader preparedHeader(int id) {
