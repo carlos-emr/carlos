@@ -359,7 +359,9 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         Series series = new Series(measurements.getFirst().getTypeDisplayName());
         int omitted = 0;
         for (EctMeasurementsDataBean measurement : measurements) {
-            String result = numericResult(measurement.getDataField());
+            // A result filed as text is the lab's words even when they start with a number ("2 bands present"):
+            // it is counted as not shown, never read as a reading (#6142 review).
+            String result = measurement.isFiledAsText() ? null : numericResult(measurement.getDataField());
             if (result == null) {
                 omitted++;
             } else {
@@ -541,7 +543,8 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         List<ReferenceRange> ranges = new ArrayList<>();
         int omitted = 0;
         for (Map<String, Serializable> value : values) {
-            String result = numericResult((String) value.get("result"));
+            // As for measurements: a row filed as text is counted as not shown, never read as a number.
+            String result = CommonLabTestValues.isTextResult(value) ? null : numericResult((String) value.get("result"));
             Day collectionDate = collectionDay(value, name);
             if (result == null) {
                 omitted++;

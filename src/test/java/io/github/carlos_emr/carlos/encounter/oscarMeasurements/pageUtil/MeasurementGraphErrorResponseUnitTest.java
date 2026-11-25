@@ -418,6 +418,26 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
                         .extracting(point -> point.get("y")).containsExactly(63.0));
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"inclRef", "rxincl", "lab", "labRef"})
+    void shouldOmitAResultFiledAsText_whenItsWordsStartWithANumber(String method) throws Exception {
+        // #6142 review: "2 bands present" filed as text is the lab's words, not a reading of 2. A value
+        // without the marker is still read as a number, with or without its unit.
+        request.setParameter("method", method);
+        AtomicReference<MeasurementChart> rendered = new AtomicReference<>();
+        EctMeasurementsDataBean filed = measurement("WT", "Weight", "kg", "2 bands present");
+        filed.setFiledAsText(true);
+        filed.setDateObservedAsDate(new Date(1_705_363_200_000L));
+        executeChartFrom(type -> List.of(measurement("WT", "Weight", "kg", "63 kg"), filed), rendered);
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(rendered.get().toConfig()).containsEntry("note",
+                "Results not shown on this chart: 1. Open the full report to see them.");
+        assertThat(datasets(rendered.get())).filteredOn(dataset -> "line".equals(dataset.get("kind")))
+                .singleElement().satisfies(dataset -> assertThat(points(dataset))
+                        .extracting(point -> point.get("y")).containsExactly(63.0));
+    }
+
     @Test
     void shouldCountOmittedResultsFromBothAxes_inTheBrowserLanguage() throws Exception {
         request.setParameter("type2", "HT");
@@ -755,6 +775,28 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
                 .extracting(point -> point.get("y")).containsExactly(4.2));
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldOmitALabRowFiledAsText_whenItsWordsStartWithANumber(boolean withMedications) throws Exception {
+        // #6142 review: a source-lab row marked as filed text is counted as not shown, not plotted at 2.
+        if (withMedications) {
+            request.setParameter("drug", new String[0]);
+        }
+        Map<String, Serializable> text = new java.util.HashMap<>(labValue(""));
+        text.put("result", "2 bands present");
+        text.put("collDateDate", new Date(1_705_363_200_000L));
+        text.put(CommonLabTestValues.VALUE_TYPE, MeasurementsExt.TEXT_VALUE_TYPE);
+        Map<String, Serializable> unmarked = new java.util.HashMap<>(labValue(""));
+        unmarked.put("result", "4.2 mmol/L");
+        MeasurementChart chart = executeLabChart(List.of(unmarked, text));
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(chart.toConfig()).containsEntry("note",
+                "Results not shown on this chart: 1. Open the full report to see them.");
+        assertThat(datasets(chart)).singleElement().satisfies(dataset -> assertThat(points(dataset))
+                .extracting(point -> point.get("y")).containsExactly(4.2));
+    }
+
     private MeasurementChart executeLabChart(List<Map<String, Serializable>> values) throws Exception {
         request.setParameter("method", "actualLab");
         request.setParameter("labType", "CML");
@@ -764,6 +806,8 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
         try (var labs = mockStatic(CommonLabTestValues.class)) {
             labs.when(() -> CommonLabTestValues.findValuesForTest("CML", 101, "Synthetic potassium", "synthetic-code"))
                     .thenReturn(new ArrayList<>(values));
+            // The action reads a row's text marker through the real check.
+            labs.when(() -> CommonLabTestValues.isTextResult(any())).thenCallRealMethod();
             executeMeasurementChart(null, rendered);
         }
         return rendered.get();
