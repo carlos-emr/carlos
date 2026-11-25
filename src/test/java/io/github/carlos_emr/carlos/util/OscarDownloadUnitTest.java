@@ -266,7 +266,7 @@ class OscarDownloadUnitTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"BC", "padded-bc", "obec", "not-issued"})
-    void shouldKeepTeleplanAndPreviouslyGeneratedNonbillingObecDownloads(String mode) throws Exception {
+    void shouldKeepTeleplanAndPreviouslyGeneratedNonbillingObecDownloads_whenUsingSharedKeys(String mode) throws Exception {
         boolean bc = mode.equals("BC") || mode.equals("padded-bc");
         var config = CarlosProperties.getInstance();
         Object oldRegion = config.put("billregion", bc ? (mode.equals("BC") ? "BC" : " bc ") : "ON");
