@@ -10471,6 +10471,64 @@
         "T24",
         "T27"
       ]
+    },
+    "database/mysql/schema-contract/on.json": {
+      "reason": "The Ontario export catalogue binds to the physical schema produced by its migration chain. The roster index migration updates that contract and the physical database and export tests verify both bindings.",
+      "tests": [
+        "scripts/ci/run-cds-native-tier.py",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportSourceCatalogueUnitTest.java"
+      ],
+      "checks": [
+        "java-native-flyway",
+        "java-cds-transfer-export"
+      ],
+      "workstreams": [
+        "T04",
+        "T20"
+      ]
+    },
+    "database/mysql/schema-contract/bc.json": {
+      "reason": "The BC export catalogue binds to the physical schema produced by its migration chain. The roster index migration updates that contract and the physical database and export tests verify both bindings.",
+      "tests": [
+        "scripts/ci/run-cds-native-tier.py",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportSourceCatalogueUnitTest.java"
+      ],
+      "checks": [
+        "java-native-bc-flyway",
+        "java-cds-transfer-export"
+      ],
+      "workstreams": [
+        "T04",
+        "T20"
+      ]
+    },
+    "src/main/resources/cds-export/source-catalogue.json": {
+      "reason": "Export verifies each table disposition and the fingerprints of both provincial schema contracts before reading clinical data.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportSourceCatalogueUnitTest.java",
+        "scripts/ci/test_verify_cds_export_source_catalogue.py"
+      ],
+      "checks": [
+        "java-all",
+        "java-cds-transfer-export"
+      ],
+      "workstreams": [
+        "T20"
+      ]
+    },
+    "src/main/resources/cds-export/source-schema/clinical_source_catalogue.json": {
+      "reason": "The descriptor fingerprints the full clinical catalogue. Export checks the exact bytes, including changes to either provincial contract.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportSourceCatalogueUnitTest.java",
+        "scripts/ci/test_verify_cds_export_source_catalogue.py"
+      ],
+      "checks": [
+        "java-all",
+        "java-cds-transfer-export"
+      ],
+      "workstreams": [
+        "T20"
+      ]
     }
   },
   "lifecycleBaselineManifest": "docs/testing/release-2026.08-lifecycle-baselines.json",
