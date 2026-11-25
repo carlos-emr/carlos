@@ -19,8 +19,8 @@ import org.junit.jupiter.params.provider.EnumSource;
 /**
  * Pins the wire shape of {@link OscarJobResponse} added with the optional
  * {@code scheduleActivation} property in #6239 (#6336): the JSON field is written only when a
- * schedule outcome was set, and the XML form of the class (XmlAccessType.NONE) is marshalled
- * through the real JAXB runtime.
+ * schedule outcome was set, and the XML form of the class (XmlAccessType.NONE) keeps its legacy
+ * shape without it (cc071308cf), marshalled through the real JAXB runtime.
  */
 @Tag("unit")
 @Tag("rest")
@@ -54,12 +54,11 @@ class OscarJobResponseUnitTest {
     }
 
     /**
-     * Characterises today's XML output (#6336 finding): the property has no {@code @XmlElement}
-     * under {@code XmlAccessType.NONE}, so JAXB never emits it even when set, unlike JSON.
-     * If the class is annotated so XML carries the outcome, update this expectation.
+     * The JAXB XML form deliberately keeps its legacy shape: commit cc071308cf (#6239) adds the
+     * schedule outcome to JSON save responses only, for compatibility checks of the XML shape.
      */
     @Test
-    void shouldNotYetMarshalScheduleActivationToXml_whenItIsSet() throws Exception {
+    void shouldKeepLegacyXmlShapeWithoutScheduleActivation_whenItIsSet() throws Exception {
         OscarJobResponse response = new OscarJobResponse();
         response.setScheduleActivation(ScheduleActivation.ACTIVE);
 

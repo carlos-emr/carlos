@@ -122,7 +122,7 @@ class DemographicContactCreatorUnitTest extends CarlosUnitTestBase {
     @DisplayName("should parse the stored specialist street address into contact fields")
     void shouldParseSpecialistAddress_whenBuildingContact() {
         ProfessionalSpecialist specialist = new ProfessionalSpecialist(5);
-        specialist.setStreetAddress("1 FAKE St, Faketown, A1A 1A1, ON, Canada, ");
+        specialist.setStreetAddress("1 FAKE St, Faketown, A1A 1A1, ON, Canada,");
         specialist.setFirstName("FAKE-First");
         specialist.setLastName("FAKE-Last");
         specialist.setPhoneNumber("555-0100");
@@ -179,7 +179,8 @@ class DemographicContactCreatorUnitTest extends CarlosUnitTestBase {
 
         assertThat(result.getPhoneNumber()).isEqualTo("555-0100 ext 22");
         assertThat(result.getReferralNo()).isEqualTo("987654");
-        assertThat(result.getStreetAddress()).isEqualTo("1 FAKE St, Faketown, A1A 1A1, ON, Canada, ");
+        // The entity setter trims, so the writer's trailing separator space is not stored.
+        assertThat(result.getStreetAddress()).isEqualTo("1 FAKE St, Faketown, A1A 1A1, ON, Canada,");
         assertThat(result.getFirstName()).isEqualTo("FAKE-First");
         assertThat(result.getLastName()).isEqualTo("FAKE-Last");
         assertThat(result.getEmailAddress()).isEqualTo("fake@example.invalid");
@@ -217,7 +218,7 @@ class DemographicContactCreatorUnitTest extends CarlosUnitTestBase {
         String legacy = "1 FAKE St,Faketown ,A1A 1A1,ON,Canada,";
         ProfessionalSpecialist stored = new ProfessionalSpecialist(9);
         stored.setStreetAddress(legacy);
-        when(specialistDao.find(9)).thenReturn(stored);
+        when(specialistDao.find((Object) 9)).thenReturn(stored);
 
         ProfessionalSpecialist result = DemographicContactCreator.convertProfessionalContactAsProfessionalSpecialist(
                 new LoggedInInfo(), editorContact(9));
@@ -233,12 +234,12 @@ class DemographicContactCreatorUnitTest extends CarlosUnitTestBase {
         grantDemographicRead();
         ProfessionalSpecialist stored = new ProfessionalSpecialist(9);
         stored.setStreetAddress("Old FAKE Road, Oldtown, Z9Z 9Z9, BC, Canada, ");
-        when(specialistDao.find(9)).thenReturn(stored);
+        when(specialistDao.find((Object) 9)).thenReturn(stored);
 
         ProfessionalSpecialist result = DemographicContactCreator.convertProfessionalContactAsProfessionalSpecialist(
                 new LoggedInInfo(), editorContact(9));
 
-        assertThat(result.getStreetAddress()).isEqualTo("1 FAKE St, Faketown, A1A 1A1, ON, Canada, ");
+        assertThat(result.getStreetAddress()).isEqualTo("1 FAKE St, Faketown, A1A 1A1, ON, Canada,");
     }
 
     private void grantDemographicRead() {
