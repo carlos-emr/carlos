@@ -27,7 +27,10 @@
  * the database output, the markup the server edit produces (EFormSelectApPrefillUnitTest asserts that
  * exactly), and the value a browser submits for it. This check loads each edited markup into Chromium and
  * asserts the select submits that value, so the server's HTML parser and the browser agree on which option
- * is shown. No CARLOS server or login is needed; everything is FAKE.
+ * is shown, and that every option keeps the value and text it had before the edit. For each read (a page,
+ * and what its select named a submits with the page's first form, which is the form an eForm save posts) it
+ * asserts the value Chromium submits: EFormSelectApPrefillUnitTest asserts that a database tag naming the
+ * field binds that same value. No CARLOS server or login is needed; everything is FAKE.
  *
  * Not part of the live-stack Playwright suite (no scripts/playwright-suite.json entry).
  * Run: NODE_PATH=$(npm root -g) node scripts/eform-select-prefill-fixture-check.js
@@ -37,19 +40,30 @@ const path = require('node:path');
 const assert = require('node:assert/strict');
 const { chromium } = require('playwright');
 
-const { cases } = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/eform/select-prefill-cases.json'), 'utf8'));
+const { cases, reads } = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/eform/select-prefill-cases.json'), 'utf8'));
 
 (async () => {
   const browser = await chromium.launch(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {});
   try {
     const page = await browser.newPage();
     for (const testCase of cases) {
-      await page.setContent(`<!doctype html><html><body><form id="f">${testCase.after}</form></body></html>`);
+      await page.setContent(`<!doctype html><html><body><form id="f">${testCase.before}</form></body></html>`); // nosemgrep: javascript.playwright.security.audit.playwright-setcontent-injection.playwright-setcontent-injection -- the markup is this repository's own FAKE fixture, loaded into a local headless page with no server or network
+      // The value and text of every option of the select named a, as the page shows them.
+      const before = await page.evaluate(() => Array.from(document.querySelectorAll('select[name="a"] option')).map(option => [option.value, option.text]));
+      await page.setContent(`<!doctype html><html><body><form id="f">${testCase.after}</form></body></html>`); // nosemgrep: javascript.playwright.security.audit.playwright-setcontent-injection.playwright-setcontent-injection -- the markup is this repository's own FAKE fixture, loaded into a local headless page with no server or network
       const submitted = await page.evaluate(() => new FormData(document.getElementById('f')).get('a'));
       assert.equal(submitted, testCase.submitted, testCase.name);
+      assert.deepEqual(await page.evaluate(() => Array.from(document.querySelectorAll('select[name="a"] option')).map(option => [option.value, option.text])), before, `${testCase.name}: the edit changes no option's value or text`);
       console.log(`ok - ${testCase.name}: submits ${JSON.stringify(submitted)}`);
     }
     console.log(`${cases.length} cases agree with Chromium`);
+    for (const read of reads) {
+      await page.setContent(`<!doctype html><html><body>${read.form}</body></html>`); // nosemgrep: javascript.playwright.security.audit.playwright-setcontent-injection.playwright-setcontent-injection -- the markup is this repository's own FAKE fixture, loaded into a local headless page with no server or network
+      const submitted = await page.evaluate(() => new FormData(document.forms[0]).get('a'));
+      assert.equal(submitted, read.submitted, read.name);
+      console.log(`ok - ${read.name}: submits ${JSON.stringify(submitted)}`);
+    }
+    console.log(`${reads.length} reads agree with Chromium`);
   } finally {
     await browser.close();
   }
