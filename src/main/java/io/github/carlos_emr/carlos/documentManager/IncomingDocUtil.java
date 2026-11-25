@@ -1170,41 +1170,30 @@ public final class IncomingDocUtil {
     }
 
     /**
-     * Gets and persists the user's preferred incoming document queue. If no queue is
-     * selected and no preference is stored, defaults to queue "1".
+     * Returns the user's preferred incoming document queue, defaulting to "1".
+     * Only an explicit selection changes the stored preference.
      *
      * @param user_no String the provider number of the current user
      * @param selectedQueue String the user's queue selection, or null to use the stored preference
      * @return String the active queue identifier
      */
     public static String getAndSetIncomingDocQueue(String user_no, String selectedQueue) {
-        String queue;
-        UserPropertyDAO pref = (UserPropertyDAO) SpringUtils.getBean(UserPropertyDAO.class);
-
-        UserProperty up = pref.getProp(user_no, UserProperty.INCOMING_DOCUMENT_DEFAULT_QUEUE);
-        if (up == null) {
-            up = new UserProperty();
-            up.setName(UserProperty.INCOMING_DOCUMENT_DEFAULT_QUEUE);
-            up.setProviderNo(user_no);
-        }
-
-
+        UserPropertyDAO preferences = SpringUtils.getBean(UserPropertyDAO.class);
+        UserProperty preference = preferences.getProp(user_no, UserProperty.INCOMING_DOCUMENT_DEFAULT_QUEUE);
+        String storedQueue = preference == null ? null : preference.getValue();
         if (selectedQueue == null) {
-
-            if (up.getValue() == null) {
-                queue = "1";
-            } else {
-                queue = up.getValue();
+            return storedQueue == null ? "1" : storedQueue;
+        }
+        if (!selectedQueue.equals(storedQueue)) {
+            if (preference == null) {
+                preference = new UserProperty();
+                preference.setName(UserProperty.INCOMING_DOCUMENT_DEFAULT_QUEUE);
+                preference.setProviderNo(user_no);
             }
-        } else {
-            queue = selectedQueue;
+            preference.setValue(selectedQueue);
+            preferences.saveProp(preference);
         }
-
-        if (up.getValue() == null || !(up.getValue().equals(queue))) {
-            up.setValue(queue);
-            pref.saveProp(up);
-        }
-        return queue;
+        return selectedQueue;
     }
 
     /**
