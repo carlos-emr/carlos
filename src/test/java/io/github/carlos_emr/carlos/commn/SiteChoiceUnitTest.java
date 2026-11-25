@@ -12,12 +12,17 @@
  */
 package io.github.carlos_emr.carlos.commn;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.SiteDao;
 import io.github.carlos_emr.carlos.commn.model.Site;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
+import java.util.Properties;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -94,6 +99,24 @@ class SiteChoiceUnitTest {
 
         assertThat(SiteChoice.offeredSites(siteDao, "800001", false)).isSameAs(OFFERED);
         verify(siteDao, never()).getActiveSitesByProviderNo(anyString());
+    }
+
+    @Test
+    void shouldLeaveSitePrivacyInactive_withTheShippedClinicConfiguration() throws IOException {
+        Properties defaults = new Properties();
+        try (var stream = Files.newInputStream(Path.of("src/main/resources/carlos.properties"))) {
+            defaults.load(stream);
+        }
+        CarlosProperties config = mock(CarlosProperties.class);
+        when(config.getProperty("multisites", "")).thenReturn(defaults.getProperty("multisites", ""));
+        SecurityInfoManager security = mock(SecurityInfoManager.class);
+        LoggedInInfo login = mock(LoggedInInfo.class);
+        when(security.hasPrivilege(login, "_site_access_privacy", "r", null)).thenReturn(true);
+        try (var settings = mockStatic(CarlosProperties.class)) {
+            settings.when(CarlosProperties::getInstance).thenReturn(config);
+            assertThat(SiteChoice.isSiteAccessRestricted(security, login)).isFalse();
+            verifyNoInteractions(security);
+        }
     }
 
     @Test
