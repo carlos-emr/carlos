@@ -1205,6 +1205,15 @@ the additive billing audit migration does not permit a partial-copy bypass.
   `--cleanup`, then upgrade again. *A finished ETL cannot be continued
   under a different manifest* — the upgrade landed mid-run; the same
   package reinstall, then `--resume`, `--cleanup`, then upgrade.
+  Beta 9 preserves a missing legacy billing appointment number as SQL NULL.
+  Earlier import rules stored zero for the same input. An upgrade cannot
+  distinguish those zeros from zeros already present in OSCAR. Use the
+  original OSCAR dump to identify affected claims. Restoring the pre-import
+  snapshot also replaces clinical work recorded after that backup.
+  A workspace that has only been staged can resume after the importer verifies
+  the untouched target. If a previous package has already copied rows, finish
+  and clean up with the matching package pair, or follow the rollback
+  procedure above and start a fresh import with the new pair.
 - *the archive schema o19_archive of a previous import exists* — a fresh
   run on a host that imported a clinic before; `--cleanup` that run (or
   drop the schema once the clinic holds its CSV export) first, or the old
