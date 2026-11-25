@@ -121,7 +121,7 @@ public class RscheduleBean {
      * @param avail_hour1 the available hours
      * @param creator1 the creator identifier
      */
-    public void setRscheduleBean(String provider_no1, String sdate1, String edate1, String bAvailable1, String day_of_week1, String avail_hourB1, String avail_hour1, String creator1) {
+    public synchronized void setRscheduleBean(String provider_no1, String sdate1, String edate1, String bAvailable1, String day_of_week1, String avail_hourB1, String avail_hour1, String creator1) {
         provider_no = provider_no1;
         sdate = sdate1;
         edate = edate1;
@@ -146,7 +146,7 @@ public class RscheduleBean {
      * @param avail_hour1 the available hours
      * @param creator1 the creator identifier
      */
-    public void setRscheduleBean(String provider_no1, String sdate1, String edate1, String bAvailable1, String day_of_week1, String day_of_week2, String avail_hourB1, String avail_hour1, String creator1) {
+    public synchronized void setRscheduleBean(String provider_no1, String sdate1, String edate1, String bAvailable1, String day_of_week1, String day_of_week2, String avail_hourB1, String avail_hour1, String creator1) {
         provider_no = provider_no1;
         sdate = sdate1;
         edate = edate1;
@@ -157,7 +157,7 @@ public class RscheduleBean {
         creator = creator1;
     }
 
-    public void clear() {
+    public synchronized void clear() {
         provider_no = "";
         sdate = "";
         edate = "";
@@ -166,6 +166,21 @@ public class RscheduleBean {
         avail_hourB = "";
         avail_hour = "";
         creator = "";
+    }
+
+    /**
+     * Captures the rule that belongs to this provider while schedule template requests
+     * can replace or clear the session bean.
+     *
+     * @param providerNo the provider whose calendar was opened
+     * @return an independent rule for the request, or null when the provider changed
+     */
+    public synchronized RscheduleBean snapshotForProvider(String providerNo) {
+        if (!providerNo.equals(provider_no)) return null;
+        RscheduleBean copy = new RscheduleBean(provider_no, sdate, edate, available, day_of_week,
+                avail_hourB, avail_hour, creator);
+        copy.active = active;
+        return copy;
     }
 
     public boolean getEvenWeek(GregorianCalendar aDate) {

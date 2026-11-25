@@ -137,7 +137,7 @@ public final class ScheduleDateSave2Action extends ActionSupport {
         ScheduleDate replacement = null;
         if (save) {
             String available = request.getParameter("available");
-            if (available == null || available.isEmpty()) {
+            if (!"1".equals(available) && !"0".equals(available)) {
                 return badRequest(request, "error.refusal.scheduleAvailability",
                         "Choose whether the provider is available on this date.");
             }
@@ -169,10 +169,10 @@ public final class ScheduleDateSave2Action extends ActionSupport {
      */
     private static RscheduleBean openCalendarRule(HttpSession session, String providerNo) {
         RscheduleBean rule = session.getAttribute(RULE_SCHEDULE) instanceof RscheduleBean bean ? bean : null;
-        if (rule == null || !providerNo.equals(rule.provider_no) || !ScheduleCalendarCache.isFor(session, providerNo)) {
+        if (rule == null || !ScheduleCalendarCache.isFor(session, providerNo)) {
             return null;
         }
-        return rule;
+        return rule.snapshotForProvider(providerNo);
     }
 
     /**

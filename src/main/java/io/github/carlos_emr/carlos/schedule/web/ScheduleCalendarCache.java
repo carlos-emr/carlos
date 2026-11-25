@@ -96,7 +96,7 @@ public final class ScheduleCalendarCache {
      */
     public static void reloadIfStale(HttpSession session, String providerNo, ScheduleDateDao scheduleDateDao) {
         synchronized (WebUtils.getSessionMutex(session)) {
-            if (session.getAttribute(STALE) != null) {
+            if (session.getAttribute(STALE) != null && isFor(session, providerNo)) {
                 load(session, providerNo, scheduleDateDao.search_scheduledate_c(providerNo));
             }
         }

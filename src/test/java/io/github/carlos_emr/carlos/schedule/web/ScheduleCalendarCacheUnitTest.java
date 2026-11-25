@@ -206,6 +206,20 @@ class ScheduleCalendarCacheUnitTest {
     }
 
     @Test
+    void shouldLeaveTheCurrentProvidersStaleCacheIntact_whenAnotherTabRedisplaysItsMonth() {
+        Hashtable<String, Object> days = loadedWithStaleEntry();
+        session.setAttribute(ScheduleCalendarCache.STALE, Boolean.TRUE);
+        ScheduleDateDao dao = mock(ScheduleDateDao.class);
+
+        ScheduleCalendarCache.reloadIfStale(session, OTHER_PROVIDER, dao);
+
+        verifyNoInteractions(dao);
+        assertThat(ScheduleCalendarCache.isFor(session, PROVIDER)).isTrue();
+        assertThat(session.getAttribute(ScheduleCalendarCache.STALE)).isEqualTo(Boolean.TRUE);
+        assertThat(((HScheduleDate) days.get("2032-02-29")).reason).isEqualTo("stale");
+    }
+
+    @Test
     @DisplayName("should reload the provider's custom overrides and clear the mark when the copy is stale")
     void shouldReloadFromTheDatabase_whenTheCopyIsStale() {
         Hashtable<String, Object> days = loadedWithStaleEntry();
