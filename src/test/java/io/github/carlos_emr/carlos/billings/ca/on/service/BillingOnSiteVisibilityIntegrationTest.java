@@ -2,6 +2,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONDiskNameDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONFilenameDao;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillActivityDao;
@@ -21,6 +22,8 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import javax.sql.DataSource;
 import org.apache.struts2.ActionSupport;
@@ -29,10 +32,15 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
@@ -63,6 +71,7 @@ class BillingOnSiteVisibilityIntegrationTest extends CarlosTestBase {
     @Autowired private BillActivityDao billActivityDao;
     @Autowired private BillingONDiskNameDao diskNameDao;
     @Autowired private BillingONFilenameDao filenameDao;
+    @Autowired private PlatformTransactionManager transactions;
     private JdbcTemplate jdbc;
     private BillingReviewLoader reviews;
     private BillingOnLookupService lookup;
@@ -170,6 +179,87 @@ class BillingOnSiteVisibilityIntegrationTest extends CarlosTestBase {
                 String.class, LOCAL)).containsExactly("B", "O");
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM billing WHERE provider_ohip_no=? AND appointment_no IS NULL",
                 Integer.class, LOCAL)).isEqualTo(2);
+    }
+
+    @Test
+    void shouldRemoveOnlyProvisionalDiskOwnership_whenNewOutputCollides(@TempDir Path home) throws Exception {
+        var fresh = new TransactionTemplate(transactions);
+        fresh.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        String occupied = "visibility-occupied";
+        String retained = "visibility-previous";
+        int[] ids = fresh.execute(status -> {
+            int candidate = insertUnpublishedDisk(occupied);
+            int previous = insertUnpublishedDisk(retained);
+            jdbc.update("""
+                    INSERT INTO billing_on_cheader1 (header_id, provider_no, status)
+                    SELECT id, ?, 'B' FROM billing_on_header WHERE disk_id = ?
+                    """, LOCAL, previous);
+            return new int[]{candidate, previous};
+        });
+        Object previousHome = CarlosProperties.getInstance().put("HOME_DIR", home.toString());
+        try {
+            Files.writeString(home.resolve(occupied + ".001"), "independent fixture bytes");
+            var transaction = applicationContext.getAutowireCapableBeanFactory().createBean(BillingOnDiskTransactionService.class);
+            assertThatThrownBy(() -> transaction.retireUnpublishedDisk(ids[1])).isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("attached claim");
+            transaction.retireUnpublishedDisk(ids[0]);
+
+            var request = new MockHttpServletRequest();
+            request.addParameter("year", "2025");
+            request.addParameter("diskId", String.valueOf(ids[0]));
+            var login = new LoggedInInfo();
+            login.setLoggedInProvider(new Provider(LOCAL));
+            LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), login);
+            SecurityInfoManager security = mock(SecurityInfoManager.class);
+            when(security.hasPrivilege(login, "_billing", "r", null)).thenReturn(true);
+            when(security.hasPrivilege(login, "_team_billing_only", "r", null)).thenReturn(true);
+            var access = new BillingOnFileAccessService(security, providerDataDao);
+            applicationContext.getAutowireCapableBeanFactory().autowireBean(access);
+            var history = new BillingOnMriViewModelAssembler(providerDao, billActivityDao, providerDataDao,
+                    providerBillCenterDao, security, reviews, lookup, access);
+            var prep = new BillingDiskCreationService(null, null, lookup);
+            var disks = new BillingOnDiskService(providerDao, prep, null, null, transaction, security, reviews, providerDataDao, access);
+            fresh.executeWithoutResult(status -> {
+                assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM billing_on_header WHERE disk_id = ?", Integer.class, ids[0])).isZero();
+                assertThat(history.assemble(request, login).getMriRows()).extracting(BillingOnMriViewModel.MriRow::diskId)
+                        .contains(ids[1]).doesNotContain(ids[0]);
+                assertThat(access.canDownload(login, occupied + ".001", false)).isFalse();
+                assertThat(access.canDownload(login, occupied + ".html", false)).isFalse();
+                assertThat(access.canDownload(login, retained + ".001", false)).isTrue();
+                assertThatThrownBy(() -> disks.regenerateDisk(request)).isInstanceOf(SecurityException.class);
+                assertThat(jdbc.queryForList("""
+                        SELECT c.status FROM billing_on_cheader1 c JOIN billing_on_header h ON h.id = c.header_id
+                        WHERE h.disk_id = ? AND c.provider_no = ?
+                        """, String.class, ids[1], LOCAL)).containsExactly("B");
+            });
+            assertThat(Files.readString(home.resolve(occupied + ".001"))).isEqualTo("independent fixture bytes");
+        } finally {
+            if (previousHome == null) CarlosProperties.getInstance().remove("HOME_DIR");
+            else CarlosProperties.getInstance().put("HOME_DIR", previousHome);
+            fresh.executeWithoutResult(status -> {
+                jdbc.update("""
+                        DELETE FROM billing_on_cheader1 WHERE provider_no = ?
+                        AND header_id IN (SELECT id FROM billing_on_header WHERE disk_id = ?)
+                        """, LOCAL, ids[1]);
+                jdbc.update("DELETE FROM billing_on_header WHERE disk_id IN (?, ?)", ids[0], ids[1]);
+                jdbc.update("DELETE FROM billing_on_filename WHERE disk_id IN (?, ?)", ids[0], ids[1]);
+                jdbc.update("DELETE FROM billing_on_diskname WHERE id IN (?, ?)", ids[0], ids[1]);
+            });
+        }
+    }
+
+    private int insertUnpublishedDisk(String basename) {
+        jdbc.update("""
+                INSERT INTO billing_on_diskname (monthCode, batchcount, ohipfilename, groupno, creator, claimrecord, createdatetime, status, total)
+                VALUES ('A', 1, ?, '', ?, '', '2025-04-05 12:00:00', 'U', '')
+                """, basename + ".001", LOCAL);
+        int disk = jdbc.queryForObject("SELECT id FROM billing_on_diskname WHERE ohipfilename = ?", Integer.class, basename + ".001");
+        jdbc.update("""
+                INSERT INTO billing_on_filename (disk_id, htmlfilename, providerohipno, providerno, claimrecord, status, total)
+                VALUES (?, ?, ?, ?, '', 'U', '')
+                """, disk, basename + ".html", LOCAL, LOCAL);
+        jdbc.update("INSERT INTO billing_on_header (disk_id, action, h_count, r_count, t_count) VALUES (?, 'create', '', '', '')", disk);
+        return disk;
     }
 
     private void shareSiteWithLocalProvider() {
