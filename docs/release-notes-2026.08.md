@@ -5,8 +5,9 @@
 OHIP Simulation and Generate OHIP File now show eligible physicians and their
 billing disk history when a single-site clinic has no provider-site assignments.
 The seeded administrator can use both pages with the existing role configuration.
-When multisite mode is enabled, operators with `_site_access_privacy` continue
-to see only providers who share their assigned sites.
+When multisite mode is enabled, an operator restricted by site alone sees only
+providers who share an assigned site. An explicit team billing restriction
+continues to apply in either clinic mode.
 
 During an OSCAR 19 migration, compare the source `multisites` setting with
 the setting in CARLOS before opening billing to staff. This also applies to
