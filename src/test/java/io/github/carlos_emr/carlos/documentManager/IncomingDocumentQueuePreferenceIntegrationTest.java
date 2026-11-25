@@ -224,7 +224,7 @@ class IncomingDocumentQueuePreferenceIntegrationTest extends CarlosTestBase {
     void shouldRejectExplicitSelectionsWithoutAnOwner() {
         for (String missing : new String[]{null, "M" + owner.substring(1)}) {
             assertThatThrownBy(() -> IncomingDocUtil.getAndSetIncomingDocQueue(missing, "3"))
-                    .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(SecurityException.class);
         }
     }
 }

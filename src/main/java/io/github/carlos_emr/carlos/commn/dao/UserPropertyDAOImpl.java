@@ -82,7 +82,7 @@ public class UserPropertyDAOImpl extends AbstractDaoImpl<UserProperty> implement
         // with the owner lock so the next read includes any preceding selection's commit.
         java.util.Objects.requireNonNull(queue, "An explicit queue selection is required");
         if (!lockProviderPreferences(providerNo)) {
-            throw new IllegalArgumentException("Unknown incoming document queue preference owner");
+            throw new SecurityException("Unknown incoming document queue preference owner");
         }
         UserProperty preference = findIncomingDocumentQueue(providerNo);
         if (preference == null) {
