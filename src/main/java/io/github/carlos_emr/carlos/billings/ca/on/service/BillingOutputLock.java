@@ -24,6 +24,13 @@ final class BillingOutputLock {
     private BillingOutputLock() { }
 
     static void run(Runnable operation) {
+        call(() -> {
+            operation.run();
+            return null;
+        });
+    }
+
+    static <T> T call(java.util.function.Supplier<T> operation) {
         if (!LOCAL.tryAcquire()) throw BillingFileWriteException.forReason(BillingFileWriteException.Reason.BUSY, null);
         try {
             var lockPath = writableOutputFolder().resolve(".carlos-ohip-disk.lock");
@@ -32,7 +39,7 @@ final class BillingOutputLock {
                     StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
                  var lock = channel.tryLock()) {
                 if (lock == null) throw BillingFileWriteException.forReason(BillingFileWriteException.Reason.BUSY, null);
-                operation.run();
+                return operation.get();
             }
         } catch (OverlappingFileLockException failure) {
             throw BillingFileWriteException.forReason(BillingFileWriteException.Reason.BUSY, failure);

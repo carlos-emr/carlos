@@ -84,6 +84,7 @@ public class OhipReportGenerationService {
     private final BillActivityDao billActivityDao;
     private final SecurityInfoManager securityInfoManager;
     private final BillingReviewLoader reviews;
+    private final BillingOnOutputFilenames outputFilenames;
     private final ProviderDao providerDao;
     private final BillingDao billingDao;
     private final BillingDetailDao billingDetailDao;
@@ -113,10 +114,11 @@ public class OhipReportGenerationService {
                                 BillingDetailDao billingDetailDao,
                                 org.springframework.beans.factory.ObjectFactory<OhipClaimExtractService> ohipClaimExtractFactory,
                                 org.springframework.transaction.PlatformTransactionManager txManager,
-                                SecurityInfoManager securityInfoManager, BillingReviewLoader reviews) {
+                                SecurityInfoManager securityInfoManager, BillingReviewLoader reviews, BillingOnOutputFilenames outputFilenames) {
         this.billActivityDao = billActivityDao;
         this.securityInfoManager = securityInfoManager;
         this.reviews = reviews;
+        this.outputFilenames = outputFilenames;
         this.providerDao = providerDao;
         this.billingDao = billingDao;
         this.billingDetailDao = billingDetailDao;
@@ -172,8 +174,6 @@ public class OhipReportGenerationService {
             throw new IllegalArgumentException("Use generateSimulation for SIMULATION mode");
         }
 
-        java.util.List<FailedProvider> skipped = new ArrayList<>();
-
         String monthCode = request.getParameter("monthCode");
         if (monthCode == null || monthCode.isEmpty()) {
             // Empty skipped list otherwise reads as "everything ran clean"
@@ -181,22 +181,27 @@ public class OhipReportGenerationService {
             // the page rendered with no banner.
             MiscUtils.getLogger().warn(
                     "OhipReportGeneration.generateReport: missing monthCode parameter; nothing processed");
-            return skipped;
+            return List.of();
         }
 
         String providerParam = request.getParameter("providers");
         if (providerParam == null || providerParam.trim().isEmpty()) {
             MiscUtils.getLogger().warn(
                     "OhipReportGeneration.generateReport: missing providers parameter; nothing processed");
-            return skipped;
+            return List.of();
         }
-        providerParam = providerParam.trim();
+        Optional<Set<String>> eligible = eligibleProviders(request);
+        String selection = providerParam.trim();
+        return BillingOutputLock.call(() -> generateReportLocked(request, mode, monthCode, selection, eligible));
+    }
 
+    private List<FailedProvider> generateReportLocked(HttpServletRequest request, Mode mode, String monthCode,
+                                                      String providerParam, Optional<Set<String>> eligible) {
+        List<FailedProvider> skipped = new ArrayList<>();
         boolean hybridBilling = isHybridBilling();
         List<String> hybridProviders = hybridProviderList();
         int curYear = new GregorianCalendar().get(Calendar.YEAR);
 
-        Optional<Set<String>> eligible = eligibleProviders(request);
         List<Provider> providersToProcess = resolveProviders(providerParam, eligible);
 
         int batchOrdinal = 1;
@@ -412,7 +417,7 @@ public class OhipReportGenerationService {
     }
 
     /**
-     * Advances the legacy sequence past claim or HTML names reserved by imported history.
+     * Advances the legacy sequence past occupied claim or HTML names across current and historical outputs.
      * Exhausting the valid sequence range fails the batch before any output is written.
      */
     private String unreservedBatchCount(String monthCode, String groupKey, String providerOhip,
@@ -421,12 +426,12 @@ public class OhipReportGenerationService {
         for (int candidate = first; candidate <= 999; candidate++) {
             String[] names = buildFilenames(monthCode, groupKey, providerOhip,
                     Integer.toString(candidate), isGroup);
-            if (!billActivityDao.isImportedFilenameReserved(names[0])
-                    && !billActivityDao.isImportedFilenameReserved(names[1])) {
+            if (!outputFilenames.isInUse(names[0])
+                    && !outputFilenames.isInUse(names[1])) {
                 return Integer.toString(candidate);
             }
         }
-        throw new BillingFileWriteException("No unused OHIP filename remains for this billing month; review billing output before retrying");
+        throw BillingFileWriteException.forReason(BillingFileWriteException.Reason.FILENAME_SEQUENCE_EXHAUSTED, null);
     }
 
     private String[] buildFilenames(String monthCode, String groupKey, String proOHIP,

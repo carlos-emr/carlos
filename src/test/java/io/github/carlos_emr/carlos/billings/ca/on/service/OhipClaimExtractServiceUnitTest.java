@@ -200,6 +200,21 @@ class OhipClaimExtractServiceUnitTest {
         }
 
         @Test
+        void shouldPreservePreexistingClaimAndHtmlBytes_whenAnotherFileAppearsAfterAllocation() throws IOException {
+            Path claim = tempDir.resolve("HAT456.001");
+            Path html = tempDir.resolve("HAT456_001.htm");
+            Files.writeString(claim, "original claim");
+            Files.writeString(html, "original HTML");
+            extract.setOhipFilename(claim.getFileName().toString());
+            extract.setHtmlFilename(html.getFileName().toString());
+
+            assertThatThrownBy(() -> extract.writeFile("replacement claim")).isInstanceOf(BillingFileWriteException.class);
+            assertThatThrownBy(() -> extract.writeHtml("replacement HTML")).isInstanceOf(BillingFileWriteException.class);
+            assertThat(Files.readString(claim)).isEqualTo("original claim");
+            assertThat(Files.readString(html)).isEqualTo("original HTML");
+        }
+
+        @Test
         void shouldWriteHtml_andLeaveContentOnDisk() throws IOException {
             extract.setHtmlFilename("HCPv03.html");
 

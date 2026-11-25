@@ -88,7 +88,7 @@ class BillingOnSiteVisibilityIntegrationTest extends CarlosTestBase {
                     """, disk, id.equals(LOCAL) ? LOCAL_HTML : OTHER_HTML, id, id);
         }
         lookup = new BillingOnLookupService(null, null, null, providerDao, null, null, null, filenameDao, providerSiteDao, null);
-        reviews = new BillingReviewLoader(null, new BillingOnDiskLoader(null, diskNameDao, filenameDao), lookup, null);
+        reviews = new BillingReviewLoader(null, new BillingOnDiskLoader(null, diskNameDao, filenameDao, mock(BillingOnOutputFilenames.class)), lookup, null);
     }
 
     @Test

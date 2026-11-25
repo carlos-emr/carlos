@@ -25,7 +25,6 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
 import java.math.BigDecimal;
@@ -601,7 +600,8 @@ public class OhipClaimExtractService implements Serializable {
         // flush() and swallows the resulting IOException, missing the
         // canonical disk-full-on-close failure mode. BufferedWriter close()
         // throws IOException so try-with-resources surfaces it.
-        try (FileOutputStream out = new FileOutputStream(safeFile);
+        try (var out = java.nio.file.Files.newOutputStream(safeFile.toPath(),
+                     java.nio.file.StandardOpenOption.CREATE_NEW, java.nio.file.StandardOpenOption.WRITE);
              java.io.OutputStreamWriter osw = new java.io.OutputStreamWriter(out, java.nio.charset.StandardCharsets.US_ASCII);
              java.io.BufferedWriter bw = new java.io.BufferedWriter(osw)) {
             bw.write(value1);
@@ -627,7 +627,8 @@ public class OhipClaimExtractService implements Serializable {
             throw new BillingFileWriteException(
                     "Refused to write OHIP HTML companion file due to path-traversal: " + htmlFilename, e);
         }
-        try (FileOutputStream out1 = new FileOutputStream(safeFile);
+        try (var out1 = java.nio.file.Files.newOutputStream(safeFile.toPath(),
+                     java.nio.file.StandardOpenOption.CREATE_NEW, java.nio.file.StandardOpenOption.WRITE);
              java.io.OutputStreamWriter osw = new java.io.OutputStreamWriter(out1, java.nio.charset.StandardCharsets.UTF_8);
              java.io.BufferedWriter bw = new java.io.BufferedWriter(osw)) {
             bw.write(htmlvalue1);
