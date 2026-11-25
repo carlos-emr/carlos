@@ -2,11 +2,13 @@
 """Publication refuses stale, skipped, changed, forged or incomplete qualification."""
 from functools import partial
 import json
+import re
 from pathlib import Path
 import shutil
 import subprocess
 import tempfile
 import unittest
+from xml.etree import ElementTree
 from unittest.mock import patch
 import zipfile
 import release_publication as gate
@@ -263,6 +265,43 @@ class ReleasePublicationTest(unittest.TestCase):
                 else:
                     gate.promotion("org/repo", "2026.08.0-rc1", "123", assets)
                     self.assertEqual(verify.call_args.kwargs, {"target_package_hash": "test-package-digest"})
+
+
+class PomReleaseIdentityTest(unittest.TestCase):
+    """#6336: pom.xml version and scm tag agree and sit on the plan's release line.
+
+    Mirrors publish-release.yml's version/scm-tag equality. A published tag has an
+    exact version equal to its scm tag; a maintenance branch carries -SNAPSHOT with
+    scm tag HEAD. Nothing here names a particular release.
+    """
+
+    NS = {"m": "http://maven.apache.org/POM/4.0.0"}
+    SNAPSHOT = re.compile(r"[0-9]{4}\.(?:0[1-9]|1[0-2])\.[0-9]+-SNAPSHOT")
+
+    def setUp(self):
+        self.pom = ElementTree.parse(Path(gate.ROOT) / "pom.xml").getroot()
+        self.version = self.pom.findtext("m:version", namespaces=self.NS)
+        self.scm_tag = self.pom.findtext("m:scm/m:tag", namespaces=self.NS)
+        self.plan = json.loads(Path(gate.DEFAULT_PLAN).read_text(encoding="utf-8"))
+
+    def test_version_is_a_release_tag_equal_to_scm_tag_or_a_snapshot_on_head(self):
+        if "SNAPSHOT" in self.version:
+            self.assertRegex(self.version, self.SNAPSHOT)
+            self.assertEqual(self.scm_tag, "HEAD")
+        else:
+            self.assertTrue(gate.TAG.fullmatch(self.version), self.version)
+            self.assertEqual(self.scm_tag, self.version)
+
+    def test_version_line_matches_the_plan_target_branch(self):
+        prefix = ".".join(self.version.split(".")[:2])
+        self.assertEqual(self.plan["targetBranch"], "release/" + prefix)
+
+    def test_owasp_encoder_jsp_taglib_is_not_a_dependency_but_the_encoder_core_is(self):
+        coordinates = {(dependency.findtext("m:groupId", namespaces=self.NS),
+                        dependency.findtext("m:artifactId", namespaces=self.NS))
+                       for dependency in self.pom.iterfind(".//m:dependencies/m:dependency", self.NS)}
+        self.assertIn(("org.owasp.encoder", "encoder"), coordinates)
+        self.assertNotIn("encoder-jakarta-jsp", {artifact for _group, artifact in coordinates})
 
 
 if __name__ == "__main__":
