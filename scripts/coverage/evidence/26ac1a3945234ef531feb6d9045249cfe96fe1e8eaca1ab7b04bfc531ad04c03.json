@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "86c766f3cbdc2dd0b9020f16f94b733119b81a60",
+  "comparisonSha256": "8e54947259e76c5222780bfac923881fe2b7578bc66cfc72dfea3a02f087dbe0",
+  "baselineCommit": "6e38ec29d64a97a103823158cc591990c0637986",
+  "baselineSourceTree": "86c766f3cbdc2dd0b9020f16f94b733119b81a60",
+  "baselineReportSha256": "1ebdaf0ccdfd3610897ee34ff7e6a70f2364145edae74884bf9a1f7e3b7f101c",
+  "baselineLane": "Ubuntu 26.04, OpenJDK 25 and JaCoCo 0.8.16. Sixteen complete Maven-compiled JUnit, H2 and filesystem suites ran with reduced DAC capabilities. The servlet exercised explicit input wrapper closure on a completed transfer and a client write error, descriptor cleanup before transfer, and preservation of the response-owned output stream. Historical integrity, stable file ownership and directory paths remained covered.",
+  "baselineTestCounts": {
+    "tests": 282,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.RscheduleBeanUnitTest",
+    "io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONDiskNameDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskConcurrencyUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskServiceGroupDiskUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskServiceUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOutputLockUnitTest",
+    "io.github.carlos_emr.carlos.commn.dao.RScheduleDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.ScheduleDateDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.report.pageUtil.Obec2ActionMethodGuardUnitTest",
+    "io.github.carlos_emr.carlos.schedule.ScheduleDateSaveJspRegressionTest",
+    "io.github.carlos_emr.carlos.schedule.ScheduleTemplateApplyingJspRegressionTest",
+    "io.github.carlos_emr.carlos.schedule.service.ScheduleDateOverrideServiceIntegrationTest",
+    "io.github.carlos_emr.carlos.schedule.web.Schedule2ActionsTest",
+    "io.github.carlos_emr.carlos.schedule.web.ScheduleCalendarCacheUnitTest",
+    "io.github.carlos_emr.carlos.util.DownloadMissingFileUnitTest",
+    "io.github.carlos_emr.carlos.util.OscarDownloadUnitTest"
+  ],
+  "baselineTestReportsSha256": "966c884a9bbce973eeb9aed75fca7e628849e64a5f9a2c41f0001e7765aa4f84",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/util/OscarDownload.java": {
+      "lines": 96.47058823529412,
+      "instructions": 96.4735516372796,
+      "branches": 88.46153846153847,
+      "sourceBlob": "2be385fa6b68da1680a1526b692ad2cbcdd15671"
+    }
+  },
+  "exclusions": {}
+}
