@@ -1244,7 +1244,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 391,
+      "minimumCases": 392,
       "runtimeConstraints": {
         "python": "3.14"
       },
@@ -1423,6 +1423,7 @@
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_missing_required_family_in_each_lane_fails",
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_native_case_families_cannot_be_omitted_or_substituted_in_any_lane",
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_nested_name_collision_is_explicit_and_does_not_hide_a_failed_attempt",
+        "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_ontario_requires_single_site_and_multisite_billing_results",
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_parenthesized_surefire_schema_suffixes_are_bound_to_the_filename",
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_summary_omits_configuration_and_console_output",
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_unmatched_upload_cases_alone_cannot_supply_required_coverage",
@@ -1759,7 +1760,8 @@
         "DemographicBirthDayTimezoneUnitTest": 27,
         "LabResultDataAcknowledgementCountUnitTest": 10,
         "IncomingDocumentQueuePreferenceIntegrationTest": 9,
-        "ScheduleDateOverrideServiceIntegrationTest": 19
+        "ScheduleDateOverrideServiceIntegrationTest": 19,
+        "BillingOnSiteVisibilityIntegrationTest": 3
       },
       "requireCoverage": true,
       "routedSkips": {
@@ -5317,7 +5319,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicWebUnmergeIntegrationTest,SiteRenameClockMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,Growth0To36FormPersistenceIntegrationTest,EncounterFormDaoGroupedHistoryIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest,CaseManagementNoteLegacyFlagsMariaDbIntegrationTest,DemographicUpdateDaoTransactionIntegrationTest,IncomingDocumentQueuePreferenceIntegrationTest,ScheduleDateOverrideServiceIntegrationTest",
+        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicWebUnmergeIntegrationTest,SiteRenameClockMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,Growth0To36FormPersistenceIntegrationTest,EncounterFormDaoGroupedHistoryIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest,CaseManagementNoteLegacyFlagsMariaDbIntegrationTest,DemographicUpdateDaoTransactionIntegrationTest,IncomingDocumentQueuePreferenceIntegrationTest,ScheduleDateOverrideServiceIntegrationTest,BillingOnSiteVisibilityIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -5361,7 +5363,8 @@
         "SiteRenameClockMariaDbIntegrationTest": 8,
         "DemographicUpdateDaoTransactionIntegrationTest": 30,
         "IncomingDocumentQueuePreferenceIntegrationTest": 9,
-        "ScheduleDateOverrideServiceIntegrationTest": 19
+        "ScheduleDateOverrideServiceIntegrationTest": 19,
+        "BillingOnSiteVisibilityIntegrationTest": 3
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"

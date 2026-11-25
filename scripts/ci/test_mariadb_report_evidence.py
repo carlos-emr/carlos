@@ -174,6 +174,28 @@ LEGACY_NOTE_FLAG_REQUIRED_CASES = {
 
 
 class MariaDbReportEvidenceTest(unittest.TestCase):
+    def test_ontario_requires_single_site_and_multisite_billing_results(self):
+        family = 'BillingOnSiteVisibilityIntegrationTest'
+        names = {
+            'shouldShowUnassignedBillersAndDisks_whenSingleSiteHasSeededPrivacyGrant',
+            'shouldRestrictBothViewsAndDiskRows_whenMultisitePrivacyIsGranted',
+            'shouldShowUnassignedBillersAndDisks_whenMultisiteHasNoPrivacyGrant',
+        }
+        self.assertEqual(MODULE.REQUIRED_CASES[family], names)
+        self.assertEqual(MODULE.REQUIRED['flyway'][family], len(names))
+        workflow = (Path(__file__).resolve().parents[2] / '.github/workflows/maven-project.yml').read_text()
+        on = next(block for block in workflow.split('      - name: ')
+                  if block.startswith('Verify critical DAO paths against the Flyway schema\n'))
+        selected = re.search(r'-Dtest=([^\s\'"\\]+)', on).group(1).split(',')
+        self.assertIn(family, selected)
+        self.seed()
+        report = self.reports / f'TEST-{self.suite(family)}-flyway.xml'
+        original = report.read_text()
+        for name in names:
+            with self.subTest(name=name):
+                report.write_text(original.replace(f'name="{name}"', 'name="unrelatedCase"'))
+                self.assert_refused(self.invoke(), f'Required MariaDB flyway cases missing: {family}')
+
     def test_both_provinces_require_the_named_queue_and_schedule_regressions(self):
         root = Path(__file__).resolve().parents[2]
         workflow = (root / '.github/workflows/maven-project.yml').read_text()

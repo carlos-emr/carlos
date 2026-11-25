@@ -12,6 +12,8 @@ UNMERGE_FAMILY = "DemographicWebUnmergeIntegrationTest"
 UNMERGE_CLASS = "io.github.carlos_emr.carlos.demographic.pageUtil." + UNMERGE_FAMILY
 BOUND_FAMILIES = {
     UNMERGE_FAMILY: UNMERGE_CLASS,
+    "BillingOnSiteVisibilityIntegrationTest":
+        "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnSiteVisibilityIntegrationTest",
     "IncomingDocumentQueuePreferenceIntegrationTest":
         "io.github.carlos_emr.carlos.documentManager.IncomingDocumentQueuePreferenceIntegrationTest",
     "ScheduleDateOverrideServiceIntegrationTest":
@@ -28,6 +30,11 @@ CRITICAL = {
 # Surefire's default JUnit 5 names distinguish both boolean invocations. Counts
 # alone cannot prove archive-failure or demographic-audit regressions executed.
 REQUIRED_CASES = {
+    "BillingOnSiteVisibilityIntegrationTest": {
+        "shouldShowUnassignedBillersAndDisks_whenSingleSiteHasSeededPrivacyGrant",
+        "shouldRestrictBothViewsAndDiskRows_whenMultisitePrivacyIsGranted",
+        "shouldShowUnassignedBillersAndDisks_whenMultisiteHasNoPrivacyGrant",
+    },
     "IncomingDocumentQueuePreferenceIntegrationTest": {
         "shouldReadDefaultWithoutCreatingRows_whenConcurrentPreviewsFindNoPreference",
         "shouldPreserveNullPreference_whenConcurrentPreviewsReadTheDefault",
@@ -276,6 +283,7 @@ REQUIRED = {"generated": {"AppointmentFieldAuditTransactionIntegrationTest": 3, 
                        "CaseManagementNoteLockMariaDbIntegrationTest": 15,
                        "CaseManagementNoteLegacyFlagsMariaDbIntegrationTest": 30,
                        "CaseManagementIssueDAOIntegrationTest": 22,
+                       "BillingOnSiteVisibilityIntegrationTest": 3,
                        "IncomingDocumentQueuePreferenceIntegrationTest": 9,
                        "ScheduleDateOverrideServiceIntegrationTest": 19,
                        "ConsultationListProjectionIntegrationTest": 17,
