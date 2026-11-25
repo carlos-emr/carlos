@@ -2539,9 +2539,12 @@ passed on the same install. Changed-line coverage of the Java fix from the
 focused unit tests (`scripts/coverage/changed_line_audit.py`): 2/2 executable
 lines covered.
 
-Fixture providers must share a site with the operator (the demo `admin` role
-carries `_site_access_privacy`, and the diskette page lists only same-site
-providers). The historical run above worked around NULL optional claim fields;
+In multisite mode, fixture providers must share a site with an operator who
+holds `_site_access_privacy`, including the seeded administrator. In a
+single-site clinic, the OHIP Simulation and Generate OHIP File pages show
+eligible providers and their disk history even without site assignments.
+The `billing-on-single-site-visibility` check exercises that configuration.
+The historical run above worked around NULL optional claim fields;
 PR #3999 now fixes that exporter defect (#4032), and the fixture deliberately
 uses NULL for the optional referral, facility, laboratory, review, and location
 fields.
