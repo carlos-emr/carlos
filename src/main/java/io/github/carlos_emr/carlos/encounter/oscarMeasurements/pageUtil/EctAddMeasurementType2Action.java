@@ -47,6 +47,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.MeasurementTypes;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
@@ -59,12 +60,18 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * @since 2004-02-23
  */
 public class EctAddMeasurementType2Action extends ActionSupport {
+    private static final String ERRORS_INVALID = "errors.invalid";
+    private static final String ERRORS_MAXLENGTH = "errors.maxlength";
+
     HttpServletRequest request = ServletActionContext.getRequest();
 
 
     private MeasurementTypeDao dao = SpringUtils.getBean(MeasurementTypeDao.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    // FindSecBugs IMPROPER_UNICODE: Locale.ROOT upper-casing gives the measurement type code one stored and looked-up
+    // form; it is not a security or authorization decision, and only codes matching the ASCII-only pattern are stored.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Locale.ROOT upper-casing gives the measurement type code one stored and looked-up form; not a security or authorization decision")
     public String execute()
             throws ServletException, IOException {
         // Writes only from the form's POST: a link, image tag or prefetch must never change the
@@ -80,7 +87,7 @@ public class EctAddMeasurementType2Action extends ActionSupport {
 
             String type = this.getType();
             if (type == null || type.isEmpty()) {
-                addActionError(getText("errors.invalid", new String[]{"Measurement type is required"}));
+                addActionError(getText(ERRORS_INVALID, new String[]{"Measurement type is required"}));
                 request.setAttribute("actionErrors", new java.util.ArrayList<>(getActionErrors()));
                 return "failure";
             }
@@ -122,48 +129,48 @@ public class EctAddMeasurementType2Action extends ActionSupport {
         String regExp = validate.getRegCharacterExp();
         boolean isValid = true;
 
-        for (MeasurementType mt : dao.findByType(typeUp)) {
+        if (!dao.findByType(typeUp).isEmpty()) {
             addActionError(getText("error.encounter.Measurements.duplicateTypeName"));
             isValid = false;
         }
 
         String errorField = "The type " + type;
         if (!validate.matchRegExp(regExp, type)) {
-            addActionError(getText("errors.invalid", errorField));
+            addActionError(getText(ERRORS_INVALID, errorField));
             isValid = false;
         }
         if (!validate.maxLength(50, typeUp)) {
-            addActionError(getText("errors.maxlength", new String[]{errorField, "50"}));
+            addActionError(getText(ERRORS_MAXLENGTH, new String[]{errorField, "50"}));
             isValid = false;
         }
 
         errorField = "The type description " + typeDesc;
         if (!validate.matchRegExp(regExp, typeDesc)) {
-            addActionError(getText("errors.invalid", errorField));
+            addActionError(getText(ERRORS_INVALID, errorField));
             isValid = false;
         }
         if (!validate.maxLength(255, type)) {
-            addActionError(getText("errors.maxlength", new String[]{errorField, "255"}));
+            addActionError(getText(ERRORS_MAXLENGTH, new String[]{errorField, "255"}));
             isValid = false;
         }
 
         errorField = "The display name " + typeDisplayName;
         if (!validate.matchRegExp(regExp, typeDisplayName)) {
-            addActionError(getText("errors.invalid", errorField));
+            addActionError(getText(ERRORS_INVALID, errorField));
             isValid = false;
         }
         if (!validate.maxLength(255, type)) {
-            addActionError(getText("errors.maxlength", new String[]{errorField, "255"}));
+            addActionError(getText(ERRORS_MAXLENGTH, new String[]{errorField, "255"}));
             isValid = false;
         }
 
         errorField = "The measuring instruction " + measuringInstrc;
         if (!validate.matchRegExp(regExp, measuringInstrc)) {
-            addActionError(getText("errors.invalid", errorField));
+            addActionError(getText(ERRORS_INVALID, errorField));
             isValid = false;
         }
         if (!validate.maxLength(255, type)) {
-            addActionError(getText("errors.maxlength", new String[]{errorField, "255"}));
+            addActionError(getText(ERRORS_MAXLENGTH, new String[]{errorField, "255"}));
             isValid = false;
         }
         return isValid;

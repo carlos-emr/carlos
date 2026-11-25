@@ -108,15 +108,16 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
 
 
     private static final Logger logger = MiscUtils.getLogger();
-    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    // Spring beans belong to this request-scoped action, not its serializable form.
+    private final transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
-    private final ConsultationManager consultationManager = SpringUtils.getBean(ConsultationManager.class);
+    private final transient ConsultationManager consultationManager = SpringUtils.getBean(ConsultationManager.class);
 
     private static FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
 
-    private final AttachmentOwnershipService attachmentOwnershipService;
+    private final transient AttachmentOwnershipService attachmentOwnershipService;
 
-    private final ConsultationRequestDao consultationRequestDao;
+    private final transient ConsultationRequestDao consultationRequestDao;
 
     public EctConsultationFormRequestPrintAction22Action() {
         // Struts creates this legacy action with a no-arg constructor.
@@ -246,7 +247,7 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
 
                     } else if (doc.isPDF()) {
                         alist.add(consultationPdfPath(PathValidationUtils.getRequiredDocumentDirectory(), doc.getFileName()));
-                    } else {
+                    } else if (logger.isErrorEnabled()) {
                         logger.error("EctConsultationFormRequestPrintAction: {} is marked as printable but no means have been established to print it.", LogSafe.sanitize(doc.getType()));
                     }
                 }
@@ -328,15 +329,24 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         }
     }
 
-    /** Resolve the stored PDF name inside the clinic document directory before passing it to the merger. */
+    /**
+     * Resolves a stored PDF name to its canonical file inside the clinic document directory before
+     * the merger reads it. The name is validated as one exact filename component, so legacy names
+     * with spaces or accented characters still print, and its canonical target (symbolic links
+     * resolved) must stay inside the directory.
+     *
+     * @throws IOException if the name is not one safe component or its target leaves the directory
+     */
+    // FindSecBugs PATH_TRAVERSAL_IN: the stored name is accepted only as one validated path component, and the
+    // canonical target built from that value is confined to the document directory before it is returned.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "stored name accepted only as one validated path component; canonical target confined to the document directory")
     static String consultationPdfPath(File documentDirectory, String storedName) throws IOException {
-        if (storedName == null || storedName.isBlank() || new File(storedName).isAbsolute()) {
-            throw new IOException("Invalid consultation PDF attachment");
-        }
         try {
-            File source = new File(documentDirectory, storedName).getCanonicalFile();
+            String storedFileName = PathValidationUtils.validatePathComponent(storedName, "consultation PDF attachment");
+            File source = new File(documentDirectory, storedFileName).getCanonicalFile();
             return PathValidationUtils.validateExistingPath(source, documentDirectory).getPath();
-        } catch (IOException | SecurityException invalid) {
+        } catch (IOException | SecurityException _) {
+            // No cause: its message can carry the stored file name, and execute() logs this exception.
             throw new IOException("Invalid consultation PDF attachment");
         }
     }
