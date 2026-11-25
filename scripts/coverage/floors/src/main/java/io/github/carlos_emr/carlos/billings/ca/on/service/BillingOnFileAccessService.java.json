@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnFileAccessService.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 99.72451790633609,
+    "branches": 88.88888888888889,
+    "sourceBlob": "359900f3b9dbd7e56c8a5eb19f46d630134f5599"
+  },
+  "evidenceSha256": "e4fc1961a1f5f55929a0abc9c03b83be6f2d7312bcbb59a66bf0452c7fa22b39"
+}
