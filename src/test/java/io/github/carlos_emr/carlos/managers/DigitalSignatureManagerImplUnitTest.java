@@ -40,6 +40,7 @@ import org.mockito.MockedStatic;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -239,7 +240,11 @@ class DigitalSignatureManagerImplUnitTest {
                     .processAndSaveDigitalSignature(loggedInInfo(session), requestId, 1373, ModuleType.PRESCRIPTION);
 
             assertThat(saved).isNotNull();
-            verify(dao).persist(any());
+            assertThat(saved.getDemographicId()).isEqualTo(1373);
+            assertThat(saved.getProviderNo()).isEqualTo("999998");
+            assertThat(saved.getFacilityId()).isEqualTo(11);
+            assertThat(saved.getModuleType()).isEqualTo(ModuleType.PRESCRIPTION);
+            verify(dao).persist(same(saved));
         } finally {
             Files.deleteIfExists(capture);
         }
