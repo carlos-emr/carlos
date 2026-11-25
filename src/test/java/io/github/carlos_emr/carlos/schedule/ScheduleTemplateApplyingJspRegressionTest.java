@@ -109,6 +109,21 @@ class ScheduleTemplateApplyingJspRegressionTest {
                 .isLessThan(jsp.indexOf("<head>"));
     }
 
+    @Test
+    void shouldUseTheConfiguredSiteRestrictionForTemplateDeletion() throws IOException {
+        String jsp = Files.readString(TEMPLATE_APPLYING_JSP, StandardCharsets.UTF_8);
+        int siteGrant = jsp.indexOf("<security:oscarSec objectName=\"_site_access_privacy\"");
+        int grantEnd = jsp.indexOf("</security:oscarSec>", siteGrant);
+        assertThat(jsp.substring(0, siteGrant)).contains("boolean bMultisites = IsPropertiesOn.isMultisitesEnable()");
+        assertThat(jsp.substring(siteGrant, grantEnd)).contains("isSiteAccessPrivacy = bMultisites;");
+
+        int deletion = jsp.indexOf("if (request.getParameter(\"delete\")");
+        int firstScheduleRead = jsp.indexOf("rScheduleDao.search_rschedule_current1", deletion);
+        assertThat(jsp.substring(deletion, firstScheduleRead)).contains("if (isSiteAccessPrivacy)",
+                "getActiveSitesByProviderNo(deleteProviderNo)", "getActiveSitesByProviderNo(CurProviderNo)",
+                "response.sendError(HttpServletResponse.SC_FORBIDDEN)");
+    }
+
     private static Path projectRoot() {
         return Path.of(System.getProperty(
                 "maven.multiModuleProjectDirectory",

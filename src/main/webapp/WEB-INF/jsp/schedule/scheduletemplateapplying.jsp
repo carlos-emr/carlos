@@ -95,18 +95,18 @@
         if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
         String CurRoleName = session.getAttribute("userrole") + "," + session.getAttribute("user");
 
+        boolean bMultisites = IsPropertiesOn.isMultisitesEnable();
         boolean isSiteAccessPrivacy = false;
     %>
 
 
     <security:oscarSec objectName="_site_access_privacy" roleName="<%=CurRoleName%>" rights="r" reverse="false">
-        <%isSiteAccessPrivacy = true; %>
+        <%isSiteAccessPrivacy = bMultisites; %>
     </security:oscarSec>
 
 
     <%
         // All variables are request-local (NOT instance variables — avoids thread-safety issues)
-        boolean bMultisites = IsPropertiesOn.isMultisitesEnable();
         String[] bgColors = null;
         List<String> excludedSites = new ArrayList<>();
 
