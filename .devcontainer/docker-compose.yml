@@ -76,7 +76,12 @@ services:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-fs", "-o", "/dev/null", "http://localhost:8080/drugref2/"]
+      # Current XML-RPC servlet accepts POST and answers GET with 405. Older builds also serve GET.
+      test:
+        - CMD-SHELL
+        - >-
+          case "$$(curl -sS --max-time 8 -o /dev/null -w '%{http_code}' http://localhost:8080/drugref2/DrugrefService)" in
+          200|405) exit 0 ;; *) exit 1 ;; esac
       timeout: 10s
       retries: 5
       interval: 30s
