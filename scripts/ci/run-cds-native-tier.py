@@ -37,7 +37,7 @@ import stat
 import subprocess
 import sys
 import time
-from cds_database_readiness import wait_for_database as wait_for_final_database
+from cds_database_readiness import run_logged as run, wait_for_database as wait_for_final_database
 import uuid
 from xml.etree.ElementTree import ElementTree
 from compiled_classes import fingerprints, validate_output_paths
@@ -373,10 +373,6 @@ def main():
     document_root = '/var/lib/carlos-cds-transfer-documents-' + nonce
     docker = ['docker', '--host=unix:///var/run/docker.sock']
     log_path = output / 'native-tier.log'
-
-    def run(command, log, check=True, capture=False, timeout=None):
-        return subprocess.run(command, check=check, text=True,
-                              stdout=subprocess.PIPE if capture else log, stderr=log, timeout=timeout)
 
     def build(command, log, check=True):
         identity = ['--user', str(args.container_user)] if args.container_user is not None else []
