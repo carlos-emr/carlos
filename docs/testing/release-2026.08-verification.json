@@ -11515,6 +11515,62 @@
         "T23",
         "T34"
       ]
+    },
+    "scripts/migration/o19/generate_manifests.py": {
+      "reason": "The provincial import version binds the primitive-column rules used when copying SQL NULL. Generator and integrity tests verify the shipped data and rejection of prior incompatible checkpoints.",
+      "tests": [
+        "scripts/migration/o19/tests/test_generator.py",
+        "scripts/migration/o19/tests/test_manifest_integrity.py"
+      ],
+      "checks": [
+        "o19-generator-python"
+      ],
+      "workstreams": [
+        "T25",
+        "T34"
+      ]
+    },
+    "debian/assets/o19-manifest/o19map_schema.json": {
+      "reason": "The provincial import version binds the primitive-column rules used when copying SQL NULL. Generator and integrity tests verify the shipped data and rejection of prior incompatible checkpoints.",
+      "tests": [
+        "scripts/migration/o19/tests/test_generator.py",
+        "scripts/migration/o19/tests/test_manifest_integrity.py"
+      ],
+      "checks": [
+        "o19-generator-python"
+      ],
+      "workstreams": [
+        "T25",
+        "T34"
+      ]
+    },
+    "debian/assets/o19-manifest/o19_preflight.json": {
+      "reason": "The provincial import version binds the primitive-column rules used when copying SQL NULL. Generator and integrity tests verify the shipped data and rejection of prior incompatible checkpoints.",
+      "tests": [
+        "scripts/migration/o19/tests/test_generator.py",
+        "scripts/migration/o19/tests/test_manifest_integrity.py"
+      ],
+      "checks": [
+        "o19-generator-python"
+      ],
+      "workstreams": [
+        "T25",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/BoundedSessionAttributes.java": {
+      "reason": "An authorized OBEC output must be a member of the server-issued collection in this session. The tests cover bounded eviction, distinct categories, and a forged filename attribute.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/BoundedSessionAttributesUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/util/OscarDownloadUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T23",
+        "T29"
+      ]
     }
   },
   "lifecycleBaselineManifest": "docs/testing/release-2026.08-lifecycle-baselines.json",
