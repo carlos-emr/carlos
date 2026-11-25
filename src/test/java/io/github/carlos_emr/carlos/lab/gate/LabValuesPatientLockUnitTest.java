@@ -155,7 +155,7 @@ class LabValuesPatientLockUnitTest extends CarlosUnitTestBase {
 
     @org.junit.jupiter.api.Test
     @DisplayName("should offer the lab graph's medication picker only to a user holding _rx on the patient")
-    void shouldOfferMedicationPickerOnlyWithRxOnThePatient() throws Exception {
+    void shouldOfferMedicationPicker_onlyWithRxOnThePatient() throws Exception {
         request.setParameter("demographic_no", "123");
         when(security.hasPrivilege(login, "_rx", "r", "123")).thenReturn(false);
 

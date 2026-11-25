@@ -53,7 +53,7 @@ class LabValuesGraphMedicationsJspRegressionTest {
 
     @Test
     @DisplayName("should read the gate's decision from the request attribute the gate sets")
-    void shouldReadTheGatesDecision() throws IOException {
+    void shouldReadTheGatesDecision_fromTheRequestAttribute() throws IOException {
         String page = page();
 
         assertThat(page).contains("ViewLabValuesGraph2Action.MEDICATIONS_ALLOWED");
@@ -62,7 +62,7 @@ class LabValuesGraphMedicationsJspRegressionTest {
 
     @Test
     @DisplayName("should run the prescription query and draw the picker only inside the medicationsAllowed block")
-    void shouldKeepTheQueryAndPickerInsideTheDecision() throws IOException {
+    void shouldKeepTheQueryAndPicker_insideTheDecision() throws IOException {
         String page = page();
         int blockStart = page.indexOf("<% if (medicationsAllowed) { %>");
         int query = page.indexOf("getUniquePrescriptionsByPatient");
