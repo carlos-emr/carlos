@@ -58,7 +58,7 @@ A later **Cancel** supersedes an earlier pending resume. Recovery still verifies
 
 CLI exit `1` (`CDS_ARGUMENTS`) means invalid or conflicting arguments, before runtime startup. Exit `3` (`CDS_AUTHORIZATION`) means root-issued delegation or operator/provider/source authorization failed. Exit `2` covers configuration, bootstrap, delivery or runtime failures; preserve protected diagnostics and inspect durable state before retrying. An interrupted operation exits `130`. Configure the command using the [server property reference](cds-import-configuration.md).
 
-An abandon always exits `4` ([below](#abandoning-an-import-that-cannot-complete)). For the CLI, import/resume exit `0` requires a clean completed import or valid dry run, delivered reports, complete cleanup and verified maintenance release. Exit `4` can mean an accepted but pending recovery request, a refusal, partial work or an uncertain outcome; inspect its run ID, `resumeRequested`, stable `safeCode`, uncertainty flag and protected receipts. Exit `0` from **status** or **report** means that query succeeded; the returned clinical and operational fields still determine whether the import completed. A `COMPLETE` state alone is insufficient. There is no force flag for bypassing these checks.
+A recorded abandonment returns `4`. Use `--status` to confirm `ABANDONED` and check the chart outcomes. [Abandonment procedure](#abandoning-an-import-that-cannot-complete) For the CLI, import/resume exit `0` requires a clean completed import or valid dry run, delivered reports, complete cleanup and verified maintenance release. Exit `4` can mean an accepted but pending recovery request, a refusal, partial work or an uncertain outcome; inspect its run ID, `resumeRequested`, stable `safeCode`, uncertainty flag and protected receipts. Exit `0` from **status** or **report** means that query succeeded; the returned clinical and operational fields still determine whether the import completed. A `COMPLETE` state alone is insufficient. There is no force flag for bypassing these checks.
 
 **Cancel** is durable and cooperative at bounded work boundaries. It preserves committed units and their evidence. Closing the browser or losing the foreground command does not undo committed data. A failed/partial patient remains held until supported recovery proves its complete workset, or until a root-delegated operator for its provider abandons a stopped import that cannot complete ([below](#abandoning-an-import-that-cannot-complete)); never clear holds or the maintenance window by editing the database.
 
@@ -124,10 +124,9 @@ The procedure:
 3. Open the import window if it is closed (the three properties above, then restart the service).
 4. Abandon it, typing the run ID twice and stating the reason:
    `sudo carlos-ctl cds-import --provider <id> --abandon --run <run-id> --confirm <run-id>
-   --reason "<reason>"`. The reason (at most 1000 characters on one line) is stored only in the
-   run's protected record; the engine never prints or logs it. It is a command-line argument,
-   though: other administrators can see it while the command runs, and the shell history and
-   `sudo`'s command log keep it afterwards. Name the defect or the decision, never a patient.
+   --reason "<reason>"`. Use an operational reason of at most 1000 characters on one line. The engine stores
+   the reason in the protected run record. Other local users may see the argument while the command
+   runs, and the shell history or sudo log may retain it. Keep patient and confidential details out of it.
 5. Read the `RESULT` line: `state` is `ABANDONED`, the `outcomes` count the released charts as
    `ABANDONED`, and `maintenanceReleaseState` is `RELEASED`, or `RELEASE_DEFERRED` while another
    run still holds a chart (that run's own completion or abandon then reopens the clinic, and a
