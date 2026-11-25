@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/encounter/oscarConsultationRequest/pageUtil/EctConsultationFormRequestPrintAction22Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 97.33333333333333,
+    "instructions": 96.92737430167598,
+    "branches": 80.0,
+    "sourceBlob": "a189cb001d8fd5e4cc4f0a825fa006c137ebac03"
+  },
+  "evidenceSha256": "16bc410cddebe2577d99b0076c52fe515830df0395ca9893ff57e6e763378b8b"
+}
