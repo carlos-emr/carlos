@@ -30,7 +30,7 @@ import static org.mockito.Mockito.*;
 class EctAddMeasurementType2ActionUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    void usesTheSameLocaleIndependentCodeForLookupAndStorage(boolean duplicate) throws Exception {
+    void shouldUseLocaleIndependentCode_forLookupAndStorage(boolean duplicate) throws Exception {
         var dao = mock(MeasurementTypeDao.class);
         var security = mock(SecurityInfoManager.class);
         registerMock(MeasurementTypeDao.class, dao);
@@ -46,7 +46,8 @@ class EctAddMeasurementType2ActionUnitTest extends CarlosUnitTestBase {
             Locale.setDefault(Locale.forLanguageTag("tr-TR"));
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             sessions.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(login);
-            types.when(MeasurementTypes::getInstance).thenReturn(mock(MeasurementTypes.class));
+            MeasurementTypes measurementTypes = mock(MeasurementTypes.class);
+            types.when(MeasurementTypes::getInstance).thenReturn(measurementTypes);
             var action = spy(new EctAddMeasurementType2Action());
             action.setType("id");
             action.setTypeDesc("Test");

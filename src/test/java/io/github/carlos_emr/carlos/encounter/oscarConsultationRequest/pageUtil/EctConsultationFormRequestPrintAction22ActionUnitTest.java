@@ -30,6 +30,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
@@ -234,7 +235,8 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
     }
 
     @Test
-    void shouldConfineStoredPdfPathsAndPreserveLegacyNames(@TempDir Path temporary)
+    @DisplayName("should confine stored PDF names to the document directory while keeping legacy names printable")
+    void shouldConfineStoredPdfPaths_whilePreservingLegacyNames(@TempDir Path temporary)
             throws Exception {
         Path root = Files.createDirectory(temporary.resolve("documents"));
         Path stored = Files.createFile(root.resolve("Consultation résumé (2).pdf"));
@@ -581,7 +583,7 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
 
             Files.copy(ownForm, documents.resolve("own.pdf"));
             CarlosProperties config = spy(CarlosProperties.getInstance());
-            org.mockito.Mockito.doReturn(documents.toString()).when(config).getProperty("DOCUMENT_DIR");
+            doReturn(documents.toString()).when(config).getProperty("DOCUMENT_DIR");
             try (var properties = mockStatic(CarlosProperties.class);
                  MockedStatic<ConcatPDF> concatPdfMock = mockStatic(ConcatPDF.class)) {
                 properties.when(CarlosProperties::getInstance).thenReturn(config);
@@ -597,6 +599,31 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
             }
         } finally {
             Files.deleteIfExists(ownForm);
+        }
+    }
+
+    @Test
+    @DisplayName("should log and leave out a printable document that is neither an image nor a PDF")
+    void shouldLeaveOutPrintableDocument_whenItIsNeitherImageNorPdf() throws Exception {
+        EDoc spreadsheet = mock(EDoc.class);
+        when(spreadsheet.getDocId()).thenReturn("10");
+        when(spreadsheet.isPrintable()).thenReturn(true);
+        when(spreadsheet.getType()).thenReturn("spreadsheet");
+        eDocUtilMock.when(() -> EDocUtil.listDocs(any(), eq("1"), eq("42"), anyBoolean()))
+                .thenReturn(new ArrayList<>(List.of(spreadsheet)));
+        when(ctlDocumentDao.findDocumentNosForDemographic(eq(1), anyCollection())).thenReturn(List.of(10));
+
+        try (MockedStatic<ConcatPDF> concatPdfMock = mockStatic(ConcatPDF.class);
+             LogCapture logCapture = LogCapture.forLogger(EctConsultationFormRequestPrintAction22Action.class)) {
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<List<Object>> printed = ArgumentCaptor.forClass(List.class);
+            concatPdfMock.verify(() -> ConcatPDF.concat(printed.capture(), any()));
+            // Only the consultation letter is printed; the unsupported document is named in the log.
+            assertThat(printed.getValue()).hasSize(1);
+            assertThat(logCapture.messages()).anySatisfy(message ->
+                    assertThat(message).contains("spreadsheet is marked as printable"));
         }
     }
 

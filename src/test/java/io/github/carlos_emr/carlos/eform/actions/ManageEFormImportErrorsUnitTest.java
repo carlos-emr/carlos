@@ -69,7 +69,7 @@ class ManageEFormImportErrorsUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void zipFilePathIsNotARequestParameter() throws NoSuchMethodException {
+    void shouldNotBindZippedForm_fromRequestParameters() throws NoSuchMethodException {
         var setter = ManageEForm2Action.class.getMethod("setZippedForm", java.io.File.class);
         assertThat(setter.isAnnotationPresent(org.apache.struts2.interceptor.parameter.StrutsParameter.class)).isFalse();
     }
