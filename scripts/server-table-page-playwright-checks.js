@@ -8,11 +8,12 @@ const {getLaunchOptions} = require('./lib/playwright-harness');
 
 async function main() {
     const paging = fs.readFileSync(path.join(__dirname, '../src/main/webapp/js/server-table-page.js'), 'utf8');
+    const tables = fs.readFileSync(path.join(__dirname, '../src/main/webapp/js/carlos-tables.js'), 'utf8');
     const csrf = fs.readFileSync(path.join(__dirname, '../src/main/webapp/share/javascript/csrfTokenFetch.js'), 'utf8');
     const region = (number, reverse = false) => `<div data-server-page-region><form name="mergeform" data-server-page-preserve-selection>
-        <table><thead><tr><th><button name="tableSortChange" value="2" form="pager">Name</button></th></tr></thead><tbody>
-        <tr><td>Page ${number}</td></tr>${(reverse ? ['42', '41'] : ['41', '42']).map(id => `<tr><td>
-        <input type="radio" name="head" value="${id}"><input type="checkbox" name="records" value="${id}"></td></tr>`).join('')}</tbody></table></form>
+        <table data-carlos-table><thead><tr><th><button name="tableSortChange" value="2" form="pager">Name</button></th><th><span data-table-sort>Local</span></th></tr></thead><tbody>
+        <tr><td>Page ${number}</td><td>z</td></tr>${(reverse ? ['42', '41'] : ['41', '42']).map(id => `<tr><td>
+        <input type="radio" name="head" value="${id}"><input type="checkbox" name="records" value="${id}"></td><td>${id === '41' ? 'b' : 'a'}</td></tr>`).join('')}</tbody></table></form>
         <form id="pager" data-server-page-form data-context="" action="/search" method="post">
         <input name="tablePage" type="hidden" value="${number}">
         <input name="method" type="hidden" value="attachSearch"><input name="criteria.firstName" type="hidden" value="Synthetic">
@@ -50,11 +51,32 @@ async function main() {
         });
         await page.goto('http://carlos.test/');
         await page.addScriptTag({content: csrf});
+        await page.addScriptTag({content: tables});
         await page.addScriptTag({content: paging});
         await page.getByRole('button', {name: 'Next', exact: true}).focus();
         await page.keyboard.press('Enter');
         await page.getByText('Page 1', {exact: true}).waitFor();
         assert.equal(await page.evaluate(() => document.activeElement.dataset.serverPageFocus), 'next', 'keyboard paging keeps focus on Next');
+        // The replacement table must be re-initialised by CarlosTables.initializeAll (#6134): its
+        // data-table-sort header became a real sort link, and clicking it sorts in the page.
+        assert.equal(await page.evaluate(() => typeof globalThis.CarlosTables?.initializeAll), 'function');
+        const sortLinks = page.locator('table[data-carlos-table] thead a.table-sort');
+        assert.equal(await sortLinks.count(), 1, 'swapped-in table has exactly one sort link');
+        assert.equal(await page.locator('table[data-carlos-table] thead [data-table-sort]').count(), 0, 'sort placeholder was replaced');
+        assert.equal(await page.locator('table[data-carlos-table] thead th[aria-sort]').count(), 0, 'no column is sorted before the click');
+        const swappedTable = await page.locator('table[data-carlos-table]').elementHandle();
+        const requestsBeforeSort = requests;
+        const urlBeforeSort = page.url();
+        await sortLinks.first().click();
+        assert.equal(await page.locator('table[data-carlos-table] thead th[aria-sort]').count(), 1, 'exactly one header reports aria-sort');
+        assert.equal(await page.locator('table[data-carlos-table] thead th[aria-sort]').getAttribute('aria-sort'), 'ascending');
+        assert.deepEqual(await page.locator('table[data-carlos-table] tbody tr td:nth-child(2)').allTextContents(), ['a', 'b', 'z'], 'rows sorted ascending by the Local column');
+        await sortLinks.first().click();
+        assert.equal(await page.locator('table[data-carlos-table] thead th[aria-sort]').getAttribute('aria-sort'), 'descending');
+        assert.deepEqual(await page.locator('table[data-carlos-table] tbody tr td:nth-child(2)').allTextContents(), ['z', 'b', 'a'], 'second click reverses the order');
+        assert.equal(await swappedTable.evaluate(table => table.isConnected), true, 'local sort keeps the table in place');
+        assert.equal(requests, requestsBeforeSort, 'local sort sends no server request');
+        assert.equal(page.url(), urlBeforeSort, 'local sort does not navigate');
         await page.locator('input[name="head"][value="41"]').check();
         await page.locator('input[name="records"][value="42"]').check();
         const oldRegion = await page.locator('[data-server-page-region]').elementHandle();
