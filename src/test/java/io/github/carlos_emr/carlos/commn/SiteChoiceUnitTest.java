@@ -23,16 +23,16 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -97,19 +97,29 @@ class SiteChoiceUnitTest {
     }
 
     @Test
-    @DisplayName("should find access privacy through site or team access privacy")
-    void shouldReportAccessPrivacy_forSiteOrTeamPrivilege() {
-        LoggedInInfo login = mock(LoggedInInfo.class);
-        SecurityInfoManager site = mock(SecurityInfoManager.class);
-        when(site.hasPrivilege(eq(login), eq("_site_access_privacy"), eq("r"), isNull())).thenReturn(true);
-        SecurityInfoManager team = mock(SecurityInfoManager.class);
-        when(team.hasPrivilege(eq(login), eq("_team_access_privacy"), eq("r"), isNull())).thenReturn(true);
-        SecurityInfoManager neither = mock(SecurityInfoManager.class);
-        when(neither.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(false);
+    void shouldSkipTheSitePrivilegeLookup_forAnAbsentLogin() {
+        SecurityInfoManager security = mock(SecurityInfoManager.class);
+        try (var settings = mockStatic(IsPropertiesOn.class)) {
+            settings.when(IsPropertiesOn::isMultisitesEnable).thenReturn(true);
+            assertThat(SiteChoice.isSiteAccessRestricted(security, null)).isFalse();
+            verifyNoInteractions(security);
+        }
+    }
 
-        assertThat(SiteChoice.hasAccessPrivacy(site, login)).isTrue();
-        assertThat(SiteChoice.hasAccessPrivacy(team, login)).isTrue();
-        assertThat(SiteChoice.hasAccessPrivacy(neither, login)).isFalse();
+    @ParameterizedTest
+    @CsvSource({"false, true, false, false", "false, true, true, true", "true, true, false, true",
+            "true, false, true, true", "true, false, false, false"})
+    void shouldApplyTheSiteRestrictionOnlyInMultisiteMode_andKeepTeamPrivacyIndependent(
+            boolean multisites, boolean siteGrant, boolean teamGrant, boolean restricted) {
+        LoggedInInfo login = mock(LoggedInInfo.class);
+        SecurityInfoManager security = mock(SecurityInfoManager.class);
+        when(security.hasPrivilege(login, "_site_access_privacy", "r", null)).thenReturn(siteGrant);
+        when(security.hasPrivilege(login, "_team_access_privacy", "r", null)).thenReturn(teamGrant);
+        try (var settings = mockStatic(IsPropertiesOn.class)) {
+            settings.when(IsPropertiesOn::isMultisitesEnable).thenReturn(multisites);
+            assertThat(SiteChoice.isSiteAccessRestricted(security, login)).isEqualTo(multisites && siteGrant);
+            assertThat(SiteChoice.hasAccessPrivacy(security, login)).isEqualTo(restricted);
+        }
     }
 
     @ParameterizedTest

@@ -51,7 +51,7 @@
 %>
 
 <security:oscarSec objectName="_site_access_privacy" roleName="<%=roleName$%>" rights="r" reverse="false">
-    <%isSiteAccessPrivacy = true; %>
+    <%isSiteAccessPrivacy = io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable(); %>
 </security:oscarSec>
 
 <%@ page import="java.util.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
@@ -92,11 +92,12 @@
                 String oldNumber = "";
                 boolean toggleLine = false;
 
-                List<MyGroup> groupList = myGroupDao.findAll();
-                Collections.sort(groupList, MyGroup.MyGroupNoComparator);
-
+                List<MyGroup> groupList;
                 if (isSiteAccessPrivacy) {
                     groupList = myGroupDao.getProviderGroups(curProvider_no);
+                } else {
+                    groupList = myGroupDao.findAll();
+                    groupList.sort(MyGroup.MyGroupNoComparator);
                 }
 
 
