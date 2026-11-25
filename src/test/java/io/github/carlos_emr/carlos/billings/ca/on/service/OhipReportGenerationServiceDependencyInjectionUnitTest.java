@@ -340,12 +340,14 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
     }
 
     @Test
-    void shouldRefuseAnExhaustedMonth_withoutTouchingPriorOutputs() {
+    void shouldSkipAnExhaustedProvider_andGenerateTheNextProviderWithoutTouchingPriorOutputs() {
         var prior = new io.github.carlos_emr.carlos.billing.CA.model.BillActivity();
         prior.setBatchCount(998);
         var provider = new Provider("803601");
         provider.setOhipNo("123456");
-        when(providerDao.getActiveProviders()).thenReturn(List.of(provider));
+        var nextProvider = new Provider("803602");
+        nextProvider.setOhipNo("654321");
+        when(providerDao.getActiveProviders()).thenReturn(List.of(provider, nextProvider));
         when(billActivityDao.findCurrentByMonthCodeAndGroupNo(org.mockito.ArgumentMatchers.eq("A"),
                 org.mockito.ArgumentMatchers.eq("123456"), org.mockito.ArgumentMatchers.any())).thenReturn(List.of(prior));
         when(outputFilenames.isInUse("HA123456.999")).thenReturn(true);
@@ -353,12 +355,15 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
         request.setParameter("monthCode", "A");
         request.setParameter("providers", "all");
 
-        assertThatThrownBy(() -> service.generateReport(request, OhipReportGenerationService.Mode.SOLO_REPORT))
-                .isInstanceOfSatisfying(BillingFileWriteException.class, failure -> {
-                    assertThat(failure.reason()).isEqualTo(BillingFileWriteException.Reason.FILENAME_SEQUENCE_EXHAUSTED);
-                    assertThat(failure.reason().publicMessage()).contains("No unused OHIP filename");
-                });
-        verifyNoInteractions(billingDao, billingDetailDao);
+        var skipped = service.generateReport(request, OhipReportGenerationService.Mode.SOLO_REPORT);
+        assertThat(skipped).singleElement().satisfies(failure -> {
+            assertThat(failure.providerNo()).isEqualTo(provider.getProviderNo());
+            assertThat(failure.causeMessage()).isEqualTo(BillingFileWriteException.Reason.FILENAME_SEQUENCE_EXHAUSTED.publicMessage());
+        });
+        var generated = org.mockito.ArgumentCaptor.forClass(io.github.carlos_emr.carlos.billing.CA.model.BillActivity.class);
+        verify(billActivityDao).persist(generated.capture());
+        assertThat(generated.getValue().getOhipFilename()).isEqualTo("HA654321.001");
+        assertThat(generated.getValue().getHtmlFilename()).isEqualTo("HA654321_001.htm");
     }
 
     @Test

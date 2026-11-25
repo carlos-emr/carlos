@@ -135,15 +135,9 @@ public class OhipReportGenerationService {
     public record SimulationResult(String htmlPreview, String errorMsg, String dateBeginStr, String dateEndStr) {}
 
     /**
-     * One row per provider whose per-provider transaction rolled back.
-     * The action layer surfaces these via {@code skippedProviders} on the
-     * request so the operator's success page can banner "N providers were
-     * skipped — see error log" rather than rendering as if every selected
-     * provider's report was generated.
-     *
-     * <p>{@code causeClass} is the simple class name of the throwable so
-     * the JSP can render a coarse category (file vs data vs unknown) without
-     * leaking stack-trace detail; the full cause is in the server log.</p>
+     * Identifies a provider whose report could not be generated. The action supplies these
+     * rows to the operator through {@code skippedProviders}. The protected log records the
+     * exception category and its source location for diagnosis.
      */
     public record FailedProvider(String providerNo, String ohipNo,
                                  String causeClass, String causeMessage) {
@@ -165,9 +159,7 @@ public class OhipReportGenerationService {
      * BillActivity rows and writes the OHIP+HTML files for each
      * eligible provider.
      *
-     * @return list of providers whose per-provider tx rolled back; empty
-     *         when all selected providers were processed cleanly. Caller
-     *         should stash this on the request for the JSP banner.
+     * @return providers whose reports could not be generated, for display on the results page
      */
     public java.util.List<FailedProvider> generateReport(HttpServletRequest request, Mode mode) {
         if (mode == Mode.SIMULATION) {
@@ -221,34 +213,34 @@ public class OhipReportGenerationService {
                     "<xml_p_specialty_code>", "</xml_p_specialty_code>"));
 
             String groupKey = mode == Mode.GROUP_REPORT ? groupNo : proOHIP;
-            String batchCount = unreservedBatchCount(monthCode, groupKey, proOHIP, curYear,
-                    mode == Mode.GROUP_REPORT);
-
-            OhipClaimExtractService extract = ohipClaimExtractFactory.getObject();
-            extract.seteFlag("1");
-            extract.setOhipVer(request.getParameter("verCode"));
-            extract.setProviderNo(proOHIP);
-            extract.setOhipCenter(request.getParameter("billcenter"));
-            extract.setGroupNo(groupNo);
-            extract.setSpecialty(specialty);
-            extract.setBatchCount(String.valueOf(batchOrdinal));
-
-            String[] filenames = buildFilenames(monthCode, groupKey, proOHIP, batchCount,
-                    mode == Mode.GROUP_REPORT);
-            extract.setHtmlFilename(filenames[1]);
-            extract.setOhipFilename(filenames[0]);
-
-            // Per-provider tx boundary: dbQuery (setAsBilled), file writes,
-            // and persistBillActivity all live in one REQUIRES_NEW
-            // transaction. A throw rolls back THIS provider's DB writes
-            // (no setAsBilled remains, no BillActivity row); earlier
-            // providers' commits stay durable. File writes happen INSIDE
-            // the tx so a thrown BillingFileWriteException after writeFile
-            // succeeds correctly tears down setAsBilled but leaves the
-            // file on disk — the operator finds the orphan via the
-            // missing BillActivity row and re-runs for that provider.
-            String curUser = request.getParameter("curUser");
             try {
+                String batchCount = unreservedBatchCount(monthCode, groupKey, proOHIP, curYear,
+                        mode == Mode.GROUP_REPORT);
+
+                OhipClaimExtractService extract = ohipClaimExtractFactory.getObject();
+                extract.seteFlag("1");
+                extract.setOhipVer(request.getParameter("verCode"));
+                extract.setProviderNo(proOHIP);
+                extract.setOhipCenter(request.getParameter("billcenter"));
+                extract.setGroupNo(groupNo);
+                extract.setSpecialty(specialty);
+                extract.setBatchCount(String.valueOf(batchOrdinal));
+
+                String[] filenames = buildFilenames(monthCode, groupKey, proOHIP, batchCount,
+                        mode == Mode.GROUP_REPORT);
+                extract.setHtmlFilename(filenames[1]);
+                extract.setOhipFilename(filenames[0]);
+
+                // Per-provider tx boundary: dbQuery (setAsBilled), file writes,
+                // and persistBillActivity all live in one REQUIRES_NEW
+                // transaction. A throw rolls back THIS provider's DB writes
+                // (no setAsBilled remains, no BillActivity row); earlier
+                // providers' commits stay durable. File writes happen INSIDE
+                // the tx so a thrown BillingFileWriteException after writeFile
+                // succeeds correctly tears down setAsBilled but leaves the
+                // file on disk — the operator finds the orphan via the
+                // missing BillActivity row and re-runs for that provider.
+                String curUser = request.getParameter("curUser");
                 perProviderTx.executeWithoutResult(status -> {
                     // Throwing a RuntimeException out of the lambda is the
                     // load-bearing rollback trigger; TransactionTemplate calls
@@ -261,15 +253,18 @@ public class OhipReportGenerationService {
                 });
             } catch (RuntimeException ex) {
                 String causeClass = ex.getClass().getSimpleName();
-                String causeMessage = ex instanceof BillingFileWriteException
-                        ? "The billing file could not be written. Check storage and file permissions."
-                        : "Billing generation failed; check server log.";
+                String causeMessage = "Billing generation failed; check server log.";
+                if (ex instanceof BillingFileWriteException fileFailure) {
+                    causeMessage = fileFailure.reason() == BillingFileWriteException.Reason.FILENAME_SEQUENCE_EXHAUSTED
+                            ? fileFailure.reason().publicMessage()
+                            : "The billing file could not be written. Check storage and file permissions.";
+                }
                 // Driver and filesystem messages may include claim values or private paths.
                 StackTraceElement[] trace = ex.getStackTrace();
                 String origin = trace.length == 0 ? "unavailable" : trace[0].getClassName() + "." + trace[0].getMethodName()
                         + "(" + trace[0].getLineNumber() + ")";
                 MiscUtils.getLogger().error(
-                        "OHIP {} rolled back for provider {} (exception={}, origin={}); earlier providers remain committed",
+                        "OHIP {} did not complete for provider {} (exception={}, origin={}); earlier providers remain committed",
                         mode, LogSafe.sanitize(p.getProviderNo()), LogSafe.sanitize(causeClass), LogSafe.sanitize(origin));
                 skipped.add(new FailedProvider(
                         p.getProviderNo(), proOHIP, causeClass, causeMessage));
@@ -418,7 +413,7 @@ public class OhipReportGenerationService {
 
     /**
      * Advances the legacy sequence past occupied claim or HTML names across current and historical outputs.
-     * Exhausting the valid sequence range fails the batch before any output is written.
+     * Exhausting the valid sequence range skips this provider before any of its output is written.
      */
     private String unreservedBatchCount(String monthCode, String groupKey, String providerOhip,
                                         int year, boolean isGroup) {

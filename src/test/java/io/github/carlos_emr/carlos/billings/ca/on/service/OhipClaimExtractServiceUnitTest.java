@@ -238,18 +238,15 @@ class OhipClaimExtractServiceUnitTest {
 
         @Test
         void shouldPropagateBillingFileWriteException_whenWriterCloseFails() {
-            // Pin the close-time IOException contract: the round 7 swap from
-            // PrintStream → BufferedWriter is meaningful only because close()
-            // can throw on flush. Mock FileOutputStream construction so close()
-            // throws a fresh IOException (try-with-resources rejects same-
-            // instance suppression).
+            // Buffered writers can report a full filesystem only on close. Use a fresh
+            // exception for each close so try-with-resources can record suppressed failures.
             extract.setOhipFilename("claim.close.txt");
 
-            try (org.mockito.MockedConstruction<java.io.FileOutputStream> ignored =
-                         org.mockito.Mockito.mockConstruction(java.io.FileOutputStream.class,
-                                 (mockFos, ctx) -> org.mockito.Mockito.doAnswer(inv -> {
+            try (org.mockito.MockedConstruction<java.io.OutputStreamWriter> ignored =
+                         org.mockito.Mockito.mockConstruction(java.io.OutputStreamWriter.class,
+                                 (writer, ctx) -> org.mockito.Mockito.doAnswer(inv -> {
                                      throw new java.io.IOException("simulated close-time flush failure");
-                                 }).when(mockFos).close())) {
+                                 }).when(writer).close())) {
 
                 assertThatThrownBy(() -> extract.writeFile("HE B0001234V03 ..."))
                         .isInstanceOf(BillingFileWriteException.class)
@@ -262,11 +259,11 @@ class OhipClaimExtractServiceUnitTest {
         void shouldPropagateBillingFileWriteException_whenHtmlWriterCloseFails() {
             extract.setHtmlFilename("report.close.html");
 
-            try (org.mockito.MockedConstruction<java.io.FileOutputStream> ignored =
-                         org.mockito.Mockito.mockConstruction(java.io.FileOutputStream.class,
-                                 (mockFos, ctx) -> org.mockito.Mockito.doAnswer(inv -> {
+            try (org.mockito.MockedConstruction<java.io.OutputStreamWriter> ignored =
+                         org.mockito.Mockito.mockConstruction(java.io.OutputStreamWriter.class,
+                                 (writer, ctx) -> org.mockito.Mockito.doAnswer(inv -> {
                                      throw new java.io.IOException("simulated close-time flush failure");
-                                 }).when(mockFos).close())) {
+                                 }).when(writer).close())) {
 
                 assertThatThrownBy(() -> extract.writeHtml("<html/>"))
                         .isInstanceOf(BillingFileWriteException.class)
