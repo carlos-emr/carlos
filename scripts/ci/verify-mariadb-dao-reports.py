@@ -10,6 +10,13 @@ from junit_evidence import EvidenceError, read_surefire
 
 UNMERGE_FAMILY = "DemographicWebUnmergeIntegrationTest"
 UNMERGE_CLASS = "io.github.carlos_emr.carlos.demographic.pageUtil." + UNMERGE_FAMILY
+BOUND_FAMILIES = {
+    UNMERGE_FAMILY: UNMERGE_CLASS,
+    "IncomingDocumentQueuePreferenceIntegrationTest":
+        "io.github.carlos_emr.carlos.documentManager.IncomingDocumentQueuePreferenceIntegrationTest",
+    "ScheduleDateOverrideServiceIntegrationTest":
+        "io.github.carlos_emr.carlos.schedule.service.ScheduleDateOverrideServiceIntegrationTest",
+}
 
 CRITICAL = {
     "MariaDbDaoHarnessIntegrationTest": 1,
@@ -21,6 +28,34 @@ CRITICAL = {
 # Surefire's default JUnit 5 names distinguish both boolean invocations. Counts
 # alone cannot prove archive-failure or demographic-audit regressions executed.
 REQUIRED_CASES = {
+    "IncomingDocumentQueuePreferenceIntegrationTest": {
+        "shouldReadDefaultWithoutCreatingRows_whenConcurrentPreviewsFindNoPreference",
+        "shouldPreserveNullPreference_whenConcurrentPreviewsReadTheDefault",
+        "shouldUseStoredSelection_whenConcurrentPreviewsReadThePreference",
+        "shouldPersistExplicitSelections_andKeepOtherPreferencesIntact",
+        "shouldUpdateExistingNullPreference_whenAQueueIsExplicitlySelected",
+        "shouldKeepHistoricalDuplicateIdentities_andUseTheOldestRow",
+        "shouldKeepOneRowForOverlappingFirstSelections_withoutBlockingOtherProvidersOrPreviews",
+        "shouldPreserveTheLastSelection_whenBothRequestsPreviouslySawNoPreference",
+        "shouldRejectExplicitSelectionsWithoutAnOwner",
+    },
+    "ScheduleDateOverrideServiceIntegrationTest": {
+        "shouldRetireCurrentAndInsertReplacement_inOneCommit",
+        "shouldKeepCurrentOverrideActive_whenReplacementInsertFails",
+        "shouldSerializeOverlappingSaves_thenRetireBothOnDelete",
+        *(f"shouldGenerateFromCommittedDays_whenAnOverlappingPopupSavesOrDeletes(boolean)[{index}]"
+          for index in (1, 2)),
+        "shouldRetireOnlyTheOldRuleRange_andAllowRegenerationAfterACustomDayWasRetired",
+        *(f"shouldRollBackTheEntireGeneration_whenACandidateDoesNotBelongToTheRule(String)[{index}]"
+          for index in range(1, 5)),
+        "shouldRefuseTheWholeTemplate_whenTheProviderNoLongerExists",
+        "shouldRollBackBothRuleAndDates_whenTheFinalHeaderWriteFails",
+        "shouldPreserveSameStartReplacement_editsAndTheExistingOverlapWarning",
+        "shouldReplaceOnlyThePeriodRenderedInTheSubmittedTab_whenAnotherTabSelectsTheSameProvider",
+        "shouldRetireEveryActiveOverride_whenTheDateHoldsDuplicates",
+        "shouldWriteNothing_whenTheProviderDoesNotExist",
+        "shouldReadTheLatestCommittedOverride_afterEachReplacement",
+    },
     "AuditLogPurgeMariaDbIntegrationTest": {'shouldUseLiveCredentials_whenApplicationUserHasQuotedPassword', 'shouldRestoreEveryDeletedValue_whenPurgingThroughTheLastInstantOfTheDay', 'shouldRetainRowsAndReleaseLocks_whenDumpFailsTimesOutOrOmitsRows', 'shouldSerializePurgesAndPreserveLateHistoricalRows_whenAnotherWriterRuns', 'shouldRetainBackedUpRows_whenAuditRecordingFailsBeforeDelete', 'shouldRetainCompletedBackupsAndReportFailure_whenALaterCohortFails', 'shouldRecordPurgeAuditWithoutBlocking_whenAllExistingRowsAreEligible'},
     "EncounterFormDaoGroupedHistoryIntegrationTest": {
         "shouldGroupPhysicalHistory_onTheNativeTable",
@@ -239,6 +274,8 @@ REQUIRED = {"generated": {"AppointmentFieldAuditTransactionIntegrationTest": 3, 
                        "CaseManagementNoteLockMariaDbIntegrationTest": 15,
                        "CaseManagementNoteLegacyFlagsMariaDbIntegrationTest": 30,
                        "CaseManagementIssueDAOIntegrationTest": 22,
+                       "IncomingDocumentQueuePreferenceIntegrationTest": 9,
+                       "ScheduleDateOverrideServiceIntegrationTest": 17,
                        "ConsultationListProjectionIntegrationTest": 17,
                        "RxCorrectionSaveRollbackIntegrationTest": 2,
                        "DemographicMergeMariaDbIntegrationTest": 9,
@@ -260,6 +297,8 @@ REQUIRED = {"generated": {"AppointmentFieldAuditTransactionIntegrationTest": 3, 
                            "CaseManagementNoteLockMariaDbIntegrationTest": 15,
                        "CaseManagementNoteLegacyFlagsMariaDbIntegrationTest": 30,
                            "BcBillingNativeMariaDbIntegrationTest": 22,
+                           "IncomingDocumentQueuePreferenceIntegrationTest": 9,
+                           "ScheduleDateOverrideServiceIntegrationTest": 17,
                            "FormXmlImportServiceIntegrationTest": 7,
                            "EFormApColumnLookupIntegrationTest": 2,
                            "AppointmentDaySheetServiceIntegrationTest": 5,
@@ -339,7 +378,7 @@ def verify(reports: Path, output: Path) -> dict:
             if mode == 'bc-flyway' and case.classname == suite and not case.container and case.outcome == 'pass':
                 bc_physical_cases.add((case.classname, case.name))
             if (family in families[mode] and case.outcome == "pass"
-                    and (family != UNMERGE_FAMILY or suite == case.classname == UNMERGE_CLASS)):
+                    and (family not in BOUND_FAMILIES or suite == case.classname == BOUND_FAMILIES[family])):
                 families[mode][family] += 1
                 if family in REQUIRED_CASES and case.classname == suite:
                     passed_cases[mode][family].add(case.name)
