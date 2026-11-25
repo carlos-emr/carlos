@@ -33,6 +33,7 @@ package io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil;
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -83,12 +84,12 @@ public class EctAddMeasurementType2Action extends ActionSupport {
                 request.setAttribute("actionErrors", new java.util.ArrayList<>(getActionErrors()));
                 return "failure";
             }
-            String typeUp = type.toUpperCase();
+            String typeUp = type.toUpperCase(Locale.ROOT);
             String typeDesc = this.getTypeDesc();
             String typeDisplayName = this.getTypeDisplayName();
             String measuringInstrc = this.getMeasuringInstrc();
             String validation = this.getValidation();
-            if (!allInputIsValid(request, type, typeDesc, typeDisplayName, measuringInstrc)) {
+            if (!allInputIsValid(type, typeUp, typeDesc, typeDisplayName, measuringInstrc)) {
                 request.setAttribute("actionErrors", new java.util.ArrayList<>(getActionErrors()));
                 return "failure";
             }
@@ -115,13 +116,13 @@ public class EctAddMeasurementType2Action extends ActionSupport {
 
     }
 
-    private boolean allInputIsValid(HttpServletRequest request, String type, String typeDesc, String typeDisplayName, String measuringInstrc) {
+    private boolean allInputIsValid(String type, String typeUp, String typeDesc, String typeDisplayName, String measuringInstrc) {
 
         EctValidation validate = new EctValidation();
         String regExp = validate.getRegCharacterExp();
         boolean isValid = true;
 
-        for (MeasurementType mt : dao.findByType(type)) {
+        for (MeasurementType mt : dao.findByType(typeUp)) {
             addActionError(getText("error.encounter.Measurements.duplicateTypeName"));
             isValid = false;
         }
@@ -131,8 +132,8 @@ public class EctAddMeasurementType2Action extends ActionSupport {
             addActionError(getText("errors.invalid", errorField));
             isValid = false;
         }
-        if (!validate.maxLength(50, type)) {
-            addActionError(getText("errors.maxlength", new String[]{errorField, "4"}));
+        if (!validate.maxLength(50, typeUp)) {
+            addActionError(getText("errors.maxlength", new String[]{errorField, "50"}));
             isValid = false;
         }
 

@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIOException;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyCollection;
@@ -43,6 +44,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.HashMap;
+import io.github.carlos_emr.CarlosProperties;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -87,6 +89,7 @@ import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -227,6 +230,22 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         }
         if (servletActionContextMock != null) {
             servletActionContextMock.close();
+        }
+    }
+
+    @Test
+    void shouldConfineStoredPdfPathsAndPreserveLegacyNames(@TempDir Path temporary)
+            throws Exception {
+        Path root = Files.createDirectory(temporary.resolve("documents"));
+        Path stored = Files.createFile(root.resolve("Consultation résumé (2).pdf"));
+        assertThat(EctConsultationFormRequestPrintAction22Action.consultationPdfPath(root.toFile(),
+                stored.getFileName().toString())).isEqualTo(stored.toRealPath().toString());
+        Path outside = Files.createFile(temporary.resolve("outside.pdf"));
+        Files.createSymbolicLink(root.resolve("linked.pdf"), outside);
+        for (String invalid : List.of("../outside.pdf", "linked.pdf", outside.toString())) {
+            assertThatIOException().isThrownBy(() ->
+                    EctConsultationFormRequestPrintAction22Action.consultationPdfPath(root.toFile(), invalid))
+                    .withMessage("Invalid consultation PDF attachment");
         }
     }
 
@@ -543,7 +562,7 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
 
     @Test
     @DisplayName("should print only the consultation patient's own eForms and documents when consult docs reference another patient's")
-    void shouldPrintOnlyOwnedAttachments_whenConsultDocsReferenceAnotherPatient() throws Exception {
+    void shouldPrintOnlyOwnedAttachments_whenConsultDocsReferenceAnotherPatient(@TempDir Path documents) throws Exception {
         Path ownForm = createRenderedPdf();
         try {
             EFormData ownEForm = mock(EFormData.class);
@@ -560,7 +579,12 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
                     .thenReturn(new ArrayList<>(List.of(ownDoc, foreignDoc)));
             when(ctlDocumentDao.findDocumentNosForDemographic(eq(1), anyCollection())).thenReturn(List.of(10));
 
-            try (MockedStatic<ConcatPDF> concatPdfMock = mockStatic(ConcatPDF.class)) {
+            Files.copy(ownForm, documents.resolve("own.pdf"));
+            CarlosProperties config = spy(CarlosProperties.getInstance());
+            org.mockito.Mockito.doReturn(documents.toString()).when(config).getProperty("DOCUMENT_DIR");
+            try (var properties = mockStatic(CarlosProperties.class);
+                 MockedStatic<ConcatPDF> concatPdfMock = mockStatic(ConcatPDF.class)) {
+                properties.when(CarlosProperties::getInstance).thenReturn(config);
                 String result = action.execute();
 
                 assertThat(result).isEqualTo(ActionSupport.NONE);

@@ -245,7 +245,7 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
                         alist.add(imagePdf);
 
                     } else if (doc.isPDF()) {
-                        alist.add(path + doc.getFileName());
+                        alist.add(consultationPdfPath(PathValidationUtils.getRequiredDocumentDirectory(), doc.getFileName()));
                     } else {
                         logger.error("EctConsultationFormRequestPrintAction: {} is marked as printable but no means have been established to print it.", LogSafe.sanitize(doc.getType()));
                     }
@@ -325,6 +325,19 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         try (PdfBuffer output = new PdfBuffer()) {
             new ConsultationPDFCreator(request, output).printPdf(loggedInInfo);
             return output.openInputStream();
+        }
+    }
+
+    /** Resolve the stored PDF name inside the clinic document directory before passing it to the merger. */
+    static String consultationPdfPath(File documentDirectory, String storedName) throws IOException {
+        if (storedName == null || storedName.isBlank() || new File(storedName).isAbsolute()) {
+            throw new IOException("Invalid consultation PDF attachment");
+        }
+        try {
+            File source = new File(documentDirectory, storedName).getCanonicalFile();
+            return PathValidationUtils.validateExistingPath(source, documentDirectory).getPath();
+        } catch (IOException | SecurityException invalid) {
+            throw new IOException("Invalid consultation PDF attachment");
         }
     }
 

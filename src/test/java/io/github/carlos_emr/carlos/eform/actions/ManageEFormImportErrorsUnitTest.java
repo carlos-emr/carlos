@@ -19,6 +19,7 @@ import java.util.ResourceBundle;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -65,6 +66,12 @@ class ManageEFormImportErrorsUnitTest extends CarlosUnitTestBase {
     @AfterEach
     void tearDown() {
         servlet.close();
+    }
+
+    @Test
+    void zipFilePathIsNotARequestParameter() throws NoSuchMethodException {
+        var setter = ManageEForm2Action.class.getMethod("setZippedForm", java.io.File.class);
+        assertThat(setter.isAnnotationPresent(org.apache.struts2.interceptor.parameter.StrutsParameter.class)).isFalse();
     }
 
     private ManageEForm2Action action(Path archive) {
@@ -166,7 +173,11 @@ class ManageEFormImportErrorsUnitTest extends CarlosUnitTestBase {
         Path archive = Files.createFile(temporary.resolve("accepted.zip"));
         try (var _ = mockConstruction(EFormExportZip.class, (mock, context) ->
                 when(mock.importForm(any())).thenReturn(List.of()))) {
-            assertThat(action(archive).execute()).isEqualTo("success");
+            UploadedFile upload = mock(UploadedFile.class);
+            when(upload.getAbsolutePath()).thenReturn(archive.toString());
+            ManageEForm2Action action = new ManageEForm2Action();
+            action.withUploadedFiles(List.of(upload));
+            assertThat(action.execute()).isEqualTo("success");
             assertThat(request.getAttribute("status")).isEqualTo("success");
             assertThat(request.getAttribute("importErrors")).isNull();
         }
