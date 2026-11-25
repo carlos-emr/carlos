@@ -169,7 +169,6 @@ public class HRMUtil {
             }
 
             hrmdocslist.add(curht);
-            hrmDocumentsAll.add(hrmDocument);
         }
 
         if ("report_name".equals(sortBy)) {
