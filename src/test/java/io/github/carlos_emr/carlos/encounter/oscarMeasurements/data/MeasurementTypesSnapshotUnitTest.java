@@ -99,6 +99,32 @@ class MeasurementTypesSnapshotUnitTest {
     }
 
     @Test
+    void shouldReturnInitializedCatalogWithoutWaiting_whileReloadIsPaused() throws Exception {
+        MeasurementTypes catalog = initial();
+        var old = catalog.getByType("OLD");
+        CountDownLatch loading = new CountDownLatch(1);
+        CountDownLatch resume = new CountDownLatch(1);
+        MeasurementTypeDao replacement = mock(MeasurementTypeDao.class);
+        when(replacement.findAll()).thenAnswer(call -> {
+            loading.countDown();
+            if (!resume.await(10, TimeUnit.SECONDS)) throw new AssertionError("Reload was not resumed");
+            return List.of(type(202, "NEW"));
+        });
+        try (var reloader = Executors.newSingleThreadExecutor(); var reader = Executors.newSingleThreadExecutor()) {
+            var reloaded = reloader.submit(() -> { try (var ignored = beans(replacement)) { catalog.reInit(); } });
+            try {
+                assertThat(loading.await(5, TimeUnit.SECONDS)).isTrue();
+                // A reader fetching the singleton must not queue behind the paused database read.
+                var acquired = reader.submit(MeasurementTypes::getInstance);
+                assertThat(acquired.get(5, TimeUnit.SECONDS)).isSameAs(catalog);
+                assertThat(catalog.getByType("OLD")).isSameAs(old);
+            } finally { resume.countDown(); }
+            reloaded.get(5, TimeUnit.SECONDS);
+        }
+        assertThat(catalog.getByType("NEW")).isNotNull().isSameAs(catalog.getById("202"));
+    }
+
+    @Test
     void shouldRetainLastKnownCatalog_whenReloadFails() {
         MeasurementTypes catalog = initial();
         var old = catalog.getByType("OLD");
