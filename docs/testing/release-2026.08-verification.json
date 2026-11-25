@@ -10427,6 +10427,36 @@
         "T04",
         "T25"
       ]
+    },
+    "src/main/webapp/js/server-table-page.js": {
+      "reason": "The shared table pager uses the same request deadline for the CSRF token and page response. Browser tests stall each request and check that the current form remains usable for a retry.",
+      "tests": [
+        "scripts/server-table-page-playwright-checks.js",
+        "scripts/csrf-token-fetch.test.js"
+      ],
+      "checks": [
+        "fixture-ci-browser",
+        "node-all"
+      ],
+      "workstreams": [
+        "T23",
+        "T40"
+      ]
+    },
+    "src/main/webapp/share/javascript/csrfTokenFetch.js": {
+      "reason": "The shared table pager uses the same request deadline for the CSRF token and page response. Browser tests stall each request and check that the current form remains usable for a retry.",
+      "tests": [
+        "scripts/server-table-page-playwright-checks.js",
+        "scripts/csrf-token-fetch.test.js"
+      ],
+      "checks": [
+        "fixture-ci-browser",
+        "node-all"
+      ],
+      "workstreams": [
+        "T23",
+        "T40"
+      ]
     }
   },
   "lifecycleBaselineManifest": "docs/testing/release-2026.08-lifecycle-baselines.json",
