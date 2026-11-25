@@ -181,6 +181,9 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
             'shouldShowUnassignedBillersAndDisks_whenSingleSiteHasSeededPrivacyGrant',
             'shouldRestrictBothViewsAndDiskRows_whenMultisitePrivacyIsGranted',
             'shouldShowUnassignedBillersAndDisks_whenMultisiteHasNoPrivacyGrant',
+            'shouldLimitHistoryToTheTeam_whenSingleSiteLoginHasOnlyTeamBillingAndSeededSiteGrants',
+            'shouldRequireTeamAndSiteForHistory_whenOnlyTeamBillingAndMultisiteGrantsArePresent',
+            'shouldRetainTeamAccessPrecedence_whenBothMultisiteAndTeamPrivacyAreGranted',
         }
         self.assertEqual(MODULE.REQUIRED_CASES[family], names)
         self.assertEqual(MODULE.REQUIRED['flyway'][family], len(names))

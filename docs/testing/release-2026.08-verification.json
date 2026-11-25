@@ -1761,7 +1761,7 @@
         "LabResultDataAcknowledgementCountUnitTest": 10,
         "IncomingDocumentQueuePreferenceIntegrationTest": 9,
         "ScheduleDateOverrideServiceIntegrationTest": 19,
-        "BillingOnSiteVisibilityIntegrationTest": 3
+        "BillingOnSiteVisibilityIntegrationTest": 6
       },
       "requireCoverage": true,
       "routedSkips": {
@@ -5199,6 +5199,18 @@
             {
               "name": "shouldShowUnassignedBillersAndDisks_whenMultisiteHasNoPrivacyGrant",
               "container": ""
+            },
+            {
+              "name": "shouldLimitHistoryToTheTeam_whenSingleSiteLoginHasOnlyTeamBillingAndSeededSiteGrants",
+              "container": ""
+            },
+            {
+              "name": "shouldRequireTeamAndSiteForHistory_whenOnlyTeamBillingAndMultisiteGrantsArePresent",
+              "container": ""
+            },
+            {
+              "name": "shouldRetainTeamAccessPrecedence_whenBothMultisiteAndTeamPrivacyAreGranted",
+              "container": ""
             }
           ]
         }
@@ -5381,7 +5393,7 @@
         "DemographicUpdateDaoTransactionIntegrationTest": 30,
         "IncomingDocumentQueuePreferenceIntegrationTest": 9,
         "ScheduleDateOverrideServiceIntegrationTest": 19,
-        "BillingOnSiteVisibilityIntegrationTest": 3
+        "BillingOnSiteVisibilityIntegrationTest": 6
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
