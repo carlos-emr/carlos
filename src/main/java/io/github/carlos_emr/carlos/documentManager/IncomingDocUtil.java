@@ -1179,21 +1179,12 @@ public final class IncomingDocUtil {
      */
     public static String getAndSetIncomingDocQueue(String user_no, String selectedQueue) {
         UserPropertyDAO preferences = SpringUtils.getBean(UserPropertyDAO.class);
-        UserProperty preference = preferences.getProp(user_no, UserProperty.INCOMING_DOCUMENT_DEFAULT_QUEUE);
-        String storedQueue = preference == null ? null : preference.getValue();
-        if (selectedQueue == null) {
-            return storedQueue == null ? "1" : storedQueue;
+        if (selectedQueue != null) {
+            preferences.selectIncomingDocumentQueue(user_no, selectedQueue);
+            return selectedQueue;
         }
-        if (!selectedQueue.equals(storedQueue)) {
-            if (preference == null) {
-                preference = new UserProperty();
-                preference.setName(UserProperty.INCOMING_DOCUMENT_DEFAULT_QUEUE);
-                preference.setProviderNo(user_no);
-            }
-            preference.setValue(selectedQueue);
-            preferences.saveProp(preference);
-        }
-        return selectedQueue;
+        UserProperty preference = preferences.findIncomingDocumentQueue(user_no);
+        return preference == null || preference.getValue() == null ? "1" : preference.getValue();
     }
 
     /**
