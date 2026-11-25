@@ -166,6 +166,14 @@ public class EmailReminderChannel implements AppointmentReminderChannel {
             // Before the email reached EmailManager's send: nothing was sent, so it is a definite failure.
             return ReminderOutcome.because(AppointmentReminderStatus.FAILED, e);
         }
+        return sendThroughEmailManager(system, email);
+    }
+
+    /**
+     * Hands the reminder to {@link EmailManager}. What it refuses or fails before its dispatch gate runs was not
+     * sent; an exception once the gate has run is rethrown, for the service to record as unconfirmed.
+     */
+    private ReminderOutcome sendThroughEmailManager(LoggedInInfo system, EmailData email) {
         // Set by EmailManager immediately before it asks the transport to send: until then nothing has left.
         AtomicBoolean dispatching = new AtomicBoolean();
         try {

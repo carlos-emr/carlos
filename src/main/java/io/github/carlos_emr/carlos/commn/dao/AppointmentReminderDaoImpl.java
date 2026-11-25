@@ -50,6 +50,8 @@ import java.util.Optional;
 public class AppointmentReminderDaoImpl extends AbstractDaoImpl<AppointmentReminder> implements AppointmentReminderDao {
 
     static final int MAX_LIMIT = 500;
+    /** The query parameter for the time before which a claim counts as abandoned. */
+    private static final String STALE_BEFORE = "staleBefore";
 
     public AppointmentReminderDaoImpl() {
         super(AppointmentReminder.class);
@@ -101,7 +103,7 @@ public class AppointmentReminderDaoImpl extends AbstractDaoImpl<AppointmentRemin
                         + "ORDER BY a.appointmentDate, a.startTime, r.id",
                 Object[].class);
         query.setParameter("channel", channel);
-        query.setParameter("staleBefore", staleBefore);
+        query.setParameter(STALE_BEFORE, staleBefore);
         query.setParameter("firstDate", java.sql.Date.valueOf(earliestStart.toLocalDate()));
         query.setParameter("lastDate", java.sql.Date.valueOf(latestStart.toLocalDate()));
         query.setParameter("firstTime", java.sql.Time.valueOf(earliestStart.toLocalTime().withNano(0)));
@@ -191,7 +193,7 @@ public class AppointmentReminderDaoImpl extends AbstractDaoImpl<AppointmentRemin
                         + "AND (r.claimToken IS NULL OR r.claimedAt < :staleBefore) ORDER BY r.id",
                 AppointmentReminder.class);
         query.setParameter("ids", ids);
-        query.setParameter("staleBefore", staleBefore);
+        query.setParameter(STALE_BEFORE, staleBefore);
         query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
         query.setHint(SpecHints.HINT_SPEC_LOCK_TIMEOUT, Timeouts.SKIP_LOCKED_MILLI);
         List<AppointmentReminder> claimed = query.getResultList();
@@ -215,7 +217,7 @@ public class AppointmentReminderDaoImpl extends AbstractDaoImpl<AppointmentRemin
                 AppointmentReminder.class);
         query.setParameter("channel", channel);
         query.setParameter("sending", AppointmentReminderStatus.SENDING);
-        query.setParameter("staleBefore", staleBefore);
+        query.setParameter(STALE_BEFORE, staleBefore);
         query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
         query.setHint(SpecHints.HINT_SPEC_LOCK_TIMEOUT, Timeouts.SKIP_LOCKED_MILLI);
         query.setMaxResults(MAX_LIMIT);

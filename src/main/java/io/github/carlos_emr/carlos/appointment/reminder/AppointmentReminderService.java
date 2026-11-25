@@ -388,7 +388,8 @@ public class AppointmentReminderService {
         try {
             Started started = transactions.execute(
                     status -> start(reminderId, claimToken, LocalDateTime.now(clock), visit));
-            return started == null ? Started.NOT_STARTED : started;
+            // The transaction's contract allows no answer: nothing was marked, so it is not started.
+            return Objects.requireNonNullElse(started, Started.NOT_STARTED);
         } catch (RuntimeException e) {
             // Not marked and not sent: the claim lapses and a later run takes the row. The class only.
             logger.error("Appointment reminder {} could not be started ({})", reminderId, e.getClass().getName());
