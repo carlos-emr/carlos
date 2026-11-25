@@ -27,7 +27,9 @@ The clinic email footer must be configured, as for every patient email. The `app
   that window is reminded at the next run, as long as more than 2 hours remain.
 - **Once per start:** each appointment start is reminded once. Moving the appointment by changing its date or time
   (Edit Appointment, dragging it on the schedule, REST, HL7, or a change to a whole repeat series) makes it due
-  again for the new start. Unticking the box stops it. A reminder already sent cannot be recalled.
+  again for the new start. Giving the appointment to another patient on Edit makes it due again for that patient:
+  each attempt records the patient it was for. Unticking the box stops it. A reminder already sent cannot be
+  recalled.
 - **The other buttons on the form keep it:**
   - **Repeat Booking** books every repeat with the box as it was on the form, and a repeat-series **Group Update**
     applies it to every appointment in the series.
@@ -42,21 +44,28 @@ The clinic email footer must be configured, as for every patient email. The `app
     (`appointmentaddrecordcard.jsp`), which nothing posts to with an existing appointment. Without a creation time,
     a booking counts as already there.
     While another booking's reminder for that time is being sent, it waits for the next run; if the check itself
-    fails, nothing is sent and it is tried once more 30 minutes later.
+    fails, nothing is sent and it is tried once more 30 minutes later. The check holds only for the patient and time
+    it looked at: a booking moved, or given to another patient, while the job was checking it is checked again.
   - **Group Action, then Group Update**, books each appointment again under a new number. Its reminder, and the
     start already reminded for, go with it, so the same start is not reminded twice. The Edit form's box applies to
     the appointment Edit was opened for. These reminder steps run only after the group change has been saved: if
-    one fails, the appointments stay saved and the page says the reminder was not recorded (tick the box again).
+    one fails, the appointments stay saved and the page says the reminder setting was not recorded. Reopen the
+    appointment, check its Email Reminder setting, and save the choice you intended. If a reminder could not move to
+    the new booking, the box is not applied to that booking either, so a start already reminded is not reminded
+    again from a fresh choice.
+  - **A repeat-series Group Update from a form that is out of date** (another user saved the appointment since) is
+    refused, as for any other changed field, when its Email Reminder box differs from the choice saved now.
 - **Cut and Paste does not keep it:** the pasted appointment is new, and the choice is not copied, so tick the box
   on it if it should be reminded.
 - **Retry:** one retry, 30 minutes after a definite failure (the mail server refused it, or it failed before
-  being handed over). A refusal (consent, address, setup) or an unconfirmed send is never retried, so a patient is
+  being handed over, such as when its Manage Emails record could not be saved). A refusal (consent, address, setup)
+  or an unconfirmed send is never retried, so a patient is
   not emailed twice. The job does not know about a resend from Manage Emails: if staff resend a failed reminder
   there within those 30 minutes, the job's retry still goes and the patient gets two. Wait for the retry (the
   line under the box shows its outcome), or resend only once it has also failed.
 - **A restart while sending:** the job marks each reminder just before sending it. If the server stops between that
-  mark and the outcome, that one reminder shows "sent, but the mail server did not confirm it" after 15 minutes,
-  and is never sent again. Reminders the job had not reached go at a later run.
+  mark and the outcome, that one reminder shows that its delivery could not be confirmed after 15 minutes (it may
+  or may not have gone), and is never sent again. Reminders the job had not reached go at a later run.
 
 ## What the patient receives
 The subject is "Appointment reminder: {clinic}". The body:
@@ -78,7 +87,8 @@ These need several bookings for the same patient at the same time, and a change 
 - **A covered booking stays covered for that time.** A booking is covered, and recorded as `DUPLICATE`, when another
   booking's reminder already went for that time (that booking still at it, or this one already there when it went:
   see the Group Appt bullet above), or when another booking still at that time has an earlier reminder
-  (its box was first ticked before this one's) that has not already ended without one going. `DUPLICATE` is final for
+  (its box was first ticked before this one's) that has not already ended without one going (a refusal, a failure
+  with no retry left, or a booking itself covered, which never covers another). `DUPLICATE` is final for
   that time, so the patient gets no reminder for the covered booking if the other booking then moves away (it may
   already have been reminded for the old time, and is reminded again for its new one), is unticked or cancelled
   before its reminder goes, or fails its retry. There is no manual re-send: unticking and ticking the covered
@@ -108,7 +118,9 @@ These need several bookings for the same patient at the same time, and a change 
   email.
 - **Chart:** each reminder is archived to the chart like every patient email, without a chart note.
 - **Audit log:**
-  - ticking and unticking the box: `AppointmentReminder.requested` / `.withdrawn`, under the staff user;
+  - ticking and unticking the box: `AppointmentReminder.requested` / `.withdrawn`, under the staff user, and a
+    Group Update's move of a reminder to the rebooked appointment: `AppointmentReminder.moved`. Each is written in
+    the same transaction as the change it records, so a change that is not saved leaves no audit row;
   - each attempt: `AppointmentReminder.EMAIL.<outcome>`, under the system account (`-1`);
   - no address or message text is logged.
 
