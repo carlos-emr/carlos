@@ -161,11 +161,15 @@ class BillingOnSiteVisibilityIntegrationTest extends CarlosTestBase {
         extract.setGroupNo("0000");
         extract.setSpecialty("00");
         extract.seteFlag("1");
+        var original = billingDao.findByProviderStatusAndDates(LOCAL, LOCAL, List.of("O"), null);
+        assertThat(original).singleElement().satisfies(claim -> assertThat(claim.getAppointmentNo()).isZero());
         extract.dbQueryForProvider(LOCAL);
         entityManager.flush();
 
         assertThat(jdbc.queryForList("SELECT status FROM billing WHERE provider_ohip_no=? ORDER BY provider_no",
                 String.class, LOCAL)).containsExactly("B", "O");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM billing WHERE provider_ohip_no=? AND appointment_no IS NULL",
+                Integer.class, LOCAL)).isEqualTo(2);
     }
 
     private void shareSiteWithLocalProvider() {

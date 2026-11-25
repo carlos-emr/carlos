@@ -64,6 +64,26 @@ class OhipClaimExtractServiceUnitTest {
     }
 
     @Test
+    void shouldRequireInternalProviderForRestrictedExtract_andQueryOnlyThatProvider() {
+        var bills = mock(BillingDao.class);
+        var extract = new OhipClaimExtractService(bills, mock(BillingDetailDao.class));
+        assertThatThrownBy(() -> extract.dbQueryForProvider(null)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> extract.dbQueryForProvider(" ")).isInstanceOf(IllegalArgumentException.class);
+        org.mockito.Mockito.verifyNoInteractions(bills);
+
+        extract.seteFlag("0");
+        extract.setOhipVer("V03");
+        extract.setProviderNo("123456");
+        extract.setOhipCenter("T");
+        extract.setGroupNo("0000");
+        extract.setSpecialty("00");
+        extract.setBatchCount("1");
+        extract.dbQueryForProvider("803602");
+        org.mockito.Mockito.verify(bills).findByProviderStatusAndDates("123456", "803602", List.of("O", "W"), null);
+        org.mockito.Mockito.verifyNoMoreInteractions(bills);
+    }
+
+    @Test
     void shouldCalculateTotals_withoutBinaryFloatingPointRounding() {
         BillingDao billingDao = mock(BillingDao.class);
         BillingDetailDao billingDetailDao = mock(BillingDetailDao.class);
