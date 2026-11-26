@@ -251,7 +251,39 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
                 Arguments.of("Z13 a repeated value attribute: the first, bare one is the value",
                         "<option value value=\"Smith &amp; Sons\">a</option>",
                         "Smith &amp; Sons",
-                        "<option value value=\"Smith &amp; Sons\">a</option>"));
+                        "<option value value=\"Smith &amp; Sons\">a</option>"),
+                // Text that only LOOKS like a style tag is no style element (#6284 review): the edit is made.
+                Arguments.of("Z14 a comment that mentions a style tag does not stop the edit",
+                        "<!-- a <style> note --><option value=\"Yes\">y</option>",
+                        "Yes",
+                        "<!-- a <style> note --><option selected value=\"Yes\">y</option>"),
+                Arguments.of("Z15 an option group label that holds style text does not stop the edit",
+                        "<optgroup label=\"<style>\"><option value=\"Yes\">y</option></optgroup>",
+                        "Yes",
+                        "<optgroup label=\"<style>\"><option selected value=\"Yes\">y</option></optgroup>"),
+                Arguments.of("Z16 a script that mentions a style tag does not stop the edit",
+                        "<script>var s='<style>';</script><option value=\"Yes\">y</option>",
+                        "Yes",
+                        "<script>var s='<style>';</script><option selected value=\"Yes\">y</option>"),
+                // A no-break space is part of the text, as a browser submits it: it is neither stripped nor the
+                // same as a plain space, so an exact submitted value wins over it.
+                Arguments.of("Z17 a no-break space option does not win over the exact text",
+                        "<option>&nbsp;Yes</option><option>Yes</option>",
+                        "Yes",
+                        "<option>&nbsp;Yes</option><option selected>Yes</option>"),
+                Arguments.of("Z18 the no-break space text is chosen when it is the wanted text",
+                        "<option>&nbsp;Yes</option><option>Yes</option>",
+                        " Yes",
+                        "<option selected>&nbsp;Yes</option><option>Yes</option>"),
+                // Taking selected out of another option never runs its value into the attribute that follows.
+                Arguments.of("Z19 selected after a value, then another attribute",
+                        "<option value=No selected title=t>n</option><option value=Yes>y</option>",
+                        "Yes",
+                        "<option value=No title=t>n</option><option selected value=Yes>y</option>"),
+                Arguments.of("Z20 selected with no white space before the next attribute",
+                        "<option value=No selected=\"\"title=t>n</option><option value=Yes>y</option>",
+                        "Yes",
+                        "<option value=No title=t>n</option><option selected value=Yes>y</option>"));
     }
 
     @ParameterizedTest(name = "{0}")
