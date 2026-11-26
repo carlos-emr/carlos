@@ -36,6 +36,20 @@ public class FormGrowth0To36Dao extends AbstractDaoImpl<FormGrowth0To36> {
         return rows.isEmpty() ? null : rows.getFirst();
     }
 
+    /**
+     * The latest edit time of the patient's Growth versions, including versions the caller's
+     * transaction has saved but not committed (the query flushes them first). A new version's edit
+     * time is taken after it, so each version keeps its own XML archive identity.
+     *
+     * @param patient the patient's demographic number
+     * @return the latest {@code formEdited}, or {@code null} when the patient has no version
+     */
+    @Transactional(readOnly = true)
+    public Date findLatestEdited(int patient) {
+        return entityManager.createQuery("SELECT MAX(f.formEdited) FROM FormGrowth0To36 f WHERE f.demographicNo = :patient",
+                Date.class).setParameter(PATIENT_PARAMETER, patient).getSingleResult();
+    }
+
     /** Metadata consumed by encounter shortcuts, Rourke graphs and eForm growth overlays. */
     public record Version(Integer id, Integer patient, Date created, Date edited) { }
 
@@ -66,9 +80,11 @@ public class FormGrowth0To36Dao extends AbstractDaoImpl<FormGrowth0To36> {
 
     /**
      * Keeps the optional legacy XML interchange's JDBC column names and value encoding.
-     * A fresh transaction is required because this read is called after the save commits.
+     * Called after the save commits, while the save's EntityManager and connection are still
+     * bound: SUPPORTS reads through them, where a new transaction would hold a second pooled
+     * connection per archived save (issue #5693 review).
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+    @Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
     public Document readArchive(int patient, int id) {
         return entityManager.unwrap(Session.class).doReturningWork(connection -> {
             try (var query = connection.prepareStatement("SELECT * FROM formGrowth0_36 WHERE demographic_no = ? AND ID = ?")) {

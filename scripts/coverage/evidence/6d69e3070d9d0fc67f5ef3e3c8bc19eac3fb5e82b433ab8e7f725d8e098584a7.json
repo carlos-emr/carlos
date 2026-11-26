@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "4315a1068113cab5880c7ff8bcb7a812db5f051e",
+  "comparisonSha256": "9ab6c536c210ef5d51f073c4c35b379c2c14dcd418b4271ef276e89395687137",
+  "baselineCommit": "16ee8a1b2fe67d7d0b73597de446df7f9029d63e",
+  "baselineSourceTree": "4315a1068113cab5880c7ff8bcb7a812db5f051e",
+  "baselineReportSha256": "d6b92750c27a688226df0b9481dfb24c3ff067c64f0191fbc1d95c372b40fa22",
+  "baselineLane": "PR #6376 focused OpenJDK 25 Maven tests for JDBC diagnostic tracking, request abort cleanup, metadata defaults and MariaDB JDBC compatibility, with JaCoCo 0.8.16.",
+  "baselineTestCounts": {
+    "tests": 93,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "71a40c41ddd96b9fd0623285adaf2c0118ebbe07eebaa8df2b7b697ca3cccd07",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/utility/OscarTrackingBasicDataSource.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "b86efb419aff4924015e54f31c1529fc640955ce"
+    }
+  }
+}

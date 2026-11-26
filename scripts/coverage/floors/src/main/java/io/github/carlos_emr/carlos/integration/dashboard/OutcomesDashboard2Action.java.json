@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/integration/dashboard/OutcomesDashboard2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 93.75,
+    "sourceBlob": "c2b232459b8b9dbf0d7c85c2d71fdb2ccc4f54fb"
+  },
+  "evidenceSha256": "91cd3daee766f60c96f1e6cad5544999bca0b27c4c03b8ce3b071ebc9299c6a3"
+}

@@ -29,6 +29,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Tag;
@@ -59,11 +60,11 @@ class OscarTrackingBasicDataSourceUnitTest extends CarlosUnitTestBase {
         when(delegate.isClosed()).thenReturn(false);
         Connection trackedConnection = track(delegate);
 
-        assertThat(OscarTrackingBasicDataSource.debugMap).containsKey(trackedConnection);
+        assertThat(OscarTrackingBasicDataSource.isConnectionTracked(trackedConnection)).isTrue();
 
         OscarTrackingBasicDataSource.clearTrackingState();
 
-        assertThat(OscarTrackingBasicDataSource.debugMap).isEmpty();
+        assertThat(OscarTrackingBasicDataSource.trackedConnectionCount()).isZero();
         verify(delegate).close();
     }
 
@@ -83,6 +84,31 @@ class OscarTrackingBasicDataSourceUnitTest extends CarlosUnitTestBase {
         assertThat(ownedConnections(owner)).isEmpty();
         assertThat(trackedThreadConnectionSets()).isEmpty();
         verify(connection).close();
+    }
+
+    @Test
+    void shouldLogTheAcquisitionTrace_withoutDrainingTheLease() throws Exception {
+        Connection tracked = track(mock(Connection.class));
+        try (LogCapture capture = LogCapture.forLogger(OscarTrackingBasicDataSource.logger.getName())) {
+            OscarTrackingBasicDataSource.logDebugMapToError();
+            assertThat(capture.messages()).anySatisfy(message ->
+                    assertThat(message).contains(tracked.toString(), ".trackConnection("));
+        }
+        assertThat(OscarTrackingBasicDataSource.isConnectionTracked(tracked)).isTrue();
+    }
+
+    @Test
+    void shouldLeaveExtensionHashCodeOutsideDiagnostics_whenCheckingOrClosingAnExternalWrapper() throws Exception {
+        Connection delegate = mock(Connection.class);
+        Connection external = new OscarTrackingBasicDataSource.TrackingJdbcConnection(delegate) {
+            @Override
+            public int hashCode() {
+                throw new AssertionError("Diagnostics called an extension's hashCode");
+            }
+        };
+        assertThat(OscarTrackingBasicDataSource.isConnectionTracked(external)).isFalse();
+        external.close();
+        verify(delegate).close();
     }
 
     @Test
@@ -106,7 +132,8 @@ class OscarTrackingBasicDataSourceUnitTest extends CarlosUnitTestBase {
             close.invoke(null, owner, "FAKE close failed");
 
             assertThat(ownedConnections(owner)).containsExactly(later.get()).doesNotContain(tracked);
-            assertThat(OscarTrackingBasicDataSource.debugMap).doesNotContainKey(tracked).containsKey(later.get());
+            assertThat(OscarTrackingBasicDataSource.isConnectionTracked(tracked)).isFalse();
+            assertThat(OscarTrackingBasicDataSource.isConnectionTracked(later.get())).isTrue();
             verify(delegate).close();
             verify(laterDelegate, never()).close();
         }
@@ -126,7 +153,7 @@ class OscarTrackingBasicDataSourceUnitTest extends CarlosUnitTestBase {
             connection.close();
 
             assertThat(ownedConnections(ownerConnections.get())).isEmpty();
-            assertThat(OscarTrackingBasicDataSource.debugMap).doesNotContainKey(connection);
+            assertThat(OscarTrackingBasicDataSource.isConnectionTracked(connection)).isFalse();
             verify(delegate).close();
         }
     }
@@ -164,31 +191,39 @@ class OscarTrackingBasicDataSourceUnitTest extends CarlosUnitTestBase {
 
             assertThat(ownedConnections(owner)).isEmpty();
             assertThat(ownedConnections(currentOwner())).containsExactly(unrelated);
-            assertThat(OscarTrackingBasicDataSource.debugMap).containsKey(transferred);
+            assertThat(OscarTrackingBasicDataSource.isConnectionTracked(transferred)).isTrue();
             ownerThread.submit(OscarTrackingBasicDataSource::releaseThreadConnections).get(5, TimeUnit.SECONDS);
             OscarTrackingBasicDataSource.releaseThreadConnections();
             verify(delegate, never()).close();
             verify(unrelatedDelegate).close();
-            assertThat(OscarTrackingBasicDataSource.debugMap).containsOnlyKeys(transferred);
+            assertThat(OscarTrackingBasicDataSource.trackedConnectionCount()).isOne();
+            assertThat(OscarTrackingBasicDataSource.isConnectionTracked(transferred)).isTrue();
 
             transferred.close();
             verify(delegate).close();
-            assertThat(OscarTrackingBasicDataSource.debugMap).isEmpty();
+            assertThat(OscarTrackingBasicDataSource.trackedConnectionCount()).isZero();
         }
     }
 
     @Test
-    void shouldRetainShutdownCleanup_forATransferredLease() throws Exception {
+    void shouldDrainDetachedLeaseOutsideDiagnosticsLock_atShutdown() throws Exception {
         Connection delegate = mock(Connection.class);
         Connection transferred = track(delegate);
         OscarTrackingBasicDataSource.detachFromRequestCleanup(transferred);
         OscarTrackingBasicDataSource.releaseThreadConnections();
         verify(delegate, never()).close();
 
-        OscarTrackingBasicDataSource.clearTrackingState();
+        try (var observer = Executors.newSingleThreadExecutor()) {
+            doAnswer(call -> {
+                assertThat(observer.submit(OscarTrackingBasicDataSource::trackedConnectionCount)
+                        .get(5, TimeUnit.SECONDS)).isZero();
+                return null;
+            }).when(delegate).close();
+            OscarTrackingBasicDataSource.clearTrackingState();
+        }
 
         verify(delegate).close();
-        assertThat(OscarTrackingBasicDataSource.debugMap).isEmpty();
+        assertThat(OscarTrackingBasicDataSource.trackedConnectionCount()).isZero();
     }
 
     @Test
@@ -198,6 +233,9 @@ class OscarTrackingBasicDataSourceUnitTest extends CarlosUnitTestBase {
         // No lease has been tracked on this thread, so this public wrapper has no owner.
         Connection ownerless = new OscarTrackingBasicDataSource.TrackingJdbcConnection(delegate);
 
+        assertThat(OscarTrackingBasicDataSource.isConnectionTracked(ordinary)).isFalse();
+        assertThat(OscarTrackingBasicDataSource.isConnectionTracked(ownerless)).isFalse();
+        assertThat(OscarTrackingBasicDataSource.isConnectionTracked(null)).isFalse();
         OscarTrackingBasicDataSource.detachFromRequestCleanup(ordinary);
         OscarTrackingBasicDataSource.detachFromRequestCleanup(ownerless);
         OscarTrackingBasicDataSource.detachFromRequestCleanup(null);
