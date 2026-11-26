@@ -190,4 +190,53 @@ class AbstractModelEqualityUnitTest {
         assertThat(new Probe(null).equals(new OtherProbe(null))).isFalse();
         assertThat(new Probe(null).equals(new OtherProbe(5))).isFalse();
     }
+
+    /** Entity keyed by a non-numeric identifier, which diagnostics must not print. */
+    private static final class StringKeyed extends AbstractModel<String> {
+        @Override
+        public String getId() {
+            return "999998";
+        }
+    }
+
+    /** Entity keyed by a Long identifier. */
+    private static final class LongKeyed extends AbstractModel<Long> {
+        @Override
+        public Long getId() {
+            return 12L;
+        }
+    }
+
+    @Test
+    @DisplayName("should report only the type and a numeric identifier in toString")
+    void shouldReportTypeAndNumericId_inToString() {
+        assertThat(new Probe(5).toString()).isEqualTo("Probe[id=5]");
+        assertThat(new LongKeyed().toString()).isEqualTo("LongKeyed[id=12]");
+        assertThat(new Probe(null).toString()).isEqualTo("Probe[id=null]");
+        assertThat(new StringKeyed().toString()).isEqualTo("StringKeyed[id=protected]");
+    }
+
+    @Test
+    @DisplayName("should report whether an identifier has been assigned")
+    void shouldReportPersistence_byIdentifier() {
+        assertThat(new Probe(null).isPersistent()).isFalse();
+        assertThat(new Probe(1).isPersistent()).isTrue();
+    }
+
+    @Test
+    @DisplayName("should find a list entry that shares the primary key")
+    void shouldFindListEntry_byPrimaryKey() {
+        List<Probe> list = List.of(new Probe(1), new Probe(2));
+
+        assertThat(AbstractModel.existsId(list, new Probe(2))).isTrue();
+        assertThat(AbstractModel.existsId(list, new Probe(3))).isFalse();
+        assertThat(AbstractModel.existsId(List.<Probe>of(), new Probe(1))).isFalse();
+    }
+
+    @Test
+    @DisplayName("should join identifiers as a comma separated list")
+    void shouldJoinIdentifiers_asCommaSeparatedList() {
+        assertThat(AbstractModel.getIdsAsStringList(List.of(new Probe(1), new Probe(22)))).isEqualTo("1,22,");
+        assertThat(AbstractModel.getIdsAsStringList(List.<Probe>of())).isEmpty();
+    }
 }
