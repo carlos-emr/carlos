@@ -16,6 +16,7 @@ import java.io.ByteArrayInputStream;
 
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.RequestDispatcher;
+import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -40,7 +41,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -147,6 +150,51 @@ class ViewForm2ActionTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
         verify(mockResponse).sendError(HttpServletResponse.SC_NOT_FOUND);
+    }
+
+    @Test
+    void shouldHandTheRefusalToTheSecurityMapping_whenTheForwardedFormRefusesTheRecord() throws Exception {
+        ActionContext.of().withActionName("form/formannual").bind();
+        when(mockRequest.getDispatcherType()).thenReturn(DispatcherType.REQUEST);
+        SecurityException refusal = new SecurityException("missing required sec object (_form)");
+        // Jasper wraps an exception a page throws while rendering.
+        doThrow(new ServletException(new RuntimeException(refusal))).when(mockDispatcher).forward(mockRequest, mockResponse);
+
+        assertThatThrownBy(() -> action.execute()).isSameAs(refusal);
+        verify(mockResponse).resetBuffer();
+    }
+
+    @Test
+    void shouldKeepTheOriginalFailure_whenTheRefusalArrivesAfterTheResponseWasCommitted() throws Exception {
+        ActionContext.of().withActionName("form/formannual").bind();
+        when(mockRequest.getDispatcherType()).thenReturn(DispatcherType.REQUEST);
+        when(mockResponse.isCommitted()).thenReturn(true);
+        ServletException failure = new ServletException(new SecurityException("missing required sec object (_form)"));
+        doThrow(failure).when(mockDispatcher).forward(mockRequest, mockResponse);
+
+        assertThatThrownBy(() -> action.execute()).isSameAs(failure);
+        verify(mockResponse, never()).resetBuffer();
+    }
+
+    @Test
+    void shouldKeepOtherForwardFailures_unchanged() throws Exception {
+        ActionContext.of().withActionName("form/formannual").bind();
+        when(mockRequest.getDispatcherType()).thenReturn(DispatcherType.REQUEST);
+        ServletException failure = new ServletException(new IllegalStateException("render failure"));
+        doThrow(failure).when(mockDispatcher).forward(mockRequest, mockResponse);
+
+        assertThatThrownBy(() -> action.execute()).isSameAs(failure);
+        verify(mockResponse, never()).resetBuffer();
+    }
+
+    @Test
+    void shouldKeepTheIncludeFailure_whenAnIncludedFormRefusesTheRecord() throws Exception {
+        ActionContext.of().withActionName("form/formannual").bind();
+        when(mockRequest.getDispatcherType()).thenReturn(DispatcherType.INCLUDE);
+        ServletException failure = new ServletException(new SecurityException("missing required sec object (_form)"));
+        doThrow(failure).when(mockDispatcher).include(mockRequest, mockResponse);
+
+        assertThatThrownBy(() -> action.execute()).isSameAs(failure);
     }
 
     @Test

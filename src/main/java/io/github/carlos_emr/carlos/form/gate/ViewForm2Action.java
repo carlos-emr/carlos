@@ -33,6 +33,8 @@ import org.apache.struts2.ServletActionContext;
  */
 public class ViewForm2Action extends ActionSupport {
 
+    private static final int MAX_CAUSE_DEPTH = 16;
+
     private SecurityInfoManager securityInfoManager =
             SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -63,8 +65,33 @@ public class ViewForm2Action extends ActionSupport {
         if (request.getDispatcherType() == DispatcherType.INCLUDE) {
             request.getRequestDispatcher(internalView).include(request, response);
         } else {
-            request.getRequestDispatcher(internalView).forward(request, response);
+            try {
+                request.getRequestDispatcher(internalView).forward(request, response);
+            } catch (ServletException | RuntimeException failure) {
+                // A form page's record service refuses another patient's or a missing version
+                // while the page renders (issue #5693). The container would answer that with
+                // its generic 500 page; hand the refusal to the package's SecurityException
+                // mapping instead, which answers 403, as long as nothing has been sent yet.
+                SecurityException refusal = securityRefusal(failure);
+                if (refusal == null || response.isCommitted()) {
+                    throw failure;
+                }
+                response.resetBuffer();
+                throw refusal;
+            }
         }
         return NONE;
+    }
+
+    /** The SecurityException that caused a failed forward, or {@code null} for any other failure. */
+    static SecurityException securityRefusal(Throwable failure) {
+        // Bounded: a cause chain can be made cyclic, and the wrapping is only a few levels deep.
+        Throwable cause = failure;
+        for (int depth = 0; cause != null && depth < MAX_CAUSE_DEPTH; depth++, cause = cause.getCause()) {
+            if (cause instanceof SecurityException refusal) {
+                return refusal;
+            }
+        }
+        return null;
     }
 }

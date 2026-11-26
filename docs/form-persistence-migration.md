@@ -286,7 +286,9 @@ the JSPs, `encounterForm` registrations, view gate and XML import allowlist are 
 - **Changed on purpose.** A new form's prefill now reads the master record through
   `DemographicManager` (with its access check and health-care-team audit) instead
   of raw JDBC. Reopening a missing or another patient's version is refused instead
-  of showing an empty form, and a post without `studyID` is refused before any
+  of showing an empty form; `ViewForm2Action` hands that refusal to the form
+  package's `SecurityException` mapping, so the browser gets the 403 security page
+  rather than the container's 500 (this also applies to Growth 0–36), and a post without `studyID` is refused before any
   write instead of failing on the `NOT NULL` column. A non-numeric provider number,
   which the retired writer stored as 0, is refused as in the Growth slice.
 
