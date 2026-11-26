@@ -196,7 +196,9 @@ emit cfg.labFilter.sha "${value:0:16}"
 # definition, the one java.util.Properties keeps; with a single definition it is the span the rewrite compares
 # with the stock line, so a stock-looking line that is really part of another property's continued value is
 # not taken for the definition. A newline is added at the end of the file, as the stock digests carry one;
-# "none" when the key is not defined.
+# "none" when the key is not defined. cfg.labFilter.outside.sha digests the physical lines that would define the
+# key if they began a logical line but continue another property's value (Java reads them as part of that value):
+# the digest of nothing when there are none, so the verifier can check them apart from the definition.
 value=$(python3 - "$CARLOS_ETC_DIR/carlos.properties" <<'PY' || true
 import hashlib
 import re
@@ -241,6 +243,33 @@ def filter_definitions(content):
         if is_filter_definition(logical):
             yield start, len(content), logical
 
+def hidden_definitions(content):
+    """Physical lines that would define the key if they began a logical line, but continue another property's value."""
+    start = None
+    parts = []
+    hidden = []
+    for physical in re.finditer(rb"[^\r\n]*(?:\r\n|\r|\n|$)", content):
+        if not physical[0]:
+            break
+        line = physical[0].rstrip(b"\r\n").lstrip(b" \t\f")
+        continued = (len(line) - len(line.rstrip(b"\\"))) % 2
+        if start is None:
+            if not line or line.startswith((b"#", b"!")):
+                continue
+            start = physical.start()
+        elif is_filter_definition(line[:-1] if continued else line):
+            hidden.append(physical[0].rstrip(b"\r\n") + b"\n")
+        if continued:
+            parts.append(line[:-1])
+            continue
+        if not is_filter_definition(b"".join([*parts, line])):
+            yield from hidden
+        start = None
+        parts.clear()
+        hidden = []
+    if start is not None and not is_filter_definition(b"".join(parts)):
+        yield from hidden
+
 try:
     with open(sys.argv[1], "rb") as handle:
         content = handle.read()
@@ -252,13 +281,15 @@ if definitions:
     start, end, _ = definitions[-1]
     span = content[start:end]
     effective = hashlib.sha256(span if span.endswith(b"\n") else span + b"\n").hexdigest()[:16]
-print(len(definitions), effective)
+outside = hashlib.sha256(b"".join(hidden_definitions(content))).hexdigest()[:16]
+print(len(definitions), effective, outside)
 PY
 )
-lf_count=''; lf_effective=''
-read -r lf_count lf_effective <<<"$value" || true
+lf_count=''; lf_effective=''; lf_outside=''
+read -r lf_count lf_effective lf_outside <<<"$value" || true
 emit cfg.labFilter.logical "${lf_count:-unknown}"
 emit cfg.labFilter.effective.sha "${lf_effective:-unknown}"
+emit cfg.labFilter.outside.sha "${lf_outside:-unknown}"
 value=''
 if [[ -r $CARLOS_SHARE_DIR/skel/carlos.properties ]]; then
     value=$({ grep -E '^HL7_LAB_MEASUREMENT_FILTER=' "$CARLOS_SHARE_DIR/skel/carlos.properties" || true; } | sha256sum) || exit 1

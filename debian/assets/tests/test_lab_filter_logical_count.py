@@ -63,6 +63,7 @@ SPELLINGS = [
     b"HL7_LAB_\\u004dEASUREMENT_FILTER=unicode escape\n",
     b"HL7_LAB_MEASUREMENT_\\\n   FILTER=continued key\n",
     b"other=value\\\n" + KEY.encode() + b"=inside another value\nafter=1\n",
+    b"other=value\\\n" + KEY.encode() + b"=example inside another value\n" + KEY.encode() + b"=the definition\n",
     KEY.encode() + b"=first\n" + b"HL7_LAB_MEASUREMENT\\_FILTER=second\n",
     KEY.encode() + b"=first\r\n" + KEY.encode() + b"=second\r\n",
     KEY.encode() + b"=a\\\\\n" + KEY.encode() + b"=b\n",            # an escaped backslash does not continue the line
@@ -71,6 +72,15 @@ SPELLINGS = [
     b"HL7_LAB_MEASUREMENT\\ FILTER=escaped space is part of another key\n",
     b"\\HL7_LAB_MEASUREMENT_FILTER=leading escape\n",
 ]
+
+
+# The lines that would define the key but continue another property's value (cfg.labFilter.outside.sha).
+HIDDEN = {
+    b"other=value\\\n" + KEY.encode() + b"=inside another value\nafter=1\n":
+        KEY.encode() + b"=inside another value\n",
+    b"other=value\\\n" + KEY.encode() + b"=example inside another value\n" + KEY.encode() + b"=the definition\n":
+        KEY.encode() + b"=example inside another value\n",
+}
 
 
 class TestLabFilterLogicalCount(unittest.TestCase):
@@ -93,7 +103,8 @@ class TestLabFilterLogicalCount(unittest.TestCase):
 
     def test_the_baseline_records_the_span_of_the_definition_java_uses(self):
         # cfg.labFilter.effective.sha: the digest of the physical span of the LAST definition (newline-terminated),
-        # which, with one definition, is the span the postinst compares with the stock line.
+        # which, with one definition, is the span the postinst compares with the stock line; and the digest of the
+        # lines that would define the key inside another property's value.
         text = BASELINE.read_text(encoding="utf-8")
         body = re.search(r"python3 - \"\$CARLOS_ETC_DIR/carlos\.properties\" <<'PY'[^\n]*\n(.*?)\nPY\n", text, re.S).group(1)
         postinst = postinst_parser()
@@ -109,11 +120,12 @@ class TestLabFilterLogicalCount(unittest.TestCase):
                     start, end, _ = definitions[-1]
                     span = content[start:end]
                     expected = hashlib.sha256(span if span.endswith(b"\n") else span + b"\n").hexdigest()[:16]
-                self.assertEqual(printed, [str(len(definitions)), expected], content)
+                outside = hashlib.sha256(HIDDEN.get(content, b"")).hexdigest()[:16]
+                self.assertEqual(printed, [str(len(definitions)), expected, outside], content)
             path.unlink()
             missing = subprocess.run([sys.executable, "-I", "-c", body, str(path)], capture_output=True,
                                      text=True, check=True).stdout.split()
-            self.assertEqual(missing, ["0", "none"])
+            self.assertEqual(missing, ["0", "none", hashlib.sha256(b"").hexdigest()[:16]])
 
 
 if __name__ == "__main__":

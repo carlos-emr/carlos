@@ -426,13 +426,17 @@ test('upgrade baseline records the span of the definition Java uses', t => {
   const fixture = labFilterWordsFixture(t);
   const sha = text => crypto.createHash('sha256').update(text).digest('hex').slice(0, 16);
   const effective = () => /^cfg\.labFilter\.effective\.sha=(.*)$/m.exec(fs.readFileSync(fixture.env.PRE, 'utf8'))[1];
+  const outside = () => /^cfg\.labFilter\.outside\.sha=(.*)$/m.exec(fs.readFileSync(fixture.env.PRE, 'utf8'))[1];
   assert.equal(effective(), sha(`${LAB_FILTER_WORDS_OLD}\n`));
+  assert.equal(outside(), sha(''));
   // Another property's continuation swallows the stock-looking line: the escaped line is the only definition.
   fs.writeFileSync(fixture.props,
     `rx_fax_enabled=true\nother_setting=value\\\n${LAB_FILTER_WORDS_OLD}\nHL7_LAB_MEASUREMENT\\_FILTER=clinic-specific\nother=kept\n`);
   fixture.baseline();
   assert.match(fs.readFileSync(fixture.env.PRE, 'utf8'), /^cfg\.labFilter\.logical=1$/m);
   assert.equal(effective(), sha('HL7_LAB_MEASUREMENT\\_FILTER=clinic-specific\n'));
+  // ... and the swallowed line is what the outside digest covers.
+  assert.equal(outside(), sha(`${LAB_FILTER_WORDS_OLD}\n`));
   // The last of two definitions; a last line without a newline digests as the stock lines do (with one).
   fs.writeFileSync(fixture.props, `rx_fax_enabled=true\nHL7_LAB_MEASUREMENT\\_FILTER=clinic-specific\n${LAB_FILTER_WORDS_OLD}`);
   fixture.baseline();
@@ -447,14 +451,14 @@ test('upgrade baseline records the span of the definition Java uses', t => {
 const LAB_FILTER_SWALLOWED = `rx_fax_enabled=true\nother_setting=value\\\n${LAB_FILTER_WORDS_OLD}\n`
   + 'HL7_LAB_MEASUREMENT\\_FILTER=clinic-specific\nother=kept\n';
 
-// A PRE snapshot from a baseline that predates cfg.labFilter.logical and cfg.labFilter.effective.sha. The verifier
+// A PRE snapshot from a baseline that predates cfg.labFilter.logical, .effective.sha and .outside.sha. The verifier
 // then takes the count, and for a key whose plain lines the upgrade left alone the definition, from POST: a correct
 // upgrade does not change them (the rewrite turns the one definition it owes into one, and nothing else in an
 // upgrade writes the key).
 function asPreChangeBaseline(snapshot) {
   const lines = fs.readFileSync(snapshot, 'utf8').split('\n');
-  fs.writeFileSync(snapshot, lines.filter(line => !/^cfg\.labFilter\.(logical|effective\.sha)=/.test(line)).join('\n'));
-  assert.doesNotMatch(fs.readFileSync(snapshot, 'utf8'), /^cfg\.labFilter\.(logical|effective\.sha)=/m);
+  fs.writeFileSync(snapshot, lines.filter(line => !/^cfg\.labFilter\.(logical|effective\.sha|outside\.sha)=/.test(line)).join('\n'));
+  assert.doesNotMatch(fs.readFileSync(snapshot, 'utf8'), /^cfg\.labFilter\.(logical|effective\.sha|outside\.sha)=/m);
 }
 
 for (const preChange of [false, true]) {
@@ -485,12 +489,94 @@ for (const preChange of [false, true]) {
       const result = fixture.run('deb-upgrade-verify.sh');
       assert.equal(result.status, 1, result.stdout + result.stderr);
       assert.match(result.stdout, preChange
-        ? /FAIL HL7_LAB_MEASUREMENT_FILTER has 2 definitions, .* could not be established/
+        ? /FAIL HL7_LAB_MEASUREMENT_FILTER: the PRE snapshot predates .* \(POST: 2 definitions\), so whether the definition Java uses was preserved could not be established/
         : /FAIL the HL7_LAB_MEASUREMENT_FILTER definition Java uses \(the last of 2\) changed/);
       assert.doesNotMatch(result.stdout, /was not migrated/);
     });
   }
+
+  // A filter-looking example inside another property's continued value, then the genuine stock definition: the
+  // plain digest covers both lines, the parse sees one definition.
+  const example = 'rx_fax_enabled=true\nother_setting=value\\\nHL7_LAB_MEASUREMENT_FILTER=quoted-example\n';
+  test(`upgrade verifier rejects a skipped rewrite of a stock definition after a filter-looking example${baseline}`, t => {
+    const fixture = labFilterWordsFixture(t);
+    fs.writeFileSync(fixture.props, `${example}${LAB_FILTER_WORDS_OLD}\nother=kept\n`);
+    fixture.baseline();
+    if (preChange) asPreChangeBaseline(fixture.env.PRE);
+    const result = fixture.run('deb-upgrade-verify.sh');
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stdout, /FAIL HL7_LAB_MEASUREMENT_FILTER was not migrated from the #4613 line/);
+    assert.match(result.stdout, /FAIL lab-filter whole-word migration sentinel missing/);
+  });
+
+  test(`upgrade verifier judges the rewrite of a stock definition after a filter-looking example${baseline}`, t => {
+    const fixture = labFilterWordsFixture(t);
+    fs.writeFileSync(fixture.props, `${example}${LAB_FILTER_WORDS_OLD}\nother=kept\n`);
+    fixture.baseline();
+    if (preChange) asPreChangeBaseline(fixture.env.PRE);
+    // The real migration rewrites the genuine definition and leaves the example inside the other value alone.
+    fs.writeFileSync(fixture.props, `${example}${LAB_FILTER_NEW}\nother=kept\n`);
+    fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, LAB_FILTER_WORDS_SENTINEL), '');
+    const result = fixture.run('deb-upgrade-verify.sh');
+    if (preChange) {
+      // An older receipt cannot show what the definition was: say so, rather than pass or report a missed rewrite.
+      assert.equal(result.status, 1, result.stdout + result.stderr);
+      assert.match(result.stdout, /FAIL HL7_LAB_MEASUREMENT_FILTER: POST's only definition is the skeleton's line, but the PRE snapshot predates .* could not be established/);
+      assert.doesNotMatch(result.stdout, /was not migrated/);
+    } else {
+      assert.equal(result.status, 0, result.stdout + result.stderr);
+      assert.doesNotMatch(result.stdout, /FAIL/);
+      assert.match(result.stdout, /PASS the #4613 stock HL7_LAB_MEASUREMENT_FILTER was migrated to the skeleton's whole-word line/);
+    }
+  });
+
+  if (!preChange) {
+    test('upgrade verifier rejects a rewrite that also changed a filter-looking line inside another value', t => {
+      const fixture = labFilterWordsFixture(t);
+      fs.writeFileSync(fixture.props, `${example}${LAB_FILTER_WORDS_OLD}\nother=kept\n`);
+      fixture.baseline();
+      fs.writeFileSync(fixture.props,
+        `${example.replace('quoted-example', 'changed-example')}${LAB_FILTER_NEW}\nother=kept\n`);
+      fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, LAB_FILTER_WORDS_SENTINEL), '');
+      const result = fixture.run('deb-upgrade-verify.sh');
+      assert.equal(result.status, 1, result.stdout + result.stderr);
+      assert.match(result.stdout, /FAIL HL7_LAB_MEASUREMENT_FILTER was rewritten to the skeleton's line, but the lines that would define the key inside other values are not as PRE had them/);
+    });
+  }
+
+  // The clinic's filter is continued; its continuation and another value's trade places. Java now loads ^negative$
+  // instead of ^positive$; the plain first line, the count and the sorted active settings stay as they were.
+  test(`upgrade verifier rejects a continued filter whose continuation traded places with another value's${baseline}`, t => {
+    const layout = (filter, other) =>
+      `rx_fax_enabled=true\nHL7_LAB_MEASUREMENT_FILTER=\\\n  ${filter}\nother_setting=\\\n  ${other}\nother=kept\n`;
+    const fixture = labFilterWordsFixture(t);
+    fs.writeFileSync(fixture.props, layout('^positive$', '^negative$'));
+    fixture.baseline();
+    if (preChange) asPreChangeBaseline(fixture.env.PRE);
+    fs.writeFileSync(fixture.props, layout('^negative$', '^positive$'));
+    fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, LAB_FILTER_WORDS_SENTINEL), '');
+    const result = fixture.run('deb-upgrade-verify.sh');
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stdout, preChange
+      ? /FAIL HL7_LAB_MEASUREMENT_FILTER: the PRE snapshot predates .* \(POST: 1 definitions\), so whether the definition Java uses was preserved could not be established/
+      : /FAIL the HL7_LAB_MEASUREMENT_FILTER definition Java uses \(the last of 1\) changed/);
+  });
 }
+
+test('upgrade verifier rejects a whole-word rewrite that leaves a second definition', t => {
+  // A definition that another value's continuation swallowed becomes a second one before the rewritten line; Java
+  // still reads the skeleton's (the last), but the file changed beyond the one-line rewrite.
+  const fixture = labFilterWordsFixture(t);
+  fs.writeFileSync(fixture.props, 'rx_fax_enabled=true\nother_setting=value\\\n'
+    + `HL7_LAB_MEASUREMENT\\_FILTER=clinic-specific\n${LAB_FILTER_WORDS_OLD}\nother=kept\n`);
+  fixture.baseline();
+  fs.writeFileSync(fixture.props, 'rx_fax_enabled=true\nother_setting=value\n'
+    + `HL7_LAB_MEASUREMENT\\_FILTER=clinic-specific\n${LAB_FILTER_NEW}\nother=kept\n`);
+  fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, LAB_FILTER_WORDS_SENTINEL), '');
+  const result = fixture.run('deb-upgrade-verify.sh');
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  assert.match(result.stdout, /FAIL HL7_LAB_MEASUREMENT_FILTER was not migrated from the #4613 line: definition '[0-9a-f]{16}' \(2 in POST\)/);
+});
 
 test('upgrade verifier still fails a single stock definition left unchanged after a pre-change baseline', t => {
   const fixture = labFilterWordsFixture(t);
