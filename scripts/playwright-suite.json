@@ -6335,12 +6335,13 @@
       "provinces": [
         "all"
       ],
-      "timeoutSec": 120,
+      "timeoutSec": 240,
       "env": [
-        "SHARED_OUTCOMES_TEST_FIXTURE"
+        "SHARED_OUTCOMES_TEST_FIXTURE",
+        "SHARED_OUTCOMES_SEND_PORT"
       ],
-      "notes": "Schedule Common Dashboard launches an encrypted payload with the external provider role (#5053); Playwright stubs all dashboard requests.",
-      "fixtures": "Disposable install with the synthetic Shared Outcomes properties documented in the script. Owned throwaway login and dashboard grants are removed."
+      "notes": "Schedule Common Dashboard launches an encrypted payload with the external provider role (#5053); Playwright stubs all dashboard requests. The refresh the dashboard window requests (#5335) posts to /web/dashboard/OutcomesDashboard and publishes the owned indicator's metric set to a loopback listener standing in for shared_outcomes_dashboard_send_url: payload, a rejected delivery answered 502 and not reported as done, foreign-origin messages ignored, GET and token-less POST refused, the old /OutcomesDashboard URL gone. Optional SHARED_OUTCOMES_SEND_PORT (default 18335) must match the configured send URL.",
+      "fixtures": "Disposable install with the synthetic Shared Outcomes properties documented in the script, including a shared_outcomes_dashboard_send_url on the loopback listener the script starts. Owned throwaway login, dashboard grants, one synthetic shared indicator template with its dashboard, and three owned patients are removed."
     },
     {
       "name": "measurement-group-entry",

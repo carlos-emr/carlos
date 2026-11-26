@@ -28,6 +28,8 @@
  */
 package io.github.carlos_emr.carlos.integration.dashboard;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -47,6 +49,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.w3c.dom.NodeList;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -54,6 +57,27 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Publishes the requesting provider's indicator results to the shared outcomes dashboard.
+ *
+ * <p>Route: {@code POST /web/dashboard/OutcomesDashboard}. The only caller is the launcher page
+ * {@code web/dashboard/display/sharedOutcomesDashboard.jsp}, which posts here when the dashboard
+ * window asks for a metric-set refresh. The request carries one {@code data} parameter: Base64 of
+ * {@code {"username": "<provider no>", "queryList": ["<sharedMetricSetName>", ...]}}.</p>
+ *
+ * <p>Every matched metric set is one outbound HTTP POST to
+ * {@code shared_outcomes_dashboard_send_url}, so the route is a mutator: it requires
+ * {@code _dashboardDisplay} read and answers anything but POST with 405 before any work is done.
+ * The {@code method} query parameter is not a dispatch selector and is ignored.</p>
+ *
+ * <p>Responses are JSON: {@code 200 {"published":n}} (a requested metric name no template matches
+ * is logged and skipped, not an error), {@code 400} for a malformed request, {@code 403} when the
+ * indicator library is withheld ({@code _dashboardManager} write, the right
+ * {@code DashboardManager.getIndicatorLibrary} enforces), and {@code 502} when a matched metric set
+ * could not be delivered, so the launcher never reports a refresh that did not happen.</p>
+ *
+ * @since 2026-11-26
+ */
 public class OutcomesDashboard2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -74,39 +98,96 @@ public class OutcomesDashboard2Action extends ActionSupport {
     }
 
     public String refreshIndicators() throws Exception {
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_dashboardDisplay", "r", null)) {
-            throw new SecurityException("missing required sec object (_dashboarDisplay)");
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_dashboardDisplay", "r", null)) {
+            throw new SecurityException("missing required sec object (_dashboardDisplay)");
         }
 
-        List<IndicatorTemplate> sharedIndicatorTemplates = dashboardManager.getIndicatorLibrary(LoggedInInfo.getLoggedInInfoFromSession(request));
+        // Publishing is an outbound HTTP POST per metric set; a GET must not trigger it.
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
 
-        String data = request.getParameter("data");
+        ObjectNode jsonObject = readRequest(request.getParameter("data"));
+        if (jsonObject == null) {
+            return writeError(HttpServletResponse.SC_BAD_REQUEST, "invalid_request");
+        }
 
-        byte[] b = Base64.decodeBase64(data);
-
-        ObjectNode jsonObject = (ObjectNode) objectMapper.readTree(new String(b));
+        List<IndicatorTemplate> sharedIndicatorTemplates = dashboardManager.getIndicatorLibrary(loggedInInfo);
+        if (sharedIndicatorTemplates == null) {
+            // The manager answers null (and audits it) when the caller lacks _dashboardManager write.
+            // Without the library no metric name can be resolved, so refuse rather than fail on a null list.
+            return writeError(HttpServletResponse.SC_FORBIDDEN, "forbidden");
+        }
 
         String username = jsonObject.get("username").asText();
         ArrayNode arr = (ArrayNode) jsonObject.get("queryList");
+        int published = 0;
+        int failed = 0;
         for (int x = 0; x < arr.size(); x++) {
             String metricSetName = arr.get(x).asText();
 
             //need to find the right indicator!
-            Provider provider = providerManager.getProvider(LoggedInInfo.getLoggedInInfoFromSession(request), username);
-            IndicatorTemplate indicatorTemplate = findIndicatorTemplateBySharedMetricSetName(LoggedInInfo.getLoggedInInfoFromSession(request), sharedIndicatorTemplates, metricSetName);
+            Provider provider = providerManager.getProvider(loggedInInfo, username);
+            IndicatorTemplate indicatorTemplate = findIndicatorTemplateBySharedMetricSetName(loggedInInfo, sharedIndicatorTemplates, metricSetName);
 
             if (indicatorTemplate != null) {
-                OutcomesDashboardUtils.sendProviderIndicatorData(LoggedInInfo.getLoggedInInfoFromSession(request), provider, indicatorTemplate);
+                try {
+                    if (OutcomesDashboardUtils.sendProviderIndicatorData(loggedInInfo, provider, indicatorTemplate)) {
+                        published++;
+                    } else {
+                        failed++;
+                    }
+                } catch (Exception e) {
+                    // Keep the cause out of the message: transport errors can echo the destination URL.
+                    logger.warn("Shared outcomes publication for requested indicator at index {} failed: {}", x, e.getClass().getSimpleName());
+                    failed++;
+                }
             } else {
                 logger.warn("Requested shared indicator at index {} was not found", x);
             }
         }
 
-        ObjectNode o = objectMapper.createObjectNode();
+        if (failed > 0) {
+            return writeError(HttpServletResponse.SC_BAD_GATEWAY, "publish_failed");
+        }
 
+        ObjectNode o = objectMapper.createObjectNode();
+        o.put("published", published);
         JsonResponseWriter.write(response, o);
 
+        return NONE;
+    }
+
+    /**
+     * Decodes the {@code data} parameter.
+     *
+     * @return the request object with a text {@code username} and an array {@code queryList}, or
+     *         {@code null} when the parameter is absent, not Base64 JSON, or not that shape
+     */
+    private static ObjectNode readRequest(String data) {
+        if (data == null || data.isBlank()) {
+            return null;
+        }
+        try {
+            JsonNode node = objectMapper.readTree(new String(Base64.decodeBase64(data), StandardCharsets.UTF_8));
+            if (node != null && node.isObject() && node.path("username").isTextual() && node.path("queryList").isArray()) {
+                return (ObjectNode) node;
+            }
+        } catch (IOException e) {
+            // Falls through: a malformed body is reported as a bad request without echoing it.
+        }
         return null;
+    }
+
+    private String writeError(int status, String code) throws IOException {
+        response.setStatus(status);
+        ObjectNode o = objectMapper.createObjectNode();
+        o.put("error", code);
+        JsonResponseWriter.write(response, o);
+        return NONE;
     }
 
     protected IndicatorTemplate findIndicatorTemplateBySharedMetricSetName(LoggedInInfo x, List<IndicatorTemplate> templates, String sharedMetricSetName) {

@@ -31,6 +31,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.managers.DashboardManager" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%
     DashboardManager dashboardManager = SpringUtils.getBean(DashboardManager.class);
@@ -44,7 +45,20 @@
     <script src="<%=request.getContextPath()%>/library/jquery/jquery-compat.js"></script>
     <script>
 
+        // Origin of the shared outcomes dashboard window. Only messages from it may drive a refresh,
+        // which publishes provider metrics to the configured destination (an HTTP POST per metric set).
+        var outcomesOrigin = (function () {
+            try {
+                return new URL('<%=SafeEncode.forJavaScript(CarlosProperties.getInstance().getProperty("shared_outcomes_dashboard_host")) %>').origin;
+            } catch (e) {
+                return null;
+            }
+        })();
+
         function testListener(event) {
+            if (!outcomesOrigin || event.origin !== outcomesOrigin) {
+                return;
+            }
             console.log("got a message from the dashboard");
             var data = event.data || event.originalEvent.data;
             var source = event.source || event.originalEvent.source;
@@ -98,7 +112,7 @@
                         //console.log("group="+params.group); //Up to date, Overdue, ect (the label) - doesn't matter for us
                         //console.log("username="+params.username); //999998
                         $("#drillDownFrame").attr('src', 'DrilldownDisplay?method=getDrilldownBySharedMetricSetName&sharedMetricSetName=' + encodeURIComponent(params.query) + '&sharedMetricSetLable=' + encodeURIComponent(params.group) + "&providerNo=" + params.username);
-                        outcomesWindow.postMessage(outcomesData.onSuccess, '*');
+                        outcomesWindow.postMessage(outcomesData.onSuccess, outcomesOrigin);
                         //window.focus();
                     }
                     break;
@@ -107,13 +121,17 @@
                         var data = params.queryList;
 
                         jQuery.ajax({
-                            url: "<%=request.getContextPath()%>/OutcomesDashboard?method=refreshIndicators",
+                            url: "<%=request.getContextPath()%>/web/dashboard/OutcomesDashboard",
                             type: 'POST',
                             async: true,
                             data: 'data=' + btoa(JSON.stringify(params)),
                             dataType: 'json',
                             success: function (data) {
-                                outcomesWindow.postMessage(outcomesData.onSuccess, '*');
+                                outcomesWindow.postMessage(outcomesData.onSuccess, outcomesOrigin);
+                            },
+                            error: function (jqXHR) {
+                                // No success message is sent, so the dashboard does not report a refresh that did not happen.
+                                console.error('Shared outcomes refresh failed with HTTP status ' + jqXHR.status);
                             }
                         });
                     }

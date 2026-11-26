@@ -62,6 +62,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
+import com.fasterxml.jackson.core.json.JsonReadFeature;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -70,13 +72,47 @@ import io.github.carlos_emr.CarlosProperties;
 public class OutcomesDashboardUtils {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * Reads {@link IndicatorBean#getOriginalJsonPlots()}. {@code IndicatorQueryHandler.createOriginalGraphPlots}
+     * builds that text by hand with single-quoted keys ({@code { 'results':[{'Label':3}]}}), which is
+     * not strict JSON, so the default mapper rejects every real panel.
+     */
+    private static final ObjectMapper plotsMapper =
+            JsonMapper.builder().enable(JsonReadFeature.ALLOW_SINGLE_QUOTES).build();
+
     private static Logger logger = MiscUtils.getLogger();
 
     private static DashboardManager dashboardManager = SpringUtils.getBean(DashboardManager.class);
     private static ClinicDAO clinicDao = SpringUtils.getBean(ClinicDAO.class);
 
 
-    public static void sendProviderIndicatorData(LoggedInInfo x, Provider provider, IndicatorTemplate indicatorTemplate) throws Exception {
+    /**
+     * Computes one provider's indicator panel and publishes it, as a metric set, to the shared
+     * outcomes dashboard configured in {@code shared_outcomes_dashboard_send_url}.
+     *
+     * <p>Each call is one outbound HTTP POST. Nothing is sent, and {@code false} is returned, when
+     * the destination is not configured, when the provider is unknown or when the indicator cannot
+     * be computed (the caller lacks {@code _dashboardDrilldown}); a destination that answers with
+     * anything but a 2xx status also yields {@code false}. The caller must report a {@code false}
+     * result rather than treat it as published.</p>
+     *
+     * @param x the logged-in user context
+     * @param provider the provider whose indicator is published
+     * @param indicatorTemplate the indicator template carrying the shared-metric mapping
+     * @return {@code true} only when the shared dashboard accepted the metric set
+     * @throws Exception when the template cannot be parsed or the destination cannot be reached
+     */
+    public static boolean sendProviderIndicatorData(LoggedInInfo x, Provider provider, IndicatorTemplate indicatorTemplate) throws Exception {
+        String sendUrl = CarlosProperties.getInstance().getProperty("shared_outcomes_dashboard_send_url");
+        if (sendUrl == null || sendUrl.isBlank()) {
+            logger.warn("Shared outcomes dashboard publication skipped: shared_outcomes_dashboard_send_url is not configured");
+            return false;
+        }
+        if (provider == null) {
+            logger.warn("Shared outcomes dashboard publication skipped: provider was not found");
+            return false;
+        }
+
         SimpleDateFormat formatter = new SimpleDateFormat("MMM d, yyyy hh:mm:ss aaa");
 
         //logger.info("indicatorTemplate="+indicatorTemplate.toString());
@@ -108,6 +144,11 @@ public class OutcomesDashboardUtils {
 
         //run indicator
         IndicatorBean indicatorBean = dashboardManager.getIndicatorPanelForProvider(x, provider.getProviderNo(), indicatorTemplate.getId());
+        if (indicatorBean == null) {
+            // The manager returns null when the caller lacks _dashboardDrilldown read or the panel cannot be built.
+            logger.warn("Shared outcomes dashboard publication skipped: indicator panel {} was not produced", indicatorTemplate.getId());
+            return false;
+        }
 
         //map results into Metric Set
         io.github.carlos_emr.carlos.commn.model.Clinic oClinic = clinicDao.getClinic();
@@ -145,7 +186,7 @@ public class OutcomesDashboardUtils {
         metricSet.setName(metricSetName);
         metricSet.setDate(formatter.format(new Date()));
 
-        ObjectNode plots = (ObjectNode) objectMapper.readTree(indicatorBean.getOriginalJsonPlots());
+        ObjectNode plots = (ObjectNode) plotsMapper.readTree(indicatorBean.getOriginalJsonPlots());
 
         ArrayNode arr = (ArrayNode) plots.get("results");
 
@@ -172,7 +213,7 @@ public class OutcomesDashboardUtils {
         urlParameters.add(new BasicNameValuePair("data", data.toString()));
 
         //send to shared dashboard
-        HttpPost postMethod = new HttpPost(CarlosProperties.getInstance().getProperty("shared_outcomes_dashboard_send_url"));
+        HttpPost postMethod = new HttpPost(sendUrl);
         postMethod.setEntity(new UrlEncodedFormEntity(urlParameters));
 
         logger.info(data);
@@ -180,15 +221,19 @@ public class OutcomesDashboardUtils {
         postMethod.setHeader("Content-Type", "application/x-www-form-urlencoded");
 
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-            var response = httpClient.execute(postMethod);
-
-            logger.info(response.getCode());
-            if (response.getCode() == HttpStatus.SC_OK) {
+            return httpClient.execute(postMethod, response -> {
+                int code = response.getCode();
+                logger.info(code);
                 HttpEntity httpEntity = response.getEntity();
-                String content = EntityUtils.toString(httpEntity);
-                logger.info(content);
-                logger.info("sent");
-            }
+                String content = httpEntity == null ? "" : EntityUtils.toString(httpEntity);
+                if (code >= HttpStatus.SC_SUCCESS && code < HttpStatus.SC_REDIRECTION) {
+                    logger.info(content);
+                    logger.info("sent");
+                    return true;
+                }
+                logger.warn("Shared outcomes dashboard rejected the metric set with HTTP status {}", code);
+                return false;
+            });
         }
     }
 
