@@ -294,9 +294,11 @@ the JSPs, `encounterForm` registrations, view gate and XML import allowlist are 
   (`requireReadable`, via `FormViewVersionValidator`) before the page renders, so
   the refusal is the form package's 403 security page, logged once by the Struts
   exception interceptor, rather than a page failure that Tomcat logs as SEVERE and
-  answers with its 500 page. This also applies to Growth 0–36; any other page whose
-  record service refuses while rendering still gets the 403 page through the gate's
-  backstop, and a post without `studyID` is refused before any
+  answers with its 500 page. This also applies to Growth 0–36. Any other page whose
+  record service refuses while rendering gets the 403 page through the gate's
+  backstop only while the response is uncommitted; a refusal after the page has
+  committed its response is rethrown unchanged, and the container's error page
+  answers it. A post without `studyID` is refused before any
   write instead of failing on the `NOT NULL` column. A non-numeric provider number,
   which the retired writer stored as 0, is refused as in the Growth slice.
 
