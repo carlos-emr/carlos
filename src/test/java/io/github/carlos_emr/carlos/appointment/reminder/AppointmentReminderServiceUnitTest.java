@@ -187,8 +187,13 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
                     .thenReturn(List.of(found));
         }
 
+        /**
+         * #5887 (review): another booking at the same time holds an earlier reminder, which goes first. Until it has
+         * gone, this one waits (not attempted, claim released) rather than ending as covered, so it can still send if
+         * that one never does.
+         */
         @Test
-        void shouldRecordTheReminderAsCovered_whenAnotherBookingAtTheSameTimeHoldsAnEarlierReminder() {
+        void shouldWaitForTheEarlierBooking_whileItsReminderHasNotGoneYet() {
             Appointment appointment = appointment(start, PATIENT, "t");
             AppointmentReminder reminder = requested();
             stored(reminder, appointment, appointment);
@@ -197,9 +202,9 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             ReminderRun run = service.processDue(10);
 
             assertThat(handed).as("never sent twice for one visit").isEmpty();
-            assertThat(run).isEqualTo(new ReminderRun(1, 0, 1));
-            assertThat(reminder.getLastStatus()).isEqualTo(AppointmentReminderStatus.DUPLICATE);
-            assertThat(reminder.getSentFor()).as("not due again for this start").isEqualTo(at(start));
+            assertThat(run).isEqualTo(new ReminderRun(1, 0, 0));
+            assertThat(reminder.getLastStatus()).as("not attempted").isNull();
+            assertThat(reminder.getClaimToken()).as("released for the next run").isNull();
         }
 
         @ParameterizedTest(name = "{0}")
@@ -302,8 +307,9 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             assertThat(handed).hasSize(1);
         }
 
+        /** If that retry fails too, this booking is still free to send: it waits, it is not covered. */
         @Test
-        void shouldYield_toAnEarlierBookingWithItsRetryStillLeft() {
+        void shouldWait_forAnEarlierBookingWithItsRetryStillLeft() {
             Appointment appointment = appointment(start, PATIENT, "t");
             AppointmentReminder reminder = requested();
             stored(reminder, appointment, appointment);
@@ -312,14 +318,21 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             service.processDue(10);
 
             assertThat(handed).isEmpty();
-            assertThat(reminder.getLastStatus()).isEqualTo(AppointmentReminderStatus.DUPLICATE);
+            assertThat(reminder.getLastStatus()).as("not attempted").isNull();
+            assertThat(reminder.getClaimToken()).as("released for the next run").isNull();
         }
 
-        /** The booking as it is now, after staff changed it: unticked, cancelled, or moved to another time. */
+        /**
+         * The booking as it is now, after staff changed it: unticked, cancelled, deleted (the query then finds the
+         * reminder without its booking), or moved to another time.
+         */
         private ReminderCandidate changed(ReminderCandidate sibling, String change) {
             switch (change) {
                 case "unticked" -> sibling.reminder().withdraw("999998", at(NOW.minusMinutes(30)));
                 case "cancelled" -> sibling.appointment().setStatus("C");
+                case "deleted" -> {
+                    return new ReminderCandidate(sibling.reminder(), null);
+                }
                 default -> {
                     Appointment moved = appointment(start.plusHours(1), PATIENT, "t");
                     moved.setId(sibling.appointment().getId());
@@ -331,10 +344,11 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
 
         /**
          * A booking whose reminder already went for this visit covers it whatever staff did to the booking after:
-         * unticked its box, cancelled it, or moved it. Otherwise ticking another booking sends a second email.
+         * unticked its box, cancelled it, moved it or deleted it. Otherwise ticking another booking sends a second
+         * email.
          */
         @ParameterizedTest(name = "{0}")
-        @ValueSource(strings = {"unticked", "cancelled", "moved"})
+        @ValueSource(strings = {"unticked", "cancelled", "moved", "deleted"})
         void shouldRecordTheReminderAsCovered_whenTheBookingThatWasRemindedChangedAfter(String change) {
             Appointment appointment = appointment(start, PATIENT, "t");
             AppointmentReminder reminder = requested();
@@ -349,7 +363,7 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
 
         /** A booking not yet reminded that left the visit will never send for it: this one must. */
         @ParameterizedTest(name = "{0}")
-        @ValueSource(strings = {"unticked", "cancelled", "moved"})
+        @ValueSource(strings = {"unticked", "cancelled", "moved", "deleted"})
         void shouldSend_whenTheEarlierBookingLeftTheVisitBeforeItsReminder(String change) {
             Appointment appointment = appointment(start, PATIENT, "t");
             AppointmentReminder reminder = requested();
@@ -851,7 +865,7 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        void shouldSendTheRest_andRecordTheStrandedOneAsUnconfirmedLater_whenRecordingAnOutcomeFails() {
+        void shouldSendTheRestAndRecordTheStrandedOneAsUnconfirmedLater_whenRecordingAnOutcomeFails() {
             AppointmentReminder first = row(7L, NOW.plusHours(20));
             AppointmentReminder second = row(8L, NOW.plusHours(21));
             // The first read is the same-visit check, the second the start; the third and fourth are the outcome
@@ -901,7 +915,7 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        void shouldStopBetweenReminders_andReleaseWhatItDidNotStart_whenInterrupted() {
+        void shouldStopBetweenRemindersAndReleaseWhatItDidNotStart_whenInterrupted() {
             AppointmentReminder first = row(7L, NOW.plusHours(20));
             AppointmentReminder second = row(8L, NOW.plusHours(21));
             AppointmentReminder third = row(9L, NOW.plusHours(22));
@@ -1224,7 +1238,7 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        void shouldSayItGoesSoon_insideTheWindow_andTooLate_afterTheCutoff() {
+        void shouldSayItGoesSoonOrIsTooLate_dependingOnTheCutoff() {
             assertThat(line(appointment(NOW.plusHours(20), PATIENT, "t"), requested()))
                     .contains(new ReminderStatusLine("appointment.reminder.status.due", ""));
             assertThat(line(appointment(NOW.plusHours(1), PATIENT, "t"), requested()))
@@ -1314,17 +1328,23 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
         @ValueSource(strings = {"en", "fr", "es", "pl", "pt_BR"})
         void shouldHaveEveryStatusLine_inEveryBundle(String language) {
             ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", Locale.forLanguageTag(language.replace('_', '-')));
+            java.util.Set<String> timed = java.util.Set.of("sent", "unconfirmed", "failed", "scheduled");
             for (String key : new String[]{"sent", "sending", "unconfirmed", "failed", "blockedConsent", "noAddress", "notSetUp",
                     "notPermitted", "scheduled", "due", "tooLate", "duplicate"}) {
                 String pattern = bundle.getString("appointment.reminder.status." + key);
                 // The page always passes the value, so every line is a MessageFormat pattern.
-                assertThat(new MessageFormat(pattern).format(new Object[]{"FAKE-WHEN"})).as(key).doesNotContain("{", "}");
+                String line = new MessageFormat(pattern).format(new Object[]{"FAKE-WHEN"});
+                assertThat(line).as(key).doesNotContain("{", "}");
+                if (timed.contains(key)) {
+                    // A translation that drops the placeholder would lose the time the service passes.
+                    assertThat(line).as(key).contains("FAKE-WHEN");
+                }
             }
         }
     }
 
     @Test
-    void shouldTreatOnlyCancelledAndNoShowStatusesAsNotToRemind() {
+    void shouldTreatOnlyCancelledAndNoShowStatuses_asNotToRemind() {
         assertThat(AppointmentReminderService.isCancelledOrNoShow("t")).isFalse();
         assertThat(AppointmentReminderService.isCancelledOrNoShow("H")).isFalse();
         assertThat(AppointmentReminderService.isCancelledOrNoShow(null)).isFalse();

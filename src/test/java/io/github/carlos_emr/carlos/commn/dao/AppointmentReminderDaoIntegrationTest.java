@@ -319,7 +319,7 @@ class AppointmentReminderDaoIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    void shouldClaimOnlyUnclaimedOrAbandonedRows() {
+    void shouldClaimOnlyRows_thatAreUnclaimedOrAbandoned() {
         AppointmentReminder first = reminder(appointment(DAY, LocalTime.of(9, 0)), ReminderChannel.EMAIL);
         AppointmentReminder second = reminder(appointment(DAY, LocalTime.of(9, 30)), ReminderChannel.EMAIL);
         Date earlier = new Date(now.getTime() - 60_000L);
@@ -412,6 +412,27 @@ class AppointmentReminderDaoIntegrationTest extends CarlosTestBase {
     }
 
     /**
+     * #5887 (review): a reminder handed over for the visit still counts after its booking is deleted (Cut, Delete or
+     * Group Delete): it is matched on the start and patient it went to, and comes back without a booking.
+     */
+    @Test
+    void shouldFindAReminderAlreadySentForTheVisit_afterItsBookingWasDeleted() {
+        AppointmentReminder mine = reminder(appointment(DAY, LocalTime.of(9, 0)), ReminderChannel.EMAIL);
+        Appointment deleted = appointment(DAY, LocalTime.of(9, 0));
+        AppointmentReminder sent = sentFor(DAY.atTime(9, 0), deleted);
+        entityManager.remove(deleted);
+        entityManager.flush();
+
+        assertThat(reminders.findSameVisit(ReminderChannel.EMAIL, 42, DAY.atTime(9, 0), mine.getId(), HANDED_OVER))
+                .singleElement().satisfies(found -> {
+                    assertThat(found.reminder().getId()).isEqualTo(sent.getId());
+                    assertThat(found.appointment()).as("its booking is gone").isNull();
+                });
+        assertThat(reminders.findSameVisit(ReminderChannel.EMAIL, 43, DAY.atTime(9, 0), mine.getId(), HANDED_OVER))
+                .as("another patient's visit").isEmpty();
+    }
+
+    /**
      * #5887 (review): a reminder handed over for the visit counts for the patient it went to. After its booking was
      * given to another patient (and its box unticked), it still covers the first patient's visit, and nothing for the
      * new patient, who was never reminded.
@@ -453,7 +474,7 @@ class AppointmentReminderDaoIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    void shouldNotClaimAWithdrawnReminder() {
+    void shouldNotClaimAReminder_whenWithdrawn() {
         AppointmentReminder withdrawn = reminder(appointment(DAY, LocalTime.of(9, 0)), ReminderChannel.EMAIL);
         withdrawn.withdraw("999998", now);
         reminders.merge(withdrawn);

@@ -63,7 +63,7 @@ class DemographicStandardIdentificationHtmlUnitTest {
     }
 
     @Test
-    void shouldLeaveUnknownRosterCodesVisible() {
+    void shouldShowAnUnknownRosterCode_asStored() {
         Demographic demographic = new Demographic();
         demographic.setRosterStatus("UNKNOWN");
 

@@ -139,11 +139,12 @@ public class AppointmentReminderDaoImpl extends AbstractDaoImpl<AppointmentRemin
         addCandidates(found, booked.getResultList());
         if (handedOver != null && !handedOver.isEmpty()) {
             // Handed over for this start, matched on the start and the patient it went to: the booking may be
-            // unticked, cancelled, moved or given to another patient since, and still covers this patient's visit.
+            // unticked, cancelled, moved, given to another patient or deleted since, and still covers this patient's
+            // visit. Its booking is joined only to show what it is now (null once deleted), never to find the row.
             // An attempt that recorded no patient counts as its booking's patient's, as in the service.
             TypedQuery<Object[]> reminded = entityManager.createQuery(
-                    "SELECT r, a FROM AppointmentReminder r, Appointment a "
-                            + "WHERE a.id = r.appointmentNo AND r.channel = :channel AND r.id <> :excluded "
+                    "SELECT r, a FROM AppointmentReminder r LEFT JOIN Appointment a ON a.id = r.appointmentNo "
+                            + "WHERE r.channel = :channel AND r.id <> :excluded "
                             + "AND coalesce(r.sentForDemographicNo, a.demographicNo) = :demographicNo "
                             + "AND r.sentFor = :start AND r.lastStatus IN (:handedOver) ORDER BY r.id",
                     Object[].class);

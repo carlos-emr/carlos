@@ -61,7 +61,8 @@ public interface AppointmentReminderDao extends AbstractDao<AppointmentReminder>
      *       provider), whatever the appointment's status;</li>
      *   <li>and any reminder already handed over to this patient for {@code start} (its last attempt was for that
      *       start and patient and ended in one of {@code handedOver}), whatever happened to its booking since:
-     *       unticked, cancelled, moved or given to another patient.</li>
+     *       unticked, cancelled, moved, given to another patient or deleted. A deleted booking's candidate has no
+     *       appointment ({@code null}).</li>
      * </ul>
      * Each reminder once, by id. Read without locks; empty without a patient or a start.
      *

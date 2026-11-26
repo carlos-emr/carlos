@@ -93,7 +93,7 @@ class ReminderWindowUnitTest {
     }
 
     @Test
-    void shouldRefuseACutoffThatIsNotShorterThanTheLead() {
+    void shouldRefuseTheWindow_whenTheCutoffIsNotShorterThanTheLead() {
         assertThatThrownBy(() -> new ReminderWindow(Duration.ofHours(2), Duration.ofHours(2)))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new ReminderWindow(Duration.ofHours(-1), Duration.ZERO))

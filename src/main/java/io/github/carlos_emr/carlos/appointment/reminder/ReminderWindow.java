@@ -81,6 +81,12 @@ public final class ReminderWindow {
         return lead;
     }
 
+    /**
+     * @param lead   how long before the start a reminder may first go
+     * @param cutoff how long before the start it may no longer go
+     * @throws NullPointerException     when either is null
+     * @throws IllegalArgumentException when either is negative, or the cutoff is not shorter than the lead
+     */
     public ReminderWindow(Duration lead, Duration cutoff) {
         this.lead = Objects.requireNonNull(lead, "lead");
         this.cutoff = Objects.requireNonNull(cutoff, "cutoff");

@@ -37,15 +37,17 @@ The clinic email footer must be configured, as for every patient email. The `app
     the one for the provider the form was opened for, or else the first booking with the patient. The patient
     gets one reminder. If the box is later ticked on another of those bookings, the patient still gets one: a
     reminder whose patient already has a reminder for that visit is not sent, and its line says so. A booking whose
-    reminder went for that time keeps covering the visit even if staff untick its box, cancel it or move it after,
-    for the bookings already at that time when it went; a booking moved or booked into that time later gets its own
-    reminder. Since when a booking has been at its time comes from its archived versions: every path that changes an
-    appointment's date or time archives the version it replaces, except the old add-record card page
+    reminder went for that time keeps covering the visit even if staff untick its box, cancel it, move it or delete
+    it after, for the bookings already at that time when it went; a booking moved or booked into that time later
+    gets its own reminder. Since when a booking has been at its time comes from its archived versions: every path
+    that changes an appointment's date or time archives the version it replaces, except the old add-record card page
     (`appointmentaddrecordcard.jsp`), which nothing posts to with an existing appointment. Without a creation time,
     a booking counts as already there.
-    While another booking's reminder for that time is being sent, it waits for the next run; if the check itself
-    fails, nothing is sent and it is tried once more 30 minutes later. The check holds only for the patient and time
-    it looked at: a booking moved, or given to another patient, while the job was checking it is checked again.
+    While another booking's reminder for that time is being sent, or an earlier booking's reminder (its box was
+    ticked first) has not gone yet but still may, it waits for the next run, and sends if that one never goes. If
+    the check itself fails, nothing is sent and it is tried once more 30 minutes later. The check holds only for the
+    patient and time it looked at: a booking moved, or given to another patient, while the job was checking it is
+    checked again.
   - **Group Action, then Group Update**, books each appointment again under a new number. Its reminder, and the
     start already reminded for, go with it, so the same start is not reminded twice. The Edit form's box applies to
     the appointment Edit was opened for. These reminder steps run only after the group change has been saved: if
@@ -84,18 +86,12 @@ These need several bookings for the same patient at the same time, and a change 
   booking's history starts at the rebook. If another booking's reminder already went for that time and that booking
   then left it (unticked, cancelled or moved), the rebooked booking counts as arrived after it, and may get a second
   reminder.
-- **A covered booking stays covered for that time.** A booking is covered, and recorded as `DUPLICATE`, when another
-  booking's reminder already went for that time (that booking still at it, or this one already there when it went:
-  see the Group Appt bullet above), or when another booking still at that time has an earlier reminder
-  (its box was first ticked before this one's) that has not already ended without one going (a refusal, a failure
-  with no retry left, or a booking itself covered, which never covers another). `DUPLICATE` is final for
-  that time, so the patient gets no reminder for the covered booking if the other booking then moves away (it may
-  already have been reminded for the old time, and is reminded again for its new one), is unticked or cancelled
-  before its reminder goes, or fails its retry. There is no manual re-send: unticking and ticking the covered
+- **A covered booking stays covered for that time.** A booking is covered, and recorded as `DUPLICATE`, only when
+  another booking's reminder already went for that time, or may have (that booking still at it, or this one already
+  there when it went: see the Group Appt bullet above). A booking itself covered never covers another. `DUPLICATE`
+  is final for that time, even if the other booking then moves away (it may already have been reminded for the old
+  time, and is reminded again for its new one). There is no manual re-send: unticking and ticking the covered
   booking's box again does not send it, and its line still says the reminder comes from another booking.
-- **A deleted booking stops covering.** Once a booking is deleted (Cut, Delete or Group Delete), its reminder no
-  longer counts for the visit: another booking at the same time whose box is ticked later sends a second reminder
-  for that time.
 - **A booking reminded again for a new time.** A reminder keeps only the last time it went for. If a booking was
   reminded for 14:00, then moved to 15:00 and reminded again, it no longer covers 14:00: another booking ticked later
   at 14:00 sends a second 14:00 reminder.

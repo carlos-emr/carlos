@@ -198,7 +198,7 @@ class EmailReminderChannelUnitTest {
 
     @ParameterizedTest(name = "{0}")
     @ValueSource(strings = {"en", "fr", "es", "pl", "pt_BR"})
-    void shouldHaveTheReminderTextInEveryBundle(String language) {
+    void shouldHaveTheReminderText_inEveryBundle(String language) {
         Locale locale = Locale.forLanguageTag(language.replace('_', '-'));
         ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", locale);
 

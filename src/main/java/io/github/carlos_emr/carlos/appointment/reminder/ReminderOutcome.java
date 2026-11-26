@@ -32,6 +32,11 @@ import java.util.Objects;
  */
 public record ReminderOutcome(AppointmentReminderStatus status, Integer emailLogId, String reason) {
 
+    /**
+     * @throws NullPointerException     when {@code status} is null
+     * @throws IllegalArgumentException when {@code status} is {@link AppointmentReminderStatus#SENDING}, which only
+     *                                  marks an attempt in progress
+     */
     public ReminderOutcome {
         Objects.requireNonNull(status, "status");
         if (status == AppointmentReminderStatus.SENDING) {

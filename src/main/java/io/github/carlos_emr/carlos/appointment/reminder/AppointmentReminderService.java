@@ -212,7 +212,8 @@ public class AppointmentReminderService {
     /**
      * What Edit Appointment shows under the Email Reminder box: what happened to the reminder for the
      * appointment's current start and patient, or when it will go. Empty when no reminder is requested, the
-     * appointment is cancelled, a no-show or past, or it has no patient.
+     * appointment is cancelled, a no-show, or it has no patient. A past appointment shows only a recorded outcome
+     * for that start and patient; when nothing was attempted for it, the line is empty.
      */
     public Optional<ReminderStatusLine> statusLine(Appointment appointment, Locale locale) {
         if (appointment == null || appointment.getId() == null || appointment.getDemographicNo() <= 0
@@ -381,7 +382,8 @@ public class AppointmentReminderService {
     /** {@link #start}, in its own transaction, for a reminder whose visit was checked as {@code visit}. */
     private Started startChecked(long reminderId, String claimToken, VisitCheck visit) {
         if (visit.visit() == SameVisit.WAIT) {
-            // Another booking for this visit is being sent right now: not attempted, so the next run looks again.
+            // Another booking's reminder for this visit is being sent now, or goes first: not attempted, so the next
+            // run looks again.
             release(List.of(reminderId), claimToken);
             return Started.NOT_STARTED;
         }
@@ -422,7 +424,10 @@ public class AppointmentReminderService {
         SEND,
         /** Another booking carries it: recorded as {@link AppointmentReminderStatus#DUPLICATE}, not sent. */
         COVERED,
-        /** Another booking for this visit is being sent now: not attempted; the next run looks again. */
+        /**
+         * Another booking's reminder for this visit is being sent now, or goes first and may still go: not attempted;
+         * the next run looks again.
+         */
         WAIT,
         /** The check failed: not sent, recorded as failed, so its one retry checks again. */
         UNCHECKED
@@ -453,13 +458,15 @@ public class AppointmentReminderService {
      * must never get two reminders for one visit, so:
      * <ul>
      *   <li>a reminder already sent to this patient, or that may have been, for this start covers it, whatever staff
-     *       did to its booking after: unticked it, cancelled it, moved it or gave it to another patient;</li>
+     *       did to its booking after: unticked it, cancelled it, moved it, gave it to another patient or deleted
+     *       it;</li>
      *   <li>while another booking's reminder for this start is being sent, this one waits for the next run, so an
      *       earlier reminder that joins the visit mid-send never goes out beside it;</li>
      *   <li>an earlier reminder still in the visit (ticked, this patient's, not cancelled or a no-show, at this
-     *       start) covers this one, unless it already ended this start without one going: a refusal, a failure
-     *       whose one retry the window no longer allows (the patient would get none), or a reminder itself covered
-     *       ({@link AppointmentReminderStatus#DUPLICATE}), whose cover may have gone since.</li>
+     *       start) goes first: this one waits for the next run until that one goes (and then covers it), unless it
+     *       already ended this start without one going: a refusal, a failure whose one retry the window no longer
+     *       allows, or a reminder itself covered ({@link AppointmentReminderStatus#DUPLICATE}), whose cover may have
+     *       gone since. A booking is recorded as covered only once another's reminder has gone, or may have.</li>
      * </ul>
      * Exactly one is sent whichever server runs first. If the check fails, the reminder is not sent: a failure,
      * retried once.
@@ -524,7 +531,10 @@ public class AppointmentReminderService {
                     // which may have gone since). Such a booking never covers this one.
                     boolean endedUnsent = done != null && !retryPossible(other, start, now);
                     if (other.getId() < reminderId && !endedUnsent) {
-                        return VisitCheck.of(SameVisit.COVERED, patient, start);
+                        // The earlier booking's reminder goes first, but has not gone yet (not tried for this start,
+                        // or failed with its retry left). Wait rather than end as covered: if it never goes, this one
+                        // still can.
+                        visit = SameVisit.WAIT;
                     }
                 }
                 return VisitCheck.of(visit, patient, start);
