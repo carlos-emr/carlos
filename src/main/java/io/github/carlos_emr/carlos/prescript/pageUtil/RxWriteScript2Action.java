@@ -401,8 +401,7 @@ public final class RxWriteScript2Action extends ActionSupport {
 
     /**
      * Whether an ingredient's name already states its strength ("AMOXICILLIN 250MG" and "250mg"),
-     * in which case the generic name does not repeat it. The strength counts only when it is not
-     * the tail of a longer number: "250mg" is not stated by a name that says "1250mg".
+     * in which case the generic name does not repeat it. The amount and unit must match in full.
      *
      * @param name the ingredient's name, in lower case; a missing name states no strength
      * @param strength the strength with its unit, as the generic name writes it, in lower case
@@ -418,8 +417,13 @@ public final class RxWriteScript2Action extends ActionSupport {
             return false;
         }
         for (int at = stated.indexOf(strength); at >= 0; at = stated.indexOf(strength, at + 1)) {
-            char before = at == 0 ? ' ' : stated.charAt(at - 1);
-            if (!Character.isDigit(before) && before != '.') {
+            int before = at == 0 ? ' ' : stated.codePointBefore(at);
+            int end = at + strength.length();
+            int after = end == stated.length() ? ' ' : stated.codePointAt(end);
+            boolean followedByFraction = after == '.' && end + 1 < stated.length()
+                    && Character.isDigit(stated.codePointAt(end + 1));
+            if (!Character.isDigit(before) && before != '.' && !Character.isLetterOrDigit(after)
+                    && after != '/' && !followedByFraction) {
                 return true;
             }
         }

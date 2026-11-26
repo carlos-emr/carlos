@@ -55,7 +55,8 @@ exponents.
 
 Fixed earlier under the same issue: the legacy CDS 4 export `Dosage`
 (`demographic/pageUtil/DemographicExportAction42Action.java:4539`, #6326) and the CDS 5.2 export
-dose and numeric strength (#5706). Both now call `DoseText` instead of a private copy.
+dose and numeric strength (#5706). The CDS 5.2 formatter now uses `DoseText`. The legacy CDS 4
+export retains the formatter tested in #6326.
 
 ### What storing the strength without its zero touches
 
@@ -93,7 +94,7 @@ change.
 | Legacy single-drug editor: rebuilding the instruction text keeps the dot of a dose typed without a leading zero, so "Take .5 Tabs" changed to 2 becomes "Take .2 Tabs"; the auto-quantity rounds a binary float up (0.2 x 3 x 10 gives 7) | `rx/WriteScript.jsp:351-411`, `:269-313` |
 | A do-not-use form the prescriber types into free text is shown as typed: the instruction line, the inline Min/Max until the card is redrawn, the prevention dose | `rx/prescribe.jsp`, `rx/SearchDrug3.jsp:1458-1486`, `prevention/AddPreventionData.jsp:1050` |
 | DHIR immunization dose: a decimal comma or grouped digits are misread ("0,5 mL" becomes 0 with the unit ",5 mL"), a dose with no number is sent as 0, and the FHIR decimal is built from a double | `integration/fhir/model/Immunization.java:393-403` |
-| REST: a drug has one `strength`, so a combination is reported as its first ingredient and an update sent back stores only that ("5 mg"); the drug lookup casts DrugRef's strength to `Double` although DrugRef sends text; the quantity is an `Integer`, so a decimal quantity is omitted | `webserv/rest/conversion/DrugConverterImpl.java:284-341`; `managers/DrugLookUpManager.java:208`; `DrugTo1.quantity`, `FavoriteTo1.quantity` |
+| REST: a drug has one `strength`, so a combination is reported as its first ingredient. An edit to the same drug that echoes or omits that strength retains the stored dosage. The drug lookup casts DrugRef's strength to `Double` although DrugRef sends text. The quantity is an `Integer`, so a decimal quantity is omitted | `prescript/util/DrugStrength.java`; `managers/RxManagerImpl.java`; `managers/DrugLookUpManager.java:208`; `DrugTo1.quantity`, `FavoriteTo1.quantity` |
 | DrugRef's XML-RPC serializer has no float branch, so a strength is sent as the text "250.0" | `carlos-emr/drugref2026`, `util/XmlRpcUtils.java` |
 | The "discontinued before" check matches by brand and generic name text and by `archived_reason = ''`; favourites are matched on every text field | `prescript/util/RxUtil.java:3209`, `commn/dao/DrugDaoImpl.java:657`, `commn/dao/FavoriteDaoImpl.java:112` |
 | The instruction parser reads a quantity with `Integer.parseInt` when it derives a duration from it | `prescript/util/RxUtil.java:1287` |

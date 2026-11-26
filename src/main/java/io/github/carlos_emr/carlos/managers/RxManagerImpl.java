@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsMedicationCompatibilityException;
 import io.github.carlos_emr.carlos.commn.model.Favorite;
 import io.github.carlos_emr.carlos.commn.model.Prescription;
+import io.github.carlos_emr.carlos.prescript.util.DrugStrength;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.RxStatus;
@@ -300,6 +301,14 @@ public class RxManagerImpl implements RxManager {
             d.setUnitName(old.getUnitName());
         }
 
+        // The REST DTO can expose only one strength. An edit to the same product that omits
+        // the strength or echoes the amount and unit it was shown must keep the complete dosage.
+        if (old.getDosage() != null && sameMedicationProduct(old, d)
+                && (d.getDosage() == null || DrugStrength.fromDosage(old.getDosage()).dosageText().equals(d.getDosage()))) {
+            d.setDosage(old.getDosage());
+            d.setUnit(old.getUnit());
+        }
+
         // Attempt to add the new drug first, if this fails
         // the don't try to update the old drug to archived.
 
@@ -329,6 +338,14 @@ public class RxManagerImpl implements RxManager {
                 + " demographicNo=" + d.getDemographicId());
 
         return temp;
+    }
+
+    private static boolean sameMedicationProduct(Drug old, Drug replacement) {
+        return Objects.equals(old.getRegionalIdentifier(), replacement.getRegionalIdentifier())
+                && Objects.equals(old.getBrandName(), replacement.getBrandName())
+                && Objects.equals(old.getGenericName(), replacement.getGenericName())
+                && Objects.equals(old.getCustomName(), replacement.getCustomName())
+                && Objects.equals(old.getDrugForm(), replacement.getDrugForm());
     }
 
     /**

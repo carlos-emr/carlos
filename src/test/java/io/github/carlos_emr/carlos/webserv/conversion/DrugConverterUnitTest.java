@@ -335,7 +335,7 @@ class DrugConverterUnitTest {
          * blank was allowed, so "5  mg" was read as 5 with no unit and sent back as "5".
          */
         @ParameterizedTest(name = "stored \"{0}\"")
-        @ValueSource(strings = {"5  mg", "5\t\tmg", "5 \t mg", "5   mg / 20 mg"})
+        @ValueSource(strings = {"5  mg", "5\t\tmg", "5 \t mg", "5   mg / 20 mg", "5\u00a0mg", "5\u202fmg"})
         @DisplayName("should read the unit after any run of blanks")
         void shouldReadUnit_afterAnyRunOfBlanks(String stored) {
             Drug d = new Drug();
@@ -630,6 +630,17 @@ class DrugConverterUnitTest {
             Drug d = converter.getAsDomainObject(info, t);
 
             assertThat(d.getDosage()).isEqualTo("mg");
+        }
+
+        @Test
+        void shouldLeaveStrengthUnspecified_whenUpdatingARecognizedDrugWithoutStrengthFields() {
+            DrugTo1 t = restDrug("aspirin");
+            t.setDrugId(4);
+
+            Drug d = converter.getAsDomainObject(info, t);
+
+            assertThat(d.getDosage()).isNull();
+            assertThat(d.getUnit()).isNull();
         }
 
         @Test

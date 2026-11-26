@@ -290,6 +290,55 @@ class RxManagerUnitTest extends RxManagerImpl {
             assertThat(replacement.getQuantity()).isNull();
         }
 
+        @ParameterizedTest
+        @CsvSource(nullValues = "NULL", value = {
+                "5 mg / 20 mg, 5 mg",
+                "250 mg / 5 mL, 250 mg",
+                "'1,000 mg', NULL",
+                "0.123456789 mg, 0.12345679 mg"
+        })
+        void shouldKeepStoredDosage_whenReplacementEchoesTheRestProjection(String dosage, String postedDosage) {
+            Drug stored = new Drug();
+            stored.setId(4);
+            stored.setDemographicId(1);
+            stored.setGenericName("ASA");
+            stored.setDosage(dosage);
+            stored.setUnit("stored unit");
+            ((MockDrugDao) drugDao).seed(stored);
+            Drug incoming = new Drug();
+            incoming.setId(4);
+            incoming.setDemographicId(1);
+            incoming.setGenericName("ASA");
+            incoming.setDosage(postedDosage);
+
+            Drug replacement = updateDrug(new LoggedInInfo(), incoming);
+
+            assertThat(replacement.getDosage()).isEqualTo(dosage);
+            assertThat(replacement.getUnit()).isEqualTo("stored unit");
+        }
+
+        @ParameterizedTest
+        @CsvSource({"12345, 10 mg", "67890, 5 mg"})
+        void shouldTakeReplacementDosage_whenStrengthOrProductChanges(String regionalIdentifier, String dosage) {
+            Drug stored = new Drug();
+            stored.setId(4);
+            stored.setDemographicId(1);
+            stored.setGenericName("ASA");
+            stored.setRegionalIdentifier("12345");
+            stored.setDosage("5 mg / 20 mg");
+            ((MockDrugDao) drugDao).seed(stored);
+            Drug incoming = new Drug();
+            incoming.setId(4);
+            incoming.setDemographicId(1);
+            incoming.setGenericName("ASA");
+            incoming.setRegionalIdentifier(regionalIdentifier);
+            incoming.setDosage(dosage);
+
+            Drug replacement = updateDrug(new LoggedInInfo(), incoming);
+
+            assertThat(replacement.getDosage()).isEqualTo(dosage);
+        }
+
         @Test
         @DisplayName("should return null when add fails")
         void shouldReturnNull_whenAddFails() {

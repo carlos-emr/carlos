@@ -122,7 +122,6 @@ import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.DoseText;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -4526,17 +4525,20 @@ public class DemographicExportAction42Action extends ActionSupport {
      * whole dose as "1.0" and a large one as "1.0E7"; a trailing zero is on ISMP Canada's
      * <i>Do Not Use</i> list because "1.0 mg" can be read as 10 mg (#6185). The result has no
      * trailing zero, no exponent, and keeps the leading zero of a fraction ("0.5", never ".5").
-     * The text is written by {@link DoseText}, the formatter every dose shares.
      *
      * @param dose the dose quantity, as stored on the drug
-     * @return the dose as a plain decimal string, "0" for a missing dose, or
-     *     {@code Float.toString} for a non-finite value
+     * @return the dose as a plain decimal string, or {@code Float.toString} for a non-finite value
      */
     static String plainDosage(Float dose) {
         if (dose == null) {
             return "0";
         }
-        return DoseText.of(dose.floatValue());
+        if (!Float.isFinite(dose)) {
+            return dose.toString();
+        }
+        // Float.toString gives the shortest decimal that identifies the float, so 0.1f stays 0.1
+        // rather than the binary expansion BigDecimal(float) would produce.
+        return new BigDecimal(Float.toString(dose)).stripTrailingZeros().toPlainString();
     }
 
     private Float getDosageValue(String dosage) {

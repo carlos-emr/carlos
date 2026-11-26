@@ -66,6 +66,9 @@ character after the digits) has no `strength`: the first digits of such text are
 amount, and neither is the next ingredient's number. Text that starts with a unit
 ("mg/5mL", stored when a unit is sent without a strength) is returned as `strengthUnit`
 with no `strength`.
+For the same product, a REST update that omits the strength or echoes the projected amount
+and unit keeps the stored dosage, including additional ingredients. An updated amount, unit
+or product uses the replacement's fields.
 
 Rolling back to an earlier 2026.08 build keeps the prescriptions this build saved. The
 earlier build's REST drug list fails on a quantity that is not a whole number, as it already
