@@ -209,7 +209,9 @@ async function workflow(s) {
         if(c.type==='sex')note(actual[3]===(label==='B'?'M':'F'),label+' '+rule.name+': wrong actual sex');
         if(c.type==='age')note(actual[3]===(label==='B'?'31 y':'30 y'),label+' '+rule.name+': wrong actual age');
         if(c.type==='drugs'&&label!=='B')note(JSON.stringify(actual[3].split(',').map(value=>value.trim()).sort())===JSON.stringify(['atc:N05BA01','atc:N05BA01','atc:N05BA02'].sort()),label+' '+rule.name+': actual medications differ from owned source');
-        if(c.type==='dxcodes'&&label==='A')note(JSON.stringify(actual[3].split(',').map(value=>value.trim()).sort())===JSON.stringify(['icd9:2700','icd9:2701']),label+' '+rule.name+': actual diagnoses differ from owned source');
+        // Only active diagnoses are listed, as evaluated: after native resolution
+        // of 2700 the cell lists 2701 alone.
+        if(c.type==='dxcodes'&&label!=='B')note(JSON.stringify(actual[3].split(',').map(value=>value.trim()).sort())===JSON.stringify(label==='after'?['icd9:2701']:['icd9:2700','icd9:2701']),label+' '+rule.name+': actual diagnoses differ from owned source');
         // #6328: the control owns no diagnoses or medications. An empty source is
         // "None recorded", not the read-failure text the page used to show.
         if((c.type==='dxcodes'||c.type==='drugs')&&label==='B')note(actual[3]===NONE_RECORDED,label+' '+rule.name+': empty '+c.type+' source not shown as none recorded ('+actual[3]+')');

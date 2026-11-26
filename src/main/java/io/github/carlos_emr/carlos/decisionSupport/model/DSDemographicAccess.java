@@ -41,6 +41,7 @@ import java.util.Date;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import org.apache.logging.log4j.Logger;
@@ -256,10 +257,21 @@ public class DSDemographicAccess {
         return dxCodes;
     }
 
+    /**
+     * Active diagnosis codes as {@code type:code} pairs for the guideline detail view.
+     *
+     * <p>Only active ({@code "A"}) entries are listed, the same filter {@link #hasDxCode}
+     * evaluates against, so a resolved code is not shown beside a condition it fails (#6328).</p>
+     *
+     * @return comma-separated codes, or an empty string when none are active
+     */
     public String getDxCodesStr() {
         List<dxResearchBean> dxCodes = this.getDxCodes();
         String returnStr = "";
         for (dxResearchBean dxCode : dxCodes) {
+            if (!"A".equals(dxCode.getStatus())) {
+                continue;
+            }
             returnStr = returnStr + dxCode.getType() + ":" + dxCode.getDxSearchCode() + ",";
         }
         if (returnStr.length() > 1)
@@ -831,7 +843,8 @@ public class DSDemographicAccess {
                 case dxcodes -> this.getDxCodesStr();
                 case drugs -> this.getRxCodesStr();
                 case age -> this.getAge();
-                case sex -> this.getSex();
+                // A missing sex is "none recorded"; null stays reserved for a failed read.
+                case sex -> Objects.toString(this.getSex(), "");
                 case notes, billedFor, paid, flowsheet, hasATCcode, hasRxClass -> null;
             };
         } catch (Exception dse) {

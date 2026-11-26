@@ -5,6 +5,7 @@
 package io.github.carlos_emr.carlos.decisionSupport.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -14,13 +15,16 @@ import java.util.Set;
 
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.core.LogEvent;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
+import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
 import io.github.carlos_emr.carlos.decisionSupport.model.DSDemographicAccess.Module;
+import io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBean;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
@@ -44,6 +48,12 @@ class DSDemographicDisplayValuesUnitTest extends CarlosUnitTestBase {
             Module.drugs, "atc:N05BA01",
             Module.age, "30 y",
             Module.sex, "F");
+
+    @BeforeEach
+    void registerDiagnosisBeanDependency() {
+        // dxResearchBean resolves this DAO in its static initializer.
+        registerMock(PartialDateDao.class, mock(PartialDateDao.class));
+    }
 
     /** Readers that return fixed values and record which one was asked. */
     private static final class RecordingAccess extends DSDemographicAccess {
@@ -138,5 +148,41 @@ class DSDemographicDisplayValuesUnitTest extends CarlosUnitTestBase {
             @Override public String getDxCodesStr() { return ""; }
         };
         assertThat(access.getDemogrpahicValues(Module.dxcodes)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should list only active diagnoses, the ones the condition evaluates")
+    void shouldListOnlyActiveDiagnoses_forDxcodesValues() {
+        List<dxResearchBean> registry = List.of(
+                new dxResearchBean("FAKE active", "1", "2701", "2026-11-01", "2026-11-01", "A", "icd9", "999998"),
+                new dxResearchBean("FAKE resolved", "2", "2700", "2026-11-01", "2026-11-01", "C", "icd9", "999998"),
+                new dxResearchBean("FAKE active", "3", "E11", "2026-11-01", "2026-11-01", "A", "icd10", "999998"));
+        DSDemographicAccess access = new DSDemographicAccess(null, "0") {
+            @Override public List<dxResearchBean> getDxCodes() { return registry; }
+        };
+
+        assertThat(access.getDemogrpahicValues(Module.dxcodes)).isEqualTo("icd9:2701,icd10:E11");
+    }
+
+    @Test
+    @DisplayName("should report no active diagnoses as an empty value")
+    void shouldReturnEmptyDiagnoses_whenOnlyResolvedEntriesExist() {
+        DSDemographicAccess access = new DSDemographicAccess(null, "0") {
+            @Override public List<dxResearchBean> getDxCodes() {
+                return List.of(new dxResearchBean("FAKE resolved", "2", "2700", "2026-11-01", "2026-11-01", "C", "icd9", "999998"));
+            }
+        };
+
+        assertThat(access.getDemogrpahicValues(Module.dxcodes)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should report a missing sex as an empty value, not a failed read")
+    void shouldReturnEmptyString_whenSexIsMissing() {
+        DSDemographicAccess access = new DSDemographicAccess(null, "0") {
+            @Override public String getSex() { return null; }
+        };
+
+        assertThat(access.getDemogrpahicValues(Module.sex)).isEmpty();
     }
 }
