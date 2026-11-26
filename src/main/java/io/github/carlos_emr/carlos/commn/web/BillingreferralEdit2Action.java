@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.commn.web;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.util.ArrayList;
+import org.springframework.web.util.WebUtils;
 import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -107,41 +108,45 @@ public class BillingreferralEdit2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing write)");
         }
-        String referralId = request.getParameter("id");
-        String checked = request.getParameter("checked");
-        String clear = request.getParameter("clear");
-
-        List<ProfessionalSpecialist> checkedSpecs = (List<ProfessionalSpecialist>) request.getSession().getAttribute("billingReferralAdminCheckList");
-        if (checkedSpecs == null) {
-            checkedSpecs = new ArrayList<ProfessionalSpecialist>();
-        }
-
-        if ("true".equals(clear)) {
-            //empty list
-            checkedSpecs.clear();
-        }
-
-        if ("true".equals(checked)) {
-            //add to list
-            ProfessionalSpecialist ps = psDao.find(Integer.parseInt(referralId));
-            if (ps != null && !checkedSpecs.contains(ps)) {
-                checkedSpecs.add(ps);
+        boolean clear = "true".equals(request.getParameter("clear"));
+        boolean checked = "true".equals(request.getParameter("checked"));
+        Integer id = null;
+        ProfessionalSpecialist specialist = null;
+        if (!clear) {
+            try {
+                id = Integer.valueOf(request.getParameter("id"));
+                if (id <= 0) throw new NumberFormatException();
+            } catch (NumberFormatException invalid) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
             }
-        } else {
-            //remove from list
-            ProfessionalSpecialist tmp = null;
-            for (ProfessionalSpecialist ps : checkedSpecs) {
-                if (ps.getId().intValue() == Integer.parseInt(referralId)) {
-                    tmp = ps;
-                    break;
+            if (checked) {
+                specialist = psDao.find(id);
+                if (specialist == null) {
+                    response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                    return NONE;
                 }
             }
-            if (tmp != null) {
-                checkedSpecs.remove(tmp);
-            }
         }
 
-        request.getSession().setAttribute("billingReferralAdminCheckList", checkedSpecs); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        var session = request.getSession();
+        List<ProfessionalSpecialist> checkedSpecs;
+        synchronized (WebUtils.getSessionMutex(session)) {
+            // Published lists are never mutated. Other tabs and in-flight PDF renders
+            // can finish reading their snapshot while this request publishes the next one.
+            @SuppressWarnings("unchecked")
+            var previous = (List<ProfessionalSpecialist>) session.getAttribute("billingReferralAdminCheckList");
+            checkedSpecs = clear || previous == null ? new ArrayList<>() : new ArrayList<>(previous);
+            if (!clear) {
+                final int referralId = id;
+                if (!checked) {
+                    checkedSpecs.removeIf(entry -> entry.getId() == referralId);
+                } else if (checkedSpecs.stream().noneMatch(entry -> entry.getId() == referralId)) {
+                    checkedSpecs.add(specialist);
+                }
+            }
+            session.setAttribute("billingReferralAdminCheckList", checkedSpecs); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        }
 
         ArrayNode arr = objectMapper.valueToTree(checkedSpecs);
         response.setContentType("application/json");

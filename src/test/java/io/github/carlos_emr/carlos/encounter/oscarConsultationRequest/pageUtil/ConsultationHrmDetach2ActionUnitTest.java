@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.ArgumentMatchers.eq;
@@ -31,7 +32,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -89,11 +89,9 @@ class ConsultationHrmDetach2ActionUnitTest extends CarlosUnitTestBase {
         request.setParameter("requestId", requestId);
         when(security.hasPrivilege(any(), eq("_con"), eq(SecurityInfoManager.READ), (String) isNull())).thenReturn(false);
 
-        String result = new ConsultationHrmDetach2Action().execute();
-
-        assertThat(result).isEqualTo(ActionSupport.NONE);
-        // The same answer for an existing and a missing id: nothing was looked up.
-        assertThat(response.getStatus()).isEqualTo(403);
+        assertThatThrownBy(() -> new ConsultationHrmDetach2Action().execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_con)");
         verifyNoInteractions(persister);
     }
 

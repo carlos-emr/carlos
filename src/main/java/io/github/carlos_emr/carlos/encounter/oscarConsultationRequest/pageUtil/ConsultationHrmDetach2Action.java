@@ -19,15 +19,13 @@ public class ConsultationHrmDetach2Action extends ActionSupport {
             response.setStatus(405);
             return NONE;
         }
+        var info = LoggedInInfo.getLoggedInInfoFromSession(request);
+        var security = SpringUtils.getBean(SecurityInfoManager.class);
+        // The common exception interceptor records the entry refusal and returns 403.
+        if (!security.hasPrivilege(info, "_con", SecurityInfoManager.READ, (String) null)) {
+            throw new SecurityException("missing required sec object (_con)");
+        }
         try {
-            var info = LoggedInInfo.getLoggedInInfoFromSession(request);
-            var security = SpringUtils.getBean(SecurityInfoManager.class);
-            // Match the consultation entry gate. The persister checks write access for the
-            // locked consultation's patient, chart access and HRM read in the same transaction.
-            if (!security.hasPrivilege(info, "_con", SecurityInfoManager.READ, (String) null)) {
-                response.sendError(403);
-                return NONE;
-            }
             int requestId = positiveId(request.getParameter("requestId"));
             int associationId = positiveId(request.getParameter("associationId"));
             SpringUtils.getBean(ConsultationHrmAttachmentPersister.class).detach(info, requestId, associationId);

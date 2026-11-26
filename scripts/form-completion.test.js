@@ -233,6 +233,8 @@ test('a form completed while Sign & Save checks the sign-in is held, then added 
   f.editor.disabled = true;
   completeEncounterForm(f.popup, '123', 'FAKE completed form text');
   assert.equal(f.editor.value, 'Existing draft', 'nothing reaches the note during the check');
+  assert.equal(f.recovery.hidden, false);
+  assert.equal(f.reference.value, 'FAKE completed form text');
   assert.deepEqual(f.actions.map(action => action[0]), ['refresh', 'refresh'], 'the saved reference remains available until insertion');
   f.editor.disabled = false;
   assert.equal(chart.releaseHeldNoteInsertions(), 1, 'the completion text was held, not dropped');

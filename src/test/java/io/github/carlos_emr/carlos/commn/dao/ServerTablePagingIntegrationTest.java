@@ -69,6 +69,11 @@ class ServerTablePagingIntegrationTest extends CarlosTestBase {
 
         assertThat(specialists.findDirectoryPage("5317", marker, "Lab", "Cardio", "Clinic", false, 0).rows())
                 .extracting(ProfessionalSpecialist::getId).containsExactly(specialist.getId());
+        assertThat(specialists.findDirectoryPage("5318", marker, "Lab", "Cardio", "Clinic", false, 0).rows()).isEmpty();
+        assertThat(specialists.findDirectoryPage("5317", marker + "X", "Lab", "Cardio", "Clinic", false, 0).rows()).isEmpty();
+        assertThat(specialists.findDirectoryPage("5317", marker, "Other", "Cardio", "Clinic", false, 0).rows()).isEmpty();
+        assertThat(specialists.findDirectoryPage("5317", marker, "Lab", "Neurology", "Clinic", false, 0).rows()).isEmpty();
+        assertThat(specialists.findDirectoryPage("5317", marker, "Lab", "Cardio", "Other Street", false, 0).rows()).isEmpty();
         assertThat(specialists.findDirectoryPage(" ", null, null, "", "", false, 0).rows()).isEmpty();
         specialist.setHideFromView(true);
         entityManager.flush();

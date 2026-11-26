@@ -8,6 +8,11 @@ import io.github.carlos_emr.carlos.commn.dao.QueryPage;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import java.util.List;
+import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
+import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpSession;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.util.WebUtils;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -17,6 +22,57 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 @Tag("unit")
 class BillingreferralEdit2ActionUnitTest extends CarlosUnitTestBase {
+    @Test
+    void shouldPublishIndependentSnapshots_whenTwoTabsSelectRemoveAndClearLabels() throws Exception {
+        var dao = createAndRegisterMock(ProfessionalSpecialistDao.class);
+        var security = createAndRegisterMock(SecurityInfoManager.class);
+        when(security.hasPrivilege(any(), eq("_billing"), eq("w"), isNull())).thenReturn(true);
+        for (int id : new int[]{7, 8}) {
+            var entry = new ProfessionalSpecialist();
+            ReflectionTestUtils.setField(entry, "id", id);
+            entry.setLastName("Specialist" + id);
+            when(dao.find(id)).thenReturn(entry);
+        }
+        var session = new MockHttpSession() {
+            @Override
+            public void setAttribute(String name, Object value) {
+                if ("billingReferralAdminCheckList".equals(name)) {
+                    assertThat(Thread.holdsLock(WebUtils.getSessionMutex(this))).isTrue();
+                }
+                super.setAttribute(name, value);
+            }
+        };
+        assertThat(changeLabels(session, "7", true)).containsExactly(7);
+        var firstView = (List<?>) session.getAttribute("billingReferralAdminCheckList");
+        assertThat(changeLabels(session, "8", true)).containsExactly(7, 8);
+        assertThat(firstView).hasSize(1);
+        assertThat(changeLabels(session, "8", true)).containsExactly(7, 8);
+        assertThat(changeLabels(session, "7", false)).containsExactly(8);
+        assertThat(changeLabels(session, null, false)).isEmpty();
+        assertThat(changeLabels(session, null, false)).isEmpty();
+    }
+
+    private List<Integer> changeLabels(MockHttpSession session, String id, boolean checked) throws Exception {
+        var request = new MockHttpServletRequest();
+        var response = new MockHttpServletResponse();
+        request.setSession(session);
+        if (id == null) {
+            request.setParameter("clear", "true");
+        } else {
+            request.setParameter("id", id);
+            request.setParameter("checked", Boolean.toString(checked));
+        }
+        try (var servlet = mockStatic(ServletActionContext.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            new BillingreferralEdit2Action().modifyBatch();
+        }
+        assertThat(response.getStatus()).isEqualTo(200);
+        var result = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+        assertThat(result.isArray()).isTrue();
+        return result.valueStream().map(row -> row.get("id").asInt()).toList();
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"123", "000123", "+123"})
     void shouldRetainNumericReferralSearch_whenAdvancedInputContainsLeadingZerosOrSign(String input) {

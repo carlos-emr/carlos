@@ -72,6 +72,7 @@ class ClientSearchAttachNoteUnitTest extends CarlosUnitTestBase {
     private final MockHttpSession session = new MockHttpSession();
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockHttpServletRequest request;
+    private final MockHttpServletResponse response = new MockHttpServletResponse();
     private ClientManager clients;
 
     @BeforeEach
@@ -90,7 +91,7 @@ class ClientSearchAttachNoteUnitTest extends CarlosUnitTestBase {
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenAnswer(invocation -> request);
-        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
     }
 
     @AfterEach
@@ -106,6 +107,7 @@ class ClientSearchAttachNoteUnitTest extends CarlosUnitTestBase {
         search.setCriteria(new ClientSearchFormBean());
 
         assertThat(search.attachSearch()).isEqualTo("none");
+        assertThat(response.getStatus()).isEqualTo(400);
         verify(clients, org.mockito.Mockito.never()).searchClientPage(any(), anyInt(), anyInt(), anyBoolean());
     }
 
