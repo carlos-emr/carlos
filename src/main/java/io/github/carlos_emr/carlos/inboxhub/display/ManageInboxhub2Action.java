@@ -279,7 +279,10 @@ public class ManageInboxhub2Action extends ActionSupport {
         request.setAttribute("page", page);
         request.setAttribute("pageSize", pageSize);
         request.setAttribute("labDocs", labDocs);
-        request.setAttribute("hasMoreData", labDocs.size() > 0);
+        // An omitted document occupied a position in this database page. Even if
+        // none of its rows can be displayed, the next offset can hold valid results.
+        request.setAttribute("hasMoreData", !labDocs.isEmpty()
+                || Boolean.TRUE.equals(request.getAttribute("inboxDocumentsIncomplete")));
         request.setAttribute("searchProviderNo", query.getSearchProviderNo());
     }
 

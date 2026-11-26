@@ -129,14 +129,16 @@ class InboxhubFormRapidReviewUnitTest {
                         "armPendingRapidReview(inboxhubResultSetGeneration + 1);",
                         "return settled;");
         assertThat(extractFunction(jsp, "resyncInboxhubPreviewBoundary"))
-                .as("a next-page fetch in flight may carry the pre-shift window; it is withdrawn, the "
-                        + "hold passes to the re-sync, and the page is asked for again after the merge")
+                .as("a boundary re-sync withdraws the in-flight page, publishes any incomplete-page "
+                        + "notice only for the current search, and resumes paging after merging its cards")
                 .containsSubsequence(
                         "if (isFetchingData && currentFetchRequest) {",
                         "currentFetchRequest.abort();",
                         "resumePaging = true;",
                         "isFetchingData = true;",
-                        "mergeInboxhubPreviewCards(data);",
+                        "success: function(data) {",
+                        "if (generation !== inboxhubResultSetGeneration) { return; }",
+                        "mergeInboxhubPreviewCards(consumeInboxCompletenessNotice(data));",
                         "if (resumePaging || isInboxhubPreviewScrolledToEnd()) { fetchInboxhubViewData(); }");
         assertThat(extractFunction(jsp, "resetDataPageCount"))
                 .as("a new result set withdraws a boundary re-sync of the old one")
@@ -153,9 +155,7 @@ class InboxhubFormRapidReviewUnitTest {
                 .contains("if (jQuery('#inboxViewItems').length === 0) { return false; }")
                 .as("preview increments page after each append, so the last loaded page is page - 1")
                 .contains("const boundaryPage = page - 1;")
-                .contains("\"&page=\" + boundaryPage + \"&pageSize=\" + pageSize")
-                .as("a stale answer after the clinician changed the search must be dropped")
-                .contains("if (generation !== inboxhubResultSetGeneration) { return; }");
+                .contains("\"&page=\" + boundaryPage + \"&pageSize=\" + pageSize");
         assertThat(extractFunction(jsp, "mergeInboxhubPreviewCards"))
                 .as("rendered cards are never moved: moving an iframe reloads it")
                 .contains("if (entry.rendered !== null || isInboxhubItemHandled(entry.segmentId, entry.labType)) { return; }")

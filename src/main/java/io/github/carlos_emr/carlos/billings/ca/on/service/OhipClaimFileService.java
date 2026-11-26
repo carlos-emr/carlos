@@ -200,6 +200,8 @@ public class OhipClaimFileService {
     private File lastRenamedOriginalFile;
     private File lastRenamedBackupFile;
     private BillingOutputSnapshot htmlRollbackSnapshot;
+    private BillingOutputFiles.Publication newClaim;
+    private BillingOutputFiles.Publication newHtml;
     private String ohipReciprocal;
     private String ohipRecord;
     private String ohipVer;
@@ -1393,14 +1395,14 @@ public class OhipClaimFileService {
         lastRenamedBackupFile = backupFile;
     }
 
-    /** Deletes the generated OHIP claim file, suppressing cleanup failures. */
+    /** Withdraws this writer's current new claim if its publication is still active. */
     public void deleteOhipFileQuietly() {
-        deleteConfiguredOutputQuietly(ohipFilename, "OHIP");
+        withdrawQuietly(newClaim);
     }
 
-    /** Deletes the generated HTML companion file, suppressing cleanup failures. */
+    /** Withdraws this writer's current new HTML file if its publication is still active. */
     public void deleteHtmlFileQuietly() {
-        deleteConfiguredOutputQuietly(htmlFilename, "HTML");
+        withdrawQuietly(newHtml);
     }
 
     /** Preserves an existing preview before any regeneration output is replaced. */
@@ -1483,24 +1485,21 @@ public class OhipClaimFileService {
         }
     }
 
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
-    private void deleteConfiguredOutputQuietly(String configuredFilename, String outputLabel) {
-        if (configuredFilename == null || configuredFilename.isBlank()) {
-            return;
-        }
+    private static void withdrawQuietly(BillingOutputFiles.Publication publication) {
+        if (publication == null) return;
         try {
-            String homeDir = CarlosProperties.getInstance().getProperty("HOME_DIR");
-            if (homeDir == null || homeDir.isBlank()) {
-                _logger.warn("Skipping {} cleanup because HOME_DIR is not configured", outputLabel);
-                return;
-            }
-            File safeOut = io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath(
-                    configuredFilename, new File(homeDir));
-            java.nio.file.Files.deleteIfExists(safeOut.toPath());
+            publication.withdraw();
         } catch (IOException | RuntimeException e) {
             _logger.warn("Failed to delete generated file during cleanup: {}", LogSafe.exceptionTrace(e));
         }
+    }
+
+    void writeNewFile(String contents, BillingOutputFiles.NewFiles files) {
+        newClaim = files.write(ohipFilename, contents, java.nio.charset.StandardCharsets.US_ASCII);
+    }
+
+    void writeNewHtml(String contents, BillingOutputFiles.NewFiles files) {
+        newHtml = files.write(htmlFilename, contents, java.nio.charset.StandardCharsets.UTF_8);
     }
 
     /**

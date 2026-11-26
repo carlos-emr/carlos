@@ -50,6 +50,9 @@ public interface BillingDao extends AbstractDao<Billing> {
 
     List<Billing> findByProviderStatusAndDates(String providerNo, List<String> statusList, DateRange dateRange);
 
+    /** Match both the internal provider and the OHIP billing number when the caller is provider-restricted. */
+    List<Billing> findByProviderStatusAndDates(String ohipNo, String billingProviderNo, List<String> statusList, DateRange dateRange);
+
     List<Billing> getMyMagicBillings();
 
     List<Object[]> findByManyThings(String statusType, String providerNo, String startDate, String endDate, String demoNo, boolean excludeWCB, boolean excludeMSP, boolean excludePrivate, boolean exludeICBC);

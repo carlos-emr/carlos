@@ -86,10 +86,7 @@ container_running() {
 
 http_status() {
   local url=$1
-  # curl prints 000 itself when nothing answers. The old check appended its own fallback
-  # (`|| echo 000`), read 000000 as an answer and passed before Tomcat had started.
-  curl --silent --output /dev/null --write-out '%{http_code}' --max-time 10 "$url" || true
-  return 0
+  curl --silent --output /dev/null --write-out '%{http_code}' --max-time 10 "$url"
 }
 
 explain_status() {
@@ -106,7 +103,7 @@ explain_status() {
 # probe_servlet CONTAINER URL TIMEOUT
 # Waits for Tomcat in CONTAINER to answer URL and judges the DrugRef servlet by that answer.
 # Tomcat opens its HTTP connector only after every context has deployed or failed, so the first
-# HTTP answer is final. Sets PROBE_RESULT and returns DEPLOYED, NOT_DEPLOYED or NO_ANSWER.
+# complete HTTP answer is final. Sets PROBE_RESULT and returns DEPLOYED, NOT_DEPLOYED or NO_ANSWER.
 probe_servlet() {
   local container=$1 url=$2 timeout=$3
   local started=$SECONDS status
@@ -117,7 +114,8 @@ probe_servlet() {
       PROBE_RESULT="container $container stopped before Tomcat answered"
       return "$NO_ANSWER"
     fi
-    status=$(http_status "$url")
+    # curl can report a status from the headers even when the response body fails to transfer.
+    status=$(http_status "$url") || status=000
     case $status in
       200 | 405)
         PROBE_RESULT="HTTP $status from $url after $((SECONDS - started))s: the drugref2 context started and the servlet initialised"

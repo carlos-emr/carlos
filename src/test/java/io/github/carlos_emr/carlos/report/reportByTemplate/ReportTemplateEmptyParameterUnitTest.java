@@ -109,6 +109,18 @@ class ReportTemplateEmptyParameterUnitTest extends CarlosUnitTestBase {
         assertThat(((Parameter) parameters.getFirst()).getParamId()).isEqualTo("pick");
     }
 
+    @Test
+    void shouldRecoverRealParameter_whenAnAdjacentLegacyLiteralHasAnUnclosedQuote() {
+        var manager = new ReportManager();
+        String xml = "<report title='FAKE mixed text' description='Synthetic only'><query>SELECT '{pick}'</query>"
+                + "Old example: <param note=\"unfinished "
+                + "<param id='pick' type='text' description='Length in \"'/>"
+                + " leftover '/></report>";
+        assertThat(manager.addTemplate(null, xml, info)).isEqualTo("Saved Successfully");
+        assertThat(manager.getReportTemplate("17").getParameters()).singleElement()
+                .satisfies(parameter -> assertThat(((Parameter) parameter).getParamId()).isEqualTo("pick"));
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"' OR 1=1 --", "x'; DELETE FROM FAKE_table; --"})
     void shouldBindSubmittedSqlSyntax_afterReopeningAnEmptyTextParameter(String submitted) {

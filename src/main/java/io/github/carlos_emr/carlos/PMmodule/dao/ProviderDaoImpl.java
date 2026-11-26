@@ -733,7 +733,9 @@ public class ProviderDaoImpl extends AbstractJpaDao implements ProviderDao {
 
     @Override
     public List<Provider> getCurrentTeamProviders(String providerNo) {
-        String hql = "SELECT p FROM Provider p WHERE p.status='1' and p.ohipNo != '' AND (p.providerNo=?1 or p.team=(SELECT p2.team FROM Provider p2 where p2.providerNo=?2)) ORDER BY p.lastName, p.firstName";
+        String hql = "SELECT p FROM Provider p WHERE p.status='1' and p.ohipNo != '' "
+                + "AND (p.providerNo=?1 OR (p.team <> '' AND p.team=(SELECT p2.team FROM Provider p2 WHERE p2.providerNo=?2))) "
+                + "ORDER BY p.lastName, p.firstName";
 
         return (List<Provider>) JpqlQueryHelper.find(entityManager(), hql, providerNo, providerNo);
     }

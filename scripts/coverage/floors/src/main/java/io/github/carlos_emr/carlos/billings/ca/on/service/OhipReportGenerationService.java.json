@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/OhipReportGenerationService.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 98.41269841269842,
+    "instructions": 96.7065868263473,
+    "branches": 76.3157894736842,
+    "sourceBlob": "6e3bdf1352198a0b7782b288e66110e8e85973c9"
+  },
+  "evidenceSha256": "bab03570058214796bf4d81852f47dcb3a67b906bf8c923237e77b09c47c1f79"
+}

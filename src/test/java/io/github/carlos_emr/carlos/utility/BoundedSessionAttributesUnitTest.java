@@ -36,6 +36,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("unit")
 class BoundedSessionAttributesUnitTest {
     @Test
+    void shouldRequireTheExactIssuedKey_withinTheCurrentSessionAndCategory() {
+        var session = new MockHttpSession();
+        session.setAttribute("issued.tmp", Boolean.TRUE);
+        assertThat(BoundedSessionAttributes.containsKey(session, "reports", "issued.tmp")).isFalse();
+        BoundedSessionAttributes.put(session, "different", "issued.tmp", Boolean.TRUE);
+        assertThat(BoundedSessionAttributes.containsKey(session, "reports", "issued.tmp")).isFalse();
+        BoundedSessionAttributes.put(session, "reports", "issued.tmp", Boolean.TRUE);
+        assertThat(BoundedSessionAttributes.containsKey(session, "reports", "issued.tmp")).isTrue();
+        assertThat(BoundedSessionAttributes.containsKey(session, "reports", "ISSUED.tmp")).isFalse();
+        session.invalidate();
+        assertThat(BoundedSessionAttributes.containsKey(new MockHttpSession(), "reports", "issued.tmp")).isFalse();
+    }
+
+    @Test
     void shouldEvictOldMetadata_withoutAffectingOtherCategoriesOrDrafts() {
         MockHttpSession session = new MockHttpSession();
         session.setAttribute("draft:1", "unsaved");

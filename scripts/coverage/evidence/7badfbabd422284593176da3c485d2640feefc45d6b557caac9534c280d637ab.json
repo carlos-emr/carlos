@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "9c97877a8c58b59b449d09b964b85b85b2ad3484",
+  "comparisonSha256": "5fdbe243f376a95e75f9eb7a166f3d2e360b1f1195800e51d5e2c38f2649ce5d",
+  "baselineCommit": "023810aaff8ae896f4551a60a399f961ce745449",
+  "baselineSourceTree": "9c97877a8c58b59b449d09b964b85b85b2ad3484",
+  "baselineReportSha256": "f1ec95199ac54e5904d529e56a0064029bf26b950183c4f800eb86a1a9c481ac",
+  "baselineLane": "OpenJDK 25 and Ontario Flyway on MariaDB. The physical disk collision fixture verified independent committed retirement, scoped file ownership, MRI visibility and regeneration refusal while preserving a previous claim and existing bytes. All 95 selected cases passed.",
+  "baselineTestCounts": {
+    "tests": 95,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingDiskTransactionOutcomeUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskTransactionServiceUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnFileAccessServiceIntegrationTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnOutputFilenamesIntegrationTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnSiteVisibilityIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1DaoIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.SiteDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDemographicArchiveMariaDbIntegrationTest"
+  ],
+  "baselineTestReportsSha256": "7465fb7e355fbee3643f2b6c65925853b235c84d1ec86acebc6c5297f2b41ebb",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnDiskTransactionService.java": {
+      "lines": 90.0,
+      "instructions": 90.38461538461539,
+      "branches": 53.57142857142857,
+      "sourceBlob": "90fdfa4075747cafe146c805ade81bbc29d1142c"
+    }
+  },
+  "exclusions": {}
+}
