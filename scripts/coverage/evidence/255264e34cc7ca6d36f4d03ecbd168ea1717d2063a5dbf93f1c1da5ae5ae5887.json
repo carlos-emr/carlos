@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "e868c3183480124bf5d1b37e86fa6a9ed03d6291",
+  "comparisonSha256": "c426d43fa26f65eb6d983d6492b302a860e97aab26cad9943247238bee31293a",
+  "baselineCommit": "e4f996ce7633d71aeb96bacea75cc3cf3c247837",
+  "baselineSourceTree": "e868c3183480124bf5d1b37e86fa6a9ed03d6291",
+  "baselineReportSha256": "82af4de743868513c244cdf3323795c4ad380d67a601b4854a9c08b228b3782e",
+  "baselineLane": "Focused JDK 25 Maven printing, content length, and embedded Tomcat tests against the merged release and PR sources",
+  "baselineTestCounts": {
+    "tests": 135,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "071b23e5ede0a79fb109d2a5d4bde4ef520726e8c4590be0d85ec2b83e1bd631",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/printing/PrivacyStatementAppendingFilter.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "1fbed2719b972f692b45dee38a08a0998462b7b5"
+    }
+  },
+  "exclusions": {}
+}

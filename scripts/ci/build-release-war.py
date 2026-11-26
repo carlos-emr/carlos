@@ -9,6 +9,7 @@ import os
 import tempfile
 import signal
 import re
+import zipfile
 
 def interrupted(_signum, _frame):
     raise KeyboardInterrupt
@@ -25,6 +26,23 @@ def main(argv=None):
     args.output.parent.mkdir(parents=True, exist_ok=True)
     source = Path(__file__).resolve().parents[2]
     revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=source, text=True).strip()
+    frozen = os.environ.get("CARLOS_RELEASE_CANDIDATE_WAR")
+    if frozen:
+        # Qualification reuses the final candidate assembled before testing.
+        # Never compile or stamp replacement bytes during a promotion attempt.
+        from release_publication import properties
+        with zipfile.ZipFile(frozen) as archive:
+            build = properties(archive.read("WEB-INF/classes/carlos-build.properties"))
+            identity = properties(archive.read("WEB-INF/classes/buildNumber.properties"))
+        if (identity.get("git-sha-1") != revision or build.get("build.job") != "carlos-emr-deb"
+                or build.get("build.number") != args.package_version):
+            raise SystemExit("Frozen candidate identity differs from qualification source/version")
+        with open(frozen, "rb") as input_war, args.output.open("xb") as output_war:
+            os.chmod(args.output, 0o600)
+            shutil.copyfileobj(input_war, output_war)
+            output_war.flush()
+            os.fsync(output_war.fileno())
+        return
     environment = {**os.environ, "JOB_NAME": "carlos-emr-deb", "BUILD_NUMBER": args.package_version}
     # A fresh local clone cannot retain removed classes/jars from earlier Maven
     # runs. It also avoids deleting evidence under target/ with `mvn clean`.

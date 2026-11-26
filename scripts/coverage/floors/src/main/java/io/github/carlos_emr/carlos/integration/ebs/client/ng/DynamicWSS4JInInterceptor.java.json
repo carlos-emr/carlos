@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/DynamicWSS4JInInterceptor.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "b2f1d3f14d03e7d2f8cc0807cb3ff66eb991c7b2"
+  },
+  "evidenceSha256": "a906b78f9871ed48be483c2339eac6ba642f39aca195bc519347b1faf4289e4f"
+}

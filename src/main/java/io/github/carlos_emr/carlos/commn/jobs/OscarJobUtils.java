@@ -102,12 +102,8 @@ public class OscarJobUtils {
 
 
         for (Integer jobId : OscarJobExecutingManager.getFutures().keySet()) {
-            ScheduledFuture<Object> future = OscarJobExecutingManager.getFutures().get(jobId);
-            if (future != null) {
-                future.cancel(false);
-            }
+            cancelJob(jobId, false);
         }
-        OscarJobExecutingManager.getFutures().clear();
 
 
         for (OscarJob job : oscarJobDao.findAll(0, OscarJobDao.MAX_LIST_RETURN_SIZE)) {
@@ -117,26 +113,45 @@ public class OscarJobUtils {
     }
 
 
-    public static boolean scheduleJob(OscarJob job) throws Exception {
-        //SpringTaskScheduler
-        TaskScheduler taskScheduler = (TaskScheduler) SpringUtils.getBean(TaskScheduler.class);
-        OscarJobDao oscarJobDao = SpringUtils.getBean(OscarJobDao.class);
-        ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
-
-        ScheduledFuture<Object> future = OscarJobExecutingManager.getFutures().get(job.getId());
-        if (future != null) {
-            future.cancel(false);
-            OscarJobExecutingManager.getFutures().remove(job.getId());
+    public static boolean scheduleJob(OscarJob job) {
+        synchronized (OscarJobExecutingManager.schedulingLock(job.getId())) {
+            try {
+                // Keep cancellation, registration and publication together for this job ID.
+                return OscarJobExecutingManager.getFutures().compute(job.getId(), (id, current) -> {
+                    cancelFuture(current, false);
+                    return registerJob(job);
+                }) != null;
+            } finally {
+                OscarJobExecutingManager.purgeCompletedFutures();
+            }
         }
+    }
 
+    public static void cancelJob(Integer jobId, boolean interrupt) {
+        synchronized (OscarJobExecutingManager.schedulingLock(jobId)) {
+            OscarJobExecutingManager.getFutures().computeIfPresent(jobId, (id, current) -> {
+                cancelFuture(current, interrupt);
+                return null;
+            });
+        }
+    }
+
+    private static void cancelFuture(ScheduledFuture<?> future, boolean interrupt) {
+        if (future != null && !future.cancel(interrupt) && !future.isDone()) {
+            throw new IllegalStateException("The scheduled job could not be cancelled");
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static ScheduledFuture<Object> registerJob(OscarJob job) {
         if (!job.isEnabled()) {
-            return false;
+            return null;
         }
         if (job.getCronExpression() == null) {
-            return false;
+            return null;
         }
         if (job.getOscarJobType() == null || !job.getOscarJobType().isEnabled() || !OscarJobUtils.isJobTypeCurrentlyValid(job.getOscarJobType())) {
-            return false;
+            return null;
         }
 
         CronTrigger trigger = new CronTrigger(job.getCronExpression());
@@ -146,29 +161,29 @@ public class OscarJobUtils {
             throw new SecurityException("Job class outside allowed package: "
                     + LogSafe.sanitize(jobClassName));
         }
-        OscarRunnable oscarRunnableInstance = Class.forName(jobClassName) // nosemgrep: unsafe-reflection -- jobClassName is validated against ALLOWED_JOB_PACKAGE_PREFIX above
-                .asSubclass(OscarRunnable.class)
-                .getDeclaredConstructor()
-                .newInstance();
+        OscarRunnable oscarRunnableInstance;
+        try {
+            oscarRunnableInstance = Class.forName(jobClassName) // nosemgrep: unsafe-reflection -- jobClassName is validated against ALLOWED_JOB_PACKAGE_PREFIX above
+                    .asSubclass(OscarRunnable.class)
+                    .getDeclaredConstructor()
+                    .newInstance();
+        } catch (ReflectiveOperationException failure) {
+            throw new IllegalStateException("The scheduled job could not be created", failure);
+        }
 
         Security security = new Security();
         security.setSecurityNo(0);
         oscarRunnableInstance.setLoggedInSecurity(security);
 
-        Provider provider = providerDao.getProvider(job.getProviderNo());
+        Provider provider = SpringUtils.getBean(ProviderDao.class).getProvider(job.getProviderNo());
         if (provider == null) {
-            return false;
+            return null;
         }
         oscarRunnableInstance.setLoggedInProvider(provider);
         oscarRunnableInstance.setConfig(job.getConfig());
 
-        ScheduledFuture<Object> schedulefuture = (ScheduledFuture<Object>) taskScheduler.schedule(oscarRunnableInstance, trigger);
-        //cancel,isCancelled, isDone
-
-        OscarJobExecutingManager.getFutures().put(job.getId(), schedulefuture);
-        OscarJobExecutingManager.purgeCompletedFutures();
-
-        return true;
+        TaskScheduler taskScheduler = SpringUtils.getBean(TaskScheduler.class);
+        return (ScheduledFuture<Object>) taskScheduler.schedule(oscarRunnableInstance, trigger);
     }
 
 }

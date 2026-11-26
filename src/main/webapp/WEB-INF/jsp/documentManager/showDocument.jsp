@@ -1109,11 +1109,14 @@
     // Macro support: check if document is linked to patient, then apply macro
     function runDocMacro(name, formid, closeOnSuccess) {
         var url = '<carlos:encode value='<%= request.getContextPath() %>' context="javaScript"/>/documentManager/inboxManage';
-        var data = 'method=isDocumentLinkedToDemographic&docId=<carlos:encode value='<%= docId %>' context="javaScript"/>&CSRF-TOKEN=' + encodeURIComponent(getCsrfToken());
-        fetch(url, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: data
+        var params = new URLSearchParams({method: 'isDocumentLinkedToDemographic', docId: '<carlos:encode value='<%= docId %>' context="javaScript"/>'});
+        // The macro's link check is a POST too; it must not go out with an empty token either (#1408).
+        carlosEnsureCsrfParam(params, '<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptBlock"/>').then(function () {
+            return fetch(url, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: params.toString()
+            });
         })
         .then(function(response) { return response.json(); })
         .then(function(json) {
@@ -1125,6 +1128,10 @@
                 }
                 runDocMacroInternal(name, formid, closeOnSuccess, demoid);
             }
+        })
+        .catch(function(error) {
+            console.error('Failed to run macro:', error);
+            alert('An error occurred while running the macro. Please refresh and try again.');
         });
     }
 
@@ -1132,11 +1139,13 @@
         var url = '<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptBlock"/>' + '/oscarMDS/RunMacro?name=' + encodeURIComponent(name) + (demographicNo.length > 0 ? '&demographicNo=' + encodeURIComponent(demographicNo) : '');
         var formEl = document.getElementById(formid);
         var params = new URLSearchParams(new FormData(formEl));
-        if (!params.has('CSRF-TOKEN')) { params.append('CSRF-TOKEN', getCsrfToken()); }
-        fetch(url, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: params.toString()
+        // The form's CSRF-TOKEN input can still be empty here; never post an empty token (#1408).
+        carlosEnsureCsrfParam(params, '<carlos:encode value='<%= request.getContextPath() %>' context="javaScriptBlock"/>').then(function () {
+            return fetch(url, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: params.toString()
+            });
         })
         .then(function(response) {
             if (!response.ok) {

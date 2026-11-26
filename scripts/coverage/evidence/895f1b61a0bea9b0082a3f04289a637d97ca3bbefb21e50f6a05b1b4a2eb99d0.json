@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "a0f199b0b16781457ba46b7460310b705e2daf9a",
+  "comparisonSha256": "58bd85062c041091932e8da5d6b2fcf8961c4bfd09b50f212a162d9c82c183ab",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/Update2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 98.21428571428571,
+      "sourceBlob": "f11d47e72c4223acea87c5b4b0f0f2670344e715"
+    }
+  },
+  "exclusions": {},
+  "zeroCoverageWaivers": {},
+  "baselineCommit": "bce3b9aca7ac6765a13d313dd7bd2f494f785880",
+  "baselineSourceTree": "a0f199b0b16781457ba46b7460310b705e2daf9a",
+  "baselineReportSha256": "abb0d21d23e02168674d7621f84d3bd9e6b68ebf0df6c384e3f5d2b6fc37ec62",
+  "baselineLane": "Focused Java 25 run of the test sources in bce3b9ac: Update2ActionUploadUnitTest, UploadActionBindingSecurityUnitTest and McedtSecurityTest; zero failures/errors/skips. Measures MCEDT Update Upload queueing and per-resource send confirmation; not full release qualification.",
+  "baselineTestCounts": {
+    "tests": 19,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "61279d79cc6db9b54c9ec77d29ba5b07bb8ba5504a78e5b2ecf995896500abbb",
+  "baselineTestReportsHashFormat": "SHA-256 of a sha256sum-style manifest of the run's Surefire TEST-*.xml report files: one '<sha256>  <file name>' line each, sorted by name",
+  "baselineTestRunCommit": "bce3b9aca7ac6765a13d313dd7bd2f494f785880",
+  "baselineAdditionalTestRuns": []
+}

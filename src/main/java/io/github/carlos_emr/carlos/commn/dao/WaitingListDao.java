@@ -43,6 +43,14 @@ public interface WaitingListDao extends AbstractDao<WaitingList> {
 
     List<WaitingList> findByWaitingListId(Integer listId);
 
+    /**
+     * Reads and locks the current entries in list order until the caller's transaction ends.
+     *
+     * @param listId the waiting list to update
+     * @return the current entries, excluding history
+     */
+    List<WaitingList> findByWaitingListIdForUpdate(Integer listId);
+
     List<Appointment> findAppointmentFor(WaitingList waitingList);
 
     List<WaitingList> findByWaitingListIdAndDemographicId(Integer waitingListId, Integer demographicId);

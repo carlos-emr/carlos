@@ -54,6 +54,7 @@ import io.github.carlos_emr.carlos.commn.model.Queue;
 import io.github.carlos_emr.carlos.commn.model.QueueDocumentLink;
 import io.github.carlos_emr.carlos.inbox.InboxManagerQuery;
 import io.github.carlos_emr.carlos.inbox.InboxManagerResponse;
+import io.github.carlos_emr.carlos.commn.dao.InboxDocumentResults;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -152,10 +153,14 @@ public class InboxManagerImpl implements InboxManager {
         String patientHealthNumber = query.getPatientHIN();
 
         ArrayList<LabResultData> labdocs = new ArrayList<LabResultData>();
+        int omittedDocumentRows = 0;
 
         if (!LABS.equals(view) && !ABNORMAL.equals(view)) {
-            labdocs = inboxResultsDao.populateDocumentResultsData(searchProviderNo, demographicNo, patientFirstName,
-                    patientLastName, patientHealthNumber, ackStatus, true, page, pageSize, mixLabsAndDocs, isAbnormal);
+            InboxDocumentResults documents = inboxResultsDao.readDocumentResults(searchProviderNo, demographicNo,
+                    patientFirstName, patientLastName, patientHealthNumber, ackStatus, true, page, pageSize,
+                    mixLabsAndDocs, isAbnormal, null, null, null);
+            labdocs.addAll(documents.items());
+            omittedDocumentRows = documents.omittedRows();
         }
         if (!DOCUMENTS.equals(view)) {
             labdocs.addAll(comLab.populateLabResultsData(loggedInInfo, searchProviderNo, demographicNo, patientFirstName,
@@ -414,6 +419,7 @@ public class InboxManagerImpl implements InboxManager {
         logger.debug("labdocs.size()=" + labdocs.size());
 
         InboxManagerResponse response = new InboxManagerResponse();
+        response.setOmittedDocumentRows(omittedDocumentRows);
         response.setPageNum(page);
         response.setDocType(docType);
         response.setPatientDocs(patientDocs);

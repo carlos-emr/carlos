@@ -1227,6 +1227,18 @@ class HttpMethodGuardFilterUnitTest {
             verify(chain, never()).doFilter(any(), any());
         }
 
+        @ParameterizedTest
+        @ValueSource(strings = {"GET", "HEAD"})
+        @DisplayName("should block a Key Manager Create Key that names a service and is not posted")
+        void shouldBlock_forCreateKeyWithServiceName(String httpMethod) throws Exception {
+            // #6321: createKey.jsp stores a key pair for any request that names a service.
+            MockHttpServletResponse res = doFilter(httpMethod, "/admin/ViewKeygenCreateKey", "name", "probe-get");
+
+            assertThat(res.getStatus()).isEqualTo(405);
+            assertThat(res.getHeader("Allow")).isEqualTo("POST");
+            verify(chain, never()).doFilter(any(), any());
+        }
+
         @Test
         @DisplayName("should pass the Teleplan Activity List's year archive, which writes nothing")
         void shouldPassThrough_forGenerateTeleplanFileYearArchive() throws Exception {
@@ -1263,7 +1275,7 @@ class HttpMethodGuardFilterUnitTest {
 
         @ParameterizedTest
         @ValueSource(strings = {"/admin/ProviderPrivilege", "/admin/ProviderRole", "/messenger/HandleMessages",
-                "/billing/CA/BC/GenerateTeleplanFile"})
+                "/billing/CA/BC/GenerateTeleplanFile", "/admin/ViewKeygenCreateKey"})
         @DisplayName("should pass a bare GET that only opens the page")
         void shouldPassThrough_forBareGet(String route) throws Exception {
             MockHttpServletResponse res = doFilter("GET", route);

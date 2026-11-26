@@ -63,7 +63,7 @@ class MsgEncounterPdfComposerChartPrintUnitTest extends CarlosUnitTestBase {
     private static final int PATIENT = 5856;
 
     @Test
-    @DisplayName("should print all notes and the CPP only, without locked notes or request parameters")
+    @DisplayName("should print all notes and the CPP only, without locked, archived or hidden notes or request parameters")
     void shouldPrintAllNotesAndTheCppOnly_withoutLockedNotesOrRequestParameters() throws Exception {
         CdsLegacyProjectionService projections = createAndRegisterMock(CdsLegacyProjectionService.class);
         // The print's own services, in case its field initializers run under the construction mock.
@@ -83,6 +83,8 @@ class MsgEncounterPdfComposerChartPrintUnitTest extends CarlosUnitTestBase {
             CaseManagementPrint print = prints.constructed().getFirst();
             InOrder order = inOrder(print);
             order.verify(print).leaveOutLockedNotes();
+            // Sent to a third party as current notes: archived notes and hidden CPP entries stay out too.
+            order.verify(print).leaveOutArchivedAndHiddenNotes();
             // No cap for a caller that gave none; a capped caller's limit reaches the print before it runs.
             order.verify(print).limitCompletePdfBytes(Long.MAX_VALUE);
             ArgumentCaptor<HttpServletRequest> printed = ArgumentCaptor.forClass(HttpServletRequest.class);

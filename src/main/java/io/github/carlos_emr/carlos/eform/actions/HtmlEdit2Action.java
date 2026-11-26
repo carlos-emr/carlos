@@ -149,7 +149,8 @@ public class HtmlEdit2Action extends ActionSupport {
         return uploadFile;
     }
 
-    @StrutsParameter
+    // Not a @StrutsParameter: Struts 7 never binds an uploaded file from request parameters, so the
+    // annotation bound nothing, and a request value must never name a server-side file (#2212).
     public void setUploadFile(File uploadFile) {
         this.uploadFile = uploadFile;
     }

@@ -1,16 +1,22 @@
 package io.github.carlos_emr.carlos.integration.ebs.client.ng;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Collection;
 import java.util.List;
 
+import org.apache.cxf.attachment.AttachmentDataSource;
+import org.apache.cxf.attachment.LazyAttachmentCollection;
 import org.apache.cxf.interceptor.Fault;
 import org.apache.cxf.message.Message;
 import org.apache.cxf.phase.AbstractPhaseInterceptor;
 import org.apache.cxf.phase.Phase;
 import org.apache.cxf.phase.PhaseInterceptor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
- * Clears the attachment ThreadLocal and closes the application's response replay.
+ * Releases response attachment caches and replay, then clears the attachment ThreadLocal.
  * 
  * <h3>Purpose</h3>
  * 
@@ -26,6 +32,8 @@ import org.apache.cxf.phase.PhaseInterceptor;
  */
 public class AttachmentCleanupInterceptor extends
 		AbstractPhaseInterceptor<Message> {
+
+    private static final Logger logger = LoggerFactory.getLogger(AttachmentCleanupInterceptor.class);
 
 	/**
 	 * Constructs an instance of the AttachmentCleanupInterceptor, 
@@ -76,9 +84,33 @@ public class AttachmentCleanupInterceptor extends
 
     static void cleanup(Message message) {
         try {
+            DynamicWSS4JInInterceptor.closeAttachmentStreams(message);
+            closeLoadedCaches(message);
             DynamicWSS4JInInterceptor.closeReplay(message);
         } finally {
             AttachmentCachingInterceptor.clear();
+        }
+    }
+
+    /** Closes cached parts that were loaded without handing a reader to WSS4J. */
+    private static void closeLoadedCaches(Message message) {
+        if (message.getAttachments() instanceof LazyAttachmentCollection attachments) {
+            // Inspect only deserialized parts. Iterating the lazy collection itself would read the MIME body.
+            for (var attachment : attachments.getLoadedAttachments()) {
+                try {
+                    var handler = attachment.getDataHandler();
+                    if (handler != null && handler.getDataSource() instanceof AttachmentDataSource cache
+                            && cache.isCached()) {
+                        // CXF releases the spill file when its last reader closes.
+                        InputStream reader = cache.getInputStream();
+                        if (reader != null) {
+                            reader.close();
+                        }
+                    }
+                } catch (IOException | RuntimeException e) {
+                    logger.debug("Ignoring failure to close an MCEDT attachment reader: {}", e.getClass().getName());
+                }
+            }
         }
     }
 	

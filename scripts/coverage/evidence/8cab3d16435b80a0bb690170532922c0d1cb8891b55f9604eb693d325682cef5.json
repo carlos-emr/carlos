@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "d231ae52c57e25e4a2bdaff6c25d889cdfe57d11",
+  "comparisonSha256": "b66d47bae524f76a2fd2101039cc2b0d5626adfcf7267f1d224e2ca0bcc1237f",
+  "baselineCommit": "fef1ea5202881b047b2b1c11a1a4e81c2b8d555d",
+  "baselineSourceTree": "d231ae52c57e25e4a2bdaff6c25d889cdfe57d11",
+  "baselineReportSha256": "483ecec7d1bb9c5001b0e0fe2de9962c0316867cbae020e5cce56c9e609e4b5d",
+  "baselineLane": "Focused inbox, document edit, attachment and routing unit and H2 integration tests",
+  "baselineTestCounts": {
+    "tests": 624,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "63e58190bf2d3070a6db9e6d8d6b273325f10c6810beaaff096f01210e3e42b9",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/DocumentDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "fe06f078e5f3ede06b44335d33d3077b0a12b092"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/DocumentDaoImpl.java": {
+      "lines": 31.57894736842105,
+      "instructions": 35.39823008849557,
+      "branches": 75.0,
+      "sourceBlob": "c1219a67c4822eaf96845acfff5dcc405a5e98d5"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/EReferAttachmentDataDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "f97bd49c3ad0e10d9eff3aa0a58b8bb0f07fae88"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/EReferAttachmentDataDaoImpl.java": {
+      "lines": 94.11764705882354,
+      "instructions": 93.97590361445783,
+      "branches": 50.0,
+      "sourceBlob": "b1d3facc74f094c26cdea15368bdbcf6587d0e57"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/Hl7TextInfoDaoImpl.java": {
+      "lines": 36.8421052631579,
+      "instructions": 34.21052631578947,
+      "branches": 75.0,
+      "sourceBlob": "40ea13cb602cf0a9656c39036d06871ff8a6189e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/InboxResultsDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 95.48872180451127,
+      "branches": 80.76923076923077,
+      "sourceBlob": "e12befadc3d7d1608de9c436fda167e3c69e9b39"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/PatientLabRoutingDaoImpl.java": {
+      "lines": 43.75,
+      "instructions": 46.666666666666664,
+      "branches": 64.28571428571429,
+      "sourceBlob": "88edc5b8343bb19f81bbbd10d80fa48dc18519ba"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/documentManager/DocumentEditRevision.java": {
+      "lines": 94.73684210526316,
+      "instructions": 96.0352422907489,
+      "branches": 85.71428571428571,
+      "sourceBlob": "32754165f9aadb79b6adc023b6dec3cf54a289e7"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/documentManager/DocumentReviewService.java": {
+      "lines": 92.62295081967213,
+      "instructions": 91.52970922882427,
+      "branches": 83.9622641509434,
+      "sourceBlob": "86574406fd54d6507940f29c5e56d352775d0aa2"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/documentManager/actions/AddEditDocument2Action.java": {
+      "lines": 100.0,
+      "instructions": 99.3963782696177,
+      "branches": 91.89189189189189,
+      "sourceBlob": "e0a2f808ec1c9f6eceb082ab45148da36236d4c8"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/documentManager/actions/AddEditHtml2Action.java": {
+      "lines": 69.56521739130434,
+      "instructions": 70.98039215686275,
+      "branches": 65.625,
+      "sourceBlob": "e3c959c15a1b8fc3d25fb4afb86718eaebf09dc8"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/documentManager/actions/DmsInboxManage2Action.java": {
+      "lines": 64.28571428571429,
+      "instructions": 56.39344262295082,
+      "branches": 41.666666666666664,
+      "sourceBlob": "e5bac218198a9f661d6633c1efda722b70a06760"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/documentManager/actions/RemoveUnavailableHrm2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 83.33333333333333,
+      "sourceBlob": "9fe5bed48e1b9c597d8ff0204b0cd92186659ebe"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/hospitalReportManager/HRMUtil.java": {
+      "lines": 50.0,
+      "instructions": 52.054794520547944,
+      "branches": 50.0,
+      "sourceBlob": "214b706aa3b1f2cc792207d6a7c40985a989b61d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/hospitalReportManager/HrmVersionService.java": {
+      "lines": 96.72131147540983,
+      "instructions": 92.7360774818402,
+      "branches": 73.33333333333333,
+      "sourceBlob": "737678c46a6a5390a2dd4c021d47c7dbca4c0788"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/inbox/InboxManagerResponse.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "6f3e70a2e6b1d74b4bd20b723bee43d873f74e36"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/inboxhub/inboxdata/LabDataController.java": {
+      "lines": 40.0,
+      "instructions": 58.333333333333336,
+      "branches": 25.0,
+      "sourceBlob": "48c2172d5d3aa907ab4441266a6d7d977053969b"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/InboxManagerImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "7c8b62d3e9e33f5f4b2b696407b7cbc445a85cab"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/mds/data/CategoryData.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "04a227c9a97566b99790090404d17071b76b8bb5"
+    }
+  },
+  "exclusions": {}
+}

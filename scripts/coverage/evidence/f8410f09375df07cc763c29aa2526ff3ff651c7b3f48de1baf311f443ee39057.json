@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "4416ce57acb4502263566bd6b8748070018019ff",
+  "comparisonSha256": "bd8e90a5746753ab65e52b8b5d1a89ab3facbae35d9be9fd27b5289ff5f852a5",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/DemographicService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "93e1e5e54100e334b12c0f8fa6b52bf4941a6fb9"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/waitinglist/util/WLWaitingListUtil.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "6eddd6ee77c3a6fb321abe38f6f10af210e90fcb"
+    }
+  },
+  "baselineCommit": "e228dbc7e7ddcda03ca6f461636b8089ecef99c4",
+  "baselineSourceTree": "4416ce57acb4502263566bd6b8748070018019ff",
+  "baselineReportSha256": "ce428739acc7f85828c5baebfd5e0dc308073a22e8d9fe545c7714279f5f0f59",
+  "baselineLane": "Fresh JDK25 compilation at the measured commit, clean tree. Selected-source evidence for the REST demographic resource and the waiting-list helper after the REST update began refusing a patient whose only entries on the named waiting list are history (#5298): 811 H2 cases (manager unit and transaction tests, REST unit and endpoint tests, the twenty-four update-transaction cases, reassignment, OBEC apply, the waiting-list helper, note-length, mutation and JSP tests, the patient add and edit form tests, the mutator GET-rejection contract, schedule controls) and 74 native MariaDB 11.8.8 cases with 32K pages on the generated schema (the same twenty-four update-transaction cases, merge, web unmerge, identifier preservation, schedule sync, reporting audit, OBEC alert). All 885 executed JUnit cases pass with zero failures, errors or skips. Existing higher floors retained; not full release qualification.",
+  "baselineTestCounts": {
+    "tests": 885,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "207c9f639cec687a89be3f8af3bea48b6375fb1b43587d64ab1ceb354bce2a47",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineReportHeaderCollisions": 2
+}

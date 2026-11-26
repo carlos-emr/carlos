@@ -25,10 +25,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
@@ -831,5 +833,133 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
 
         assertThat(consultationPdfCreatorConstruction.constructed()).isEmpty();
         verify(consultationManager, never()).getAttachedEForms(any());
+    }
+
+    /**
+     * Issue #6345: only a printed stored document reads {@code DOCUMENT_DIR}. A packet without one
+     * prints while the setting is absent or blank; the letter and an attached eForm are merged and
+     * streamed as before.
+     */
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @ValueSource(strings = "   ")
+    @DisplayName("should print the packet when no stored document needs the unset document directory")
+    void shouldPrintPacket_whenNoStoredDocumentNeedsUnsetDocumentDir(String documentDir) throws Exception {
+        byte[] letter = "%PDF-1.4 synthetic consultation letter".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+        byte[] eFormPdf = "%PDF-1.4 synthetic eForm".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+        consultationPdfCreatorConstruction.close();
+        consultationPdfCreatorConstruction = mockConstruction(ConsultationPDFCreator.class, (creator, context) ->
+                doAnswer(invocation -> {
+                    ((OutputStream) context.arguments().get(1)).write(letter);
+                    return null;
+                }).when(creator).printPdf(any()));
+        Path renderedEForm = createRenderedPdf();
+        try {
+            Files.write(renderedEForm, eFormPdf);
+            EFormData eForm = mock(EFormData.class);
+            when(eForm.getId()).thenReturn(7);
+            when(eForm.getDemographicId()).thenReturn(1);
+            when(consultationManager.getAttachedEForms("42")).thenReturn(List.of(eForm));
+            when(faxManager.renderFaxDocument(loggedInInfo, FaxManager.TransactionType.EFORM, 7, 1))
+                    .thenReturn(renderedEForm);
+
+            try (var _ = withDocumentDir(documentDir);
+                 MockedStatic<ConcatPDF> concat = mockStatic(ConcatPDF.class)) {
+                concat.when(() -> ConcatPDF.concat(anyList(), any(OutputStream.class))).thenAnswer(invocation -> {
+                    OutputStream merged = invocation.getArgument(1);
+                    for (Object part : invocation.<List<?>>getArgument(0)) {
+                        merged.write(((InputStream) part).readAllBytes());
+                    }
+                    return 0;
+                });
+
+                assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+                assertThat(request.getAttribute("printError")).isNull();
+                assertThat(response.getContentType()).isEqualTo("application/pdf");
+                assertThat(response.getHeader("Content-Disposition")).startsWith("inline; filename=\"combinedPDF-");
+                ByteArrayOutputStream expected = new ByteArrayOutputStream();
+                expected.write(letter);
+                expected.write(eFormPdf);
+                assertThat(response.getContentAsByteArray()).isEqualTo(expected.toByteArray());
+            }
+        } finally {
+            Files.deleteIfExists(renderedEForm);
+        }
+    }
+
+    /**
+     * Issue #6345: a printed stored image or PDF needs {@code DOCUMENT_DIR}. With the setting absent
+     * or blank the action gives its ordinary print error before anything is rendered, merged or
+     * written, so no error page can be appended to a committed PDF response.
+     */
+    @ParameterizedTest
+    @CsvSource(value = {"true, UNSET", "false, UNSET", "true, ''", "false, '   '"}, nullValues = "UNSET")
+    @DisplayName("should return the print error before writing when a stored document needs the unset document directory")
+    void shouldReturnPrintErrorBeforeWriting_whenStoredDocumentNeedsUnsetDocumentDir(boolean image, String documentDir) {
+        listOwnedStoredDocument(image, image ? "synthetic-scan.png" : "synthetic-report.pdf");
+
+        try (var _ = withDocumentDir(documentDir);
+             MockedStatic<ConcatPDF> concat = mockStatic(ConcatPDF.class);
+             MockedConstruction<ImagePDFCreator> images = mockConstruction(ImagePDFCreator.class);
+             LogCapture logs = LogCapture.forLogger(EctConsultationFormRequestPrintAction22Action.class)) {
+            assertThat(action.execute()).isEqualTo("error");
+
+            assertThat(request.getAttribute("printError")).isEqualTo(Boolean.TRUE);
+            assertThat(images.constructed()).isEmpty();
+            concat.verifyNoInteractions();
+            assertThat(response.isCommitted()).isFalse();
+            assertThat(response.getContentType()).isNull();
+            assertThat(response.getHeader("Content-Disposition")).isNull();
+            assertThat(response.getContentAsByteArray()).isEmpty();
+            assertThat(logs.events()).anySatisfy(event -> {
+                assertThat(event.getThrown()).isInstanceOf(IOException.class);
+                assertThat(event.getThrown().getMessage()).contains("DOCUMENT_DIR");
+            });
+        }
+    }
+
+    /** A DOCUMENT_DIR configured without a trailing separator still resolves the stored name inside it. */
+    @Test
+    @DisplayName("should resolve the stored image inside a document directory configured without a trailing separator")
+    void shouldResolveStoredImageInsideDocumentDir_whenConfiguredWithoutTrailingSeparator() {
+        String documentDir = Path.of(System.getProperty("java.io.tmpdir"), "synthetic-consult-documents").toString();
+        String storedName = "synthetic-scan.png";
+        listOwnedStoredDocument(true, storedName);
+
+        try (var _ = withDocumentDir(documentDir);
+             var _ = mockStatic(ConcatPDF.class);
+             MockedConstruction<ImagePDFCreator> images = mockConstruction(ImagePDFCreator.class)) {
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+            assertThat(images.constructed()).hasSize(1);
+            assertThat(request.getAttribute("imagePath")).isEqualTo(Path.of(documentDir, storedName).toString());
+        }
+    }
+
+    /** Attaches one printable stored document that belongs to the consultation patient. */
+    private void listOwnedStoredDocument(boolean image, String fileName) {
+        EDoc stored = mock(EDoc.class);
+        when(stored.getDocId()).thenReturn("10");
+        when(stored.isPrintable()).thenReturn(true);
+        when(stored.isImage()).thenReturn(image);
+        when(stored.isPDF()).thenReturn(!image);
+        when(stored.getFileName()).thenReturn(fileName);
+        eDocUtilMock.when(() -> EDocUtil.listDocs(any(), eq("1"), eq("42"), anyBoolean()))
+                .thenReturn(new ArrayList<>(List.of(stored)));
+        when(ctlDocumentDao.findDocumentNosForDemographic(eq(1), anyCollection())).thenReturn(List.of(10));
+    }
+
+    /**
+     * Serves this thread the bundled configuration with {@code DOCUMENT_DIR} replaced by the given
+     * value, {@code null} meaning absent; every other setting is read as usual.
+     */
+    private static MockedStatic<io.github.carlos_emr.CarlosProperties> withDocumentDir(String documentDir) {
+        io.github.carlos_emr.CarlosProperties configuration = spy(io.github.carlos_emr.CarlosProperties.getInstance());
+        doReturn(documentDir).when(configuration).getProperty("DOCUMENT_DIR");
+        MockedStatic<io.github.carlos_emr.CarlosProperties> properties =
+                mockStatic(io.github.carlos_emr.CarlosProperties.class, CALLS_REAL_METHODS);
+        properties.when(io.github.carlos_emr.CarlosProperties::getInstance).thenReturn(configuration);
+        return properties;
     }
 }
