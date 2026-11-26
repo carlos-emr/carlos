@@ -114,7 +114,7 @@ class EctAddMeasurementType2ActionFieldLengthUnitTest extends CarlosUnitTestBase
         action = spy(new EctAddMeasurementType2Action());
         doAnswer(invocation -> rendered(invocation.getArgument(0), invocation.getArgument(1)))
                 .when(action).getText(anyString(), any(String[].class));
-        // (key, default text): the bundles define every key used, so no argument is shown.
+        // The success message uses the (key, default text) overload.
         doAnswer(invocation -> invocation.getArgument(0)).when(action).getText(anyString(), anyString());
         action.setType(CODE);
         action.setTypeDesc("Synthetic description");
@@ -183,7 +183,7 @@ class EctAddMeasurementType2ActionFieldLengthUnitTest extends CarlosUnitTestBase
 
         // The form prints each action error as markup, so the submitted text must arrive encoded.
         assertThat(request.getAttribute("actionErrors")).isEqualTo(List.of(
-                "errors.invalid",
+                rendered("errors.invalid", new String[]{TextField.DESCRIPTION.label + "&lt;b&gt;" + tail}),
                 lengthError(TextField.DESCRIPTION.label + "&lt;b&gt;" + tail)));
         verifyNoWrite();
     }

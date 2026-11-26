@@ -63,6 +63,8 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
  * @since 2004-02-23
  */
 public class EctAddMeasurementType2Action extends ActionSupport {
+    private static final int TYPE_COLUMN_MAX_LENGTH = 50;
+
     /**
      * Width of the {@code typeDescription}, {@code typeDisplayName} and {@code measuringInstruction}
      * columns of {@code measurementType}: VARCHAR(255) in the V1 baseline schema.
@@ -144,17 +146,16 @@ public class EctAddMeasurementType2Action extends ActionSupport {
 
         String errorField = "The type " + type;
         if (!validate.matchRegExp(regExp, type)) {
-            addActionError(getText(ERRORS_INVALID, errorField));
+            addActionError(getText(ERRORS_INVALID, new String[]{SafeEncode.forHtmlContent(errorField)}));
             isValid = false;
         }
-        if (!validate.maxLength(50, typeUp)) {
-            addActionError(getText(ERRORS_MAXLENGTH, new String[]{errorField, "50"}));
+        if (!checkMaxLength(validate, errorField, typeUp, TYPE_COLUMN_MAX_LENGTH)) {
             isValid = false;
         }
 
         errorField = "The type description " + typeDesc;
         if (!validate.matchRegExp(regExp, typeDesc)) {
-            addActionError(getText(ERRORS_INVALID, errorField));
+            addActionError(getText(ERRORS_INVALID, new String[]{SafeEncode.forHtmlContent(errorField)}));
             isValid = false;
         }
         if (!checkMaxLength(validate, errorField, typeDesc, TEXT_COLUMN_MAX_LENGTH)) {
@@ -163,7 +164,7 @@ public class EctAddMeasurementType2Action extends ActionSupport {
 
         errorField = "The display name " + typeDisplayName;
         if (!validate.matchRegExp(regExp, typeDisplayName)) {
-            addActionError(getText(ERRORS_INVALID, errorField));
+            addActionError(getText(ERRORS_INVALID, new String[]{SafeEncode.forHtmlContent(errorField)}));
             isValid = false;
         }
         if (!checkMaxLength(validate, errorField, typeDisplayName, TEXT_COLUMN_MAX_LENGTH)) {
@@ -172,7 +173,7 @@ public class EctAddMeasurementType2Action extends ActionSupport {
 
         errorField = "The measuring instruction " + measuringInstrc;
         if (!validate.matchRegExp(regExp, measuringInstrc)) {
-            addActionError(getText(ERRORS_INVALID, errorField));
+            addActionError(getText(ERRORS_INVALID, new String[]{SafeEncode.forHtmlContent(errorField)}));
             isValid = false;
         }
         if (!checkMaxLength(validate, errorField, measuringInstrc, TEXT_COLUMN_MAX_LENGTH)) {
