@@ -112,8 +112,8 @@ class DependencyConvergenceUnitTest {
         // version of the jar actually on the class path, whatever the lock says. Version.equals
         // also compares the artifact, so compare the version text.
         String databind = com.fasterxml.jackson.databind.cfg.PackageVersion.VERSION.toString();
-        assertThat(com.fasterxml.jackson.datatype.jsr310.PackageVersion.VERSION.toString()).isEqualTo(databind);
-        assertThat(com.fasterxml.jackson.core.json.PackageVersion.VERSION.toString()).isEqualTo(databind);
+        assertThat(com.fasterxml.jackson.datatype.jsr310.PackageVersion.VERSION).hasToString(databind);
+        assertThat(com.fasterxml.jackson.core.json.PackageVersion.VERSION).hasToString(databind);
         assertThat(databind).isEqualTo(version("com.fasterxml.jackson.core", "jackson-databind"));
     }
 

@@ -82,11 +82,11 @@ class CdsNativePreparationServiceUnitTest {
                 new Clock(
                         java.time.Instant.parse("1901-12-13T20:45:52.5Z"),
                         java.time.Instant.parse("2024-03-10T07:00:00.123456789Z"),
-                        java.time.LocalDate.of(1950, 2, 28),
-                        java.time.LocalDateTime.of(2021, 11, 7, 1, 30),
+                        java.time.LocalDate.of(1950, java.time.Month.FEBRUARY, 28),
+                        java.time.LocalDateTime.of(2021, java.time.Month.NOVEMBER, 7, 1, 30),
                         java.time.LocalTime.of(9, 5),
                         OffsetDateTime.parse("1883-11-18T12:00:00-05:17:32"),
-                        java.time.YearMonth.of(2023, 7),
+                        java.time.YearMonth.of(2023, java.time.Month.JULY),
                         java.time.ZoneId.of("America/St_Johns"),
                         java.time.Duration.ofDays(30),
                         java.time.Duration.ofMillis(-1500));
@@ -103,7 +103,7 @@ class CdsNativePreparationServiceUnitTest {
                                 + "\"zone\":\"America/St_Johns\","
                                 + "\"elapsed\":2592000.000000000,"
                                 + "\"correction\":-1.500000000}");
-        try (var ownership = mockStatic(CdsImportUnitService.class)) {
+        try (var _ = mockStatic(CdsImportUnitService.class)) {
             var decoded =
                     service(dao)
                             .load("run", 1, "a".repeat(64), "b".repeat(64), command(), Clock.class);
