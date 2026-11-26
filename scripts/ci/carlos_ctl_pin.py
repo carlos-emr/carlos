@@ -26,7 +26,8 @@ def read_pin():
         fields[key] = value
     tag = fields.get("tag", "")
     commit = fields.get("fallback", "")
-    if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.]+)?", tag):
+    # Match the version accepted by the carlos-ctl release workflow.
+    if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:-[a-z]+[0-9]+)?", tag):
         raise ValueError(f"{PIN} must name a carlos-ctl release tag")
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
         raise ValueError(f"{PIN} must name a full carlos-ctl commit in fallback=")

@@ -259,6 +259,14 @@ class TestPinnedCliWorkflowCheckout(unittest.TestCase):
                 self.assertEqual(self.git("rev-parse", "HEAD", source=destination), self.expected)
                 self.assertIn(f"verified at {self.expected}", result.stdout)
 
+    def test_published_prerelease_tag_matches_the_pinned_commit(self):
+        tag = f"{self.TAG}-rc1"
+        self.pin.write_text(f"tag={tag}\nfallback={self.expected}\n", encoding="utf-8")
+        self.git("tag", tag, self.expected)
+        result, destination = self.run_checkout(self.WORKFLOWS[0])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.git("rev-parse", "HEAD", source=destination), self.expected)
+
     def test_moved_tag_is_rejected_even_when_the_pin_remains_fetchable(self):
         self.git("tag", "-a", self.TAG, "-m", "Original fixture release", self.expected)
         self.git("tag", "-f", "-a", self.TAG, "-m", "Moved fixture release", self.other)
@@ -296,6 +304,16 @@ class TestPinnedCliWorkflowCheckout(unittest.TestCase):
                 result, destination = self.run_checkout(self.WORKFLOWS[0])
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("::error::", result.stderr)
+                self.assertFalse(destination.exists())
+
+    def test_unpublishable_release_tags_are_rejected_before_checkout(self):
+        for workflow, suffix in zip(self.WORKFLOWS, ("rc..1", "rc"), strict=True):
+            tag = f"{self.TAG}-{suffix}"
+            with self.subTest(tag=tag):
+                self.pin.write_text(f"tag={tag}\nfallback={self.expected}\n", encoding="utf-8")
+                result, destination = self.run_checkout(workflow)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("must name a carlos-ctl release tag", result.stderr)
                 self.assertFalse(destination.exists())
 
     def test_pinned_suite_rejects_a_moved_local_tag_even_at_the_pinned_head(self):
