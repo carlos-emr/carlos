@@ -572,10 +572,10 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
             verifyNoInteractions(mockSecurityInfoManager, mockMeasurementManager);
         }
 
-        @ParameterizedTest(name = "dateObserved {0}")
-        @ValueSource(longs = {-30610224000000L, 253402300799000L})
-        @DisplayName("should accept dateObserved at either end of the database DATETIME range")
-        void shouldRecordMeasurement_whenDateObservedIsAtRangeBoundary(long dateObserved) {
+        @Test
+        @DisplayName("should accept dateObserved at the lower end of the database DATETIME range")
+        void shouldRecordMeasurement_whenDateObservedIsAtLowerRangeBoundary() {
+            long dateObserved = -30610224000000L;
             allowWriteToExistingPatient();
             allowConfiguredBloodPressure();
             when(mockMeasurementManager.addMeasurement(any(LoggedInInfo.class), any(Measurement.class)))
@@ -587,6 +587,78 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
             assertThat(response.getStatus()).isEqualTo(200);
             verify(mockMeasurementManager).addMeasurement(any(LoggedInInfo.class), argThat(measurement ->
                 measurement.getDateObserved().getTime() == dateObserved));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"upper DATETIME bound", "one day ahead", "just past the skew allowance"})
+        @DisplayName("should refuse a dateObserved in the future, which would rank as the current reading")
+        void shouldReturn400_whenDateObservedIsInFuture(String description) {
+            long now = System.currentTimeMillis();
+            long dateObserved = switch (description) {
+                case "upper DATETIME bound" -> 253402300799000L;
+                case "one day ahead" -> now + 24L * 60L * 60L * 1000L;
+                default -> now + MeasurementService.MAX_FUTURE_SKEW_MILLIS + 60_000L;
+            };
+
+            Response response = postNew("{\"type\":\"BP\",\"dataField\":\"122/80\","
+                + "\"measuringInstruction\":\"sitting position\",\"dateObserved\":" + dateObserved + "}");
+
+            assertThat(response.getStatus()).as(description).isEqualTo(400);
+            assertThat(responseJson(response).at("/code").textValue()).isEqualTo("DATE_OBSERVED_IN_FUTURE");
+            verifyNoInteractions(mockSecurityInfoManager, mockMeasurementTypeDao, mockMeasurementManager);
+        }
+
+        @Test
+        @DisplayName("should accept a dateObserved slightly ahead of the server clock, within the skew allowance")
+        void shouldRecordMeasurement_whenDateObservedIsWithinClockSkew() {
+            long dateObserved = System.currentTimeMillis() + 60_000L;
+            allowWriteToExistingPatient();
+            allowConfiguredBloodPressure();
+            when(mockMeasurementManager.addMeasurement(any(LoggedInInfo.class), any(Measurement.class)))
+                .thenAnswer(invocation -> invocation.getArgument(1));
+
+            Response response = postNew("{\"type\":\"BP\",\"dataField\":\"122/80\","
+                + "\"measuringInstruction\":\"sitting position\",\"dateObserved\":" + dateObserved + "}");
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            verify(mockMeasurementManager).addMeasurement(any(LoggedInInfo.class), any(Measurement.class));
+        }
+
+        @ParameterizedTest(name = "\"{0}\"")
+        @ValueSource(strings = {"ab", "abcdefg"})
+        @DisplayName("should reject a value shorter or longer than the configured length rule")
+        void shouldReturn400_whenValueViolatesConfiguredLength(String value) {
+            allowWriteToExistingPatient();
+            configureType("NT", "", "3");
+            Validations rule = new Validations();
+            rule.setMinLength(3);
+            rule.setMaxLength(6);
+            when(mockValidationsDao.find(3)).thenReturn(rule);
+
+            Response response = postNew("{\"type\":\"NT\",\"dataField\":\"" + value + "\"}");
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(responseJson(response).at("/code").textValue()).isEqualTo("VALUE_REJECTED");
+            verifyNoInteractions(mockMeasurementManager);
+        }
+
+        @ParameterizedTest(name = "\"{0}\"")
+        @ValueSource(strings = {"abc", "abcdef"})
+        @DisplayName("should accept a value at either end of the configured length rule")
+        void shouldRecordMeasurement_whenValueIsAtConfiguredLengthBoundary(String value) {
+            allowWriteToExistingPatient();
+            configureType("NT", "", "3");
+            Validations rule = new Validations();
+            rule.setMinLength(3);
+            rule.setMaxLength(6);
+            when(mockValidationsDao.find(3)).thenReturn(rule);
+            when(mockMeasurementManager.addMeasurement(any(LoggedInInfo.class), any(Measurement.class)))
+                .thenAnswer(invocation -> invocation.getArgument(1));
+
+            Response response = postNew("{\"type\":\"NT\",\"dataField\":\"" + value + "\"}");
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            verify(mockMeasurementManager).addMeasurement(any(LoggedInInfo.class), any(Measurement.class));
         }
 
         @Test

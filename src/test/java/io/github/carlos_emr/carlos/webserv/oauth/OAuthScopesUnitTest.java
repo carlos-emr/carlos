@@ -251,7 +251,7 @@ class OAuthScopesUnitTest {
 
         @Test
         @DisplayName("should treat non-POST and missing methods as writes even on a measurement read path")
-        void shouldRequireWrite_whenNonPostMethodOnReadOnlyService() {
+        void shouldRequireWrite_whenNonPostMethodOnMeasurementReadPath() {
             assertThat(OAuthScopes.requiredScope("DELETE", "/services/measurements/123"))
                     .isEqualTo("measurement.write");
             assertThat(OAuthScopes.requiredScope(null, "/services/measurements/123"))

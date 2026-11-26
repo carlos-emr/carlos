@@ -835,19 +835,19 @@ async function main(state = {}) {
   recordEndpoint('POST', '/ws/services/labs/hl7LabUpload', invalidLabUploadResponse,
     'malformed upload rejected before import');
 
-  const documentStore = process.env.AI_SCRIBE_DOCUMENT_STORE;
+  const documentStore = process.env.LAB_UPLOAD_DOCUMENT_STORE;
   if (!documentStore) {
     endpointResults.push({
       outcome: 'UNVERIFIED',
       method: 'POST',
       path: '/ws/services/labs/hl7LabUpload',
       status: 'not run',
-      verification: 'valid HL7 import requires AI_SCRIBE_DOCUMENT_STORE so cleanup can remove its archived file',
+      verification: 'valid HL7 import requires LAB_UPLOAD_DOCUMENT_STORE so cleanup can remove its archived file',
     });
   } else {
     state.documentStore = fs.realpathSync(documentStore);
     assert(fs.statSync(state.documentStore).isDirectory(),
-      'AI_SCRIBE_DOCUMENT_STORE must point to the running server document directory');
+      'LAB_UPLOAD_DOCUMENT_STORE must point to the running server document directory');
     state.labRunMarker = runMarker;
     state.labAccession = `PWAI-${runMarker}`;
     state.labFilePrefix = `LabUpload.ai-scribe-${runMarker}.xml.`;

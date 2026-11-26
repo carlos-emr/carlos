@@ -141,6 +141,12 @@ public class MeasurementService extends AbstractServiceImpl {
 
     private static final long MIN_DATETIME_MILLIS = -30610224000000L;
     private static final long MAX_DATETIME_MILLIS = 253402300799000L;
+    /**
+     * How far ahead of the server clock a dateObserved may be. Readers take the latest dateObserved as
+     * the patient's current reading, so a future-dated row would stay "current" until that date passed.
+     * The allowance absorbs clock skew between a client that stamps "now" and this server.
+     */
+    static final long MAX_FUTURE_SKEW_MILLIS = 5L * 60L * 1000L;
     /** The yyyy-MM-dd shape a date-only measurement validation rule accepts. */
     private static final java.util.regex.Pattern DATE_ONLY = java.util.regex.Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
     /** A plain decimal number: optional sign, digits, optional fraction; no exponent, hex or suffix. */
@@ -229,12 +235,17 @@ public class MeasurementService extends AbstractServiceImpl {
      * type and instruction, not the caller's.</p>
      *
      * <p>{@code dateObserved} defaults to now, so a new reading becomes the patient's current one.
+     * A value more than five minutes ahead of the server clock is refused with
+     * {@code DATE_OBSERVED_IN_FUTURE}, since it would rank as the current reading until that time.
      * It is stored to the whole second, the precision of its column. A request that repeats a
      * reading already stored with the same patient, type, instruction, value, comments and
      * {@code dateObserved} returns that reading instead of storing it twice, so a client that sends
      * {@code dateObserved} can safely retry.</p>
      *
-     * <p>A refused request is answered with a JSON body {@code {"code": ..., "message": ...}}.</p>
+     * <p>A 400 refusal is answered with a JSON body {@code {"code": ..., "message": ...}}. The other
+     * refusals do not use that shape: 403 (privilege, patient access or provider identity), 404
+     * (patient) and 500 (invalid validation configuration) use the server's standard error response,
+     * and 409 (the patient's structured care cannot be projected) a plain-text explanation.</p>
      *
      * @param json measurement fields: required {@code type} and {@code dataField}, and optional
      *             {@code comments}, {@code measuringInstruction}, and epoch-millisecond
@@ -282,6 +293,9 @@ public class MeasurementService extends AbstractServiceImpl {
             long timestamp = json.get("dateObserved").longValue();
             if (timestamp < MIN_DATETIME_MILLIS || timestamp > MAX_DATETIME_MILLIS) {
                 throw badRequest("INVALID_DATE_OBSERVED", "dateObserved is outside the supported database DATETIME range");
+            }
+            if (timestamp > System.currentTimeMillis() + MAX_FUTURE_SKEW_MILLIS) {
+                throw badRequest("DATE_OBSERVED_IN_FUTURE", "dateObserved is in the future");
             }
             observedAt = timestamp;
         }

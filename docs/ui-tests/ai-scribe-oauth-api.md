@@ -19,7 +19,7 @@ together.
 - eForm template listing, create, load, update, and persisted read-after-write.
 - HL7 lab message listing and malformed-upload rejection. A valid synthetic
   PATHL7 ORU upload and patient-specific read-after-upload are also tested when
-  `AI_SCRIBE_DOCUMENT_STORE` points to the running server's `DOCUMENT_DIR`.
+  `LAB_UPLOAD_DOCUMENT_STORE` points to the running server's `DOCUMENT_DIR`.
 - Rx lookup search/details/instruction parsing, patient medication reads and
   writes (the discontinued drug row is checked in `drugs`), prescription
   history, and prescription listing (which must include the prescription the
@@ -44,13 +44,15 @@ left out only when the type is configured with one instruction; for a type such
 as BP or WT, configured per site with several, send the exact configured
 instruction (for example `sitting position`), or the request is refused with
 `INSTRUCTION_REQUIRED`. The reading is stored under the configured spelling of
-the type and instruction. `dateObserved` defaults to the time of the request and
-is stored to the second. Repeating a request with the same `dateObserved` and
+the type and instruction. `dateObserved` (epoch milliseconds) defaults to the
+time of the request and is stored to the second. A `dateObserved` more than five
+minutes ahead of the server clock is refused with `DATE_OBSERVED_IN_FUTURE`,
+because the latest reading is shown as the patient's current one. Repeating a request with the same `dateObserved` and
 values returns the reading already stored instead of saving a second one, so a
 client that sends `dateObserved` can retry safely. Refusals are HTTP 400 with a
 JSON body `{"code": ..., "message": ...}` (`UNKNOWN_TYPE`,
 `INSTRUCTION_REQUIRED`, `AMBIGUOUS_TYPE`, `VALUE_REJECTED`, `INVALID_*`,
-`UNSUPPORTED_FIELD`). A numeric rule accepts only plain decimals (no exponent,
+`DATE_OBSERVED_IN_FUTURE`, `UNSUPPORTED_FIELD`). A numeric rule accepts only plain decimals (no exponent,
 hex, `NaN` or `Infinity`), and a date rule only `yyyy-MM-dd`. The endpoint
 creates readings only: it does not correct or replace an existing measurement
 (see #6136), and `PUT` to the measurements service is not routed.
@@ -78,7 +80,7 @@ account (`carlosdoc` / `carlos2026`, PIN `2026`); override with `TEST_USER`,
 `TEST_PASSWORD`, and `TEST_PIN` as appropriate. Set `MYSQL_PASSWORD`; optional
 database connection overrides are `MYSQL_HOST`, `MYSQL_USER`, and
 `MYSQL_DATABASE`. To test successful HL7 upload, also set
-`AI_SCRIBE_DOCUMENT_STORE` to the server's `DOCUMENT_DIR`, mounted where this
+`LAB_UPLOAD_DOCUMENT_STORE` to the server's `DOCUMENT_DIR`, mounted where this
 script can remove the uniquely named synthetic upload during cleanup. Database
 writes are restricted to a loopback host by default. Do not set
 `ALLOW_NON_LOCAL_MYSQL_HOST=true` except for a deliberately isolated,
