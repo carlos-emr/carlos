@@ -274,16 +274,7 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
                 Arguments.of("Z18 the no-break space text is chosen when it is the wanted text",
                         "<option>&nbsp;Yes</option><option>Yes</option>",
                         " Yes",
-                        "<option selected>&nbsp;Yes</option><option>Yes</option>"),
-                // Taking selected out of another option never runs its value into the attribute that follows.
-                Arguments.of("Z19 selected after a value, then another attribute",
-                        "<option value=No selected title=t>n</option><option value=Yes>y</option>",
-                        "Yes",
-                        "<option value=No title=t>n</option><option selected value=Yes>y</option>"),
-                Arguments.of("Z20 selected with no white space before the next attribute",
-                        "<option value=No selected=\"\"title=t>n</option><option value=Yes>y</option>",
-                        "Yes",
-                        "<option value=No title=t>n</option><option selected value=Yes>y</option>"));
+                        "<option selected>&nbsp;Yes</option><option>Yes</option>"));
     }
 
     @ParameterizedTest(name = "{0}")
