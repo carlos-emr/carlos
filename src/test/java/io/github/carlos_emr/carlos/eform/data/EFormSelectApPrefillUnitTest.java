@@ -912,6 +912,56 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldLeaveEverySelectOfThePassAsTheTemplateHasIt_whenTheFormCannotBeParsed() throws Exception {
+        // Only a failed PARSE ends the pass's selects: none of them is tried again, nothing throws, and the
+        // input before them is still filled.
+        String body = "<form><input type=\"text\" name=\"t\" oscarDB=choice>" + TEMPLATE_SELECT + TEMPLATE_SELECT + "</form>";
+        DatabaseAP ap = new DatabaseAP("choice", "", "Yes");
+        try (var loader = mockStatic(EFormLoader.class);
+                var markup = mockStatic(EFormSelectMarkup.class, CALLS_REAL_METHODS)) {
+            loader.when(EFormLoader::getMarker).thenReturn("oscarDB");
+            loader.when(() -> EFormLoader.getAP("choice")).thenReturn(ap);
+            markup.when(() -> EFormSelectMarkup.parseForm(any())).thenThrow(new IllegalStateException("no parse"));
+            EForm form = new EForm();
+            form.setDemographicNo("7");
+            form.setFormHtml(body);
+
+            form.setDatabaseAPs(); // never throws
+
+            Document page = Jsoup.parse(form.getFormHtml());
+            assertThat(page.select("input[name=t]").attr("value")).isEqualTo("Yes");
+            assertThat(page.select("select option[selected]").eachAttr("value")).containsExactly("No", "No");
+            // One attempt only: the second select did not parse again.
+            markup.verify(() -> EFormSelectMarkup.parseForm(any()), times(1));
+            assertThat(form.selectParses()).isEqualTo(1);
+        }
+    }
+
+    @Test
+    void shouldLeaveASelectAsTheTemplateHasIt_whenItsEditDoesNotLandWhereItWasRead() throws Exception {
+        // An edit read from another text (so its option is not where it says) is refused by its exact-text
+        // guard: the select keeps its default and the pass goes on to the next one.
+        String other = "<select oscarDB=x><option value=\"A\">a</option><option value=\"Yes\">y</option></select>";
+        EFormSelectMarkup.SelectEdit stray = EFormSelectMarkup.edit(other, other.indexOf("oscarDB=x") + 9, "Yes");
+        String body = "<form>" + TEMPLATE_SELECT + "</form>";
+        DatabaseAP ap = new DatabaseAP("choice", "", "Yes");
+        try (var loader = mockStatic(EFormLoader.class);
+                var markup = mockStatic(EFormSelectMarkup.class, CALLS_REAL_METHODS)) {
+            loader.when(EFormLoader::getMarker).thenReturn("oscarDB");
+            loader.when(() -> EFormLoader.getAP("choice")).thenReturn(ap);
+            markup.when(() -> EFormSelectMarkup.edit(any(EFormSelectMarkup.ParsedForm.class), anyInt(), any()))
+                    .thenReturn(stray);
+            EForm form = new EForm();
+            form.setDemographicNo("7");
+            form.setFormHtml(body);
+
+            form.setDatabaseAPs();
+
+            assertThat(form.getFormHtml()).isEqualTo(body);
+        }
+    }
+
+    @Test
     void shouldLeaveTheTemplateAsItIs_whenItsMarkupIsPathological() throws Exception {
         // Very deep nesting, an unterminated select and a select inside a tag that never closes: the form
         // still opens, the select keeps the template's own default, and nothing throws.

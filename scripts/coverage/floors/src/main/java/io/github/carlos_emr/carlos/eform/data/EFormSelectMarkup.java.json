@@ -3,10 +3,10 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/eform/data/EFormSelectMarkup.java",
   "kind": "floor",
   "floor": {
-    "lines": 98.41269841269842,
-    "instructions": 97.1671388101983,
-    "branches": 82.9113924050633,
-    "sourceBlob": "f23b491b340e56f381787bc9d441d1661ca45ca0"
+    "lines": 100.0,
+    "instructions": 98.56218547807333,
+    "branches": 90.1360544217687,
+    "sourceBlob": "58ea41d10c3e9eac7d340a16ee655769d0b0b6a6"
   },
-  "evidenceSha256": "a51bff8d51b00529ed5d702c8d176462001f78fe262b912f266e200925b3397d"
+  "evidenceSha256": "598d29d1489dd1994ca5fa8be961eab3533e4b6324f66b632b73cb060496350e"
 }
