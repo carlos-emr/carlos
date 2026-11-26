@@ -440,6 +440,50 @@ test('reopened while Older deliveries loads, the dialog reads the first page aga
     assert.deepEqual(parts.history.rows.map(row => row.dataset.status), ['picked_up'], 'the first page as it is now');
 });
 
+test('a device choice the patient removed stays unmade in a dialog the inbox rebuilds, until the clinician picks one', async () => {
+    const view = page();
+    const first = view.dialogs['44'];
+    view.openers['44'].click(); await tick();
+    view.calls[0].resolve(state([], {deliveryId: MINTED, devices: [device('FAKE-device-a'), device('FAKE-device-b')]})); await tick(); await tick();
+    first.parts.device.value = 'FAKE-device-b'; first.parts.device.dispatch('change');
+    first.parts.check.click(); await tick();
+    view.calls[1].resolve(state([], {devices: [device('FAKE-device-a')]})); await tick();
+    assert.equal(first.parts.device.value, '');
+    first.parts.close.click();
+    // Nothing was sent, so no operation is kept for the document: only the lost choice carries over.
+    const {parts} = rebuild(view);
+    view.openers['44'].click(); await tick();
+    view.calls[2].resolve(state([], {deliveryId: delivery(501).deliveryId, devices: [device('FAKE-device-a')]})); await tick(); await tick();
+    assert.equal(parts.device.value, '', 'the rebuilt dialog does not choose device A for the clinician');
+    assert.equal(parts.send.disabled, true);
+    parts.device.value = 'FAKE-device-a'; parts.device.dispatch('change');
+    assert.equal(parts.send.disabled, false, 'the clinician chose a replacement');
+});
+
+test('a status check after a failed first read reads for an operation id first, so Send works without reopening', async () => {
+    const view = page();
+    const {root, parts} = view.dialogs['44'];
+    view.openers['44'].click(); await tick();
+    view.calls[0].resolve({ok: false, message: 'FAKE unavailable'}, 503); await tick(); await tick();
+    assert.equal(root.dataset.delivery, undefined);
+    // Still unavailable: the read fails again, and no status check follows it.
+    parts.check.click(); await tick();
+    assert.equal(new URL(view.calls[1].url).searchParams.get('method'), 'read');
+    view.calls[1].resolve({ok: false, message: 'FAKE unavailable'}, 503); await tick(); await tick();
+    assert.equal(view.calls.length, 2);
+    assert.equal(parts.message.textContent, 'FAKE unavailable');
+    // Available again: the read gives the operation id, then the status is checked.
+    parts.check.click(); await tick();
+    assert.equal(view.calls[2].options.method, 'GET');
+    view.calls[2].resolve(state([], {deliveryId: MINTED})); await tick(); await tick();
+    assert.equal(root.dataset.delivery, MINTED);
+    assert.equal(view.calls[3].options.method, 'POST');
+    assert.equal(new URLSearchParams(view.calls[3].options.body).get('method'), 'refresh');
+    view.calls[3].resolve(state([], {syncStatus: 'quarantined'})); await tick();
+    assert.equal(parts.message.textContent, 'sync', "the check's own message comes last");
+    assert.equal(parts.send.disabled, false, 'Send works without reopening');
+});
+
 test('a device choice the patient removed stays unmade across a read that offers no device, until one is picked', async () => {
     const view = page();
     const {parts} = view.dialogs['44'];

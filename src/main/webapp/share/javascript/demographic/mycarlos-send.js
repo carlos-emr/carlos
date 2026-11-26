@@ -55,6 +55,9 @@
     // the server tells copies apart by operation id only, so a rebuilt dialog takes this operation
     // back (a send whose reply was lost is retried, never queued again under a new id).
     const submitted = new Map();
+    // Each patient's document whose chosen device is no longer offered: its chooser stays empty until
+    // the clinician picks a device, in this dialog and in any the inbox rebuilds for that document.
+    const lostChoices = new Set();
 
     function mount(root, options) {
         if (!root) return null;
@@ -89,8 +92,6 @@
         // The server lists the patient's deliveries a page at a time and keeps this document's, so the
         // current operation's row can drop off the first page while the operation stays queued.
         const queued = new Set(Array.from(history.rows, row => row.dataset.delivery));
-        // Set when the chosen device is no longer offered; cleared only by the clinician's own choice.
-        let choiceLost = false;
         const key = root.dataset.patient + '/' + root.dataset.document;
         // The submitted operation's device, offered again by a rebuilt dialog's first read.
         let keptDevice = null;
@@ -156,14 +157,15 @@
             });
             // The device to keep: the one chosen before this read or, on a rebuilt dialog's first read,
             // the submitted operation's own. A removed one requires a deliberate new device choice, on
-            // this read and every later one, a read that offered no device at all included. Only when
-            // nothing was on offer yet, nothing is kept and no choice was lost (the dialog's first read)
-            // is the first device offered, as the standalone page offers it.
+            // this read and every later one (a read that offered no device at all included) and in a
+            // dialog the inbox rebuilds. Only when nothing was on offer yet, nothing is kept and no
+            // choice was lost (the dialog's first read) is the first device offered, as the standalone
+            // page offers it.
             const wanted = keptDevice !== null ? keptDevice : selected;
             const constrained = keptDevice !== null || offered;
             keptDevice = null;
-            if (constrained && !devices.some(device => device.deviceKeyId === wanted)) choiceLost = true;
-            if (choiceLost) chooser.value = '';
+            if (constrained && !devices.some(device => device.deviceKeyId === wanted)) lostChoices.add(key);
+            if (lostChoices.has(key)) chooser.value = '';
             else if (constrained) chooser.value = wanted;
             if (noDevice) noDevice.hidden = devices.length !== 0;
         };
@@ -291,7 +293,7 @@
         };
         addRetryControls();
         chooser.addEventListener('change', () => {
-            choiceLost = false;
+            lostChoices.delete(key);
             updateButtons();
         });
         // The inbox's reading view inserts the document inside its own reassign form, where the parser
@@ -299,7 +301,13 @@
         // submits the outer form (the controls name the dropped form, so they belong to none).
         if (form) form.addEventListener('submit', event => { event.preventDefault(); request('send', false); });
         else send.addEventListener('click', event => { event.preventDefault(); request('send', false); });
-        check.addEventListener('click', () => request('refresh', false));
+        // A status check names no operation id; only a read gives one. A dialog whose first read failed
+        // has none, so it reads the first page first (a read changes nothing on the server) and checks
+        // once that worked: Send works again without reopening, and the check's message comes last.
+        check.addEventListener('click', () => {
+            if (root.dataset.delivery) return request('refresh', false);
+            return Promise.resolve(read()).then(() => (root.dataset.delivery ? request('refresh', false) : undefined));
+        });
         if (more) more.addEventListener('click', () => request('read', true));
         if (fresh && fresh.tagName === 'BUTTON') fresh.addEventListener('click', () => request('read', false, null, true));
         updateButtons();
