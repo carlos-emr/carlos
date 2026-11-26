@@ -869,9 +869,18 @@ class TestLabFilterWordsMigration(unittest.TestCase):
                         text.index('        LAB_FILTER_WORDS_SENTINEL='))
 
     def test_purge_removes_the_sentinel(self):
-        # purge keeps carlos.properties, so a reinstall must migrate again
-        self.assertIn('"${STATE}/' + SENTINEL + '"',
-                      POSTRM.read_text(encoding="utf-8"))
+        # purge keeps carlos.properties, so a reinstall must migrate again. The removal must be an
+        # EXECUTED rm in the purge branch: a mention in a comment, or in another branch, is not one.
+        text = POSTRM.read_text(encoding="utf-8")
+        start = text.index("\n    purge)\n")
+        end = text.index("\n        ;;", start)
+        code = "\n".join(line for line in text[start:end].splitlines()
+                         if not line.strip().startswith("#"))
+        # a command continued with a trailing backslash is one command
+        commands = [" ".join(command.split()) for command in code.replace("\\\n", " ").splitlines()]
+        removals = [command for command in commands
+                    if command.startswith("rm ") and '"${STATE}/' + SENTINEL + '"' in command]
+        self.assertTrue(removals, "the purge branch of postrm must rm the lab filter sentinel")
 
 
 if __name__ == "__main__":
