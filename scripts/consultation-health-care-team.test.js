@@ -17,9 +17,16 @@ function fixture(services, role) {
   // JavaScript and the selection/validation functions remain the production code.
   let registry = source.slice(start, end).replace(/<c:if\b[^>]*>([\s\S]*?)<\/c:if>/g,
     (_, body) => services.length ? body : '');
+  // The JSP emits each value through ${ carlos:forJavaScript(...) } inside a double-quoted string
+  // (#6202). JSON string escaping plus OWASP's "\\/" (so "</script>" cannot close the block)
+  // stands in for the server-side encoder here.
+  const js = value => JSON.stringify(String(value)).slice(1, -1).replace(/\//g, '\\/');
   registry = registry.replace(/<c:forEach\b[^>]*>([\s\S]*?)<\/c:forEach>/g, (_, body) =>
-    services.map(service => body.replace(/\$\{\s*consultationService.serviceId\s*\}/g, service.id)
-      .replace(/\$\{\s*consultationService.serviceDesc\s*\}/g, service.description)).join('\n'));
+    services.map(service => body
+      .replace(/\$\{\s*carlos:forJavaScript\(\s*consultationService\.serviceId\s*\)\s*\}/g, () => js(service.id))
+      .replace(/\$\{\s*carlos:forJavaScript\(\s*consultationService\.serviceDesc\s*\)\s*\}/g,
+        () => js(service.description))).join('\n'));
+  assert.ok(!/\$\{\s*consultationService\./.test(registry), 'A service value is emitted without carlos:forJavaScript');
   function scriptBodies(node) {
     const children = node.childNodes || [];
     if (node.tagName === 'script') return [children.map(child => child.value || '').join('')];
@@ -101,4 +108,27 @@ test('selecting an unmatched member after a matching member clears the previous 
   f.choose();
   assert.equal(f.form.service.value, '0');
   assertContact(f);
+});
+
+test('a service description with quotes, backticks or ${ is data, not script (#6202)', () => {
+  const description = 'FAKE "Cardio" `${globalThis.pwned = 1}` \\ </script>';
+  const f = fixture([{id: '13', description}], description);
+  f.choose();
+  assert.equal(f.context.pwned, undefined);
+  assert.equal(f.context.consultationServices[0].description, description);
+  assert.equal(f.form.service.value, '13');
+  assertContact(f);
+});
+
+test('health care team values are JavaScript-encoded strings, never template literals (#6202)', () => {
+  const start = source.indexOf('// Read the associated services and specialties');
+  const end = source.indexOf('function getSpecialist(', start);
+  assert.ok(start > 0 && end > start, 'Missing JSP health care team registry');
+  const registry = source.slice(start, end);
+  const assignments = registry.match(/^\s*(?:contact\.\w+|healthCareTeam\[.*?\])\s*=\s*(?!contact;|\{\}).*$/gm) || [];
+  assert.ok(assignments.length >= 12, 'Expected the per-contact field assignments');
+  for (const line of assignments) {
+    assert.ok(!line.includes('`'), 'Template literal in: ' + line.trim());
+    assert.match(line, /"\$\{ carlos:forJavaScript\([^)]*\) \}"/, 'Unencoded value in: ' + line.trim());
+  }
 });
