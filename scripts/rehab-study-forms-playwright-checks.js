@@ -10,7 +10,8 @@
 //               the "N/A" study ID; the redisplayed form shows them again.
 //   study ID    a patient enrolled in rehabStudy2004 opens a new SF-36 that shows the study ID, and Save stores it.
 //   versions    Save on a reopened SF-36 adds a version and leaves the version it was opened from unchanged.
-//   patient     a saved version requested under another patient's number is refused and shows none of its values.
+//   patient     a saved version requested under another patient's number is refused with HTTP 403 and shows none
+//               of its values.
 //
 // Fixtures: the owned synthetic patient, one rehabStudy2004 enrolment of that patient, and the rows Save stores.
 // Nothing is added to the Forms menu, so the check does not need EXCLUSIVE=1. Cleanup deletes the owned patient's
@@ -171,6 +172,11 @@ async function workflow(s) {
       h.appUrl(s.config.baseUrl, `/form/${SF36.view}?demographic_no=${other}&formId=${firstId}`),
       { maxRedirects: 0, failOnStatusCode: false });
     const body = await response.text();
+    // The view gate refuses a version it cannot read for this patient with the security page's 403,
+    // before the form renders. A 200 error page or a redirect would also satisfy the shared helper,
+    // so the route's own status is asserted first.
+    h.assert(response.status() === 403,
+      `SF-36: another patient's request was answered ${response.status()}, not the gate's 403`);
     h.assert(!body.includes(s.marker), "SF-36: another patient's request was shown the saved answer");
     h.assert(response.status() !== 200 || !/name="Q1Ex"[^>]*checked/.test(body),
       "SF-36: another patient's request was shown the saved form");
