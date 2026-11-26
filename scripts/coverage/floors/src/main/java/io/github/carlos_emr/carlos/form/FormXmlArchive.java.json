@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/form/FormXmlArchive.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "feead306c68b42a32d76b2650883526a5c39b517"
+  },
+  "evidenceSha256": "7564b9f6fceb79837fe046abc1eed51dc6d4ce5817c68e537e39ac89ad56e2a5"
+}
