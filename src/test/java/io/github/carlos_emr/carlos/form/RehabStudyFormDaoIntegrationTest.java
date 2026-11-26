@@ -21,6 +21,7 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.form.model.rehab.RehabStudyAssessment;
 import io.github.carlos_emr.carlos.form.model.rehab.RehabStudyColumn;
+import io.github.carlos_emr.carlos.form.model.rehab.RehabStudyEnrolment;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.AppointmentManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
@@ -381,6 +382,10 @@ class RehabStudyFormDaoIntegrationTest extends CarlosTestBase {
                 insert.executeUpdate();
             }
         }
+        // The read-only enrolment mapping reads the physical row by its studyID key.
+        RehabStudyEnrolment enrolment = entityManager.find(RehabStudyEnrolment.class, 9_569_377);
+        assertThat(enrolment.getId()).isEqualTo(9_569_377);
+        assertThat(enrolment.getDemographicNo()).isEqualTo(PATIENT);
         DemographicManager demographics = mock(DemographicManager.class);
         Demographic patient = new Demographic();
         patient.setDemographicNo(PATIENT);

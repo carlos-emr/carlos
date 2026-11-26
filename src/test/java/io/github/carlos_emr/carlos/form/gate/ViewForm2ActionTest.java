@@ -190,6 +190,22 @@ class ViewForm2ActionTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldStopLookingForARefusal_atACyclicOrTooDeepCauseChain() {
+        IllegalStateException first = new IllegalStateException("render failure");
+        IllegalStateException second = new IllegalStateException("render failure", first);
+        first.initCause(second);
+        assertThat(ViewForm2Action.securityRefusal(first)).isNull();
+
+        // Sixteen wrappers put the refusal one level past the bounded walk; fifteen leave it in reach.
+        Throwable deep = new SecurityException("missing required sec object (_form)");
+        for (int level = 0; level < 16; level++) {
+            deep = new RuntimeException(deep);
+        }
+        assertThat(ViewForm2Action.securityRefusal(deep)).isNull();
+        assertThat(ViewForm2Action.securityRefusal(deep.getCause())).isInstanceOf(SecurityException.class);
+    }
+
+    @Test
     void shouldKeepTheIncludeFailure_whenAnIncludedFormRefusesTheRecord() throws Exception {
         ActionContext.of().withActionName("form/formannual").bind();
         when(mockRequest.getDispatcherType()).thenReturn(DispatcherType.INCLUDE);

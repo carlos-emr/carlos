@@ -137,6 +137,14 @@ class RehabStudyFormsUnitTest extends CarlosUnitTestBase {
         when(service.saveVersion(actor, type, 5, 0, fresh)).thenReturn(13);
         assertThat(form.saveFormRecord(actor, fresh)).isEqualTo(13);
         verify(service).saveVersion(actor, type, 5, 0, fresh);
+
+        // A page that posts both identifiers empty starts a new form, as the retired records did.
+        Properties blank = new Properties();
+        blank.setProperty("demographic_no", "5");
+        blank.setProperty("formId", " ");
+        blank.setProperty("ID", "");
+        when(service.saveVersion(actor, type, 5, 0, blank)).thenReturn(14);
+        assertThat(form.saveFormRecord(actor, blank)).isEqualTo(14);
     }
 
     @Test
