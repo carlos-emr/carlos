@@ -262,7 +262,9 @@ the JSPs, `encounterForm` registrations, view gate and XML import allowlist are 
   read-only by `RehabStudyEnrolment`.
   `RehabStudyEntitySchemaContractUnitTest` fails the build when an entity and its
   baseline table disagree (column set, order, type, nullability, field binding) or
-  a later migration changes one of these tables.
+  a later migration changes one of these tables, and
+  `scripts/ci/test_rehab_study_entity_generator.py` fails CI when a committed
+  entity is not the generator's current output.
 - **DAO and service.** [RehabStudyFormDao](../src/main/java/io/github/carlos_emr/carlos/commn/dao/forms/RehabStudyFormDao.java)
   is typed by entity class and binds patient and version in every read; the one
   native statement (the optional XML copy) names the entity's own `@Table`.

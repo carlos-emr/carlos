@@ -11,7 +11,9 @@ together with a static column table the Properties mapper iterates without refle
     python3 scripts/forms/generate_rehab_study_entities.py --check   # fail on any drift
 
 The generated classes are never edited by hand. RehabStudyEntitySchemaContractUnitTest
-re-reads the same baseline in the build and fails when an entity and its table disagree.
+re-reads the same baseline in the build and fails when an entity and its table disagree;
+scripts/ci/test_rehab_study_entity_generator.py fails when a committed entity is not this
+script's current output.
 """
 
 from __future__ import annotations
