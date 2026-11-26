@@ -7,7 +7,10 @@
  * Asserts: names with an apostrophe, accents, CJK, an emoji, a literal "&amp;", quotes, backslash,
  * "%41", "+" and ";" are stored byte for byte (utf8mb4, no "?" substitution, no double encoding); the
  * Master Record and the Edit form redisplay them identically; an unchanged Update leaves every column
- * as it was; every text box carries its column limit (Unicode code points for names); a surname of exactly the column
+ * as it was; every text box carries its column limit (Unicode code points for names); the patient alert and the
+ * waiting-list note carry their VARCHAR(255) limit in code points (#5869), the alert counting each line break as the CR LF
+ * the browser submits, so an alert at the limit is saved whole and redisplayed by the Edit form while one more character
+ * is refused in both forms without being cut or sent; a surname of exactly the column
  * length is stored whole and one more character is visibly limited; and, last, a Name Used longer than
  * pref_name is stored whole in the alias (pref_name keeps its first 30 characters by design, #5128) and a
  * pronoun / gender past their columns are refused or stored whole, never silently cut. (Patient search
@@ -43,6 +46,60 @@ async function assertFormLimits(form, sql) {
     if (codePoints) h.assert(Number(await box.getAttribute('data-max-codepoints')) === declared,
       `${input} Unicode character limit disagrees with column ${column}`);
   }
+}
+
+// The patient alert (cust3 on the Add form, alert on the Edit form) and the waiting-list note, which
+// demographic-field-length-limits.jspf counts in Unicode code points like the names (#5869): maxlength is twice the
+// column, data-max-codepoints the column itself.
+const ALERT_AND_NOTE_COLUMNS = {
+  add: [['cust3', 'demographiccust', 'cust3'], ['waiting_list_note', 'waitingList', 'note']],
+  edit: [['alert', 'demographiccust', 'cust3'], ['waiting_list_note', 'waitingList', 'note']],
+};
+const ADD_RECORD = /\/demographic\/DemographicAddRecord$/;
+const UPDATE_RECORD = /\/demographic\/DemographicUpdate$/;
+
+async function assertAlertAndNoteLimits(form, sql, fields) {
+  for (const [input, table, column] of fields) {
+    const box = form.locator(`[name="${input}"]`);
+    // edit-form-clinical.jsp draws its waiting-list section only while DEMOGRAPHIC_WAITING_LIST=true (the bundled
+    // default); the Add form always draws the note, read-only until a waiting list exists.
+    h.assert(await box.count() === 1, `The form has no ${input} box${input === 'waiting_list_note'
+      ? ' (the Edit form draws it only while DEMOGRAPHIC_WAITING_LIST=true)' : ''}`);
+    const declared = b.columnLength(sql, table, column);
+    h.assert(Number(await box.getAttribute('maxlength')) === declared * 2,
+      `${input} maxlength disagrees with column ${table}.${column} (${declared} characters, two UTF-16 units each)`);
+    h.assert(Number(await box.getAttribute('data-max-codepoints')) === declared,
+      `${input} Unicode character limit disagrees with column ${table}.${column}`);
+  }
+}
+
+/** `letters` letters over `breaks + 1` lines, as a textarea holds them: each line break is one LF. */
+function multiline(letters, breaks) {
+  const lines = Array.from({ length: breaks + 1 }, () => '');
+  for (let i = 0; i < letters; i++) lines[i % lines.length] += 'x';
+  return lines.join('\n');
+}
+
+/** A textarea value as the browser submits it, and the database stores it: each line break as CR LF. */
+const submitted = (value) => value.replace(/\n/g, '\r\n');
+
+async function assertAlertAccepted(box, value, label) {
+  await box.fill(value);
+  h.assert(await box.inputValue() === value, `${label}: the alert box cut what was typed`);
+  h.assert(await box.evaluate(field => field.checkValidity()), `${label}: the alert box refuses an alert within the limit`);
+}
+
+async function assertAlertRefused(box, value, limit, label) {
+  await box.fill(value);
+  h.assert(await box.inputValue() === value, `${label}: the alert box cut what was typed`);
+  h.assert(await box.evaluate((field, max) => !field.checkValidity() && field.validationMessage.includes(String(max)), limit),
+    `${label}: the over-long alert has no visible validation error naming the ${limit}-character limit`);
+}
+
+/** POSTs to `path` the browser answered since `index` in the recorder's request log. */
+function postsSince(recorder, index, path) {
+  return recorder.requestLog.slice(index)
+    .filter(entry => entry.method === 'POST' && path.test(new URL(entry.url).pathname)).length;
 }
 
 async function openAddForm(s, term) {
@@ -149,6 +206,61 @@ async function workflow(s) {
   await s.step('the add form limits each text box to its database column', async () => {
     add = await openAddForm(s, tag + 'M');
     await assertFormLimits(add.locator('form[name="adddemographic"]'), sql);
+    await add.close();
+  });
+
+  // #5869: the alert is VARCHAR(255) counted in code points, and a textarea line break, one LF in the box, is
+  // submitted and stored as CR LF. At the limit: max - 2 letters and one break (max as submitted). Over it: max - 1
+  // letters and one break (max as LF, max + 1 as submitted, so only CR LF counting refuses it) and max - 1 letters
+  // and two breaks.
+  const alertMax = () => b.columnLength(sql, 'demographiccust', 'cust3');
+  let alertPatient;
+
+  await s.step('the add form counts an alert line break as CR LF: an alert at the limit is saved whole, one more is refused (#5869)', async () => {
+    const max = alertMax();
+    add = await openAddForm(s, tag + 'A');
+    await add.waitForLoadState('domcontentloaded');
+    const form = await fillBasics(add, tag + 'A', 'Alert');
+    await assertAlertAndNoteLimits(form, sql, ALERT_AND_NOTE_COLUMNS.add);
+    const alertBox = form.locator('textarea[name="cust3"]');
+    await assertAlertRefused(alertBox, multiline(max - 1, 1), max, 'Add form alert one past the limit by a CR LF');
+    const over = multiline(max - 1, 2);
+    await assertAlertRefused(alertBox, over, max, 'Add form alert with two line breaks');
+    const sentBefore = s.recorder.requestLog.length;
+    await submitAdd(add);
+    h.assert(postsSince(s.recorder, sentBefore, ADD_RECORD) === 0, 'Add Record sent the form with an over-long alert');
+    h.assert(sql.value('SELECT COUNT(*) FROM demographic WHERE last_name LIKE ?', [tag + 'A%']) === '0',
+      'The patient was saved with an over-long alert');
+    h.assert(await alertBox.inputValue() === over, 'The refused alert was cut');
+    const atLimit = multiline(max - 2, 1);
+    await assertAlertAccepted(alertBox, atLimit, 'Add form alert at the limit');
+    await submitAdd(add);
+    alertPatient = sql.value(`SELECT demographic_no FROM demographic WHERE ${where('A')}`);
+    h.assert(/^[1-9]\d*$/.test(alertPatient), 'Add Record did not save the patient whose alert is at the limit');
+    b.assertStored(sql, 'demographiccust', 'cust3', `demographic_no=${alertPatient}`, submitted(atLimit), 'Add form alert at the limit');
+  });
+
+  await s.step('the Edit form redisplays the alert at the limit whole and refuses one more without cutting or sending it (#5869)', async () => {
+    const max = alertMax();
+    const atLimit = multiline(max - 2, 1);
+    await add.getByRole('link', { name: /Go to record/i }).first().click();
+    await add.locator('#editBtn').click();
+    const edit = add.locator('#editDemographic');
+    await edit.waitFor({ state: 'visible', timeout: TIMEOUT });
+    await add.waitForLoadState('domcontentloaded');
+    await assertAlertAndNoteLimits(edit, sql, ALERT_AND_NOTE_COLUMNS.edit);
+    const alertBox = edit.locator('textarea[name="alert"]');
+    // The stored CR LF reads back as one LF in the box: the same value the Add form held.
+    h.assert(await alertBox.inputValue() === atLimit, 'The Edit form does not redisplay the stored alert whole');
+    h.assert(await alertBox.evaluate(field => field.checkValidity()), 'The Edit form refuses the alert it stored');
+    await assertAlertRefused(alertBox, multiline(max - 1, 1), max, 'Edit form alert one past the limit by a CR LF');
+    const over = multiline(max - 1, 2);
+    await assertAlertRefused(alertBox, over, max, 'Edit form alert with two line breaks');
+    const sentBefore = s.recorder.requestLog.length;
+    await submitEdit(add);
+    h.assert(postsSince(s.recorder, sentBefore, UPDATE_RECORD) === 0, 'Update Record sent the form with an over-long alert');
+    b.assertStored(sql, 'demographiccust', 'cust3', `demographic_no=${alertPatient}`, submitted(atLimit), 'Refused Edit form alert');
+    h.assert(await alertBox.inputValue() === over, 'The refused edit was cut');
     await add.close();
   });
 
