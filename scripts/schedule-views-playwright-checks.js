@@ -14,7 +14,8 @@
  * Asserts: the appointment link (by its appointment_no) renders in the day view with
  * its E link, in the week view under today's column WITHOUT the E link (obs. 13), after
  * the month cell for today links back, in the Flip View row for today as a booking in
- * its time slot, and in the zoom view; every view's URL carries the expected
+ * its time slot, and in the zoom view; the Flip View radio's hidden label reads the view
+ * title, an em dash (U+2014) and the provider name (#6305); every view's URL carries the expected
  * displaymode/dboperation/provider parameters; the multiplier moves a week ahead and
  * Alt+T returns to today; 2W, 4W, 3M and 6M each move that far ahead (the page's own
  * week and month arithmetic) whatever the multiplier holds. Fixtures: the session's owned patient and one `appointment`
@@ -138,6 +139,25 @@ async function workflow(s) {
     h.assert((await cell.locator('span.date').innerText()).trim() === String(day), "Today's month cell does not show its day number");
     await clickAndAwaitReload(schedule, cell, {label: 'month cell'});
     await assertDayView('month cell');
+  });
+  await s.step('the Flip View radio label names the view, an em dash and the provider', async () => {
+    // appointmentprovideradminday.jsp:1743 labels the radio with schedule.scheduleflipview.title,
+    // "&#8212;" and the column's provider name; 72fedd972c50 (#6305) wrote the dash as that entity
+    // because a literal em dash in a page Jasper reads as ISO-8859-1 printed as mojibake.
+    const radio = schedule.locator(`input[name="flipview"][onclick*="goFilpView('${provider}')"]`);
+    h.assert(await radio.count() === 1, 'The day sheet has no single Flip View radio for the provider column');
+    const id = await radio.getAttribute('id');
+    h.assert(/^flipview\d+$/.test(id || ''), `The Flip View radio has no flipview<n> id: ${id}`);
+    const label = schedule.locator(`label[for="${id}"]`);
+    h.assert(await label.count() === 1, 'The Flip View radio has no label');
+    // The label is visually hidden, so read its text content rather than its rendered text.
+    const text = await label.evaluate(node => node.textContent);
+    // The zoom link in the same column header (line 1752) prints the same name, then " (<count>) ".
+    const zoom = await schedule.locator(`a[onclick*="goZoomView('${provider}'"]`).first().evaluate(node => node.textContent);
+    const name = zoom.trim().replace(/\s*\(\d+\)$/, '');
+    h.assert(name.length > 0, 'The zoom link does not show the provider name');
+    const expected = `${bundleMessage('schedule.scheduleflipview.title', 'Flip View')} — ${name}`;
+    h.assert(text === expected, `The Flip View label reads ${JSON.stringify(text)}, not ${JSON.stringify(expected)}`);
   });
   await s.step('Flip View shows the provider column with the booking in its slot', async () => {
     await clickAndAwaitReload(schedule, schedule.locator(`input[name="flipview"][onclick*="goFilpView('${provider}')"]`), {label: 'Flip View'});
