@@ -96,6 +96,8 @@ class JspRenderServerIntegrationTest {
                 .parameter("fixtureParameter", "FAKE parameter & more")
                 .header("Accept-Language", "fr-CA")
                 .render(request -> {
+                    assertThat(Thread.currentThread().getContextClassLoader())
+                            .isSameAs(JspRenderServer.class.getClassLoader());
                     request.setAttribute("fixtureAttribute", "<b>FAKE attribute</b>");
                     request.getSession().setAttribute("fixtureSession", "FAKE session value");
                 })
@@ -218,6 +220,8 @@ class JspRenderServerIntegrationTest {
     private static final class RouteStandIn extends HttpServlet {
         @Override
         protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
+            assertThat(Thread.currentThread().getContextClassLoader())
+                    .isSameAs(request.getServletContext().getClassLoader());
             response.getWriter().write("<p id=\"route\">stand-in route</p>");
         }
 
