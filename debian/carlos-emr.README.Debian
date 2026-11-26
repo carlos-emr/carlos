@@ -1190,7 +1190,9 @@ nginx will not start: port 80 or 443 is already in use
 
   If accepted, each service stopped is disabled, or masked when it cannot be disabled,
   and a note names it; nothing is uninstalled, and the note gives the command
-  that brings it back once it has been moved to other ports. What was stopped,
+  that brings it back once it has been moved to other ports. Only the services
+  the question listed are stopped: one that took port 80 or 443 while the
+  question was open is left running and reported as "NOT stopped". What was stopped,
   or declined, is in the install output, /var/log/apt/term.log and the
   journal (journalctl -t carlos-emr). Non-interactive runs already decline by
   default on fresh installs. Older installs can retain true from the previous
