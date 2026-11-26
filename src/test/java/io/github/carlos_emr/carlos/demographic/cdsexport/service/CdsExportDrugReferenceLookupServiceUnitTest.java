@@ -139,6 +139,12 @@ class CdsExportDrugReferenceLookupServiceUnitTest {
         assertThat(CdsExportDrugReferenceLookupService.strength("1.0E7")).isEqualTo("10000000");
         assertThat(CdsExportDrugReferenceLookupService.strength("0.5")).isEqualTo("0.5");
         assertThat(CdsExportDrugReferenceLookupService.strength("5")).isEqualTo("5");
+        // A number is the same number as text or as a double: a negative strength is no usable
+        // reference either way. Text that is not a number is kept, whatever it starts with.
+        assertThat(CdsExportDrugReferenceLookupService.strength("-1.5")).isNull();
+        assertThat(CdsExportDrugReferenceLookupService.strength("-250.0")).isNull();
+        assertThat(CdsExportDrugReferenceLookupService.strength("-0.0")).isEqualTo("0");
+        assertThat(CdsExportDrugReferenceLookupService.strength("- as directed")).isEqualTo("- as directed");
     }
 
     @Test

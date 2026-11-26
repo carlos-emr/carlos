@@ -496,12 +496,13 @@ public class BpmhForm2Handler {
                     // The structured dose is a float on the drug and text on the form, so it is not
                     // copied either. Without it "How I take it" read "Take TAB BID" with no amount
                     // whenever the instruction text had no direction line (#6185).
-                    float takeMax = drug.getTakeMax();
+                    // Only a positive number is a dose: 0 is the column default for "no structured
+                    // dose" and the legacy editor stores -1 for a dose it was not given.
+                    float takeMax = drug.getTakeMax() > 0f ? drug.getTakeMax() : 0f;
                     // A legacy row can record only the upper bound; that bound is then the dose.
-                    float takeMin = drug.getTakeMin() == 0f ? takeMax : drug.getTakeMin();
-                    // 0 is the column default for "no structured dose", not a dose of zero.
-                    bpmhDrug.setTakeMin(takeMin == 0f ? "" : DoseText.of(takeMin));
-                    bpmhDrug.setTakeMax(takeMax == 0f ? "" : DoseText.of(takeMax));
+                    float takeMin = drug.getTakeMin() > 0f ? drug.getTakeMin() : takeMax;
+                    bpmhDrug.setTakeMin(takeMin > 0f ? DoseText.of(takeMin) : "");
+                    bpmhDrug.setTakeMax(takeMax > 0f ? DoseText.of(takeMax) : "");
                     if (postedRows != null) {
                         for (BpmhDrug postedRow : postedRows) {
                             if (postedRow != null && drugId.equals(postedRow.getId())) {

@@ -5,6 +5,8 @@
 package io.github.carlos_emr.carlos.utility;
 
 import java.math.BigDecimal;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Turns a dose, strength or quantity number into the text a person reads.
@@ -37,6 +39,12 @@ public final class DoseText {
 
     /** The most digits {@link #ofNumericText(String)} writes on either side of the decimal point. */
     private static final int MAX_PLAIN_DIGITS = 64;
+
+    /**
+     * A number with a fraction inside a longer text. The look-behind starts a match only at the
+     * first digit of a run and the quantifiers are possessive, so the scan is linear in the text.
+     */
+    private static final Pattern DECIMAL_IN_TEXT = Pattern.compile("(?<!\\d)\\d++\\.\\d++");
 
     private DoseText() {
     }
@@ -136,6 +144,39 @@ public final class DoseText {
             return text;
         }
         return of(value);
+    }
+
+    /**
+     * Rewrites every decimal number inside a text as its plain decimal, for comparing two texts
+     * that may differ only in how a number was written.
+     *
+     * <p>Until #6185 the product strength was stored with DrugRef's trailing zero in the generic
+     * name and the dosage of a prescription ("amoxicillin 250.0mg capsule", "250.0mg"); since then
+     * it is stored without ("amoxicillin 250mg capsule", "250mg"). Both name the same product, and
+     * both give the same text here. Different strengths stay different: "250mg", "25mg" and
+     * "2.5mg" are unchanged.
+     *
+     * <p>This is for comparison. Text shown to a person is shown as it is stored.
+     *
+     * @param text the text, which may be {@code null}
+     * @return the text with each number that has a fraction rewritten by
+     *     {@link #ofNumericText(String)}; {@code null} for {@code null}
+     */
+    public static String withPlainNumbers(String text) {
+        if (text == null) {
+            return null;
+        }
+        Matcher number = DECIMAL_IN_TEXT.matcher(text);
+        if (!number.find()) {
+            return text;
+        }
+        StringBuilder plain = new StringBuilder(text.length());
+        int copied = 0;
+        do {
+            plain.append(text, copied, number.start()).append(ofNumericText(number.group()));
+            copied = number.end();
+        } while (number.find());
+        return plain.append(text, copied, text.length()).toString();
     }
 
     /**

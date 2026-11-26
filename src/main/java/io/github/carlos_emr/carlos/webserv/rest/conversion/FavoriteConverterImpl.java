@@ -32,6 +32,7 @@
 
 package io.github.carlos_emr.carlos.webserv.rest.conversion;
 
+import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.commn.model.Favorite;
 import io.github.carlos_emr.carlos.managers.DrugLookUp;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -157,7 +158,7 @@ public class FavoriteConverterImpl extends AbstractConverter<Favorite, FavoriteT
 
         // A favourite saved from a prescription for 2.5 mL holds the quantity "2.5", which the
         // Integer field cannot carry; Integer.parseInt failed the read of every favourite.
-        t.setQuantity(DrugConverterImpl.wholeQuantity(f.getQuantity()));
+        t.setQuantity(Drug.wholeQuantity(f.getQuantity()));
 
         return t;
 

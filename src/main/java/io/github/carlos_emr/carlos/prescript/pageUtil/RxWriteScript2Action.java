@@ -52,6 +52,7 @@ import io.github.carlos_emr.carlos.prescript.data.RxDrugData.DrugMonograph.DrugC
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 import io.github.carlos_emr.carlos.util.StringUtils;
+import io.github.carlos_emr.carlos.utility.DoseText;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -396,6 +397,28 @@ public final class RxWriteScript2Action extends ActionSupport {
             throw new IllegalArgumentException("Invalid prescription date");
         }
         return date;
+    }
+
+    /**
+     * Whether an ingredient's name already states its strength ("AMOXICILLIN 250MG" and "250mg"),
+     * in which case the generic name does not repeat it. The strength counts only when it is not
+     * the tail of a longer number: "250mg" is not stated by a name that says "1250mg".
+     *
+     * @param name the ingredient's name, in lower case
+     * @param strength the strength with its unit, as the generic name writes it, in lower case
+     * @return true when nothing needs to be added for the strength
+     */
+    static boolean namesStrength(String name, String strength) {
+        if (strength.isEmpty()) {
+            return true;
+        }
+        for (int at = name.indexOf(strength); at >= 0; at = name.indexOf(strength, at + 1)) {
+            char before = at == 0 ? ' ' : name.charAt(at - 1);
+            if (!Character.isDigit(before) && before != '.') {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -961,7 +984,11 @@ public final class RxWriteScript2Action extends ActionSupport {
 
 					stringBuilder.append(drugName.trim());
 
-					if ( ! stringBuilder.toString().toLowerCase().contains(strength.toLowerCase())) {
+					// The strength is left out only when this ingredient's own name already states
+					// it. Looking for it anywhere in the text built so far dropped the strength
+					// of a later ingredient whenever an earlier one contained it: "5mg" is inside
+					// "12.5mg", and two ingredients can have the same strength (#6185).
+					if (!namesStrength(drugName.toLowerCase(), strength.toLowerCase())) {
 						stringBuilder.append( " " + strength.toLowerCase() );
 					}
 
@@ -1173,7 +1200,9 @@ public final class RxWriteScript2Action extends ActionSupport {
                 } else {
 
                     if (RxUtil.isStringToNumber(quantity)) {
-                        rx.setQuantity(quantity);
+                        // Stored, and printed after "Qty:", without a trailing zero or a missing
+                        // leading zero: "30.0" as 30 and ".5" as 0.5 (#6185).
+                        rx.setQuantity(DoseText.ofNumericText(quantity));
                         rx.setUnitName(null);
                     } else if (RxUtil.isMitte(quantity)) {// set duration for mitte
 
@@ -1649,7 +1678,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                                 rx.setQuantity("0");
                             } else {
                                 if (RxUtil.isStringToNumber(val)) {
-                                    rx.setQuantity(val);
+                                    rx.setQuantity(DoseText.ofNumericText(val));
                                     rx.setUnitName(null);
                                 } else {
                                     rx.setQuantity(RxUtil.getQuantityFromQuantityText(val));

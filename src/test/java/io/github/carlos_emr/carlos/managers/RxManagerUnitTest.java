@@ -35,6 +35,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import io.github.carlos_emr.carlos.commn.dao.DrugDaoImpl;
@@ -237,6 +238,56 @@ class RxManagerUnitTest extends RxManagerImpl {
             assertThat(mergedDrug).isNotNull();
             assertThat(mergedDrug.isArchived()).isTrue();
             assertThat(mergedDrug.getArchivedReason()).isEqualTo("represcribed");
+        }
+
+        /**
+         * The REST transfer object carries the quantity as a whole number, so a stored "2.5" (of
+         * 2.5 mL) reaches the client as no quantity. A replacement that states none keeps the
+         * stored amount and its unit instead of dropping them (#6185).
+         */
+        @ParameterizedTest(name = "stored quantity \"{0}\" {1}")
+        @CsvSource(nullValues = "NULL", value = {"2.5, mL", "0.5, mL", "100 mL, NULL"})
+        @DisplayName("should keep a stored quantity the transfer object cannot carry when the replacement states none")
+        void shouldKeepStoredQuantity_whenReplacementStatesNoneAndStoredIsNotWhole(String quantity, String unitName) {
+            Drug stored = new Drug(); stored.setId(4); stored.setDemographicId(1);
+            stored.setGenericName("ASA"); stored.setQuantity(quantity); stored.setUnitName(unitName);
+            ((MockDrugDao) drugDao).seed(stored);
+            Drug incoming = new Drug(); incoming.setId(4); incoming.setDemographicId(1);
+            incoming.setGenericName("ASA");
+
+            Drug replacement = updateDrug(new LoggedInInfo(), incoming);
+
+            assertThat(replacement.getQuantity()).isEqualTo(quantity);
+            assertThat(replacement.getUnitName()).isEqualTo(unitName);
+        }
+
+        @Test
+        @DisplayName("should take the quantity the replacement states")
+        void shouldTakeReplacementQuantity_whenReplacementStatesOne() {
+            Drug stored = new Drug(); stored.setId(4); stored.setDemographicId(1);
+            stored.setGenericName("ASA"); stored.setQuantity("2.5"); stored.setUnitName("mL");
+            ((MockDrugDao) drugDao).seed(stored);
+            Drug incoming = new Drug(); incoming.setId(4); incoming.setDemographicId(1);
+            incoming.setGenericName("ASA"); incoming.setQuantity("30");
+
+            Drug replacement = updateDrug(new LoggedInInfo(), incoming);
+
+            assertThat(replacement.getQuantity()).isEqualTo("30");
+            assertThat(replacement.getUnitName()).isNull();
+        }
+
+        @Test
+        @DisplayName("should leave the quantity out when the client could see the stored whole number and sent none")
+        void shouldLeaveQuantityOut_whenStoredQuantityIsWholeAndReplacementStatesNone() {
+            Drug stored = new Drug(); stored.setId(4); stored.setDemographicId(1);
+            stored.setGenericName("ASA"); stored.setQuantity("30");
+            ((MockDrugDao) drugDao).seed(stored);
+            Drug incoming = new Drug(); incoming.setId(4); incoming.setDemographicId(1);
+            incoming.setGenericName("ASA");
+
+            Drug replacement = updateDrug(new LoggedInInfo(), incoming);
+
+            assertThat(replacement.getQuantity()).isNull();
         }
 
         @Test

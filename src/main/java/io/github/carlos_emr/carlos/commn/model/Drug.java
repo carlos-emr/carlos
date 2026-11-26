@@ -30,6 +30,7 @@
 package io.github.carlos_emr.carlos.commn.model;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.util.Calendar;
 import java.util.Comparator;
 import java.util.Date;
@@ -333,6 +334,28 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
 
     public void setHideFromDrugProfile(Boolean c) {
         this.hideFromDrugProfile = c;
+    }
+
+    /**
+     * A stored quantity as the whole number the REST transfer objects carry.
+     *
+     * <p>{@code drugs.quantity} and {@code favorites.quantity} are text: a quantity of 2.5 (mL) is
+     * stored as "2.5", and an imported one may read "100 mL". The transfer objects type the
+     * quantity as an {@code Integer}, which cannot carry either, and rounding would report a
+     * different amount.
+     *
+     * @param stored the stored quantity text, which may be {@code null}
+     * @return the quantity when the text is a whole number ("30", "30.0"), otherwise {@code null}
+     */
+    public static Integer wholeQuantity(String stored) {
+        if (stored == null) {
+            return null;
+        }
+        try {
+            return new BigDecimal(stored.trim()).intValueExact();
+        } catch (NumberFormatException | ArithmeticException notAWholeNumber) {
+            return null;
+        }
     }
 
     public String getDosageDisplay() {

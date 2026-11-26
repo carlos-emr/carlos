@@ -249,6 +249,46 @@ class DoseTextUnitTest {
     }
 
     @Nested
+    @DisplayName("text that holds numbers")
+    class NumbersInText {
+
+        @ParameterizedTest(name = "\"{0}\" -> \"{1}\"")
+        @CsvSource(delimiter = '|', value = {
+            "amoxicillin 250.0mg capsule | amoxicillin 250mg capsule",
+            "250.0mg | 250mg",
+            "5.0 mg / 325.0 mg | 5 mg / 325 mg",
+            "250.0mg/5.0ml | 250mg/5ml",
+            "12.50mg | 12.5mg",
+            "0.50 mg | 0.5 mg",
+            "1.0mg | 1mg",
+            "0.0625mg | 0.0625mg",
+            "amoxicillin 250mg capsule | amoxicillin 250mg capsule",
+            "hydrochlorothiazide 12.5mg tablet / ramipril 5mg tablet | hydrochlorothiazide 12.5mg tablet / ramipril 5mg tablet",
+            "vitamin b12 | vitamin b12"
+        })
+        @DisplayName("should write every decimal number in the text without its trailing zeros")
+        void shouldWritePlainDecimals_forEveryNumberInText(String text, String expected) {
+            assertThat(DoseText.withPlainNumbers(text)).isEqualTo(expected);
+        }
+
+        @Test
+        @DisplayName("should keep different strengths different")
+        void shouldKeepDifferentNumbersDifferent_whenComparingTexts() {
+            assertThat(DoseText.withPlainNumbers("250.0mg")).isNotEqualTo(DoseText.withPlainNumbers("25.0mg"));
+            assertThat(DoseText.withPlainNumbers("2.5mg")).isNotEqualTo(DoseText.withPlainNumbers("25mg"));
+            assertThat(DoseText.withPlainNumbers("250.5mg")).isNotEqualTo(DoseText.withPlainNumbers("250mg"));
+            assertThat(DoseText.withPlainNumbers("10.0mg")).isNotEqualTo(DoseText.withPlainNumbers("1mg"));
+        }
+
+        @Test
+        @DisplayName("should return blank and missing text as given")
+        void shouldReturnTextUnchanged_whenBlankOrMissing() {
+            assertThat(DoseText.withPlainNumbers("")).isEmpty();
+            assertThat(DoseText.withPlainNumbers(null)).isNull();
+        }
+    }
+
+    @Nested
     @DisplayName("a dose range")
     class Range {
 

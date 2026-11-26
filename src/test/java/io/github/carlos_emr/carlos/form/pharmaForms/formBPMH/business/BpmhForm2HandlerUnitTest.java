@@ -77,8 +77,9 @@ class BpmhForm2HandlerUnitTest {
         "0.5 | 0.5 | Take 0.5 TAB BID PO",
         "0.0625 | 0.0625 | Take 0.0625 TAB BID PO",
         "500 | 500 | Take 500 TAB BID PO",
-        "1 | 2 | Take 1 or 2 TAB BID PO",
-        "0.5 | 1 | Take 0.5 or 1 TAB BID PO"
+        "1 | 2 | Take 1 to 2 TAB BID PO",
+        "1 | 3 | Take 1 to 3 TAB BID PO",
+        "0.5 | 1 | Take 0.5 to 1 TAB BID PO"
     })
     void shouldWriteStructuredDose_whenInstructionTextHasNoDirectionLine(float takeMin, float takeMax,
             String expected) {
@@ -93,6 +94,17 @@ class BpmhForm2HandlerUnitTest {
     void shouldLeaveDoseOut_whenNoStructuredDoseIsRecorded() {
         // 0 is the column default for "no structured dose", not a dose of zero tablets.
         Drug drug = structuredDrug(0f, 0f);
+
+        BpmhDrug row = formRowFor(drug);
+
+        assertThat(row.getHow().trim()).isEqualTo("Take TAB BID PO");
+    }
+
+    @ParameterizedTest(name = "take {0}-{1}")
+    @CsvSource({"-1, -1", "-1, 0", "0, -1"})
+    void shouldLeaveDoseOut_whenTheLegacyEditorStoredItsUnspecifiedMarker(float takeMin, float takeMax) {
+        // The legacy editor stores -1 for a dose it was not given; it is not a dose either.
+        Drug drug = structuredDrug(takeMin, takeMax);
 
         BpmhDrug row = formRowFor(drug);
 

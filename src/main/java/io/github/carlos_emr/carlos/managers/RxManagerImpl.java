@@ -290,6 +290,16 @@ public class RxManagerImpl implements RxManager {
         CdsMedicationCompatibilityException.requireLegacyCompatible(old);
         CdsMedicationCompatibilityException.requireLegacyCompatible(d);
 
+        // The transfer object carries the quantity as a whole number, so a stored "2.5" (of
+        // 2.5 mL) or "100 mL" reaches the client as no quantity (Drug.wholeQuantity). A
+        // replacement that states none keeps the stored amount and its unit, rather than dropping
+        // what the client was never shown (#6185).
+        if (d.getQuantity() == null && old.getQuantity() != null
+                && Drug.wholeQuantity(old.getQuantity()) == null) {
+            d.setQuantity(old.getQuantity());
+            d.setUnitName(old.getUnitName());
+        }
+
         // Attempt to add the new drug first, if this fails
         // the don't try to update the old drug to archived.
 

@@ -15,32 +15,49 @@ exponent and no rounding.
   full and saved unchanged. A dose with no finite decimal form is shown to the precision it
   is stored in: a third of a tablet reads "0.33333334" where it read "0.333". The
   instruction text the prescriber typed ("Take 1/3 tab") is not changed.
-- **Quantity with a unit.** A quantity typed with a decimal amount and a unit was split at
-  its first run of digits: "2.5 mL" was saved, printed and faxed as `Qty:2 .5 mL`. It is now
-  saved as `Qty:2.5 mL`. An amount typed as ".5 mL" or "30.0 mL" is saved as "0.5 mL" or
-  "30 mL". The default quantity carried over from the previous prescription for the same
-  drug keeps its decimal amount.
+- **Quantity.** A quantity typed with a decimal amount and a unit was split at its first
+  run of digits: "2.5 mL" was saved, printed and faxed as `Qty:2 .5 mL`. It is now saved as
+  `Qty:2.5 mL`. A typed quantity is written as a plain decimal, with or without a unit:
+  ".5 mL" is saved as `Qty:0.5 mL`, "30.0 mL" as `Qty:30 mL` and "30.0" as `Qty:30`. The
+  default quantity carried over from the previous prescription for the same drug keeps its
+  decimal amount.
 - **Strength.** DrugRef sends an ingredient strength as "250.0". CARLOS copied that into
   the generic name and strength stored with a new prescription ("amoxicillin 250.0mg
   capsule"), showed it on the Drug Information page and wrote it to the CDS 5.2 export.
-  New prescriptions store "250mg". The REST medication service stored "500.0 mg", or the
-  word "null" for a strength or unit the client did not send; it now stores "500 mg" and
-  leaves a missing part out.
+  New prescriptions store "250mg". The generic name of a combination product now names
+  every ingredient's strength; the strength of a second ingredient was left out when it
+  equalled the first's. The REST medication service stored "500.0 mg", or the word "null"
+  for a strength or unit the client did not send; it now stores "500 mg" and leaves a
+  missing part out.
 - **Other pages.** The Edit Favorites and Copy Favorites pages showed "1.0" for a dose of
   1, and the immunization submission review page showed "Dose Qty: 1.0". The BPMH form's
   "How I take it" column left the dose out ("Take TAB BID") when the stored instruction
-  text had no direction line; it now reads "Take 1 TAB BID".
+  text had no direction line; it now reads "Take 1 TAB BID", and "Take 1 to 3 TAB BID" for
+  a range.
 
-Prescriptions saved before this change keep the text they were saved with: a stored
-"250.0mg", a stored `Qty:2 .5 mL`, and a dose a previous save had already rounded are not
-rewritten by the upgrade. Review any prescription with a liquid or topical quantity that
-was typed as a decimal with a unit; searching the `special` column of the `drugs` table
-for `Qty:` followed by a number, a space and a full stop finds them.
+Prescriptions saved before this change keep the text they were saved with, and the upgrade
+rewrites none of it:
+
+- A stored "250.0mg" stays. The medication lists treat it as the same product as a "250mg"
+  written afterwards, so a renewal is still listed once. The "discontinued before" notice
+  and the check for an existing favourite compare the stored text exactly: the notice can
+  show although a later prescription written before the upgrade is still active, and saving
+  a favourite again adds a second one.
+- A dose that a save had already rounded stays rounded.
+- A quantity that was split stays split, and re-prescribing it copies it as it is. It
+  cannot be repaired by rule: "2.5 mL" and "2.25 mL" were both stored as the quantity "2"
+  with the unit ".5 mL". Review these prescriptions, typically liquids, drops and creams:
+
+  ```sql
+  SELECT drugid, demographic_no, quantity, unitName FROM drugs WHERE unitName LIKE '.%';
+  ```
 
 REST clients: `quantity` on a drug or a favourite is a whole number. A stored quantity that
 is not one ("2.5", or imported text such as "100 mL") is now omitted from the response;
-reading such a drug used to fail the whole request. The `instructions` text still states
-the quantity.
+reading such a drug used to fail the whole request. An update that states no quantity keeps
+that stored quantity and its unit, and the `instructions` text still states it. `strength`
+is now reported for a strength of one digit ("5 mg"), and for a combination it is the first
+ingredient's.
 
 The inventory, with each place checked and the findings that are not number formatting, is
 in `docs/testing/dose-text-format-inventory.md`.

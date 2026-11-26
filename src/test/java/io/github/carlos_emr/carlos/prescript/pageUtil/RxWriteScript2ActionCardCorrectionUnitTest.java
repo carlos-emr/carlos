@@ -282,6 +282,31 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
             }
         }
 
+        /**
+         * A typed quantity is a number the prescription prints after "Qty:". With a unit it was
+         * split at its first run of digits ("2.5 mL" became 2 with the unit ".5 mL"); without one
+         * it was stored as typed, trailing zero and missing leading zero included (#6185).
+         */
+        @ParameterizedTest(name = "typed \"{0}\" -> quantity {1}, unit {2}")
+        @CsvSource(nullValues = "NULL", value = {
+            "42, 42, NULL", "30.0, 30, NULL", ".5, 0.5, NULL", "2.50, 2.5, NULL",
+            "2.5 mL, 2.5, mL", "30.0 mL, 30, mL", ".5 mL, 0.5, mL"})
+        @DisplayName("should stage a typed quantity as a plain decimal, with or without a unit")
+        void shouldStagePlainDecimalQuantity_whenQuantityIsTyped(String typed, String quantity, String unit) throws Exception {
+            card.setFrequencyCode("OD");
+            card.setDuration("30");
+            card.setDurationUnit("D");
+            request.setParameter("action", "updateQty");
+            request.setParameter("randomId", "1");
+            request.setParameter("quantity", typed);
+
+            assertThat(action.updateDrug()).isNull();
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(card.getQuantity()).isEqualTo(quantity);
+            assertThat(card.getUnitName()).isEqualTo(unit);
+        }
+
         @ParameterizedTest
         @ValueSource(strings = {"updateQty", "parseInstructions"})
         @DisplayName("should calculate a current card normally")
@@ -436,6 +461,22 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
             assertThat(response.getContentAsString()).contains("INVALID_RX_PICKUP_" + error);
             assertThat(card.getBrandName()).isEqualTo("SYNTHETIC DRUG");
             verify(action, never()).persistStash(any(), any());
+        }
+
+        @ParameterizedTest(name = "typed \"{0}\" -> {1}")
+        @CsvSource(delimiter = '|', value = {
+            "30.0 | Qty:30 Repeats:2", ".5 | Qty:0.5 Repeats:2", "2.5 mL | Qty:2.5 mL Repeats:2",
+            "30.0 mL | Qty:30 mL Repeats:2", "30 | Qty:30 Repeats:2"})
+        void shouldWritePlainDecimalQuantityLine_whenSaving(String typed, String quantityLine) throws Exception {
+            request.setParameter("drugName_1", "SYNTHETIC DRUG");
+            request.setParameter("quantity_1", typed);
+            request.setParameter("draftRevision_1", card.getDraftRevision());
+            action = spy(action);
+            doReturn("9001").when(action).persistStash(mockLoggedInInfo, bean);
+
+            assertThat(action.updateSaveAllDrugs()).isEqualTo("refresh");
+
+            assertThat(card.getSpecial()).endsWith(quantityLine);
         }
 
         @Test

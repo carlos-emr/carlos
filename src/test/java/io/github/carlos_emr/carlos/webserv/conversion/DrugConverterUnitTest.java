@@ -43,6 +43,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.managers.DrugLookUpManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.DrugConverterImpl;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DrugSearchTo1;
@@ -234,6 +235,64 @@ class DrugConverterUnitTest {
             d.setQuantity(stored);
 
             assertThat(converter.getAsTransferObject(info, d).getQuantity()).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("Stored strength text to transfer object")
+    class StoredStrength {
+
+        /**
+         * The strength was read back with a pattern that needed two digits. That went unnoticed
+         * while every strength was stored with a trailing zero ("5.0 mg"); a strength stored as
+         * "5 mg" had none, and "5 mg / 20 mg" reported the second ingredient's 20 (#6185).
+         */
+        @ParameterizedTest(name = "stored \"{0}\" -> {1} {2}")
+        @CsvSource({
+            "5 mg, 5, mg",
+            "5mg, 5, mg",
+            "1 mg, 1, mg",
+            "500 mg, 500, mg",
+            "0.5 mg, 0.5, mg",
+            "12.5 mg, 12.5, mg",
+            "5.0 mg, 5, mg",
+            "250.0mg, 250, mg"
+        })
+        @DisplayName("should read the strength and its unit from stored text, with or without a trailing zero")
+        void shouldReadStrength_fromStoredStrengthText(String stored, float strength, String unit) {
+            Drug d = new Drug();
+            d.setDosage(stored);
+
+            DrugTo1 t = converter.getAsTransferObject(info, d);
+
+            assertThat(t.getStrength()).isEqualTo(strength);
+            assertThat(t.getStrengthUnit()).isEqualTo(unit);
+        }
+
+        @Test
+        @DisplayName("should read the first ingredient's strength of a combination product")
+        void shouldReadFirstStrength_forCombinationProduct() {
+            Drug d = new Drug();
+            d.setDosage("5 mg / 20 mg");
+
+            assertThat(converter.getAsTransferObject(info, d).getStrength()).isEqualTo(5f);
+        }
+
+        @Test
+        @DisplayName("should report no strength for a drug stored without one, without logging an error")
+        void shouldReportNoStrength_whenNoStrengthTextIsStored() {
+            Drug d = new Drug();
+            d.setDosage(null);
+
+            try (LogCapture capture = LogCapture.forLogger(DrugConverterImpl.class)) {
+                DrugTo1 t = converter.getAsTransferObject(info, d);
+
+                assertThat(t.getStrength()).isNull();
+                assertThat(t.getStrengthUnit()).isNull();
+                assertThat(capture.events())
+                        .filteredOn(event -> event.getLevel().isMoreSpecificThan(org.apache.logging.log4j.Level.WARN))
+                        .isEmpty();
+            }
         }
     }
 

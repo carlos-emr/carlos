@@ -131,7 +131,8 @@ public class BpmhDrug {
                 stringBuilder.append(getTakeMin() + " ");
             }
             if (!getTakeMax().isEmpty() && !getTakeMax().equals("0") && !getTakeMax().equals(getTakeMin())) {
-                stringBuilder.append("or " + getTakeMax() + " ");
+                // The two numbers are the bounds of a range: "1 or 3" would leave 2 out.
+                stringBuilder.append("to " + getTakeMax() + " ");
             }
             if (!getDrugForm().isEmpty()) {
                 stringBuilder.append(getDrugForm() + " ");

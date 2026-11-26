@@ -45,7 +45,6 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.DrugTo1;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -226,7 +225,11 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
         t.setExternalProvider(d.getOutsideProviderName());
         t.setAdditionalInstructions(d.getSpecialInstruction());
 
-        t.setQuantity(wholeQuantity(d.getQuantity()));
+        // A quantity the Integer field cannot carry ("2.5", of 2.5 mL) is left out: parsing it
+        // threw and failed the read of the patient's whole drug list (#6185). The instruction text
+        // still states it, and an update that states no quantity keeps the stored one
+        // (RxManagerImpl.updateDrug).
+        t.setQuantity(Drug.wholeQuantity(d.getQuantity()));
 
         this.populateStrengthFromDosage(d, t);
 
@@ -239,9 +242,16 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
         }
         Boolean result = false;
         String dosage = d.getDosage();
+        // A drug saved without a strength holds no text; that is not an error to log.
+        if (dosage == null) {
+            return false;
+        }
         try {
             if (!dosage.isEmpty()) {
-                Pattern pattern = Pattern.compile("(\\d+\\.?\\d+)\\s?([^0-9]+)\\s?");
+                // The number is digits with an optional fraction. It used to need two digits
+                // ("\\d+\\.?\\d+"), which only worked while every strength was stored with a trailing
+                // zero: "5 mg" had no strength, and "5 mg / 20 mg" reported the 20 (#6185).
+                Pattern pattern = Pattern.compile("(\\d+(?:\\.\\d+)?)\\s?([^0-9]+)\\s?");
                 Matcher matcher = pattern.matcher(dosage);
                 if (matcher.find()) { // getting first dosage component, to match populateTo1Strength behaviour
                     String strength = matcher.group(1);
@@ -328,29 +338,6 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
             return amount + unitText;
         }
         return amount + separator + unitText;
-    }
-
-    /**
-     * The stored quantity as the whole number a transfer object carries.
-     *
-     * <p>{@code drugs.quantity} and {@code favorites.quantity} are text: a quantity of 2.5 (mL) is
-     * stored as "2.5", and an imported one may read "100 mL". The transfer objects type the quantity
-     * as an {@code Integer}, which cannot carry either. {@code Integer.parseInt} threw on them, which
-     * failed the read of the patient's whole drug list; rounding would report a different amount. The
-     * quantity is left out instead, and the instruction text still states it.
-     *
-     * @param stored the stored quantity, which may be {@code null}
-     * @return the quantity when it is a whole number, otherwise {@code null}
-     */
-    static Integer wholeQuantity(String stored) {
-        if (stored == null) {
-            return null;
-        }
-        try {
-            return new BigDecimal(stored.trim()).intValueExact();
-        } catch (NumberFormatException | ArithmeticException notAWholeNumber) {
-            return null;
-        }
     }
 
     /**
