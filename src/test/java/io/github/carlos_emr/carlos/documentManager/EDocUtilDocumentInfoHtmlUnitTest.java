@@ -118,9 +118,9 @@ class EDocUtilDocumentInfoHtmlUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should print a missing provider name, timestamp and comment as nothing")
+        @DisplayName("should render a record without a status as unacknowledged and omit missing text")
         void shouldRenderMissingValuesEmpty_whenAcknowledgementFieldsAreNull() {
-            String html = render(report(null, "N", null, null));
+            String html = render(report(null, null, null, null));
 
             assertThat(html)
                     .doesNotContainIgnoringCase("null")

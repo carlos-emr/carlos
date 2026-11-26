@@ -1234,15 +1234,13 @@ public final class EDocUtil {
 
         ArrayList<ReportStatus> ackList = AcknowledgementData.getAcknowledgements("DOC", docId);
         StringBuilder htmlAcknowledgement = new StringBuilder();
-        String comment = "";
         ResourceBundle props = ResourceBundle.getBundle("oscarResources", locale);
-        for (int i = 0; i < ackList.size(); i++) {
-            ReportStatus report = ackList.get(i);
+        for (ReportStatus report : ackList) {
             htmlAcknowledgement.append(SafeEncode.forHtml(report.getProviderName())).append(": ");
             String ackStatus = report.getStatus();
-            if (ackStatus.equals("A")) {
+            if ("A".equals(ackStatus)) {
                 ackStatus = props.getString("dms.documentBrowser.msgAcknowledgedOn");
-            } else if (ackStatus.equals("F")) {
+            } else if ("F".equals(ackStatus)) {
                 ackStatus = props.getString("dms.documentBrowser.msgFileButNotAcknowledgedOn");
             } else {
                 ackStatus = props.getString("dms.documentBrowser.msgNotAcknowledgeSince");
@@ -1251,12 +1249,7 @@ public final class EDocUtil {
             htmlAcknowledgement.append(ackStatus);
             htmlAcknowledgement.append(' ').append(SafeEncode.forHtml(report.getTimestamp())).append(' ');
 
-            comment = report.getComment();
-            if (comment != null) {
-                htmlAcknowledgement.append(SafeEncode.forHtml(comment));
-            }
-            htmlAcknowledgement.append("<br>");
-
+            htmlAcknowledgement.append(SafeEncode.forHtml(report.getComment())).append("<br>");
         }
 
         return htmlAcknowledgement.toString();
