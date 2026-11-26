@@ -265,6 +265,23 @@ REQUIRED_CASES = {
             "shouldCommitDemographicAudit_whenLoadingWithoutAnMrp",
         )
         for index in (1, 2)
+    } | {"shouldArchiveWithTheSavesOwnConnection_whenThePoolHasNoSpareConnection"},
+    # Issue #5693: every one of the eighteen rehabilitation-study tables must be compared with the
+    # retired writer and reader on the physical server, and each rollback and archive case must run.
+    "RehabStudyFormDaoIntegrationTest": {
+        f"shouldStoreAndShowEveryColumn_exactlyAsTheRetiredRecordDid(String, RehabStudyFormType)[{index}]"
+        for index in range(1, 19)
+    } | {
+        f"shouldRetainTheCommittedFormAndLogSafely_whenTheArchiveReadOrWriteFails(boolean)[{index}]"
+        for index in (1, 2)
+    } | {
+        "shouldRollBackEarlierFormWrites_whenALaterVersionIsRefused",
+        "shouldRollBackAnEarlierInsert_whenARelatedDatabaseWriteFails",
+        "shouldRollBackTheGeneratedInsert_whenTheServiceFailsAfterFlushing",
+        "shouldCommitTheDemographicAudit_whenStartingANewForm",
+        "shouldArchiveWithTheSavesOwnConnection_whenThePoolHasNoSpareConnection",
+        # Two versions committed together keep an XML copy each, and both restore (#5693 review).
+        "shouldKeepAndRestoreEachVersionsArchive_whenTwoVersionsCommitTogether",
     },
 }
 # AbstractDaoFindAllOrderingIntegrationTest pins issue #5308 where it matters: MariaDB returns an
@@ -295,7 +312,8 @@ REQUIRED = {"generated": {"AppointmentFieldAuditTransactionIntegrationTest": 3, 
                           "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
                           "ReportingPatientListAuditMariaDbIntegrationTest": 4,
                           "SoapTokenHousekeepingDaoIntegrationTest": 8,
-                          "Growth0To36FormPersistenceIntegrationTest": 19, "EncounterFormDaoGroupedHistoryIntegrationTest": 2},
+                          "Growth0To36FormPersistenceIntegrationTest": 20, "EncounterFormDaoGroupedHistoryIntegrationTest": 2,
+                          "RehabStudyFormDaoIntegrationTest": 69},
             "flyway": {**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 8, "LabRoutingLookupDaoIntegrationTest": 6,
                        "LegacyLabNativeMariaDbIntegrationTest": 8, "ConsultationArchiveDaoIntegrationTest": 1,
                        "ArchiveAuditTimestampIntegrationTest": 2,
@@ -320,7 +338,8 @@ REQUIRED = {"generated": {"AppointmentFieldAuditTransactionIntegrationTest": 3, 
                           "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
                           "ReportingPatientListAuditMariaDbIntegrationTest": 4,
                           "SoapTokenHousekeepingDaoIntegrationTest": 8,
-                       "Growth0To36FormPersistenceIntegrationTest": 19, "EncounterFormDaoGroupedHistoryIntegrationTest": 2},
+                       "Growth0To36FormPersistenceIntegrationTest": 20, "EncounterFormDaoGroupedHistoryIntegrationTest": 2,
+                       "RehabStudyFormDaoIntegrationTest": 69},
             "bc-flyway": {"FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementTransactionIntegrationTest": 2, "LabRoutingLookupDaoIntegrationTest": 6,
                            "LegacyLabNativeMariaDbIntegrationTest": 8,
                            "ConsultationArchiveDaoIntegrationTest": 1,
@@ -349,7 +368,8 @@ REQUIRED = {"generated": {"AppointmentFieldAuditTransactionIntegrationTest": 3, 
                           "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
                           "ReportingPatientListAuditMariaDbIntegrationTest": 4,
                           "SoapTokenHousekeepingDaoIntegrationTest": 8,
-                           "Growth0To36FormPersistenceIntegrationTest": 19, "EncounterFormDaoGroupedHistoryIntegrationTest": 2}}
+                           "Growth0To36FormPersistenceIntegrationTest": 20, "EncounterFormDaoGroupedHistoryIntegrationTest": 2,
+                           "RehabStudyFormDaoIntegrationTest": 69}}
 
 
 INBOX_CASES = (

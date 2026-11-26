@@ -94,6 +94,32 @@ class Growth0To36FormServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRequireReadAccessAndAnOwnVersion_beforeThePageRenders() {
+        // The view gate asks this before the Growth page renders; write access is not needed.
+        when(security.hasPrivilege(actor, "_form", "w", "123")).thenReturn(false);
+        service.requireReadable(actor, 123, 0);
+        verifyNoInteractions(forms);
+
+        when(forms.findForPatient(123, 44)).thenReturn(new FormGrowth0To36());
+        service.requireReadable(actor, 123, 44);
+        verify(forms).findForPatient(123, 44);
+        assertThatThrownBy(() -> service.requireReadable(actor, 123, 45)).isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_form)");
+        verify(security, times(3)).hasPrivilege(actor, "_form", "r", "123");
+        verify(security, never()).hasPrivilege(actor, "_form", "w", "123");
+        verifyNoInteractions(demographics);
+    }
+
+    @Test
+    void shouldRefuseThePageBeforeAnyLookup_whenFormReadAccessIsDenied() {
+        when(security.hasPrivilege(actor, "_form", "r", "123")).thenReturn(false);
+        assertThatThrownBy(() -> service.requireReadable(actor, 123, 44)).isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_form)");
+        assertThatThrownBy(() -> service.requireReadable(actor, 0, 44)).isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(forms, demographics);
+    }
+
+    @Test
     void shouldRejectAbsentActorAndInvalidPatient_beforeAnyPersistence() {
         Properties values = new Properties();
         assertThatThrownBy(() -> service.load(null, 123, 0)).isInstanceOf(SecurityException.class);
