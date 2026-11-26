@@ -25,14 +25,13 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.Date;
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
+import java.util.List;
 
 import io.github.carlos_emr.SxmlMisc;
 import org.apache.logging.log4j.Logger;
@@ -369,6 +368,18 @@ public class OhipClaimExtractService implements Serializable {
      * {@code eFlag} is {@code "1"}.
      */
     public void dbQuery() {
+        loadClaims(null);
+    }
+
+    /** A restricted batch must not pick up another provider's claims under a reused OHIP number. */
+    public void dbQueryForProvider(String billingProviderNo) {
+        if (billingProviderNo == null || billingProviderNo.isBlank()) {
+            throw new IllegalArgumentException("Missing internal billing provider");
+        }
+        loadClaims(billingProviderNo);
+    }
+
+    private void loadClaims(String billingProviderNo) {
         try {
             batchOrder = 4 - batchCount.length();
             // check length
@@ -378,7 +389,11 @@ public class OhipClaimExtractService implements Serializable {
             // Initialize the fixed-width file body with the batch header.
             value = batchHeader;
 
-            for (Billing b : billingDao.findByProviderStatusAndDates(providerNo, Arrays.asList(new String[]{"O", "W"}), dateRange)) {
+            List<String> statuses = List.of("O", "W");
+            List<Billing> claims = billingProviderNo == null
+                    ? billingDao.findByProviderStatusAndDates(providerNo, statuses, dateRange)
+                    : billingDao.findByProviderStatusAndDates(providerNo, billingProviderNo, statuses, dateRange);
+            for (Billing b : claims) {
                 patientCount++;
                 invNo = "" + b.getId();
                 //   ohipVer = b.getorganization_spec_code");
@@ -585,7 +600,8 @@ public class OhipClaimExtractService implements Serializable {
         // flush() and swallows the resulting IOException, missing the
         // canonical disk-full-on-close failure mode. BufferedWriter close()
         // throws IOException so try-with-resources surfaces it.
-        try (FileOutputStream out = new FileOutputStream(safeFile);
+        try (var out = java.nio.file.Files.newOutputStream(safeFile.toPath(),
+                     java.nio.file.StandardOpenOption.CREATE_NEW, java.nio.file.StandardOpenOption.WRITE);
              java.io.OutputStreamWriter osw = new java.io.OutputStreamWriter(out, java.nio.charset.StandardCharsets.US_ASCII);
              java.io.BufferedWriter bw = new java.io.BufferedWriter(osw)) {
             bw.write(value1);
@@ -611,7 +627,8 @@ public class OhipClaimExtractService implements Serializable {
             throw new BillingFileWriteException(
                     "Refused to write OHIP HTML companion file due to path-traversal: " + htmlFilename, e);
         }
-        try (FileOutputStream out1 = new FileOutputStream(safeFile);
+        try (var out1 = java.nio.file.Files.newOutputStream(safeFile.toPath(),
+                     java.nio.file.StandardOpenOption.CREATE_NEW, java.nio.file.StandardOpenOption.WRITE);
              java.io.OutputStreamWriter osw = new java.io.OutputStreamWriter(out1, java.nio.charset.StandardCharsets.UTF_8);
              java.io.BufferedWriter bw = new java.io.BufferedWriter(osw)) {
             bw.write(htmlvalue1);

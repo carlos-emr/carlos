@@ -792,6 +792,23 @@
       "notes": "A patient created over REST with extras (demo_cell) has each extension linked to the new demographic_no, whatever number the client sent, and the summary endpoint shows it (#5119); a client-supplied extension id never re-points another patient's extension row; two colliding extras fail the request and leave no patient, admission or extension row because creation is one transaction."
     },
     {
+      "name": "demographic-rest-update-atomicity",
+      "script": "scripts/demographic-rest-update-atomicity-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "EXCLUSIVE"
+      ],
+      "fixtures": "The recoverable workflow patient (last name FAKE-PW<hex>, kept by every update) with one demographiccust row, one demo_cell extension and one entry on a waiting list named by the marker, and a second patient (last name FAKE-PW<hex>-V) with one demo_cell extension and, from step 6, an entry on the same list, all inserted by SQL; cleanup deletes the patient's waitingList, demographicExt, demographicExtArchive, demographiccust, demographiccustArchive and demographicArchive rows, the second patient with its extension and waiting-list rows, and the owned waitingListName row, and asserts them gone. The owned waiting-list name is listed clinic-wide (every REST demographic read returns the current list names) while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5298: one PUT /ws/rs/demographics stores the custom fields, the waiting-list entry, the patient and its extensions together, attributes them to the signed-in provider and archives what they replaced, including the previous custom fields (which the update used to overwrite without an archive row); an update whose last extension violates uk_demo_ext_single_value is answered HTTP 409 (DUPLICATE_DEMOGRAPHIC_EXTENSION_KEY) and leaves every one of those records and the update audit unchanged, while the access log still records the failed call; an update that renames the stored extension onto a key the patient already holds, which violates the same index as an UPDATE of an existing row, is answered and rolled back the same way instead of failing at the commit as HTTP 500; and an update in which the stored extension gives up its key and a new extension takes it is stored, because the extensions are written in the order given; an update that sends another patient's extension id is refused (409, DEMOGRAPHIC_EXTENSION_NOT_FOUND) with that patient's row and archive untouched; an update that records a waiting-list note keeps the patient's start date and place on the list, where the replacement entry used to be dated today and renumbered behind a patient who joined later; and an update that names a waiting list the patient was taken off (the application keeps that entry as history), has only a NULL history flag, or has no entry at all, is refused (409, WAITING_LIST_ENTRY_NOT_FOUND) instead of putting the patient back on the list, or saving the patient and dropping the note."
+    },
+    {
       "name": "demographic-edit-update",
       "script": "scripts/demographic-edit-update-playwright-checks.js",
       "tiers": [
@@ -5668,11 +5685,7 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "notes": "All earlier steps pass on 2026.08.0~alpha19 (the old note that the Key Manager buttons post without the context path is out of date). Last, after a step that asserts the probe service name is free, pinned to app-findings-log.md finding 163: a GET of admin/ViewKeygenCreateKey?name=<service> must be refused by the application (403/405) and add no publicKeys row; createKey.jsp creates the key pair for any request that carries a name, so a cross-site GET registers keys.",
-      "expectedFailure": {
-        "finding": 163,
-        "step": "a GET of Create Key that names a service is refused and registers no key pair"
-      },
+      "notes": "All earlier steps pass on 2026.08.0~alpha19 (the old note that the Key Manager buttons post without the context path is out of date). Last, after a step that asserts the probe service name is free: a GET of admin/ViewKeygenCreateKey?name=<service> must be refused by the application (403/405) and add no publicKeys row. This was app-findings-log.md finding 163, fixed by #6321: ViewKeygenCreateKey2Action answers 405 for a request that names a service unless it is a POST.",
       "fixtures": "Creates and deletes one marker-named ServiceClient through the UI. Seeds one marker publicKeys row with a fresh RSA-2048 pair and links a demo specialist id only on that row. Removes the client, the key, any key the pinned GET probe registers under the marker-get service name and the key's PublicKey read-audit log rows."
     },
     {
@@ -6694,6 +6707,18 @@
       ],
       "notes": "Master Record ▸ Billing History ▸ Print, with and without the clinic's invoice letterhead (an active document of the invoice_head_logo_doctype type, 'invoice letterhead' by default): with one, the third-party invoice header shows its image (billing/ca/on/DisplayInvoiceLogo) in place of the clinic's name, address and phone; once it is archived, the header shows the clinic's details again; LAST, with it active again, the image request answers its exact PNG bytes and the browser draws it. The last step failed on release before #4935 (#4931's fix, finding 387) merged on 18 Oct. billing-on-invoice-third-party prints the invoice without a letterhead.",
       "fixtures": "Owned private (PAT) bill for an owned patient, and an owned letterhead: a document of the letterhead type filed under the test provider (ctl_document 'providers') with a 1 x 1 PNG in DOCUMENT_DIR named with the run marker; all removed. Every invoice uses the clinic's active letterhead while it exists, so the check refuses to run when the clinic already has one, and it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "billing-on-single-site-visibility",
+      "script": "scripts/billing-on-single-site-visibility-playwright-checks.js",
+      "tiers": ["core"],
+      "assertsDatabase": true,
+      "provinces": ["ON"],
+      "timeoutSec": 120,
+      "env": ["OHIP_DISK_DIR"],
+      "mutates": ["provider", "security", "secRole", "secUserRole", "secObjPrivilege", "billing_on_diskname", "billing_on_filename", "file:owned-ohip-disk"],
+      "fixtures": "Single-site installation with the stock administrator site restriction. Creates and removes an independent unassigned physician, synthetic disk and member reports, files, a scoped login and an owned team restriction. A second unassigned login uses the seeded admin and doctor roles if the configured user already has sites or team restrictions. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Checks both native OHIP selectors and the disk history, disabled simulation and generation for an empty team, and a mixed disk with one authorized member report."
     },
     {
       "name": "billing-on-ohip-simulation-report",
@@ -11981,8 +12006,8 @@
         "MYSQL_PASSWORD",
         "XSS_POISON_LEDGER_DIR"
       ],
-      "fixtures": "One owned FAKE patient with a poisoned document routed to the test provider's inbox, and a second poisoned document filed under the test provider (eDoc list). Neither has a file behind it; the ManageDocument preview answer is ignored as a fixture limit. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
-      "notes": "Stored-markup regression for Inbox, eDoc provider/patient lists and document editing. The shared demographic name/age sink is encoded (#4905); the walk now passes and is required."
+      "fixtures": "One owned FAKE patient with a poisoned document routed to the test provider's inbox (with a poisoned routing comment), a second poisoned document filed under the test provider (eDoc list), a poisoned document class (report class and sub-class) and a poisoned document queue. Inserts GLOBALLY VISIBLE poisoned rows while it runs (the document class and the queue): other checks run in parallel would see them, so run it alone (the suite runner is sequential). Neither has a file behind it; the ManageDocument preview answer is ignored as a fixture limit. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
+      "notes": "Stored-markup regression for Inbox, eDoc provider/patient lists and document editing. The shared demographic name/age sink is encoded (#4905); the walk now passes and is required. Issue #3057 added the sub-class autocomplete array on both document lists and the Edit popup (typed suggestions must show the stored sub-class as text), the report-class selects, the document information fragment (metadata and acknowledgement comment) and both upload pages' queue selects; before the fix the sub-class array broke the document pages' inline script and the multi-file upload page printed queue names raw."
     },
     {
       "name": "xss-poison-note-history",
@@ -12022,7 +12047,7 @@
         "XSS_POISON_LEDGER_DIR"
       ],
       "fixtures": "One owned FAKE patient, a poisoned eForm template and a patient-independent template with current and deleted instances, an eForm group and a security role. Inserts GLOBALLY VISIBLE poisoned rows while it runs (an eForm template, an eForm group, a role): other checks run in parallel would see them, and forms that echo them back are refused by the WAF, so run it alone (the suite runner is sequential). The group Delete confirmation is only opened and dismissed. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
-      "notes": "Regression for findings 121 and 125, fixed in beta1. Manage eForms upload role names, group Delete confirmation, current/deleted patient-independent instance names and subjects, and the patient eForm lists must render stored markup as literal text. Coverage is asserted for every reached seeded field; missing fields and unopened links fail. All six steps passed on the installed Ubuntu 26.04 beta1 packages on 2026-10-19."
+      "notes": "Regression for findings 121 and 125, fixed in beta1. Manage eForms upload role names, group Delete confirmation, current/deleted patient-independent instance names and subjects, and the patient eForm lists must render stored markup as literal text. Coverage is asserted for every reached seeded field; missing fields and unopened links fail. All six steps passed on the installed Ubuntu 26.04 beta1 packages on 2026-10-19. Issue #3057 added the eForm version list (efmpatientformlistsingle, opened by route: no page links to it), which printed the current instance name and subject raw before the fix."
     },
     {
       "name": "xss-poison-messenger-consult",
@@ -14703,8 +14728,8 @@
       "env": [
         "DOCUMENT_DIR"
       ],
-      "notes": "Clicks Reviewed in a stored document's Edit popup after the stored review changed under it (issue #6081): a review another user's Update cleared, a first review another provider made, and a document deleted while the save waits for its row (a second database session holds the row lock, deletes the row and commits). The server decides first versus additional review from the stored row under its lock; the deleted document re-renders the popup with dms.error.documentMissing. SCREENSHOT_DIR receives one evidence screenshot per case.",
-      "fixtures": "Owns a patient and three PDF documents (rows and files); a second active provider from the install is used only as a stored reviewer value. Extra-reviewer rows, documents, links and files are removed."
+      "notes": "Clicks Reviewed in a stored document's Edit popup after the stored review changed under it (issue #6081): a review another user's Update cleared, a first review another provider made, and a document deleted while the save waits for its row (a second database session holds the row lock, deletes the row and commits). The server decides first versus additional review from the stored row under its lock; the deleted document re-renders the popup with dms.error.documentMissing. SCREENSHOT_DIR receives one evidence screenshot per case. Also checks replacement confirmation/cancellation, archival and retirement of prior attestations, and refusal after source bytes change.",
+      "fixtures": "Owns a patient and five PDF documents (rows and files); a second active provider from the install is used only as a stored reviewer value. Extra-reviewer rows, documents, links, replacement uploads and files are removed."
     },
     {
       "name": "document-add-new-type",
@@ -18921,7 +18946,7 @@
         "dsGuidelineProviderMap"
       ],
       "fixtures": "Owned provider, two synthetic patients, fixed clinical records and 41 provider-scoped seeded definitions; no guideline authoring UI exists. Cleanup verifies exact owned mappings and preserves a provider if rule cleanup fails. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "#5718: age year/month/day boundaries, drugs/notes/billing/diagnosis/sex any/all/negative operators, native six-row expansion, alternating chart/list/per-condition detail, independent truth tables and SQL snapshots, native diagnosis resolution. Unsupported/dynamic-context families are inventoried separately. Synthetic JSON observations are retained; all mismatches remain fatal. The #5817 sex all/notall repair passed the current ON native operator retake; no expected-failure pin."
+      "notes": "#5718: age year/month/day boundaries, drugs/notes/billing/diagnosis/sex any/all/negative operators, native six-row expansion, alternating chart/list/per-condition detail, independent truth tables and SQL snapshots, native diagnosis resolution. Unsupported/dynamic-context families are inventoried separately. Synthetic JSON observations are retained; all mismatches remain fatal. The #5817 sex all/notall repair passed the current ON native operator retake; no expected-failure pin. #6328: detail actual-value cells read 'Not shown for this condition type' for notes/billing and 'None recorded' for the empty control sources, with A's diagnosis values checked."
     },
     {
       "name": "rx-same-severity-partners",
@@ -19772,6 +19797,84 @@
       ],
       "notes": "Manual regression for #6018: creates one owned synthetic 17 MiB template, exports it through Manage eForms, removes the source and imports the downloaded ZIP. Verifies exact HTML byte length and SHA-256 without dumping the large value, no patient instances and unchanged unrelated template hashes. The 50 MiB HTML and separate 16 MiB properties/64 MiB aggregate limits also have JVM controls.",
       "fixtures": "One marker-named synthetic template, removed only after verifying its name, file, provider, byte length, digest and lack of patient instances; owned download scratch directory. Requires an exclusive disposable host. It must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "consultation-unavailable-hrm",
+      "script": "scripts/consultation-unavailable-hrm-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "DOCUMENT_DIR"
+      ],
+      "mutates": [
+        "consultationRequests",
+        "consultdocs",
+        "consultationServices",
+        "professionalSpecialists",
+        "HRMDocument",
+        "file:owned-hrm-sources"
+      ],
+      "fixtures": "Owned patient, service, specialist, referral and HRM sources. must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Every owned clinical row and source file is removed; audit records are retained.",
+      "notes": "Ordinary save retains unavailable attachments; GET/CSRF refusal, explicit cancel/confirm removal, existing hidden report retention, preservation of unsaved edits, and old-token replay after reattachment."
+    },
+    {
+      "name": "hrm-version-history",
+      "script": "scripts/hrm-version-history-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "on"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "DOCUMENT_DIR"
+      ],
+      "mutates": [
+        "HRMDocument",
+        "HRMDocumentToDemographic",
+        "HRMDocumentToProvider",
+        "file:owned-hrm-sources",
+        "consultationRequests",
+        "consultationServices",
+        "professionalSpecialists"
+      ],
+      "fixtures": "Owned synthetic patient, HRM documents, patient/provider relationships, XML files and an owned referral/service/specialist; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). All removed; audit records retained.",
+      "notes": "Authenticated native viewer and consultation/eForm picker rendering: validated duplicate group, malformed/deleted/unrelated ID refusal, null dates, deterministic ties, dated version labels and unchanged current selection/default checkboxes. Does not transmit or import reports."
+    },
+    {
+      "name": "inbox-failure-states",
+      "script": "scripts/inbox-failure-states-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "manual": true,
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "DOCUMENT_DIR",
+        "EXCLUSIVE",
+        "CARLOS_DISPOSABLE_VM"
+      ],
+      "mutates": [
+        "document",
+        "ctl_document",
+        "providerLabRouting",
+        "HRMDocument",
+        "file:owned-pdfs"
+      ],
+      "fixtures": "Owned patient, PDF documents, invalid document and routing rows. Deliberately renames HRMDocument briefly and restores it before cleanup; requires a disposable installation and must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Every owned row/file is removed.",
+      "notes": "Visible incomplete-list notice with later valid rows, no fake clinical row, and a real HRM count SQL failure returning HTTP 500 without totals. Verifies recovery after restoring the table. Requires explicit CARLOS_DISPOSABLE_VM=true and EXCLUSIVE=1; never runs from a tier."
     }
   ]
 }

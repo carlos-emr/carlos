@@ -1,5 +1,95 @@
 # CARLOS 2026.08 release notes
 
+## Ontario OHIP billing after a single-site import
+
+OHIP Simulation and Generate OHIP File now show eligible physicians and their
+billing disk history when a single-site clinic has no provider-site assignments.
+The seeded administrator can use both pages with the existing role configuration.
+When multisite mode is enabled, an operator restricted by site alone sees only
+providers who share an assigned site. An explicit team billing restriction
+continues to apply in either clinic mode.
+
+During an OSCAR 19 migration, compare the source `multisites` setting with
+the setting in CARLOS before opening billing to staff. This also applies to
+completed imports. A clinic that relied on site assignments to restrict billing
+with multisite mode disabled must enable multisite mode and verify access for its
+operators. [OSCAR 19 import guide](o19-import-deb.md)
+
+## Unlinking a lab archives the readings it filed
+
+Unlinking a lab report from a patient (Unlink on the lab page) now also archives the
+readings the report had filed to that patient's chart. After a wrong patient match is
+corrected, flowsheets, the Health Tracker, graphs, decision-support colours and the
+prevention and clinical reports no longer show the other patient's values (#6214). The
+readings are moved to the same measurement archive that a clinician's deletion and a
+superseded report version use: nothing is deleted, and the audit log records the unlink and
+each archived reading by its identifier. The lab page then shows how many readings were
+archived, in a notice that closes itself. When the report is matched to a patient again,
+its current version is filed for that patient, as for a report matched after upload.
+
+Unlink still acts on the one report shown; other versions of the same accession keep their
+own patient and readings. It is not refused because of what the chart holds, and the
+routing change, the archive and their audit rows are saved together or not at all.
+Readings left on a chart by an unlink made before this change, including charts migrated
+from OSCAR 19, are not changed by the upgrade: unlinking the same report again archives
+them. Unlink now accepts only POST, which is what the lab page sends, and needs the `_lab`
+update right on each chart it changes, so a patient-specific lab rule or a locked record
+refuses it as it already refuses opening that lab.
+
+## Demographic updates save together or not at all
+
+A patient update through the demographic manager is now one transaction: the archive
+copy of the previous record, the patient record and its extensions are saved together.
+A failure partway through, such as an extension the database refuses, no longer leaves
+an archive row or a changed patient behind. The same applies to saving a patient's
+custom fields (alert, notes, nurse, resident, midwife) with their archive copy.
+
+`PUT /ws/rs/demographics` has run as one transaction since 2026.08.0-beta8, including
+the custom fields and the waiting-list entry it changes. Inside that transaction the
+previous alert and notes were overwritten without an archive row; they are archived
+again. When an update is refused or one of its writes fails, the transaction is rolled
+back and nothing of it is saved. When the outcome is uncertain, because no response
+arrived or the server reported a failure while committing, the update may have been
+saved: reload the patient before deciding whether to resubmit. An update whose audit
+row cannot be written is not saved. Existing records are unchanged. Custom fields
+overwritten through this endpoint on 2026.08.0-beta8 were not archived and cannot be
+reconstructed.
+
+Three requests that this endpoint used to accept or fail on unclearly are now refused
+with HTTP 409 and a JSON error code, and save nothing: a second extension with a key
+the patient already holds (`DUPLICATE_DEMOGRAPHIC_EXTENSION_KEY`), an extension id
+that is not one of this patient's stored extensions (`DEMOGRAPHIC_EXTENSION_NOT_FOUND`;
+the id alone could re-point another patient's extension to this patient), and a
+waiting list on which the patient has no current entry (`WAITING_LIST_ENTRY_NOT_FOUND`; the
+patient was saved and the waiting-list note dropped without an error, or, when the entry
+had been removed through the application or carried no history flag, the patient was given
+a current entry on the list). Every extension
+is saved under the patient being updated, whatever patient number the request gives it.
+An update that names a waiting list now locks that list's current entries until it is
+saved. When another update of the same list is in progress or has just changed them, the
+request is refused with HTTP 409 `WAITING_LIST_CHANGED` and nothing is saved.
+Integrations that send extension ids or a waiting-list id should reload the patient on
+these codes.
+
+An update that records a waiting-list note no longer moves the patient down the list.
+The entry that replaces the patient's entry used to be dated today, and a list is
+numbered by start date, so the patient was placed behind everyone who had joined
+later. The replacement now keeps the start date, and entries with the same start date
+keep their order. Entries already re-dated this way
+keep the date they were given; the earlier entry, with the original date, is still
+stored as history. Removing a patient from a waiting list now waits for an update of
+that list that is in progress, instead of reporting success while the update leaves
+the patient on the list.
+
+An Ontario OBEC response that invalidates a health-card version code now archives the
+patient with the code that was replaced; the archive row used to hold the `##` marker.
+
+Reassigning patients to another MRP (Administration, Update Demographic Provider) no
+longer replaces a patient's stored preferred name with the alias. The reassignment
+updates from a copy of the patient, and the copy took the name shown, which is the alias
+when one is set, as the preferred name. Preferred names replaced this way are not
+restored by the upgrade.
+
 ## Note lock recovery
 
 When another window takes a note lock, a refused toolbar save now explains that
@@ -294,6 +384,13 @@ counts the rows that are shown, and a list that cannot be loaded says so
 
 - The note and issue history popup prints the patient name and the issue title as
   text. Markup stored in either was previously run in the reader's browser.
+- The eForm version list prints each saved form's name and subject as text, the
+  patient-independent eForm lists print the saving provider's name as text, and the
+  document pages print stored document sub-classes, queue names and provider names as
+  text. Markup stored in any of them was previously run in the reader's browser. The
+  document information shown by the Document Browser and Browse Notes leaves a missing
+  acknowledging provider's name or date, annotation or tickler message blank instead of
+  printing `null` ([#3057](https://github.com/carlos-emr/carlos/issues/3057)).
 - Hospital reports (HRM) follow the patient's own access rules. A provider who is
   locked out of a patient, or lacks `_demographic` or `_hrm` read for that patient,
   cannot list, open, print, download or change that patient's hospital reports from

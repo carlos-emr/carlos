@@ -50,8 +50,10 @@ public final class IsolatedJpaTestDatabase implements AutoCloseable {
         migrated = nativeMode && "flyway".equals(mode);
         database = "carlos_test_" + label + "_" + UUID.randomUUID().toString().replace("-", "");
         if (!nativeMode) {
+            // NON_KEYWORDS=VALUE, as in the shared H2 test databases (test.properties): legacy tables
+            // such as demographicExt have a column named "value", which H2 otherwise refuses to create.
             dataSource = new DriverManagerDataSource("jdbc:h2:mem:" + database
-                    + ";MODE=MySQL;DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=5000", "sa", "");
+                    + ";MODE=MySQL;DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=5000;NON_KEYWORDS=VALUE", "sa", "");
             return;
         }
         credentials.setProperty("user", environment.getOrDefault("CARLOS_TEST_MARIADB_USER", "root"));

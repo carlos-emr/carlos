@@ -47,6 +47,7 @@ public class InboxManagerResponse {
     private Integer demographicNo;
     private String ackStatus;
     private List<LabResultData> labdocs;
+    private int omittedDocumentRows;
     private Hashtable patientNumDoc;
     private Integer totalDocs;
     private Integer totalHl7;
@@ -58,6 +59,15 @@ public class InboxManagerResponse {
 
     public Integer getPageNum() {
         return pageNum;
+    }
+
+    /** Number of unavailable or invalid document rows omitted from this response. */
+    public int getOmittedDocumentRows() {
+        return omittedDocumentRows;
+    }
+
+    public void setOmittedDocumentRows(int omittedDocumentRows) {
+        this.omittedDocumentRows = omittedDocumentRows;
     }
 
     public void setPageNum(Integer pageNum) {

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/decisionSupport/model/DSDemographicAccess.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "c3ec056d68a0d9297034cfd08b85c2e27a2dbb7f"
+  },
+  "evidenceSha256": "378cbe2c5264fa7d9a9b298cf519971181f2e4950b459545d46c5a8186dfa221"
+}

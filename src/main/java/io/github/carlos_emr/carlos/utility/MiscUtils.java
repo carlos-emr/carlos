@@ -78,6 +78,7 @@ public final class MiscUtils {
     public static final String DEFAULT_UTF8_ENCODING = "UTF-8";
     // Lifecycle writers and background-worker readers do not share a monitor.
     private static volatile boolean shutdownSignaled = false;
+    private static final Object HOOK_LOCK = new Object();
     private static Thread shutdownHookThread = null;
 
     /** Maximum deserialization object graph depth to prevent stack-overflow bombs. */
@@ -285,10 +286,12 @@ public final class MiscUtils {
 
     public static byte[] readFileAsByteArray(String url) throws IOException {
         try (InputStream is = MiscUtils.class.getResourceAsStream(url)) {
-            int size = is.available();
-            byte[] b = new byte[size];
-            is.read(b);
-            return b;
+            if (is == null) {
+                throw new java.io.FileNotFoundException("classpath resource not found");
+            }
+            // available() on a resource inside a JAR is not its length, and one read may stop
+            // short; read to end of stream (#3027).
+            return is.readAllBytes();
         }
     }
 
@@ -352,17 +355,21 @@ public final class MiscUtils {
     /**
      * This method should in most cases only be called by the context startup listener.
      */
-    public static synchronized void registerShutdownHook() {
-        if (shutdownHookThread == null) {
-            shutdownHookThread = new MiscUtils.ShutdownHookThread();
-            Runtime.getRuntime().addShutdownHook(shutdownHookThread);
+    public static void registerShutdownHook() {
+        synchronized (HOOK_LOCK) {
+            if (shutdownHookThread == null) {
+                shutdownHookThread = new MiscUtils.ShutdownHookThread();
+                Runtime.getRuntime().addShutdownHook(shutdownHookThread);
+            }
         }
     }
 
-    public static synchronized void deregisterShutdownHook() {
-        if (shutdownHookThread != null) {
-            Runtime.getRuntime().removeShutdownHook(shutdownHookThread);
-            shutdownHookThread = null;
+    public static void deregisterShutdownHook() {
+        synchronized (HOOK_LOCK) {
+            if (shutdownHookThread != null) {
+                Runtime.getRuntime().removeShutdownHook(shutdownHookThread);
+                shutdownHookThread = null;
+            }
         }
     }
 

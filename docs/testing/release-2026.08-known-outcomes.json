@@ -14,12 +14,6 @@
       "disposition": "Required installed retake; blocks release readiness. After the CSRF repair, native creation, chart assignment, duplicate-row refusal and GET refusal pass, but the duplicate-code error message remains absent (finding362, #5479 item6). The broader check stays a failure; the isolated Save/Cancel/CSRF check must pass."
     },
     {
-      "check": "admin-api-keygen",
-      "finding": 163,
-      "step": "a GET of Create Key that names a service is refused and registers no key pair",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
       "check": "authz-read-admin-objects",
       "finding": 342,
       "step": "administration pages are refused without their menu object and served with it (lists every route that is not)",

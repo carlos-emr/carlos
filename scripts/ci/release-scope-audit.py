@@ -131,11 +131,23 @@ def main(argv=None):
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--result-output", type=Path,
                         help="Write required command assertions and hash the underlying inventory")
-    parser.add_argument("--inventory-only", action="store_true", help="Generate review inventory without claiming coverage")
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument("--inventory-only", action="store_true", help="Generate review inventory without claiming coverage")
+    modes.add_argument("--migration-integrity-only", action="store_true",
+                       help="Require migration integrity while reporting path ownership as advisory")
     args = parser.parse_args(argv)
     args.output.unlink(missing_ok=True)
     try:
         result = inventory(load_plan(args.plan))
+        assertions = {
+            'main-only-migration-dispositions': not result['unresolvedMainOnlyMigrations'],
+            'published-migrations-byte-identical': all(
+                row['ready'] for row in result['publishedMigrationIntegrity'].values())}
+        result['ownershipRequired'] = not args.migration_integrity_only
+        if args.migration_integrity_only:
+            result['ready'] = all(assertions.values())
+        else:
+            assertions['complete-production-ownership'] = not result['unownedProductionPaths']
         write_json(args.output, result)
         if args.result_output:
             if args.inventory_only:
@@ -144,14 +156,12 @@ def main(argv=None):
                 name = args.output.resolve().relative_to(args.result_output.parent.resolve()).as_posix()
             except ValueError as failure:
                 raise EvidenceError('Scope inputs must be retained beside the command result') from failure
-            write_json(args.result_output, {'schemaVersion': 1, 'assertions': {
-                'complete-production-ownership': not result['unownedProductionPaths'],
-                'main-only-migration-dispositions': not result['unresolvedMainOnlyMigrations'],
-                'published-migrations-byte-identical': all(row['ready'] for row in result['publishedMigrationIntegrity'].values())},
+            write_json(args.result_output, {'schemaVersion': 1, 'assertions': assertions,
                 'inputs': [{'path': name, 'sha256': digest(args.output)}]})
         print(json.dumps({"changedPathsAcrossScopes": len(result["changes"]),
                           "unownedProductionPaths": len(result["unownedProductionPaths"]),
-                          "unresolvedMainOnlyMigrations": len(result["unresolvedMainOnlyMigrations"]), "ready": result["ready"]}))
+                          "unresolvedMainOnlyMigrations": len(result["unresolvedMainOnlyMigrations"]),
+                          "ownershipRequired": result['ownershipRequired'], "ready": result["ready"]}))
         return 0 if args.inventory_only or result["ready"] else 1
     except Exception as failure:
         print("Release scope refused: " + (str(failure) if isinstance(failure, EvidenceError) else type(failure).__name__), file=sys.stderr)

@@ -648,8 +648,9 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         try (FileInputStream fileInputStream = new FileInputStream(imageFile)) {
 
             PdfPCell cell = new PdfPCell();
-            byte[] faxLogImage = new byte[1024 * 256];
-            fileInputStream.read(faxLogImage);
+            // A fixed 256 KiB buffer cut larger fax-header logos short and zero-padded smaller
+            // ones, and one read may stop early; read the whole image (#3027).
+            byte[] faxLogImage = fileInputStream.readAllBytes();
             Image image = Image.getInstance(faxLogImage);
             image.scaleToFit(width, height);
             image.setBorder(0);

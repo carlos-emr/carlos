@@ -21,6 +21,9 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.web;
 
+import java.util.List;
+import java.util.stream.Stream;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -93,10 +96,13 @@ public class ViewGenGroupReport2Action extends ActionSupport {
             return NONE;
         }
 
-        java.util.List<OhipReportGenerationService.FailedProvider> skipped =
+        List<OhipReportGenerationService.FailedProvider> skipped =
                 ohipReportGenerationService.generateReport(request, OhipReportGenerationService.Mode.GROUP_REPORT);
-        // Surface per-provider rollbacks to the success page so the
-        // operator can re-run for the named providers.
+        // The hybrid SOLO_REPORT action forwards its failures on the same request.
+        if (request.getAttribute("skippedProviders") instanceof List<?> soloSkipped) {
+            skipped = Stream.concat(soloSkipped.stream().map(OhipReportGenerationService.FailedProvider.class::cast),
+                    skipped.stream()).toList();
+        }
         request.setAttribute("skippedProviders", skipped);
 
         return SUCCESS;

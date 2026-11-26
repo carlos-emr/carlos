@@ -131,10 +131,10 @@ async function workflow(s) {
     INSERT INTO secUserRole (provider_no,role_name,orgcd,activeyn,lastUpdateDate) VALUES (${q(nurse)},'other','R0000001',1,NOW())`);
   h.assert(sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no IN (${q(roleless)},${q(nurse)}) AND last_name=${q(marker)}`) === '2',
     'Provider fixtures were not created');
-  // Site access privacy hides providers outside the viewer's sites. The nurse shares the test
-  // provider's first site; the role-less provider has none.
+  // The native schedule shows a clinic selector only on multisite installations.
+  const multisites = await s.schedule.locator('select#site[name="site"]').count() === 1;
   const site = sql.value(`SELECT MIN(site_id) FROM providersite WHERE provider_no=${q(provider)}`);
-  const sitePrivacy = sql.value(`SELECT COUNT(*) FROM secObjPrivilege o JOIN secUserRole r ON r.role_name=o.roleUserGroup
+  const sitePrivacy = multisites && sql.value(`SELECT COUNT(*) FROM secObjPrivilege o JOIN secUserRole r ON r.role_name=o.roleUserGroup
     WHERE r.provider_no=${q(provider)} AND o.objectName='_site_access_privacy' AND o.privilege<>'o'`) !== '0';
   if (site) sql.execute(`INSERT INTO providersite (provider_no,site_id) VALUES (${q(nurse)},${site})`);
 
@@ -305,14 +305,15 @@ async function workflow(s) {
   await index.locator('#asdate').waitFor();
 
   const nameText = upperLower(`${marker},Workflow`);
-  async function daySheet(label, { providerNo, eTime = '20', nonRostered = false }) {
-    await index.locator('select[name="provider_no"]').selectOption(providerNo);
-    await ui.pickDate(index, '#asdate', today);
-    await ui.pickDate(index, '#aedate', today);
-    await index.locator('select[name="sTime"]').selectOption('8');
-    await index.locator('select[name="eTime"]').selectOption(eTime);
-    await index.locator('#rosteredOnly').setChecked(nonRostered);
-    const sheet = await s.popup(index, index.getByRole('link', { name: 'All appointments' }), label);
+  async function daySheet(label, { providerNo, eTime = '20', nonRostered = false }, reportIndex = index) {
+    await reportIndex.locator('select[name="provider_no"]').selectOption(providerNo);
+    await ui.pickDate(reportIndex, '#asdate', today);
+    await ui.pickDate(reportIndex, '#aedate', today);
+    await reportIndex.locator('select[name="sTime"]').selectOption('8');
+    await reportIndex.locator('select[name="eTime"]').selectOption(eTime);
+    await reportIndex.locator('#rosteredOnly').setChecked(nonRostered);
+    const sheet = await ui.clickOpensPopup(reportIndex, reportIndex.getByRole('link', { name: 'All appointments' }),
+      { context: reportIndex.context(), recorder: s.recorder, label, timeout: 20000 });
     h.assert(new URL(sheet.url()).pathname.endsWith('/report/ViewReportdaysheet'), `${label} opened another page`);
     return sheet;
   }
@@ -325,6 +326,30 @@ async function workflow(s) {
     return found.sort();
   }
   const same = (a, b) => JSON.stringify(a) === JSON.stringify([...b].sort());
+
+  await s.step('team privacy limits the report index and all-provider day sheet in either clinic mode', async () => {
+    const role = roleFixture.addRole({ _appointment: 'r', _report: 'r', _site_access_privacy: 'r', _team_access_privacy: 'r' });
+    const reader = roleFixture.addLogin(role);
+    const team = `PW${reader.providerNo}`;
+    h.assert(sql.value('SELECT COUNT(*) FROM provider WHERE team=?', [team]) === '0', 'The test team is already in use');
+    sql.execute('UPDATE provider SET team=? WHERE provider_no IN (?,?) AND last_name=?',
+      [team, reader.providerNo, nurse, marker]);
+    const restricted = await signIn(s, reader);
+    try {
+      const teamIndex = restricted.page;
+      await h.gotoApp(teamIndex, s.config.baseUrl, '/report/ViewReportindex');
+      const providers = teamIndex.locator('select[name="provider_no"]');
+      await providers.waitFor();
+      h.assert(await providers.locator(`option[value="${nurse}"]`).count() === 1
+        && await providers.locator(`option[value="${provider}"]`).count() === 0
+        && await providers.locator(`option[value="_grp_${state.group}"]`).count() === 0,
+      'The team reader must see the nurse and cannot select the other provider or group');
+      const sheet = await daySheet('team day sheet', { providerNo: '*' }, teamIndex);
+      h.assert(same(await listed(sheet), ['other']), 'The team day sheet must list only the nurse appointment');
+    } finally {
+      await restricted.context.close();
+    }
+  });
 
   let providerSheet;
   await s.step('provider day sheet lists the owned in-window appointments with patient fields, not the cancelled or late ones', async () => {

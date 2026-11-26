@@ -106,7 +106,7 @@ test('Inboxhub-only checks preserve only the queue property and do not inspect p
   assert.match(f.reads.find(query => query.startsWith('SELECT JSON_ARRAY')), /name IN \('incoming_document_default_queue'\)/);
 });
 
-for (const name of ['inboxhub-filters', 'inbox-document-dates', 'xss-poison-documents-inbox',
+for (const name of ['inboxhub-filters', 'inbox-document-dates', 'inbox-date-mode-counts', 'inbox-failure-states', 'xss-poison-documents-inbox',
   'inbox-file-forward', 'inbox-acknowledge-per-provider', 'document-viewer-review-actions', 'document-format-matrix']) {
   test(`${name} removes only the owned queue preference initialized by its first Inbox visit`, () => {
     const f = fixtureSql(name, []);

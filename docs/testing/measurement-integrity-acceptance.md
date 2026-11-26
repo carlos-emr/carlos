@@ -22,12 +22,20 @@ to the revision reported by the PR checks, not to an earlier screenshot capture.
 - Measurement extraction preserves the source's case while matching the existing
   clinic filter against a `Locale.ROOT` lowercase shadow. Overlong values are not cut
   into different clinical values; comments are explicitly bounded to the schema width.
-- Unlink continues to operate on one report. There is no new match-version token,
-  whole-chain unlink, sticky unmatch, historical repair page, per-observation projection,
-  import chain lock or source overlay in histories/grids.
+- Unlink continues to operate on one report. Since
+  [#6214](https://github.com/carlos-emr/carlos/issues/6214) it also archives every reading
+  that report filed (moved to `measurementsDeleted`, one audit row each) in the transaction
+  that clears its patient routing, under the report lock and the patient-specific `_lab`
+  update right and record lock of each chart it changes. A later patient match files the
+  report's current version for the new patient. Unlink is not refused for what the chart
+  holds, and other versions keep their routing and readings. There is no new match-version
+  token, whole-chain unlink, sticky unmatch, historical repair page, per-observation
+  projection, import chain lock or source overlay in histories/grids.
 
-The questions about qualified graph values, unlink scope and filter-excluded literals
-remain in [#6118](https://github.com/carlos-emr/carlos/issues/6118) and
+The unlink decision (archive the readings of an unlinked report; matching files them) is
+recorded in [#6214](https://github.com/carlos-emr/carlos/issues/6214). The questions about
+qualified graph values and filter-excluded literals remain in
+[#6118](https://github.com/carlos-emr/carlos/issues/6118) and
 [#6120](https://github.com/carlos-emr/carlos/issues/6120). This PR does not close
 #5827, #5828 or #5835 as delivered enhancements.
 
@@ -64,6 +72,7 @@ All application fixtures are synthetic. Relevant maintained checks include:
 | --- | --- |
 | CML ordering and filing | `CmlVersionPolicyUnitTest`, `CmlVersionFilingIntegrationTest`, actual packaged `lab-version-ingestion` workflow |
 | Acknowledgement and inbox | `LabAcknowledgementAuditIntegrationTest`, report action tests, inbox notification and Node client regressions |
+| Unlink archive and re-match | `LabPatientUnlinkServiceUnitTest`, `LabPatientUnlinkServiceIntegrationTest`, `UnlinkDemographic2ActionUnitTest`, `scripts/lab-unlink-archive-notice.test.js`, `scripts/lab-unlink-retry.test.js` |
 | Numeric/date/chart behavior | `MeasurementGraphAction22ActionUnitTest`, `MeasurementChartDataUnitTest`, graph error tests, `chart-draw-playwright-checks.js` |
 | Renderer admission and cleanup | `RenderAdmissionUnitTest`, chart/PDF service unit and browser smoke tests |
 | CDM isolation and recovery | context/action unit tests, installed `report-cdm` and `cdm-measurement-report` browser workflows |

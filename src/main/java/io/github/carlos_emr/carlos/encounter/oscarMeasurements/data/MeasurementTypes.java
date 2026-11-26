@@ -53,6 +53,9 @@ public class MeasurementTypes {
 
     private static Logger log = MiscUtils.getLogger();
 
+    // Creation and refresh use separate monitors, as the former class and instance monitors did:
+    // once the first catalog is published, getInstance() never waits for a refresh's database reads.
+    private static final Object INSTANCE_LOCK = new Object();
     private static MeasurementTypes measurementTypes;
 
     private record Catalog(Map<String, EctMeasurementTypesBean> byId,
@@ -61,6 +64,9 @@ public class MeasurementTypes {
     // Readers see one complete catalog while a reload builds its replacement.
     private final AtomicReference<Catalog> catalog = new AtomicReference<>(
             new Catalog(Collections.emptyMap(), Collections.emptyMap()));
+
+    // Serializes refreshes of this catalog only.
+    private final Object reloadLock = new Object();
 
     /**
      * Creates a new instance of MeasurementTypes
@@ -76,35 +82,50 @@ public class MeasurementTypes {
         return catalog.get().byId().get(type);
     }
 
-    public static synchronized MeasurementTypes getInstance() {
-        if (measurementTypes == null) {
-            measurementTypes = new MeasurementTypes();
-            measurementTypes.reInit();
+    /**
+     * Returns the shared catalog, loading it on first use. Callers that arrive during that first
+     * load wait for the complete catalog; later callers never wait for a {@link #reInit()} in
+     * progress and read the last complete catalog until its replacement is published.
+     *
+     * @return MeasurementTypes the shared catalog
+     */
+    public static MeasurementTypes getInstance() {
+        synchronized (INSTANCE_LOCK) {
+            if (measurementTypes == null) {
+                measurementTypes = new MeasurementTypes();
+                measurementTypes.reInit();
+            }
+            return measurementTypes;
         }
-        return measurementTypes;
     }
 
-    public synchronized void reInit() {
-        try {
-            Map<String, EctMeasurementTypesBean> byId = new HashMap<>();
-            Map<String, EctMeasurementTypesBean> byType = new HashMap<>();
-            MeasurementTypeDao mtDao = SpringUtils.getBean(MeasurementTypeDao.class);
-            ValidationsDao vDao = SpringUtils.getBean(ValidationsDao.class);
+    /**
+     * Rebuilds the catalog from the database and publishes it in one step. Refreshes run one at a
+     * time; if one fails, readers keep the previous complete catalog.
+     */
+    public void reInit() {
+        synchronized (reloadLock) {
+            try {
+                Map<String, EctMeasurementTypesBean> byId = new HashMap<>();
+                Map<String, EctMeasurementTypesBean> byType = new HashMap<>();
+                MeasurementTypeDao mtDao = SpringUtils.getBean(MeasurementTypeDao.class);
+                ValidationsDao vDao = SpringUtils.getBean(ValidationsDao.class);
 
-            for (MeasurementType t : mtDao.findAll()) {
-                EctMeasurementTypesBean ret = new EctMeasurementTypesBean(t.getId(), t.getType(), t.getTypeDisplayName(), t.getTypeDescription(), t.getMeasuringInstruction(), t.getValidation());
+                for (MeasurementType t : mtDao.findAll()) {
+                    EctMeasurementTypesBean ret = new EctMeasurementTypesBean(t.getId(), t.getType(), t.getTypeDisplayName(), t.getTypeDescription(), t.getMeasuringInstruction(), t.getValidation());
 
-                Validations v = vDao.find(ConversionUtils.fromIntString(t.getValidation()));
-                if (v != null) {
-                    ret.setValidationName(v.getName());
+                    Validations v = vDao.find(ConversionUtils.fromIntString(t.getValidation()));
+                    if (v != null) {
+                        ret.setValidationName(v.getName());
+                    }
+                    byId.put(t.getId().toString(), ret);
+                    byType.put(t.getType(), ret);
+
                 }
-                byId.put(t.getId().toString(), ret);
-                byType.put(t.getType(), ret);
-
+                catalog.set(new Catalog(Collections.unmodifiableMap(byId), Collections.unmodifiableMap(byType)));
+            } catch (Exception e) {
+                log.warn("Unable to refresh measurement types ({})", e.getClass().getSimpleName());
             }
-            catalog.set(new Catalog(Collections.unmodifiableMap(byId), Collections.unmodifiableMap(byType)));
-        } catch (Exception e) {
-            log.warn("Unable to refresh measurement types ({})", e.getClass().getSimpleName());
         }
     }
 }

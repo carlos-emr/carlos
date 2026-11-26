@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "e28e1381dcdc2469f5dc67b16a27a8f0a5479d05",
+  "comparisonSha256": "19f07df9df2499e59d2fd664545f33fcf4f308344f777d3ab913a332af1f3f7b",
+  "baselineCommit": "c278a8d73d8011f4c7e08ba6a0f511650a076dbe",
+  "baselineSourceTree": "e28e1381dcdc2469f5dc67b16a27a8f0a5479d05",
+  "baselineReportSha256": "5be6548ae8039f0a69abaf9fe5e61552a231b3a59abb9f9f892d2b590bcf7b01",
+  "baselineLane": "Focused cache, FHIR, login and document rendering tests on Temurin 25",
+  "baselineTestCounts": {
+    "tests": 182,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "73fcf14776ad04a7c82ecc5463c75856af0caf0d206a0649abf13e71154c154b",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/PMmodule/utility/RoleCache.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "4fbcdc87b0685934199f45fed1b0cf85783a56eb"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/documentManager/ConvertToEdoc.java": {
+      "lines": 87.09677419354838,
+      "instructions": 85.60885608856088,
+      "branches": 80.0,
+      "sourceBlob": "bc367d06b07187ee802f9705f3304a76a8192409"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/data/MeasurementTypes.java": {
+      "lines": 95.45454545454545,
+      "instructions": 96.46017699115045,
+      "branches": 66.66666666666667,
+      "sourceBlob": "e2e996d3753fe1dea374844140e31f6ce7cc1a85"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/integration/fhir/api/BIS.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "f8ce3507ab971f7099fa2e680cfdb1cfd02a4917"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/integration/fhir/api/DHIR.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "ed471a03e94381902419d53d2d790b7cd298a3ed"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/login/LoginList.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "6f695986b95eb79d57c454c4252a57e0bb44f3ce"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/util/DrugPriceLookup.java": {
+      "lines": 50.0,
+      "instructions": 50.0,
+      "branches": 100.0,
+      "sourceBlob": "cd209ff88cd05200ac045b856ad5f95d41036c6f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/sec/SecurityTokenManager.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "b7d7cb0ddd8c6ce5ddf38aa08b83a8cb85b8455c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/util/DateUtils.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "2b23525ae7b2831fa3d8ff95f5810ae2ddb40e0d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/MiscUtils.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "a85161c3590fc1d1b6beced5c6358df440217e31"
+    }
+  },
+  "exclusions": {}
+}

@@ -141,6 +141,26 @@ class EdtClientBuilderTransportUnitTest {
         assertThat(peer.sentEncryptedAttachment).isTrue();
         peer.assertHealthy();
         assertReplaysReleased();
+        assertThat(temporaryDirectory).as("response attachment caches are released").isEmptyDirectory();
+    }
+
+    @Test
+    void shouldReleaseResponseCaches_withMultipleEncryptedFiles() throws Exception {
+        EDTDelegate client = client(EDTDelegate.class);
+        peer.mode = EbsHttpsTestFixture.Mode.MULTIPLE_DOWNLOAD_FILES;
+        ((HTTPConduit) ClientProxy.getClient(client).getConduit()).getClient().setReceiveTimeout(10000);
+
+        var result = client.download(List.of(BigInteger.ONE, BigInteger.TWO));
+
+        assertThat(result.getData()).hasSize(2);
+        assertThat(result.getData().getFirst().getResourceID()).isEqualTo(BigInteger.ONE);
+        assertThat(result.getData().getFirst().getContent()).containsExactly(EbsHttpsTestFixture.PAYLOAD);
+        assertThat(result.getData().getLast().getResourceID()).isEqualTo(BigInteger.TWO);
+        assertThat(result.getData().getLast().getContent()).containsExactly(EbsHttpsTestFixture.SECOND_PAYLOAD);
+        assertThat(peer.sentEncryptedAttachment).isTrue();
+        peer.assertHealthy();
+        assertReplaysReleased();
+        assertThat(temporaryDirectory).isEmptyDirectory();
     }
 
     @ParameterizedTest
@@ -223,6 +243,7 @@ class EdtClientBuilderTransportUnitTest {
         peer.assertHealthy();
         assertThat(faultChains).hasValue(1);
         assertReplaysReleased();
+        assertThat(temporaryDirectory).isEmptyDirectory();
         peer.mode = EbsHttpsTestFixture.Mode.NORMAL;
         assertThat(client.download(RESOURCE_IDS).getData().getFirst().getContent())
                 .containsExactly(EbsHttpsTestFixture.PAYLOAD);
@@ -245,6 +266,7 @@ class EdtClientBuilderTransportUnitTest {
         assertThat(faultChains).hasValue(1);
         peer.assertHealthy();
         assertReplaysReleased();
+        assertThat(temporaryDirectory).isEmptyDirectory();
         cxf.getInFaultInterceptors().remove(failure);
         peer.mode = EbsHttpsTestFixture.Mode.NORMAL;
         assertThat(client.download(RESOURCE_IDS).getData().getFirst().getContent())
@@ -336,6 +358,7 @@ class EdtClientBuilderTransportUnitTest {
 
     @Test
     void shouldExchangeConcurrentDownloads_withIndependentClients() throws Exception {
+        Path unrelated = Files.writeString(temporaryDirectory.resolve("unrelated.tmp"), "synthetic unrelated file");
         List<EDTDelegate> ports = new ArrayList<>();
         for (int i = 0; i < 4; i++) ports.add(client(EDTDelegate.class));
         List<Callable<Boolean>> work = new ArrayList<>();
@@ -353,6 +376,10 @@ class EdtClientBuilderTransportUnitTest {
         assertThat(peer.requests).hasSize(8);
         peer.assertHealthy();
         assertReplaysReleased();
+        try (var files = Files.list(temporaryDirectory)) {
+            assertThat(files).as("unrelated file survives cleanup of concurrent responses").containsExactly(unrelated);
+        }
+        assertThat(Files.readString(unrelated)).isEqualTo("synthetic unrelated file");
     }
 
     private void assertReplaysReleased() {

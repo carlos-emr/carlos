@@ -555,7 +555,13 @@ class MutatorActionGetRejectionContractUnitTest {
                         "io.github.carlos_emr.carlos.documentManager.actions.SaveAnnotatedDocument2Action",
                         "_edoc",
                         "w"),
-                // --- HRM ---
+                Arguments.of("io.github.carlos_emr.carlos.documentManager.actions.RemoveUnavailableHrm2Action",
+                    "_con", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.documentManager.actions.AddEditHtml2Action",
+                    "_edoc", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.documentManager.actions.AddEditDocument2Action",
+                    "_edoc", "w"),
+            // --- HRM ---
                 // Every dispatch on this route mutates (comments, description, sign-off, patient
                 // and
                 // provider matching, category, sub-class) and none of its `method` values match
@@ -575,6 +581,13 @@ class MutatorActionGetRejectionContractUnitTest {
                         "io.github.carlos_emr.carlos.mds.pageUtil.PatientMatch2Action",
                         "_lab",
                         "w"),
+                // Clears a lab's patient routing and archives the readings it filed to the chart
+                // (#6214). Its only caller posts; the lab.ca.all.pageUtil package is not in
+                // IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly.
+                Arguments.of(
+                        "io.github.carlos_emr.carlos.lab.ca.all.pageUtil.UnlinkDemographic2Action",
+                        "_lab",
+                        "u"),
                 // Send to MRP: routes a document or lab into the patient's MRP's inbox. Every
                 // caller posts.
                 Arguments.of(
@@ -975,7 +988,11 @@ class MutatorActionGetRejectionContractUnitTest {
                     // delete deletes the
                     // message and must be a POST. Covered by
                     // MsgHandleMessages2ActionDeleteGuardUnitTest.
-                    "io.github.carlos_emr.carlos.messenger.pageUtil.MsgHandleMessages2Action");
+                    "io.github.carlos_emr.carlos.messenger.pageUtil.MsgHandleMessages2Action",
+                    // Key Manager Create Key: a GET without `name` opens the form; a request that
+                    // names a service creates a key pair and must be a POST (#6321). Covered by
+                    // KeygenCreateKeyMethodUnitTest.
+                    "io.github.carlos_emr.carlos.admin.gate.ViewKeygenCreateKey2Action");
 
     /**
      * Actions whose source contains both {@code SC_METHOD_NOT_ALLOWED} and a
@@ -1103,6 +1120,7 @@ class MutatorActionGetRejectionContractUnitTest {
                     "io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action",
                     "io.github.carlos_emr.carlos.admin.web.SaveProviderLinkingRules2Action",
                     "io.github.carlos_emr.carlos.mds.pageUtil.PatientMatch2Action",
+                    "io.github.carlos_emr.carlos.lab.ca.all.pageUtil.UnlinkDemographic2Action",
                     // BC billing administration is not in IN_SCOPE_PACKAGE_PREFIXES; the WCB
                     // correction registers explicitly.
                     "io.github.carlos_emr.carlos.billings.ca.bc.administration.TeleplanCorrectionActionWCB2Action",
@@ -1238,7 +1256,10 @@ class MutatorActionGetRejectionContractUnitTest {
                     // parameters other than `method` (#3394; conditional mutators).
                     "io.github.carlos_emr.carlos.admin.web.ProviderPrivilege2Action",
                     "io.github.carlos_emr.carlos.admin.web.ProviderRole2Action",
-                    "io.github.carlos_emr.carlos.commn.web.DxresearchReport2Action");
+                    "io.github.carlos_emr.carlos.commn.web.DxresearchReport2Action",
+                    // admin.gate is not in IN_SCOPE_PACKAGE_PREFIXES; Key Manager Create Key
+                    // registers explicitly (conditional on `name`, #6321).
+                    "io.github.carlos_emr.carlos.admin.gate.ViewKeygenCreateKey2Action");
 
     @ParameterizedTest(name = "{0} rejects GET and HEAD without side-effects")
     @MethodSource("unconditionalMutators")
@@ -1369,7 +1390,9 @@ class MutatorActionGetRejectionContractUnitTest {
                     "io.github.carlos_emr.carlos.form.pageUtil.FrmSelect2Action",
                             new String[] {"_form", "w"},
                     "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.GenerateTeleplanFile2Action",
-                            new String[] {"_billing", "w"});
+                            new String[] {"_billing", "w"},
+                    "io.github.carlos_emr.carlos.admin.gate.ViewKeygenCreateKey2Action",
+                            new String[] {"_admin", "w"});
 
     /**
      * One case per route and write parameter in {@link HttpMethodGuardFilter#MUTATION_INTENT_PARAMS_BY_ROUTE},

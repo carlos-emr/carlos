@@ -131,7 +131,7 @@ jobs:
         run: |
           docker run --rm --network=none -e CARLOS_DISPOSABLE_HOST=true \
             -v "$GITHUB_WORKSPACE:/workspace:ro" -w /workspace \
-            tomcat:11.0.27-jdk25-temurin@sha256:5f639b0943621fabc57de055c8789a2813692f3b25322379900ffac00958baea \
+            tomcat:11.0.29-jdk25-temurin@sha256:94e91501407ed6da44f0fce35e20808922fdab488d9a1643994bdcdd4335d1cc \
             bash scripts/ci/check-installed-configuration-preflight.sh
       - name: Provision migrated ON and BC references for native generator tests
         run: |

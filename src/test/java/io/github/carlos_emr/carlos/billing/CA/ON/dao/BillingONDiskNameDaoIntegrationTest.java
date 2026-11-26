@@ -21,6 +21,12 @@
  */
 package io.github.carlos_emr.carlos.billing.CA.ON.dao;
 
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnFileAccessService;
+import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import org.mockito.Mockito;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillActivityDao;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingFileWriteException;
@@ -104,15 +110,15 @@ public class BillingONDiskNameDaoIntegrationTest extends CarlosTestBase {
         try {
             // The DAO harness excludes prototype services. Keep the real
             // audit DAO and IO code, mocking unrelated claim-extraction inputs.
-            var sites = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.SiteDao.class);
-            org.mockito.Mockito.when(sites.getAllSites()).thenReturn(java.util.List.of());
+            var sites = Mockito.mock(io.github.carlos_emr.carlos.commn.dao.SiteDao.class);
+            Mockito.when(sites.getAllSites()).thenReturn(java.util.List.of());
             var writer = new OhipClaimFileService(
-                    org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.DemographicManager.class),
-                    org.mockito.Mockito.mock(BillingONCHeader1Dao.class),
-                    org.mockito.Mockito.mock(BillingONHeaderDao.class), filenameDao, sites,
-                    org.mockito.Mockito.mock(BillingONItemDao.class),
-                    org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.BillingServiceDao.class), dao,
-                    org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnLookupService.class));
+                    Mockito.mock(io.github.carlos_emr.carlos.managers.DemographicManager.class),
+                    Mockito.mock(BillingONCHeader1Dao.class),
+                    Mockito.mock(BillingONHeaderDao.class), filenameDao, sites,
+                    Mockito.mock(BillingONItemDao.class),
+                    Mockito.mock(io.github.carlos_emr.carlos.commn.dao.BillingServiceDao.class), dao,
+                    Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnLookupService.class));
             writer.setOhipFilename(allocated);
             assertThat(download(allocated).getStatus()).isEqualTo(409);
             assertThatThrownBy(writer::readInBillingNo).isInstanceOf(
@@ -148,8 +154,19 @@ public class BillingONDiskNameDaoIntegrationTest extends CarlosTestBase {
         request.addParameter("homepath", "ohipdownload");
         request.getSession().setAttribute("ohipdownload", billingDirectory.toString());
         request.getSession().setAttribute("user", "999998");
+        var login = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), login);
+        var security = Mockito.mock(SecurityInfoManager.class);
+        Mockito.when(security.hasPrivilege(login, "_billing", "r", null)).thenReturn(true);
+        var access = new BillingOnFileAccessService(security,
+                Mockito.mock(ProviderDataDao.class));
         var response = new MockHttpServletResponse();
-        new OscarDownload().service(request, response);
+        try (var spring = Mockito.mockStatic(SpringUtils.class, invocation ->
+                invocation.getMethod().getName().equals("getBean")
+                        && invocation.getArgument(0) == BillingOnFileAccessService.class
+                        ? access : invocation.callRealMethod())) {
+            new OscarDownload().service(request, response);
+        }
         return response;
     }
 

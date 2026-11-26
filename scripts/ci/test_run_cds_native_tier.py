@@ -5,7 +5,7 @@ import importlib.util
 import io
 import os
 import sys
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 import tempfile
 import subprocess
@@ -23,6 +23,18 @@ SPEC.loader.exec_module(NATIVE)
 
 
 class NativeSourceTest(unittest.TestCase):
+    def test_public_failure_omits_exception_arguments_and_evidence_paths(self):
+        with tempfile.TemporaryDirectory() as root:
+            output = Path(root) / 'private-clinic-name'
+            err = io.StringIO()
+            with patch.object(sys, 'argv', ['native', '--evidence-output', str(output),
+                                            '--container-evidence-output', '/private/database-path']), \
+                    patch.object(subprocess, 'check_output', side_effect=RuntimeError('private credential')), \
+                    redirect_stderr(err):
+                self.assertEqual(NATIVE.main(), 1)
+            self.assertEqual(err.getvalue(), 'CDS native tier failed phase=PREPARATION; '
+                                             'inspect the protected native-tier.log.\n')
+
     def test_fresh_compilation_rejects_evidence_in_host_or_container_outputs_before_writing(self):
         from compiled_classes import OUTPUTS
         with tempfile.TemporaryDirectory() as temporary:
@@ -93,6 +105,34 @@ class NativeEvidenceTest(unittest.TestCase):
     def collect(self):
         with redirect_stdout(io.StringIO()):
             return NATIVE.collect_reports(('Required',), self.source, self.output)
+
+    def test_public_maven_result_preserves_both_exit_and_required_report_checks(self):
+        valid = '<testsuite name="example.Required" tests="1" errors="0" failures="0" skipped="0">' \
+                '<testcase name="native"><system-out>private SQL</system-out></testcase></testsuite>'
+        for supplied in (False, True):
+            if supplied:
+                self.report(valid, prefix='private-clinic-name')
+            for returncode in (0, 1):
+                public = io.StringIO()
+                with self.subTest(supplied=supplied, rc=returncode), redirect_stdout(public):
+                    if supplied and returncode == 0:
+                        self.assertEqual(NATIVE.verify_native_test_results(
+                            returncode, ('Required',), self.source, self.output), 1)
+                    else:
+                        with self.assertRaisesRegex(RuntimeError, 'Required native contracts incomplete'):
+                            NATIVE.verify_native_test_results(returncode, ('Required',), self.source, self.output)
+                    self.assertIn(f'phase=REPORT_VALIDATION mavenExit={returncode} '
+                                  f'requiredSuites=1 rawXmlEntries={int(supplied)}', public.getvalue())
+                    self.assertNotIn('private', public.getvalue())
+
+    def test_public_counts_survive_rejection_of_the_first_private_report(self):
+        self.report('<testsuite name="private-clinic-name"/>', prefix='private-filename')
+        public = io.StringIO()
+        with redirect_stdout(public), self.assertRaisesRegex(RuntimeError, 'suite binding'):
+            NATIVE.verify_native_test_results(17, ('Required',), self.source, self.output)
+        self.assertEqual(public.getvalue(), 'CDS native phase=REPORT_VALIDATION mavenExit=17 '
+                                            'requiredSuites=1 rawXmlEntries=1\n')
+        self.assertEqual(list(self.output.iterdir()), [])
 
     def test_success_preserves_case_evidence_and_removes_all_captured_configuration(self):
         self.report('<testsuite name="example.Required" tests="1" errors="0" failures="0" skipped="0">'

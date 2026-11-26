@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "9b26805cb965823f61433e03e1ce2eda0540b7f3",
+  "comparisonSha256": "8f2720f062951797dd22463065b7149e97df0b3c970299d06e0ee395967dfcb3",
+  "baselineCommit": "718936fc3cc7e593858f3efaa0bcbd67e4fa4e02",
+  "baselineSourceTree": "9b26805cb965823f61433e03e1ce2eda0540b7f3",
+  "baselineReportSha256": "fbec740747bf47add3819c6394bf559f4d69264cbdd441c4e5f48aa8f32cbab8",
+  "baselineLane": "Ubuntu 26.04.1, OpenJDK 25 and JaCoCo 0.8.16. Six full JUnit and H2 suites exercised the real Ontario scoped download with a busy writer, regular-file descriptor pinning, exact OBEC issuance, province selection, a same-directory symlink, missing files, provider denial, digest reconciliation and replacement after the generation lock was released.",
+  "baselineTestCounts": {
+    "tests": 67,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONDiskNameDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnFileAccessServiceIntegrationTest",
+    "io.github.carlos_emr.carlos.report.pageUtil.Obec2ActionMethodGuardUnitTest",
+    "io.github.carlos_emr.carlos.util.DownloadMissingFileUnitTest",
+    "io.github.carlos_emr.carlos.util.OscarDownloadUnitTest",
+    "io.github.carlos_emr.carlos.utility.BoundedSessionAttributesUnitTest"
+  ],
+  "baselineTestReportsSha256": "baa011b442270a62c8b3835e667475575cd3f58c431e7bb4777b90fb00d1f0b7",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/util/OscarDownload.java": {
+      "lines": 96.42857142857143,
+      "instructions": 96.41943734015345,
+      "branches": 88.0,
+      "sourceBlob": "c65db2c6aa5cb9bcbd501b93d3026ddd0fe87c11"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnFileAccessService.java": {
+      "lines": 100.0,
+      "instructions": 99.76525821596245,
+      "branches": 90.3225806451613,
+      "sourceBlob": "79b96d7f2bf545db5a4d54dfd45bc03728e8d9e9"
+    }
+  },
+  "exclusions": {}
+}

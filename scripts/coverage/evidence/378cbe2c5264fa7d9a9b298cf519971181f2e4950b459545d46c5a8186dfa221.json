@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "4b3a82190748976ceedef8c65b800047c49c68ed",
+  "comparisonSha256": "feaf2cdfacea1a3b4bbc1266e31a8418fdbfc02328e61a15b242f369bc6a8dc0",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/decisionSupport/model/DSDemographicAccess.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "c3ec056d68a0d9297034cfd08b85c2e27a2dbb7f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/decisionSupport/web/DSGuideline2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "59bd6ba30199457ac28aa45f32796f29373c50cb"
+    }
+  },
+  "exclusions": {},
+  "zeroCoverageWaivers": {},
+  "baselineCommit": "cc93fc27586f399661c574e76336c3b169179048",
+  "baselineSourceTree": "4b3a82190748976ceedef8c65b800047c49c68ed",
+  "baselineReportSha256": "028a7bc5012b5b6cc2539af21742c02f39f565799bb42a28f98a5e6382d97b11",
+  "baselineLane": "PR #6359 (issue #6328): FOCUSED local run, not a complete release lane. JDK 25, `mvn test jacoco:report -Dtest=io.github.carlos_emr.carlos.decisionSupport.**.*Test` (JaCoCo 0.8.16 from pom.xml) on this PR commit cc93fc2758 with a clean src/main/java. Only the 2 Java files this PR changes are recorded: DSDemographicAccess (27 changed executable lines vs the reviewed base) and DSGuideline2Action (2), both 100/100/100. The release ratchet still requires its complete same-class Java-lane union.",
+  "baselineTestCounts": {
+    "tests": 125,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "212078222ccfb017f152dcd8be1ed2479385853ed5bc9b69bac71664842fabe3",
+  "baselineTestReportsHashFormat": "SHA-256 of a sha256sum-style manifest of the run's Surefire report files: one '<sha256>  <relative path>' line each, sorted by path",
+  "exclusionSourceBlobs": {},
+  "baselineTestRunCommit": "cc93fc27",
+  "baselineAdditionalTestRuns": []
+}

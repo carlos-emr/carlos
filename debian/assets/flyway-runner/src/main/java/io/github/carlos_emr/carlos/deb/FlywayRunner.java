@@ -13,21 +13,31 @@
 package io.github.carlos_emr.carlos.deb;
 
 import java.io.PrintStream;
+import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
-import io.github.carlos_emr.carlos.utility.MariaDbJdbcCompatibility;
 import io.github.carlos_emr.carlos.utility.MariaDbCompatibilityDriver;
+import io.github.carlos_emr.carlos.utility.MariaDbJdbcCompatibility;
 import org.flywaydb.core.Flyway;
+import org.flywaydb.core.api.CoreErrorCode;
+import org.flywaydb.core.api.ErrorDetails;
+import org.flywaydb.core.api.FlywayException;
 import org.flywaydb.core.api.MigrationInfo;
+import org.flywaydb.core.api.callback.Callback;
+import org.flywaydb.core.api.callback.Context;
+import org.flywaydb.core.api.callback.Event;
+import org.flywaydb.core.api.exception.FlywayBlockStatementExecutionException;
 import org.flywaydb.core.api.logging.Log;
 import org.flywaydb.core.api.logging.LogCreator;
 import org.flywaydb.core.api.logging.LogFactory;
 import org.flywaydb.core.api.output.MigrateResult;
 import org.flywaydb.core.internal.logging.slf4j.Slf4jLogCreator;
+import org.flywaydb.core.internal.proprietaryStubs.ErrorOverridesSupportStub;
 
 /**
  * Minimal Flyway front end for the Debian package's {@code carlos-ctl db-*} verbs.
@@ -154,7 +164,7 @@ public final class FlywayRunner {
         if ("migrate".equals(command)) {
             LogFactory.setFallbackLogCreator(notes);
         }
-        final Flyway flyway = Flyway.configure(FlywayRunner.class.getClassLoader())
+        final var configuration = Flyway.configure(FlywayRunner.class.getClassLoader())
                 .loggers("migrate".equals(command) ? "console" : "auto")
                 .driver(MariaDbCompatibilityDriver.class.getName())
                 .dataSource(url, user, password == null ? "" : password)
@@ -177,8 +187,12 @@ public final class FlywayRunner {
                 // migrations.
                 .ignoreMigrationPatterns(new String[0])
                 .failOnMissingLocations(true)
-                .cleanDisabled(true)
-                .load();
+                .cleanDisabled(true);
+        if ("migrate".equals(command)) {
+            // The replacement runs on Flyway's migration connection, one statement at a time.
+            configuration.batch(false).callbacks(new GenesisNotesCompatibility());
+        }
+        final Flyway flyway = configuration.load();
 
         int exitCode = 0;
         try {
@@ -247,21 +261,68 @@ public final class FlywayRunner {
     }
 
     /**
-     * MariaDB returns 1060/1061 as JDBC warnings for successful IF NOT EXISTS
-     * statements. Flyway prints those Notes as WARN because their SQL state is
-     * not 00000. Summarize just those two expected no-ops; do not change SQL,
-     * published migration checksums, server note settings or exception handling.
-     * In particular, an unguarded duplicate index/column still fails migration,
-     * and duplicate DATA (1062), truncation and other warnings pass through.
+     * The published genesis scripts contain mysqldump's SQL_NOTES save and restore.
+     * Use MariaDB's note_verbosity for those two statements on the migration
+     * connection, leaving the original resources available for Flyway's checksums.
+     */
+    private static final class GenesisNotesCompatibility implements Callback {
+        private static final Set<String> GENESIS_SCRIPTS = Set.of(
+                "V1__baseline_schema.sql", "V1.0.1__on_schema.sql", "V1.0.2__on_data.sql",
+                "V1.0.1__bc_schema.sql", "V1.0.2__bc_data.sql");
+
+        @Override public boolean supports(Event event, Context context) {
+            return event == Event.BEFORE_EACH_MIGRATE_STATEMENT && context.getMigrationInfo() != null
+                    && GENESIS_SCRIPTS.contains(context.getMigrationInfo().getScript())
+                    && replacementFor(context.getStatement().getSql()) != null;
+        }
+
+        @Override public boolean canHandleInTransaction(Event event, Context context) { return true; }
+
+        @Override public String getCallbackName() { return "CARLOS genesis note settings"; }
+
+        private static String replacementFor(String sql) {
+            return switch (sql.strip()) {
+                case "/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;" ->
+                    "SET @CARLOS_SAVED_NOTE_VERBOSITY = @@SESSION.note_verbosity, SESSION note_verbosity = ''";
+                case "/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;" ->
+                    "SET SESSION note_verbosity = @CARLOS_SAVED_NOTE_VERBOSITY, @CARLOS_SAVED_NOTE_VERBOSITY = NULL";
+                default -> null;
+            };
+        }
+
+        @Override public void handle(Event event, Context context) {
+            final String replacement = replacementFor(context.getStatement().getSql());
+            try (var statement = context.getConnection().createStatement()) {
+                statement.execute(replacement);
+            } catch (SQLException failure) {
+                throw new FlywayException("Could not set MariaDB note verbosity during genesis", failure);
+            }
+            throw new FlywayBlockStatementExecutionException(
+                    new ErrorDetails(CoreErrorCode.FAULT, "Replaced legacy SQL_NOTES statement"),
+                    "Applied the equivalent session note_verbosity setting");
+        }
+    }
+
+    /**
+     * Summarize the SQL warnings for idempotent DDL. MariaDB Connector/J omits
+     * SQL states from warnings. Errors and all other warnings retain their levels.
      */
     static final class ExistingObjectNotes implements LogCreator {
         private static final Pattern INDEX = Pattern.compile(
-                "DB: Duplicate key name '[^\\r\\n]+' \\(SQL State: 42000 - Error Code: 1061\\)");
+                "DB: Duplicate key name '[^\\r\\n]+' \\(SQL State: (?:42000)? - Error Code: 1061\\)");
         private static final Pattern COLUMN = Pattern.compile(
-                "DB: Duplicate column name '[^\\r\\n]+' \\(SQL State: 42S21 - Error Code: 1060\\)");
+                "DB: Duplicate column name '[^\\r\\n]+' \\(SQL State: (?:42S21)? - Error Code: 1060\\)");
+        // Only the temporary routines explicitly dropped with IF EXISTS in the shipped scripts.
+        private static final Pattern PROCEDURE = Pattern.compile(
+                "DB: PROCEDURE [^\\r\\n]+\\.(?:carlos_index_contract_1_0_59_6|carlos_cds_provider_index68"
+                + "|carlos_measurements_deleted_index_1_0_59_46|carlos_cds_laboratory_result_index_1_0_59_47"
+                + "|carlos_cds_import_unit_index_1_0_59_48|carlos_cds_export_attempt_checkpoint_1_0_59_49"
+                + "|carlos_cds_preparation_capacity_1_0_59_50|carlos_ensure_historical_roster_lookup) does not exist "
+                + "\\(SQL State: (?:42000)? - Error Code: 1305\\)");
         private final LogCreator delegate;
         private int indexes;
         private int columns;
+        private int procedures;
 
         ExistingObjectNotes(LogCreator delegate) {
             this.delegate = delegate;
@@ -272,7 +333,7 @@ public final class FlywayRunner {
             final Log original = delegate.createLogger(type);
             // Match the SQL-warning emitter, not arbitrary application messages.
             // An upstream logger/format change leaves warnings visible by default.
-            if (!"org.flywaydb.core.internal.sqlscript.DefaultSqlScriptExecutor".equals(type.getName())) {
+            if (type != ErrorOverridesSupportStub.class) {
                 return original;
             }
             return new Log() {
@@ -289,6 +350,8 @@ public final class FlywayRunner {
                         indexes++;
                     } else if (message != null && COLUMN.matcher(message).matches()) {
                         columns++;
+                    } else if (message != null && PROCEDURE.matcher(message).matches()) {
+                        procedures++;
                     } else {
                         original.warn(message);
                     }
@@ -300,6 +363,10 @@ public final class FlywayRunner {
             if (indexes + columns > 0) {
                 output.printf("schema setup: %d index(es) and %d column(s) were already present; "
                         + "kept their existing definitions.%n", indexes, columns);
+            }
+            if (procedures > 0) {
+                output.printf("schema setup: %d temporary procedure(s) were already absent before creation.%n",
+                        procedures);
             }
         }
     }

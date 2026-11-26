@@ -47,7 +47,7 @@
     - delete       (String, optional) — "1" to delete the current schedule
     - deldate      (String, optional) — "b" or "all" to also delete schedule dates
 
-    Session bean: scheduleRscheduleBean (io.github.carlos_emr.RscheduleBean)
+    The completed provider selection is published for the subsequent Apply request.
 
     @since 2001-02-01
 --%>
@@ -73,7 +73,8 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
-<jsp:useBean id="scheduleRscheduleBean" class="io.github.carlos_emr.RscheduleBean" scope="session"/>
+<%@ page import="io.github.carlos_emr.carlos.schedule.web.ScheduleCalendarCache" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.RefusalNotice" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -94,18 +95,18 @@
         if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
         String CurRoleName = session.getAttribute("userrole") + "," + session.getAttribute("user");
 
+        boolean bMultisites = IsPropertiesOn.isMultisitesEnable();
         boolean isSiteAccessPrivacy = false;
     %>
 
 
     <security:oscarSec objectName="_site_access_privacy" roleName="<%=CurRoleName%>" rights="r" reverse="false">
-        <%isSiteAccessPrivacy = true; %>
+        <%isSiteAccessPrivacy = bMultisites; %>
     </security:oscarSec>
 
 
     <%
         // All variables are request-local (NOT instance variables — avoids thread-safety issues)
-        boolean bMultisites = IsPropertiesOn.isMultisitesEnable();
         String[] bgColors = null;
         List<String> excludedSites = new ArrayList<>();
 
@@ -120,14 +121,13 @@
                 : (props.getProperty("scheduleSiteID", "").equals("") ? false : true);
         String[] addr;
 
-        if (bMultisites) {
-            // Reject requests with a missing or blank provider_no before any DAO calls.
-            String reqProviderNo = request.getParameter("provider_no");
-            if (reqProviderNo == null || reqProviderNo.isBlank()) {
-                response.sendError(HttpServletResponse.SC_FORBIDDEN);
-                return;
-            }
+        String reqProviderNo = request.getParameter("provider_no");
+        if (reqProviderNo == null || reqProviderNo.isBlank()) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
 
+        if (bMultisites) {
             // Upfront authorization: when site-access privacy is enabled, verify the current user
             // shares at least one site with the requested provider before loading any provider-scoped data.
             if (isSiteAccessPrivacy) {
@@ -259,9 +259,27 @@
             response.sendRedirect(request.getContextPath() + "/schedule/TemplateApplying?provider_no=" + providerNoParam + "&provider_name=" + providerNameParam);
             return;
         } else {
+            RscheduleBean scheduleRscheduleBean = new RscheduleBean();
+            java.util.Date selectedDate = ConversionUtils.fromDateString(request.getParameter("sdate") != null ? request.getParameter("sdate") : today);
+            RSchedule selectedRule = rScheduleDao.search_rschedule_current1(reqProviderNo, selectedDate);
+            if (selectedRule == null) {
+                selectedRule = rScheduleDao.search_rschedule_current2(reqProviderNo, selectedDate);
+            }
+            if (selectedRule == null) {
+                scheduleRscheduleBean.provider_no = reqProviderNo;
+            } else {
+                scheduleRscheduleBean.setRscheduleBean(selectedRule.getProviderNo(), ConversionUtils.toDateString(selectedRule.getsDate()),
+                        ConversionUtils.toDateString(selectedRule.geteDate()), selectedRule.getAvailable(), selectedRule.getDayOfWeek(),
+                        selectedRule.getAvailHourB(), selectedRule.getAvailHour(), selectedRule.getCreator());
+                bOrigAlt = "A".equals(selectedRule.getAvailable()) && request.getParameter("bFirstDisp") == null;
+            }
+            String templateSelection = ScheduleCalendarCache.selectTemplate(session, reqProviderNo, scheduleRscheduleBean);
+            if (templateSelection == null) {
+                RefusalNotice.send(request, response, HttpServletResponse.SC_CONFLICT,
+                        "error.refusal.scheduleCalendarChanged", "The calendar open in this session is for another provider.");
+                return;
+            }
     %>
-
-    <% scheduleRscheduleBean.clear(); %>
 
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
@@ -568,29 +586,6 @@
 
         </script>
     </head>
-    <%
-        int rowsAffected = 0;
-        String[] param1 = new String[2];
-        param1[0] = request.getParameter("provider_no");
-        //param1[1]="1";
-        param1[1] = request.getParameter("sdate") != null ? request.getParameter("sdate") : today;
-
-        RSchedule rs1 = rScheduleDao.search_rschedule_current1(request.getParameter("provider_no"), ConversionUtils.fromDateString(request.getParameter("sdate") != null ? request.getParameter("sdate") : today));
-
-        if (rs1 != null) {
-            scheduleRscheduleBean.setRscheduleBean(rs1.getProviderNo(), ConversionUtils.toDateString(rs1.getsDate()), ConversionUtils.toDateString(rs1.geteDate()), rs1.getAvailable(), rs1.getDayOfWeek(), rs1.getAvailHourB(), rs1.getAvailHour(), rs1.getCreator());
-            if (rs1.getAvailable().equals("A") && request.getParameter("bFirstDisp") == null) bOrigAlt = true;
-            //break;
-        } else {
-            rs1 = rScheduleDao.search_rschedule_current2(request.getParameter("provider_no"), ConversionUtils.fromDateString(request.getParameter("sdate") != null ? request.getParameter("sdate") : today));
-
-            if (rs1 != null) {
-                scheduleRscheduleBean.setRscheduleBean(rs1.getProviderNo(), ConversionUtils.toDateString(rs1.getsDate()), ConversionUtils.toDateString(rs1.geteDate()), rs1.getAvailable(), rs1.getDayOfWeek(), rs1.getAvailHourB(), rs1.getAvailHour(), rs1.getCreator());
-                if (rs1.getAvailable().equals("A") && request.getParameter("bFirstDisp") == null) bOrigAlt = true;
-                //break;
-            }
-        }
-    %>
     <body>
     <div class="container-fluid py-3">
     <form method="post" name="schedule" action="${pageContext.request.contextPath}/schedule/CreateDate"
@@ -626,7 +621,7 @@
                                     param4[i][j] = "";
                                 }
                             }
-                            if (scheduleRscheduleBean.provider_no != "") {
+                            if (selectedRule != null) {
                                 syear = "" + MyDateFormat.getYearFromStandardDate(scheduleRscheduleBean.sdate);
                                 smonth = "" + MyDateFormat.getMonthFromStandardDate(scheduleRscheduleBean.sdate);
                                 sday = "" + MyDateFormat.getDayFromStandardDate(scheduleRscheduleBean.sdate);
@@ -1087,6 +1082,7 @@
                             <tr>
                                 <td colspan="2">
                                     <div class="text-end">
+                                        <input type="hidden" name="templateSelection" value="<carlos:encode value='<%= templateSelection %>' context="htmlAttribute"/>">
                                         <input type="hidden" name="provider_no" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("provider_no")) %>' context="htmlAttribute"/>">
                                         <input type="hidden" name="available" value="<%=bAlternate||bOrigAlt?"A":"1"%>">
                                         <input type="submit" class="btn btn-primary" value="<carlos:encode value='<%= (String)pageContext.getAttribute("btnNext") %>' context="htmlAttribute"/>">

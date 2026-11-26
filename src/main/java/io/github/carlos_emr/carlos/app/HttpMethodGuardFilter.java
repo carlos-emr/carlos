@@ -185,7 +185,10 @@ public class HttpMethodGuardFilter implements Filter {
             "/form/select", Set.of("forward"),
             // Generate Teleplan File: providers (the Create Report form's physician) writes an MSP batch; the menu
             // item and the year archive links open the page without it (#4439 D3).
-            "/billing/CA/BC/GenerateTeleplanFile", Set.of("providers")
+            "/billing/CA/BC/GenerateTeleplanFile", Set.of("providers"),
+            // Key Manager Create Key: createKey.jsp creates a key pair for any request that names a
+            // service; the Create New Key button opens the form without it (#6321).
+            "/admin/ViewKeygenCreateKey", Set.of("name")
     );
 
     /** {@link #MUTATION_INTENT_PARAMS_BY_ROUTE} with every path and name lowercased, for lookup. */

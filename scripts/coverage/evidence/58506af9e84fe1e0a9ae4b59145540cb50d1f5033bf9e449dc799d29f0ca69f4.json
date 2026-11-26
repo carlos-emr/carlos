@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "f58e3b9511b736a029acbc450737b769c6f0f950",
+  "comparisonSha256": "ccbc2c60db89aed8afaebe239038b9063adf82d6ec8bb332653a449c65993d8e",
+  "baselineCommit": "f4383c5a95e6098398740a54e32003ca667905e7",
+  "baselineSourceTree": "f58e3b9511b736a029acbc450737b769c6f0f950",
+  "baselineReportSha256": "02d1b2784320763b6828af08e973c738cd8f0b94a5f4d0dc5117fc9d01db9db9",
+  "baselineLane": "Focused waiting-list and demographic transaction, endpoint, and DAO tests",
+  "baselineTestCounts": {
+    "tests": 257,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "46991f396a57814744f134b8196714482f56cf303822a936c162fef885b4009b",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/WaitingListDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "3a5cff73939b5cb09f68455ba2c52d36bb071085"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/WaitingListDaoImpl.java": {
+      "lines": 75.0,
+      "instructions": 76.19047619047619,
+      "branches": 100.0,
+      "sourceBlob": "03c0e5627e7760bd8f4e3ccd57dfba20ef6faafc"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/Demographic.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "e4a286d9ee3cdc06faed02228f695fcae885514e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/waitinglist/util/WLWaitingListUtil.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "8e402532df20ce7a8b7bd361042006c80c2481ec"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/DemographicService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "f6efb4d9ecd53617415178f1252a78d0a2dfcd9a"
+    }
+  },
+  "exclusions": {}
+}

@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "07f8dee4b16631bb29a4ef768bb4faa044bc1518",
+  "comparisonSha256": "9e0b9d3ca5677e9d17c51048cace4a3840b715c4b8a76f95802da84ccd2e2f93",
+  "baselineCommit": "f12ed0bc91b0f7f369bb246c128daa4a645b8752",
+  "baselineSourceTree": "07f8dee4b16631bb29a4ef768bb4faa044bc1518",
+  "baselineReportSha256": "076e258938bdba6eeed9a5e30bcfb3e44c172cc00a97398c31ca8f24b199ef56",
+  "baselineLane": "Ubuntu 26.04 and Java 25 focused schedule template, calendar, provider, DAO and transaction integration tests",
+  "baselineTestCounts": {
+    "tests": 137,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.RscheduleBeanUnitTest",
+    "io.github.carlos_emr.carlos.commn.dao.RScheduleDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.ScheduleDateDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.schedule.ScheduleDateSaveJspRegressionTest",
+    "io.github.carlos_emr.carlos.schedule.ScheduleTemplateApplyingJspRegressionTest",
+    "io.github.carlos_emr.carlos.schedule.service.ScheduleDateOverrideServiceIntegrationTest",
+    "io.github.carlos_emr.carlos.schedule.web.Schedule2ActionsTest",
+    "io.github.carlos_emr.carlos.schedule.web.ScheduleCalendarCacheUnitTest"
+  ],
+  "baselineTestReportsSha256": "532cfb84a149b66dc4cab2e4d977866ab5d4821af3579717f0362029f6d3d70a",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/RScheduleDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "0ba73c2ed362e3d29e08d6b8f5d11353b62c0f44"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/schedule/service/ScheduleDateOverrideService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "54378680308d34a76ba9e1e246f960d0a93ade4d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/schedule/service/ScheduleTemplateService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "15c8457b8a92373684bf2414d0996bf75af133a8"
+    }
+  },
+  "exclusions": {}
+}

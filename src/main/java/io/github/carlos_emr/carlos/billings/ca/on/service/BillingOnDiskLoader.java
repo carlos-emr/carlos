@@ -59,11 +59,14 @@ public class BillingOnDiskLoader {
     private final BillingONHeaderDao headerDao;
     private final BillingONDiskNameDao diskNameDao;
     private final BillingONFilenameDao filenameDao;
+    private final BillingOnOutputFilenames outputFilenames;
 
-    public BillingOnDiskLoader(BillingONHeaderDao headerDao, BillingONDiskNameDao diskNameDao, BillingONFilenameDao filenameDao) {
+    public BillingOnDiskLoader(BillingONHeaderDao headerDao, BillingONDiskNameDao diskNameDao, BillingONFilenameDao filenameDao,
+                               BillingOnOutputFilenames outputFilenames) {
         this.headerDao = headerDao;
         this.diskNameDao = diskNameDao;
         this.filenameDao = filenameDao;
+        this.outputFilenames = outputFilenames;
     }
 
     private final SimpleDateFormat dateformatter = new SimpleDateFormat("yyyy-MM-dd");
@@ -113,15 +116,14 @@ public class BillingOnDiskLoader {
      * @return {@code true} when the name is taken
      */
     public boolean isOhipFilenameInUse(String ohipFilename) {
-        return diskNameDao.existsByOhipFilename(ohipFilename);
+        return outputFilenames.isInUse(ohipFilename);
     }
 
     /**
-     * Whether a filename row already holds this HTML companion name; see
-     * {@link BillingONFilenameDao#existsByHtmlFilename(String)}.
+     * Whether any Ontario output, import record or existing file holds this HTML companion name.
      */
     public boolean isHtmlFilenameInUse(String htmlFilename) {
-        return filenameDao.existsByHtmlFilename(htmlFilename);
+        return outputFilenames.isInUse(htmlFilename);
     }
 
     /**

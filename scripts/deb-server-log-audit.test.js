@@ -100,6 +100,21 @@ test('should report a recurring missing-patient prevention error as unexplained'
   assert.match(r.out, /^UNKNOWN +1 +ERROR prevention\.PreventionDisplayConfig .*@PreventionDisplayConfig\.display :: java\.lang\.NullPointerException$/m);
 });
 
+test('the demographics route and persist frame do not explain a storage failure', (t) => {
+  const lines = [
+    '2026-11-19 01:01:00,000 ERROR exceptionMapping.RestErrorDiagnostics (RestErrorDiagnostics.java:54) - REST request failed (diagnostic payloads redacted)',
+    'java.lang.Exception: REST failure type: org.hibernate.exception.JDBCConnectionException',
+    '\tat io.github.carlos_emr.carlos.commn.dao.AbstractDaoImpl.persist(Unknown Source)',
+    'Caused by: java.lang.Exception: REST failure type: java.sql.SQLTransientConnectionException',
+    '2026-11-19 01:01:00,001 ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:460) - Replaced unsafe server error response (method=PUT, uri=/carlos/ws/rs/demographics, status=500)',
+  ];
+  const result = audit(t, lines, { baseline: fs.readFileSync(BASELINE, 'utf8') });
+  assert.equal(result.status, 1, result.out + result.err);
+  assert.match(result.out, /^UNKNOWN .*RestErrorDiagnostics .*@AbstractDaoImpl\.persist/m);
+  assert.match(result.out, /^UNKNOWN .*ResponseSanitizationFilter .*uri=\/carlos\/ws\/rs\/demographics/m);
+  assert.doesNotMatch(result.out, /^KNOWN /m);
+});
+
 test('should name the request path and status without the query string', (t) => {
   const r = audit(t, [
     '2026-10-08 04:43:27,461 ERROR utility.ErrorPageLogger (ErrorPageLogger.java:135) - errorpage.jsp captured exception (method=GET, uri=/carlos/demographic/DemographicEdit?demographic_no=4242, status=500)',

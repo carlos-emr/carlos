@@ -133,6 +133,8 @@ jobs:
           retention-days: 14
       - name: Check migrated table interactions in Chromium
         run: node scripts/dependency-tables-playwright-checks.js
+      - name: Check server-paged table navigation and retry in Chromium
+        run: node scripts/server-table-page-playwright-checks.js
       - name: Check CARLOS navigation cancellation diagnostics in Chromium
         run: node --test scripts/navigation-cancellation-browser-checks.js
       - name: Check measurement calculation DOM events in Chromium
