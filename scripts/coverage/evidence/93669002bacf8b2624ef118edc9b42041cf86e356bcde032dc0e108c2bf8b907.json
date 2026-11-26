@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "737308e32fde8d3394de89e433f5909b0ebe1c35",
+  "comparisonSha256": "d4224a8ea7fa3efdb5a117c3c87c228cc87e1ad8e31b831f4a7f326cc838fa59",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/prescript/pageUtil/RxWriteScript2Action.java": {
+      "lines": 56.640625,
+      "instructions": 60.04288777698356,
+      "branches": 52.450980392156865,
+      "sourceBlob": "14cbff5a140ecc6fe58c687339843a5371eead08"
+    }
+  },
+  "baselineCommit": "f4512b1ee22580ac400d9a4d068d640bd3a67c9d",
+  "baselineSourceTree": "737308e32fde8d3394de89e433f5909b0ebe1c35",
+  "baselineReportSha256": "5b9ccb10f21b624c562dc9aa3d84dde3b04223a7e3c28ff1256c70003b02dfc8",
+  "baselineLane": "PR #6367 focused Rx, pricing, REST and CDS regression tests on Ubuntu 26.04, OpenJDK 25, Maven 3.9.12 and JaCoCo 0.8.16. The selection covers decimal price estimates and Qty/Mitte updates without a complete dose or frequency.",
+  "baselineTestCounts": {
+    "tests": 1521,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "2e995fa2aeb517afbc32bdbf1b8614b3ac2083c5c5e0672c47a289ba05325834",
+  "baselineTestReportsHashFormat": "SHA-256 of a sha256sum-style manifest of Surefire TEST-*.xml reports, one '<sha256>  <file name>' line each, sorted by name.",
+  "baselineTestRunCommit": "f4512b1ee22580ac400d9a4d068d640bd3a67c9d",
+  "baselineAdditionalTestRuns": []
+}
