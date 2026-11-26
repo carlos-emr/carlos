@@ -11,6 +11,7 @@ import sys
 import tempfile
 import textwrap
 import unittest
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
 REPO = "test/release"
@@ -83,6 +84,42 @@ class ReleaseWorkflowTest(unittest.TestCase):
         env = {**os.environ, "PATH": str(self.folder) + os.pathsep + os.environ["PATH"],
                "RELEASE_TAG": tag, "REPO": REPO, "GITHUB_ENV": str(self.envfile), "TEST_RELEASE_STATE": str(self.state)}
         return subprocess.run(["bash", "-c", command], cwd=ROOT, env=env, capture_output=True, text=True, timeout=30)
+
+    def test_war_is_stamped_and_hashed_in_writable_release_staging(self):
+        tag = "2030.08.0-beta1"
+        commit = "a" * 40
+        target = self.folder / "target"
+        target.mkdir()
+        war_name = f"carlos-{tag}.war"
+        source = target / war_name
+        properties = "WEB-INF/classes/carlos-build.properties"
+        with zipfile.ZipFile(source, "w") as archive:
+            archive.writestr(properties, "build.job=standalone\nbuild.number=1\n")
+            archive.writestr("WEB-INF/classes/buildNumber.properties", f"git-sha-1={commit}\n")
+        original = source.read_bytes()
+        sbom_name = f"carlos-{tag}-cyclonedx.json"
+        (target / sbom_name).write_text('{"bomFormat":"CycloneDX"}\n')
+        target.chmod(0o555)
+        self.addCleanup(target.chmod, 0o755)
+        (self.folder / "debian").symlink_to(ROOT / "debian", target_is_directory=True)
+        (self.folder / "pom.xml").write_text(
+            f'<project xmlns="http://maven.apache.org/POM/4.0.0"><version>{tag}</version></project>')
+
+        block = steps("publish-release.yml")["Build the WAR and CycloneDX SBOM from a clean checkout"]
+        shell = textwrap.dedent(block.split("        run: |\n", 1)[1])
+        # The read-only target above stands in for the completed container build.
+        result = subprocess.run(["bash", "-c", "docker() { return 0; }\n" + shell], cwd=self.folder,
+                                env={**os.environ, "RELEASE_TAG": tag, "TAG_COMMIT": commit,
+                                     "GITHUB_WORKSPACE": str(self.folder)}, capture_output=True, text=True, timeout=30)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(source.read_bytes(), original)
+        staged = self.folder / "release-assets"
+        with zipfile.ZipFile(staged / war_name) as archive:
+            self.assertEqual(archive.read(properties).decode().splitlines(),
+                             ["build.job=carlos-emr-deb", "build.number=2030.08.0~beta1"])
+        for name in (war_name, sbom_name):
+            checksum = hashlib.sha256((staged / name).read_bytes()).hexdigest()
+            self.assertEqual((staged / (name + ".sha256")).read_text(), f"{checksum}  {name}\n")
 
     def test_normal_dispatch_builds_and_checks_every_asset_before_shared_publication(self):
         upstream = steps("publish-release.yml")

@@ -658,7 +658,7 @@ promotion_ref=${PROMOTION_REF:?Set PROMOTION_REF to the reviewed promotion ref o
 git worktree add --detach ../carlos-package-validation "$promotion_ref"
 cd ../carlos-package-validation
 release_tag=2026.08.0-alpha12
-deb_version="${release_tag//-/~}"
+deb_version="$(printf '%s' "$release_tag" | sed 's/-/~/g')"
 printf 'carlos-emr (%s) resolute; urgency=medium\n\n  * Validation package of release %s.\n\n -- CARLOS Release CI <releases@carlos-emr.invalid>  %s\n' \
   "$deb_version" "$release_tag" "$(date -R)" > debian/changelog
 test "$(dpkg-parsechangelog -SVersion)" = "$deb_version"
