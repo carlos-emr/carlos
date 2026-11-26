@@ -130,8 +130,10 @@ class AbstractModelProxyIntegrationTest {
     void shouldNotLoadAttachedProxy_whenUsedAsArgument() {
         Integer id = persist(newDepartment());
         Integer otherId = persist(newDepartment());
+        // Loaded in its own session: a session that already holds the entity hands it back
+        // from getReference instead of creating a proxy.
+        Department entity = load(id);
         try (var session = factory.openSession()) {
-            Department entity = session.find(Department.class, id);
             Department proxy = session.getReference(Department.class, id);
             Department differentProxy = session.getReference(Department.class, otherId);
             assertThat(Hibernate.isInitialized(proxy)).isFalse();
