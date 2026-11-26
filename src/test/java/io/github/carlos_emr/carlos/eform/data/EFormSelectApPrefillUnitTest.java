@@ -758,6 +758,67 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    /** A form of {@code count} database-tagged inputs and selects, with text between them that moves every offset. */
+    private static String manyTaggedSelects(int count) {
+        StringBuilder body = new StringBuilder("<form>");
+        for (int i = 0; i < count; i++) {
+            body.append("<p>Café 😀 question ").append(i).append(" &amp; more text</p>\r\n");
+            body.append("<input type=\"text\" name=\"t").append(i).append("\" oscarDB=choice>");
+            body.append("<select name=\"s").append(i).append("\" oscarDB=choice><option value=\"\">--</option>")
+                    .append("<option value=\"No\" selected>No</option><option value=\"Yes\">Yes</option>")
+                    .append("<option value=\"Maybe\">Maybe</option></select>\r\n");
+        }
+        return body.append("</form>").toString();
+    }
+
+    @ParameterizedTest(name = "{0} database-tagged selects")
+    @org.junit.jupiter.params.provider.ValueSource(ints = {1, 5, 150, 400})
+    void shouldParseTheFormOnce_howeverManyDatabaseTaggedSelectsItHas(int count) throws Exception {
+        // The work is counted, not timed: one parse for the whole pass, never one for each select (a 400-select
+        // form took four seconds when every select parsed the whole form).
+        DatabaseAP ap = new DatabaseAP("choice", "", "Yes");
+        try (var loader = mockStatic(EFormLoader.class)) {
+            loader.when(EFormLoader::getMarker).thenReturn("oscarDB");
+            loader.when(() -> EFormLoader.getAP("choice")).thenReturn(ap);
+            EForm form = new EForm();
+            form.setDemographicNo("7");
+            form.setFormHtml(manyTaggedSelects(count));
+            int before = EFormSelectMarkup.parseCount();
+
+            form.setDatabaseAPs();
+
+            assertThat(EFormSelectMarkup.parseCount() - before).isLessThanOrEqualTo(1);
+            Document page = Jsoup.parse(form.getFormHtml());
+            // Every select shows Yes and only Yes (its template default came out), and every input got its value:
+            // the edits landed in the right place although each one moved the text after it.
+            assertThat(page.select("select").size()).isEqualTo(count);
+            assertThat(page.select("select option[selected]").size()).isEqualTo(count);
+            assertThat(page.select("select option[selected][value=Yes]").size()).isEqualTo(count);
+            assertThat(page.select("input[name^=t][value=Yes]").size()).isEqualTo(count);
+            assertThat(page.select("option[value=No][selected]")).isEmpty();
+        }
+    }
+
+    @Test
+    void shouldParseTheFormTwiceAtMost_whenADatabaseTagNamesAFieldAndManySelectsAreTagged() throws Exception {
+        // One parse to fill the selects, one to read what they submit for the dependent tag: not one per select.
+        DatabaseAP ap = new DatabaseAP("choice", "", "Yes");
+        try (var loader = mockStatic(EFormLoader.class)) {
+            loader.when(EFormLoader::getMarker).thenReturn("oscarDB");
+            loader.when(() -> EFormLoader.getAP("choice")).thenReturn(ap);
+            EForm form = new EForm();
+            form.setDemographicNo("7");
+            form.setFormHtml(manyTaggedSelects(400) + dependentTag("s399"));
+            int before = EFormSelectMarkup.parseCount();
+
+            form.setDatabaseAPs();
+
+            assertThat(EFormSelectMarkup.parseCount() - before).isLessThanOrEqualTo(2);
+            assertThat(fieldValue(form, "s399")).isEqualTo("Yes");
+            assertThat(fieldValue(form, "s0")).isEqualTo("Yes");
+        }
+    }
+
     @Test
     void shouldSelectTheRightOption_whenTextBeforeAndBetweenTheSelectsShiftsOffsets() throws Exception {
         // Positions are read from the parser and used on the template's own text: non-ASCII letters, an emoji
@@ -868,7 +929,7 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
                 var markup = mockStatic(EFormSelectMarkup.class, CALLS_REAL_METHODS)) {
             loader.when(EFormLoader::getMarker).thenReturn("oscarDB");
             loader.when(() -> EFormLoader.getAP("choice")).thenReturn(ap);
-            markup.when(() -> EFormSelectMarkup.edit(any(), anyInt(), any()))
+            markup.when(() -> EFormSelectMarkup.edit(any(EFormSelectMarkup.ParsedForm.class), anyInt(), any()))
                     .thenThrow(new IllegalStateException("the parser failed"));
             EForm form = new EForm();
             form.setDemographicNo("7");

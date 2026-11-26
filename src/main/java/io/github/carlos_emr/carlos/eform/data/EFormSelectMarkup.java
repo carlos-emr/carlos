@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -73,7 +74,42 @@ final class EFormSelectMarkup {
      */
     private static final String HTML_SPACE = " \t\n\f\r";
 
+    /** Full parses made since the class loaded: the work a form costs is bounded by this, never by its selects. */
+    private static final AtomicInteger PARSES = new AtomicInteger();
+
     private EFormSelectMarkup() {
+    }
+
+    /** How many times a whole form has been parsed here since the class loaded (for the bounded-work test). */
+    static int parseCount() {
+        return PARSES.get();
+    }
+
+    /**
+     * One parse of a form, from which every database-tagged select of one pass is edited. Edits are written
+     * against this parse's own text and positions; the caller moves them by the difference between the form's
+     * length now and its length here ({@link SelectEdit#shifted}), which is exact because a pass fills its fields
+     * in document order, so everything it has changed so far lies before the select it is working on.
+     */
+    static final class ParsedForm {
+        private final String source;
+        private final Document document;
+
+        private ParsedForm(String source, Document document) {
+            this.source = source;
+            this.document = document;
+        }
+
+        /** The length of the markup that was parsed. */
+        int length() {
+            return source.length();
+        }
+    }
+
+    /** Parses {@code html} once, for {@link #edit(ParsedForm, int, String)} to read as often as it needs. */
+    static ParsedForm parseForm(CharSequence html) {
+        String source = html.toString();
+        return new ParsedForm(source, parse(source));
     }
 
     /** Where {@code " selected"} goes and which {@code selected} attributes of the other options come out. */
@@ -84,6 +120,32 @@ final class EFormSelectMarkup {
 
         private SelectEdit(int insertAt) {
             this.insertAt = insertAt;
+        }
+
+        /** The same edit with every position moved by {@code by} (to the form as it stands now). */
+        SelectEdit shifted(int by) {
+            SelectEdit moved = new SelectEdit(insertAt + by);
+            for (int[] range : removals) moved.removals.add(new int[] {range[0] + by, range[1] + by});
+            return moved;
+        }
+
+        /**
+         * Whether every position of this edit still lands where it was read: the insert right after an
+         * {@code <option} and each removal on a {@code selected} attribute. A shifted edit that does not fit is
+         * not applied (the select keeps the template's own default) rather than put in the wrong place.
+         */
+        boolean fits(CharSequence html) {
+            if (!matches(html, insertAt - OPTION_OPEN, "<option")) return false;
+            for (int[] range : removals) {
+                if (range[0] < 0 || range[1] > html.length() || range[0] >= range[1]) return false;
+                if (!Ascii.toLowerCase(html.subSequence(range[0], range[1]).toString()).contains("selected")) return false;
+            }
+            return true;
+        }
+
+        private static boolean matches(CharSequence html, int from, String text) {
+            return from >= 0 && from + text.length() <= html.length()
+                    && Ascii.equalsIgnoreCase(html.subSequence(from, from + text.length()), text);
         }
 
         /** Applies the removals and the insert, from the end of the markup backwards so positions stay valid. */
@@ -125,9 +187,19 @@ final class EFormSelectMarkup {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an eForm option value with a database value; not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an eForm option value with a database value; not a security or authorization decision")
     static SelectEdit edit(CharSequence html, int pointer, String wanted) {
+        return wanted == null ? null : edit(parseForm(html), pointer, wanted);
+    }
+
+    /**
+     * As {@link #edit(CharSequence, int, String)}, read from a form parsed once: {@code pointer} and the edit's
+     * positions are those of the parsed text. A form of any number of database-tagged selects costs this one parse.
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an eForm option value with a database value; not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an eForm option value with a database value; not a security or authorization decision")
+    static SelectEdit edit(ParsedForm form, int pointer, String wanted) {
         if (wanted == null) return null;
-        String source = html.toString();
-        Element select = selectHolding(parse(source), pointer);
+        String source = form.source;
+        Element select = selectHolding(form.document, pointer);
         if (select == null) return null;
         String inside = markupInside(select, source);
         if (inside == null || holdsStyleElement(inside)) return null;
@@ -325,6 +397,7 @@ final class EFormSelectMarkup {
     }
 
     private static Document parse(String html) {
+        PARSES.incrementAndGet();
         return Parser.htmlParser().setTrackPosition(true).parseInput(html, "");
     }
 
