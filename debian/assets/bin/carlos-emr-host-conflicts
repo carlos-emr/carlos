@@ -42,9 +42,10 @@
 #       is left running and named as "blocked:", never stopped unseen (#6060).
 #       Every service a socket starts must also be approved. Stop sockets
 #       before stopping the services they trigger, and hold those services if
-#       any of their colliding sockets stays up. Leave units with systemd stop
-#       propagation for manual handling. When disabling could affect another
-#       unit via [Install] Also=, mask only the approved unit instead.
+#       any of their sockets stays up. Leave units with systemd stop
+#       propagation or snap-managed activators for manual handling. When
+#       disabling could affect another unit via [Install] Also=, mask only
+#       the approved unit instead.
 #       An empty --approved stops nothing. The legacy form without a flag
 #       reports conflicts for callers that cannot supply the approved list.
 #   mariadb
@@ -241,15 +242,10 @@ stop_unit() {
     case "$1" in
         *.socket)
             # Check the state even if systemctl reports a failed stop.
-            socket_is_down "$1" || return 1 ;;
-        *) [ "${stop_status}" = 0 ] || return 1 ;;
+            unit_is_down "$1" || return 1 ;;
+        *) [ "${stop_status}" = 0 ] || unit_is_down "$1" || return 1 ;;
     esac
-    # `disable` follows Also=, including in drop-ins. `cat` reads the loaded
-    # fragment and drop-in paths, so use it only when systemd has seen the
-    # current configuration. A mask affects only the explicitly named unit.
-    if reload="$(systemctl show --property=NeedDaemonReload --value "$1" 2>/dev/null)" &&
-            [ "${reload}" = no ] && fragments="$(systemctl cat --no-pager "$1" 2>/dev/null)" &&
-            ! printf '%s\n' "${fragments}" | grep -Eq '^[[:space:]]*Also([[:space:]]|=|\\|$)'; then
+    if can_disable_unit "$1"; then
         systemctl disable "$1" >/dev/null 2>&1 || true
     fi
     case "$(systemctl is-enabled "$1" 2>/dev/null)" in
@@ -262,6 +258,15 @@ stop_unit() {
                 say enabled
             fi ;;
     esac
+}
+
+can_disable_unit() {
+    # `disable` follows Also=, including in drop-ins. `cat` reads the loaded
+    # fragment and drop-in paths, so use it only when systemd has seen the
+    # current configuration. A mask affects only the explicitly named unit.
+    reload="$(systemctl show --property=NeedDaemonReload --value "$1" 2>/dev/null)" &&
+            [ "${reload}" = no ] && fragments="$(systemctl cat --no-pager "$1" 2>/dev/null)" &&
+            ! printf '%s\n' "${fragments}" | grep -Eq '^[[:space:]]*Also([[:space:]]|=|\\|$)'
 }
 
 # Advice for a listener left in place: $1 name, $2 unit (may be empty).
@@ -344,7 +349,7 @@ approved_unit() {
     return 1
 }
 
-socket_is_down() {
+unit_is_down() {
     state="$(systemctl show --property=ActiveState --value "$1" 2>/dev/null)" || return 1
     case "${state}" in inactive | failed) return 0 ;; esac
     return 1
@@ -390,6 +395,48 @@ stop_blocker() {
             say "was left running because stopping it would also stop ${dependent}. Resolve the linked units manually"
             return
         done
+        dependency_blocker "$1"
+    fi
+}
+
+# systemd can also stop a wanted unit after its last user goes away.
+dependency_blocker() {
+    if ! dependencies="$(systemctl show --property=Requires --property=Requisite --property=Wants \
+             --property=BindsTo --property=Upholds --value "$1" 2>/dev/null)"; then
+        say "was left running because its systemd dependencies could not be determined"
+        return
+    fi
+    for dependency in ${dependencies}; do
+        stop_when_unneeded="$(systemctl show --property=StopWhenUnneeded --value "${dependency}" 2>/dev/null)" || stop_when_unneeded=""
+        case "${stop_when_unneeded}" in
+            no) continue ;;
+            yes)
+                say "was left running because stopping it could also stop ${dependency} (StopWhenUnneeded=yes)"
+                return ;;
+            *)
+                say "was left running because the stop behavior of ${dependency} could not be determined"
+                return ;;
+        esac
+    done
+    if snap_app "$1" >/dev/null && command -v snap >/dev/null 2>&1; then
+        snap_stop_blocker "$1"
+    fi
+}
+
+# snapd stops and disables these generated units with the selected app, even
+# if they listen on other ports or are inactive. Leave that group to the operator.
+snap_stop_blocker() {
+    # Filter locally because systemctl returns an error for a glob with no matches.
+    if ! unit_files="$(systemctl list-unit-files --no-legend --no-pager 2>/dev/null)"; then
+        say "was left running because its snap activator files could not be checked"
+        return
+    fi
+    snap_activator="$(printf '%s\n' "${unit_files}" | awk -v app="${1%.service}" '
+        $1 == app ".timer" || (index($1, app ".") == 1 && $1 ~ /\.socket$/) { print $1; exit }')"
+    if [ -n "${snap_activator}" ]; then
+        say "was left running because the snap stop also affects ${snap_activator}"
+    elif ! can_disable_unit "$1"; then
+        say "was left running because the snap disable could affect linked units"
     fi
 }
 
@@ -432,6 +479,30 @@ service_blocker() {
     else
         stop_blocker "$1"
     fi
+}
+
+# Sockets can restart after the batch checks. Use the current reverse links
+# and keep checking any socket that appeared in the earlier scan.
+confirm_service_sockets_down() {
+    if ! activators="$(systemctl show --property=TriggeredBy --value "$1" 2>/dev/null)"; then
+        remember_blocker "$1" "was left running because its socket activators could not be checked"
+        return 1
+    fi
+    for scanned_socket in ${sockets}; do
+        case " ${activators} " in *" ${scanned_socket} "*) continue ;; esac
+        case " $(triggers_for "${scanned_socket}") " in
+            *" $1 "*) activators="${activators} ${scanned_socket}" ;;
+        esac
+    done
+    for activator in ${activators}; do
+        case "${activator}" in *.socket) ;; *) continue ;; esac
+        if ! unit_is_down "${activator}"; then
+            remember_blocker "${activator}" "was active or could not be confirmed stopped before its service stop"
+            remember_blocker "$1" "was left running because ${activator} could still start it"
+            return 1
+        fi
+    done
+    return 0
 }
 
 socket_blocker() {
@@ -498,6 +569,7 @@ plan_unit() {
 # or how it belongs to a socket whose stop was confirmed.
 stop_and_report() {
     label="$1 ($(origin_of "$1")) $2"
+    case "$1" in *.service) confirm_service_sockets_down "$1" || return 1 ;; esac
     if app="$(snap_app "$1")" && command -v snap >/dev/null 2>&1; then
         # snapd owns its units: systemctl disable would be undone by a refresh.
         snap stop --disable "${app}" >/dev/null 2>&1 || return 1
@@ -531,7 +603,7 @@ handle_service() {
         plan_unit "$1"
     elif stop_and_report "$1" "$2"; then
         acted=1
-    else
+    elif [ -z "$(blocker_for "$1")" ]; then
         remember_blocker "$1" "could not be stopped"
     fi
 }
@@ -618,7 +690,7 @@ ROWS
         # Recheck sockets after enablement changes and the other stop jobs.
         for socket in ${stopped_sockets}; do
             triggers="$(triggers_for "${socket}")"
-            if socket_is_down "${socket}"; then
+            if unit_is_down "${socket}"; then
                 pending="${pending} ${triggers}"
             else
                 remember_blocker "${socket}" "was active again after its stop"

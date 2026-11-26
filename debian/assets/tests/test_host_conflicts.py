@@ -100,14 +100,22 @@ elif cmd == "systemctl":
             if prop in info.get("failed_properties", []):
                 sys.exit(1)
             if prop == "ActiveState":
-                active = any(l.get("socket") == unit and any(o["pid"] == 1 for o in l["owners"])
+                active = any(any((o["pid"] == 1 and l.get("socket") == unit)
+                                 or proc(o["pid"]).get("unit") == unit for o in l["owners"])
                              for l in st["listeners"])
                 print("active" if active else "inactive")
+                if info.get("restart_listener") and not active:
+                    reads = info.get("inactive_state_reads", 0) + 1
+                    info["inactive_state_reads"] = reads
+                    if reads == 2:
+                        # Restart immediately after the final batch sanity check.
+                        st["listeners"].append(info["restart_listener"])
+                    save()
             elif prop == "TriggeredBy":
                 print(" ".join(socket for socket, details in st.get("units", {}).items()
                                if unit in details.get("Triggers", "").split()))
             else:
-                print(info.get(prop, "no" if prop == "NeedDaemonReload" else ""))
+                print(info.get(prop, "no" if prop in ("NeedDaemonReload", "StopWhenUnneeded") else ""))
     elif args[0] == "is-active":
         state = st.get("mariadb_state", "active")
         print(state)
@@ -116,6 +124,11 @@ elif cmd == "systemctl":
         for l in st["listeners"]:
             if l.get("socket"):
                 print("%s %s %s" % (l["addr"], l["socket"], l.get("triggers", "")))
+    elif args[0] == "list-unit-files":
+        if st.get("unit_files_unavailable"):
+            sys.exit(1)
+        for name in st.get("unit_files", []):
+            print(name, "enabled", "enabled")
 elif cmd == "dpkg-query":
     pkg = st.get("dpkg", {}).get(args[-1])
     if not pkg:
@@ -631,6 +644,7 @@ class TestApprovedStop(HostConflictsCase):
         r = self.run_script({
             "listeners": [{"addr": "*:443", "owners": [{"name": "httpd", "pid": 800}]}],
             "procs": {"800": {"unit": "snap.nextcloud.apache.service"}},
+            "unit_files": ["snap.nextcloud.other.web.socket", "snap.nextcloud.apache-alt.timer"],
         }, "front-door", "--approved", "snap.nextcloud.apache.service", "0.0.0.0")
         self.assertEqual(r.returncode, 0, r.stdout)
         self.assertEqual(self.stops(), ["snap stop --disable nextcloud.apache"])
@@ -759,7 +773,7 @@ class TestApprovedStop(HostConflictsCase):
         scenario = {"listeners": [{"addr": "0.0.0.0:80", "owners": [{"name": "worker", "pid": 300}]},
                                   dict(LIGHTTPD_SOCKET)],
                     "procs": {"300": {"unit": "httpd-worker.service"}}, "units": units, "dpkg": {}}
-        for args in (("--plan",), ("--approved", "httpd-worker.service")):
+        for args in (("--plan",), ("--approved", "lighttpd.socket httpd-worker.service")):
             with self.subTest(args=args):
                 open(self.log, "w").close()
                 r = self.run_script(scenario, "front-door", *args, "0.0.0.0")
@@ -767,6 +781,7 @@ class TestApprovedStop(HostConflictsCase):
                 self.assertNotIn("will-stop", r.stdout)
                 self.assertIn("blocked: worker (pid 300, httpd-worker.service)", r.stdout)
                 self.assertIn("the socket that starts it is left running", r.stdout)
+                self.assertIn("policy-rc.d forbids stopping services during this install", r.stdout)
 
     def two_sockets_one_service(self, order):
         """lighttpd.socket and lighttpd-alt.socket both start lighttpd.service,
@@ -846,6 +861,28 @@ class TestApprovedStop(HostConflictsCase):
         self.assertEqual(result.returncode, 0, result.stdout)
         self.assertEqual(self.stops(), LIGHTTPD_STOP)
 
+    def test_service_confirmed_down_after_stop_error_is_disabled(self):
+        scenario = apache_and()
+        scenario["units"]["apache2.service"] = dict(APACHE_UNIT, stop_completes_with_error=True)
+        result = self.run_after_approval(scenario)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(self.stops(), APACHE_STOP)
+
+    def test_socket_restarted_after_batch_check_keeps_its_service(self):
+        for separate_port in (True, False):
+            with self.subTest(separate_port=separate_port):
+                open(self.log, "w").close()
+                scenario = self.split_ports(True, "lighttpd.service") if separate_port else {
+                    "listeners": [LIGHTTPD_SOCKET], "units": {"lighttpd.socket": dict(LIGHTTPD_UNITS["lighttpd.socket"])},
+                    "dpkg": LIGHTTPD_DPKG,
+                }
+                scenario["units"]["lighttpd.socket"]["restart_listener"] = scenario["listeners"][-1]
+                result = self.run_after_approval(scenario)
+                self.assertEqual(result.returncode, 1, result.stdout)
+                self.assertIn("lighttpd.socket", result.stdout)
+                self.assertIn("before its service stop", result.stdout)
+                self.assertEqual(self.stops(), LIGHTTPD_STOP[:2])
+
     def test_any_failed_socket_stop_keeps_their_shared_service(self):
         for order in (True, False):
             with self.subTest(failing_socket_first=order):
@@ -883,6 +920,41 @@ class TestApprovedStop(HostConflictsCase):
                 result = self.run_script(scenario, "front-door", "--approved", "apache2.service", "0.0.0.0")
                 self.assertEqual(result.returncode, 1, result.stdout)
                 self.assertIn("would also stop worker.service", result.stdout)
+                self.assertEqual(self.stops(), [])
+
+    def test_wanted_unit_with_stop_when_unneeded_blocks_approved_service_stop(self):
+        scenario = apache_and()
+        scenario["units"]["apache2.service"] = dict(APACHE_UNIT, Wants="worker.service")
+        scenario["units"]["worker.service"] = {"StopWhenUnneeded": "yes"}
+        plan = self.run_script(scenario, "front-door", "--plan", "0.0.0.0")
+        self.assertNotIn("will-stop:", plan.stdout)
+        self.assertIn("could also stop worker.service (StopWhenUnneeded=yes)", plan.stdout)
+        result = self.run_script(scenario, "front-door", "--approved", "apache2.service", "0.0.0.0")
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("could also stop worker.service (StopWhenUnneeded=yes)", result.stdout)
+        self.assertEqual(self.stops(), [])
+        scenario["units"]["worker.service"]["StopWhenUnneeded"] = "no"
+        result = self.run_after_approval(scenario)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(self.stops(), APACHE_STOP)
+
+    def test_snap_with_an_installed_activator_is_left_for_manual_handling(self):
+        unit = "snap.nextcloud.apache.service"
+        for activator in ("snap.nextcloud.apache.web.socket", "snap.nextcloud.apache.timer", None):
+            with self.subTest(activator=activator):
+                scenario = {
+                    "listeners": [{"addr": "*:443", "owners": [{"name": "httpd", "pid": 800}]}],
+                    "procs": {"800": {"unit": unit}},
+                    "unit_files": [activator] if activator else [], "unit_files_unavailable": activator is None,
+                }
+                reason = ("the snap stop also affects " + activator if activator
+                          else "its snap activator files could not be checked")
+                plan = self.run_script(scenario, "front-door", "--plan", "0.0.0.0")
+                self.assertNotIn("will-stop:", plan.stdout)
+                self.assertIn(reason, plan.stdout)
+                result = self.run_script(scenario, "front-door", "--approved", unit, "0.0.0.0")
+                self.assertEqual(result.returncode, 1, result.stdout)
+                self.assertIn(reason, result.stdout)
                 self.assertEqual(self.stops(), [])
 
     def test_also_directive_uses_a_mask_only_on_the_approved_unit(self):
