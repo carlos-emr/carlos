@@ -366,9 +366,10 @@ public class Hl7textResultsData {
 
 
                 String value = projectableValue(result, lab_no, i, j);
-                // A final or corrected result the filter does not match is filed whole, as text (#6122).
+                // A final or corrected result the filter does not match is filed whole, as text (#6122). One the
+                // filter matches but cannot file (too long, or splitting a character) stays unfiled (#6142 review).
                 boolean textResult = false;
-                if (value == null && fileTextResults()) {
+                if (value == null && fileTextResults() && filterFindsNothing(result)) {
                     value = textResultValue(result, olis_status, "lab " + LogSafe.sanitize(lab_no) + ", OBX " + i + "-" + j);
                     textResult = value != null;
                 }
@@ -548,11 +549,10 @@ public class Hl7textResultsData {
     // Locale.ROOT folding is only for the clinic's result filter, never identity or authorization.
     private static String projectableValue(String result, String context) {
         if (result == null || result.isEmpty() || "DNR".equals(result)) return null;
-        String trimmed = StringUtils.trimToEmpty(result).replaceAll("\\<br\\s?/?\\>", "").trim();
+        String trimmed = filterInput(result);
         Locale locale = Locale.ROOT;
         String shadow = trimmed.toLowerCase(locale);
-        Matcher match = Pattern.compile(CarlosProperties.getInstance()
-                .getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*")).matcher(shadow);
+        Matcher match = measurementFilter(shadow);
         if (!match.find()) return null;
         int start = originalBoundary(trimmed, shadow, match.start(), locale);
         int end = originalBoundary(trimmed, shadow, match.end(), locale);
@@ -567,6 +567,25 @@ public class Hl7textResultsData {
             return null;
         }
         return value;
+    }
+
+    /** A result as {@code HL7_LAB_MEASUREMENT_FILTER} reads it: trimmed, without its line-break markers. */
+    private static String filterInput(String result) {
+        return StringUtils.trimToEmpty(result).replaceAll("\\<br\\s?/?\\>", "").trim();
+    }
+
+    private static Matcher measurementFilter(String shadow) {
+        return Pattern.compile(CarlosProperties.getInstance().getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*")).matcher(shadow);
+    }
+
+    /**
+     * Whether {@code HL7_LAB_MEASUREMENT_FILTER} finds nothing in the result, read as {@code projectableValue}
+     * reads it. Only such a result may be filed as text (#6122). A result the filter does match but that cannot
+     * be filed (longer than a measurement holds, or a match that would split a character) stays unfiled, as it
+     * was before (#6142 review).
+     */
+    static boolean filterFindsNothing(String result) {
+        return !measurementFilter(filterInput(result).toLowerCase(Locale.ROOT)).find();
     }
 
     /**

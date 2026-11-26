@@ -943,6 +943,24 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        void shouldLeaveAFilterMatchUnfiled_whenItIsTooLongEvenThoughItsTextWouldFit() {
+            // #6142 review: the filter matches the whole 317-character result, too long for a measurement. The text
+            // form ("Pending see report") would fit, but only a result the filter does not match is filed as text.
+            String padded = "Pending" + " ".repeat(300) + "<br />see report";
+
+            assertThat(fileResult(padded, ".*", OBSERVED, ENTERED, "F")).isNull();
+            verify(measurementDao, never()).persist(any(Measurement.class));
+        }
+
+        @Test
+        void shouldLeaveAFilterMatchUnfiled_whenItWouldSplitAUnicodeCaseMapping() {
+            // The filter "i" matches half of the lowercase form of U+0130; the match is refused, and the result is
+            // not filed as text instead.
+            assertThat(fileResult("İ", "i", OBSERVED, ENTERED, "F")).isNull();
+            verify(measurementDao, never()).persist(any(Measurement.class));
+        }
+
+        @Test
         void shouldLeaveTextUnfiledWithoutLoggingIt_whenLongerThanTheDataField() throws IOException {
             String tooLong = "FAKE-TEXT-" + "x".repeat(Measurement.DATA_FIELD_MAX_LENGTH);
 
