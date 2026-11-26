@@ -5393,7 +5393,7 @@
         "LegacyLabUploadDaoIntegrationTest": 8,
         "LabRoutingLookupDaoIntegrationTest": 6,
         "LegacyLabNativeMariaDbIntegrationTest": 8,
-        "ArchiveAuditTimestampIntegrationTest": 2,
+        "ArchiveAuditTimestampIntegrationTest": 3,
         "Growth0To36FormPersistenceIntegrationTest": 19,
         "FixedJasperReportDaoIntegrationTest": 2,
         "PatientEndYearStatementIntegrationTest": 5,
@@ -5463,7 +5463,7 @@
         "ConsultationArchiveDaoIntegrationTest": 1,
         "LabRoutingLookupDaoIntegrationTest": 6,
         "LegacyLabNativeMariaDbIntegrationTest": 8,
-        "ArchiveAuditTimestampIntegrationTest": 2,
+        "ArchiveAuditTimestampIntegrationTest": 3,
         "FormXmlImportServiceIntegrationTest": 7,
         "EFormApColumnLookupIntegrationTest": 2,
         "AppointmentDaySheetServiceIntegrationTest": 5,
@@ -11694,8 +11694,7 @@
         "src/test/java/io/github/carlos_emr/carlos/devcontainer/DriverConfigurationProbeUnitTest.java"
       ],
       "checks": [
-        "java-all",
-        "evidence-self-tests"
+        "java-all"
       ],
       "workstreams": [
         "T21",
@@ -11710,8 +11709,7 @@
       ],
       "checks": [
         "node-all",
-        "java-all",
-        "evidence-self-tests"
+        "java-all"
       ],
       "workstreams": [
         "T21",
@@ -11724,8 +11722,7 @@
         "src/test/java/io/github/carlos_emr/carlos/devcontainer/DriverConfigurationProbeUnitTest.java"
       ],
       "checks": [
-        "java-all",
-        "evidence-self-tests"
+        "java-all"
       ],
       "workstreams": [
         "T21",
@@ -11766,10 +11763,11 @@
       ]
     },
     "debian/assets/bin/carlos-emr-config-preflight": {
-      "reason": "The privileged preflight wrapper refuses a bad verb, scrubs JVM injection variables, execs the jar with verb and properties, skips non-25 runtimes and refuses to start without Java 25.",
+      "reason": "The privileged preflight wrapper refuses a bad verb, scrubs JVM injection variables, execs the jar with verb and properties, skips non-25 runtimes and refuses to start without Java 25; on a clean install of the candidate package and on its upgrade from beta8, postinst and the service's ExecStartPre run it as reconcile under the installed Java 25, and the service starts for the lifecycle's login and smoke clients.",
       "tests": [
         "scripts/debian-build.test.js",
-        "debian/assets/tests/test_modern_chart_cutover.py"
+        "debian/assets/tests/test_modern_chart_cutover.py",
+        "scripts/ci/run-package-lifecycle-cell.py"
       ],
       "checks": [
         "node-all",
@@ -11925,7 +11923,7 @@
       ]
     },
     "pom.xml": {
-      "reason": "Version equals scm tag on a release tag (or -SNAPSHOT with HEAD), matches the plan's release line, and the encoder JSP taglib is absent while encoder core stays.",
+      "reason": "The project version and SCM tag agree (an exact release version equal to its scm tag, or a -SNAPSHOT version on scm tag HEAD), the version's YYYY.MM line is the plan's target release branch, and the declared dependencies keep org.owasp.encoder:encoder without encoder-jakarta-jsp (evidence-self-tests); the version reads as release line 2026.08, and every migration new on that line stays below the line's Flyway floor (node-all); DisplayWaitingList.jsp, the last page that called the removed OWASP encoder JSP taglib, builds the same Master Record link through the CARLOS encoder functions, and the dependency lock resolved from this pom keeps the encoder core but not encoder-jakarta-jsp (java-all); jsp-compile packages the WAR with the jspc profile, translating and compiling the JSPs and the dispatched fragments with Tomcat 11's Jasper against this pom's dependency set.",
       "tests": [
         "scripts/ci/test_release_publication.py",
         "src/test/java/io/github/carlos_emr/carlos/waitinglist/WaitingListMasterRecordLinkEncodingUnitTest.java",
@@ -12982,12 +12980,13 @@
       ]
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/data/DemographicMerged.java": {
-      "reason": "Pins #6255 web unmerge: every selected patient's active link, restriction, recycle row and strict audit commit or roll back together (including a failing second audit write), earlier unmerge history is untouched and the audit is attributed to the session provider.",
+      "reason": "Pins #6255 web unmerge: every selected patient's active link, restriction, recycle row and strict audit commit or roll back together (including a failing second audit write), earlier unmerge history is untouched and the audit is attributed to the session provider; the web unmerge locks the selected patients in id order before it reads their current merge links, and refuses a selection in which a patient has no current link.",
       "tests": [
         "src/test/java/io/github/carlos_emr/carlos/demographic/pageUtil/DemographicWebUnmergeIntegrationTest.java",
         "src/test/java/io/github/carlos_emr/carlos/demographic/pageUtil/DemographicMergeRecord2ActionMergeUnitTest.java"
       ],
       "checks": [
+        "java-all",
         "java-native-flyway"
       ],
       "workstreams": [
@@ -15179,7 +15178,7 @@
       ]
     },
     "src/main/webapp/WEB-INF/jsp/billing/CA/BC/billingSVCTrayAssoc.jsp": {
-      "reason": "Renders the BC tray association editor with server-side paging: fifty rows per page, next-page navigation replacing only the results, and unsaved fee codes kept across pages.",
+      "reason": "Renders the BC tray association editor with server-side paging: fifty rows per page, next-page navigation replacing only the results, and unsaved fee codes kept across pages; the page source carries data-carlos-table, data-page-size=\"0\", a server-page region and the server-table-page.jspf include and no display:table pager, and the read-only supServiceCodeAssocAction route still forwards to the page.",
       "tests": [
         "scripts/server-table-installed-playwright-checks.js",
         "scripts/billing-bc-associations-playwright-checks.js",
@@ -15187,6 +15186,7 @@
       ],
       "checks": [
         "packaged-full",
+        "java-all",
         "jsp-compile"
       ],
       "workstreams": [
@@ -15439,8 +15439,7 @@
       ],
       "checks": [
         "java-all",
-        "jsp-compile",
-        "packaged-full"
+        "jsp-compile"
       ],
       "workstreams": [
         "T40",
@@ -15455,8 +15454,7 @@
       ],
       "checks": [
         "java-all",
-        "jsp-compile",
-        "packaged-full"
+        "jsp-compile"
       ],
       "workstreams": [
         "T40",
@@ -15472,8 +15470,7 @@
       ],
       "checks": [
         "java-all",
-        "jsp-compile",
-        "packaged-full"
+        "jsp-compile"
       ],
       "workstreams": [
         "T40",
@@ -15489,8 +15486,7 @@
       ],
       "checks": [
         "java-all",
-        "jsp-compile",
-        "packaged-full"
+        "jsp-compile"
       ],
       "workstreams": [
         "T40",
@@ -15498,13 +15494,14 @@
       ]
     },
     "src/main/webapp/WEB-INF/jsp/demographic/zdemographicswipe.jsp": {
-      "reason": "Renders the swipe-card page and verifies #6224: Validate posts the card track in the request body, never the URL, and the parsed card is rendered.",
+      "reason": "Renders the swipe-card page and verifies #6224: Validate posts the card track in the request body, never the URL, and the parsed card is rendered; the Validate action requires _demographic read, refuses a non-POST request (405, Allow: POST) and a track in the query string or a malformed track (400) before validating, and gives the page the parsed card and the validator's verdict for a track posted in the body.",
       "tests": [
         "scripts/patient-swipe-card-search-playwright-checks.js",
         "src/test/java/io/github/carlos_emr/carlos/integration/mchcv/ValidateSwipeCard2ActionUnitTest.java"
       ],
       "checks": [
         "packaged-full",
+        "java-all",
         "jsp-compile"
       ],
       "workstreams": [
@@ -15635,12 +15632,14 @@
       ]
     },
     "src/main/webapp/WEB-INF/jsp/encounter/includes/encounter-head.jspf": {
-      "reason": "Fragment declares every tag prefix it uses (oscar, security) so it translates under the production directive audit (#6300).",
+      "reason": "The fragment declares the oscar tag library it uses (#6300), so it translates on its own: rendered through a wrapper page that declares no tag library, the encounter title carries the patient's name, sex and age from <oscar:nameage> instead of the tag's literal text and the encounterConfig script is written; the production directive audit finds no undeclared prefix.",
       "tests": [
-        "scripts/ci/test_jsp_directive_prefixes.py"
+        "scripts/ci/test_jsp_directive_prefixes.py",
+        "src/test/java/io/github/carlos_emr/carlos/encounter/pageUtil/EncounterIncludeFragmentsJspIntegrationTest.java"
       ],
       "checks": [
         "evidence-self-tests",
+        "java-all",
         "jsp-compile"
       ],
       "workstreams": [
@@ -15648,12 +15647,14 @@
       ]
     },
     "src/main/webapp/WEB-INF/jsp/encounter/includes/encounter-header-bar.jspf": {
-      "reason": "Fragment declares every tag prefix it uses (oscar, security) so it translates under the production directive audit (#6300).",
+      "reason": "The fragment declares the oscar tag library it uses (#6300), so it translates on its own: rendered through a wrapper page that declares no tag library, the appointment-history link shows the next appointment from <oscar:nextAppt> instead of the tag's literal text; the production directive audit finds no undeclared prefix.",
       "tests": [
-        "scripts/ci/test_jsp_directive_prefixes.py"
+        "scripts/ci/test_jsp_directive_prefixes.py",
+        "src/test/java/io/github/carlos_emr/carlos/encounter/pageUtil/EncounterIncludeFragmentsJspIntegrationTest.java"
       ],
       "checks": [
         "evidence-self-tests",
+        "java-all",
         "jsp-compile"
       ],
       "workstreams": [
@@ -15661,12 +15662,14 @@
       ]
     },
     "src/main/webapp/WEB-INF/jsp/encounter/includes/encounter-row-three.jspf": {
-      "reason": "Fragment declares every tag prefix it uses (oscar, security) so it translates under the production directive audit (#6300).",
+      "reason": "The fragment declares the oscar and security tag libraries it uses (#6300), so it translates on its own: rendered through a wrapper page that declares no tag library, <security:oscarSec> shows Save, Sign & Save and Verify & Sign only to a role that may write _eChart, <oscar:oscarPropertiesCheck> adds Sign, Save & Bill only when billregion is BC, and neither tag reaches the page as text; the production directive audit finds no undeclared prefix.",
       "tests": [
-        "scripts/ci/test_jsp_directive_prefixes.py"
+        "scripts/ci/test_jsp_directive_prefixes.py",
+        "src/test/java/io/github/carlos_emr/carlos/encounter/pageUtil/EncounterIncludeFragmentsJspIntegrationTest.java"
       ],
       "checks": [
         "evidence-self-tests",
+        "java-all",
         "jsp-compile"
       ],
       "workstreams": [
@@ -16134,8 +16137,7 @@
       ],
       "checks": [
         "java-all",
-        "jsp-compile",
-        "packaged-full"
+        "jsp-compile"
       ],
       "workstreams": [
         "T40",
@@ -16151,8 +16153,7 @@
       ],
       "checks": [
         "java-all",
-        "jsp-compile",
-        "packaged-full"
+        "jsp-compile"
       ],
       "workstreams": [
         "T40",
@@ -16240,7 +16241,7 @@
       ]
     },
     "src/main/webapp/WEB-INF/jsp/waitinglist/DisplayWaitingList.jsp": {
-      "reason": "Renders the waiting-list manager: rows keep their own note, the note box enforces its limit in the browser, a crafted over-long note returns 400 with the message above the list and by its row while keeping what was typed, and each row's Master Record button opens that patient.",
+      "reason": "Renders the waiting-list manager: rows keep their own note, the note box enforces its limit in the browser, a crafted over-long note returns 400 with the message above the list and by its row while keeping what was typed, and each row's Master Record button opens that patient; the page source takes the note limit from WaitingList.NOTE_MAX_LENGTH in code points with each line break counted as CR LF, checks the selected note before its script submits the form, and shows the action's refusal encoded above the list and by the refused row, whose note box is refilled from the action's request attributes rather than raw parameters.",
       "tests": [
         "scripts/waiting-list-row-actions-playwright-checks.js",
         "scripts/waiting-list-row-links-playwright-checks.js",
@@ -16248,6 +16249,7 @@
       ],
       "checks": [
         "packaged-full",
+        "java-all",
         "jsp-compile"
       ],
       "workstreams": [
@@ -16387,13 +16389,10 @@
     "src/main/webapp/js/demographic/custom-selects.js": {
       "reason": "Clearing every option of a Master Record custom multi-select submits one empty value for that field, while reselected, disabled, foreign, non-multiple or already-present selects submit nothing extra and a missing form is a no-op.",
       "tests": [
-        "scripts/demographic-custom-selects.test.js",
-        "src/test/java/io/github/carlos_emr/carlos/demographic/DemographicCustomFieldSelectUnitTest.java"
+        "scripts/demographic-custom-selects.test.js"
       ],
       "checks": [
-        "node-all",
-        "java-all",
-        "jsp-compile"
+        "node-all"
       ],
       "workstreams": [
         "T40",
