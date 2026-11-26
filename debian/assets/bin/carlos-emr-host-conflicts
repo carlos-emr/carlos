@@ -662,11 +662,11 @@ ROWS
         [ "${unit}" != "-" ] || unit=""
         reason="$(blocker_for "${unit}")"
         if [ "${mode}" = legacy ]; then
-            reason="the caller provided no approved unit list. Use 'sudo dpkg-reconfigure carlos-emr' to review this conflict"
+            reason="the caller provided no approved unit list. Use 'sudo dpkg-reconfigure carlos-emr' to review this conflict; "
         elif [ -n "${reason}" ]; then
-            reason="it ${reason}"
+            reason="it ${reason}; "
         fi
-        say "blocked: $(describe "${name}" "${pid}" "${unit}" "${addrs}"), so nginx cannot serve the CARLOS front door; ${reason:+${reason}; }$(advice "${name}" "${unit}")"
+        say "blocked: $(describe "${name}" "${pid}" "${unit}" "${addrs}"), so nginx cannot serve the CARLOS front door; ${reason}$(advice "${name}" "${unit}")"
     done <<ROWS
 ${rows}
 ROWS
