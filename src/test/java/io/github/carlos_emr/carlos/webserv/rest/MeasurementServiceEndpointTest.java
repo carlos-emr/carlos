@@ -535,6 +535,8 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
                 Arguments.of("dataField longer than the column",
                     "{\"type\":\"BP\",\"dataField\":\"" + tooLong + "\"}"),
                 Arguments.of("non-text dataField", "{\"type\":\"BP\",\"dataField\":120}"),
+                Arguments.of("null type", "{\"type\":null,\"dataField\":\"1\"}"),
+                Arguments.of("null dataField", "{\"type\":\"BP\",\"dataField\":null}"),
                 Arguments.of("comments longer than 255 characters",
                     "{\"type\":\"BP\",\"dataField\":\"1\",\"comments\":\"" + "c".repeat(256) + "\"}"),
                 Arguments.of("non-text comments", "{\"type\":\"BP\",\"dataField\":\"1\",\"comments\":5}"),
@@ -659,6 +661,29 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
 
             assertThat(response.getStatus()).isEqualTo(200);
             verify(mockMeasurementManager).addMeasurement(any(LoggedInInfo.class), any(Measurement.class));
+        }
+
+        @Test
+        @DisplayName("should treat optional fields sent as JSON null as left out")
+        void shouldTreatNullOptionalFieldsAsOmitted_whenSentExplicitly() {
+            allowWriteToExistingPatient();
+            configureType("HT", "", null);
+            when(mockMeasurementManager.addMeasurement(any(LoggedInInfo.class), any(Measurement.class)))
+                .thenAnswer(invocation -> invocation.getArgument(1));
+            long before = System.currentTimeMillis() - 1000;
+
+            Response response = postNew("{\"type\":\"HT\",\"dataField\":\"170\","
+                + "\"comments\":null,\"measuringInstruction\":null,\"dateObserved\":null}");
+
+            long after = System.currentTimeMillis();
+            assertThat(response.getStatus()).isEqualTo(200);
+            verify(mockMeasurementManager).addMeasurement(any(LoggedInInfo.class), argThat(measurement ->
+                measurement.getComments().isEmpty()
+                    && measurement.getMeasuringInstruction().isEmpty()
+                    && measurement.getDateObserved().getTime() >= before
+                    && measurement.getDateObserved().getTime() <= after));
+            // A null dateObserved is a new reading at "now", not a retry of a stored one.
+            verifyNoInteractions(mockMeasurementDao);
         }
 
         @Test

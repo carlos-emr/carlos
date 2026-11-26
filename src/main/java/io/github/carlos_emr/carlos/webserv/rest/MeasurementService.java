@@ -242,6 +242,9 @@ public class MeasurementService extends AbstractServiceImpl {
      * {@code dateObserved} returns that reading instead of storing it twice, so a client that sends
      * {@code dateObserved} can safely retry.</p>
      *
+     * <p>An optional field sent as JSON {@code null} is treated as left out. {@code type} and
+     * {@code dataField} are required and are refused when {@code null}.</p>
+     *
      * <p>A 400 refusal is answered with a JSON body {@code {"code": ..., "message": ...}}. The other
      * refusals do not use that shape: 403 (privilege, patient access or provider identity), 404
      * (patient) and 500 (invalid validation configuration) use the server's standard error response,
@@ -284,7 +287,7 @@ public class MeasurementService extends AbstractServiceImpl {
         String comments = optionalText(json, "comments", 255);
         String instruction = optionalText(json, "measuringInstruction", 255);
         Long observedAt = null;
-        if (json.has("dateObserved")) {
+        if (json.hasNonNull("dateObserved")) {
             if (!json.get("dateObserved").isIntegralNumber()
                     || !json.get("dateObserved").canConvertToLong()) {
                 throw badRequest("INVALID_DATE_OBSERVED", "dateObserved must be epoch milliseconds");
@@ -368,7 +371,8 @@ public class MeasurementService extends AbstractServiceImpl {
     }
 
     private String optionalText(ObjectNode json, String field, int maxLength) {
-        if (!json.has(field)) {
+        // JSON null is "not sent", as many client serializers write an unset optional field.
+        if (!json.hasNonNull(field)) {
             return null;
         }
         if (!json.get(field).isTextual() || json.get(field).textValue().length() > maxLength) {
