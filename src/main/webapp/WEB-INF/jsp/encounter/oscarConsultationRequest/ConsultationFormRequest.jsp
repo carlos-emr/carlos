@@ -1798,7 +1798,7 @@
                 // value: selectedIndex is 0, yet nothing would be posted. Treat it as no choice.
                 var selectedSpecialist = specialistElement && specialistElement.selectedIndex >= 0
                     ? specialistElement[specialistElement.selectedIndex] : null;
-                if (!selectedSpecialist || selectedSpecialist.disabled || !selectedSpecialist.value) {
+                if (!selectedSpecialist || selectedSpecialist.disabled || !/^[1-9][0-9]*$/.test(selectedSpecialist.value)) {
                     document.EctConsultationFormRequest2Form.specialist.focus();
                     alert(msg);
                     return false;
@@ -1834,11 +1834,13 @@
         var consultDateMessage = '${carlos:forJavaScript(consultInvalidDateMessage)}';
 
         function checkForm(submissionVal, formName) {
-            // A typed name is not a directory selection. Validate the posted id on both pickers.
+            // A typed name is not a directory selection. The team picker has its own validation.
             var consultant = document.getElementById('specialist');
-            if (/^(Submit|Update)/.test(submissionVal) && consultant && !/^[1-9][0-9]*$/.test(consultant.value)) {
+            var consultantInput = document.getElementById('specialistInput');
+            if (/^(Submit|Update)/.test(submissionVal) && consultantInput && consultant
+                    && !/^[1-9][0-9]*$/.test(consultant.value)) {
                 alert('Please select an active consultant from the consultant directory before saving.');
-                (document.getElementById('specialistInput') || consultant).focus();
+                consultantInput.focus();
                 return false;
             }
             // A date the browser cannot read (an impossible day such as 30 February) posts as an

@@ -37,15 +37,19 @@ function fixture(services, role) {
     [name, {value: name === 'service' ? '0' : 'FAKE previous value', focus() {}}]));
   const options = [{value: '41', disabled: false}];
   options.selectedIndex = 0;
-  form.specialist = {options, focus() {}};
+  form.specialist = {options, focus() {}, get value() {
+    return this.options[this.options.selectedIndex]?.value ?? '';
+  }};
   const member = {note: 'FAKE referral annotation', phoneNum: '555-0100', specFax: '555-0101',
     specAddress: 'FAKE synthetic address', service: role};
   const alerts = [];
-  const context = vm.createContext({document: {EctConsultationFormRequest2Form: form},
+  const context = vm.createContext({document: {EctConsultationFormRequest2Form: form,
+    getElementById(id) { return id === 'specialist' ? form.specialist : null; }},
     healthCareTeam: {41: member}, specialistFaxNumber: '', faxUpdates: 0,
-    updateFaxButton() { context.faxUpdates++; }, alert(message) { alerts.push(message); }});
+    updateFaxButton() { context.faxUpdates++; }, alert(message) { alerts.push(message); },
+    ShowSpin() {}, HideSpin() {}});
   vm.runInContext(scripts.join('\n'), context);
-  for (const name of ['getSpecialist', 'checkFormHCT']) {
+  for (const name of ['getSpecialist', 'checkFormHCT', 'checkForm']) {
     const functionStart = source.indexOf('function ' + name + '(');
     assert.ok(functionStart > 0, 'Missing production function ' + name);
     let cursor = source.indexOf('{', functionStart);
@@ -56,7 +60,8 @@ function fixture(services, role) {
       cursor++;
     } while (depth > 0 && cursor < source.length);
     assert.equal(depth, 0, 'Unclosed production function ' + name);
-    vm.runInContext(source.slice(functionStart, cursor), context);
+    vm.runInContext(source.slice(functionStart, cursor)
+      .replace('<fmt:message key="Errors.service.noServiceSelected"/>', 'Please select a service'), context);
   }
   return {context, form, member, alerts, choose() { context.getSpecialist({value: '41'}); }};
 }
@@ -141,11 +146,11 @@ test('the empty-team placeholder or no selection is refused before submit (#6202
   const placeholder = [{value: '', disabled: true}];
   placeholder.selectedIndex = 0;
   f.form.specialist.options = placeholder;
-  assert.equal(f.context.checkFormHCT(), false);
+  assert.equal(f.context.checkForm('Submit Consultation Request', 'EctConsultationFormRequest2Form'), false);
   const none = [{value: '41', disabled: false}];
   none.selectedIndex = -1;
   f.form.specialist.options = none;
-  assert.equal(f.context.checkFormHCT(), false);
-  assert.equal(f.alerts.length, 2);
-  assert.match(f.alerts[0], /Please select a Consultant/);
+  assert.equal(f.context.checkForm('Update Consultation Request', 'EctConsultationFormRequest2Form'), false);
+  assert.deepEqual(f.alerts, Array(2).fill(
+    'Please select a Consultant. Or add a Consultant using edit Health Care Team.'));
 });
