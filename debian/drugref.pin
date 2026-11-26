@@ -16,4 +16,4 @@
 # DIN monographs and generic product labels now resolve by DPD drug code,
 # independently of the database-generated product and search row IDs.
 # Build from this full commit SHA; branch names are not reproducible.
-ref=b778b4e06edfbb393a62069516a41e68dd5430fe
+ref=f94a6e67542e3929fff94e30814a4304fe5a82ad

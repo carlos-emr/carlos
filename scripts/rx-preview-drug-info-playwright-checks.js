@@ -3,6 +3,7 @@
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 const { stageFromSearch } = require('./rx-edit-discontinue-playwright-checks');
+const { openRx } = require('./rx-stash-patient-isolation-playwright-checks');
 
 const products = [
   {
@@ -38,12 +39,17 @@ async function workflow(s) {
     'Owned prescriptions or signatures were retained');
   });
 
-  const chart = await s.chart();
   for (const product of products) {
     await s.step(`${product.selection} shows the saved product in Save and Print → Drug Information`, async () => {
-      const rx = await s.popup(chart, chart.locator('#menuTitleRx a').first(), 'rx-page');
-      await rx.locator('#searchString').waitFor({ state: 'visible' });
-      const card = await stageFromSearch(rx, product.term, product.selection);
+      const rx = await openRx(s, patient);
+      h.wireStrictPage(rx, 'rx-page', s.recorder);
+      const [stageRequest, card] = await Promise.all([
+        rx.waitForRequest(r => r.method() === 'POST' && h.pathOnly(r.url()).endsWith('/rx/WriteScript')
+          && new URLSearchParams(r.postData()).get('parameterValue') === 'createNewRx'),
+        stageFromSearch(rx, product.term, product.selection),
+      ]);
+      const productKey = new URLSearchParams(stageRequest.postData()).get('drugId');
+      h.assert(/^[1-9]\d*$/.test(productKey ?? ''), 'The staged generic entry has no DrugRef search key');
       await rx.locator(`#instructions_${card}`).fill('1 tablet daily');
       await rx.locator(`#instructions_${card}`).blur();
       const [previewResponse] = await Promise.all([
@@ -58,8 +64,9 @@ async function workflow(s) {
         WHERE demographic_no=${patient} AND script_no=${scriptId}`);
       const rows = savedDrug();
       h.assert(rows.length === 1, 'The preview did not have exactly one saved drug');
-      const [[generic, brand, din]] = rows;
-      h.assert(brand === product.brand && din === product.din, 'Save and Print filed the wrong catalogue product');
+      const [[generic, , din]] = rows;
+      h.assert(generic?.startsWith(`${product.term} `) && din === product.din,
+        'Save and Print filed the wrong catalogue product');
 
       const preview = rx.frameLocator('iframe[name="carlosPrescriptionPreview"]');
       const link = preview.locator('a[href*="/rx/drugInfo?"]');
@@ -81,6 +88,11 @@ async function workflow(s) {
       const [ingredient, strength, unit] = await ingredients.locator('td').allTextContents();
       h.assert(ingredient.trim() === product.term && Number(strength) === product.strength && unit.trim() === 'MG',
         'The popup showed the wrong ingredient or strength');
+      await h.gotoApp(info, config.baseUrl, `/rx/drugInfo?BN=${productKey}`);
+      h.assert((await details.locator('h2').innerText()).trim() === product.brand,
+        'The generic result showed an unrelated brand label');
+      h.assert((await details.locator('#drug-info-din').innerText()).trim() === product.din,
+        'The generic result showed the wrong DIN');
       h.assert(JSON.stringify(savedDrug()) === JSON.stringify(rows), 'Viewing Drug Information changed the saved drug');
 
       await info.close();
@@ -89,5 +101,5 @@ async function workflow(s) {
   }
 }
 
-if (require.main === module) runWorkflow('rx-preview-drug-info', workflow);
+if (require.main === module) runWorkflow('rx-preview-drug-info', workflow, { openMaster: false });
 module.exports = { workflow };

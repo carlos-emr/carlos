@@ -175,6 +175,7 @@ jobs:
         run: |
           bash scripts/deb-docker-validation.sh suite \
             --only application-health --only drug-search --only schedule-links \
+            --only rx-preview-drug-info \
             --only eform-visual-widgets --only audit-log-chart-read \
             --only lab-version-ingestion --only lab-qualified-results \
             --only report-cdm --only cdm-measurement-report

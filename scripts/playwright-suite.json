@@ -10905,7 +10905,7 @@
       "timeoutSec": 180,
       "env": [],
       "fixtures": "One owned synthetic patient and the Ezetimibe 10 mg and Lorazepam 0.5 mg generic entries from the release DrugRef seed. Cleanup removes the two prescriptions, their drug rows and any prescription signatures for the owned patient.",
-      "notes": "Opens Drug Information below the signature after Save and Print. Checks the saved brand and DIN, the preview link, and the popup brand, DIN, ingredient, strength and form. Also verifies that viewing the reference did not change the saved drug."
+      "notes": "Opens Drug Information below the signature after Save and Print. Checks the saved drug and DIN, the preview link, and the popup brand, DIN, ingredient, strength and form. Looking up the selected generic search key also shows the representative brand for that DIN."
     },
     {
       "name": "gap-encounter-rx-drug-info-on-host",
