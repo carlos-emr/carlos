@@ -58,13 +58,15 @@ const ALERT_AND_NOTE_COLUMNS = {
 const ADD_RECORD = /\/demographic\/DemographicAddRecord$/;
 const UPDATE_RECORD = /\/demographic\/DemographicUpdate$/;
 
-async function assertAlertAndNoteLimits(form, sql, fields) {
+async function assertAlertAndNoteLimits(page, formId, sql, fields) {
   for (const [input, table, column] of fields) {
-    const box = form.locator(`[name="${input}"]`);
+    // The HTML parser can place a control outside the form element while preserving its form owner.
+    const box = page.locator(`input[name="${input}"], textarea[name="${input}"]`);
     // edit-form-clinical.jsp draws its waiting-list section only while DEMOGRAPHIC_WAITING_LIST=true (the bundled
     // default); the Add form always draws the note, read-only until a waiting list exists.
-    h.assert(await box.count() === 1, `The form has no ${input} box${input === 'waiting_list_note'
+    h.assert(await box.count() === 1, `Expected one ${input} control for ${formId}${input === 'waiting_list_note'
       ? ' (the Edit form draws it only while DEMOGRAPHIC_WAITING_LIST=true)' : ''}`);
+    h.assert(await box.evaluate((field, id) => field.form?.id === id, formId), `${input} is detached from ${formId}`);
     const declared = b.columnLength(sql, table, column);
     h.assert(Number(await box.getAttribute('maxlength')) === declared * 2,
       `${input} maxlength disagrees with column ${table}.${column} (${declared} characters, two UTF-16 units each)`);
@@ -120,6 +122,8 @@ async function openAddForm(s, term) {
   await search.waitForLoadState('networkidle').catch(() => {});
   await search.locator("form[action$='/demographic/ViewDemographicAddARecordHtm'] button[type='submit']").first().click();
   await search.locator('form[name="adddemographic"]').waitFor({ timeout: TIMEOUT });
+  // The shared field-limit script applies its attributes during DOMContentLoaded.
+  await search.waitForLoadState('domcontentloaded');
   return search;
 }
 
@@ -229,10 +233,9 @@ async function workflow(s) {
   await s.step('the add form counts an alert line break as CR LF: an alert at the limit is saved whole, one more is refused (#5869)', async () => {
     const max = alertMax();
     add = await openAddForm(s, tag + 'A');
-    await add.waitForLoadState('domcontentloaded');
-    const form = await fillBasics(add, tag + 'A', 'Alert');
-    await assertAlertAndNoteLimits(form, sql, ALERT_AND_NOTE_COLUMNS.add);
-    const alertBox = form.locator('textarea[name="cust3"]');
+    await fillBasics(add, tag + 'A', 'Alert');
+    await assertAlertAndNoteLimits(add, 'adddemographic', sql, ALERT_AND_NOTE_COLUMNS.add);
+    const alertBox = add.locator('textarea[name="cust3"]');
     await assertAlertRefused(alertBox, multiline(max - 1, 1), max, 'Add form alert one past the limit by a CR LF');
     const over = multiline(max - 1, 2);
     await assertAlertRefused(alertBox, over, max, 'Add form alert with two line breaks');
@@ -256,8 +259,8 @@ async function workflow(s) {
     const edit = add.locator('#editDemographic');
     await edit.waitFor({ state: 'visible', timeout: TIMEOUT });
     await add.waitForLoadState('domcontentloaded');
-    await assertAlertAndNoteLimits(edit, sql, ALERT_AND_NOTE_COLUMNS.edit);
-    const alertBox = edit.locator('textarea[name="alert"]');
+    await assertAlertAndNoteLimits(add, 'updatedelete', sql, ALERT_AND_NOTE_COLUMNS.edit);
+    const alertBox = add.locator('textarea[name="alert"]');
     // The stored CR LF reads back as one LF in the box: the same value the Add form held.
     h.assert(await alertBox.inputValue() === atLimit, 'The Edit form does not redisplay the stored alert whole');
     h.assert(await alertBox.evaluate(field => field.checkValidity()), 'The Edit form refuses the alert it stored');

@@ -26,8 +26,8 @@ function removeMarkedPatients(sql, marker) {
   ids.forEach(id => h.assert(/^[1-9]\d*$/.test(id), 'Marked patient id is not numeric'));
   if (!ids.length) return;
   const list = ids.join(',');
-  const archives = sql.rows(`SELECT id FROM demographicArchive WHERE demographic_no IN (${list})`).map(row => row[0]);
-  if (archives.length) sql.execute(`DELETE FROM demographicExtArchive WHERE archiveId IN (${archives.join(',')})`);
+  // Imported extension archives can share archive IDs with unrelated patient snapshots.
+  // The application records the demographic number on every extension archive it creates.
   for (const table of ['demographicExtArchive', 'demographicExt', 'demographiccust', 'demographicArchive']) {
     sql.execute(`DELETE FROM ${table} WHERE demographic_no IN (${list})`);
   }
