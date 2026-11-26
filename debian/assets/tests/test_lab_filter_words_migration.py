@@ -868,19 +868,87 @@ class TestLabFilterWordsMigration(unittest.TestCase):
         self.assertLess(text.index('        LAB_FILTER_SENTINEL='),
                         text.index('        LAB_FILTER_WORDS_SENTINEL='))
 
+    @staticmethod
+    def purge_removes_sentinel(text):
+        """True when the purge branch of `text` has an EXECUTED top-level `rm` naming the sentinel.
+
+        Reads the branch's logical commands (a trailing backslash continues one), tokenises each the way a
+        shell does (quotes removed, `#` starts a comment, `;` `&&` `||` end the command) and requires the
+        command to start with `rm`, to sit at the branch's own indent (not inside an `if` or a loop) and to
+        name `${STATE}/<sentinel>` among the words before its first separator."""
+        import shlex
+        start = text.index("\n    purge)\n")
+        end = text.index("\n        ;;", start)
+        commands, current = [], None
+        for line in text[start:end].splitlines()[1:]:
+            if current is not None:
+                current += " " + line.strip()
+            elif line.strip():
+                current = line
+            else:
+                continue
+            if current.endswith("\\"):
+                current = current[:-1]
+                continue
+            commands.append(current)
+            current = None
+        target = "${STATE}/" + SENTINEL
+        for command in commands:
+            indent = len(command) - len(command.lstrip(" "))
+            if indent != 8 or command.lstrip().startswith("#"):
+                continue
+            lexer = shlex.shlex(command, posix=True, punctuation_chars=True)
+            lexer.commenters = "#"
+            lexer.whitespace_split = True
+            try:
+                tokens = list(lexer)
+            except ValueError:  # an unterminated quote
+                continue
+            words = []
+            for token in tokens:
+                if token in (";", "&&", "||", ";;", "&"):
+                    break
+                words.append(token)
+            if words[:1] == ["rm"] and target in words:
+                return True
+        return False
+
     def test_purge_removes_the_sentinel(self):
         # purge keeps carlos.properties, so a reinstall must migrate again. The removal must be an
         # EXECUTED rm in the purge branch: a mention in a comment, or in another branch, is not one.
-        text = POSTRM.read_text(encoding="utf-8")
-        start = text.index("\n    purge)\n")
-        end = text.index("\n        ;;", start)
-        code = "\n".join(line for line in text[start:end].splitlines()
-                         if not line.strip().startswith("#"))
-        # a command continued with a trailing backslash is one command
-        commands = [" ".join(command.split()) for command in code.replace("\\\n", " ").splitlines()]
-        removals = [command for command in commands
-                    if command.startswith("rm ") and '"${STATE}/' + SENTINEL + '"' in command]
-        self.assertTrue(removals, "the purge branch of postrm must rm the lab filter sentinel")
+        self.assertTrue(self.purge_removes_sentinel(POSTRM.read_text(encoding="utf-8")),
+                        "the purge branch of postrm must rm the lab filter sentinel")
+
+    def test_the_purge_check_rejects_every_way_of_not_running_the_removal(self):
+        real = POSTRM.read_text(encoding="utf-8")
+        line = '              "${STATE}/' + SENTINEL + '" \\\n'
+        self.assertIn(line, real)
+        without = real.replace(line, "", 1)
+        last = '              "${STATE}/.install-incomplete"\n'
+        self.assertIn(last, without)
+        named = '"${STATE}/' + SENTINEL + '"'
+        mutants = {
+            # M1: the name stays only in a comment line
+            "comment line": without.replace(last, last + "        # " + named + "\n", 1),
+            # M2: an inline trailing comment on the last line of the rm
+            "inline comment": without.replace(last, last.rstrip("\n") + " # " + named + "\n", 1),
+            # M3: the rm inside a block that never runs
+            "dead block": without.replace(
+                last, last + "        if false; then\n            rm -f " + named + "\n        fi\n", 1),
+            # M5: the name after a `;`, as an argument of another command
+            "after a separator": without.replace(
+                last, last + "        rm -f /nonexistent; echo " + named + "\n", 1),
+            # the name only in an echo, not an rm
+            "echo": without.replace(last, last + "        echo " + named + "\n", 1),
+            # the removal gone altogether
+            "absent": without,
+        }
+        for name, text in mutants.items():
+            self.assertNotEqual(text, real, name)
+            self.assertFalse(self.purge_removes_sentinel(text), name)
+        # and the same removal on a line of its own, executed, is accepted
+        accepted = without.replace(last, last + "        rm -f " + named + "\n", 1)
+        self.assertTrue(self.purge_removes_sentinel(accepted))
 
 
 if __name__ == "__main__":

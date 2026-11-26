@@ -762,6 +762,10 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
                 "2026.10.09   | 2026.10.09",
                 "12.05.2026   | 12.05.2026",
                 "2026-1-9     | 2026-1-9",
+                // The skip looks at the shape, not the calendar: a bare date-shaped run that is not a real date is
+                // filed whole, like any run of digits and separators (with text after it, see below, it is skipped).
+                "2026-13-40   | 2026-13-40",
+                "2026-02-30   | 2026-02-30",
                 // Ordinary numbers keep the leading-number rule (#6121 skips only a leading date), also when a
                 // date or another number follows: a date form uses the same separator twice.
                 "6.5 2026-10-09 | 6.5",
@@ -805,6 +809,8 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
                 // A result that starts with a date and goes on is not a date (#6121).
                 "2026-10-09 repeat", "12/05/2026 see note", "2026 10 09 repeat", "2026-10-09T10:30", "01/02/2026 (approx)",
                 "2026/10/09 x", "9.5.2026 x", "12.05.2026 x", "9 5 2026 x",
+                // The shape decides, not the calendar: an out-of-range date with more text after it is skipped too.
+                "2026-13-40 repeat", "2026-02-30 repeat",
                 // Nor is a date with spaces or a month name filed as its first part when no date alternative takes it.
                 "10 12 2026", "9 5 2026", "2026 10 9", "09-Oct-2026", "09-Oct-2026 x", "9 October 2026"})
         void shouldNotFilePartOfTheResult_whenAWordOrDateIsNotTheWholeResult(String result) throws IOException {
