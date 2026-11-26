@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/dao/forms/RehabStudyFormDao.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 89.65517241379311,
+    "instructions": 92.5925925925926,
+    "branches": 66.66666666666667,
+    "sourceBlob": "00b3b445dd51ccb8263a4281c763d6ebb0983aca"
+  },
+  "evidenceSha256": "adaaab45a70f5bda8eeccf055524a91cf74ac6a15433bee9236539eb7e58401f"
+}
