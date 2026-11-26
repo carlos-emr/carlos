@@ -46,4 +46,14 @@ public interface EFormDocsDao extends AbstractDao<EFormDocs> {
     List<Object[]> findLabs(Integer fdid);
     List<EFormDocs> findByFdidIdDocTypeForUpdate(Integer id, String docType);
 
+    /**
+     * Active attachments of other eForms that point at this document, locked for update. Used when
+     * an eForm instance is replaced by a revision, so eForms that attached it follow the revision.
+     *
+     * @param docType the attached document's type, such as {@link io.github.carlos_emr.carlos.commn.model.EFormDocs#DOCTYPE_EFORM}
+     * @param documentNo the attached document's id
+     * @return the active (not deleted) attachment rows naming it
+     */
+    List<EFormDocs> findActiveByAttachedDocumentForUpdate(String docType, Integer documentNo);
+
 }

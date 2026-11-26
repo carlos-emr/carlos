@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
+import io.github.carlos_emr.carlos.commn.model.EFormDocs;
 import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
@@ -67,6 +68,9 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private EFormDataDao eFormDataDao;
+
+    @Autowired
+    private EFormDocsDao eFormDocsDao;
 
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
@@ -449,6 +453,49 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
             fixture.activeFormWithMissingTarget = createConsultDoc(consult.getId(), 990005, ConsultDocs.DOCTYPE_FORM, null);
             fixture.activeHrmWithMissingTarget = createConsultDoc(consult.getId(), 990006, ConsultDocs.DOCTYPE_HRM, null);
             return fixture;
+        }
+    }
+
+    /**
+     * The attachments that point at one document, which an eForm revision moves to its new fdid
+     * (EFormInstanceService). Both lookups must find every active row naming the document, in
+     * every packet or eForm, and nothing else.
+     */
+    @Nested
+    @DisplayName("findActiveByAttachedDocumentForUpdate")
+    class AttachedDocumentLookup {
+
+        @Test
+        @DisplayName("should find every active consultation attachment of the document, across requests, in id order")
+        void shouldFindActiveConsultAttachments_ofDocumentAcrossRequests() {
+            ConsultDocs first = createConsultDoc(701, 5, ConsultDocs.DOCTYPE_EFORM, null);
+            ConsultDocs second = createConsultDoc(702, 5, ConsultDocs.DOCTYPE_EFORM, null);
+            createConsultDoc(703, 5, ConsultDocs.DOCTYPE_EFORM, ConsultDocs.DELETED); // removed from its packet
+            createConsultDoc(704, 5, ConsultDocs.DOCTYPE_DOC, null);                  // document 5, not eForm 5
+            createConsultDoc(705, 6, ConsultDocs.DOCTYPE_EFORM, null);                // another eForm
+
+            List<ConsultDocs> found = consultDocsDao.findActiveByAttachedDocumentForUpdate(ConsultDocs.DOCTYPE_EFORM, 5);
+
+            assertThat(found).extracting(ConsultDocs::getId).containsExactly(first.getId(), second.getId());
+        }
+
+        @Test
+        @DisplayName("should find every active eForm attachment of the document, across eForms, in id order")
+        void shouldFindActiveEFormAttachments_ofDocumentAcrossEForms() {
+            EFormDocs first = new EFormDocs(801, 5, EFormDocs.DOCTYPE_EFORM, PROVIDER_NO);
+            eFormDocsDao.persist(first);
+            EFormDocs second = new EFormDocs(802, 5, EFormDocs.DOCTYPE_EFORM, PROVIDER_NO);
+            eFormDocsDao.persist(second);
+            EFormDocs deleted = new EFormDocs(803, 5, EFormDocs.DOCTYPE_EFORM, PROVIDER_NO);
+            deleted.setDeleted(EFormDocs.DELETED);
+            eFormDocsDao.persist(deleted);
+            eFormDocsDao.persist(new EFormDocs(804, 5, EFormDocs.DOCTYPE_DOC, PROVIDER_NO));
+            eFormDocsDao.persist(new EFormDocs(805, 6, EFormDocs.DOCTYPE_EFORM, PROVIDER_NO));
+            entityManager.flush();
+
+            List<EFormDocs> found = eFormDocsDao.findActiveByAttachedDocumentForUpdate(EFormDocs.DOCTYPE_EFORM, 5);
+
+            assertThat(found).extracting(EFormDocs::getId).containsExactly(first.getId(), second.getId());
         }
     }
 

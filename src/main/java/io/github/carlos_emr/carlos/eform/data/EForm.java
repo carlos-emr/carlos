@@ -375,6 +375,24 @@ public class EForm extends EFormBase {
         }
     }
 
+    /**
+     * Unchecks every checkbox with this name. For callers that send an explicit clear, such as
+     * the REST API: {@link #setValues} checks a box for any submitted value, because a browser
+     * leaves an unchecked box out of its submission and so never needs to clear one.
+     *
+     * @param fieldName the checkbox name
+     */
+    public void uncheckCheckboxes(String fieldName) {
+        Document document = getDocument();
+        if (document == null) return;
+        for (Element box : document.select("input[type=checkbox][name=\"" + TokenQueue.escapeCssIdentifier(fieldName) + "\"]")) {
+            box.removeAttr("checked");
+        }
+        // Flush the edited DOM to formHtml now: the later string-level steps (setAction,
+        // setNowDateTime) read the field directly and would otherwise be overwritten by it.
+        getFormHtml();
+    }
+
     // ------------------Saving the Form (inserting fdid$value= statements)---------------------
     public void setOpenerValues(ArrayList<String> names, ArrayList<String> values) {
         StringBuilder html = new StringBuilder(this.formHtml);

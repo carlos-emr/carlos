@@ -116,4 +116,13 @@ public class EFormDocsDaoImpl extends AbstractDaoImpl<EFormDocs> implements EFor
                 .setLockMode(LockModeType.PESSIMISTIC_WRITE).getResultList();
     }
 
+    @Override
+    public List<EFormDocs> findActiveByAttachedDocumentForUpdate(String docType, Integer documentNo) {
+        // Ordered by id, so concurrent callers lock the rows in the same order.
+        return entityManager.createQuery("select x from EFormDocs x where x.docType = :docType"
+                        + " and x.documentNo = :documentNo and x.deleted is null order by x.id", EFormDocs.class)
+                .setParameter("docType", docType).setParameter("documentNo", documentNo)
+                .setLockMode(LockModeType.PESSIMISTIC_WRITE).getResultList();
+    }
+
 }

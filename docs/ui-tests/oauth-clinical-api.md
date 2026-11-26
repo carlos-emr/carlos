@@ -18,6 +18,15 @@ together.
   remain unchanged. A `PUT` correction of a measurement is recorded as a `GAP`
   (HTTP 404/405, see #6136).
 - eForm template listing, create, load, update, and persisted read-after-write.
+- Saved patient eForm instances (`/ws/services/eform/instance`): create, read,
+  revise (sending a GET response back with new values) and delete, each checked
+  in `eform_data`/`eform_values`; a 409 for revising or deleting a retired row
+  and a 404 for an unknown `fdid`. Before an `fdid` is looked for in or
+  missing from the patient's eForm list, the page is confirmed to be that
+  patient's active list. The same instances are then checked as the
+  signed-in provider sees them: the patient's eForm list, the saved form opened
+  in the browser (values, cleared fields, template defaults, and submitted
+  markup staying text), and the deleted-eForms list.
 - HL7 lab message listing and malformed-upload rejection. A valid synthetic
   PATHL7 ORU upload and patient-specific read-after-upload are also tested when
   `LAB_UPLOAD_DOCUMENT_STORE` points to the running server's `DOCUMENT_DIR`.
@@ -28,11 +37,14 @@ together.
 - Scheduling day/status/month/provider-period/patient-history reads, including
   the endpoint used to find the patient's existing appointments.
 - `insufficient_scope` refusals for demographic update, measurement create,
-  and eForm template read/update operations when the token lacks the
+  and eForm template and instance operations when the token lacks the
   corresponding scope. The limited `demographic.read measurement.read` token is
-  accepted for the measurement read.
+  accepted for the measurement read. A token with only `eform.read` can read an
+  instance but cannot create, revise or delete one.
 
-The eForm endpoints manage templates, not completed patient eForm instances.
+eForm templates (`/eform/{id}`) and saved instances (`/eform/instance/{fdid}`)
+are separate resources; see [the eForm instance API](../eform-instance-rest-api.md)
+for the instance contract.
 New patient measurements use `POST /ws/services/measurements/{demographicNo}/new`
 with a measurement `type` and `dataField`, plus optional comments, instructions,
 and observation timestamp. This records a separate reading and does not edit a
@@ -111,14 +123,14 @@ OAUTH_CLINICAL_API_ONLY=rx EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-
 OAUTH_CLINICAL_API_ONLY=schedule EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
 OAUTH_CLINICAL_API_ONLY=eforms EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
 OAUTH_CLINICAL_API_ONLY=eforms.templates EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
+OAUTH_CLINICAL_API_ONLY=eforms.instances EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
 ```
 
 `all` or an unset selector runs the full check. `measurements` runs both the
 read and new-measurement write checks. The `.read` and `.write` selectors run only
 that operation group; the write group also verifies that a token without
 `measurement.write` is refused and reads the saved result back to verify
-persistence. `eforms` and `eforms.templates` both run the eForm template
-checks. Every focused run still performs OAuth and creates the synthetic
+persistence. `eforms` runs both `eforms.templates` and `eforms.instances`. Every focused run still performs OAuth and creates the synthetic
 patient and measurement fixture used by the API workflows, then skips the
 other endpoint groups. Cleanup removes the temporary patient and its clinical
 rows.
@@ -139,15 +151,21 @@ that details can be loaded.
 
 The check creates one uniquely marked synthetic demographic, two BP
 measurements (a SQL fixture and, when the measurement-write group runs, the
-API reading), one synthetic medication/prescription, one eForm template, and
+API reading), one synthetic medication/prescription, two eForm templates with
+the patient's saved instances, and
 one temporary OAuth client with issued tokens/nonces. When the `demographics`
 group runs, the API soft-deletes the synthetic demographic (the row stays with
 `patient_status` `DE`, which the check verifies). Final cleanup removes the
 demographic row and verifies/removes any remaining owned clinical rows, OAuth
-records, the eForm template, and (when configured) the imported lab rows, the
+records, the eForm templates and instances, and (when configured) the imported lab rows, the
 lab routing lock rows the run created, and the archived file. Run it serially
 and never against a shared or production database.
 
 ## API capability follow-up
 
 Measurement creation saves a new row and preserves previous readings.
+Saved eForm instances follow the same rule: a revision stores a new row and
+retires the old one, taking over its attachments and the consultation packets
+that carried it. Unlike a browser re-save, which leaves the old row current, the
+retired revision then also appears in the patient's deleted-eForms list; the
+endpoint table notes when it does.

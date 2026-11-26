@@ -28,8 +28,12 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.commn.dao.EFormDao;
 import io.github.carlos_emr.carlos.commn.model.EForm;
+import io.github.carlos_emr.carlos.commn.model.EFormData;
+import io.github.carlos_emr.carlos.eform.EFormInstanceService;
+import io.github.carlos_emr.carlos.eform.EFormInstanceService.EFormInstanceException;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.EFormConverter;
 import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.EFormInstanceTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.EFormTo1;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
@@ -38,6 +42,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
@@ -49,14 +54,20 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.persistence.PersistenceException;
 import java.io.IOException;
+import java.util.LinkedHashMap;
 
 /**
  * REST service for managing individual eForms in CARLOS EMR.
  *
- * <p>Provides endpoints to load, create, and update eForm templates.
- * All endpoints require valid OAuth authentication and {@code _eform} privilege
- * via {@link SecurityInfoManager}. eForm HTML content may be large; callers
- * should handle responses accordingly.</p>
+ * <p>Provides endpoints to load, create, and update eForm templates, and to read, create,
+ * revise and delete saved eForm instances ({@code /eform/instance}). All endpoints require
+ * valid OAuth authentication and {@code _eform} privilege via {@link SecurityInfoManager};
+ * instance endpoints also check that privilege for the instance's patient. eForm HTML content
+ * may be large; callers should handle responses accordingly.</p>
+ *
+ * <p>Instance endpoints keep the web UI's rule that a saved instance is never rewritten: a
+ * revision stores a new row and retires the old one, and a delete only retires the row. See
+ * {@link EFormInstanceService}.</p>
  *
  * <p>Base path: {@code /eform}</p>
  *
@@ -74,6 +85,9 @@ public class EFormService extends AbstractServiceImpl {
 
 	@Autowired
 	private SecurityInfoManager securityInfoManager;
+
+	@Autowired
+	private EFormInstanceService eFormInstanceService;
 
 	/**
 	 * Retrieves an eForm with the given id, including full HTML content.
@@ -363,6 +377,216 @@ public class EFormService extends AbstractServiceImpl {
 			}
 		}
 		return RestResponse.errorResponse("Invalid Eform Data");
+	}
+
+	// ─── Saved instances (eform_data) ──────────────────────────────────────────
+
+	/**
+	 * Retrieves a saved eForm instance with its rendered HTML and stored field values. Retired
+	 * instances (deleted or replaced by a revision) are returned too, with {@code current=false}.
+	 *
+	 * <p>HTTP: {@code GET /eform/instance/{fdid}} — produces {@code application/json}</p>
+	 *
+	 * @param fdid Integer the instance id
+	 * @return {@link RestResponse} with the {@link EFormInstanceTo1}, including {@code formHtml};
+	 *         HTTP 404 when no instance has this id or the caller may not see it
+	 */
+	@GET
+	@Path("/instance/{fdid}")
+	@Produces(MediaType.APPLICATION_JSON)
+	public RestResponse<EFormInstanceTo1> getEFormInstance(@PathParam("fdid") Integer fdid) {
+		// Coarse gate; EFormInstanceService then checks the right for the instance's patient and role.
+		if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_eform", SecurityInfoManager.READ, null)) {
+			return RestResponse.errorResponse("Access Denied");
+		}
+		try {
+			EFormInstanceService.Instance instance = eFormInstanceService.get(getLoggedInInfo(), fdid);
+			EFormInstanceTo1 transferObj = toInstanceTransferObject(instance.data());
+			transferObj.setValues(new LinkedHashMap<>(instance.values()));
+			transferObj.setFormHtml(instance.data().getFormData());
+			return RestResponse.successResponse(transferObj);
+		} catch (EFormInstanceService.InstanceAccessDeniedException e) {
+			return instanceHiddenResponse();
+		} catch (SecurityException e) {
+			return RestResponse.errorResponse("Access Denied");
+		} catch (EFormInstanceException e) {
+			return instanceErrorResponse(e);
+		}
+	}
+
+	/**
+	 * Saves a new instance of an active eForm template for a patient, filling the template with the
+	 * given field values the same way the browser save does.
+	 *
+	 * <p>HTTP: {@code POST /eform/instance} — consumes and produces {@code application/json}</p>
+	 *
+	 * @param request {@link EFormInstanceTo1} with {@code fid} and {@code demographicNo} (required),
+	 *                and {@code subject} (defaults to the template's) and {@code values} (optional)
+	 * @return {@link RestResponse} with the saved {@link EFormInstanceTo1} (without HTML); its
+	 *         {@code fdid} identifies the new instance
+	 */
+	@POST
+	@Path("/instance")
+	@Consumes(MediaType.APPLICATION_JSON)
+	@Produces(MediaType.APPLICATION_JSON)
+	public RestResponse<EFormInstanceTo1> createEFormInstance(EFormInstanceTo1 request) {
+		// Coarse gate; EFormInstanceService then checks the right for the instance's patient and role.
+		if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_eform", SecurityInfoManager.WRITE, null)) {
+			return RestResponse.errorResponse("Access Denied");
+		}
+		if (request == null || request.getFid() == null || request.getDemographicNo() == null) {
+			return RestResponse.errorResponse("fid and demographicNo are required");
+		}
+		try {
+			EFormData saved = eFormInstanceService.create(getLoggedInInfo(), request.getFid(),
+					request.getDemographicNo(), request.getSubject(), request.getValues(), contextPath());
+			return RestResponse.successResponse(toSavedInstanceTransferObject(saved, request));
+		} catch (SecurityException e) {
+			return RestResponse.errorResponse("Access Denied");
+		} catch (EFormInstanceException e) {
+			return instanceErrorResponse(e);
+		}
+	}
+
+	/**
+	 * Revises a saved instance: stores a new instance built from the template and the given values,
+	 * and retires the old one, in one transaction. The response carries the new {@code fdid}; the
+	 * old id stays readable as history but can no longer be revised or deleted.
+	 *
+	 * <p>The values replace the old ones completely: a field left out gets the template default.
+	 * {@code values} is required, so a body without it cannot reset the form; send {@code {}} to save
+	 * the template defaults on purpose. {@code fid} and {@code demographicNo} cannot be changed and
+	 * are ignored in the body. For a template that shows only its latest form, a revision of a row
+	 * that a newer form of the same template has replaced in the chart is refused with HTTP 409.</p>
+	 *
+	 * <p>HTTP: {@code PUT /eform/instance/{fdid}} — consumes and produces {@code application/json}</p>
+	 *
+	 * @param fdid    Integer the instance to revise; it must be current
+	 * @param request {@link EFormInstanceTo1} with {@code values} (required) and optionally
+	 *                {@code subject} (defaults to the old instance's)
+	 * @return {@link RestResponse} with the new {@link EFormInstanceTo1} (without HTML); HTTP 404
+	 *         when no instance has this id, HTTP 409 when it was already deleted or revised, or a
+	 *         newer form replaced it in the chart
+	 */
+	@PUT
+	@Path("/instance/{fdid}")
+	@Consumes(MediaType.APPLICATION_JSON)
+	@Produces(MediaType.APPLICATION_JSON)
+	public RestResponse<EFormInstanceTo1> reviseEFormInstance(@PathParam("fdid") Integer fdid, EFormInstanceTo1 request) {
+		// Coarse gate; EFormInstanceService then checks the right for the instance's patient and role.
+		// Write, as the browser re-save needs: a revision stores a new row, it does not edit one.
+		if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_eform", SecurityInfoManager.WRITE, null)) {
+			return RestResponse.errorResponse("Access Denied");
+		}
+		if (request == null) {
+			return RestResponse.errorResponse("Request body is required");
+		}
+		try {
+			EFormData saved = eFormInstanceService.revise(getLoggedInInfo(), fdid, request.getSubject(),
+					request.getValues(), contextPath());
+			return RestResponse.successResponse(toSavedInstanceTransferObject(saved, request));
+		} catch (EFormInstanceService.InstanceAccessDeniedException e) {
+			return instanceHiddenResponse();
+		} catch (SecurityException e) {
+			return RestResponse.errorResponse("Access Denied");
+		} catch (EFormInstanceException e) {
+			return instanceErrorResponse(e);
+		}
+	}
+
+	/**
+	 * Deletes a saved instance the way the eForm list's delete button does: the row is retired
+	 * ({@code current=false}), not removed, and can be restored from the deleted-eForms list.
+	 *
+	 * <p>HTTP: {@code DELETE /eform/instance/{fdid}} — produces {@code application/json}</p>
+	 *
+	 * @param fdid Integer the instance to delete; it must be current
+	 * @return {@link RestResponse} whose body is the retired {@code fdid}; HTTP 404 when no instance
+	 *         has this id, HTTP 409 when it was already deleted or revised
+	 */
+	@DELETE
+	@Path("/instance/{fdid}")
+	// Explicit, although DELETE has no body: without it CXF answers 415 to a client that sends
+	// Content-Type: application/json on every request, as JSON clients commonly do.
+	@Consumes(MediaType.WILDCARD)
+	@Produces(MediaType.APPLICATION_JSON)
+	public RestResponse<Integer> deleteEFormInstance(@PathParam("fdid") Integer fdid) {
+		// Coarse gate; EFormInstanceService then checks the right for the instance's patient and role.
+		if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_eform", SecurityInfoManager.WRITE, null)) {
+			return RestResponse.errorResponse("Access Denied");
+		}
+		try {
+			eFormInstanceService.delete(getLoggedInInfo(), fdid);
+			return RestResponse.successResponse(fdid);
+		} catch (EFormInstanceService.InstanceAccessDeniedException e) {
+			return instanceHiddenResponse();
+		} catch (SecurityException e) {
+			return RestResponse.errorResponse("Access Denied");
+		} catch (EFormInstanceException e) {
+			return instanceErrorResponse(e);
+		}
+	}
+
+	/** The application's context path, for the links a template's chart writes put in notes. */
+	private String contextPath() {
+		// No current CXF message outside a REST request; getHttpServletRequest() assumes one.
+		if (org.apache.cxf.phase.PhaseInterceptorChain.getCurrentMessage() == null) {
+			return "";
+		}
+		jakarta.servlet.http.HttpServletRequest request = getHttpServletRequest();
+		return request == null ? "" : request.getContextPath();
+	}
+
+	private static EFormInstanceTo1 toInstanceTransferObject(EFormData data) {
+		EFormInstanceTo1 transferObj = new EFormInstanceTo1();
+		transferObj.setFdid(data.getId());
+		transferObj.setFid(data.getFormId());
+		transferObj.setDemographicNo(data.getDemographicId());
+		transferObj.setFormName(data.getFormName());
+		transferObj.setSubject(data.getSubject());
+		transferObj.setProviderNo(data.getProviderNo());
+		transferObj.setFormDate(data.getFormDate());
+		transferObj.setFormTime(data.getFormTime());
+		transferObj.setCurrent(data.isCurrent());
+		return transferObj;
+	}
+
+	/** A just-saved instance echoes the values it was saved from, without the (large) HTML. */
+	private static EFormInstanceTo1 toSavedInstanceTransferObject(EFormData saved, EFormInstanceTo1 request) {
+		EFormInstanceTo1 transferObj = toInstanceTransferObject(saved);
+		if (request.getValues() != null) {
+			transferObj.setValues(new LinkedHashMap<>(request.getValues()));
+		}
+		return transferObj;
+	}
+
+	/**
+	 * Answers an instance the caller may not see (its patient, patient record or role) exactly as a
+	 * missing one, so a caller who passes the global {@code _eform} gate cannot tell which fdids
+	 * exist for other patients. Checked before the retired state, so 409 only reaches callers
+	 * allowed to see the row.
+	 */
+	private <T> RestResponse<T> instanceHiddenResponse() {
+		return instanceErrorResponse(new EFormInstanceException(EFormInstanceException.Reason.NOT_FOUND));
+	}
+
+	/**
+	 * Maps a refused instance operation to a response. A missing instance is a 404, as for
+	 * templates, and a retired or superseded one is a 409, so a client can tell "re-read for the
+	 * newer revision" apart from a bad request. Other refusals keep this service's 200-with-error
+	 * convention.
+	 */
+	private <T> RestResponse<T> instanceErrorResponse(EFormInstanceException e) {
+		Response.Status status = switch (e.getReason()) {
+			case NOT_FOUND -> Response.Status.NOT_FOUND;
+			case RETIRED, SUPERSEDED -> Response.Status.CONFLICT;
+			default -> null;
+		};
+		if (status == null) {
+			return RestResponse.errorResponse(e.getReason().message());
+		}
+		throw new WebApplicationException(Response.status(status)
+				.entity(RestResponse.errorResponse(e.getReason().message())).build());
 	}
 
 	/**

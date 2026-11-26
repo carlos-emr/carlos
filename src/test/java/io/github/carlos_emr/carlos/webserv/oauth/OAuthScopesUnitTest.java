@@ -293,6 +293,16 @@ class OAuthScopesUnitTest {
                         .as(String.valueOf(method)).isEqualTo("patientstatus.write");
             }
         }
+
+        @Test
+        @DisplayName("should require eform.read to read a saved instance and eform.write to create, revise or delete one")
+        void shouldMapEFormInstanceMethods_toReadAndWriteScopes() {
+            assertThat(OAuthScopes.requiredScope("GET", "/services/eform/instance/5")).isEqualTo("eform.read");
+            assertThat(OAuthScopes.requiredScope("POST", "/services/eform/instance")).isEqualTo("eform.write");
+            assertThat(OAuthScopes.requiredScope("PUT", "/services/eform/instance/5")).isEqualTo("eform.write");
+            assertThat(OAuthScopes.requiredScope("DELETE", "/services/eform/instance/5")).isEqualTo("eform.write");
+            assertThat(OAuthScopes.requiredScope("POST", "/services/eform/instance.json")).isEqualTo("eform.write");
+        }
     }
 
     @Nested
