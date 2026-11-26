@@ -286,7 +286,8 @@ class DrugConverterUnitTest {
         /**
          * The unit is the unit of the first ingredient. Everything up to the next number was taken
          * as the unit, so "5 mg / 20 mg" gave the unit "mg / " and a client that sent the drug back
-         * stored "5 mg /".
+         * stored "5 mg /". A number that comes after the first one's unit does not make the first
+         * something else: it belongs to the unit ("mg/5mL"), to another ingredient or to a note.
          */
         @ParameterizedTest(name = "stored \"{0}\" -> {1} {2}")
         @CsvSource({
@@ -300,7 +301,10 @@ class DrugConverterUnitTest {
             "250 mg/5mL, 250, mg/5mL",
             "'  5 mg', 5, mg",
             "10 %, 10, %",
-            ".5 mg, 0.5, mg"
+            ".5 mg, 0.5, mg",
+            "5 mg (10 mg/mL), 5, mg",
+            "10% (100 mg/mL), 10, %",
+            "5 mg 1:1000, 5, mg"
         })
         @DisplayName("should read the first ingredient's strength and unit, and keep a unit of concentration whole")
         void shouldReadFirstStrengthAndUnit_forCombinationAndConcentration(String stored, float strength, String unit) {
@@ -342,52 +346,26 @@ class DrugConverterUnitTest {
         }
 
         /**
-         * A number that goes on after a comma, a slash or a hyphen is not one plain decimal:
-         * grouped digits ("1,000 mg"), a decimal comma ("2,5 mg"), a fraction ("1/2 mg"), a
-         * combination written together ("5/20 mg") or a range ("5-10 mg"). Its first digits are
-         * not the strength (1 is not 1,000), and the single strength field cannot carry the rest,
-         * so none is reported; the stored text is unchanged.
-         */
-        @ParameterizedTest(name = "stored \"{0}\"")
-        @ValueSource(strings = {"1,000 mg", "2,5 mg", "1/2 mg", "5/20 mg", "5-10 mg", "0.5-1 mg", "1,000"})
-        @DisplayName("should report no strength when the first number is not one plain decimal")
-        void shouldReportNoStrength_whenFirstNumberIsNotOnePlainDecimal(String stored) {
-            assertNoStrengthRead(stored);
-        }
-
-        /**
-         * The leading digits are no more the strength when blanks stand around the separator
-         * ("1 / 2 mg", "5 - 10 mg"), when a blank groups the digits ("1 000 mg", also with a
-         * no-break space), or when another mark joins the two numbers: a ratio ("1:1000"), a
-         * combination ("5+20 mg"), a power ("10^9 CFU"). Only the character directly after the
-         * number was looked at, so "1 / 2 mg" was reported as 1 and a client that sent the drug
-         * back stored "1".
+         * When another number follows the leading one before any unit, the leading digits are not
+         * the strength (1 is not 1,000): grouped digits ("1,000 mg", "1 000 mg", also with a
+         * no-break space), a decimal comma ("2,5 mg"), a fraction ("1/2 mg"), a combination
+         * written together ("5/20 mg", "5+20 mg"), a range ("5-10 mg"), a ratio ("1:1000") or a
+         * power ("10^9 CFU"). The single strength field cannot carry the rest, so none is
+         * reported; the stored text is unchanged.
+         *
+         * <p>Blanks around the mark between the two numbers change nothing. Only the character
+         * directly after the number was looked at, so "1 / 2 mg" was reported as 1 and a client
+         * that sent the drug back stored "1".
          */
         @ParameterizedTest(name = "stored \"{0}\"")
         @ValueSource(strings = {
-            "1 / 2 mg", "1/ 2 mg", "1 /2 mg", "5 - 10 mg", "1 ,000 mg", "1 000 mg", "1 000 mg",
+            "1,000 mg", "2,5 mg", "1/2 mg", "5/20 mg", "5-10 mg", "0.5-1 mg", "1,000",
+            "1 / 2 mg", "1/ 2 mg", "1 /2 mg", "5 - 10 mg", "1 ,000 mg", "1 000 mg", "1\u00A0000 mg",
             "2 1/2 mg", "1:1000", "1 : 10 000", "5+20 mg", "10^9 CFU", "1.234.567 mg", "5 (10 mg/mL)"
         })
         @DisplayName("should report no strength when another number follows the first before any unit")
         void shouldReportNoStrength_whenAnotherNumberFollowsBeforeAnyUnit(String stored) {
             assertNoStrengthRead(stored);
-        }
-
-        /**
-         * A later number does not make the first one something else once the first has its unit:
-         * it belongs to the unit ("mg/5mL"), to another ingredient or to a note.
-         */
-        @ParameterizedTest(name = "stored \"{0}\" -> {1} {2}")
-        @CsvSource({
-            "5 mg / 20 mg, 5, mg",
-            "250 mg/5mL, 250, mg/5mL",
-            "5 mg (10 mg/mL), 5, mg",
-            "10% (100 mg/mL), 10, %",
-            "5 mg 1:1000, 5, mg"
-        })
-        @DisplayName("should read the first number when a later number comes after its unit")
-        void shouldReadStrength_whenLaterNumberComesAfterItsUnit(String stored, float strength, String unit) {
-            assertStrengthRead(stored, strength, unit);
         }
 
         /**
