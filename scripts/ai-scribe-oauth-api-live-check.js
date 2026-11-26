@@ -384,59 +384,13 @@ async function cleanup(state) {
   if (browserCloseError) throw browserCloseError;
 }
 
-async function main(state = {}) {
-  // The suite-wide opt-in for checks that write to the deployment (run-playwright-suite.js
-  // demands it of every live run). Required here too because this check is normally run directly.
-  if (process.env.CARLOS_DISPOSABLE_HOST !== 'true') {
-    throw new SkipCheck('Requires CARLOS_DISPOSABLE_HOST=true: this check creates and deletes '
-      + 'patient, clinical, eForm and OAuth rows on a separate disposable scoped installation');
-  }
-  assert(EXPECT_OAUTH_MODE === 'scoped',
-    'AI-Scribe API acceptance requires EXPECT_OAUTH_MODE=scoped on a separate disposable installation');
-  assert(!API_ONLY || API_ONLY === 'all' || API_TEST_GROUPS.has(API_ONLY),
-    `Unsupported AI_SCRIBE_API_ONLY=${API_ONLY}; use all, demographics, measurements, `
-      + 'measurements.read, measurements.write, labs, rxlookup, rx, schedule, eforms, '
-      + 'or eforms.templates');
-  const config = readConfig();
-  const sql = createSqlRunner(config.mysql);
-  state.sql = sql;
-  const app = (appPath) => `${config.baseUrl}${appPath}`;
-  const runMarker = crypto.randomUUID().replace(/-/g, '');
-  const marker = `PWAI${runMarker.slice(0, 12)}`;
-  const today = new Date();
-  const isoDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const nextIsoDate = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
-  const formName = `PW AI-Scribe ${runMarker}`;
-  const consumerKey = crypto.randomBytes(12).toString('hex');
-  const consumerSecret = crypto.randomBytes(24).toString('hex');
-  const providerNo = sql.value(
-    'SELECT provider_no FROM security WHERE user_name=? LIMIT 1',
-    [config.testUser],
-  );
-  if (!providerNo) throw new SkipCheck(`${config.testUser} has no security row; a real provider login is required`);
-  const admissionProgramId = sql.value('SELECT id FROM program ORDER BY id LIMIT 1');
-  assert(/^[1-9]\d*$/.test(admissionProgramId),
-    'The install has no program to admit the synthetic demographic to');
-
-  state.marker = marker;
-  state.formName = formName;
-  state.providerNo = providerNo;
-  state.consumerKey = consumerKey;
-  insertId(
-    sql,
-    `INSERT INTO ServiceClient(name,clientKey,clientSecret,uri,lifetime)
-      VALUES(?,?,?,'oob',3600)`,
-    'AI-Scribe OAuth client',
-    [`PW AI-Scribe ${runMarker}`, consumerKey, consumerSecret],
-  );
-
-  const recorder = createRecorder();
-  const endpointResults = [];
+/**
+ * Endpoint result rows for the run's table. `recordEndpoint` updates the row
+ * `signedRequest` opened for a response (or adds one); `recordFailure` marks a failed
+ * check, reusing the transport-failure row when the request itself failed, so it is reported once.
+ */
+function createEndpointRecorder(endpointResults) {
   const endpointRecords = new WeakMap();
-  state.endpointResults = endpointResults;
-  state.resultsPrinted = false;
   const recordEndpoint = (method, endpointPath, response, verification, outcome = 'PASS') => {
     const row = endpointRecords.get(response);
     if (row) {
@@ -457,13 +411,17 @@ async function main(state = {}) {
       endpointResults.push({ outcome: 'FAIL', method, path: endpointPath, status: 'n/a', verification });
     }
   };
-  state.browser = await launchBrowser(config);
-  const anonContext = await newContext(state.browser, config);
-  const anon = anonContext.request;
-  const sessionContext = await newContext(state.browser, config);
-  await login(sessionContext, config, recorder, { label: 'ai-scribe-oauth-login' });
+  return { endpointRecords, recordEndpoint, recordFailure };
+}
 
-  async function authorize(scopes) {
+/**
+ * Returns authorize(scopes): the out-of-band OAuth 1.0a flow for this run's client, approved in the
+ * signed-in provider's browser session.
+ */
+function createAuthorizer({
+  state, app, anon, sessionContext, recorder, consumerKey, consumerSecret, recordEndpoint,
+}) {
+  return async function authorize(scopes) {
     if (state.throwIfCancelled) state.throwIfCancelled();
     const initiateUrl = app(`/ws/oauth/initiate?scope=${pct(scopes)}`);
     let response = await anon.post(initiateUrl, {
@@ -520,11 +478,14 @@ async function main(state = {}) {
       'OAuth access-token exchange did not return signed credentials');
     recordEndpoint('POST', '/ws/oauth/token', response, `access token issued (${scopes})`);
     return accessToken;
-  }
+  };
+}
 
-  const fullToken = await authorize(REQUIRED_SCOPES);
-  const limitedToken = await authorize(LIMITED_SCOPES);
-  const signedRequest = async (method, requestPath, token, body) => {
+/** Returns signedRequest(method, path, token, body), which records a row for every request it sends. */
+function createSignedRequest({
+  state, app, anon, consumerKey, consumerSecret, endpointResults, endpointRecords,
+}) {
+  return async (method, requestPath, token, body) => {
     // Cooperative cancellation (runCheck's SIGINT/SIGTERM handling): stop before sending the next
     // request, never mid-request, so a submitted write settles before cleanup removes its rows.
     if (state.throwIfCancelled) state.throwIfCancelled();
@@ -561,13 +522,107 @@ async function main(state = {}) {
       throw error;
     }
   };
+}
 
+/**
+ * Checks the opt-ins, registers this run's OAuth client, signs in, issues the full and limited
+ * tokens, and creates the owned synthetic patient and its BP fixture. Returns the run context the
+ * group checks share. Everything created is recorded on `state` for cleanup.
+ */
+async function setUpRun(state) {
+  // The suite-wide opt-in for checks that write to the deployment (run-playwright-suite.js
+  // demands it of every live run). Required here too because this check is normally run directly.
+  if (process.env.CARLOS_DISPOSABLE_HOST !== 'true') {
+    throw new SkipCheck('Requires CARLOS_DISPOSABLE_HOST=true: this check creates and deletes '
+      + 'patient, clinical, eForm and OAuth rows on a separate disposable scoped installation');
+  }
+  assert(EXPECT_OAUTH_MODE === 'scoped',
+    'AI-Scribe API acceptance requires EXPECT_OAUTH_MODE=scoped on a separate disposable installation');
+  assert(!API_ONLY || API_ONLY === 'all' || API_TEST_GROUPS.has(API_ONLY),
+    `Unsupported AI_SCRIBE_API_ONLY=${API_ONLY}; use all, demographics, measurements, `
+      + 'measurements.read, measurements.write, labs, rxlookup, rx, schedule, eforms, '
+      + 'or eforms.templates');
+  const config = readConfig();
+  const sql = createSqlRunner(config.mysql);
+  state.sql = sql;
+  const app = (appPath) => `${config.baseUrl}${appPath}`;
+  const runMarker = crypto.randomUUID().replace(/-/g, '');
+  const marker = `PWAI${runMarker.slice(0, 12)}`;
+  const today = new Date();
+  const isoDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const nextIsoDate = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+  const formName = `PW AI-Scribe ${runMarker}`;
+  const consumerKey = crypto.randomBytes(12).toString('hex');
+  const consumerSecret = crypto.randomBytes(24).toString('hex');
+  const providerNo = sql.value(
+    'SELECT provider_no FROM security WHERE user_name=? LIMIT 1',
+    [config.testUser],
+  );
+  if (!providerNo) throw new SkipCheck(`${config.testUser} has no security row; a real provider login is required`);
+  const admissionProgramId = sql.value('SELECT id FROM program ORDER BY id LIMIT 1');
+  assert(/^[1-9]\d*$/.test(admissionProgramId),
+    'The install has no program to admit the synthetic demographic to');
+
+  state.marker = marker;
+  state.formName = formName;
+  state.providerNo = providerNo;
+  state.consumerKey = consumerKey;
+  insertId(
+    sql,
+    `INSERT INTO ServiceClient(name,clientKey,clientSecret,uri,lifetime)
+      VALUES(?,?,?,'oob',3600)`,
+    'AI-Scribe OAuth client',
+    [`PW AI-Scribe ${runMarker}`, consumerKey, consumerSecret],
+  );
+
+  const recorder = createRecorder();
+  const endpointResults = [];
+  state.endpointResults = endpointResults;
+  state.resultsPrinted = false;
+  const { endpointRecords, recordEndpoint, recordFailure } = createEndpointRecorder(endpointResults);
+  state.browser = await launchBrowser(config);
+  const anonContext = await newContext(state.browser, config);
+  const anon = anonContext.request;
+  const sessionContext = await newContext(state.browser, config);
+  await login(sessionContext, config, recorder, { label: 'ai-scribe-oauth-login' });
+
+  const authorize = createAuthorizer({
+    state, app, anon, sessionContext, recorder, consumerKey, consumerSecret, recordEndpoint,
+  });
+  const fullToken = await authorize(REQUIRED_SCOPES);
+  const limitedToken = await authorize(LIMITED_SCOPES);
+  const signedRequest = createSignedRequest({
+    state, app, anon, consumerKey, consumerSecret, endpointResults, endpointRecords,
+  });
+
+  const ctx = {
+    state, sql, config, recorder, endpointResults, recordEndpoint, recordFailure, signedRequest,
+    fullToken, limitedToken, runMarker, marker, formName, providerNo, admissionProgramId,
+    today, isoDate, nextIsoDate,
+  };
+  await verifyTokenIdentity(ctx);
+  await createPatientFixture(ctx);
+  return ctx;
+}
+
+async function verifyTokenIdentity({ signedRequest, fullToken, providerNo, recordEndpoint }) {
   const infoResponse = await signedRequest('GET', '/ws/services/oauth/info', fullToken);
   await expectStatus(infoResponse, 200, 'Signed OAuth token identity check');
   assert(String((await infoResponse.json()).login) === String(providerNo),
     'The OAuth token is not bound to the provider who approved it');
   recordEndpoint('GET', '/ws/services/oauth/info', infoResponse, 'signed token identity verified');
+}
 
+/**
+ * Creates the owned synthetic patient over OAuth and inserts its BP fixture directly, recording on
+ * the context the ids and names the group checks use.
+ */
+async function createPatientFixture(ctx) {
+  const {
+    state, sql, signedRequest, fullToken, recordEndpoint, runMarker, marker, providerNo, admissionProgramId,
+  } = ctx;
   // The patient's first name as CARLOS currently stores it. The demographics group renames the
   // patient; later fixtures that identify the patient by name (the HL7 PID segment) read this
   // instead of assuming that rename ran, so a focused run (AI_SCRIBE_API_ONLY=labs) matches too.
@@ -606,9 +661,17 @@ async function main(state = {}) {
   const measurementId = sql.value(`SELECT id FROM measurements
     WHERE demographicNo=? AND type='BP' AND comments=?`,
   [patientNo, measurementComment]);
+  ctx.patientFirstName = patientFirstName;
+  ctx.patientNo = patientNo;
+  ctx.measurementComment = measurementComment;
+  ctx.measurementId = measurementId;
+  ctx.demographicPath = `/ws/services/demographics/${patientNo}`;
+}
 
-  const demographicPath = `/ws/services/demographics/${patientNo}`;
-  if (shouldRun('demographics')) {
+async function checkDemographics(ctx) {
+  const {
+    sql, signedRequest, fullToken, limitedToken, recordEndpoint, marker, patientNo, demographicPath,
+  } = ctx;
   const allDemographicsResponse = await signedRequest(
     'GET', '/ws/services/demographics/?offset=0&limit=2', fullToken,
   );
@@ -619,9 +682,9 @@ async function main(state = {}) {
     'Paginated demographic list did not return a result page');
   recordEndpoint('GET', '/ws/services/demographics/', allDemographicsResponse,
     'paginated patient-list response returned');
-    const searchOffset = Number(sql.value(`SELECT COUNT(*) FROM demographic
+  const searchOffset = Number(sql.value(`SELECT COUNT(*) FROM demographic
     WHERE demographic_no < ? AND patient_status = 'AC'`, [patientNo]));
-    const patientPageResponse = await signedRequest(
+  const patientPageResponse = await signedRequest(
     'GET', `/ws/services/demographics/?offset=${searchOffset}&limit=1`, fullToken,
   );
   await expectStatus(patientPageResponse, 200, 'OAuth demographic page containing the synthetic patient');
@@ -697,7 +760,7 @@ async function main(state = {}) {
   const reloadedDemographic = await demographicReload.json();
   assert(reloadedDemographic.firstName === 'AI-Scribe Updated',
     'OAuth demographic update was not persisted');
-  patientFirstName = reloadedDemographic.firstName;
+  ctx.patientFirstName = reloadedDemographic.firstName;
   recordEndpoint('GET', '/ws/services/demographics/{demographicNo}', demographicReload,
     'updated field persisted on read-after-write');
 
@@ -708,115 +771,111 @@ async function main(state = {}) {
     'OAuth demographic update with a token lacking demographic.write');
   recordEndpoint('PUT', '/ws/services/demographics/', limitedDemographicUpdate,
     'missing demographic.write refused with insufficient_scope');
-  }
+}
 
-  if (shouldRun('measurements') || shouldRun('measurements.read')) {
-    const measurementsResponse = await signedRequest('POST', `/ws/services/measurements/${patientNo}`, fullToken, {
-      types: ['BP'],
-    });
-    await expectStatus(measurementsResponse, 200, 'OAuth measurement fetch');
-    const measurements = await measurementsResponse.json();
-    const bpRows = measurements.measurements && measurements.measurements.BP;
-    assert(Array.isArray(bpRows) && bpRows.some((row) =>
-      row.dataField === '121/79' && row.comments === measurementComment),
-    'OAuth measurement fetch did not return the owned BP fixture');
-    recordEndpoint('POST', '/ws/services/measurements/{demographicNo}', measurementsResponse,
-      'owned BP measurement returned');
+async function checkMeasurementRead({
+  signedRequest, fullToken, limitedToken, recordEndpoint, patientNo, measurementComment,
+}) {
+  const measurementsResponse = await signedRequest('POST', `/ws/services/measurements/${patientNo}`, fullToken, {
+    types: ['BP'],
+  });
+  await expectStatus(measurementsResponse, 200, 'OAuth measurement fetch');
+  const measurements = await measurementsResponse.json();
+  const bpRows = measurements.measurements && measurements.measurements.BP;
+  assert(Array.isArray(bpRows) && bpRows.some((row) =>
+    row.dataField === '121/79' && row.comments === measurementComment),
+  'OAuth measurement fetch did not return the owned BP fixture');
+  recordEndpoint('POST', '/ws/services/measurements/{demographicNo}', measurementsResponse,
+    'owned BP measurement returned');
 
-    // The limited token (LIMITED_SCOPES) holds measurement.read: show it is accepted for a read
-    // it is granted, not only refused for writes it lacks.
-    const limitedMeasurementsResponse = await signedRequest(
-      'POST', `/ws/services/measurements/${patientNo}`, limitedToken, { types: ['BP'] },
-    );
-    await expectStatus(limitedMeasurementsResponse, 200, 'OAuth measurement fetch with measurement.read only');
-    const limitedMeasurements = await limitedMeasurementsResponse.json();
-    const limitedBpRows = limitedMeasurements.measurements && limitedMeasurements.measurements.BP;
-    assert(Array.isArray(limitedBpRows) && limitedBpRows.some((row) =>
-      row.dataField === '121/79' && row.comments === measurementComment),
-    'The measurement.read-only token did not read the owned BP fixture');
-    recordEndpoint('POST', '/ws/services/measurements/{demographicNo}', limitedMeasurementsResponse,
-      'limited token (demographic.read measurement.read) accepted for the measurement read');
-  }
+  // The limited token (LIMITED_SCOPES) holds measurement.read: show it is accepted for a read
+  // it is granted, not only refused for writes it lacks.
+  const limitedMeasurementsResponse = await signedRequest(
+    'POST', `/ws/services/measurements/${patientNo}`, limitedToken, { types: ['BP'] },
+  );
+  await expectStatus(limitedMeasurementsResponse, 200, 'OAuth measurement fetch with measurement.read only');
+  const limitedMeasurements = await limitedMeasurementsResponse.json();
+  const limitedBpRows = limitedMeasurements.measurements && limitedMeasurements.measurements.BP;
+  assert(Array.isArray(limitedBpRows) && limitedBpRows.some((row) =>
+    row.dataField === '121/79' && row.comments === measurementComment),
+  'The measurement.read-only token did not read the owned BP fixture');
+  recordEndpoint('POST', '/ws/services/measurements/{demographicNo}', limitedMeasurementsResponse,
+    'limited token (demographic.read measurement.read) accepted for the measurement read');
+}
 
-  if (shouldRun('measurements') || shouldRun('measurements.write')) {
-    const newMeasurementComment = `AI-Scribe OAuth new measurement ${runMarker}`;
-    const newMeasurementPayload = {
-      type: 'BP',
-      dataField: '122/80',
-      comments: newMeasurementComment,
-      // Must match a configured measurementType row: the endpoint refuses a
-      // type/instruction pair it cannot resolve to exactly one type. The ON and
-      // BC seed data (V1.0.2__*_data.sql) configure BP as "sitting position".
-      measuringInstruction: 'sitting position',
-      dateObserved: Date.now(),
-    };
-    const limitedMeasurementCreate = await signedRequest(
-      'POST', `/ws/services/measurements/${patientNo}/new`, limitedToken, newMeasurementPayload,
-    );
-    await expectInsufficientScope(limitedMeasurementCreate,
-      'OAuth new measurement without measurement.write');
-    recordEndpoint('POST', '/ws/services/measurements/{demographicNo}/new', limitedMeasurementCreate,
-      'missing measurement.write refused with insufficient_scope');
+async function checkMeasurementWrite({
+  sql, signedRequest, fullToken, limitedToken, recordEndpoint, runMarker, patientNo,
+  measurementComment, measurementId,
+}) {
+  const newMeasurementComment = `AI-Scribe OAuth new measurement ${runMarker}`;
+  const newMeasurementPayload = {
+    type: 'BP',
+    dataField: '122/80',
+    comments: newMeasurementComment,
+    // Must match a configured measurementType row: the endpoint refuses a
+    // type/instruction pair it cannot resolve to exactly one type. The ON and
+    // BC seed data (V1.0.2__*_data.sql) configure BP as "sitting position".
+    measuringInstruction: 'sitting position',
+    dateObserved: Date.now(),
+  };
+  const limitedMeasurementCreate = await signedRequest(
+    'POST', `/ws/services/measurements/${patientNo}/new`, limitedToken, newMeasurementPayload,
+  );
+  await expectInsufficientScope(limitedMeasurementCreate,
+    'OAuth new measurement without measurement.write');
+  recordEndpoint('POST', '/ws/services/measurements/{demographicNo}/new', limitedMeasurementCreate,
+    'missing measurement.write refused with insufficient_scope');
 
-    const newMeasurementResponse = await signedRequest(
-      'POST', `/ws/services/measurements/${patientNo}/new`, fullToken, newMeasurementPayload,
-    );
-    await expectStatus(newMeasurementResponse, 200, 'OAuth new measurement create');
-    const newMeasurement = await newMeasurementResponse.json();
-    const newMeasurementId = sqlId(newMeasurement.id, 'created new measurement id');
-    assert(newMeasurementId !== measurementId
-      && String(newMeasurement.demographicId) === patientNo
-      && newMeasurement.type === newMeasurementPayload.type
-      && newMeasurement.dataField === newMeasurementPayload.dataField
-      && newMeasurement.comments === newMeasurementComment,
-    'OAuth new measurement did not return the saved patient reading');
-    recordEndpoint('POST', '/ws/services/measurements/{demographicNo}/new', newMeasurementResponse,
-      'new BP measurement recorded for the patient');
+  const newMeasurementResponse = await signedRequest(
+    'POST', `/ws/services/measurements/${patientNo}/new`, fullToken, newMeasurementPayload,
+  );
+  await expectStatus(newMeasurementResponse, 200, 'OAuth new measurement create');
+  const newMeasurement = await newMeasurementResponse.json();
+  const newMeasurementId = sqlId(newMeasurement.id, 'created new measurement id');
+  assert(newMeasurementId !== measurementId
+    && String(newMeasurement.demographicId) === patientNo
+    && newMeasurement.type === newMeasurementPayload.type
+    && newMeasurement.dataField === newMeasurementPayload.dataField
+    && newMeasurement.comments === newMeasurementComment,
+  'OAuth new measurement did not return the saved patient reading');
+  recordEndpoint('POST', '/ws/services/measurements/{demographicNo}/new', newMeasurementResponse,
+    'new BP measurement recorded for the patient');
 
-    const newMeasurementReadResponse = await signedRequest(
-      'POST', `/ws/services/measurements/${patientNo}`, fullToken, { types: ['BP'] },
-    );
-    await expectStatus(newMeasurementReadResponse, 200, 'OAuth new measurement read-after-write');
-    const newMeasurementRead = await newMeasurementReadResponse.json();
-    const bpRowsAfterCreate = newMeasurementRead.measurements && newMeasurementRead.measurements.BP;
-    assert(Array.isArray(bpRowsAfterCreate)
-      && bpRowsAfterCreate.some((row) => String(row.id) === newMeasurementId
-        && row.dataField === newMeasurementPayload.dataField && row.comments === newMeasurementComment)
-      && bpRowsAfterCreate.some((row) => String(row.id) === measurementId
-        && row.dataField === '121/79' && row.comments === measurementComment),
-    'OAuth new measurement was not persisted or an existing reading changed');
-    recordEndpoint('POST', '/ws/services/measurements/{demographicNo}', newMeasurementReadResponse,
-      'new reading persisted and previous reading retained on read-after-write');
+  const newMeasurementReadResponse = await signedRequest(
+    'POST', `/ws/services/measurements/${patientNo}`, fullToken, { types: ['BP'] },
+  );
+  await expectStatus(newMeasurementReadResponse, 200, 'OAuth new measurement read-after-write');
+  const newMeasurementRead = await newMeasurementReadResponse.json();
+  const bpRowsAfterCreate = newMeasurementRead.measurements && newMeasurementRead.measurements.BP;
+  assert(Array.isArray(bpRowsAfterCreate)
+    && bpRowsAfterCreate.some((row) => String(row.id) === newMeasurementId
+      && row.dataField === newMeasurementPayload.dataField && row.comments === newMeasurementComment)
+    && bpRowsAfterCreate.some((row) => String(row.id) === measurementId
+      && row.dataField === '121/79' && row.comments === measurementComment),
+  'OAuth new measurement was not persisted or an existing reading changed');
+  recordEndpoint('POST', '/ws/services/measurements/{demographicNo}', newMeasurementReadResponse,
+    'new reading persisted and previous reading retained on read-after-write');
 
-    // Correcting an existing measurement is not implemented (#6136): the service routes no PUT.
-    // Sent with the full token, which holds measurement.write, so a 404/405 is the missing route
-    // and not a scope refusal.
-    const measurementCorrectionResponse = await signedRequest(
-      'PUT', `/ws/services/measurements/${patientNo}`, fullToken,
-      { id: Number(newMeasurementId), dataField: '123/81' },
-    );
-    assert([404, 405].includes(measurementCorrectionResponse.status()),
-      `Measurement correction route should be unavailable, got HTTP ${measurementCorrectionResponse.status()}`);
-    assert(sql.value('SELECT dataField FROM measurements WHERE id=?', [newMeasurementId])
-      === newMeasurementPayload.dataField,
-    'The unrouted measurement correction changed the stored reading');
-    recordEndpoint('PUT', '/ws/services/measurements/{demographicNo}', measurementCorrectionResponse,
-      'measurement correction is not implemented (see #6136); PUT is not routed', 'GAP');
-  }
+  // Correcting an existing measurement is not implemented (#6136): the service routes no PUT.
+  // Sent with the full token, which holds measurement.write, so a 404/405 is the missing route
+  // and not a scope refusal.
+  const measurementCorrectionResponse = await signedRequest(
+    'PUT', `/ws/services/measurements/${patientNo}`, fullToken,
+    { id: Number(newMeasurementId), dataField: '123/81' },
+  );
+  assert([404, 405].includes(measurementCorrectionResponse.status()),
+    `Measurement correction route should be unavailable, got HTTP ${measurementCorrectionResponse.status()}`);
+  assert(sql.value('SELECT dataField FROM measurements WHERE id=?', [newMeasurementId])
+    === newMeasurementPayload.dataField,
+  'The unrouted measurement correction changed the stored reading');
+  recordEndpoint('PUT', '/ws/services/measurements/{demographicNo}', measurementCorrectionResponse,
+    'measurement correction is not implemented (see #6136); PUT is not routed', 'GAP');
+}
 
-  if (API_ONLY.startsWith('measurements')) {
-    assertStrictPage(recorder);
-    const failedEndpoints = endpointResults.filter((row) => row.outcome === 'FAIL');
-    assert(failedEndpoints.length === 0,
-      `${failedEndpoints.length} endpoint validation(s) failed; see the endpoint results table`);
-    return {
-      oauthMode: 'scoped',
-      selected: API_ONLY,
-      checked: ['OAuth bootstrap', 'temporary demographic fixture setup', `${API_ONLY} API workflow`],
-    };
-  }
-
-  if (shouldRun('labs')) {
+async function checkLabs(ctx) {
+  const {
+    state, sql, signedRequest, fullToken, recordEndpoint, endpointResults, runMarker, marker, patientNo,
+  } = ctx;
   const labReadResponse = await signedRequest(
     'GET', `/ws/services/labs/hl7LabsByDemographicNo?demographicNo=${patientNo}&offset=0&limit=10`, fullToken,
   );
@@ -862,7 +921,7 @@ async function main(state = {}) {
     const hl7Timestamp = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
     const hl7Segments = [
       `MSH|^~\\&|PATHL7|CW|CARLOS|TEST|${hl7Timestamp}||ORU^R01|${runMarker}|P|2.3|||ER|AL`,
-      `PID|1||||${marker}^${patientFirstName}||19800102|F`,
+      `PID|1||||${marker}^${ctx.patientFirstName}||19800102|F`,
       `ORC|NW|${state.labAccession}|${state.labAccession}||F|||||||999998^DR. PROBE|||${hl7Timestamp}`,
       `OBR|1|${state.labAccession}||ML70^SYNTHETIC PANEL||${hl7Timestamp}|${hl7Timestamp}|||||||||999998^DR. PROBE|||||||||F`,
       'OBX|1|ST|7010^SYNTHETIC RESULT|^^CHEMISTRY|NORMAL|||N|||F||765^1007010||70',
@@ -900,9 +959,9 @@ async function main(state = {}) {
     recordEndpoint('GET', '/ws/services/labs/hl7LabsByDemographicNo', importedLabReadResponse,
       'uploaded synthetic result is linked to and retrievable for the owned patient');
   }
-  }
+}
 
-  if (shouldRun('rxlookup')) {
+async function checkRxLookup({ signedRequest, fullToken, recordEndpoint, recordFailure }) {
   const drugLookupResponse = await signedRequest(
     'GET', `/ws/services/rxlookup/search?string=${encodeURIComponent('acetaminophen')}`, fullToken,
   );
@@ -917,6 +976,25 @@ async function main(state = {}) {
   recordEndpoint('GET', '/ws/services/rxlookup/search', drugLookupResponse,
     'drug catalog search returned an entry');
 
+  await checkDrugDetails({ signedRequest, fullToken, recordEndpoint, recordFailure }, drugCatalogId);
+
+  const parseInstructions = 'Take 1 tablet by mouth twice daily for 7 days';
+  const parseDrugResponse = await signedRequest(
+    'POST', `/ws/services/rxlookup/parse?input=${encodeURIComponent(parseInstructions)}`, fullToken,
+  );
+  await expectStatus(parseDrugResponse, 200, 'OAuth prescription instruction parsing');
+  const parsedDrug = await parseDrugResponse.json();
+  assert(parsedDrug.drug && parsedDrug.drug.duration === 7,
+    'Instruction parsing did not extract the seven-day duration');
+  recordEndpoint('POST', '/ws/services/rxlookup/parse', parseDrugResponse,
+    'prescription instructions parsed into drug fields');
+}
+
+/**
+ * Loads the catalog entry's details. Isolated: a failure (often a DrugRef without get_drug_2 or
+ * get_generic_name) is recorded and the run continues.
+ */
+async function checkDrugDetails({ signedRequest, fullToken, recordEndpoint, recordFailure }, drugCatalogId) {
   let drugDetailsResponse;
   try {
     drugDetailsResponse = await signedRequest(
@@ -938,20 +1016,9 @@ async function main(state = {}) {
     const verification = `details lookup failed: ${error.message || 'response validation failed'}`;
     recordFailure('GET', '/ws/services/rxlookup/details', drugDetailsResponse, error, verification);
   }
+}
 
-  const parseInstructions = 'Take 1 tablet by mouth twice daily for 7 days';
-  const parseDrugResponse = await signedRequest(
-    'POST', `/ws/services/rxlookup/parse?input=${encodeURIComponent(parseInstructions)}`, fullToken,
-  );
-  await expectStatus(parseDrugResponse, 200, 'OAuth prescription instruction parsing');
-  const parsedDrug = await parseDrugResponse.json();
-  assert(parsedDrug.drug && parsedDrug.drug.duration === 7,
-    'Instruction parsing did not extract the seven-day duration');
-  recordEndpoint('POST', '/ws/services/rxlookup/parse', parseDrugResponse,
-    'prescription instructions parsed into drug fields');
-  }
-
-  if (shouldRun('rx')) {
+async function checkRxReads({ signedRequest, fullToken, recordEndpoint, recordFailure, patientNo }) {
   const rxReadRoutes = [
     ['/rx/drugs', 'all drugs'],
     [`/rx/drugs/all/${patientNo}`, 'all-drugs view'],
@@ -978,7 +1045,11 @@ async function main(state = {}) {
       recordFailure('GET', `/ws/services${route}`, response, error, verification);
     }
   }
+}
 
+async function checkMedicationLifecycle({
+  sql, signedRequest, fullToken, recordEndpoint, runMarker, providerNo, patientNo, isoDate, nextIsoDate,
+}) {
   const medicationName = `AI-Scribe synthetic medication ${runMarker}`;
   const medication = {
     customName: medicationName,
@@ -1100,9 +1171,11 @@ async function main(state = {}) {
   'Prescriptions list did not include the prescription created earlier in the run');
   recordEndpoint('GET', '/ws/services/rx/prescriptions', prescriptionsResponse,
     'patient prescription list includes the prescription created in this run');
-  }
+}
 
-  if (shouldRun('schedule')) {
+async function checkSchedule({
+  signedRequest, fullToken, recordEndpoint, providerNo, patientNo, today, isoDate,
+}) {
   const scheduleRoutes = [
     ['/schedule/day/today', 'daily appointment list'],
     ['/schedule/statuses', 'appointment statuses'],
@@ -1139,9 +1212,11 @@ async function main(state = {}) {
     `Provider-availability route should be unavailable, got HTTP ${availabilityResponse.status()}`);
   recordEndpoint('GET', '/ws/services/schedule/{date}/{provider}/{start}/{end}/checkProvAvali',
     availabilityResponse, 'availability operation is commented out and not routed', 'GAP');
-  }
+}
 
-  if (shouldRun('eforms') || shouldRun('eforms.templates')) {
+async function checkEformTemplates({
+  signedRequest, fullToken, limitedToken, recordEndpoint, marker, formName,
+}) {
   const eformsResponse = await signedRequest('GET', '/ws/services/eforms/', fullToken);
   const eforms = await expectSuccessJson(eformsResponse, 'OAuth eForm listing');
   assert(Array.isArray(eforms), 'OAuth eForm listing did not return an array');
@@ -1196,9 +1271,11 @@ async function main(state = {}) {
   await expectInsufficientScope(limitedEformUpdate, 'OAuth eForm update with a token lacking eform.write');
   recordEndpoint('PUT', '/ws/services/eform/{id}/json', limitedEformUpdate,
     'missing eform.write refused with insufficient_scope');
-  }
+}
 
-  if (shouldRun('demographics')) {
+async function checkDemographicDelete({
+  sql, signedRequest, fullToken, recordEndpoint, marker, patientNo, demographicPath,
+}) {
   const deleteDemographicResponse = await signedRequest(
     'DELETE', demographicPath, fullToken,
   );
@@ -1214,19 +1291,47 @@ async function main(state = {}) {
   'Demographic delete did not mark the owned synthetic patient as deleted (patient_status DE)');
   recordEndpoint('DELETE', '/ws/services/demographics/{dataId}', deleteDemographicResponse,
     'patient soft-deleted: row kept with patient_status DE (cleanup removes it)');
-  }
+}
 
+/** Fails the run if the browser pages or any endpoint check failed; otherwise returns the summary. */
+function finishRun({ recorder, endpointResults }, summary) {
   assertStrictPage(recorder);
   const failedEndpoints = endpointResults.filter((row) => row.outcome === 'FAIL');
   assert(failedEndpoints.length === 0,
     `${failedEndpoints.length} endpoint validation(s) failed; see the endpoint results table`);
-  return {
+  return summary;
+}
+
+async function main(state = {}) {
+  const ctx = await setUpRun(state);
+  if (shouldRun('demographics')) await checkDemographics(ctx);
+  if (shouldRun('measurements') || shouldRun('measurements.read')) await checkMeasurementRead(ctx);
+  if (shouldRun('measurements') || shouldRun('measurements.write')) await checkMeasurementWrite(ctx);
+  if (API_ONLY.startsWith('measurements')) {
+    return finishRun(ctx, {
+      oauthMode: 'scoped',
+      selected: API_ONLY,
+      checked: ['OAuth bootstrap', 'temporary demographic fixture setup', `${API_ONLY} API workflow`],
+    });
+  }
+  if (shouldRun('labs')) await checkLabs(ctx);
+  if (shouldRun('rxlookup')) await checkRxLookup(ctx);
+  if (shouldRun('rx')) {
+    await checkRxReads(ctx);
+    await checkMedicationLifecycle(ctx);
+  }
+  if (shouldRun('schedule')) await checkSchedule(ctx);
+  if (shouldRun('eforms') || shouldRun('eforms.templates')) await checkEformTemplates(ctx);
+  // Last, so every other group runs against the patient before the API deletes it.
+  if (shouldRun('demographics')) await checkDemographicDelete(ctx);
+  return finishRun(ctx, {
     oauthMode: 'scoped',
     selected: API_ONLY || 'all',
     checked: ['signed OAuth request-token and access-token flow',
       `${API_ONLY && API_ONLY !== 'all' ? API_ONLY : 'all'} API workflow(s)`],
-  };
+  });
 }
+
 
 if (require.main === module) {
   const state = {};
