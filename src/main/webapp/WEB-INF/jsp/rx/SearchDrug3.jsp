@@ -1721,13 +1721,15 @@ function renderRxStage() {
         });
     }
 
-    function calculateRxData(randomId){
+    function calculateRxData(randomId, initialPriceQuantity){
 	    if(skipParseInstr){
+            refreshDrugPrice(randomId, initialPriceQuantity);
 		    return false;
 	    }
-        var dummie=parseIntr(document.getElementById('instructions_'+randomId));
-        if(dummie)
+        // The staging update will quote the acknowledged quantity after parsing the directions.
+        if (parseIntr(document.getElementById('instructions_'+randomId), true)) {
             updateQty(document.getElementById('quantity_'+randomId));
+        }
     }
    function Delete2(element){
 
@@ -2732,7 +2734,8 @@ function updateQty(element){
         if (!card) return false;
         var calculation = {};
         card._rxCalculation = calculation;
-        var data="parameterValue=updateDrug&randomId="+rand+"&action=updateQty&quantity="+encodeURIComponent(element.value);
+        var submittedQuantity = element.value;
+        var data="parameterValue=updateDrug&randomId="+rand+"&action=updateQty&quantity="+encodeURIComponent(submittedQuantity);
         var url= ctx + "/rx/WriteScript";
 
         var rxMethod="rxMethod_"+rand;
@@ -2788,11 +2791,11 @@ function updateQty(element){
                 } else{
                     document.getElementById(prnStr).textContent="";document.getElementById(prnVal).value=false;
                 }
-
+                if (element.value === submittedQuantity) refreshDrugPrice(rand, json.priceQuantity);
             }});
         return true;
 }
-    function parseIntr(element){
+    function parseIntr(element, deferPrice){
         var elemId=element.id;
         var ar=elemId.split("_");
         var rand=ar[1];
@@ -2860,7 +2863,7 @@ function updateQty(element){
                         document.getElementById(quantity).value=document.getElementById(quantityStr).textContent+" "+document.getElementById(unitNameStr).textContent;
                     else
                         document.getElementById(quantity).value=document.getElementById(quantityStr).textContent;
-                    
+                    if (!deferPrice) refreshDrugPrice(rand, json.priceQuantity);
                 }                
                 if(json.prn){
                     document.getElementById(prnStr).textContent="prn";document.getElementById(prnVal).value=true;
@@ -2926,18 +2929,36 @@ function updateQty(element){
              });
          }
 
-         function getCost(divId, randomId, din, qty) {
-            var url = ctx + "/rx/ViewDrugPrice";
-            var params = "randomId=" + randomId + "&din=" +encodeURIComponent(din) + "&qty=" +encodeURIComponent(qty);
+         function refreshDrugPrice(randomId, quantity) {
+            var panel = document.getElementById('cost_' + randomId);
+            if (panel && /^[0-9]{8}$/.test(panel.dataset.din)) {
+                getCost(panel.id, randomId, panel.dataset.din, quantity == null ? '' : quantity);
+            }
+         }
+
+         function clearDrugPrice(divId) {
             var costElement = document.getElementById(divId);
-            if (!costElement) return;
-            // A slower response for the previous quantity must not overwrite this price.
-            if (costElement._priceRequest) costElement._priceRequest.abort();
+            if (!costElement) return null;
+            var previousRequest = costElement._priceRequest;
+            costElement._priceRequest = null;
+            if (previousRequest) previousRequest.abort();
             costElement.textContent = '';
+            return costElement;
+         }
+
+         function getCost(divId, randomId, din, qty) {
+            var costElement = clearDrugPrice(divId);
+            if (!costElement) return;
+            var url = ctx + "/rx/ViewDrugPrice";
+            var params = "randomId=" + randomId + "&din=" + encodeURIComponent(din) + "&qty=" + encodeURIComponent(qty);
             var request = CarlosAjax.updater({success: costElement}, url, {
                 method: 'get',
                 parameters: params,
                 onSuccess: function (response) {
+                    if (costElement._priceRequest !== request) {
+                        response.responseText = null;
+                        return;
+                    }
                     checkRxLookupFragment(costElement, jsMsg.costLookupFailed, url, response);
                 },
                 onFailure: function (response) {

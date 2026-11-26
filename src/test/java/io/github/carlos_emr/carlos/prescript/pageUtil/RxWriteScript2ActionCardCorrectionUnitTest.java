@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.commn.dao.DrugDao;
 import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
@@ -296,14 +297,42 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
 
             assertThat(action.updateDrug()).isNull();
             assertThat(response.getStatus()).isEqualTo(200);
-            assertThat(response.getContentAsString()).contains("calQuantity");
-            assertThat(card.getQuantity()).isEqualTo("updateQty".equals(calculation) ? "42" : "28");
+            String expectedQuantity = "updateQty".equals(calculation) ? "42" : "28";
+            assertThat(card.getQuantity()).isEqualTo(expectedQuantity);
+            var json = new ObjectMapper().readTree(response.getContentAsString());
+            assertThat(json.path("calQuantity").asText()).isEqualTo(expectedQuantity);
+            assertThat(json.path("priceQuantity").asText()).isEqualTo(expectedQuantity);
             if ("parseInstructions".equals(calculation)) {
                 assertThat(card.getSpecial()).isEqualTo("1 tab PO BID x 14 days");
                 assertThat(card.getFrequencyCode()).isEqualTo("BID");
             }
             verifyNoInteractions(mockRxManager, mockDrugDao, mockPartialDateDao, mockSignatureStampService);
         }
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "'30 tabs', 30, 30",
+        "'30 days', 30,",
+        "'12.5 tabs', 12,",
+        "'30 30 tabs', 30,",
+        "12.5, 12.5, 12.5",
+        "0, 0,"
+    })
+    void shouldQuoteTotal_whenTheDraftAcknowledgesAnUnambiguousDispenseCount(String entered, String acknowledged, String priceQuantity)
+            throws Exception {
+        card.setDrugForm("Tablet");
+        request.setParameter("action", "updateQty");
+        request.setParameter("randomId", "1");
+        request.setParameter("quantity", entered);
+
+        assertThat(action.updateDrug()).isNull();
+        assertThat(response.getStatus()).isEqualTo(200);
+        var json = new ObjectMapper().readTree(response.getContentAsString());
+        assertThat(card.getQuantity()).isEqualTo(acknowledged);
+        assertThat(json.path("calQuantity").asText()).isEqualTo(acknowledged);
+        assertThat(json.get("priceQuantity").asText(null)).isEqualTo(priceQuantity);
+        verifyNoInteractions(mockRxManager, mockDrugDao, mockPartialDateDao, mockSignatureStampService);
     }
 
     @Nested

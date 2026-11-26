@@ -50,6 +50,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.prescript.data.RxDrugData;
 import io.github.carlos_emr.carlos.prescript.data.RxDrugData.DrugMonograph.DrugComponent;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
+import io.github.carlos_emr.carlos.prescript.util.DrugPriceEstimate;
 import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -1152,6 +1153,8 @@ public final class RxWriteScript2Action extends ActionSupport {
                 hm.put("prn", rx.getPrn());
                 hm.put("calQuantity", rx.getQuantity());
                 hm.put("unitName", rx.getUnitName());
+                hm.put("priceQuantity", DrugPriceEstimate.dispenseQuantity(
+                        rx.getQuantity(), rx.getUnitName(), rx.getDrugForm()));
                 hm.put("policyViolations", rx.getPolicyViolations());
                 ObjectNode jsonObject = objectMapper.valueToTree(hm);
                 response.getOutputStream().write(jsonObject.toString().getBytes());
@@ -1231,6 +1234,10 @@ public final class RxWriteScript2Action extends ActionSupport {
                 hm.put("prn", rx.getPrn());
                 hm.put("calQuantity", rx.getQuantity());
                 hm.put("unitName", rx.getUnitName());
+                // The legacy Qty/Mitte parser can extract only the first integer from free text.
+                // Quote a total only when the submitted count agrees with the acknowledged quantity.
+                String priceQuantity = DrugPriceEstimate.dispenseQuantity(quantity, rx.getDrugForm());
+                hm.put("priceQuantity", rx.getQuantity().strip().equals(priceQuantity) ? priceQuantity : null);
                 ObjectNode jsonObject = objectMapper.valueToTree(hm);
 
                 response.getOutputStream().write(jsonObject.toString().getBytes());

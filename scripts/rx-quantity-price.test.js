@@ -19,10 +19,12 @@ const jsMsg = {
   costLookupFailed: 'The drug price could not be loaded.',
 };
 
-function panel() {
+function panel(id) {
   let html = '';
   return {
     nodeType: 1,
+    id,
+    dataset: { din: '' },
     notice: null,
     get innerHTML() { return html; },
     set innerHTML(value) { html = value; this.notice = null; },
@@ -37,7 +39,7 @@ function panel() {
 
 function setup() {
   const requests = [];
-  const elements = new Map(['cost_7', 'cost_8', 'luc_7'].map(id => [id, panel()]));
+  const elements = new Map(['cost_7', 'cost_8', 'luc_7'].map(id => [id, panel(id)]));
   class XMLHttpRequest {
     constructor() { this.aborted = false; requests.push(this); }
     open(method, url, asynchronous) { Object.assign(this, { method, url, asynchronous }); }
@@ -45,7 +47,6 @@ function setup() {
     send(body) { this.body = body; }
     abort() { this.aborted = true; }
     respond(html, status = 200, finalUrl = this.url) {
-      if (this.aborted) return;
       Object.assign(this, { status, responseText: html, responseURL: finalUrl });
       this.onload();
     }
@@ -89,6 +90,19 @@ test('a subsequent quantity price replaces the previous amount on the same card'
   assert.equal(s.elements.get('cost_7').innerHTML, '<span>$6.00/60</span>');
 });
 
+test('card pricing uses its DIN and omits the dispense count when it is unknown', () => {
+  const s = setup();
+  s.elements.get('cost_7').dataset.din = '02477580';
+  s.context.refreshDrugPrice('7', null);
+  s.context.refreshDrugPrice('8', '30');
+  assert.equal(s.requests.length, 1, 'a custom drug has no price lookup');
+  const url = new URL(s.requests[0].url, 'https://carlos.invalid');
+  assert.equal(url.searchParams.get('din'), '02477580');
+  assert.equal(url.searchParams.get('qty'), '');
+  s.requests[0].respond('<span>$0.08 per unit</span>');
+  assert.equal(s.elements.get('cost_7').innerHTML, '<span>$0.08 per unit</span>');
+});
+
 test('an unavailable price clears an earlier amount instead of leaving stale pricing', () => {
   const s = setup();
   s.elements.get('cost_7').innerHTML = '<span>$3.00/30</span>';
@@ -107,6 +121,15 @@ test('a newer quantity aborts the previous lookup so its late response cannot ov
   s.requests[1].respond('<span>$6.00/60</span>');
   s.requests[0].respond('<span>$3.00/30</span>');
   assert.equal(s.elements.get('cost_7').innerHTML, '<span>$6.00/60</span>');
+});
+
+test('editing the quantity clears the quote and ignores a response already in flight', () => {
+  const s = setup();
+  s.context.getCost('cost_7', '7', '02477580', '30');
+  s.context.clearDrugPrice('cost_7');
+  assert.equal(s.requests[0].aborted, true);
+  s.requests[0].respond('<span>$2.45/30</span>');
+  assert.equal(s.elements.get('cost_7').innerHTML, '');
 });
 
 test('editing another prescription card does not cancel its independent price lookup', () => {

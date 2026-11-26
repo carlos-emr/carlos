@@ -66,6 +66,7 @@
 <%@ page import="java.util.*" %>
 
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.util.DrugPriceEstimate" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.RxUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
@@ -196,6 +197,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
          String quantity            = rx.getQuantity();
          String quantityText="";
          String unitName=rx.getUnitName();
+         String priceQuantity = DrugPriceEstimate.dispenseQuantity(quantity, unitName, drugForm);
          if(unitName==null || unitName.equalsIgnoreCase("null") || unitName.trim().length()==0){
              quantityText=quantity;
          }
@@ -362,8 +364,10 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
         <label id="labelQuantity_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" style="float:left;width:80px;">${i18nQtyMitte}:</label><input
             size="8" <%if (rx.isCustomNote()) {%> disabled <%}%> type="text" id="quantity_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>"
             name="quantity_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" value="<carlos:encode value='<%= quantityText %>' context="htmlAttribute"/>"
-            onblur="updateQty(this);getCost('cost_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>','<carlos:encode value='<%= rand %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= rx.getRegionalIdentifier() %>' context="javaScriptAttribute"/>',this.value)">
-        <span id="cost_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" style="margin-left:4px;"></span>
+            oninput="clearDrugPrice('cost_<carlos:encode value='<%= rand %>' context="javaScriptAttribute"/>')"
+            onblur="updateQty(this)">
+        <span id="cost_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" role="status" style="margin-left:4px;"
+              data-din="<carlos:encode value='<%= rx.getRegionalIdentifier() %>' context="htmlAttribute"/>"></span>
         <label style=""><fmt:message key="WriteScript.msgRepeats"/>:</label><input type="text" size="5" id="repeats_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>"  <%if (rx.isCustomNote()) {%>
                                                disabled <%}%> name="repeats_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" value="<carlos:encode value='<%= repeats %>' context="htmlAttribute"/>"
                                                onInput="updateLongTerm('<carlos:encode value='<%= rand %>' context="javaScriptAttribute"/>',this)"
@@ -722,7 +726,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
 
         <script type="text/javascript">
             document.getElementById('drugName_'+'<%=rand%>').value='<carlos:encode value='<%= drugName %>' context="javaScriptBlock"/>';
-            calculateRxData('<%=rand%>');
+            calculateRxData('<%=rand%>', '<carlos:encode value='<%= priceQuantity %>' context="javaScriptBlock"/>');
             handleEnter=function handleEnter(inField, ev){
                 var charCode;
                 if(ev && ev.which)

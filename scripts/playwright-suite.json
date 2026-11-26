@@ -10922,8 +10922,8 @@
       ],
       "timeoutSec": 180,
       "env": [],
-      "fixtures": "The owned synthetic patient and one session-only custom drug card; nothing is saved.",
-      "notes": "Fails at its last step on 2026.08: leaving the Qty box throws 'Insertion is not defined' (SearchDrug3.jsp getCost) and no rx/ViewDrugPrice request is sent (same defect as L81)."
+      "fixtures": "The owned synthetic patient, the test provider's default quantity of 30, the packaged AG-Ramipril 5 mg, Lipitor 20 mg and Blexten 20 mg products, and a session-only custom drug. The check saves and cleans up one prescription.",
+      "notes": "Asserts the displayed formulary estimate on selection, after Qty/Mitte edits and a directions calculation, and on ReRx. Distinguishes tablet counts from durations and verifies that a DIN with no price and a custom drug produce no estimate."
     },
     {
       "name": "search-sort-patient-order",
