@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "78e3fd5c2562530aa8743ac27cc6302dcb602952",
+  "comparisonSha256": "3db02af9b12a56629e520d7bd53b994130c02d9fd7cbbf8e0802ff3a281f9751",
+  "baselineCommit": "58d3c7536037dd38b49fc3f56a6e97c0d3c22624",
+  "baselineSourceTree": "78e3fd5c2562530aa8743ac27cc6302dcb602952",
+  "baselineLane": "Focused Maven H2 JaCoCo run on JDK 25 for the CARLOS Rx and release freshness sources",
+  "baselineReportSha256": "bbcc25ad60dab4e32ba03d6c6af5590e8d284f12f91ff7624e72d9c5bb225b1a",
+  "baselineTestCounts": {
+    "tests": 4198,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "e2a9b1724a3300b11438192475f5ddc53f1a4c3b2facb4fb9051650292cfb333",
+  "baselineTestReportsHashFormat": "SHA-256 of sorted Surefire TEST-*.xml hashes and filenames in sha256sum format",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/prescript/util/RxDrugRef.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 85.71428571428571,
+      "sourceBlob": "f5872b74db27a3d277d4f9ba94e4be9dd87a5584"
+    }
+  }
+}
