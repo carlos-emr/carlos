@@ -588,14 +588,15 @@ See [Jasper/OpenPDF migration](jasperreports-openpdf3.md).
     in place, under its lock: a symlink to a managed file stays a symlink, and the file keeps its
     inode, owner, mode, ACLs and extended attributes. `carlos-ctl` (1.3.5 and 1.3.6) does not: each
     setting it writes replaces the file with a new one that keeps only its owner, group and mode, as in
-    earlier releases. That includes `carlos-ctl init-config`, which the configure runs after these
-    rewrites and `carlos-emr-provision.service` runs at boot to finish an incomplete install, so a
-    regular file loses its named ACL entries and extended attributes there, and other hard links to it
-    keep the old settings. When `init-config` replaces a symlink during a configure that runs to the
-    end, the package writes the new settings into the managed file in place and puts the link back,
-    and says so if it cannot. After the boot-time provisioner, a configure interrupted after
-    `init-config`, or another `carlos-ctl` command that changes a setting, `carlos.properties` is a
-    regular file holding the live settings: compare it with the managed file and restore the link by
+    earlier releases. That includes `carlos-ctl init-config` and `carlos-ctl db-users`, which the
+    configure runs after these rewrites (`db-users` whenever MariaDB answers) and
+    `carlos-emr-provision.service` runs at boot to finish an incomplete install, so a regular file
+    loses its named ACL entries and extended attributes there, and other hard links to it keep the old
+    settings. The configure puts back a symlink that `init-config` replaced (it writes the new settings
+    into the managed file in place, and says so if it cannot), but `db-users` then replaces it again.
+    So after a configure that reaches the database, the boot-time provisioner, a configure interrupted
+    after `init-config`, or another `carlos-ctl` command that changes a setting, `carlos.properties` is
+    a regular file holding the live settings: compare it with the managed file and restore the link by
     hand. A dangling link is left
     alone, not replaced by the stock file, and the configure stops until the target is back. If an upgrade is interrupted mid-rewrite, a private
     record `/etc/carlos-emr/carlos.properties.lab-filter-recovery` is left beside the file and
