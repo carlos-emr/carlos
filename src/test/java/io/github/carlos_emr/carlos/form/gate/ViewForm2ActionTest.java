@@ -21,6 +21,8 @@ import jakarta.servlet.ServletContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.form.RehabStudyFormService;
+import io.github.carlos_emr.carlos.form.RehabStudyForms;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -195,6 +197,23 @@ class ViewForm2ActionTest extends CarlosUnitTestBase {
         doThrow(failure).when(mockDispatcher).include(mockRequest, mockResponse);
 
         assertThatThrownBy(() -> action.execute()).isSameAs(failure);
+    }
+
+    @Test
+    void shouldRefuseBeforeRendering_whenATypedFormPageNamesAnotherPatientsVersion() throws Exception {
+        ActionContext.of().withActionName("form/formSF36").bind();
+        when(mockRequest.getDispatcherType()).thenReturn(DispatcherType.REQUEST);
+        when(mockRequest.getParameter("formId")).thenReturn("44");
+        when(mockServletContext.getResourceAsStream("/WEB-INF/jsp/form/formSF36.jsp"))
+                .thenReturn(new ByteArrayInputStream(new byte[0]));
+        when(mockRequest.getRequestDispatcher("/WEB-INF/jsp/form/formSF36.jsp")).thenReturn(mockDispatcher);
+        RehabStudyFormService questionnaires = createAndRegisterMock(RehabStudyFormService.class);
+        SecurityException refusal = new SecurityException("missing required sec object (_form)");
+        doThrow(refusal).when(questionnaires).requireReadable(mockLoggedInInfo,
+                RehabStudyForms.forFormClass("SF36").orElseThrow(), 123, 44);
+
+        assertThatThrownBy(() -> action.execute()).isSameAs(refusal);
+        verify(mockDispatcher, never()).forward(any(), any());
     }
 
     @Test

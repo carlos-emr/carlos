@@ -12,6 +12,7 @@ import java.util.function.Supplier;
  * One 2004 rehabilitation-study questionnaire as the form router knows it.
  *
  * @param formClass the router's {@code form_class} name, the suffix of the retired {@code Frm*Record}
+ * @param view the page's {@code form/<view>} route, the JSP that loads the record
  * @param table the physical table, which also names the optional XML archive copies
  * @param entity the questionnaire entity
  * @param factory creates an empty entity for a new version
@@ -20,7 +21,7 @@ import java.util.function.Supplier;
  * @param <E> the questionnaire entity
  * @since 2026-11-26
  */
-public record RehabStudyFormType<E extends RehabStudyAssessment>(String formClass, String table, Class<E> entity,
+public record RehabStudyFormType<E extends RehabStudyAssessment>(String formClass, String view, String table, Class<E> entity,
         Supplier<E> factory, List<RehabStudyColumn<E>> columns, Set<Prefill> prefill) {
 
     /** Patient details a new form showed besides its patient number and creation date. */
@@ -36,6 +37,7 @@ public record RehabStudyFormType<E extends RehabStudyAssessment>(String formClas
     /** Copies the column and prefill lists so a registered type cannot change after start-up. */
     public RehabStudyFormType {
         Objects.requireNonNull(formClass, "formClass");
+        Objects.requireNonNull(view, "view");
         Objects.requireNonNull(table, "table");
         Objects.requireNonNull(entity, "entity");
         Objects.requireNonNull(factory, "factory");

@@ -43,43 +43,43 @@ public final class RehabStudyForms {
     private static final Set<Prefill> BIRTH_SEX = EnumSet.of(Prefill.BIRTH_DATE, Prefill.SEX);
 
     private static final List<RehabStudyFormType<?>> TYPES = List.of(
-            new RehabStudyFormType<>("2MinWalk", "form2MinWalk", Form2MinWalk.class, Form2MinWalk::new,
+            new RehabStudyFormType<>("2MinWalk", "form2minwalk", "form2MinWalk", Form2MinWalk.class, Form2MinWalk::new,
                     Form2MinWalk.columns(), BIRTH_SEX_PHONE),
-            new RehabStudyFormType<>("CESD", "formCESD", FormCESD.class, FormCESD::new,
+            new RehabStudyFormType<>("CESD", "formCESD", "formCESD", FormCESD.class, FormCESD::new,
                     FormCESD.columns(), NONE),
-            new RehabStudyFormType<>("Caregiver", "formCaregiver", FormCaregiver.class, FormCaregiver::new,
+            new RehabStudyFormType<>("Caregiver", "formcaregiver", "formCaregiver", FormCaregiver.class, FormCaregiver::new,
                     FormCaregiver.columns(), NONE),
-            new RehabStudyFormType<>("CostQuestionnaire", "formCostQuestionnaire", FormCostQuestionnaire.class,
+            new RehabStudyFormType<>("CostQuestionnaire", "formcostquestionnaire", "formCostQuestionnaire", FormCostQuestionnaire.class,
                     FormCostQuestionnaire::new, FormCostQuestionnaire.columns(), BIRTH_SEX_PHONE),
-            new RehabStudyFormType<>("Falls", "formFalls", FormFalls.class, FormFalls::new,
+            new RehabStudyFormType<>("Falls", "formfalls", "formFalls", FormFalls.class, FormFalls::new,
                     FormFalls.columns(), NONE),
-            new RehabStudyFormType<>("GripStrength", "formGripStrength", FormGripStrength.class,
+            new RehabStudyFormType<>("GripStrength", "formgripstrength", "formGripStrength", FormGripStrength.class,
                     FormGripStrength::new, FormGripStrength.columns(), NONE),
-            new RehabStudyFormType<>("HomeFalls", "formHomeFalls", FormHomeFalls.class, FormHomeFalls::new,
+            new RehabStudyFormType<>("HomeFalls", "formhomefalls", "formHomeFalls", FormHomeFalls.class, FormHomeFalls::new,
                     FormHomeFalls.columns(), BIRTH_SEX_PHONE),
-            new RehabStudyFormType<>("IntakeInfo", "formIntakeInfo", FormIntakeInfo.class, FormIntakeInfo::new,
+            new RehabStudyFormType<>("IntakeInfo", "formintakeinfo", "formIntakeInfo", FormIntakeInfo.class, FormIntakeInfo::new,
                     FormIntakeInfo.columns(), BIRTH_SEX_PHONE),
-            new RehabStudyFormType<>("InternetAccess", "formInternetAccess", FormInternetAccess.class,
+            new RehabStudyFormType<>("InternetAccess", "formInternetAccess", "formInternetAccess", FormInternetAccess.class,
                     FormInternetAccess::new, FormInternetAccess.columns(), BIRTH_SEX_PHONE),
-            new RehabStudyFormType<>("LateLifeFDIDisability", "formLateLifeFDIDisability",
+            new RehabStudyFormType<>("LateLifeFDIDisability", "formlatelifeFDIdisability", "formLateLifeFDIDisability",
                     FormLateLifeFDIDisability.class, FormLateLifeFDIDisability::new,
                     FormLateLifeFDIDisability.columns(), BIRTH_SEX_PHONE),
-            new RehabStudyFormType<>("LateLifeFDIFunction", "formLateLifeFDIFunction",
+            new RehabStudyFormType<>("LateLifeFDIFunction", "formlatelifeFDIfunction", "formLateLifeFDIFunction",
                     FormLateLifeFDIFunction.class, FormLateLifeFDIFunction::new,
                     FormLateLifeFDIFunction.columns(), BIRTH_SEX_PHONE),
-            new RehabStudyFormType<>("SF36", "formSF36", FormSF36.class, FormSF36::new,
+            new RehabStudyFormType<>("SF36", "formSF36", "formSF36", FormSF36.class, FormSF36::new,
                     FormSF36.columns(), BIRTH_SEX_PHONE),
-            new RehabStudyFormType<>("SF36Caregiver", "formSF36Caregiver", FormSF36Caregiver.class,
+            new RehabStudyFormType<>("SF36Caregiver", "formSF36caregiver", "formSF36Caregiver", FormSF36Caregiver.class,
                     FormSF36Caregiver::new, FormSF36Caregiver.columns(), BIRTH_SEX_PHONE),
-            new RehabStudyFormType<>("SatisfactionScale", "formSatisfactionScale", FormSatisfactionScale.class,
+            new RehabStudyFormType<>("SatisfactionScale", "formSatisfactionScale", "formSatisfactionScale", FormSatisfactionScale.class,
                     FormSatisfactionScale::new, FormSatisfactionScale.columns(), BIRTH_SEX_PHONE),
-            new RehabStudyFormType<>("SelfAdministered", "formSelfAdministered", FormSelfAdministered.class,
+            new RehabStudyFormType<>("SelfAdministered", "formselfadministered", "formSelfAdministered", FormSelfAdministered.class,
                     FormSelfAdministered::new, FormSelfAdministered.columns(), BIRTH_SEX),
-            new RehabStudyFormType<>("SelfEfficacy", "formSelfEfficacy", FormSelfEfficacy.class,
+            new RehabStudyFormType<>("SelfEfficacy", "formselfefficacy", "formSelfEfficacy", FormSelfEfficacy.class,
                     FormSelfEfficacy::new, FormSelfEfficacy.columns(), BIRTH_SEX_PHONE),
-            new RehabStudyFormType<>("SelfManagement", "formSelfManagement", FormSelfManagement.class,
+            new RehabStudyFormType<>("SelfManagement", "formselfmanagement", "formSelfManagement", FormSelfManagement.class,
                     FormSelfManagement::new, FormSelfManagement.columns(), BIRTH_SEX_PHONE),
-            new RehabStudyFormType<>("TreatmentPref", "formTreatmentPref", FormTreatmentPref.class,
+            new RehabStudyFormType<>("TreatmentPref", "formtreatmentpref", "formTreatmentPref", FormTreatmentPref.class,
                     FormTreatmentPref::new, FormTreatmentPref.columns(), BIRTH_SEX_PHONE));
 
     private RehabStudyForms() { }
@@ -95,5 +95,13 @@ public final class RehabStudyForms {
      */
     public static Optional<RehabStudyFormType<?>> forFormClass(String formClass) {
         return TYPES.stream().filter(type -> type.formClass().equals(formClass)).findFirst();
+    }
+
+    /**
+     * @param view the exact, case-sensitive {@code form/<view>} route name; may be null
+     * @return the questionnaire whose page that is, or empty for any other page
+     */
+    public static Optional<RehabStudyFormType<?>> forView(String view) {
+        return TYPES.stream().filter(type -> type.view().equals(view)).findFirst();
     }
 }

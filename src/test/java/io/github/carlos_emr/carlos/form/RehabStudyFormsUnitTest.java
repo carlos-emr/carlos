@@ -65,6 +65,23 @@ class RehabStudyFormsUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldNameThePageOfEachQuestionnaire_whoseFormClassItPosts() throws Exception {
+        assertThat(RehabStudyForms.all()).extracting(RehabStudyFormType::view).doesNotHaveDuplicates();
+        for (RehabStudyFormType<?> type : RehabStudyForms.all()) {
+            java.nio.file.Path page = java.nio.file.Path.of("src/main/webapp/WEB-INF/jsp/form", type.view() + ".jsp");
+            assertThat(page).as("page of %s", type.formClass()).isRegularFile();
+            assertThat(java.nio.file.Files.readString(page)).as(page.toString())
+                    .contains("String formClass = \"" + type.formClass() + "\";");
+            // The view gate allowlists form/<view> and routes it to exactly this page.
+            assertThat(io.github.carlos_emr.carlos.form.gate.FormViewRoutes.resolveInternalViewFromFormLink(type.view()))
+                    .isEqualTo("/WEB-INF/jsp/form/" + type.view() + ".jsp");
+            assertThat(RehabStudyForms.forView(type.view())).containsSame(type);
+        }
+        assertThat(RehabStudyForms.forView("formsf36")).isEmpty();
+        assertThat(RehabStudyForms.forView(null)).isEmpty();
+    }
+
+    @Test
     void shouldRemoveEveryRetiredRecordClass_fromTheClasspath() {
         for (String formClass : FORM_CLASSES) {
             String retired = "io.github.carlos_emr.carlos.form.Frm" + formClass + "Record";

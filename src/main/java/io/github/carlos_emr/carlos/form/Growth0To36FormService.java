@@ -77,6 +77,22 @@ public class Growth0To36FormService {
     }
 
     /**
+     * Refuses, before the Growth page renders, what {@link #load} would refuse while it renders:
+     * no form or patient-record access, or a saved version that is missing or another patient's.
+     *
+     * @param actor the authenticated caller
+     * @param patient the positive demographic number
+     * @param id the saved version ID, or a non-positive value for a new form
+     * @throws SecurityException if the actor lacks access, or a positive ID is missing or foreign
+     * @throws IllegalArgumentException if the patient number is not positive
+     */
+    @Transactional(readOnly = true)
+    public void requireReadable(LoggedInInfo actor, int patient, int id) {
+        require(actor, patient, "r");
+        if (id > 0) requireVersion(patient, id);
+    }
+
+    /**
      * Appends a version attributed to the authenticated provider without changing the source.
      * Joins an existing transaction when present; optional XML is published only after commit.
      *

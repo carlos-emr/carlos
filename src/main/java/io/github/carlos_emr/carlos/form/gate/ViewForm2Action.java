@@ -37,6 +37,7 @@ public class ViewForm2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager =
             SpringUtils.getBean(SecurityInfoManager.class);
+    private final FormViewVersionValidator versions = new FormViewVersionValidator();
 
     @Override
     public String execute() throws ServletException, IOException {
@@ -62,15 +63,19 @@ public class ViewForm2Action extends ActionSupport {
             return NONE;
         }
 
+        // A typed form page's record refusal is answered here, before the page renders.
+        String view = actionName.substring(actionName.lastIndexOf('/') + 1);
+        versions.requireReadable(view, loggedInInfo, demographicNo, request.getParameter("formId"));
+
         if (request.getDispatcherType() == DispatcherType.INCLUDE) {
             request.getRequestDispatcher(internalView).include(request, response);
         } else {
             try {
                 request.getRequestDispatcher(internalView).forward(request, response);
             } catch (ServletException | RuntimeException failure) {
-                // A form page's record service refuses another patient's or a missing version
-                // while the page renders (issue #5693). The container would answer that with
-                // its generic 500 page; hand the refusal to the package's SecurityException
+                // Backstop for a page whose record service refuses while it renders (issue
+                // #5693) and that the check above does not know: the container would answer with
+                // its generic 500 page, so hand the refusal to the package's SecurityException
                 // mapping instead, which answers 403, as long as nothing has been sent yet.
                 SecurityException refusal = securityRefusal(failure);
                 if (refusal == null || response.isCommitted()) {

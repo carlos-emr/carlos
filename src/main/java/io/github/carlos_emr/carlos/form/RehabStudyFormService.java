@@ -96,6 +96,24 @@ public class RehabStudyFormService {
     }
 
     /**
+     * Refuses, before a questionnaire page renders, what {@link #load} would refuse while it
+     * renders: no form or patient-record access, or a saved version that is missing or another
+     * patient's. The view gate calls this so a refusal is answered as one, not as a page failure.
+     *
+     * @param actor the authenticated caller
+     * @param type the questionnaire
+     * @param patient the positive demographic number
+     * @param id the saved version ID, or a non-positive value for a new form
+     * @throws SecurityException if the actor lacks access, or a positive ID is missing or another patient's
+     * @throws IllegalArgumentException if the patient number is not positive
+     */
+    @Transactional(readOnly = true)
+    public void requireReadable(LoggedInInfo actor, RehabStudyFormType<?> type, int patient, int id) {
+        require(actor, patient, "r");
+        if (id > 0) requireVersion(type, patient, id);
+    }
+
+    /**
      * Appends a version without changing the source. Joins an existing transaction when present;
      * the optional XML copy is written only after commit.
      *

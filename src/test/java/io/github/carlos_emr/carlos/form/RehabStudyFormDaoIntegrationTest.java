@@ -278,6 +278,12 @@ class RehabStudyFormDaoIntegrationTest extends CarlosTestBase {
         assertThatThrownBy(() -> service.saveVersion(actor, sf36, OTHER_PATIENT, id, post))
                 .isInstanceOf(SecurityException.class);
         assertThatThrownBy(() -> service.load(actor, sf36, PATIENT, Integer.MAX_VALUE)).isInstanceOf(SecurityException.class);
+        // The view gate asks the same question before the page renders.
+        assertThatThrownBy(() -> service.requireReadable(actor, sf36, OTHER_PATIENT, id)).isInstanceOf(SecurityException.class);
+        assertThatThrownBy(() -> service.requireReadable(actor, sf36, PATIENT, Integer.MAX_VALUE))
+                .isInstanceOf(SecurityException.class);
+        service.requireReadable(actor, sf36, PATIENT, id);
+        service.requireReadable(actor, sf36, OTHER_PATIENT, 0);
         // A version of another questionnaire is not a source either, even for the same patient.
         assertThatThrownBy(() -> service.saveVersion(actor, type("SF36Caregiver"), PATIENT, id, basePost(PATIENT)))
                 .isInstanceOf(SecurityException.class);
