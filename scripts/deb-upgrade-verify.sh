@@ -247,6 +247,25 @@ lf_logical=$(g "$PRE" cfg.labFilter.logical 2>/dev/null || true)
 lf_counted() { [[ $lf_logical =~ ^[0-9]+$ ]]; }
 lf_unique() { [ "$lf_logical" = 1 ]; }
 lf_uncounted_msg="HL7_LAB_MEASUREMENT_FILTER: neither snapshot counts the key's definitions (cfg.labFilter.logical), so whether the upgrade owed the rewrite could not be established"
+# The physical span of the key's LAST definition, the one Java uses (cfg.labFilter.effective.sha). With one
+# definition it is what the rewrite compares with the stock line: a stock-looking physical line that another
+# property's continuation swallows is no definition at all. An older PRE snapshot does not record it. If the
+# upgrade left the key's plain lines alone, POST's parse is PRE's (nothing else in an upgrade writes the key);
+# otherwise only the plain digest is known, and a sanctioned change also needs POST's span to be the skeleton's.
+lf_def_pre=$(g "$PRE" cfg.labFilter.effective.sha 2>/dev/null || true)
+lf_def_post=$(g "$POST" cfg.labFilter.effective.sha 2>/dev/null || true)
+lf_is_def() { [[ $1 =~ ^([0-9a-f]{16}|none)$ ]]; }
+if lf_is_def "$lf_def_pre"; then
+  lf_def=$lf_def_pre
+elif [ -n "$lf_pre" ] && [ "$lf_pre" = "$lf_post" ] && lf_is_def "$lf_def_post"; then
+  lf_def=$lf_def_post
+else
+  lf_def=$lf_pre
+fi
+# A rewrite was owed when the key had one definition and its span was exactly that stock line; it was done
+# when the plain line and POST's only definition are the skeleton's line.
+lf_owed() { lf_unique && [ "$lf_def" = "$1" ]; }
+lf_done() { [ "$lf_post" = "$lf_skel" ] && { ! lf_is_def "$lf_def_post" || [ "$lf_def_post" = "$lf_skel" ]; }; }
 lfw_sentinel_pre=$(g "$PRE" sentinel..lab-measurement-filter-words-migrated 2>/dev/null || true)
 # The skeleton's line counts only when it exists and is not the old line itself.
 lf_skel_fixed() { [ -n "$lf_skel" ] && [ "$lf_skel" != "$LAB_FILTER_OLD_SHA" ] && [ "$lf_skel" != "$LAB_FILTER_NONE_SHA" ]; }
@@ -255,10 +274,33 @@ lf_skel_words_fixed() { lf_skel_fixed && [ "$lf_skel" != "$LAB_FILTER_WORDS_OLD_
 lf_ok=0; lf_changed=no
 if [ -n "$lf_pre" ] && [ "$lf_pre" = "$lf_post" ]; then
   lf_ok=1
-elif [ "$lf_pre" = "$LAB_FILTER_OLD_SHA" ] && lf_unique && lf_skel_fixed && [ "$lf_post" = "$lf_skel" ] && [ "$lf_sentinel_pre" != yes ]; then
+elif lf_owed "$LAB_FILTER_OLD_SHA" && lf_skel_fixed && lf_done && [ "$lf_sentinel_pre" != yes ]; then
   lf_ok=1; lf_changed=yes
-elif [ "$lf_pre" = "$LAB_FILTER_WORDS_OLD_SHA" ] && lf_unique && lf_skel_words_fixed && [ "$lf_post" = "$lf_skel" ] && [ "$lfw_sentinel_pre" != yes ]; then
+elif lf_owed "$LAB_FILTER_WORDS_OLD_SHA" && lf_skel_words_fixed && lf_done && [ "$lfw_sentinel_pre" != yes ]; then
   lf_ok=1; lf_changed=yes
+fi
+# Unchanged plain lines do not show that Java still uses the same definition: the last one wins, whatever its
+# spelling, so two definitions that trade places, or an edit of one spelled another way, leave the plain digest
+# and the per-key digests as they were. Compare the effective definition with PRE's record. An older PRE
+# snapshot has none: then, with several definitions, accept only a file left as it was (apart from the
+# modern-chart cutover entry), and otherwise report that preservation could not be established.
+lf_file_kept() {
+  local pre post pre_kept post_kept
+  pre=$(g "$PRE" cfg.carlos.properties.sha 2>/dev/null || true); post=$(g "$POST" cfg.carlos.properties.sha 2>/dev/null || true)
+  pre_kept=$(g "$PRE" cfg.carlos.properties.withoutCutover.sha 2>/dev/null || true)
+  post_kept=$(g "$POST" cfg.carlos.properties.withoutCutover.sha 2>/dev/null || true)
+  [ -n "$pre" ] && { [ "$pre" = "$post" ] || { [ -n "$post_kept" ] && { [ "$pre" = "$post_kept" ] || [ "$pre_kept" = "$post_kept" ]; }; }; }
+}
+if [ "$lf_ok" = 1 ] && [ "$lf_changed" = no ]; then
+  if lf_is_def "$lf_def_pre"; then
+    if [ "$lf_def_pre" != "$lf_def_post" ]; then
+      lf_ok=0
+      bad "the HL7_LAB_MEASUREMENT_FILTER definition Java uses (the last of ${lf_logical:-?}) changed: '$lf_def_pre' -> '$lf_def_post'"
+    fi
+  elif lf_counted && [ "$lf_logical" -gt 1 ] && ! lf_file_kept; then
+    lf_ok=0
+    bad "HL7_LAB_MEASUREMENT_FILTER has $lf_logical definitions, the PRE snapshot predates cfg.labFilter.effective.sha and carlos.properties changed, so whether the definition Java uses was preserved could not be established"
+  fi
 fi
 # The Help link either stayed put or, on the upgrade that first writes its
 # sentinel, moved from exactly the old stock line to exactly the new one.
@@ -346,12 +388,13 @@ fi
 # The lab filter rewrite is asserted when the PRE snapshot carries exactly the
 # old stock line and the migration has not run yet.
 # The sentinel is written whether or not the key has several logical definitions (the migration then
-# leaves the file alone but is done); only the digest check needs the single definition the rewrite owed.
+# leaves the file alone but is done); only the digest check needs the rewrite to have been owed: one
+# definition, whose own span is the stock line (lf_owed), not a stock-looking line inside another value.
 if [ "$lf_pre" = "$LAB_FILTER_OLD_SHA" ] && [ "$lf_sentinel_pre" != yes ]; then
   if ! lf_counted; then
     bad "$lf_uncounted_msg"
-  elif lf_unique; then
-    lf_skel_fixed && [ "$lf_post" = "$lf_skel" ] && ok "the old stock HL7_LAB_MEASUREMENT_FILTER was migrated to the skeleton's" || bad "HL7_LAB_MEASUREMENT_FILTER was not migrated: digest '$lf_post', skeleton '$lf_skel'"
+  elif lf_owed "$LAB_FILTER_OLD_SHA"; then
+    lf_skel_fixed && lf_done && ok "the old stock HL7_LAB_MEASUREMENT_FILTER was migrated to the skeleton's" || bad "HL7_LAB_MEASUREMENT_FILTER was not migrated: digest '$lf_post', definition '$lf_def_post', skeleton '$lf_skel'"
   fi
   [ "$(g "$POST" sentinel..lab-measurement-filter-migrated)" = yes ] && ok "lab-filter migration sentinel written" || bad "lab-filter migration sentinel missing after upgrade"
 fi
@@ -360,8 +403,8 @@ fi
 if [ "$lf_pre" = "$LAB_FILTER_WORDS_OLD_SHA" ] && [ "$lfw_sentinel_pre" != yes ] && lf_skel_words_fixed; then
   if ! lf_counted; then
     bad "$lf_uncounted_msg"
-  elif lf_unique; then
-    [ "$lf_post" = "$lf_skel" ] && ok "the #4613 stock HL7_LAB_MEASUREMENT_FILTER was migrated to the skeleton's whole-word line" || bad "HL7_LAB_MEASUREMENT_FILTER was not migrated from the #4613 line: digest '$lf_post', skeleton '$lf_skel'"
+  elif lf_owed "$LAB_FILTER_WORDS_OLD_SHA"; then
+    lf_done && ok "the #4613 stock HL7_LAB_MEASUREMENT_FILTER was migrated to the skeleton's whole-word line" || bad "HL7_LAB_MEASUREMENT_FILTER was not migrated from the #4613 line: digest '$lf_post', definition '$lf_def_post', skeleton '$lf_skel'"
   fi
   [ "$(g "$POST" sentinel..lab-measurement-filter-words-migrated)" = yes ] && ok "lab-filter whole-word migration sentinel written" || bad "lab-filter whole-word migration sentinel missing after upgrade"
 fi

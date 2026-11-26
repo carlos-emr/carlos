@@ -192,7 +192,13 @@ emit cfg.labFilter.sha "${value:0:16}"
 # effective definition when a later, differently spelled one overrides it; the rewrite then rightly
 # leaves the file alone. The verifier expects the rewrite only when this is 1 (or absent: an older
 # snapshot). A test holds this parser to the postinst's (debian/assets/tests/test_lab_filter_logical_count.py).
+# cfg.labFilter.effective.sha is the digest of the physical span (its line or continued lines) of the LAST
+# definition, the one java.util.Properties keeps; with a single definition it is the span the rewrite compares
+# with the stock line, so a stock-looking line that is really part of another property's continued value is
+# not taken for the definition. A newline is added at the end of the file, as the stock digests carry one;
+# "none" when the key is not defined.
 value=$(python3 - "$CARLOS_ETC_DIR/carlos.properties" <<'PY' || true
+import hashlib
 import re
 import sys
 
@@ -237,12 +243,22 @@ def filter_definitions(content):
 
 try:
     with open(sys.argv[1], "rb") as handle:
-        print(len(list(filter_definitions(handle.read()))))
+        content = handle.read()
 except OSError:
-    print(0)
+    content = b""
+definitions = list(filter_definitions(content))
+effective = "none"
+if definitions:
+    start, end, _ = definitions[-1]
+    span = content[start:end]
+    effective = hashlib.sha256(span if span.endswith(b"\n") else span + b"\n").hexdigest()[:16]
+print(len(definitions), effective)
 PY
 )
-emit cfg.labFilter.logical "${value:-unknown}"
+lf_count=''; lf_effective=''
+read -r lf_count lf_effective <<<"$value" || true
+emit cfg.labFilter.logical "${lf_count:-unknown}"
+emit cfg.labFilter.effective.sha "${lf_effective:-unknown}"
 value=''
 if [[ -r $CARLOS_SHARE_DIR/skel/carlos.properties ]]; then
     value=$({ grep -E '^HL7_LAB_MEASUREMENT_FILTER=' "$CARLOS_SHARE_DIR/skel/carlos.properties" || true; } | sha256sum) || exit 1

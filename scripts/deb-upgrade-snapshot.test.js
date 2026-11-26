@@ -422,18 +422,79 @@ test('upgrade verifier still fails a single eligible stock definition left uncha
   assert.match(result.stdout, /FAIL HL7_LAB_MEASUREMENT_FILTER was not migrated from the #4613 line/);
 });
 
-// A PRE snapshot from a baseline that predates cfg.labFilter.logical. The verifier then takes the count from POST,
-// which a correct upgrade leaves as it was: the rewrite turns the one definition it owes into one, and nothing else
-// in an upgrade writes the key.
-function withoutLogicalCount(snapshot) {
+test('upgrade baseline records the span of the definition Java uses', t => {
+  const fixture = labFilterWordsFixture(t);
+  const sha = text => crypto.createHash('sha256').update(text).digest('hex').slice(0, 16);
+  const effective = () => /^cfg\.labFilter\.effective\.sha=(.*)$/m.exec(fs.readFileSync(fixture.env.PRE, 'utf8'))[1];
+  assert.equal(effective(), sha(`${LAB_FILTER_WORDS_OLD}\n`));
+  // Another property's continuation swallows the stock-looking line: the escaped line is the only definition.
+  fs.writeFileSync(fixture.props,
+    `rx_fax_enabled=true\nother_setting=value\\\n${LAB_FILTER_WORDS_OLD}\nHL7_LAB_MEASUREMENT\\_FILTER=clinic-specific\nother=kept\n`);
+  fixture.baseline();
+  assert.match(fs.readFileSync(fixture.env.PRE, 'utf8'), /^cfg\.labFilter\.logical=1$/m);
+  assert.equal(effective(), sha('HL7_LAB_MEASUREMENT\\_FILTER=clinic-specific\n'));
+  // The last of two definitions; a last line without a newline digests as the stock lines do (with one).
+  fs.writeFileSync(fixture.props, `rx_fax_enabled=true\nHL7_LAB_MEASUREMENT\\_FILTER=clinic-specific\n${LAB_FILTER_WORDS_OLD}`);
+  fixture.baseline();
+  assert.equal(effective(), sha(`${LAB_FILTER_WORDS_OLD}\n`));
+  fs.writeFileSync(fixture.props, 'rx_fax_enabled=true\n# HL7_LAB_MEASUREMENT_FILTER=commented\nother=kept\n');
+  fixture.baseline();
+  assert.equal(effective(), 'none');
+});
+
+// A stock-looking line that another property's continued value swallows is no definition; a separately escaped key is
+// the only one. The postinst rightly leaves the file alone and writes its sentinel.
+const LAB_FILTER_SWALLOWED = `rx_fax_enabled=true\nother_setting=value\\\n${LAB_FILTER_WORDS_OLD}\n`
+  + 'HL7_LAB_MEASUREMENT\\_FILTER=clinic-specific\nother=kept\n';
+
+// A PRE snapshot from a baseline that predates cfg.labFilter.logical and cfg.labFilter.effective.sha. The verifier
+// then takes the count, and for a key whose plain lines the upgrade left alone the definition, from POST: a correct
+// upgrade does not change them (the rewrite turns the one definition it owes into one, and nothing else in an
+// upgrade writes the key).
+function asPreChangeBaseline(snapshot) {
   const lines = fs.readFileSync(snapshot, 'utf8').split('\n');
-  fs.writeFileSync(snapshot, lines.filter(line => !line.startsWith('cfg.labFilter.logical=')).join('\n'));
-  assert.doesNotMatch(fs.readFileSync(snapshot, 'utf8'), /^cfg\.labFilter\.logical=/m);
+  fs.writeFileSync(snapshot, lines.filter(line => !/^cfg\.labFilter\.(logical|effective\.sha)=/.test(line)).join('\n'));
+  assert.doesNotMatch(fs.readFileSync(snapshot, 'utf8'), /^cfg\.labFilter\.(logical|effective\.sha)=/m);
+}
+
+for (const preChange of [false, true]) {
+  const baseline = preChange ? ' after a pre-change baseline' : '';
+  test(`upgrade verifier accepts a stock-looking line that another property's continuation swallows${baseline}`, t => {
+    const fixture = labFilterWordsFixture(t);
+    fs.writeFileSync(fixture.props, LAB_FILTER_SWALLOWED);
+    fixture.baseline();
+    if (preChange) asPreChangeBaseline(fixture.env.PRE);
+    fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, LAB_FILTER_WORDS_SENTINEL), '');
+    const result = fixture.run('deb-upgrade-verify.sh');
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.doesNotMatch(result.stdout, /FAIL/);
+    assert.doesNotMatch(result.stdout, /was not migrated|could not be established/);
+    assert.match(result.stdout, /PASS lab-filter whole-word migration sentinel written/);
+  });
+
+  for (const [name, extra] of LAB_FILTER_OVERRIDES) {
+    // The two definitions trade places: Java now uses the stock filter instead of the clinic's, while the plain
+    // digest, the count and the per-key digests stay as they were.
+    test(`upgrade verifier rejects a stock definition moved after ${name}${baseline}`, t => {
+      const fixture = labFilterWordsFixture(t);
+      fs.writeFileSync(fixture.props, `rx_fax_enabled=true\n${LAB_FILTER_WORDS_OLD}\n${extra}\nother=kept\n`);
+      fixture.baseline();
+      if (preChange) asPreChangeBaseline(fixture.env.PRE);
+      fs.writeFileSync(fixture.props, `rx_fax_enabled=true\n${extra}\n${LAB_FILTER_WORDS_OLD}\nother=kept\n`);
+      fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, LAB_FILTER_WORDS_SENTINEL), '');
+      const result = fixture.run('deb-upgrade-verify.sh');
+      assert.equal(result.status, 1, result.stdout + result.stderr);
+      assert.match(result.stdout, preChange
+        ? /FAIL HL7_LAB_MEASUREMENT_FILTER has 2 definitions, .* could not be established/
+        : /FAIL the HL7_LAB_MEASUREMENT_FILTER definition Java uses \(the last of 2\) changed/);
+      assert.doesNotMatch(result.stdout, /was not migrated/);
+    });
+  }
 }
 
 test('upgrade verifier still fails a single stock definition left unchanged after a pre-change baseline', t => {
   const fixture = labFilterWordsFixture(t);
-  withoutLogicalCount(fixture.env.PRE);
+  asPreChangeBaseline(fixture.env.PRE);
   fs.writeFileSync(fixture.props, `rx_fax_enabled=true\n${LAB_FILTER_WORDS_OLD}\nother=kept\n`);
   const result = fixture.run('deb-upgrade-verify.sh');
   assert.equal(result.status, 1, result.stdout + result.stderr);
@@ -442,7 +503,7 @@ test('upgrade verifier still fails a single stock definition left unchanged afte
 
 test('upgrade verifier accepts the one-time whole-word lab-filter migration after a pre-change baseline', t => {
   const fixture = labFilterWordsFixture(t);
-  withoutLogicalCount(fixture.env.PRE);
+  asPreChangeBaseline(fixture.env.PRE);
   fs.writeFileSync(fixture.props, `rx_fax_enabled=true\n${LAB_FILTER_NEW}\nother=kept\n`);
   fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, LAB_FILTER_WORDS_SENTINEL), '');
   const result = fixture.run('deb-upgrade-verify.sh');
@@ -456,7 +517,7 @@ for (const [name, extra] of LAB_FILTER_OVERRIDES) {
     const fixture = labFilterWordsFixture(t);
     fs.writeFileSync(fixture.props, `rx_fax_enabled=true\n${LAB_FILTER_WORDS_OLD}\n${extra}\nother=kept\n`);
     fixture.baseline();
-    withoutLogicalCount(fixture.env.PRE);
+    asPreChangeBaseline(fixture.env.PRE);
     // The real migration left the file byte for byte and wrote its sentinel.
     fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, LAB_FILTER_WORDS_SENTINEL), '');
     const result = fixture.run('deb-upgrade-verify.sh');

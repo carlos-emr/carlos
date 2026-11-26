@@ -11,9 +11,12 @@ Run (from the repository root):
     python3 -m unittest discover -s debian/assets/tests
 """
 
+import hashlib
 import os
 import re
+import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -87,6 +90,30 @@ class TestLabFilterLogicalCount(unittest.TestCase):
         self.assertEqual(len(list(baseline(KEY.encode() + b"=a\nHL7_LAB_MEASUREMENT\\_FILTER=b\n"))), 2)
         self.assertEqual(len(list(baseline(b"HL7_LAB_MEASUREMENT_\\\n   FILTER=x\n"))), 1)
         self.assertEqual(len(list(baseline(b"other=a\\\n" + KEY.encode() + b"=b\n"))), 0)
+
+    def test_the_baseline_records_the_span_of_the_definition_java_uses(self):
+        # cfg.labFilter.effective.sha: the digest of the physical span of the LAST definition (newline-terminated),
+        # which, with one definition, is the span the postinst compares with the stock line.
+        text = BASELINE.read_text(encoding="utf-8")
+        body = re.search(r"python3 - \"\$CARLOS_ETC_DIR/carlos\.properties\" <<'PY'[^\n]*\n(.*?)\nPY\n", text, re.S).group(1)
+        postinst = postinst_parser()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "carlos.properties"
+            for content in SPELLINGS:
+                path.write_bytes(content)
+                printed = subprocess.run([sys.executable, "-I", "-c", body, str(path)], capture_output=True,
+                                         text=True, check=True).stdout.split()
+                definitions = list(postinst(content))
+                expected = "none"
+                if definitions:
+                    start, end, _ = definitions[-1]
+                    span = content[start:end]
+                    expected = hashlib.sha256(span if span.endswith(b"\n") else span + b"\n").hexdigest()[:16]
+                self.assertEqual(printed, [str(len(definitions)), expected], content)
+            path.unlink()
+            missing = subprocess.run([sys.executable, "-I", "-c", body, str(path)], capture_output=True,
+                                     text=True, check=True).stdout.split()
+            self.assertEqual(missing, ["0", "none"])
 
 
 if __name__ == "__main__":
