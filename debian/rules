@@ -206,6 +206,8 @@ override_dh_auto_install:
 	set -e; \
 	install -d $(STAGE)/$(SHAREDIR)/webapp/carlos; \
 	cd $(STAGE)/$(SHAREDIR)/webapp/carlos && $(JAVA_HOME)/bin/jar xf $(BUILDDIR)/carlos.war
+	# Configure runs this read-only check with the candidate WAR's Spring libraries.
+	test -f $(STAGE)/$(SHAREDIR)/webapp/carlos/WEB-INF/classes/io/github/carlos_emr/carlos/config/PackagedReportLeaseCheck.class
 	# Packaged JSPs change on upgrades, which restart Tomcat. Keep the shared
 	# WAR/devcontainer hot-reload defaults, and preserve application web.xml values.
 	test ! -e $(STAGE)/$(SHAREDIR)/webapp/carlos/WEB-INF/tomcat-web.xml

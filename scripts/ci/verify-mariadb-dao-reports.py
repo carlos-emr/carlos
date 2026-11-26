@@ -34,6 +34,11 @@ CRITICAL = {
 # Surefire's default JUnit 5 names distinguish both boolean invocations. Counts
 # alone cannot prove archive-failure or demographic-audit regressions executed.
 REQUIRED_CASES = {
+    "ReportConnectionLeaseIntegrationTest": {
+        "shouldRetainActiveReportConnection_untilItsQueryDeadline",
+        "shouldRetireIdleAbandonedLeases_withExplicitShortTimeoutOverride",
+        "shouldHonorConfiguredTimeout_withoutDisablingLeakDetection",
+    },
     "BillingOnOutputFilenamesIntegrationTest": {
         "shouldReserveEveryHistoricalName_acrossBothGeneratorsAndImportEvidence",
         "shouldPreservePhysicalEntries_whenMetadataIsMissing",
@@ -288,6 +293,7 @@ REQUIRED_CASES = {
 # unordered page in secondary-index order, so its paging cases must execute on the physical server.
 # CaseManagementIssueDAO adds one duplicate-link case on the legacy Flyway schema only.
 REQUIRED = {"generated": {"AppointmentFieldAuditTransactionIntegrationTest": 3, "AuditLogPurgeMariaDbIntegrationTest": 7,
+                          "ReportConnectionLeaseIntegrationTest": 3,
                           "AppointmentUpdateDaoIntegrationTest": 19,**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 8, "LabRoutingLookupDaoIntegrationTest": 6, "MeasurementPatientMatchMariaDbIntegrationTest": 10,
                           "JdbcConnectorMariaDbIntegrationTest": 47,
                           "BillingHistoryDaoIntegrationTest": 1, "LookupDaoIntegrationTest": 1,
