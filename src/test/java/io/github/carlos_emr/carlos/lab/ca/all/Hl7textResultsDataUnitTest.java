@@ -4,6 +4,7 @@ package io.github.carlos_emr.carlos.lab.ca.all;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.atMost;
 import static org.mockito.Mockito.doAnswer;
@@ -84,7 +85,21 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
             }
         }
 
-        measurementDao = (MeasurementDao) mockedBeans.get(MeasurementDao.class);
+        // Filing is LabMeasurementFilingService's (#6391): built over these mocks, with a transaction
+        // manager that does nothing, and found by Hl7textResultsData through SpringUtils as in production.
+        measurementDao = createAndRegisterMock(MeasurementDao.class);
+        var chainLocks = createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoChainLockDao.class);
+        var extensions = createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao.class);
+        var deleted = createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.MeasurementsDeletedDao.class);
+        var transactions = mock(org.springframework.transaction.PlatformTransactionManager.class);
+        when(transactions.getTransaction(any())).thenReturn(mock(org.springframework.transaction.TransactionStatus.class));
+        registerMock(LabMeasurementFilingService.class, new LabMeasurementFilingService(
+                transactions, chainLocks, measurementDao, extensions, deleted));
+        when(chainLocks.lockByLabNumber(anyInt())).thenReturn(new io.github.carlos_emr.carlos.commn.model.Hl7TextInfo());
+        // The report's own row, which names the accession and filler number that lock its chain.
+        var infos = (io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao) mockedBeans.get(
+                io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao.class);
+        when(infos.findLabId(anyInt())).thenReturn(new io.github.carlos_emr.carlos.commn.model.Hl7TextInfo());
         doAnswer(invocation -> {
             Measurement measurement = invocation.getArgument(0);
             ReflectionTestUtils.setField(measurement, "id", 1);
@@ -317,10 +332,10 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
                 ArgumentCaptor.forClass(java.util.List.class);
         verify((MeasurementsDeletedDao) mockedBeans.get(MeasurementsDeletedDao.class)).batchPersistAtomically(archived.capture());
         assertThat(archived.getValue()).hasSize(1);
+        // Every version's values are looked up, the report's own included (#6391: a repeat must not double them).
         for (String other : chain.split(",")) {
-            if (!other.equals("4616")) verify(measurementDao).findByValue("lab_no", other);
+            verify(measurementDao).findByValue("lab_no", other);
         }
-        verify(measurementDao, never()).findByValue("lab_no", "4616");
     }
 
     @Test
