@@ -17,8 +17,9 @@ even when the author marks it as decoration. Only decorations before/after all
 pages are advisory. The workflow verifies the native approval's exact saved
 revision/patient/token binding and all ten report rows. On the wrapped and direct
 fixtures it expects one blocking interstitial. The expected advisory count is
-one when the print filter appends the clinic's confidentiality notice to the
-native form and zero when it is absent. The remaining counts are zero. All five
+one when the print filter appends the clinic's confidentiality notice and zero
+when it is absent. The check counts that paragraph on the installed printable
+`gpl.htm` control before rendering the fixtures. The remaining counts are zero. All five
 flags must display the English bundle's `eform.renderIssue.no` value in the
 `en-CA` browser context. Approval downloads the already saved revision without
 another save. Submit & PDF itself creates one new revision per click; the original

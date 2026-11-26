@@ -218,6 +218,19 @@ function reserveInstanceIds(s,template) {
 
 async function workflow(s) {
   const bundle = approvalBundle();
+  // The interactive editor does not render the print footer. The ordinary HTML
+  // response used by the privacy-html-range check goes through the same print filter as the renderer.
+  const printable = await s.context.newPage();
+  let privacyNoticeCount;
+  try {
+    const url = h.appUrl(s.config.baseUrl, '/gpl.htm');
+    const response = await printable.goto(url, {waitUntil: 'load'});
+    h.assert(response?.status() === 200 && printable.url() === url, 'Could not read the installed printable HTML control');
+    privacyNoticeCount = await printable.locator('p.yesprint.carlos-print-decoration')
+      .filter({hasText: /END OF PRINTED DOCUMENT\s*$/}).count();
+  } finally {
+    await printable.close();
+  }
   const templates=SHAPES.map(shape=>({shape,name:s.marker+' page exclusion '+shape}));
   // Register durable marker ownership before any template INSERT/ID allocation.
   s.cleanup(()=>{
@@ -289,10 +302,6 @@ async function workflow(s) {
       const mark=reader.mark();
       let approvedFdid;
       const downloaded=await x.saveDownload(form,scratch,async()=>{
-        // The print filter can append one clinic confidentiality notice outside the authored pages.
-        // Count that specific platform paragraph on the native form before navigating to approval.
-        const privacyNoticeCount = await form.locator('p.yesprint.carlos-print-decoration')
-          .filter({hasText: /END OF PRINTED DOCUMENT\s*$/}).count();
         await form.locator('#remoteDownloadButton').click();
         if(template.shape!=='clean') {
           // An interstitial is BLOCKING even when marked as decoration: only
