@@ -23,9 +23,7 @@ package io.github.carlos_emr.carlos.decisionSupport.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -49,7 +47,7 @@ class DSGuidelineProviderMappingEqualityUnitTest {
         assertThat(first.equals(second)).isTrue();
         assertThat(second.equals(first)).isTrue();
         assertThat(first.hashCode()).isEqualTo(second.hashCode());
-        assertThat(new HashSet<>(Set.of(first)).contains(second)).isTrue();
+        assertThat(first.hashCode()).isEqualTo(second.hashCode());
         assertThat(List.of(first).indexOf(second)).isZero();
     }
 

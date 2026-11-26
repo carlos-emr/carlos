@@ -173,7 +173,7 @@ class AbstractModelEqualityUnitTest {
     @Test
     @DisplayName("should keep distinct identifiers distinct in a set despite the shared hash")
     void shouldKeepDistinctEntitiesApart_inHashedCollections() {
-        Set<Probe> set = new HashSet<>();
+        Set<AbstractModel<Integer>> set = new HashSet<>();
         for (int id = 1; id <= 50; id++) {
             set.add(new Probe(id));
         }
