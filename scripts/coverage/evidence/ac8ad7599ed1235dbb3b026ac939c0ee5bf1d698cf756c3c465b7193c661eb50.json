@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "9cfeeadacbfd4568a82b260f2d2ad74c4cdf71e7",
+  "comparisonSha256": "8e8b07d54b33371321d0155dc59fb87549c512e6acb74cd1312bbc0c9679671b",
+  "baselineCommit": "b00053cc826f823ebbc0e69d327c016eb4f2fe8e",
+  "baselineSourceTree": "9cfeeadacbfd4568a82b260f2d2ad74c4cdf71e7",
+  "baselineReportSha256": "3c403bf3c372a98dc08028bbb1c44a79da5e76b584ae8b8b0ea4ecc1777c5dbb",
+  "baselineLane": "Focused OpenJDK 25 tests on Ubuntu 26.04 for chart printing, document metadata, measurement types and graphs, lab unlinking and prevention query handling. The same run exercised consultation and contact regressions.",
+  "baselineTestCounts": {
+    "tests": 1081,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "e1da8f4a54b5c715fda4c4faa66eeb6cb8d06c49ea0ed283487bf866f518cfb0",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/service/CaseManagementPrint.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "f8c7b5c40a5ab35905cae3ce6ab3208b181f59c1"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/documentManager/EDocUtil.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "37ce2f2c6b3fa15049557872f42a62e7e94650ac"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/data/MeasurementTypes.java": {
+      "lines": 95.45454545454545,
+      "instructions": 96.61016949152543,
+      "branches": 83.33333333333333,
+      "sourceBlob": "dfb305815d56bf4fb17ea8f920d08595ed08e000"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/pageUtil/UnlinkDemographic2Action.java": {
+      "lines": 96.42857142857143,
+      "instructions": 92.5925925925926,
+      "branches": 100.0,
+      "sourceBlob": "9eec98d01ddd42f57a1b4a6b311c0b7db7ad7994"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/gate/ViewLabValuesGraph2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "cddce0d75d272c2924e221c612feede1dfbe8c9c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/service/LabPatientUnlinkService.java": {
+      "lines": 100.0,
+      "instructions": 98.45758354755785,
+      "branches": 91.17647058823529,
+      "sourceBlob": "42fd97a1439ff664df20784f732f394e3240f4f2"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prevention/PreventionReadSafetyService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 85.71428571428571,
+      "sourceBlob": "9705febed88ffa26417b373e02a616f35fe26fc7"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prevention/SqlTableReferences.java": {
+      "lines": 100.0,
+      "instructions": 99.6268656716418,
+      "branches": 93.71069182389937,
+      "sourceBlob": "7ab9bd14a352fcf4045fe8793c01341a1914672f"
+    }
+  },
+  "exclusions": {}
+}
