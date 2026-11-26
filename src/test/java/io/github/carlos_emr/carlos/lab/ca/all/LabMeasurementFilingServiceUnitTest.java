@@ -148,6 +148,18 @@ class LabMeasurementFilingServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldFileTheLastVersionOfTheLabsOwnOrder_whenTheChainIsRevisionOrdered() {
+        // A CML chain is ordered by the lab's revision evidence: its last version is current even though
+        // it does not have the highest lab number, and the highest one is then history.
+        var higherNumber = service("101,100").file(filing("101", 7, true));
+        var lastRevision = service("101,100").file(filing("100", 7, true));
+
+        assertThat(higherNumber).isEqualTo(LabMeasurementFilingService.Result.NOT_CURRENT);
+        assertThat(lastRevision).isEqualTo(LabMeasurementFilingService.Result.FILED);
+        verify(measurementDao, times(1)).persist(any(Measurement.class));
+    }
+
+    @Test
     void shouldFileNothing_whenTheReportWasRemovedBeforeItRan() {
         when(locks.lockByLabNumber(101)).thenReturn(null);
 
@@ -207,7 +219,19 @@ class LabMeasurementFilingServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldRetryTheWholeTransactionUpToThreeTimes_whenALockFails() {
+    void shouldRetryTheWholeTransactionUpToThreeTimes_whenTheDatabaseRefusesALockAsJpaReportsIt() {
+        // Nothing here translates JPA exceptions to Spring's: a real deadlock arrives as Jakarta's own.
+        when(locks.lockByAccession("ACC-1")).thenThrow(new jakarta.persistence.PersistenceException(
+                new jakarta.persistence.PessimisticLockException("deadlock")));
+
+        assertThatThrownBy(() -> service("101").file(filing("101", 7, false)))
+                .isInstanceOf(jakarta.persistence.PersistenceException.class);
+
+        verify(transactions, times(LabMeasurementFilingService.MAX_ATTEMPTS)).getTransaction(any());
+    }
+
+    @Test
+    void shouldRetryTheWholeTransactionUpToThreeTimes_whenSpringTranslatedTheLockFailure() {
         when(locks.lockByAccession("ACC-1")).thenThrow(new CannotAcquireLockException("deadlock"));
 
         assertThatThrownBy(() -> service("101").file(filing("101", 7, false)))
@@ -217,8 +241,46 @@ class LabMeasurementFilingServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldNotRetry_whenTheFailureIsNotALockFailure() {
+        when(locks.lockByAccession("ACC-1")).thenThrow(new IllegalStateException("not a lock"));
+
+        assertThatThrownBy(() -> service("101").file(filing("101", 7, false)))
+                .isInstanceOf(IllegalStateException.class);
+
+        verify(transactions, times(1)).getTransaction(any());
+    }
+
+    @Test
+    void shouldRecogniseEveryWayTheDatabaseRefusesALock_inTheCauseChain() {
+        var driver = new java.sql.SQLTransactionRollbackException("deadlock", "40001", 1213);
+        assertThat(LabMeasurementFilingService.isLockFailure(new RuntimeException(new RuntimeException(driver))))
+                .isTrue();
+        assertThat(LabMeasurementFilingService.isLockFailure(
+                new RuntimeException(new java.sql.SQLException("lock wait timeout", "HY000", 1205)))).isTrue();
+        assertThat(LabMeasurementFilingService.isLockFailure(
+                new jakarta.persistence.LockTimeoutException("timeout"))).isTrue();
+        assertThat(LabMeasurementFilingService.isLockFailure(
+                new org.hibernate.PessimisticLockException("lock", new java.sql.SQLException(), "select"))).isTrue();
+        assertThat(LabMeasurementFilingService.isLockFailure(
+                new org.hibernate.exception.LockAcquisitionException("deadlock", new java.sql.SQLException())))
+                .isTrue();
+        assertThat(LabMeasurementFilingService.isLockFailure(
+                new org.hibernate.exception.LockTimeoutException("timeout", new java.sql.SQLException()))).isTrue();
+        // Neither another SQL error, nor a failure with no lock anywhere in its chain, nor a cause cycle.
+        assertThat(LabMeasurementFilingService.isLockFailure(
+                new RuntimeException(new java.sql.SQLException("duplicate", "23000", 1062)))).isFalse();
+        assertThat(LabMeasurementFilingService.isLockFailure(new IllegalStateException("x"))).isFalse();
+        assertThat(LabMeasurementFilingService.isLockFailure(null)).isFalse();
+        var a = new RuntimeException("a");
+        var b = new RuntimeException("b", a);
+        a.initCause(b);
+        assertThat(LabMeasurementFilingService.isLockFailure(a)).isFalse();
+    }
+
+    @Test
     void shouldStopRetryingAndKeepTheInterrupt_whenTheBackoffIsInterrupted() {
-        when(locks.lockByAccession("ACC-1")).thenThrow(new CannotAcquireLockException("deadlock"));
+        when(locks.lockByAccession("ACC-1")).thenThrow(new jakarta.persistence.PersistenceException(
+                new jakarta.persistence.PessimisticLockException("deadlock")));
         Thread.currentThread().interrupt();
         try {
             assertThatThrownBy(() -> service("101").file(filing("101", 7, false)))

@@ -150,6 +150,118 @@ public class LabMeasurementFilingConcurrencyIntegrationTest extends CarlosTestBa
                 .execute(status -> measurementDao.findByValue("lab_no", String.valueOf(lab)));
     }
 
+    /** Runs {@code first} parked on the chain's lock, then {@code second}, which must wait; then releases the first. */
+    private void overlap(ParkingLocks parked, Runnable first, Runnable second) throws Exception {
+        ExecutorService threads = Executors.newFixedThreadPool(2);
+        try {
+            Future<?> one = threads.submit(first);
+            assertThat(parked.holding.await(30, TimeUnit.SECONDS)).isTrue();
+            Future<?> two = threads.submit(second);
+            try {
+                two.get(750, TimeUnit.MILLISECONDS);
+                throw new AssertionError("the second filing ran while the first held the chain's rows");
+            } catch (TimeoutException waiting) {
+                // expected: it is waiting for the locks
+            }
+            parked.release.countDown();
+            one.get(30, TimeUnit.SECONDS);
+            two.get(30, TimeUnit.SECONDS);
+        } finally {
+            parked.release.countDown();
+            threads.shutdownNow();
+        }
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void shouldFileNothingForALateVersionOne_whenTheCorrectionIsBeingFiledFirst() throws Exception {
+        String accession = "ACC-CONC-REV";
+        int original = storedReport(accession);
+        int correction = storedReport(accession);
+        String chain = original + "," + correction;
+        ParkingLocks parked = new ParkingLocks(true);
+
+        // The correction holds the chain; version one then waits, reads the chain under the lock and is history.
+        overlap(parked,
+                () -> service(parked, chain).file(filing(correction, accession, "6.9")),
+                () -> service(new ParkingLocks(false), chain).file(filing(original, accession, "5.1")));
+
+        assertThat(filed(original)).isEmpty();
+        assertThat(filed(correction)).extracting(Measurement::getDataField).containsExactly("6.9");
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void shouldLeaveOneSetOfValues_whenTheSameReportIsFiledByTwoThreadsAtOnce() throws Exception {
+        String accession = "ACC-CONC-SAME";
+        int lab = storedReport(accession);
+        ParkingLocks parked = new ParkingLocks(true);
+
+        overlap(parked,
+                () -> service(parked, String.valueOf(lab)).file(filing(lab, accession, "5.1")),
+                () -> service(new ParkingLocks(false), String.valueOf(lab)).file(filing(lab, accession, "5.1")));
+
+        assertThat(filed(lab)).extracting(Measurement::getDataField).containsExactly("5.1");
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void shouldCommitBothUploadsAndFileTheCorrectionOnly_whenTwoReadCommittedUploadsOverlap() throws Exception {
+        // The web service's shape: each upload runs in its own READ_COMMITTED transaction that stores its
+        // report row and asks for the filing; both reports exist (uncommitted) before either commits.
+        String accession = "ACC-CONC-WS";
+        CountDownLatch bothStored = new CountDownLatch(2);
+        int[] labs = new int[2];
+        ExecutorService threads = Executors.newFixedThreadPool(2);
+        try {
+            List<Future<Integer>> uploads = new java.util.ArrayList<>();
+            for (int i = 0; i < 2; i++) {
+                final int index = i;
+                uploads.add(threads.submit(() -> {
+                    TransactionTemplate upload = new TransactionTemplate(transactions);
+                    upload.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+                    upload.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
+                    return upload.execute(status -> {
+                        Hl7TextInfo info = new Hl7TextInfo();
+                        info.setLabNumber(LAB_NUMBERS.incrementAndGet());
+                        info.setAccessionNumber(accession);
+                        info.setFirstName("FAKE");
+                        info.setLastName("FAKE");
+                        info.setObrDate(new Date().toString());
+                        info.setReportStatus("F");
+                        info.setFinalResultCount(0);
+                        hibernateTemplate.save(info);
+                        hibernateTemplate.flush();
+                        labs[index] = info.getLabNumber();
+                        bothStored.countDown();
+                        try {
+                            bothStored.await(30, TimeUnit.SECONDS);
+                        } catch (InterruptedException interrupted) {
+                            Thread.currentThread().interrupt();
+                        }
+                        // Both numbers are known once both rows are stored; the chain is both reports.
+                        int low = Math.min(labs[0], labs[1]);
+                        int high = Math.max(labs[0], labs[1]);
+                        service(locks, low + "," + high).fileAfterCommit(
+                                filing(info.getLabNumber(), accession, "v" + info.getLabNumber()));
+                        return info.getLabNumber();
+                    });
+                }));
+            }
+            // No deadlock and no rollback of either upload: both complete.
+            for (Future<Integer> upload : uploads) {
+                upload.get(60, TimeUnit.SECONDS);
+            }
+        } finally {
+            threads.shutdownNow();
+        }
+
+        int low = Math.min(labs[0], labs[1]);
+        int high = Math.max(labs[0], labs[1]);
+        assertThat(filed(low)).isEmpty();
+        assertThat(filed(high)).extracting(Measurement::getDataField).containsExactly("v" + high);
+    }
+
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     void shouldMakeTheCorrectionWaitForTheFirstFilingAndLeaveOnlyItsValues_whenTheyOverlap() throws Exception {

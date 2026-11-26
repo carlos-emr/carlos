@@ -16,8 +16,10 @@
  */
 package io.github.carlos_emr.carlos.lab.ca.all;
 
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +27,7 @@ import java.util.Set;
 import java.util.function.UnaryOperator;
 
 import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -109,6 +112,9 @@ public class LabMeasurementFilingService {
     private final MeasurementsDeletedDao measurementsDeletedDao;
     private final UnaryOperator<String> matchingLabs;
 
+    // Two constructors: Spring is told which one builds the bean (without this it finds no default
+    // constructor and the application does not start).
+    @Autowired
     public LabMeasurementFilingService(
             PlatformTransactionManager transactions,
             Hl7TextInfoChainLockDao locks,
@@ -218,8 +224,8 @@ public class LabMeasurementFilingService {
         for (int attempt = 1; ; attempt++) {
             try {
                 return template.execute(status -> fileInTransaction(dto));
-            } catch (PessimisticLockingFailureException lockFailure) {
-                if (attempt >= MAX_ATTEMPTS) {
+            } catch (RuntimeException lockFailure) {
+                if (!isLockFailure(lockFailure) || attempt >= MAX_ATTEMPTS) {
                     throw lockFailure;
                 }
                 try {
@@ -232,6 +238,34 @@ public class LabMeasurementFilingService {
                 backoff *= 2;
             }
         }
+    }
+
+    /**
+     * Whether a failure is the database refusing a lock: a deadlock victim or a lock wait timeout, which a
+     * second attempt of the whole transaction can get past. Nothing in this application translates JPA
+     * exceptions to Spring's ({@link PessimisticLockingFailureException}), so a real deadlock arrives as
+     * Jakarta's or Hibernate's own exception, or as the driver's {@link SQLException}: the whole cause
+     * chain is read, for any of them.
+     */
+    public static boolean isLockFailure(Throwable failure) {
+        Set<Throwable> seen = new HashSet<>();
+        for (Throwable cause = failure; cause != null && seen.add(cause); cause = cause.getCause()) {
+            if (cause instanceof PessimisticLockingFailureException
+                    || cause instanceof jakarta.persistence.PessimisticLockException
+                    || cause instanceof jakarta.persistence.LockTimeoutException
+                    || cause instanceof org.hibernate.PessimisticLockException
+                    || cause instanceof org.hibernate.exception.LockAcquisitionException
+                    || cause instanceof org.hibernate.exception.LockTimeoutException) {
+                return true;
+            }
+            if (cause instanceof SQLException sql) {
+                // 40001: serialization failure / deadlock; MariaDB 1213 deadlock, 1205 lock wait timeout.
+                if ("40001".equals(sql.getSQLState()) || sql.getErrorCode() == 1213 || sql.getErrorCode() == 1205) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**
