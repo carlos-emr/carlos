@@ -181,6 +181,8 @@ Description: Stop the other services using ports 80 and 443?
  again at boot (disabled, or masked when it cannot be disabled). Nothing is
  uninstalled and no configuration is changed; the next screen shows what was
  done to each one and how to bring it back after moving it to other ports.
+ Only the services listed here are stopped: one that starts using these
+ ports after this question is shown is left running and reported.
  .
  If you decline, nothing is changed and CARLOS EMR is NOT reachable until
  those ports are free. Free them yourself, then run:

@@ -29,8 +29,10 @@ package io.github.carlos_emr.carlos.commn.model;
 
 import java.util.List;
 
+import org.hibernate.proxy.HibernateProxy;
+import org.hibernate.proxy.LazyInitializer;
+
 import io.github.carlos_emr.carlos.utility.LogSafe;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 public abstract class AbstractModel<T> implements java.io.Serializable {
     protected static final String OBJECT_NOT_YET_PERISTED = "The object is not persisted yet, this operation requires the object to already be persisted.";
@@ -48,33 +50,43 @@ public abstract class AbstractModel<T> implements java.io.Serializable {
         return getClass().getSimpleName() + "[id=" + LogSafe.sanitize(diagnosticId) + "]";
     }
 
+    /**
+     * Hash of the persistent type, never of the identifier.
+     *
+     * <p>An entity commonly enters a {@link java.util.Set} or {@link java.util.Map} before the
+     * database assigns its identifier (for example a new child added to a cascading collection).
+     * An identifier-based hash then moves the entity to a different bucket on save and the
+     * collection can no longer find it (#5303). Hashing the type keeps membership stable across
+     * persistence, stays consistent with {@link #equals(Object)} (equal entities always share a
+     * persistent type) and, because it is read from the Hibernate proxy's metadata, never
+     * initializes a lazy association. Entities that need a finer hash, or an equality over a
+     * business key, override both methods.</p>
+     */
     @Override
     public int hashCode() {
-        if (getId() == null) {
-            MiscUtils.getLogger().warn(OBJECT_NOT_YET_PERISTED, new Exception());
-            return (super.hashCode());
-        }
-
-        return (getId().hashCode());
+        return persistentType(this).hashCode();
     }
 
     /**
-     * Entity equality by persistent identifier.
+     * Entity equality by persistent type and identifier.
      *
      * <p>An instance always equals itself, never equals {@code null} or an instance of another
-     * class, and an instance without an identifier (not yet persisted) equals only itself. Two
-     * distinct instances are equal when both carry the same identifier. This used to throw
-     * {@link NullPointerException} for {@code null} and for any unsaved instance, including
-     * {@code x.equals(x)}, which broke collection lookups on new entities (#5303). The hash policy
-     * in {@link #hashCode()} is unchanged and stays consistent with this: identity hash while the
-     * identifier is unset, identifier hash afterwards.</p>
+     * persistent type, and an instance without an identifier (not yet persisted) equals only
+     * itself. Two distinct instances are equal when both carry the same non-null identifier. This
+     * used to throw {@link NullPointerException} for {@code null} and for any unsaved instance,
+     * including {@code x.equals(x)}, which broke collection lookups on new entities (#5303).</p>
+     *
+     * <p>The argument may be a Hibernate proxy: its persistent class and identifier are read from
+     * the proxy's metadata, so comparing against an uninitialized or detached proxy neither runs
+     * SQL nor throws {@code LazyInitializationException}. A proxy <em>receiver</em> is initialized
+     * by Hibernate before this method runs, as for every entity that overrides {@code equals}.</p>
      */
     @Override
     public boolean equals(Object o) {
         if (this == o) {
             return true;
         }
-        if (o == null || getClass() != o.getClass()) {
+        if (!(o instanceof AbstractModel<?> other) || persistentType(this) != persistentType(other)) {
             return false;
         }
 
@@ -82,7 +94,19 @@ public abstract class AbstractModel<T> implements java.io.Serializable {
         if (id == null) {
             return false;
         }
-        return id.equals(((AbstractModel<?>) o).getId());
+        return id.equals(persistentId(other));
+    }
+
+    /** The entity class behind {@code value}, looking through a Hibernate proxy without loading it. */
+    private static Class<?> persistentType(AbstractModel<?> value) {
+        LazyInitializer proxy = HibernateProxy.extractLazyInitializer(value);
+        return proxy == null ? value.getClass() : proxy.getPersistentClass();
+    }
+
+    /** The identifier of {@code value}; a proxy answers from its metadata instead of loading. */
+    private static Object persistentId(AbstractModel<?> value) {
+        LazyInitializer proxy = HibernateProxy.extractLazyInitializer(value);
+        return proxy == null ? value.getId() : proxy.getInternalIdentifier();
     }
 
     /**
