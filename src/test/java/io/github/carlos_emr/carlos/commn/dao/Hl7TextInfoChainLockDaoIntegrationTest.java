@@ -36,7 +36,7 @@ import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 /**
  * The row locks of a lab chain (#6391): joined to the caller's transaction, ordered by lab number,
  * and exact in what they select. The locking itself is shown on a real InnoDB in
- * {@code Hl7TextInfoChainLockDaoMariaDbIntegrationTest}: H2 accepts the statements but the
+ * {@code Hl7TextInfoChainLockMariaDbIntegrationTest}: H2 accepts the statements but the
  * snapshot ordering the filing depends on is MariaDB's.
  */
 @DisplayName("Hl7TextInfoChainLockDao Integration Tests")

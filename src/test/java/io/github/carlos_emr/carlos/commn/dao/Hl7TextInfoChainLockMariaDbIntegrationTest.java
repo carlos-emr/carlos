@@ -17,6 +17,11 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowable;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import javax.sql.DataSource;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -24,19 +29,36 @@ import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
+
+import io.github.carlos_emr.carlos.lab.ca.all.LabMeasurementFilingService;
 
 /**
  * The chain locks on a real InnoDB (#6391): each statement walks the index it was written for and
- * not the whole table, because a locking scan under REPEATABLE READ locks every row it passes. The
- * name matches the Dao integration pattern the build runs, and the two variables keep it off H2.
+ * not the whole table, because a locking scan under REPEATABLE READ locks every row it passes, and a
+ * real lock wait timeout is recognised as the lock failure the filing retries.
+ *
+ * <p>The name carries no "Dao" on purpose: the generated-schema lane selects every {@code *Dao*}
+ * integration test and allows no skip, and this one needs the Flyway schema; the Flyway lane lists
+ * its tests by name (the precedent is {@code CaseManagementNoteLegacyFlagsMariaDbIntegrationTest}).</p>
  */
 @Tag("mariadb-native")
 @EnabledIfEnvironmentVariable(named = "CARLOS_TEST_MARIADB_DAO", matches = "true")
 @EnabledIfEnvironmentVariable(named = "CARLOS_TEST_MARIADB_SCHEMA", matches = "flyway")
-class Hl7TextInfoChainLockDaoMariaDbIntegrationTest extends Hl7TextInfoChainLockDaoIntegrationTest {
+class Hl7TextInfoChainLockMariaDbIntegrationTest extends Hl7TextInfoChainLockDaoIntegrationTest {
 
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
+
+    @Autowired
+    private DataSource dataSource;
+
+    @Autowired
+    private PlatformTransactionManager transactions;
 
     /** The {@code key} column of the first EXPLAIN row: the index the optimizer chose, or null. */
     private String indexChosenFor(String explain) {
@@ -75,5 +97,38 @@ class Hl7TextInfoChainLockDaoMariaDbIntegrationTest extends Hl7TextInfoChainLock
     void shouldUseTheKeyValueIndex_whenFindingAReportsMeasurements() {
         assertThat(indexChosenFor("EXPLAIN SELECT * FROM measurementsExt WHERE keyval = 'lab_no' AND val = '101'"))
                 .isEqualTo("measurements_ext_keyval_val");
+    }
+
+    /**
+     * A real lock wait: one connection holds the chain's row, the lock of a second one waits out
+     * {@code innodb_lock_wait_timeout} and fails. What the filing sees must be recognised as a lock
+     * failure whatever exception type the persistence layer gives it (nothing here translates JPA
+     * exceptions to Spring's).
+     */
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void shouldRecogniseARealLockWaitTimeoutAsALockFailure_whenAnotherConnectionHoldsTheRow() throws Exception {
+        String accession = "ACC-REAL-LOCK-" + System.nanoTime();
+        // Committed, so that a second connection sees the row.
+        new TransactionTemplate(transactions).executeWithoutResult(status -> stored(accession, null));
+
+        try (Connection holder = dataSource.getConnection()) {
+            holder.setAutoCommit(false);
+            try (PreparedStatement lock = holder.prepareStatement(
+                    "SELECT lab_no FROM hl7TextInfo WHERE accessionNum = ? FOR UPDATE")) {
+                lock.setString(1, accession);
+                lock.executeQuery().close();
+            }
+
+            Throwable thrown = catchThrowable(() -> new TransactionTemplate(transactions).executeWithoutResult(status -> {
+                // One second, not the server's fifty: a wrong lock fails in seconds.
+                entityManager.createNativeQuery("SET SESSION innodb_lock_wait_timeout=1").executeUpdate();
+                locks.lockByAccession(accession);
+            }));
+            holder.rollback();
+
+            assertThat(thrown).as("the second lock must time out while the row is held").isNotNull();
+            assertThat(LabMeasurementFilingService.isLockFailure(thrown)).as(String.valueOf(thrown)).isTrue();
+        }
     }
 }

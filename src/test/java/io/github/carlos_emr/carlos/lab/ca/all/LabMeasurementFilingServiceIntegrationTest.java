@@ -109,6 +109,16 @@ public class LabMeasurementFilingServiceIntegrationTest extends CarlosTestBase {
         return new TransactionTemplate(transactions).execute(status -> measurementDao.findByValue("lab_no", String.valueOf(lab)));
     }
 
+    @Test
+    void shouldBuildTheServiceFromTheApplicationContext_withItsDaosAndOneTransactionManager() {
+        // Two constructors and no @Autowired would stop the application starting; this builds the bean the
+        // way production does, which also shows the chain-lock DAO bean exists and that the transaction
+        // manager it needs is unique.
+        var bean = io.github.carlos_emr.carlos.utility.SpringUtils.getBean(LabMeasurementFilingService.class);
+
+        assertThat(bean).isNotNull();
+    }
+
     /** What another transaction sees right now: the upload's own is still open when this is called inside it. */
     private List<Measurement> filedElsewhere(int lab) {
         TransactionTemplate other = new TransactionTemplate(transactions);
