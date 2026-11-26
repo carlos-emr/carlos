@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "856afdee41ddddb2c6ac76d0e2d871f778bc1274",
+  "comparisonSha256": "2bb7228e36a3ce8120e007c2ea762b320b4b96fc4fa36e1e2fccea7486cdc6c2",
+  "baselineCommit": "5c16839e9b9e9a894f1be74d070d71fdca3ad0f0",
+  "baselineSourceTree": "856afdee41ddddb2c6ac76d0e2d871f778bc1274",
+  "baselineReportSha256": "1e69805bb2c7c9a3eb669eee4adc8e27603f7fb81724a45d557d1678210c40c3",
+  "baselineLane": "PR #6142 FOCUSED run: the Hl7textResultsData, CmlCorrectedVersion, lab version filing, LabDisplayHelper, MeasurementGraph*, GraphMeasurementRequestIsolation, MeasurementChartData and CommonLabTestValues unit/H2 tests (Maven, JDK 25.0.5, JaCoCo 0.8.16) on this PR's merge of release/2026.08 (eaba7c5023). Rows are measured with the checker's measure() from target/site/jacoco/jacoco.xml for those two sources only; not a full-suite run, it qualifies no other source.",
+  "baselineTestCounts": {
+    "tests": 468,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "5bd54053b2f06d3fbe9264bfdcca9eb1d52f7fa190d8f67f6e486aa5d4a13e67",
+  "baselineTestReportsHashFormat": "SHA-256 of compact, key-sorted JSON mapping each Surefire XML filename to the SHA-256 of its unchanged bytes",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/Hl7textResultsData.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "9d57e60ff4f8340e44091f0516f8c46d2ab3bf8d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/pageUtil/MeasurementGraphAction22Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 97.40259740259741,
+      "sourceBlob": "d5028583a0019d34fdf87c0c8bc40e539358c695"
+    }
+  }
+}
