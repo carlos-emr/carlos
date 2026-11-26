@@ -29,6 +29,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Tag;
@@ -83,6 +84,31 @@ class OscarTrackingBasicDataSourceUnitTest extends CarlosUnitTestBase {
         assertThat(ownedConnections(owner)).isEmpty();
         assertThat(trackedThreadConnectionSets()).isEmpty();
         verify(connection).close();
+    }
+
+    @Test
+    void shouldLogTheAcquisitionTrace_withoutDrainingTheLease() throws Exception {
+        Connection tracked = track(mock(Connection.class));
+        try (LogCapture capture = LogCapture.forLogger(OscarTrackingBasicDataSource.logger.getName())) {
+            OscarTrackingBasicDataSource.logDebugMapToError();
+            assertThat(capture.messages()).anySatisfy(message ->
+                    assertThat(message).contains(tracked.toString(), ".trackConnection("));
+        }
+        assertThat(OscarTrackingBasicDataSource.isConnectionTracked(tracked)).isTrue();
+    }
+
+    @Test
+    void shouldLeaveExtensionHashCodeOutsideDiagnostics_whenCheckingOrClosingAnExternalWrapper() throws Exception {
+        Connection delegate = mock(Connection.class);
+        Connection external = new OscarTrackingBasicDataSource.TrackingJdbcConnection(delegate) {
+            @Override
+            public int hashCode() {
+                throw new AssertionError("Diagnostics called an extension's hashCode");
+            }
+        };
+        assertThat(OscarTrackingBasicDataSource.isConnectionTracked(external)).isFalse();
+        external.close();
+        verify(delegate).close();
     }
 
     @Test
