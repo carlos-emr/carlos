@@ -57,7 +57,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * <p>What a select submits is also the value a database tag that names the field ({@code {name}}) binds
  * ({@link #submittedValues}): the option a browser shows as selected for the select's display size (a drop-down
  * with none marked shows its first enabled option), never a disabled one, and nothing for a select a save does not
- * submit (inert {@code template} content, or a select that belongs to another form).</p>
+ * submit (inert {@code template} content, a disabled select, or a select that belongs to another form).</p>
  *
  * <p>Anything that cannot be resolved with certainty (the select is not found, a start tag cannot be read)
  * changes nothing: the template's own default stays.</p>
@@ -201,14 +201,16 @@ final class EFormSelectMarkup {
 
     /**
      * Whether a save submits {@code select} with {@code savedForm}, the page's first form (the one
-     * {@code EForm.setAction} makes the save form). Never a select in inert {@code template} content, nor one whose
-     * {@code form} attribute names another element or nothing, nor one inside another form. A select outside every
-     * form is read as before: a form written between {@code <table>} and {@code <tr>} owns the controls of its rows
-     * without holding them. So is every select of a page that has no form.
+     * {@code EForm.setAction} makes the save form). Never a select in inert {@code template} content, nor a disabled
+     * one (see {@link #isDisabledControl}), nor one whose {@code form} attribute names another element or nothing, nor
+     * one inside another form. A select outside every form is read as before: a form written between
+     * {@code <table>} and {@code <tr>} owns the controls of its rows without holding them. So is every select of a
+     * page that has no form, apart from template content.
      */
     private static boolean submittedWith(Element select, Document document, Element savedForm) {
         if (ancestorNamed(select, "template", null) != null) return false;
         if (savedForm == null) return true;
+        if (isDisabledControl(select)) return false;
         if (select.hasAttr("form")) {
             String id = select.attr("form");
             return !id.isEmpty() && document.getElementById(id) == savedForm;
@@ -221,6 +223,29 @@ final class EFormSelectMarkup {
     private static Element ancestorNamed(Element element, String name, Element stop) {
         for (Element ancestor = element.parent(); ancestor != null && ancestor != stop; ancestor = ancestor.parent()) {
             if (ancestor.normalName().equals(name)) return ancestor;
+        }
+        return null;
+    }
+
+    /**
+     * Whether a browser treats the control as disabled, and so submits nothing for it: its own {@code disabled}, or a
+     * disabled fieldset around it, unless the control is inside that fieldset's first legend.
+     */
+    private static boolean isDisabledControl(Element control) {
+        if (control.hasAttr("disabled")) return true;
+        Element below = control;
+        for (Element ancestor = control.parent(); ancestor != null; below = ancestor, ancestor = ancestor.parent()) {
+            if (ancestor.normalName().equals("fieldset") && ancestor.hasAttr("disabled") && below != firstLegend(ancestor)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** The first legend child of {@code fieldset}, or null. */
+    private static Element firstLegend(Element fieldset) {
+        for (Element child : fieldset.children()) {
+            if (child.normalName().equals("legend")) return child;
         }
         return null;
     }
@@ -445,7 +470,11 @@ final class EFormSelectMarkup {
             if (tag.value == null && Ascii.equalsIgnoreCase(name, VALUE_ATTRIBUTE)) tag.value = value;
             if (Ascii.equalsIgnoreCase(name, "selected")) {
                 int spaceStart = nameStart;
-                while (spaceStart > from && isHtmlSpace(text.charAt(spaceStart - 1))) spaceStart--;
+                // The white space before goes too, unless another attribute follows with none between: that white
+                // space then keeps the tag's parts apart (<option selected=""value="A"> must not become
+                // <optionvalue="A">, nor value=No selected=""title=t become value=Notitle=t).
+                boolean attributeFollows = p < length && !isHtmlSpace(text.charAt(p)) && "/>".indexOf(text.charAt(p)) < 0;
+                while (!attributeFollows && spaceStart > from && isHtmlSpace(text.charAt(spaceStart - 1))) spaceStart--;
                 tag.selectedRanges.add(new int[] {spaceStart, p});
             }
         }

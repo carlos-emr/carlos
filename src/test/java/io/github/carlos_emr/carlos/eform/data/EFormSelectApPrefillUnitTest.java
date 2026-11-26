@@ -394,7 +394,15 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
                                 + "<option value=\"C\" selected/>c</option>",
                         "Yes",
                         "<option selected value=\"Yes\">y</option><option value=\"No\">n</option>"
-                                + "<option value=\"C\"/>c</option>"));
+                                + "<option value=\"C\"/>c</option>"),
+                // With no white space after selected's quoted value, the white space before it is what keeps the
+                // preceding unquoted value or bare attribute apart from the next attribute: it stays.
+                Arguments.of("a selected attribute right before the next attribute leaves the white space that parts them",
+                        "<option value=\"Yes\">y</option><option value=No selected=\"\"title=\"t\">n</option>"
+                                + "<option disabled selected=''value=\"C\">c</option>",
+                        "Yes",
+                        "<option selected value=\"Yes\">y</option><option value=No title=\"t\">n</option>"
+                                + "<option disabled value=\"C\">c</option>"));
     }
 
     @ParameterizedTest(name = "{0}")

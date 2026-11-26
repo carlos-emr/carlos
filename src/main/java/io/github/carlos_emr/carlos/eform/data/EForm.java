@@ -1170,13 +1170,13 @@ public class EForm extends EFormBase {
     }
 
     /**
-     * The value a browser submits for an option: its {@code value} attribute when it has one,
-     * otherwise its text with whitespace stripped and collapsed. jsoup reads a missing attribute
-     * as an empty string, which is why the attribute alone cannot be compared: every value-less
-     * option would then equal a blank submission.
+     * The value a browser submits for an option ({@link EFormSelectMarkup#submittedValue}): its {@code value}
+     * attribute when it has one, otherwise its text with only HTML white space stripped and collapsed, so a
+     * no-break space stays as the browser posted it. jsoup reads a missing attribute as an empty string, which
+     * is why the attribute alone cannot be compared: every value-less option would then equal a blank submission.
      */
     private static String submittedOptionValue(Element option) {
-        return option.hasAttr(VALUE_ATTRIBUTE) ? option.attr(VALUE_ATTRIBUTE) : option.text();
+        return EFormSelectMarkup.submittedValue(option);
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md

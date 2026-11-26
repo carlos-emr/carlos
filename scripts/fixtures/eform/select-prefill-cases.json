@@ -105,6 +105,13 @@
       "wanted": "C",
       "after": "<select name=\"a\" oscarDB=choice><option value=Plan\u2003selected>p</option><option value=\"B\">b</option><option selected value=\"C\">c</option></select>",
       "submitted": "C"
+    },
+    {
+      "name": "a selected attribute right before the next attribute leaves the white space that parts them",
+      "before": "<select name=\"a\" oscarDB=choice><option selected=\"\"value=\"A\">a</option><option value=\"B\">b</option></select>",
+      "wanted": "B",
+      "after": "<select name=\"a\" oscarDB=choice><option value=\"A\">a</option><option selected value=\"B\">b</option></select>",
+      "submitted": "B"
     }
   ],
   "reads": [
@@ -212,6 +219,31 @@
       "name": "a select that holds a style element submits the option a browser lists",
       "form": "<form><select name=\"a\"><option value=\"A\" selected>a</option><style><option value=\"B\" selected></style><template><option value=\"T\" selected>t</option></template><option value=\"B\">b</option></select></form>",
       "submitted": "A"
+    },
+    {
+      "name": "a disabled select submits nothing",
+      "form": "<form><select name=\"a\" disabled><option selected>Archived</option></select></form>",
+      "submitted": null
+    },
+    {
+      "name": "a select in a disabled fieldset submits nothing",
+      "form": "<form><fieldset disabled><select name=\"a\"><option>X</option></select></fieldset></form>",
+      "submitted": null
+    },
+    {
+      "name": "a select in a disabled fieldset's first legend is submitted",
+      "form": "<form><fieldset disabled><div>d</div><legend><select name=\"a\"><option>X</option></select></legend></fieldset></form>",
+      "submitted": "X"
+    },
+    {
+      "name": "a select in a disabled fieldset's second legend submits nothing",
+      "form": "<form><fieldset disabled><legend>t</legend><legend><select name=\"a\"><option>X</option></select></legend></fieldset></form>",
+      "submitted": null
+    },
+    {
+      "name": "a select in an enabled fieldset is submitted",
+      "form": "<form><fieldset><select name=\"a\"><option>X</option></select></fieldset></form>",
+      "submitted": "X"
     }
   ]
 }
