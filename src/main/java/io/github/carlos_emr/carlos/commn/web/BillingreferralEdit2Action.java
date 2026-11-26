@@ -135,17 +135,26 @@ public class BillingreferralEdit2Action extends ActionSupport {
             // Published lists are never mutated. Other tabs and in-flight PDF renders
             // can finish reading their snapshot while this request publishes the next one.
             @SuppressWarnings("unchecked")
-            var previous = (List<ProfessionalSpecialist>) session.getAttribute("billingReferralAdminCheckList");
-            checkedSpecs = clear || previous == null ? new ArrayList<>() : new ArrayList<>(previous);
-            if (!clear) {
-                final int referralId = id;
-                if (!checked) {
-                    checkedSpecs.removeIf(entry -> entry.getId() == referralId);
-                } else if (checkedSpecs.stream().noneMatch(entry -> entry.getId() == referralId)) {
-                    checkedSpecs.add(specialist);
+            var previous = (List<ProfessionalSpecialist>) session.getAttribute(ReferralLabelChecklist.SELECTION);
+            long revision = ReferralLabelChecklist.revision(session);
+            String expected = request.getParameter("revision");
+            if (expected != null && !Long.toString(revision).equals(expected)) {
+                response.setStatus(HttpServletResponse.SC_CONFLICT);
+                checkedSpecs = previous == null ? List.of() : previous;
+            } else {
+                checkedSpecs = clear || previous == null ? new ArrayList<>() : new ArrayList<>(previous);
+                if (!clear) {
+                    final int referralId = id;
+                    if (!checked) {
+                        checkedSpecs.removeIf(entry -> entry.getId() == referralId);
+                    } else if (checkedSpecs.stream().noneMatch(entry -> entry.getId() == referralId)) {
+                        checkedSpecs.add(specialist);
+                    }
                 }
+                // Advance even for a no-op: it supersedes an older request that may still arrive.
+                revision = ReferralLabelChecklist.publish(session, checkedSpecs);
             }
-            session.setAttribute("billingReferralAdminCheckList", checkedSpecs); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+            response.setHeader(ReferralLabelChecklist.REVISION_HEADER, Long.toString(revision));
         }
 
         ArrayNode arr = objectMapper.valueToTree(checkedSpecs);
@@ -191,7 +200,13 @@ public class BillingreferralEdit2Action extends ActionSupport {
         var page = psDao.findDirectoryPage(referral, last, first, specialty, address, includeHidden, requestedPage);
         request.setAttribute("referrals", page.getRows());
         java.util.Set<Integer> selectedIds = new java.util.HashSet<>();
-        Object selected = request.getSession().getAttribute("billingReferralAdminCheckList");
+        var session = request.getSession();
+        Object selected;
+        synchronized (WebUtils.getSessionMutex(session)) {
+            selected = session.getAttribute(ReferralLabelChecklist.SELECTION);
+            request.setAttribute("labelChecklist", selected);
+            request.setAttribute("labelChecklistRevision", ReferralLabelChecklist.revision(session));
+        }
         if (selected instanceof List<?> rows) {
             for (Object row : rows) if (row instanceof ProfessionalSpecialist specialist) selectedIds.add(specialist.getId());
         }

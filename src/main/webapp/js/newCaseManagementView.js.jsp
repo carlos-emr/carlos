@@ -201,8 +201,6 @@
         registerMeasurementWindow(openWindows[name]);
     }
 
-    var okToClose = false;
-
     function onClosing() {
         for (var idx = 0; idx < measurementWindows.length; ++idx) {
             if (!measurementWindows[idx].closed)
@@ -3380,6 +3378,11 @@ function updateCPPNote() {
     var closeWithoutSaveMsg;
     function closeEnc(e) {
         Event.stop(e);
+        // The editor cannot display the queued text until the signing check settles.
+        if (heldNoteInsertions.length) {
+            alert(noteSavingMessage);
+            return false;
+        }
         var editor = $(caseNote);
         var observationDate = $("observationDate");
         // Losing write authority never makes unsaved note changes safe to discard.
@@ -4910,7 +4913,14 @@ function autoSave() {
 
     }
 
-    window.addEventListener("beforeunload", function () {
+    window.addEventListener("beforeunload", function (event) {
+        if (heldNoteInsertions.length) {
+            event.preventDefault();
+            event.returnValue = true;
+        }
+    });
+
+    window.addEventListener("pagehide", function () {
         for (var x = 0; x < activeCCWindows.length; x++) {
             activeCCWindows[x].close();
         }

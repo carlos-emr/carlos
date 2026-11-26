@@ -6,6 +6,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 function checklist() {
+  let revision = 0;
   const listeners = {}, elements = {}, requests = [], navigation = [], cells = [];
   function element(id) {
     return elements[id] ||= {
@@ -14,7 +15,7 @@ function checklist() {
       requestSubmit(submitter) { navigation.push(submitter); },
     };
   }
-  element('checked_items').dataset = {empty: 'None', printUrl: 'print-labels'};
+  element('checked_items').dataset = {empty: 'None', printUrl: 'print-labels', revision: '0'};
   element('referralSearch').action = '/admin/ManageBillingReferral';
   const box = {dataset: {referralId: '7'}, matches: () => true};
   const document = {
@@ -27,7 +28,7 @@ function checklist() {
     }; },
   };
   const $ = {ajax(options) {
-    const request = {options, fail(fn) { this.reject = fn; return this; }, done(fn) { this.resolve = fn; return this; }};
+    const request = {options, fail(fn) { this.reject = fn; return this; }, done(fn) { this.resolve = rows => fn(rows, 'success', {getResponseHeader: () => String(++revision)}); return this; }};
     requests.push(request);
     return request;
   }};
@@ -87,3 +88,24 @@ for (const failure of ['timeout', 'unconfirmed selection', 'invalid response']) 
     assert.equal(f.cells[0].textContent, 'None');
   });
 }
+
+test('an acknowledged revision is required on retry and a rejected selection can be replaced', () => {
+  const f = checklist();
+  f.change(true);
+  assert.equal(f.requests[0].options.data.revision, '0');
+  f.requests[0].reject();
+  f.click('retryLabelUpdate');
+  assert.equal(f.requests[1].options.data.revision, '0');
+  f.requests[1].reject({status: 409, getResponseHeader: () => '12'});
+  f.change(false);
+  assert.equal(f.requests[2].options.data.revision, '12');
+  assert.equal(f.requests[2].options.data.checked, false);
+  f.requests[2].resolve([]);
+  f.change(true);
+  f.requests[3].reject({status: 404});
+  f.click('clearReferralLabels');
+  assert.equal(f.requests[4].options.data.clear, true);
+  f.requests[4].resolve([]);
+  assert.equal(f.element('labelUpdateError').hidden, true);
+  assert.equal(f.box.checked, false);
+});

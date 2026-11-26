@@ -60,7 +60,7 @@
     }
 
     function completeEncounterForm(completionWindow, demographicNo, text) {
-        var keepOpen = false;
+        var keepOpen = typeof text === 'string' && text.length > 0;
         var refreshing = true;
         try {
             var patient = patientId(demographicNo);
@@ -68,10 +68,9 @@
             if (!patient || !opener || opener.closed || !isOwnChart(opener, patient)) return;
             var modernEditor = opener.document.querySelector('textarea[name="caseNote_note"]');
             var editor = modernEditor || opener.document.querySelector('form[name="encForm"] textarea[name="enTextarea"]');
-            if (typeof text === 'string' && text.length > 0) {
+            if (keepOpen) {
                 // The form has already been saved. Keep its reference available until the
                 // intended editor actually receives it, including during an asynchronous save.
-                keepOpen = true;
                 var inserted = function (target) {
                     keepOpen = false;
                     target.dispatchEvent(new opener.Event('input', {bubbles: true}));

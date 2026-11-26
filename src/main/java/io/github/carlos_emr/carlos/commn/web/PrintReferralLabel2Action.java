@@ -106,7 +106,7 @@ public class PrintReferralLabel2Action extends ActionSupport {
         List<String> ids = new ArrayList<>();
         Object selected = null;
         if (checklist) {
-            selected = request.getSession().getAttribute("billingReferralAdminCheckList");
+            selected = request.getSession().getAttribute(ReferralLabelChecklist.SELECTION);
             if (selected instanceof List<?> entries) {
                 for (Object entry : entries) {
                     if (entry instanceof ProfessionalSpecialist specialist) {
@@ -149,8 +149,8 @@ public class PrintReferralLabel2Action extends ActionSupport {
                 synchronized (WebUtils.getSessionMutex(session)) {
                     // Another tab may have edited or reselected these labels during PDF rendering.
                     // Only consume the exact selection this response printed.
-                    if (session.getAttribute("billingReferralAdminCheckList") == selected) {
-                        session.setAttribute("billingReferralAdminCheckList", new ArrayList<ProfessionalSpecialist>());
+                    if (session.getAttribute(ReferralLabelChecklist.SELECTION) == selected) {
+                        ReferralLabelChecklist.publish(session, List.of());
                     }
                 }
             }

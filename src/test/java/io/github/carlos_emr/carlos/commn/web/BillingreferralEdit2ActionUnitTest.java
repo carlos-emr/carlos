@@ -73,10 +73,33 @@ class BillingreferralEdit2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(request.getSession().getAttribute("billingReferralAdminCheckList")).isSameAs(previous);
     }
 
+    @Test
+    void shouldRejectLateRequests_whenAConfirmedRetryOrClearAdvancedTheRevision() throws Exception {
+        var dao = createAndRegisterMock(ProfessionalSpecialistDao.class);
+        var security = createAndRegisterMock(SecurityInfoManager.class);
+        when(security.hasPrivilege(any(), eq("_billing"), eq("w"), isNull())).thenReturn(true);
+        var specialist = new ProfessionalSpecialist();
+        ReflectionTestUtils.setField(specialist, "id", 7);
+        when(dao.find(7)).thenReturn(specialist);
+        var session = new MockHttpSession();
+
+        assertThat(changeLabels(session, "7", true, "0", 200)).containsExactly(7);
+        assertThat(changeLabels(session, null, false, "1", 200)).isEmpty();
+        assertThat(changeLabels(session, "7", true, "0", 409)).isEmpty();
+        assertThat(changeLabels(session, null, false, "2", 200)).isEmpty();
+        assertThat(changeLabels(session, "7", true, "2", 409)).isEmpty();
+        assertThat(changeLabels(session, "7", true, "3", 200)).containsExactly(7);
+    }
+
     private List<Integer> changeLabels(MockHttpSession session, String id, boolean checked) throws Exception {
+        return changeLabels(session, id, checked, null, 200);
+    }
+
+    private List<Integer> changeLabels(MockHttpSession session, String id, boolean checked, String revision, int status) throws Exception {
         var request = new MockHttpServletRequest();
         var response = new MockHttpServletResponse();
         request.setSession(session);
+        if (revision != null) request.setParameter("revision", revision);
         if (id == null) {
             request.setParameter("clear", "true");
         } else {
@@ -88,7 +111,9 @@ class BillingreferralEdit2ActionUnitTest extends CarlosUnitTestBase {
             servlet.when(ServletActionContext::getResponse).thenReturn(response);
             new BillingreferralEdit2Action().modifyBatch();
         }
-        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getStatus()).isEqualTo(status);
+        assertThat(response.getHeader(ReferralLabelChecklist.REVISION_HEADER))
+                .isEqualTo(Long.toString(ReferralLabelChecklist.revision(session)));
         var result = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
         assertThat(result.isArray()).isTrue();
         return result.valueStream().map(row -> row.get("id").asInt()).toList();

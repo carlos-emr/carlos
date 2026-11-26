@@ -569,3 +569,19 @@ test('direct changes to the editor during a successful heartbeat cannot be signe
   assert.equal(h.editor.disabled, false);
   assert.deepEqual(h.alerts, [h.context.noteChangedDuringSignMessage]);
 });
+
+test('Close keeps held clinical text until the heartbeat releases it', async () => {
+  const h = harness();
+  let closed = false;
+  vm.runInContext(slice('    var closeWithoutSaveMsg;', '    // Bind each newly rendered editor'), h.context);
+  h.context.Event = {stop() {}};
+  h.context.window.close = () => { closed = true; };
+  signAndSave(h);
+  h.context.pasteToEncounterNote('Held clinical text');
+  h.context.closeEnc({});
+  assert.equal(closed, false);
+  assert.deepEqual(h.alerts, [h.context.noteSavingMessage]);
+  await settled();
+  assert.ok(h.editor.value.endsWith('Held clinical text'));
+  assert.deepEqual(h.submits(), []);
+});

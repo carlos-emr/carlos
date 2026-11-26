@@ -619,7 +619,6 @@ window.carlosChartContext = '<%= SafeEncode.forJavaScript(io.github.carlos_emr.c
                 window.scrollTo(0, bodyScroll);
             }
 
-            window.onbeforeunload = onClosing;
 
 
         </script>

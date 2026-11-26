@@ -7,6 +7,8 @@
     var failed = false;
     var heldAction = null;
     var list = document.getElementById('checked_items');
+    var revision = list.dataset.revision;
+    var revisionHeader = 'X-Carlos-Checklist-Revision';
     var status = document.getElementById('labelUpdateError');
     var search = document.getElementById('referralSearch');
 
@@ -34,9 +36,18 @@
         if (sending || failed || !queue.length) return;
         sending = true;
         var update = queue[0];
-        $.ajax({url: search.action, method: 'POST', data: update, dataType: 'json', timeout: 15000})
-            .fail(refuse)
-            .done(function (rows) {
+        $.ajax({url: search.action, method: 'POST', data: Object.assign({revision: revision}, update), dataType: 'json', timeout: 15000})
+            .fail(function (xhr) {
+                if (xhr && xhr.status === 409) {
+                    var current = xhr.getResponseHeader(revisionHeader);
+                    if (current && /^\d+$/.test(current)) revision = current;
+                }
+                refuse();
+            })
+            .done(function (rows, statusText, xhr) {
+                var current = xhr.getResponseHeader(revisionHeader);
+                if (!current || !/^\d+$/.test(current)) return refuse();
+                revision = current;
                 if (!Array.isArray(rows) || rows.some(function (row) {
                     return !row || row.id == null || typeof row.formattedName !== 'string';
                 })) return refuse();
@@ -55,6 +66,14 @@
     }
 
     function enqueue(update) {
+        if (failed && (update.clear || (update.id === queue[0].id && !update.checked))) {
+            // Clear supersedes the entire pending batch. An uncheck supersedes a
+            // rejected check for the same specialist, including a deleted referral.
+            if (update.clear) queue = [];
+            else queue = queue.filter(function (pending) { return pending.id !== update.id; });
+            failed = false;
+            status.hidden = true;
+        }
         queue.push(update);
         sendNext();
     }

@@ -78,7 +78,8 @@ for (const [name, options] of [
     const f = fixture(options);
     completeEncounterForm(f.popup, '123', 'Do not append');
     assert.equal(f.editor.value, 'Existing draft');
-    assert.deepEqual(f.actions, [['close']]);
+    assert.deepEqual(f.actions, []);
+    assert.equal(f.recovery.hidden, false);
   });
 }
 
@@ -87,7 +88,9 @@ test('an opener without any explicit identity cannot receive completion text', (
   delete f.opener.demographicNo;
   completeEncounterForm(f.popup, '123', 'Do not append');
   assert.equal(f.editor.value, 'Existing draft');
-  assert.deepEqual(f.actions, [['close']]);
+  assert.deepEqual(f.actions, []);
+  assert.equal(f.recovery.hidden, false);
+  assert.equal(f.reference.value, 'Do not append');
 });
 
 test('matching canonical IDs are accepted across aliases, numeric globals and leading zeroes', () => {
@@ -102,11 +105,12 @@ test('invalid completion patient IDs never mutate a chart', () => {
     const f = fixture();
     completeEncounterForm(f.popup, id, 'Do not append');
     assert.equal(f.editor.value, 'Existing draft');
-    assert.deepEqual(f.actions, [['close']]);
+    assert.deepEqual(f.actions, []);
+    assert.equal(f.recovery.hidden, false);
   }
 });
 
-test('missing, closed and cross-origin openers close safely without reading or writing a draft', () => {
+test('missing, closed and cross-origin openers preserve the reference without writing a draft', () => {
   for (const state of ['missing', 'closed', 'inaccessible']) {
     const f = fixture();
     if (state === 'missing') f.popup.opener = null;
@@ -114,7 +118,8 @@ test('missing, closed and cross-origin openers close safely without reading or w
     if (state === 'inaccessible') Object.defineProperty(f.opener, 'location', {get() { throw new Error('SecurityError'); }});
     assert.doesNotThrow(() => completeEncounterForm(f.popup, '123', 'Do not append'));
     assert.equal(f.editor.value, 'Existing draft');
-    assert.deepEqual(f.actions, [['close']]);
+    assert.deepEqual(f.actions, []);
+    assert.equal(f.recovery.hidden, false);
   }
 });
 

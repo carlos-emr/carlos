@@ -202,7 +202,7 @@
             <td class="MainTableBottomRowLeftColumn">&nbsp;</td>
             <td class="MainTableBottomRowRightColumn">
                 <fmt:message key="admin.billingreferralAdmin.msgNone" var="emptyLabelList"/>
-                <div id="checked_items" data-empty="${carlos:forHtmlAttribute(emptyLabelList)}"
+                <div id="checked_items" data-empty="${carlos:forHtmlAttribute(emptyLabelList)}" data-revision="${carlos:forHtmlAttribute(labelChecklistRevision)}"
                      data-print-url="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/printReferralLabelAction?useCheckList=true">
                     <br/>
                     <h3><fmt:message key="admin.billingreferralAdmin.heading.selectedSpecialists"/></h3>
@@ -210,7 +210,7 @@
                     <table id="checked_items_tbl">
                         <tbody>
                         <%
-                            List<ProfessionalSpecialist> checkedSpecs = (List<ProfessionalSpecialist>) session.getAttribute("billingReferralAdminCheckList");
+                            List<ProfessionalSpecialist> checkedSpecs = (List<ProfessionalSpecialist>) request.getAttribute("labelChecklist");
                             if (checkedSpecs != null && checkedSpecs.size() > 0) {
                                 for (ProfessionalSpecialist ps : checkedSpecs) {
                         %>
