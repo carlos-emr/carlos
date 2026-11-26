@@ -19488,9 +19488,11 @@
         "all"
       ],
       "timeoutSec": 240,
-      "env": [],
-      "fixtures": "Owned patient, one seeded medication with a dose finer than a thousandth, two UI-saved medications and one owned favourite; removed by owned marker and exact identifiers.",
-      "notes": "#6185 The Rx record and the staging card show a stored 0.0625-0.3125 dose in full; visiting Min and Max posts the same text and Save Only stores the same dose; a quantity typed as 2.5 mL is saved as 2.5 with the unit mL and Qty:2.5 mL; Edit Favorites shows 1 and 2, not 1.0 and 2.0."
+      "env": [
+        "DRUG_SEARCH_TERM"
+      ],
+      "fixtures": "Owned patient, one seeded medication with a dose finer than a thousandth, three UI-saved medications (one a DrugRef product found with the drug-search term) and one owned favourite; removed by owned marker and exact identifiers.",
+      "notes": "#6185 The Rx record and the staging card show a stored 0.0625-0.3125 dose in full; visiting Min and Max posts the same text and Save Only stores the same dose; a quantity typed as 2.5 mL is saved as 2.5 with the unit mL and Qty:2.5 mL; a DrugRef product is saved with its strength as a plain number (250mg, not 250.0mg); Edit Favorites shows 1 and 2, not 1.0 and 2.0."
     },
     {
       "name": "tickler-calendar-quick-picks",

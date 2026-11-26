@@ -3,7 +3,8 @@
 // ISMP Canada's Do Not Use list bans a trailing zero ("1.0 mg" is read as 10 mg) and a missing
 // leading zero (".5 mg" is read as 5 mg) in medication text (#6185).
 // Rx record > Dosage; Rx > re-prescribe a dose finer than a thousandth > leave Min and Max >
-// Save Only; Rx > custom card > quantity typed with a unit > Save Only; Edit Favorites > Take.
+// Save Only; Rx > custom card > quantity typed with a unit > Save Only; Rx > drug search > pick a
+// product > Save Only; Edit Favorites > Take.
 'use strict';
 const h = require('./lib/playwright-harness');
 const {runWorkflow, expectValue} = require('./lib/workflow-session');
@@ -12,6 +13,8 @@ const {stageCustomDrug} = require('./rx-stash-patient-isolation-playwright-check
 
 const isPost = (response, path) => response.request().method() === 'POST'
   && new URL(response.url()).pathname.endsWith(path);
+// The term the drug-search smoke check uses: a common ingredient the packaged DrugRef answers.
+const DRUG_SEARCH_TERM = process.env.DRUG_SEARCH_TERM || 'amox';
 
 async function workflow(s) {
   const {sql, patient, provider, marker, config, context} = s, q = h.sqlString, f = await prepareRx(s);
@@ -92,6 +95,46 @@ async function workflow(s) {
     h.assert(/(^|\n)Qty:2\.5 mL Repeats:0$/.test(special),
       `The instruction text does not state the quantity as typed: ${JSON.stringify(special)}`);
     h.assert(!/Qty:\d+ \.\d/.test(special), 'The instruction text still splits the decimal quantity');
+  });
+
+  await s.step('a product picked from the drug search is saved with its strength as a plain number', async () => {
+    const before = await rx.locator('[id^="drugName_"]').evaluateAll(nodes => nodes.map(node => node.id));
+    await rx.locator('#searchString').fill('');
+    const [searched] = await Promise.all([
+      rx.waitForResponse(response => isPost(response, '/rx/searchDrug'), {timeout: 60000}),
+      rx.locator('#searchString').pressSequentially(DRUG_SEARCH_TERM, {delay: 40}),
+    ]);
+    h.assert(searched.ok(), `The drug search answered HTTP ${searched.status()}`);
+    // A product whose name states a strength in mg has a strength DrugRef sends as "250.0".
+    const option = rx.locator('ul.ui-autocomplete li.ui-menu-item').filter({hasText: /\d\s?MG\b/i}).first();
+    await option.waitFor({state: 'visible', timeout: 20000});
+    const [staged] = await Promise.all([
+      rx.waitForResponse(response => isPost(response, '/rx/WriteScript')
+        && new URLSearchParams(response.request().postData() || '').get('parameterValue') === 'createNewRx'),
+      option.click(),
+    ]);
+    h.assert(staged.status() === 200, `Staging the product answered HTTP ${staged.status()}`);
+    await rx.waitForFunction(count => document.querySelectorAll('[id^="drugName_"]').length > count, before.length);
+    const added = (await rx.locator('[id^="drugName_"]').evaluateAll(nodes => nodes.map(node => node.id)))
+      .filter(id => !before.includes(id));
+    h.assert(added.length === 1, `Picking one product staged ${added.length} cards`);
+    const key = added[0].split('_')[1];
+    await rx.waitForLoadState('networkidle');
+    await rx.locator(`#instructions_${key}`).fill('Take as directed');
+    const [parsed] = await Promise.all([
+      rx.waitForResponse(response => isPost(response, '/rx/UpdateScript')),
+      rx.locator(`label[for="jsonDxSearch_${key}"]`).click(),
+    ]);
+    h.assert(parsed.status() === 200, 'The card instructions were not parsed');
+    await rx.waitForLoadState('networkidle');
+    const savedBefore = sql.value(`SELECT COALESCE(MAX(drugid),0) FROM drugs WHERE demographic_no=${patient}`);
+    await saveOnly(rx);
+    const row = sql.rows(`SELECT GN,dosage FROM drugs WHERE demographic_no=${patient} AND drugid>${savedBefore}`)[0];
+    h.assert(row && /\d/.test(row[1] || ''), `The product was saved without a strength: ${JSON.stringify(row)}`);
+    for (const text of row) {
+      h.assert(!/\d\.0+(?!\d)/.test(text) && !/\dE[+-]?\d/i.test(text),
+        `The saved product text has a trailing zero or an exponent: ${JSON.stringify(row)}`);
+    }
   });
 
   await s.step('the favourites editor shows a whole dose without a trailing zero', async () => {
