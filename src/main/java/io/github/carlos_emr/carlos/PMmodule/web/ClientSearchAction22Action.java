@@ -168,7 +168,10 @@ public class ClientSearchAction22Action extends ActionSupport {
                 requestedPage = 0;
             }
             if (sort < 0 || sort > 7) throw new IllegalArgumentException("Invalid table sort");
-        } catch (IllegalArgumentException invalidPage) { response.setStatus(400); return NONE; }
+        } catch (IllegalArgumentException invalidPage) {
+            response.setStatus(400);
+            return NONE;
+        }
         var page = clientManager.searchClientPage(formBean, requestedPage, sort, descending);
         request.setAttribute("clients", page.getRows());
         java.util.Map<String, String[]> parameters = new java.util.LinkedHashMap<>();

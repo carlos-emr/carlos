@@ -46,6 +46,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:message var="noteSavingLabel" key="web.record.details.saving"/>
+<fmt:message var="noteChangedDuringSignLabel" key="oscarEncounter.signSave.noteChangedDuringCheck"/>
 <fmt:message var="noteEditorLabel" key="encounter.noteBrowser.encounterNote"/>
 <fmt:message var="invalidObservationDateLabel" key="encounter.observationDateInvalid.msg"/>
 <fmt:message var="draftSavingLabel" key="encounter.draftSaving.msg"/>
@@ -1738,7 +1739,27 @@ function updateCPPNote() {
 
     }
 
+    // Text a template or a measurement window adds to the note while Sign & Save waits for the
+    // sign-in check. It is held back so the submission signs only what the user saw when they
+    // chose Sign & Save; it is put into the note once that save is refused, or before the user is
+    // asked to look again (see the Sign & Save preflight below).
+    var noteSignPreflightPending = false;
+    var heldNoteInsertions = [];
+    function holdNoteInsertion(apply) {
+        if (!noteSignPreflightPending) return false;
+        heldNoteInsertions.push(apply);
+        return true;
+    }
+    function releaseHeldNoteInsertions() {
+        noteSignPreflightPending = false;
+        var held = heldNoteInsertions;
+        heldNoteInsertions = [];
+        held.forEach(function (apply) { apply(); });
+        return held.length;
+    }
+
     function pasteToEncounterNote(txt) {
+        if (holdNoteInsertion(function () { pasteToEncounterNote(txt); })) return true;
         let caseNoteElement = document.getElementById(caseNote);
         if (caseNoteElement) {
             caseNoteElement.value += "\n" + txt;
@@ -1757,6 +1778,7 @@ function updateCPPNote() {
     }
 
     function writeToEncounterNote(request) {
+        if (holdNoteInsertion(function () { writeToEncounterNote(request); })) return;
 
         //$("templatejs").update(request.responseText);
         var text = request.responseText;
@@ -3253,19 +3275,30 @@ function updateCPPNote() {
         // the note as it was when Sign & Save was chosen and no other save starts meanwhile.
         clearAutoSaveTimer();
         var restoreControls = beginNoteSwitchSave();
+        noteSignPreflightPending = true;
         whenStillSignedIn(function () {
             // A disabled control is left out of a form submission: restore them first. A key
             // press during the check (Ctrl+B) may have changed Sign, Verify or Bill; submit the
             // choices made when Sign & Save was chosen.
             restoreControls();
+            if (releaseHeldNoteInsertions() > 0) {
+                // Text arrived during the check and is in the note now. The user has not seen
+                // it, so nothing is signed: they review the note and choose Sign & Save again.
+                resetNoteSignIntent(form);
+                setTimer();
+                alert(noteChangedDuringSignMessage);
+                return;
+            }
             applyNoteSignIntent(form, signIntent);
             submitNotePage(method, chain);
-        }, function () {
+        }, function (reason) {
             restoreControls();
+            releaseHeldNoteInsertions();
             // A later plain Save must not sign, verify or bill the note.
             resetNoteSignIntent(form);
             setTimer();
-            alertSessionEndedNotSaved();
+            if (reason === FACILITY_SELECTION_PENDING) alertFacilitySelectionPendingNotSaved();
+            else alertSessionEndedNotSaved();
         });
         return false;
     }
@@ -3526,7 +3559,9 @@ function updateCPPNote() {
     var queuedNoteSave = null;
     var noteSwitchSavePending = false;
     var noteSavingMessage = "${carlos:forJavaScriptBlock(noteSavingLabel)}";
+    var noteChangedDuringSignMessage = "${carlos:forJavaScriptBlock(noteChangedDuringSignLabel)}";
     var sessionEndedNotSavedError;
+    var facilitySelectionPendingNotSavedError;
 
     // A save counts only when the save action itself answered (#5868). Once the sign-in
     // has ended (the inactivity limit, or a facility still to be chosen), the login filter
@@ -3549,26 +3584,38 @@ function updateCPPNote() {
         alert(sessionEndedNotSavedError || savingNoteError);
     }
 
+    // The sign-in is live but still has to choose a facility: say that, not that it expired.
+    function alertFacilitySelectionPendingNotSaved() {
+        alert(facilitySelectionPendingNotSavedError || sessionEndedNotSavedError || savingNoteError);
+    }
+
     // Sign and Save leaves the chart with a full form submission, so a sign-in page in
     // its place would discard the note before any script could notice. Ask the session
-    // heartbeat first without following a redirect: a redirect, a 401/403 or
-    // {"valid":false} means the sign-in has ended (the inactivity limit), and the note
-    // stays on screen. Any other outcome, including no answer within the time limit,
-    // submits as before, so an unreachable heartbeat never blocks a save. autoRefresh
+    // heartbeat first without following a redirect: a redirect, a 401/403,
+    // {"valid":false} (the inactivity limit ended the sign-in) or
+    // {"facilitySelectionPending":true} (a sign-in still choosing its facility) means the
+    // submission would not be saved, and the note stays on screen. Any other outcome,
+    // including no answer within the time limit, submits as before, so an unreachable
+    // heartbeat never blocks a save. autoRefresh
     // keeps this check from counting as activity; the submission itself does. If the
     // limit passes in the moment between this answer and the submission, the submission
     // is redirected as before and only the autosave draft keeps the text.
     var SIGN_IN_CHECK_TIMEOUT_MS = 8000;
+    var FACILITY_SELECTION_PENDING = "facilitySelectionPending";
     function whenStillSignedIn(proceed, refuse) {
         var settled = false;
         var timer = null;
         // Exactly one of proceed or refuse runs, whichever way the check ends; both
         // release the held controls and autosave.
+        // signedIn is true to submit; otherwise refuse is told why ("facilitySelectionPending"
+        // for a live sign-in still choosing a facility, "signedOut" for anything else), so the
+        // message does not tell a signed-in user that their session has expired.
         function settle(signedIn) {
             if (settled) return;
             settled = true;
             if (timer) clearTimeout(timer);
-            if (signedIn) proceed(); else refuse();
+            if (signedIn === true) proceed();
+            else refuse(signedIn === FACILITY_SELECTION_PENDING ? FACILITY_SELECTION_PENDING : "signedOut");
         }
         if (typeof fetch !== "function") {
             settle(true);
@@ -3593,7 +3640,11 @@ function updateCPPNote() {
                 if (response.type === "opaqueredirect" || response.status === 401 || response.status === 403) return false;
                 if (!response.ok) return true;
                 return response.json().then(function (state) {
-                    return !(state && state.valid === false);
+                    if (state && state.valid === false) return false;
+                    // A signed-in session still choosing a facility is redirected on every
+                    // route but this one, so the submission would be lost as well.
+                    if (state && state.facilitySelectionPending === true) return FACILITY_SELECTION_PENDING;
+                    return true;
                 }, function () {
                     return true;
                 });
@@ -4706,11 +4757,14 @@ function autoSave() {
         }
     }
 
-    function copyCppToCurrentNote() {
+    function copyCppToCurrentNote(cppText) {
+        // Read the CPP text now: the editor may be closed before a held copy is applied.
+        var copied = cppText !== undefined ? cppText : jQuery("#noteEditTxt").val();
+        if (holdNoteInsertion(function () { copyCppToCurrentNote(copied); })) return;
         var currentNoteId = jQuery("input[name='noteId']").val();
         var currentNoteText = jQuery("#caseNote_note" + currentNoteId).val();
         currentNoteText += "\n";
-        currentNoteText += jQuery("#noteEditTxt").val();
+        currentNoteText += copied;
         jQuery("#caseNote_note" + currentNoteId).val(currentNoteText);
     }
 

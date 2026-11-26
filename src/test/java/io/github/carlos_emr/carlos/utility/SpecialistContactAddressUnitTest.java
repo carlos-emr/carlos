@@ -21,8 +21,11 @@ class SpecialistContactAddressUnitTest {
         for (String original : new String[]{"123 Main St, Toronto, ON M5V 1A1", "123 Main St\nToronto ON", " 123 Main St\r\nToronto ON ", ",", ",,,,"}) {
             var parsed = SpecialistContactAddress.parse(original);
             ProfessionalContact contact = new ProfessionalContact();
-            contact.setAddress(parsed.street()); contact.setCity(parsed.city()); contact.setPostal(parsed.postal());
-            contact.setProvince(parsed.province()); contact.setCountry(parsed.country());
+            contact.setAddress(parsed.street());
+            contact.setCity(parsed.city());
+            contact.setPostal(parsed.postal());
+            contact.setProvince(parsed.province());
+            contact.setCountry(parsed.country());
             contact.setFirstName("Changed name");
             assertThat(SpecialistContactAddress.update(original, contact)).as(original).isEqualTo(original);
         }
@@ -32,8 +35,11 @@ class SpecialistContactAddressUnitTest {
     void shouldRetainOtherComponents_whenPostalCodeIsEdited() {
         String original = "123 Main St, Toronto, M5V 1A1, XX, Canada, ";
         ProfessionalContact contact = new ProfessionalContact();
-        contact.setAddress("123 Main St"); contact.setCity("Toronto"); contact.setPostal("M5V 2B2");
-        contact.setProvince("XX"); contact.setCountry("Canada");
+        contact.setAddress("123 Main St");
+        contact.setCity("Toronto");
+        contact.setPostal("M5V 2B2");
+        contact.setProvince("XX");
+        contact.setCountry("Canada");
         assertThat(SpecialistContactAddress.update(original, contact))
                 .isEqualTo("123 Main St, Toronto, M5V 2B2, XX, Canada, ");
     }
@@ -41,15 +47,19 @@ class SpecialistContactAddressUnitTest {
     @Test
     void shouldRefuseAmbiguousComponents_whenStructuredAddressIsEdited() {
         ProfessionalContact contact = new ProfessionalContact();
-        contact.setAddress("street, unit"); contact.setCity("Toronto");
+        contact.setAddress("street, unit");
+        contact.setCity("Toronto");
         assertThatThrownBy(() -> SpecialistContactAddress.update("old", contact)).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void shouldRetainLegacyCommaAcceptance_whenCreatingOrConvertingAReferralContact() {
         ProfessionalContact contact = new ProfessionalContact();
-        contact.setAddress("123 Main St, Suite 2"); contact.setCity("Toronto");
-        contact.setPostal("M5V 1A1"); contact.setProvince("ON"); contact.setCountry("CA");
+        contact.setAddress("123 Main St, Suite 2");
+        contact.setCity("Toronto");
+        contact.setPostal("M5V 1A1");
+        contact.setProvince("ON");
+        contact.setCountry("CA");
         String stored = SpecialistContactAddress.write(null, contact);
         assertThat(stored).isEqualTo("123 Main St, Suite 2, Toronto, M5V 1A1, ON, CA, ");
         // Its ambiguous legacy format remains whole rather than being assigned to wrong fields.

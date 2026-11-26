@@ -198,3 +198,56 @@ test('the generic Save and Exit page supplies either legacy or BC-AR patient par
   assert.match(page, /not empty param\.demographic_no \? param\.demographic_no : param\.demographicNo/);
   assert.doesNotMatch(page, /window\.opener\.location\.reload\(/);
 });
+
+/**
+ * The eChart's production hold and paste (newCaseManagementView.js.jsp) installed on the opener,
+ * so completion is checked against what the chart itself does while Sign & Save checks the
+ * sign-in: the note's controls are disabled and insertions are held for review.
+ */
+function withChartPaste(f) {
+  const vm = require('node:vm');
+  const source = fs.readFileSync(path.join(__dirname, '../src/main/webapp/js/newCaseManagementView.js.jsp'), 'utf8');
+  const start = source.indexOf('    // Text a template or a measurement window adds');
+  const end = source.indexOf('    function writeToEncounterNote(', start);
+  assert.ok(start > 0 && end > start, 'the production hold and paste are present');
+  f.editor.id = 'caseNote_note7';
+  const chart = {
+    caseNote: 'caseNote_note7', adjustCaseNote() {}, setCaretPosition() {}, console,
+    document: {getElementById: id => (id === 'caseNote_note7' ? f.editor : null)},
+  };
+  vm.createContext(chart);
+  vm.runInContext(source.slice(start, end), chart);
+  f.opener.pasteToEncounterNote = text => chart.pasteToEncounterNote(text);
+  return chart;
+}
+
+test('a form completed while Sign & Save checks the sign-in is held, then added to the note for review', () => {
+  const f = fixture();
+  const chart = withChartPaste(f);
+  // As beginNoteSwitchSave leaves it during the check.
+  require('node:vm').runInContext('noteSignPreflightPending = true;', chart);
+  f.editor.disabled = true;
+  completeEncounterForm(f.popup, '123', 'FAKE completed form text');
+  assert.equal(f.editor.value, 'Existing draft', 'nothing reaches the note during the check');
+  assert.deepEqual(f.actions.map(action => action[0]), ['refresh', 'refresh', 'close'], 'the form window still closes');
+  f.editor.disabled = false;
+  assert.equal(chart.releaseHeldNoteInsertions(), 1, 'the completion text was held, not dropped');
+  assert.equal(f.editor.value, 'Existing draft\nFAKE completed form text');
+});
+
+test('a form completed outside the check goes through the chart paste and marks the note changed', () => {
+  const f = fixture();
+  withChartPaste(f);
+  completeEncounterForm(f.popup, '123', 'FAKE completed form text');
+  assert.equal(f.editor.value, 'Existing draft\nFAKE completed form text');
+  assert.deepEqual(f.actions.slice(0, 2), ['input', 'change'].map(type => ['event', type, true, f.editor.value]));
+  assert.deepEqual(f.actions.at(-1), ['close']);
+});
+
+test('a read-only note receives nothing even when the chart paste is available', () => {
+  const f = fixture();
+  withChartPaste(f);
+  f.editor.readOnly = true;
+  completeEncounterForm(f.popup, '123', 'FAKE completed form text');
+  assert.equal(f.editor.value, 'Existing draft');
+});

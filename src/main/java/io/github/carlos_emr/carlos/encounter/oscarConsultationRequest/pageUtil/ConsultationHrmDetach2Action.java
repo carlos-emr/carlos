@@ -21,12 +21,18 @@ public class ConsultationHrmDetach2Action extends ActionSupport {
             return NONE;
         }
         try {
+            var info = LoggedInInfo.getLoggedInInfoFromSession(request);
+            var security = SpringUtils.getBean(SecurityInfoManager.class);
+            // The global gate comes before any lookup, so a caller without _con write cannot use the
+            // 404/403 difference to learn which consultation ids exist.
+            if (!security.hasPrivilege(info, "_con", SecurityInfoManager.WRITE, null)) {
+                throw new SecurityException("missing required sec object (_con)");
+            }
             int requestId = positiveId(request.getParameter("requestId"));
             int associationId = positiveId(request.getParameter("associationId"));
-            var info = LoggedInInfo.getLoggedInInfoFromSession(request);
             var owner = SpringUtils.getBean(ConsultationRequestDao.class).find(requestId);
             if (owner == null || owner.getDemographicId() == null) throw new NoSuchElementException();
-            if (!SpringUtils.getBean(SecurityInfoManager.class).hasPrivilege(
+            if (!security.hasPrivilege(
                     info, "_con", SecurityInfoManager.WRITE, owner.getDemographicId().intValue())) {
                 throw new SecurityException("missing required sec object (_con)");
             }

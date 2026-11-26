@@ -98,24 +98,48 @@
                 popupOscarRx(625, 1024, '<%=request.getContextPath()%>/encounter/EditSpecialists?specId=' + specId);
             }
 
+            // The label list lives in the session and each page of results is rendered from it,
+            // so a page fetched while a modifyBatch update is still on its way could show a box
+            // unchecked that the list below already holds. Hold a paging request until every
+            // pending update has answered, then send it.
+            var pendingLabelUpdates = 0;
+            var heldPageRequest = null;
+
+            function modifyLabelBatch(params) {
+                pendingLabelUpdates++;
+                $.post("<%= request.getContextPath() %>/admin/ManageBillingReferral", params,
+                    function (data, textStatus) {
+                        updateCheckedList(data);
+                    }, "json")
+                    .always(function () {
+                        pendingLabelUpdates--;
+                        if (pendingLabelUpdates === 0 && heldPageRequest) {
+                            var held = heldPageRequest;
+                            heldPageRequest = null;
+                            if (held.form.isConnected) held.form.requestSubmit(held.submitter);
+                        }
+                    });
+            }
+
+            // Capture phase on document runs before the shared paging script's listener.
+            document.addEventListener('submit', function (event) {
+                var form = event.target;
+                if (pendingLabelUpdates === 0 || !form.matches('[data-server-page-form]')) return;
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                heldPageRequest = {form: form, submitter: event.submitter || null};
+            }, true);
+
             function checkUncheck(referralId) {
                 // Exact name: every page of the list is in the document, so a prefix match on
                 // checked_5 would also find checked_50 (hidden, disabled, unchecked) on another page.
                 var checked = $("input[name='checked_" + referralId + "']").prop("checked");
 
-                $.post("<%= request.getContextPath() %>/admin/ManageBillingReferral",
-                    { method: "modifyBatch", id: referralId, checked: checked },
-                    function (data, textStatus) {
-                        updateCheckedList(data);
-                    }, "json");
+                modifyLabelBatch({ method: "modifyBatch", id: referralId, checked: checked });
             }
 
             function clearCheckedLabels(referralId) {
-                $.post("<%= request.getContextPath() %>/admin/ManageBillingReferral",
-                    { method: "modifyBatch", clear: true },
-                    function (data, textStatus) {
-                        updateCheckedList(data);
-                    }, "json");
+                modifyLabelBatch({ method: "modifyBatch", clear: true });
             }
 
             function printAllCheckedLabels() {

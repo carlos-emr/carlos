@@ -25,7 +25,8 @@ class ServerTrayPagingIntegrationTest extends CarlosTestBase {
         Set<String> expected = new HashSet<>();
         for (int i = 0; i < 121; i++) {
             var row = new BillingTrayFee("0", "0");
-            entityManager.persist(row); expected.add(row.getId().toString());
+            entityManager.persist(row);
+            expected.add(row.getId().toString());
         }
         entityManager.flush();
         Set<String> actual = new HashSet<>();

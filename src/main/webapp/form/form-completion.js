@@ -64,13 +64,24 @@
             var patient = patientId(demographicNo);
             var opener = completionWindow.opener;
             if (!patient || !opener || opener.closed || !isOwnChart(opener, patient)) return;
-            var editor = opener.document.querySelector('textarea[name="caseNote_note"]')
+            var modernEditor = opener.document.querySelector('textarea[name="caseNote_note"]');
+            var editor = modernEditor
                 || opener.document.querySelector('form[name="encForm"] textarea[name="enTextarea"]');
-            if (editor && !editor.readOnly && !editor.disabled && typeof text === 'string' && text.length > 0) {
-                editor.value += '\n' + text;
-                editor.dispatchEvent(new opener.Event('input', {bubbles: true}));
-                editor.dispatchEvent(new opener.Event('change', {bubbles: true}));
-                editor.scrollTop = editor.scrollHeight;
+            if (editor && !editor.readOnly && typeof text === 'string' && text.length > 0) {
+                var before = editor.value;
+                // The eChart's own insertion. While Sign & Save checks the sign-in, the note's
+                // controls are disabled and this text is held, then added to the note and shown
+                // for review; a direct write would be dropped here and this window is closing.
+                var pasted = editor === modernEditor && typeof opener.pasteToEncounterNote === 'function'
+                    && opener.pasteToEncounterNote(text) === true;
+                if (!pasted && !editor.disabled) {
+                    editor.value += '\n' + text;
+                }
+                if (editor.value !== before) {
+                    editor.dispatchEvent(new opener.Event('input', {bubbles: true}));
+                    editor.dispatchEvent(new opener.Event('change', {bubbles: true}));
+                    editor.scrollTop = editor.scrollHeight;
+                }
             }
             refreshChart(opener, patient);
         } catch (ignored) {

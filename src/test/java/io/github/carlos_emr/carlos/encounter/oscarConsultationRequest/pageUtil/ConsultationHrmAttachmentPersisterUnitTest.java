@@ -34,7 +34,8 @@ class ConsultationHrmAttachmentPersisterUnitTest extends CarlosUnitTestBase {
         extensions = createAndRegisterMock(ConsultationRequestExtDao.class);
         security = createAndRegisterMock(SecurityInfoManager.class);
         info = mock(LoggedInInfo.class);
-        var owner = new ConsultationRequest(); owner.setDemographicId(42);
+        var owner = new ConsultationRequest();
+        owner.setDemographicId(42);
         when(requests.lockForAttachmentSync(11)).thenReturn(owner);
         lenient().when(security.hasPrivilege(info, "_con", "w", 42)).thenReturn(true);
         lenient().when(security.isAllowedAccessToPatientRecord(info, 42)).thenReturn(true);
@@ -44,18 +45,22 @@ class ConsultationHrmAttachmentPersisterUnitTest extends CarlosUnitTestBase {
 
     private ConsultDocs row(int id, int parent, int report) {
         var row = new ConsultDocs(parent, report, ConsultDocs.DOCTYPE_HRM, "999998");
-        row.setId(id); return row;
+        row.setId(id);
+        return row;
     }
 
     @Test
     void shouldSoftDeleteOnlySelectedRelationships_withoutRequiringTheDeletedReport() {
-        var first = row(7, 11, 128); var duplicate = row(8, 11, 128); var other = row(9, 11, 129);
+        var first = row(7, 11, 128);
+        var duplicate = row(8, 11, 128);
+        var other = row(9, 11, 129);
         when(attachments.find(7)).thenReturn(first);
         when(attachments.findByRequestIdDocTypeForUpdate(11, ConsultDocs.DOCTYPE_HRM))
                 .thenReturn(List.of(first, duplicate, other));
         {
             persister.detach(info, 11, 7);
-            assertThat(first.getDeleted()).isEqualTo("Y"); assertThat(duplicate.getDeleted()).isEqualTo("Y");
+            assertThat(first.getDeleted()).isEqualTo("Y");
+            assertThat(duplicate.getDeleted()).isEqualTo("Y");
             assertThat(other.getDeleted()).isNull();
             verify(attachments, never()).remove(any());
             logActionMock.verify(() -> LogAction.addLogStrict(info, "delete", "consultation HRM attachment", "7", "42", "explicit detach"));
@@ -88,11 +93,13 @@ class ConsultationHrmAttachmentPersisterUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldKeepReplayIdempotent_whenRelationshipWasAlreadyRemoved() {
-        var removed = row(7, 11, 128); removed.setDeleted("Y");
+        var removed = row(7, 11, 128);
+        removed.setDeleted("Y");
         when(attachments.find(7)).thenReturn(removed);
         {
             persister.detach(info, 11, 7);
-            verify(attachments, never()).merge(any()); logActionMock.verifyNoInteractions();
+            verify(attachments, never()).merge(any());
+            logActionMock.verifyNoInteractions();
         }
     }
 }

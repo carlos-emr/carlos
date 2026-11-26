@@ -24,7 +24,8 @@ class BillingreferralEdit2ActionUnitTest extends CarlosUnitTestBase {
         createAndRegisterMock(SecurityInfoManager.class);
         when(dao.findDirectoryPage("123", null, null, null, null, true, 0))
                 .thenReturn(new QueryPage<>(List.of(), 0, 0, 15));
-        var request = new MockHttpServletRequest(); request.addParameter("nameQuery", input);
+        var request = new MockHttpServletRequest();
+        request.addParameter("nameQuery", input);
         try (var servlet = mockStatic(ServletActionContext.class)) {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             servlet.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
@@ -40,7 +41,8 @@ class BillingreferralEdit2ActionUnitTest extends CarlosUnitTestBase {
         createAndRegisterMock(SecurityInfoManager.class);
         when(dao.findDirectoryPage(null, input, "", null, null, false, 0))
                 .thenReturn(new QueryPage<>(List.of(), 0, 0, 15));
-        var request = new MockHttpServletRequest(); request.addParameter("nameQuery", input);
+        var request = new MockHttpServletRequest();
+        request.addParameter("nameQuery", input);
         try (var servlet = mockStatic(ServletActionContext.class)) {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             servlet.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
