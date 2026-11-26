@@ -10,20 +10,28 @@
  * Asserts eform_groups rows after every mutation (eform/addGroup, eform/addToGroup,
  * eforms/removeFromGroup, eforms/delGroup) and that both chart lists (eform/efmformslistadd,
  * eform/efmpatientformlist) show the grouped eForm and hide the ungrouped one.
+ * Also a failed Add Group request (#5842): the panel's POST is held by page.route, the name is
+ * changed to the existing group's while it is out, and the routed HTTP 500 must put the shell's
+ * notice above the form while the page checks the name again (Add Group stays disabled).
  * Fixtures: two owned eForm templates named with the run marker, one saved instance of each for
  * the owned synthetic patient, an owned group PW<marker hex> seeded with one eForm, and a second
- * group PV<marker hex> the panel creates (eform_groups.group_name is varchar(20)). Cleanup deletes
- * only those group rows, instances and templates and asserts each gone.
+ * group PV<marker hex> the panel creates (eform_groups.group_name is varchar(20)). The failed
+ * request's name PF<marker hex> never reaches the server. Cleanup deletes only those group rows,
+ * instances and templates and asserts each gone.
  * Implements coverage plan section 4.1 eForms, eform-groups-independent (the groups half).
  */
 const h = require('./lib/playwright-harness');
 const {clickOpensPopupOrNavigates, clickInjectsPanel} = require('./lib/playwright-ui');
 const {runWorkflow, expectValue} = require('./lib/workflow-session');
+const {failureMark, consumeExpectedFailure} = require('./lib/concurrency-support');
 
 const TEMPLATE_HTML = '<html><head><title>eForm group fixture</title></head><body>'
   + '<form method="post" action="" name="FormName" id="FormName">'
   + '<input type="text" name="note" id="note"><input type="submit" value="Submit" id="SubmitButton">'
   + '</form></body></html>';
+// The body the routed HTTP 500 answers the held Add Group POST with; the panel must never show it.
+const FAILED_PAGE_TEXT = 'FAKE eForm group error page';
+const FAILED_PAGE = `<!DOCTYPE html><html><body><h1>HTTP Status 500</h1><p>${FAILED_PAGE_TEXT}</p></body></html>`;
 
 // The View Group links are href="#" anchors whose onclick submits a GET form, so the fragment
 // navigation comes first: wait for the submitted list itself, not the first navigation.
@@ -38,6 +46,9 @@ async function viewGroup(page, link, groupView) {
 async function workflow(s) {
   const group = `PW${s.marker.slice(-16)}`;
   const addedGroup = `PV${s.marker.slice(-16)}`;
+  // The name the failed Add Group request carries. The routed 500 keeps it off the server; it is
+  // still cleaned up in case a route ever lets the POST through.
+  const failedGroup = `PF${s.marker.slice(-16)}`;
   const grouped = `${s.marker} Grouped`;
   const loose = `${s.marker} Loose`;
   const fids = [];
@@ -45,8 +56,9 @@ async function workflow(s) {
   const groupRows = (name, fid = null) => s.sql.value(`SELECT COUNT(*) FROM eform_groups
     WHERE group_name=${h.sqlString(name)}${fid === null ? '' : ` AND fid=${fid}`}`);
   s.cleanup(() => {
-    s.sql.execute(`DELETE FROM eform_groups WHERE group_name IN (${h.sqlString(group)},${h.sqlString(addedGroup)})`);
-    h.assert(groupRows(group) === '0' && groupRows(addedGroup) === '0', 'Owned eForm group rows were not removed');
+    s.sql.execute(`DELETE FROM eform_groups WHERE group_name IN (${h.sqlString(group)},${h.sqlString(addedGroup)},${h.sqlString(failedGroup)})`);
+    h.assert(groupRows(group) === '0' && groupRows(addedGroup) === '0' && groupRows(failedGroup) === '0',
+      'Owned eForm group rows were not removed');
     for (const fdid of fdids) {
       s.sql.execute(`DELETE FROM eform_values WHERE fdid=${fdid};
         DELETE FROM eform_data WHERE fdid=${fdid} AND demographic_no=${s.patient}`);
@@ -104,6 +116,98 @@ async function workflow(s) {
     await name.fill('');
     await name.press('Backspace');
     h.assert(groupRows(group) === '2', 'Typing a duplicate group name wrote a row');
+  });
+
+  // #5842. The shell's registerFormSubmit sends Add Group as an XHR; on failure showAdminRequestFailure
+  // puts a notice above the form, makes usable again the submit controls that were usable when it was
+  // sent, and triggers carlos:admin-request-failed on the form. The groups page answers that event by
+  // running validate() on its name box again, because the name may have changed while the request was
+  // out. So the POST is held until the name has become the existing group's, and only then answered 500.
+  await s.step('a failed Add Group request is reported above the form and the name is checked again (#5842)', async () => {
+    const form = panel.locator('#addGroupForm');
+    const name = form.locator('input[name="groupName"]');
+    const addButton = form.locator('input.groupAdd');
+    const exists = panel.locator('.textExists');
+    const notice = panel.locator('.carlos-admin-request-failed');
+    // The shell's own bundle text (admin.admin.panelRequestFailed), so the expected notice holds in any locale.
+    const message = await admin.evaluate(() => window.carlosAdminRequestFailedMessage);
+    h.assert(typeof message === 'string' && message.length > 0, 'The Administration shell defines no request-failure message');
+    await name.pressSequentially(failedGroup);
+    h.assert(await addButton.isEnabled() && !(await exists.isVisible()), 'Add Group was not enabled for a new group name');
+
+    const isAddGroup = url => url.pathname.endsWith('/eform/addGroup');
+    const isAddGroupPost = request => request.method() === 'POST' && isAddGroup(new URL(request.url()));
+    const posted = [];
+    let release = () => {};
+    const released = new Promise(resolve => { release = resolve; });
+    // Nothing reaches the server: the POST waits here until released, then gets the error page.
+    await admin.route(isAddGroup, async route => {
+      if (!isAddGroupPost(route.request())) return route.fallback();
+      posted.push(route.request().postData() || '');
+      await released;
+      return route.fulfill({status: 500, contentType: 'text/html', body: FAILED_PAGE});
+    });
+    try {
+      const mark = failureMark(s.recorder);
+      await Promise.all([admin.waitForRequest(isAddGroupPost), addButton.click()]);
+      // While the request is out the name becomes the existing group's, and the keyup check refuses it.
+      await name.fill('');
+      await name.pressSequentially(group);
+      await exists.waitFor();
+      h.assert(await addButton.isDisabled(), 'Add Group stayed enabled for a duplicate name typed while the request was out');
+      // Record what the failure does to the button's disabled attribute (oldValue of each change).
+      await addButton.evaluate(button => {
+        const changes = [];
+        const observer = new MutationObserver(records => records.forEach(record => changes.push(record.oldValue)));
+        observer.observe(button, {attributes: true, attributeFilter: ['disabled'], attributeOldValue: true});
+        button.carlosCheckDisabledChanges = {changes, observer};
+      });
+      const answered = admin.waitForResponse(response => isAddGroupPost(response.request()));
+      release();
+      h.assert((await answered).status() === 500, 'The held Add Group request was not answered by the routed HTTP 500');
+      await notice.waitFor();
+
+      h.assert(posted.length === 1 && new URLSearchParams(posted[0]).get('groupName') === failedGroup,
+        `Add Group sent ${posted.length} request(s), expected one carrying the name typed before the click`);
+      h.assert(await notice.count() === 1 && await notice.getAttribute('role') === 'alert'
+        && await notice.textContent() === `HTTP 500: ${message}`,
+      'The failed request is not reported as "HTTP 500: " and the shell\'s message in one role="alert" notice');
+      h.assert(await form.evaluate(element => Boolean(element.previousElementSibling
+        && element.previousElementSibling.classList.contains('carlos-admin-request-failed'))),
+      'The failure notice is not directly above the Add Group form');
+      h.assert(!(await panel.innerText()).includes(FAILED_PAGE_TEXT), 'The failed response body was painted into the panel');
+      h.assert(await name.inputValue() === group
+        && await panel.locator(`#groupListTbl td[title="${group}"]`).count() === 1,
+      'The failure did not keep the panel and the name typed while the request was out');
+      // showAdminRequestFailure re-enabled the button (it was usable when sent): only the page's
+      // carlos:admin-request-failed handler re-running validate() disables it again for the duplicate.
+      const changes = await addButton.evaluate(button => {
+        const {changes: seen, observer} = button.carlosCheckDisabledChanges;
+        seen.push(...observer.takeRecords().map(record => record.oldValue));
+        observer.disconnect();
+        delete button.carlosCheckDisabledChanges;
+        return seen;
+      });
+      h.assert(JSON.stringify(changes) === JSON.stringify(['disabled', null]),
+        'After the failure Add Group should be re-enabled by the shell and then disabled again by the page\'s name check '
+        + `(disabled attribute old values ["disabled",null]); they were ${JSON.stringify(changes)}`);
+      h.assert(await addButton.isDisabled() && await exists.isVisible(),
+        'After the failed request Add Group is enabled for the duplicate name, or the duplicate warning is hidden');
+      h.assert(groupRows(failedGroup) === '0' && groupRows(group) === '2', 'The failed Add Group request changed eform_groups');
+      consumeExpectedFailure(s.recorder, mark, {status: 500, path: /\/eform\/addGroup$/});
+    } finally {
+      release();
+      await admin.unroute(isAddGroup);
+    }
+
+    // The form still follows the name: a unique one enables Add Group again.
+    await name.fill('');
+    await name.pressSequentially(failedGroup);
+    h.assert(await addButton.isEnabled() && !(await exists.isVisible()),
+      'Add Group was not enabled again for a unique name after the failed request');
+    await name.fill('');
+    await name.press('Backspace');
+    h.assert(await addButton.isDisabled(), 'Add Group was left enabled for an empty name');
   });
 
   const chart = await s.chart();
@@ -186,6 +290,9 @@ async function workflow(s) {
       'Add Group did not store the group');
     h.assert(await panel.locator('#groupListTbl tr.table-success td[title]').getAttribute('title') === addedGroup,
       'The new group is not the selected group after Add Group');
+    // The notice the failed request left above the form (#5842) must not outlive a successful Add Group.
+    h.assert(await panel.locator('.carlos-admin-request-failed').count() === 0,
+      'The earlier failure notice is still shown after a successful Add Group');
   });
 
   await s.step('Add eForm to Group stores exactly the chosen eForm', async () => {
