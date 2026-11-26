@@ -62,8 +62,6 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
-import com.fasterxml.jackson.core.json.JsonReadFeature;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -71,14 +69,6 @@ import io.github.carlos_emr.CarlosProperties;
 
 public class OutcomesDashboardUtils {
     private static final ObjectMapper objectMapper = new ObjectMapper();
-
-    /**
-     * Reads {@link IndicatorBean#getOriginalJsonPlots()}. {@code IndicatorQueryHandler.createOriginalGraphPlots}
-     * builds that text by hand with single-quoted keys ({@code { 'results':[{'Label':3}]}}), which is
-     * not strict JSON, so the default mapper rejects every real panel.
-     */
-    private static final ObjectMapper plotsMapper =
-            JsonMapper.builder().enable(JsonReadFeature.ALLOW_SINGLE_QUOTES).build();
 
     private static Logger logger = MiscUtils.getLogger();
 
@@ -186,7 +176,7 @@ public class OutcomesDashboardUtils {
         metricSet.setName(metricSetName);
         metricSet.setDate(formatter.format(new Date()));
 
-        ObjectNode plots = (ObjectNode) plotsMapper.readTree(indicatorBean.getOriginalJsonPlots());
+        ObjectNode plots = (ObjectNode) objectMapper.readTree(indicatorBean.getOriginalJsonPlots());
 
         ArrayNode arr = (ArrayNode) plots.get("results");
 
@@ -220,7 +210,9 @@ public class OutcomesDashboardUtils {
 
         postMethod.setHeader("Content-Type", "application/x-www-form-urlencoded");
 
-        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+        // A redirect is never followed: HttpClient would turn a POST answered 302 into a GET and could end on a
+        // login page that answers 200, which must not count as the metric set being accepted.
+        try (CloseableHttpClient httpClient = HttpClients.custom().disableRedirectHandling().build()) {
             return httpClient.execute(postMethod, response -> {
                 int code = response.getCode();
                 logger.info(code);

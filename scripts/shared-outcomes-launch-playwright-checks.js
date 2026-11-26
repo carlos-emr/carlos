@@ -197,8 +197,11 @@ async function workflow(s) {
   // ---- The refresh path (#5335): the dashboard asks the launcher for a metric-set refresh, the launcher posts it
   // to the Struts route, and the application publishes the provider's indicator to the configured send URL.
   const metricName = `${s.marker} Shared`;
+  // The extra name is unknown (skipped, not an error) and chosen so its Base64 contains "+" and non-ASCII text,
+  // which a raw string body or Latin-1 btoa() would corrupt or throw on (the request would answer 400).
+  const awkwardName = 'BP >>> 血圧 Prévention';
   const submitQuery = (marker, username = fixture.providerNo) => ({
-    outcomes: { interaction: 'submitQuery', request: { username, queryList: [metricName] }, onSuccess: { refreshed: marker } },
+    outcomes: { interaction: 'submitQuery', request: { username, queryList: [metricName, awkwardName] }, onSuccess: { refreshed: marker } },
   });
   const refreshUrl = new URL(`${s.config.baseUrl.pathname.replace(/\/$/, '')}${REFRESH_PATH}`, s.config.baseUrl.origin);
   // The stand-in dashboard records every message the launcher posts to it and answers CONNECT like the real one.

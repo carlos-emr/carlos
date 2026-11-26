@@ -259,7 +259,10 @@ class OutcomesDashboard2ActionUnitTest extends CarlosUnitTestBase {
                 encode("{\"queryList\":[\"Metric A\"]}"),
                 encode("{\"username\":\"999998\"}"),
                 encode("{\"username\":999998,\"queryList\":[\"Metric A\"]}"),
-                encode("{\"username\":\"999998\",\"queryList\":\"Metric A\"}"));
+                encode("{\"username\":\"999998\",\"queryList\":\"Metric A\"}"),
+                encode("{\"username\":\"999998\",\"queryList\":[\"Metric A\",17]}"),
+                encode("{\"username\":\"999998\",\"queryList\":[\"Metric A\",null]}"),
+                encode("{\"username\":\"999998\",\"queryList\":[\"Metric A\",{\"x\":1}]}"));
     }
 
     @ParameterizedTest

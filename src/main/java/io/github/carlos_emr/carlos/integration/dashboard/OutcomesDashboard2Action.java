@@ -165,7 +165,7 @@ public class OutcomesDashboard2Action extends ActionSupport {
      * Decodes the {@code data} parameter.
      *
      * @return the request object with a text {@code username} and an array {@code queryList}, or
-     *         {@code null} when the parameter is absent, not Base64 JSON, or not that shape
+     *         {@code null} when the parameter is absent, not Base64 JSON, or not that shape (every list member must be text)
      */
     private static ObjectNode readRequest(String data) {
         if (data == null || data.isBlank()) {
@@ -174,6 +174,12 @@ public class OutcomesDashboard2Action extends ActionSupport {
         try {
             JsonNode node = objectMapper.readTree(new String(Base64.decodeBase64(data), StandardCharsets.UTF_8));
             if (node != null && node.isObject() && node.path("username").isTextual() && node.path("queryList").isArray()) {
+                // Jackson's asText() would turn a number or object member into a name; refuse the request instead.
+                for (JsonNode member : node.get("queryList")) {
+                    if (!member.isTextual()) {
+                        return null;
+                    }
+                }
                 return (ObjectNode) node;
             }
         } catch (IOException e) {

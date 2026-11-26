@@ -55,6 +55,17 @@
             }
         })();
 
+        // The action decodes UTF-8 JSON from Base64. btoa() accepts only Latin-1, so encode to UTF-8 bytes first
+        // (metric names can be non-ASCII). jQuery then form-encodes the value, so "+" in Base64 survives.
+        function encodeRefreshRequest(params) {
+            var bytes = new TextEncoder().encode(JSON.stringify(params));
+            var binary = '';
+            for (var i = 0; i < bytes.length; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return btoa(binary);
+        }
+
         function testListener(event) {
             // $(window).on("message") hands over a jQuery event, which does not copy MessageEvent.origin
             // (jQuery 3.x); read it from the native event.
@@ -127,7 +138,7 @@
                             url: "<%=request.getContextPath()%>/web/dashboard/OutcomesDashboard",
                             type: 'POST',
                             async: true,
-                            data: 'data=' + btoa(JSON.stringify(params)),
+                            data: {data: encodeRefreshRequest(params)},
                             dataType: 'json',
                             success: function (data) {
                                 outcomesWindow.postMessage(outcomesData.onSuccess, outcomesOrigin);

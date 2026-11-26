@@ -48,10 +48,13 @@ Struts action) and the defects that repairing it exposed.
 | 502 | `{"error":"publish_failed"}` | A matched set was not delivered: destination unset or unreachable, non-2xx answer, unknown provider, or no panel for the caller |
 | 403/405 page | security error / `Allow: POST` | Missing `_dashboardDisplay`; wrong method |
 
-Published metric data comes from `IndicatorBean.originalJsonPlots`, which the query handler builds by
-hand with **single-quoted keys** (`{ 'results':[{'Active':2}]}`); `OutcomesDashboardUtils` reads it
-with a mapper that allows single quotes. The first publication ever made through the repaired route
-would otherwise have failed to parse.
+Published metric data comes from `IndicatorBean.originalJsonPlots`, which `IndicatorQueryHandler.createOriginalGraphPlots`
+serializes as strict JSON (`{"results":[{"Active":2},{"Not active":1}]}`, one object per result column, valid for
+any number of rows). It was hand-built, single-quoted and comma-less between rows, so the first publication ever
+made through the repaired route would have failed to parse. A destination that redirects is treated as a
+failure (the HTTP client does not follow redirects, so a login page answering 200 is never mistaken for
+acceptance). The launcher sends `data` as UTF-8 JSON in Base64, form-encoded by jQuery (a `+` in Base64 and
+non-ASCII metric names both survive), and the action refuses a `queryList` with any non-text member.
 
 ## Cross-Origin-Opener-Policy exception
 

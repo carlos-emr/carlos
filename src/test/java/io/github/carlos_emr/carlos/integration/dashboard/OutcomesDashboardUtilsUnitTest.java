@@ -217,6 +217,24 @@ class OutcomesDashboardUtilsUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("does not follow a redirect, so a login page answering 200 is not an accepted metric set")
+    void shouldReturnFalse_whenDestinationRedirects() throws Exception {
+        configureDestination();
+        destination.createContext("/moved", exchange -> {
+            exchange.getResponseHeaders().add("Location", "/send");
+            exchange.sendResponseHeaders(302, -1);
+            exchange.close();
+        });
+        CarlosProperties.getInstance().setProperty(SEND_URL,
+                "http://127.0.0.1:" + destination.getAddress().getPort() + "/moved");
+        producePanel("Local label", "7");
+
+        assertThat(OutcomesDashboardUtils.sendProviderIndicatorData(login, provider, template)).isFalse();
+
+        assertThat(received).as("the redirect target must never be requested").isEmpty();
+    }
+
+    @Test
     @DisplayName("propagates a transport failure so the caller can report it")
     void shouldThrow_whenDestinationIsUnreachable() throws Exception {
         configureDestination();
