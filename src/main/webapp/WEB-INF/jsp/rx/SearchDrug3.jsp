@@ -2917,6 +2917,9 @@ function updateQty(element){
              CarlosAjax.updater({success: panel}, url, {
                  method: 'get',
                  parameters: params,
+                 onSuccess: function (response) {
+                     checkRxLookupFragment(panel, jsMsg.limitedUseLookupFailed, url, response);
+                 },
                  onFailure: function (response) {
                      showRxLookupError(panel, jsMsg.limitedUseLookupFailed, response.status);
                  }
@@ -2934,6 +2937,9 @@ function updateQty(element){
             var request = CarlosAjax.updater({success: costElement}, url, {
                 method: 'get',
                 parameters: params,
+                onSuccess: function (response) {
+                    checkRxLookupFragment(costElement, jsMsg.costLookupFailed, url, response);
+                },
                 onFailure: function (response) {
                     if (costElement._priceRequest === request) {
                         showRxLookupError(costElement, jsMsg.costLookupFailed, response.status);
@@ -2944,6 +2950,19 @@ function updateQty(element){
                 }
             });
             costElement._priceRequest = request;
+         }
+
+         function checkRxLookupFragment(panel, message, url, response) {
+             // An expired session can return an HTTP 200 sign-in page. The updater
+             // calls onSuccess before insertion, and skips a null response body.
+             try {
+                 var expected = new URL(url, window.location.href);
+                 var actual = new URL(response.responseURL, window.location.href);
+                 if (response.responseURL && actual.origin === expected.origin && actual.pathname === expected.pathname
+                         && !/<(?:!doctype\s+html|html)\b/i.test(response.responseText || '')) return;
+             } catch (invalidUrl) { /* An unrecognizable landing cannot confirm this lookup. */ }
+             response.responseText = null;
+             showRxLookupError(panel, message);
          }
 
          function showRxLookupError(panel, message, status) {

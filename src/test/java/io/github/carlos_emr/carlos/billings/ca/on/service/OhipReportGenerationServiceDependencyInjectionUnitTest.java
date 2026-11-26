@@ -31,6 +31,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.Collections;
+import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,6 +43,9 @@ import org.springframework.mock.web.MockHttpServletRequest;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.ProviderDropdownEntry;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillActivityDao;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillingDetailDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
@@ -69,9 +73,15 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
     private BillingDao billingDao;
     private BillingDetailDao billingDetailDao;
     private OhipReportGenerationService service;
+    private final SecurityInfoManager security = mock(SecurityInfoManager.class);
+    private final BillingReviewLoader reviews = mock(BillingReviewLoader.class);
+    private final BillingOnOutputFilenames outputFilenames = mock(BillingOnOutputFilenames.class);
+    @org.junit.jupiter.api.io.TempDir private java.nio.file.Path outputDirectory;
+    private Object oldHome;
 
     @BeforeEach
     void setUp() {
+        oldHome = CarlosProperties.getInstance().put("HOME_DIR", outputDirectory.toString());
         billActivityDao = mock(BillActivityDao.class);
         providerDao = mock(ProviderDao.class);
         billingDao = mock(BillingDao.class);
@@ -87,12 +97,44 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
         org.springframework.transaction.PlatformTransactionManager txManager =
                 mock(org.springframework.transaction.PlatformTransactionManager.class);
         service = new OhipReportGenerationService(
-                billActivityDao, providerDao, billingDao, billingDetailDao, factory, txManager);
+                billActivityDao, providerDao, billingDao, billingDetailDao, factory, txManager, security, reviews, outputFilenames);
+    }
+
+    @AfterEach
+    void restoreOutputDirectory() {
+        if (oldHome == null) CarlosProperties.getInstance().remove("HOME_DIR");
+        else CarlosProperties.getInstance().put("HOME_DIR", oldHome);
+    }
+
+    private CarlosProperties singleSiteProperties() {
+        CarlosProperties props = mock(CarlosProperties.class);
+        when(props.getProperty("multisites", "")).thenReturn("");
+        when(props.getProperty("HOME_DIR")).thenReturn(outputDirectory.toString());
+        return props;
+    }
+
+    private static MockHttpServletRequest authenticatedRequest() {
+        var request = new MockHttpServletRequest();
+        var login = new LoggedInInfo();
+        login.setLoggedInProvider(new Provider("999998"));
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), login);
+        return request;
+    }
+
+    @Test
+    void shouldRejectMissingSession_beforeLegacyPreviewOrBillingWrites() {
+        var request = new MockHttpServletRequest();
+        request.setParameter("monthCode", "A");
+        request.setParameter("providers", "all");
+        assertThatThrownBy(() -> service.generateSimulation(request)).isInstanceOf(SecurityException.class);
+        assertThatThrownBy(() -> service.generateReport(request, OhipReportGenerationService.Mode.SOLO_REPORT))
+                .isInstanceOf(SecurityException.class);
+        verifyNoInteractions(billActivityDao, providerDao, billingDao, billingDetailDao);
     }
 
     @Test
     void shouldRejectSimulationMode_onGenerateReport() {
-        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletRequest request = authenticatedRequest();
 
         assertThatThrownBy(() -> service.generateReport(request, OhipReportGenerationService.Mode.SIMULATION))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -103,7 +145,7 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
 
     @Test
     void shouldNoOp_whenMonthCodeMissingOnGenerateReport() {
-        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletRequest request = authenticatedRequest();
         request.setParameter("providers", "999998");
         // monthCode absent
 
@@ -114,7 +156,7 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
 
     @Test
     void shouldNoOp_whenProvidersParamBlankOnGenerateReport() {
-        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletRequest request = authenticatedRequest();
         request.setParameter("monthCode", "OB");
         request.setParameter("providers", "   ");
 
@@ -128,7 +170,7 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
         // Provider billing code must be 6 chars (PROVIDER_BILLINGNO_LENGTH).
         // A short value should land an error in the SimulationResult.errorMsg
         // without throwing, so the JSP can render the message to the operator.
-        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletRequest request = authenticatedRequest();
         request.setParameter("providers", "abc");  // 3 chars, not 6
         when(providerDao.getActiveProviders()).thenReturn(Collections.emptyList());
 
@@ -139,12 +181,59 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
     }
 
     @Test
+    void shouldRefuseOutOfScopeLegacyPreviewAndGeneration_beforeQueryingClaimsOrWritingFiles() {
+        var request = authenticatedRequest();
+        request.setParameter("monthCode", "A");
+        request.setParameter("providers", "803602");
+        var login = new LoggedInInfo();
+        login.setLoggedInProvider(new Provider("803601"));
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), login);
+        when(security.hasPrivilege(login, "_team_billing_only", "r", null)).thenReturn(true);
+        when(reviews.getTeamProviderBillingStr("803601")).thenReturn(List.of(
+                new ProviderDropdownEntry("803601", "FAKE", "Biller", "803601", "0000", "00")));
+
+        assertThatThrownBy(() -> service.generateSimulation(request)).isInstanceOf(SecurityException.class);
+        assertThatThrownBy(() -> service.generateReport(request, OhipReportGenerationService.Mode.SOLO_REPORT))
+                .isInstanceOf(SecurityException.class);
+        verifyNoInteractions(providerDao, billingDao, billingDetailDao, billActivityDao);
+    }
+
+    @Test
+    void shouldProcessOnlyTheAllowedProvider_whenLegacySimulationAndGenerationSelectAll() {
+        var request = authenticatedRequest();
+        request.setParameter("monthCode", "A");
+        request.setParameter("providers", "all");
+        var login = new LoggedInInfo();
+        login.setLoggedInProvider(new Provider("803601"));
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), login);
+        when(security.hasPrivilege(login, "_team_billing_only", "r", null)).thenReturn(true);
+        when(reviews.getTeamProviderBillingStr("803601")).thenReturn(List.of(
+                new ProviderDropdownEntry("803601", "FAKE", "Biller", "123456", "0000", "00")));
+        var allowed = new Provider("803601");
+        allowed.setOhipNo("123456");
+        var other = new Provider("803602");
+        other.setOhipNo("654321");
+        when(providerDao.getActiveProviders()).thenReturn(List.of(other, allowed));
+        var extract = mock(OhipClaimExtractService.class);
+        when(extract.getHtmlValue()).thenReturn("allowed-preview");
+        var scopedService = new OhipReportGenerationService(billActivityDao, providerDao, billingDao,
+                billingDetailDao, () -> extract, mock(org.springframework.transaction.PlatformTransactionManager.class), security, reviews, outputFilenames);
+
+        assertThat(scopedService.generateSimulation(request).htmlPreview()).isEqualTo("allowed-preview");
+        assertThat(scopedService.generateReport(request, OhipReportGenerationService.Mode.SOLO_REPORT)).isEmpty();
+        verify(extract, times(2)).setProviderNo("123456");
+        verify(extract, times(2)).dbQueryForProvider("803601");
+        verify(extract, org.mockito.Mockito.never()).dbQuery();
+        verify(extract, org.mockito.Mockito.never()).setProviderNo("654321");
+    }
+
+    @Test
     void shouldReturnFalse_whenHybridBillingPropertyAbsent() {
         // CarlosProperties is a singleton with a static getInstance(); stub
         // the chain so the property lookup returns the empty default. The
         // service should treat anything other than literal "on" as off.
         try (MockedStatic<CarlosProperties> propsMock = mockStatic(CarlosProperties.class)) {
-            CarlosProperties props = mock(CarlosProperties.class);
+            CarlosProperties props = singleSiteProperties();
             when(props.getProperty("hybrid_billing", "")).thenReturn("");
             propsMock.when(CarlosProperties::getInstance).thenReturn(props);
 
@@ -155,7 +244,7 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
     @Test
     void shouldReturnTrue_whenHybridBillingPropertyOn() {
         try (MockedStatic<CarlosProperties> propsMock = mockStatic(CarlosProperties.class)) {
-            CarlosProperties props = mock(CarlosProperties.class);
+            CarlosProperties props = singleSiteProperties();
             when(props.getProperty("hybrid_billing", "")).thenReturn("on");
             propsMock.when(CarlosProperties::getInstance).thenReturn(props);
 
@@ -185,7 +274,7 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
         org.springframework.transaction.PlatformTransactionManager txManager =
                 mock(org.springframework.transaction.PlatformTransactionManager.class);
         OhipReportGenerationService twoProviderService = new OhipReportGenerationService(
-                billActivityDao, providerDao, billingDao, billingDetailDao, trackingFactory, txManager);
+                billActivityDao, providerDao, billingDao, billingDetailDao, trackingFactory, txManager, security, reviews, outputFilenames);
 
         Provider p1 = mock(Provider.class);
         when(p1.getOhipNo()).thenReturn("111111");
@@ -198,11 +287,11 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
         when(providerDao.getActiveProviders()).thenReturn(java.util.List.of(p1, p2));
 
         try (MockedStatic<CarlosProperties> propsMock = mockStatic(CarlosProperties.class)) {
-            CarlosProperties props = mock(CarlosProperties.class);
+            CarlosProperties props = singleSiteProperties();
             when(props.getProperty("hybrid_billing", "")).thenReturn("");
             propsMock.when(CarlosProperties::getInstance).thenReturn(props);
 
-            MockHttpServletRequest request = new MockHttpServletRequest();
+            MockHttpServletRequest request = authenticatedRequest();
             request.setParameter("monthCode", "OB");
             request.setParameter("providers", "all");
             request.setParameter("verCode", "V03");
@@ -219,6 +308,65 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
     }
 
     @Test
+    void shouldRejectOverlappingLegacyGenerationAndAllowRetry_afterTheFirstOperationCompletes() throws Exception {
+        var entered = new java.util.concurrent.CountDownLatch(1);
+        var release = new java.util.concurrent.CountDownLatch(1);
+        var first = new java.util.concurrent.atomic.AtomicBoolean(true);
+        when(providerDao.getActiveProviders()).thenAnswer(call -> {
+            if (first.getAndSet(false)) {
+                entered.countDown();
+                assertThat(release.await(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            }
+            return List.of();
+        });
+        var request = authenticatedRequest();
+        request.setParameter("providers", "all");
+        request.setParameter("monthCode", "A");
+        try (var worker = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+            var running = worker.submit(() -> service.generateReport(request, OhipReportGenerationService.Mode.SOLO_REPORT));
+            try {
+                assertThat(entered.await(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+                assertThatThrownBy(() -> service.generateReport(request, OhipReportGenerationService.Mode.GROUP_REPORT))
+                        .isInstanceOfSatisfying(BillingFileWriteException.class,
+                                failure -> assertThat(failure.reason()).isEqualTo(BillingFileWriteException.Reason.BUSY));
+                verifyNoInteractions(billActivityDao, outputFilenames);
+            } finally {
+                release.countDown();
+            }
+            assertThat(running.get(10, java.util.concurrent.TimeUnit.SECONDS)).isEmpty();
+        }
+        assertThat(service.generateReport(request, OhipReportGenerationService.Mode.GROUP_REPORT)).isEmpty();
+        verify(providerDao, times(2)).getActiveProviders();
+    }
+
+    @Test
+    void shouldSkipAnExhaustedProvider_andGenerateTheNextProviderWithoutTouchingPriorOutputs() {
+        var prior = new io.github.carlos_emr.carlos.billing.CA.model.BillActivity();
+        prior.setBatchCount(998);
+        var provider = new Provider("803601");
+        provider.setOhipNo("123456");
+        var nextProvider = new Provider("803602");
+        nextProvider.setOhipNo("654321");
+        when(providerDao.getActiveProviders()).thenReturn(List.of(provider, nextProvider));
+        when(billActivityDao.findCurrentByMonthCodeAndGroupNo(org.mockito.ArgumentMatchers.eq("A"),
+                org.mockito.ArgumentMatchers.eq("123456"), org.mockito.ArgumentMatchers.any())).thenReturn(List.of(prior));
+        when(outputFilenames.isInUse("HA123456.999")).thenReturn(true);
+        var request = authenticatedRequest();
+        request.setParameter("monthCode", "A");
+        request.setParameter("providers", "all");
+
+        var skipped = service.generateReport(request, OhipReportGenerationService.Mode.SOLO_REPORT);
+        assertThat(skipped).singleElement().satisfies(failure -> {
+            assertThat(failure.providerNo()).isEqualTo(provider.getProviderNo());
+            assertThat(failure.causeMessage()).isEqualTo(BillingFileWriteException.Reason.FILENAME_SEQUENCE_EXHAUSTED.publicMessage());
+        });
+        var generated = org.mockito.ArgumentCaptor.forClass(io.github.carlos_emr.carlos.billing.CA.model.BillActivity.class);
+        verify(billActivityDao).persist(generated.capture());
+        assertThat(generated.getValue().getOhipFilename()).isEqualTo("HA654321.001");
+        assertThat(generated.getValue().getHtmlFilename()).isEqualTo("HA654321_001.htm");
+    }
+
+    @Test
     void shouldSkipHistoricalNames_whenGeneratingNewReport() {
         @SuppressWarnings("unchecked")
         org.springframework.beans.factory.ObjectFactory<OhipClaimExtractService> factory =
@@ -232,16 +380,16 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
         when(provider.getProviderNo()).thenReturn("11");
         when(provider.getComments()).thenReturn("");
         when(providerDao.getActiveProviders()).thenReturn(java.util.List.of(provider));
-        when(billActivityDao.isImportedFilenameReserved("HOB111111.001")).thenReturn(true);
-        when(billActivityDao.isImportedFilenameReserved("HOB111111_002.htm")).thenReturn(true);
+        when(outputFilenames.isInUse("HOB111111.001")).thenReturn(true);
+        when(outputFilenames.isInUse("HOB111111_002.htm")).thenReturn(true);
         OhipReportGenerationService generator = new OhipReportGenerationService(
                 billActivityDao, providerDao, billingDao, billingDetailDao, factory,
-                mock(org.springframework.transaction.PlatformTransactionManager.class));
-        MockHttpServletRequest request = new MockHttpServletRequest();
+                mock(org.springframework.transaction.PlatformTransactionManager.class), security, reviews, outputFilenames);
+        MockHttpServletRequest request = authenticatedRequest();
         request.setParameter("monthCode", "OB");
         request.setParameter("providers", "all");
         try (MockedStatic<CarlosProperties> properties = mockStatic(CarlosProperties.class)) {
-            CarlosProperties props = mock(CarlosProperties.class);
+            CarlosProperties props = singleSiteProperties();
             when(props.getProperty("hybrid_billing", "")).thenReturn("");
             properties.when(CarlosProperties::getInstance).thenReturn(props);
             assertThat(generator.generateReport(request, OhipReportGenerationService.Mode.SOLO_REPORT)).isEmpty();
@@ -278,7 +426,7 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
         org.springframework.transaction.PlatformTransactionManager txManager =
                 mock(org.springframework.transaction.PlatformTransactionManager.class);
         OhipReportGenerationService twoProviderService = new OhipReportGenerationService(
-                billActivityDao, providerDao, billingDao, billingDetailDao, trackingFactory, txManager);
+                billActivityDao, providerDao, billingDao, billingDetailDao, trackingFactory, txManager, security, reviews, outputFilenames);
 
         Provider p1 = mock(Provider.class);
         when(p1.getOhipNo()).thenReturn("111111");
@@ -292,11 +440,11 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
 
         java.util.List<OhipReportGenerationService.FailedProvider> skipped;
         try (MockedStatic<CarlosProperties> propsMock = mockStatic(CarlosProperties.class)) {
-            CarlosProperties props = mock(CarlosProperties.class);
+            CarlosProperties props = singleSiteProperties();
             when(props.getProperty("hybrid_billing", "")).thenReturn("");
             propsMock.when(CarlosProperties::getInstance).thenReturn(props);
 
-            MockHttpServletRequest request = new MockHttpServletRequest();
+            MockHttpServletRequest request = authenticatedRequest();
             request.setParameter("monthCode", "OB");
             request.setParameter("providers", "all");
             request.setParameter("verCode", "V03");
@@ -313,7 +461,7 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
         assertThat(fp.providerNo()).isEqualTo("11");
         assertThat(fp.ohipNo()).isEqualTo("111111");
         assertThat(fp.causeClass()).isEqualTo("BillingFileWriteException");
-        assertThat(fp.causeMessage()).isEqualTo("disk full simulation");
+        assertThat(fp.causeMessage()).contains("Check storage").doesNotContain("disk full simulation");
     }
 
     @Test
@@ -331,7 +479,7 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
         org.springframework.transaction.PlatformTransactionManager txManager =
                 mock(org.springframework.transaction.PlatformTransactionManager.class);
         OhipReportGenerationService oneProviderService = new OhipReportGenerationService(
-                billActivityDao, providerDao, billingDao, billingDetailDao, trackingFactory, txManager);
+                billActivityDao, providerDao, billingDao, billingDetailDao, trackingFactory, txManager, security, reviews, outputFilenames);
 
         Provider p = mock(Provider.class);
         when(p.getOhipNo()).thenReturn("111111");
@@ -341,11 +489,11 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
 
         java.util.List<OhipReportGenerationService.FailedProvider> skipped;
         try (MockedStatic<CarlosProperties> propsMock = mockStatic(CarlosProperties.class)) {
-            CarlosProperties props = mock(CarlosProperties.class);
+            CarlosProperties props = singleSiteProperties();
             when(props.getProperty("hybrid_billing", "")).thenReturn("");
             propsMock.when(CarlosProperties::getInstance).thenReturn(props);
 
-            MockHttpServletRequest request = new MockHttpServletRequest();
+            MockHttpServletRequest request = authenticatedRequest();
             request.setParameter("monthCode", "OB");
             request.setParameter("providers", "all");
             skipped = oneProviderService.generateReport(request,
@@ -366,7 +514,7 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
         org.springframework.transaction.PlatformTransactionManager txManager =
                 mock(org.springframework.transaction.PlatformTransactionManager.class);
         OhipReportGenerationService oneProviderService = new OhipReportGenerationService(
-                billActivityDao, providerDao, billingDao, billingDetailDao, trackingFactory, txManager);
+                billActivityDao, providerDao, billingDao, billingDetailDao, trackingFactory, txManager, security, reviews, outputFilenames);
 
         Provider p = mock(Provider.class);
         when(p.getOhipNo()).thenReturn("");
@@ -374,11 +522,11 @@ class OhipReportGenerationServiceDependencyInjectionUnitTest {
 
         java.util.List<OhipReportGenerationService.FailedProvider> skipped;
         try (MockedStatic<CarlosProperties> propsMock = mockStatic(CarlosProperties.class)) {
-            CarlosProperties props = mock(CarlosProperties.class);
+            CarlosProperties props = singleSiteProperties();
             when(props.getProperty("hybrid_billing", "")).thenReturn("");
             propsMock.when(CarlosProperties::getInstance).thenReturn(props);
 
-            MockHttpServletRequest request = new MockHttpServletRequest();
+            MockHttpServletRequest request = authenticatedRequest();
             request.setParameter("monthCode", "OB");
             request.setParameter("providers", "all");
 

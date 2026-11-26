@@ -235,6 +235,49 @@ for (const [index, label, expected] of [
   });
 }
 
+function useFormSerializer(h) {
+  h.context.Form.serialize = form => new URLSearchParams(Object.fromEntries(
+    form.elements.map(element => [element.name, element.value]))).toString();
+}
+
+for (const [index, label] of ['Sign & Save', 'Verify', 'Bill'].entries()) {
+  test(label + ' rejected during date validation leaves a later plain Save unsigned', () => {
+    const h = harness();
+    useFormSerializer(h);
+    h.fields.observationDate = {value: '2099-01-01'};
+    h.context.validDate = () => false;
+    h.context.pastObservationDateError = 'Observation date is in the future';
+    vm.runInContext(`(function (event) { ${fullFormHandlers[index]} })`, h.context)({
+      preventDefault() {}, stopPropagation() {}
+    });
+    assert.deepEqual(h.alerts, [h.context.pastObservationDateError]);
+    assert.equal(h.fetches.length, 0);
+    h.context.validDate = () => true;
+    h.context.saveNoteAjax('save', 'list');
+    const posted = new URLSearchParams(h.requests[0].options.postBody);
+    assert.deepEqual(['sign', 'verify', 'toBill'].map(name => posted.get(name)), ['off', 'off', 'false']);
+  });
+}
+
+test('an issue refresh keeps the signing choice only for the queued save that made it', async () => {
+  for (const replaceWithPlainSave of [true, false]) {
+    const h = harness();
+    useFormSerializer(h);
+    const finish = h.context.beginIssueUpdate();
+    h.pressBill();
+    if (replaceWithPlainSave) h.context.saveNoteAjax('save', 'list');
+    finish(true);
+    await settled();
+    if (replaceWithPlainSave) {
+      const posted = new URLSearchParams(h.requests[0].options.postBody);
+      assert.deepEqual(['sign', 'toBill'].map(name => posted.get(name)), ['off', 'false']);
+      assert.deepEqual(h.submits(), []);
+    } else {
+      assert.deepEqual(h.submits().map(fields => [fields.sign, fields.toBill]), [['on', 'true']]);
+    }
+  }
+});
+
 test('Sign & Save asks the session heartbeat without following a redirect, then submits once', async () => {
   const h = harness();
   assert.equal(signAndSave(h), false);

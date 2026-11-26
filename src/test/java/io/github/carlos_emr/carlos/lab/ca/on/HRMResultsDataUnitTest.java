@@ -105,13 +105,26 @@ class HRMResultsDataUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"42,42,42", "41,41,42,42,40,40", "42,41,42,40,41,40", "40,41,42,40,41,42"})
-    void shouldGroupDistinctVersionsWithoutSelfDuplicates_whenReportsHaveMultipleProviderRoutes(String routedIds) {
+    @CsvSource({
+            "'42,42,42',true,true", "'41,41,42,42,40,40',true,true", "'42,41,42,40,41,40',true,true",
+            "'40,41,42,40,41,42',true,true", "'41,42',false,true", "'41,42,41,42',true,false"
+    })
+    void shouldGroupDistinctVersionsWithoutSelfDuplicates_whenReportsHaveMultipleProviderRoutes(
+            String routedIds, boolean numbered, boolean filed) {
         var providers = createAndRegisterMock(HRMDocumentToProviderDao.class);
         var documents = createAndRegisterMock(HRMDocumentDao.class);
-        createAndRegisterMock(HRMDocumentToDemographicDao.class);
-        createAndRegisterMock(DemographicManager.class);
+        var links = createAndRegisterMock(HRMDocumentToDemographicDao.class);
+        var demographics = createAndRegisterMock(DemographicManager.class);
         var info = mock(LoggedInInfo.class);
+        if (filed) {
+            var match = new HRMDocumentToDemographic();
+            match.setDemographicNo(100);
+            when(links.findByHrmDocumentId(anyInt())).thenReturn(List.of(match));
+            var patient = new Demographic();
+            patient.setFirstName("Test");
+            patient.setLastName("Patient");
+            when(demographics.getDemographic(info, 100)).thenReturn(patient);
+        }
         List<Integer> ids = java.util.Arrays.stream(routedIds.split(",")).map(Integer::valueOf).toList();
         List<HRMDocumentToProvider> routes = ids.stream().map(id -> {
             var route = new HRMDocumentToProvider();
@@ -125,14 +138,14 @@ class HRMResultsDataUnitTest extends CarlosUnitTestBase {
             for (Integer id : ids.stream().distinct().toList()) {
                 var document = mock(HRMDocument.class);
                 when(document.getId()).thenReturn(id);
-                when(document.getTimeReceived()).thenReturn(new Date(1700000000000L));
+                when(document.getTimeReceived()).thenReturn(id == 42 ? null : new Date(1700000000000L));
                 when(document.getReportFile()).thenReturn("synthetic-" + id + ".xml");
                 when(documents.findById(id)).thenReturn(List.of(document));
                 var report = mock(HRMReport.class);
                 when(report.getHrmDocumentId()).thenReturn(id);
                 when(report.getLegalName()).thenReturn("Patient,Test");
                 when(report.getSendingFacilityId()).thenReturn("SYNTHETIC");
-                when(report.getSendingFacilityReportNo()).thenReturn("SHARED-REPORT");
+                when(report.getSendingFacilityReportNo()).thenReturn(numbered ? "SHARED-REPORT" : "");
                 when(report.getDeliverToUserId()).thenReturn("999998");
                 when(report.getMessageUniqueId()).thenReturn("a^b^c^d^e^" + (20261102000000L + id));
                 parser.when(() -> HRMReportParser.parseReport(info, "synthetic-" + id + ".xml")).thenReturn(report);
@@ -141,11 +154,18 @@ class HRMResultsDataUnitTest extends CarlosUnitTestBase {
             var results = new HRMResultsData().populateHRMdocumentsResultsData(
                     info, "", "", null, null, false, 0, 100);
 
-            assertThat(results).singleElement().satisfies(result -> {
-                assertThat(result.getSegmentID()).isEqualTo("42");
-                assertThat(result.getDuplicateLabIds()).containsExactlyInAnyOrderElementsOf(
-                        ids.stream().distinct().filter(id -> id != 42).toList());
-            });
+            if (numbered && filed) {
+                assertThat(results).singleElement().satisfies(result -> {
+                    assertThat(result.getSegmentID()).isEqualTo("42");
+                    assertThat(result.dateTime).isEmpty();
+                    assertThat(result.getDuplicateLabIds()).containsExactlyInAnyOrderElementsOf(
+                            ids.stream().distinct().filter(id -> id != 42).toList());
+                });
+            } else {
+                assertThat(results).extracting(result -> result.getSegmentID()).containsExactlyInAnyOrder("41", "42");
+                assertThat(results).allSatisfy(result ->
+                        assertThat(result.getDuplicateLabIds()).isEmpty());
+            }
             for (Integer id : ids.stream().distinct().toList()) {
                 verify(documents).findById(id);
                 parser.verify(() -> HRMReportParser.parseReport(info, "synthetic-" + id + ".xml"));

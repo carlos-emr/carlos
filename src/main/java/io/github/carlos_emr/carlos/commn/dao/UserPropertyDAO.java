@@ -42,6 +42,12 @@ public interface UserPropertyDAO extends AbstractDao<UserProperty> {
     /** Locks the existing provider row before reading or creating that provider's preferences. */
     boolean lockProviderPreferences(String providerNo);
 
+    /** Returns the oldest stored incoming queue preference, including historical NULL values. */
+    UserProperty findIncomingDocumentQueue(String providerNo);
+
+    /** Saves an explicit selection under the owning provider's lock. */
+    void selectIncomingDocumentQueue(String providerNo, String queue);
+
     /** Atomically replaces the owner's tickler assignee, or removes all copies for Default. */
     void replaceTicklerTaskAssignee(String providerNo, String value);
 

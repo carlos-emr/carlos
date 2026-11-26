@@ -32,7 +32,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingBatchHeaderDto;
-import io.github.carlos_emr.carlos.billings.ca.on.dto.ProviderDropdownEntry;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants;
 import io.github.carlos_emr.carlos.billings.ca.on.support.OhipProviderFields;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOhipSimulationViewModel;
@@ -45,6 +44,7 @@ import io.github.carlos_emr.carlos.utility.DateRange;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewLoader;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnProviderScope;
 
 import org.springframework.beans.factory.ObjectFactory;
 /**
@@ -111,18 +111,24 @@ public class BillingOhipSimulationViewModelAssembler {
         String xmlApptDate = request.getParameter("xml_appointment_date") == null
                 ? nowDate : request.getParameter("xml_appointment_date");
 
-        // Provider dropdown (filtered by privacy trio).
-        List<BillingOhipSimulationViewModel.ProviderOption> providers = loadProviders(
-                userNo, teamBillingOnly, siteAccessPrivacy, teamAccessPrivacy);
+        var scope = new BillingOnProviderScope(teamBillingOnly, siteAccessPrivacy, teamAccessPrivacy);
+        var providers = scope.selectableProviders(reviewPrep, userNo).stream()
+                .map(p -> new BillingOhipSimulationViewModel.ProviderOption(p.providerNo(), p.lastName(), p.firstName()))
+                .toList();
 
-        BillingOhipSimulationViewModel.SimulationPreview preview =
-                BillingOhipSimulationViewModel.SimulationPreview.EMPTY;
+        BillingOhipSimulationViewModel.SimulationPreview preview = BillingOhipSimulationViewModel.SimulationPreview.EMPTY;
         if ("Create Report".equals(request.getParameter("submit"))) {
-            preview = bMultisites
-                    ? buildMultisitePreview(request, loggedInInfo)
-                    : buildSoloPreview(request, loggedInInfo, userNo,
-                            teamBillingOnly, siteAccessPrivacy, teamAccessPrivacy,
-                            summaryView);
+            String selected = request.getParameter("providers");
+            List<String> eligible = providers.stream().map(BillingOhipSimulationViewModel.ProviderOption::providerNo).toList();
+            if (!bMultisites && "all".equals(selected) && !eligible.isEmpty()) {
+                preview = buildSoloPreview(request, loggedInInfo, eligible, summaryView);
+            } else if (selected != null && eligible.contains(selected)) {
+                preview = bMultisites ? buildMultisitePreview(request, loggedInInfo)
+                        : buildSoloPreview(request, loggedInInfo, List.of(selected), summaryView);
+            } else {
+                preview = new BillingOhipSimulationViewModel.SimulationPreview(true, bMultisites, summaryView,
+                        List.of("Select an available provider to simulate."), "", 0, 0, "0.00");
+            }
         }
 
         return BillingOhipSimulationViewModel.builder()
@@ -139,34 +145,6 @@ public class BillingOhipSimulationViewModelAssembler {
                 .providers(providers)
                 .preview(preview)
                 .build();
-    }
-
-    private List<BillingOhipSimulationViewModel.ProviderOption> loadProviders(
-            String userNo, boolean teamBillingOnly, boolean siteAccessPrivacy,
-            boolean teamAccessPrivacy) {
-        List<BillingOhipSimulationViewModel.ProviderOption> out = new ArrayList<>();
-        for (ProviderDropdownEntry provider : loadProviderEntries(
-                userNo, teamBillingOnly, siteAccessPrivacy, teamAccessPrivacy)) {
-            out.add(new BillingOhipSimulationViewModel.ProviderOption(
-                    provider.providerNo(), provider.lastName(), provider.firstName()));
-        }
-        return out;
-    }
-
-    // Provider rows are typed records now; keep this central so the dropdown
-    // and "all providers" simulation paths cannot drift back to pipe parsing.
-    private List<ProviderDropdownEntry> loadProviderEntries(
-            String userNo, boolean teamBillingOnly, boolean siteAccessPrivacy,
-            boolean teamAccessPrivacy) {
-        List<ProviderDropdownEntry> providerEntries;
-        if (teamBillingOnly || teamAccessPrivacy) {
-            providerEntries = reviewPrep.getTeamProviderBillingStr(userNo);
-        } else if (siteAccessPrivacy) {
-            providerEntries = reviewPrep.getSiteProviderBillingStr(userNo);
-        } else {
-            providerEntries = reviewPrep.getProviderBillingStr();
-        }
-        return providerEntries == null ? List.of() : providerEntries;
     }
 
     private BillingOhipSimulationViewModel.SimulationPreview buildMultisitePreview(
@@ -213,20 +191,7 @@ public class BillingOhipSimulationViewModelAssembler {
 
     private BillingOhipSimulationViewModel.SimulationPreview buildSoloPreview(
             HttpServletRequest request, LoggedInInfo loggedInInfo,
-            String userNo, boolean teamBillingOnly,
-            boolean siteAccessPrivacy, boolean teamAccessPrivacy,
-            boolean summaryView) {
-        String pro = request.getParameter("providers");
-        List<String> providerList = new ArrayList<>();
-        if ("all".equals(pro)) {
-            for (ProviderDropdownEntry provider : loadProviderEntries(
-                    userNo, teamBillingOnly, siteAccessPrivacy, teamAccessPrivacy)) {
-                providerList.add(provider.providerNo());
-            }
-        } else {
-            providerList.add(pro);
-        }
-
+            List<String> providerList, boolean summaryView) {
         BigDecimal bigTotal = BillingMoney.zeroAmount();
         int recordCount = 0;
         int errorCount = 0;

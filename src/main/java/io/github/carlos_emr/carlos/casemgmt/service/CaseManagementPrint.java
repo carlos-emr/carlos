@@ -119,6 +119,12 @@ public class CaseManagementPrint {
     private boolean leaveOutLockedNotes;
 
     /**
+     * Archived notes, and CPP entries the CPP sections leave out, are left out of the notes body
+     * ({@link #leaveOutArchivedAndHiddenNotes()}).
+     */
+    private boolean leaveOutArchivedAndHiddenNotes;
+
+    /**
      * The most bytes the finished PDF may have ({@link #limitCompletePdfBytes}); no limit unless a caller
      * sets one, so the chart's own Print is unchanged.
      */
@@ -151,6 +157,18 @@ public class CaseManagementPrint {
      */
     public void leaveOutLockedNotes() {
         this.leaveOutLockedNotes = true;
+    }
+
+    /**
+     * Leaves out of the notes body what the chart does not show as a current note: archived notes, and
+     * every CPP entry the CPP sections leave out (archived, locked, or hidden with "Hide Cpp"). Without
+     * it such an entry is not in its CPP section, so it falls through into the notes body, as the
+     * chart's own Print All has always printed it. The Messenger attachment of a patient's chart notes,
+     * sent to a third party as "current" notes, uses this (#5856); it asks for the CPP, which is
+     * where those entries are recognised, and a print with this switch but without the CPP is refused.
+     */
+    public void leaveOutArchivedAndHiddenNotes() {
+        this.leaveOutArchivedAndHiddenNotes = true;
     }
 
     /**
@@ -204,6 +222,10 @@ public class CaseManagementPrint {
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path validated for directory containment via PathValidationUtils before use")
     public void doPrint(LoggedInInfo loggedInInfo, Integer demographicNo, boolean printAllNotes, String[] noteIds, boolean printCPP, boolean printRx, boolean printLabs, boolean printPreventions, boolean printAllergies, boolean useDateRange, Calendar startDate, Calendar endDate, HttpServletRequest request, OutputStream os) throws IOException, DocumentException {
+        if (leaveOutArchivedAndHiddenNotes && !printCPP) {
+            // Hidden CPP entries are recognised in the CPP step; without it they would reach the notes body.
+            throw new IllegalStateException("Leaving out hidden CPP entries needs the CPP printed");
+        }
 
         // Extensions read servlet parameters rather than this method's patient argument. Bind every
         // parameter view to the authorized patient so a query string cannot select a second chart.
@@ -265,6 +287,9 @@ public class CaseManagementPrint {
         if (leaveOutLockedNotes) {
             notes = notes.stream().filter(note -> !note.isLocked()).collect(Collectors.toList());
         }
+        if (leaveOutArchivedAndHiddenNotes) {
+            notes = notes.stream().filter(note -> !note.isArchived()).collect(Collectors.toList());
+        }
 
         // we're not guaranteed any ordering of notes given to us, so sort by observation date
         CarlosProperties p = CarlosProperties.getInstance();
@@ -286,11 +311,24 @@ public class CaseManagementPrint {
         HashMap<String, List<CaseManagementNote>> cpp = null;
         if (printCPP) {
             cpp = new HashMap<>();
+            // Every CPP entry of the patient, printed in its section or left out of it, including those the
+            // program filter keeps from this reader. They are used only to take rows out of the notes body.
+            Set<Long> allCppIds = new HashSet<>();
+            List<CaseManagementNote> allCppEntries = new ArrayList<>();
             String[] issueCodes = {"OMeds", "SocHistory", "MedHistory", "Concerns", "Reminders", "FamHistory", "RiskFactors"};
             for (String issueCode : issueCodes) {
                 List<Issue> issues = caseManagementMgr.getIssueInfoByCode(providerNo, issueCode);
                 String[] issueIds = getIssueIds(issues);
-                tmpNotes = readableNotes(loggedInInfo, caseManagementMgr.getNotes(demono, issueIds), program);
+                List<CaseManagementNote> patientCppEntries = caseManagementMgr.getNotes(demono, issueIds);
+                // Recognise the entries before the program filter. filterNotes reads each revision row by the
+                // role that saved it, and an edit records the editing provider's role, so the body can hold a
+                // readable older revision of an entry whose latest row this reader may not read (#6324 review).
+                for (CaseManagementNote entry : patientCppEntries) {
+                    allCppIds.add(entry.getId());
+                    allCppEntries.add(entry);
+                }
+                // The CPP sections print only what the program filter lets this reader read.
+                tmpNotes = readableNotes(loggedInInfo, patientCppEntries, program);
                 issueNotes = new ArrayList<>();
                 for (CaseManagementNote tmpNote : tmpNotes) {
                     if (!tmpNote.isLocked() && !tmpNote.isArchived()) {
@@ -313,7 +351,24 @@ public class CaseManagementPrint {
             // CPP notes already rendered in their sections must not repeat in the notes body.
             Set<Long> printedCppIds = cpp.values().stream().flatMap(Collection::stream)
                     .map(CaseManagementNote::getId).collect(Collectors.toSet());
-            notes.removeIf(note -> printedCppIds.contains(note.getId()));
+            // A CPP entry left out of its section (archived, locked, "Hide Cpp") stays in the body of the
+            // chart's own print; the Messenger attachment leaves it out too.
+            Set<Long> notInBody = leaveOutArchivedAndHiddenNotes ? allCppIds : printedCppIds;
+            // The ids are revision rows: the body was collected first, and the CPP query keeps only the
+            // latest row of each note UUID. A CPP entry edited while this print runs can reach the body
+            // as an older revision whose id the CPP query never returns, so a hidden entry's text would
+            // survive (#6324 review). Classify the body's rows by note UUID as well as by row id.
+            // A row with no UUID (legacy data from before notes carried one) can only be classified by its row id,
+            // so such an older revision of a hidden entry is not recognised here; every current note has one.
+            Set<String> uuidsNotInBody = new HashSet<>();
+            for (List<CaseManagementNote> section : cpp.values()) {
+                section.forEach(entry -> addUuid(uuidsNotInBody, entry));
+            }
+            if (leaveOutArchivedAndHiddenNotes) {
+                allCppEntries.forEach(entry -> addUuid(uuidsNotInBody, entry));
+            }
+            notes.removeIf(note -> notInBody.contains(note.getId())
+                    || (note.getUuid() != null && uuidsNotInBody.contains(note.getUuid())));
         }
         String demoNo = null;
         List<CaseManagementNote> othermeds = null;
@@ -727,6 +782,12 @@ public class CaseManagementPrint {
         } catch (IOException | RuntimeException ex) {
             logger.warn("Failed to delete {}; leaving it for the OS temp sweep ({})", description, ex.getClass().getSimpleName());
             return false;
+        }
+    }
+
+    private static void addUuid(Set<String> uuids, CaseManagementNote note) {
+        if (note.getUuid() != null) {
+            uuids.add(note.getUuid());
         }
     }
 }

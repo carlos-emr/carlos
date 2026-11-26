@@ -11,7 +11,7 @@ on:
         required: true
         type: string
       qualification_run_id:
-        description: Completed Release Verification qualification run to promote (blank builds a draft candidate)
+        description: Optional completed qualification run for promoting existing frozen draft assets
         required: false
         type: string
 
@@ -19,8 +19,8 @@ on:
 # the draft bookkeeping read the set of existing releases, so serializing all
 # release runs keeps that state consistent. Releases are rare and deliberate —
 # strict serialization costs nothing; same-tag re-runs still queue as before.
-# Final publication happens on a separate qualified promotion dispatch of
-# deb-packages.yml, after every asset and its raw evidence have been verified.
+# deb-packages.yml publishes the release after it attaches and verifies every
+# required asset. The release stays a draft until that workflow finishes.
 concurrency:
   group: release-publication
   cancel-in-progress: false
@@ -268,15 +268,18 @@ jobs:
                 -DoutputName=carlos-$RELEASE_TAG-cyclonedx
             "
 
-          war="target/carlos-$RELEASE_TAG.war"
+          war="release-assets/carlos-$RELEASE_TAG.war"
           sbom="target/carlos-$RELEASE_TAG-cyclonedx.json"
-          test -f "$war"
+          # jar updates a WAR by creating a sibling temporary file. Stage the
+          # archive in the runner-owned directory before stamping it.
+          cp "target/carlos-$RELEASE_TAG.war" "$war"
           test -f "$sbom"
           unzip -t "$war" >/dev/null
 
           # Freeze the final Debian stamp before any qualification. Packaging
           # recognizes this stamp and preserves the candidate archive's bytes.
-          debian/stamp-war-build-identity.sh "$war" carlos-emr-deb "${RELEASE_TAG//-/~}"
+          deb_version="$(printf '%s' "$RELEASE_TAG" | sed 's/-/~/g')"
+          debian/stamp-war-build-identity.sh "$war" carlos-emr-deb "$deb_version"
 
           build_properties=$(unzip -p "$war" WEB-INF/classes/buildNumber.properties)
           if ! grep -qxF "git-sha-1=$TAG_COMMIT" <<< "$build_properties"; then
@@ -299,7 +302,7 @@ jobs:
             exit 1
           fi
 
-          cp "$war" "$sbom" release-assets/
+          cp "$sbom" release-assets/
           (
             cd release-assets
             sha256sum "carlos-$RELEASE_TAG.war" > "carlos-$RELEASE_TAG.war.sha256"
@@ -371,15 +374,13 @@ jobs:
         run: |
           set -euo pipefail
           # The release remains a DRAFT: deb-packages.yml downloads the WAR,
-          # builds and attaches .deb assets for qualification. A separate
-          # promotion dispatch verifies the completed qualification run before
-          # publishing, so the immutable release,
+          # builds and attaches .deb assets, verifies the full asset set, then
+          # publishes the release. The immutable release,
           # once locked, already carries every asset (the repo enables
           # immutable releases, which forbid attaching assets after publish).
-          # It is dispatched by hand rather than relying on a trigger: this job
-          # has not published anything yet, so there is no release event to
-          # react to, and workflow_dispatch is also exempt from the
-          # GITHUB_TOKEN event suppression noted above.
+          # Dispatch the Debian workflow explicitly. The release is still a
+          # draft, so its publication event will occur after packaging finishes.
+          # workflow_dispatch also permits the parent GITHUB_TOKEN to start it.
           # Dispatched on the TAG's own ref: workflow_dispatch requires the
           # workflow file to exist on the dispatched ref, and deb-packages.yml
           # lives on the release lines (and their tags), not necessarily on
@@ -388,7 +389,7 @@ jobs:
           if ! gh workflow run deb-packages.yml --repo "$REPO" \
                  --ref "refs/tags/$RELEASE_TAG" \
                  -f "tag=$RELEASE_TAG"; then
-            echo "::error::Draft $RELEASE_TAG needs its Debian candidate build. Retry: gh workflow run deb-packages.yml --ref refs/tags/$RELEASE_TAG -f tag=$RELEASE_TAG. Qualification and a promotion dispatch are required before publication."
+            echo "::error::Draft $RELEASE_TAG needs its Debian build before publication. Retry: gh workflow run deb-packages.yml --ref refs/tags/$RELEASE_TAG -f tag=$RELEASE_TAG."
             exit 1
           fi
 

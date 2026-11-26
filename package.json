@@ -548,6 +548,7 @@
     "test:workflow-tickler-suggested-text-playwright": "node scripts/workflow-tickler-suggested-text-playwright-checks.js",
     "test:billing-on-invoice-third-party-playwright": "node scripts/billing-on-invoice-third-party-playwright-checks.js",
     "test:billing-on-invoice-letterhead-playwright": "node scripts/billing-on-invoice-letterhead-playwright-checks.js",
+    "test:billing-on-single-site-visibility-playwright": "node scripts/billing-on-single-site-visibility-playwright-checks.js",
     "test:billing-on-ohip-simulation-report-playwright": "node scripts/billing-on-ohip-simulation-report-playwright-checks.js",
     "test:provider-signature-contact-playwright": "node scripts/provider-signature-contact-playwright-checks.js",
     "test:billing-on-payment-status-playwright": "node scripts/billing-on-payment-status-playwright-checks.js",
@@ -1102,7 +1103,6 @@
   "overrides": {
     "ajv@>=7.0.0-alpha.0 <8.18.0": "8.18.0",
     "ajv@<6.14.0": "6.14.0",
-    "minimatch": "10.2.3",
     "qs": "6.16.2",
     "webpack": "5.104.1",
     "lodash": "4.18.1",
@@ -1110,7 +1110,6 @@
     "serialize-javascript": "7.1.4",
     "picomatch": "2.3.2",
     "path-to-regexp@<0.1.13": "0.1.13",
-    "brace-expansion": "5.0.12",
     "baseline-browser-mapping": "2.11.0",
     "browserslist": "4.28.7",
     "colord": "2.9.4",
@@ -1121,7 +1120,7 @@
     "http-proxy-middleware": "2.0.10",
     "js-yaml@<4.0.0": "3.15.2",
     "js-yaml@>=4.0.0 <5.0.0": "4.3.2",
-    "joi": "17.13.8",
+    "joi": "17.13.9",
     "launch-editor": "2.14.2",
     "nanoid": "3.3.18",
     "postcss": "8.5.23",
@@ -1139,6 +1138,7 @@
     "argparse": "$argparse",
     "latest-version": "9.0.0",
     "follow-redirects": "1.16.2",
-    "@svgr/plugin-svgo": "$@svgr/plugin-svgo"
+    "@svgr/plugin-svgo": "$@svgr/plugin-svgo",
+    "serve-handler": "6.1.8"
   }
 }

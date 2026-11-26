@@ -40,16 +40,14 @@ import java.util.Hashtable;
  * Class LoginList : an application level login list: ip/LoginInfoBean 2003-01-29
  */
 public final class LoginList extends Hashtable {
-    //only one instance to use
-    private static LoginList loginList;
+    // Preserve compatibility with previously serialized login lists.
+    private static final long serialVersionUID = -1220126847940764003L;
+    private static final LoginList INSTANCE = new LoginList();
 
     private LoginList() {
     }
 
-    public synchronized static LoginList getLoginListInstance() {
-        if (loginList == null) {
-            loginList = new LoginList();
-        }
-        return loginList;
+    public static LoginList getLoginListInstance() {
+        return INSTANCE;
     }
 }
