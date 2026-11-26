@@ -98,6 +98,58 @@ function consumeBadRequest(recorder, since, url) {
   }
 }
 
+// Keep the strict recorder's other failures visible. Reconcile only a failed request
+// and its successful replacement in the chart document that settled.
+function watchNavbarRecovery(chart, recorder) {
+  let requests = [];
+  let firstConsoleIssue = recorder.consoleIssues.length;
+  chart.on('framenavigated', frame => {
+    if (frame !== chart.mainFrame()) return;
+    requests = [];
+    firstConsoleIssue = recorder.consoleIssues.length;
+  });
+  chart.on('request', request => {
+    if (request.method() === 'POST' && request.resourceType() === 'xhr'
+        && /\/encounter\/display[A-Za-z]+$/.test(new URL(request.url()).pathname)
+        && !request.serviceWorker() && request.frame() === chart.mainFrame()) {
+      requests.push(request);
+    }
+  });
+
+  return async function waitForReloadedNavbars(since) {
+    await waitForNavbars(chart, 20000);
+    consumeUnloadBeacon(recorder, since);
+    const recovered = await chart.evaluate(() => Object.keys(window.carlosNavbarLoadState.modules)
+      .filter(name => window.carlosNavbarLoadState.modules[name].recovered));
+    const confirmed = [];
+    for (const failure of recorder.requestFailures) {
+      if (failure.errorText !== 'net::ERR_FAILED') continue;
+      const original = failure.requestRef?.deref();
+      if (!requests.includes(original)) continue;
+      const body = original.postData();
+      const name = new URLSearchParams(body).get('cmd');
+      if (!recovered.includes(name)) continue;
+      const attempts = requests.filter(request => request.url() === failure.url && request.postData() === body);
+      if (attempts.length !== 2 || attempts[0] !== original) continue;
+      const response = await attempts[1].response();
+      if (response?.status() === 200) confirmed.push({ failure, name });
+    }
+    // Remove by identity after matching so the console window can use its original indices.
+    const consoleMatches = new Set();
+    for (const { failure, name } of confirmed) {
+      const matches = recorder.consoleIssues.slice(firstConsoleIssue).filter(entry =>
+        entry.label === failure.label && entry.location?.url === failure.url
+        && entry.text === 'Failed to load resource: net::ERR_FAILED');
+      if (matches.length === 1 && confirmed.filter(entry => entry.failure.url === failure.url).length === 1) {
+        consoleMatches.add(matches[0]);
+      }
+      console.log(`  Recovered eChart navigation module after a network failure: ${name}`);
+    }
+    for (const { failure } of confirmed) recorder.requestFailures.splice(recorder.requestFailures.indexOf(failure), 1);
+    for (const entry of consoleMatches) recorder.consoleIssues.splice(recorder.consoleIssues.indexOf(entry), 1);
+  };
+}
+
 async function workflow(s) {
   const { sql, patient } = s;
   const stored = () => sql.rows(`SELECT image_type,SHA2(FROM_BASE64(contents),256) FROM client_image
@@ -108,7 +160,8 @@ async function workflow(s) {
       'The owned patient photo rows were not removed');
   });
   h.assert(stored().length === 0, 'The new owned patient already has a photo');
-  let chart = await s.chart();
+  const chart = await s.chart();
+  const waitForReloadedNavbars = watchNavbarRecovery(chart, s.recorder);
 
   async function openManager() {
     const manager = await s.popup(chart, photo(chart).first(), 'client-image-manager');
@@ -131,8 +184,7 @@ async function workflow(s) {
       manager.locator('button[type="submit"]', { hasText: 'Upload' }).click(),
     ]);
     h.assert(post.status() === 200, `The photo upload answered HTTP ${post.status()}`);
-    await waitForNavbars(chart, 20000);
-    consumeUnloadBeacon(s.recorder, since);
+    await waitForReloadedNavbars(since);
     return image;
   }
 
@@ -237,8 +289,7 @@ async function workflow(s) {
     });
     h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Clear Photo did not ask exactly once to confirm');
     await expectValue(sql, `SELECT COUNT(*) FROM client_image WHERE demographic_no=${patient}`, '0', 'Clear Photo left the photo row');
-    await waitForNavbars(chart, 20000);
-    consumeUnloadBeacon(s.recorder, since);
+    await waitForReloadedNavbars(since);
     h.assert(await photo(chart).getAttribute('alt') === 'No_Id_Photo', 'The chart still shows a photo after Clear Photo');
   });
 
@@ -309,8 +360,7 @@ async function workflow(s) {
       ]);
     });
     h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Clear Photo did not ask exactly once to confirm');
-    await waitForNavbars(chart, 20000);
-    consumeUnloadBeacon(s.recorder, since);
+    await waitForReloadedNavbars(since);
   });
 
   // Holds only the assertion finding 156 broke (the step name is the one the suite manifest pinned).

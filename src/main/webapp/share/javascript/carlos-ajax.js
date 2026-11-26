@@ -346,6 +346,7 @@ var CarlosAjax = (function () {
         xhr.onerror = function () {
             // Network errors (DNS, connection refused, etc.)
             var transport = makeTransport(0, 'Network error');
+            transport.networkError = true;
             if (options.onFailure) {
                 try { options.onFailure(transport); } catch (e) {
                     console.error('CarlosAjax onFailure error:', e);

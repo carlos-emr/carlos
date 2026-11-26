@@ -14,7 +14,7 @@ assert.ok(start > 0 && end > start);
 const script = source.slice(start, end).replace(/<%--[\s\S]*?--%>/g, '');
 
 function harness({ throwFirstSend = false, doctorPanels = [], patient = '2', appointment = 0 } = {}) {
-  const elements = {}; const requests = []; const errors = [];
+  const elements = {}; const requests = []; const errors = []; const timers = [];
   function element(id = '') {
     return {
       id, attrs: {}, children: [], html: '', getHeight: () => 400,
@@ -34,6 +34,7 @@ function harness({ throwFirstSend = false, doctorPanels = [], patient = '2', app
     Colour: new Proxy({}, { get: () => '#fff' }), ctx: '/carlos', echartDoctorPanels: doctorPanels, providerNo: '9', demographicNo: patient, appointmentNo: appointment,
     famHistoryLabel: 'Family', oMedsLabel: 'Other', riskFactorsLabel: 'Risk',
     console: { error: (...args) => errors.push(args) },
+    setTimeout: callback => timers.push(callback),
     CarlosAjax: { request(url, options) {
       const listeners = {}; const xhr = { addEventListener: (name, fn) => { listeners[name] = fn; } };
       requests.push({ url, options, listeners });
@@ -44,13 +45,17 @@ function harness({ throwFirstSend = false, doctorPanels = [], patient = '2', app
   context.chartContext = '';
   vm.createContext(context); vm.runInContext(chartHelper + script, context);
   const loader = new context.navBarLoader(); loader.load();
-  function complete(index, { status = 200, html = '<a>loaded</a>' } = {}) {
+  function complete(index, { status = 200, html = '<a>loaded</a>', networkError = false } = {}) {
     const options = requests[index].options;
-    const transport = { status, responseText: html };
-    try { (status === 200 ? options.onSuccess : options.onFailure)(transport); }
+    const transport = { status, responseText: html, networkError };
+    try { if (status === 200) options.onSuccess(transport); }
     finally { options.onComplete(transport); }
   }
-  return { context, loader, elements, requests, errors, complete, state: () => context.window.carlosNavbarLoadState };
+  return {
+    context, loader, elements, requests, errors, complete, timers,
+    runRetry() { timers.shift()(); },
+    state: () => context.window.carlosNavbarLoadState,
+  };
 }
 
 test('every initial and refreshed navbar request carries its own chart patient and appointment', () => {
@@ -161,4 +166,56 @@ test('without doctor panels the left column starts with Preventions', () => {
   const h = harness();
   assert.equal(h.elements.leftNavBar.children[0].id, 'preventions');
   assert.ok(!h.requests.some(request => /display(Family|Referring)Doctor/.test(request.url)));
+});
+
+test('a display fragment retries a network error once with the same chart context and stays busy', () => {
+  const h = harness({patient: '101', appointment: 41});
+  for (let i = 1; i < 22; i++) h.complete(i);
+  h.complete(0, {status: 0, networkError: true});
+  assert.equal(h.state().pending, 1);
+  assert.equal(h.elements.leftNavBar.attrs['aria-busy'], 'true');
+  h.runRetry();
+  assert.equal(h.requests[22].url, h.requests[0].url);
+  assert.equal(h.requests[22].options.postBody, h.requests[0].options.postBody);
+  h.complete(22, {html: 'recovered fragment'});
+  assert.equal(h.elements.preventions.html, 'recovered fragment');
+  assert.equal(h.state().modules.preventions.recovered, true);
+  assert.equal(h.state().pending, 0);
+  assert.equal(h.elements.leftNavBar.attrs['aria-busy'], 'false');
+});
+
+test('a second network error fails the fragment and produces no further retry', () => {
+  const h = harness();
+  h.complete(0, {status: 0, networkError: true});
+  h.runRetry();
+  h.complete(22, {status: 0, networkError: true});
+  assert.equal(h.elements.preventions.textContent, 'preventions Error: 0');
+  assert.deepEqual(Array.from(h.state().failed), ['preventions']);
+  assert.equal(h.timers.length, 0);
+});
+
+test('HTTP errors, aborts, timeouts and non-display POSTs do not schedule a retry', () => {
+  const h = harness();
+  h.complete(0, {status: 403});
+  h.requests[1].listeners.abort();
+  h.requests[2].listeners.timeout();
+  h.complete(11, {status: 0, networkError: true}); // CPP list uses CaseManagementView.
+  assert.deepEqual(Array.from(h.state().failed), ['preventions', 'tickler', 'msgs', 'FamHistory']);
+  assert.equal(h.timers.length, 0);
+});
+
+test('a new chart generation or a module refresh supersedes its queued retry', () => {
+  const h = harness();
+  h.complete(0, {status: 0, networkError: true});
+  h.context.demographicNo = '202';
+  h.loader.load();
+  h.runRetry();
+  assert.equal(h.requests.length, 44);
+  assert.equal(new URLSearchParams(h.requests[22].options.postBody).get('demographicNo'), '202');
+  h.complete(22, {status: 0, networkError: true});
+  h.context.requestNavbarColumn('/carlos/encounter/displayPrevention', 'preventions', '', null);
+  h.runRetry();
+  assert.equal(h.requests.length, 45);
+  h.complete(44, {html: 'fresh fragment'});
+  assert.equal(h.elements.preventions.html, 'fresh fragment');
 });

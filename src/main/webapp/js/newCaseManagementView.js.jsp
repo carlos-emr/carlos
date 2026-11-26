@@ -998,38 +998,56 @@
             if (element) element.textContent = div + " Error: " + request.status;
             updateNavbarLoadState(state);
         }
-        try {
-            var xhr = CarlosAjax.request(url, {
-                method: 'post', postBody: params, evalScripts: true,
-                onSuccess: function (request) {
-                    if (!current()) return;
-                    try {
-                        // Preferences may have intentionally removed the module.
-                        var element = $(div);
-                        if (element) element.update(request.responseText);
-                        module.status = "loaded";
-                        updateNavbarLoadState(state);
-                    } catch (error) {
-                        failed(request);
-                        throw error;
+        // These display actions render read-only fragments, even though they use POST.
+        var displayPrefix = ctx + "/encounter/";
+        var path = typeof url === "string" ? url.split("?")[0] : "";
+        var canRetry = path.indexOf(displayPrefix) === 0
+            && /^display(?:Prevention|Tickler|Messages|Documents|Labs|HRM|Measurements|Consultation|Forms|EForms)$/
+                .test(path.slice(displayPrefix.length));
+
+        function send(retry) {
+            try {
+                var xhr = CarlosAjax.request(url, {
+                    method: 'post', postBody: params, evalScripts: true,
+                    onSuccess: function (request) {
+                        if (!current()) return;
+                        try {
+                            // Preferences may have intentionally removed the module.
+                            var element = $(div);
+                            if (element) element.update(request.responseText);
+                            module.status = "loaded";
+                            module.recovered = retry;
+                            updateNavbarLoadState(state);
+                        } catch (error) {
+                            failed(request);
+                            throw error;
+                        }
+                    },
+                    onComplete: function (request) {
+                        if (!current() || module.status !== "loading") return;
+                        if (request.networkError && canRetry && !retry) {
+                            // Let the browser retire the failed connection before trying again.
+                            setTimeout(function () {
+                                if (current() && module.status === "loading") send(true);
+                            }, 0);
+                        } else {
+                            failed(request);
+                        }
                     }
-                },
-                onFailure: failed,
-                onComplete: function (request) {
-                    // Keep failures/aborted callback paths from leaving a busy column.
-                    if (current() && module.status === "loading") failed(request);
+                });
+                if (xhr && typeof xhr.addEventListener === "function") {
+                    xhr.addEventListener("abort", function () { failed({status: 0}); });
+                    xhr.addEventListener("timeout", function () { failed({status: 0}); });
                 }
-            });
-            if (xhr && typeof xhr.addEventListener === "function") {
-                xhr.addEventListener("abort", function () { failed({status: 0}); });
-                xhr.addEventListener("timeout", function () { failed({status: 0}); });
+                return xhr;
+            } catch (error) {
+                failed({status: 0});
+                // Continue scheduling the remaining modules after a synchronous send failure.
+                console.error("Navbar request failed:", error);
             }
-            return xhr;
-        } catch (error) {
-            failed({status: 0});
-            // Continue scheduling the remaining modules after a synchronous send failure.
-            console.error("Navbar request failed:", error);
         }
+
+        return send(false);
     }
 
     function navBarLoader() {
