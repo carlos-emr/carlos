@@ -96,10 +96,20 @@ async function assertAlertRefused(box, value, limit, label) {
     `${label}: the over-long alert has no visible validation error naming the ${limit}-character limit`);
 }
 
-/** POSTs to `path` the browser answered since `index` in the recorder's request log. */
-function postsSince(recorder, index, path) {
-  return recorder.requestLog.slice(index)
-    .filter(entry => entry.method === 'POST' && path.test(new URL(entry.url).pathname)).length;
+async function assertNoRecordPost(page, path, submit, label) {
+  let sent = false;
+  const record = request => {
+    if (request.method() === 'POST' && path.test(new URL(request.url()).pathname)) {
+      sent = true;
+    }
+  };
+  page.on('request', record);
+  try {
+    await submit(page);
+  } finally {
+    page.off('request', record);
+  }
+  h.assert(!sent, `${label} sent the form with an over-long alert`);
 }
 
 async function openAddForm(s, term) {
@@ -226,9 +236,7 @@ async function workflow(s) {
     await assertAlertRefused(alertBox, multiline(max - 1, 1), max, 'Add form alert one past the limit by a CR LF');
     const over = multiline(max - 1, 2);
     await assertAlertRefused(alertBox, over, max, 'Add form alert with two line breaks');
-    const sentBefore = s.recorder.requestLog.length;
-    await submitAdd(add);
-    h.assert(postsSince(s.recorder, sentBefore, ADD_RECORD) === 0, 'Add Record sent the form with an over-long alert');
+    await assertNoRecordPost(add, ADD_RECORD, submitAdd, 'Add Record');
     h.assert(sql.value('SELECT COUNT(*) FROM demographic WHERE last_name LIKE ?', [tag + 'A%']) === '0',
       'The patient was saved with an over-long alert');
     h.assert(await alertBox.inputValue() === over, 'The refused alert was cut');
@@ -256,9 +264,7 @@ async function workflow(s) {
     await assertAlertRefused(alertBox, multiline(max - 1, 1), max, 'Edit form alert one past the limit by a CR LF');
     const over = multiline(max - 1, 2);
     await assertAlertRefused(alertBox, over, max, 'Edit form alert with two line breaks');
-    const sentBefore = s.recorder.requestLog.length;
-    await submitEdit(add);
-    h.assert(postsSince(s.recorder, sentBefore, UPDATE_RECORD) === 0, 'Update Record sent the form with an over-long alert');
+    await assertNoRecordPost(add, UPDATE_RECORD, submitEdit, 'Update Record');
     b.assertStored(sql, 'demographiccust', 'cust3', `demographic_no=${alertPatient}`, submitted(atLimit), 'Refused Edit form alert');
     h.assert(await alertBox.inputValue() === over, 'The refused edit was cut');
     await add.close();
