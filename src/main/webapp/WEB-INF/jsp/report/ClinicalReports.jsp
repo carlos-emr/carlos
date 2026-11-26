@@ -48,6 +48,7 @@
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpreadsheetCsv" %>
 <%@page import="io.github.carlos_emr.carlos.report.data.DemographicSets, io.github.carlos_emr.carlos.demographic.data.*, java.util.*, io.github.carlos_emr.carlos.providers.data.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.report.ClinicalReports.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*" %>
 <%@page import="org.apache.commons.csv.CSVFormat,org.apache.commons.csv.CSVPrinter,java.io.*" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString" %>
@@ -659,6 +660,11 @@
                         DemographicNameAgeString deName = DemographicNameAgeString.getInstance();
                         DemographicData demoData = new DemographicData();
                         StringWriter swr = new StringWriter();
+                        // Every header and data cell goes through SpreadsheetCsv.sanitizeCell (issue #5846):
+                        // patient names, addresses and measurement text are free text, and a leading = + - @
+                        // would run as a formula when the CSV is opened in Excel or LibreOffice. A guarded
+                        // cell gains a leading tab; ClinicalExport.jsp removes it again for the XLSX copy,
+                        // where strings stay strings. The on-screen table is encoded separately, below.
                         CSVPrinter csvp = new CSVPrinter(swr, CSVFormat.DEFAULT);
                 %>
 
@@ -667,7 +673,7 @@
                     <tr>
                         <%
                             for (String heading : headings) {
-                                csvp.print(head(heading));
+                                csvp.print(SpreadsheetCsv.sanitizeCell(head(heading)));
                         %>
                         <th><carlos:encode value='<%= head(heading) %>'/>
                         </th>
@@ -675,7 +681,7 @@
 
                         <%
                             for (int i = 0; i < outputfields.length; i++) {
-                                csvp.print(replaceHeading(outputfields[i], forView, measurementTitles));
+                                csvp.print(SpreadsheetCsv.sanitizeCell(replaceHeading(outputfields[i], forView, measurementTitles)));
                         %>
                         <th><carlos:encode value='<%= replaceHeading(outputfields[i], forView, measurementTitles) %>'/>
                         </th>
@@ -698,14 +704,14 @@
                     <tr <%=colour%> >
 
                          <%for(String heading:headings){
-                             csvp.print(commonRow(heading,demoHash, demoObj));
+                             csvp.print(SpreadsheetCsv.sanitizeCell(commonRow(heading,demoHash, demoObj)));
                         %>
                            <td><carlos:encode value='<%= commonRow(heading,demoHash, demoObj) %>' context="html"/></td>
                         <%}%>
 
                         <%
                             for (String outputfield : outputfields) {
-                                csvp.print("" + display(h.get(outputfield)));
+                                csvp.print(SpreadsheetCsv.sanitizeCell("" + display(h.get(outputfield))));
                         %>
                         <td><carlos:encode value='<%= String.valueOf(display(h.get(outputfield))) %>'/>
                         </td>
