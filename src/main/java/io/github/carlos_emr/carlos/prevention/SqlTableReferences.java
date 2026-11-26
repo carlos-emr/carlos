@@ -51,7 +51,8 @@ import java.util.Set;
  * control text follows the dashes) and block comments are skipped. The body of an executable comment
  * ({@code /*!} or {@code /*M!}) is read as code when MariaDB runs it: always when no version follows
  * the marker, and after a 5- or 6-digit version only when that version is at most the server's and,
- * for {@code /*!}, outside the MySQL 5.7+ range 50700-99999, which MariaDB never runs. A skipped
+ * for {@code /*!}, outside the MySQL 5.7+ range 50700-99999, which MariaDB never runs. The scan covers
+ * each supported version range in which those gates change the statement. A skipped
  * versioned comment ends at its own close, after at most one nested comment, as in MariaDB.
  * Single- and double-quoted text is a literal, except that a double-quoted name in a table position
  * is read as the name {@code ANSI_QUOTES} makes it. Backtick-quoted names are unquoted, and a
@@ -60,23 +61,19 @@ import java.util.Set;
  */
 final class SqlTableReferences {
 
-    /**
-     * The server version that versioned executable comments are compared with: the last of the
-     * MariaDB 11.8 series this release is qualified on ({@code debian/control} requires 11.4 or
-     * later). A comment versioned within 11.8 is read as code, since an 11.8 server at or past that
-     * release runs it; a later version is skipped, as every qualified server skips it.
-     */
-    private static final int SERVER_VERSION_CEILING = 110_899;
+    /** The oldest MariaDB release accepted by the package (see {@code debian/control}). */
+    private static final int MINIMUM_SERVER_VERSION = 110_400;
 
     /** First and last MySQL 5.7+ version, whose {@code /*!} comments MariaDB skips. */
     private static final int MYSQL_ONLY_FIRST = 50_700;
     private static final int MYSQL_ONLY_LAST = 99_999;
 
     /** A version follows an executable-comment marker as 5 digits, or 6 when a sixth digit follows. */
-    private static final int VERSION_DIGITS = 5;
+    private static final int MIN_VERSION_DIGITS = 5;
+    private static final int MAX_VERSION_DIGITS = 6;
 
     /** What a keyword does to the table positions of its parenthesis level. */
-    private enum Role { QUERY, FROM, JOIN, STRAIGHT_JOIN, CLAUSE, FOR, OTHER }
+    private enum Role { QUERY, FROM, JOIN, STRAIGHT_JOIN, CLAUSE, WINDOW, FOR, OTHER }
 
     /** Kinds of lexical token. {@code QUOTED} is a backtick- or double-quoted name. */
     private enum Kind { WORD, QUOTED, LITERAL, SYMBOL, END }
@@ -94,7 +91,7 @@ final class SqlTableReferences {
             Map.entry("having", Role.CLAUSE),
             Map.entry("order", Role.CLAUSE),
             Map.entry("limit", Role.CLAUSE),
-            Map.entry("window", Role.CLAUSE),
+            Map.entry("window", Role.WINDOW),
             Map.entry("union", Role.CLAUSE),
             Map.entry("except", Role.CLAUSE),
             Map.entry("intersect", Role.CLAUSE),
@@ -108,13 +105,22 @@ final class SqlTableReferences {
     }
 
     /**
-     * Returns the tables the text names in a table position.
+     * Returns the tables the text names in a table position on any supported MariaDB version.
      *
      * @param sql SQL text; template placeholders and malformed or truncated text are tolerated
      * @return the unquoted last part of each table name, as written, in order of first appearance
      */
     static Set<String> tableNames(String sql) {
-        return new TableScan(sql).run();
+        Set<String> names = new LinkedHashSet<>();
+        int version = MINIMUM_SERVER_VERSION;
+        while (version != Integer.MAX_VALUE) {
+            TableScan scan = new TableScan(sql, version);
+            names.addAll(scan.run());
+            // A newer gate can change the role of tokens outside the comment. Scan the whole
+            // statement again when the next gate opens, keeping earlier interpretations too.
+            version = scan.lexer.nextServerVersion;
+        }
+        return names;
     }
 
     /**
@@ -140,17 +146,24 @@ final class SqlTableReferences {
         boolean isName() {
             return kind == Kind.WORD || kind == Kind.QUOTED;
         }
+
+        boolean isWord(String word) {
+            return kind == Kind.WORD && foldAsciiCase(text).equals(word);
+        }
     }
 
     /** Splits text into MariaDB tokens, skipping blanks and comments; one token of look-ahead. */
     private static final class Lexer {
         private final String sql;
+        private final int serverVersion;
+        private int nextServerVersion = Integer.MAX_VALUE;
         private int pos;
         private boolean inExecutableComment;
         private Token peeked;
 
-        Lexer(String sql) {
+        Lexer(String sql, int serverVersion) {
             this.sql = sql;
+            this.serverVersion = serverVersion;
         }
 
         Token next() {
@@ -229,7 +242,7 @@ final class SqlTableReferences {
             }
             int version = marker + (mariaDbOnly ? 2 : 1);
             int code = versionEnd(version);
-            if (code == version || runs(Integer.parseInt(sql.substring(version, code)), mariaDbOnly)) {
+            if (code == version || runs(readVersion(version, code), mariaDbOnly)) {
                 inExecutableComment = true;
                 pos = code;
             } else {
@@ -240,16 +253,31 @@ final class SqlTableReferences {
         /** The end of the version after an executable-comment marker, or {@code start} without one. */
         private int versionEnd(int start) {
             int end = start;
-            while (end < sql.length() && end - start <= VERSION_DIGITS && isAsciiDigit(sql.charAt(end))) {
+            while (end < sql.length() && end - start < MAX_VERSION_DIGITS && isAsciiDigit(sql.charAt(end))) {
                 end++;
             }
-            return end - start >= VERSION_DIGITS ? end : start;
+            return end - start >= MIN_VERSION_DIGITS ? end : start;
+        }
+
+        /** The bounds from {@link #versionEnd(int)} contain at most six ASCII digits. */
+        private int readVersion(int start, int end) {
+            int version = 0;
+            for (int i = start; i < end; i++) {
+                version = version * 10 + (sql.charAt(i) - '0');
+            }
+            return version;
         }
 
         /** MariaDB runs a versioned comment up to its own version, except plain MySQL 5.7+ ones. */
-        private static boolean runs(int version, boolean mariaDbOnly) {
-            boolean mysqlOnly = !mariaDbOnly && version >= MYSQL_ONLY_FIRST && version <= MYSQL_ONLY_LAST;
-            return version <= SERVER_VERSION_CEILING && !mysqlOnly;
+        private boolean runs(int version, boolean mariaDbOnly) {
+            if (!mariaDbOnly && version >= MYSQL_ONLY_FIRST && version <= MYSQL_ONLY_LAST) {
+                return false;
+            }
+            if (version <= serverVersion) {
+                return true;
+            }
+            nextServerVersion = Math.min(version, nextServerVersion);
+            return false;
         }
 
         /** Where a skipped comment ends; a skipped versioned comment may hold one nested comment. */
@@ -299,14 +327,16 @@ final class SqlTableReferences {
         }
     }
 
-    /** Table-position state of one parenthesis level. */
+    /** Table-position state of one query or grouped expression. */
     private static final class Scope {
+        private final char closingSymbol;
         private boolean query;
         private boolean tableList;
         private boolean expectTable;
 
         /** A parenthesis opened in a table position holds a derived table or a parenthesised FROM list. */
-        Scope(boolean tablePosition) {
+        Scope(boolean tablePosition, char closingSymbol) {
+            this.closingSymbol = closingSymbol;
             listTables(tablePosition);
         }
 
@@ -316,7 +346,7 @@ final class SqlTableReferences {
         }
     }
 
-    /** Walks the tokens once, keeping one {@link Scope} per open parenthesis. */
+    /** Walks the tokens at one server version, keeping one {@link Scope} per open group. */
     private static final class TableScan {
         private final Lexer lexer;
         private final Deque<Scope> scopes = new ArrayDeque<>();
@@ -324,9 +354,9 @@ final class SqlTableReferences {
         private boolean afterFor;
         private boolean afterDot;
 
-        TableScan(String sql) {
-            lexer = new Lexer(sql);
-            scopes.push(new Scope(false));
+        TableScan(String sql, int serverVersion) {
+            lexer = new Lexer(sql, serverVersion);
+            restart();
         }
 
         Set<String> run() {
@@ -351,6 +381,14 @@ final class SqlTableReferences {
             }
             if (token.kind() == Kind.SYMBOL) {
                 acceptSymbol(scope, token.text().charAt(0));
+            } else if (role == Role.WINDOW && scope.tableList) {
+                // WINDOW is also an ordinary identifier in MariaDB. A clause opens with WINDOW name AS.
+                Token name = lexer.next();
+                if (name.isName() && lexer.peek().isWord("as")) {
+                    scope.listTables(false);
+                    return lexer.next();
+                }
+                return name;
             } else {
                 acceptWord(scope, role, followsFor);
             }
@@ -398,8 +436,17 @@ final class SqlTableReferences {
 
         private void acceptSymbol(Scope scope, char symbol) {
             switch (symbol) {
-                case '(' -> openScope(scope);
-                case ')' -> closeScope();
+                case '(' -> openScope(scope, ')');
+                case '{' -> {
+                    if (scope.expectTable && lexer.peek().isName()) {
+                        // MariaDB accepts any identifier in place of OJ in the ODBC join escape.
+                        lexer.next();
+                        openScope(scope, '}');
+                    } else {
+                        scope.expectTable = false;
+                    }
+                }
+                case ')', '}' -> closeScope(symbol);
                 case ',' -> scope.expectTable = scope.tableList;
                 case ';' -> restart();
                 // A leading dot (ODBC ".tbl_name", the default database) keeps the table position.
@@ -407,14 +454,14 @@ final class SqlTableReferences {
             }
         }
 
-        private void openScope(Scope parent) {
-            scopes.push(new Scope(parent.expectTable));
+        private void openScope(Scope parent, char closingSymbol) {
+            scopes.push(new Scope(parent.expectTable, closingSymbol));
             parent.expectTable = false;
         }
 
-        /** An unbalanced closing parenthesis leaves the statement level in place. */
-        private void closeScope() {
-            if (scopes.size() > 1) {
+        /** Ignore unmatched closing delimiters. */
+        private void closeScope(char symbol) {
+            if (scopes.element().closingSymbol == symbol) {
                 scopes.pop();
             }
         }
@@ -422,7 +469,7 @@ final class SqlTableReferences {
         /** A statement separator starts the next statement afresh. */
         private void restart() {
             scopes.clear();
-            scopes.push(new Scope(false));
+            scopes.push(new Scope(false, '\0'));
         }
 
         private static void acceptKeyword(Scope scope, Role role) {

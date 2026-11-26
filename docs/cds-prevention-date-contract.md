@@ -116,8 +116,9 @@ Population reports, dashboard SQL and interactive unscoped eForm queries do not 
 or refuse unrelated patient charts. A definition reads the native table when either of two
 inspections finds `preventions` as a table: `SqlTableReferences` scans MariaDB table
 positions (after `FROM`, `JOIN` or a comma of a `FROM` list) under MariaDB's lexical rules
-for quoting, qualified names and comments, including executable comments; JSqlParser
-inspects the statement structurally. JSqlParser alone cannot parse either shipped influenza
+for quoting, qualified names and comments. It checks the statements produced by executable
+comment version gates across supported MariaDB versions. JSqlParser inspects the statement
+structurally. JSqlParser alone cannot parse either shipped influenza
 dashboard query, in which MariaDB resolves `preventions` (#6344). Columns, aliases, literals
 and look-alike tables such as `preventionsExt` are not the table. SQL that names no
 prevention table keeps its original SQL execution boundary; a parser failure logs a debug

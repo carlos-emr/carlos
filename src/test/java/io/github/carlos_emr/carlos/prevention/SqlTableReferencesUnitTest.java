@@ -115,19 +115,26 @@ class SqlTableReferencesUnitTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"/*!", "/*!40101", "/*!50699", "/*!100100", "/*!110806", "/*!110899", "/*M!",
-            "/*M!50700", "/*M!80000", "/*M!100100", "/*M!110806", "/*M!110899"})
-    void shouldReadExecutableComment_whenMariaDbRunsIt(String opening) {
-        // 110899 closes the qualified 11.8 series: 11.8.6 skips anything above 110806, a later 11.8 runs it.
+    @ValueSource(strings = {"/*!", "/*!40101", "/*!50699", "/*!100100", "/*!110806", "/*!120000", "/*M!",
+            "/*M!50700", "/*M!80000", "/*M!100100", "/*M!110806", "/*M!120000", "/*M!999999"})
+    void shouldReadExecutableComment_whenAnySupportedMariaDbRunsIt(String opening) {
         assertThat(SqlTableReferences.tableNames(COMMENTED_JOIN.formatted(opening)))
                 .containsExactly("demographic", "preventions");
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"/*!50700", "/*!80000", "/*!99999", "/*!110900", "/*!120000", "/*M!110900",
-            "/*M!120000", "/*M!999999", "/*m!100100", "/*+"})
-    void shouldSkipComment_whenMariaDbDoesNotRunIt(String opening) {
+    @ValueSource(strings = {"/*!50700", "/*!80000", "/*!99999", "/*m!100100", "/*+"})
+    void shouldSkipComment_whenNoSupportedMariaDbRunsIt(String opening) {
         assertThat(SqlTableReferences.tableNames(COMMENTED_JOIN.formatted(opening))).containsExactly("demographic");
+    }
+
+    @Test
+    void shouldReadTable_whenOnlyAnIntermediateVersionEnablesIt() {
+        assertThat(SqlTableReferences.tableNames("""
+                SELECT 1 FROM (SELECT 1 AS preventions) d
+                /*M!120000 WHERE 1 IN (1 */
+                /*M!110800 , preventions */
+                /*M!120000 ) */""")).containsExactly("preventions");
     }
 
     @Test
@@ -178,6 +185,28 @@ class SqlTableReferencesUnitTest {
         assertThat(SqlTableReferences.tableNames("SELECT 1 FROM demographic d IGNORE INDEX FOR ORDER BY (PRIMARY)"
                 + " FORCE INDEX FOR JOIN (PRIMARY) JOIN allergies a USING (demographic_no), preventions p FOR UPDATE"))
                 .containsExactly("demographic", "allergies", "preventions");
+    }
+
+    @Test
+    void shouldKeepFromList_whenWindowIsAColumn() {
+        assertThat(SqlTableReferences.tableNames("SELECT 1 FROM (SELECT 1 AS `window`) f"
+                + " JOIN (SELECT 1) g ON window = 1 /*M!100100 , preventions p */"))
+                .containsExactly("preventions");
+    }
+
+    @Test
+    void shouldEndFromList_whenWindowDefinesNamedWindows() {
+        assertThat(SqlTableReferences.tableNames("SELECT ROW_NUMBER() OVER w FROM demographic"
+                + " WINDOW w AS (), preventions AS (ORDER BY demographic_no)"))
+                .containsExactly("demographic");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"OJ", "oj", "`marker`"})
+    void shouldReadFirstTable_insideOdbcJoinEscape(String marker) {
+        assertThat(SqlTableReferences.tableNames("SELECT 1 /*M!100100 FROM { %s preventions p"
+                .formatted(marker) + " LEFT JOIN demographic d ON p.demographic_no = d.demographic_no }, allergies */"))
+                .containsExactly("preventions", "demographic", "allergies");
     }
 
     @Test
