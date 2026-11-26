@@ -50,6 +50,7 @@ import io.github.carlos_emr.carlos.commn.dao.SiteDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Site;
+import io.github.carlos_emr.carlos.commn.SiteChoice;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.LabelValueBean;
@@ -103,8 +104,7 @@ public class BillingOnStatusViewModelAssembler {
     public BillingOnStatusViewModel assemble(HttpServletRequest request, LoggedInInfo loggedInInfo) {
         boolean teamBillingOnly = securityInfoManager
                 .hasPrivilege(loggedInInfo, "_team_billing_only", "r", null);
-        boolean siteAccessPrivacy = securityInfoManager
-                .hasPrivilege(loggedInInfo, "_site_access_privacy", "r", null);
+        boolean siteAccessPrivacy = SiteChoice.isSiteAccessRestricted(securityInfoManager, loggedInInfo);
 
         CarlosProperties props = CarlosProperties.getInstance();
         boolean hideName = Boolean.parseBoolean(

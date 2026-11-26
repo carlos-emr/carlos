@@ -53,6 +53,7 @@ import io.github.carlos_emr.carlos.commn.model.ProviderSite;
 import io.github.carlos_emr.carlos.commn.model.RaDetail;
 import io.github.carlos_emr.carlos.commn.model.Site;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
+import io.github.carlos_emr.carlos.commn.SiteChoice;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -133,8 +134,7 @@ public class BillingOnCorrectionViewModelAssembler {
 
         Provider userProvider = providerNo.isEmpty() ? null : providerDao.getProvider(providerNo);
 
-        boolean siteAccessPrivacy = loggedInInfo != null
-                && securityInfoManager.hasPrivilege(loggedInInfo, "_site_access_privacy", "r", null);
+        boolean siteAccessPrivacy = SiteChoice.isSiteAccessRestricted(securityInfoManager, loggedInInfo);
         boolean teamAccessPrivacy = loggedInInfo != null
                 && securityInfoManager.hasPrivilege(loggedInInfo, "_team_access_privacy", "r", null);
         boolean teamBillingOnly = loggedInInfo != null
@@ -156,6 +156,10 @@ public class BillingOnCorrectionViewModelAssembler {
         }
         if (teamAccessPrivacy && userProvider != null) {
             for (Provider p : providerDao.getBillableProvidersOnTeam(userProvider)) {
+                providerAccessList.add(p.getProviderNo());
+            }
+        } else if (teamBillingOnly && !siteAccessPrivacy) {
+            for (Provider p : providerDao.getCurrentTeamProviders(providerNo)) {
                 providerAccessList.add(p.getProviderNo());
             }
         }
@@ -180,7 +184,7 @@ public class BillingOnCorrectionViewModelAssembler {
                 .mgrSites(mgrSites);
 
         BillRecordContext billCtx = loadBillRecord(loggedInInfo, request, builder, providerAccessList, mgrSites,
-                siteAccessPrivacy, teamAccessPrivacy, multisites);
+                siteAccessPrivacy || teamAccessPrivacy || teamBillingOnly, multisites);
 
         if (renderContextComposer != null) {
             renderContextComposer.compose(builder, request, loggedInInfo,
@@ -329,8 +333,7 @@ public class BillingOnCorrectionViewModelAssembler {
                                              BillingOnCorrectionViewModel.Builder b,
                                              Set<String> providerAccessList,
                                              List<String> mgrSites,
-                                             boolean siteAccessPrivacy,
-                                             boolean teamAccessPrivacy,
+                                             boolean restrictProviders,
                                              boolean multisites) {
         String billNoParam = request.getParameter("billing_no");
         String claimNoParam = request.getParameter("claim_no");
@@ -379,7 +382,7 @@ public class BillingOnCorrectionViewModelAssembler {
 
         // Multisite / team-billing access guard
         boolean multiSiteProvider = true;
-        if ((siteAccessPrivacy || teamAccessPrivacy) && !providerAccessList.contains(bCh1.getProviderNo())) {
+        if (restrictProviders && !providerAccessList.contains(bCh1.getProviderNo())) {
             multiSiteProvider = false;
         }
         if (multisites && !mgrSites.contains(clinicSite)) {

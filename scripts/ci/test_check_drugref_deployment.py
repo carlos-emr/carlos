@@ -50,7 +50,7 @@ class _ServletStub(http.server.BaseHTTPRequestHandler):
     def do_GET(self):  # noqa: N802 - http.server dispatches on this name
         self.server.paths.append(self.path)
         self.send_response(self.server.status)
-        self.send_header('Content-Length', '0')
+        self.send_header('Content-Length', str(self.server.content_length))
         self.end_headers()
 
     def log_message(self, *_args):
@@ -78,10 +78,11 @@ class ScriptTestCase(unittest.TestCase):
     def set_published_port(self, port):
         (self.fake_dir / 'port').write_text(str(port))
 
-    def serve(self, status, port=0):
-        """Starts a servlet stub answering STATUS; returns the server (paths, server_port)."""
+    def serve(self, status, port=0, *, content_length=0):
+        """Starts a servlet stub with an empty body and the given Content-Length."""
         server = http.server.ThreadingHTTPServer(('127.0.0.1', port), _ServletStub)
         server.status = status
+        server.content_length = content_length
         server.paths = []
         threading.Thread(target=server.serve_forever, daemon=True).start()
         self.addCleanup(server.server_close)
@@ -122,6 +123,13 @@ class ProbeServletTest(ScriptTestCase):
         status, detail, _ = self.probe(self.servlet_url(server.server_port))
         self.assertEqual(status, 0)
         self.assertIn('HTTP 200', detail)
+
+    def test_405_with_a_truncated_body_is_treated_as_no_answer(self):
+        server = self.serve(405, content_length=1)
+        status, detail, _ = self.probe(self.servlet_url(server.server_port), timeout=1)
+        self.assertEqual(status, 2, detail)
+        self.assertIn('did not answer', detail)
+        self.assertEqual(server.paths, [SERVLET_PATH])
 
     def test_404_means_the_context_did_not_deploy(self):
         server = self.serve(404)
@@ -269,10 +277,10 @@ class ComposeTranslationTest(ScriptTestCase):
         status, options, result = self.load(compose_config())
         self.assertEqual(status, 0, result.stderr)
         self.assertEqual(options, [
-            '--mount=type=bind,source=/repo/volumes/drugref2.properties,'
-            'target=/root/drugref2.properties,readonly',
-            '--mount=type=bind,source=/repo/.devcontainer/drugref/drugref2.xml,'
-            'target=/usr/local/tomcat/conf/Catalina/localhost/drugref2.xml',
+            ('--mount=type=bind,source=/repo/volumes/drugref2.properties,'
+             + 'target=/root/drugref2.properties,readonly'),
+            ('--mount=type=bind,source=/repo/.devcontainer/drugref/drugref2.xml,'
+             + 'target=/usr/local/tomcat/conf/Catalina/localhost/drugref2.xml'),
             '--env=CATALINA_OPTS=-Dhibernate.dialect=org.hibernate.dialect.MariaDBDialect ',
             '--env=TZ=America/Toronto',
             '--env=PASSED_THROUGH',

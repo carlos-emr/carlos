@@ -16,7 +16,7 @@ from package_lifecycle import CELL_ASSERTIONS, validate_config, validate_invento
 
 
 class PackageLifecycleTest(unittest.TestCase):
-    def test_candidate_cli_pin_does_not_replace_either_predecessor_package(self):
+    def test_candidate_cli_pin_does_not_replace_any_predecessor_package(self):
         import importlib.util
         from lifecycle_baselines import candidate_cli, required_baselines
         spec = importlib.util.spec_from_file_location('lifecycle_cli_inputs', Path(__file__).with_name('run-package-lifecycle.py'))
@@ -152,11 +152,13 @@ class PackageLifecycleTest(unittest.TestCase):
             validate_inventory(document, source, 'ON', 'c' * 64, root, gate.read_json, gate.digest, ['main'], target_package_hash='d' * 64)
             with self.assertRaises(EvidenceError):
                 validate_inventory(document, source, 'ON', 'c' * 64, root, gate.read_json, gate.digest, ['historical'], target_package_hash='d' * 64)
-            plan = gate.read_json(gate.DEFAULT_PLAN)
-            plan['checks'] = [row for row in plan['checks'] if row['id'] != 'package-beta5-upgrade']
-            path = root / 'plan.json'; path.write_text(json.dumps(plan))
-            with self.assertRaisesRegex(EvidenceError, 'independent clean/main/historical'):
-                gate.load_plan(path)
+            path = root / 'plan.json'
+            for required in ('package-beta5-upgrade', 'package-beta8-upgrade'):
+                plan = gate.read_json(gate.DEFAULT_PLAN)
+                plan['checks'] = [row for row in plan['checks'] if row['id'] != required]
+                path.write_text(json.dumps(plan))
+                with self.assertRaisesRegex(EvidenceError, 'independent clean/main/historical/previous'):
+                    gate.load_plan(path)
             plan = gate.read_json(gate.DEFAULT_PLAN)
             next(row for row in plan['checks'] if row['id'] == 'package-main-upgrade')['profiles'] = ['ON']
             path.write_text(json.dumps(plan))
@@ -225,19 +227,20 @@ class PackageLifecycleTest(unittest.TestCase):
     def fixture(self, root):
         source = {'commit': 'a' * 40, 'tree': 'b' * 40, 'clean': True}
         document = {'schemaVersion': 1, 'source': source, 'profile': 'ON', 'warSha256': 'c' * 64, 'targetPackageSha256': 'd' * 64, 'cells': []}
-        for role in ('clean', 'main', 'historical'):
+        for role in ('clean', 'main', 'historical', 'previous'):
             cell = {'role': role, 'profile': 'ON', 'source': source, 'warSha256': 'c' * 64,
                 'failureType': None, 'assertions': dict.fromkeys(CELL_ASSERTIONS, True),
-                'dependencyContract': {'floor': '1.3.1', 'installedCli': '1.3.0', 'olderCliRefused': True,
+                'dependencyContract': {'floor': '1.3.5', 'installedCli': '1.3.6', 'olderCliRefused': True,
                     'compatibleCliResolved': True, 'statePreserved': True},
                 'initialDeployment': {'scope': 'installed-package-application', 'packageSha256': 'd' * 64,
                     'contentSha256': 'e' * 64},
                 'candidateDeployment': {'scope': 'installed-package-application', 'warSha256': 'c' * 64,
                     'contentSha256': 'f' * 64}}
-            if role != 'historical': cell['dependencyContract']['installedCli'] = '1.3.1'
-            if role in ('main', 'historical'):
+            if role != 'clean':
                 pins = gate.read_json(gate.ROOT / 'docs/testing/release-2026.08-lifecycle-baselines.json')
-                baseline = pins if role == 'main' else pins['additionalSupportedBaselines'][0]
+                baseline = {'main': pins, 'historical': pins['additionalSupportedBaselines'][0],
+                            'previous': pins['additionalSupportedBaselines'][1]}[role]
+                cell['dependencyContract']['installedCli'] = baseline['cliVersion']
                 cell['initialDeployment']['packageSha256'] = next(a['sha256'] for a in baseline['assets'] if a['name'].startswith('carlos-emr_'))
             path = root / (role + '.json'); gate.write_json(path, cell)
             document['cells'].append({'role': role, 'path': path.name, 'sha256': gate.digest(path)})
@@ -255,6 +258,56 @@ class PackageLifecycleTest(unittest.TestCase):
             for roles in (document['cells'][:2], [document['cells'][0], document['cells'][1], document['cells'][1]]):
                 broken = copy.deepcopy(document); broken['cells'] = roles
                 with self.assertRaises(EvidenceError): self.validate(root, source, broken)
+
+    def test_receipts_require_the_installed_cli_for_each_baseline_and_actual_refusal_below_the_floor(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source, document = self.fixture(root)
+            for row in document['cells']:
+                path = root / row['path']
+                original = gate.read_json(path)
+                changes = [('floor', '1.3.1'), ('installedCli', '1.3.4')]
+                if row['role'] in ('historical', 'main'):
+                    changes.append(('olderCliRefused', False))
+                for key, value in changes:
+                    with self.subTest(role=row['role'], key=key):
+                        changed = copy.deepcopy(original)
+                        changed['dependencyContract'][key] = value
+                        path.write_text(json.dumps(changed))
+                        row['sha256'] = gate.digest(path)
+                        with self.assertRaises(EvidenceError):
+                            self.validate(root, source, document)
+                path.write_text(json.dumps(original))
+                row['sha256'] = gate.digest(path)
+            self.validate(root, source, document)
+
+    def test_dependency_probe_uses_the_shipped_floor_and_each_installed_cli(self):
+        import importlib.util
+        from lifecycle_baselines import CANDIDATE_CLI_FLOOR
+        spec = importlib.util.spec_from_file_location('lifecycle_dependency', Path(__file__).with_name('run-package-lifecycle-cell.py'))
+        cell = importlib.util.module_from_spec(spec); spec.loader.exec_module(cell)
+        dependency = f'carlos-ctl (>= {CANDIDATE_CLI_FLOOR})'
+        self.assertIn('\n ' + dependency + ',\n', (gate.ROOT / 'debian/control').read_text())
+        packages = {name: {'path': '/' + name + '.deb'} for name in ('emr', 'ctl', 'drugref')}
+        for role, version, below_floor in [('clean', '1.3.6', False), ('previous', '1.3.5', False),
+                                          ('main', '1.3.1', True), ('historical', '1.3.0', True)]:
+            with self.subTest(role=role), tempfile.TemporaryDirectory() as directory, \
+                    patch.object(cell, 'OUTPUT', Path(directory)), \
+                    patch.object(cell.subprocess, 'check_output', side_effect=['nginx, ' + dependency, version, version + '\n']), \
+                    patch.object(cell.state, 'clinical_state', return_value={}), patch.object(cell.state, 'stored_files', return_value={}), \
+                    patch.object(cell.state, 'encryption_key', return_value='key'):
+                def apt_probe(command, name, **_options):
+                    self.assertEqual(command[:3], ['apt-get', '-s', 'install'])
+                    if name == 'older-cli-refusal':
+                        (Path(directory) / (name + '.log')).write_text(f'Depends: {dependency} but {version} is to be installed\n')
+                        return 100
+                    self.assertEqual(command[-1], packages['ctl']['path'])
+                    return 0
+                with patch.object(cell, 'run', side_effect=apt_probe) as apt:
+                    result = cell.dependency_contract({'role': role, 'target': packages, 'baseline': packages})
+                self.assertEqual(result['installedCli'], version)
+                self.assertEqual(apt.call_count, 2 if below_floor else 0)
+                self.assertEqual(result.get('statePreserved', False), below_floor)
 
     def test_green_cell_without_same_source_province_war_or_cleanup_cannot_qualify(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -285,7 +338,7 @@ class PackageLifecycleTest(unittest.TestCase):
                     for name in ('emr', 'drugref', 'ctl')}
         config = {'runtimeImage': 'sha256:' + 'a' * 64, 'caFile': '/FAKE/ca.pem',
                   'browserDirectory': '/FAKE/browser', 'packages': {key: packages for key in
-                    ('target', '2026.08.0-beta6', '2026.08.0-beta5')}}
+                    ('target', '2026.08.0-beta6', '2026.08.0-beta5', '2026.08.0-beta8')}}
         validate_config(config)
         for name, value in [('runtimeImage', 'ubuntu:26.04'), ('caFile', 'relative'), ('packages', {'target': packages})]:
             broken = copy.deepcopy(config); broken[name] = value
@@ -305,16 +358,16 @@ import release_verification as gate
 from package_lifecycle import CELL_ASSERTIONS
 directory=pathlib.Path(sys.argv[2]); artifact=pathlib.Path(sys.argv[3]); source=gate.source_identity(pathlib.Path.cwd())
 document={'schemaVersion':1,'source':source,'profile':'ON','warSha256':gate.digest(artifact),'targetPackageSha256':'d'*64,'cells':[]}
-for role in ['clean','main','historical']:
+for role in ['clean','main','historical','previous']:
  cell={'role':role,'profile':'ON','source':source,'warSha256':gate.digest(artifact),'failureType':None,
   'assertions':dict.fromkeys(CELL_ASSERTIONS,True),
-  'dependencyContract':{'floor':'1.3.1','installedCli':'1.3.0','olderCliRefused':True,'compatibleCliResolved':True,'statePreserved':True},
+  'dependencyContract':{'floor':'1.3.5','installedCli':'1.3.6','olderCliRefused':True,'compatibleCliResolved':True,'statePreserved':True},
   'initialDeployment':{'scope':'installed-package-application','packageSha256':'d'*64,'contentSha256':'e'*64},
   'candidateDeployment':{'scope':'installed-package-application','warSha256':gate.digest(artifact),'contentSha256':'f'*64}}
- if role!='historical':cell['dependencyContract']['installedCli']='1.3.1'
- if role in ['main','historical']:
+ if role!='clean':
   pins=gate.read_json(gate.ROOT/'docs/testing/release-2026.08-lifecycle-baselines.json')
-  baseline=pins if role=='main' else pins['additionalSupportedBaselines'][0]
+  baseline={'main':pins,'historical':pins['additionalSupportedBaselines'][0],'previous':pins['additionalSupportedBaselines'][1]}[role]
+  cell['dependencyContract']['installedCli']=baseline['cliVersion']
   cell['initialDeployment']['packageSha256']=next(a['sha256'] for a in baseline['assets'] if a['name'].startswith('carlos-emr_'))
  path=directory/(role+'.json');gate.write_json(path,cell)
  document['cells'].append({'role':role,'path':path.name,'sha256':gate.digest(path)})
@@ -333,7 +386,7 @@ gate.write_json(directory/'lifecycle-result.json',{'schemaVersion':1,'assertions
                     for name in ('emr', 'drugref', 'ctl')}
         config = {'runtimeImage': 'sha256:' + 'a' * 64, 'caFile': '/FAKE/ca.pem',
             'browserDirectory': '/FAKE/browser', 'packages': {key: packages for key in
-                ('target', '2026.08.0-beta6', '2026.08.0-beta5')}}
+                ('target', '2026.08.0-beta6', '2026.08.0-beta5', '2026.08.0-beta8')}}
         config_path = helper.base / 'config.json'; gate.write_json(config_path, config)
         def collect():
             with patch.dict(os.environ, {'CARLOS_PACKAGE_LIFECYCLE_CONFIG': str(config_path)}):

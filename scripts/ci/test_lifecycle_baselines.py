@@ -13,18 +13,19 @@ class LifecycleBaselineTest(unittest.TestCase):
 
     def test_distinct_historical_migration_and_cli_predecessor_is_required(self):
         document = self.document()
-        self.assertEqual(len(required_baselines(document)), 2)
+        self.assertEqual(len(required_baselines(document)), 3)
         self.assertEqual(select_baseline(document)['cliVersion'], '1.3.1')
         self.assertEqual(select_baseline(document, '2026.08.0-beta5')['cliVersion'], '1.3.0')
-        for invalid in (None, [], [document]):
+        self.assertEqual(select_baseline(document, '2026.08.0-beta8')['cliVersion'], '1.3.5')
+        for invalid in (None, [], [document], document['additionalSupportedBaselines'][:1]):
             broken = copy.deepcopy(document); broken['additionalSupportedBaselines'] = invalid
             with self.assertRaises(EvidenceError): required_baselines(broken)
         with self.assertRaises(EvidenceError): select_baseline(document, 'unreviewed')
 
-    def test_candidate_cli_upgrade_keeps_both_published_predecessors_unchanged(self):
+    def test_candidate_cli_upgrade_keeps_all_published_predecessors_unchanged(self):
         document = self.document()
-        self.assertEqual(candidate_cli(document)['version'], '1.3.5')
-        self.assertEqual([row['cliVersion'] for row in required_baselines(document)], ['1.3.1', '1.3.0'])
+        self.assertEqual(candidate_cli(document)['version'], '1.3.6')
+        self.assertEqual([row['cliVersion'] for row in required_baselines(document)], ['1.3.1', '1.3.0', '1.3.5'])
         predecessor = next(row for row in document['assets'] if row['name'].startswith('carlos-ctl_'))
         self.assertNotEqual(candidate_cli(document)['sha256'], predecessor['sha256'])
 

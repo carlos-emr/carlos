@@ -25,6 +25,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
@@ -75,25 +77,25 @@ class ViewAdminDisplayMyGroup2ActionTest extends CarlosUnitTestBase {
         }
     }
 
-    @Test
-    @DisplayName("should return success when site access privacy privilege is granted")
-    void shouldReturnSuccess_whenSiteAccessPrivacyPrivilegeGranted() throws Exception {
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_site_access_privacy", "r", null))
+    @ParameterizedTest
+    @ValueSource(strings = {"_admin", "_admin.schedule"})
+    void shouldReturnSuccess_whenTheOperatorCanReadScheduleAdministration(String object) throws Exception {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, object, "r", null))
                 .thenReturn(true);
 
         assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
 
-        verify(securityInfoManager).hasPrivilege(loggedInInfo, "_site_access_privacy", "r", null);
+        verify(securityInfoManager).hasPrivilege(loggedInInfo, object, "r", null);
     }
 
     @Test
-    @DisplayName("should reject when site access privacy privilege is missing")
-    void shouldReject_whenSiteAccessPrivacyPrivilegeMissing() {
+    @DisplayName("should reject a site restriction alone as authority to view schedule administration")
+    void shouldReject_whenTheOperatorHasOnlyTheSiteRestriction() {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_site_access_privacy", "r", null))
-                .thenReturn(false);
+                .thenReturn(true);
 
         assertThatThrownBy(() -> action.execute())
                 .isInstanceOf(SecurityException.class)
-                .hasMessageContaining("_site_access_privacy");
+                .hasMessageContaining("_admin.schedule");
     }
 }

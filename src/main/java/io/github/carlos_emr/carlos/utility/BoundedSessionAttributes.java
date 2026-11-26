@@ -38,6 +38,13 @@ public final class BoundedSessionAttributes {
 
     private BoundedSessionAttributes() { }
 
+    /** Checks exact membership in a server-managed category without treating the supplied key as a session attribute name. */
+    public static boolean containsKey(HttpSession session, String category, String key) {
+        synchronized (WebUtils.getSessionMutex(session)) {
+            return session.getAttribute(PREFIX + category) instanceof List<?> keys && keys.contains(key);
+        }
+    }
+
     /** Stores a value and retires the oldest entry in this category when the limit is reached. */
     public static void put(HttpSession session, String category, String key, Object value) {
         synchronized (WebUtils.getSessionMutex(session)) {

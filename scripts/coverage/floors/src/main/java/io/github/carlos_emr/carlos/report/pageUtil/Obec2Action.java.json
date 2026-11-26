@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/report/pageUtil/Obec2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "d041dd492df6f015064ad6f9ff7ef4ef73ffcded"
+  },
+  "evidenceSha256": "630232882d27295a85197453af3fe5958ad7cadec3ae5c9740a0efe30e44dd81"
+}

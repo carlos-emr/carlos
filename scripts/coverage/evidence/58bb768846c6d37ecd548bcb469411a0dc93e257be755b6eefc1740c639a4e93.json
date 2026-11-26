@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "86cd961c1bc8c27d937e26795e9eb553733f1b75",
+  "comparisonSha256": "a19c46f75869a0321cac63643665da87fb158dfc9a864387bf4a398ba575b0c4",
+  "baselineCommit": "b560093fcba26b6d9a1bc68e6277dc14a9c4779a",
+  "baselineSourceTree": "86cd961c1bc8c27d937e26795e9eb553733f1b75",
+  "baselineReportSha256": "347a50fa16c2fbec44c4bfb6eaf3f717ba1d16e500289e8bf57c728f2092fde9",
+  "baselineLane": "Ubuntu 26.04 and OpenJDK 25 demographic endpoint, waiting-list, manager, reporting, and transaction tests on H2 and physical Ontario Flyway MariaDB, with JaCoCo execution data combined for the demographic service",
+  "baselineTestCounts": {
+    "tests": 446,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.admin.service.DemographicProviderReassignmentServiceUnitTest",
+    "io.github.carlos_emr.carlos.admin.service.DemographicProviderReassignmentTransactionIntegrationTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingObecOutputApplyServiceUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.service.CaseManagementTmpSaveTransactionIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.ServerTablePagingIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.WaitingListDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.service.ProviderDocumentQueueTransactionIntegrationTest",
+    "io.github.carlos_emr.carlos.managers.DemographicIdentifierPreservationMariaDbIntegrationTest",
+    "io.github.carlos_emr.carlos.managers.DemographicManagerImplTransactionIntegrationTest",
+    "io.github.carlos_emr.carlos.managers.DemographicManagerUnitTest",
+    "io.github.carlos_emr.carlos.managers.DemographicMergeMariaDbIntegrationTest",
+    "io.github.carlos_emr.carlos.managers.DemographicUpdateDaoTransactionIntegrationTest",
+    "io.github.carlos_emr.carlos.prevention.reports.PreventionReportUtilUnitTest",
+    "io.github.carlos_emr.carlos.report.data.RptDemographicQueryAsOfRosterUnitTest",
+    "io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListConcurrencyUnitTest",
+    "io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListUpdateRecordUnitTest",
+    "io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListUtilNoteLengthUnitTest",
+    "io.github.carlos_emr.carlos.webserv.rest.DemographicServiceEndpointTest",
+    "io.github.carlos_emr.carlos.webserv.rest.DemographicServiceUnitTest"
+  ],
+  "baselineTestReportsSha256": "1bc890602cb50ee75a8ee0a92c73d4260a93e220ae337e16c5d65637f4354650",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/DemographicService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "da11bb70afce67a93aad0d068ec48399c2ed4f81"
+    }
+  },
+  "exclusions": {}
+}

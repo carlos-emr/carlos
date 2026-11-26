@@ -1,5 +1,20 @@
 # CARLOS 2026.08 release notes
 
+## Ontario OHIP billing after a single-site import
+
+OHIP Simulation and Generate OHIP File now show eligible physicians and their
+billing disk history when a single-site clinic has no provider-site assignments.
+The seeded administrator can use both pages with the existing role configuration.
+When multisite mode is enabled, an operator restricted by site alone sees only
+providers who share an assigned site. An explicit team billing restriction
+continues to apply in either clinic mode.
+
+During an OSCAR 19 migration, compare the source `multisites` setting with
+the setting in CARLOS before opening billing to staff. This also applies to
+completed imports. A clinic that relied on site assignments to restrict billing
+with multisite mode disabled must enable multisite mode and verify access for its
+operators. [OSCAR 19 import guide](o19-import-deb.md)
+
 ## Unlinking a lab archives the readings it filed
 
 Unlinking a lab report from a patient (Unlink on the lab page) now also archives the
@@ -369,6 +384,13 @@ counts the rows that are shown, and a list that cannot be loaded says so
 
 - The note and issue history popup prints the patient name and the issue title as
   text. Markup stored in either was previously run in the reader's browser.
+- The eForm version list prints each saved form's name and subject as text, the
+  patient-independent eForm lists print the saving provider's name as text, and the
+  document pages print stored document sub-classes, queue names and provider names as
+  text. Markup stored in any of them was previously run in the reader's browser. The
+  document information shown by the Document Browser and Browse Notes leaves a missing
+  acknowledging provider's name or date, annotation or tickler message blank instead of
+  printing `null` ([#3057](https://github.com/carlos-emr/carlos/issues/3057)).
 - Hospital reports (HRM) follow the patient's own access rules. A provider who is
   locked out of a patient, or lacks `_demographic` or `_hrm` read for that patient,
   cannot list, open, print, download or change that patient's hospital reports from
@@ -502,6 +524,14 @@ candidate build that applied them under their old numbers must be rebuilt from a
 published release before upgrading. The package now depends on `carlos-ctl` 1.3.3,
 which reads the format 3 OSCAR 19 schema manifest this release installs. The bundled
 stock eForm asset list records the current `editControl2.js`.
+
+Each library family now ships at one version (#5711). `httpclient5-cache` moves from 5.3.1
+to 5.6.5, beside `httpclient5` 5.6.5, and `jackson-datatype-jsr310` from 2.17.1 to 2.22.4,
+the version of the rest of Jackson. The text CDS import and export write is unchanged, and
+a negative fractional duration now reads back exactly. The build fails when a family splits
+again; see [dependency convergence](dependency-convergence.md). The jsr310 jar is part of
+the CDS ruleset fingerprint, so finish or cancel CDS imports before upgrading, as for any
+upgrade.
 
 ## Upgrade notes
 

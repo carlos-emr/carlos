@@ -718,7 +718,7 @@ public class DemographicService extends AbstractServiceImpl {
         }
 
         //update waitingList (0 is the form's "no list" value, which the helper skips)
-        if (data.getWaitingListID() != null && data.getWaitingListID() != 0 && !updateWaitingListNote(data)) {
+        if (hasSubmittedWaitingList(data) && !updateWaitingListNote(data)) {
             // The patient has no current entry on the list this request names, typically because
             // it was removed after the client loaded the form (a removal keeps the entry as
             // history, which does not count). Saving the rest and answering success would drop
@@ -735,6 +735,10 @@ public class DemographicService extends AbstractServiceImpl {
         }
 
         return demoConverter.getAsTransferObject(loggedInInfo, demographic);
+    }
+
+    private static boolean hasSubmittedWaitingList(DemographicTo1 data) {
+        return data.getWaitingListID() != null && data.getWaitingListID() != 0;
     }
 
     private static boolean updateWaitingListNote(DemographicTo1 data) {
@@ -811,7 +815,7 @@ public class DemographicService extends AbstractServiceImpl {
         posted.setAlert(data.getAlert());
         posted.setMidwife(data.getMidwife());
         errors.addAll(posted.validateFieldLengths());
-        if (data.getWaitingListID() != null) {
+        if (hasSubmittedWaitingList(data)) {
             errors.addAll(WaitingList.validateNoteLength(data.getWaitingListNote()));
         }
         refuseFieldLengthErrors(errors);

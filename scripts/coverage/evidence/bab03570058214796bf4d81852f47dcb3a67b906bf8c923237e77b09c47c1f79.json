@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "742dd1b7f1bb6549e097170b1eeef88b789afeef",
+  "comparisonSha256": "f1cd8bed87b3d10ada60a9199ccdccc89784af11b198f725559da0c2aa48ea18",
+  "baselineCommit": "d2b8c4438f9e5f9398a60cc343ffa72963b64700",
+  "baselineSourceTree": "742dd1b7f1bb6549e097170b1eeef88b789afeef",
+  "baselineReportSha256": "432c5532aa516328c7fbfc67f2b0e7321cefdd7d274eac965db24d3c76a93160",
+  "baselineLane": "JDK 25 on Ubuntu 26.04, legacy Ontario billing report and action tests at d2b8c4438f9e including collision, per-provider commit, hybrid follow-through and output close failures",
+  "baselineTestCounts": {
+    "tests": 44,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.billings.ca.on.service.OhipClaimExtractServiceUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.OhipReportGenerationServiceDependencyInjectionUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.web.ReportActionDependencyInjectionUnitTest"
+  ],
+  "baselineTestReportsSha256": "fc41d0881dbc8685f2a013cace341bd02f50adf0e602dbd2443e5a4e5fa030f6",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/OhipClaimExtractService.java": {
+      "lines": 83.33333333333333,
+      "instructions": 85.84905660377359,
+      "branches": 100.0,
+      "sourceBlob": "1de5faee233356da3b2d08790d603f0c5a1c77b9"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/OhipReportGenerationService.java": {
+      "lines": 98.41269841269842,
+      "instructions": 96.7065868263473,
+      "branches": 76.3157894736842,
+      "sourceBlob": "6e3bdf1352198a0b7782b288e66110e8e85973c9"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/web/ViewGenGroupReport2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "04fff707210eb237de50a08031c749a0725fb7d2"
+    }
+  },
+  "exclusions": {}
+}

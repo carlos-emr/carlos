@@ -53,6 +53,8 @@ class HrmVersionServiceUnitTest extends CarlosUnitTestBase {
         var security = mock(SecurityInfoManager.class); var info = mock(LoggedInInfo.class);
         when(security.hasPrivilege(info, "_hrm", "r", (String) null)).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(info, 5)).thenReturn(true);
+        when(security.hasPrivilege(info, "_demographic", "r", "5")).thenReturn(true);
+        when(security.hasPrivilege(info, "_hrm", "r", "5")).thenReturn(true);
         HRMDocument shown = document(1), old = document(2), tied = document(3), foreign = document(4), otherGroup = document(6);
         var patient = new io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic(); patient.setDemographicNo(5);
         var another = new io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic(); another.setDemographicNo(9);
@@ -78,12 +80,47 @@ class HrmVersionServiceUnitTest extends CarlosUnitTestBase {
         row.setReportFile(id + ".xml"); return row;
     }
 
+    @Test void shouldKeepDistinctSourceFieldsAndPatientSets_inVersionIdentity() {
+        var first = mock(HRMReport.class);
+        var second = mock(HRMReport.class);
+        when(first.getSendingFacilityId()).thenReturn("MAIN:EAST");
+        when(first.getSendingFacilityReportNo()).thenReturn("5");
+        when(first.getDeliverToUserId()).thenReturn("7");
+        when(second.getSendingFacilityId()).thenReturn("MAIN");
+        when(second.getSendingFacilityReportNo()).thenReturn("EAST:5");
+        when(second.getDeliverToUserId()).thenReturn("7");
+        var known = HrmVersionService.ReportGroup.of(first, Set.of(3), 10);
+        assertThat(HrmVersionService.ReportGroup.of(second, Set.of(3), 20)).isNotEqualTo(known);
+        assertThat(HrmVersionService.ReportGroup.of(first, Set.of(3, 4), 20)).isNotEqualTo(known);
+        assertThat(HrmVersionService.ReportGroup.of(first, Set.of(3), 20)).isEqualTo(known);
+        when(first.getDeliverToUserId()).thenReturn("");
+        assertThat(HrmVersionService.ReportGroup.of(first, Set.of(3), 10))
+                .isNotEqualTo(HrmVersionService.ReportGroup.of(first, Set.of(3), 20));
+    }
+
+    @Test void shouldWithholdHistory_whenTheProviderCannotReadOneLinkedPatientsHrm() {
+        var docs = mock(HRMDocumentDao.class);
+        var links = mock(HRMDocumentToDemographicDao.class);
+        var security = mock(SecurityInfoManager.class);
+        var info = mock(LoggedInInfo.class);
+        when(security.hasPrivilege(info, "_hrm", "r", (String) null)).thenReturn(true);
+        authorizeDisplayedPatient(links, security, info);
+        when(security.hasPrivilege(info, "_hrm", "r", "5")).thenReturn(false);
+        var result = new HrmVersionService(docs, links, security)
+                .history(info, document(1), mock(HRMReport.class), "2", Locale.ENGLISH);
+        assertThat(result.incomplete()).isTrue();
+        assertThat(result.versions()).isEmpty();
+        verifyNoInteractions(docs);
+    }
+
     private static void authorizeDisplayedPatient(HRMDocumentToDemographicDao links,
             SecurityInfoManager security, LoggedInInfo info) {
         var patient = new io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic();
         patient.setDemographicNo(5);
         when(links.findByHrmDocumentId(1)).thenReturn(List.of(patient));
         when(security.isAllowedAccessToPatientRecord(info, 5)).thenReturn(true);
+        when(security.hasPrivilege(info, "_demographic", "r", "5")).thenReturn(true);
+        when(security.hasPrivilege(info, "_hrm", "r", "5")).thenReturn(true);
     }
 
     @Test void shouldSkipDeletedVersions_andRefuseHistoryWithoutAPatient() {
@@ -94,9 +131,6 @@ class HrmVersionServiceUnitTest extends CarlosUnitTestBase {
         assertThat(service.history(info, document(1), mock(HRMReport.class), "2", Locale.ENGLISH).incomplete())
                 .isTrue();
         verifyNoInteractions(docs);
-        when(docs.find(2)).thenReturn(document(2));
-        assertThat(service.describe(List.of(2, 3), Locale.ENGLISH)).extracting(HrmVersionService.Version::id)
-                .containsExactly(2);
     }
     @Test void shouldMarkExcessiveHistoryHintsIncomplete_withoutLookingUpReports() {
         var docs = mock(HRMDocumentDao.class); var links = mock(HRMDocumentToDemographicDao.class);

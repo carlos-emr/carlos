@@ -19,7 +19,7 @@ import uuid
 
 import release_verification as gate
 from junit_evidence import EvidenceError
-from lifecycle_baselines import candidate_cli, required_baselines
+from lifecycle_baselines import BASELINE_TAGS, candidate_cli, required_baselines
 from package_lifecycle import validate_config, validate_inventory, require_checkout_playwright
 from process_group import run_process_group
 
@@ -101,7 +101,7 @@ def run_lifecycle():
     os.umask(0o077)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--profile', choices=('ON', 'BC'), required=True)
-    parser.add_argument('--role', choices=('all', 'clean', 'main', 'historical'), default='all')
+    parser.add_argument('--role', choices=('all', 'clean', *BASELINE_TAGS), default='all')
     parser.add_argument('--artifact', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
@@ -122,8 +122,8 @@ def run_lifecycle():
     image = json.loads(docker('image', 'inspect', config['runtimeImage'], capture=True))
     if len(image) != 1 or image[0].get('Id') != config['runtimeImage']:
         raise EvidenceError('Lifecycle runtime image differs from its immutable identity')
-    selected = [(role, baseline) for role, baseline in [('clean', None), ('main', baselines[0]),
-                ('historical', baselines[1])] if args.role in ('all', role)]
+    cells = {'clean': None, **dict(zip(BASELINE_TAGS, baselines, strict=True))}
+    selected = [(role, baseline) for role, baseline in cells.items() if args.role in ('all', role)]
     roles = [role for role, _baseline in selected]
     document = {'schemaVersion': 1, 'source': source, 'profile': args.profile, 'requestedRoles': roles,
                 'warSha256': artifact_hash, 'targetPackageSha256': config['packages']['target']['emr']['sha256'],

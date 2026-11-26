@@ -54,6 +54,7 @@
 <%@page import="io.github.carlos_emr.carlos.providers.data.*,java.util.*,io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData,io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.commn.dao.QueueDao" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.data.ProviderData" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
@@ -290,7 +291,11 @@
         };
 
         function changeProviderAndQueue() {
-            upload_url = "<%=request.getContextPath()%>/documentManager/addEditDocument?method=html5MultiUpload&queue=" + document.getElementById('queue').value + "&providers=" + document.getElementById('provider').value;
+            // Option values come from stored queue ids and provider numbers: URI-encode them so a
+            // value cannot add or replace query parameters (issue #3057).
+            upload_url = "<%=request.getContextPath()%>/documentManager/addEditDocument?method=html5MultiUpload&queue="
+                + encodeURIComponent(document.getElementById('queue').value)
+                + "&providers=" + encodeURIComponent(document.getElementById('provider').value);
         }
 
         function addProviderToPost(ele) {
@@ -341,7 +346,9 @@
     </div>
     <div>
         <input type="hidden" id="queue" value="<%=queueId%>"/>
-        <input type="hidden" id="provider" value="<%=provider%>"/>
+        <input type="hidden" id="provider" value="<carlos:encode value='<%= provider %>' context="htmlAttribute"/>"/>
+        <%-- Issue #3057 (#2656): queue names and provider names are stored text; encode them as
+             documentUploader.jsp does for the same selects. --%>
         <label for="queueDrop" class="fields">Send to Queue:</label>
         <select onchange="javascript:addQueueToPost(this);" id="queueDrop" name="queueDrop">
 
@@ -350,7 +357,7 @@
                     int id = (Integer) ht.get("id");
                     String qName = (String) ht.get("queue");
             %>
-            <option value="<%=id%>" <%=((id == queueId) ? " selected" : "")%>><%= qName%>
+            <option value="<%=id%>" <%=((id == queueId) ? " selected" : "")%>><carlos:encode value='<%= qName %>' context="html"/>
             </option>
             <%}%>
         </select>
@@ -361,15 +368,16 @@
             <%
                 for (int i = 0; i < providers.size(); i++) {
                     Map h = (Map) providers.get(i);
+                    String optionProviderNo = (String) h.get("providerNo");
             %>
-            <option value="<%= h.get("providerNo")%>" <%= (h.get("providerNo").equals(provider) ? " selected" : "")%>><%= h.get("lastName")%> <%= h.get("firstName")%>
+            <option value="<carlos:encode value='<%= optionProviderNo %>' context="htmlAttribute"/>" <%= (provider.equals(optionProviderNo) ? " selected" : "")%>><carlos:encode value='<%= (String) h.get("lastName") %>' context="html"/> <carlos:encode value='<%= (String) h.get("firstName") %>' context="html"/>
             </option>
             <%}%>
         </select>
     </div>
     <div class="form">
         <form id="noswfupload_form" method="post"
-              action="<%=request.getContextPath()%>/documentManager/addEditDocument?method=html5MultiUpload&queue=<%=queueId%>&providers=<%=provider%>"
+              action="<%=request.getContextPath()%>/documentManager/addEditDocument?method=html5MultiUpload&queue=<%=queueId%>&providers=<carlos:encode value='<%= provider %>' context="uriComponent"/>"
               enctype="multipart/form-data">
             <div>
                 <input type="file" name="filedata"/>
