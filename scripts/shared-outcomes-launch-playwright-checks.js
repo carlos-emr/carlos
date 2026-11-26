@@ -205,16 +205,20 @@ async function workflow(s) {
   });
   const refreshUrl = new URL(`${s.config.baseUrl.pathname.replace(/\/$/, '')}${REFRESH_PATH}`, s.config.baseUrl.origin);
   // The stand-in dashboard records every message the launcher posts to it and answers CONNECT like the real one.
-  const installDashboardListener = () => outcomesWindow.evaluate(() => {
+  // Both sides name each other's origin: the stand-in dashboard talks only to the launcher's origin and ignores
+  // anything else, exactly as the launcher does for the dashboard's.
+  const launcherOrigin = s.config.baseUrl.origin;
+  const installDashboardListener = () => outcomesWindow.evaluate(origin => {
     window.__fromLauncher = [];
     window.addEventListener('message', event => {
+      if (event.origin !== origin) return;
       window.__fromLauncher.push(event.data);
       if (event.data && event.data.response === 'CONNECT' && window.opener) {
-        window.opener.postMessage({ outcomes: { interaction: 'CONNECTED' } }, '*');
+        window.opener.postMessage({ outcomes: { interaction: 'CONNECTED' } }, origin);
       }
     });
     return !!window.opener;
-  });
+  }, launcherOrigin);
   const dashboardMessages = () => outcomesWindow.evaluate(() => window.__fromLauncher);
   const refreshRequests = [];
   const wireRefreshRequests = () => {
@@ -241,7 +245,8 @@ async function workflow(s) {
 
   await s.step('a refresh posts to the Struts route and publishes the owned metric set to the send URL', async () => {
     const before = listener.received.length;
-    await outcomesWindow.evaluate(message => window.opener.postMessage(message, '*'), submitQuery('first'));
+    await outcomesWindow.evaluate(({ message, origin }) => window.opener.postMessage(message, origin),
+      { message: submitQuery('first'), origin: launcherOrigin });
     await waitFor(() => refreshRequests.length === 1, `The launcher sent no request to ${refreshUrl.pathname}`);
     const [request] = refreshRequests;
     h.assert(request.url.pathname === refreshUrl.pathname && request.url.search === '',
@@ -273,7 +278,8 @@ async function workflow(s) {
     const seen = { http: new Set(s.recorder.badResponses), console: new Set(s.recorder.consoleIssues) };
     listener.status = 500;
     try {
-      await outcomesWindow.evaluate(message => window.opener.postMessage(message, '*'), submitQuery('failed'));
+      await outcomesWindow.evaluate(({ message, origin }) => window.opener.postMessage(message, origin),
+        { message: submitQuery('failed'), origin: launcherOrigin });
       await waitFor(() => refreshRequests.length === 2, 'The second refresh request was never sent');
     } finally { listener.status = 200; }
     h.assert(refreshRequests[1].status === 502 && JSON.parse(refreshRequests[1].body).error === 'publish_failed',
@@ -297,7 +303,7 @@ async function workflow(s) {
     const requests = refreshRequests.length;
     const posts = listener.received.length;
     // The launcher's own origin is not the dashboard's, so the page itself is the "other origin" here.
-    await launcher.evaluate(message => window.postMessage(message, '*'), submitQuery('forged'));
+    await launcher.evaluate(message => window.postMessage(message, window.location.origin), submitQuery('forged'));
     await new Promise(resolve => setTimeout(resolve, 1500));
     h.assert(refreshRequests.length === requests && listener.received.length === posts,
       'A message from a foreign origin triggered a refresh or a publication');
