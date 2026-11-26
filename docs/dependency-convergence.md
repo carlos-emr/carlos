@@ -23,7 +23,7 @@ the BOM's major.minor version (`2.22`), the scheme Jackson uses since 2.20.
 | Guard | Where it runs | What it catches |
 |-------|---------------|-----------------|
 | `maven-enforcer-plugin`, execution `require-converged-dependencies`, `requireSameVersions` | every Maven build, `validate` phase, all scopes | a resolved artifact of a guarded family on a version different from the rest of that family |
-| the same execution, `requireUpperBoundDeps` | every Maven build, `validate` phase, all scopes | a resolved version below one that some dependency asks for: a stale pin or a nearer, older request |
+| the same execution, `requireUpperBoundDeps` | every Maven build, `validate` phase, compile and runtime dependencies (the rule skips test and provided ones) | a resolved version below one that some dependency asks for: a stale pin or a nearer, older request |
 | the same execution, `banDuplicateClasses` (`extra-enforcer-rules`) | every Maven build, `validate` phase, compile and runtime scope | two jars in `WEB-INF/lib` defining one class with different bytes |
 | `DependencyConvergenceUnitTest` | unit tests | a split Jackson or HttpComponents family in `dependencies-lock.json`, and a jsr310 jar on the test class path from another Jackson release |
 
@@ -44,8 +44,8 @@ turn each library bump into a list of unrelated pins.
 | Artifact | Resolved | Asked for | Why it stays |
 |----------|----------|-----------|--------------|
 | `net.sf.saxon:Saxon-HE` | 11.6 | 13.0 (FHIR core) | deliberate pin: XML serialization must not change; `XmlUtilsUnitTest` |
-| `com.fasterxml.woodstox:woodstox-core` | 7.2.0 | 7.2.2 (CXF) | deliberate pin at its `dependencyManagement` entry |
-| `com.github.javaparser:javaparser-core` | 3.25.10 | 3.27.0 (Drools) | deliberate pin at its `dependencyManagement` entry |
+| `com.fasterxml.woodstox:woodstox-core` | 7.2.0 | 7.2.2 (CXF) | release-line maintenance pin holding the version this line resolved |
+| `com.github.javaparser:javaparser-core` | 3.25.10 | 3.27.0 (Drools) | release-line maintenance pin holding the version this line resolved |
 | `org.apache.logging.log4j:log4j-api` | `${log4j2.version}` | 2.26.1 (Struts) | Log4j moves as one family |
 | `org.eclipse.jdt:ecj` | 3.21.0 (`jasperreports-jdt`) | 3.44.0 (Drools) | not yet reviewed for a move |
 | `org.ehcache:ehcache` | 3.10.8 (CXF) | 3.12.0 (WSS4J) | not yet reviewed for a move |

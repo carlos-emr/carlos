@@ -428,8 +428,9 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
-            <!-- Moving the Jackson XML override here changes dependency depth. Preserve
-                 the previously resolved Woodstox version rather than mediating to CXF's older copy. -->
+            <!-- Woodstox for Jackson XML, CXF and Santuario: a release-line maintenance pin that
+                 holds the version this line resolved (CXF 4.1.9 asks for 7.2.2, Santuario for
+                 7.1.0). Moving it is a separate upgrade; requireUpperBoundDeps lists the pin. -->
             <dependency>
                 <groupId>com.fasterxml.woodstox</groupId>
                 <artifactId>woodstox-core</artifactId>
@@ -642,7 +643,9 @@
                 <artifactId>stax2-api</artifactId>
                 <version>4.3.2</version>
             </dependency>
-            <!-- Drools parsing/code generation. -->
+            <!-- Drools parsing/code generation: a release-line maintenance pin that holds the
+                 version this line resolved (Drools 10.2 asks for 3.27.0). Moving it is a separate
+                 upgrade with the Drools tests; requireUpperBoundDeps lists the pin. -->
             <dependency>
                 <groupId>com.github.javaparser</groupId>
                 <artifactId>javaparser-core</artifactId>
@@ -2452,8 +2455,9 @@
                          through shib-networking; jackson-datatype-jsr310 2.17.1 beside
                          jackson-databind 2.22.4), and regenerating the dependency lock records
                          whatever was picked. These rules fail the build at validate, whatever
-                         path brings the stray version in: the version rules in every scope, the
-                         duplicate-class rule over the jars the WAR ships. Fix a failure by
+                         path brings the stray version in: the family rules in every scope, the
+                         upper-bound and duplicate-class rules over the compile and runtime
+                         dependencies, which the WAR ships. Fix a failure by
                          managing the artifact at its family's version (its BOM or version
                          property) in dependencyManagement; mvn dependency:tree -Dverbose
                          -Dincludes=GROUP:ARTIFACT shows who asks for what.
@@ -2550,13 +2554,17 @@
                                 </requireSameVersions>
                                 <!-- No resolved version below one any dependency asks for: a stale
                                      pin or a nearer old request is how jackson-datatype-jsr310 sat
-                                     at 2.17.1 while HAPI FHIR and OpenSAML asked for 2.21. Each
+                                     at 2.17.1 while HAPI FHIR and OpenSAML asked for 2.21. The
+                                     rule's default skips test and provided dependencies. Each
                                      exclude is a known, reviewed downgrade; add one only with its
                                      reason, and remove it when the downgrade goes away. -->
                                 <requireUpperBoundDeps>
                                     <excludes>
-                                        <!-- Deliberate pins, each explained at its dependencyManagement entry. -->
+                                        <!-- Saxon 11.6: FHIR core asks for 13.0, but XML serialization
+                                             must not change (see its dependencyManagement entry). -->
                                         <exclude>net.sf.saxon:Saxon-HE</exclude>
+                                        <!-- Release-line maintenance pins holding the version this
+                                             line resolved; see their dependencyManagement entries. -->
                                         <exclude>com.fasterxml.woodstox:woodstox-core</exclude>
                                         <exclude>com.github.javaparser:javaparser-core</exclude>
                                         <!-- Struts asks for a newer Log4j API; Log4j stays one family
