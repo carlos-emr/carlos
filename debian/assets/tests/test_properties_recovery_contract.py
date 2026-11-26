@@ -11,7 +11,9 @@ refuse for good.
 This is a structural contract over the shipped postinst: every statement that writes the file, or runs a carlos-ctl
 step that does, must sit in an ENCLOSING ``if`` branch whose own condition allows it, that is
 ``PROVISION_LOCK_HELD = 1`` (forced to 0 while the recovery is pending) or ``PROPERTIES_RECOVERY_PENDING = 0``, or
-in a later branch of a chain whose earlier branch tested the opposite (``PROVISION_LOCK_HELD = 0``). Comments and
+in a later branch of a chain whose earlier branch tested the opposite (``PROVISION_LOCK_HELD = 0``). A writer in an
+``if``/``elif`` condition runs before its branch, so only a lock test written before it in that condition counts, and
+the ``else`` part of a one-line ``if`` is not gated by the condition that failed there. Comments and
 here-document bodies are ignored, so a gate mentioned in a comment or a gate on a sibling block counts for nothing.
 A new writer without one fails here. ``violations`` is also run over small synthetic postinst snippets that must be
 rejected (the mutations an earlier, window-based version of this check let through) and accepted.
@@ -34,6 +36,7 @@ EARLIER_DENIES = re.compile(r'PROVISION_LOCK_HELD\}" = 0|PROPERTIES_RECOVERY_PEN
 
 # Every way the postinst names the file: braced or bare variable, the literal path, or through CONF_DIR.
 PROP = r'(?:\$\{PROPERTIES\}|\$PROPERTIES\b|/etc/carlos-emr/carlos\.properties|\$\{CONF_DIR\}/carlos\.properties)'
+CTL = r'(?:^|[;&|(!{]\s*|\b(?:el)?if\s+(?:!\s*)?|\b(?:then|else|do)\s+)(?P<w>carlos-ctl )'
 
 WRITERS = [
     ("sed -i on carlos.properties", re.compile(r'\bsed -i\b[^\n]*"?' + PROP)),
@@ -41,9 +44,11 @@ WRITERS = [
     ("tee, mv, cp or truncate on carlos.properties", re.compile(r'\b(?:tee|mv|cp|truncate)\b[^\n]*"?' + PROP)),
     ("the in-place rewrite helper with a line to change",
      re.compile(r'migrate_lab_filter "?' + PROP + r'"? "[^"]')),
-    ("carlos-ctl init-config", re.compile(r'(?:^|\bif !? ?|&& ?!? ?)carlos-ctl init-config\b')),
-    ("carlos-ctl db-users", re.compile(r'(?:^|\bif !? ?|&& ?!? ?)carlos-ctl db-users\b')),
-    ("carlos-ctl db-apply-settings", re.compile(r'(?:^|\bif !? ?|&& ?!? ?)carlos-ctl db-apply-settings\b')),
+    # As a command: at the start, after a shell operator, or after if/elif/then/else/do; never inside a message
+    # ('carlos-ctl ...', sudo carlos-ctl ...).
+    ("carlos-ctl init-config", re.compile(CTL + r'init-config\b')),
+    ("carlos-ctl db-users", re.compile(CTL + r'db-users\b')),
+    ("carlos-ctl db-apply-settings", re.compile(CTL + r'db-apply-settings\b')),
     ("the cutover preflight", re.compile(r'config-preflight reconcile')),
 ]
 
@@ -106,6 +111,22 @@ def statements(text):
     return out
 
 
+def own_scope(stmt, position, one_line):
+    """The branch an ``if``/``elif`` header (or a one-line ``if``) gives the writer found at ``position``, as a chain
+    entry for ``gates``. A writer in the condition runs before the branch it opens, so only a lock test written before
+    it in that condition (``&&`` alone, no ``;``) protects it. In a one-line ``if``, the part after ``else``/``elif``
+    is not gated by the condition that failed; only an opposite test there counts, as for a multi-line ``else``."""
+    cut = re.search(r";\s*then\b", stmt)
+    cut = cut.start() if cut else len(stmt)
+    if position < cut:
+        prefix = stmt[:position]
+        return [[prefix if ";" not in prefix else ""], 0]
+    other = re.search(r";\s*(?:else|elif)\b", stmt[cut:]) if one_line else None
+    if other and position > cut + other.start():
+        return [[stmt[:cut], ""], 1]
+    return [[stmt[:cut]], 0]
+
+
 def violations(text):
     """(line, writer label) of every writer that no enclosing branch allows."""
     found, chains = [], []          # a chain: [list of branch conditions, index of the current branch]
@@ -113,9 +134,10 @@ def violations(text):
     mentions, definitions = function_calls(stmts)
     writers = list(WRITERS) + [
         (f"a call to {name}(), whose body names carlos.properties",
-         re.compile(r'(?:^|\bif !? |[&|;(!]\s*|\$\()\s*' + re.escape(name) + r'\b(?!\()')) for name in sorted(mentions)]
+         re.compile(r'(?:^|\bif !? |[&|;(!]\s*|\$\()\s*(?P<w>' + re.escape(name) + r')\b(?!\()')) for name in sorted(mentions)]
     for number, stmt in stmts:
         one_line = stmt.startswith("if ") and re.search(r";\s*fi\s*$", stmt) is not None
+        header = stmt.startswith(("if ", "elif ")) and not one_line
         if stmt.startswith("if ") and not one_line:
             chains.append([[stmt], 0])
         elif stmt.startswith("elif "):
@@ -125,9 +147,19 @@ def violations(text):
             chains[-1][0].append("")
             chains[-1][1] += 1
         for label, pattern in writers:
-            if number in definitions or not pattern.search(stmt):
+            match = None if number in definitions else pattern.search(stmt)
+            if not match:
                 continue
-            scope = chains + ([[[stmt], 0]] if one_line else [])
+            # Where the writer's own command starts (a pattern may also match the operator before it).
+            position = match.start("w") if "w" in pattern.groupindex else match.start()
+            if one_line:
+                scope = chains + [own_scope(stmt, position, True)]
+            elif header:
+                # The header's own condition stands in for the branch it opens (if) or continues (elif).
+                conds, branch = own_scope(stmt, position, False)
+                scope = chains[:-1] + [[chains[-1][0][:-1] + conds, chains[-1][1]]]
+            else:
+                scope = chains
             if not any(gates(conds, branch) for conds, branch in scope):
                 found.append((number, label))
         if stmt == "fi" or stmt.startswith("fi ") or stmt.startswith("fi;"):
@@ -251,6 +283,24 @@ class TestTheCheckerItself(unittest.TestCase):
         self.accepted('if [ "${PROPERTIES_RECOVERY_PENDING:-0}" = 0 ] \\\n    && ! carlos-emr-config-preflight reconcile; then\n'
                       '    exit 1\nfi\n')
         self.accepted('if [ "${PROVISION_LOCK_HELD}" = 1 ]; then\n    carlos-ctl init-config || {\n        echo x\n    }\nfi\n')
+
+    def test_a_writer_that_runs_before_its_lock_test_is_rejected(self):
+        # The shell runs the writer first; a failed lock test after it prevents nothing.
+        self.rejected('if carlos-ctl init-config && [ "${PROVISION_LOCK_HELD}" = 1 ]; then\n    echo ok\nfi\n')
+        self.rejected('if [ "${PROVISION_LOCK_HELD}" = 0 ] && [ -n "${X}" ]; then\n    echo a\n'
+                      'elif carlos-ctl db-users && [ "${PROVISION_LOCK_HELD}" = 1 ]; then\n    echo b\nfi\n')
+        self.rejected('if [ "${PROVISION_LOCK_HELD}" = 1 ]; carlos-ctl init-config; then\n    echo ok\nfi\n')
+        # A lock test before the writer in the same condition does gate it.
+        self.accepted('if [ "${PROVISION_LOCK_HELD}" = 1 ] && carlos-ctl init-config; then\n    echo ok\nfi\n')
+
+    def test_a_one_line_else_writer_is_not_gated_by_the_failed_condition(self):
+        self.rejected('if [ "${PROPERTIES_RECOVERY_PENDING:-0}" = 0 ]; then echo ok; '
+                      'else sed -i \'s/a/b/\' "${PROPERTIES}"; fi\n')
+        self.rejected('if carlos-ctl init-config && [ "${PROVISION_LOCK_HELD}" = 1 ]; then echo ok; fi\n')
+        # Protected one-line writers stay accepted: the then part of an allowing test, and the else part of an
+        # opposite one.
+        self.accepted('if [ "${PROPERTIES_RECOVERY_PENDING:-0}" = 0 ]; then sed -i \'s/a/b/\' "${PROPERTIES}"; fi\n')
+        self.accepted('if [ "${PROVISION_LOCK_HELD}" = 0 ]; then echo no; else carlos-ctl init-config; fi\n')
 
     def test_a_later_branch_of_a_lock_not_held_chain_is_accepted(self):
         self.accepted('if [ "${PROVISION_LOCK_HELD}" = 0 ]; then\n    MIGRATION_OK=0\n'
