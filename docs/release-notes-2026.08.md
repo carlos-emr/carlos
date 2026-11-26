@@ -15,6 +15,27 @@ completed imports. A clinic that relied on site assignments to restrict billing
 with multisite mode disabled must enable multisite mode and verify access for its
 operators. [OSCAR 19 import guide](o19-import-deb.md)
 
+## Unlinking a lab archives the readings it filed
+
+Unlinking a lab report from a patient (Unlink on the lab page) now also archives the
+readings the report had filed to that patient's chart. After a wrong patient match is
+corrected, flowsheets, the Health Tracker, graphs, decision-support colours and the
+prevention and clinical reports no longer show the other patient's values (#6214). The
+readings are moved to the same measurement archive that a clinician's deletion and a
+superseded report version use: nothing is deleted, and the audit log records the unlink and
+each archived reading by its identifier. The lab page then shows how many readings were
+archived, in a notice that closes itself. When the report is matched to a patient again,
+its current version is filed for that patient, as for a report matched after upload.
+
+Unlink still acts on the one report shown; other versions of the same accession keep their
+own patient and readings. It is not refused because of what the chart holds, and the
+routing change, the archive and their audit rows are saved together or not at all.
+Readings left on a chart by an unlink made before this change, including charts migrated
+from OSCAR 19, are not changed by the upgrade: unlinking the same report again archives
+them. Unlink now accepts only POST, which is what the lab page sends, and needs the `_lab`
+update right on each chart it changes, so a patient-specific lab rule or a locked record
+refuses it as it already refuses opening that lab.
+
 ## Demographic updates save together or not at all
 
 A patient update through the demographic manager is now one transaction: the archive
