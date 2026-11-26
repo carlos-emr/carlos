@@ -161,6 +161,8 @@ jobs:
           fi
       - name: Install complete packages and reset the initial account
         run: bash scripts/deb-docker-validation.sh up
+      - name: Verify the installed report lease upgrade warning
+        run: docker exec -i "$CONTAINER" python3 - < scripts/ci/test-installed-report-lease-upgrade.py
       - name: Verify migration diagnostics on fresh install
         run: |
           set -euo pipefail

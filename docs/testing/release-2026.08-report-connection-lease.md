@@ -10,9 +10,12 @@ one minute for cancellation and cleanup. Reclamation on borrow and maintenance,
 and abandoned-lease logging, remain enabled. Explicit site overrides still win.
 Choose an override above the longest legitimate query or transaction lifetime.
 Earlier Debian packages copied the 15-second default to
-`/etc/carlos-emr/carlos.properties`. The upgrade warns when that file still
-sets 15 and leaves the file intact. Remove the setting or set it to 360, then
-run `sudo carlos-ctl restart` to adopt the new default.
+`/etc/carlos-emr/carlos.properties`. Configure reads the installed defaults,
+the managed file and any service-user home override using Java Properties and
+Spring resolution. It warns for an effective timeout of 15 seconds and reports
+an unreadable, unresolved or invalid setting without logging its value. Remove
+the effective override or set it to 360, then run `sudo carlos-ctl restart` to
+adopt the new default.
 This trades slower recovery of genuinely leaked leases for allowing bounded
 legitimate work to finish. It does not extend the report query deadline.
 Historical O19 defaults and migration fixtures remain historical records.
@@ -44,13 +47,18 @@ Each run owns and drops its schema; each physical server is retired afterward.
 | report-connection-lease-final-mariadb | 3 | 0 | 0/0 | `3b4335a0705676840383ed081113fc20a1ee46daa82043e4ef89313740374da2` |
 
 The original before/after tests were reformatted and tagged mariadb-native;
-final-source H2 and MariaDB retakes above both pass. No production Java changes.
+the H2 and MariaDB retakes above both passed before the upgrade-check revision.
 The physical MariaDB CI job explicitly selects this suite and its evidence
 verifier requires all three passing case identities. The default Maven test
 selection also discovers it. The verifier's existing regression suite is run
 unchanged; its first sparse-checkout attempt lacked an unrelated MSP test source,
 so its raw failure is retained. The complete-source retake passes all 26 cases.
 
-These are selected-source component regressions. Qualification of the next
+The legacy JDBC CI job also exercises all three cases with a packaged
+`jdbc:mysql://` URL. The Ubuntu package smoke jobs run the shipped configure
+check as the service user against the installed WAR and both stock and
+site-specific properties.
+
+These hashes cover the earlier selected-source component regressions. Qualification of the next
 combined installed Ubuntu 26.04 DEBs, including this changed default resource,
 is pending; prior installed builds do not qualify this revision.

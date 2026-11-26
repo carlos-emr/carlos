@@ -26,7 +26,7 @@ import org.springframework.beans.BeanWrapperImpl;
 import org.springframework.core.env.MapPropertySource;
 import org.springframework.core.env.MutablePropertySources;
 import org.springframework.core.env.PropertySourcesPropertyResolver;
-import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.jdbc.datasource.AbstractDriverBasedDataSource;
 import org.w3c.dom.Element;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -37,13 +37,13 @@ import static org.junit.jupiter.api.Assertions.*;
 @Tag("read")
 class ReportConnectionLeaseIntegrationTest {
     private IsolatedJpaTestDatabase database;
-    private DriverManagerDataSource direct;
+    private AbstractDriverBasedDataSource direct;
     private boolean mariaDb;
 
     @BeforeEach
     void prepare() throws Exception {
         database = new IsolatedJpaTestDatabase("report_lease");
-        direct = (DriverManagerDataSource) database.dataSource();
+        direct = database.dataSource();
         try (var connection = direct.getConnection()) {
             mariaDb = connection.getMetaData().getDatabaseProductName().equals("MariaDB");
             if (!mariaDb) {

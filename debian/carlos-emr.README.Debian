@@ -918,10 +918,13 @@ alone. Read /usr/share/carlos-emr/skel/ afterwards to see whether new settings
 are available that your files predate.
 
 Earlier packages copied a 15-second db_remove_abandoned_timeout into
-/etc/carlos-emr/carlos.properties. Configure warns if the file still sets
-that value. To adopt the 360-second default, remove the setting from that file
-or set it to 360, then run `sudo carlos-ctl restart`. Choose a site-specific
-value above the longest legitimate query or transaction.
+/etc/carlos-emr/carlos.properties. Configure warns if the effective timeout is
+15 seconds or the value cannot be checked. The check reads the installed
+defaults, this file, and any service-user home carlos.properties override in
+application startup order. To adopt the 360-second default, remove the
+effective override or set it to 360, then run `sudo carlos-ctl restart`.
+Choose a site-specific value above the longest legitimate query or
+transaction.
 
 If a migration fails, the service will not start (the boot-time validate gate
 is doing its job). Fix the cause, run `carlos-ctl db-migrate`, then
