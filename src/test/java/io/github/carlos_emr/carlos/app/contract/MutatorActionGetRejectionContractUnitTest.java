@@ -594,6 +594,15 @@ class MutatorActionGetRejectionContractUnitTest {
                         "io.github.carlos_emr.carlos.mds.pageUtil.SendMostResponProv2Action",
                         "_lab",
                         "w"),
+                // --- integration / shared outcomes dashboard ---
+                // Publishes provider indicator metrics to the shared outcomes dashboard: one
+                // outbound HTTP POST per metric set (#5335). The integration.dashboard package is
+                // not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly. Its only caller
+                // posts (sharedOutcomesDashboard.jsp).
+                Arguments.of(
+                        "io.github.carlos_emr.carlos.integration.dashboard.OutcomesDashboard2Action",
+                        "_dashboardDisplay",
+                        "r"),
                 // --- providers ---
                 // Preferences > View groups > Delete (#4515): removes the ticked group memberships.
                 // The providers package is not in IN_SCOPE_PACKAGE_PREFIXES, so it registers
