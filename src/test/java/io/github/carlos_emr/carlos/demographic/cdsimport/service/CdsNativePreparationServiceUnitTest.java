@@ -48,6 +48,71 @@ import static org.mockito.ArgumentMatchers.*;
 class CdsNativePreparationServiceUnitTest {
     public record Source(String text, Map<String, String> values) {}
 
+    /** One field of each java.time shape a sealed preparation can carry. */
+    public record Clock(
+            java.time.Instant beforeEpoch,
+            java.time.Instant recorded,
+            java.time.LocalDate born,
+            java.time.LocalDateTime local,
+            java.time.LocalTime time,
+            OffsetDateTime offset,
+            java.time.YearMonth month,
+            java.time.ZoneId zone,
+            java.time.Duration elapsed,
+            java.time.Duration correction) {}
+
+    @Test
+    void shouldKeepTheJavaTimeWireFormat_whenAPreparationIsSealedAndReadBack() throws Exception {
+        // #5711 moved jackson-datatype-jsr310 from 2.17.1 to the jackson-bom version. The text a
+        // preparation is sealed with must not change: ISO-8601 for dates, times and instants
+        // (the fraction kept), numeric seconds for durations. 2.17 read a negative fractional
+        // duration back wrong (-1.5 s as -0.5 s); the aligned module reads it exactly.
+        var dao = mock(CdsImportPreparationDao.class);
+        Map<String, CdsImportPreparation> rows = new HashMap<>();
+        when(dao.get(anyString())).thenAnswer(call -> rows.get(call.getArgument(0)));
+        doAnswer(
+                        call -> {
+                            CdsImportPreparation row = call.getArgument(0);
+                            rows.put(row.getId(), row);
+                            return null;
+                        })
+                .when(dao)
+                .persist(any());
+        var value =
+                new Clock(
+                        java.time.Instant.parse("1901-12-13T20:45:52.5Z"),
+                        java.time.Instant.parse("2024-03-10T07:00:00.123456789Z"),
+                        java.time.LocalDate.of(1950, 2, 28),
+                        java.time.LocalDateTime.of(2021, 11, 7, 1, 30),
+                        java.time.LocalTime.of(9, 5),
+                        OffsetDateTime.parse("1883-11-18T12:00:00-05:17:32"),
+                        java.time.YearMonth.of(2023, 7),
+                        java.time.ZoneId.of("America/St_Johns"),
+                        java.time.Duration.ofDays(30),
+                        java.time.Duration.ofMillis(-1500));
+        service(dao).store("run", 1, "a".repeat(64), "b".repeat(64), command(), value);
+        assertThat(rows.values().iterator().next().getPayload())
+                .isEqualTo(
+                        "{\"beforeEpoch\":\"1901-12-13T20:45:52.500Z\","
+                                + "\"recorded\":\"2024-03-10T07:00:00.123456789Z\","
+                                + "\"born\":\"1950-02-28\","
+                                + "\"local\":\"2021-11-07T01:30:00\","
+                                + "\"time\":\"09:05:00\","
+                                + "\"offset\":\"1883-11-18T12:00:00-05:17:32\","
+                                + "\"month\":\"2023-07\","
+                                + "\"zone\":\"America/St_Johns\","
+                                + "\"elapsed\":2592000.000000000,"
+                                + "\"correction\":-1.500000000}");
+        try (var ownership = mockStatic(CdsImportUnitService.class)) {
+            var decoded =
+                    service(dao)
+                            .load("run", 1, "a".repeat(64), "b".repeat(64), command(), Clock.class);
+            assertThat(decoded).isEqualTo(value);
+            assertThat(decoded.correction()).isEqualTo(java.time.Duration.ofMillis(-1500));
+            assertThat(decoded.offset().getOffset()).isEqualTo(value.offset().getOffset());
+        }
+    }
+
     @Test
     void shouldPersistAndReuseCanonicalLargeDto_whenMapOrderChangesAfterRestart() throws Exception {
         var dao = mock(CdsImportPreparationDao.class);
