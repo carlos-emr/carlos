@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "95679f2ac4f2e0af46b9947460fe0b3289527a7a",
+  "comparisonSha256": "856ff491ecf2e7aa7e82c59fa6bb743fdd1d4d553d5b999068237f100cf6acf3",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/conversion/DrugConverterImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "2e9cd4ad0abfb82178c35c6291a5e06604169b83"
+    }
+  },
+  "exclusions": {},
+  "zeroCoverageWaivers": {},
+  "baselineCommit": "08f96ec8e6aa7a7fbd5623901a78a5401a2ad572",
+  "baselineSourceTree": "95679f2ac4f2e0af46b9947460fe0b3289527a7a",
+  "baselineReportSha256": "9fc1143650dcdf15184ee52cd242c8552bd962bb42704785105198649e58ebf4",
+  "baselineLane": "PR #6367 (issue #6185), refresh for DrugConverterImpl.java after review commit 08f96ec8e6 changed it (the REST strength pattern): complete Java suite (unit and H2 integration tests) with JaCoCo, run locally and not in CI, on PR commit 08f96ec8e6, which has release/2026.08 at c9f259f877 merged in. Command: mvn -B -ntp clean test jacoco:report -Dtest.forkCount=2, OpenJDK 25 and Maven 3.9.11 on Ubuntu. Maven reported 44080 tests run, 0 failures, 0 errors, 503 skipped; baselineTestCounts is the total of the run's Surefire XML reports. The row of this one Java file is measured from that run's jacoco.xml with the checker's own measure(); the other 14 files this PR changes are unchanged since evidence 11bccc0a and keep it. No Chromium smoke lane; no zero-floor waiver is added.",
+  "baselineTestCounts": {
+    "tests": 43933,
+    "skipped": 503,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "b4c345dd4745a2f869ca3f800c6ce6251f1acc6e3f84d98f207ec9147479bbbd",
+  "baselineTestReportsHashFormat": "SHA-256 of a sha256sum-style manifest of the run's Surefire TEST-*.xml report files: one '<sha256>  <file name>' line each, sorted by name",
+  "baselineTestRunCommit": "08f96ec8e6aa7a7fbd5623901a78a5401a2ad572",
+  "baselineAdditionalTestRuns": []
+}
