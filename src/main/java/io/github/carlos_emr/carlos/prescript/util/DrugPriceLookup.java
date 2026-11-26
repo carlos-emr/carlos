@@ -80,6 +80,7 @@ public class DrugPriceLookup {
 	private static Logger log = MiscUtils.getLogger();
 
 	static final AtomicReference<Map<String, String>> costLookup = new AtomicReference<>(Collections.emptyMap());
+	private static final Object RELOAD_LOCK = new Object();
 	static volatile boolean loaded = false;
 
 	/** Utility class — not instantiable. */
@@ -116,7 +117,7 @@ public class DrugPriceLookup {
 	 *
 	 * @since 2026-03-22
 	 */
-	static public synchronized void reLoadLookupInformation() {
+	static public void reLoadLookupInformation() {
 		loadCostLookupInformation(true);
 	}
 
@@ -174,7 +175,7 @@ public class DrugPriceLookup {
 	static private void loadCostLookupInformation(boolean force) {
 		log.debug("current price lookup size {}", costLookup.get().size());
 		if (force || !loaded) {
-			synchronized (DrugPriceLookup.class) {
+			synchronized (RELOAD_LOCK) {
 				if (force || !loaded) {
 					ResourceStorageDao resourceStorageDao = SpringUtils.getBean(ResourceStorageDao.class);
 					try (InputStream is = resolveOdbInputStream(resourceStorageDao)) {

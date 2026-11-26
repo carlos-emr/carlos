@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/integration/fhir/api/BIS.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "f8ce3507ab971f7099fa2e680cfdb1cfd02a4917"
+  },
+  "evidenceSha256": "f755970f411b0ac096c337a665b6d94d61c6576249f5517c7857006ea54a71f7"
+}
