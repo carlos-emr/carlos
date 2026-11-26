@@ -5238,7 +5238,7 @@
         "-DexcludedGroups=flyway-schema",
         "-Dcarlos.test.schema.expected=generated"
       ],
-      "minimumCases": 2673,
+      "minimumCases": 2675,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "RxCorrectionSaveRollbackIntegrationTest": 2,
@@ -5258,8 +5258,8 @@
         "LookupDaoIntegrationTest": 1,
         "AbstractDaoFindAllOrderingIntegrationTest": 6,
         "CaseManagementIssueDAOIntegrationTest": 21,
-        "Growth0To36FormPersistenceIntegrationTest": 19,
-        "RehabStudyFormDaoIntegrationTest": 67,
+        "Growth0To36FormPersistenceIntegrationTest": 20,
+        "RehabStudyFormDaoIntegrationTest": 68,
         "FixedJasperReportDaoIntegrationTest": 2,
         "PatientEndYearStatementIntegrationTest": 5,
         "PatientEndYearStatementTransactionIntegrationTest": 2,
@@ -5322,7 +5322,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 281,
+      "minimumCases": 283,
       "requiredFamilies": {
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
@@ -5340,8 +5340,8 @@
         "LabRoutingLookupDaoIntegrationTest": 6,
         "LegacyLabNativeMariaDbIntegrationTest": 8,
         "ArchiveAuditTimestampIntegrationTest": 2,
-        "Growth0To36FormPersistenceIntegrationTest": 19,
-        "RehabStudyFormDaoIntegrationTest": 67,
+        "Growth0To36FormPersistenceIntegrationTest": 20,
+        "RehabStudyFormDaoIntegrationTest": 68,
         "FixedJasperReportDaoIntegrationTest": 2,
         "PatientEndYearStatementIntegrationTest": 5,
         "PatientEndYearStatementTransactionIntegrationTest": 2,
@@ -5395,7 +5395,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 308,
+      "minimumCases": 310,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "BcBillingNativeMariaDbIntegrationTest": 22,
@@ -5411,8 +5411,8 @@
         "AppointmentDaySheetServiceIntegrationTest": 5,
         "AntenatalReportDaoIntegrationTest": 5,
         "EFormGroupDaoIntegrationTest": 9,
-        "Growth0To36FormPersistenceIntegrationTest": 19,
-        "RehabStudyFormDaoIntegrationTest": 67,
+        "Growth0To36FormPersistenceIntegrationTest": 20,
+        "RehabStudyFormDaoIntegrationTest": 68,
         "FixedJasperReportDaoIntegrationTest": 2,
         "PatientEndYearStatementTransactionIntegrationTest": 2,
         "LegacyBcTeleplanExportMariaDbIntegrationTest": 29,

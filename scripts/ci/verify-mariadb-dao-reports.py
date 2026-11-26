@@ -202,7 +202,7 @@ REQUIRED_CASES = {
             "shouldCommitDemographicAudit_whenLoadingWithoutAnMrp",
         )
         for index in (1, 2)
-    },
+    } | {"shouldArchiveWithTheSavesOwnConnection_whenThePoolHasNoSpareConnection"},
     # Issue #5693: every one of the eighteen rehabilitation-study tables must be compared with the
     # retired writer and reader on the physical server, and each rollback and archive case must run.
     "RehabStudyFormDaoIntegrationTest": {
@@ -216,6 +216,7 @@ REQUIRED_CASES = {
         "shouldRollBackAnEarlierInsert_whenARelatedDatabaseWriteFails",
         "shouldRollBackTheGeneratedInsert_whenTheServiceFailsAfterFlushing",
         "shouldCommitTheDemographicAudit_whenStartingANewForm",
+        "shouldArchiveWithTheSavesOwnConnection_whenThePoolHasNoSpareConnection",
     },
 }
 # AbstractDaoFindAllOrderingIntegrationTest pins issue #5308 where it matters: MariaDB returns an
@@ -246,10 +247,10 @@ REQUIRED = {"generated": {"AppointmentFieldAuditTransactionIntegrationTest": 3, 
                           "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
                           "ReportingPatientListAuditMariaDbIntegrationTest": 4,
                           "SoapTokenHousekeepingDaoIntegrationTest": 8,
-                          "Growth0To36FormPersistenceIntegrationTest": 19, "EncounterFormDaoGroupedHistoryIntegrationTest": 2,
+                          "Growth0To36FormPersistenceIntegrationTest": 20, "EncounterFormDaoGroupedHistoryIntegrationTest": 2,
                           # The workflow's Flyway lanes list their suites explicitly; this one is
                           # selected by *Dao*IntegrationTest in the generated lane.
-                          "RehabStudyFormDaoIntegrationTest": 67},
+                          "RehabStudyFormDaoIntegrationTest": 68},
             "flyway": {**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 8, "LabRoutingLookupDaoIntegrationTest": 6,
                        "LegacyLabNativeMariaDbIntegrationTest": 8, "ConsultationArchiveDaoIntegrationTest": 1,
                        "ArchiveAuditTimestampIntegrationTest": 2,
@@ -269,7 +270,7 @@ REQUIRED = {"generated": {"AppointmentFieldAuditTransactionIntegrationTest": 3, 
                           "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
                           "ReportingPatientListAuditMariaDbIntegrationTest": 4,
                           "SoapTokenHousekeepingDaoIntegrationTest": 8,
-                       "Growth0To36FormPersistenceIntegrationTest": 19, "EncounterFormDaoGroupedHistoryIntegrationTest": 2},
+                       "Growth0To36FormPersistenceIntegrationTest": 20, "EncounterFormDaoGroupedHistoryIntegrationTest": 2},
             "bc-flyway": {"FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementTransactionIntegrationTest": 2, "LabRoutingLookupDaoIntegrationTest": 6,
                            "LegacyLabNativeMariaDbIntegrationTest": 8,
                            "ConsultationArchiveDaoIntegrationTest": 1,
@@ -296,7 +297,7 @@ REQUIRED = {"generated": {"AppointmentFieldAuditTransactionIntegrationTest": 3, 
                           "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
                           "ReportingPatientListAuditMariaDbIntegrationTest": 4,
                           "SoapTokenHousekeepingDaoIntegrationTest": 8,
-                           "Growth0To36FormPersistenceIntegrationTest": 19, "EncounterFormDaoGroupedHistoryIntegrationTest": 2}}
+                           "Growth0To36FormPersistenceIntegrationTest": 20, "EncounterFormDaoGroupedHistoryIntegrationTest": 2}}
 
 
 INBOX_CASES = (

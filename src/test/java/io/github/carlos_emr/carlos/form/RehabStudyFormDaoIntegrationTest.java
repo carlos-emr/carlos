@@ -46,6 +46,7 @@ import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 import javax.sql.DataSource;
+import org.apache.commons.dbcp2.BasicDataSource;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.AfterEach;
@@ -578,6 +579,49 @@ class RehabStudyFormDaoIntegrationTest extends CarlosTestBase {
             ReflectionTestUtils.setField(target, "forms", forms);
             restore(configuration, "save_as_xml", previousEnabled);
             restore(configuration, "form_record_path", previousPath);
+        }
+    }
+
+    /**
+     * The XML copy is read after commit with the save's own, still-held connection. A separate
+     * transaction would hold a second pooled connection per archived save, so concurrent saves
+     * could exhaust the pool; here the pool can lend exactly one connection, to the save itself.
+     */
+    @Test
+    void shouldArchiveWithTheSavesOwnConnection_whenThePoolHasNoSpareConnection() throws Exception {
+        RehabStudyFormType<?> type = type("TreatmentPref");
+        Properties configuration = CarlosProperties.getInstance();
+        String previousEnabled = configuration.getProperty("save_as_xml");
+        String previousPath = configuration.getProperty("form_record_path");
+        BasicDataSource pool = (BasicDataSource) source;
+        int previousMax = pool.getMaxTotal();
+        java.time.Duration previousWait = pool.getMaxWaitDuration();
+        List<java.sql.Connection> held = new java.util.ArrayList<>();
+        int id;
+        try (LogCapture logs = LogCapture.forLogger(RehabStudyFormService.class.getName() + "$1")) {
+            configuration.setProperty("save_as_xml", "true");
+            configuration.setProperty("form_record_path", archive.toString());
+            pool.setMaxWait(java.time.Duration.ofSeconds(2));
+            // Hold every idle connection, then allow the pool exactly one more.
+            int idle = pool.getNumIdle();
+            pool.setMaxTotal(pool.getNumActive() + idle + 1);
+            for (int i = 0; i < idle; i++) held.add(pool.getConnection());
+            id = service.saveVersion(actor, type, PATIENT, 0, syntheticPost(type, PATIENT));
+            assertThat(logs.events()).as("archive failures").isEmpty();
+        } finally {
+            for (java.sql.Connection connection : held) connection.close();
+            pool.setMaxTotal(previousMax);
+            pool.setMaxWait(previousWait);
+            restore(configuration, "save_as_xml", previousEnabled);
+            restore(configuration, "form_record_path", previousPath);
+        }
+        assertThat(id).isPositive();
+        assertThat(independentCount(type.table(), PATIENT)).isEqualTo(1);
+        try (var files = Files.list(archive)) {
+            List<Path> saved = files.toList();
+            assertThat(saved).hasSize(1);
+            var document = XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().parse(saved.getFirst().toFile());
+            assertThat(xmlColumns(document).get(isH2() ? "id" : "ID")).isEqualTo(Integer.toString(id));
         }
     }
 

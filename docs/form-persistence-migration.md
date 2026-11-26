@@ -209,7 +209,7 @@ health-care-team audit to commit. Regression cases run the real demographic
 manager's MRP and health-care-team audit path and the real audit DAO (its demographic,
 contact and appointment collaborators are test doubles) and verify the committed audit
 through an independent connection.
-CI's evidence verifier requires nineteen cases in each MariaDB lane, including
+CI's evidence verifier requires twenty cases in each MariaDB lane, including
 both archive-failure and both demographic-audit invocations by their Surefire identities.
 The existing synthetic Growth/Rourke browser suite covers the
 packaged save/load/graph/print callers.
@@ -273,7 +273,11 @@ the JSPs, `encounterForm` registrations, view gate and XML import allowlist are 
   patient's record with `_form` read to load and `_form` write to save, plus
   `_demographic` read for both; it refuses a missing or foreign source version, never reads ID, patient or provider from the post,
   attributes the version to the authenticated provider and writes the optional XML
-  copy only after commit with the existing filename and content contract.
+  copy only after commit with the existing filename and content contract. The
+  post-commit read reuses the save's still-held connection (`SUPPORTS`), where a new
+  transaction would hold a second pooled connection per archived save; the Growth
+  DAO's archive read is changed the same way, and both suites pin this with a pool
+  that can lend only the save's connection.
 - **Values.** [RehabStudyFormValues](../src/main/java/io/github/carlos_emr/carlos/form/RehabStudyFormValues.java)
   keeps the retired contract column by column: a stored 1 is shown as
   `checked='checked'`, anything else as empty; `on` or `checked='checked'` (any
@@ -292,7 +296,7 @@ the JSPs, `encounterForm` registrations, view gate and XML import allowlist are 
   write instead of failing on the `NOT NULL` column. A non-numeric provider number,
   which the retired writer stored as 0, is refused as in the Growth slice.
 
-`RehabStudyFormDaoIntegrationTest` (67 cases) passes on H2 and on the physical
+`RehabStudyFormDaoIntegrationTest` (68 cases) passes on H2 and on the physical
 MariaDB generated, Ontario Flyway and BC Flyway schemas (CI currently runs only the
 H2 and generated lanes; see the end of this section). For every table it saves a
 post that gives every column a value through the service and through the retired
@@ -306,7 +310,7 @@ ID prefill, physical column metadata, and the XML copy (committed rows only,
 import filename contract, read and filesystem failures logged without values).
 Commits and rollbacks are checked from an independent connection. CI's generated
 MariaDB lane selects the suite through `*Dao*IntegrationTest`, and the evidence
-verifier requires all 67 cases there; the Flyway lanes of
+verifier requires all 68 cases there; the Flyway lanes of
 `.github/workflows/maven-project.yml` list their suites explicitly and need
 `RehabStudyFormDaoIntegrationTest` added to run it (it is in the release
 qualification lanes of `docs/testing/release-2026.08-verification.json`).

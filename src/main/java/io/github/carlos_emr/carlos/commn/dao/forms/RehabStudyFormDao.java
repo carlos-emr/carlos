@@ -78,14 +78,19 @@ public class RehabStudyFormDao {
 
     /**
      * Reads a committed version as the optional XML interchange copy, keeping its JDBC column
-     * names and value encoding. Runs in a fresh transaction because it is called after commit.
+     * names and value encoding.
+     *
+     * <p>Called from the save's after-commit callback, where the save's EntityManager and
+     * connection are still bound: SUPPORTS reads through them. A new transaction would hold a
+     * second pooled connection beside the save's, so concurrent archived saves could exhaust the
+     * pool. Called with no transaction, it reads in a non-transactional scope of its own.</p>
      *
      * @param type the questionnaire entity
      * @param patient the patient's demographic number
      * @param id the version ID
      * @return the row as the legacy {@code <Results><Row>} document
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+    @Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
     public Document readArchive(Class<? extends RehabStudyAssessment> type, int patient, int id) {
         String sql = archiveSql(tableOf(type));
         return entityManager.unwrap(Session.class).doReturningWork(connection -> {

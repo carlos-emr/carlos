@@ -66,9 +66,11 @@ public class FormGrowth0To36Dao extends AbstractDaoImpl<FormGrowth0To36> {
 
     /**
      * Keeps the optional legacy XML interchange's JDBC column names and value encoding.
-     * A fresh transaction is required because this read is called after the save commits.
+     * Called after the save commits, while the save's EntityManager and connection are still
+     * bound: SUPPORTS reads through them, where a new transaction would hold a second pooled
+     * connection per archived save (issue #5693 review).
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+    @Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
     public Document readArchive(int patient, int id) {
         return entityManager.unwrap(Session.class).doReturningWork(connection -> {
             try (var query = connection.prepareStatement("SELECT * FROM formGrowth0_36 WHERE demographic_no = ? AND ID = ?")) {

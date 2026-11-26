@@ -149,6 +149,28 @@ class RehabStudyFormServiceUnitTest {
     }
 
     @Test
+    void shouldOpenNewAndSavedForms_withFormReadAccessAlone() {
+        when(security.hasPrivilege(actor, "_form", "w", "123")).thenReturn(false);
+        when(security.hasPrivilege(actor, "_demographic", "w", "123")).thenReturn(false);
+        FormSF36 saved = new FormSF36();
+        saved.setDemographicNo(PATIENT);
+        ReflectionTestUtils.setField(saved, "id", 44);
+        when(forms.findForPatient(FormSF36.class, PATIENT, 44)).thenReturn(saved);
+        when(demographics.getDemographic(actor, PATIENT)).thenReturn(patient());
+
+        assertThat(service.load(actor, type("SF36"), PATIENT, 0).getProperty("demographic_no")).isEqualTo("123");
+        assertThat(service.load(actor, type("SF36"), PATIENT, 44).getProperty("ID")).isEqualTo("44");
+
+        verify(security, org.mockito.Mockito.times(2)).hasPrivilege(actor, "_form", "r", "123");
+        verify(security, org.mockito.Mockito.times(2)).hasPrivilege(actor, "_demographic", "r", "123");
+        verify(security, never()).hasPrivilege(actor, "_form", "w", "123");
+        Properties values = post();
+        assertThatThrownBy(() -> service.saveVersion(actor, type("SF36"), PATIENT, 0, values))
+                .isInstanceOf(SecurityException.class).hasMessage("missing required sec object (_form)");
+        verify(forms, never()).persist(any());
+    }
+
+    @Test
     void shouldRefuse_whenTheVersionIsMissingOrAnotherPatients() {
         Properties values = post();
         assertThatThrownBy(() -> service.load(actor, type("SF36"), PATIENT, 44)).isInstanceOf(SecurityException.class)

@@ -459,6 +459,41 @@ class Growth0To36FormPersistenceIntegrationTest extends CarlosTestBase {
         }
     }
 
+    /** The post-commit archive read uses the save's own connection, not a second pooled one. */
+    @Test
+    void shouldArchiveWithTheSavesOwnConnection_whenThePoolHasNoSpareConnection() throws Exception {
+        Properties configuration = CarlosProperties.getInstance();
+        String previousEnabled = configuration.getProperty("save_as_xml");
+        String previousPath = configuration.getProperty("form_record_path");
+        org.apache.commons.dbcp2.BasicDataSource pool = (org.apache.commons.dbcp2.BasicDataSource) source;
+        int previousMax = pool.getMaxTotal();
+        java.time.Duration previousWait = pool.getMaxWaitDuration();
+        java.util.List<java.sql.Connection> held = new java.util.ArrayList<>();
+        int id;
+        try (LogCapture logs = LogCapture.forLogger(Growth0To36FormService.class.getName() + "$1")) {
+            configuration.setProperty("save_as_xml", "true");
+            configuration.setProperty("form_record_path", archive.toString());
+            pool.setMaxWait(java.time.Duration.ofSeconds(2));
+            // Hold every idle connection, then allow the pool exactly one more.
+            int idle = pool.getNumIdle();
+            pool.setMaxTotal(pool.getNumActive() + idle + 1);
+            for (int i = 0; i < idle; i++) held.add(pool.getConnection());
+            id = service.saveVersion(actor, patient, 0, values);
+            assertThat(logs.events()).as("archive failures").isEmpty();
+        } finally {
+            for (java.sql.Connection connection : held) connection.close();
+            pool.setMaxTotal(previousMax);
+            pool.setMaxWait(previousWait);
+            restore(configuration, "save_as_xml", previousEnabled);
+            restore(configuration, "form_record_path", previousPath);
+        }
+        assertThat(id).isPositive();
+        assertThat(independentCount()).isEqualTo(1);
+        try (var files = Files.list(archive)) {
+            assertThat(files.filter(path -> path.getFileName().toString().endsWith(".xml"))).hasSize(1);
+        }
+    }
+
     private static Map<String, String> xmlColumns(org.w3c.dom.Document document) {
         Map<String, String> result = new TreeMap<>();
         var columns = document.getElementsByTagName("Row").item(0).getChildNodes();

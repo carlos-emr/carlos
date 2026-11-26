@@ -23,6 +23,7 @@ GROWTH_REQUIRED_CASES = {
     "shouldRetainCommittedFormAndLogSafely_whenArchiveReadOrWriteFails(boolean)[2]",
     "shouldCommitDemographicAudit_whenLoadingWithoutAnMrp(boolean)[1]",
     "shouldCommitDemographicAudit_whenLoadingWithoutAnMrp(boolean)[2]",
+    "shouldArchiveWithTheSavesOwnConnection_whenThePoolHasNoSpareConnection",
 }
 
 # Issue #5693: one physical comparison per rehabilitation-study table, plus the rollback, audit
@@ -36,6 +37,7 @@ REHAB_REQUIRED_CASES = {
     "shouldRollBackAnEarlierInsert_whenARelatedDatabaseWriteFails",
     "shouldRollBackTheGeneratedInsert_whenTheServiceFailsAfterFlushing",
     "shouldCommitTheDemographicAudit_whenStartingANewForm",
+    "shouldArchiveWithTheSavesOwnConnection_whenThePoolHasNoSpareConnection",
 }
 
 
