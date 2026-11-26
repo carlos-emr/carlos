@@ -352,6 +352,13 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
         assertThat(rendered.get().toConfig()).containsEntry("medicationPanel", true);
         var datasets = (List<Map<String, Object>>) rendered.get().toConfig().get("datasets");
         assertThat(datasets).singleElement().satisfies(dataset -> assertThat((List<?>) dataset.get("data")).isEmpty());
+        if (lookupFails) {
+            assertThat(rendered.get().toConfig()).doesNotContainKey("note");
+        } else {
+            // CodeRabbit review: the number has no date to place it by, so it is counted as not shown.
+            assertThat(rendered.get().toConfig()).containsEntry("note",
+                    "Results not shown on this chart: 1. Open the full report to see them.");
+        }
     }
 
     // The other charts the graph action draws, all from FAKE values.
@@ -409,7 +416,7 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
     void shouldReportOmittedText_whenAMeasurementChartAlsoHasANumber(String method) throws Exception {
         request.setParameter("method", method);
         AtomicReference<MeasurementChart> rendered = new AtomicReference<>();
-        executeChartFrom(type -> List.of(measurement("WT", "Weight", "kg", "Pending"),
+        executeChartFrom(type -> List.of(fromReport(measurement("WT", "Weight", "kg", "Pending")),
                 measurement("WT", "Weight", "kg", "63")), rendered);
 
         assertThat(response.getStatus()).isEqualTo(200);
@@ -447,12 +454,30 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
         request.addPreferredLocale(Locale.FRENCH);
         AtomicReference<MeasurementChart> rendered = new AtomicReference<>();
         executeChartFrom(type -> "HT".equals(type)
-                ? List.of(measurement("HT", "Height", "cm", "Not detected"), measurement("HT", "Height", "cm", "170"))
-                : List.of(measurement("WT", "Weight", "kg", "Pending"), measurement("WT", "Weight", "kg", "63")), rendered);
+                ? List.of(fromReport(measurement("HT", "Height", "cm", "Not detected")), measurement("HT", "Height", "cm", "170"))
+                : List.of(fromReport(measurement("WT", "Weight", "kg", "Pending")), measurement("WT", "Weight", "kg", "63")), rendered);
 
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(rendered.get().toConfig()).containsEntry("note",
                 "Résultats non affichés sur ce graphique : 2. Ouvrez le compte rendu complet pour les voir.");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"inclRef", "rxincl", "lab", "labRef"})
+    void shouldLeaveAValueEnteredByHandOutOfTheNote_whenItIsNotANumber(String method) throws Exception {
+        // CodeRabbit review: the note sends the reader to the full report. A value typed into the chart has none,
+        // so only the result filed from a report is counted; the hand-entered N/A stays off the chart, as before.
+        request.setParameter("method", method);
+        AtomicReference<MeasurementChart> rendered = new AtomicReference<>();
+        executeChartFrom(type -> List.of(measurement("WT", "Weight", "kg", "N/A"),
+                fromReport(measurement("WT", "Weight", "kg", "Pending")), measurement("WT", "Weight", "kg", "63")), rendered);
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(rendered.get().toConfig()).containsEntry("note",
+                "Results not shown on this chart: 1. Open the full report to see them.");
+        assertThat(datasets(rendered.get())).filteredOn(dataset -> "line".equals(dataset.get("kind")))
+                .singleElement().satisfies(dataset -> assertThat(points(dataset))
+                        .extracting(point -> point.get("y")).containsExactly(63.0));
     }
 
     @Test
@@ -777,6 +802,21 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
                 .extracting(point -> point.get("y")).containsExactly(4.2));
     }
 
+    @Test
+    void shouldCountALabNumber_whenTheSourceGaveItNoCollectionDate() throws Exception {
+        Map<String, Serializable> undated = new java.util.HashMap<>(labValue(""));
+        undated.remove("collDate");
+        undated.remove("collDateDate");
+        undated.put("result", "5.0");
+        MeasurementChart chart = executeLabChart(List.of(labValue(""), undated));
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(chart.toConfig()).containsEntry("note",
+                "Results not shown on this chart: 1. Open the full report to see them.");
+        assertThat(datasets(chart)).singleElement().satisfies(dataset -> assertThat(points(dataset))
+                .extracting(point -> point.get("y")).containsExactly(4.2));
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void shouldOmitALabRowFiledAsText_whenItsWordsStartWithANumber(boolean withMedications) throws Exception {
@@ -854,6 +894,12 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
                     });
             assertThat(graphAction.get().execute()).isEqualTo("none");
         }
+    }
+
+    /** The measurement as filed from a lab report: {@code populateSourceLabs} gives it the report's number. */
+    private static EctMeasurementsDataBean fromReport(EctMeasurementsDataBean measurement) {
+        measurement.setSourceLabNo(4616);
+        return measurement;
     }
 
     private static EctMeasurementsDataBean measurement(String type, String name, String units, String result) {

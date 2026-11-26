@@ -379,10 +379,12 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             // A result filed as text is the lab's words even when they start with a number ("2 bands present"):
             // it is counted as not shown, never read as a reading (#6142 review).
             String result = measurement.isFiledAsText() ? null : numericResult(measurement.getDataField());
-            if (result == null) {
-                omitted++;
-            } else {
+            if (result != null) {
                 series.addOrUpdate(observedDay(measurement), plottedValue(measurement.getType(), result));
+            } else if (measurement.isFiledAsText() || measurement.getSourceLabNo() != null) {
+                // The note sends the reader to the full report, so it counts only results filed from one. A value
+                // entered by hand that is not a number has no report; it stays off the chart, as it always did.
+                omitted++;
             }
         }
         dataset.addSeries(series);
@@ -563,9 +565,10 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             // As for measurements: a row filed as text is counted as not shown, never read as a number.
             String result = CommonLabTestValues.isTextResult(value) ? null : numericResult((String) value.get("result"));
             Day collectionDate = collectionDay(value, name);
-            if (result == null) {
+            if (result == null || collectionDate == null) {
+                // Not drawn: a word or text result, or a number the source gave no date to place it by.
                 omitted++;
-            } else if (collectionDate != null) {
+            } else {
                 series.addOrUpdate(collectionDate, Double.parseDouble(result));
             }
             addLabReferenceRange(ranges, value, name);
