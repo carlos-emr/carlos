@@ -663,6 +663,86 @@ class TestApprovedStop(HostConflictsCase):
                 self.assertEqual(self.stops(), [])
                 self.assertNotIn("stopped:", r.stdout)
 
+    def split_ports(self, service_port_first, triggers):
+        """The service holds :80 on its own; its socket holds :443 (review case)."""
+        service = {"addr": "0.0.0.0:80", "owners": [{"name": "lighttpd", "pid": 300}]}
+        listeners = [service, dict(LIGHTTPD_SOCKET)]
+        if not service_port_first:
+            listeners.reverse()
+        scenario = self.socket_with_its_service([], triggers)
+        scenario["listeners"] = listeners
+        return scenario
+
+    def test_service_on_another_port_than_its_unapproved_socket_is_not_stopped(self):
+        # colliding scans 80 before 443, so the service's own :80 row comes first.
+        for first in (True, False):
+            with self.subTest(service_port_first=first):
+                open(self.log, "w").close()
+                r = self.run_script(self.split_ports(first, "lighttpd.service other.service"),
+                                    "front-door", "--approved", "lighttpd.socket lighttpd.service",
+                                    "0.0.0.0")
+                self.assertEqual(r.returncode, 1, r.stdout)
+                self.assertEqual(self.stops(), [])
+                self.assertNotIn("stopped:", r.stdout)
+                self.assertIn("blocked: lighttpd (pid 300, lighttpd.service) is listening on 0.0.0.0:80",
+                              r.stdout)
+
+    def test_service_on_another_port_than_its_approved_socket_stops_with_it(self):
+        for first in (True, False):
+            with self.subTest(service_port_first=first):
+                plan = self.run_script(self.split_ports(first, "lighttpd.service"), "front-door",
+                                       "--plan", "0.0.0.0")
+                self.assertEqual(plan.stdout.count("will-stop:"), 1, plan.stdout)
+                open(self.log, "w").close()
+                r = self.run_script(self.split_ports(first, "lighttpd.service"), "front-door",
+                                    "--approved", "lighttpd.socket lighttpd.service", "0.0.0.0")
+                self.assertEqual(r.returncode, 0, r.stdout)
+                self.assertEqual(self.stops(),
+                                 ["systemctl disable --now lighttpd.socket lighttpd.service"])
+
+    def test_service_of_a_socket_left_for_a_protected_service_is_not_stopped_alone(self):
+        # The socket also starts docker.service, so it is never stopped from
+        # here; stopping lighttpd.service alone would only see it restarted.
+        for mode in ((), ("--approved", "lighttpd.service")):
+            for first in (True, False):
+                with self.subTest(mode=mode, service_port_first=first):
+                    open(self.log, "w").close()
+                    args = ("--plan",) if not mode else mode
+                    r = self.run_script(self.split_ports(first, "lighttpd.service docker.service"),
+                                        "front-door", *args, "0.0.0.0")
+                    self.assertEqual(r.returncode, 1, r.stdout)
+                    self.assertEqual(self.stops(), [])
+                    self.assertNotIn("will-stop", r.stdout)
+                    self.assertIn("the socket that starts it is left running", r.stdout)
+        # The legacy (unapproved) stop form holds it back too.
+        open(self.log, "w").close()
+        r = self.run_script(self.split_ports(True, "lighttpd.service docker.service"),
+                            "front-door", "0.0.0.0")
+        self.assertEqual(self.stops(), [])
+
+    def test_service_of_a_socket_policy_rc_d_keeps_up_is_not_stopped_alone(self):
+        # policy-rc.d refuses the socket but not its service (a per-service
+        # policy): the service stays up with the socket.
+        # policy-rc.d is asked with the unit's name minus its suffix.
+        policy = os.path.join(self.bin, "policy-rc.d")
+        with open(policy, "w") as fh:
+            fh.write('#!/bin/sh\ncase "$1" in lighttpd) exit 101 ;; esac\nexit 0\n')
+        os.chmod(policy, 0o755)
+        units = {"lighttpd.socket": {"FragmentPath": "/usr/lib/systemd/system/lighttpd.socket",
+                                     "Triggers": "httpd-worker.service"},
+                 "httpd-worker.service": {"FragmentPath": "/usr/lib/systemd/system/httpd-worker.service"}}
+        scenario = {"listeners": [{"addr": "0.0.0.0:80", "owners": [{"name": "worker", "pid": 300}]},
+                                  dict(LIGHTTPD_SOCKET)],
+                    "procs": {"300": {"unit": "httpd-worker.service"}}, "units": units, "dpkg": {}}
+        for args in (("--plan",), ("--approved", "httpd-worker.service"), ()):
+            with self.subTest(args=args):
+                open(self.log, "w").close()
+                r = self.run_script(scenario, "front-door", *args, "0.0.0.0")
+                self.assertEqual(self.stops(), [], r.stdout)
+                self.assertNotIn("will-stop", r.stdout)
+                self.assertIn("blocked: worker (pid 300, httpd-worker.service)", r.stdout)
+                self.assertIn("the socket that starts it is left running", r.stdout)
+
     def test_a_socket_and_its_running_service_are_planned_once_in_either_order(self):
         for order, owners in self.OWNER_ORDERS.items():
             with self.subTest(order=order):

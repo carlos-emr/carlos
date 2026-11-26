@@ -41,7 +41,9 @@
 #       fresh scan: anything that took a port while the operator was reading
 #       is left running and named as "blocked:", never stopped unseen (#6060).
 #       A socket is stopped only when every service it now starts was approved
-#       too. An empty --approved stops nothing. Without --approved the run
+#       too, and a service a socket starts is never stopped while that socket
+#       stays up (whatever order or port ss reports them on): the socket would
+#       only start it again. An empty --approved stops nothing. Without --approved the run
 #       stops everything that qualifies, as before; that form exists only for
 #       callers that predate the flag (an older carlos-ctl) and must not be
 #       used after asking anyone anything.
@@ -337,6 +339,15 @@ sockets_first() {
     awk '$3 ~ /\.socket$/ { print; next } { rest[++n] = $0 } END { for (i = 1; i <= n; i++) print rest[i] }'
 }
 
+# A socket ($1) that stays up keeps the services it starts: add them to
+# ${held}, so none is stopped on its own. Not a socket: nothing to hold.
+hold_triggers_of() {
+    case "$1" in *.socket) ;; *) return 0 ;; esac
+    for triggered in $(systemctl show --property=Triggers --value "$1" 2>/dev/null); do
+        held="${held}${triggered} "
+    done
+}
+
 front_door() {
     mode=free
     # approval=1: stop only the units listed in ${approved}, a space-padded
@@ -366,6 +377,10 @@ front_door() {
     denied=" "
     # Units found now that the operator was never asked about (--approved).
     unapproved=" "
+    # Services a socket starts, held back because that socket stays up (one of
+    # its services may never be stopped from here): stopped alone, the socket
+    # would only start them again.
+    held=" "
     if [ "${mode}" != report ]; then
         stopped_units=" "
         while read -r name pid unit addrs; do
@@ -374,11 +389,15 @@ front_door() {
                 *.service | *.socket) ;;
                 *) continue ;;
             esac
-            protected_unit "${unit}" && continue
+            if protected_unit "${unit}"; then
+                hold_triggers_of "${unit}"
+                continue
+            fi
             case "${stopped_units}" in *" ${unit} "*) continue ;; esac
-            case "${unapproved}" in *" ${unit} "*) continue ;; esac
+            case "${unapproved}${held}" in *" ${unit} "*) continue ;; esac
             if ! policy_allows_stop "${unit}"; then
                 denied="${denied}${unit} "
+                hold_triggers_of "${unit}"
                 continue
             fi
             if app="$(snap_app "${unit}")" && command -v snap >/dev/null 2>&1; then
@@ -411,7 +430,10 @@ front_door() {
                     protected_unit "${triggered}" && also_ok=0
                     policy_allows_stop "${triggered}" || also_ok=0
                 done
-                [ "${also_ok}" = 1 ] || continue
+                if [ "${also_ok}" = 0 ]; then
+                    hold_triggers_of "${unit}"
+                    continue
+                fi
             fi
             origin="$(origin_of "${unit}")"
             # The units a socket starts are handled with it: ss names the
@@ -478,6 +500,7 @@ EOF
         [ "${unit}" != "-" ] || unit=""
         why=""
         case "${denied}" in *" ${unit} "*) why="policy-rc.d forbids stopping services during this install, so it was left running; " ;; esac
+        case "${held}" in *" ${unit} "*) why="the socket that starts it is left running, so it was left running too; " ;; esac
         case "${unapproved}" in *" ${unit} "*) why="it was not among the services approved for stopping (it took the port, or changed, after the list was shown), so it was left running; " ;; esac
         say "blocked: $(describe "${name}" "${pid}" "${unit}" "${addrs}"), so nginx cannot serve the CARLOS front door; ${why}$(advice "${name}" "${unit}")"
     done <<EOF
