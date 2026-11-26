@@ -15,6 +15,9 @@ carlos-emr (2026.09.0~snapshot30) resolute; urgency=medium
     Tomcat conffile payloads during upgrades.
   * Correct configuration provenance, audit purge recovery and release
     qualification binding to the artifacts actually published.
+  * Stop only the port 80/443 services the operator approved: the stop run
+    is given the units of the plan that was shown and leaves, and reports,
+    anything that took a port while the question was open (#6060).
 
  -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Mon, 09 Nov 2026 13:00:00 +0000
 
