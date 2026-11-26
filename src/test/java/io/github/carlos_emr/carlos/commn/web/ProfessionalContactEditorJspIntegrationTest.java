@@ -73,8 +73,9 @@ class ProfessionalContactEditorJspIntegrationTest {
 
         Document html = server.request(PAGE)
                 .header("Accept-Language", language)
-                // The refused form posted an empty contactType; the action resolved the type itself.
-                .parameter("contactType", "")
+                // The action-resolved specialist type takes precedence over the posted contact type.
+                .parameter("contactType", String.valueOf(DemographicContact.TYPE_CONTACT))
+                .post()
                 .render(ProfessionalContactEditorJspIntegrationTest::refuseStaleSpecialistEdit)
                 .assertOk()
                 .document();

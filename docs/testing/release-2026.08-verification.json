@@ -11692,7 +11692,7 @@
       ]
     },
     ".devcontainer/development/config/shared/volumes/drugref2.properties": {
-      "reason": "The mounted dev DrugRef settings pair MySQL Connector/J (com.mysql.cj.jdbc.Driver) with a jdbc:mysql: URL that a WAR shipping only Connector/J loads and accepts, printing only the PASS line and neither the URL nor the password; the pre-#6282 MariaDB driver/URL pair is refused (#6282).",
+      "reason": "The probe reads the mounted dev DrugRef settings in a fixture WAR with a stand-in com.mysql.cj.jdbc.Driver that accepts the jdbc:mysql: prefix. The test verifies that the configured driver loads in the fixture, the probe prints only PASS without the URL or password, and the pre-#6282 MariaDB driver/URL pair is refused (#6282).",
       "tests": [
         "src/test/java/io/github/carlos_emr/carlos/devcontainer/DriverConfigurationProbeUnitTest.java"
       ],
@@ -13009,9 +13009,10 @@
       ]
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/pageUtil/DemographicExportAction42Action.java": {
-      "reason": "Pins #6185: CDS 4.2 export dosage is a plain decimal with no trailing zero (ISMP Do Not Use) or exponent. Covers the helper only, not the call site inside the export loop.",
+      "reason": "Pins #6185: the CDS 4.2 medication export writes Dosage 1 for a one-tablet dose in the patient XML. The formatter tests also verify plain decimal dosages without trailing zeros or exponents, with the leading zero retained for fractions.",
       "tests": [
-        "src/test/java/io/github/carlos_emr/carlos/demographic/pageUtil/DemographicExportAction42ActionDosageFormatUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/demographic/pageUtil/DemographicExportAction42ActionDosageFormatUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/pageUtil/DemographicExportAction42ActionDosageXmlUnitTest.java"
       ],
       "checks": [
         "java-all"
@@ -15922,13 +15923,11 @@
       "reason": "The classic inbox index renders the documents-incomplete warning once, as a role=alert banner above the inbox in the page's language (English, French), when inboxDocumentsIncomplete is TRUE, and none when it is FALSE or absent. Rendered with the attribute set by the test: prepareForIndexPage, the only route to this page, never sets it.",
       "tests": [
         "src/test/java/io/github/carlos_emr/carlos/documentManager/InboxIndexJspIntegrationTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/documentManager/actions/DmsInboxManage2ActionUnitTest.java",
-        "scripts/inbox-failure-states-playwright-checks.js"
+        "src/test/java/io/github/carlos_emr/carlos/documentManager/actions/DmsInboxManage2ActionUnitTest.java"
       ],
       "checks": [
         "java-all",
-        "jsp-compile",
-        "manual-inbox-failure-states"
+        "jsp-compile"
       ],
       "workstreams": [
         "T14",
@@ -15972,7 +15971,8 @@
       "tests": [
         "src/test/java/io/github/carlos_emr/carlos/report/ReportByTemplateLayoutJspIntegrationTest.java",
         "src/test/java/io/github/carlos_emr/carlos/report/ReportByTemplateLayoutJspRegressionUnitTest.java",
-        "scripts/report-by-template-playwright-checks.js"
+        "scripts/report-by-template-playwright-checks.js",
+        "scripts/report-by-template-tabs-playwright-checks.js"
       ],
       "checks": [
         "java-all",

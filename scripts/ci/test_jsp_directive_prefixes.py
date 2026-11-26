@@ -126,17 +126,47 @@ class EncounterIncludeFragmentDirectiveTest(unittest.TestCase):
                 if name == 'encounter-row-three.jspf':
                     self.assertRegex(source, r'<%@\s*taglib\b[^%]*prefix="security"')
 
-    def test_fragments_are_not_included_by_any_page(self):
-        stems = tuple(RETIRED_ENCOUNTER_FRAGMENTS)
-        pattern = re.compile(r'(?:include|page|file|forward|result)[^\n]*(?:' + '|'.join(map(re.escape, stems)) + ')')
+    def test_fragment_reference_scan_ignores_jsp_comments_and_reports_directive_lines(self):
+        markup = """<%-- <%@ include file="encounter-head.jspf" %> --%>
+<%--
+<jsp:include page="encounter-row-three.jspf"/>
+--%>
+<%@ include
+    file="/WEB-INF/jsp/encounter/includes/encounter-head.jspf" %>
+<jsp:include
+    page="encounter-header-bar.jspf?mode=fake"/>
+"""
+        self.assertEqual(list(self.jsp_reference_lines(markup)), [5, 7])
+
+    @staticmethod
+    def jsp_reference_lines(text):
+        active = checker.COMMENT.sub(lambda match: re.sub(r'[^\n]', ' ', match[0]), text)
         references = []
-        for root in (WEBAPP, WEBAPP.parents[0] / 'java', WEBAPP.parents[0] / 'resources'):
+        for match in checker.DIRECTIVE.finditer(active):
+            if match[1] == 'include':
+                references.append((match.start(), checker.attributes(match[0]).get('file', '')))
+        for match in checker.DYNAMIC_DISPATCH.finditer(active):
+            references.append((match.start(), checker.attributes(match[1]).get('page', '')))
+        for offset, target in sorted(references):
+            path = re.split(r'[?#]', target, maxsplit=1)[0]
+            if path.rsplit('/', 1)[-1] in RETIRED_ENCOUNTER_FRAGMENTS:
+                yield text.count('\n', 0, offset) + 1
+
+    def test_fragments_are_not_included_by_any_page(self):
+        pattern = re.compile(r'(?:include|page|file|forward|result)[^\n]*(?:'
+                             + '|'.join(map(re.escape, RETIRED_ENCOUNTER_FRAGMENTS)) + ')')
+        references = []
+        for root in (WEBAPP, WEBAPP.parent / 'java', WEBAPP.parent / 'resources'):
             for source in root.rglob('*'):
                 if source.suffix not in ('.jsp', '.jspf', '.xml', '.tag', '.java') or not source.is_file():
                     continue
-                for number, text in enumerate(source.read_text(encoding='utf-8', errors='replace').splitlines(), 1):
-                    if pattern.search(text) and not text.lstrip().startswith(('//', '*', '/*')):
-                        references.append(f'{source.relative_to(WEBAPP.parents[1])}:{number}')
+                text = source.read_text(encoding='utf-8', errors='replace')
+                if source.suffix in ('.jsp', '.jspf', '.tag'):
+                    lines = self.jsp_reference_lines(text)
+                else:
+                    lines = (number for number, line in enumerate(text.splitlines(), 1)
+                             if pattern.search(line) and not line.lstrip().startswith(('//', '*', '/*')))
+                references.extend(f'{source.relative_to(WEBAPP.parents[1])}:{number}' for number in lines)
         self.assertEqual(references, [], 'a fragment is now referenced; revisit render coverage')
 
 

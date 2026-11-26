@@ -14,14 +14,14 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.test.web.JspRenderServer;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.ResourceBundle;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.concurrent.TimeUnit;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
@@ -41,8 +41,8 @@ import org.junit.jupiter.params.provider.ValueSource;
  * message ({@code alert(sessionEndedNotSavedError || savingNoteError)}). The Node tests
  * ({@code echart-note-save-signed-out.test.js}, {@code echart-cpp-issue-refresh.test.js}) drive the
  * handler with the variable set on a fake window; before #6336 nothing rendered the line that sets
- * it. Each bundle that has the key is checked: the page must assign it once, as a well-formed,
- * JavaScript-escaped string, after the external script that declares the variable.
+ * it. Each bundle that has the key is checked: the rendered assignment must execute after
+ * the external script that declares the variable.
  *
  * <p>The four chart panels the layout includes ({@code newEncounterHeader.jsp},
  * {@code rightColumn.jsp}, {@code newNavigation.jsp}, {@code newCaseManagementView.jsp}) each need
@@ -58,9 +58,18 @@ class EncounterLayoutSessionEndedMessageJspIntegrationTest {
     private static final String KEY = "encounter.sessionEndedNotSaved.msg";
     private static final String PATIENT = "1001";
     private static final String PROVIDER = "999998";
-    /** The assignment the layout prints: {@code sessionEndedNotSavedError = "<JavaScript string>";}. */
-    private static final Pattern ASSIGNMENT =
-            Pattern.compile("\\bsessionEndedNotSavedError = \"((?:[^\"\\\\\\r\\n]|\\\\.)*)\";");
+    private static final String EVALUATE_WARNING = """
+            const fs = require('node:fs');
+            const vm = require('node:vm');
+            const chart = {
+              month: [],
+              window: {},
+              onClosing() {},
+              jQuery() { return { on() {} }; }
+            };
+            vm.runInNewContext(fs.readFileSync(process.argv[1], 'utf8'), chart, { timeout: 1000 });
+            process.stdout.write(chart.sessionEndedNotSavedError ?? '');
+            """;
 
     @TempDir
     static Path directory;
@@ -95,22 +104,35 @@ class EncounterLayoutSessionEndedMessageJspIntegrationTest {
 
         Document html = openChart(language);
 
-        List<String> assigned = new ArrayList<>();
-        Element assigning = null;
-        for (Element script : html.select("script")) {
-            Matcher assignment = ASSIGNMENT.matcher(script.data());
-            while (assignment.find()) {
-                assigned.add(unescapeJavaScript(assignment.group(1)));
-                assigning = script;
-            }
-        }
-        assertThat(expected).isNotBlank();
-        assertThat(assigned).containsExactly(expected);
-        // newCaseManagementView.js.jsp declares "var sessionEndedNotSavedError;" and must load first.
         Elements scripts = html.select("script");
+        List<Element> initializers = scripts.stream()
+                .filter(script -> !script.hasAttr("src") && script.data().contains("sessionEndedNotSavedError"))
+                .toList();
+        assertThat(initializers).hasSize(1);
+        Element initializer = initializers.getFirst();
+        assertThat(initializer.attr("type")).isIn("", "text/javascript");
+
+        // newCaseManagementView.js.jsp declares the variable and must load first.
         Element handler = html.selectFirst("script[src$=/js/newCaseManagementView.js.jsp]");
         assertThat(handler).isNotNull();
-        assertThat(scripts.indexOf(handler) < scripts.indexOf(assigning)).isTrue();
+        assertThat(scripts.indexOf(handler)).isLessThan(scripts.indexOf(initializer));
+        assertThat(expected).isNotBlank();
+        assertThat(evaluateWarning(initializer.data())).isEqualTo(expected);
+    }
+
+    private static String evaluateWarning(String script) throws Exception {
+        Path source = Files.createTempFile(directory, "chart-layout-", ".js");
+        Files.writeString(source, script, StandardCharsets.UTF_8);
+        Process node = new ProcessBuilder("node", "--input-type=commonjs", "-e", EVALUATE_WARNING, source.toString())
+                .redirectErrorStream(true)
+                .start();
+        if (!node.waitFor(10, TimeUnit.SECONDS)) {
+            node.destroyForcibly();
+            throw new AssertionError("The rendered chart script did not finish");
+        }
+        String output = new String(node.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        assertThat(node.exitValue()).as("rendered chart script output: %s", output).isZero();
+        return output;
     }
 
     private static Document openChart(String language) throws Exception {
@@ -135,33 +157,4 @@ class EncounterLayoutSessionEndedMessageJspIntegrationTest {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), login);
     }
 
-    /** Decodes the escapes the OWASP JavaScript block encoder writes into a double-quoted literal. */
-    private static String unescapeJavaScript(String literal) {
-        StringBuilder text = new StringBuilder(literal.length());
-        for (int i = 0; i < literal.length(); i++) {
-            char c = literal.charAt(i);
-            if (c != '\\') {
-                text.append(c);
-                continue;
-            }
-            char escaped = literal.charAt(++i);
-            switch (escaped) {
-                case 'b' -> text.append('\b');
-                case 't' -> text.append('\t');
-                case 'n' -> text.append('\n');
-                case 'f' -> text.append('\f');
-                case 'r' -> text.append('\r');
-                case 'x' -> {
-                    text.append((char) Integer.parseInt(literal.substring(i + 1, i + 3), 16));
-                    i += 2;
-                }
-                case 'u' -> {
-                    text.append((char) Integer.parseInt(literal.substring(i + 1, i + 5), 16));
-                    i += 4;
-                }
-                default -> text.append(escaped);
-            }
-        }
-        return text.toString();
-    }
 }

@@ -3,7 +3,12 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const {createHash}=require('node:crypto');
-const {DatabaseSync}=require('node:sqlite');
+let DatabaseSync;
+try {
+  ({ DatabaseSync } = require('node:sqlite'));
+} catch (error) {
+  if (error.code !== 'ERR_UNKNOWN_BUILTIN_MODULE') throw error;
+}
 const {installOwnedBoundaryCleanup,nativeSlot}=require(process.env.BOUNDARY_APPOINTMENT_HELPER_FILE||'./boundary-appointment-text-playwright-checks');
 const {cleanupOwnedWorkflow}=require('./lib/workflow-session');
 const MARKER='FAKE-PW0123456789abcdef',BASE='https://127.0.0.1/carlos',SITE="North's & East";
@@ -55,7 +60,7 @@ function fixture(body){
  };
  try{return Promise.resolve(body(f)).finally(()=>db.close());}catch(error){db.close();throw error;}
 }
-test('real SQL cleans exact new native slots and owned appointments while preserving foreign monitor and clinical rows',()=>fixture(async f=>{
+test('real SQL cleans exact new native slots and owned appointments while preserving foreign monitor and clinical rows',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
  await f.bind();f.monitor(11);f.monitor(12,{provider:'999999'});f.monitor(13,{provider:'999999',pageName:'other'});
  f.appointment();f.archive();f.owned.rememberAppointment('61');f.appointment(99,{provider:'999999',patient:42,name:'FOREIGN'});
  f.guardProvider();await f.workflowCleanup();assert.deepEqual(f.ids(),[12,13]);assert.equal(f.count('appointment'),1);assert.equal(f.count('appointmentArchive'),0);
@@ -64,72 +69,72 @@ test('real SQL cleans exact new native slots and owned appointments while preser
  assert(f.state.queries.every(query=>!query.includes('unit-boundary-session')));
  assert.match(f.state.queries.find(query=>query.startsWith('DELETE')),/^DELETE FROM PageMonitor/);
 }));
-test('multiple native slots are captured before writes and cleaned independently after closure',()=>fixture(async f=>{
+test('multiple native slots are captured before writes and cleaned independently after closure',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
  await f.bind();const second=LINK.replace('08%3A55','09%3A15');await f.owned.rememberSlot(second);
  f.monitor(11);f.monitor(12,{pageId:'888888|2026-10-21|09:15|09:29'});f.appointment();f.appointment(62,{start:'09:15:00',end:'09:29:00'});
  f.cleanup();assert.deepEqual(f.ids(),[]);assert.equal(f.count('appointment'),0);assert(f.owned.canRelease());
 }));
-for(const kind of ['appointment','appointmentArchive','PageMonitor','providersite'])test(`pre-existing ${kind} baseline refuses and retains both parents`,()=>fixture(async f=>{
+for(const kind of ['appointment','appointmentArchive','PageMonitor','providersite'])test(`pre-existing ${kind} baseline refuses and retains both parents`,{ skip: !DatabaseSync }, ()=>fixture(async f=>{
  if(kind==='appointmentArchive'){f.appointment();f.archive();f.db.exec('DELETE FROM appointment');}
  else if(kind==='appointment')f.appointment();else if(kind==='PageMonitor')f.monitor(11);else f.db.exec("INSERT INTO providersite VALUES('888888',8)");
  assert.throws(()=>f.begin(),/already owns/);f.guardProvider();await assert.rejects(f.workflowCleanup(),/baseline is unconfirmed/);
  assert.equal(f.db.prepare('SELECT COUNT(*) n FROM demographic WHERE demographic_no=41').get().n,1);assert.equal(f.count(kind),kind==='providersite'?2:1);
 }));
-for(const connected of [true,'missing','different-context'])test(`browser ownership/closure ${connected} prevents all cleanup writes`,()=>fixture(async f=>{
+for(const connected of [true,'missing','different-context'])test(`browser ownership/closure ${connected} prevents all cleanup writes`,{ skip: !DatabaseSync }, ()=>fixture(async f=>{
  await f.bind();f.monitor(11);f.appointment();const count=f.state.queries.length;
  if(connected==='missing')f.s.context={browser:()=>null};else if(connected==='different-context')f.s.context={browser:()=>({isConnected:()=>false})};else f.state.connected=true;
  assert.throws(()=>f.cleanup(),/browser closure/);assert(!f.state.queries.slice(count).some(q=>q.startsWith('DELETE')));assert.deepEqual(f.ids(),[11]);
 }));
-for(const table of ['demographic','provider','security'])test(`changed ${table} ownership refuses before deleting monitors or evidence`,()=>fixture(async f=>{
+for(const table of ['demographic','provider','security'])test(`changed ${table} ownership refuses before deleting monitors or evidence`,{ skip: !DatabaseSync }, ()=>fixture(async f=>{
  await f.bind();f.monitor(11);f.appointment();f.db.exec(table==='security'?"UPDATE security SET user_name='FOREIGN'":`UPDATE ${table} SET last_name='FOREIGN' ${table==='provider'?"WHERE provider_no='888888'":'WHERE demographic_no=41'}`);
  assert.throws(()=>f.cleanup(),/ownership changed/);assert.deepEqual(f.ids(),[11]);assert.equal(f.count('appointment'),1);
 }));
-test('silent monitor deletion fails actual teardown and retains both marker parents and appointment evidence',()=>fixture(async f=>{
+test('silent monitor deletion fails actual teardown and retains both marker parents and appointment evidence',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
  await f.bind();f.monitor(11);f.appointment();f.guardProvider();f.state.beforeWrite=q=>!q.startsWith('DELETE FROM PageMonitor');
  await assert.rejects(f.workflowCleanup(),/booking locks/);assert.deepEqual(f.ids(),[11]);assert.equal(f.count('appointment'),1);assert.equal(f.count('provider'),2);assert.equal(f.count('demographic'),2);assert(f.state.disposed);
 }));
-test('monitor reassignment during deletion cannot pass scoped count and remove marker parents',()=>fixture(async f=>{
+test('monitor reassignment during deletion cannot pass scoped count and remove marker parents',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
  await f.bind();f.monitor(11);f.appointment();f.owned.rememberAppointment('61');f.guardProvider();
  f.state.beforeWrite=q=>{if(q.startsWith('DELETE FROM PageMonitor'))f.db.exec("UPDATE PageMonitor SET providerNo='999999' WHERE id=11");};
  await assert.rejects(f.workflowCleanup(),/monitor remains or changed ownership/);assert.deepEqual(f.ids(),[11]);assert.equal(f.count('appointment'),1);assert.equal(f.count('provider'),2);
 }));
-test('atomic patient marker guard prevents monitor deletion after owner changes between selection and DELETE',()=>fixture(async f=>{
+test('atomic patient marker guard prevents monitor deletion after owner changes between selection and DELETE',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
  await f.bind();f.monitor(11);f.state.beforeWrite=q=>{if(q.startsWith('DELETE FROM PageMonitor'))f.db.exec("UPDATE demographic SET last_name='FOREIGN' WHERE demographic_no=41");};
  assert.throws(()=>f.cleanup(),/monitor remains|ownership changed/);assert.deepEqual(f.ids(),[11]);
 }));
-for(const foreign of [{session:'foreign-session'},{pageId:'888888|2026-10-21|09:15|09:29'},{pageName:'other'}])test(`foreign concurrent monitor ${Object.keys(foreign)[0]} is preserved and retains the throwaway`,()=>fixture(async f=>{
+for(const foreign of [{session:'foreign-session'},{pageId:'888888|2026-10-21|09:15|09:29'},{pageName:'other'}])test(`foreign concurrent monitor ${Object.keys(foreign)[0]} is preserved and retains the throwaway`,{ skip: !DatabaseSync }, ()=>fixture(async f=>{
  await f.bind();f.monitor(11,foreign);f.guardProvider();await assert.rejects(f.workflowCleanup(),/Foreign or uncertain/);assert.deepEqual(f.ids(),[11]);assert.equal(f.count('provider'),2);
 }));
-test('unowned appointment or archived version is refused before the first clinical DELETE',()=>fixture(async f=>{
+test('unowned appointment or archived version is refused before the first clinical DELETE',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
  await f.bind();f.appointment();f.archive();f.db.exec("UPDATE appointmentArchive SET name='FOREIGN' WHERE id=71");f.owned.rememberAppointment('61');
  assert.throws(()=>f.cleanup(),/unowned boundary/);assert.equal(f.count('appointment'),1);assert.equal(f.count('appointmentArchive'),1);
  assert(!f.state.queries.some(q=>/^DELETE FROM appointment/.test(q)));
 }));
-test('atomic clinical identity guard catches reassignment and retains both parents',()=>fixture(async f=>{
+test('atomic clinical identity guard catches reassignment and retains both parents',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
  await f.bind();f.appointment();f.owned.rememberAppointment('61');f.guardProvider();f.state.beforeWrite=q=>{if(q.startsWith('DELETE FROM appointment '))f.db.exec("UPDATE appointment SET provider_no='999999' WHERE appointment_no=61");};
  await assert.rejects(f.workflowCleanup(),/Captured boundary appointment rows remain/);assert.equal(f.count('appointment'),1);assert.equal(f.count('provider'),2);assert.equal(f.count('demographic'),2);
 }));
-test('a captured appointment moved to another provider before cleanup is not silently missed',()=>fixture(async f=>{
+test('a captured appointment moved to another provider before cleanup is not silently missed',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
  await f.bind();f.appointment();f.owned.rememberAppointment('61');f.db.exec("UPDATE appointment SET provider_no='999999' WHERE appointment_no=61");assert.throws(()=>f.cleanup(),/unowned boundary/);assert.equal(f.count('appointment'),1);
 }));
-test('only registered native free-text names and their exact column truncation belong to this boundary probe',()=>fixture(async f=>{
+test('only registered native free-text names and their exact column truncation belong to this boundary probe',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
  await f.bind();const name='Nabcdef'.repeat(12);f.owned.allowFreeName(name,80);f.appointment(61,{patient:0,name:name.slice(0,80)});f.archive();
  f.cleanup();assert.equal(f.count('appointment'),0);assert.equal(f.count('appointmentArchive'),0);
 }));
-test('unregistered free-text names sharing the tail are preserved',()=>fixture(async f=>{
+test('unregistered free-text names sharing the tail are preserved',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
  await f.bind();f.owned.allowFreeName('Nabcdef',80);f.appointment(61,{patient:0,name:'FOREIGNabcdef'});assert.throws(()=>f.cleanup(),/unowned boundary/);assert.equal(f.count('appointment'),1);
 }));
-test('concurrent site memberships are preserved and cannot be swept up by throwaway teardown',()=>fixture(async f=>{
+test('concurrent site memberships are preserved and cannot be swept up by throwaway teardown',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
  await f.bind();f.db.exec("INSERT INTO providersite VALUES('888888',8)");f.guardProvider();await assert.rejects(f.workflowCleanup(),/Foreign or uncertain/);
  assert.equal(f.db.prepare("SELECT COUNT(*) n FROM providersite WHERE provider_no='888888' AND site_id=8").get().n,1);assert.equal(f.count('provider'),2);
 }));
-for(const id of [0,-1,2147483648])test(`invalid monitor ID ${id} is refused before DELETE`,()=>fixture(async f=>{
+for(const id of [0,-1,2147483648])test(`invalid monitor ID ${id} is refused before DELETE`,{ skip: !DatabaseSync }, ()=>fixture(async f=>{
  await f.bind();f.monitor(id);assert.throws(()=>f.cleanup(),/identity is invalid/);assert.deepEqual(f.ids(),[id]);
 }));
-test('signed integer maximum monitor and appointment IDs are supported without precision loss',()=>fixture(async f=>{
+test('signed integer maximum monitor and appointment IDs are supported without precision loss',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
  await f.bind();f.monitor(2147483647);f.appointment(2147483647);f.owned.rememberAppointment('2147483647');f.cleanup();assert.deepEqual(f.ids(),[]);assert.equal(f.count('appointment'),0);
 }));
-test('duplicate and malformed monitor evidence fail before deletion',()=>fixture(async f=>{
+test('duplicate and malformed monitor evidence fail before deletion',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
  await f.bind();f.monitor(11);f.state.alterRows=(q,rows)=>q.startsWith('SELECT id FROM PageMonitor')?[...rows,...rows]:rows;assert.throws(()=>f.cleanup(),/duplicated/);
  f.state.alterRows=(q,rows)=>q.startsWith('SELECT id FROM PageMonitor')?[['11','extra']]:rows;assert.throws(()=>f.cleanup(),/malformed/);assert.deepEqual(f.ids(),[11]);
 }));
@@ -191,27 +196,27 @@ async function replayNativeWorkflow(f,{monitorDeleteFails=false}={}){
   await assert.rejects(f.workflowCleanup(),/booking locks/);assert.equal(f.count('provider'),2);assert.equal(f.count('appointment'),1);assert.deepEqual(f.ids(),[11]);
  }else{await f.workflowCleanup();assert.deepEqual(f.ids(),[]);assert.equal(f.count('appointment'),0);}
 }
-test('real native scheduling predicate shows the saved booking and reaches its edit link with the exact boundary payload',()=>fixture(f=>replayNativeWorkflow(f)));
-test('real workflow retains its throwaway callback and both parents when monitor deletion fails',()=>fixture(f=>replayNativeWorkflow(f,{monitorDeleteFails:true})));
+test('real native scheduling predicate shows the saved booking and reaches its edit link with the exact boundary payload',{ skip: !DatabaseSync }, ()=>fixture(f=>replayNativeWorkflow(f)));
+test('real workflow retains its throwaway callback and both parents when monitor deletion fails',{ skip: !DatabaseSync }, ()=>fixture(f=>replayNativeWorkflow(f,{monitorDeleteFails:true})));
 
-test('native nonmultisite booking preserves the legacy blank location without assigning a site',()=>fixture(async f=>{
+test('native nonmultisite booking preserves the legacy blank location without assigning a site',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
  f.begin();f.owned.provisionSite({multisites:false,location:''});f.owned.bind(f.context,{providerNo:'888888',date:'2026-10-21',multisites:false,location:''});
  await f.owned.rememberSlot(LINK);f.appointment(61,{location:''});f.cleanup();assert.equal(f.count('appointment'),0);
  assert.equal(f.db.prepare("SELECT COUNT(*) n FROM providersite WHERE provider_no='888888'").get().n,0);
 }));
 for(const [kind,change] of [['inactive',"UPDATE site SET status=0 WHERE site_id=7"],['foreign membership',"DELETE FROM providersite WHERE provider_no='999998'"],['ambiguous name',"INSERT INTO site VALUES(8,'North''s & East',1);INSERT INTO providersite VALUES('999998',8)"]])
- test(`site provisioning refuses ${kind} source before writing the throwaway membership`,()=>fixture(f=>{
+ test(`site provisioning refuses ${kind} source before writing the throwaway membership`,{ skip: !DatabaseSync }, ()=>fixture(f=>{
   f.begin();f.db.exec(change);const before=f.state.queries.length;assert.throws(()=>f.owned.provisionSite({multisites:true,location:SITE}),/absent or ambiguous/);
   assert(!f.state.queries.slice(before).some(q=>q.startsWith('INSERT')));f.cleanup();
  }));
-test('a lost site INSERT reply is cleaned only through its captured exact provider/site pair',()=>fixture(f=>{
+test('a lost site INSERT reply is cleaned only through its captured exact provider/site pair',{ skip: !DatabaseSync }, ()=>fixture(f=>{
  f.begin();f.state.beforeWrite=query=>{if(query.startsWith('INSERT INTO providersite')){f.db.exec(query);throw Error('lost INSERT reply');}};
  assert.throws(()=>f.owned.provisionSite({multisites:true,location:SITE}),/lost INSERT reply/);f.state.beforeWrite=null;f.cleanup();
  assert.equal(f.db.prepare("SELECT COUNT(*) n FROM providersite WHERE provider_no='888888'").get().n,0);assert(f.owned.canRelease());
 }));
 
 
-test('exact30/30 additional patient leaves the generic patient untouched and releases only after all native children and monitors',()=>fixture(async f=>{
+test('exact30/30 additional patient leaves the generic patient untouched and releases only after all native children and monitors',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
  await f.bind();const linked=f.owned.createLongNamePatient();
  assert.equal(linked.lastName.length,30);assert.equal(linked.firstName.length,30);assert.equal(linked.name.length,61);
  assert.equal(f.db.prepare('SELECT last_name,first_name FROM demographic WHERE demographic_no=41').get().last_name,MARKER);
@@ -221,40 +226,40 @@ test('exact30/30 additional patient leaves the generic patient untouched and rel
  const parentDelete=f.state.queries.findIndex(q=>q.startsWith('DELETE FROM demographic WHERE demographic_no='+linked.patient));
  assert(parentDelete>f.state.queries.findIndex(q=>q.startsWith('DELETE FROM appointment ')));
 }));
-test('pre-existing exact long-name pair is refused without adopting or deleting its patient',()=>fixture(async f=>{
+test('pre-existing exact long-name pair is refused without adopting or deleting its patient',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
  await f.bind();f.db.prepare('INSERT INTO demographic(demographic_no,last_name,first_name,provider_no) VALUES(?,?,?,?)')
   .run(43,MARKER+'-Longxx','Linked-'+MARKER.slice(-16)+'xxxxxxx','999999');
  assert.throws(()=>f.owned.createLongNamePatient(),/already exists/);f.cleanup();assert.equal(f.count('demographic'),3);
 }));
-test('a lost linked-patient INSERT reply retains intent and resolves only the exact new owned identity for cleanup',()=>fixture(async f=>{
+test('a lost linked-patient INSERT reply retains intent and resolves only the exact new owned identity for cleanup',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
  await f.bind();f.state.beforeWrite=q=>{if(q.startsWith('INSERT INTO demographic')){f.db.exec(q);throw Error('lost linked INSERT reply');}};
  assert.throws(()=>f.owned.createLongNamePatient(),/lost linked INSERT/);assert.equal(f.count('demographic'),3);
  f.state.beforeWrite=null;f.cleanup();assert.equal(f.count('demographic'),2);assert(f.owned.canRelease());
 }));
-for(const change of ['last_name','first_name','provider_no'])test(`changed additional patient ${change} retains original and throwaway parents`,()=>fixture(async f=>{
+for(const change of ['last_name','first_name','provider_no'])test(`changed additional patient ${change} retains original and throwaway parents`,{ skip: !DatabaseSync }, ()=>fixture(async f=>{
  await f.bind();const linked=f.owned.createLongNamePatient();f.appointment(61,{patient:Number(linked.patient),name:linked.name});f.owned.rememberAppointment('61');f.guardProvider();
  f.db.prepare(`UPDATE demographic SET ${change}=? WHERE demographic_no=?`).run('FOREIGN',Number(linked.patient));
  await assert.rejects(f.workflowCleanup(),/ownership changed|disappeared/);assert.equal(f.count('appointment'),1);assert.equal(f.count('demographic'),3);assert.equal(f.count('provider'),2);
 }));
-test('a silently retained linked appointment prevents removal of either patient and the provider',()=>fixture(async f=>{
+test('a silently retained linked appointment prevents removal of either patient and the provider',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
  await f.bind();const linked=f.owned.createLongNamePatient();f.appointment(61,{patient:Number(linked.patient),name:linked.name});f.archive();f.owned.rememberAppointment('61');f.guardProvider();
  f.state.beforeWrite=q=>!q.startsWith('DELETE FROM appointment ');await assert.rejects(f.workflowCleanup(),/Captured boundary/);
  assert.equal(f.count('demographic'),3);assert.equal(f.count('provider'),2);assert.equal(f.count('appointment'),1);
 }));
-test('an unregistered linked child under another provider is retained and blocks its extra parent release',()=>fixture(async f=>{
+test('an unregistered linked child under another provider is retained and blocks its extra parent release',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
  await f.bind();const linked=f.owned.createLongNamePatient();f.appointment(61,{provider:'999999',patient:Number(linked.patient),name:linked.name});f.guardProvider();
  await assert.rejects(f.workflowCleanup(),/still has clinical or appointment children/);assert.equal(f.count('demographic'),3);assert.equal(f.count('provider'),2);assert.equal(f.count('appointment'),1);
 }));
-test('unexpected support children prevent extra parent deletion rather than broad support cleanup',()=>fixture(async f=>{
+test('unexpected support children prevent extra parent deletion rather than broad support cleanup',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
  await f.bind();const linked=f.owned.createLongNamePatient();f.db.prepare('INSERT INTO demographiccust VALUES(?)').run(Number(linked.patient));f.guardProvider();
  await assert.rejects(f.workflowCleanup(),/clinical or appointment children/);assert.equal(f.count('demographiccust'),1);assert.equal(f.count('demographic'),3);assert.equal(f.count('provider'),2);
 }));
-test('a child arriving between reference verification and parent DELETE cannot become an orphan',()=>fixture(async f=>{
+test('a child arriving between reference verification and parent DELETE cannot become an orphan',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
  await f.bind();const linked=f.owned.createLongNamePatient();f.guardProvider();
  f.state.beforeWrite=q=>{if(q.startsWith('DELETE FROM demographic WHERE demographic_no='+linked.patient))f.db.prepare('INSERT INTO demographiccust VALUES(?)').run(Number(linked.patient));};
  await assert.rejects(f.workflowCleanup(),/not removed or changed ownership/);assert.equal(f.count('demographiccust'),1);assert.equal(f.count('demographic'),3);assert.equal(f.count('provider'),2);
 }));
-test('a same-prefix linked appointment with a different full name is foreign and never swept',()=>fixture(async f=>{
+test('a same-prefix linked appointment with a different full name is foreign and never swept',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
  await f.bind();const linked=f.owned.createLongNamePatient();f.appointment(61,{patient:Number(linked.patient),name:linked.name+'X'});f.owned.rememberAppointment('61');
  assert.throws(()=>f.cleanup(),/unowned boundary/);assert.equal(f.count('demographic'),3);assert.equal(f.count('appointment'),1);
 }));

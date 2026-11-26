@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.jsoup.nodes.FormElement;
 import org.jsoup.select.Elements;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -251,8 +252,9 @@ class ChartIssueIdentityJspIntegrationTest {
                 .assertOk()
                 .document();
 
-        Element form = html.selectFirst("form");
-        assertThat(form.select("input[name=changeDiagnosisIssueId]").eachAttr("value")).containsExactly("5101");
+        FormElement form = (FormElement) html.selectFirst("form");
+        assertThat(form.formData().stream().filter(field -> field.key().equals("changeDiagnosisIssueId"))
+                .map(field -> field.value())).containsExactly("5101");
         assertThat(form.select("input[name=change_diagnosis]").eachAttr("value")).containsExactly("true");
         assertThat(form.select("input[type=checkbox]").eachAttr("name"))
                 .containsExactly("newIssueCheckList[0].checked", "newIssueCheckList[1].checked");

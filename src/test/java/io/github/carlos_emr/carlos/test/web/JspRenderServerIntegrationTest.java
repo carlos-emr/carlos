@@ -37,6 +37,7 @@ class JspRenderServerIntegrationTest {
     private static final String PAGE = FIXTURE + "page.jsp";
     private static final String FAILING_PAGE = FIXTURE + "fails.jsp";
     private static final String FAILING_PAGE_WITHOUT_ERROR_PAGE = FIXTURE + "failsWithoutErrorPage.jsp";
+    private static final String PAGE_FAILING_AFTER_FLUSH = FIXTURE + "fails-after-flush.jsp";
     private static final String REDIRECTING_PAGE = FIXTURE + "redirects.jsp";
     private static final String GREETING_BEAN = "jspRenderFixtureGreeting";
 
@@ -76,6 +77,15 @@ class JspRenderServerIntegrationTest {
                         + "throw new IllegalStateException(\"FAKE page failure\"); } %>")
                 .file(FAILING_PAGE_WITHOUT_ERROR_PAGE, "<% if (true) { "
                         + "throw new IllegalStateException(\"FAKE unhandled failure\"); } %>")
+                .file(PAGE_FAILING_AFTER_FLUSH, """
+                        <% response.setContentLength(1);
+                           out.print("x");
+                           out.flush();
+                           // Give the client time to receive the complete one-byte body.
+                           Thread.sleep(250);
+                           if (true) {
+                               throw new IllegalStateException("FAKE late render failure");
+                           } %>""")
                 .file(REDIRECTING_PAGE,
                         "<% response.sendRedirect(request.getContextPath() + \"/securityError?type=_fixture\"); %>")
                 .bean(GREETING_BEAN, "FAKE greeting from a bean")
@@ -158,6 +168,17 @@ class JspRenderServerIntegrationTest {
         assertThatThrownBy(page::assertOk)
                 .isInstanceOf(AssertionError.class)
                 .hasMessageContaining("FAKE unhandled failure");
+    }
+
+    @Test
+    void shouldReportThePageException_afterTheResponseBodyIsCommitted() throws Exception {
+        JspRenderServer.RenderedPage page = server.render(PAGE_FAILING_AFTER_FLUSH, request -> { });
+
+        assertThat(page.status()).isEqualTo(200);
+        assertThat(page.body()).isEqualTo("x");
+        assertThatThrownBy(page::assertOk)
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("FAKE late render failure");
     }
 
     @Test

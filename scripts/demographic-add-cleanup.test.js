@@ -25,7 +25,12 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { DatabaseSync } = require('node:sqlite');
+let DatabaseSync;
+try {
+  ({ DatabaseSync } = require('node:sqlite'));
+} catch (error) {
+  if (error.code !== 'ERR_UNKNOWN_BUILTIN_MODULE') throw error;
+}
 const vm = require('node:vm');
 const { removeMarkedPatients } = require('./lib/gap-records-fixtures');
 const script = fs.readFileSync(path.join(__dirname, 'demographic-add-playwright-checks.js'), 'utf8');
@@ -71,7 +76,7 @@ test('a failure before any save deletes no unrelated data', () => {
   assert.equal(result.queries.filter((query) => query.startsWith('DELETE')).length, 0);
 });
 
-test('marked-patient cleanup preserves extension archives for another patient with the same archive ID', t => {
+test('marked-patient cleanup preserves extension archives for another patient with the same archive ID', { skip: !DatabaseSync }, t => {
   const db = new DatabaseSync(':memory:');
   t.after(() => db.close());
   db.exec(`

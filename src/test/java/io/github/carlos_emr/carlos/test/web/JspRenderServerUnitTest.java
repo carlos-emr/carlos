@@ -9,6 +9,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServlet;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -44,7 +45,7 @@ class JspRenderServerUnitTest {
                 "<%@include file='/WEB-INF/jspf/shared.jspf'%>",
                 "<%@ include file=\"../../../../outside.jspf\" %>",
                 "<jsp:include page=\"../other/child.jsp\" />",
-                "<jsp:include flush=\"true\" page=\"/WEB-INF/jsp/area/fragment.jspf?mode=1\">",
+                "<jsp:include flush=\"true\" page=\"/WEB-INF/jsp/area/fragment.jspf?at=12:30\">",
                 "<jsp:include page=\"<%= chosenPage %>\"/>",
                 "<jsp:include page=\"${chosenPage}\"/>",
                 "<c:import url=\"/WEB-INF/jsp/area/imported.jsp\"/>",
@@ -94,6 +95,28 @@ class JspRenderServerUnitTest {
         write(source, "WEB-INF/jsp/area/second.jsp", "<%@ include file=\"part.jspf\" %>second");
         assertThat(JspRenderServer.assemble(source, webapp, Map.of(), present, "WEB-INF/jsp/area/second.jsp"))
                 .containsExactly("WEB-INF/jsp/area/second.jsp");
+    }
+
+    @Test
+    void shouldStageThePageAgain_afterAnIncludedFileFailsToCopy() throws Exception {
+        Path source = directory.resolve("source");
+        String page = "page.jsp";
+        String fragment = "parts/part.jspf";
+        write(source, page, "<%@ include file=\"parts/part.jspf\" %>");
+        write(source, fragment, "the fragment");
+        Path webapp = Files.createDirectory(directory.resolve("webapp"));
+        Path blocker = Files.writeString(webapp.resolve("parts"), "not a directory");
+        Set<String> present = new HashSet<>();
+
+        assertThatThrownBy(() -> JspRenderServer.assemble(source, webapp, Map.of(), present, page))
+                .isInstanceOf(IOException.class);
+        assertThat(present).isEmpty();
+
+        Files.delete(blocker);
+        assertThat(JspRenderServer.assemble(source, webapp, Map.of(), present, page))
+                .containsExactly(page, fragment);
+        assertThat(Files.readString(webapp.resolve(fragment))).isEqualTo("the fragment");
+        assertThat(present).containsExactlyInAnyOrder(page, fragment);
     }
 
     @Test

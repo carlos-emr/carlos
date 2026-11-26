@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.commn.web.Contact2Action;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsSourceFieldPresenceResolver;
 import io.github.carlos_emr.carlos.demographic.data.ProvinceNames;
 import io.github.carlos_emr.carlos.demographic.pageUtil.DemographicEditVersion;
+import io.github.carlos_emr.carlos.demographic.pageUtil.Util;
 import io.github.carlos_emr.carlos.managers.AppointmentManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.LookupListManager;
@@ -72,7 +73,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.springframework.test.util.ReflectionTestUtils;
 
 /**
  * Renders the whole Master Record page ({@code edit.jsp}, the {@code success} result of
@@ -106,16 +106,9 @@ import org.springframework.test.util.ReflectionTestUtils;
  * search route {@code ViewZdemographicFullTitleSearch} (a Struts action) and the two
  * health-care-team fragments, which load their own data.</p>
  *
- * <p>Two classes these pages initialise keep {@code SpringUtils} beans in static fields, and both
- * are safe here. {@code demographic.pageUtil.Util} (the spoken-language and roster-reason lists)
- * keeps a {@code PartialDateDao} that only its five-argument {@code putPartialDate} reads, and
- * nothing calls that overload, so a mock is registered only so that a first initialisation in
- * this fork succeeds. {@code Contact2Action.fillContactNames}, which lists the contacts under
- * {@code NEW_CONTACTS_UI}, reads its static DAOs: all nine are registered for the same reason,
- * and the one this page's contact reaches, {@code contactDao}, is pointed at this test's mock and
- * put back afterwards, as {@code Contact2ActionUnitTest} does with the fields it uses. A third,
- * {@code OtherIdManager}, is called only for {@code meditech_id}, which is pinned off so the
- * pages never initialise it.</p>
+ * <p>The webapp loader gives {@code Contact2Action} and {@code demographic.pageUtil.Util}
+ * fixture-local copies of their static DAOs. {@code OtherIdManager} is called only for
+ * {@code meditech_id}, which is pinned off so these pages never initialise it.</p>
  */
 @Tag("integration")
 @Tag("demographic")
@@ -168,8 +161,6 @@ class MasterRecordEditPageJspIntegrationTest {
     private static JspRenderServer server;
     /** The raw values the pinned keys held before this class, null for an absent key. */
     private static final Map<String, Object> propertiesBefore = new HashMap<>();
-    private static boolean contactDaoSwapped;
-    private static Object contactDaoBefore;
 
     @BeforeAll
     static void startServer() throws Exception {
@@ -196,6 +187,8 @@ class MasterRecordEditPageJspIntegrationTest {
         when(templates.findTimeCodeByProviderNo2(any(), any())).thenReturn(List.of());
 
         server = JspRenderServer.builder(directory)
+                .isolateClass(Contact2Action.class)
+                .isolateClass(Util.class)
                 .jsp(PAGE)
                 .file("/WEB-INF/jsp/demographic/displayHealthCareTeam.jsp", "<div id=\"stand-in-health-care-team\"></div>\n")
                 .file("/WEB-INF/jsp/demographic/manageHealthCareTeam.jsp", "<div id=\"stand-in-manage-health-care-team\"></div>\n")
@@ -224,19 +217,11 @@ class MasterRecordEditPageJspIntegrationTest {
                 .bean(ContactSpecialtyDao.class, mock(ContactSpecialtyDao.class))
                 .bean(CtlRelationshipsDao.class, mock(CtlRelationshipsDao.class))
                 .start();
-
-        // Read while this class's beans are installed, so a first initialisation succeeds.
-        contactDaoBefore = ReflectionTestUtils.getField(Contact2Action.class, "contactDao");
-        ReflectionTestUtils.setField(Contact2Action.class, "contactDao", contacts);
-        contactDaoSwapped = true;
     }
 
     @AfterAll
     static void stopServer() throws Exception {
         try {
-            if (contactDaoSwapped) {
-                ReflectionTestUtils.setField(Contact2Action.class, "contactDao", contactDaoBefore);
-            }
             if (server != null) {
                 server.close();
             }

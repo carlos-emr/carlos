@@ -27,6 +27,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
@@ -48,6 +49,8 @@ import java.util.Set;
 import java.util.StringJoiner;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -214,6 +217,9 @@ public final class JspRenderServer implements AutoCloseable {
         Path base = Files.createTempDirectory(builder.directory, "jsp-render-");
         webapp = Files.createDirectory(base.resolve("web"));
         assembleWebapp(builder.pages);
+        for (Class<?> type : builder.isolatedClasses) {
+            stageIsolatedClass(type);
+        }
 
         previousBeanFactory = SpringUtils.getBeanFactory();
         ReflectionTestUtils.setField(SpringUtils.class, "beanFactory", builder.beans);
@@ -394,6 +400,21 @@ public final class JspRenderServer implements AutoCloseable {
         }
     }
 
+    private void stageIsolatedClass(Class<?> type) throws Exception {
+        Path classes = Path.of(type.getProtectionDomain().getCodeSource().getLocation().toURI());
+        Path classPath = Path.of(type.getName().replace('.', '/') + ".class");
+        Path packageDir = classes.resolve(classPath).getParent();
+        Path destination = Files.createDirectories(webapp.resolve("WEB-INF/classes").resolve(classPath.getParent()));
+        String className = classPath.getFileName().toString();
+        String innerClassPrefix = className.replace(".class", "$");
+        Files.copy(packageDir.resolve(className), destination.resolve(className));
+        try (var nested = Files.newDirectoryStream(packageDir, innerClassPrefix + "*.class")) {
+            for (Path file : nested) {
+                Files.copy(file, destination.resolve(file.getFileName()));
+            }
+        }
+    }
+
     /**
      * Copies {@code page} into {@code webapp} with every file it includes by a literal path,
      * transitively. A file given in {@code files} is written from that text instead of copied, so
@@ -418,6 +439,7 @@ public final class JspRenderServer implements AutoCloseable {
         if (!files.containsKey(root) && !Files.isRegularFile(source.resolve(root))) {
             throw new IllegalArgumentException("No such file in " + source + ": " + root);
         }
+        Set<String> visited = new HashSet<>();
         List<String> written = new ArrayList<>();
         Deque<String> queue = new ArrayDeque<>();
         queue.add(root);
@@ -425,10 +447,9 @@ public final class JspRenderServer implements AutoCloseable {
             String path = queue.removeFirst();
             boolean supplied = files.containsKey(path);
             Path origin = source.resolve(path);
-            if (present.contains(path) || (!supplied && !Files.isRegularFile(origin))) {
+            if (present.contains(path) || !visited.add(path) || (!supplied && !Files.isRegularFile(origin))) {
                 continue;
             }
-            present.add(path);
             Path target = webapp.resolve(path);
             Files.createDirectories(target.getParent());
             String text;
@@ -443,6 +464,7 @@ public final class JspRenderServer implements AutoCloseable {
             written.add(path);
             queue.addAll(literalIncludes(path, text));
         }
+        present.addAll(written);
         return written;
     }
 
@@ -477,7 +499,7 @@ public final class JspRenderServer implements AutoCloseable {
      */
     static String resolveReference(String page, String reference) {
         String value = reference.strip();
-        if (value.contains("<%") || value.contains("${") || value.contains("#{") || value.contains(":")) {
+        if (value.contains("<%") || value.contains("${") || value.contains("#{")) {
             return null;
         }
         int end = value.length();
@@ -488,7 +510,7 @@ public final class JspRenderServer implements AutoCloseable {
             }
         }
         value = value.substring(0, end);
-        if (value.isEmpty()) {
+        if (value.isEmpty() || value.contains(":")) {
             return null;
         }
         if (value.startsWith("/")) {
@@ -559,6 +581,9 @@ public final class JspRenderServer implements AutoCloseable {
                 http.GET();
             }
             HttpResponse<byte[]> response = client.send(http.build(), HttpResponse.BodyHandlers.ofByteArray());
+            if (!render.completed.await(REQUEST_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
+                throw new HttpTimeoutException("Timed out waiting for the render of " + page + " to finish");
+            }
             if (render.setupFailure != null) {
                 throw new IllegalStateException("The request setup for " + page + " failed on the server thread",
                         render.setupFailure);
@@ -597,12 +622,25 @@ public final class JspRenderServer implements AutoCloseable {
         private final Path directory;
         private Path source = SOURCE_ROOT;
         private final List<String> pages = new ArrayList<>();
+        private final List<Class<?>> isolatedClasses = new ArrayList<>();
         private final Map<String, String> files = new LinkedHashMap<>();
         private final DefaultListableBeanFactory beans = new DefaultListableBeanFactory();
         private final Map<String, HttpServlet> servlets = new LinkedHashMap<>();
 
         private Builder(Path directory) {
             this.directory = Objects.requireNonNull(directory, "directory");
+        }
+
+        /**
+         * Loads an application class and its nested classes in this server's webapp loader.
+         * Use for JSP dependencies whose static state must be local to the fixture.
+         *
+         * @param type top-level application class from the compiled class directory
+         * @return Builder this builder
+         */
+        public Builder isolateClass(Class<?> type) {
+            isolatedClasses.add(type);
+            return this;
         }
 
         /**
@@ -838,8 +876,9 @@ public final class JspRenderServer implements AutoCloseable {
     private static final class PendingRender {
         private final String page;
         private final RequestSetup setup;
-        private volatile Throwable setupFailure;
-        private volatile Throwable failure;
+        private final CountDownLatch completed = new CountDownLatch(1);
+        private Throwable setupFailure;
+        private Throwable failure;
 
         private PendingRender(String page, RequestSetup setup) {
             this.page = page;
@@ -858,36 +897,38 @@ public final class JspRenderServer implements AutoCloseable {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Not a JspRenderServer request");
                 return;
             }
-            // What ResponseDefaultsFilter does for every production request before Struts forwards.
-            if (request.getCharacterEncoding() == null) {
-                request.setCharacterEncoding(StandardCharsets.UTF_8.name());
-            }
-            response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-            // Mockito can cache classes generated by setup. Keep those classes in the test loader,
-            // which stays available after the fixture stops Tomcat and discards its webapp loader.
-            Thread requestThread = Thread.currentThread();
-            ClassLoader webappLoader = requestThread.getContextClassLoader();
             try {
-                requestThread.setContextClassLoader(JspRenderServer.class.getClassLoader());
-                render.setup.prepare(request);
-            } catch (Exception | Error failure) {
-                render.setupFailure = failure;
-                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                return;
+                // What ResponseDefaultsFilter does for every production request before Struts forwards.
+                if (request.getCharacterEncoding() == null) {
+                    request.setCharacterEncoding(StandardCharsets.UTF_8.name());
+                }
+                response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+                // Mockito can cache classes generated by setup. Keep those classes in the test loader,
+                // which stays available after the fixture stops Tomcat and discards its webapp loader.
+                Thread requestThread = Thread.currentThread();
+                ClassLoader webappLoader = requestThread.getContextClassLoader();
+                try {
+                    requestThread.setContextClassLoader(JspRenderServer.class.getClassLoader());
+                    render.setup.prepare(request);
+                } catch (Exception | Error failure) {
+                    render.setupFailure = failure;
+                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                    return;
+                } finally {
+                    requestThread.setContextClassLoader(webappLoader);
+                }
+                try {
+                    request.getRequestDispatcher(render.page).forward(request, response);
+                } catch (ServletException | IOException | RuntimeException | Error failure) {
+                    render.failure = failure;
+                    throw failure;
+                }
+                // A page with an errorPage directive reaches the stand-in error page instead of throwing.
+                if (request.getAttribute(FAILURE_ATTRIBUTE) instanceof Throwable failure) {
+                    render.failure = failure;
+                }
             } finally {
-                requestThread.setContextClassLoader(webappLoader);
-            }
-            try {
-                request.getRequestDispatcher(render.page).forward(request, response);
-            } catch (ServletException | IOException | RuntimeException | Error failure) {
-                render.failure = failure;
-                throw failure;
-            }
-            // A page with an errorPage directive reaches the stand-in error page instead of throwing.
-            // The response is only suspended by the forward, not finished, so this is recorded
-            // before the client can have read the end of the body.
-            if (request.getAttribute(FAILURE_ATTRIBUTE) instanceof Throwable failure) {
-                render.failure = failure;
+                render.completed.countDown();
             }
         }
     }

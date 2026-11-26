@@ -5154,12 +5154,15 @@
       ],
       "timeoutSec": 300,
       "assertsDatabase": true,
+      "mutates": [
+        "property:schedule.week_view_weekends"
+      ],
       "env": [
         "TEST_PASSWORD",
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Owned synthetic patient plus one appointment row (marker in name) at a free slot inside the provider's schedule hours today; on weekend runs the schedule.week_view_weekends property is snapshotted, enabled and restored.",
+      "fixtures": "Owned synthetic patient plus one appointment row (marker in name) at a free slot inside the provider's schedule hours today; on weekend runs the schedule.week_view_weekends property is snapshotted, enabled and restored. On those runs this check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "One seeded appointment through the day, week, month, Flip View and zoom views, the W+ multiplier, Alt+T and the 2W, 4W, 3M and 6M buttons. A step on today's day view, before Flip View opens, reads the visually hidden label of the provider's Flip View radio (appointmentprovideradminday.jsp:1743): it must be the schedule.scheduleflipview.title message, \" — \" (U+2014) and the provider name the column's zoom link prints, with no mojibake and no literal &#8212; (#6305 writes the dash as that entity, which a page Jasper reads as ISO-8859-1 keeps). That step has not yet run against a package."
     },
     {
@@ -5599,13 +5602,17 @@
         "core"
       ],
       "assertsDatabase": true,
+      "mutates": [
+        "eform_groups",
+        "eform"
+      ],
       "provinces": [
         "all"
       ],
       "timeoutSec": 300,
       "env": [],
       "notes": "The group mutators answer POST/redirect/GET since #4130 (findings 69 and 74: the panel lost its CSRF token, and a success result forwarded the POST to a GET-only gate that answered 405). submitInPanel follows the chain the panel's POST starts: the POST answers 200 or a redirect, every hop stays on the origin and is a GET, and the page it ends on answers 200. Passed all eight steps it then had on an installed release/2026.08 package. A ninth step, after the duplicate-name one (#5842), holds the panel's Add Group POST with page.route, changes the name to the seeded group's while it is out and answers it HTTP 500 without reaching the server: the shell's notice must appear above the form and the page must check the name again, keeping Add Group disabled; it has not yet run against a package. The Add eForm list also throws a TypeError on unload (unguarded window.opener, finding 77), which does not fail the check.",
-      "fixtures": "Two marker eForm templates, one saved instance of each for the owned patient, a seeded PW<hex> group and a PV<hex> group created by the panel, and the PF<hex> name the failed Add Group request carries, which never reaches the server (eform_groups.group_name is varchar(20)); only these rows are removed."
+      "fixtures": "Two marker eForm templates, one saved instance of each for the owned patient, a seeded PW<hex> group and a PV<hex> group created by the panel, and the PF<hex> name the failed Add Group request carries, which never reaches the server (eform_groups.group_name is varchar(20)); only these rows are removed. The eForm library and group list are clinic-wide, so this check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "measurement-type-group-admin",
