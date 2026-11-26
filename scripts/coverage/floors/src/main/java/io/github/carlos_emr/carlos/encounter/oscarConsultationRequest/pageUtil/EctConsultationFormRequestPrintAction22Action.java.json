@@ -3,10 +3,20 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/encounter/oscarConsultationRequest/pageUtil/EctConsultationFormRequestPrintAction22Action.java",
   "kind": "floor",
   "floor": {
-    "lines": 97.33333333333333,
-    "instructions": 96.92737430167598,
-    "branches": 80.0,
-    "sourceBlob": "a189cb001d8fd5e4cc4f0a825fa006c137ebac03"
+    "lines": 98.80952380952381,
+    "instructions": 98.74055415617129,
+    "branches": 83.33333333333333,
+    "missedLines": [
+      443
+    ],
+    "missedBranchLines": [
+      250,
+      402,
+      420,
+      442
+    ],
+    "executableLines": 84,
+    "sourceBlob": "6f834b1dd990b59ef631921a9574159f186a8a93"
   },
-  "evidenceSha256": "16bc410cddebe2577d99b0076c52fe515830df0395ca9893ff57e6e763378b8b"
+  "evidenceSha256": "19db2ea92ccb286087357b5d432442c69068ca4e3e7ddcac8b41e7f3143170b2"
 }

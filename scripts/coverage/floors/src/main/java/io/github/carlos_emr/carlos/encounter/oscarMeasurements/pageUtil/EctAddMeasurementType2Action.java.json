@@ -3,10 +3,15 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/pageUtil/EctAddMeasurementType2Action.java",
   "kind": "floor",
   "floor": {
-    "lines": 80.0,
-    "instructions": 67.3913043478261,
-    "branches": 83.33333333333333,
-    "sourceBlob": "2e3196e1d4789aba2cbba10cf2d331021e0bf37e"
+    "lines": 92.3076923076923,
+    "instructions": 90.75630252100841,
+    "branches": 100.0,
+    "missedLines": [
+      90
+    ],
+    "missedBranchLines": [],
+    "executableLines": 13,
+    "sourceBlob": "e0cdf12982b1ad51a4e94ebed074fb1aa1b06354"
   },
-  "evidenceSha256": "16bc410cddebe2577d99b0076c52fe515830df0395ca9893ff57e6e763378b8b"
+  "evidenceSha256": "19db2ea92ccb286087357b5d432442c69068ca4e3e7ddcac8b41e7f3143170b2"
 }
