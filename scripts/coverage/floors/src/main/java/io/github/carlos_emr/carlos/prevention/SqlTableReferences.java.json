@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/prevention/SqlTableReferences.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 99.6268656716418,
+    "branches": 93.71069182389937,
+    "sourceBlob": "7ab9bd14a352fcf4045fe8793c01341a1914672f"
+  },
+  "evidenceSha256": "d387d8e07f054f014a3e72b63c40793e0d6cedef52da38fc391d120e80d5ae71"
+}

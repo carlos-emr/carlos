@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/pageUtil/UnlinkDemographic2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "9eec98d01ddd42f57a1b4a6b311c0b7db7ad7994"
+  },
+  "evidenceSha256": "d387d8e07f054f014a3e72b63c40793e0d6cedef52da38fc391d120e80d5ae71"
+}
