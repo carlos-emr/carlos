@@ -93,6 +93,8 @@ public class EForm extends EFormBase {
      */
     private EFormSelectMarkup.ParsedForm selectParse;
     private boolean selectParseFailed;
+    /** How many times this form was parsed for its selects (to fill them, or to read what they submit). */
+    private int selectParses;
     private int needValueInForm = 0;
     private boolean setAP2nd = false;
     /** Every submitted value by field name while {@link #setValues} runs; a multiple select reads it. */
@@ -1330,22 +1332,41 @@ public class EForm extends EFormBase {
      */
     private EFormSelectMarkup.SelectEdit selectEdit(StringBuilder html, int pointer, String output) {
         if (selectParseFailed) return null;
+        // The pass parses the form once, at its first select, and reads every later select from that parse: a
+        // form of any number of database-tagged selects costs one parse, not one each. Only a failed PARSE ends
+        // the pass's selects; a select that cannot be read or placed is left as the template has it, alone.
+        if (selectParse == null) {
+            try {
+                selectParses++;
+                selectParse = EFormSelectMarkup.parseForm(html);
+            } catch (RuntimeException e) {
+                selectParseFailed = true;
+                log.warn("eForm selects left unchanged: the form's markup could not be parsed ({})",
+                        e.getClass().getSimpleName());
+                return null;
+            }
+        }
         try {
-            // The pass parses the form once, at its first select, and reads every later select from that parse:
-            // a form of any number of database-tagged selects costs one parse, not one each. What the pass has
-            // changed since lies before this select, so its place in the parse is its place now less the growth.
-            if (selectParse == null) selectParse = EFormSelectMarkup.parseForm(html);
+            // What the pass has changed since lies before this select, so its place in the parse is its place
+            // now less the form's growth.
             int growth = html.length() - selectParse.length();
             EFormSelectMarkup.SelectEdit edit = EFormSelectMarkup.edit(selectParse, pointer - growth, output);
             if (edit == null) return null;
             EFormSelectMarkup.SelectEdit moved = edit.shifted(growth);
-            return moved.fits(html) ? moved : null; // never an edit that does not land where it was read
+            if (moved.fits(html)) return moved;
+            // Never an edit that does not land exactly where it was read. Nothing of the markup or the value is
+            // logged: both can hold patient data.
+            log.warn("eForm select left unchanged: its edit did not land where it was read");
+            return null;
         } catch (RuntimeException e) {
-            selectParse = null;
-            selectParseFailed = true; // the rest of the pass leaves its selects as the template has them
             log.warn("eForm select left unchanged: its markup could not be read ({})", e.getClass().getSimpleName());
             return null;
         }
+    }
+
+    /** How many times this form was parsed for its selects (the bounded-work test reads it). */
+    int selectParses() {
+        return selectParses;
     }
 
     /** A named field of the first pass: its value, or, for a select, where its start tag begins (else -1). */
@@ -1365,6 +1386,7 @@ public class EForm extends EFormBase {
         for (FieldReading reading : fieldReadings) {
             if (reading.selectStart() >= 0) selectStarts.add(reading.selectStart());
         }
+        if (!selectStarts.isEmpty()) selectParses++; // one parse reads every select
         Map<Integer, String> submitted = submittedSelectValuesAt(html, selectStarts);
         for (FieldReading reading : fieldReadings) {
             String value = reading.selectStart() < 0 ? reading.value() : submitted.get(reading.selectStart());

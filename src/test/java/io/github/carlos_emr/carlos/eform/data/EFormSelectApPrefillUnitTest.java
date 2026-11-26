@@ -783,11 +783,10 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
             EForm form = new EForm();
             form.setDemographicNo("7");
             form.setFormHtml(manyTaggedSelects(count));
-            int before = EFormSelectMarkup.parseCount();
 
             form.setDatabaseAPs();
 
-            assertThat(EFormSelectMarkup.parseCount() - before).isLessThanOrEqualTo(1);
+            assertThat(form.selectParses()).isEqualTo(1);
             Document page = Jsoup.parse(form.getFormHtml());
             // Every select shows Yes and only Yes (its template default came out), and every input got its value:
             // the edits landed in the right place although each one moved the text after it.
@@ -809,14 +808,85 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
             EForm form = new EForm();
             form.setDemographicNo("7");
             form.setFormHtml(manyTaggedSelects(400) + dependentTag("s399"));
-            int before = EFormSelectMarkup.parseCount();
 
             form.setDatabaseAPs();
 
-            assertThat(EFormSelectMarkup.parseCount() - before).isLessThanOrEqualTo(2);
+            assertThat(form.selectParses()).isEqualTo(2);
             assertThat(fieldValue(form, "s399")).isEqualTo("Yes");
             assertThat(fieldValue(form, "s0")).isEqualTo("Yes");
         }
+    }
+
+    @Test
+    void shouldPlaceEveryEdit_whenEarlierEditsGrowOrShrinkTheFormBetweenSelects() throws Exception {
+        // Each edit before a select moves it in the single parse: growth (no default marked, so only the insert),
+        // shrinkage (selected="selected" and SELECTED come out), an unmatched select that changes nothing, a
+        // textarea that grows the form between selects, and a multiple select that keeps its default.
+        String selects = "<form>"
+                + "<select name=\"grow\" oscarDB=choice><option value=\"No\">No</option><option value=\"Yes\">Yes</option></select>\r\n"
+                + "<textarea name=\"note\" oscarDB=choice></textarea>\r\n"
+                + "<select name=\"shrink\" oscarDB=choice><option value=\"No\" selected=\"selected\">No</option>"
+                + "<option value=\"Yes\">Yes</option></select>\r\n"
+                + "<select name=\"unmatched\" oscarDB=choice><option value=\"A\">a</option>"
+                + "<option value=\"B\" selected>b</option></select>\r\n"
+                + "<input type=\"text\" name=\"between\" oscarDB=choice>\r\n"
+                + "<select name=\"upper\" oscarDB=choice><option value=\"No\" SELECTED>No</option>"
+                + "<option value=\"Yes\">Yes</option></select>\r\n"
+                + "<select name=\"many\" multiple oscarDB=choice><option value=\"No\" selected>No</option>"
+                + "<option value=\"Yes\">Yes</option></select>\r\n"
+                + "<select name=\"last\" oscarDB=choice><option value=\"No\" selected>No</option>"
+                + "<option value=\"Yes\">Yes</option></select>"
+                + "</form>";
+        DatabaseAP ap = new DatabaseAP("choice", "", "Yes");
+        try (var loader = mockStatic(EFormLoader.class)) {
+            loader.when(EFormLoader::getMarker).thenReturn("oscarDB");
+            loader.when(() -> EFormLoader.getAP("choice")).thenReturn(ap);
+            EForm form = new EForm();
+            form.setDemographicNo("7");
+            form.setFormHtml(selects);
+
+            form.setDatabaseAPs();
+
+            assertThat(form.selectParses()).isEqualTo(1);
+            Document page = Jsoup.parse(form.getFormHtml());
+            for (String name : List.of("grow", "shrink", "upper", "last")) {
+                assertThat(page.select("select[name=" + name + "] option[selected]").size()).as(name).isEqualTo(1);
+                assertThat(page.select("select[name=" + name + "] option[selected]").attr("value")).as(name).isEqualTo("Yes");
+            }
+            // No option matches: the template's own default stays.
+            assertThat(page.select("select[name=unmatched] option[selected]").attr("value")).isEqualTo("B");
+            assertThat(page.select("select[name=unmatched] option[selected]").size()).isEqualTo(1);
+            // A multiple select keeps its default and gains the stored value.
+            assertThat(page.select("select[name=many] option[selected]").size()).isEqualTo(2);
+            assertThat(page.select("textarea[name=note]").text()).isEqualTo("Yes");
+            assertThat(page.select("input[name=between]").attr("value")).isEqualTo("Yes");
+            // Nothing else of the template changed: the selected attributes are the only markup that differs.
+            assertThat(form.getFormHtml()).contains("name=\"unmatched\" oscarDB=choice><option value=\"A\">a</option>"
+                    + "<option value=\"B\" selected>b</option></select>");
+        }
+    }
+
+    @Test
+    void shouldNotFit_whenTheShiftIsWrongByOneOption_evenWhereTheNextOptionLooksTheSame() {
+        String html = "<select name=\"x\" oscarDB=x><option value=\"A\">a</option><option value=\"B\">b</option>"
+                + "<option value=\"C\" selected>c</option><option value=\"D\">d</option></select>";
+        EFormSelectMarkup.SelectEdit edit = EFormSelectMarkup.edit(html, html.indexOf("oscarDB=x") + 9, "B");
+        int optionPeriod = html.indexOf("<option value=\"B\"") - html.indexOf("<option value=\"A\"");
+
+        assertThat(edit).isNotNull();
+        assertThat(edit.fits(html)).isTrue();
+        // One option too far either way lands on another "<option" and on its text: not the same option.
+        assertThat(edit.shifted(optionPeriod).fits(html)).isFalse();
+        assertThat(edit.shifted(-optionPeriod).fits(html)).isFalse();
+        assertThat(edit.shifted(1).fits(html)).isFalse();
+        assertThat(edit.shifted(10_000).fits(html)).isFalse();
+        // A removal that no longer holds the text the parse took out is refused too.
+        EFormSelectMarkup.SelectEdit single = EFormSelectMarkup.edit(
+                "<select oscarDB=x><option value=\"A\">a</option><option value=\"B\" selected>b</option></select>",
+                "<select oscarDB=x".length() + 1, "A");
+        String other = "<select oscarDB=x><option value=\"A\">a</option><option value=\"B\" sElected>b</option></select>";
+        assertThat(single).isNotNull();
+        assertThat(single.fits(other)).isFalse();
     }
 
     @Test

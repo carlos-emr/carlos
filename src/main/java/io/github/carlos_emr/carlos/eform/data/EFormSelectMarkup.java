@@ -25,7 +25,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -74,15 +73,14 @@ final class EFormSelectMarkup {
      */
     private static final String HTML_SPACE = " \t\n\f\r";
 
-    /** Full parses made since the class loaded: the work a form costs is bounded by this, never by its selects. */
-    private static final AtomicInteger PARSES = new AtomicInteger();
+    /**
+     * How many characters of the chosen option's start tag and what follows it an edit remembers from the parse, to
+     * prove at the shifted position that it is the same option. The text after an option is not yet edited when
+     * its select is (a pass fills its fields in document order), so it still reads as the parse read it.
+     */
+    private static final int OPTION_WINDOW = 80;
 
     private EFormSelectMarkup() {
-    }
-
-    /** How many times a whole form has been parsed here since the class loaded (for the bounded-work test). */
-    static int parseCount() {
-        return PARSES.get();
     }
 
     /**
@@ -117,6 +115,9 @@ final class EFormSelectMarkup {
         final int insertAt;
         /** Ascending, non-overlapping {@code [start, end)} ranges, none inside the matched option's tag. */
         final List<int[]> removals = new ArrayList<>();
+        /** The parse's own text from the chosen option's {@code <option} on, and of each removal, to check against. */
+        private String optionWindow = "";
+        private final List<String> removedText = new ArrayList<>();
 
         private SelectEdit(int insertAt) {
             this.insertAt = insertAt;
@@ -125,27 +126,30 @@ final class EFormSelectMarkup {
         /** The same edit with every position moved by {@code by} (to the form as it stands now). */
         SelectEdit shifted(int by) {
             SelectEdit moved = new SelectEdit(insertAt + by);
+            moved.optionWindow = optionWindow;
+            moved.removedText.addAll(removedText);
             for (int[] range : removals) moved.removals.add(new int[] {range[0] + by, range[1] + by});
             return moved;
         }
 
         /**
-         * Whether every position of this edit still lands where it was read: the insert right after an
-         * {@code <option} and each removal on a {@code selected} attribute. A shifted edit that does not fit is
-         * not applied (the select keeps the template's own default) rather than put in the wrong place.
+         * Whether this edit lands exactly where it was read: the form, at the insert, still holds the parse's own
+         * text of the chosen option's tag and of what follows it, and each removal range holds the very text the
+         * parse took out. A shifted edit that does not fit (a shift that is wrong by as little as one option) is
+         * not applied, so the select keeps the template's own default and never shows another option as stored.
          */
         boolean fits(CharSequence html) {
-            if (!matches(html, insertAt - OPTION_OPEN, "<option")) return false;
-            for (int[] range : removals) {
-                if (range[0] < 0 || range[1] > html.length() || range[0] >= range[1]) return false;
-                if (!Ascii.toLowerCase(html.subSequence(range[0], range[1]).toString()).contains("selected")) return false;
+            int from = insertAt - OPTION_OPEN;
+            if (!holds(html, from, optionWindow)) return false;
+            for (int r = 0; r < removals.size(); r++) {
+                if (!holds(html, removals.get(r)[0], removedText.get(r))) return false;
             }
             return true;
         }
 
-        private static boolean matches(CharSequence html, int from, String text) {
-            return from >= 0 && from + text.length() <= html.length()
-                    && Ascii.equalsIgnoreCase(html.subSequence(from, from + text.length()), text);
+        private static boolean holds(CharSequence html, int from, String text) {
+            return !text.isEmpty() && from >= 0 && from + text.length() <= html.length()
+                    && html.subSequence(from, from + text.length()).toString().equals(text);
         }
 
         /** Applies the removals and the insert, from the end of the markup backwards so positions stay valid. */
@@ -209,6 +213,7 @@ final class EFormSelectMarkup {
         Integer start = tagStart(chosen);
         if (start == null) return null;
         SelectEdit edit = new SelectEdit(start + OPTION_OPEN);
+        edit.optionWindow = source.substring(start, Math.min(source.length(), start + OPTION_OPEN + OPTION_WINDOW));
         boolean collect = !wanted.isEmpty() && !select.hasAttr("multiple");
         if (!collect) return edit;
         List<int[]> removals = new ArrayList<>();
@@ -221,6 +226,7 @@ final class EFormSelectMarkup {
         }
         removals.sort((a, b) -> Integer.compare(a[0], b[0]));
         edit.removals.addAll(removals);
+        for (int[] range : removals) edit.removedText.add(source.substring(range[0], range[1]));
         return edit;
     }
 
@@ -397,7 +403,6 @@ final class EFormSelectMarkup {
     }
 
     private static Document parse(String html) {
-        PARSES.incrementAndGet();
         return Parser.htmlParser().setTrackPosition(true).parseInput(html, "");
     }
 
