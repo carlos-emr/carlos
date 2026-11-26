@@ -3733,7 +3733,8 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Creates and removes an owned FAKE-PW patient plus its flowsheet_customization and measurements rows; local disposable database only."
+      "fixtures": "Creates and removes an owned FAKE-PW patient plus its flowsheet_customization and measurements rows; local disposable database only.",
+      "notes": "Steps include: a customized measurement renders as a tracker card with an entry field; a saved value is not doubled when the same observation is submitted again; a refused value writes nothing, in the browser or on the server; and the delete path's CSRF token is present and deleting an observation removes it. The delete step also reads the confirmation's #deleteObsDate line, which must be \"<entered by> — Date: <observed>\" with a real em dash (U+2014, matched by code point) and neither U+FFFD nor the windows-1252 reading; #6305 writes that dash as a JavaScript escape in HealthTrackerPage.jspf, a dynamic include Jasper reads as ISO-8859-1. That em-dash assertion has not yet run against a package."
     },
     {
       "name": "measurement-history",
@@ -5158,7 +5159,8 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Owned synthetic patient plus one appointment row (marker in name) at a free slot inside the provider's schedule hours today; on weekend runs the schedule.week_view_weekends property is snapshotted, enabled and restored."
+      "fixtures": "Owned synthetic patient plus one appointment row (marker in name) at a free slot inside the provider's schedule hours today; on weekend runs the schedule.week_view_weekends property is snapshotted, enabled and restored.",
+      "notes": "One seeded appointment through the day, week, month, Flip View and zoom views, the W+ multiplier, Alt+T and the 2W, 4W, 3M and 6M buttons. A step on today's day view, before Flip View opens, reads the visually hidden label of the provider's Flip View radio (appointmentprovideradminday.jsp:1743): it must be the schedule.scheduleflipview.title message, \" — \" (U+2014) and the provider name the column's zoom link prints, with no mojibake and no literal &#8212; (#6305 writes the dash as that entity, which a page Jasper reads as ISO-8859-1 keeps). That step has not yet run against a package."
     },
     {
       "name": "schedule-month-week-links",
@@ -5480,7 +5482,7 @@
       ],
       "timeoutSec": 360,
       "env": [],
-      "notes": "#5813: a lone empty text parameter survives native upload, edit, reopen, run and export while the other template stays unchanged. #5725: two template schemas (text and list parameters) and four tabs sharing one context/login. Alternating native runs and actual CSV/XLS downloads prove per-instance parameters, values and cell types. Includes empty results and normal Back clear-session beacons and subsequent tab closure; beacons are never suppressed.",
+      "notes": "#5813: a lone empty text parameter survives native upload, edit, reopen, run and export while the other template stays unchanged. #5725: two template schemas (text and list parameters) and four tabs sharing one context/login. Alternating native runs and actual CSV/XLS downloads prove per-instance parameters, values and cell types. Includes empty results and normal Back clear-session beacons and subsequent tab closure; beacons are never suppressed. A last step (#6236, reportByTemplateLayout.css) uploads a third owned template whose query returns a 400-character unbroken value: on the result page the report region scrolls the wide cell itself (overflow-x auto, no row gutter) while the page does not scroll horizontally and the action row wraps, and in print emulation the region is not clipped and the .noprint bars are hidden; on View Template XML the template text wraps (pre-wrap, overflow-wrap anywhere) without widening its box or the page, the body keeps its 1rem screen gutter, and print hides the navigation bar and the template actions. That step has not yet run against a package; the third template is deleted with the other two.",
       "fixtures": "Two natively uploaded marker-owned templates and two owned synthetic patients. Native middle-click opens report instances from the Administration library. Clinical rows remain unchanged; exact owned templates/patient and scratch-download cleanup are verified. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "mutates": [
         "reportTemplates"
@@ -9410,7 +9412,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Patients whose surname starts with the run tag, created through Search > Create Demographic; cleanup removes every row of those patients (relabels to the marker, then removeMarkedPatients) and asserts none remain. The append-only audit log is not touched.",
-      "notes": "Checks Add and Edit field limits against the database, preserving fifty-character Unicode names and visibly rejecting overflow without saving or truncating names. Pronoun and gender (25) are limited in both forms and validated before persistence (#5638). Name Used is checked against the alias (70), not pref_name: it must be stored whole in the alias, with pref_name holding its first 30 characters by design (#5128, which needs #5127; before both, a Name Used over 30 characters fails the save under a strict sql_mode and is cut under an empty one)."
+      "notes": "Checks Add and Edit field limits against the database, preserving fifty-character Unicode names and visibly rejecting overflow without saving or truncating names. Pronoun and gender (25) are limited in both forms and validated before persistence (#5638). Name Used is checked against the alias (70), not pref_name: it must be stored whole in the alias, with pref_name holding its first 30 characters by design (#5128, which needs #5127; before both, a Name Used over 30 characters fails the save under a strict sql_mode and is cut under an empty one). Two steps after the Add-form limits (#5869) check the patient alert (cust3 on the Add form, alert on the Edit form) and the waiting-list note against their columns in Unicode code points, each alert line break counted as the CR LF the browser submits: an alert at the limit is saved whole and redisplayed whole by the Edit form, and one more character is refused in both forms without being cut or sent. The Edit-form step needs DEMOGRAPHIC_WAITING_LIST=true, the packaged default (the devcontainer sets it false): edit-form-clinical.jsp draws the waiting-list note only then, and the step fails when the box is missing. These two steps have not yet run against a package."
     },
     {
       "name": "boundary-demographic-search",
