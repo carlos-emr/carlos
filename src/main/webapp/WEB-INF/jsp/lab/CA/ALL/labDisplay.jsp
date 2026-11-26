@@ -458,6 +458,8 @@ if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && is
         <fmt:message key="oscarMDS.index.msgConfirmAcknowledge" var="msgAck"/>
         <fmt:message key="oscarMDS.index.msgConfirmAcknowledgeUnmatched" var="msgAckUnmatched"/>
         <fmt:message key="oscarMDS.segmentDisplay.msgUnlink" var="msgUnlink"/>
+        <fmt:message key="oscarMDS.segmentDisplay.msgUnlinkArchived" var="msgUnlinkArchived"/>
+        <fmt:message key="global.btnClose" var="msgUnlinkNoticeClose"/>
 
     </script>
 
@@ -854,6 +856,9 @@ input[id^='acklabel_']{
             .then(function(data) {
                 if (data.success) {
                     delete reasons[String(labNo)];
+                    // Unlink archives the readings the report filed to the chart (#6214). The reload
+                    // below would discard a notice shown now, so the reloaded page shows it.
+                    rememberUnlinkNotice(labNo, data.archivedMeasurementCount);
                     // A navigation problem must not undo a confirmed unlink outcome.
                     var refreshFailed = false;
                     try {
@@ -880,6 +885,94 @@ input[id^='acklabel_']{
             .finally(function() {
                 inFlight.delete(String(labNo));
             });
+        }
+
+        /** Session key of the one-shot notice that a confirmed unlink archived readings (#6214). */
+        var UNLINK_NOTICE_KEY = 'carlos.lab.unlinkArchivedNotice';
+        /** How long the notice stays while this window has focus, and how old a kept notice may be. */
+        var UNLINK_NOTICE_VISIBLE_MS = 10000;
+        var UNLINK_NOTICE_MAX_AGE_MS = 120000;
+
+        /**
+         * Keeps the server's count of archived readings for the page that reloads after a confirmed
+         * unlink. Storage that is unavailable or full loses only the notice, never the unlink.
+         */
+        function rememberUnlinkNotice(labNo, archived) {
+            if (!Number.isInteger(archived) || archived < 1) return;
+            try {
+                window.sessionStorage.setItem(UNLINK_NOTICE_KEY,
+                        JSON.stringify({labNo: String(labNo), archived: archived, at: Date.now()}));
+            } catch (storageError) {
+                // Private browsing or a disabled store: the unlink stands without its notice.
+            }
+        }
+
+        /**
+         * Shows once, as a Bootstrap alert, the notice a confirmed unlink of this report left for the
+         * reloaded page. It closes itself once this window has had focus for a while (the patient
+         * search that opens for an unmatched lab can take the focus first) or on its close button. A
+         * notice for another report, or one too old to belong to this reload, is dropped unseen.
+         */
+        function showUnlinkNotice(labNo) {
+            var notice;
+            try {
+                var kept = window.sessionStorage.getItem(UNLINK_NOTICE_KEY);
+                window.sessionStorage.removeItem(UNLINK_NOTICE_KEY);
+                notice = kept ? JSON.parse(kept) : null;
+            } catch (storageError) {
+                return;
+            }
+            var age = notice ? Date.now() - notice.at : NaN;
+            if (!notice || notice.labNo !== String(labNo) || !Number.isInteger(notice.archived)
+                    || notice.archived < 1 || !(age >= 0 && age <= UNLINK_NOTICE_MAX_AGE_MS)) {
+                return;
+            }
+
+            var box = document.createElement('div');
+            box.className = 'alert alert-info alert-dismissible fade show shadow position-fixed top-0 start-50 translate-middle-x mt-2 DoNotPrint';
+            box.style.zIndex = '1080';
+            box.style.width = 'min(40rem, calc(100vw - 2rem))';
+            // The page sets a 12px line height for the report table; give the notice room to wrap.
+            box.style.lineHeight = '1.4';
+            box.setAttribute('role', 'status');
+            box.setAttribute('aria-live', 'polite');
+            box.setAttribute('data-carlos-lab-unlink-notice', String(notice.archived));
+            var text = document.createElement('span');
+            text.textContent = '${carlos:forJavaScript(msgUnlinkArchived)}'.replace('{0}', String(notice.archived));
+            box.appendChild(text);
+            var close = document.createElement('button');
+            close.type = 'button';
+            close.className = 'btn-close';
+            close.setAttribute('aria-label', '${carlos:forJavaScript(msgUnlinkNoticeClose)}');
+            box.appendChild(close);
+
+            var timer = null;
+            var closed = false;
+            function arm() {
+                window.clearTimeout(timer);
+                timer = window.setTimeout(dismiss, UNLINK_NOTICE_VISIBLE_MS);
+            }
+            function disarm() {
+                window.clearTimeout(timer);
+                timer = null;
+            }
+            function dismiss() {
+                if (closed) return;
+                closed = true;
+                disarm();
+                window.removeEventListener('focus', arm);
+                window.removeEventListener('blur', disarm);
+                if (window.bootstrap && window.bootstrap.Alert) {
+                    window.bootstrap.Alert.getOrCreateInstance(box).close();
+                } else {
+                    box.remove();
+                }
+            }
+            close.addEventListener('click', dismiss);
+            window.addEventListener('focus', arm);
+            window.addEventListener('blur', disarm);
+            document.body.insertBefore(box, document.body.firstChild);
+            if (document.hasFocus()) arm();
         }
 
         function addComment(formid, labid) {
@@ -1108,7 +1201,7 @@ input[id^='acklabel_']{
     <script src="${pageContext.request.contextPath}/share/javascript/labFiling.js"></script>
 </head>
 
-<body onLoad="javascript:matchMe(); loadHL7hx();">
+<body onLoad="javascript:matchMe(); loadHL7hx(); showUnlinkNotice(labNo);">
 <% if (!versionChainReliable) { %>
 <div class="alert alert-warning" role="alert" data-carlos-hl7-chain-warning="unavailable"><fmt:message key="cml.versionChain.unavailable"/></div>
 <% } %>

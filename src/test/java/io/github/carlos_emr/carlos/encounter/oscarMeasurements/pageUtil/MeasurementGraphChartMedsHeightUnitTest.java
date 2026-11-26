@@ -81,6 +81,8 @@ class MeasurementGraphChartMedsHeightUnitTest extends CarlosUnitTestBase {
         request.setParameter("method", "ChartMeds");
         response = new MockHttpServletResponse();
         when(security.hasPrivilege(login, "_measurement", "r", String.valueOf(PATIENT))).thenReturn(true);
+        // The medication chart also needs the prescription read right (#6322).
+        when(security.hasPrivilege(login, "_rx", "r", String.valueOf(PATIENT))).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(login, PATIENT)).thenReturn(true);
     }
 

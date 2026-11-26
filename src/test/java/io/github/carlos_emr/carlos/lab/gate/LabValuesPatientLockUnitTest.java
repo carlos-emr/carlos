@@ -22,6 +22,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -150,6 +151,52 @@ class LabValuesPatientLockUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> execute(gate)).isInstanceOf(SecurityException.class);
 
         verify(security, never()).isAllowedAccessToPatientRecord(login, 999);
+    }
+
+    @org.junit.jupiter.api.Test
+    @DisplayName("should offer the lab graph's medication picker only to a user holding _rx on the patient")
+    void shouldOfferMedicationPicker_onlyWithRxOnThePatient() throws Exception {
+        request.setParameter("demographic_no", "123");
+        when(security.hasPrivilege(login, "_rx", "r", "123")).thenReturn(false);
+
+        // A lab-only user still gets the lab graph page, but the page is told to leave medications out.
+        assertThat(new ViewLabValuesGraph2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute(ViewLabValuesGraph2Action.MEDICATIONS_ALLOWED)).isEqualTo(false);
+
+        when(security.hasPrivilege(login, "_rx", "r", "123")).thenReturn(true);
+        assertThat(new ViewLabValuesGraph2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute(ViewLabValuesGraph2Action.MEDICATIONS_ALLOWED)).isEqualTo(true);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    @DisplayName("should decide the medication picker for the canonical patient when demographic_no is zero-padded")
+    void shouldDecideMedicationsForTheCanonicalPatient_whenDemographicNoIsZeroPadded(boolean mayReadRx) throws Exception {
+        // The lab gate and the embedded graph both read 00123 as patient 123; the _rx decision must too.
+        request.setParameter("demographic_no", "00123");
+        when(security.hasPrivilege(login, "_rx", "r", "123")).thenReturn(mayReadRx);
+
+        assertThat(new ViewLabValuesGraph2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        assertThat(request.getAttribute(ViewLabValuesGraph2Action.MEDICATIONS_ALLOWED)).isEqualTo(mayReadRx);
+        verify(security).hasPrivilege(login, "_rx", "r", "123");
+        verify(security, never()).hasPrivilege(login, "_rx", "r", "00123");
+    }
+
+    @org.junit.jupiter.api.Test
+    @DisplayName("should not offer medications for a prescription right held on another patient or no patient")
+    void shouldNotOfferMedications_whenRxIsMissingOnThisPatientOrNoPatientIsNamed() throws Exception {
+        when(security.hasPrivilege(login, "_rx", "r", "123")).thenReturn(false);
+        when(security.hasPrivilege(login, "_rx", "r", "456")).thenReturn(true);
+        request.setParameter("demographic_no", "123");
+        new ViewLabValuesGraph2Action().execute();
+        assertThat(request.getAttribute(ViewLabValuesGraph2Action.MEDICATIONS_ALLOWED)).isEqualTo(false);
+
+        MockHttpServletRequest none = new MockHttpServletRequest("GET", "/lab/CA/ON/values");
+        servlet.when(ServletActionContext::getRequest).thenReturn(none);
+        sessions.when(() -> LoggedInInfo.getLoggedInInfoFromSession(none)).thenReturn(login);
+        new ViewLabValuesGraph2Action().execute();
+        assertThat(none.getAttribute(ViewLabValuesGraph2Action.MEDICATIONS_ALLOWED)).isEqualTo(false);
     }
 
     static Stream<Arguments> noPatientValues() {
