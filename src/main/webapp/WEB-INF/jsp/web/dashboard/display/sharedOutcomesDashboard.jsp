@@ -56,7 +56,10 @@
         })();
 
         function testListener(event) {
-            if (!outcomesOrigin || event.origin !== outcomesOrigin) {
+            // $(window).on("message") hands over a jQuery event, which does not copy MessageEvent.origin
+            // (jQuery 3.x); read it from the native event.
+            var origin = event.origin || (event.originalEvent && event.originalEvent.origin);
+            if (!outcomesOrigin || origin !== outcomesOrigin) {
                 return;
             }
             console.log("got a message from the dashboard");

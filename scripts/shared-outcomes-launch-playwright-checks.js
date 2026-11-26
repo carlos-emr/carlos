@@ -266,6 +266,8 @@ async function workflow(s) {
 
   await s.step('a refresh the destination rejects answers 502 and is not reported to the dashboard as done', async () => {
     const before = listener.received.length;
+    // The 502 and the launcher's console.error are this step's deliberate evidence, not harness findings.
+    const seen = { http: new Set(s.recorder.badResponses), console: new Set(s.recorder.consoleIssues) };
     listener.status = 500;
     try {
       await outcomesWindow.evaluate(message => window.opener.postMessage(message, '*'), submitQuery('failed'));
@@ -277,6 +279,15 @@ async function workflow(s) {
     await new Promise(resolve => setTimeout(resolve, 500));
     h.assert(!(await dashboardMessages()).some(m => m && m.refreshed === 'failed'),
       'The dashboard was told a failed refresh succeeded');
+    const http = s.recorder.badResponses.filter(entry => !seen.http.has(entry) && entry.status === 502
+      && entry.method === 'POST' && new URL(entry.url).pathname === refreshUrl.pathname);
+    const logged = s.recorder.consoleIssues.filter(entry => !seen.console.has(entry)
+      && /^(Failed to load resource:.*502|Shared outcomes refresh failed with HTTP status 502)/.test(entry.text));
+    h.assert(http.length === 1, 'The rejected refresh left no single 502 diagnostic');
+    h.assert(logged.some(entry => entry.text.startsWith('Shared outcomes refresh failed with HTTP status 502')),
+      'The launcher did not log the failed refresh');
+    s.recorder.badResponses = s.recorder.badResponses.filter(entry => !http.includes(entry));
+    s.recorder.consoleIssues = s.recorder.consoleIssues.filter(entry => !logged.includes(entry));
   });
 
   await s.step('a message from any other origin cannot trigger a refresh', async () => {
