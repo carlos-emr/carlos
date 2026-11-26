@@ -632,6 +632,20 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         }
     }
 
+    @Test
+    @DisplayName("should return the print error before writing when the packet merger skips a document")
+    void shouldReturnPrintErrorBeforeWriting_whenPacketMergerSkipsDocument() {
+        try (MockedStatic<ConcatPDF> concat = mockStatic(ConcatPDF.class)) {
+            concat.when(() -> ConcatPDF.concat(anyList(), any(OutputStream.class))).thenReturn(1);
+
+            assertThat(action.execute()).isEqualTo("error");
+
+            assertThat(request.getAttribute("printError")).isEqualTo(Boolean.TRUE);
+            assertThat(response.getHeader("Content-Disposition")).isNull();
+            assertThat(response.getContentAsByteArray()).isEmpty();
+        }
+    }
+
     @org.junit.jupiter.params.ParameterizedTest
     @ValueSource(strings = {"success", "render", "embed"})
     @DisplayName("should protect and remove managed lab PDFs after successful or failed rendering")

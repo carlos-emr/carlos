@@ -15,6 +15,7 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -23,6 +24,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @Tag("unit")
@@ -65,6 +67,42 @@ class EctAddMeasurementType2ActionUnitTest extends CarlosUnitTestBase {
             verify(dao).findByType("ID");
         } finally {
             Locale.setDefault(previous);
+        }
+    }
+
+    @Test
+    void shouldRejectMeasurementType_whenCodeAndFieldsAreInvalid() throws Exception {
+        var dao = mock(MeasurementTypeDao.class);
+        var security = mock(SecurityInfoManager.class);
+        registerMock(MeasurementTypeDao.class, dao);
+        registerMock(SecurityInfoManager.class, security);
+        var request = new MockHttpServletRequest("POST", "/AddMeasurementType");
+        var login = mock(LoggedInInfo.class);
+        when(security.hasPrivilege(login, "_admin", "w", null)).thenReturn(true);
+        String code = "a".repeat(256) + "!";
+
+        try (var servlet = mockStatic(ServletActionContext.class);
+             var sessions = mockStatic(LoggedInInfo.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            sessions.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(login);
+            var action = spy(new EctAddMeasurementType2Action());
+            action.setType(code);
+            action.setTypeDesc("Description!");
+            action.setTypeDisplayName("Display name!");
+            action.setMeasuringInstrc("Instruction!");
+            doAnswer(invocation -> "Invalid: " + invocation.getArgument(1))
+                    .when(action).getText(eq("errors.invalid"), any(String.class));
+            doReturn("Too long").when(action).getText(eq("errors.maxlength"), any(String[].class));
+
+            assertThat(action.execute()).isEqualTo("failure");
+
+            assertThat(action.getActionErrors()).contains(
+                    "Invalid: The type " + code,
+                    "Invalid: The type description Description!",
+                    "Invalid: The display name Display name!",
+                    "Invalid: The measuring instruction Instruction!");
+            verify(action).getText("errors.maxlength", new String[]{"The type " + code, "50"});
+            verify(dao, never()).persist(any());
         }
     }
 }
