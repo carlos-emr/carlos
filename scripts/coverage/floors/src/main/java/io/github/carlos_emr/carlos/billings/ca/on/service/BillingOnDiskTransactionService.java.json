@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnDiskTransactionService.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 90.0,
+    "instructions": 90.38461538461539,
+    "branches": 53.57142857142857,
+    "sourceBlob": "90fdfa4075747cafe146c805ade81bbc29d1142c"
+  },
+  "evidenceSha256": "7badfbabd422284593176da3c485d2640feefc45d6b557caac9534c280d637ab"
+}

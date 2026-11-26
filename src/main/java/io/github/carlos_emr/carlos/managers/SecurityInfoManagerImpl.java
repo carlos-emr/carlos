@@ -277,7 +277,8 @@ public class SecurityInfoManagerImpl implements SecurityInfoManager {
         List<String> roles = (List<String>) patientSpecific.get(1);
         return OscarRoleObjectPrivilege.checkPrivilege(EVERYONE, privileges, roles, null, READ)
                 && !OscarRoleObjectPrivilege.checkPrivilege(EVERYONE, privileges, roles, null, WRITE)
-                && !OscarRoleObjectPrivilege.checkPrivilege(EVERYONE, privileges, roles, null, UPDATE);
+                && !OscarRoleObjectPrivilege.checkPrivilege(EVERYONE, privileges, roles, null, UPDATE)
+                && !OscarRoleObjectPrivilege.checkPrivilege(EVERYONE, privileges, roles, null, DELETE);
     }
 
     @Override

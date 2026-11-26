@@ -21,6 +21,10 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import java.util.Optional;
+import java.util.Set;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -78,6 +82,9 @@ public class OhipReportGenerationService {
     private static final int PROVIDER_SPECIALTYCODE_LENGTH = 2;
 
     private final BillActivityDao billActivityDao;
+    private final SecurityInfoManager securityInfoManager;
+    private final BillingReviewLoader reviews;
+    private final BillingOnOutputFilenames outputFilenames;
     private final ProviderDao providerDao;
     private final BillingDao billingDao;
     private final BillingDetailDao billingDetailDao;
@@ -106,8 +113,12 @@ public class OhipReportGenerationService {
                                 BillingDao billingDao,
                                 BillingDetailDao billingDetailDao,
                                 org.springframework.beans.factory.ObjectFactory<OhipClaimExtractService> ohipClaimExtractFactory,
-                                org.springframework.transaction.PlatformTransactionManager txManager) {
+                                org.springframework.transaction.PlatformTransactionManager txManager,
+                                SecurityInfoManager securityInfoManager, BillingReviewLoader reviews, BillingOnOutputFilenames outputFilenames) {
         this.billActivityDao = billActivityDao;
+        this.securityInfoManager = securityInfoManager;
+        this.reviews = reviews;
+        this.outputFilenames = outputFilenames;
         this.providerDao = providerDao;
         this.billingDao = billingDao;
         this.billingDetailDao = billingDetailDao;
@@ -124,15 +135,9 @@ public class OhipReportGenerationService {
     public record SimulationResult(String htmlPreview, String errorMsg, String dateBeginStr, String dateEndStr) {}
 
     /**
-     * One row per provider whose per-provider transaction rolled back.
-     * The action layer surfaces these via {@code skippedProviders} on the
-     * request so the operator's success page can banner "N providers were
-     * skipped — see error log" rather than rendering as if every selected
-     * provider's report was generated.
-     *
-     * <p>{@code causeClass} is the simple class name of the throwable so
-     * the JSP can render a coarse category (file vs data vs unknown) without
-     * leaking stack-trace detail; the full cause is in the server log.</p>
+     * Identifies a provider whose report could not be generated. The action supplies these
+     * rows to the operator through {@code skippedProviders}. The protected log records the
+     * exception category and its source location for diagnosis.
      */
     public record FailedProvider(String providerNo, String ohipNo,
                                  String causeClass, String causeMessage) {
@@ -154,16 +159,12 @@ public class OhipReportGenerationService {
      * BillActivity rows and writes the OHIP+HTML files for each
      * eligible provider.
      *
-     * @return list of providers whose per-provider tx rolled back; empty
-     *         when all selected providers were processed cleanly. Caller
-     *         should stash this on the request for the JSP banner.
+     * @return providers whose reports could not be generated, for display on the results page
      */
     public java.util.List<FailedProvider> generateReport(HttpServletRequest request, Mode mode) {
         if (mode == Mode.SIMULATION) {
             throw new IllegalArgumentException("Use generateSimulation for SIMULATION mode");
         }
-
-        java.util.List<FailedProvider> skipped = new ArrayList<>();
 
         String monthCode = request.getParameter("monthCode");
         if (monthCode == null || monthCode.isEmpty()) {
@@ -172,22 +173,28 @@ public class OhipReportGenerationService {
             // the page rendered with no banner.
             MiscUtils.getLogger().warn(
                     "OhipReportGeneration.generateReport: missing monthCode parameter; nothing processed");
-            return skipped;
+            return List.of();
         }
 
         String providerParam = request.getParameter("providers");
         if (providerParam == null || providerParam.trim().isEmpty()) {
             MiscUtils.getLogger().warn(
                     "OhipReportGeneration.generateReport: missing providers parameter; nothing processed");
-            return skipped;
+            return List.of();
         }
-        providerParam = providerParam.trim();
+        Optional<Set<String>> eligible = eligibleProviders(request);
+        String selection = providerParam.trim();
+        return BillingOutputLock.call(() -> generateReportLocked(request, mode, monthCode, selection, eligible));
+    }
 
+    private List<FailedProvider> generateReportLocked(HttpServletRequest request, Mode mode, String monthCode,
+                                                      String providerParam, Optional<Set<String>> eligible) {
+        List<FailedProvider> skipped = new ArrayList<>();
         boolean hybridBilling = isHybridBilling();
         List<String> hybridProviders = hybridProviderList();
         int curYear = new GregorianCalendar().get(Calendar.YEAR);
 
-        List<Provider> providersToProcess = resolveProviders(providerParam);
+        List<Provider> providersToProcess = resolveProviders(providerParam, eligible);
 
         int batchOrdinal = 1;
         for (Provider p : providersToProcess) {
@@ -206,65 +213,59 @@ public class OhipReportGenerationService {
                     "<xml_p_specialty_code>", "</xml_p_specialty_code>"));
 
             String groupKey = mode == Mode.GROUP_REPORT ? groupNo : proOHIP;
-            String batchCount = unreservedBatchCount(monthCode, groupKey, proOHIP, curYear,
-                    mode == Mode.GROUP_REPORT);
-
-            OhipClaimExtractService extract = ohipClaimExtractFactory.getObject();
-            extract.seteFlag("1");
-            extract.setOhipVer(request.getParameter("verCode"));
-            extract.setProviderNo(proOHIP);
-            extract.setOhipCenter(request.getParameter("billcenter"));
-            extract.setGroupNo(groupNo);
-            extract.setSpecialty(specialty);
-            extract.setBatchCount(String.valueOf(batchOrdinal));
-
-            String[] filenames = buildFilenames(monthCode, groupKey, proOHIP, batchCount,
-                    mode == Mode.GROUP_REPORT);
-            extract.setHtmlFilename(filenames[1]);
-            extract.setOhipFilename(filenames[0]);
-
-            // Per-provider tx boundary: dbQuery (setAsBilled), file writes,
-            // and persistBillActivity all live in one REQUIRES_NEW
-            // transaction. A throw rolls back THIS provider's DB writes
-            // (no setAsBilled remains, no BillActivity row); earlier
-            // providers' commits stay durable. File writes happen INSIDE
-            // the tx so a thrown BillingFileWriteException after writeFile
-            // succeeds correctly tears down setAsBilled but leaves the
-            // file on disk — the operator finds the orphan via the
-            // missing BillActivity row and re-runs for that provider.
-            String curUser = request.getParameter("curUser");
             try {
+                String batchCount = unreservedBatchCount(monthCode, groupKey, proOHIP, curYear,
+                        mode == Mode.GROUP_REPORT);
+
+                OhipClaimExtractService extract = ohipClaimExtractFactory.getObject();
+                extract.seteFlag("1");
+                extract.setOhipVer(request.getParameter("verCode"));
+                extract.setProviderNo(proOHIP);
+                extract.setOhipCenter(request.getParameter("billcenter"));
+                extract.setGroupNo(groupNo);
+                extract.setSpecialty(specialty);
+                extract.setBatchCount(String.valueOf(batchOrdinal));
+
+                String[] filenames = buildFilenames(monthCode, groupKey, proOHIP, batchCount,
+                        mode == Mode.GROUP_REPORT);
+                extract.setHtmlFilename(filenames[1]);
+                extract.setOhipFilename(filenames[0]);
+
+                // Per-provider tx boundary: dbQuery (setAsBilled), file writes,
+                // and persistBillActivity all live in one REQUIRES_NEW
+                // transaction. A throw rolls back THIS provider's DB writes
+                // (no setAsBilled remains, no BillActivity row); earlier
+                // providers' commits stay durable. File writes happen INSIDE
+                // the tx so a thrown BillingFileWriteException after writeFile
+                // succeeds correctly tears down setAsBilled but leaves the
+                // file on disk — the operator finds the orphan via the
+                // missing BillActivity row and re-runs for that provider.
+                String curUser = request.getParameter("curUser");
                 perProviderTx.executeWithoutResult(status -> {
                     // Throwing a RuntimeException out of the lambda is the
                     // load-bearing rollback trigger; TransactionTemplate calls
                     // rollback automatically on RuntimeException propagation.
-                    extract.dbQuery();
+                    extractClaims(extract, eligible, p);
                     extract.writeFile(extract.getValue());
                     extract.writeHtml(extract.getHtmlCode());
                     persistBillActivity(monthCode, batchCount, filenames[0], filenames[1],
                             proOHIP, groupNo, curUser, extract);
                 });
             } catch (RuntimeException ex) {
-                // BillingFileWriteException, BillingDataLoadException, and
-                // every other unchecked failure all roll back the
-                // per-provider tx and surface the same shape of FailedProvider
-                // record; multi-catching them adds no information at this
-                // point. The cause class is captured so the JSP can branch
-                // file-vs-data-vs-other if it needs to.
                 String causeClass = ex.getClass().getSimpleName();
-                // Default null exception messages (e.g. NPE with no message)
-                // to a placeholder so the JSP banner doesn't render the
-                // literal word "null" — operators need to know the message
-                // is absent and to look at the server log.
-                String causeMessage = ex.getMessage() == null
-                        ? "<no message; check server log>"
-                        : ex.getMessage();
+                String causeMessage = "Billing generation failed; check server log.";
+                if (ex instanceof BillingFileWriteException fileFailure) {
+                    causeMessage = fileFailure.reason() == BillingFileWriteException.Reason.FILENAME_SEQUENCE_EXHAUSTED
+                            ? fileFailure.reason().publicMessage()
+                            : "The billing file could not be written. Check storage and file permissions.";
+                }
+                // Driver and filesystem messages may include claim values or private paths.
+                StackTraceElement[] trace = ex.getStackTrace();
+                String origin = trace.length == 0 ? "unavailable" : trace[0].getClassName() + "." + trace[0].getMethodName()
+                        + "(" + trace[0].getLineNumber() + ")";
                 MiscUtils.getLogger().error(
-                        "OhipReportGeneration: per-provider failure for provider {} (ohip={}, cause={}); tx rolled back, prior providers stay committed",
-                        LogSafe.sanitize(p.getProviderNo()),
-                        LogSafe.sanitize(proOHIP),
-                        causeClass,
-                        ex);
+                        "OHIP {} did not complete for provider {} (exception={}, origin={}); earlier providers remain committed",
+                        mode, LogSafe.sanitize(p.getProviderNo()), LogSafe.sanitize(causeClass), LogSafe.sanitize(origin));
                 skipped.add(new FailedProvider(
                         p.getProviderNo(), proOHIP, causeClass, causeMessage));
                 continue;
@@ -294,7 +295,12 @@ public class OhipReportGenerationService {
         DateRange dateRange = new DateRange(dateBegin, dateEnd);
 
         StringBuilder htmlValue = new StringBuilder();
-        for (Provider p : providerDao.getActiveProviders()) {
+        // The legacy unrestricted simulation previews the clinic. A restricted request uses
+        // the same eligible set and explicit provider selection as the Ontario billing form.
+        Optional<Set<String>> eligible = eligibleProviders(request);
+        List<Provider> simulationProviders = eligible.isPresent()
+                ? resolveProviders(provider, eligible) : providerDao.getActiveProviders();
+        for (Provider p : simulationProviders) {
             if (p.getOhipNo() == null || p.getOhipNo().isEmpty()) continue;
 
             String proOHIP = p.getOhipNo();
@@ -322,7 +328,7 @@ public class OhipReportGenerationService {
             extract.setGroupNo(groupNo);
             extract.setSpecialty(specialty);
             extract.setBatchCount("1");
-            extract.dbQuery();
+            extractClaims(extract, eligible, p);
 
             htmlValue.append(extract.getHtmlValue());
         }
@@ -331,15 +337,38 @@ public class OhipReportGenerationService {
                 dateEnd == null ? "" : dateEnd.toString());
     }
 
+    private static void extractClaims(OhipClaimExtractService extract, Optional<Set<String>> eligible, Provider provider) {
+        if (eligible.isPresent()) {
+            extract.dbQueryForProvider(provider.getProviderNo());
+        } else {
+            extract.dbQuery();
+        }
+    }
+
+    private Optional<Set<String>> eligibleProviders(HttpServletRequest request) {
+        LoggedInInfo login = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (login == null) throw new SecurityException("missing session");
+        return BillingOnProviderScope.forLogin(securityInfoManager, login).selectableProviderNumbers(
+                reviews, login.getLoggedInProviderNo());
+    }
+
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private List<Provider> resolveProviders(String providerParam) {
+    private List<Provider> resolveProviders(String providerParam, Optional<Set<String>> eligible) {
         if ("all".equalsIgnoreCase(providerParam)) {
-            return providerDao.getActiveProviders();
+            if (eligible.isPresent() && eligible.get().isEmpty()) {
+                throw new SecurityException("No available billing providers.");
+            }
+            List<Provider> active = providerDao.getActiveProviders();
+            return eligible.map(allowed -> active.stream().filter(p -> allowed.contains(p.getProviderNo())).toList())
+                    .orElse(active);
         }
-        // Single provider — first 6 chars of the param value.
-        String pn = providerParam.length() > PROVIDER_BILLINGNO_LENGTH
+        // Some legacy forms append an OHIP number to the six-character provider number.
+        String pn = providerParam != null && providerParam.length() > PROVIDER_BILLINGNO_LENGTH
                 ? providerParam.substring(0, PROVIDER_BILLINGNO_LENGTH) : providerParam;
+        if (eligible.isPresent() && (pn == null || !eligible.get().contains(pn))) {
+            throw new SecurityException("Selected billing provider is not available.");
+        }
         Provider p = providerDao.getProvider(pn);
         List<Provider> out = new ArrayList<>();
         if (p != null) out.add(p);
@@ -383,8 +412,8 @@ public class OhipReportGenerationService {
     }
 
     /**
-     * Advances the legacy sequence past claim or HTML names reserved by imported history.
-     * Exhausting the valid sequence range fails the batch before any output is written.
+     * Advances the legacy sequence past occupied claim or HTML names across current and historical outputs.
+     * Exhausting the valid sequence range skips this provider before any of its output is written.
      */
     private String unreservedBatchCount(String monthCode, String groupKey, String providerOhip,
                                         int year, boolean isGroup) {
@@ -392,12 +421,12 @@ public class OhipReportGenerationService {
         for (int candidate = first; candidate <= 999; candidate++) {
             String[] names = buildFilenames(monthCode, groupKey, providerOhip,
                     Integer.toString(candidate), isGroup);
-            if (!billActivityDao.isImportedFilenameReserved(names[0])
-                    && !billActivityDao.isImportedFilenameReserved(names[1])) {
+            if (!outputFilenames.isInUse(names[0])
+                    && !outputFilenames.isInUse(names[1])) {
                 return Integer.toString(candidate);
             }
         }
-        throw new BillingFileWriteException("No unused OHIP filename remains for this billing month; review billing output before retrying");
+        throw BillingFileWriteException.forReason(BillingFileWriteException.Reason.FILENAME_SEQUENCE_EXHAUSTED, null);
     }
 
     private String[] buildFilenames(String monthCode, String groupKey, String proOHIP,

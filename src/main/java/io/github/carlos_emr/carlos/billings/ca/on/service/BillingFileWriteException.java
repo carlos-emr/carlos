@@ -42,7 +42,10 @@ public class BillingFileWriteException extends RuntimeException {
     /** Fixed public guidance; clinical values and filenames never enter these messages. */
     public enum Reason {
         GENERAL("The OHIP output could not be completed. Review the billing output and contact your billing administrator before retrying."),
+        NEW_OUTPUT_OCCUPIED("A file appeared under the allocated billing name. Its contents were preserved. Reconcile the existing file before starting another batch."),
+        NEW_OUTPUT_UNSUPPORTED("The billing output folder cannot safely create a new file. Ask your administrator to configure HOME_DIR on storage that supports hard links or atomic Linux no-replace rename before retrying."),
         IMPORTED_FILE_UNRESOLVED("This historical billing file requires reconciliation after the OSCAR import. Ask your billing administrator to verify the submission and its original file before downloading or regenerating it."),
+        FILENAME_SEQUENCE_EXHAUSTED("No unused OHIP filename remains for this billing month. Review existing generations with your billing administrator before retrying."),
         BUSY("An OHIP disk operation is already in progress; wait for it to finish before retrying"),
         LOCK_FAILED("OHIP output lock failed; reconcile any completed output before retrying"),
         /**

@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "55b62e14895ff31b54957ad8410361319980fe93",
+  "comparisonSha256": "17bf1c4a466147a095891ca8f2c6d7e7f8c1308548b21574a92520cf27eb5618",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/report/reportByTemplate/ReportManager.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "daa62737cb33d253e5982f54181e468cebf46928"
+    }
+  },
+  "exclusions": {},
+  "baselineCommit": "639879984ae139fa445ce0afd835437a9a7f63fe",
+  "baselineSourceTree": "55b62e14895ff31b54957ad8410361319980fe93",
+  "baselineReportSha256": "2f8cd53b37bac974a2f3eaa9a083673abeee7b4a0f1adeb3a225f134a1bd5797",
+  "baselineLane": "Ubuntu 26.04.1 and OpenJDK 25 focused ReportTemplateEmptyParameterUnitTest. Both changed Java files were compiled from the identified commit; the 39 existing cases and the adjacent-literal regression ran against the revised ReportManager.",
+  "baselineTestCounts": {
+    "tests": 40,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.report.reportByTemplate.ReportTemplateEmptyParameterUnitTest"
+  ],
+  "baselineTestReportsSha256": "a7e421a96687e7d020f107f5ca05683fc61499988cb864b3627f0d0ad38c793a",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

@@ -1,6 +1,7 @@
 # Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
 """Exercise native verdicts with real subprocess exits, including python -O."""
 import importlib.util
+import json
 import os
 from pathlib import Path
 import re
@@ -174,6 +175,106 @@ LEGACY_NOTE_FLAG_REQUIRED_CASES = {
 
 
 class MariaDbReportEvidenceTest(unittest.TestCase):
+    def test_ontario_requires_single_site_and_multisite_billing_results(self):
+        family = 'BillingOnSiteVisibilityIntegrationTest'
+        names = {
+            'shouldShowUnassignedBillersAndDisks_whenSingleSiteHasSeededPrivacyGrant',
+            'shouldRestrictBothViewsAndDiskRows_whenMultisitePrivacyIsGranted',
+            'shouldShowUnassignedBillersAndDisks_whenMultisiteHasNoPrivacyGrant',
+            'shouldLimitHistoryToTheTeam_whenSingleSiteLoginHasOnlyTeamBillingAndSeededSiteGrants',
+            'shouldRequireTeamAndSiteForHistory_whenOnlyTeamBillingAndMultisiteGrantsArePresent',
+            'shouldRetainTeamAccessPrecedence_whenBothMultisiteAndTeamPrivacyAreGranted',
+            'shouldMarkOnlyTheAuthorizedLegacyClaim_whenTwoBillersShareAnOhipNumber',
+            'shouldRemoveOnlyProvisionalDiskOwnership_whenNewOutputCollides(Path)',
+        }
+        self.assertEqual(MODULE.REQUIRED_CASES[family], names)
+        self.assertEqual(MODULE.REQUIRED['flyway'][family], len(names))
+        root = Path(__file__).resolve().parents[2]
+        workflow = (root / '.github/workflows/maven-project.yml').read_text()
+        on = next(block for block in workflow.split('      - name: ')
+                  if block.startswith('Verify critical DAO paths against the Flyway schema\n'))
+        self.assertIn('CARLOS_TEST_MARIADB_PROVINCE=on', on)
+        selected = re.search(r'-Dtest=([^\s\'"\\]+)', on).group(1).split(',')
+        self.assertIn(family, selected)
+        plan = json.loads((root / 'docs/testing/release-2026.08-verification.json').read_text())
+        h2 = next(check for check in plan['checks'] if check['id'] == 'java-all')
+        route = h2['routedSkips'][MODULE.BOUND_FAMILIES[family]]
+        self.assertEqual(route['check'], 'java-native-flyway')
+        self.assertEqual({(case['name'], case['container']) for case in route['cases']}, {(name, '') for name in names})
+        self.seed()
+        report = self.reports / f'TEST-{self.suite(family)}-flyway.xml'
+        original = report.read_text()
+        for name in names:
+            with self.subTest(name=name):
+                report.write_text(original.replace(f'name="{name}"', 'name="unrelatedCase"'))
+                self.assert_refused(self.invoke(), f'Required MariaDB flyway cases missing: {family}')
+
+    def test_ontario_requires_file_ownership_and_allocation_on_its_real_schema(self):
+        suites = {
+            'BillingOnFileAccessServiceIntegrationTest': {
+                'shouldCheckEveryDiskMember_whileAllowingTheirIndividualHtml',
+                'shouldRequireAUniqueLegacyOhipOwner_acrossInactiveProvidersAndBothFileTables',
+                'shouldKeepTheBillingReadGateAndAllowAnIssuedNonbillingReport_inACoLocatedDirectory',
+            },
+            'BillingOnOutputFilenamesIntegrationTest': {
+                'shouldReserveEveryHistoricalName_acrossBothGeneratorsAndImportEvidence',
+                'shouldPreservePhysicalEntries_whenMetadataIsMissing',
+                'shouldRefuseAllocation_whenTheConfiguredFolderIsUnavailable',
+            },
+        }
+        root = Path(__file__).resolve().parents[2]
+        plan = json.loads((root / 'docs/testing/release-2026.08-verification.json').read_text())
+        workflow = (root / '.github/workflows/maven-project.yml').read_text()
+        on = next(block for block in workflow.split('      - name: ')
+                  if block.startswith('Verify critical DAO paths against the Flyway schema\n'))
+        selected = next(line for line in on.splitlines() if '-Dtest=' in line).split('-Dtest=')[1].split()[0].split(',')
+        self.seed()
+        for family, names in suites.items():
+            for lane in ('java-all', 'java-native-flyway'):
+                check = next(check for check in plan['checks'] if check['id'] == lane)
+                self.assertEqual(check['requiredFamilies'][family], len(names))
+            self.assertIn(family, selected)
+            self.assertEqual(MODULE.REQUIRED_CASES[family], names)
+            self.assertEqual(MODULE.REQUIRED['flyway'][family], len(names))
+            report = self.reports / f'TEST-{self.suite(family)}-flyway.xml'
+            original = report.read_text()
+            for name in names:
+                with self.subTest(name=name):
+                    report.write_text(original.replace(f'name="{name}"', 'name="unrelatedCase"'))
+                    try:
+                        self.assert_refused(self.invoke(), f'Required MariaDB flyway cases missing: {family}')
+                    finally:
+                        report.write_text(original)
+
+    def test_both_provinces_require_the_named_queue_and_schedule_regressions(self):
+        root = Path(__file__).resolve().parents[2]
+        workflow = (root / '.github/workflows/maven-project.yml').read_text()
+        blocks = re.split(r'(?m)^      - name: ', workflow)
+        cases = {
+            'IncomingDocumentQueuePreferenceIntegrationTest':
+                'shouldPreserveTheLastSelection_whenBothRequestsPreviouslySawNoPreference',
+            'ScheduleDateOverrideServiceIntegrationTest':
+                'shouldGenerateFromCommittedDays_whenAnOverlappingPopupSavesOrDeletes(boolean)[2]',
+        }
+        self.seed()
+        for mode, title in (
+                ('flyway', 'Verify critical DAO paths against the Flyway schema'),
+                ('bc-flyway', 'Verify BC billing, encounter and day-sheet transactions against the Flyway schema')):
+            block = next(block for block in blocks if block.startswith(title + '\n'))
+            selected = re.search(r'-Dtest=([^\s\'"\\]+)', block).group(1).split(',')
+            for family, name in cases.items():
+                with self.subTest(mode=mode, family=family):
+                    self.assertIn(family, selected)
+                    self.assertIn(name, MODULE.REQUIRED_CASES[family])
+                    self.assertEqual(MODULE.REQUIRED[mode][family], len(MODULE.REQUIRED_CASES[family]))
+                    report = self.reports / f'TEST-{self.suite(family)}-{mode}.xml'
+                    original = report.read_text()
+                    report.write_text(original.replace(f'name="{name}"', 'name="unrelatedCase"'))
+                    try:
+                        self.assert_refused(self.invoke(), f'Required MariaDB {mode} cases missing: {family}')
+                    finally:
+                        report.write_text(original)
+
     def test_shipped_flyway_commands_select_the_legacy_note_flag_regressions(self):
         workflow = (Path(__file__).resolve().parents[2]
                     / '.github/workflows/maven-project.yml').read_text()
@@ -268,8 +369,8 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
     def suite(family: str) -> str:
         if family == 'LegacyLabNativeMariaDbIntegrationTest':
             return MODULE.INBOX_CLASS
-        if family == 'DemographicWebUnmergeIntegrationTest':
-            return 'io.github.carlos_emr.carlos.demographic.pageUtil.DemographicWebUnmergeIntegrationTest'
+        if family in MODULE.BOUND_FAMILIES:
+            return MODULE.BOUND_FAMILIES[family]
         return next((name for name in MODULE.BC_PHYSICAL_CASES if name.rsplit('.', 1)[-1] == family), 'example.' + family)
 
     def test_each_physical_type_case_is_required_even_when_family_counts_are_unchanged(self):

@@ -6,9 +6,10 @@ import subprocess
 
 from command_evidence import relative_file
 from junit_evidence import EvidenceError
-from lifecycle_baselines import required_baselines
+from installed_package_state import version_allowed
+from lifecycle_baselines import BASELINE_TAGS, CANDIDATE_CLI_FLOOR, candidate_cli, required_baselines
 
-ROLES = {'clean', 'main', 'historical'}
+ROLES = {'clean', *BASELINE_TAGS}
 CELL_ASSERTIONS = {'ubuntu-systemd-prerequisite', 'pinned-installation', 'forced-first-login',
     'unchanged-client-before', 'real-transition', 'clinical-cleanup-preserved',
     'documents-cleanup-preserved', 'unchanged-client-after', 'candidate-application-bound',
@@ -33,11 +34,13 @@ def validate_inventory(document, source, profile, artifact_hash, directory, read
             or len(rows) != len(expected) or {row.get('role') for row in rows} != expected
             or (required_roles is not None and document.get('requestedRoles') != required_roles)):
         raise EvidenceError('Lifecycle omitted or duplicated a required install/upgrade baseline')
-    baselines = required_baselines(read_json(Path(__file__).resolve().parents[2]
-        / 'docs/testing/release-2026.08-lifecycle-baselines.json'))
+    pins = read_json(Path(__file__).resolve().parents[2] / 'docs/testing/release-2026.08-lifecycle-baselines.json')
+    baselines = dict(zip(BASELINE_TAGS, required_baselines(pins), strict=True))
     predecessor_pins = {role: next(asset['sha256'] for asset in baseline['assets']
-        if asset['name'].startswith('carlos-emr_')) for role, baseline in zip(('main', 'historical'), baselines)}
+        if asset['name'].startswith('carlos-emr_')) for role, baseline in baselines.items()}
     predecessor_pins['clean'] = target_package_hash
+    cli_versions = {role: baseline['cliVersion'] for role, baseline in baselines.items()}
+    cli_versions['clean'] = candidate_cli(pins)['version']
     for row in rows:
         path = relative_file(directory, row.get('path'))
         if digest(path) != row.get('sha256'):
@@ -55,11 +58,11 @@ def validate_inventory(document, source, profile, artifact_hash, directory, read
                 or not re.fullmatch('[0-9a-f]{64}', initial.get('packageSha256', ''))
                 or not re.fullmatch('[0-9a-f]{64}', initial.get('contentSha256', ''))
                 or initial.get('packageSha256') != predecessor_pins[row['role']]
-                or dependency.get('floor') != '1.3.1'
-                or (row['role'] != 'historical' and dependency.get('installedCli') != '1.3.1')
-                or (row['role'] == 'historical' and (dependency.get('installedCli') != '1.3.0'
-                    or any(dependency.get(key) is not True for key in
-                           ('olderCliRefused', 'compatibleCliResolved', 'statePreserved'))))
+                or dependency.get('floor') != CANDIDATE_CLI_FLOOR
+                or dependency.get('installedCli') != cli_versions[row['role']]
+                or (version_allowed('upgrade', cli_versions[row['role']], CANDIDATE_CLI_FLOOR)
+                    and any(dependency.get(key) is not True for key in
+                            ('olderCliRefused', 'compatibleCliResolved', 'statePreserved')))
                 or binding.get('warSha256') != artifact_hash
                 or binding.get('scope') != 'installed-package-application'
                 or not re.fullmatch('[0-9a-f]{64}', binding.get('contentSha256', ''))):
@@ -93,7 +96,7 @@ def validate_config(document):
     if (not isinstance(document, dict) or set(document) != {'runtimeImage', 'caFile', 'browserDirectory', 'packages'}
             or not re.fullmatch('sha256:[0-9a-f]{64}', document.get('runtimeImage', ''))
             or not isinstance(document.get('packages'), dict)
-            or set(document['packages']) != {'target', '2026.08.0-beta6', '2026.08.0-beta5'}):
+            or set(document['packages']) != {'target', *BASELINE_TAGS.values()}):
         raise EvidenceError('Lifecycle needs an immutable runtime, trust/browser paths and all package baselines')
     for packages in document['packages'].values():
         if not isinstance(packages, dict) or set(packages) != {'emr', 'drugref', 'ctl'}:

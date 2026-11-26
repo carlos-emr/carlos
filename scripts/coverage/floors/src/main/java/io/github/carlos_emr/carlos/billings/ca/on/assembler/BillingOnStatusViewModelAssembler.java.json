@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOnStatusViewModelAssembler.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "53d2de45da23feb656597f7001e1377ae9ba9dba"
+  },
+  "evidenceSha256": "f88900933dba5d12501f0f25c70880c010b4f6c9c08e092e8c7ac9a761761b29"
+}

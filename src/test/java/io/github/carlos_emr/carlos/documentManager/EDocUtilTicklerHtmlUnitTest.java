@@ -169,6 +169,19 @@ class EDocUtilTicklerHtmlUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should print a linked tickler with no message as an empty line, never as the word null")
+    void shouldRenderEmptyLine_whenTicklerMessageIsNull() {
+        // Issue #3057: the raw OWASP encoder renders null as the four characters "null".
+        TicklerDocs link = mock(TicklerDocs.class);
+        when(link.getTicklerId()).thenReturn(7);
+        when(mockTicklerDocsDao.findByDocument(42, TicklerDocs.DOCTYPE_DOC)).thenReturn(List.of(link));
+        Tickler tickler = ticklerOf(1001, null);
+        when(mockTicklerManager.getTickler(mockLoggedInInfo, 7)).thenReturn(tickler);
+
+        assertThat(EDocUtil.getHtmlTicklers(mockLoggedInInfo, "42")).isEqualTo("<br>");
+    }
+
+    @Test
     @DisplayName("should return an empty string when the document has no tickler links")
     void shouldReturnEmpty_whenNoLinks() {
         when(mockTicklerDocsDao.findByDocument(99, TicklerDocs.DOCTYPE_DOC)).thenReturn(null);

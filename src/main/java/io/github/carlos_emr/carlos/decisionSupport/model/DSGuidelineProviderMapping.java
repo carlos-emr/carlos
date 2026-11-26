@@ -95,16 +95,23 @@ public class DSGuidelineProviderMapping extends AbstractModel<Integer> {
      * Two mappings are considered equal if they associate the same provider
      * with the same guideline.
      *
+     * <p>Answers {@code false}, rather than throwing, for {@code null}, for an object of another
+     * type and when either mapping has no provider number or guideline UUID yet (#5303).</p>
+     *
      * @param object2 Object to compare against this mapping
      * @return boolean true if mappings have the same provider and guideline identifiers
      */
     @Override
     public boolean equals(Object object2) {
-        DSGuidelineProviderMapping mapping2 = (DSGuidelineProviderMapping) object2;
-        if (mapping2.getProviderNo().equals(this.getProviderNo()) && mapping2.getGuidelineUUID().equals(this.getGuidelineUUID())) {
+        if (this == object2) {
             return true;
         }
-        return false;
+        if (!(object2 instanceof DSGuidelineProviderMapping mapping2)) {
+            return false;
+        }
+        return providerNo != null && guidelineUUID != null
+                && providerNo.equals(mapping2.getProviderNo())
+                && guidelineUUID.equals(mapping2.getGuidelineUUID());
     }
 
     /**

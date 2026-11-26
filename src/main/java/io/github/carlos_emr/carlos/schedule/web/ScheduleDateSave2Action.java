@@ -64,8 +64,6 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public final class ScheduleDateSave2Action extends ActionSupport {
 
-    /** Session attribute of the JSP {@code scheduleRscheduleBean} (provider rule schedule). */
-    static final String RULE_SCHEDULE = "scheduleRscheduleBean";
     /** The popup's hidden {@code date} field: {@code year-month-day}, month and day unpadded. */
     private static final Pattern CALENDAR_DATE = Pattern.compile("(\\d{4})-(\\d{1,2})-(\\d{1,2})");
 
@@ -124,7 +122,7 @@ public final class ScheduleDateSave2Action extends ActionSupport {
         }
 
         HttpSession session = request.getSession();
-        RscheduleBean ruleSchedule = openCalendarRule(session, providerNo);
+        RscheduleBean ruleSchedule = ScheduleCalendarCache.openRule(session, providerNo);
         if (ruleSchedule == null) {
             return refuse(request, HttpServletResponse.SC_CONFLICT, "error.refusal.scheduleCalendarChanged",
                     "The calendar open in this session is for another provider.");
@@ -137,7 +135,7 @@ public final class ScheduleDateSave2Action extends ActionSupport {
         ScheduleDate replacement = null;
         if (save) {
             String available = request.getParameter("available");
-            if (available == null || available.isEmpty()) {
+            if (!"1".equals(available) && !"0".equals(available)) {
                 return badRequest(request, "error.refusal.scheduleAvailability",
                         "Choose whether the provider is available on this date.");
             }
@@ -157,22 +155,6 @@ public final class ScheduleDateSave2Action extends ActionSupport {
         // copy is marked for the month view to reload and the save is still acknowledged.
         ScheduleCalendarCache.refreshDay(session, providerNo, date, () -> overrideService().currentOverride(providerNo, date));
         return SUCCESS;
-    }
-
-    /**
-     * The session's rule schedule, provided the calendar open in the session is this provider's;
-     * otherwise {@code null}.
-     *
-     * <p>The rule schedule and the calendar's days are session-wide. Another tab may have opened a
-     * different provider's calendar since this popup was drawn, and Delete would then write that
-     * provider's rule hours for this one. The caller refuses before writing anything (#5297).</p>
-     */
-    private static RscheduleBean openCalendarRule(HttpSession session, String providerNo) {
-        RscheduleBean rule = session.getAttribute(RULE_SCHEDULE) instanceof RscheduleBean bean ? bean : null;
-        if (rule == null || !providerNo.equals(rule.provider_no) || !ScheduleCalendarCache.isFor(session, providerNo)) {
-            return null;
-        }
-        return rule;
     }
 
     /**
