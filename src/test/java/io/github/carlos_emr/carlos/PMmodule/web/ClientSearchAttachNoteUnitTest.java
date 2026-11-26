@@ -98,6 +98,17 @@ class ClientSearchAttachNoteUnitTest extends CarlosUnitTestBase {
         servletActionContextMock.close();
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"-1", "8", "invalid"})
+    void shouldRefuseInvalidSort_beforeQueryingPatients(String sort) {
+        newRequest().setParameter("tableSortChange", sort);
+        var search = new ClientSearchAction22Action();
+        search.setCriteria(new ClientSearchFormBean());
+
+        assertThat(search.attachSearch()).isEqualTo("none");
+        verify(clients, org.mockito.Mockito.never()).searchClientPage(any(), anyInt(), anyInt(), anyBoolean());
+    }
+
     @Test
     void shouldReverseDefaultColumn_whenItsHeaderIsSelected() {
         newRequest().setParameter("tableSort", "0");

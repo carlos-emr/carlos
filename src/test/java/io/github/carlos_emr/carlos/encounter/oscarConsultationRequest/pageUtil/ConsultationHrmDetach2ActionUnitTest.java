@@ -98,6 +98,16 @@ class ConsultationHrmDetach2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRequirePost_beforeCheckingPrivileges() throws Exception {
+        request.setMethod("GET");
+        new ConsultationHrmDetach2Action().execute();
+
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        verifyNoInteractions(security, persister);
+    }
+
+    @Test
     void shouldDelegatePatientScopedWriteCheck_whenCallerHasConsultationRead() throws Exception {
         when(security.hasPrivilege(any(), eq("_con"), eq(SecurityInfoManager.READ), (String) isNull())).thenReturn(true);
 

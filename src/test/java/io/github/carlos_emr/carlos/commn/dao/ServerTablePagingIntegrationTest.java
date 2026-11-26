@@ -55,6 +55,29 @@ class ServerTablePagingIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    void shouldApplyDirectoryFiltersAndVisibility_whenSelectingReferralLabels() {
+        String marker = "Lab" + Long.toString(System.nanoTime(), 36);
+        var specialist = new ProfessionalSpecialist();
+        specialist.setLastName(marker);
+        specialist.setFirstName("Label");
+        specialist.setReferralNo("5317");
+        specialist.setSpecialtyType("Cardiology");
+        specialist.setStreetAddress("123 Clinic Street");
+        specialist.setDeleted(false);
+        specialists.persist(specialist);
+        entityManager.flush();
+
+        assertThat(specialists.findDirectoryPage("5317", marker, "Lab", "Cardio", "Clinic", false, 0).rows())
+                .extracting(ProfessionalSpecialist::getId).containsExactly(specialist.getId());
+        assertThat(specialists.findDirectoryPage(" ", null, null, "", "", false, 0).rows()).isEmpty();
+        specialist.setHideFromView(true);
+        entityManager.flush();
+        assertThat(specialists.findDirectoryPage(null, marker, null, null, null, false, 0).rows()).isEmpty();
+        assertThat(specialists.findDirectoryPage(null, marker, null, null, null, true, 0).rows())
+                .extracting(ProfessionalSpecialist::getId).containsExactly(specialist.getId());
+    }
+
+    @Test
     void shouldKeepFiltersAndAllSortColumns_whenPagingClientSearch() {
         String prefix = "Fake" + Long.toString(System.nanoTime(), 36);
         Set<Integer> expected = new HashSet<>();
