@@ -47,3 +47,9 @@ table.dsTable tr.odd {
 .bad {
     color: red;
 }
+
+/* Condition types with no patient value to list (#6328). */
+.na {
+    color: #555;
+    font-style: italic;
+}

@@ -80,6 +80,18 @@ class EFormAdminOutputEncodingRegressionTest {
                 .contains("SafeEncode.forHtmlContent((String) curform.get(\"formSubject\"))");
     }
 
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"efmmanageindependent.jsp", "efmmanageindependentdeleted.jsp"})
+    @DisplayName("should encode the saving provider's stored name on the patient-independent lists")
+    void shouldEncodeProviderName_forCurrentAndDeletedIndependentLists(String jsp) throws IOException {
+        // Issue #3057: provider names are stored text like the instance name beside them.
+        String page = read(jsp);
+
+        assertThat(page)
+                .doesNotContain("<%=providerDao.getProviderNameLastFirst((String) curform.get(\"providerNo\"))%>")
+                .contains("SafeEncode.forHtmlContent(providerDao.getProviderNameLastFirst((String) curform.get(\"providerNo\")))");
+    }
+
     @Test
     @DisplayName("should HTML-encode the group name before attribute-encoding it into the delete confirmation")
     void shouldDoubleEncodeGroupName_inDeleteConfirmation() throws IOException {

@@ -795,8 +795,8 @@ test('port conflict recovery requires an explicit true debconf answer', () => {
 systemctl() { echo failed; }
 configured_bind_ip() { echo 127.0.0.1; }
 host_conflicts() {
-  if [ "$2" = --plan ]; then echo 'will-stop: apache2.service';
-  else echo 'stopped: apache2.service'; fi
+  if [ "$2" = --plan ]; then printf '%s\\n' 'will-stop: apache2.service' 'will-stop-unit: apache2.service';
+  elif [ "$2" = --approved ] && [ "$3" = apache2.service ]; then echo 'stopped: apache2.service'; fi
 }
 db_subst() { :; }
 db_fset() { :; }

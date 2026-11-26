@@ -899,7 +899,7 @@ clinic's sign-off.
 
 ## Historical Ontario billing filenames
 
-With **carlos-ctl 1.3.6** and **2026.08.0-beta9**, the live generation tables
+With **carlos-ctl 1.3.6** and **2026.08.0-beta10**, the live generation tables
 retain rows that can be matched to files in the backup. The archive retains
 the other source rows. Review a repeated name against the clinic's records
 before accepting `latest-billing-generation`. Names shared between the two
@@ -1205,7 +1205,7 @@ the additive billing audit migration does not permit a partial-copy bypass.
   `--cleanup`, then upgrade again. *A finished ETL cannot be continued
   under a different manifest* — the upgrade landed mid-run; the same
   package reinstall, then `--resume`, `--cleanup`, then upgrade.
-  Beta 9 preserves a missing legacy billing appointment number as SQL NULL.
+  Beta 10 preserves a missing legacy billing appointment number as SQL NULL.
   Earlier import rules stored zero for the same input. An upgrade cannot
   distinguish those zeros from zeros already present in OSCAR. Use the
   original OSCAR dump to identify affected claims. Restoring the pre-import

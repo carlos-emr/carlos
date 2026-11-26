@@ -268,15 +268,18 @@ jobs:
                 -DoutputName=carlos-$RELEASE_TAG-cyclonedx
             "
 
-          war="target/carlos-$RELEASE_TAG.war"
+          war="release-assets/carlos-$RELEASE_TAG.war"
           sbom="target/carlos-$RELEASE_TAG-cyclonedx.json"
-          test -f "$war"
+          # jar updates a WAR by creating a sibling temporary file. Stage the
+          # archive in the runner-owned directory before stamping it.
+          cp "target/carlos-$RELEASE_TAG.war" "$war"
           test -f "$sbom"
           unzip -t "$war" >/dev/null
 
           # Freeze the final Debian stamp before any qualification. Packaging
           # recognizes this stamp and preserves the candidate archive's bytes.
-          debian/stamp-war-build-identity.sh "$war" carlos-emr-deb "${RELEASE_TAG//-/~}"
+          deb_version="$(printf '%s' "$RELEASE_TAG" | sed 's/-/~/g')"
+          debian/stamp-war-build-identity.sh "$war" carlos-emr-deb "$deb_version"
 
           build_properties=$(unzip -p "$war" WEB-INF/classes/buildNumber.properties)
           if ! grep -qxF "git-sha-1=$TAG_COMMIT" <<< "$build_properties"; then
@@ -299,7 +302,7 @@ jobs:
             exit 1
           fi
 
-          cp "$war" "$sbom" release-assets/
+          cp "$sbom" release-assets/
           (
             cd release-assets
             sha256sum "carlos-$RELEASE_TAG.war" > "carlos-$RELEASE_TAG.war.sha256"
