@@ -287,8 +287,10 @@
         }
 
         var docSubClassList = [
+            <%-- Issue #3057 (#2656): stored sub-classes are JavaScript-string encoded, as in
+                 documentReport.jsp and addedithtmldocument.jsp. --%>
             <% for (int i=0; i<subClasses.size(); i++) { %>
-            "<%=subClasses.get(i)%>"<%=(i<subClasses.size()-1)?",":""%>
+            "<carlos:encode value='<%= subClasses.get(i) %>' context='javaScript'/>"<%=(i<subClasses.size()-1)?",":""%>
             <% } %>
         ];
     </script>
@@ -392,7 +394,7 @@
                         String selected = "";
                         if (formdata.getResponsibleId().equals(pd.get("providerNo"))) selected = "selected";
                     %>
-                    <option value="<%=pd.get("providerNo")%>" <%=selected%>><carlos:encode value='<%= pd.get("lastName") %>' context="html"/>
+                    <option value="<carlos:encode value='<%= pd.get("providerNo") %>' context="htmlAttribute"/>" <%=selected%>><carlos:encode value='<%= pd.get("lastName") %>' context="html"/>
                         , <carlos:encode value='<%= pd.get("firstName") %>' context="html"/>
                     </option>
                     <% } %>

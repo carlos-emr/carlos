@@ -259,7 +259,10 @@ another service already listens on the front-door ports, and it lists exactly
 which ones. The default is **no**. Accept to stop each one and, where possible, keep it
 from starting at boot (disabled, or masked when it cannot be disabled); a
 following note shows what was done to each and the command that brings it back
-once it has been moved to other ports.
+once it has been moved to other ports. Only the services the question listed are
+stopped: one that starts using port 80 or 443 while the question is open is left
+running, printed as `NOT stopped`, logged, and recorded as what keeps the
+install from being ready.
 Decline and nothing is changed, but CARLOS is not reachable until you free the
 ports yourself and run `sudo carlos-ctl finish-install`. A non-interactive
 install leaves other services running unless you explicitly opt in by preseeding

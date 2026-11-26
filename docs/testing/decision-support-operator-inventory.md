@@ -42,13 +42,21 @@ provider must receive none of the owned warnings. Native diagnosis resolution
 changes the selected source fact; fresh visits verify all affected and unaffected
 conditions without a service restart.
 
-Notes and billing have no implemented actual-value text reader in the detail
-screen; the current UI prints `Error: Cannot get patient data`. Empty source
-lists have a similar display limitation. The check does not invent an actual
-value for those cells or claim this display is repaired. It still checks their
-per-condition Boolean evaluation against independent SQL fixtures. Age, sex and
-populated medication actual values are checked. Existing diagnosis-resolution
-and per-condition cache checks remain registered.
+The detail screen lists actual patient values only for `dxcodes`, `drugs`,
+`age` and `sex`. For `notes`, `billedFor`, `paid`, `flowsheet`, `hasATCcode`
+and `hasRxClass` there is no single patient value to list beside the condition
+(note text, billing history read through the condition's own options, the
+flowsheet rule set, or codes the calling screen supplies), so the cell reads
+`Not shown for this condition type` and nothing is logged; it used to print
+`Error: Cannot get patient data` and log an ERROR per condition per view
+(#6328). An empty source list reads `None recorded`; the error text is now kept
+for a reader that actually failed. The check asserts those cells for notes and
+billing on every visit, the empty diagnosis/medication cells for B, and A's
+diagnosis and medication values, alongside age and sex. Diagnosis values list
+only active entries, the ones the condition evaluates, so after the native
+resolution A's cell lists the remaining code alone. It still checks every
+per-condition Boolean evaluation against independent SQL fixtures. Existing
+diagnosis-resolution and per-condition cache checks remain registered.
 
 The installed final run reaches all 205 observations and reports exactly 40
 mismatches: the two sex all/notall cases across chart warning, list result,
