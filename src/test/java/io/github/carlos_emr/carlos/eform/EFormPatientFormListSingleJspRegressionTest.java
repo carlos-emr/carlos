@@ -73,7 +73,7 @@ class EFormPatientFormListSingleJspRegressionTest {
      * same expression in any other single-quoted attribute (an {@code <input value='...'>}) is raw.
      */
     private static final Pattern RAW_FIELD = Pattern.compile(
-            "(?<!<carlos:encode value=')<%=\\s*\\(?\\s*(?:\\(String\\)\\s*)?curform\\.get\\(");
+            "(?<!<carlos:encode value=')<%=\\s*+(?:\\(String\\)\\s*+|\\(\\s*+)?curform\\.get\\(");
 
     private static String page;
 

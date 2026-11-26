@@ -81,7 +81,7 @@ class DocumentMetadataJspOutputEncodingRegressionTest {
          * {@code <carlos:encode>} tag.
          */
         private static final Pattern RAW_ELEMENT =
-                Pattern.compile("(?<!<carlos:encode value=')<%=\\s*subClasses\\.get\\(");
+                Pattern.compile("(?<!<carlos:encode value=')<%=\\s*+(?:\\(String\\)\\s*+|\\(\\s*+)?subClasses\\.get\\(");
 
         @ParameterizedTest(name = "{0}")
         @ValueSource(strings = {"documentReport.jsp", "editDocument.jsp", "addedithtmldocument.jsp"})
@@ -98,7 +98,8 @@ class DocumentMetadataJspOutputEncodingRegressionTest {
         @ParameterizedTest(name = "{0}")
         @ValueSource(strings = {
                 "\"<%=subClasses.get(i)%>\",",
-                "<input value='<%= subClasses.get(i) %>'>"
+                "<input value='<%= subClasses.get(i) %>'>",
+                "\"<%= (String) subClasses.get(i) %>\","
         })
         @DisplayName("should detect a raw sub-class print, also inside a single-quoted attribute")
         void shouldDetectRawPrint_forUnencodedFixture(String fixture) {

@@ -1191,7 +1191,7 @@ public final class EDocUtil {
         // Attachments live in ticklerdocs (#3984); the legacy tickler_link rows were backfilled.
         Integer documentNo = Integer.valueOf(docId);
         List<TicklerDocs> attachments = ticklerDocsDao().findByDocument(documentNo, TicklerDocs.DOCTYPE_DOC);
-        String HtmlTickler = "";
+        StringBuilder htmlTickler = new StringBuilder();
 
         if (attachments != null && !attachments.isEmpty()) {
             // The document's patients now: a tickler attached before the document was re-filed
@@ -1215,11 +1215,11 @@ public final class EDocUtil {
                 // message is only rendered when the caller may read ticklers for that patient.
                 if (securityInfoManager().hasPrivilege(loggedInInfo, "_tickler", SecurityInfoManager.READ,
                         String.valueOf(t.getDemographicNo()))) {
-                    HtmlTickler += "<br>" + SafeEncode.forHtml(t.getMessage());
+                    htmlTickler.append("<br>").append(SafeEncode.forHtml(t.getMessage()));
                 }
             }
         }
-        return HtmlTickler;
+        return htmlTickler.toString();
     }
 
     /**
@@ -1233,12 +1233,12 @@ public final class EDocUtil {
     public static String getHtmlAcknowledgement(Locale locale, String docId) {
 
         ArrayList<ReportStatus> ackList = AcknowledgementData.getAcknowledgements("DOC", docId);
-        String HtmlAcknowledgement = "";
+        StringBuilder htmlAcknowledgement = new StringBuilder();
         String comment = "";
         ResourceBundle props = ResourceBundle.getBundle("oscarResources", locale);
         for (int i = 0; i < ackList.size(); i++) {
             ReportStatus report = ackList.get(i);
-            HtmlAcknowledgement += SafeEncode.forHtml(report.getProviderName()) + ": ";
+            htmlAcknowledgement.append(SafeEncode.forHtml(report.getProviderName())).append(": ");
             String ackStatus = report.getStatus();
             if (ackStatus.equals("A")) {
                 ackStatus = props.getString("dms.documentBrowser.msgAcknowledgedOn");
@@ -1248,18 +1248,18 @@ public final class EDocUtil {
                 ackStatus = props.getString("dms.documentBrowser.msgNotAcknowledgeSince");
             }
 
-            HtmlAcknowledgement += ackStatus;
-            HtmlAcknowledgement += " " + SafeEncode.forHtml(report.getTimestamp()) + " ";
+            htmlAcknowledgement.append(ackStatus);
+            htmlAcknowledgement.append(' ').append(SafeEncode.forHtml(report.getTimestamp())).append(' ');
 
             comment = report.getComment();
             if (comment != null) {
-                HtmlAcknowledgement += SafeEncode.forHtml(comment);
+                htmlAcknowledgement.append(SafeEncode.forHtml(comment));
             }
-            HtmlAcknowledgement += "<br>";
+            htmlAcknowledgement.append("<br>");
 
         }
 
-        return HtmlAcknowledgement;
+        return htmlAcknowledgement.toString();
     }
 
     /**
