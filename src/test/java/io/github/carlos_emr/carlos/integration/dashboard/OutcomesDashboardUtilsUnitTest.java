@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.dashboard.display.beans.IndicatorBean;
 import io.github.carlos_emr.carlos.dashboard.handler.IndicatorQueryHandler;
 import io.github.carlos_emr.carlos.managers.DashboardManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.io.IOException;
@@ -88,7 +89,7 @@ class OutcomesDashboardUtilsUnitTest extends CarlosUnitTestBase {
                         body = new String(in.readAllBytes(), StandardCharsets.UTF_8);
                     }
                     received.add(form(body));
-                    byte[] reply = "accepted".getBytes(StandardCharsets.UTF_8);
+                    byte[] reply = "synthetic destination reply".getBytes(StandardCharsets.UTF_8);
                     exchange.sendResponseHeaders(answerWith, reply.length);
                     exchange.getResponseBody().write(reply);
                     exchange.close();
@@ -144,7 +145,7 @@ class OutcomesDashboardUtilsUnitTest extends CarlosUnitTestBase {
                 .setProperty(SEND_URL, "http://127.0.0.1:" + destination.getAddress().getPort() + "/send");
     }
 
-    /** Builds the panel text the way the production query handler does (hand-built, single-quoted keys). */
+    /** Builds the panel text the way the production query handler does. */
     private void producePanel(String... labelsAndValues) {
         java.util.Map<String, Object> row = new java.util.LinkedHashMap<>();
         for (int i = 0; i < labelsAndValues.length; i += 2) {
@@ -184,11 +185,14 @@ class OutcomesDashboardUtilsUnitTest extends CarlosUnitTestBase {
     @DisplayName("posts the mapped metric set to the configured destination and reports success")
     void shouldPostMappedMetricSet_whenDestinationAccepts() throws Exception {
         configureDestination();
-        producePanel("Local label", "7", "Other", "3");
+        producePanel("Local label", "7", "Prévention 血圧", "3");
 
-        boolean sent = OutcomesDashboardUtils.sendProviderIndicatorData(login, provider, template);
-
-        assertThat(sent).isTrue();
+        try (var capture = LogCapture.forLogger(OutcomesDashboardUtils.class)) {
+            assertThat(OutcomesDashboardUtils.sendProviderIndicatorData(login, provider, template)).isTrue();
+            assertThat(capture.messages()).contains("Shared outcomes dashboard accepted the metric set with HTTP status 200");
+            assertThat(String.join("\n", capture.messages()))
+                    .doesNotContain("TEST_CLINIC_5335", "999998", "Synthetic Metric Set", "synthetic destination reply");
+        }
         assertThat(received).hasSize(1);
         assertThat(received.get(0).get("version")).isEqualTo("1.1");
         JsonNode data = JSON.readTree(received.get(0).get("data"));
@@ -200,7 +204,7 @@ class OutcomesDashboardUtilsUnitTest extends CarlosUnitTestBase {
         assertThat(points.get(0).at("/name/0/identifier").asText()).isEqualTo("Status");
         assertThat(points.get(0).at("/name/0/label").asText()).isEqualTo("Shared label");
         assertThat(points.get(0).get("value").asInt()).isEqualTo(7);
-        assertThat(points.get(1).at("/name/0/label").asText()).isEqualTo("Other");
+        assertThat(points.get(1).at("/name/0/label").asText()).isEqualTo("Prévention 血圧");
     }
 
     @ParameterizedTest(name = "HTTP {0} from the destination is not reported as published")
@@ -212,8 +216,7 @@ class OutcomesDashboardUtilsUnitTest extends CarlosUnitTestBase {
         producePanel("Local label", "7");
 
         assertThat(OutcomesDashboardUtils.sendProviderIndicatorData(login, provider, template)).isFalse();
-        // The HTTP client's default strategy retries a 503 once, so more than one request may arrive.
-        assertThat(received).isNotEmpty();
+        assertThat(received).hasSize(1);
     }
 
     @Test

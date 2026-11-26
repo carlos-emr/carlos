@@ -29,13 +29,12 @@
 package io.github.carlos_emr.carlos.integration.dashboard;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.apache.commons.codec.binary.Base64;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.IndicatorTemplate;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -49,6 +48,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.w3c.dom.NodeList;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -92,7 +92,8 @@ public class OutcomesDashboard2Action extends ActionSupport {
     Logger logger = MiscUtils.getLogger();
 
     
-    private static final ObjectMapper objectMapper = new ObjectMapper();
+    private static final ObjectMapper objectMapper = new ObjectMapper()
+            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS, DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY);
 
     public String execute() throws Exception {
         return refreshIndicators();
@@ -113,7 +114,8 @@ public class OutcomesDashboard2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_dashboardDisplay)");
         }
 
-        ObjectNode jsonObject = readRequest(request.getParameter("data"));
+        String[] values = request.getParameterValues("data");
+        ObjectNode jsonObject = values != null && values.length == 1 ? readRequest(values[0]) : null;
         if (jsonObject == null) {
             return writeError(HttpServletResponse.SC_BAD_REQUEST, "invalid_request");
         }
@@ -175,7 +177,7 @@ public class OutcomesDashboard2Action extends ActionSupport {
             return null;
         }
         try {
-            JsonNode node = objectMapper.readTree(new String(Base64.decodeBase64(data), StandardCharsets.UTF_8));
+            JsonNode node = objectMapper.readTree(Base64.getDecoder().decode(data));
             if (node != null && node.isObject() && node.path("username").isTextual() && node.path("queryList").isArray()) {
                 // Jackson's asText() would turn a number or object member into a name; refuse the request instead.
                 for (JsonNode member : node.get("queryList")) {
@@ -185,7 +187,7 @@ public class OutcomesDashboard2Action extends ActionSupport {
                 }
                 return (ObjectNode) node;
             }
-        } catch (IOException e) {
+        } catch (IOException | IllegalArgumentException e) {
             // Falls through: a malformed body is reported as a bad request without echoing it.
         }
         return null;

@@ -248,8 +248,23 @@ class OutcomesDashboard2ActionUnitTest extends CarlosUnitTestBase {
         verifyNothingPublished();
     }
 
+    @Test
+    void shouldRejectRepeatedDataParameters_beforeLookingUpMetrics() throws Exception {
+        postQueries("Metric A");
+        request.addParameter("data", request.getParameter("data"));
+
+        assertThat(action("Metric A").execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(400);
+        verifyNoInteractions(dashboards, providers);
+        verifyNothingPublished();
+    }
+
     static Stream<String> malformedData() {
+        String valid = "{\"username\":\"999998\",\"queryList\":[\"Metric A\"]}";
         return Stream.of(
+                "!" + encode(valid),
+                encode(valid + " {}"),
+                encode("{\"username\":\"other\",\"username\":\"999998\",\"queryList\":[]}"),
                 null,
                 "",
                 "   ",

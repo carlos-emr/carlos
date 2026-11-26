@@ -54,7 +54,7 @@ any number of rows). It was hand-built, single-quoted and comma-less between row
 made through the repaired route would have failed to parse. A destination that redirects is treated as a
 failure (the HTTP client does not follow redirects, so a login page answering 200 is never mistaken for
 acceptance). The launcher sends `data` as UTF-8 JSON in Base64, form-encoded by jQuery (a `+` in Base64 and
-non-ASCII metric names both survive), and the action refuses a `queryList` with any non-text member.
+non-ASCII metric names both survive). The action requires a single `data` parameter with one JSON object, unique keys and text metric names. The publisher uses UTF-8 form encoding, makes one delivery attempt per match and logs the HTTP status.
 
 ## Cross-Origin-Opener-Policy exception
 
@@ -69,8 +69,7 @@ user's request, so the action-to-JSP forward and error pages keep it); any other
 back to `same-origin`. Launching the popup from the schedule therefore starts a new browsing context
 group (the schedule keeps no reference to the launcher; nothing used one).
 
-The launcher accepts `message` events only from the origin of `shared_outcomes_dashboard_host` and
-replies to that origin, never `'*'`.
+The launcher accepts `message` events from its dashboard popup at the configured origin and replies to that origin.
 
 ## Verification
 

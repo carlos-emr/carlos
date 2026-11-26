@@ -66,81 +66,60 @@
             return btoa(binary);
         }
 
-        function testListener(event) {
-            // $(window).on("message") hands over a jQuery event, which does not copy MessageEvent.origin
-            // (jQuery 3.x); read it from the native event.
-            var origin = event.origin || (event.originalEvent && event.originalEvent.origin);
-            if (!outcomesOrigin || origin !== outcomesOrigin) {
-                return;
+        var outcomesWindow;
+        var outcomesTimeout;
+
+        function closeDashboardChannel() {
+            clearInterval(outcomesTimeout);
+            if (outcomesWindow && !outcomesWindow.closed) {
+                outcomesWindow.postMessage({'response': 'CLOSE'}, outcomesOrigin);
             }
-            console.log("got a message from the dashboard");
-            var data = event.data || event.originalEvent.data;
-            var source = event.source || event.originalEvent.source;
-            receiveOutcomesMessage1(event);
         }
 
-        var outcomesWindow;
-
-        window.onbeforeunload = function () {
-            //outcomesWindow.close();
-            //return "You sure?";
-            outcomesWindow.postMessage({'response': 'CLOSE'}, '<%=CarlosProperties.getInstance().getProperty("shared_outcomes_dashboard_host") %>');
-        };
-
-
-        window.unload = function () {
-            outcomesWindow.postMessage({'response': 'CLOSE'}, '<%=CarlosProperties.getInstance().getProperty("shared_outcomes_dashboard_host") %>');
-        };
-
-        function launchOutcomesDashboard1(outcomesHostName) {
-            var url = '<%=url%>';
-            console.log('url=' + url.toString());
-            outcomesWindow = window.open(url.toString(), "OutcomesWindow", "toolbar=1,scrollbars=1,status=1,statusbar=1,copyhistory=1,resizable=1,width=1280,height=1024");
+        function launchOutcomesDashboard1() {
+            var url = '<%=SafeEncode.forJavaScript(url)%>';
+            if (!url || !outcomesOrigin || outcomesOrigin === 'null') return;
+            outcomesWindow = window.open(url, "OutcomesWindow", "toolbar=1,scrollbars=1,status=1,statusbar=1,copyhistory=1,resizable=1,width=1280,height=1024");
+            if (!outcomesWindow) return;
             outcomesWindow.focus();
 
-            var oTimer = function () {
-                outcomesTimeout = setTimeout(function () {
-                    outcomesWindow.postMessage({'response': 'CONNECT'}, '<%=CarlosProperties.getInstance().getProperty("shared_outcomes_dashboard_host") %>');
-                    console.log('sending CONNECT');
-                    oTimer();
-                }, 500);
-            };
-            oTimer();
+            outcomesTimeout = setInterval(function () {
+                if (outcomesWindow.closed) {
+                    clearInterval(outcomesTimeout);
+                    return;
+                }
+                outcomesWindow.postMessage({'response': 'CONNECT'}, outcomesOrigin);
+            }, 500);
         }
 
-        var connected = false;
-
         function receiveOutcomesMessage1(event) {
-            var data = event.data || event.originalEvent.data;
-            var outcomesData = data.outcomes;
+            if (!outcomesWindow || event.source !== outcomesWindow || event.origin !== outcomesOrigin) return;
+            var outcomesData = event.data && event.data.outcomes;
+            if (!outcomesData) return;
             var params = outcomesData.request;
             switch (outcomesData.interaction) {
                 case "CONNECTED" :
-                    clearTimeout(outcomesTimeout);
-                    console.log('Connected');
-                    connected = true;
+                    clearInterval(outcomesTimeout);
                     break;
                 case "handlePiePieceClick":
                     if (params && params.hasOwnProperty("query") && params.hasOwnProperty("group") && params.hasOwnProperty("username")) {
                         //console.log("query="+params.query); //OSCAR Metric Test
                         //console.log("group="+params.group); //Up to date, Overdue, ect (the label) - doesn't matter for us
                         //console.log("username="+params.username); //999998
-                        $("#drillDownFrame").attr('src', 'DrilldownDisplay?method=getDrilldownBySharedMetricSetName&sharedMetricSetName=' + encodeURIComponent(params.query) + '&sharedMetricSetLable=' + encodeURIComponent(params.group) + "&providerNo=" + params.username);
+                        $("#drillDownFrame").attr('src', 'DrilldownDisplay?method=getDrilldownBySharedMetricSetName&sharedMetricSetName=' + encodeURIComponent(params.query) + '&sharedMetricSetLable=' + encodeURIComponent(params.group) + "&providerNo=" + encodeURIComponent(params.username));
                         outcomesWindow.postMessage(outcomesData.onSuccess, outcomesOrigin);
                         //window.focus();
                     }
                     break;
                 case "submitQuery":
                     if (params && params.hasOwnProperty("queryList")) {
-                        var data = params.queryList;
-
                         jQuery.ajax({
                             url: "<%=request.getContextPath()%>/web/dashboard/OutcomesDashboard",
                             type: 'POST',
                             async: true,
                             data: {data: encodeRefreshRequest(params)},
                             dataType: 'json',
-                            success: function (data) {
+                            success: function () {
                                 outcomesWindow.postMessage(outcomesData.onSuccess, outcomesOrigin);
                             },
                             error: function (jqXHR) {
@@ -155,7 +134,8 @@
         }
 
         $(document).ready(function () {
-            $(window).on("message", testListener);
+            window.addEventListener("message", receiveOutcomesMessage1);
+            window.addEventListener("pagehide", closeDashboardChannel);
             launchOutcomesDashboard1();
         });
 
