@@ -99,6 +99,19 @@ class ClientSearchAttachNoteUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldReverseDefaultColumn_whenItsHeaderIsSelected() {
+        newRequest().setParameter("tableSort", "0");
+        request.setParameter("tableSortChange", "1");
+        var search = new ClientSearchAction22Action();
+        search.setCriteria(new ClientSearchFormBean());
+
+        search.attachSearch();
+
+        verify(clients).searchClientPage(any(), eq(0), eq(1), eq(true));
+        assertThat(request.getAttribute("serverTableDescending")).isEqualTo(true);
+    }
+
+    @Test
     void shouldSearchForThePopupsOwnNote_whenAnotherChartsPopupOpenedLater() {
         newRequest().setParameter("noteId", "11");
         new ClientSearchAction22Action().attachForm();

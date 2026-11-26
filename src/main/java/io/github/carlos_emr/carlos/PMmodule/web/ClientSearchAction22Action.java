@@ -163,7 +163,8 @@ public class ClientSearchAction22Action extends ActionSupport {
             String change = request.getParameter("tableSortChange");
             if (change != null) {
                 int changed = Integer.parseInt(change);
-                descending = changed == sort && !descending;
+                int activeSort = sort == 0 ? 1 : sort;
+                descending = changed == activeSort && !descending;
                 sort = changed;
                 requestedPage = 0;
             }

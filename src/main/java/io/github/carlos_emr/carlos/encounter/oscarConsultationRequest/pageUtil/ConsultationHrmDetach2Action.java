@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
-import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -23,24 +22,18 @@ public class ConsultationHrmDetach2Action extends ActionSupport {
         try {
             var info = LoggedInInfo.getLoggedInInfoFromSession(request);
             var security = SpringUtils.getBean(SecurityInfoManager.class);
-            // The global gate comes before any lookup, so a caller without _con write cannot use the
-            // 404/403 difference to learn which consultation ids exist.
-            if (!security.hasPrivilege(info, "_con", SecurityInfoManager.WRITE, null)) {
-                throw new SecurityException("missing required sec object (_con)");
+            // Match the consultation entry gate. The persister checks write access for the
+            // locked consultation's patient, chart access and HRM read in the same transaction.
+            if (!security.hasPrivilege(info, "_con", SecurityInfoManager.READ, (String) null)) {
+                response.sendError(403);
+                return NONE;
             }
             int requestId = positiveId(request.getParameter("requestId"));
             int associationId = positiveId(request.getParameter("associationId"));
-            var owner = SpringUtils.getBean(ConsultationRequestDao.class).find(requestId);
-            if (owner == null || owner.getDemographicId() == null) throw new NoSuchElementException();
-            if (!security.hasPrivilege(
-                    info, "_con", SecurityInfoManager.WRITE, owner.getDemographicId().intValue())) {
-                throw new SecurityException("missing required sec object (_con)");
-            }
             SpringUtils.getBean(ConsultationHrmAttachmentPersister.class).detach(info, requestId, associationId);
             response.setStatus(204);
-        } catch (SecurityException denied) {
-            response.sendError(403);
-        } catch (NoSuchElementException missing) {
+        } catch (SecurityException | NoSuchElementException unavailable) {
+            // An inaccessible consultation and an absent attachment have the same response.
             response.sendError(404);
         } catch (IllegalArgumentException invalid) {
             response.sendError(400);
