@@ -777,7 +777,8 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
         // The work is counted, not timed: one parse for the whole pass, never one for each select (a 400-select
         // form took four seconds when every select parsed the whole form).
         DatabaseAP ap = new DatabaseAP("choice", "", "Yes");
-        try (var loader = mockStatic(EFormLoader.class)) {
+        try (var loader = mockStatic(EFormLoader.class);
+                var markup = mockStatic(EFormSelectMarkup.class, CALLS_REAL_METHODS)) {
             loader.when(EFormLoader::getMarker).thenReturn("oscarDB");
             loader.when(() -> EFormLoader.getAP("choice")).thenReturn(ap);
             EForm form = new EForm();
@@ -787,6 +788,10 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
             form.setDatabaseAPs();
 
             assertThat(form.selectParses()).isEqualTo(1);
+            // The real parser ran once for the pass, and the overload that parses the whole form for one select
+            // never ran: the count above is what the code did, not what it intended.
+            markup.verify(() -> EFormSelectMarkup.parseForm(any()), times(1));
+            markup.verify(() -> EFormSelectMarkup.edit(any(CharSequence.class), anyInt(), any()), never());
             Document page = Jsoup.parse(form.getFormHtml());
             // Every select shows Yes and only Yes (its template default came out), and every input got its value:
             // the edits landed in the right place although each one moved the text after it.
@@ -933,6 +938,35 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
             assertThat(page.select("select option[selected]").eachAttr("value")).containsExactly("No", "No");
             // One attempt only: the second select did not parse again.
             markup.verify(() -> EFormSelectMarkup.parseForm(any()), times(1));
+            assertThat(form.selectParses()).isEqualTo(1);
+        }
+    }
+
+    @Test
+    void shouldFillTheSecondSelect_whenTheEditOfTheFirstThrows() throws Exception {
+        // One select's failure skips only that select: it keeps the template's default, and the next one of the
+        // same pass is still filled (the same parse serves it).
+        String body = "<form>" + TEMPLATE_SELECT + TEMPLATE_SELECT + "</form>";
+        DatabaseAP ap = new DatabaseAP("choice", "", "Yes");
+        try (var loader = mockStatic(EFormLoader.class);
+                var markup = mockStatic(EFormSelectMarkup.class, CALLS_REAL_METHODS)) {
+            loader.when(EFormLoader::getMarker).thenReturn("oscarDB");
+            loader.when(() -> EFormLoader.getAP("choice")).thenReturn(ap);
+            markup.when(() -> EFormSelectMarkup.edit(any(EFormSelectMarkup.ParsedForm.class), anyInt(), any()))
+                    .thenThrow(new IllegalStateException("first edit fails"))
+                    .thenCallRealMethod();
+            EForm form = new EForm();
+            form.setDemographicNo("7");
+            form.setFormHtml(body);
+
+            form.setDatabaseAPs(); // never throws
+
+            Document page = Jsoup.parse(form.getFormHtml());
+            assertThat(page.select("select").size()).isEqualTo(2);
+            assertThat(page.select("select").get(0).select("option[selected]").eachAttr("value"))
+                    .containsExactly("No");
+            assertThat(page.select("select").get(1).select("option[selected]").eachAttr("value"))
+                    .containsExactly("Yes");
             assertThat(form.selectParses()).isEqualTo(1);
         }
     }
