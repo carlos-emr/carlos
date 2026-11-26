@@ -72,32 +72,52 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class DSDemographicAccess {
     private static final Logger logger = MiscUtils.getLogger();
 
-    //To add new modules/types, add to enum with the access method, add the appropriate
-    //functions for all, any, not, notall, notany (see examples below), and add to
-    //getDemogrpahicValues list, that's it.
+    //To add new modules/types, add to enum with the access method and whether the guideline
+    //detail view shows the patient's values for it, add the appropriate functions for all,
+    //any, not, notall, notany (see examples below), and add the module to the switch in
+    //getDemogrpahicValues (the compiler refuses a module that switch does not handle).
     public enum Module {
-        dxcodes("hasDxCodes"),
-        drugs("hasRxCodes"),
-        age("isAge"),
-        sex("isSex"),
-        notes("noteContains"),
-        billedFor("billedFor"),
-        paid("paid"),
-        flowsheet("flowsheetUptoDate"),
-        hasATCcode("hasATCcode"),
-        hasRxClass("hasRxClass");
+        dxcodes("hasDxCodes", true),
+        drugs("hasRxCodes", true),
+        age("isAge", true),
+        sex("isSex", true),
+        // The remaining modules have no single patient value to list beside the condition:
+        // notes would mean echoing chart note text; billedFor/paid depend on the condition's
+        // own codes and payer/day options and read billing history; flowsheet runs the whole
+        // flowsheet rule set; hasATCcode/hasRxClass compare codes the calling screen supplies
+        // (the drug being prescribed). The detail view says "not shown" for them (#6328).
+        notes("noteContains", false),
+        billedFor("billedFor", false),
+        paid("paid", false),
+        flowsheet("flowsheetUptoDate", false),
+        hasATCcode("hasATCcode", false),
+        hasRxClass("hasRxClass", false);
 
 
         //define more here....
 
         private final String accessMethod;
+        private final boolean displaysPatientValues;
 
-        Module(String accessMethod) {
+        Module(String accessMethod, boolean displaysPatientValues) {
             this.accessMethod = accessMethod;
+            this.displaysPatientValues = displaysPatientValues;
         }
 
         public String getAccessMethod() {
             return accessMethod;
+        }
+
+        /**
+         * Whether the guideline detail view lists the patient's own values for a condition of
+         * this module.
+         *
+         * @return {@code true} when {@link DSDemographicAccess#getDemogrpahicValues(Module)}
+         *         reads patient data for this module; {@code false} when it returns
+         *         {@code null} by design and the view shows "not shown" instead of an error
+         */
+        public boolean displaysPatientValues() {
+            return displaysPatientValues;
         }
     }
 
@@ -788,20 +808,36 @@ public class DSDemographicAccess {
     //number of units billed today
 
 
-    //for testing purposes mostly (used to list patient values in echart
+    /**
+     * Patient values shown beside a condition in the guideline detail view (mostly a testing
+     * aid for guideline authors).
+     *
+     * <p>Modules whose {@link Module#displaysPatientValues()} is {@code false} return
+     * {@code null} without logging: that is the designed answer, not a failure, and an ERROR
+     * per condition per view filled the server log (#6328). The switch has no {@code default}
+     * so that a new module cannot compile until it is placed here.</p>
+     *
+     * @param module the condition's module
+     * @return comma-separated patient values, an empty string when the patient has none,
+     *         or {@code null} when the module shows no values or the data could not be read
+     */
     public String getDemogrpahicValues(Module module) {
+        if (module == null) {
+            logger.debug("Decision support display: condition has no module");
+            return null;
+        }
         try {
-            if (module == Module.dxcodes) return this.getDxCodesStr();
-            if (module == Module.drugs) return this.getRxCodesStr();
-            if (module == Module.age) return this.getAge();
-            if (module == Module.sex) return this.getSex();
-            if (module == Module.notes) return "";
+            return switch (module) {
+                case dxcodes -> this.getDxCodesStr();
+                case drugs -> this.getRxCodesStr();
+                case age -> this.getAge();
+                case sex -> this.getSex();
+                case notes, billedFor, paid, flowsheet, hasATCcode, hasRxClass -> null;
+            };
         } catch (Exception dse) {
             logger.error("Cannot get demographic data for decision support, module: '" + module + "'", dse);
             return null;
         }
-        logger.error("Decision Support Display Error: Cannot get text for module: " + module);
-        return null;
     }
 
     public String getDemographicNo() {

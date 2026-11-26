@@ -19,6 +19,9 @@ const {readPatientState,assertPatientStateUnchanged}=require('./echart-two-patie
 const q=h.sqlString;
 const attr=value=>String(value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const normal=value=>value.replace(/[\[\]'\s]/g,'');
+// English bundle (oscarResources_en.properties) text of the detail view's actual-value cell.
+const NOT_SHOWN='Not shown for this condition type';
+const NONE_RECORDED='None recorded';
 
 /** Fixed clinical expectations, not results obtained from the rule engine. */
 function cases(marker,days) {
@@ -206,9 +209,13 @@ async function workflow(s) {
         if(c.type==='sex')note(actual[3]===(label==='B'?'M':'F'),label+' '+rule.name+': wrong actual sex');
         if(c.type==='age')note(actual[3]===(label==='B'?'31 y':'30 y'),label+' '+rule.name+': wrong actual age');
         if(c.type==='drugs'&&label!=='B')note(JSON.stringify(actual[3].split(',').map(value=>value.trim()).sort())===JSON.stringify(['atc:N05BA01','atc:N05BA01','atc:N05BA02'].sort()),label+' '+rule.name+': actual medications differ from owned source');
-        // Notes/billing sources have no implemented detail actual-value reader;
-        // do not invent content. Their evaluation and independent SQL are still
-        // strict; the shipped display limitation remains explicit in inventory.
+        if(c.type==='dxcodes'&&label==='A')note(JSON.stringify(actual[3].split(',').map(value=>value.trim()).sort())===JSON.stringify(['icd9:2700','icd9:2701']),label+' '+rule.name+': actual diagnoses differ from owned source');
+        // #6328: the control owns no diagnoses or medications. An empty source is
+        // "None recorded", not the read-failure text the page used to show.
+        if((c.type==='dxcodes'||c.type==='drugs')&&label==='B')note(actual[3]===NONE_RECORDED,label+' '+rule.name+': empty '+c.type+' source not shown as none recorded ('+actual[3]+')');
+        // Notes/billing have no patient value to list beside the condition; the
+        // page must say so rather than report a read failure (and log an ERROR).
+        if(c.type==='notes'||c.type==='billedFor')note(actual[3]===NOT_SHOWN,label+' '+rule.name+': '+c.type+' actual value not marked as not shown ('+actual[3]+')');
       }
       await ui.clickAndAwaitReload(list,list.getByRole('button',{name:'List Guidelines',exact:true}));
     }

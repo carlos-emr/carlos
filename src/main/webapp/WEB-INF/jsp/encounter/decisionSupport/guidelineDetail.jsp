@@ -117,7 +117,11 @@ Conditions:
             <td>${carlos:forHtml(conditionResult.condition.values)}</td>
             <td>
                 <c:choose>
-                    <c:when test="${empty conditionResult.actualValues}"><span class="bad"><fmt:message key="encounter.guidelinedetail.error"/></span></c:when>
+                    <%-- notes, billing, flowsheet and ATC-class conditions have no patient
+                         value to list (#6328); say so rather than claim the data failed. --%>
+                    <c:when test="${not conditionResult.valuesShown}"><span class="na"><fmt:message key="encounter.guidelinedetail.notShown"/></span></c:when>
+                    <c:when test="${conditionResult.actualValues == null}"><span class="bad"><fmt:message key="encounter.guidelinedetail.error"/></span></c:when>
+                    <c:when test="${empty conditionResult.actualValues}"><fmt:message key="encounter.guidelinedetail.none"/></c:when>
                     <c:otherwise>${carlos:forHtml(conditionResult.actualValues)}</c:otherwise>
                 </c:choose>
             </td>
