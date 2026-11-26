@@ -220,7 +220,7 @@ class OutcomesDashboard2ActionUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest(name = "{0} is refused with 405 before any work")
     @ValueSource(strings = {"GET", "HEAD", "PUT", "DELETE"})
-    @DisplayName("refuses every method but POST before reading, resolving or publishing anything")
+    @DisplayName("refuses every method but POST before consulting grants, reading, resolving or publishing anything")
     void shouldRefuseNonPostMethods_beforeAnyWork(String httpMethod) throws Exception {
         request.setMethod(httpMethod);
         postQueries("Metric A");
@@ -229,7 +229,8 @@ class OutcomesDashboard2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(response.getStatus()).isEqualTo(405);
         assertThat(response.getHeader("Allow")).isEqualTo("POST");
-        verifyNoInteractions(dashboards, providers);
+        // The verb is refused before the privilege is even consulted, so the 405 never depends on the caller's grants.
+        verifyNoInteractions(security, dashboards, providers);
         verifyNothingPublished();
     }
 

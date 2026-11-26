@@ -67,7 +67,8 @@ import org.apache.struts2.ServletActionContext;
  *
  * <p>Every matched metric set is one outbound HTTP POST to
  * {@code shared_outcomes_dashboard_send_url}, so the route is a mutator: it requires
- * {@code _dashboardDisplay} read and answers anything but POST with 405 before any work is done.
+ * {@code _dashboardDisplay} read, and answers anything but POST with 405 before any other work (the
+ * verb is checked first, so the refusal does not depend on the caller's grants).
  * The {@code method} query parameter is not a dispatch selector and is ignored.</p>
  *
  * <p>Responses are JSON: {@code 200 {"published":n}} (a requested metric name no template matches
@@ -98,16 +99,18 @@ public class OutcomesDashboard2Action extends ActionSupport {
     }
 
     public String refreshIndicators() throws Exception {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_dashboardDisplay", "r", null)) {
-            throw new SecurityException("missing required sec object (_dashboardDisplay)");
-        }
-
-        // Publishing is an outbound HTTP POST per metric set; a GET must not trigger it.
+        // Publishing is an outbound HTTP POST per metric set; a GET must not trigger it. The method is checked
+        // before the privilege so a read verb is answered 405 whatever the caller's grants (the refusal reveals
+        // nothing: it depends on the verb alone).
         if (!"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
+        }
+
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_dashboardDisplay", "r", null)) {
+            throw new SecurityException("missing required sec object (_dashboardDisplay)");
         }
 
         ObjectNode jsonObject = readRequest(request.getParameter("data"));
