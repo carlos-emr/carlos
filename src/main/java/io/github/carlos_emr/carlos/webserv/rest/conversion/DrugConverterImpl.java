@@ -85,7 +85,7 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
      */
     private static final Pattern STORED_STRENGTH = Pattern.compile(
             "(?<![\\d.])(?<!\\d[,/-])(\\d++(?:\\.\\d++)?+|\\.\\d++)(?![,/-]\\d)"
-                    + "\\s*+((?:\\p{L}|%)\\S*+)?+");
+                    + "\\s*+([\\p{L}%]\\S*+)?+");
 
     /** A separator between ingredients left at the end of the first one's unit: "mg/" or "mg,". */
     private static final Pattern TRAILING_SEPARATOR = Pattern.compile("[/,;]++$");

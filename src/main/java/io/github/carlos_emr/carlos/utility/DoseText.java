@@ -5,8 +5,6 @@
 package io.github.carlos_emr.carlos.utility;
 
 import java.math.BigDecimal;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Turns a dose, strength or quantity number into the text a person reads.
@@ -39,15 +37,6 @@ public final class DoseText {
 
     /** The most digits {@link #ofNumericText(String)} writes on either side of the decimal point. */
     private static final int MAX_PLAIN_DIGITS = 64;
-
-    /**
-     * A number with a fraction inside a longer text, with the exponent {@code Float.toString}
-     * gives a very large or very small one ("1.0E7", "1.0E-4"). The look-behind starts a match
-     * only at the first digit of a run and the quantifiers are possessive, so the scan is linear
-     * in the text.
-     */
-    private static final Pattern DECIMAL_IN_TEXT =
-            Pattern.compile("(?<!\\d)\\d++\\.\\d++(?:[eE][+-]?+\\d++)?+");
 
     private DoseText() {
     }
@@ -137,7 +126,8 @@ public final class DoseText {
         BigDecimal value;
         try {
             value = new BigDecimal(candidate);
-        } catch (NumberFormatException notOneNumber) {
+        } catch (NumberFormatException _) {
+            // Not one number: a strength with its unit, a fraction, a range, a word.
             return text;
         }
         // long arithmetic: precision and scale are ints, and a scale near Integer.MIN_VALUE
@@ -169,17 +159,66 @@ public final class DoseText {
         if (text == null) {
             return null;
         }
-        Matcher number = DECIMAL_IN_TEXT.matcher(text);
-        if (!number.find()) {
-            return text;
-        }
-        StringBuilder plain = new StringBuilder(text.length());
+        // A plain scan rather than a pattern: each character is read once, so the cost is linear
+        // in the text whatever it holds (a pattern here has to be argued free of backtracking).
+        StringBuilder plain = null;
         int copied = 0;
-        do {
-            plain.append(text, copied, number.start()).append(ofNumericText(number.group()));
-            copied = number.end();
-        } while (number.find());
-        return plain.append(text, copied, text.length()).toString();
+        int at = 0;
+        while (at < text.length()) {
+            if (!isDigit(text, at)) {
+                at++;
+                continue;
+            }
+            // A run of digits starts here; the character before it, if any, is not a digit.
+            int start = at;
+            at = digitsEnd(text, at);
+            if (!isFractionAt(text, at)) {
+                // A whole number ("250mg", "5.", "5.x") has no trailing zero to drop.
+                continue;
+            }
+            at = exponentEnd(text, digitsEnd(text, at + 1));
+            if (plain == null) {
+                plain = new StringBuilder(text.length());
+            }
+            plain.append(text, copied, start).append(ofNumericText(text.substring(start, at)));
+            copied = at;
+        }
+        return plain == null ? text : plain.append(text, copied, text.length()).toString();
+    }
+
+    /** Whether the character at {@code index} exists and is one of 0 to 9. */
+    private static boolean isDigit(String text, int index) {
+        return index < text.length() && text.charAt(index) >= '0' && text.charAt(index) <= '9';
+    }
+
+    /** The index after the run of digits that starts at {@code index}. */
+    private static int digitsEnd(String text, int index) {
+        int end = index;
+        while (isDigit(text, end)) {
+            end++;
+        }
+        return end;
+    }
+
+    /** Whether a decimal point with a digit after it is at {@code index}. */
+    private static boolean isFractionAt(String text, int index) {
+        return index < text.length() && text.charAt(index) == '.' && isDigit(text, index + 1);
+    }
+
+    /**
+     * The index after the exponent that starts at {@code index} ("E7", "e-4", "E+7"), or
+     * {@code index} itself when no complete exponent is there: an "e" with no digits after it is
+     * the start of a word ("2.5 each"), not part of the number.
+     */
+    private static int exponentEnd(String text, int index) {
+        if (index >= text.length() || (text.charAt(index) != 'e' && text.charAt(index) != 'E')) {
+            return index;
+        }
+        int digits = index + 1;
+        if (digits < text.length() && (text.charAt(digits) == '+' || text.charAt(digits) == '-')) {
+            digits++;
+        }
+        return isDigit(text, digits) ? digitsEnd(text, digits) : index;
     }
 
     /**

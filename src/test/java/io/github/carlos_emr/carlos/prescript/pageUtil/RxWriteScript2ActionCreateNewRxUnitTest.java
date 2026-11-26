@@ -281,6 +281,13 @@ class RxWriteScript2ActionCreateNewRxUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should treat a missing name as stating no strength")
+    void shouldNotFindStrength_whenNameIsMissing() {
+        assertThat(RxWriteScript2Action.namesStrength(null, "250mg")).isFalse();
+        assertThat(RxWriteScript2Action.namesStrength(null, "")).isTrue();
+    }
+
+    @Test
     @DisplayName("should stage an ingredient that has no strength under its name alone")
     void shouldStageNameAlone_whenIngredientHasNoStrength() throws Exception {
         request.setParameter("text", "SYNTHETIC SINGLE");

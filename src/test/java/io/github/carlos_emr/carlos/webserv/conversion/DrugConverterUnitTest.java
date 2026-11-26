@@ -242,6 +242,26 @@ class DrugConverterUnitTest {
     @DisplayName("Stored strength text to transfer object")
     class StoredStrength {
 
+        private void assertStrengthRead(String stored, float strength, String unit) {
+            Drug d = new Drug();
+            d.setDosage(stored);
+
+            DrugTo1 t = converter.getAsTransferObject(info, d);
+
+            assertThat(t.getStrength()).isEqualTo(strength);
+            assertThat(t.getStrengthUnit()).isEqualTo(unit);
+        }
+
+        private void assertNoStrengthRead(String stored) {
+            Drug d = new Drug();
+            d.setDosage(stored);
+
+            DrugTo1 t = converter.getAsTransferObject(info, d);
+
+            assertThat(t.getStrength()).isNull();
+            assertThat(t.getStrengthUnit()).isNull();
+        }
+
         /**
          * The strength was read back with a pattern that needed two digits. That went unnoticed
          * while every strength was stored with a trailing zero ("5.0 mg"); a strength stored as
@@ -260,13 +280,7 @@ class DrugConverterUnitTest {
         })
         @DisplayName("should read the strength and its unit from stored text, with or without a trailing zero")
         void shouldReadStrength_fromStoredStrengthText(String stored, float strength, String unit) {
-            Drug d = new Drug();
-            d.setDosage(stored);
-
-            DrugTo1 t = converter.getAsTransferObject(info, d);
-
-            assertThat(t.getStrength()).isEqualTo(strength);
-            assertThat(t.getStrengthUnit()).isEqualTo(unit);
+            assertStrengthRead(stored, strength, unit);
         }
 
         /**
@@ -288,13 +302,7 @@ class DrugConverterUnitTest {
         })
         @DisplayName("should read the first ingredient's strength and unit, and keep a unit of concentration whole")
         void shouldReadFirstStrengthAndUnit_forCombinationAndConcentration(String stored, float strength, String unit) {
-            Drug d = new Drug();
-            d.setDosage(stored);
-
-            DrugTo1 t = converter.getAsTransferObject(info, d);
-
-            assertThat(t.getStrength()).isEqualTo(strength);
-            assertThat(t.getStrengthUnit()).isEqualTo(unit);
+            assertStrengthRead(stored, strength, unit);
         }
 
         /**
@@ -342,13 +350,7 @@ class DrugConverterUnitTest {
         @ValueSource(strings = {"1,000 mg", "2,5 mg", "1/2 mg", "5/20 mg", "5-10 mg", "0.5-1 mg", "1,000"})
         @DisplayName("should report no strength when the first number is not one plain decimal")
         void shouldReportNoStrength_whenFirstNumberIsNotOnePlainDecimal(String stored) {
-            Drug d = new Drug();
-            d.setDosage(stored);
-
-            DrugTo1 t = converter.getAsTransferObject(info, d);
-
-            assertThat(t.getStrength()).isNull();
-            assertThat(t.getStrengthUnit()).isNull();
+            assertNoStrengthRead(stored);
         }
 
         @Test
@@ -367,13 +369,7 @@ class DrugConverterUnitTest {
         @ValueSource(strings = {"as directed", "mg", "/"})
         @DisplayName("should report no strength for text that states no number")
         void shouldReportNoStrength_whenStoredTextHasNoNumber(String stored) {
-            Drug d = new Drug();
-            d.setDosage(stored);
-
-            DrugTo1 t = converter.getAsTransferObject(info, d);
-
-            assertThat(t.getStrength()).isNull();
-            assertThat(t.getStrengthUnit()).isNull();
+            assertNoStrengthRead(stored);
         }
 
         @ParameterizedTest(name = "{0} {1}")

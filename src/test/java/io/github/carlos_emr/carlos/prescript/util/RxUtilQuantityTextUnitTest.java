@@ -40,8 +40,7 @@ class RxUtilQuantityTextUnitTest {
     })
     @DisplayName("should keep the whole decimal amount and leave only the unit")
     void shouldKeepDecimalAmount_forQuantityTypedWithUnit(String typed, String amount, String unit) {
-        assertThat(RxUtil.getQuantityFromQuantityText(typed)).isEqualTo(amount);
-        assertThat(RxUtil.getUnitNameFromQuantityText(typed)).isEqualTo(unit);
+        assertAmountAndUnit(typed, amount, unit);
     }
 
     @ParameterizedTest(name = "\"{0}\" -> amount {1}, unit {2}")
@@ -53,6 +52,10 @@ class RxUtilQuantityTextUnitTest {
     })
     @DisplayName("should write the amount with a leading zero and no trailing zero")
     void shouldWritePlainDecimalAmount_forDoNotUseFormsTypedWithUnit(String typed, String amount, String unit) {
+        assertAmountAndUnit(typed, amount, unit);
+    }
+
+    private static void assertAmountAndUnit(String typed, String amount, String unit) {
         assertThat(RxUtil.getQuantityFromQuantityText(typed)).isEqualTo(amount);
         assertThat(RxUtil.getUnitNameFromQuantityText(typed)).isEqualTo(unit);
     }

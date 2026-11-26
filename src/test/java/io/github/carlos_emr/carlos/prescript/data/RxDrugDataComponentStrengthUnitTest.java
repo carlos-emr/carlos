@@ -63,6 +63,21 @@ class RxDrugDataComponentStrengthUnitTest {
     }
 
     @Test
+    @DisplayName("should give no strength, and not fail, when the component has no strength member")
+    void shouldGiveNoStrength_whenComponentHasNoStrengthMember() {
+        // A Hashtable holds no null: a member DrugRef did not send is absent. The Rx page stages
+        // such an ingredient under its name alone (RxWriteScript2Action reads null as "").
+        Hashtable<String, Object> wire = new Hashtable<>();
+        wire.put("name", "SYNTHETIC BASE");
+        wire.put("unit", "");
+
+        RxDrugData.DrugMonograph.DrugComponent component = new RxDrugData().new DrugMonograph().new DrugComponent(wire);
+
+        assertThat(component.getStrength()).isNull();
+        assertThat(RxDrugData.strengthText(null)).isNull();
+    }
+
+    @Test
     @DisplayName("should leave strength text that is not a single number as DrugRef sent it")
     void shouldKeepText_whenStrengthIsNotASingleNumber() {
         assertThat(component("2.5 mg/mL").getStrength()).isEqualTo("2.5 mg/mL");

@@ -404,7 +404,7 @@ public final class RxWriteScript2Action extends ActionSupport {
      * in which case the generic name does not repeat it. The strength counts only when it is not
      * the tail of a longer number: "250mg" is not stated by a name that says "1250mg".
      *
-     * @param name the ingredient's name, in lower case
+     * @param name the ingredient's name, in lower case; a missing name states no strength
      * @param strength the strength with its unit, as the generic name writes it, in lower case
      * @return true when nothing needs to be added for the strength
      */
@@ -414,6 +414,9 @@ public final class RxWriteScript2Action extends ActionSupport {
         }
         // The strength is written without a trailing zero; a name that says "250.0mg" states it too.
         String stated = DoseText.withPlainNumbers(name);
+        if (stated == null) {
+            return false;
+        }
         for (int at = stated.indexOf(strength); at >= 0; at = stated.indexOf(strength, at + 1)) {
             char before = at == 0 ? ' ' : stated.charAt(at - 1);
             if (!Character.isDigit(before) && before != '.') {

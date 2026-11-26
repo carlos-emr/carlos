@@ -58,9 +58,9 @@ public class RxDrugData {
     }
 
 
-    /**
-     * Full Drug Monograph.
-     */
+    /** The member of a DrugRef component or strength row that holds the strength. */
+    private static final String STRENGTH = "strength";
+
     /**
      * The strength of an ingredient as DrugRef sent it, written without a trailing zero.
      *
@@ -70,10 +70,14 @@ public class RxDrugData {
      * written here once as a plain decimal (#6185). Text that is not a single number is kept as
      * sent.
      *
-     * @param sent the value of the component's {@code strength} member
-     * @return the strength text
+     * @param sent the value of the component's {@code strength} member; {@code null} when DrugRef
+     *     sent none (a Hashtable holds no null, so the member is then absent)
+     * @return the strength text, or {@code null} for a component with no strength
      */
     static String strengthText(Object sent) {
+        if (sent == null) {
+            return null;
+        }
         if (sent instanceof Float number) {
             return DoseText.of(number.floatValue());
         }
@@ -83,6 +87,9 @@ public class RxDrugData {
         return DoseText.ofNumericText(sent.toString());
     }
 
+    /**
+     * Full Drug Monograph.
+     */
     public class DrugMonograph {
 
         public String name;        // : string. International nonproprietary name (INPN) of this drug (=generic)
@@ -239,7 +246,7 @@ public class RxDrugData {
 
             public DrugComponent(Hashtable h) {
                 name = (String) h.get("name");
-                strength = strengthText(h.get("strength"));
+                strength = strengthText(h.get(STRENGTH));
                 unit = (String) h.get("unit");
             }
 
@@ -831,7 +838,7 @@ public class RxDrugData {
         v = d.getStrengths(drugCode);
         for (int i = 0; i < v.size(); i++) {
             Hashtable h = (Hashtable) v.get(i);
-            dosage = dosage + ((String) h.get("strength")) + " " + ((String) h.get("strength_unit"));
+            dosage = dosage + ((String) h.get(STRENGTH)) + " " + ((String) h.get("strength_unit"));
             dosageDef = dosageDef + ((String) h.get("ingredient"));
             if (i < (v.size() - 1)) {
                 dosage = dosage + "/";
@@ -866,7 +873,7 @@ public class RxDrugData {
         ArrayList dosageDef = new ArrayList();
         for (int i = 0; i < v.size(); i++) {
             Hashtable h = (Hashtable) v.get(i);
-            dosage.add(((String) h.get("strength")) + " " + ((String) h.get("strength_unit")));
+            dosage.add(((String) h.get(STRENGTH)) + " " + ((String) h.get("strength_unit")));
             dosageDef.add((h.get("ingredient")));
 
         }

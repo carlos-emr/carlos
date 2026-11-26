@@ -284,6 +284,49 @@ class DoseTextUnitTest {
             assertThat(DoseText.withPlainNumbers(text)).isEqualTo(expected);
         }
 
+        /**
+         * Where a number starts and ends inside a longer text: a digit run with a fraction, and an
+         * exponent only when it is complete. Anything else around it is copied as it is.
+         */
+        @ParameterizedTest(name = "\"{0}\" -> \"{1}\"")
+        @CsvSource(delimiter = '|', value = {
+            "2.50 | 2.5",
+            "x1.50 | x1.5",
+            "ends with 2.50 | ends with 2.5",
+            "0.10 and 0.20 | 0.1 and 0.2",
+            "250 | 250",
+            "5. mg | 5. mg",
+            "5.x | 5.x",
+            "5. | 5.",
+            ".50 | .50",
+            "1.2.3 | 1.2.3",
+            "12.50.0 | 12.5.0",
+            "1.0e+7unit | 10000000unit",
+            "1.0e-4mg | 0.0001mg",
+            "7.0e5 | 700000",
+            "1.50e | 1.5e",
+            "1.50E | 1.5E",
+            "1.50e+ | 1.5e+",
+            "1.50e- | 1.5e-",
+            "1.50e+x | 1.5e+x",
+            "1.50ex | 1.5ex",
+            "1.5E3.20 | 1500.20"
+        })
+        @DisplayName("should find each number's whole extent and leave the text around it alone")
+        void shouldRewriteOnlyCompleteNumbers_atEveryPositionInText(String text, String expected) {
+            assertThat(DoseText.withPlainNumbers(text)).isEqualTo(expected);
+        }
+
+        @Test
+        @DisplayName("should scan a long run of digits without rewriting it")
+        void shouldReturnTextUnchanged_whenTextIsOneLongRunOfDigits() {
+            String digits = "1".repeat(200_000);
+            assertThat(DoseText.withPlainNumbers(digits)).isSameAs(digits);
+            // A number too long to be a dose is copied as it is, with the text after it.
+            String tooLong = "1".repeat(70) + ".50mg";
+            assertThat(DoseText.withPlainNumbers(tooLong)).isEqualTo(tooLong);
+        }
+
         @Test
         @DisplayName("should keep different strengths different")
         void shouldKeepDifferentNumbersDifferent_whenComparingTexts() {
