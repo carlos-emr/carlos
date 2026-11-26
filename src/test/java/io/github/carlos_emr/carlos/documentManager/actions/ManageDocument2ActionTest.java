@@ -1033,7 +1033,10 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
     /**
      * Issue #3057 (#2656): the document-description fragment the Document Browser and Browse Notes
      * load into the page prints every stored metadata value HTML-encoded, and a value that is not
-     * there as nothing, never as the word {@code null}.
+     * there as nothing, never as the word {@code null}. The action already did this when the issue
+     * was closed; this pins it. The annotation, tickler and acknowledgement fragments it also prints
+     * are built, and tested, in {@code EDocUtil} ({@code EDocUtilDocumentInfoHtmlUnitTest},
+     * {@code EDocUtilTicklerHtmlUnitTest}).
      */
     @ParameterizedTest
     @ValueSource(strings = { "viewDocumentDescription", "viewDocumentInfo" })

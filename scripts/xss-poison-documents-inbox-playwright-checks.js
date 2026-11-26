@@ -118,7 +118,10 @@ async function workflow(s) {
   // Pages opened by route: each is what a real control loads (see the header), and none depends on opener state.
   const openRoute = async (route, surface, expect) => {
     const page = await s.context.newPage();
-    await page.goto(h.appUrl(s.config.baseUrl, route), { waitUntil: 'load', timeout: 30000 });
+    const response = await page.goto(h.appUrl(s.config.baseUrl, route), { waitUntil: 'load', timeout: 30000 });
+    // ManageDocument is in ignoredPaths (the fixture's file-less preview), so report this page's own
+    // status here: a refused or failed page is an HTTP finding, not only a list of missing fields.
+    if (!response || !response.ok()) f.add(surface, 'HTTP', `${response ? response.status() : 'no response'} ${route.split('?')[0]}`);
     await page.waitForLoadState('networkidle').catch(() => {});
     const since = f.mark();
     await inspect(f, surface, page, fields, since, { expect });

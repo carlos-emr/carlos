@@ -47,7 +47,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  *       offers document filing. All three use the JavaScript-string encoder, as the HTML-document
  *       editor already did.</li>
  *   <li>The multi-file upload page listed queue names and provider names raw in its two
- *       selects, unlike its sibling {@code documentUploader.jsp}.</li>
+ *       selects, unlike its sibling {@code documentUploader.jsp}; the document editor printed the
+ *       provider number of its responsible-provider options raw.</li>
  * </ul>
  *
  * <p>The behavioural proof is the installed {@code xss-poison-documents-inbox} browser check;
@@ -75,8 +76,12 @@ class DocumentMetadataJspOutputEncodingRegressionTest {
         private static final String ENCODED_ELEMENT =
                 "\"<carlos:encode value='<%= subClasses.get(i) %>' context='javaScript'/>\"";
 
-        /** Any {@code subClasses.get(i)} printed by a bare scriptlet expression. */
-        private static final Pattern RAW_ELEMENT = Pattern.compile("(?<!value=')<%=\\s*subClasses\\.get\\(");
+        /**
+         * Any {@code subClasses.get(i)} printed by a scriptlet expression that is not the value of a
+         * {@code <carlos:encode>} tag.
+         */
+        private static final Pattern RAW_ELEMENT =
+                Pattern.compile("(?<!<carlos:encode value=')<%=\\s*subClasses\\.get\\(");
 
         @ParameterizedTest(name = "{0}")
         @ValueSource(strings = {"documentReport.jsp", "editDocument.jsp", "addedithtmldocument.jsp"})
@@ -88,6 +93,22 @@ class DocumentMetadataJspOutputEncodingRegressionTest {
             assertThat(RAW_ELEMENT.matcher(page).find())
                     .as("%s prints a stored document sub-class without encoding", jsp)
                     .isFalse();
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {
+                "\"<%=subClasses.get(i)%>\",",
+                "<input value='<%= subClasses.get(i) %>'>"
+        })
+        @DisplayName("should detect a raw sub-class print, also inside a single-quoted attribute")
+        void shouldDetectRawPrint_forUnencodedFixture(String fixture) {
+            assertThat(RAW_ELEMENT.matcher(fixture).find()).isTrue();
+        }
+
+        @Test
+        @DisplayName("should not count the expression handed to the CARLOS encoder as a raw print")
+        void shouldAcceptEncodedPrint_forCarlosEncodeFixture() {
+            assertThat(RAW_ELEMENT.matcher(ENCODED_ELEMENT).find()).isFalse();
         }
     }
 
@@ -103,6 +124,21 @@ class DocumentMetadataJspOutputEncodingRegressionTest {
             assertThat(page)
                     .contains("<input type=\"hidden\" name=\"curUser\" value=\"<carlos:encode value='<%= curUser %>' context=\"htmlAttribute\"/>\">")
                     .doesNotContain("value=\"<%=curUser%>\"");
+        }
+    }
+
+    @Nested
+    @DisplayName("Document editor responsible-provider select")
+    class EditorProviderSelect {
+
+        @Test
+        @DisplayName("should attribute-encode the stored provider number of each responsible-provider option")
+        void shouldEncodeProviderNumber_inResponsibleProviderOption() throws IOException {
+            String page = read("editDocument.jsp");
+
+            assertThat(page)
+                    .contains("<option value=\"<carlos:encode value='<%= pd.get(\"providerNo\") %>' context=\"htmlAttribute\"/>\"")
+                    .doesNotContain("<option value=\"<%=pd.get(\"providerNo\")%>\"");
         }
     }
 

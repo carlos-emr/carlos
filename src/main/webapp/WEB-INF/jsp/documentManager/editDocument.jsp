@@ -394,7 +394,7 @@
                         String selected = "";
                         if (formdata.getResponsibleId().equals(pd.get("providerNo"))) selected = "selected";
                     %>
-                    <option value="<%=pd.get("providerNo")%>" <%=selected%>><carlos:encode value='<%= pd.get("lastName") %>' context="html"/>
+                    <option value="<carlos:encode value='<%= pd.get("providerNo") %>' context="htmlAttribute"/>" <%=selected%>><carlos:encode value='<%= pd.get("lastName") %>' context="html"/>
                         , <carlos:encode value='<%= pd.get("firstName") %>' context="html"/>
                     </option>
                     <% } %>

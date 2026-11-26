@@ -36,6 +36,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -67,11 +68,12 @@ class EFormPatientFormListSingleJspRegressionTest {
             "<carlos:encode value='<%= \\(String\\) curform\\.get\\(\"(\\w+)\"\\) %>' context=\"(\\w+)\"/>");
 
     /**
-     * A scriptlet expression that prints a map value straight into the page. The same expression
-     * handed to {@code <carlos:encode value='...'>} is the encoded form, so it is excluded.
+     * A scriptlet expression that prints a map value straight into the page. Only the expression
+     * handed to a {@code <carlos:encode value='...'>} tag is the encoded form and is excluded; the
+     * same expression in any other single-quoted attribute (an {@code <input value='...'>}) is raw.
      */
     private static final Pattern RAW_FIELD = Pattern.compile(
-            "(?<!value=')<%=\\s*\\(?\\s*(?:\\(String\\)\\s*)?curform\\.get\\(");
+            "(?<!<carlos:encode value=')<%=\\s*\\(?\\s*(?:\\(String\\)\\s*)?curform\\.get\\(");
 
     private static String page;
 
@@ -97,11 +99,34 @@ class EFormPatientFormListSingleJspRegressionTest {
         assertThat(page).contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>");
     }
 
+    private static boolean printsRawField(String jsp) {
+        return RAW_FIELD.matcher(jsp).find();
+    }
+
     @Test
     @DisplayName("should print no eForm instance value through a raw scriptlet expression")
     void shouldPrintNoRawInstanceValue_forAnyField() {
-        assertThat(RAW_FIELD.matcher(page).find())
+        assertThat(printsRawField(page))
                 .as("efmpatientformlistsingle.jsp prints a curform value without encoding")
+                .isFalse();
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {
+            "<td><%=curform.get(\"formSubject\")%></td>",
+            "<input value='<%= curform.get(\"formSubject\") %>'>",
+            "<input value='<%= (String) curform.get(\"formName\") %>'/>"
+    })
+    @DisplayName("should detect a raw print even inside a single-quoted attribute")
+    void shouldDetectRawPrint_forUnencodedFixture(String fixture) {
+        assertThat(printsRawField(fixture)).isTrue();
+    }
+
+    @Test
+    @DisplayName("should not count the expression handed to the CARLOS encoder as a raw print")
+    void shouldAcceptEncodedPrint_forCarlosEncodeFixture() {
+        assertThat(printsRawField(
+                "<td><carlos:encode value='<%= (String) curform.get(\"formSubject\") %>' context=\"html\"/></td>"))
                 .isFalse();
     }
 

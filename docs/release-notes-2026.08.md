@@ -369,12 +369,13 @@ counts the rows that are shown, and a list that cannot be loaded says so
 
 - The note and issue history popup prints the patient name and the issue title as
   text. Markup stored in either was previously run in the reader's browser.
-- The eForm version list prints each saved form's name and subject as text, and the
+- The eForm version list prints each saved form's name and subject as text, the
+  patient-independent eForm lists print the saving provider's name as text, and the
   document pages print stored document sub-classes, queue names and provider names as
   text. Markup stored in any of them was previously run in the reader's browser. The
   document information shown by the Document Browser and Browse Notes leaves a missing
-  provider name, date, comment, annotation or tickler message blank instead of printing `null`
-  ([#3057](https://github.com/carlos-emr/carlos/issues/3057)).
+  acknowledging provider's name or date, annotation or tickler message blank instead of
+  printing `null` ([#3057](https://github.com/carlos-emr/carlos/issues/3057)).
 - Hospital reports (HRM) follow the patient's own access rules. A provider who is
   locked out of a patient, or lacks `_demographic` or `_hrm` read for that patient,
   cannot list, open, print, download or change that patient's hospital reports from
