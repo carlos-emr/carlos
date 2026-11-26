@@ -104,7 +104,7 @@ public class OutcomesDashboard2Action extends ActionSupport {
         }
 
         // Publishing is an outbound HTTP POST per metric set; a GET must not trigger it.
-        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+        if (!"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
