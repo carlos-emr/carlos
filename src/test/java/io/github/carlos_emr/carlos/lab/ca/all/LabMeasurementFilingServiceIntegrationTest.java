@@ -70,8 +70,12 @@ public class LabMeasurementFilingServiceIntegrationTest extends CarlosTestBase {
                 measurementsDeletedDao, lab -> chain);
     }
 
+    private static final java.util.concurrent.atomic.AtomicInteger LAB_NUMBERS =
+            new java.util.concurrent.atomic.AtomicInteger(7_200_000);
+
     private int storedReport(String accession) {
         Hl7TextInfo info = new Hl7TextInfo();
+        info.setLabNumber(LAB_NUMBERS.incrementAndGet());
         info.setAccessionNumber(accession);
         info.setFirstName("FAKE");
         info.setLastName("FAKE");
