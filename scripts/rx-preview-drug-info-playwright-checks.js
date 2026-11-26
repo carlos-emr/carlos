@@ -52,6 +52,11 @@ async function workflow(s) {
       h.assert(/^[1-9]\d*$/.test(productKey ?? ''), 'The staged generic entry has no DrugRef search key');
       await rx.locator(`#instructions_${card}`).fill('1 tablet daily');
       await rx.locator(`#instructions_${card}`).blur();
+      // Bootstrap focuses the modal after its opening transition. Wait for that event
+      // before clicking in the iframe, even when the preview HTML renders first.
+      await rx.locator('#carlosModal').evaluate(modal => {
+        modal.addEventListener('shown.bs.modal', () => { modal.dataset.rxDrugInfoShown = 'true'; }, { once: true });
+      });
       const [previewResponse] = await Promise.all([
         rx.waitForResponse(r => r.request().method() === 'POST' && h.pathOnly(r.url()).endsWith('/rx/viewScript'),
           { timeout: 30000 }),
@@ -68,7 +73,10 @@ async function workflow(s) {
       h.assert(generic?.startsWith(`${product.term} `) && din === product.din,
         'Save and Print filed the wrong catalogue product');
 
-      const preview = rx.frameLocator('iframe[name="carlosPrescriptionPreview"]');
+      await rx.locator('#carlosModal[data-rx-drug-info-shown="true"]').waitFor({ state: 'visible', timeout: 30000 });
+      const preview = rx.frame({ name: 'carlosPrescriptionPreview' });
+      h.assert(preview, 'Save and Print opened the modal without its preview frame');
+      await preview.waitForURL(previewResponse.url(), { waitUntil: 'load', timeout: 30000 });
       const link = preview.locator('a[href*="/rx/drugInfo?"]');
       const target = new URL(await link.getAttribute('href'), config.baseUrl);
       h.assert(target.origin === new URL(config.baseUrl).origin, 'Drug Information does not link to CARLOS');
