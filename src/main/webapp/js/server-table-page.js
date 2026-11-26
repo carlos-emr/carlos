@@ -10,13 +10,15 @@
         const region = form.closest('[data-server-page-region]');
         if (!region || region.dataset.loading === 'true') return;
         const error = form.querySelector('[data-server-page-error]');
+        const controller = new AbortController();
+        const deadline = setTimeout(() => controller.abort(), 30_000);
         region.dataset.loading = 'true';
         error.textContent = '';
         try {
             // The legacy dispatcher posts an input named "method", which shadows form.method.
             const method = (form.getAttribute('method') || 'get').toUpperCase();
             const url = new URL(form.getAttribute('action'), location.href);
-            const options = {method, credentials: 'same-origin', headers: {}};
+            const options = {method, credentials: 'same-origin', headers: {}, signal: controller.signal};
             if (method !== 'GET') {
                 let token = form.querySelector('input[name="CSRF-TOKEN"]');
                 if (!token) {
@@ -25,7 +27,7 @@
                 }
                 // Fetched HTML has not run CSRFGuard's injection script. Bootstrap the replacement
                 // form explicitly, including on the second and later page requests.
-                await globalThis.fetchCsrfToken(form.dataset.context);
+                await globalThis.fetchCsrfToken(form.dataset.context, controller.signal);
                 if (!token.value) throw new Error('Missing CSRF token');
                 options.headers = {'Content-Type': 'application/x-www-form-urlencoded',
                     'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': token.value};
@@ -66,6 +68,7 @@
         } catch (failure) {
             error.textContent = error.dataset.error;
         } finally {
+            clearTimeout(deadline);
             delete region.dataset.loading;
         }
     });

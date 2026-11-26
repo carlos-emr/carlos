@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/OhipClaimExtractService.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 83.33333333333333,
+    "instructions": 85.84905660377359,
+    "branches": 100.0,
+    "sourceBlob": "1de5faee233356da3b2d08790d603f0c5a1c77b9"
+  },
+  "evidenceSha256": "bab03570058214796bf4d81852f47dcb3a67b906bf8c923237e77b09c47c1f79"
+}

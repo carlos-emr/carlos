@@ -658,7 +658,7 @@ promotion_ref=${PROMOTION_REF:?Set PROMOTION_REF to the reviewed promotion ref o
 git worktree add --detach ../carlos-package-validation "$promotion_ref"
 cd ../carlos-package-validation
 release_tag=2026.08.0-alpha12
-deb_version="${release_tag//-/~}"
+deb_version="$(printf '%s' "$release_tag" | sed 's/-/~/g')"
 printf 'carlos-emr (%s) resolute; urgency=medium\n\n  * Validation package of release %s.\n\n -- CARLOS Release CI <releases@carlos-emr.invalid>  %s\n' \
   "$deb_version" "$release_tag" "$(date -R)" > debian/changelog
 test "$(dpkg-parsechangelog -SVersion)" = "$deb_version"
@@ -2539,9 +2539,12 @@ passed on the same install. Changed-line coverage of the Java fix from the
 focused unit tests (`scripts/coverage/changed_line_audit.py`): 2/2 executable
 lines covered.
 
-Fixture providers must share a site with the operator (the demo `admin` role
-carries `_site_access_privacy`, and the diskette page lists only same-site
-providers). The historical run above worked around NULL optional claim fields;
+In multisite mode, fixture providers must share a site with an operator who
+holds `_site_access_privacy`, including the seeded administrator. In a
+single-site clinic, the OHIP Simulation and Generate OHIP File pages show
+eligible providers and their disk history even without site assignments.
+The `billing-on-single-site-visibility` check exercises that configuration.
+The historical run above worked around NULL optional claim fields;
 PR #3999 now fixes that exporter defect (#4032), and the fixture deliberately
 uses NULL for the optional referral, facility, laboratory, review, and location
 fields.

@@ -241,7 +241,7 @@
             <div class="col-md-4">
                 Select Provider<br>
                 <select name="providers" onchange="setBillingCenter(this.value);">
-                    <c:if test="${fn:length(mriModel.providerOptions) != 1}">
+                    <c:if test="${fn:length(mriModel.providerOptions) > 1}">
                     <option value="all">All Providers</option>
                     </c:if>
                     <c:forEach var="pe" items="${mriModel.providerOptions}">
@@ -289,7 +289,7 @@
                 individual provider's bill center setting (will use above bill center if provider does not have one
                 set.)
                 <br><br>
-                <input class="btn btn-primary" type="submit" name="Submit" value="Create Report">
+                <input class="btn btn-primary" type="submit" name="Submit" value="Create Report" <c:if test="${empty mriModel.providerOptions}">disabled</c:if>>
             </div>
         </form>
 
@@ -316,14 +316,14 @@
             <td align="center"><font size="2"><carlos:encode value="${row.claimRecord}" context="html"/></font></td>
             <td align="right"><font size="2"><carlos:encode value="${row.total}" context="html"/></font></td>
 
-            <td width="15%"><font size="2"> <a
+            <td width="15%"><font size="2"> <c:if test="${not empty row.ohipFile}"><a
                     href="${pageContext.request.contextPath}/servlet/OscarDownload?homepath=ohipdownload&filename=${carlos:forUriComponent(row.ohipFile)}"
-                    target="_blank"><carlos:encode value="${row.ohipFile}" context="html"/></a></font></td>
-            <td width="3%"><input type="button" value="R" class="btn d-print-none"
-                                  onclick="recreate('<carlos:encode value='${row.diskId}' context='javaScriptAttribute'/>')"/></td>
-            <td><font size="2"> <a
+                    target="_blank"><carlos:encode value="${row.ohipFile}" context="html"/></a></c:if></font></td>
+            <td width="3%"><c:if test="${row.mayRegenerate}"><input type="button" value="R" class="btn d-print-none"
+                                  onclick="recreate('<carlos:encode value='${row.diskId}' context='javaScriptAttribute'/>')"/></c:if></td>
+            <td><font size="2"> <c:if test="${not empty row.htmlFile}"><a
                     href="${pageContext.request.contextPath}/servlet/OscarDownload?homepath=ohipdownload&filename=${carlos:forUriComponent(row.htmlFile)}"
-                    target="_blank"><carlos:encode value="${row.htmlFile}" context="html"/></a></font></td>
+                    target="_blank"><carlos:encode value="${row.htmlFile}" context="html"/></a></c:if></font></td>
         </tr>
         </c:forEach>
 
@@ -334,12 +334,12 @@
             <td align="center"><font size="2"><carlos:encode value="${row.claimRecord}" context="html"/></td>
             <td align="right"><font size="2"><carlos:encode value="${row.formattedTotal}" context="html"/></font></td>
 
-            <td colspan=2><font size="2"> <a
+            <td colspan=2><font size="2"> <c:if test="${not empty row.ohipFile}"><a
                     href="${pageContext.request.contextPath}/servlet/OscarDownload?homepath=ohipdownload&filename=${carlos:forUriComponent(row.ohipFile)}"
-                    target="_blank"><carlos:encode value="${row.ohipFile}" context="html"/></a></font></td>
-            <td><font size="2"> <a
+                    target="_blank"><carlos:encode value="${row.ohipFile}" context="html"/></a></c:if></font></td>
+            <td><font size="2"> <c:if test="${not empty row.htmlFile}"><a
                     href="${pageContext.request.contextPath}/servlet/OscarDownload?homepath=ohipdownload&filename=${carlos:forUriComponent(row.htmlFile)}"
-                    target="_blank"><carlos:encode value="${row.htmlFile}" context="html"/></a></font></td>
+                    target="_blank"><carlos:encode value="${row.htmlFile}" context="html"/></a></c:if></font></td>
         </tr>
         </c:forEach>
         </tbody>

@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr;
 
+import java.io.Serial;
+import java.io.Serializable;
 
 /**
  * Bean representing a schedule date entry with availability and hour information.
@@ -46,7 +48,9 @@ package io.github.carlos_emr;
  * <p>Used in conjunction with schedule management to track provider
  * availability on specific dates.</p>
  */
-public class HScheduleDate {
+public class HScheduleDate implements Serializable {
+    @Serial
+    private static final long serialVersionUID = 1L;
 
     /** Availability status for this schedule date */
     public String available = "";

@@ -14,6 +14,7 @@ whitelisted hashes/counts/resource evidence are copied to the public artifact.
 
 from __future__ import annotations
 import argparse
+from functools import partial
 import hashlib
 import importlib.util
 import json
@@ -25,7 +26,7 @@ import subprocess
 import uuid
 import zipfile
 
-from cds_database_readiness import database_client, wait_for_database
+from cds_database_readiness import database_client, run_logged, wait_for_database
 
 _MANIFEST_SPEC = importlib.util.spec_from_file_location(
     "cds_war_manifest", Path(__file__).with_name("cds_war_manifest.py")
@@ -148,15 +149,7 @@ def main() -> int:
     try:
         with log_path.open("w") as log:
 
-            def execute(command, *, capture=False, check=True, timeout=None):
-                return subprocess.run(
-                    command,
-                    text=True,
-                    stdout=subprocess.PIPE if capture else log,
-                    stderr=log,
-                    check=check,
-                    timeout=timeout,
-                )
+            execute = partial(run_logged, log=log)
 
             def build(command, **kw):
                 return execute(

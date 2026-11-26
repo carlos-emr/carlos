@@ -21,7 +21,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from carlos_ctl import o19etl, o19manifest, o19map_props, o19map_schema
+from carlos_ctl import o19etl, o19manifest, o19map_props, o19map_schema, o19props
 
 
 def load_generator():
@@ -124,6 +124,7 @@ class TestSchemaManifest(unittest.TestCase):
         cls.seed_row_counts = data["SEED_ROW_COUNTS"]
         cls.schema_map_version = data["SCHEMA_MAP_VERSION"]
         cls.stock_role_names = data["STOCK_ROLE_NAMES"]
+        cls.primitive_columns = data["PRIMITIVE_COLUMNS"]
 
     def test_oauth_access_tokens_remain_live_with_their_original_credentials(self):
         entry = self.tables["ServiceAccessToken"]
@@ -417,25 +418,17 @@ class TestSchemaManifest(unittest.TestCase):
         self.assertEqual(v.split("+")[0], p.split("+")[0])
 
     def test_the_version_suffix_tracks_the_classification(self):
-        """The token digests the tables AND the province they were
-        curated for.
-
-        The province is inside the digest, not merely alongside it:
-        `--resume` and `--cleanup` compare this string, and two profiles
-        whose table classifications happened to coincide would otherwise
-        share a version while differing in everything else a profile
-        carries -- primitive columns, seed floors, CARLOS column lists.
-        A workspace staged under one set of rulings could then be
-        resumed under the other."""
+        """The digest must match this profile's emitted table and null-coercion rules."""
         import hashlib
         digest = hashlib.sha256(
-            repr([("__province__", self.province)]
+            repr([("__province__", self.province),
+                  ("__primitive_columns__", sorted(self.primitive_columns.items()))]
                  + sorted(self.tables.items()))
             .encode("utf-8")).hexdigest()[:8]
         self.assertEqual(
             self.schema_map_version.split("+", 1)[1], digest,
             "regenerate the manifests: the shipped token does not "
-            "describe the shipped TABLES and province")
+            "describe the shipped TABLES, PRIMITIVE_COLUMNS and province")
 
 
 class TestDroppedPrefixesTrackTheFileRules(unittest.TestCase):
@@ -547,15 +540,19 @@ class TestPreflightDriftLock(unittest.TestCase):
             self._assert_all_profiles(self._load_preflight(path), schema)
 
     def test_previous_program_and_token_policies_cannot_resume_an_import(self):
-        """Reject prior mappings whose program or credential decisions differ."""
+        """Reject older program, credential and nullable billing mappings."""
         from carlos_ctl import o19import
         schema = o19manifest.load("o19map-schema")
         for profile in [schema] + list(schema["PROFILES"].values()):
             current = profile["SCHEMA_MAP_VERSION"]
             with self.subTest(province=profile["O19_PROFILE"]):
                 self.assertEqual(current.split("+", 1)[0], "o19map-8")
-                for previous_base in ("o19map-3", "o19map-4", "o19map-5", "o19map-6", "o19map-7"):
-                    previous = previous_base + "+" + current.split("+", 1)[1]
+                prior_versions = [base + "+" + current.split("+", 1)[1] for base in
+                                  ("o19map-3", "o19map-4", "o19map-5", "o19map-6", "o19map-7")]
+                # Released beta 8 used the same base and coerced billing.appointment_no to zero.
+                prior_versions.append({"on": "o19map-8+37a29865", "bc": "o19map-8+bfb0898a"}[
+                    profile["O19_PROFILE"]])
+                for previous in prior_versions:
                     state = {"inputs": {"schema_map_version": previous},
                              "phases": {"etl": {"status": "done"}}}
                     refusal = o19import.manifest_change_refusal(state, current)
@@ -600,6 +597,36 @@ class TestPropsManifest(unittest.TestCase):
     def test_prefix_dispositions_are_valid(self):
         for prefix, spec in o19map_props.PREFIX_RULES:
             self.assertIn(spec["d"], VALID_DISPOSITIONS, prefix)
+
+    def test_explicit_multisites_survives_dry_run_and_import_without_changing_live_properties(self):
+        cases = (("multisites=on", "on"), ("multisites=YeS", "YeS"), ("multisites=true", "true"),
+                 ("multisites=on\nmultisites=off", "off"), ("# multisites=on", None), ("", None))
+        for province in ("on", "bc"):
+            for source_setting, expected in cases:
+                with self.subTest(province=province, source_setting=source_setting), tempfile.TemporaryDirectory() as tmp:
+                    root = Path(tmp)
+                    source = root / "oscar.properties"
+                    source.write_text("multioffice.formalize.provider.id=true\n" + source_setting + "\n")
+                    target = root / "carlos.properties"
+                    target_config = "billregion=" + province.upper() + "\nmultisites=off\n"
+                    target.write_text(target_config)
+                    fragment = root / "o19-derived-carlos.properties"
+                    fragment.write_text("# previously reviewed\n")
+                    ctx = {"properties": str(source), "deploy_properties": str(target),
+                           "state_dir": tmp, "state": {}, "province": province}
+
+                    for dry_run in (True, False):
+                        ctx["dry_run"] = dry_run
+                        with contextlib.redirect_stdout(io.StringIO()):
+                            o19props.run_props(ctx)
+                        output = root / (fragment.name + ".dry-run") if dry_run else fragment
+                        translated = dict(o19props.load_clinic_properties(str(output)))
+                        self.assertEqual(translated.get("multisites"), expected)
+                        self.assertEqual(translated["multioffice.formalize.provider.id"], "true")
+                        if dry_run:
+                            self.assertEqual(fragment.read_text(), "# previously reviewed\n")
+                        self.assertEqual(target.read_text(), target_config)
+                    self.assertEqual(ctx["state"]["phases"]["props"]["unknown"], 0)
 
     def test_translate_keys_name_a_translator(self):
         for key, spec in o19map_props.KEYS.items():

@@ -60,6 +60,9 @@ KEYS = {
     "DX_QUICK_LIST_DEFAULT": {"d": "carry"},
     "DX_QUICK_LIST_BILLING_REVIEW": {"d": "carry"},
     # --- workflow toggles (carry) -----------------------------------------
+    # An explicit OSCAR site mode controls whether site-scoped permissions apply.
+    # Both stock properties files leave this key commented out.
+    "multisites": {"d": "carry"},
     "CASEMANAGEMENT": {"d": "carry"},
     "CMESort": {"d": "carry"},
     "DATE_FORMAT": {"d": "carry"},

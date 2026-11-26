@@ -536,7 +536,7 @@ class PmmoduleJspMigrationActionRoutingTest extends CarlosWebTestBase {
     @ParameterizedTest(name = "{0} must not invoke facility {1}")
     @CsvSource({
         "GET,delete", "HEAD,delete", "PUT,delete", "PATCH,delete", "DELETE,delete", "OPTIONS,delete",
-        "GET,save", "HEAD,save", "PUT,save", "PATCH,save", "DELETE,save", "OPTIONS,save"
+        "GET,save", "HEAD,save", "PUT,save", "PATCH,save", "DELETE,save", "OPTIONS,save", "post,save", "Post,delete"
     })
     void shouldRejectNonPostFacilityMutationsBeforeDaoAccess(String verb, String method) throws Exception {
         getMockRequest().setMethod(verb);

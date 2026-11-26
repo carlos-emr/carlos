@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingFileWriteException.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "89a54c8ea5abad99dd51104ee95cdea7f3e57db5"
+  },
+  "evidenceSha256": "9985a4d4e2c106730bb6b6abacc866facac1d8bd08985d3ef6bbb8255d7ea1eb"
+}

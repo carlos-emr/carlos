@@ -28,6 +28,9 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewLoader;
 import io.github.carlos_emr.carlos.billings.ca.on.service.OhipClaimFileService;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOhipSimulationViewModel;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verifyNoInteractions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -105,6 +108,31 @@ class BillingOhipSimulationViewModelAssemblerUnitTest {
                 .assemble(request, loggedInInfo, false, false, false);
 
         verify(claimFileService).setProviderNo("999998");
+    }
+
+    @Test
+    void shouldRefuseUnavailableExplicitProviderAndMultisitePlaceholder_beforeCreatingClaimPreview() {
+        var reviews = mock(BillingReviewLoader.class);
+        var lookup = mock(BillingOnLookupService.class);
+        var login = mock(LoggedInInfo.class);
+        when(login.getLoggedInProviderNo()).thenReturn("101");
+        when(reviews.getTeamProviderBillingStr("101")).thenReturn(List.of(
+                new ProviderDropdownEntry("101", "FAKE", "Doctor", "010100", "0000", "00")));
+        ObjectFactory<OhipClaimFileService> factory = () -> { throw new AssertionError("unexpected claim read"); };
+        var assembler = new BillingOhipSimulationViewModelAssembler(reviews, lookup, factory);
+        var request = new MockHttpServletRequest();
+        request.setParameter("submit", "Create Report");
+        try (var settings = mockStatic(IsPropertiesOn.class)) {
+            for (boolean multisites : List.of(false, true)) {
+                settings.when(IsPropertiesOn::isMultisitesEnable).thenReturn(multisites);
+                request.setParameter("providers", "102");
+                assertThat(assembler.assemble(request, login, true, multisites, false).getPreview().errorMessages())
+                        .containsExactly("Select an available provider to simulate.");
+            }
+            request.setParameter("providers", "all");
+            assertThat(assembler.assemble(request, login, true, true, false).getPreview().errorMessages()).isNotEmpty();
+        }
+        verifyNoInteractions(lookup);
     }
 
     private static BillingProviderDto provider(String providerNo) {
