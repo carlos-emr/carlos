@@ -443,6 +443,23 @@ class CdsExportMedicationMapperUnitTest {
     }
 
     @Test
+    void shouldReadTheUnselectedTreatmentOption_asNoTreatmentType() throws Exception {
+        // prescribe.jsp stores its unselected option as the text "--".
+        var fields = baseline();
+        fields.put("eTreatmentType", "--");
+
+        var mapped = mapper.map(27, medication(fields), List.of());
+
+        assertThat(mapped.nativeRowRepresentable()).isTrue();
+        assertThat(mapped.value().fields())
+                .doesNotContainKey(CdsExportMedicationDto.Field.TreatmentType);
+        assertThat(mapped.fields().get(key("eTreatmentType")).outcome())
+                .isEqualTo(Outcome.OPERATIONAL);
+        assertThat(mapped.fields().get(key("eTreatmentType")).rule())
+                .isEqualTo("NATIVE_UNSELECTED_TREATMENT_OPTION");
+    }
+
+    @Test
     void shouldRequireAuthorityEvidenceForARegionalIdentifier_evenWhenItHasEightDigits()
             throws Exception {
         var fields = baseline();

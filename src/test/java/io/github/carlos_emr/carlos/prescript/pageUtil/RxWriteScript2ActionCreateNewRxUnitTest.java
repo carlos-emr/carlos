@@ -268,6 +268,10 @@ class RxWriteScript2ActionCreateNewRxUnitTest extends CarlosUnitTestBase {
         "amoxicillin 250.0mg, 250mg, true",
         "amoxicillin 1250mg, 250mg, false",
         "amoxicillin 1.250mg, 250mg, false",
+        // ".250mg" is a quarter of a milligram written without its leading zero, not 250 mg.
+        "amoxicillin .250mg, 250mg, false",
+        // A longer number first does not hide the strength stated after it.
+        "amoxicillin 1250mg or 250mg, 250mg, true",
         "amoxicillin, 250mg, false",
         "amoxicillin, '', true"
     })

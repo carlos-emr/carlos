@@ -275,10 +275,8 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
         t.setStrength(strength);
         if (matcher.group(2) != null) {
             // "5 mg / 20 mg" and "5 mg, 20 mg": the separator after the first unit is not part of it.
-            String unit = TRAILING_SEPARATOR.matcher(matcher.group(2)).replaceFirst("");
-            if (!unit.isEmpty()) {
-                t.setStrengthUnit(unit);
-            }
+            // The unit starts with a letter or "%", so something always remains.
+            t.setStrengthUnit(TRAILING_SEPARATOR.matcher(matcher.group(2)).replaceFirst(""));
         }
         return true;
     }
