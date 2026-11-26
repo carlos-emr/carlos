@@ -56,8 +56,14 @@ REST clients: `quantity` on a drug or a favourite is a whole number. A stored qu
 is not one ("2.5", or imported text such as "100 mL") is now omitted from the response;
 reading such a drug used to fail the whole request. An update that states no quantity keeps
 that stored quantity and its unit, and the `instructions` text still states it. `strength`
-is now reported for a strength of one digit ("5 mg"), and for a combination it is the first
-ingredient's.
+is now reported for a strength of one digit ("5 mg") and for one stored without a unit. For
+a combination it is the first ingredient's, with that ingredient's unit: "5 mg / 20 mg"
+reads 5 and "mg", where it read 20 and "mg / ".
+
+Rolling back to an earlier 2026.08 build keeps the prescriptions this build saved. The
+earlier build's REST drug list fails on a quantity that is not a whole number, as it already
+did for one typed without a unit; this build saves "2.5" for a quantity typed as "2.5 mL",
+where the earlier build saved "2".
 
 The inventory, with each place checked and the findings that are not number formatting, is
 in `docs/testing/dose-text-format-inventory.md`.

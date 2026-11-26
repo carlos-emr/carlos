@@ -246,6 +246,14 @@ class DoseTextUnitTest {
             assertThat(DoseText.ofNumericText("1E-999999999")).isEqualTo("1E-999999999");
             assertThat(DoseText.ofNumericText("1E400")).isEqualTo("1E400");
         }
+
+        @Test
+        @DisplayName("should leave digits too long to be a dose as given")
+        void shouldReturnTextUnchanged_whenTextIsLongerThanAnyDose() {
+            String digits = "1".repeat(65) + ".0";
+            assertThat(DoseText.ofNumericText(digits)).isEqualTo(digits);
+            assertThat(DoseText.ofNumericText("1".repeat(60) + ".50")).isEqualTo("1".repeat(60) + ".5");
+        }
     }
 
     @Nested
@@ -262,6 +270,11 @@ class DoseTextUnitTest {
             "0.50 mg | 0.5 mg",
             "1.0mg | 1mg",
             "0.0625mg | 0.0625mg",
+            "1.0E7unit | 10000000unit",
+            "1.0E7IU | 10000000IU",
+            "penicillin g 1.0E7unit powder | penicillin g 10000000unit powder",
+            "1.0E-4mg | 0.0001mg",
+            "2.0each | 2each",
             "amoxicillin 250mg capsule | amoxicillin 250mg capsule",
             "hydrochlorothiazide 12.5mg tablet / ramipril 5mg tablet | hydrochlorothiazide 12.5mg tablet / ramipril 5mg tablet",
             "vitamin b12 | vitamin b12"
@@ -278,6 +291,16 @@ class DoseTextUnitTest {
             assertThat(DoseText.withPlainNumbers("2.5mg")).isNotEqualTo(DoseText.withPlainNumbers("25mg"));
             assertThat(DoseText.withPlainNumbers("250.5mg")).isNotEqualTo(DoseText.withPlainNumbers("250mg"));
             assertThat(DoseText.withPlainNumbers("10.0mg")).isNotEqualTo(DoseText.withPlainNumbers("1mg"));
+            assertThat(DoseText.withPlainNumbers("1.0E7unit")).isNotEqualTo(DoseText.withPlainNumbers("1.0E6unit"));
+        }
+
+        @Test
+        @DisplayName("should compare a strength stored with an exponent as equal to its plain form")
+        void shouldGiveSameText_forExponentAndPlainFormsOfOneStrength() {
+            // Float.toString writes ten million as 1.0E7: a 10 000 000 unit product was stored as
+            // "1.0E7unit" and is stored as "10000000unit" now.
+            assertThat(DoseText.withPlainNumbers("1.0E7unit")).isEqualTo(DoseText.withPlainNumbers("10000000unit"));
+            assertThat(DoseText.withPlainNumbers("1.0E-4mg")).isEqualTo(DoseText.withPlainNumbers("0.0001mg"));
         }
 
         @Test

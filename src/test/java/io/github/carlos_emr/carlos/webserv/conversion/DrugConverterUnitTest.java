@@ -269,13 +269,90 @@ class DrugConverterUnitTest {
             assertThat(t.getStrengthUnit()).isEqualTo(unit);
         }
 
-        @Test
-        @DisplayName("should read the first ingredient's strength of a combination product")
-        void shouldReadFirstStrength_forCombinationProduct() {
+        /**
+         * The unit is the unit of the first ingredient. Everything up to the next number was taken
+         * as the unit, so "5 mg / 20 mg" gave the unit "mg / " and a client that sent the drug back
+         * stored "5 mg /".
+         */
+        @ParameterizedTest(name = "stored \"{0}\" -> {1} {2}")
+        @CsvSource({
+            "5 mg / 20 mg, 5, mg",
+            "5.0 mg / 325.0 mg, 5, mg",
+            "325mg 30mg, 325, mg",
+            "'5 mg, 20 mg', 5, mg",
+            "20mg tablet, 20, mg",
+            "2.5 mg/mL, 2.5, mg/mL",
+            "250mg/5ml, 250, mg/5ml",
+            "10 %, 10, %",
+            ".5 mg, 0.5, mg"
+        })
+        @DisplayName("should read the first ingredient's strength and unit, and keep a unit of concentration whole")
+        void shouldReadFirstStrengthAndUnit_forCombinationAndConcentration(String stored, float strength, String unit) {
             Drug d = new Drug();
-            d.setDosage("5 mg / 20 mg");
+            d.setDosage(stored);
 
-            assertThat(converter.getAsTransferObject(info, d).getStrength()).isEqualTo(5f);
+            DrugTo1 t = converter.getAsTransferObject(info, d);
+
+            assertThat(t.getStrength()).isEqualTo(strength);
+            assertThat(t.getStrengthUnit()).isEqualTo(unit);
+        }
+
+        /**
+         * A strength stored without a unit is still a strength. The pattern required a unit, so
+         * "2.5" gave up its fraction to find one and was reported as 2 with the unit ".".
+         */
+        @ParameterizedTest(name = "stored \"{0}\" -> {1}")
+        @CsvSource({"5, 5", "2.5, 2.5", "500, 500", "0.5, 0.5"})
+        @DisplayName("should read a strength stored without a unit as that number and no unit")
+        void shouldReadStrengthWithoutUnit_whenNoUnitIsStored(String stored, float strength) {
+            Drug d = new Drug();
+            d.setDosage(stored);
+
+            DrugTo1 t = converter.getAsTransferObject(info, d);
+
+            assertThat(t.getStrength()).isEqualTo(strength);
+            assertThat(t.getStrengthUnit()).isNull();
+        }
+
+        @Test
+        @DisplayName("should report no strength for digits too long to be one")
+        void shouldReportNoStrength_whenStoredNumberIsNotFinite() {
+            Drug d = new Drug();
+            d.setDosage("9".repeat(60) + " mg");
+
+            DrugTo1 t = converter.getAsTransferObject(info, d);
+
+            assertThat(t.getStrength()).isNull();
+            assertThat(t.getStrengthUnit()).isNull();
+        }
+
+        @ParameterizedTest(name = "stored \"{0}\"")
+        @ValueSource(strings = {"as directed", "mg", "/"})
+        @DisplayName("should report no strength for text that states no number")
+        void shouldReportNoStrength_whenStoredTextHasNoNumber(String stored) {
+            Drug d = new Drug();
+            d.setDosage(stored);
+
+            DrugTo1 t = converter.getAsTransferObject(info, d);
+
+            assertThat(t.getStrength()).isNull();
+            assertThat(t.getStrengthUnit()).isNull();
+        }
+
+        @ParameterizedTest(name = "{0} {1}")
+        @CsvSource(nullValues = "NULL", value = {"5, mg, 5 mg", "2.5, NULL, 2.5", "500, NULL, 500", "0.5, mg/mL, 0.5 mg/mL"})
+        @DisplayName("should give a client back the strength it sent, with or without a unit")
+        void shouldReadBackWhatWasWritten_forStrengthSentOverRest(float strength, String unit, String stored) {
+            DrugTo1 sent = restDrug("not in the drug reference");
+            sent.setStrength(strength);
+            sent.setStrengthUnit(unit);
+
+            Drug d = converter.getAsDomainObject(info, sent);
+            DrugTo1 read = converter.getAsTransferObject(info, d);
+
+            assertThat(d.getDosage()).isEqualTo(stored);
+            assertThat(read.getStrength()).isEqualTo(strength);
+            assertThat(read.getStrengthUnit()).isEqualTo(unit);
         }
 
         @Test

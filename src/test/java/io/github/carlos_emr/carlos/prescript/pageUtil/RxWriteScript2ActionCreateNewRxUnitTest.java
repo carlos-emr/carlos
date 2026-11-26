@@ -250,6 +250,43 @@ class RxWriteScript2ActionCreateNewRxUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should not repeat a strength the ingredient's name states with a trailing zero")
+    void shouldNotRepeatStrength_whenIngredientNameStatesItWithTrailingZero() throws Exception {
+        request.setParameter("text", "SYNTHETIC SINGLE");
+
+        RxPrescriptionData.Prescription staged = stage(combination("CAPSULE",
+                new String[] {"SYNTHETIC 250.0MG", "250.0", "MG"}));
+
+        // The name is DrugRef's text and is kept as sent; the strength is not added a second time.
+        assertThat(staged.getGenericName()).isEqualTo("SYNTHETIC 250.0MG capsule");
+    }
+
+    @ParameterizedTest(name = "name \"{0}\", strength \"{1}\" -> stated: {2}")
+    @CsvSource({
+        "amoxicillin 250mg, 250mg, true",
+        "250mg amoxicillin, 250mg, true",
+        "amoxicillin 250.0mg, 250mg, true",
+        "amoxicillin 1250mg, 250mg, false",
+        "amoxicillin 1.250mg, 250mg, false",
+        "amoxicillin, 250mg, false",
+        "amoxicillin, '', true"
+    })
+    @DisplayName("should treat a strength as stated only when the name holds it as a whole number")
+    void shouldFindStrengthInName_onlyAtANumberBoundary(String name, String strength, boolean stated) {
+        assertThat(RxWriteScript2Action.namesStrength(name, strength)).isEqualTo(stated);
+    }
+
+    @Test
+    @DisplayName("should stage an ingredient that has no strength under its name alone")
+    void shouldStageNameAlone_whenIngredientHasNoStrength() throws Exception {
+        request.setParameter("text", "SYNTHETIC SINGLE");
+
+        RxPrescriptionData.Prescription staged = stage(combination("CREAM", new String[] {"SYNTHETIC BASE", "", ""}));
+
+        assertThat(staged.getGenericName()).isEqualTo("SYNTHETIC BASE cream");
+    }
+
+    @Test
     @DisplayName("should stage a single ingredient's strength without a trailing zero")
     void shouldStagePlainStrength_forSingleIngredient() throws Exception {
         request.setParameter("text", "SYNTHETIC SINGLE");

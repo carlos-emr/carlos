@@ -41,10 +41,13 @@ public final class DoseText {
     private static final int MAX_PLAIN_DIGITS = 64;
 
     /**
-     * A number with a fraction inside a longer text. The look-behind starts a match only at the
-     * first digit of a run and the quantifiers are possessive, so the scan is linear in the text.
+     * A number with a fraction inside a longer text, with the exponent {@code Float.toString}
+     * gives a very large or very small one ("1.0E7", "1.0E-4"). The look-behind starts a match
+     * only at the first digit of a run and the quantifiers are possessive, so the scan is linear
+     * in the text.
      */
-    private static final Pattern DECIMAL_IN_TEXT = Pattern.compile("(?<!\\d)\\d++\\.\\d++");
+    private static final Pattern DECIMAL_IN_TEXT =
+            Pattern.compile("(?<!\\d)\\d++\\.\\d++(?:[eE][+-]?+\\d++)?+");
 
     private DoseText() {
     }
@@ -153,8 +156,8 @@ public final class DoseText {
      * <p>Until #6185 the product strength was stored with DrugRef's trailing zero in the generic
      * name and the dosage of a prescription ("amoxicillin 250.0mg capsule", "250.0mg"); since then
      * it is stored without ("amoxicillin 250mg capsule", "250mg"). Both name the same product, and
-     * both give the same text here. Different strengths stay different: "250mg", "25mg" and
-     * "2.5mg" are unchanged.
+     * both give the same text here, as do "1.0E7unit" and "10000000unit". Different strengths stay
+     * different: "250mg", "25mg" and "2.5mg" are unchanged.
      *
      * <p>This is for comparison. Text shown to a person is shown as it is stored.
      *

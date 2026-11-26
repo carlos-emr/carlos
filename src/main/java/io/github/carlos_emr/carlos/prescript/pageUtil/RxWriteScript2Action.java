@@ -412,8 +412,10 @@ public final class RxWriteScript2Action extends ActionSupport {
         if (strength.isEmpty()) {
             return true;
         }
-        for (int at = name.indexOf(strength); at >= 0; at = name.indexOf(strength, at + 1)) {
-            char before = at == 0 ? ' ' : name.charAt(at - 1);
+        // The strength is written without a trailing zero; a name that says "250.0mg" states it too.
+        String stated = DoseText.withPlainNumbers(name);
+        for (int at = stated.indexOf(strength); at >= 0; at = stated.indexOf(strength, at + 1)) {
+            char before = at == 0 ? ' ' : stated.charAt(at - 1);
             if (!Character.isDigit(before) && before != '.') {
                 return true;
             }

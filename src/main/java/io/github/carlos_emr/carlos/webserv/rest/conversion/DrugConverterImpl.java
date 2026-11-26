@@ -63,6 +63,25 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
     protected DrugLookUp drugLookUpManager;
 
     /**
+     * The first strength in stored strength text and the unit that follows it: "5 mg", "250mg",
+     * "2.5 mg/mL", or the first ingredient of "5 mg / 20 mg".
+     *
+     * <p>The number is digits with an optional fraction, or a fraction stored without its leading
+     * zero. Its quantifiers are possessive: a number followed by no unit ("2.5") is read whole, and
+     * is not shortened to "2" to make the "." a unit. The unit is optional and is one run of text
+     * that starts with a letter or a percent sign, so it ends at the blank before the next
+     * ingredient and a unit of concentration ("mg/mL", "mg/5ml") stays whole.
+     *
+     * <p>The old pattern needed two digits, which went unnoticed while every strength was stored
+     * with a trailing zero: "5 mg" had no strength, and "5 mg / 20 mg" reported the 20 (#6185).
+     */
+    private static final Pattern STORED_STRENGTH = Pattern.compile(
+            "(?<![\\d.])(\\d++(?:\\.\\d++)?+|\\.\\d++)\\s?+((?:\\p{L}|%)\\S*+)?+");
+
+    /** A separator between ingredients left at the end of the first one's unit: "mg/" or "mg,". */
+    private static final Pattern TRAILING_SEPARATOR = Pattern.compile("[/,;]++$");
+
+    /**
      * Converts from a transfer object to a Drug domain object.
      *
      * @param loggedInInfo information regarding the current logged in user.
@@ -240,34 +259,28 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
         if (t.getStrength() != null || (t.getStrengthUnit() != null && !t.getStrengthUnit().isEmpty())) {
             return false;
         }
-        Boolean result = false;
         String dosage = d.getDosage();
         // A drug saved without a strength holds no text; that is not an error to log.
         if (dosage == null) {
             return false;
         }
-        try {
-            if (!dosage.isEmpty()) {
-                // The number is digits with an optional fraction. It used to need two digits
-                // ("\\d+\\.?\\d+"), which only worked while every strength was stored with a trailing
-                // zero: "5 mg" had no strength, and "5 mg / 20 mg" reported the 20 (#6185).
-                Pattern pattern = Pattern.compile("(\\d+(?:\\.\\d+)?)\\s?([^0-9]+)\\s?");
-                Matcher matcher = pattern.matcher(dosage);
-                if (matcher.find()) { // getting first dosage component, to match populateTo1Strength behaviour
-                    String strength = matcher.group(1);
-                    String unit = matcher.group(2);
-                    if (!strength.isEmpty() && !unit.isEmpty()) {
-                        t.setStrength(Float.parseFloat(strength));
-                        t.setStrengthUnit(unit);
-                        result = true;
-                    }
-                }
-            }
-            return result;
-        } catch (Exception e) {
-            logger.error(e.getStackTrace());
+        Matcher matcher = STORED_STRENGTH.matcher(dosage);
+        if (!matcher.find()) {
             return false;
         }
+        float strength = Float.parseFloat(matcher.group(1));
+        if (!Float.isFinite(strength)) {
+            return false;
+        }
+        t.setStrength(strength);
+        if (matcher.group(2) != null) {
+            // "5 mg / 20 mg" and "5 mg, 20 mg": the separator after the first unit is not part of it.
+            String unit = TRAILING_SEPARATOR.matcher(matcher.group(2)).replaceFirst("");
+            if (!unit.isEmpty()) {
+                t.setStrengthUnit(unit);
+            }
+        }
+        return true;
     }
 
     /**

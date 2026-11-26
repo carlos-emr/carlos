@@ -105,9 +105,11 @@ async function workflow(s) {
       rx.locator('#searchString').pressSequentially(DRUG_SEARCH_TERM, {delay: 40}),
     ]);
     h.assert(searched.ok(), `The drug search answered HTTP ${searched.status()}`);
-    // A product whose name states a strength in mg has a strength DrugRef sends as "250.0".
-    const option = rx.locator('ul.ui-autocomplete li.ui-menu-item').filter({hasText: /\d\s?MG\b/i}).first();
+    // A product whose name ends with one strength in mg ("... 250MG") has a strength DrugRef sends
+    // as "250.0".
+    const option = rx.locator('ul.ui-autocomplete li.ui-menu-item').filter({hasText: /\b\d+(?:\.\d+)?\s?MG\s*$/i}).first();
     await option.waitFor({state: 'visible', timeout: 20000});
+    const stated = /(\d+(?:\.\d+)?)\s?MG\s*$/i.exec(await option.innerText())[1];
     const [staged] = await Promise.all([
       rx.waitForResponse(response => isPost(response, '/rx/WriteScript')
         && new URLSearchParams(response.request().postData() || '').get('parameterValue') === 'createNewRx'),
@@ -131,6 +133,9 @@ async function workflow(s) {
     await saveOnly(rx);
     const row = sql.rows(`SELECT GN,dosage FROM drugs WHERE demographic_no=${patient} AND drugid>${savedBefore}`)[0];
     h.assert(row && /\d/.test(row[1] || ''), `The product was saved without a strength: ${JSON.stringify(row)}`);
+    // The same number the product's name states: 250, not 25 or 2500.
+    h.assert(new RegExp(`(^|[^\\d.])${stated.replace('.', '\\.')}mg`, 'i').test(row[1]),
+      `The saved strength ${JSON.stringify(row[1])} is not the ${stated} mg the product's name states`);
     for (const text of row) {
       h.assert(!/\d\.0+(?!\d)/.test(text) && !/\dE[+-]?\d/i.test(text),
         `The saved product text has a trailing zero or an exponent: ${JSON.stringify(row)}`);

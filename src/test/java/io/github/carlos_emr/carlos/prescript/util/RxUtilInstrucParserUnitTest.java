@@ -963,6 +963,18 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             assertThat(rx.getQuantity()).isEqualTo("2.5");
         }
 
+        /** Without a number in the typed quantity there is nothing to divide; no unit is invented. */
+        @ParameterizedTest(name = "typed quantity \"{0}\"")
+        @ValueSource(strings = {"as directed", "one bottle"})
+        @DisplayName("should derive no duration from a quantity that states no number")
+        void shouldDeriveNoDuration_whenTypedQuantityHasNoNumber(String typed) {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial("Take 1 tab po bid");
+            rx.setQuantity(typed);
+
+            assertThat(RxUtil.findDuration(rx)).isNull();
+            assertThat(rx.getUnitName()).isNull();
+        }
+
         /** A quantity typed with its own unit leaves the duration incalculable; the unit is the unit alone. */
         @Test
         @DisplayName("should keep only the unit of a decimal quantity typed with a unit")
