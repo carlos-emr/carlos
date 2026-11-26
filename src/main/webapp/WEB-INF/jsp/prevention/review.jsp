@@ -40,6 +40,7 @@
 <%@page import="org.hl7.fhir.dstu3.model.ContactPoint" %>
 <%@page import="org.hl7.fhir.dstu3.model.Identifier" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@page import="io.github.carlos_emr.carlos.utility.DoseText" %>
 <%@page import="org.hl7.fhir.dstu3.model.HumanName" %>
 <%@page import="org.hl7.fhir.dstu3.model.Immunization" %>
 <%@page import="org.hl7.fhir.dstu3.model.Patient" %>
@@ -1041,7 +1042,9 @@
 
     String getDoseQuantity(Immunization i) {
         if (i != null && i.getDoseQuantity() != null && i.getDoseQuantity().getValue() != null) {
-            return i.getDoseQuantity().getValue().toString();
+            // The dose is a decimal built from a double, so its own text is "1.0" for a dose of 1 and
+            // "1.0E+7" for ten million; a trailing zero is read as ten times the dose (#6185).
+            return DoseText.of(i.getDoseQuantity().getValue());
         }
         return null;
 

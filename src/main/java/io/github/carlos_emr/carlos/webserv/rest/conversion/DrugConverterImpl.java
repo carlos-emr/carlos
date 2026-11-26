@@ -37,6 +37,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsMedicationCompatibilityException;
 import io.github.carlos_emr.carlos.managers.DrugLookUp;
+import io.github.carlos_emr.carlos.utility.DoseText;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DrugSearchTo1;
@@ -44,6 +45,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.DrugTo1;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -94,7 +96,7 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
             }
             d.setAtc(t.getAtc());
             d.setRegionalIdentifier(t.getRegionalIdentifier());
-            d.setDosage(t.getStrength() + t.getStrengthUnit());
+            d.setDosage(strengthText(t.getStrength(), t.getStrengthUnit(), ""));
             d.setTakeMax(t.getTakeMax());
             d.setTakeMin(t.getTakeMin());
             d.setRxDate(t.getRxDate());
@@ -224,9 +226,7 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
         t.setExternalProvider(d.getOutsideProviderName());
         t.setAdditionalInstructions(d.getSpecialInstruction());
 
-        if (d.getQuantity() != null) {
-            t.setQuantity(Integer.parseInt(d.getQuantity()));
-        }
+        t.setQuantity(wholeQuantity(d.getQuantity()));
 
         this.populateStrengthFromDosage(d, t);
 
@@ -310,6 +310,50 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
     }
 
     /**
+     * The strength text stored with a drug ("500 mg"): the number as {@link DoseText} writes it,
+     * then the unit.
+     *
+     * <p>Concatenating the {@code Float} stored "500.0 mg" and "1.0E7 unit", and stored the word
+     * "null" for a part the client did not send (#6185). A missing part is left out.
+     *
+     * @param strength the strength, or {@code null} when it is not known
+     * @param unit the strength unit, or {@code null} when it is not known
+     * @param separator the text between the two when both are known
+     * @return the strength text; empty when neither part is known
+     */
+    private static String strengthText(Float strength, String unit, String separator) {
+        String amount = strength == null ? "" : DoseText.of(strength.floatValue());
+        String unitText = unit == null ? "" : unit;
+        if (amount.isEmpty() || unitText.isEmpty()) {
+            return amount + unitText;
+        }
+        return amount + separator + unitText;
+    }
+
+    /**
+     * The stored quantity as the whole number a transfer object carries.
+     *
+     * <p>{@code drugs.quantity} and {@code favorites.quantity} are text: a quantity of 2.5 (mL) is
+     * stored as "2.5", and an imported one may read "100 mL". The transfer objects type the quantity
+     * as an {@code Integer}, which cannot carry either. {@code Integer.parseInt} threw on them, which
+     * failed the read of the patient's whole drug list; rounding would report a different amount. The
+     * quantity is left out instead, and the instruction text still states it.
+     *
+     * @param stored the stored quantity, which may be {@code null}
+     * @return the quantity when it is a whole number, otherwise {@code null}
+     */
+    static Integer wholeQuantity(String stored) {
+        if (stored == null) {
+            return null;
+        }
+        try {
+            return new BigDecimal(stored.trim()).intValueExact();
+        } catch (NumberFormatException | ArithmeticException notAWholeNumber) {
+            return null;
+        }
+    }
+
+    /**
      * Attempts to populate the dosage field of the drug object given a transfer
      * object.
      *
@@ -321,7 +365,7 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
 
         if (t.getStrengthUnit() != null && t.getStrength() != null) {
 
-            d.setDosage(t.getStrength() + " " + t.getStrengthUnit());
+            d.setDosage(strengthText(t.getStrength(), t.getStrengthUnit(), " "));
             d.setUnit(t.getStrengthUnit());
             return true;
 
@@ -331,7 +375,7 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
             // we use the
             if (this.populateTo1Strength(t, d)) {
 
-                d.setDosage(t.getStrength() + " " + t.getStrengthUnit());
+                d.setDosage(strengthText(t.getStrength(), t.getStrengthUnit(), " "));
                 d.setUnit(t.getStrengthUnit());
                 return true;
 

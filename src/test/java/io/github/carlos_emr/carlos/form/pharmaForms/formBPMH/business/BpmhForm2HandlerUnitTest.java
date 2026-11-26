@@ -22,6 +22,8 @@ import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean.BpmhForm2Bean;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -61,6 +63,83 @@ class BpmhForm2HandlerUnitTest {
         assertThat(drugs).hasSize(1);
         assertThat(drugs.get(0).getId()).isEqualTo("55");
         assertThat(drugs.get(0).getHow()).isEqualTo("Take 1 tablet daily");
+    }
+
+    /**
+     * "How I take it" falls back to the structured dose when the stored instruction text has no
+     * direction line. Spring's {@code BeanUtils.copyProperties} skips a {@code float} to
+     * {@code String} copy, so the dose never reached the form and the line read "Take TAB BID"
+     * with no amount (#6185).
+     */
+    @ParameterizedTest(name = "take {0}-{1} -> \"{2}\"")
+    @CsvSource(delimiter = '|', value = {
+        "1 | 1 | Take 1 TAB BID PO",
+        "0.5 | 0.5 | Take 0.5 TAB BID PO",
+        "0.0625 | 0.0625 | Take 0.0625 TAB BID PO",
+        "500 | 500 | Take 500 TAB BID PO",
+        "1 | 2 | Take 1 or 2 TAB BID PO",
+        "0.5 | 1 | Take 0.5 or 1 TAB BID PO"
+    })
+    void shouldWriteStructuredDose_whenInstructionTextHasNoDirectionLine(float takeMin, float takeMax,
+            String expected) {
+        Drug drug = structuredDrug(takeMin, takeMax);
+
+        BpmhDrug row = formRowFor(drug);
+
+        assertThat(row.getHow().trim()).isEqualTo(expected);
+    }
+
+    @Test
+    void shouldLeaveDoseOut_whenNoStructuredDoseIsRecorded() {
+        // 0 is the column default for "no structured dose", not a dose of zero tablets.
+        Drug drug = structuredDrug(0f, 0f);
+
+        BpmhDrug row = formRowFor(drug);
+
+        assertThat(row.getHow().trim()).isEqualTo("Take TAB BID PO");
+    }
+
+    @Test
+    void shouldWriteUpperBoundAlone_whenOnlyTheUpperBoundIsRecorded() {
+        Drug drug = structuredDrug(0f, 2f);
+
+        BpmhDrug row = formRowFor(drug);
+
+        assertThat(row.getHow().trim()).isEqualTo("Take 2 TAB BID PO");
+    }
+
+    private static Drug structuredDrug(float takeMin, float takeMax) {
+        Drug drug = new Drug();
+        drug.setId(56);
+        drug.setCustomName("FAKE metoprolol");
+        // One line only: no direction line for "How I take it" to read.
+        drug.setSpecial("FAKE metoprolol 25 mg");
+        drug.setMethod("Take");
+        drug.setTakeMin(takeMin);
+        drug.setTakeMax(takeMax);
+        drug.setDrugForm("TAB");
+        drug.setFreqCode("BID");
+        drug.setRoute("PO");
+        return drug;
+    }
+
+    private static BpmhDrug formRowFor(Drug drug) {
+        DrugDao drugDao = mock(DrugDao.class);
+        when(drugDao.findByDemographicId(1001, false)).thenReturn(List.of(drug));
+        DrugReasonDao drugReasonDao = mock(DrugReasonDao.class);
+        when(drugReasonDao.getReasonsForDrugID(anyInt(), eq(true))).thenReturn(List.of());
+
+        BpmhForm2Handler handler = new BpmhForm2Handler();
+        handler.setBpmhFormBean(new BpmhForm2Bean());
+        handler.setDrugDao(drugDao);
+        handler.setDrugReasonDao(drugReasonDao);
+        handler.setDemographicNo(1001);
+
+        handler.setFormBeanDrugList(null);
+
+        List<BpmhDrug> drugs = handler.getBpmhFormBean().getDrugs();
+        assertThat(drugs).hasSize(1);
+        return drugs.get(0);
     }
 
     @Test

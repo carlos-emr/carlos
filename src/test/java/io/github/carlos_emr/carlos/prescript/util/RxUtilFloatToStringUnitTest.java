@@ -27,6 +27,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
@@ -53,6 +54,39 @@ class RxUtilFloatToStringUnitTest extends CarlosUnitTestBase {
     })
     @DisplayName("should render doses without digit grouping so callers can parse them back")
     void shouldRenderWithoutDigitGrouping_forDoseValues(float value, String expected) {
+        assertThat(RxUtil.FloatToString(value)).isEqualTo(expected);
+    }
+
+    /**
+     * The text was rounded to three decimal places (HALF_EVEN), so a stored 0.0625 printed as
+     * "0.062" and 0.0004 as "0". The Rx page posts this text back as the dose, which made the
+     * rounding permanent on the next save (#6185).
+     */
+    @ParameterizedTest(name = "{0} renders as {1}")
+    @CsvSource({
+        "0.0625, 0.0625",
+        "0.3125, 0.3125",
+        "0.1875, 0.1875",
+        "1.0625, 1.0625",
+        "0.0004, 0.0004",
+        "0.0005, 0.0005"
+    })
+    @DisplayName("should render every decimal place of a dose finer than a thousandth")
+    void shouldRenderAllDecimalPlaces_forDoseFinerThanThousandths(float value, String expected) {
+        assertThat(RxUtil.FloatToString(value)).isEqualTo(expected);
+    }
+
+    @ParameterizedTest(name = "{0} reads back unchanged")
+    @ValueSource(floats = {0.0625f, 0.3125f, 0.0004f, 0.33333334f, 0.6666667f, 1.0E7f, 2.5f, 1f})
+    @DisplayName("should render text that parses back to the same stored dose")
+    void shouldReadBackUnchanged_whenRenderedDoseIsPostedBack(float value) {
+        assertThat(Float.parseFloat(RxUtil.FloatToString(value))).isEqualTo(value);
+    }
+
+    @ParameterizedTest(name = "{0} renders as {1}")
+    @CsvSource({"1.0, 1", "500.0, 500", "1.0E7, 10000000", "0.5, 0.5"})
+    @DisplayName("should render no trailing zero, no exponent and a leading zero")
+    void shouldRenderPlainDecimal_forWholeAndFractionalDoses(float value, String expected) {
         assertThat(RxUtil.FloatToString(value)).isEqualTo(expected);
     }
 }

@@ -130,6 +130,32 @@ class RxPrescriptionDataNullRepeatUnitTest extends CarlosUnitTestBase {
         assertThat(drug.getQuantity()).isEqualTo(quantity);
     }
 
+    /**
+     * A new prescription for a drug starts from the quantity of the previous one. Only the first run
+     * of digits was carried over, so a previous "2.5" (of 2.5 mL) became the default "2" (#6185).
+     */
+    @ParameterizedTest(name = "previous quantity {0} {1} -> {2}")
+    @CsvSource(nullValues = "NULL", value = {"2.5,mL,2.5", "0.5,mL,0.5", "0.0625,mL,0.0625", "2.5,NULL,2.5", "30,NULL,30"})
+    @DisplayName("should carry the whole decimal quantity of the previous prescription")
+    void shouldCarryWholeQuantity_whenPreviousQuantityIsADecimal(String quantity, String unitName, String expected) {
+        Drug drug = new Drug();
+        drug.setRepeat(0);
+        drug.setQuantity(quantity);
+        drug.setUnitName(unitName);
+        drug.setSpecial("Take 2.5 mL daily");
+        DrugDao dao = mock(DrugDao.class);
+        when(dao.findByCustomNameDemographicIdAndProviderNo("Synthetic drug", 1, "999998")).thenReturn(drug);
+        registerMock(DrugDao.class, dao);
+        RxPrescriptionData.Prescription result = new RxPrescriptionData().newPrescription("999998", 1);
+        result.setCustomName("Synthetic drug");
+        result.setQuantity("30");
+
+        RxUtil.setSpecialQuantityRepeat(result);
+
+        assertThat(result.getQuantity()).isEqualTo(expected);
+        assertThat(result.getUnitName()).isEqualTo(unitName);
+    }
+
     @ParameterizedTest
     @CsvSource(nullValues = "NULL", value = {"NULL,0", "0,0", "3,3"})
     @DisplayName("should preserve repeat counts when saving a legacy drug as a favorite")

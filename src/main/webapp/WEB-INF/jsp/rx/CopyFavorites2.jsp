@@ -39,6 +39,8 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Favorites" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.DoseText" %>
 <%
     // CopyFavorites2Action authorizes the source and prepares this model before rendering.
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
@@ -181,7 +183,12 @@
                                                 </tr>
 
                                                 <tr class="tblRow" style="background-color:#F5F5F5" name="record${i}Line3">
-                                                    <td><b>Take:</b> <c:out value="${fav.takeMin}"/> to <c:out value="${fav.takeMax}"/></td>
+                                                    <%-- EL prints a floating-point dose of 1 as "1.0": a trailing zero, which is
+                                                         read as ten times the dose (#6185). The favorites.takemin and takemax
+                                                         columns are single precision, so the entity's double is narrowed before
+                                                         it is written; a widened 0.1 would print as 0.10000000149011612. --%>
+                                                    <% Favorites copyFavorite = (Favorites) pageContext.getAttribute("fav"); %>
+                                                    <td><b>Take:</b> <carlos:encode value='<%= DoseText.of((float) copyFavorite.getTakeMin()) %>'/> to <carlos:encode value='<%= DoseText.of((float) copyFavorite.getTakeMax()) %>'/></td>
                                                     <td><b>Instructions:</b> <c:out value="${fav.special}"/></td>
                                                 </tr>
                                             </c:forEach>

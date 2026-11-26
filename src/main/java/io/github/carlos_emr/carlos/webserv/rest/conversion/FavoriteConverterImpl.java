@@ -155,7 +155,9 @@ public class FavoriteConverterImpl extends AbstractConverter<Favorite, FavoriteT
         t.setDurationUnit(f.getDurationUnit());
         t.setRepeats(f.getRepeat());
 
-        if (f.getQuantity() != null) t.setQuantity(Integer.parseInt(f.getQuantity()));
+        // A favourite saved from a prescription for 2.5 mL holds the quantity "2.5", which the
+        // Integer field cannot carry; Integer.parseInt failed the read of every favourite.
+        t.setQuantity(DrugConverterImpl.wholeQuantity(f.getQuantity()));
 
         return t;
 

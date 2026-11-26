@@ -41,6 +41,7 @@ import java.util.regex.Pattern;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.DrugDao;
 import io.github.carlos_emr.carlos.commn.model.Drug;
+import io.github.carlos_emr.carlos.utility.DoseText;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -311,15 +312,18 @@ public class RxUtil {
     }
 
     /**
-     * Renders a structured dose as text. The Rx page and the quantity callback parse this text back
-     * with {@code Double.parseDouble}, so the digits are never grouped (a 1000-unit dose rendered as
-     * "1,000" made that parse throw) and the decimal separator is the dot whatever the server's
-     * default locale is.
+     * Renders a structured dose as text: the exact plain decimal of {@link DoseText#of(float)}, with
+     * no trailing zero, no exponent and no rounding.
+     *
+     * <p>The Rx page and the quantity callback parse this text back with {@code Double.parseDouble},
+     * and the Rx page posts it back as the dose, so the digits are never grouped (a 1000-unit dose
+     * rendered as "1,000" made that parse throw), the decimal separator is the dot whatever the
+     * server's default locale is, and the text reads back to the same stored float. It was rounded
+     * to three decimal places until #6185: a stored 0.0625 was shown as "0.062", and saving the
+     * page stored 0.062.
      */
     public static String FloatToString(float value) {
-        java.text.NumberFormat fmt = java.text.NumberFormat.getNumberInstance(Locale.ROOT);
-        fmt.setGroupingUsed(false);
-        return fmt.format(value);
+        return DoseText.of(value);
     }
 
     public static float StringToFloat(String value) {
@@ -463,29 +467,55 @@ public class RxUtil {
         return nPerDay;
     }
 
+    /**
+     * The unit of a quantity typed with one ("2.5 mL" gives "mL"): the text with its amount taken
+     * out.
+     *
+     * <p>Only the amount itself is removed. The amount used to be the first run of digits and every
+     * copy of those digits was deleted, so "2.5 mL" left the unit ".5 mL" and was printed as
+     * {@code Qty:2 .5 mL} (#6185), and "1 bottle (120 mL)" left "bottle (20 mL)".
+     *
+     * @param qStr the quantity as typed or stored, which may be {@code null}
+     * @return the unit, or {@code null} when the text has no amount or nothing besides it
+     */
     public static String getUnitNameFromQuantityText(String qStr) {
-        if (qStr != null) {
-            Pattern p1 = Pattern.compile("\\d+");
-            Matcher m1 = p1.matcher(qStr);
-            if (m1.find()) {
-                String qNum = qStr.substring(m1.start(), m1.end());
-                //get the quantity unit
-                String qUnit = qStr.replace(qNum, "").trim();
-                if (qUnit != null && qUnit.length() > 0) {
-                    return qUnit;
-                }
-            }
+        if (qStr == null) {
+            return null;
         }
-        return null;
+        NumberToken amount = findFirstDecimal(qStr);
+        if (amount == null) {
+            return null;
+        }
+        String unit = (qStr.substring(0, amount.start) + qStr.substring(amount.end)).trim();
+        return unit.isEmpty() ? null : unit;
     }
 
+    /**
+     * The amount of a quantity typed with a unit ("2.5 mL" gives "2.5"): its first decimal number,
+     * written by {@link DoseText} so that an amount typed as ".5" or "30.0" is saved, and printed
+     * after {@code Qty:}, as "0.5" or "30".
+     *
+     * @param qStr the quantity as typed or stored, which may be {@code null}
+     * @return the amount, or {@code null} when the text has no number
+     */
     public static String getQuantityFromQuantityText(String qStr) {
-        if (qStr != null) {
-            Pattern p1 = Pattern.compile("\\d+");
-            Matcher m1 = p1.matcher(qStr);
-            if (m1.find()) {
-                String qNum = qStr.substring(m1.start(), m1.end());
-                return qNum;
+        if (qStr == null) {
+            return null;
+        }
+        NumberToken amount = findFirstDecimal(qStr);
+        return amount == null ? null : DoseText.ofNumericText(amount.value);
+    }
+
+    /**
+     * The first decimal number in the text: digits with an optional fraction ("2.5", "30"), or a
+     * fraction typed without its leading zero (".5"). A full stop with no digit after it is not
+     * part of the number.
+     */
+    private static NumberToken findFirstDecimal(String text) {
+        for (int index = 0; index < text.length(); index++) {
+            NumberToken token = findDecimalAt(text, index);
+            if (token != null) {
+                return token;
             }
         }
         return null;
@@ -580,14 +610,15 @@ public class RxUtil {
         if (rx.getUnitName() != null) {
             return null;
         }
-        Matcher digits = Pattern.compile("\\d+").matcher(typedQuantity);
-        if (!digits.find()) {
+        // The amount is the whole decimal: reading "2.5" as 2 with the unit ".5" left the duration
+        // unset and saved ".5" as the quantity's unit (#6185).
+        String number = getQuantityFromQuantityText(typedQuantity);
+        if (number == null) {
             logger.error("quantity is not specified");
             return null;
         }
-        String number = digits.group();
-        String quantityUnit = typedQuantity.replace(number, "").trim();
-        if (!quantityUnit.isEmpty()) {
+        String quantityUnit = getUnitNameFromQuantityText(typedQuantity);
+        if (quantityUnit != null) {
             // A quantity typed with its own unit (a Mitte quantity) leaves the duration incalculable.
             rx.setUnitName(quantityUnit);
             return null;
@@ -2976,17 +3007,11 @@ public class RxUtil {
     }
 
     private static void setResultSpecialQuantityRepeat(RxPrescriptionData.Prescription rx, Drug d) {
-        String qStr = d.getQuantity() == null ? "" : d.getQuantity();
-        Pattern p1 = Pattern.compile("\\d+");
-        Matcher m1 = p1.matcher(qStr);
-        if (m1.find()) {
-            String qNum = qStr.substring(m1.start(), m1.end());
-            rx.setQuantity(qNum);
-            //get the quantity unit
-            String qUnit = qStr.replace(qNum, "").trim();
-            if (qUnit != null && qUnit.length() > 0) {
-                rx.setUnitName(qUnit);
-            }
+        // The previous quantity's whole amount is carried over: its first run of digits alone
+        // turned a previous 2.5 (mL) into the default 2 (#6185). The unit is the stored unit name.
+        String previousAmount = getQuantityFromQuantityText(d.getQuantity());
+        if (previousAmount != null) {
+            rx.setQuantity(previousAmount);
         }
         rx.setUnitName(d.getUnitName());
 

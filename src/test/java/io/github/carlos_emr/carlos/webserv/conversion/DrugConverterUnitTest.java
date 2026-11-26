@@ -37,6 +37,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.managers.DrugLookUpManager;
@@ -207,6 +210,34 @@ class DrugConverterUnitTest {
     }
 
     @Nested
+    @DisplayName("Stored quantity to transfer object")
+    class StoredQuantity {
+
+        @ParameterizedTest(name = "stored quantity \"{0}\" -> {1}")
+        @CsvSource({"30, 30", "0, 0", "30.0, 30", "1000, 1000"})
+        @DisplayName("should report a whole stored quantity")
+        void shouldReportQuantity_whenStoredQuantityIsWhole(String stored, int expected) {
+            Drug d = new Drug();
+            d.setQuantity(stored);
+
+            assertThat(converter.getAsTransferObject(info, d).getQuantity()).isEqualTo(expected);
+        }
+
+        @ParameterizedTest(name = "stored quantity \"{0}\"")
+        @ValueSource(strings = {"2.5", "0.5", "100 mL"})
+        @DisplayName("should omit a quantity the whole-number field cannot carry rather than fail the read")
+        void shouldOmitQuantity_whenStoredQuantityIsNotWhole(String stored) {
+            // DrugTo1.quantity is an Integer. A decimal quantity ("2.5", of 2.5 mL) cannot be carried
+            // in it; rounding it would report a different amount, and Integer.parseInt threw, which
+            // failed the read of the patient's whole drug list. The instruction text still has it.
+            Drug d = new Drug();
+            d.setQuantity(stored);
+
+            assertThat(converter.getAsTransferObject(info, d).getQuantity()).isNull();
+        }
+    }
+
+    @Nested
     @DisplayName("Drug strength population")
     class DrugStrength {
 
@@ -220,7 +251,8 @@ class DrugConverterUnitTest {
 
             Boolean result = converter.populateDrugStrength(d, t);
 
-            assertThat(d.getDosage()).isEqualTo("100.0 mg");
+            // "100.0 mg" was stored before #6185: a trailing zero is read as ten times the strength.
+            assertThat(d.getDosage()).isEqualTo("100 mg");
             assertThat(d.getUnit()).isEqualTo("mg");
             assertThat(result).isTrue();
         }
@@ -234,9 +266,63 @@ class DrugConverterUnitTest {
 
             Boolean result = converter.populateDrugStrength(d, t);
 
-            assertThat(d.getDosage()).isEqualTo("1.0 mg");
+            assertThat(d.getDosage()).isEqualTo("1 mg");
             assertThat(d.getUnit()).isEqualTo("mg");
             assertThat(result).isTrue();
+        }
+
+        @ParameterizedTest(name = "{0} {1} -> {2}")
+        @CsvSource({
+            "1.0, mg, 1 mg",
+            "0.5, mg, 0.5 mg",
+            "0.0625, mg, 0.0625 mg",
+            "500.0, mg, 500 mg",
+            "1.0E7, unit, 10000000 unit"
+        })
+        @DisplayName("should store the strength as a plain decimal with no trailing zero or exponent")
+        void shouldStorePlainDecimalStrength_forStrengthSentOverRest(float strength, String unit, String expected) {
+            Drug d = new Drug();
+            DrugTo1 t = new DrugTo1();
+            t.setStrength(strength);
+            t.setStrengthUnit(unit);
+
+            converter.populateDrugStrength(d, t);
+
+            assertThat(d.getDosage()).isEqualTo(expected);
+        }
+
+        @Test
+        @DisplayName("should store the strength of a whole drug sent over REST without a trailing zero")
+        void shouldStorePlainDecimalStrength_whenConvertingTransferObject() {
+            DrugTo1 t = restDrug("foobar");
+            t.setStrength(10.0f);
+            t.setStrengthUnit("MG");
+
+            Drug d = converter.getAsDomainObject(info, t);
+
+            assertThat(d.getDosage()).isEqualTo("10 MG");
+        }
+
+        @Test
+        @DisplayName("should not store the word null as a strength when none was sent or found")
+        void shouldStoreNoStrengthText_whenStrengthIsUnknown() {
+            DrugTo1 t = restDrug("not in the drug reference");
+
+            Drug d = converter.getAsDomainObject(info, t);
+
+            // "nullnull" was stored. Drug keeps "no text" as null.
+            assertThat(d.getDosage()).isNull();
+        }
+
+        @Test
+        @DisplayName("should store only the unit when a unit was sent without a strength")
+        void shouldStoreUnitAlone_whenOnlyUnitIsKnown() {
+            DrugTo1 t = restDrug("not in the drug reference");
+            t.setStrengthUnit("mg");
+
+            Drug d = converter.getAsDomainObject(info, t);
+
+            assertThat(d.getDosage()).isEqualTo("mg");
         }
 
         @Test
@@ -322,6 +408,22 @@ class DrugConverterUnitTest {
 
             assertThat(converter.populateTo1Strength(t, d)).isFalse();
         }
+    }
+
+    /** A drug as a REST client sends it, with every field the converter reads without a null check. */
+    private static DrugTo1 restDrug(String brandName) {
+        DrugTo1 t = new DrugTo1();
+        t.setDemographicNo(1);
+        t.setProviderNo("1");
+        t.setBrandName(brandName);
+        t.setTakeMin(1.0f);
+        t.setTakeMax(1.0f);
+        t.setRepeats(0);
+        t.setPrn(false);
+        t.setArchived(false);
+        t.setLongTerm(false);
+        t.setNoSubstitutions(false);
+        return t;
     }
 
     /**

@@ -119,6 +119,29 @@ class CdsExportDrugReferenceLookupServiceUnitTest {
     }
 
     @Test
+    void shouldPublishTextStrengthsThatAreNumbers_withoutATrailingZero() throws Exception {
+        // DrugRef holds the strength as a float and sends that float's text: "250.0" for 250 mg.
+        var product = product();
+        var components = new java.util.Vector<java.util.Hashtable<String, Object>>();
+        var component = new java.util.Hashtable<String, Object>();
+        component.put("name", "AMOXICILLIN");
+        component.put("unit", "MG");
+        component.put("strength", "250.0");
+        components.add(component);
+        product.put("components", components);
+        var client = mock(RxDrugRef.class);
+        when(client.getDrugByDIN("00123456", Boolean.FALSE)).thenReturn(product);
+
+        var value = new CdsExportDrugReferenceLookupService(client).read("00123456");
+
+        assertThat(value.components().getFirst().strength()).isEqualTo("250");
+        assertThat(CdsExportDrugReferenceLookupService.strength("500.0")).isEqualTo("500");
+        assertThat(CdsExportDrugReferenceLookupService.strength("1.0E7")).isEqualTo("10000000");
+        assertThat(CdsExportDrugReferenceLookupService.strength("0.5")).isEqualTo("0.5");
+        assertThat(CdsExportDrugReferenceLookupService.strength("5")).isEqualTo("5");
+    }
+
+    @Test
     void shouldPublishNumericStrengthsAsExactPlainDecimals_withoutATrailingZero() throws Exception {
         assertThat(CdsExportDrugReferenceLookupService.strength(500.0d)).isEqualTo("500");
         assertThat(CdsExportDrugReferenceLookupService.strength(1.0E7d)).isEqualTo("10000000");

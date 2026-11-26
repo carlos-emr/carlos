@@ -30,6 +30,7 @@ package io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.business;
 
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
+import io.github.carlos_emr.carlos.utility.DoseText;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.beans.BeanUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -492,6 +493,15 @@ public class BpmhForm2Handler {
                     // Spring's copyProperties skips Integer -> String, so the id is set here: the form posts it back
                     // to match each typed instruction to its drug (#4731).
                     bpmhDrug.setId(drugId);
+                    // The structured dose is a float on the drug and text on the form, so it is not
+                    // copied either. Without it "How I take it" read "Take TAB BID" with no amount
+                    // whenever the instruction text had no direction line (#6185).
+                    float takeMax = drug.getTakeMax();
+                    // A legacy row can record only the upper bound; that bound is then the dose.
+                    float takeMin = drug.getTakeMin() == 0f ? takeMax : drug.getTakeMin();
+                    // 0 is the column default for "no structured dose", not a dose of zero.
+                    bpmhDrug.setTakeMin(takeMin == 0f ? "" : DoseText.of(takeMin));
+                    bpmhDrug.setTakeMax(takeMax == 0f ? "" : DoseText.of(takeMax));
                     if (postedRows != null) {
                         for (BpmhDrug postedRow : postedRows) {
                             if (postedRow != null && drugId.equals(postedRow.getId())) {

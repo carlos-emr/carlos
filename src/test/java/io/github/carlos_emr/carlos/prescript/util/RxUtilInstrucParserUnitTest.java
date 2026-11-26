@@ -634,6 +634,34 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
         }
 
         /**
+         * Product strengths are staged without a trailing zero since #6185 ("500mg", "500 mg",
+         * "5 mg / 325 mg"), while prescriptions written before it keep "500.0mg". The typed strength
+         * is divided by the product strength the same way in both shapes.
+         */
+        @ParameterizedTest(name = "{0} with {1} {2} gives {3}-{4}, quantity {5}")
+        @CsvSource(delimiter = '|', value = {
+            "1000 mg po tid x 7 days | 500mg | TABLET | 2 | 2 | 42",
+            "1000 mg po tid x 7 days | 500 mg | TABLET | 2 | 2 | 42",
+            "Take 1 g po tid x 7 days | 500mg | CAPSULE | 2 | 2 | 42",
+            "Take 0.5 mg po qhs x 30 days | 1mg | TABLET | 0.5 | 0.5 | 15",
+            "Take 250 mg po daily x 30 days | 500mg | TABLET | 0.5 | 0.5 | 15",
+            "Take 20 mg po daily x 30 days | 20mg tablet | TABLET | 1 | 1 | 30",
+            "Take 2000 IU po daily x 90 days | 1000unit | TABLET | 2 | 2 | 180",
+            "Take 325 mg po q4h x 5 days | 325mg 30mg | TABLET | 1 | 1 | 30",
+            "Take 5 mg po q4h prn x 5 days | 5 mg / 325 mg | TABLET | 1 | 1 | 30",
+            "Take 250 mg po tid x 10 days | 250mg/5ml | SUSPENSION | 0 | 0 | 0",
+            "Take 5 mL po tid x 7 days | 250mg/5ml | SUSPENSION | 5 | 5 | 105",
+            "Take 25 mcg daily x 30 days | 25mcg/hr | PATCH | 0 | 0 | 0",
+            "Take 100 mcg INH BID x 30 days | 50mcg/act | METERED-DOSE AEROSOL | 2 | 2 | 120",
+            "Take 125 mg po tid x 10 days | 125 mg / 31.25 mg | SUSPENSION | 0 | 0 | 0",
+            "Apply 50 mg bid x 14 days | 50mg/1g | CREAM | 0 | 0 | 0"
+        })
+        void shouldDivideByProductStrength_whenStrengthHasNoTrailingZero(String instructions,
+                String dosage, String drugForm, float minimum, float maximum, String quantity) {
+            assertParsedDose(instructions, dosage, drugForm, minimum, maximum, quantity);
+        }
+
+        /**
          * IU taken by mouth is a strength even when no PO/SL token is parsed ("by mouth", "orally",
          * or the method Take with no other route), the vitamin D form of issue #3876. IU with no
          * route at all, or given by injection, stays the administered amount (insulin).
@@ -916,6 +944,34 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
 
             assertThat(RxUtil.findDuration(rx)).isEqualTo("7");
             assertThat(rx.getQuantity()).isEqualTo("30");
+        }
+
+        /**
+         * The typed quantity was split at its first run of digits, so "2.5" was read as the amount 2
+         * with the unit ".5": the duration was left unset and ".5" was saved as the quantity's unit,
+         * which printed as {@code Qty:2.5 .5} (#6185).
+         */
+        @Test
+        @DisplayName("should derive the duration from a decimal quantity without inventing a unit")
+        void shouldDeriveDuration_whenTypedQuantityIsADecimal() {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial("Take 0.5 tab po bid");
+            rx.setQuantity("2.5");
+
+            // Half a tablet twice a day is one a day: two and a half tablets last two whole days.
+            assertThat(RxUtil.findDuration(rx)).isEqualTo("2");
+            assertThat(rx.getUnitName()).isNull();
+            assertThat(rx.getQuantity()).isEqualTo("2.5");
+        }
+
+        /** A quantity typed with its own unit leaves the duration incalculable; the unit is the unit alone. */
+        @Test
+        @DisplayName("should keep only the unit of a decimal quantity typed with a unit")
+        void shouldKeepOnlyTheUnit_whenDecimalQuantityIsTypedWithUnit() {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial("Take 2.5 mL po bid");
+            rx.setQuantity("2.5 mL");
+
+            assertThat(RxUtil.findDuration(rx)).isNull();
+            assertThat(rx.getUnitName()).isEqualTo("mL");
         }
 
         /** Periodic frequencies divide by their exact interval, so three doses every three months last nine months. */
