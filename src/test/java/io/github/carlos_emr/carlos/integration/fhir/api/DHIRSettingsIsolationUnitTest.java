@@ -45,11 +45,18 @@ class DHIRSettingsIsolationUnitTest {
              var bundles = mockConstruction(FhirBundleBuilder.class);
              var practitioner = mockConstruction(SubmittingPractitioner.class)) {
             resources.when(() -> OscarFhirResourceManager.getPatientByDemographicNumber(any(), eq(1))).thenReturn(patient);
+            var phu = new org.hl7.fhir.dstu3.model.Organization();
+            phu.setId("synthetic");
+            resources.when(() -> OscarFhirResourceManager.getPublicHealthUnit(any(), eq(1)))
+                    .thenReturn(phu, phu, null, null);
             DHIR.getFhirBundleBuilder(login, 1, 100);
             DHIR.getFhirBundleBuilder(login, 1);
             DHIR.getFhirBundleBuilder(login, 1, 101);
+            DHIR.getFhirBundleBuilder(login, 1);
+            verify(bundles.constructed().get(0)).addResource(phu);
+            verify(bundles.constructed().get(1)).addResource(phu);
         }
-        assertThat(observed.stream().map(Settings::isIncludeSenderEndpoint).toList()).containsExactly(true, false, true);
+        assertThat(observed.stream().map(Settings::isIncludeSenderEndpoint).toList()).containsExactly(true, false, true, false);
         assertThat(observed.get(0)).isNotSameAs(observed.get(1)).isNotSameAs(observed.get(2));
     }
 }

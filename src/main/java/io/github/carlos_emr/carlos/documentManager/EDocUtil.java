@@ -30,6 +30,7 @@
 package io.github.carlos_emr.carlos.documentManager;
 
 import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -53,7 +54,6 @@ import java.util.Locale;
 import java.util.ResourceBundle;
 
 import io.github.carlos_emr.carlos.commn.dao.*;
-import org.owasp.encoder.Encode;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.pdfbox.Loader;
@@ -1109,35 +1109,15 @@ public final class EDocUtil {
 
     public static byte[] getFile(String fpath) {
         byte[] fdata = null;
-        FileInputStream fis = null;
-        try {
-            // first we get length of file and allocate mem for file
-            File file = validateResolvedDocumentOrTempFile(fpath);
-            long length = file.length();
-            fdata = new byte[(int) length];
-
-            // now we read file into array buffer
-            fis = new FileInputStream(file);
-            fis.read(fdata);
-
-        } catch (NullPointerException ex) {
+        try (var fis = new FileInputStream(validateResolvedDocumentOrTempFile(fpath))) {
+            // Read to end of file: a single read(byte[]) into a length-sized buffer may stop short
+            // and leave the tail zero-filled (#3027).
+            fdata = fis.readAllBytes();
+        } catch (IOException | NullPointerException | SecurityException ex) {
+            // An unreadable or rejected document leaves the result empty. A failure during
+            // close leaves any complete bytes already read available to the caller.
             logger.error("Error: {}", LogSafe.exceptionTrace(ex));
-        } catch (FileNotFoundException ex) {
-            logger.error("Error: {}", LogSafe.exceptionTrace(ex));
-        } catch (IOException ex) {
-            logger.error("Error: {}", LogSafe.exceptionTrace(ex));
-        } catch (SecurityException ex) {
-            // PathValidationUtils rejecting a malformed document path leaves fdata null, matching the
-            // existing return-null contract instead of throwing an unchecked exception at the caller.
-            logger.error("Error: {}", LogSafe.exceptionTrace(ex));
-        } finally {
-            try {
-                if (fis != null) fis.close();
-            } catch (IOException e) {
-                logger.error("error: {}", LogSafe.exceptionTrace(e));
-            }
         }
-
         return fdata;
     }
 
@@ -1197,12 +1177,21 @@ public final class EDocUtil {
         getDocumentDao().merge(doc);
     }
 
+    /**
+     * Builds the tickler section of the document-information fragment
+     * ({@code ManageDocument2Action#doViewDocumentInfo}), which writes it into the page as HTML.
+     * Each message is stored text, so it is HTML-encoded with the null-safe {@link SafeEncode}:
+     * a tickler with no message prints an empty line, not the word {@code null} (issue #3057).
+     *
+     * @return {@code <br>}-prefixed encoded messages of the readable ticklers still filed under
+     *         the document's patients, or an empty string
+     */
     public static String getHtmlTicklers(LoggedInInfo loggedInInfo, String docId) {
 
         // Attachments live in ticklerdocs (#3984); the legacy tickler_link rows were backfilled.
         Integer documentNo = Integer.valueOf(docId);
         List<TicklerDocs> attachments = ticklerDocsDao().findByDocument(documentNo, TicklerDocs.DOCTYPE_DOC);
-        String HtmlTickler = "";
+        StringBuilder htmlTickler = new StringBuilder();
 
         if (attachments != null && !attachments.isEmpty()) {
             // The document's patients now: a tickler attached before the document was re-filed
@@ -1226,22 +1215,30 @@ public final class EDocUtil {
                 // message is only rendered when the caller may read ticklers for that patient.
                 if (securityInfoManager().hasPrivilege(loggedInInfo, "_tickler", SecurityInfoManager.READ,
                         String.valueOf(t.getDemographicNo()))) {
-                    HtmlTickler += "<br>" + Encode.forHtml(t.getMessage());
+                    htmlTickler.append("<br>").append(SafeEncode.forHtml(t.getMessage()));
                 }
             }
         }
-        return HtmlTickler;
+        return htmlTickler.toString();
     }
 
+    /**
+     * Builds the acknowledgement section of the document-information fragment. The provider name,
+     * timestamp and comment are stored values and are HTML-encoded with the null-safe
+     * {@link SafeEncode}, so a missing one prints as nothing (issue #3057); the status label comes
+     * from {@code oscarResources}.
+     *
+     * @return one {@code <br>}-terminated line per acknowledgement, or an empty string
+     */
     public static String getHtmlAcknowledgement(Locale locale, String docId) {
 
         ArrayList<ReportStatus> ackList = AcknowledgementData.getAcknowledgements("DOC", docId);
-        String HtmlAcknowledgement = "";
+        StringBuilder htmlAcknowledgement = new StringBuilder();
         String comment = "";
         ResourceBundle props = ResourceBundle.getBundle("oscarResources", locale);
         for (int i = 0; i < ackList.size(); i++) {
             ReportStatus report = ackList.get(i);
-            HtmlAcknowledgement += Encode.forHtml(report.getProviderName()) + ": ";
+            htmlAcknowledgement.append(SafeEncode.forHtml(report.getProviderName())).append(": ");
             String ackStatus = report.getStatus();
             if (ackStatus.equals("A")) {
                 ackStatus = props.getString("dms.documentBrowser.msgAcknowledgedOn");
@@ -1251,20 +1248,27 @@ public final class EDocUtil {
                 ackStatus = props.getString("dms.documentBrowser.msgNotAcknowledgeSince");
             }
 
-            HtmlAcknowledgement += ackStatus;
-            HtmlAcknowledgement += " " + Encode.forHtml(report.getTimestamp()) + " ";
+            htmlAcknowledgement.append(ackStatus);
+            htmlAcknowledgement.append(' ').append(SafeEncode.forHtml(report.getTimestamp())).append(' ');
 
             comment = report.getComment();
             if (comment != null) {
-                HtmlAcknowledgement += Encode.forHtml(comment);
+                htmlAcknowledgement.append(SafeEncode.forHtml(comment));
             }
-            HtmlAcknowledgement += "<br>";
+            htmlAcknowledgement.append("<br>");
 
         }
 
-        return HtmlAcknowledgement;
+        return htmlAcknowledgement.toString();
     }
 
+    /**
+     * Returns the latest revision of the note annotating a document, HTML-encoded with the
+     * null-safe {@link SafeEncode} for the document-information fragment (issue #3057). The
+     * document's own note (provider {@code -1}) is not an annotation.
+     *
+     * @return the encoded annotation, or an empty string when there is none
+     */
     public static String getHtmlAnnotation(String docId) {
 
         Long tableId = 0L;
@@ -1288,7 +1292,7 @@ public final class EDocUtil {
         }  //don't use document note as annotation.
 
         if (p_cmn != null) {
-            note = Encode.forHtml(p_cmn.getNote());
+            note = SafeEncode.forHtml(p_cmn.getNote());
         }
         return note;
     }

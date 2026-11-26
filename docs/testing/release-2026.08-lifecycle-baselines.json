@@ -10,7 +10,7 @@
     "ON",
     "BC"
   ],
-  "qualification": "Required on ON and BC: published current main plus the distinct beta5 migration/CLI predecessor; metadata pinning alone is not upgrade evidence.",
+  "qualification": "Required on ON and BC: upgrade each published predecessor independently, including the reviewed beta6 main baseline, beta5 migration baseline and direct beta8 predecessor.",
   "assets": [
     {
       "name": "carlos-2026.08.0-beta6.war",
@@ -73,21 +73,54 @@
         }
       ],
       "cliVersion": "1.3.0"
+    },
+    {
+      "tag": "2026.08.0-beta8",
+      "sourceCommit": "9ea46a0ffbeab4df5b78264e34cfa1f7e4681942",
+      "tagObject": "1fe1e70361a997165ee4d7104420b79a916a8d3c",
+      "baselineRoles": [
+        "previous-release"
+      ],
+      "provinces": [
+        "ON",
+        "BC"
+      ],
+      "purpose": "Verify the upgrade directly from the published beta8 application, DrugRef and CLI packages.",
+      "assets": [
+        {
+          "name": "carlos-ctl_1.3.5_all.deb",
+          "bytes": 365484,
+          "sha256": "8b77618dbe8a99a18165a73130d73b999aacb1f1099b791cc0185ef385867586",
+          "url": "https://github.com/carlos-emr/carlos/releases/download/2026.08.0-beta8/carlos-ctl_1.3.5_all.deb"
+        },
+        {
+          "name": "carlos-emr-drugref_2026.08.0.beta8_all.deb",
+          "bytes": 35502702,
+          "sha256": "4c3960fd0d03df951d381f4227c4bbaf67e85baad66ce8cd104f499432eaca0c",
+          "url": "https://github.com/carlos-emr/carlos/releases/download/2026.08.0-beta8/carlos-emr-drugref_2026.08.0.beta8_all.deb"
+        },
+        {
+          "name": "carlos-emr_2026.08.0.beta8_amd64.deb",
+          "bytes": 398240368,
+          "sha256": "85198c47a9c570e5de3a9c344d892af8854ca03a5d315b49b9cf955acdc0ac3c",
+          "url": "https://github.com/carlos-emr/carlos/releases/download/2026.08.0-beta8/carlos-emr_2026.08.0.beta8_amd64.deb"
+        }
+      ],
+      "packageVersion": "2026.08.0~beta8",
+      "cliVersion": "1.3.5"
     }
   ],
   "candidateCli": {
     "mode": "source-built",
-    "tag": "1.3.5",
-    "version": "1.3.5",
-    "name": "carlos-ctl_1.3.5_all.deb",
-    "bytes": 370400,
-    "sha256": "a68ee19ff85d4e1e624303097a317465f0e714495804172576d427c80227ba53",
+    "tag": "1.3.6",
+    "version": "1.3.6",
+    "name": "carlos-ctl_1.3.6_all.deb",
+    "bytes": 386616,
+    "sha256": "5cbf9d36b380558b3991f88529093cb87101ebf14a0676a93f0935177eca12a4",
     "sourceRepository": "https://github.com/carlos-emr/carlos-ctl",
-    "sourceCommit": "6525c85234c29f9c9e3fb599865b599ec32c373f"
+    "sourceCommit": "0821d929978ea9f74a68dd108ec6015577692cd7"
   },
   "candidateCliEvidence": {
-    "scope": "Two byte-identical local dpkg-buildpackage runs in the digest-pinned Ubuntu 26.04 package container at the exact fallback commit. Each ran 2,057 tests with 207 explicit prerequisite skips. Core CI rebuilds this source and requires this exact package digest. The help-only change describes the actual protected service-user output directory; no release URL or tag publication is asserted.",
-    "workflowRun": 43684366089,
-    "workflowConclusion": "success"
+    "scope": "Two independent local dpkg-buildpackage builds from the exact fallback commit produced byte-identical packages in the Ubuntu 26.04 image pinned by CI. Each ran 2,100 tests with 216 explicit prerequisite skips. CARLOS verifies the same package digest when rebuilding the candidate and when attaching the published CLI to its release."
   }
 }

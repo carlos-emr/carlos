@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "587808caca60c9191cd435b582d72f4f44828e9a",
+  "comparisonSha256": "bb2f00b4bd6cb01472badf2eb247273d939e125bd9a3f621b1d0e7b57415bbba",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementEntry2Action.java": {
+      "lines": 75.23809523809524,
+      "instructions": 72.57240204429301,
+      "branches": 70.40816326530613,
+      "sourceBlob": "aba65768be30a3054acf7f01283bad4afea550a4"
+    }
+  },
+  "baselineCommit": "8cfb6a475dfe25826969541dfe0206102fd69883",
+  "baselineSourceTree": "587808caca60c9191cd435b582d72f4f44828e9a",
+  "baselineReportSha256": "5e587e9d17a4f5d03cbbc04329310970bf0f8cb55dcf18e3a9f578ec232c063d",
+  "baselineLane": "Focused Java 25 chart action recompilation and authorization, encounter date, revision conflict, request isolation, and H2 transaction tests covering missing and stale rendered issue identities.",
+  "baselineTestCounts": {
+    "tests": 483,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "a9044b79e5e015f896715b1db5e45d98e645ea67c924dc9fb47dc342fcc58057",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

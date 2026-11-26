@@ -18,6 +18,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.OtherIdManager;
 import io.github.carlos_emr.carlos.commn.dao.OtherIdDAO;
 import io.github.carlos_emr.carlos.commn.dao.DemographicArchiveDao;
@@ -30,6 +31,7 @@ import io.github.carlos_emr.carlos.commn.dao.WaitingListDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicCust;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
+import io.github.carlos_emr.carlos.commn.model.DemographicExtArchive;
 import io.github.carlos_emr.carlos.demographic.pageUtil.DemographicEditVersion.Difference;
 import io.github.carlos_emr.carlos.managers.PatientConsentManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -44,6 +46,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -277,6 +282,42 @@ class DemographicUpdate2ActionStaleFormUnitTest extends CarlosUnitTestBase {
         // A key the patient has no row for yet is inserted once, as a new row.
         assertThat(saved.getAllValues()).filteredOn(extension -> "hPhoneExt".equals(extension.getKey()))
                 .singleElement().satisfies(extension -> assertThat(extension.getId()).isNull());
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = "Active")
+    void shouldPreserveAnOmittedSelectAndSaveAnExplicitSelection(String posted) throws Exception {
+        String key = "FAKE_status";
+        CarlosProperties configuration = mock(CarlosProperties.class);
+        when(configuration.getProperty("demographicExt")).thenReturn("FAKE status");
+        when(configuration.getProperty("demographicExtForm")).thenReturn(
+                "<SELECT name=FAKE_status><OPTION>Active</OPTION>"
+                        + "<OPTGROUP disabled label=Retired><OPTION>Retired</OPTION></OPTGROUP></SELECT>");
+        databaseAfterAnotherSave();
+        DemographicExt stored = new DemographicExt(78, "999998", PATIENT, key, "Retired");
+        when(extensions.getDemographicExtByDemographicNo(PATIENT)).thenReturn(List.of(stored));
+        if (posted != null) {
+            request.setParameter(key, posted);
+        }
+
+        try (MockedStatic<CarlosProperties> properties = mockStatic(CarlosProperties.class)) {
+            properties.when(CarlosProperties::getInstance).thenReturn(configuration);
+            new DemographicUpdate2Action().execute();
+        }
+
+        ArgumentCaptor<DemographicExt> saved = ArgumentCaptor.forClass(DemographicExt.class);
+        verify(extensions, atLeastOnce()).saveEntity(saved.capture());
+        var writes = saved.getAllValues().stream().filter(row -> key.equals(row.getKey())).toList();
+        if (posted == null) {
+            assertThat(writes).isEmpty();
+        } else {
+            assertThat(writes).singleElement().satisfies(row -> assertThat(row.getValue()).isEqualTo(posted));
+        }
+        ArgumentCaptor<DemographicExtArchive> archived = ArgumentCaptor.forClass(DemographicExtArchive.class);
+        verify(extensionArchives, atLeastOnce()).saveEntity(archived.capture());
+        assertThat(archived.getAllValues()).filteredOn(row -> key.equals(row.getKey())).singleElement()
+                .satisfies(row -> assertThat(row.getValue()).isEqualTo(posted == null ? "Retired" : posted));
     }
 
     @Test

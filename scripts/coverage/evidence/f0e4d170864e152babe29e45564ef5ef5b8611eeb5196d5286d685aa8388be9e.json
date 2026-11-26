@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "899cc15d61910af2348c40abada508c7f299347b",
+  "comparisonSha256": "b33be4230f28b45fdeb4635e514e8264ee1816d54d61210ef7a1d7aa54979660",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/fax/admin/ConfigureFax2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "3fc36113cf377aa591ea78fd88524fc69a65f03f"
+    }
+  },
+  "baselineCommit": "591660ef4e986541a2f3855beeecd531aa84f7c2",
+  "baselineSourceTree": "899cc15d61910af2348c40abada508c7f299347b",
+  "baselineReportSha256": "40b4985cb95438c61c8df9fc9ae82e8a7973ea7195e5a9d803a6e2f87f171294",
+  "baselineLane": "322 fax and mutator controls including multi-account retry and scheduler warnings",
+  "baselineTestCounts": {
+    "tests": 322,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "57b38277a5d3b85a7a225b467841fd15026f871718123529f6ae91dd11e78ee3",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

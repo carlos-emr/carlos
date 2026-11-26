@@ -40,6 +40,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.context.annotation.ClassPathBeanDefinitionScanner;
 
 import java.util.List;
 import java.util.Locale;
@@ -67,6 +69,21 @@ class VacancyTemplateManagerUnitTest extends CarlosUnitTestBase {
         criteriaSelectionOptionDAO = createAndRegisterMock(CriteriaSelectionOptionDao.class);
         createAndRegisterMock(ProgramDao.class);
         vacancyDAO = createAndRegisterMock(VacancyDao.class);
+    }
+
+    @Test
+    void shouldRegisterVacancyTemplateManager_forProgramActionConstruction() {
+        try (var context = new AnnotationConfigApplicationContext()) {
+            var scanner = new ClassPathBeanDefinitionScanner(context);
+            // Use the normal component scan for this service without starting its unrelated neighbours.
+            scanner.addExcludeFilter((metadata, factory) ->
+                    !metadata.getClassMetadata().getClassName().equals(VacancyTemplateManagerImpl.class.getName()));
+            scanner.scan(VacancyTemplateManagerImpl.class.getPackageName());
+            context.refresh();
+
+            assertThat(context.getBean(VacancyTemplateManager.class))
+                    .isSameAs(context.getBean("vacancyTemplateManager"));
+        }
     }
 
     @Test

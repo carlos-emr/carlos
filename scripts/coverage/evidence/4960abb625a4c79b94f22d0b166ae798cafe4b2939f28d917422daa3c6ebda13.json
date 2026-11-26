@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "86cd961c1bc8c27d937e26795e9eb553733f1b75",
+  "comparisonSha256": "a19c46f75869a0321cac63643665da87fb158dfc9a864387bf4a398ba575b0c4",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/PMmodule/web/admin/FacilityManager2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "2b9911f2b09f9c97822679dfb044b46d66dbac47"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementView2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "5352b0f5d65946ec3222c0c4c9c7facb56c90be8"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/SecurityInfoManagerImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "2913f5c17fe332e5d672fe2e81a3dcfff7dae504"
+    }
+  },
+  "baselineCommit": "b560093fcba26b6d9a1bc68e6277dc14a9c4779a",
+  "baselineSourceTree": "86cd961c1bc8c27d937e26795e9eb553733f1b75",
+  "baselineReportSha256": "7cac912ca9853d74900e4912614c62f7bef2e2552ccd5e5d0a5f9827eada2fc5",
+  "baselineLane": "Ubuntu 26.04 and Java 25 focused chart, patient access and facility routing tests, including the group-note integration test",
+  "baselineTestCounts": {
+    "tests": 318,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.PMmodule.web.admin.PmmoduleJspMigrationActionRoutingTest",
+    "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementEntryRequestIsolationUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementGroupNoteDisplayRoleUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewFilterUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewGroupNoteAccessIntegrationTest",
+    "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewNoteAccessUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewPatientIsolationUnitTest",
+    "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewStaleNotePreferencesUnitTest",
+    "io.github.carlos_emr.carlos.managers.SecurityInfoManagerUnitTest",
+    "io.github.carlos_emr.carlos.managers.SecurityPrivilegeReadOnlyUnitTest",
+    "io.github.carlos_emr.carlos.managers.SecurityPrivilegeSnapshotUnitTest"
+  ],
+  "baselineTestReportsSha256": "946627db17b32859ea5147f4ad8f6f96ede36dd48b55bc0c2410252e4550f1a4",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

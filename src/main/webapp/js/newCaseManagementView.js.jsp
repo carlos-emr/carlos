@@ -2994,7 +2994,15 @@ function updateCPPNote() {
         // parameters) and a "+" arrived as a space. This is the save that runs when
         // the clinician opens another note or the new-note icon with unsaved text.
         var params = "nId=" + noteId + issueParams + "&demographicNo=" + demographicNo + "&providerNo=" + providerNo + "&numIssues=" + idx + "&obsDate=" + $F("observationDate") + "&encType=" + encodeURIComponent($F(encType)) + "&noteTxt=" + encodeURIComponent(noteTxt);
-        params += "&" + Form.serialize(caseMgtEntryfrm);
+        var formParams = new URLSearchParams(Form.serialize(caseMgtEntryfrm));
+        var issueList = document.getElementById("noteIssues");
+        if (issueList) {
+            formParams.delete("renderedIssueIdentity");
+            issueList.querySelectorAll('input[name="renderedIssueIdentity"]').forEach(function (identity) {
+                formParams.append("renderedIssueIdentity", identity.value);
+            });
+        }
+        params += "&" + formParams.toString();
         // A chart refresh may still fail after this save succeeds. Keep the
         // acknowledged revision editable until its replacement chart arrives.
         if (preserveEditor) params += "&preserveEditor=true";
@@ -3174,15 +3182,19 @@ function updateCPPNote() {
         );
         return false;
     }
-    function savePage(method, chain) {
+    function savePage(method, chain, signIntent) {
+        // Keep Sign, Verify and Bill with this particular click. Validation can reject
+        // it, or a plain Save can replace it while the note's issues are refreshing.
+        var form = document.forms["caseManagementEntryForm"];
+        if (!signIntent) signIntent = noteSignIntent(form);
+        resetNoteSignIntent(form);
         if (lostNoteLock) {
-            resetNoteSignIntent(document.forms["caseManagementEntryForm"]);
             alert(noteLockLostError);
             return false;
         }
         // Opening/editing a note refreshes its issue fields asynchronously. Save only
         // after both fragments finish, so the form and its issue selection stay intact.
-        if (deferNoteSaveUntilIssues(function () { savePage(method, chain); })) return false;
+        if (deferNoteSaveUntilIssues(function () { savePage(method, chain, signIntent); })) return false;
 
         var noteStr;
         noteStr = $F(caseNote);
@@ -3240,19 +3252,18 @@ function updateCPPNote() {
         // (the saving status shows, and Save, Sign and Bill wait), so the submission carries
         // the note as it was when Sign & Save was chosen and no other save starts meanwhile.
         clearAutoSaveTimer();
-        var signIntent = noteSignIntent(document.forms["caseManagementEntryForm"]);
         var restoreControls = beginNoteSwitchSave();
         whenStillSignedIn(function () {
             // A disabled control is left out of a form submission: restore them first. A key
             // press during the check (Ctrl+B) may have changed Sign, Verify or Bill; submit the
             // choices made when Sign & Save was chosen.
             restoreControls();
-            applyNoteSignIntent(document.forms["caseManagementEntryForm"], signIntent);
+            applyNoteSignIntent(form, signIntent);
             submitNotePage(method, chain);
         }, function () {
             restoreControls();
             // A later plain Save must not sign, verify or bill the note.
-            resetNoteSignIntent(document.forms["caseManagementEntryForm"]);
+            resetNoteSignIntent(form);
             setTimer();
             alertSessionEndedNotSaved();
         });
@@ -3319,7 +3330,7 @@ function updateCPPNote() {
 
     var changeIssueMsg;
     function changeDiagnosis(issueId) {
-        document.forms['caseManagementEntryForm'].change_diagnosis_id.value = issueId;
+        document.forms['caseManagementEntryForm'].elements.changeDiagnosisIssueId.value = issueId;
         var button = document.getElementById('asgnIssues');
         if (button) {
             button.value = changeIssueMsg;
@@ -3511,6 +3522,7 @@ function updateCPPNote() {
     var issueUpdateFailed = false;
     var issueRefreshQueue = [];
     var issueRefreshPending = false;
+    var pendingIssueDeletes = new Set();
     var queuedNoteSave = null;
     var noteSwitchSavePending = false;
     var noteSavingMessage = "${carlos:forJavaScriptBlock(noteSavingLabel)}";
@@ -3682,7 +3694,23 @@ function updateCPPNote() {
         issueRefreshQueue.shift()();
     }
 
-    function ajaxUpdateIssues(method, div, preserveSelections, complete, failureMessage) {
+    function queueIssueMutation(method, control) {
+        var row = control.closest('td');
+        var checkbox = row.querySelector('input[type="checkbox"][data-issue-id]');
+        var id = checkbox.getAttribute('data-issue-id');
+        if (pendingIssueDeletes.has(id)) return false;
+
+        var mutation = new URLSearchParams({caseIssueId: id});
+        if (method === 'issueChange') {
+            var flag = control.name.slice(control.name.lastIndexOf('.') + 1);
+            mutation.set('issue' + flag.charAt(0).toUpperCase() + flag.slice(1), control.value);
+        } else {
+            removeIssue(row.querySelector('[id^="noteIssueDetails"]').id);
+        }
+        return ajaxUpdateIssues(method, control.closest('.sig').id, null, null, null, mutation);
+    }
+
+    function ajaxUpdateIssues(method, div, preserveSelections, complete, failureMessage, mutation) {
         // Mutations refresh the current editor; opening a different note must not
         // inherit the previous note's selections. Explicit edit refreshes opt in.
         if (preserveSelections == null) preserveSelections = method !== 'edit';
@@ -3693,6 +3721,10 @@ function updateCPPNote() {
             return false;
         }
         complete = complete || beginIssueUpdate();
+        // Status changes run in click order. Once deletion is queued, further
+        // status or delete clicks for that issue cannot affect its final state.
+        var deletedId = method === 'issueDelete' && mutation ? mutation.get('caseIssueId') : null;
+        if (deletedId) pendingIssueDeletes.add(deletedId);
         // Serialize whole refresh pairs. An older editor-load response must not
         // replace the CPP-created issue fields after this refresh has installed them.
         issueRefreshQueue.push(function () {
@@ -3701,6 +3733,7 @@ function updateCPPNote() {
                 if (finished) return;
                 finished = true;
                 issueRefreshPending = false;
+                if (deletedId) pendingIssueDeletes.delete(deletedId);
                 try { complete(succeeded); }
                 finally { runNextIssueRefresh(); }
             }
@@ -3711,6 +3744,9 @@ function updateCPPNote() {
 
                 var url = chartActionUrl("/CaseManagementEntry");
                 var p = Form.serialize(frm);
+                // Read editor fields from the refreshed form, but submit the
+                // issue identity and status the clinician chose before it changed.
+                if (mutation) p += '&' + mutation.toString();
                 var assignedIssue = (method === 'makeIssue' || method === 'issueAdd') && frm.elements && frm.elements.newIssueId
                     ? String(frm.elements.newIssueId.value) : '';
                 if (preserveSelections && method === 'edit') p += '&preserveIssueEditor=true&forceNote=true';

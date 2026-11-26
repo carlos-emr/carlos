@@ -173,21 +173,24 @@
                             for (int i = 0; i < eForms.size(); i++) {
                                 HashMap<String, ? extends Object> curform = eForms.get(i);
                         %>
+                        <%-- Issue #3057 (#2231): the instance name and the subject are stored text (the
+                             subject is typed by whoever saved the form), so every map value is encoded
+                             for the context it lands in, as efmpatientformlist.jsp already does. --%>
                         <tr bgcolor="<%=((i % 2) == 1)?"#F2F2F2":"white"%>">
                             <td>
                                 <a href="#"
-                                   ONCLICK="popupPage('efmshowform_data?fdid=<%=curform.get("fdid")%>&appointment=<carlos:encode value='<%= appointment %>' context="uriComponent"/>', '<%="FormP" + i%>'); return false;"
+                                   ONCLICK="popupPage('efmshowform_data?fdid=<carlos:encode value='<%= (String) curform.get("fdid") %>' context="uriComponent"/>&appointment=<carlos:encode value='<%= appointment %>' context="uriComponent"/>', '<%="FormP" + i%>'); return false;"
                                    TITLE="<fmt:message key="eform.showmyform.msgViewFrm"/>"
-                                   onmouseover="window.status='<fmt:message key="eform.showmyform.msgViewFrm"/>'; return true"><%=curform.get("formName")%>
+                                   onmouseover="window.status='<fmt:message key="eform.showmyform.msgViewFrm"/>'; return true"><carlos:encode value='<%= (String) curform.get("formName") %>' context="html"/>
                                 </a>
                             </td>
-                            <td><%=curform.get("formSubject")%>
+                            <td><carlos:encode value='<%= (String) curform.get("formSubject") %>' context="html"/>
                             </td>
-                            <td align='center'><%=curform.get("formDate")%>
+                            <td align='center'><carlos:encode value='<%= (String) curform.get("formDate") %>' context="html"/>
                             </td>
                             <td align='center'>
                                 <form method="post" action="<%= request.getContextPath() %>/eform/removeEForm" style="display:inline;">
-                                    <input type="hidden" name="fdid" value="<%=curform.get("fdid")%>"/>
+                                    <input type="hidden" name="fdid" value="<carlos:encode value='<%= (String) curform.get("fdid") %>' context="htmlAttribute"/>"/>
                                     <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demographic_no %>' context="htmlAttribute"/>"/>
                                     <input type="hidden" name="callpage" value="single"/>
                                     <input type="hidden" name="parentAjaxId" value="<carlos:encode value='<%= parentAjaxId %>' context="htmlAttribute"/>"/>

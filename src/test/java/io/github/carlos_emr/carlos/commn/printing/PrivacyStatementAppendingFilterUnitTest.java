@@ -31,6 +31,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.mock.web.MockServletContext;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -798,6 +799,88 @@ class PrivacyStatementAppendingFilterUnitTest {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldPreservePartialHtmlBodyAndLength_whenUsingEitherResponseChannel(boolean stream) throws Exception {
+        var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        Object original = properties.setProperty("confidentiality_statement.v1", "FAKE-5782-NOTICE");
+        try {
+            var request = new MockHttpServletRequest("GET", "/fixture.html");
+            request.addHeader("Range", "bytes=0-3");
+            MockHttpServletResponse response = stream ? new MockHttpServletResponse() : new BufferingWriterResponse();
+            filter.doFilter(request, response, (req, res) -> {
+                var http = (jakarta.servlet.http.HttpServletResponse) res;
+                if (!stream) http.setStatus(206);
+                http.setContentLengthLong(4);
+                http.setContentType("text/html;charset=UTF-8");
+                if (stream) http.setStatus(206);
+                http.setHeader("Content-Range", "bytes 0-3/100");
+                assertThat(response.getHeader("Content-Length")).isEqualTo("4");
+                if (stream) http.getOutputStream().write("BODY".getBytes(StandardCharsets.UTF_8));
+                else http.getWriter().write("BODY");
+            });
+            assertThat(response.getStatus()).isEqualTo(206);
+            if (stream) {
+                assertThat(response.getContentAsByteArray()).isEqualTo("BODY".getBytes(StandardCharsets.UTF_8));
+            } else {
+                assertThat(response.getContentAsString()).isEqualTo("BODY");
+            }
+            assertThat(response.getHeader("Content-Range")).isEqualTo("bytes 0-3/100");
+            assertThat(response.getContentLength()).isEqualTo(4);
+        } finally {
+            if (original == null) properties.remove("confidentiality_statement.v1");
+            else properties.put("confidentiality_statement.v1", original);
+        }
+    }
+
+    @Test
+    void shouldKeepMetadataLength_whenAConfiguredNoticeHasNoBodyChannel() throws Exception {
+        try (var _ = configuredStatement("FAKE metadata notice")) {
+            var request = new MockHttpServletRequest("GET", "/fixture.html");
+            var response = new MockHttpServletResponse();
+            filter.doFilter(request, response, (req, res) -> {
+                res.setContentType("text/html");
+                res.setContentLengthLong(12345);
+            });
+            assertThat(response.getHeader("Content-Length")).isEqualTo("12345");
+            assertThat(response.getContentAsByteArray()).isEmpty();
+        }
+    }
+
+    @Test
+    void shouldKeepOtherIntegerHeaders_whenDecoratingHtml() throws Exception {
+        try (var _ = configuredStatement("FAKE integer-header notice")) {
+            var request = new MockHttpServletRequest("GET", "/fixture.html");
+            var response = new MockHttpServletResponse();
+            filter.doFilter(request, response, (req, res) -> {
+                var http = (jakarta.servlet.http.HttpServletResponse) res;
+                http.setContentType("text/html");
+                http.setIntHeader("X-FAKE-Count", 7);
+                http.addIntHeader("X-FAKE-Count", 8);
+                http.getWriter().write("BODY");
+            });
+            assertThat(response.getHeaders("X-FAKE-Count")).containsExactly("7", "8");
+            assertThat(response.getContentAsString()).startsWith("BODY").contains("FAKE integer-header notice");
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldKeepServletNullHeaderSemantics_whenHandlingContentLength(boolean addingNull) throws Exception {
+        var request = new MockHttpServletRequest("GET", "/fixture.txt");
+        var response = new MockHttpServletResponse();
+        filter.doFilter(request, response, (req, res) -> {
+            var http = (jakarta.servlet.http.HttpServletResponse) res;
+            http.setContentType("text/plain");
+            http.setContentLengthLong(4);
+            if (addingNull) http.addHeader("Content-Length", null);
+            else http.setHeader("Content-Length", null);
+            http.getWriter().write("BODY");
+        });
+        assertThat(response.getHeader("Content-Length")).isEqualTo(addingNull ? "4" : null);
+        assertThat(response.getContentAsString()).isEqualTo("BODY");
+    }
+
     /**
      * Enforces the servlet rule a real container applies and MockHttpServletResponse does not:
      * once the writer or the output stream is obtained, asking for the other one throws.
@@ -881,4 +964,254 @@ class PrivacyStatementAppendingFilterUnitTest {
             return flushed.toString();
         }
     }
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldKeepDynamicHeadMetadata_whenStaticResourceContextIsUnavailable(boolean missingPath) throws Exception {
+        try (var notice = configuredStatement("FAKE metadata-only notice")) {
+            var request = spy(new MockHttpServletRequest("HEAD", "/dynamic.html"));
+            if (missingPath) {
+                doReturn(null).when(request).getServletPath();
+                doReturn(null).when(request).getRequestURI();
+            } else {
+                doReturn(null).when(request).getServletContext();
+            }
+            var response = new MockHttpServletResponse();
+            filter.doFilter(request, response, (req, res) -> {
+                res.setContentType("text/html");
+                res.setContentLengthLong(12345);
+                ((jakarta.servlet.http.HttpServletResponse) res).setHeader("ETag", "FAKE-dynamic-version");
+            });
+            assertThat(response.getHeader("Content-Length")).isEqualTo("12345");
+            assertThat(response.getHeader("ETag")).isEqualTo("FAKE-dynamic-version");
+            assertThat(response.getContentAsByteArray()).isEmpty();
+        }
+    }
+
+    @Test void shouldWarnSafelyAndPreserveBytes_whenMalformedLengthContainsNewlines() throws Exception {
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(
+                PrivacyStatementAppendingFilter.class.getName() + "$DelegatingServletResponse")) {
+            var response = new MockHttpServletResponse();
+            filter.doFilter(new MockHttpServletRequest("GET", "/download"), response, (req, res) -> {
+                res.setContentType("application/octet-stream");
+                ((jakarta.servlet.http.HttpServletResponse) res).setHeader("Content-Length", "FAKE-invalid\r\nFAKE-forged");
+                res.getOutputStream().write(new byte[]{0, 1, 2, 3});
+            });
+            assertThat(response.getHeader("Content-Length")).isNull();
+            assertThat(response.getContentAsByteArray()).containsExactly(0, 1, 2, 3);
+            assertThat(logs.messages()).singleElement().asString()
+                    .contains("Ignoring malformed Content-Length", "FAKE-invalid", "FAKE-forged")
+                    .doesNotContain("\r", "\n");
+        }
+    }
+
+    private MockHttpServletRequest staticRequest() {
+        var context = new org.springframework.mock.web.MockServletContext();
+        context.addMimeType("html", org.springframework.http.MediaType.TEXT_HTML);
+        var request = new MockHttpServletRequest(context, "GET", "/fixture.html");
+        request.setServletPath("/fixture.html");
+        return request;
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD"})
+    void shouldKeepErrorMetadata_whenStaticResponseHasNoBodyChannel(String method) throws Exception {
+        try (var notice = configuredStatement("FAKE static metadata notice")) {
+            var request = staticRequest();
+            request.setMethod(method);
+            var response = new MockHttpServletResponse();
+            filter.doFilter(request, response, (req, res) -> {
+                var http = (jakarta.servlet.http.HttpServletResponse) res;
+                http.setStatus(412);
+                http.setContentType("text/html");
+                http.setContentLength(42);
+                http.setHeader("ETag", "FAKE-file-version");
+            });
+
+            assertThat(response.getStatus()).isEqualTo(412);
+            assertThat(response.getHeader("ETag")).isEqualTo("FAKE-file-version");
+            assertThat(response.getContentLength()).isEqualTo(42);
+            assertThat(response.getContentAsByteArray()).isEmpty();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings={"Accept-Encoding", "*", "Origin, x-requested-with", "Origin, x-requested-w\u0131th", ""})
+    void shouldPreserveVaryTokensAndWildcard_beforeAndAfterDownstreamChanges(String vary) throws Exception {
+        try (var notice = configuredStatement("FAKE static metadata notice")) {
+            var response = new MockHttpServletResponse();
+            response.setHeader("Vary", vary);
+            filter.doFilter(staticRequest(), response, (req, res) -> {
+                var http = (jakarta.servlet.http.HttpServletResponse) res;
+                assertThat(response.getHeaders("Vary")).contains(vary);
+                if ("*".equals(vary) || vary.endsWith("x-requested-with")) {
+                    assertThat(response.getHeaders("Vary")).containsExactly(vary);
+                } else {
+                    assertThat(String.join(",", response.getHeaders("Vary")).toLowerCase(java.util.Locale.ROOT))
+                            .contains("x-requested-with");
+                }
+                http.setHeader(null, "FAKE");
+                assertThat(response.getHeader(null)).isNull();
+                http.setHeader("vArY", "Accept-Encoding");
+                http.addHeader("VARY", "Origin");
+                assertThat(response.getHeaders("Vary")).containsExactly("Accept-Encoding", "X-Requested-With", "Origin");
+                http.setHeader("Vary", "*");
+                assertThat(response.getHeaders("Vary")).containsExactly("*");
+                http.setHeader("Vary", null);
+                assertThat(response.getHeaders("Vary")).containsExactly("X-Requested-With");
+                http.addHeader("X-FAKE", "kept");
+                assertThat(response.getHeader("X-FAKE")).isEqualTo("kept");
+            });
+        }
+    }
+
+    @ParameterizedTest @ValueSource(strings={"header", "date", "int"})
+    void shouldDeferEveryMetadataApi_andRestoreItForPartialAndNonHtmlResponses(String api) throws Exception {
+        try (var notice = configuredStatement("FAKE static metadata notice")) {
+            var response = new MockHttpServletResponse();
+            response.setHeader("ETag", "FAKE-original");
+            response.addHeader("ETag", "FAKE-original-second");
+            filter.doFilter(staticRequest(), response, (req, res) -> {
+                var http = (jakarta.servlet.http.HttpServletResponse) res;
+                assertThat(response.getHeader("ETag")).isNull();
+                if ("header".equals(api)) {
+                    http.setHeader("eTAG", "FAKE-first"); http.addHeader("ETAG", "FAKE-second");
+                } else if ("date".equals(api)) {
+                    http.setDateHeader("ETag", 0); http.addDateHeader("ETag", 1000);
+                } else {
+                    http.setIntHeader("ETag", 10); http.addIntHeader("ETag", 20);
+                }
+                http.setDateHeader("Date", 0); http.addDateHeader("Date", 1000);
+                http.setIntHeader("X-FAKE-count", 1); http.addIntHeader("X-FAKE-count", 2);
+                assertThat(response.getHeaders("ETag")).isEmpty();
+                http.setStatus(206);
+                var bare = java.util.List.copyOf(response.getHeaders("ETag"));
+                assertThat(bare).hasSize(2).doesNotContain("FAKE-original", "FAKE-original-second");
+                if ("header".equals(api)) assertThat(bare).containsExactly("FAKE-first", "FAKE-second");
+                if ("int".equals(api)) assertThat(bare).containsExactly("10", "20");
+                http.addHeader("Last-Modified", "FAKE-partial-date");
+                assertThat(response.getHeader("Last-Modified")).isEqualTo("FAKE-partial-date");
+                http.setStatus(200);
+                assertThat(response.getHeaders("ETag")).isEmpty();
+                http.setContentType("text/plain");
+                assertThat(response.getHeaders("ETag")).containsExactlyElementsOf(bare);
+                http.setContentType("text/html");
+                assertThat(response.getHeaders("ETag")).isEmpty();
+                http.setHeader("Content-Type", "application/json");
+                assertThat(response.getHeaders("ETag")).containsExactlyElementsOf(bare);
+                http.setContentType("text/html");
+                http.addHeader("Content-Type", "text/plain");
+            });
+        }
+    }
+
+    @Test void shouldResetMetadataAndRetainVary_whenAStaticResponseIsReset() throws Exception {
+        try (var notice = configuredStatement("FAKE static metadata notice")) {
+            var response = new MockHttpServletResponse();
+            response.setHeader("ETag", "FAKE-before");
+            filter.doFilter(staticRequest(), response, (req, res) -> {
+                var http = (jakarta.servlet.http.HttpServletResponse) res;
+                http.setHeader("ETag", "FAKE-held");
+                http.reset();
+                assertThat(response.getHeaders("Vary")).containsExactly("X-Requested-With");
+                http.setStatus(206);
+                assertThat(response.getHeader("ETag")).isNull();
+                http.addHeader("ETag", "FAKE-after");
+                assertThat(response.getHeader("ETag")).isEqualTo("FAKE-after");
+            });
+        }
+    }
+
+    @Test
+    void shouldRetainRevalidation_whenDownstreamReplacesCacheControl() throws Exception {
+        try (var notice = configuredStatement("FAKE static metadata notice")) {
+            var request = staticRequest();
+            request.addHeader("If-Match", "\"FAKE-bare-file\"");
+            var response = new MockHttpServletResponse();
+            response.setHeader("Cache-Control", "public, max-age=120");
+            filter.doFilter(request, response, (req, res) -> {
+                var httpRequest = (jakarta.servlet.http.HttpServletRequest) req;
+                var httpResponse = (jakarta.servlet.http.HttpServletResponse) res;
+                String tag = httpRequest.getHeader("if-match");
+                assertThat(tag).startsWith("W/\"");
+                assertThat(java.util.Collections.list(httpRequest.getHeaders("If-Match"))).containsExactly(tag);
+                assertThat(response.getHeaders("Cache-Control")).containsExactly("public, max-age=120", "no-cache");
+                httpResponse.setHeader("cAcHe-CoNtRoL", "private, max-age=30");
+                assertThat(response.getHeaders("Cache-Control")).containsExactly("private, max-age=30", "no-cache");
+                httpResponse.setHeader("Cache-Control", "private, No-Cache");
+                assertThat(response.getHeaders("Cache-Control")).containsExactly("private, No-Cache");
+                httpResponse.reset();
+                assertThat(response.getHeaders("Cache-Control")).containsExactly("no-cache");
+            });
+        }
+    }
+
+    @Test
+    void shouldKeepPreexistingMetadata_whenTheResponseIsNotOk() throws Exception {
+        try (var notice = configuredStatement("FAKE static metadata notice")) {
+            var response = new MockHttpServletResponse();
+            response.setHeader("ETag", "\"FAKE-original-tag\"");
+            filter.doFilter(staticRequest(), response, (req, res) -> {
+                var http = (jakarta.servlet.http.HttpServletResponse) res;
+                http.setStatus(201);
+                http.setContentType("text/html");
+                http.getWriter().write("FAKE body");
+            });
+            assertThat(response.getHeader("ETag")).isEqualTo("\"FAKE-original-tag\"");
+            assertThat(response.getContentAsString()).contains("FAKE body", "FAKE static metadata notice");
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldKeepVaryAndUnrelatedHeaders_whenStaticHtmlUsesTypedHeaderCalls(boolean ajax) throws Exception {
+        try (var notice = configuredStatement("FAKE header fixture notice")) {
+            var context = new MockServletContext();
+            var request = new MockHttpServletRequest(context, "GET", "/fixture.html");
+            if (ajax) {
+                request.addHeader("X-Requested-With", "XMLHttpRequest");
+            }
+            var response = new MockHttpServletResponse();
+            filter.doFilter(request, response, (req, res) -> {
+                var http = (jakarta.servlet.http.HttpServletResponse) res;
+                http.reset();
+                assertThat(http.getHeaders("Vary")).containsExactly("X-Requested-With");
+                http.setHeader("Vary", "Accept-Language, *");
+                assertThat(http.getHeaders("Vary")).containsExactly("Accept-Language, *");
+                http.setHeader("Vary", "Accept-Language");
+                http.addHeader("Vary", "Accept-Encoding");
+                http.setIntHeader("X-Fixture-Count", 1);
+                http.addIntHeader("X-Fixture-Count", 2);
+                http.setDateHeader("Expires", 0);
+                http.addDateHeader("Expires", 2000);
+                http.setIntHeader("Accept-Ranges", 1);
+                http.addIntHeader("Accept-Ranges", 2);
+                http.setDateHeader("Last-Modified", 0);
+                http.addDateHeader("Last-Modified", 2000);
+                http.addHeader("ETag", "FAKE-version");
+                http.setHeader("Content-Length", null);
+                http.addHeader("Content-Length", null);
+                http.setHeader("Content-Length", "bad length");
+                http.setContentType("text/html");
+                http.getWriter().write("FAKE body");
+            });
+            assertThat(response.getHeaders("Vary")).containsExactlyInAnyOrder(
+                    "Accept-Language", "Accept-Encoding", "X-Requested-With");
+            assertThat(response.getHeaders("X-Fixture-Count")).containsExactly("1", "2");
+            assertThat(response.getHeaders("Expires")).hasSize(2);
+            assertThat(response.getContentAsString()).contains("FAKE body");
+            for (String header : new String[]{"Accept-Ranges", "Last-Modified", "ETag"}) {
+                assertThat(response.getHeaders(header).isEmpty()).as(header).isEqualTo(!ajax);
+            }
+        }
+    }
+
+    private AutoCloseable configuredStatement(String value) {
+        var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        Object previous = properties.setProperty("confidentiality_statement.v1", value);
+        return () -> {
+            if (previous == null) properties.remove("confidentiality_statement.v1");
+            else properties.put("confidentiality_statement.v1", previous);
+        };
+    }
+
 }

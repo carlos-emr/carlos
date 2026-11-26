@@ -28,7 +28,8 @@ public class PrescriptionPdfServlet extends FrmCustomedPDFServlet {
         if (!"oscarRxFax".equals(request.getParameter("__method"))
                 && Boolean.parseBoolean(request.getParameter("useSC"))
                 && !hasSatelliteClinicFields(request.getParameter("scAddress"))) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid satellite clinic address");
+            io.github.carlos_emr.carlos.utility.RefusalNotice.send(request, response, HttpServletResponse.SC_BAD_REQUEST,
+                    "error.refusal.invalidSatelliteClinicAddress", "Invalid satellite clinic address");
             return;
         }
         super.service(request, response);

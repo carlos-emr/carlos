@@ -50,6 +50,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.prescript.data.RxDrugData;
 import io.github.carlos_emr.carlos.prescript.data.RxDrugData.DrugMonograph.DrugComponent;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
+import io.github.carlos_emr.carlos.prescript.util.DrugPriceEstimate;
 import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -1152,6 +1153,8 @@ public final class RxWriteScript2Action extends ActionSupport {
                 hm.put("prn", rx.getPrn());
                 hm.put("calQuantity", rx.getQuantity());
                 hm.put("unitName", rx.getUnitName());
+                hm.put("priceQuantity", DrugPriceEstimate.dispenseQuantity(
+                        rx.getQuantity(), rx.getUnitName(), rx.getDrugForm()));
                 hm.put("policyViolations", rx.getPolicyViolations());
                 ObjectNode jsonObject = objectMapper.valueToTree(hm);
                 response.getOutputStream().write(jsonObject.toString().getBytes());
@@ -1193,7 +1196,8 @@ public final class RxWriteScript2Action extends ActionSupport {
                     // The duration is derived only for a plain numeric quantity with a positive dose and
                     // a frequency. The stored dose is compared and divided as a number: its three-decimal
                     // text ("0.667" for two thirds of a tablet) would shorten the derived duration.
-                    if (rx.getUnitName() == null && rx.getTakeMin() > 0f && rx.getTakeMax() > 0f && !frequency.isEmpty()) {
+                    if (rx.getUnitName() == null && rx.getTakeMin() > 0f && rx.getTakeMax() > 0f
+                            && frequency != null && !frequency.isEmpty()) {
                         if (durationUnit == null || durationUnit.isEmpty()) {
                             durationUnit = "D";
                         }
@@ -1231,6 +1235,10 @@ public final class RxWriteScript2Action extends ActionSupport {
                 hm.put("prn", rx.getPrn());
                 hm.put("calQuantity", rx.getQuantity());
                 hm.put("unitName", rx.getUnitName());
+                // The legacy Qty/Mitte parser can extract only the first integer from free text.
+                // Quote a total only when the submitted count agrees with the acknowledged quantity.
+                String priceQuantity = DrugPriceEstimate.dispenseQuantity(quantity, rx.getDrugForm());
+                hm.put("priceQuantity", rx.getQuantity().strip().equals(priceQuantity) ? priceQuantity : null);
                 ObjectNode jsonObject = objectMapper.valueToTree(hm);
 
                 response.getOutputStream().write(jsonObject.toString().getBytes());

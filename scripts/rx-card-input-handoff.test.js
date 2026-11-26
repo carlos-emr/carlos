@@ -32,9 +32,11 @@ const jsMsg = {
 test('choosing a favourite skips the directions re-parse while its card scripts run', () => {
   const source = slice(searchDrug, '    skipParseInstr = false;\n    function useFav2', '   function Delete2(');
   const parsed = [];
+  const priced = [];
   let cardScript = null;
   const context = {
     Math, ctx: '/carlos', parsed, renderRxStage() {}, reportRefusedRequest() {}, updateQty() {},
+    refreshDrugPrice(card, quantity) { priced.push({ card, quantity }); },
     parseIntr(element) { parsed.push(element.id); return true; },
     document: { getElementById: id => ({ id }) },
     CarlosAjax: {
@@ -46,9 +48,10 @@ test('choosing a favourite skips the directions re-parse while its card scripts 
     },
   };
   vm.runInNewContext(source, context);
-  cardScript = () => { context.calculateRxData('777'); context.skipParseInstr = false; };
+  cardScript = () => { context.calculateRxData('777', '42'); context.skipParseInstr = false; };
   context.useFav2('9');
   assert.deepEqual(parsed, [], 'the favourite card re-parsed its directions and could clear its PRN flag');
+  assert.deepEqual(priced, [{ card: '777', quantity: '42' }], 'the favourite quotes its stored count');
   assert.equal(context.skipParseInstr, false, 'the flag must not stay set for the next staged drug');
   context.calculateRxData('778');
   assert.deepEqual(parsed, ['instructions_778'], 'an ordinary card still parses its directions');

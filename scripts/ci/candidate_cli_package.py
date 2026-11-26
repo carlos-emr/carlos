@@ -14,8 +14,9 @@ from lifecycle_baselines import candidate_cli
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def specification():
-    return candidate_cli(json.loads((ROOT / 'docs/testing/release-2026.08-lifecycle-baselines.json').read_text()))
+def specification(root=ROOT):
+    manifest = json.loads((root / 'docs/testing/release-2026.08-lifecycle-baselines.json').read_text())
+    return candidate_cli(manifest, root / 'debian/carlos-ctl.pin')
 
 
 def verify_package(path, spec):

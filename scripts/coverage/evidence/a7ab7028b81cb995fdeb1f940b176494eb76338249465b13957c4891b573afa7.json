@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "3be45fb7a578e17470541870d8f6cc3a0f8ac45e",
+  "comparisonSha256": "bafdf6f5067bfb2424492a83df09364b9cf99c0361d6e8d796d0b6013dba3206",
+  "baselineCommit": "6b796e46b5e33e8b0e9e0856d277cbf8829da09f",
+  "baselineSourceTree": "3be45fb7a578e17470541870d8f6cc3a0f8ac45e",
+  "baselineReportSha256": "a41ba2d68da8b384579891d91894fd87939f83bf813caa418eaecbe9bab4217d",
+  "baselineLane": "messenger compose focused Java tests",
+  "baselineTestCounts": {
+    "tests": 77,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "9927a9b056a8db1d14661a11251677f8b3df644451b69e1fd744ed68e864e1eb",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.messenger.pageUtil.MsgCreateMessage2ActionTest"
+  ],
+  "observedChangedSourceCoverage": {
+    "src/main/java/io/github/carlos_emr/carlos/messenger/pageUtil/MsgCreateMessage2Action.java": {
+      "lineCounts": {
+        "covered": 109,
+        "missed": 2
+      },
+      "instructionBranchCounts": {
+        "covered_instructions": 610,
+        "missed_instructions": 11,
+        "covered_branches": 80,
+        "missed_branches": 7,
+        "partial_lines": [
+          196,
+          197
+        ],
+        "missed_branch_lines": [
+          196,
+          197,
+          202,
+          206,
+          213,
+          233,
+          396
+        ]
+      },
+      "percentages": {
+        "lines": 98.1981981981982,
+        "instructions": 98.22866344605475,
+        "branches": 91.95402298850574
+      }
+    }
+  },
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/messenger/pageUtil/MsgCreateMessage2Action.java": {
+      "lines": 97.95918367346938,
+      "instructions": 97.79411764705883,
+      "branches": 89.85507246376811,
+      "sourceBlob": "635ab86ee807c9b444754f5fd390ca8815f0f3ec"
+    }
+  },
+  "exclusions": {},
+  "zeroCoverageWaivers": {}
+}

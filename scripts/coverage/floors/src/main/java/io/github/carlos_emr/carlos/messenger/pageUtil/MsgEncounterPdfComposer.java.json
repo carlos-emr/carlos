@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/messenger/pageUtil/MsgEncounterPdfComposer.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 98.55072463768116,
+    "instructions": 96.49805447470817,
+    "branches": 100.0,
+    "sourceBlob": "6cfd4fd0557a1444053f37acb2e6d6f9576a44f6"
+  },
+  "evidenceSha256": "e72058bf1ccb95bd937c561fbe1941d76b04da2c1fb10d9f7aa0b2bf60f6afaf"
+}

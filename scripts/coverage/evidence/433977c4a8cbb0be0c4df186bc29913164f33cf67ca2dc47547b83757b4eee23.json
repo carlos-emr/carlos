@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "647daf6b449ea10e13c85c2d0cc05f308bbc3891",
+  "comparisonSha256": "1e4770464605a4a3cd464adc55872d01289f2318b6a06cf7e2d03f6e6685f26b",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/AbstractModel.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "e7f40d001d5ba8588403d9e4d5a1561c3ab835a3"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/decisionSupport/model/DSGuidelineProviderMapping.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "d5c654504af05e087f6c9df0a522eb4d5662aac3"
+    }
+  },
+  "baselineCommit": "dd84741bd38481a98d291c822d25f6853c7189d5",
+  "baselineSourceTree": "647daf6b449ea10e13c85c2d0cc05f308bbc3891",
+  "baselineReportSha256": "52ee6b021ca75ae37bac8ba589d34a69c53f633e286eda591102eefcdb089888",
+  "baselineLane": "JDK 25 focused Surefire and JaCoCo for AbstractModel equality/hash and DSGuidelineProviderMapping equality (#5303)",
+  "baselineTestCounts": {
+    "tests": 31,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "521fff11132d899778fdd45d8543dcf33e006e56c7fed904179c87697abcca6d",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.commn.dao.DSGuidelineProviderMappingDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.model.AbstractModelEqualityUnitTest",
+    "io.github.carlos_emr.carlos.commn.model.AbstractModelProxyIntegrationTest",
+    "io.github.carlos_emr.carlos.decisionSupport.model.DSGuidelineProviderMappingEqualityUnitTest"
+  ]
+}

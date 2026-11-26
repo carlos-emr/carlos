@@ -1190,16 +1190,21 @@ nginx will not start: port 80 or 443 is already in use
   Nextcloud snap Ubuntu Server's installer offers serves 80/443) or a unit you
   wrote. An interactive install ASKS first (carlos-emr/stop-port-conflicts,
   listing each service), with a default of no. A non-interactive install
-  leaves other services running unless explicitly preseeded true:
+  uses the saved/preseeded answer, with false as the fresh-install default:
 
       echo 'carlos-emr carlos-emr/stop-port-conflicts boolean true' | sudo debconf-set-selections
 
   If accepted, each service stopped is disabled, or masked when it cannot be disabled,
   and a note names it; nothing is uninstalled, and the note gives the command
-  that brings it back once it has been moved to other ports. What was stopped,
+  that brings it back once it has been moved to other ports. Only the services
+  the question listed are stopped: one that took port 80 or 443 while the
+  question was open is left running and reported as "NOT stopped". What was stopped,
   or declined, is in the install output, /var/log/apt/term.log and the
   journal (journalctl -t carlos-emr). Non-interactive runs already decline by
-  default unless explicitly preseeded true. Interactive runs ask again on every
+  default on fresh installs. Older installs can retain true from the previous
+  installer default or an earlier answer. That retained true is announced before
+  stopping services; preseed false to revoke it before an unattended upgrade.
+  Interactive runs ask again on every
   configure that finds a conflict; preseeding false does not suppress the question.
 
   Named but left running: containers and the container engines (stopping one

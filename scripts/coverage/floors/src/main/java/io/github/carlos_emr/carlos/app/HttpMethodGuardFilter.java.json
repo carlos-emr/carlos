@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/app/HttpMethodGuardFilter.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "9034e267877103a0635d2b653995754a436c3260"
+  },
+  "evidenceSha256": "040e9757f021152259bb7a0ab46afb7e38e08d766a716220d15b775db046dbdb"
+}

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/eform/actions/ManageEForm2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "4d0e319d04d4aef4e7cb7e9cdee82ef7b4db6512"
+  },
+  "evidenceSha256": "16bc410cddebe2577d99b0076c52fe515830df0395ca9893ff57e6e763378b8b"
+}

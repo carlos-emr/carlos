@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/admin/web/UnLock2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "d8a4428d2aa2ca88f8e19417d5ef1dca031d7725"
+  },
+  "evidenceSha256": "57337e8aa59c77ff4f12c17aa9718efb0bcebd17f555c8761d93caa5c2417772"
+}

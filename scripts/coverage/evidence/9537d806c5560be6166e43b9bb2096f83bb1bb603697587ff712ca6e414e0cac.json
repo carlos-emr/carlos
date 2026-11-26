@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "c4f0f5e4a2bb3cc344e91a7ff575ea987a30df74",
+  "comparisonSha256": "202538c4a38f760f7458c8c424e0dbc758ad365ab164fa2b5b76b4b097969896",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/waitinglist/util/WLWaitingListUtil.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "b8f494f11b63a52a7a0c66734ad2304a684e3677"
+    }
+  },
+  "baselineCommit": "5fec110bfc674cf3d359d5fab08a1e5874bc9d91",
+  "baselineSourceTree": "c4f0f5e4a2bb3cc344e91a7ff575ea987a30df74",
+  "baselineReportSha256": "e41c1ee9acfb4b0665c637de495d6bf7044abfe056abe995184ef0c155b1a17c",
+  "baselineLane": "Fresh JDK25 compilation at the measured commit, clean tree. Focused H2 evidence for the waiting-list note-update helper after a modifier reorder that leaves its compiled class unchanged (#5298): 43 cases (the helper's result and concurrency unit tests, the twenty-three update-transaction cases, the patient edit form's stale-form tests and the waiting-list availability integration test). All 43 executed JUnit cases pass with zero failures, errors or skips. Existing higher floors retained; not full release qualification.",
+  "baselineTestCounts": {
+    "tests": 43,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "61ce274d856864328c89a523e05397685617c6cfcfaab1df4ccb3b8ecc39ea12",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineReportHeaderCollisions": 0
+}

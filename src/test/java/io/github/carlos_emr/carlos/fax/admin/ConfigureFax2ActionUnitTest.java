@@ -215,6 +215,8 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(FaxManager.class, faxManager);
         registerMock(FaxConfigDao.class, faxConfigDao);
+        registerMock(io.github.carlos_emr.carlos.fax.core.FaxImporter.class,
+                mock(io.github.carlos_emr.carlos.fax.core.FaxImporter.class));
 
         // testConnection() resolves the provider client through the factory at call time.
         providerClientFactory = mock(FaxProviderClientFactory.class);
@@ -653,6 +655,7 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
         setUpCommonMocks();
         grantConfigureWrite(true);
         stubProviderClient();
+        var importer = importerWithCappedBackoff();
 
         FaxConfig stored = new FaxConfig();
         stored.setId(1);
@@ -675,6 +678,7 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
             // The sentinel never reaches the provider; the stored credential is tested instead.
             assertThat(probeCaptor.getValue().getFaxPasswd()).isEqualTo("stored-secret-value");
             assertThat(response.getContentAsString()).contains("\"success\":true");
+            assertThat(importer.getPollingFailures()).containsOnlyKeys(2);
         }
     }
 
@@ -1001,6 +1005,253 @@ class ConfigureFax2ActionUnitTest extends CarlosUnitTestBase {
                     .contains("\"success\":false")
                     .contains("Enter the SRFax account number to test the connection.");
         }
+    }
+
+    private io.github.carlos_emr.carlos.fax.core.FaxImporter importerWithCappedBackoff() {
+        var importer = new io.github.carlos_emr.carlos.fax.core.FaxImporter(faxConfigDao,
+                mock(io.github.carlos_emr.carlos.commn.dao.FaxJobDao.class),
+                mock(io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao.class),
+                mock(io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao.class), providerClientFactory);
+        Object backoff = org.springframework.test.util.ReflectionTestUtils.getField(importer, "pollBackoff");
+        for (int attempt = 0; attempt < 7; attempt++) {
+            org.springframework.test.util.ReflectionTestUtils.invokeMethod(backoff, "failed", Integer.valueOf(1));
+            org.springframework.test.util.ReflectionTestUtils.invokeMethod(backoff, "failed", Integer.valueOf(2));
+        }
+        assertThat(importer.getPollingFailures().get(1).attempts()).isEqualTo(7);
+        assertThat(importer.getPollingFailures().get(1).nextRetry()).isAfter(java.time.Instant.now().plusSeconds(3500));
+        registerMock(io.github.carlos_emr.carlos.fax.core.FaxImporter.class, importer);
+        return importer;
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldClearSavedAccountBackoff_onlyAfterConfigurationSaveSucceeds(boolean failSave) throws Exception {
+        setUpCommonMocks();
+        grantConfigureWrite(true);
+        var importer = importerWithCappedBackoff();
+        var original = importer.getPollingFailures();
+        FaxConfig stored = new FaxConfig();
+        stored.setId(1);
+        stored.setProviderType(FaxConfig.ProviderType.SRFAX);
+        stored.setFaxUser("123456");
+        stored.setFaxNumber("4165550100");
+        stored.setActive(true);
+        when(faxConfigDao.findAll(isNull(), isNull())).thenReturn(new ArrayList<>(List.of(stored)));
+        when(faxConfigDao.getCountAll()).thenReturn(1);
+        if (failSave) org.mockito.Mockito.doThrow(new IllegalStateException("FAKE save refusal"))
+                .when(faxConfigDao).saveEntity(any(FaxConfig.class));
+        request.setMethod("POST");
+        setSrfaxAccountRowParams("1", "4165550100", "FAKE-updated-password");
+        try (var servlet = mockStatic(ServletActionContext.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            new ConfigureFax2Action().execute();
+            assertThat(OBJECT_MAPPER.readTree(response.getContentAsString()).get("success").asBoolean())
+                    .isEqualTo(!failSave);
+            if (failSave) assertThat(importer.getPollingFailures()).isEqualTo(original);
+            else assertThat(importer.getPollingFailures()).containsOnlyKeys(2);
+            assertThat(importer.getPollingFailures().get(2)).isEqualTo(original.get(2));
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "1,true,SRFAX,123456,FAKE-probed-password,true",
+            "1,true,SRFAX,123456,FAKE-stored-password,false",
+            "1,true,SRFAX,654321,FAKE-probed-password,false",
+            "1,true,MIDDLEWARE,123456,FAKE-probed-password,false",
+            "1,true,,,,false",
+            "1,false,SRFAX,123456,FAKE-probed-password,false",
+            "0,true,,,,false"
+    })
+    void shouldClearBackoff_onlyForVerifiedPersistedSettings(String account, boolean success,
+            FaxConfig.ProviderType storedProvider, String storedUser, String storedPassword, boolean clearsBackoff)
+            throws Exception {
+        setUpCommonMocks();
+        grantConfigureWrite(true);
+        stubProviderClient();
+        var importer = importerWithCappedBackoff();
+        var original = importer.getPollingFailures();
+        if (storedProvider != null) {
+            FaxConfig stored = new FaxConfig();
+            stored.setId(1);
+            stored.setProviderType(storedProvider);
+            stored.setFaxUser(storedUser);
+            stored.setFaxPasswd(storedPassword);
+            when(faxConfigDao.find(1)).thenReturn(stored);
+        }
+        if (!success) org.mockito.Mockito.doThrow(new IllegalStateException("FAKE provider refusal"))
+                .when(providerClient).verifyConnection(any(FaxConfig.class));
+        request.setMethod("POST");
+        setTestConnectionParams(account, "123456", "FAKE-probed-password");
+        try (var servlet = mockStatic(ServletActionContext.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            new ConfigureFax2Action().execute();
+            assertThat(OBJECT_MAPPER.readTree(response.getContentAsString()).get("success").asBoolean()).isEqualTo(success);
+            if (clearsBackoff) assertThat(importer.getPollingFailures()).containsOnlyKeys(2);
+            else assertThat(importer.getPollingFailures()).isEqualTo(original);
+            assertThat(importer.getPollingFailures().get(2)).isEqualTo(original.get(2));
+        }
+    }
+
+    @Test
+    void shouldPreserveNewBackoff_whenAProbeStartedBeforeConfigurationSave() throws Exception {
+        setUpCommonMocks();
+        grantConfigureWrite(true);
+        stubProviderClient();
+        var importer = importerWithCappedBackoff();
+        var otherAccount = importer.getPollingFailures().get(2);
+        Object backoff = org.springframework.test.util.ReflectionTestUtils.getField(importer, "pollBackoff");
+        FaxConfig stored = new FaxConfig();
+        stored.setId(1);
+        stored.setProviderType(FaxConfig.ProviderType.SRFAX);
+        stored.setFaxUser("123456");
+        stored.setFaxPasswd("FAKE-probed-password");
+        when(faxConfigDao.find(1)).thenReturn(stored);
+        org.mockito.Mockito.doAnswer(call -> {
+            importer.resetPollingBackoff(1);
+            org.springframework.test.util.ReflectionTestUtils.invokeMethod(backoff, "failed", 1);
+            return null;
+        }).when(providerClient).verifyConnection(any(FaxConfig.class));
+        request.setMethod("POST");
+        setTestConnectionParams("1", "123456", "FAKE-probed-password");
+
+        try (var servlet = mockStatic(ServletActionContext.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            new ConfigureFax2Action().execute();
+        }
+
+        assertThat(response.getContentAsString()).contains("\"success\":true");
+        assertThat(importer.getPollingFailures()).containsKeys(1, 2);
+        assertThat(importer.getPollingFailures().get(1).attempts()).isOne();
+        assertThat(importer.getPollingFailures().get(2)).isEqualTo(otherAccount);
+    }
+
+    @Test
+    void shouldKeepProbeSuccessful_whenPollingStateCannotBeLoaded() throws Exception {
+        setUpCommonMocks();
+        grantConfigureWrite(true);
+        stubProviderClient();
+        var importer = mock(io.github.carlos_emr.carlos.fax.core.FaxImporter.class);
+        when(importer.beginPollingBackoffProbe(1)).thenThrow(new IllegalStateException("FAKE unavailable state"));
+        registerMock(io.github.carlos_emr.carlos.fax.core.FaxImporter.class, importer);
+        request.setMethod("POST");
+        setTestConnectionParams("1", "123456", "FAKE-probed-password");
+
+        try (var servlet = mockStatic(ServletActionContext.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            new ConfigureFax2Action().execute();
+        }
+
+        assertThat(response.getContentAsString()).contains("\"success\":true");
+        verify(providerClient).verifyConnection(any(FaxConfig.class));
+    }
+
+    @Test
+    void shouldKeepProbeSuccessful_whenPersistedSettingsCannotBeReadAfterVerification() throws Exception {
+        setUpCommonMocks();
+        grantConfigureWrite(true);
+        stubProviderClient();
+        var importer = importerWithCappedBackoff();
+        var original = importer.getPollingFailures();
+        when(faxConfigDao.find(1)).thenThrow(new IllegalStateException("FAKE lookup failure"));
+        request.setMethod("POST");
+        setTestConnectionParams("1", "123456", "FAKE-probed-password");
+        try (var servlet = mockStatic(ServletActionContext.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            new ConfigureFax2Action().execute();
+        }
+        assertThat(response.getContentAsString()).contains("\"success\":true");
+        assertThat(importer.getPollingFailures()).isEqualTo(original);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullSource
+    @org.junit.jupiter.params.provider.ValueSource(ints = {0, -1, 99, 1})
+    void shouldResetOnlyTheNamedPersistedAccount_withoutTouchingOtherBackoff(Integer accountId) {
+        setUpCommonMocks();
+        var importer = importerWithCappedBackoff();
+        var original = importer.getPollingFailures();
+        importer.resetPollingBackoff(accountId);
+        if (Integer.valueOf(1).equals(accountId)) assertThat(importer.getPollingFailures()).containsOnlyKeys(2);
+        else assertThat(importer.getPollingFailures()).isEqualTo(original);
+        assertThat(importer.getPollingFailures().get(2)).isEqualTo(original.get(2));
+    }
+
+    private void submitTwoSrfaxAccounts() {
+        var accounts = new ArrayList<FaxConfig>();
+        for (int id : new int[]{1, 2}) {
+            FaxConfig stored = new FaxConfig();
+            stored.setId(id);
+            stored.setProviderType(FaxConfig.ProviderType.SRFAX);
+            accounts.add(stored);
+        }
+        when(faxConfigDao.findAll(isNull(), isNull())).thenReturn(accounts);
+        when(faxConfigDao.getCountAll()).thenReturn(2);
+        request.setMethod("POST");
+        setSrfaxAccountRowParams("1", "4165550100", "FAKE-updated-password");
+        for (String key : new String[]{"id", "faxUser", "faxPassword", "inboxQueue", "activeState",
+                "faxNumber", "senderEmail", "accountName", "downloadState", "providerType"}) {
+            String first = request.getParameter(key);
+            request.setParameter(key, new String[]{first, key.equals("id") ? "2" : first});
+        }
+    }
+
+    @Test
+    void shouldResetAnAccountWhoseSaveCommitted_evenWhenALaterAccountSaveFails() throws Exception {
+        setUpCommonMocks();
+        grantConfigureWrite(true);
+        var importer = importerWithCappedBackoff();
+        var secondFailure = importer.getPollingFailures().get(2);
+        submitTwoSrfaxAccounts();
+        org.mockito.Mockito.doAnswer(call -> {
+            if (((FaxConfig) call.getArgument(0)).getId().equals(2)) {
+                throw new IllegalStateException("FAKE second account save refusal");
+            }
+            return null;
+        }).when(faxConfigDao).saveEntity(any(FaxConfig.class));
+        try (var servlet = mockStatic(ServletActionContext.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            new ConfigureFax2Action().execute();
+            assertThat(OBJECT_MAPPER.readTree(response.getContentAsString()).get("success").asBoolean()).isFalse();
+            assertThat(importer.getPollingFailures()).containsOnlyKeys(2);
+            assertThat(importer.getPollingFailures().get(2)).isEqualTo(secondFailure);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldCompleteConfiguration_whenPollingBackoffResetFails(boolean schedulerFails) throws Exception {
+        setUpCommonMocks();
+        grantConfigureWrite(true);
+        var importer = org.mockito.Mockito.spy(importerWithCappedBackoff());
+        registerMock(io.github.carlos_emr.carlos.fax.core.FaxImporter.class, importer);
+        org.mockito.Mockito.doThrow(new IllegalStateException("FAKE private reset failure"))
+                .when(importer).resetPollingBackoff(1);
+        if (schedulerFails) {
+            org.mockito.Mockito.doThrow(new IllegalStateException("FAKE private scheduler failure"))
+                    .when(faxManager).startFaxSchedulerIfNotRunning(any(LoggedInInfo.class));
+        }
+        submitTwoSrfaxAccounts();
+        try (var servlet = mockStatic(ServletActionContext.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            new ConfigureFax2Action().execute();
+        }
+        var result = OBJECT_MAPPER.readTree(response.getContentAsString());
+        assertThat(result.get("success").asBoolean()).isTrue();
+        String message = result.get("message").asText();
+        assertThat(message).contains("Configuration saved", "Fax polling retry reset failed for account IDs [1]")
+                .doesNotContain("FAKE private");
+        assertThat(message.contains("fax scheduler failed to start")).isEqualTo(schedulerFails);
+        verify(faxConfigDao, org.mockito.Mockito.times(2)).saveEntity(any(FaxConfig.class));
+        verify(importer).resetPollingBackoff(2);
+        assertThat(importer.getPollingFailures()).containsOnlyKeys(1);
     }
 
 }

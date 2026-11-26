@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/hospitalReportManager/HRMUtil.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 90.0,
+    "sourceBlob": "e5d2fb8f937a7c322ff07f045f5a87608141fb33"
+  },
+  "evidenceSha256": "ef2ee34bc21cdb205f004c59d3f3902a768ea674f89b605acc52e3ea2ce1a0e5"
+}

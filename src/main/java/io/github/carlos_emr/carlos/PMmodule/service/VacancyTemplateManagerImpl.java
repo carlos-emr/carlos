@@ -33,8 +33,10 @@
 package io.github.carlos_emr.carlos.PMmodule.service;
 
 
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Service("vacancyTemplateManager")
 @Transactional
 public class VacancyTemplateManagerImpl implements VacancyTemplateManager {
 

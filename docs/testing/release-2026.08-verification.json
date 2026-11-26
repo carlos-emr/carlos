@@ -42,9 +42,9 @@
         "scripts/ci/run-public-api-oracle.py",
         "scripts/ci/WarWireCompatibilityProbe.java"
       ],
-      "implementation": "Keep a release-SHA/base-SHA/WAR-hash evidence manifest and assign every changed path, removed API, migration, resource and test-helper change to an executable check or explicit reviewed exclusion. Preserve the main-only commit inventory.",
+      "implementation": "Keep a release-SHA/base-SHA/WAR-hash evidence manifest and the main-only commit inventory. Track missing path-to-test mappings in CARLOS #6336 while qualifying the required executable checks for the release.",
       "cases": "Full Git diff, renamed/deleted/binary paths, files beyond the GitHub compare 300-file cap; wrong commit, stale build, absent artifact and changed source after build must fail.",
-      "acceptance": "No unowned production path; all required evidence belongs to the same release SHA and packaged bytes; current-main and older-workspace-main scopes remain distinct.",
+      "acceptance": "All required evidence belongs to the same release SHA and packaged bytes; current-main and older-workspace-main scopes remain distinct. Missing path-to-test mappings are advisory under CARLOS #6336; main-only migrations and published migration byte integrity remain required.",
       "requiredChecks": [
         "evidence-self-tests",
         "coverage-self-tests",
@@ -411,11 +411,12 @@
         "scripts/lib/qualified-lab-oracle.js",
         "scripts/qualified-lab-oracle.test.js",
         "docs/testing/lab-qualified-results-inventory.md",
-        "src/test/java/io/github/carlos_emr/carlos/lab/ca/on/LabResultDataAcknowledgementCountUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/on/LabResultDataAcknowledgementCountUnitTest.java",
+        "scripts/inbox-failure-states-playwright-checks.js"
       ],
-      "implementation": "Add native extension ambiguities and installed source-link authorization checks; retain the older-main timestamp/long measurement/import/routing regression sweep.",
+      "implementation": "Add native extension ambiguities and installed source-link authorization checks; retain the older-main timestamp/long measurement/import/routing regression sweep. Exercise invalid inbox document rows and real count-query failure on an exclusive disposable installation.",
       "cases": "History, Health Tracker and flowsheets; null/duplicate/stale/invalid/overflow extension values; foreign-patient source lab; batched provenance query; older lab versions and merged patients; real HL7 observation/entry times at midnight/noon/23:59 and DST; long and partial results; missing public key. Native qualified/qualitative lab entry, exact stored HL7 and every report/history/grid/row/visible tooltip, offered Plot PNGs with independent printed-axis calibration and exact numeric controls, actual PDF clinical columns and unrelated-patient preservation. Bound-to-number coercion #5827 and shipped-filter literal/history loss #5828 remain fatal. Incomplete CML acknowledgement aggregates retain visible inbox rows with an explicit warning and disabled bulk selection; unrelated query errors propagate and existing JSON/XML count contracts remain unchanged.",
-      "acceptance": "Exact clinical values and timestamps persist; links open only authorized source reports, remain deterministic under duplicate data, and add no per-reading query or false error storm.",
+      "acceptance": "Exact clinical values and timestamps persist; links open only authorized source reports, remain deterministic under duplicate data, and add no per-reading query or false error storm. Invalid inbox rows retain later valid documents with an explicit incomplete-list notice; failed count queries return a non-success response without partial totals, and recovery is verified after restoring the schema.",
       "requiredChecks": [
         "evidence-self-tests",
         "coverage-self-tests",
@@ -428,7 +429,8 @@
         "java-native-bc-flyway",
         "java-date-zones",
         "manual-pathnet-patient-link",
-        "packaged-native-pathnet"
+        "packaged-native-pathnet",
+        "manual-inbox-failure-states"
       ]
     },
     {
@@ -527,7 +529,8 @@
         "scripts/form-growth-clinical-geometry-playwright-checks.js",
         "scripts/form-rourke2020-growth-playwright-checks.js",
         "scripts/lib/growth-clinical-oracle.js",
-        "docs/testing/growth-clinical-geometry-inventory.md"
+        "docs/testing/growth-clinical-geometry-inventory.md",
+        "scripts/privacy-static-html-metadata-playwright-checks.js"
       ],
       "implementation": "Rerun the established before/after PDF corpus on the final packaged WAR; extend renderer security and concurrency, and preserve the already-added half-letter browser dimension/content assertions.",
       "cases": "A4/Letter/A6/396x612 half-letter, print/reprint/fax, auto-print, signatures, long patient/pharmacy headers, all Rourke/BC/legacy forms, long notes and checked marks, CJK/emoji/accents, no host fonts/unwritable font cache, PDF 2.0 consumers, Brotli input, warm-cache two-patient parallel rendering; Flying Saucer resource/network/path refusals. Native Rourke/Growth output for fixed male/female infant birth dates, independent WHO grid/curve/unit/age-axis and median relationships, irregular and birth/24-month-edge observations, form/module inclusion and exact duplicate representation, complete saved-history and unrelated-control preservation.",
@@ -541,7 +544,8 @@
         "packaged-full",
         "http-client-compatibility",
         "java-browser-pdf",
-        "manual-jasper-production"
+        "manual-jasper-production",
+        "manual-privacy-static-html-metadata"
       ]
     },
     {
@@ -550,6 +554,8 @@
       "area": "EBS transport and WS-Security qualification",
       "sources": [
         "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/EdtClientBuilderTransportUnitTest.java",
+        "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentCleanupInterceptor.java",
+        "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/DynamicWSS4JInInterceptor.java",
         "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentResolverSpi.java",
         "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/mailbox/CidPrefixResourceResolver.java",
         "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentResolverSpiUnitTest.java",
@@ -563,9 +569,9 @@
         "scripts/ci/run-public-api-oracle.py",
         "scripts/ci/WarWireCompatibilityProbe.java"
       ],
-      "implementation": "Preserve the extensive independent loopback HTTPS tests; run them against packaged classpath and qualify actual approved staging MCEDT/HCV deployment settings. Add a separate test for CXF-owned spill-cache retention rather than claiming application replay closure covers it.",
-      "cases": "Signed/encrypted SOAP/MTOM, exact bytes, TLS 1.2/1.3, mTLS/hostname/trust failures, proxy/auth, stalled/progressing/truncated bodies, plain/multipart fault chains, thread-local cleanup and concurrent clients; ordinary crypto properties remain readable, ENC(...) has explicit refusal; async/HTTP2/custom extensions inventoried.",
-      "acceptance": "Supported Ministry flows work on deployed transport and resources stay bounded. The documented pre-existing CXF spill-cache finding and unavailable staging credentials remain explicit unresolved gates. CXF-owned spill caches and vendor staging are separate required acceptance; replay-buffer cleanup alone is insufficient.",
+      "implementation": "Run the independent loopback HTTPS tests against the packaged classpath and qualify approved staging MCEDT/HCV deployment settings. The #5745 loopback regressions use a private directory and a low threshold to verify CXF-owned spill-cache cleanup alongside application replay cleanup.",
+      "cases": "Signed/encrypted SOAP/MTOM, exact bytes for distinct attachments, TLS 1.2/1.3, mTLS/hostname/trust failures, proxy/auth, stalled/progressing/truncated bodies, plain/multipart fault chains, thread-local cleanup and concurrent clients. Response completion and faults release CXF-owned spill files and preserve unrelated files. Ordinary crypto properties remain readable, ENC(...) has explicit refusal, and async/HTTP2/custom extensions are inventoried.",
+      "acceptance": "Supported Ministry flows work on deployed transport and resources stay bounded. Both CXF attachment caches and replay buffers are released. Packaged staging qualification remains required and depends on authorized access.",
       "requiredChecks": [
         "evidence-self-tests",
         "coverage-self-tests",
@@ -744,6 +750,7 @@
         "package-clean-reinstall",
         "package-main-upgrade",
         "package-beta5-upgrade",
+        "package-beta8-upgrade",
         "packaged-o19-migrated"
       ]
     },
@@ -780,7 +787,8 @@
         "manual-deb-login",
         "package-clean-reinstall",
         "package-main-upgrade",
-        "package-beta5-upgrade"
+        "package-beta5-upgrade",
+        "package-beta8-upgrade"
       ]
     },
     {
@@ -818,6 +826,7 @@
         "fixture-hrm-report-list",
         "fixture-messenger-reply-form",
         "fixture-search-sort-messenger-inbox",
+        "manual-forms-default-heading",
         "manual-demographic-converted-limits",
         "manual-eform-large-html-roundtrip"
       ]
@@ -836,7 +845,7 @@
         "scripts/ci/lifecycle_baselines.py",
         "scripts/ci/test_lifecycle_baselines.py"
       ],
-      "implementation": "Execute actual clinical JavaScript and persisted workflows for the older-main form/measurement/prevention/rule changes; promote the HDL defect regressions once the product is fixed. Require distinct pinned beta5 and current-main beta6 installs on ON/BC; beta5 exercises V1.0.59.27–32 and CLI 1.3.0-to-1.3.1. A source-identical current-main install alone does not cover historical migration.",
+      "implementation": "Execute actual clinical JavaScript and persisted workflows for the older-main form/measurement/prevention/rule changes; promote the HDL defect regressions once the product is fixed. Require distinct pinned beta5, current-main beta6 and previous beta8 installs on ON/BC. Beta5 exercises V1.0.59.27–32 and the CLI transition from 1.3.0, beta6 starts on 1.3.1, and beta8 upgrades directly from 1.3.5. A source-identical current-main install alone does not cover historical migration.",
       "cases": "Framingham/UKPDS HDL equal/greater than total and stale-answer clearing; renal thresholds/source selection; WHtR and waist units; valid/impossible dates and leap/DST days; missing patient/catalog/rules; age/sex/hide filters; shared/private/null flowsheet scopes; selected preventions in print; duplicate linked diagnosis/drug and intact long lab values.",
       "acceptance": "Clinical calculations use the intended inputs, invalid input clears stale results, persisted dates/values are exact, and no missing-data case logs an error per prevention type.",
       "requiredChecks": [
@@ -886,6 +895,9 @@
         "packaged-full",
         "installed-package-reinstall",
         "manual-report-configured-jasper",
+        "manual-report-blob-text-readers",
+        "manual-fax-configuration-save",
+        "manual-provider-document-queue-security",
         "manual-log-provider-order"
       ]
     },
@@ -923,7 +935,8 @@
         "manual-shared-outcomes-launch",
         "browser-process-oracle",
         "packaged-profile-first-nations",
-        "packaged-profile-first-nations-encoding"
+        "packaged-profile-first-nations-encoding",
+        "packaged-profile-consult-health-care-team"
       ]
     },
     {
@@ -1031,7 +1044,7 @@
         "scripts/playwright-suite.json",
         "src/test/java/io/github/carlos_emr/carlos/commn/dao/AppointmentUpdateDaoIntegrationTest.java"
       ],
-      "implementation": "Rerun supported feature contracts for all release work already promoted to live main, as well as the recent release-only delta; map unmatched paths to a concrete family before closing evidence.",
+      "implementation": "Rerun supported feature contracts for all release work already promoted to live main, as well as the recent release-only delta. Track unmatched path-to-test mappings in CARLOS #6336.",
       "cases": "Patient create/edit/merge/history; chart notes/CPP/pregnancy; prescribing/allergies/drug lookup; appointments/groups/recurrence/slot locks; ON/BC billing and payment; labs/HRM/inbox; forms/eForms/documents/ticklers; contacts/messaging; provider/security/admin; OAuth/REST/ChartSpace; reports/export and clinical rules.",
       "acceptance": "No changed feature is omitted because it happens to be common to live main and release. File routing and test counts are traceability aids, not proof that its assertions ran or are sufficient.",
       "requiredChecks": [
@@ -1089,7 +1102,8 @@
         "packaged-full",
         "backup-retention-purge",
         "debian-python",
-        "installed-backup-core"
+        "installed-backup-core",
+        "java-native-generated"
       ]
     },
     {
@@ -1230,7 +1244,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 390,
+      "minimumCases": 392,
       "runtimeConstraints": {
         "python": "3.14"
       },
@@ -1395,6 +1409,7 @@
         "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_unresolved_type_on_both_binaries_cannot_look_like_compatibility",
         "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_xml_prefixes_are_canonicalized_but_clinical_text_is_not_normalized",
         "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_xml_tail_text_and_numeric_precision_are_not_lost",
+        "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_both_provinces_require_the_named_queue_and_schedule_regressions",
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_clean_controls_pass_in_both_python_modes",
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_counter_mismatch_cannot_supply_coverage",
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_dotted_display_names_must_be_declared_in_the_owning_source",
@@ -1408,6 +1423,7 @@
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_missing_required_family_in_each_lane_fails",
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_native_case_families_cannot_be_omitted_or_substituted_in_any_lane",
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_nested_name_collision_is_explicit_and_does_not_hide_a_failed_attempt",
+        "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_ontario_requires_single_site_and_multisite_billing_results",
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_parenthesized_surefire_schema_suffixes_are_bound_to_the_filename",
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_summary_omits_configuration_and_console_output",
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_unmatched_upload_cases_alone_cannot_supply_required_coverage",
@@ -1742,7 +1758,12 @@
         "PublishedXmlSchemaContractUnitTest": 28,
         "JaxbGeneratedSchemaUnitTest": 336,
         "DemographicBirthDayTimezoneUnitTest": 27,
-        "LabResultDataAcknowledgementCountUnitTest": 10
+        "LabResultDataAcknowledgementCountUnitTest": 10,
+        "IncomingDocumentQueuePreferenceIntegrationTest": 9,
+        "ScheduleDateOverrideServiceIntegrationTest": 19,
+        "BillingOnSiteVisibilityIntegrationTest": 8,
+        "BillingOnFileAccessServiceIntegrationTest": 3,
+        "BillingOnOutputFilenamesIntegrationTest": 3
       },
       "requireCoverage": true,
       "routedSkips": {
@@ -2624,6 +2645,52 @@
               ]
             },
             {
+              "name": "shouldPreserveConnectorJValues_forFloatingAndBitColumns(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldPreserveConnectorJValues_forFloatingAndBitColumns(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldPreserveConnectorJValues_forFloatingAndBitColumns(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldConnectAndApplyConnectorJYesNo_forLegacyBooleanOptions",
+              "container": ""
+            },
+            {
+              "name": "shouldPreserveZeroFilledTextAndUnsignedTinyIntegers_inBothPreparedProtocols(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldPreserveZeroFilledTextAndUnsignedTinyIntegers_inBothPreparedProtocols(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldPreserveZeroFilledTextAndUnsignedTinyIntegers_inBothPreparedProtocols(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldCheckFloatRange_inBothPreparedProtocols(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldCheckFloatRange_inBothPreparedProtocols(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldCheckFloatRange_inBothPreparedProtocols(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
               "name": "shouldPreserveDateWrites_whenJvmAndConnectionZonesDiffer(boolean)",
               "container": "",
               "destinations": [
@@ -2827,6 +2894,10 @@
             },
             {
               "name": "shouldCountDistinctHrmReports_byPatientProviderAndSignoffIndependentlyOfViewed",
+              "container": ""
+            },
+            {
+              "name": "shouldCompareTheFiltersDateColumns_forLabAndDocumentBoundsOnPhysicalMariaDb",
               "container": ""
             }
           ]
@@ -3160,6 +3231,15 @@
             }
           ]
         },
+        "io.github.carlos_emr.carlos.eform.util.StaticHtmlPrivacyCacheBrowserIntegrationTest": {
+          "check": "java-browser-pdf",
+          "cases": [
+            {
+              "name": "shouldFetchTheCurrentPage_whenThePrintStatementIsEnabledAndDisabled",
+              "container": ""
+            }
+          ]
+        },
         "io.github.carlos_emr.carlos.managers.RxPrescribeMariaDbIntegrationTest": {
           "check": "java-native-generated",
           "cases": [
@@ -3272,6 +3352,19 @@
             {
               "name": "shouldRollbackEarlierNameAudits_whenLaterCheckedFailureEscapes",
               "container": ""
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.billings.ca.on.service.BillingObecAlertDaoMariaDbIntegrationTest": {
+          "check": "java-native-generated",
+          "cases": [
+            {
+              "name": "shouldLeaveTheStoredAlertWhole_whenTheMessageWouldMakeItTooLong(String)[2]",
+              "container": "OBEC apply and the patient alert column, on the database"
+            },
+            {
+              "name": "shouldStoreTheAlertWhole_whenItFillsTheLimitAsTheFormCountsIt(String)[2]",
+              "container": "OBEC apply and the patient alert column, on the database"
             }
           ]
         },
@@ -5060,6 +5153,76 @@
               ]
             }
           ]
+        },
+        "io.github.carlos_emr.carlos.managers.AuditLogPurgeMariaDbIntegrationTest": {
+          "check": "java-native-generated",
+          "cases": [
+            {
+              "name": "shouldRestoreEveryDeletedValue_whenPurgingThroughTheLastInstantOfTheDay",
+              "container": ""
+            },
+            {
+              "name": "shouldRetainRowsAndReleaseLocks_whenDumpFailsTimesOutOrOmitsRows",
+              "container": ""
+            },
+            {
+              "name": "shouldRetainBackedUpRows_whenAuditRecordingFailsBeforeDelete",
+              "container": ""
+            },
+            {
+              "name": "shouldSerializePurgesAndPreserveLateHistoricalRows_whenAnotherWriterRuns",
+              "container": ""
+            },
+            {
+              "name": "shouldRecordPurgeAuditWithoutBlocking_whenAllExistingRowsAreEligible",
+              "container": ""
+            },
+            {
+              "name": "shouldUseLiveCredentials_whenApplicationUserHasQuotedPassword",
+              "container": ""
+            },
+            {
+              "name": "shouldRetainCompletedBackupsAndReportFailure_whenALaterCohortFails",
+              "container": ""
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnSiteVisibilityIntegrationTest": {
+          "check": "java-native-flyway",
+          "cases": [
+            {
+              "name": "shouldShowUnassignedBillersAndDisks_whenSingleSiteHasSeededPrivacyGrant",
+              "container": ""
+            },
+            {
+              "name": "shouldRestrictBothViewsAndDiskRows_whenMultisitePrivacyIsGranted",
+              "container": ""
+            },
+            {
+              "name": "shouldShowUnassignedBillersAndDisks_whenMultisiteHasNoPrivacyGrant",
+              "container": ""
+            },
+            {
+              "name": "shouldLimitHistoryToTheTeam_whenSingleSiteLoginHasOnlyTeamBillingAndSeededSiteGrants",
+              "container": ""
+            },
+            {
+              "name": "shouldRequireTeamAndSiteForHistory_whenOnlyTeamBillingAndMultisiteGrantsArePresent",
+              "container": ""
+            },
+            {
+              "name": "shouldRetainTeamAccessPrecedence_whenBothMultisiteAndTeamPrivacyAreGranted",
+              "container": ""
+            },
+            {
+              "name": "shouldMarkOnlyTheAuthorizedLegacyClaim_whenTwoBillersShareAnOhipNumber",
+              "container": ""
+            },
+            {
+              "name": "shouldRemoveOnlyProvisionalDiskOwnership_whenNewOutputCollides(Path)",
+              "container": ""
+            }
+          ]
         }
       },
       "runtimeConstraints": {
@@ -5111,7 +5274,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicWebUnmergeIntegrationTest,SiteRenameClockMariaDbIntegrationTest,JdbcConnectorMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,RxStrictAuditIntegrationTest,RxSaveReceiptCommitIntegrationTest,RxConcurrencyIntegrationTest,RxFavoriteGroupIntegrationTest,RxFavoriteCopyIntegrationTest,RxRestPrescriptionRollbackIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,ReportConnectionLeaseIntegrationTest",
+        "-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicWebUnmergeIntegrationTest,SiteRenameClockMariaDbIntegrationTest,JdbcConnectorMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,RxStrictAuditIntegrationTest,RxSaveReceiptCommitIntegrationTest,RxConcurrencyIntegrationTest,RxFavoriteGroupIntegrationTest,RxFavoriteCopyIntegrationTest,RxRestPrescriptionRollbackIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,ReportConnectionLeaseIntegrationTest,AppointmentFieldAuditTransactionIntegrationTest,AuditLogPurgeMariaDbIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -5121,13 +5284,13 @@
         "-DexcludedGroups=flyway-schema",
         "-Dcarlos.test.schema.expected=generated"
       ],
-      "minimumCases": 2599,
+      "minimumCases": 2676,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
         "DemographicMergeMariaDbIntegrationTest": 9,
-        "JdbcConnectorMariaDbIntegrationTest": 40,
+        "JdbcConnectorMariaDbIntegrationTest": 47,
         "BilledProviderReportDaoIntegrationTest": 2,
         "MariaDbDaoHarnessIntegrationTest": 1,
         "MeasurementDaoIntegrationTest": 1,
@@ -5141,7 +5304,8 @@
         "LookupDaoIntegrationTest": 1,
         "AbstractDaoFindAllOrderingIntegrationTest": 6,
         "CaseManagementIssueDAOIntegrationTest": 21,
-        "Growth0To36FormPersistenceIntegrationTest": 19,
+        "Growth0To36FormPersistenceIntegrationTest": 20,
+        "RehabStudyFormDaoIntegrationTest": 69,
         "FixedJasperReportDaoIntegrationTest": 2,
         "PatientEndYearStatementIntegrationTest": 5,
         "PatientEndYearStatementTransactionIntegrationTest": 2,
@@ -5152,7 +5316,8 @@
         "RxPrescribeMariaDbIntegrationTest": 4,
         "TicklerPatientAccessMariaDbIntegrationTest": 12,
         "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
-        "AppointmentUpdateDaoIntegrationTest": 18,
+        "AppointmentUpdateDaoIntegrationTest": 19,
+        "AppointmentFieldAuditTransactionIntegrationTest": 3,
         "ReportingPatientListAuditMariaDbIntegrationTest": 4,
         "ReportConnectionLeaseIntegrationTest": 3,
         "RxSaveReceiptCommitIntegrationTest": 19,
@@ -5162,7 +5327,10 @@
         "RxRestPrescriptionRollbackIntegrationTest": 1,
         "RxStrictAuditIntegrationTest": 1,
         "DemographicWebUnmergeIntegrationTest": 19,
-        "SiteRenameClockMariaDbIntegrationTest": 8
+        "BillingObecAlertDaoMariaDbIntegrationTest": 4,
+        "SiteRenameClockMariaDbIntegrationTest": 8,
+        "AuditLogPurgeMariaDbIntegrationTest": 7,
+        "DemographicUpdateDaoTransactionIntegrationTest": 30
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -5192,7 +5360,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicWebUnmergeIntegrationTest,SiteRenameClockMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,Growth0To36FormPersistenceIntegrationTest,EncounterFormDaoGroupedHistoryIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest,CaseManagementNoteLegacyFlagsMariaDbIntegrationTest",
+        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicWebUnmergeIntegrationTest,SiteRenameClockMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,Growth0To36FormPersistenceIntegrationTest,RehabStudyFormDaoIntegrationTest,EncounterFormDaoGroupedHistoryIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest,CaseManagementNoteLegacyFlagsMariaDbIntegrationTest,DemographicUpdateDaoTransactionIntegrationTest,IncomingDocumentQueuePreferenceIntegrationTest,ScheduleDateOverrideServiceIntegrationTest,BillingOnSiteVisibilityIntegrationTest,BillingOnFileAccessServiceIntegrationTest,BillingOnOutputFilenamesIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -5201,7 +5369,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 214,
+      "minimumCases": 284,
       "requiredFamilies": {
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
@@ -5217,9 +5385,10 @@
         "BillingONCHeader1DaoIntegrationTest": 1,
         "LegacyLabUploadDaoIntegrationTest": 8,
         "LabRoutingLookupDaoIntegrationTest": 6,
-        "LegacyLabNativeMariaDbIntegrationTest": 7,
+        "LegacyLabNativeMariaDbIntegrationTest": 8,
         "ArchiveAuditTimestampIntegrationTest": 2,
-        "Growth0To36FormPersistenceIntegrationTest": 19,
+        "Growth0To36FormPersistenceIntegrationTest": 20,
+        "RehabStudyFormDaoIntegrationTest": 69,
         "FixedJasperReportDaoIntegrationTest": 2,
         "PatientEndYearStatementIntegrationTest": 5,
         "PatientEndYearStatementTransactionIntegrationTest": 2,
@@ -5233,7 +5402,13 @@
         "ReportingPatientListAuditMariaDbIntegrationTest": 4,
         "DemographicWebUnmergeIntegrationTest": 19,
         "CaseManagementNoteLegacyFlagsMariaDbIntegrationTest": 30,
-        "SiteRenameClockMariaDbIntegrationTest": 8
+        "SiteRenameClockMariaDbIntegrationTest": 8,
+        "DemographicUpdateDaoTransactionIntegrationTest": 30,
+        "IncomingDocumentQueuePreferenceIntegrationTest": 9,
+        "ScheduleDateOverrideServiceIntegrationTest": 19,
+        "BillingOnSiteVisibilityIntegrationTest": 8,
+        "BillingOnFileAccessServiceIntegrationTest": 3,
+        "BillingOnOutputFilenamesIntegrationTest": 3
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -5263,7 +5438,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicWebUnmergeIntegrationTest,SiteRenameClockMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,FormXmlImportServiceIntegrationTest,EFormApColumnLookupIntegrationTest,AppointmentDaySheetServiceIntegrationTest,AntenatalReportDaoIntegrationTest,EFormGroupDaoIntegrationTest,Growth0To36FormPersistenceIntegrationTest,EncounterFormDaoGroupedHistoryIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,LegacyBcTeleplanExportMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest,CaseManagementNoteLegacyFlagsMariaDbIntegrationTest",
+        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicWebUnmergeIntegrationTest,SiteRenameClockMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,FormXmlImportServiceIntegrationTest,EFormApColumnLookupIntegrationTest,AppointmentDaySheetServiceIntegrationTest,AntenatalReportDaoIntegrationTest,EFormGroupDaoIntegrationTest,Growth0To36FormPersistenceIntegrationTest,RehabStudyFormDaoIntegrationTest,EncounterFormDaoGroupedHistoryIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,LegacyBcTeleplanExportMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest,CaseManagementNoteLegacyFlagsMariaDbIntegrationTest,DemographicUpdateDaoTransactionIntegrationTest,IncomingDocumentQueuePreferenceIntegrationTest,ScheduleDateOverrideServiceIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -5272,7 +5447,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 241,
+      "minimumCases": 311,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "BcBillingNativeMariaDbIntegrationTest": 22,
@@ -5281,14 +5456,15 @@
         "CaseManagementNoteLockMariaDbIntegrationTest": 15,
         "ConsultationArchiveDaoIntegrationTest": 1,
         "LabRoutingLookupDaoIntegrationTest": 6,
-        "LegacyLabNativeMariaDbIntegrationTest": 7,
+        "LegacyLabNativeMariaDbIntegrationTest": 8,
         "ArchiveAuditTimestampIntegrationTest": 2,
         "FormXmlImportServiceIntegrationTest": 7,
         "EFormApColumnLookupIntegrationTest": 2,
-        "AppointmentDaySheetServiceIntegrationTest": 4,
+        "AppointmentDaySheetServiceIntegrationTest": 5,
         "AntenatalReportDaoIntegrationTest": 5,
         "EFormGroupDaoIntegrationTest": 9,
-        "Growth0To36FormPersistenceIntegrationTest": 19,
+        "Growth0To36FormPersistenceIntegrationTest": 20,
+        "RehabStudyFormDaoIntegrationTest": 69,
         "FixedJasperReportDaoIntegrationTest": 2,
         "PatientEndYearStatementTransactionIntegrationTest": 2,
         "LegacyBcTeleplanExportMariaDbIntegrationTest": 29,
@@ -5302,7 +5478,10 @@
         "ReportingPatientListAuditMariaDbIntegrationTest": 4,
         "DemographicWebUnmergeIntegrationTest": 19,
         "CaseManagementNoteLegacyFlagsMariaDbIntegrationTest": 30,
-        "SiteRenameClockMariaDbIntegrationTest": 8
+        "SiteRenameClockMariaDbIntegrationTest": 8,
+        "DemographicUpdateDaoTransactionIntegrationTest": 30,
+        "IncomingDocumentQueuePreferenceIntegrationTest": 9,
+        "ScheduleDateOverrideServiceIntegrationTest": 19
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -5988,6 +6167,7 @@
       "command": [
         "python3",
         "scripts/ci/release-scope-audit.py",
+        "--migration-integrity-only",
         "--output",
         "{run}/scope-details.json",
         "--result-output",
@@ -5997,7 +6177,6 @@
       "resultContract": {
         "file": "scope-result.json",
         "assertions": [
-          "complete-production-ownership",
           "main-only-migration-dispositions",
           "published-migrations-byte-identical"
         ]
@@ -6177,14 +6356,14 @@
         "all"
       ],
       "repetitions": 1,
-      "minimumCases": 5,
+      "minimumCases": 6,
       "command": [
         "mvn",
         "-B",
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=EFormBrowserPdfServiceSeleniumSmokeIntegrationTest,DhirReviewJspBrowserIntegrationTest,MeasurementChartSmokeIntegrationTest",
+        "-Dtest=EFormBrowserPdfServiceSeleniumSmokeIntegrationTest,DhirReviewJspBrowserIntegrationTest,MeasurementChartSmokeIntegrationTest,StaticHtmlPrivacyCacheBrowserIntegrationTest",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
         "-Djacoco.destFile={run}/jacoco.exec",
@@ -6274,6 +6453,7 @@
       "command": [
         "python3",
         "scripts/ci/release-scope-audit.py",
+        "--migration-integrity-only",
         "--output",
         "{run}/scope.json"
       ],
@@ -7442,6 +7622,53 @@
       }
     },
     {
+      "id": "package-beta8-upgrade",
+      "kind": "command",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "packaged": true,
+      "deploymentScope": "orchestrated-package-lifecycle",
+      "requiresEnvironment": [
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE",
+        "CARLOS_PACKAGE_LIFECYCLE_CONFIG"
+      ],
+      "requiresExecutables": [
+        "docker",
+        "dpkg-deb",
+        "dpkg",
+        "node"
+      ],
+      "command": [
+        "python3",
+        "scripts/ci/run-package-lifecycle.py",
+        "--profile",
+        "{profile}",
+        "--artifact",
+        "{artifact}",
+        "--output",
+        "{run}/lifecycle-result.json",
+        "--role",
+        "previous"
+      ],
+      "resultContract": {
+        "file": "lifecycle-result.json",
+        "assertions": [
+          "complete-lifecycle-core"
+        ]
+      },
+      "timeoutSeconds": 18000,
+      "lifecycleRoles": [
+        "previous"
+      ],
+      "runtimeConstraints": {
+        "node": "22"
+      }
+    },
+    {
       "id": "fixture-ci-browser",
       "kind": "command",
       "profiles": [
@@ -8277,6 +8504,187 @@
       "timeoutSeconds": 3600
     },
     {
+      "id": "manual-report-blob-text-readers",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "selection": [
+        "report-blob-text-readers"
+      ],
+      "packaged": true,
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST",
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE"
+      ],
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "timeoutSeconds": 420,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--only",
+        "report-blob-text-readers",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "requireLockedChromium": true
+    },
+    {
+      "id": "manual-fax-configuration-save",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "selection": [
+        "fax-configuration-save"
+      ],
+      "packaged": true,
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST",
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE"
+      ],
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "timeoutSeconds": 420,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--only",
+        "fax-configuration-save",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "requireLockedChromium": true
+    },
+    {
+      "id": "packaged-profile-consult-health-care-team",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--profile",
+        "consult-health-care-team",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "packaged": true,
+      "propertyProfile": "consult-health-care-team",
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST"
+      ],
+      "timeoutSeconds": 7200,
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "requireLockedChromium": true
+    },
+    {
+      "id": "manual-forms-default-heading",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "selection": [
+        "forms-default-heading"
+      ],
+      "packaged": true,
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST",
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE"
+      ],
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "timeoutSeconds": 420,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--only",
+        "forms-default-heading",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "requireLockedChromium": true
+    },
+    {
+      "id": "manual-provider-document-queue-security",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "selection": [
+        "provider-document-queue-security"
+      ],
+      "packaged": true,
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST",
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE"
+      ],
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "timeoutSeconds": 420,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--only",
+        "provider-document-queue-security",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "requireLockedChromium": true
+    },
+    {
       "id": "manual-log-provider-order",
       "kind": "browser",
       "profiles": [
@@ -8351,6 +8759,40 @@
       "requireLockedChromium": true
     },
     {
+      "id": "manual-privacy-static-html-metadata",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "selection": [
+        "privacy-static-html-metadata"
+      ],
+      "packaged": true,
+      "requiresEnvironment": [
+        "BASE_URL"
+      ],
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "timeoutSeconds": 420,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--only",
+        "privacy-static-html-metadata",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "requireLockedChromium": true
+    },
+    {
       "id": "manual-eform-large-html-roundtrip",
       "kind": "browser",
       "profiles": [
@@ -8377,6 +8819,44 @@
         "--strict-release",
         "--only",
         "eform-large-html-roundtrip",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "requireLockedChromium": true
+    },
+    {
+      "id": "manual-inbox-failure-states",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "selection": [
+        "inbox-failure-states"
+      ],
+      "packaged": true,
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST",
+        "DOCUMENT_DIR",
+        "EXCLUSIVE",
+        "CARLOS_DISPOSABLE_VM"
+      ],
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "timeoutSeconds": 420,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--only",
+        "inbox-failure-states",
         "--province",
         "{profile}",
         "--residue-audit",
@@ -8534,9 +9014,22 @@
       ]
     },
     "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentCleanupInterceptor.java": {
-      "reason": "Owned replay closes once and attachment thread-local is cleared on normal and fault chains.",
+      "reason": "Owned replay and CXF attachment caches are released and the attachment thread-local is cleared on normal and fault chains. Cleanup reads no additional MIME parts.",
       "tests": [
-        "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentCleanupInterceptorUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentCleanupInterceptorUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/EdtClientBuilderTransportUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T19"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/DynamicWSS4JInInterceptor.java": {
+      "reason": "The signed HTTPS fixture verifies that each exchange releases WSS4J attachment readers and delivers the exact payloads for concurrent responses and downloads containing multiple attachments.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/EdtClientBuilderTransportUnitTest.java"
       ],
       "checks": [
         "java-all"
@@ -9020,16 +9513,22 @@
       ]
     },
     "src/main/java/io/github/carlos_emr/carlos/managers/DemographicManagerImpl.java": {
-      "reason": "Merged-demographic read audit identifies the requested patient; installed chart reads verify the patient-filtered access audit. Other manager acceptance and source-scope gaps are not waived.",
+      "reason": "Merged-demographic read audit identifies the requested patient; installed chart reads verify the patient-filtered access audit. A demographic update and its custom-field save are single transactions (#5298): database-raised failures at the patient, extension, custom-field and audit rows leave nothing behind on H2 and physical MariaDB, extensions are written in the order given so that a refused change to a stored extension is raised by the update itself rather than at the caller's commit, every extension is bound to the patient being updated and a stored one that is not that patient's is refused before any write, and the installed REST update is checked end to end. Other manager acceptance and source-scope gaps are not waived.",
       "tests": [
         "src/test/java/io/github/carlos_emr/carlos/managers/DemographicManagerUnitTest.java",
-        "scripts/audit-log-chart-read-playwright-checks.js"
+        "scripts/audit-log-chart-read-playwright-checks.js",
+        "src/test/java/io/github/carlos_emr/carlos/managers/DemographicUpdateDaoTransactionIntegrationTest.java",
+        "scripts/demographic-rest-update-atomicity-playwright-checks.js"
       ],
       "checks": [
         "java-all",
-        "packaged-full"
+        "packaged-full",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
       ],
       "workstreams": [
+        "T04",
         "T23",
         "T39"
       ]
@@ -9613,6 +10112,1575 @@
       ],
       "workstreams": [
         "T26"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/CarlosProperties.java": {
+      "reason": "Installation/configuration hardening: preserve API and configuration precedence; require native failure/recovery evidence for audit deletion and packaged startup. This binding does not establish release readiness.",
+      "workstreams": [
+        "T07"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "tests": [
+        "src/test/java/io/github/carlos_emr/CarlosPropertiesSaveUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/login/StartupKeyPersistenceUnitTest.java"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/login/Startup.java": {
+      "reason": "Installation/configuration hardening: preserve API and configuration precedence; require native failure/recovery evidence for audit deletion and packaged startup. This binding does not establish release readiness.",
+      "workstreams": [
+        "T07"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/login/StartupKeyPersistenceUnitTest.java"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/config/PackagedConfigurationPreflight.java": {
+      "reason": "Installation/configuration hardening: preserve API and configuration precedence; require native failure/recovery evidence for audit deletion and packaged startup. This binding does not establish release readiness.",
+      "workstreams": [
+        "T26"
+      ],
+      "checks": [
+        "debian-python"
+      ],
+      "tests": [
+        "debian/assets/tests/test_modern_chart_cutover.py",
+        "scripts/ci/check-installed-configuration-preflight.sh"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/AuditLogPurgeService.java": {
+      "reason": "Installation/configuration hardening: preserve API and configuration precedence; require native failure/recovery evidence for audit deletion and packaged startup. This binding does not establish release readiness.",
+      "workstreams": [
+        "T36"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated"
+      ],
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AuditLogPurgeServiceUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/AuditLogPurgeMariaDbIntegrationTest.java"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/AuditLogManager.java": {
+      "reason": "Installation/configuration hardening: preserve API and configuration precedence; require native failure/recovery evidence for audit deletion and packaged startup. This binding does not establish release readiness.",
+      "workstreams": [
+        "T36"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated"
+      ],
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AuditLogManagerUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/AuditLogPurgeMariaDbIntegrationTest.java"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/admin/web/AuditLogPurge2Action.java": {
+      "reason": "Installation/configuration hardening: preserve API and configuration precedence; require native failure/recovery evidence for audit deletion and packaged startup. This binding does not establish release readiness.",
+      "workstreams": [
+        "T23"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/admin/web/AuditLogPurgeActionUnitTest.java"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/MariaDbJdbcCompatibility.java": {
+      "reason": "Installation/configuration hardening: preserve API and configuration precedence; require native failure/recovery evidence for audit deletion and packaged startup. This binding does not establish release readiness.",
+      "workstreams": [
+        "T21"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/MariaDbJdbcCompatibilityUnitTest.java"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/OscarTrackingBasicDataSource.java": {
+      "reason": "Installation/configuration hardening: preserve API and configuration precedence; require native failure/recovery evidence for audit deletion and packaged startup. This binding does not establish release readiness.",
+      "workstreams": [
+        "T21"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/MariaDbJdbcCompatibilityUnitTest.java"
+      ]
+    },
+    "debian/assets/skel/carlos-emr.env": {
+      "reason": "The packaged launcher must apply the required JVM setting on fresh installs and after site overrides. The Node test invokes the launcher with each environment.",
+      "tests": [
+        "scripts/debian-build.test.js"
+      ],
+      "checks": [
+        "node-all"
+      ],
+      "workstreams": [
+        "T26"
+      ]
+    },
+    "debian/assets/flyway-runner/src/test/java/io/github/carlos_emr/carlos/deb/FlywayRunnerNotesTest.java": {
+      "reason": "The Debian package build compiles this test against the actual WAR libraries and runs it before packaging the Flyway runner. It checks which database warnings an operator will see.",
+      "tests": [
+        "debian/build-flyway-runner.sh",
+        "debian/assets/flyway-runner/src/test/java/io/github/carlos_emr/carlos/deb/FlywayRunnerNotesTest.java"
+      ],
+      "checks": [
+        "package-clean-reinstall"
+      ],
+      "workstreams": [
+        "T26"
+      ]
+    },
+    "debian/carlos-ctl.pin": {
+      "reason": "The package qualification and publication paths independently require the selected companion source, version, architecture and actual Debian bytes, including a draft promotion retry.",
+      "tests": [
+        "scripts/ci/test_candidate_cli_package.py",
+        "scripts/ci/test_release_publication.py"
+      ],
+      "checks": [
+        "evidence-self-tests",
+        "package-beta8-upgrade"
+      ],
+      "workstreams": [
+        "T26"
+      ]
+    },
+    ".github/workflows/deb-packages.yml": {
+      "reason": "The package qualification and publication paths independently require the selected companion source, version, architecture and actual Debian bytes, including a draft promotion retry.",
+      "tests": [
+        "scripts/ci/test_candidate_cli_package.py",
+        "scripts/ci/test_release_publication.py"
+      ],
+      "checks": [
+        "evidence-self-tests",
+        "package-beta8-upgrade"
+      ],
+      "workstreams": [
+        "T26"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/DemographicService.java": {
+      "reason": "The waiting-list sentinel in the submitted form leaves the list untouched. A genuine list update must still validate its note and roll back the patient change if it fails.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/DemographicServiceEndpointTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T39"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementView2Action.java": {
+      "reason": "Each requested and resolved CPP section must be authorized for the patient before fetching chart notes. The action tests both combined permitted sections and denied sections.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementViewPatientIsolationUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T23"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/SecurityInfoManagerImpl.java": {
+      "reason": "The patient-level role encoding distinguishes read-only access from grants containing delete or other mutation rights.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/SecurityInfoManagerUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T23"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/PMmodule/web/admin/FacilityManager2Action.java": {
+      "reason": "Only an exact POST can dispatch an authorized facility mutation. The action tests require 405 and no DAO call for other methods.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/PMmodule/web/admin/PmmoduleJspMigrationActionRoutingTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T23"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/hospitalReportManager/HRMUtil.java": {
+      "reason": "The HRM attachment list, history and inbox must retain the identity of each report, validate its linked patients and keep incomplete or unfiled reports individually selectable.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/hospitalReportManager/HRMUtilAttachmentHistoryUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/hospitalReportManager/HRMUtilPatientAccessUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/hospitalReportManager/HrmVersionServiceUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/on/HRMResultsDataUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T14",
+        "T23"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/hospitalReportManager/HrmVersionService.java": {
+      "reason": "The HRM attachment list, history and inbox must retain the identity of each report, validate its linked patients and keep incomplete or unfiled reports individually selectable.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/hospitalReportManager/HRMUtilAttachmentHistoryUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/hospitalReportManager/HRMUtilPatientAccessUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/hospitalReportManager/HrmVersionServiceUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/on/HRMResultsDataUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T14",
+        "T23"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/on/HRMResultsData.java": {
+      "reason": "The HRM attachment list, history and inbox must retain the identity of each report, validate its linked patients and keep incomplete or unfiled reports individually selectable.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/hospitalReportManager/HRMUtilAttachmentHistoryUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/hospitalReportManager/HRMUtilPatientAccessUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/hospitalReportManager/HrmVersionServiceUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/on/HRMResultsDataUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T14",
+        "T23"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/inboxhub/display/ManageInboxhub2Action.java": {
+      "reason": "An incomplete document page must expose its warning and allow navigation to later valid inbox results in list and preview modes.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/inboxhub/display/ManageInboxhub2ActionUnitTest.java",
+        "scripts/inbox-failure-states-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "manual-inbox-failure-states"
+      ],
+      "workstreams": [
+        "T14"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/web/inboxhub/InboxhubForm.jsp": {
+      "reason": "An incomplete document page must expose its warning and allow navigation to later valid inbox results in list and preview modes.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/inboxhub/display/ManageInboxhub2ActionUnitTest.java",
+        "scripts/inbox-failure-states-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "manual-inbox-failure-states"
+      ],
+      "workstreams": [
+        "T14"
+      ]
+    },
+    "src/main/webapp/js/newCaseManagementView.js.jsp": {
+      "reason": "A failed or superseded signing action must leave the next ordinary encounter save unsigned. Successful deferred signing retains its own flags.",
+      "tests": [
+        "scripts/echart-note-save-signed-out.test.js"
+      ],
+      "checks": [
+        "node-all"
+      ],
+      "workstreams": [
+        "T13"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/rx/SearchDrug3.jsp": {
+      "reason": "The prescribing card distinguishes signed-in price and limited-use fragments from sign-in responses, and recovers on a subsequent lookup.",
+      "tests": [
+        "scripts/rx-quantity-price.test.js"
+      ],
+      "checks": [
+        "node-all"
+      ],
+      "workstreams": [
+        "T05"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/RscheduleBean.java": {
+      "reason": "A date override uses the selected provider’s rule snapshot. Tomcat session persistence must preserve the rule and restore its independent lock so the next edit can update it.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/schedule/web/Schedule2ActionsTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/schedule/web/ScheduleCalendarCacheUnitTest.java",
+        "scripts/schedule-template-day-sheet-playwright-checks.js",
+        "src/test/java/io/github/carlos_emr/RscheduleBeanUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/schedule/web/ScheduleDateSave2Action.java": {
+      "reason": "Date overrides use the submitted provider’s rule snapshot. Opening another provider’s calendar cannot substitute its hours or reclaim its stale cache.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/schedule/web/Schedule2ActionsTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/schedule/web/ScheduleCalendarCacheUnitTest.java",
+        "scripts/schedule-template-day-sheet-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/schedule/web/ScheduleCalendarCache.java": {
+      "reason": "Date overrides use the submitted provider’s rule and calendar. A restored Tomcat session retains the open period, and changes to a populated day notify the session manager so it can replicate the edit.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/schedule/web/Schedule2ActionsTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/schedule/web/ScheduleCalendarCacheUnitTest.java",
+        "scripts/schedule-template-day-sheet-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/reportByTemplate/ReportManager.java": {
+      "reason": "Legacy report literals and malformed attribute text must leave neighboring parameter metadata and parameterized queries intact.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/report/reportByTemplate/ReportTemplateEmptyParameterUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T29"
+      ]
+    },
+    "database/mysql/migration/common/V1.0.59.50.2__ensure_historical_roster_lookup.sql": {
+      "reason": "Fresh and previously migrated Ontario and BC schemas must preserve custom indexes and use an available full provider/date index. The MariaDB regression checks the resulting columns and repeated execution.",
+      "tests": [
+        "scripts/test-schema-policy-mariadb.py",
+        "scripts/ci/verify-flyway-baseline.sh"
+      ],
+      "checks": [
+        "java-native-flyway",
+        "java-native-bc-flyway",
+        "package-beta8-upgrade"
+      ],
+      "workstreams": [
+        "T04",
+        "T25"
+      ]
+    },
+    "src/main/webapp/js/server-table-page.js": {
+      "reason": "The shared table pager uses the same request deadline for the CSRF token and page response. Browser tests stall each request and check that the current form remains usable for a retry.",
+      "tests": [
+        "scripts/server-table-page-playwright-checks.js",
+        "scripts/csrf-token-fetch.test.js"
+      ],
+      "checks": [
+        "fixture-ci-browser",
+        "node-all"
+      ],
+      "workstreams": [
+        "T23",
+        "T40"
+      ]
+    },
+    "src/main/webapp/share/javascript/csrfTokenFetch.js": {
+      "reason": "The shared table pager uses the same request deadline for the CSRF token and page response. Browser tests stall each request and check that the current form remains usable for a retry.",
+      "tests": [
+        "scripts/server-table-page-playwright-checks.js",
+        "scripts/csrf-token-fetch.test.js"
+      ],
+      "checks": [
+        "fixture-ci-browser",
+        "node-all"
+      ],
+      "workstreams": [
+        "T23",
+        "T40"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/eform/EFormUtil.java": {
+      "reason": "An eForm template directory can become unreadable between inspection and enumeration. The picker preserves previously collected filenames and reports the failed listing. Import cleanup tests distinguish failures before and after publication locking.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/eform/EFormUtilUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/eform/EFormImportDefensiveMetadataUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T24",
+        "T27"
+      ]
+    },
+    "database/mysql/schema-contract/on.json": {
+      "reason": "The Ontario export catalogue binds to the physical schema produced by its migration chain. The roster index migration updates that contract and the physical database and export tests verify both bindings.",
+      "tests": [
+        "scripts/ci/run-cds-native-tier.py",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportSourceCatalogueUnitTest.java"
+      ],
+      "checks": [
+        "java-native-flyway",
+        "java-cds-transfer-export"
+      ],
+      "workstreams": [
+        "T04",
+        "T20"
+      ]
+    },
+    "database/mysql/schema-contract/bc.json": {
+      "reason": "The BC export catalogue binds to the physical schema produced by its migration chain. The roster index migration updates that contract and the physical database and export tests verify both bindings.",
+      "tests": [
+        "scripts/ci/run-cds-native-tier.py",
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportSourceCatalogueUnitTest.java"
+      ],
+      "checks": [
+        "java-native-bc-flyway",
+        "java-cds-transfer-export"
+      ],
+      "workstreams": [
+        "T04",
+        "T20"
+      ]
+    },
+    "src/main/resources/cds-export/source-catalogue.json": {
+      "reason": "Export verifies each table disposition and the fingerprints of both provincial schema contracts before reading clinical data.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportSourceCatalogueUnitTest.java",
+        "scripts/ci/test_verify_cds_export_source_catalogue.py"
+      ],
+      "checks": [
+        "java-all",
+        "java-cds-transfer-export"
+      ],
+      "workstreams": [
+        "T20"
+      ]
+    },
+    "src/main/resources/cds-export/source-schema/clinical_source_catalogue.json": {
+      "reason": "The descriptor fingerprints the full clinical catalogue. Export checks the exact bytes, including changes to either provincial contract.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportSourceCatalogueUnitTest.java",
+        "scripts/ci/test_verify_cds_export_source_catalogue.py"
+      ],
+      "checks": [
+        "java-all",
+        "java-cds-transfer-export"
+      ],
+      "workstreams": [
+        "T20"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/schedule/schedulecreatedate.jsp": {
+      "reason": "The month view uses the requested provider’s rule and overrides during generation and display. The installed workflow verifies normal persistence, refuses a second provider in a stale tab and redraws the original provider’s month.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/schedule/ScheduleDateSaveJspRegressionTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/schedule/web/ScheduleCalendarCacheUnitTest.java",
+        "scripts/schedule-template-day-sheet-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "jsp-compile",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T09",
+        "T40"
+      ]
+    },
+    "debian/assets/flyway-runner/src/main/java/io/github/carlos_emr/carlos/deb/FlywayRunner.java": {
+      "reason": "The installed Flyway runner counts the expected absence of the roster migration’s temporary procedure on a fresh database. Its packaging test checks that unrelated routine warnings and database errors remain visible.",
+      "tests": [
+        "debian/assets/flyway-runner/src/test/java/io/github/carlos_emr/carlos/deb/FlywayRunnerNotesTest.java",
+        ".github/workflows/package-smoke.yml"
+      ],
+      "checks": [
+        "package-clean-reinstall",
+        "package-beta8-upgrade"
+      ],
+      "workstreams": [
+        "T25",
+        "T26"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/ScheduleDateDao.java": {
+      "reason": "The DAO contract supplies a locking read of both active custom override rows and generated dates for the selected provider and date range.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/schedule/service/ScheduleDateOverrideServiceIntegrationTest.java",
+        "scripts/schedule-template-day-sheet-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway",
+        "java-native-bc-flyway",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/ScheduleDateDaoImpl.java": {
+      "reason": "The physical query must see the committed custom overrides for the current provider and leave unrelated providers and dates untouched.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/schedule/service/ScheduleDateOverrideServiceIntegrationTest.java",
+        "scripts/schedule-template-day-sheet-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway",
+        "java-native-bc-flyway",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/schedule/service/ScheduleDateOverrideService.java": {
+      "reason": "Template generation and single-date overrides share the provider lock. The database suite interleaves Save and Delete and verifies rollback when a generated date is invalid.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/schedule/service/ScheduleDateOverrideServiceIntegrationTest.java",
+        "scripts/schedule-template-day-sheet-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway",
+        "java-native-bc-flyway",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/schedule/service/ScheduleTemplateService.java": {
+      "reason": "The template header and rule-made dates must commit together. Database tests exercise missing providers, a failed header write, same-start replacement and overlap reporting.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/schedule/service/ScheduleDateOverrideServiceIntegrationTest.java",
+        "scripts/schedule-template-day-sheet-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway",
+        "java-native-bc-flyway",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/schedule/scheduletemplateapplying.jsp": {
+      "reason": "Template selection must render and publish the selected provider’s rule. The calendar tests check a new template, switching providers and opening a second template while an existing month is visible.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/schedule/ScheduleTemplateApplyingJspRegressionTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/schedule/web/ScheduleCalendarCacheUnitTest.java",
+        "scripts/schedule-template-day-sheet-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "jsp-compile",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T09",
+        "T40"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/documentManager/IncomingDocUtil.java": {
+      "reason": "Document preview GETs share a provider preference. Concurrent reads must preserve absent, NULL and existing values while an explicit queue selection persists. The installed Inbox check waits for both document previews to render.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/documentManager/IncomingDocumentQueuePreferenceIntegrationTest.java",
+        "scripts/inbox-failure-states-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway",
+        "java-native-bc-flyway",
+        "manual-inbox-failure-states"
+      ],
+      "workstreams": [
+        "T04",
+        "T14"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/UserPropertyDAO.java": {
+      "reason": "Explicit incoming queue selections share the provider lock. The tests overlap initial writes, establish prior read views, and verify the selected queue while preserving historical duplicate rows and other preferences.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/documentManager/IncomingDocumentQueuePreferenceIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T04",
+        "T14"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/UserPropertyDAOImpl.java": {
+      "reason": "Explicit incoming queue selections share the provider lock. The tests overlap initial writes, establish prior read views, and verify the selected queue while preserving historical duplicate rows and other preferences.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/documentManager/IncomingDocumentQueuePreferenceIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T04",
+        "T14"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/RScheduleDaoImpl.java": {
+      "reason": "Editing an open-ended or dated schedule must compare the original stored period. The transaction tests cover both legacy rows and a second edit after the original period changes.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/schedule/service/ScheduleDateOverrideServiceIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/resources/oscarResources_en.properties": {
+      "reason": "The schedule edit refusal must resolve in this locale. The Java suite loads each bundle and checks its message keys. The installed schedule workflow verifies the recoverable refusal on a stale template.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/i18n/OscarResourcesBundleParseTest.java",
+        "scripts/schedule-template-day-sheet-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T09",
+        "T30",
+        "T40"
+      ]
+    },
+    "src/main/resources/oscarResources_fr.properties": {
+      "reason": "The schedule edit refusal must resolve in this locale. The Java suite loads each bundle and checks its message keys. The installed schedule workflow verifies the recoverable refusal on a stale template.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/i18n/OscarResourcesBundleParseTest.java",
+        "scripts/schedule-template-day-sheet-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T09",
+        "T30",
+        "T40"
+      ]
+    },
+    "src/main/resources/oscarResources_es.properties": {
+      "reason": "The schedule edit refusal must resolve in this locale. The Java suite loads each bundle and checks its message keys. The installed schedule workflow verifies the recoverable refusal on a stale template.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/i18n/OscarResourcesBundleParseTest.java",
+        "scripts/schedule-template-day-sheet-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T09",
+        "T30",
+        "T40"
+      ]
+    },
+    "src/main/resources/oscarResources_pl.properties": {
+      "reason": "The schedule edit refusal must resolve in this locale. The Java suite loads each bundle and checks its message keys. The installed schedule workflow verifies the recoverable refusal on a stale template.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/i18n/OscarResourcesBundleParseTest.java",
+        "scripts/schedule-template-day-sheet-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T09",
+        "T30",
+        "T40"
+      ]
+    },
+    "src/main/resources/oscarResources_pt_BR.properties": {
+      "reason": "The schedule edit refusal must resolve in this locale. The Java suite loads each bundle and checks its message keys. The installed schedule workflow verifies the recoverable refusal on a stale template.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/i18n/OscarResourcesBundleParseTest.java",
+        "scripts/schedule-template-day-sheet-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T09",
+        "T30",
+        "T40"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/SiteChoice.java": {
+      "reason": "The site restriction requires multisite mode and a valid user with the site right. Team privacy applies independently. Ontario billing exercises the resulting scope on real provider assignments and disk history.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/commn/SiteChoiceUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnSiteVisibilityIntegrationTest.java",
+        "scripts/billing-on-single-site-visibility-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/admin/gate/ViewAdminDisplayMyGroup2Action.java": {
+      "reason": "The administrator or schedule administrator can read the group list. The restriction right on its own grants no access. Changes use the schedule group write actions.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/admin/gate/ViewAdminDisplayMyGroup2ActionTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/admin/web/AdminGroupActionsTest.java",
+        "scripts/my-groups-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T09",
+        "T23"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/admin/admindisplaymygroup.jsp": {
+      "reason": "The installed group workflow creates two memberships, reads the administrative list and checks the second member is visible in single-site mode.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/admin/gate/ViewAdminDisplayMyGroup2ActionTest.java",
+        "scripts/my-groups-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "jsp-compile",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T09",
+        "T23",
+        "T40"
+      ]
+    },
+    "scripts/migration/o19/overrides_props.py": {
+      "reason": "The property manifest carries the explicit OSCAR multisite setting into review. The paired importer exercises the dry run and transfer for enabled, disabled and absent configurations.",
+      "tests": [
+        "scripts/migration/o19/tests/test_manifest_integrity.py"
+      ],
+      "checks": [
+        "o19-generator-python"
+      ],
+      "workstreams": [
+        "T23",
+        "T25"
+      ]
+    },
+    "debian/assets/o19-manifest/o19map_props.json": {
+      "reason": "The property manifest carries the explicit OSCAR multisite setting into review. The paired importer exercises the dry run and transfer for enabled, disabled and absent configurations.",
+      "tests": [
+        "scripts/migration/o19/tests/test_manifest_integrity.py"
+      ],
+      "checks": [
+        "o19-generator-python"
+      ],
+      "workstreams": [
+        "T23",
+        "T25"
+      ]
+    },
+    "src/main/resources/carlos.properties": {
+      "reason": "Site privacy is inactive in the shipped configuration even for a stock administrator. The unit suite loads the shipped file and the Ontario installed workflow exercises unassigned billing providers and disk history.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/commn/SiteChoiceUnitTest.java",
+        "scripts/billing-on-single-site-visibility-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T23",
+        "T26",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/admin/web/LogReport2Action.java": {
+      "reason": "Administrative audit report access remains privilege-gated. Its provider query applies the site restriction only with multisite enabled.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/admin/web/LogReport2ActionTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T23",
+        "T29"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/admin/web/UnLock2Action.java": {
+      "reason": "Username-keyed account unlocks work when site assignments are absent in single-site mode. Multisite scope still excludes accounts from other sites.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/admin/web/UnLock2ActionUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/admin/web/UnLock2ActionLockListIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T23",
+        "T29",
+        "T37"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/report/reportindex.jsp": {
+      "reason": "The provider and group choices use the configured clinic mode and the independent team restriction. The day sheet checks the visible appointments for the selected provider.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/AppointmentMainBeanReportIntegrationTest.java",
+        "scripts/report-daysheet-labs-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "jsp-compile",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T23",
+        "T29",
+        "T40"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/report/reportdaysheet.jsp": {
+      "reason": "The provider and group choices use the configured clinic mode and the independent team restriction. The day sheet checks the visible appointments for the selected provider.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/AppointmentMainBeanReportIntegrationTest.java",
+        "scripts/report-daysheet-labs-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "jsp-compile",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T23",
+        "T29",
+        "T40"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOnCorrectionViewModelAssembler.java": {
+      "reason": "Correction choices and access to the selected bill respect team billing in a single-site clinic.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOnCorrectionViewModelAssemblerUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/GstReportViewModelAssembler.java": {
+      "reason": "The GST report checks the selected provider against the independently restricted provider list before loading the report.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/GstReportViewModelAssemblerUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/OnRaViewModelAssembler.java": {
+      "reason": "Remittance advice retains its billing gate and team selection and applies provider-site restrictions in multisite mode.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/web/BillingReportViewActionsAuthorizedUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/web/SiblingViewBillingOnActionPrivilegeUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/OnRaViewModelAssemblerUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOnStatusViewModelAssembler.java": {
+      "reason": "Ontario billing status keeps its established routing, provider filter and status count error handling.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOnStatusViewModelAssemblerRoutingUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOnStatusViewModelAssemblerUnreadableCountUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOnMriViewModelAssembler.java": {
+      "reason": "The OHIP generation form must show eligible billers and the corresponding disk rows on a single-site import. Real assignments restrict the list in a multisite clinic.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOnMriViewModelAssemblerTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnSiteVisibilityIntegrationTest.java",
+        "scripts/billing-on-single-site-visibility-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOhipSimulationViewModelAssembler.java": {
+      "reason": "Ontario simulation uses the same selectable providers for the form and for the requested preview.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOhipSimulationViewModelAssemblerUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnSiteVisibilityIntegrationTest.java",
+        "scripts/billing-on-single-site-visibility-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/web/ViewBillingOhipSimulation2Action.java": {
+      "reason": "The OHIP simulation route retains the billing permission check and supplies the effective team and site restrictions to its preview.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/web/BillingReportViewActionsAuthorizedUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnSiteVisibilityIntegrationTest.java",
+        "scripts/billing-on-single-site-visibility-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnProviderScope.java": {
+      "reason": "Provider selection and historical access depend on the actual site and team settings, including the signed-in biller and clinics without assignments.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOnMriViewModelAssemblerTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnSiteVisibilityIntegrationTest.java",
+        "scripts/billing-on-single-site-visibility-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    ".github/workflows/package-smoke.yml": {
+      "reason": "The smoke build checks out the pinned companion source. The candidate checks require a literal reviewed commit and verify the package digest before installation.",
+      "tests": [
+        "scripts/ci/test_candidate_cli_package.py",
+        "scripts/deb-docker-validation.sh"
+      ],
+      "checks": [
+        "evidence-self-tests",
+        "package-beta8-upgrade"
+      ],
+      "workstreams": [
+        "T26"
+      ]
+    },
+    ".github/workflows/publish-release.yml": {
+      "reason": "The release workflow fetches the attested companion package and checks it against the qualified bytes before attaching it. Publication tests cover a mismatched artifact and replay of a draft.",
+      "tests": [
+        "scripts/ci/test_candidate_cli_package.py",
+        "scripts/ci/test_release_publication.py"
+      ],
+      "checks": [
+        "evidence-self-tests"
+      ],
+      "workstreams": [
+        "T26"
+      ]
+    },
+    "package.json": {
+      "reason": "The npm script map must expose each registered installed browser workflow. The manifest test checks each script and the packaged suite executes the Ontario single-site case.",
+      "tests": [
+        "scripts/playwright-suite-manifest.test.js",
+        "scripts/billing-on-single-site-visibility-playwright-checks.js"
+      ],
+      "checks": [
+        "node-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T03",
+        "T23",
+        "T26"
+      ]
+    },
+    "debian/assets/tomcat/Catalina/localhost/carlos.xml": {
+      "reason": "Debian conffile tests check the published Tomcat context bytes and verify a real package upgrade preserves the operator’s local changes.",
+      "tests": [
+        "debian/assets/tests/test_install_configuration_recovery.py",
+        "scripts/deb-docker-validation.sh"
+      ],
+      "checks": [
+        "debian-python",
+        "package-beta8-upgrade"
+      ],
+      "workstreams": [
+        "T26"
+      ]
+    },
+    "debian/assets/tomcat/logging.properties": {
+      "reason": "Debian conffile tests check the published logging defaults and verify a real package upgrade preserves the operator’s local changes.",
+      "tests": [
+        "debian/assets/tests/test_install_configuration_recovery.py",
+        "scripts/deb-docker-validation.sh"
+      ],
+      "checks": [
+        "debian-python",
+        "package-beta8-upgrade"
+      ],
+      "workstreams": [
+        "T26"
+      ]
+    },
+    "debian/changelog": {
+      "reason": "The candidate version must sort after the published development baseline. The packaging matrix upgrades an actual beta 8 installation.",
+      "tests": [
+        "debian/assets/tests/test_install_configuration_recovery.py",
+        "scripts/deb-docker-validation.sh"
+      ],
+      "checks": [
+        "debian-python",
+        "package-beta8-upgrade"
+      ],
+      "workstreams": [
+        "T26"
+      ]
+    },
+    "debian/carlos-emr.postinst": {
+      "reason": "Installation recovery must preserve customized nginx configuration, handle service state and allow both fresh installation and an upgrade.",
+      "tests": [
+        "debian/assets/tests/test_install_configuration_recovery.py",
+        "scripts/deb-docker-validation.sh"
+      ],
+      "checks": [
+        "debian-python",
+        "package-beta8-upgrade"
+      ],
+      "workstreams": [
+        "T26"
+      ]
+    },
+    "debian/assets/bin/carlos-emr-cert": {
+      "reason": "Certificate handling must preserve the service state across both successful and failed operations. The fixture executes the shipped decision logic.",
+      "tests": [
+        "debian/assets/tests/test_install_configuration_recovery.py",
+        "scripts/deb-docker-validation.sh"
+      ],
+      "checks": [
+        "debian-python",
+        "package-beta8-upgrade"
+      ],
+      "workstreams": [
+        "T26"
+      ]
+    },
+    "debian/stamp-war-build-identity.sh": {
+      "reason": "Stamping the same Debian identity must preserve frozen WAR bytes. The build tests also reject a qualification request for a different source or identity.",
+      "tests": [
+        "debian/assets/tests/test_install_configuration_recovery.py",
+        "scripts/ci/test_build_release_war.py"
+      ],
+      "checks": [
+        "debian-python",
+        "package-beta8-upgrade"
+      ],
+      "workstreams": [
+        "T26"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/BillingDao.java": {
+      "reason": "Restricted legacy claim lookup matches both internal provider and OHIP number when two physicians share a billing number.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/commn/dao/BillingDaoIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnSiteVisibilityIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/BillingDaoImpl.java": {
+      "reason": "The physical claim query must select only the authorized internal provider before billing status can be written.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/commn/dao/BillingDaoIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnSiteVisibilityIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/Billing.java": {
+      "reason": "An imported claim can have a null appointment. Hibernate must read it, the existing getter must remain usable and a billing status update must preserve the stored null.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/commn/dao/BillingDaoIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnSiteVisibilityIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/OhipClaimExtractService.java": {
+      "reason": "The restricted extractor must apply the internal provider identity and OHIP number before displaying a claim or changing its billing status.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/OhipClaimExtractServiceUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnSiteVisibilityIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/OhipReportGenerationService.java": {
+      "reason": "Supported OHIP generation and simulation honor explicit provider selections and reject out-of-scope providers before accessing their claims.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/OhipReportGenerationServiceDependencyInjectionUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnSiteVisibilityIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/PMmodule/dao/ProviderDaoImpl.java": {
+      "reason": "The team picker must retain the current physician while excluding unrelated physicians who also have no team.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOhipSimulationViewModelAssemblerUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnSiteVisibilityIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnDiskService.java": {
+      "reason": "Generation and regeneration check eligible billers and historical file ownership. The file and transaction tests exercise successful creation, contention, an occupied filename and recovery when a commit outcome is uncertain.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnDiskServiceUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnDiskServiceGroupDiskUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnFileAccessServiceIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnFileAccessService.java": {
+      "reason": "A scoped Ontario download checks every historical owner under the publication lock. The tests also cover ambiguous legacy OHIP identities, clinic-wide billing access and independently authorized nonbilling downloads.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnFileAccessServiceIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/util/OscarDownloadUnitTest.java",
+        "scripts/billing-on-single-site-visibility-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/viewmodel/BillingOnMriViewModel.java": {
+      "reason": "Historical file and regenerate controls reflect whether the operator can open the shared disk or an individual HTML report.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOnMriViewModelAssemblerTest.java",
+        "scripts/billing-on-single-site-visibility-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/billing/CA/ON/billingONMRI.jsp": {
+      "reason": "The generation page must distinguish a visible individual report from a shared disk, and omit All Providers for a restricted login with no eligible doctors.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOnMriViewModelAssemblerTest.java",
+        "scripts/billing-on-single-site-visibility-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "jsp-compile",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T23",
+        "T34",
+        "T40"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/util/OscarDownload.java": {
+      "reason": "Restricted Ontario billers receive the permitted regular file opened under the generation lock or a digest-verified import snapshot. The servlet tests cover busy, missing, denied and replaced files, BC Teleplan and session-issued OBEC.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/util/OscarDownloadUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnFileAccessServiceIntegrationTest.java",
+        "scripts/billing-on-single-site-visibility-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/pageUtil/Obec2Action.java": {
+      "reason": "Ontario eligibility checks retain the session-issued output identity so a legitimate nonbilling download is authorized in a shared directory.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/report/pageUtil/Obec2ActionMethodGuardUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/util/OscarDownloadUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "database/mysql/migration/on/V1.0.59.50.3__index_ohip_billing_file_owners.sql": {
+      "reason": "Historical billing file checks reuse suitable leading indexes, including clinic-defined indexes. The MariaDB upgrade tests exercise all three lookups, repeated runs and index limits on Ontario.",
+      "tests": [
+        "scripts/test-schema-policy-mariadb.py",
+        "scripts/ci/verify-flyway-baseline.sh",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnFileAccessServiceIntegrationTest.java"
+      ],
+      "checks": [
+        "java-native-flyway",
+        "package-beta8-upgrade"
+      ],
+      "workstreams": [
+        "T04",
+        "T25",
+        "T33"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnOutputFilenames.java": {
+      "reason": "Normal Ontario allocation must skip names in both historical billing tables, the import record and the output directory, including files with no recorded owner.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnOutputFilenamesIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnDiskLoaderUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnDiskLoader.java": {
+      "reason": "Both modern disk and HTML name lookups must reserve the actual shared destination and names already used by either Ontario generator.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnOutputFilenamesIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnDiskLoaderUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOutputLock.java": {
+      "reason": "Ontario generators hold the output lock while writing. Scoped downloads verify ownership and open the file under a shared lock, with concurrent-reader and independent-process checks on writable and historical read-only storage.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOutputLockUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/OhipReportGenerationServiceDependencyInjectionUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingFileWriteException.java": {
+      "reason": "Sequence exhaustion and output failures must return an actionable result without exposing a filename or a patient’s details.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/OhipReportGenerationServiceDependencyInjectionUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/OhipClaimExtractServiceUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/web/ViewGenGroupReport2Action.java": {
+      "reason": "The second pass of a hybrid OHIP run must retain the first pass’s failed providers alongside any new failure.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/web/ReportActionDependencyInjectionUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "scripts/migration/o19/generate_manifests.py": {
+      "reason": "The provincial import version binds the primitive-column rules used when copying SQL NULL. Generator and integrity tests verify the shipped data and rejection of prior incompatible checkpoints.",
+      "tests": [
+        "scripts/migration/o19/tests/test_generator.py",
+        "scripts/migration/o19/tests/test_manifest_integrity.py"
+      ],
+      "checks": [
+        "o19-generator-python"
+      ],
+      "workstreams": [
+        "T25",
+        "T34"
+      ]
+    },
+    "debian/assets/o19-manifest/o19map_schema.json": {
+      "reason": "The provincial import version binds the primitive-column rules used when copying SQL NULL. Generator and integrity tests verify the shipped data and rejection of prior incompatible checkpoints.",
+      "tests": [
+        "scripts/migration/o19/tests/test_generator.py",
+        "scripts/migration/o19/tests/test_manifest_integrity.py"
+      ],
+      "checks": [
+        "o19-generator-python"
+      ],
+      "workstreams": [
+        "T25",
+        "T34"
+      ]
+    },
+    "debian/assets/o19-manifest/o19_preflight.json": {
+      "reason": "The provincial import version binds the primitive-column rules used when copying SQL NULL. Generator and integrity tests verify the shipped data and rejection of prior incompatible checkpoints.",
+      "tests": [
+        "scripts/migration/o19/tests/test_generator.py",
+        "scripts/migration/o19/tests/test_manifest_integrity.py"
+      ],
+      "checks": [
+        "o19-generator-python"
+      ],
+      "workstreams": [
+        "T25",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/BoundedSessionAttributes.java": {
+      "reason": "An authorized OBEC output must be a member of the server-issued collection in this session. The tests cover bounded eviction, distinct categories, and a forged filename attribute.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/BoundedSessionAttributesUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/util/OscarDownloadUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T23",
+        "T29"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOutputFiles.java": {
+      "reason": "New OHIP output must be complete and exclusive. Rollback removes only files published for the failed attempt and preserves any independent replacement.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOutputFilesUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnDiskServiceGroupDiskUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/LinuxNoReplaceMove.java": {
+      "reason": "Billing storage without hard links uses the Linux atomic no-replace operation. The filesystem cases exercise a successful fallback, an existing target and withdrawal after replacement.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOutputFilesUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/OhipClaimFileService.java": {
+      "reason": "New generation writes complete output without overwriting an earlier file. Regeneration retains its established backup and replacement behavior.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/OhipClaimFileServiceUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnDiskServiceUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOutputFilesUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnDiskTransactionService.java": {
+      "reason": "After a publication collision, the Ontario transaction removes only the new disk allocation and its provisional children. Finalized rows, attached claims and earlier generations retain their ownership.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnDiskTransactionServiceUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnSiteVisibilityIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnDiskServiceGroupDiskUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/billing/CA/ON/billingOHIPsimulation.jsp": {
+      "reason": "OHIP Simulation offers Create Report only when the operator can choose an eligible provider. The browser exercises a single-site physician with no assignment and an explicitly empty team.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billing/CA/ON/BillingOnJspRoutingTest.java",
+        "scripts/billing-on-single-site-visibility-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T23",
+        "T34"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/tickler/ticklerAdd.jsp": {
+      "reason": "Add Tickler requests focus and selects patient search on an untouched form. The Chromium fixture holds page load open and checks that a clinician’s reminder edit or patient-search selection survives. The installed CRUD workflow submits the reminder and reads its saved text.",
+      "tests": [
+        "scripts/tickler-crud-browser-check.js",
+        "scripts/tickler-crud-playwright-checks.js"
+      ],
+      "checks": [
+        "fixture-ci-browser",
+        "jsp-compile",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T40"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/HScheduleDate.java": {
+      "reason": "Tomcat must be able to persist and restore a populated calendar. Its day entries retain the expected hours and can be changed after the session is activated.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/schedule/web/ScheduleCalendarCacheUnitTest.java",
+        "scripts/schedule-template-day-sheet-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T09"
       ]
     }
   },

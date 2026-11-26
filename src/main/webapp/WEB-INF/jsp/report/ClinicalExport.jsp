@@ -70,7 +70,12 @@
                 CSVRecord record = records.get(i);
                 data[i] = new String[record.size()];
                 for (int j = 0; j < record.size(); j++) {
-                    data[i][j] = record.get(j);
+                    String cell = record.get(j);
+                    // ClinicalReports.jsp guards every CSV cell with SpreadsheetCsv.sanitizeCell, which
+                    // prefixes formula-like text with one tab (issue #5846). An unguarded cell never
+                    // starts with a tab, so dropping that one tab restores the original text. The XLSX
+                    // writer stores strings as strings, so no guard is needed here.
+                    data[i][j] = cell.startsWith("\t") ? cell.substring(1) : cell;
                 }
             }
         }

@@ -46,8 +46,13 @@ class EFormImportDefensiveMetadataUnitTest {
         }
         assertThat(images.resolve("orphan.png")).doesNotExist();
         try (var entries = Files.list(images.resolve("extractFolder"))) {
-            assertThat(entries.map(path -> path.getFileName().toString()))
-                    .allMatch(EFormImagePublicationLock.LOCK_FILE_NAME::equals);
+            var names = entries.map(path -> path.getFileName().toString()).toList();
+            if (missingName) {
+                assertThat(names).containsExactly(EFormImagePublicationLock.LOCK_FILE_NAME);
+            } else {
+                // Without a filename the importer returns before acquiring the publication lock.
+                assertThat(names).isEmpty();
+            }
         }
     }
 }

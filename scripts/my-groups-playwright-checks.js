@@ -153,11 +153,9 @@ async function workflow(s) {
     await frameNavigation(admin, frame, () => frame.locator('a[href$="/admin/ViewAdminDisplayMyGroup"]').click());
     const row = frame.locator(`tr:has(input[name="${groupName}${provider}"][value="${groupName}"])`);
     h.assert(await row.count() === 1 && (await row.innerText()).includes(groupName), 'The group list does not show the saved membership');
-    // admindisplaymygroup.jsp lists only the signed-in provider's own rows for a user
-    // holding _site_access_privacy (MyGroupDao.getProviderGroups), so the other member
-    // is visible here only without that privilege. Reported, not asserted either way.
-    if (await frame.locator(`input[name="${groupName}${demo1}"]`).count() === 0) {
-      console.log('  Search/Edit/Delete Groups hides the other member (signed-in provider holds _site_access_privacy)');
+    if (await s.schedule.locator('select#site').count() === 0) {
+      h.assert(await frame.locator(`input[name="${groupName}${demo1}"]`).count() === 1,
+        'Single-site schedule administration does not show the other group member');
     }
   });
   let originalOption = '.default';
@@ -244,7 +242,7 @@ async function workflow(s) {
     // regression check for it.
     const list = await openAdminSection(admin, '/admin/ViewAdminDisplayMyGroup', `input[name="${groupName}${provider}"]`);
     const memberBox = member => list.locator(`input[name="${groupName}${member}"][value="${groupName}"]`);
-    // A user holding _site_access_privacy is shown only their own rows (see the list step).
+    // A site-restricted multisite operator can remove only memberships shown in this list.
     const listed = [];
     for (const member of [provider, demo1]) {
       if (await memberBox(member).count() === 1) listed.push(member);

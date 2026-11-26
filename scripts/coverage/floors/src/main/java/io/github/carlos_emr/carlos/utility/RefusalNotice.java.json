@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/utility/RefusalNotice.java",
+  "kind": "floor",
+  "floor": {
+    "sourceBlob": "f2e920d3c83b83f3cd0b8e90eb3aa10850eab267",
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0
+  },
+  "evidenceSha256": "e899ecfb32e3881c56bb3277fa710b661a1ba480b90fcecf672b3f5e3af8fead"
+}

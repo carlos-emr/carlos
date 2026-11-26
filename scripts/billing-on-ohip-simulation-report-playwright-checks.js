@@ -69,8 +69,8 @@ function scheduleFee(sql, code) {
 
 /**
  * A billable provider and patient owned by this run. The provider is a clone of
- * the test login with its own OHIP/group numbers, placed in the operator's sites
- * (the billing pages list only site-sharing providers under _site_access_privacy).
+ * the test login with its own OHIP/group numbers. Copying the operator's site
+ * memberships also makes this generation fixture usable on multisite installs.
  * Cleanup is registered before the first INSERT and removes the provider last.
  *
  * `record(table, where)`, when given, is told every row set this fixture will create before the first

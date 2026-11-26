@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "563a5a3fefd0dd23c071b4d8ade9b2c6f3d03a9f",
+  "comparisonSha256": "d063ee14b3c7f772739c92896aef430deb4462688f0a342a6328c6b600eb10b3",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/UserPropertyDAO.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "02cf4288417bddcfcff68263975fb222677b0a6b"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/UserPropertyDAOImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "636ed2915285ff821fa13bad680df86e14c6819e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/documentManager/IncomingDocUtil.java": {
+      "lines": 77.77777777777777,
+      "instructions": 78.37837837837837,
+      "branches": 100.0,
+      "sourceBlob": "fa78e070f03561b3b1b9b85a9c58d02cb22b1755"
+    }
+  },
+  "exclusions": {},
+  "baselineCommit": "9649557379e46d2d054a5a3138279eddc4c98c3e",
+  "baselineSourceTree": "563a5a3fefd0dd23c071b4d8ade9b2c6f3d03a9f",
+  "baselineReportSha256": "b6e4416ec3b1f5569c06f20c07eb8d9e61e3bc3ae0867109c8212b5f924ec7db",
+  "baselineLane": "Ubuntu 26.04.1 and OpenJDK 25. Real Spring/JPA H2 queue preference, user property, incoming document file and access tests covered concurrent previews and explicit queue choices, deterministic historical duplicate selection and the missing-owner refusal.",
+  "baselineTestCounts": {
+    "tests": 95,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.commn.dao.UserPropertyDAOIntegrationTest",
+    "io.github.carlos_emr.carlos.documentManager.IncomingDocUtilExtractListUnitTest",
+    "io.github.carlos_emr.carlos.documentManager.IncomingDocUtilExtractionSafetyUnitTest",
+    "io.github.carlos_emr.carlos.documentManager.IncomingDocUtilPathValidationTest",
+    "io.github.carlos_emr.carlos.documentManager.IncomingDocUtilUnitTest",
+    "io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponseUnitTest",
+    "io.github.carlos_emr.carlos.documentManager.IncomingDocumentQueuePreferenceIntegrationTest"
+  ],
+  "baselineTestReportsSha256": "598fc6676aae3ec88c0c27c32de2773976b3a96782e698736dfa87eef7648370",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

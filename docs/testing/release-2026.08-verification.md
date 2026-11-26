@@ -7,8 +7,8 @@ required checks, profiles, prerequisites and repetition counts. The
 expected-failure pin and the five former Node TODO dispositions.
 
 **Release qualification remains incomplete.** Passing the tooling workflow or
-the ordinary Maven/Node commands does not certify this release. Historical path
-ownership, coverage ratchets, unchanged-client contracts, main-only migrations,
+the ordinary Maven/Node commands does not certify this release. Coverage
+ratchets, unchanged-client contracts, main-only migrations,
 installed package operations, vendor staging and crash/load qualifications remain
 required. Checks marked `external` produce `BLOCKED`; there is no manual `PASS`
 switch. Their dedicated acceptance adapters or reviewed contract dispositions
@@ -29,14 +29,19 @@ must be committed before they can become passing evidence.
 deleted, binary and renamed-as-delete/add paths and has a regression above the
 GitHub compare API's 300-file limit. Candidate test names are labelled as
 discovery aids. An explicit path binding must name real sources/tests, checks,
-workstreams and a rationale. Unowned production paths block scope acceptance;
-`--inventory-only` generates review material without claiming coverage. Test-only
-packaging paths remain in the inventory with `production: false`.
+workstreams and a rationale. Missing path-to-test mappings are currently advisory
+and tracked in CARLOS #6336.
+Tagged qualification uses `--migration-integrity-only`, which records the full
+missing-path inventory and `ownershipRequired: false`. Its required assertions
+cover main-only migration dispositions and published migration byte integrity.
+The default manual audit still requires complete path ownership, and
+`--inventory-only` generates review material. Test-only packaging paths remain
+in the inventory with `production: false`. [Ownership follow-up](https://github.com/carlos-emr/carlos/issues/6336)
 
 The ownership inventory also treats scripts invoked by `debian/rules`, the
 OSCAR 19 manifest generator, and the DEB build and release publication workflows
-as production inputs. Changes to these files require the same concrete bindings
-as runtime source changes. Adapter tests reconcile the scripts named in
+as production inputs. Their missing mappings remain in the same follow-up
+inventory as runtime source changes. Adapter tests reconcile the scripts named in
 `debian/rules`; adding a build script without classifying it fails that check.
 
 Main-only migration inventory depends on the selected main and release refs.
@@ -235,7 +240,7 @@ Required `external` contracts are listed in the matrix with their precise
 reason, including installed restarts/ciphertext, client compatibility, EBS
 vendor/CXF-cache acceptance, CDS large/crash qualification, .deb install/upgrade,
 backup recovery, image overwrite policy, interruption recovery and load/privacy
-budgets. Scope ownership and dispositions for any main-only migrations
+budgets. Dispositions for any main-only migrations
 discovered against the qualification refs remain required; the plan currently
 contains no migration dispositions. The installed expected-failure pins the
 outcome ledger lists
@@ -309,11 +314,11 @@ Chromium executable and Playwright's selected default headless executable are
 hashed before the run and checked for changes afterward.
 Real provider observations require the locked Chromium
 version and disconnected browsers; the committed
-[fixture contract](release-2026.08-ci-browser-fixtures.json) defines 17 fixtures
-whose `minimumAssertions` sum to 4,344. Recompute these totals from the contract
-when updating the workflow. The navigation fixture additionally requires all
-six exact Node
-engine cases with no skips, TODOs or cancellations. The observer delegates original
+[fixture contract](release-2026.08-ci-browser-fixtures.json) defines 20 fixtures
+whose `minimumAssertions` sum to 4,578. Recompute these totals from the contract
+when updating the workflow. The navigation, job-save and facility-disable fixtures
+require six, sixteen and four exact Node engine cases, respectively, with no skips,
+TODOs or cancellations. The observer delegates original
 assertions and browser calls, preserving arguments, results and failures. Missing
 commands, changed fixture sources, zero-assertion success and incomplete browser
 cleanup fail. These isolated source fixtures complement installed-page acceptance.

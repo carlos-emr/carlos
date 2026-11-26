@@ -91,6 +91,42 @@ This replaces accidental all-field equality, including formatter/blob/content
 state, with model identity. `CtlDocumentPK` explicitly compares all three key
 parts with null safety. No entity-wide reflective equals/hashCode remains.
 
+## AbstractModel equality and hash (issue #5303)
+
+`AbstractModel` is the base of about 390 entity classes, so its contract is deliberately
+small:
+
+- `equals` never throws. An instance equals itself; `null`, another persistent type
+  and a different identifier are never equal; an instance with no identifier yet
+  equals only itself. Equality is symmetric because both sides apply the same rule.
+- `hashCode` is the hash of the persistent type, not of the identifier. A new entity
+  can therefore be added to a `HashSet`/`HashMap` (typically a cascading collection)
+  and still be found after the database assigns its ID. The old identifier hash moved
+  it to another bucket on save. Equal entities always share a type, so the hash stays
+  consistent with `equals`. The cost is that same-type keys share one bucket, which is
+  acceptable for the small child collections this base class serves; an entity that is
+  held in large hashed collections overrides both methods with a business key
+  (`Demographic`, `Provider`, `Program`, `Site` and `Drug` already do).
+- The argument of `equals` may be a Hibernate proxy: its persistent class and ID come
+  from the proxy's metadata, so an uninitialized or detached proxy is never loaded and
+  never raises `LazyInitializationException`. A proxy *receiver* is initialized by
+  Hibernate before `equals`/`hashCode` run, exactly as for any entity that overrides
+  them; this base class does not use the `final` forwarding methods that `BaseObject`
+  uses, because 28 subclasses override equality or hashing themselves.
+- A subclass that overrides one of the two methods must override the other. The audit
+  for #5303 found four that did not: `ProviderData` and `DSGuidelineProviderMapping`
+  (equality without a hash) and `CdsClientForm` and `GroupNoteLink` (hash without equality).
+  All four stay consistent under the type hash because their equality never relates
+  distinct types. `DSGuidelineProviderMapping.equals` also used to cast and dereference
+  its argument and now answers `false` for `null`, foreign types and missing keys.
+
+`AbstractModelEqualityUnitTest` pins the contract on synthetic entities;
+`AbstractModelProxyIntegrationTest` runs it through a real Hibernate session factory with
+managed, detached and attached/detached uninitialized proxies, including zero extra SQL
+when a proxy is the argument. The earlier `release/2026.08` (`9004536d`) observation of
+`equals(null)` and unsaved-receiver failures was a source-level review finding; the fix
+for it shipped in #6326 and is covered by the same unit test.
+
 ## Regression gates
 
 `SafeDiagnosticUnitTest` exercises populated credential/patient fields, unsaved

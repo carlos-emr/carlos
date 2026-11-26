@@ -113,6 +113,7 @@ class HRMUtilPatientAccessUnitTest extends CarlosUnitTestBase {
         HRMDocumentToDemographic link = new HRMDocumentToDemographic();
         link.setHrmDocumentId(REPORT);
         link.setDemographicNo(PATIENT);
+        document.setMatchedDemographics(List.of(link));
         when(links.findByDemographicNo(Integer.toString(PATIENT))).thenReturn(List.of(link));
         when(links.findByHrmDocumentId(REPORT)).thenReturn(List.of(link));
     }
@@ -128,6 +129,8 @@ class HRMUtilPatientAccessUnitTest extends CarlosUnitTestBase {
     }
 
     private void permitPatient() {
+        when(security.hasPrivilegeReadOnly(user, "_demographic", "r", Integer.toString(PATIENT))).thenReturn(true);
+        when(security.hasPrivilegeReadOnly(user, "_hrm", "r", Integer.toString(PATIENT))).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(user, PATIENT)).thenReturn(true);
         when(security.hasPrivilege(user, "_demographic", "r", Integer.toString(PATIENT))).thenReturn(true);
         when(security.hasPrivilege(user, "_hrm", "r", Integer.toString(PATIENT))).thenReturn(true);

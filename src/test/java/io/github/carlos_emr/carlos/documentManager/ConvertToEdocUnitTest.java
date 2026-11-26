@@ -30,7 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("fast")
 @Isolated
 class ConvertToEdocUnitTest extends CarlosUnitTestBase {
-    private Object originalRealPath;
+    private String originalRealPath;
 
     @Test
     void shouldKeepEachConcurrentConversionInItsOwnResourceRoot_whenResourceResolutionOverlaps(@TempDir Path tempDir) throws Exception {
@@ -78,15 +78,13 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() {
-        originalRealPath = org.springframework.test.util.ReflectionTestUtils.getField(ConvertToEdoc.class, "realPath");
+        originalRealPath = (String) org.springframework.test.util.ReflectionTestUtils.getField(ConvertToEdoc.class, "realPath");
         registerMock(NioFileManager.class, Mockito.mock(NioFileManager.class));
     }
 
     @AfterEach
     void restoreResourceRoot() {
-        synchronized (ConvertToEdoc.class) {
-            org.springframework.test.util.ReflectionTestUtils.setField(ConvertToEdoc.class, "realPath", originalRealPath);
-        }
+        ConvertToEdoc.setWebappRoot(originalRealPath);
     }
 
     @Test

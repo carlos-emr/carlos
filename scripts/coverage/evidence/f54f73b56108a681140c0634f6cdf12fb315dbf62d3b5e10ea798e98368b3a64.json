@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "a14de07438eebbea254dadfe551ef6860fc5a083",
+  "comparisonSha256": "bb133ba9763ccf7522e90937d63142592bf2521f054f2452eae7545e3723d193",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/fax/admin/ConfigureFax2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "8d7817d46904b7f943b355514f88d24ea824ce32"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/fax/core/FaxImporter.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "7e6e9f6747db4c5ecb8ec8c2778cd410444b7016"
+    }
+  },
+  "baselineCommit": "d08698a664161e2324a56ca354fe276d9b5f596b",
+  "baselineSourceTree": "a14de07438eebbea254dadfe551ef6860fc5a083",
+  "baselineReportSha256": "264c5df6db338192363284fb999c338ac7deaf8e412c2824244276e39d59dcd9",
+  "baselineLane": "Focused fax admin, backoff and importer polling regression tests",
+  "baselineTestCounts": {
+    "tests": 112,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "6038cf2303f9d85f6c80d0b7633eead8aa03434b4374ac2c76ec7624a4e4d79c",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

@@ -30,7 +30,9 @@
 
 package io.github.carlos_emr.carlos.commn.model;
 
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -47,6 +49,9 @@ public class WaitingList extends AbstractModel<Integer> {
 
     public static final String IS_HISTORY_YES = "Y";
     public static final String IS_HISTORY_NO = "N";
+
+    /** waitingList.note is VARCHAR(255). */
+    public static final int NOTE_MAX_LENGTH = 255;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -67,6 +72,24 @@ public class WaitingList extends AbstractModel<Integer> {
 
     @Column(name = "is_history")
     private String isHistory;
+
+    /**
+     * Checks a waiting-list note against its VARCHAR(255) column before it is written (issue #5869).
+     *
+     * <p>Static because the edit and REST saves hand the note to
+     * {@code WLWaitingListUtil.updateWaitingListRecord} as a string, without building an entity
+     * first. Under an empty {@code sql_mode} a longer note was cut to 255 characters with only a
+     * warning; callers now refuse the save instead.</p>
+     *
+     * @param note the note as submitted, or {@code null}
+     * @return one message naming the field and the limit (never the note) when it is too long;
+     *         otherwise empty
+     */
+    public static List<String> validateNoteLength(String note) {
+        List<String> errors = new ArrayList<>();
+        Demographic.addFieldLengthError(errors, "Waiting list note", note, NOTE_MAX_LENGTH);
+        return errors;
+    }
 
     public Integer getId() {
         return id;

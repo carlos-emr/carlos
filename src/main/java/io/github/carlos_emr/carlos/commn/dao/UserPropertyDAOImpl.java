@@ -40,6 +40,7 @@ import jakarta.persistence.Query;
 import jakarta.persistence.LockModeType;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import org.springframework.stereotype.Repository;
@@ -55,6 +56,44 @@ public class UserPropertyDAOImpl extends AbstractDaoImpl<UserProperty> implement
      */
     public UserPropertyDAOImpl() {
         super(UserProperty.class);
+    }
+
+    @Override
+    @Transactional
+    public boolean lockProviderPreferences(String providerNo) {
+        return providerNo != null
+                && entityManager.find(Provider.class, providerNo, LockModeType.PESSIMISTIC_WRITE) != null;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public UserProperty findIncomingDocumentQueue(String providerNo) {
+        return entityManager.createQuery("select p from UserProperty p where p.providerNo = :owner "
+                        + "and p.name = :name order by p.id", UserProperty.class)
+                .setParameter("owner", providerNo)
+                .setParameter("name", UserProperty.INCOMING_DOCUMENT_DEFAULT_QUEUE)
+                .setMaxResults(1).getResultList().stream().findFirst().orElse(null);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void selectIncomingDocumentQueue(String providerNo, String queue) {
+        // A form submission can have an older read view. Start the preference transaction
+        // with the owner lock so the next read includes any preceding selection's commit.
+        java.util.Objects.requireNonNull(queue, "An explicit queue selection is required");
+        if (!lockProviderPreferences(providerNo)) {
+            throw new SecurityException("Unknown incoming document queue preference owner");
+        }
+        UserProperty preference = findIncomingDocumentQueue(providerNo);
+        if (preference == null) {
+            preference = new UserProperty();
+            preference.setName(UserProperty.INCOMING_DOCUMENT_DEFAULT_QUEUE);
+            preference.setProviderNo(providerNo);
+            preference.setValue(queue);
+            entityManager.persist(preference);
+        } else if (!queue.equals(preference.getValue())) {
+            preference.setValue(queue);
+        }
     }
 
 

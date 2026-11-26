@@ -80,28 +80,14 @@ class FrmRecordCheckboxRestoreUnitTest extends CarlosUnitTestBase {
         registerMock(DemographicExtDao.class, mock(DemographicExtDao.class));
     }
 
-    /** Every record class that used to compare the column type with {@code TINY}. */
+    /**
+     * The record classes that used to compare the column type with {@code TINY} and still read
+     * through JDBC metadata. The eighteen rehabilitation-study questionnaires among the original
+     * nineteen now read typed entities (issue #5693); RehabStudyFormValuesUnitTest and
+     * RehabStudyFormDaoIntegrationTest cover their ticks.
+     */
     private static List<Named> recordClasses() {
-        return List.of(
-                new Named("Frm2MinWalkRecord", Frm2MinWalkRecord::new),
-                new Named("FrmCESDRecord", FrmCESDRecord::new),
-                new Named("FrmCaregiverRecord", FrmCaregiverRecord::new),
-                new Named("FrmCostQuestionnaireRecord", FrmCostQuestionnaireRecord::new),
-                new Named("FrmFallsRecord", FrmFallsRecord::new),
-                new Named("FrmGripStrengthRecord", FrmGripStrengthRecord::new),
-                new Named("FrmHomeFallsRecord", FrmHomeFallsRecord::new),
-                new Named("FrmIntakeInfoRecord", FrmIntakeInfoRecord::new),
-                new Named("FrmInternetAccessRecord", FrmInternetAccessRecord::new),
-                new Named("FrmLateLifeFDIDisabilityRecord", FrmLateLifeFDIDisabilityRecord::new),
-                new Named("FrmLateLifeFDIFunctionRecord", FrmLateLifeFDIFunctionRecord::new),
-                new Named("FrmRhImmuneGlobulinRecord", FrmRhImmuneGlobulinRecord::new),
-                new Named("FrmSF36CaregiverRecord", FrmSF36CaregiverRecord::new),
-                new Named("FrmSF36Record", FrmSF36Record::new),
-                new Named("FrmSatisfactionScaleRecord", FrmSatisfactionScaleRecord::new),
-                new Named("FrmSelfAdministeredRecord", FrmSelfAdministeredRecord::new),
-                new Named("FrmSelfEfficacyRecord", FrmSelfEfficacyRecord::new),
-                new Named("FrmSelfManagementRecord", FrmSelfManagementRecord::new),
-                new Named("FrmTreatmentPrefRecord", FrmTreatmentPrefRecord::new));
+        return List.of(new Named("FrmRhImmuneGlobulinRecord", FrmRhImmuneGlobulinRecord::new));
     }
 
     private record Named(String name, Supplier<FrmRecord> factory) {

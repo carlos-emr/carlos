@@ -615,7 +615,7 @@ public class EFormExportZip {
         }
     }
 
-    private void rollbackPublishedAssets(Map<Path, Path> publishedAssets, Throwable failure) {
+    static void rollbackPublishedAssets(Map<Path, Path> publishedAssets, Throwable failure) {
         for (Entry<Path, Path> asset : publishedAssets.entrySet()) {
             try {
                 Path published = asset.getKey();

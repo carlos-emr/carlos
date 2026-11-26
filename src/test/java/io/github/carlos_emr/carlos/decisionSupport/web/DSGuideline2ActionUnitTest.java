@@ -1,6 +1,8 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 package io.github.carlos_emr.carlos.decisionSupport.web;
 
+import io.github.carlos_emr.carlos.decisionSupport.model.DSCondition;
+import io.github.carlos_emr.carlos.decisionSupport.model.DSDemographicAccess;
 import io.github.carlos_emr.carlos.decisionSupport.model.DSGuideline;
 import io.github.carlos_emr.carlos.decisionSupport.service.DSService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -11,6 +13,7 @@ import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -107,5 +110,33 @@ class DSGuideline2ActionUnitTest extends CarlosUnitTestBase {
         assertThrows(SecurityException.class, () -> action.execute());
 
         verifyNoInteractions(service);
+    }
+
+    // #6328: the detail view says "not shown" for modules without a patient value instead of
+    // reporting the designed null as "Error: Cannot get patient data".
+    @ParameterizedTest
+    @EnumSource(DSDemographicAccess.Module.class)
+    void shouldFlagValuesShownFromModule_whenDetailListsConditions(DSDemographicAccess.Module module) throws Exception {
+        DSCondition condition = new DSCondition();
+        condition.setConditionType(module);
+        var guideline = mock(DSGuideline.class);
+        when(guideline.getConditions()).thenReturn(List.of(condition));
+        when(service.findGuideline(5)).thenReturn(guideline);
+        request.setParameter("method", "detail");
+        request.setParameter("guidelineId", "5");
+
+        assertEquals("guidelineDetail", action.execute());
+
+        @SuppressWarnings("unchecked")
+        var rows = (List<DSGuideline2Action.ConditionResult>) request.getAttribute("conditionResults");
+        assertEquals(1, rows.size());
+        assertSame(condition, rows.get(0).getCondition());
+        assertEquals(module.displaysPatientValues(), rows.get(0).isValuesShown());
+    }
+
+    @Test
+    void shouldNotShowValues_whenConditionHasNoModule() {
+        assertFalse(action.new ConditionResult(new DSCondition(), null, null).isValuesShown());
+        assertFalse(action.new ConditionResult(null, null, null).isValuesShown());
     }
 }
