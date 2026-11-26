@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/dao/forms/FormGrowth0To36Dao.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 92.0,
+    "instructions": 95.51282051282051,
+    "branches": 100.0,
+    "sourceBlob": "6f50b2e432083b24056394d06aede7453b23f30c"
+  },
+  "evidenceSha256": "7564b9f6fceb79837fe046abc1eed51dc6d4ce5817c68e537e39ac89ad56e2a5"
+}

@@ -6335,12 +6335,13 @@
       "provinces": [
         "all"
       ],
-      "timeoutSec": 120,
+      "timeoutSec": 240,
       "env": [
-        "SHARED_OUTCOMES_TEST_FIXTURE"
+        "SHARED_OUTCOMES_TEST_FIXTURE",
+        "SHARED_OUTCOMES_SEND_PORT"
       ],
-      "notes": "Schedule Common Dashboard launches an encrypted payload with the external provider role (#5053); Playwright stubs all dashboard requests.",
-      "fixtures": "Disposable install with the synthetic Shared Outcomes properties documented in the script. Owned throwaway login and dashboard grants are removed."
+      "notes": "Schedule Common Dashboard launches an encrypted payload with the external provider role (#5053); Playwright stubs all dashboard requests. The refresh the dashboard window requests (#5335) posts to /web/dashboard/OutcomesDashboard and publishes the owned indicator's metric set to a loopback listener standing in for shared_outcomes_dashboard_send_url: payload, a rejected delivery answered 502 and not reported as done, foreign-origin messages ignored, GET and token-less POST refused, the old /OutcomesDashboard URL gone. Optional SHARED_OUTCOMES_SEND_PORT (default 18335) must match the configured send URL.",
+      "fixtures": "Disposable install with the synthetic Shared Outcomes properties documented in the script, including a shared_outcomes_dashboard_send_url on the loopback listener the script starts. Owned throwaway login, dashboard grants, one synthetic shared indicator template with its dashboard, and three owned patients are removed."
     },
     {
       "name": "measurement-group-entry",
@@ -7260,7 +7261,7 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "The thirteen forms whose record class once compared the column type with TINY and that have TINYINT answers, finding 231 (fixed, #4466): after Save stores the ticked boxes, the redisplayed form and the reopened form show them ticked. The record classes now ask FrmRecordHelp.isBooleanColumnType, which accepts the BIT and TINYINT names the MySQL driver reports. Asserts the restore pair of CESD, Caregiver, Caregiver - SF36, SF36, Cost Questionnaire, Falls History, HOME FAST, Intake Information, FDI Disability, FDI Function, Risk Assessment, Self Management and Treatment Preference. The restore pair stays in its own entry so a regression is attributed to the finding. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240), -bare-contact (241).",
+      "notes": "The thirteen forms whose record class once compared the column type with TINY and that have TINYINT answers, finding 231 (fixed, #4466): after Save stores the ticked boxes, the redisplayed form and the reopened form show them ticked. The record classes then asked FrmRecordHelp.isBooleanColumnType, which accepts the BIT and TINYINT names the MySQL driver reports; since #5693 these forms read typed entities, and rehab-study-forms covers the three the catalogue does not reach. Asserts the restore pair of CESD, Caregiver, Caregiver - SF36, SF36, Cost Questionnaire, Falls History, HOME FAST, Intake Information, FDI Disability, FDI Function, Risk Assessment, Self Management and Treatment Preference. The restore pair stays in its own entry so a regression is attributed to the finding. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240), -bare-contact (241).",
       "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
@@ -7644,6 +7645,22 @@
       "mutates": [],
       "notes": "Finding 231 (fixed, #4466), the four forms the form catalogue does not reach: 2 Minute Walk, Internet Access, Rh Immune Globulin and Satisfaction Scale. Their record classes compared the column type with TINY, which the MySQL driver never reports, so a saved tick was shown as the raw value 1 written into the tag (1=\"\") and an unticked box. A saved record is seeded for the owned patient and its form opened (form/<form>?demographic_no=&formId=): the boxes stored as 1 are ticked, the boxes stored as 0 or NULL are not, and no checkbox carries an attribute named by a digit. Save is not driven: it stores the ticks correctly, and the catalogue (form-catalog-smoke-checkbox-restore) proves that for the thirteen forms it reaches.",
       "fixtures": "Owned synthetic patient and one seeded row in each of form2MinWalk, formInternetAccess, formRhImmuneGlobulin and formSatisfactionScale; cleanup deletes the owned patient's rows from the four tables and asserts each gone. Nothing is added to the Forms menu, so the check does not need EXCLUSIVE=1."
+    },
+    {
+      "name": "rehab-study-forms",
+      "script": "scripts/rehab-study-forms-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "mutates": [],
+      "notes": "Issue #5693: the eighteen 2004 rehabilitation-study questionnaires save and reopen through one JPA entity per table and RehabStudyFormService instead of their Frm*Record classes. form-catalog-smoke drives fifteen of them and form-checkbox-reopen reads seeded rows of the other three; this check drives the rest. Two Minute Walk, Internet Access and Satisfaction Scale are opened for the owned patient (form/<view>?demographic_no=&formId=0), boxes ticked and answers typed, and Save through form/formname stores one row with exactly those values, the signed-in provider and the N/A study ID, and redisplays them. A patient enrolled in rehabStudy2004 opens a new SF-36 that shows the study ID, and Save stores it. Save on a reopened SF-36 adds a version and leaves the version it was opened from unchanged. The saved version requested under another active patient's number is refused by the application and its answer is not in the response.",
+      "fixtures": "Owned synthetic patient, one rehabStudy2004 enrolment of that patient with an unused study ID, and the rows Save stores in form2MinWalk, formInternetAccess, formSatisfactionScale and formSF36; cleanup deletes the owned patient's rows from the four tables and the enrolment, and asserts each gone. The cross-patient request reads one other active demo patient's number and writes nothing. Nothing is added to the Forms menu, so the check does not need EXCLUSIVE=1."
     },
     {
       "name": "form-catalog-smoke-bare-contact",
@@ -19630,7 +19647,7 @@
       ],
       "timeoutSec": 240,
       "profile": "consult-health-care-team",
-      "notes": "#6201: unmapped and mapped HCT roles fill contact details and persist the correct service/contact identity; owned fixtures only.",
+      "notes": "#6201: unmapped and mapped HCT roles fill contact details and persist the correct service/contact identity. #6202: members with a NULL or blank college/billing number are listed, marked and save; a member without consent to contact is left out and counted; contact free text cannot run as script. Owned fixtures only.",
       "fixtures": "Owned synthetic patient, professional contact, patient HCT link, consultation service and requests; request descendants and signatures removed by owned keys. These rows are in shared lists, so this check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "mutates": [
         "Contact",

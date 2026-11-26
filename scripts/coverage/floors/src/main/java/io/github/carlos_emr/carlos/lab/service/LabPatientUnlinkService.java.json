@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/lab/service/LabPatientUnlinkService.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 98.45758354755785,
+    "branches": 91.17647058823529,
+    "sourceBlob": "42fd97a1439ff664df20784f732f394e3240f4f2"
+  },
+  "evidenceSha256": "5cb085699a51fd50b4216f7e314be1cc2ed5c4dc4a52252e220309a2e08d8911"
+}

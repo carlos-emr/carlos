@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "11739b968e3c0e8a6b2e913e9fc7c0b603583fde",
+  "comparisonSha256": "293333505a18b503a189651a470b94143b91b9c015a7fb7f88ac5feeecc7ff1a",
+  "baselineCommit": "c2e9babbd5ec3fd2b7d1a5c6f8a2f70e5f370043",
+  "baselineSourceTree": "11739b968e3c0e8a6b2e913e9fc7c0b603583fde",
+  "baselineReportSha256": "ccb59916084f4bfcadb78bf40a16ecef3784e85bdef963120d3240930e7bf537",
+  "baselineLane": "Ubuntu 26.04.1 LTS, OpenJDK 25.0.5.1. Focused Maven tests for the shared outcomes dashboard and the release sources reported by the PR freshness gate.",
+  "baselineTestSelector": "OutcomesDashboard2ActionUnitTest,OutcomesDashboardUtilsUnitTest,IndicatorQueryHandlerUnitTest,IndicatorTemplateHandlerUnitTest,CrossOriginOpenerPolicyFilter*Test,InheritedHandlerLogPrivacyUnitTest,MutatorActionGetRejectionContractUnitTest,ResponseFilterLifecycleIntegrationTest,CaseManagementPrint*Test,EDocUtil*Test,MeasurementTypesSnapshotUnitTest,LabValuesPatientLockUnitTest,LabValuesGraphMedicationsJspRegressionTest,UnlinkDemographic2ActionUnitTest,LabPatientUnlinkService*Test,PreventionReadSafetyServiceUnitTest,SqlTableReferencesUnitTest",
+  "baselineTestCounts": {
+    "tests": 1137,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "801a80739816ee40beba469b2bff0c9e626aafedf5b9f0f988fad872a52cd779",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineExecSha256": "42c794ef7a998da00af657c419c32d01e75bf7f0d97c76a78d1911ff1e4d1e88",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/service/CaseManagementPrint.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "f8c7b5c40a5ab35905cae3ce6ab3208b181f59c1"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/dashboard/handler/IndicatorQueryHandler.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "3bb459b457717ff81789726c6259c453a16237a5"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/documentManager/EDocUtil.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "37ce2f2c6b3fa15049557872f42a62e7e94650ac"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/data/MeasurementTypes.java": {
+      "lines": 95.45454545454545,
+      "instructions": 96.61016949152543,
+      "branches": 83.33333333333333,
+      "sourceBlob": "dfb305815d56bf4fb17ea8f920d08595ed08e000"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/integration/dashboard/OutcomesDashboard2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 93.75,
+      "sourceBlob": "c2b232459b8b9dbf0d7c85c2d71fdb2ccc4f54fb"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/integration/dashboard/OutcomesDashboardUtils.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 91.66666666666667,
+      "sourceBlob": "8ec0555d27f35302db849c7d1f4aea24f2168b1d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/pageUtil/UnlinkDemographic2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "9eec98d01ddd42f57a1b4a6b311c0b7db7ad7994"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/gate/ViewLabValuesGraph2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "cddce0d75d272c2924e221c612feede1dfbe8c9c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/service/LabPatientUnlinkService.java": {
+      "lines": 100.0,
+      "instructions": 98.45758354755785,
+      "branches": 91.17647058823529,
+      "sourceBlob": "42fd97a1439ff664df20784f732f394e3240f4f2"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prevention/PreventionReadSafetyService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 85.71428571428571,
+      "sourceBlob": "9705febed88ffa26417b373e02a616f35fe26fc7"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prevention/SqlTableReferences.java": {
+      "lines": 100.0,
+      "instructions": 99.6268656716418,
+      "branches": 93.71069182389937,
+      "sourceBlob": "7ab9bd14a352fcf4045fe8793c01341a1914672f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/CrossOriginOpenerPolicyFilter.java": {
+      "lines": 91.66666666666667,
+      "instructions": 97.01492537313433,
+      "branches": 83.33333333333333,
+      "sourceBlob": "8ecb3c4eb567ba973d8602e52ed22b52ce6a0bfa"
+    }
+  },
+  "exclusions": {}
+}
