@@ -60,10 +60,11 @@ is now reported for a strength of one digit ("5 mg") and for one stored without 
 a combination it is the first ingredient's, with that ingredient's unit: "5 mg / 20 mg"
 reads 5 and "mg", where it read 20 and "mg / ". A strength stored earlier with an exponent
 ("1.0E7 unit") reads as that number. A strength is read only when the stored text starts
-with it. Text that starts with a number which is not one plain decimal ("1,000 mg",
-"1/2 mg", "5/20 mg", "5-10 mg") has no `strength`: part of such a number is a different
-strength, and so is the next ingredient's. Text that starts with a unit ("mg/5mL", stored
-when a unit is sent without a strength) is returned as `strengthUnit` with no `strength`.
+with it. Text in which another number follows the first before any unit ("1,000 mg",
+"1 000 mg", "1/2 mg", "1 / 2 mg", "5/20 mg", "5 - 10 mg", "1:1000") has no `strength`:
+the first digits of such text are not the amount, and neither is the next ingredient's
+number. Text that starts with a unit ("mg/5mL", stored when a unit is sent without a
+strength) is returned as `strengthUnit` with no `strength`.
 
 Rolling back to an earlier 2026.08 build keeps the prescriptions this build saved. The
 earlier build's REST drug list fails on a quantity that is not a whole number, as it already

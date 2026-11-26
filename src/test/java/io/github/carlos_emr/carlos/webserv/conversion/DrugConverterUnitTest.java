@@ -356,6 +356,41 @@ class DrugConverterUnitTest {
         }
 
         /**
+         * The leading digits are no more the strength when blanks stand around the separator
+         * ("1 / 2 mg", "5 - 10 mg"), when a blank groups the digits ("1 000 mg", also with a
+         * no-break space), or when another mark joins the two numbers: a ratio ("1:1000"), a
+         * combination ("5+20 mg"), a power ("10^9 CFU"). Only the character directly after the
+         * number was looked at, so "1 / 2 mg" was reported as 1 and a client that sent the drug
+         * back stored "1".
+         */
+        @ParameterizedTest(name = "stored \"{0}\"")
+        @ValueSource(strings = {
+            "1 / 2 mg", "1/ 2 mg", "1 /2 mg", "5 - 10 mg", "1 ,000 mg", "1 000 mg", "1 000 mg",
+            "2 1/2 mg", "1:1000", "1 : 10 000", "5+20 mg", "10^9 CFU", "1.234.567 mg", "5 (10 mg/mL)"
+        })
+        @DisplayName("should report no strength when another number follows the first before any unit")
+        void shouldReportNoStrength_whenAnotherNumberFollowsBeforeAnyUnit(String stored) {
+            assertNoStrengthRead(stored);
+        }
+
+        /**
+         * A later number does not make the first one something else once the first has its unit:
+         * it belongs to the unit ("mg/5mL"), to another ingredient or to a note.
+         */
+        @ParameterizedTest(name = "stored \"{0}\" -> {1} {2}")
+        @CsvSource({
+            "5 mg / 20 mg, 5, mg",
+            "250 mg/5mL, 250, mg/5mL",
+            "5 mg (10 mg/mL), 5, mg",
+            "10% (100 mg/mL), 10, %",
+            "5 mg 1:1000, 5, mg"
+        })
+        @DisplayName("should read the first number when a later number comes after its unit")
+        void shouldReadStrength_whenLaterNumberComesAfterItsUnit(String stored, float strength, String unit) {
+            assertStrengthRead(stored, strength, unit);
+        }
+
+        /**
          * Only the first number in the text is the first ingredient's. When it is not one plain
          * decimal there is no strength to report; the next number belongs to another ingredient
          * and was reported in its place ("1,000 mg / 20 mg" read 20 and "mg").
@@ -392,11 +427,13 @@ class DrugConverterUnitTest {
         }
 
         @ParameterizedTest(name = "stored \"{0}\" -> {1}")
-        @CsvSource(delimiter = '|', value = {"5/mL | 5", "10, as directed | 10", "2.5- | 2.5"})
+        @CsvSource(delimiter = '|', value = {
+            "5/mL | 5", "10, as directed | 10", "2.5- | 2.5", "5 (base) | 5", "2.5 - | 2.5", "10 , as directed | 10"
+        })
         @DisplayName("should read the number when the separator after it is not followed by a digit")
         void shouldReadStrength_whenSeparatorAfterItStartsNoNumber(String stored, float strength) {
             // Only a separator that leads into more digits makes the number something else
-            // ("1,000", "1/2", "5-10").
+            // ("1,000", "1/2", "5-10"), with or without blanks around it.
             assertStrengthRead(stored, strength, null);
         }
 

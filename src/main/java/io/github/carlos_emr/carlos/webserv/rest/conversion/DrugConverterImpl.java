@@ -255,11 +255,11 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
      * ten million, is ten million. A number further into the text is not the strength: the 5 in
      * "mg/5mL" belongs to the unit, and the 20 in "5 mg / 20 mg" to another ingredient.
      *
-     * <p>When the leading number goes on after a comma, a slash or a hyphen it is not one plain
-     * decimal: grouped digits ("1,000 mg"), a decimal comma ("2,5 mg"), a fraction ("1/2 mg"), a
-     * combination written together ("5/20 mg") or a range ("5-10 mg"). Its first digits are not
-     * the strength (1 is not 1,000) and the single strength field cannot carry the rest, so
-     * nothing is reported.
+     * <p>When another number follows the leading one before any unit, the leading one is not the
+     * strength: grouped digits ("1,000 mg", "1 000 mg"), a decimal comma ("2,5 mg"), a fraction
+     * ("1/2 mg", "1 / 2 mg"), a ratio ("1:1000"), a power ("10^9 CFU"), a combination written
+     * together ("5/20 mg") or a range ("5-10 mg"). Its digits are not the amount (1 is not 1,000)
+     * and the single strength field cannot carry the rest, so nothing is reported.
      *
      * <p>Text that starts with a unit and no number is what this service stores for a unit sent
      * without a strength. It is reported as that unit, whole, so that a client which sends it
@@ -286,7 +286,7 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
             }
             return false;
         }
-        if (continuesPastSeparator(text, end)) {
+        if (anotherNumberFollows(text, end)) {
             return false;
         }
         float strength = Float.parseFloat(text.substring(0, end));
@@ -303,11 +303,22 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
         return true;
     }
 
-    /** Whether the number that ends at {@code end} goes on: a comma, slash or hyphen, then a digit. */
-    private static boolean continuesPastSeparator(String text, int end) {
-        return end + 1 < text.length()
-                && ",/-".indexOf(text.charAt(end)) >= 0
-                && Character.isDigit(text.charAt(end + 1));
+    /**
+     * Whether another number follows the one that ends at {@code end} before any unit does.
+     * Whatever stands between the two (blanks of any kind, a comma, a slash, a hyphen, a colon)
+     * is passed over, so no list of separators has to be complete; a letter or a percent sign
+     * starts the unit and ends the search.
+     */
+    private static boolean anotherNumberFollows(String text, int end) {
+        int next = end;
+        while (next < text.length() && !startsUnitOrNumber(text.charAt(next))) {
+            next++;
+        }
+        return next < text.length() && Character.isDigit(text.charAt(next));
+    }
+
+    private static boolean startsUnitOrNumber(char c) {
+        return Character.isLetterOrDigit(c) || c == '%';
     }
 
     /**
