@@ -1,6 +1,9 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
+import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import java.nio.file.Path;
@@ -55,8 +58,10 @@ class BillingOnDiskConcurrencyUnitTest {
             return null;
         });
         var transaction = mock(BillingOnDiskTransactionService.class);
-        var first = new BillingOnDiskService(providers, prep, loader, () -> null, transaction);
-        var second = new BillingOnDiskService(providers, prep, loader, () -> null, transaction);
+        var first = new BillingOnDiskService(providers, prep, loader, () -> null, transaction,
+                mock(SecurityInfoManager.class), mock(BillingReviewLoader.class), mock(ProviderDataDao.class), mock(BillingOnFileAccessService.class));
+        var second = new BillingOnDiskService(providers, prep, loader, () -> null, transaction,
+                mock(SecurityInfoManager.class), mock(BillingReviewLoader.class), mock(ProviderDataDao.class), mock(BillingOnFileAccessService.class));
         try (var executor = Executors.newSingleThreadExecutor()) {
             var running = executor.submit(() -> first.generateNewDisk(request()));
             try {
@@ -79,6 +84,9 @@ class BillingOnDiskConcurrencyUnitTest {
 
     private static MockHttpServletRequest request() {
         var request = new MockHttpServletRequest();
+        var login = new io.github.carlos_emr.carlos.utility.LoggedInInfo();
+        login.setLoggedInProvider(new io.github.carlos_emr.carlos.commn.model.Provider("999998"));
+        io.github.carlos_emr.carlos.utility.LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), login);
         request.setParameter("providers", "999998");
         request.setParameter("diskId", "1");
         request.setParameter("curDate", "2026-09-26");

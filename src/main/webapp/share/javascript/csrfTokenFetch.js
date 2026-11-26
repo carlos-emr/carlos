@@ -17,6 +17,7 @@
  * console stays quiet, so a genuine warning means a genuine failure.
  *
  * @param {string} contextPath - the application context path (e.g. "/carlos")
+ * @param {AbortSignal} [signal] - cancels this request when its caller times out
  * @returns {Promise<void>} resolves after tokens have been populated;
  *                          rejects if the token cannot be fetched or parsed
  * @since 2026-04-07
@@ -46,8 +47,8 @@ if (typeof window !== 'undefined' && window.addEventListener) {
     window.addEventListener('pageshow', function () { carlosCsrfPageUnloading = false; }, true);
 }
 
-function fetchCsrfToken(contextPath) {
-    return fetch(contextPath + '/csrfguard', { credentials: 'same-origin' })
+function fetchCsrfToken(contextPath, signal) {
+    return fetch(contextPath + '/csrfguard', { credentials: 'same-origin', signal: signal })
         .then(function(r) {
             if (!r.ok) {
                 throw new Error('CSRFGuard request failed with status ' + r.status);

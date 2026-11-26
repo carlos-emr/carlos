@@ -1,5 +1,20 @@
 # CARLOS 2026.08 release notes
 
+## Ontario OHIP billing after a single-site import
+
+OHIP Simulation and Generate OHIP File now show eligible physicians and their
+billing disk history when a single-site clinic has no provider-site assignments.
+The seeded administrator can use both pages with the existing role configuration.
+When multisite mode is enabled, an operator restricted by site alone sees only
+providers who share an assigned site. An explicit team billing restriction
+continues to apply in either clinic mode.
+
+During an OSCAR 19 migration, compare the source `multisites` setting with
+the setting in CARLOS before opening billing to staff. This also applies to
+completed imports. A clinic that relied on site assignments to restrict billing
+with multisite mode disabled must enable multisite mode and verify access for its
+operators. [OSCAR 19 import guide](o19-import-deb.md)
+
 ## Unlinking a lab archives the readings it filed
 
 Unlinking a lab report from a patient (Unlink on the lab page) now also archives the

@@ -62,6 +62,55 @@ for (const [label, body, expected] of [
   });
 }
 
+test('packaged Tomcat starts with the Base64 intrinsic disabled on fresh and customized installs', async (t) => {
+  const { once } = require('node:events');
+  const net = require('node:net');
+  const root = fs.mkdtempSync('/tmp/carlos-tomcat-');
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+
+  // Relocate only the package directories. Run the complete launcher, including
+  // its startup checks and its exec of catalina.sh, inside this fixture.
+  const source = fs.readFileSync(path.join(__dirname, '..', 'debian/assets/bin/carlos-emr-tomcat'), 'utf8');
+  const launcher = path.join(root, 'carlos-emr-tomcat');
+  const packagePaths = /\/(?:etc\/carlos-emr|var\/lib\/carlos-emr|usr\/share\/tomcat11|run\/carlos-emr)\b/g;
+  fs.writeFileSync(launcher, source.replace(packagePaths, directory => root + directory));
+  for (const directory of [
+    'etc/carlos-emr', 'var/lib/carlos-emr/catalina/conf', 'usr/share/tomcat11/bin', 'usr/share/tomcat11/lib', 'jdk/bin',
+  ]) {
+    fs.mkdirSync(path.join(root, directory), { recursive: true });
+  }
+  fs.writeFileSync(path.join(root, 'etc/carlos-emr/carlos.properties'), '');
+  fs.writeFileSync(path.join(root, 'var/lib/carlos-emr/catalina/conf/server.xml'), '<Server/>');
+  fs.writeFileSync(path.join(root, 'jdk/release'), 'JAVA_VERSION="25"\n');
+  fs.symlinkSync('/bin/true', path.join(root, 'jdk/bin/java'));
+  const catalina = path.join(root, 'usr/share/tomcat11/bin/catalina.sh');
+  fs.writeFileSync(catalina, '#!/bin/sh\nset -eu\n[ "$1" = run ]\nprintf "%s\\n" "$CATALINA_OPTS"\n', { mode: 0o755 });
+
+  const database = net.createServer(socket => socket.end());
+  await once(database.listen(0, '127.0.0.1'), 'listening');
+  t.after(() => new Promise(resolve => database.close(resolve)));
+
+  for (const siteOptions of ['', '-Dclinic.example=true -XX:+UseBASE64Intrinsics']) {
+    fs.writeFileSync(path.join(root, 'etc/carlos-emr/carlos-emr.env'), `CARLOS_JAVA_OPTS="${siteOptions}"\n`);
+    const result = spawnSync('bash', [launcher, 'run'], {
+      env: {
+        PATH: process.env.PATH,
+        JAVA_HOME: path.join(root, 'jdk'),
+        CARLOS_TZ: 'UTC',
+        CARLOS_DB_PORT: String(database.address().port),
+      },
+      encoding: 'utf8',
+      timeout: 10_000,
+    });
+    assert.ifError(result.error);
+    assert.equal(result.status, 0, result.stderr);
+    const options = result.stdout.trim().split(/\s+/);
+    if (siteOptions) assert.ok(options.includes('-Dclinic.example=true'));
+    assert.equal(options.filter(option => /^-XX:[+-]UseBASE64Intrinsics$/.test(option)).at(-1),
+      '-XX:-UseBASE64Intrinsics');
+  }
+});
+
 test('Tomcat startup invalidates only generated JSP code without following cache symlinks', () => {
   const os = require('node:os');
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-jsp-cache-'));

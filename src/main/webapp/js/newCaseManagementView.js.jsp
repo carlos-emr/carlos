@@ -3182,15 +3182,19 @@ function updateCPPNote() {
         );
         return false;
     }
-    function savePage(method, chain) {
+    function savePage(method, chain, signIntent) {
+        // Keep Sign, Verify and Bill with this particular click. Validation can reject
+        // it, or a plain Save can replace it while the note's issues are refreshing.
+        var form = document.forms["caseManagementEntryForm"];
+        if (!signIntent) signIntent = noteSignIntent(form);
+        resetNoteSignIntent(form);
         if (lostNoteLock) {
-            resetNoteSignIntent(document.forms["caseManagementEntryForm"]);
             alert(noteLockLostError);
             return false;
         }
         // Opening/editing a note refreshes its issue fields asynchronously. Save only
         // after both fragments finish, so the form and its issue selection stay intact.
-        if (deferNoteSaveUntilIssues(function () { savePage(method, chain); })) return false;
+        if (deferNoteSaveUntilIssues(function () { savePage(method, chain, signIntent); })) return false;
 
         var noteStr;
         noteStr = $F(caseNote);
@@ -3248,19 +3252,18 @@ function updateCPPNote() {
         // (the saving status shows, and Save, Sign and Bill wait), so the submission carries
         // the note as it was when Sign & Save was chosen and no other save starts meanwhile.
         clearAutoSaveTimer();
-        var signIntent = noteSignIntent(document.forms["caseManagementEntryForm"]);
         var restoreControls = beginNoteSwitchSave();
         whenStillSignedIn(function () {
             // A disabled control is left out of a form submission: restore them first. A key
             // press during the check (Ctrl+B) may have changed Sign, Verify or Bill; submit the
             // choices made when Sign & Save was chosen.
             restoreControls();
-            applyNoteSignIntent(document.forms["caseManagementEntryForm"], signIntent);
+            applyNoteSignIntent(form, signIntent);
             submitNotePage(method, chain);
         }, function () {
             restoreControls();
             // A later plain Save must not sign, verify or bill the note.
-            resetNoteSignIntent(document.forms["caseManagementEntryForm"]);
+            resetNoteSignIntent(form);
             setTimer();
             alertSessionEndedNotSaved();
         });

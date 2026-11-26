@@ -22,6 +22,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMReport;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMReportAccess;
+import io.github.carlos_emr.carlos.hospitalReportManager.HrmVersionService.ReportGroup;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMReportParser;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
@@ -143,9 +144,8 @@ public class HRMResultsData {
 		List<HRMDocumentToProvider> hrmDocResultsProvider = hrmDocumentToProviderDao.findByProviderNoLimit(providerNo, demographicNumbers, patientSearch, newestDate, oldestDate, viewed, signedOff,
                 isPaged, page, pageSize, signedOffSince);
 
-        // the key = SendingFacility+':'+ReportNumber+':'+DeliverToUserID as per HRM spec can be used to signify duplicate report
-        HashMap<String, LabResultData> labResults = new HashMap<String, LabResultData>();
-        HashMap<String, HRMReport> labReports = new HashMap<String, HRMReport>();
+        HashMap<ReportGroup, LabResultData> labResults = new HashMap<>();
+        HashMap<ReportGroup, HRMReport> labReports = new HashMap<>();
         Set<Integer> seenDocumentIds = new HashSet<>();
 
         // A report routed to this provider can be filed to a patient they are locked out of. Its
@@ -170,7 +170,7 @@ public class HRMResultsData {
 
             List<HRMDocument> hrmDocument = hrmDocumentDao.findById(id);
 
-            lbData.dateTime = hrmDocument.get(0).getTimeReceived().toString();
+            lbData.dateTime = Objects.toString(hrmDocument.get(0).getTimeReceived(), "");
             lbData.acknowledgedStatus = "U";
             lbData.reportStatus = hrmDocument.get(0).getReportStatus();
             lbData.segmentID = hrmDocument.get(0).getId().toString();
@@ -204,7 +204,7 @@ public class HRMResultsData {
             lbData.discipline = "HRM";
             lbData.resultStatus = hrmReport.getResultStatus();
 
-            String duplicateKey = hrmReport.getSendingFacilityId() + ':' + hrmReport.getSendingFacilityReportNo() + ':' + hrmReport.getDeliverToUserId();
+            ReportGroup duplicateKey = ReportGroup.forLinks(hrmReport, hrmDocResultsDemographic, id);
             String[] patientName = Objects.toString(lbData.patientName, "").split(",", 2);
             String givenName = patientName.length > 1 ? patientName[1] : "";
             if (Objects.toString(lbData.healthNumber, "").contains(hinSearch)

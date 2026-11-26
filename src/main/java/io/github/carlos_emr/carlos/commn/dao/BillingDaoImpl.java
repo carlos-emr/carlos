@@ -233,9 +233,18 @@ public class BillingDaoImpl extends AbstractDaoImpl<Billing> implements BillingD
      */
     @Override
     public List<Billing> findByProviderStatusAndDates(String providerNo, List<String> statusList, DateRange dateRange) {
-        Map<String, Object> params = new HashMap<String, Object>();
+        return findByProviderStatusAndDates(providerNo, null, statusList, dateRange);
+    }
+
+    @Override
+    public List<Billing> findByProviderStatusAndDates(String ohipNo, String billingProviderNo, List<String> statusList, DateRange dateRange) {
+        Map<String, Object> params = new HashMap<>();
         StringBuilder buf = new StringBuilder("FROM Billing b WHERE b.providerOhipNo = :pon");
-        params.put("pon", providerNo);
+        params.put("pon", ohipNo);
+        if (billingProviderNo != null) {
+            buf.append(" AND b.providerNo = :providerNo");
+            params.put("providerNo", billingProviderNo);
+        }
 
         if (statusList != null && !statusList.isEmpty()) {
             buf.append(" AND b.status IN (:sl)");

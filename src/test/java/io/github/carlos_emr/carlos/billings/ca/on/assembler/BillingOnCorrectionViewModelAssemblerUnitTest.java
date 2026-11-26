@@ -26,6 +26,7 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnCorrectionViewModel;
+import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao;
@@ -158,7 +159,11 @@ class BillingOnCorrectionViewModelAssemblerUnitTest extends CarlosUnitTestBase {
         teamProvider.setProviderNo("777777");
         when(providerDao.getBillableProvidersOnTeam(userProvider)).thenReturn(List.of(teamProvider));
 
-        BillingOnCorrectionViewModel m = assembler.assemble(request, loggedInInfo);
+        BillingOnCorrectionViewModel m;
+        try (var settings = Mockito.mockStatic(IsPropertiesOn.class)) {
+            settings.when(IsPropertiesOn::isMultisitesEnable).thenReturn(true);
+            m = assembler.assemble(request, loggedInInfo);
+        }
 
         assertThat(m.getUserProviderNo()).isEqualTo("999998");
         assertThat(m.getUserFirstName()).isEqualTo("doctor");
@@ -274,6 +279,25 @@ class BillingOnCorrectionViewModelAssemblerUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldKeepOtherProvidersBillPrivate_whenSingleSiteLoginHasBillingOnlyAndSeededSiteGrants() {
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("803601");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_team_billing_only", "r", null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_site_access_privacy", "r", null)).thenReturn(true);
+        when(providerDao.getCurrentTeamProviders("803601")).thenReturn(List.of(new Provider("803601")));
+        var claim = new BillingONCHeader1();
+        claim.setProviderNo("803602");
+        claim.setDemographicName("FAKE patient");
+        when(bCh1Dao.findWithItems(14)).thenReturn(claim);
+        request.setParameter("billing_no", "14");
+
+        var result = assembler.assemble(request, loggedInInfo);
+
+        assertThat(result.getProviderAccessList()).containsExactly("803601");
+        assertThat(result.isMultiSiteProvider()).isFalse();
+        assertThat(result.getDemoName()).isEmpty();
+    }
+
+    @Test
     void shouldDenyMultiSiteAccess_whenBillProviderNotInAccessList() {
         // Site-access-privacy gate: bill belongs to provider 555555 (NOT in
         // the 999998 user's access list). Expect multiSiteProvider=false and
@@ -301,7 +325,11 @@ class BillingOnCorrectionViewModelAssemblerUnitTest extends CarlosUnitTestBase {
         request.setParameter("billing_no", "12345");
         when(bCh1Dao.findWithItems(Integer.valueOf(12345))).thenReturn(bCh1);
 
-        BillingOnCorrectionViewModel m = assembler.assemble(request, loggedInInfo);
+        BillingOnCorrectionViewModel m;
+        try (var settings = Mockito.mockStatic(IsPropertiesOn.class)) {
+            settings.when(IsPropertiesOn::isMultisitesEnable).thenReturn(true);
+            m = assembler.assemble(request, loggedInInfo);
+        }
 
         assertThat(m.isBillLoaded()).isTrue();
         assertThat(m.isMultiSiteProvider()).isFalse();

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/LinuxNoReplaceMove.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 62.96296296296296,
+    "instructions": 68.125,
+    "branches": 50.0,
+    "sourceBlob": "eac5a4ede7b2e29c2cb518aaaac1a3a788c539f4"
+  },
+  "evidenceSha256": "a961c468580db0deb15fcff88e2df3b311071da7fba7fed04ee9ddb871dab5ce"
+}

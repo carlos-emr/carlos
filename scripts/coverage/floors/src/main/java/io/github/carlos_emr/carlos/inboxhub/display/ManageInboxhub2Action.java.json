@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/inboxhub/display/ManageInboxhub2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "193a644e7ee4a7fe6574864c424cbcb947b796c9"
+  },
+  "evidenceSha256": "8dc0351aefa149887a22507901e386ea1c9d60f61ccb8d930632b0c36ac0c2d8"
+}

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/dao/RScheduleDaoImpl.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "0ba73c2ed362e3d29e08d6b8f5d11353b62c0f44"
+  },
+  "evidenceSha256": "04339a3957f43cd299c5ba33ef4936e65fc43f27323fc50e32e068f4bad16584"
+}
