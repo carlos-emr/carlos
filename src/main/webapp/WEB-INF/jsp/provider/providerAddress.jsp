@@ -31,6 +31,7 @@
 
 <%@ page language="java" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -191,16 +192,16 @@
 
 
                     <label for="address"><fmt:message key="provider.providerAddress.address"/></label>
-                    <input type="text" name="address" value="<%=address %>" />
+                    <input type="text" name="address" value="<carlos:encode value='<%= address %>' context="htmlAttribute"/>" />
                     <br/>
                     <label for="city"><fmt:message key="provider.providerAddress.city"/></label>
-                    <input type="text" name="city" value="<%=city %>" />
+                    <input type="text" name="city" value="<carlos:encode value='<%= city %>' context="htmlAttribute"/>" />
                     <br/>
                     <label for="province"><fmt:message key="provider.providerAddress.province"/></label>
-                    <input type="text" name="province" value="<%=province %>" />
+                    <input type="text" name="province" value="<carlos:encode value='<%= province %>' context="htmlAttribute"/>" />
                     <br/>
                     <label for="postal"><fmt:message key="provider.providerAddress.postal"/></label>
-                    <input type="text" name="postal" value="<%=postal %>" />
+                    <input type="text" name="postal" value="<carlos:encode value='<%= postal %>' context="htmlAttribute"/>" />
                     <br/>
 
                     <input type="submit" onclick="return validate();"
@@ -208,7 +209,7 @@
                 </form> <%
             } else if (((String) request.getAttribute("status")).equals("complete")) {
             %> <fmt:message key="provider.editRxAddress.msgSuccess"/> <br>
-                <%=address%>, <%=city%>, <%=province%>, <%=postal%>  <%
+                <carlos:encode value='<%= address %>'/>, <carlos:encode value='<%= city %>'/>, <carlos:encode value='<%= province %>'/>, <carlos:encode value='<%= postal %>'/>  <%
                 }
             %>
             </td>

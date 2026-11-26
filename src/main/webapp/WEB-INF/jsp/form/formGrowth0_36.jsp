@@ -236,7 +236,7 @@
             //var mm = eval(str_date.substring(eval(str_date.indexOf("/")+1), str_date.lastIndexOf("/")) - 1);
             //var yyyy  = str_date.substring(eval(str_date.lastIndexOf("/")+1));
             var check_date = new Date(yyyy, mm, dd);
-            str_date = "<%=props.getProperty("dateOfBirth")%>";
+            str_date = "<carlos:encode value='<%= props.getProperty("dateOfBirth") %>' context="javaScriptBlock"/>";
             if (document.forms[0].edc.value.length > 9) {
                 str_date = document.forms[0].edc.value;
             }
@@ -309,9 +309,9 @@
     <form action="${pageContext.request.contextPath}/form/formname" method="post">
         <input type="hidden" name="dateOfBirth" value="<carlos:encode value='<%= props.getProperty("dateOfBirth", "") %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="demographic_no"
-               value="<%= props.getProperty("demographic_no", "0") %>"/>
+               value="<carlos:encode value='<%= props.getProperty("demographic_no", "0") %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="formCreated"
-               value="<%= props.getProperty("formCreated", "") %>"/>
+               value="<carlos:encode value='<%= props.getProperty("formCreated", "") %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="form_class" value="<%=formClass%>"/>
         <input type="hidden" name="form_link" value="<%=formLink%>"/>
         <input type="hidden" name="formId" value="<%=formId%>"/>
@@ -353,10 +353,10 @@
                             <tr>
                                 <td align="right"><fmt:message key="form.growth0_36.name"/> <input type="text" name="patientName"
                                                               size="50" maxlength="80"
-                                                              value="<%= props.getProperty("patientName", "") %>"
+                                                              value="<carlos:encode value='<%= props.getProperty("patientName", "") %>' context="htmlAttribute"/>"
                                                               @oscar.formDB/>
                                     <fmt:message key="form.growth0_36.recordNo"/> <input type="text" name="recordNo" size="10"
-                                                    maxlength="10" value="<%= props.getProperty("recordNo", "") %>"
+                                                    maxlength="10" value="<carlos:encode value='<%= props.getProperty("recordNo", "") %>' context="htmlAttribute"/>"
                                                     @oscar.formDB/></td>
                             </tr>
                         </table>
@@ -366,12 +366,12 @@
                                 <td nowrap><fmt:message key="form.growth0_36.mothersStature"/></td>
                                 <td><input type="text" name="motherStature" size="50"
                                            maxlength="80"
-                                           value="<%= props.getProperty("motherStature", "") %>"
+                                           value="<carlos:encode value='<%= props.getProperty("motherStature", "") %>' context="htmlAttribute"/>"
                                            @oscar.formDB/></td>
                                 <td nowrap align="right"><fmt:message key="form.growth0_36.gestationalAge"/>:</td>
                                 <td><input type="text" name="gestationalAge" size="10"
                                            maxlength="5"
-                                           value="<%= props.getProperty("gestationalAge", "") %>"
+                                           value="<carlos:encode value='<%= props.getProperty("gestationalAge", "") %>' context="htmlAttribute"/>"
                                            @oscar.formDB/> <fmt:message key="form.growth0_36.weeks"/>
                                 </td>
                             </tr>
@@ -379,11 +379,11 @@
                                 <td nowrap><fmt:message key="form.growth0_36.fathersStature"/></td>
                                 <td><input type="text" name="fatherStature" size="50"
                                            maxlength="80"
-                                           value="<%= props.getProperty("fatherStature", "") %>"
+                                           value="<carlos:encode value='<%= props.getProperty("fatherStature", "") %>' context="htmlAttribute"/>"
                                            @oscar.formDB/></td>
                                 <td nowrap align="right"><fmt:message key="form.growth0_36.expectedDateOfConfinement"/>:</td>
                                 <td><input type="text" name="edc" id="edc" size="10"
-                                           maxlength="10" value="<%= props.getProperty("edc", "") %>"
+                                           maxlength="10" value="<carlos:encode value='<%= props.getProperty("edc", "") %>' context="htmlAttribute"/>"
                                            @oscar.formDB/> <img src="<%= request.getContextPath() %>/images/cal.gif" id="edc_cal">
                                 </td>
                             </tr>
@@ -424,26 +424,26 @@
                             <tr align="center">
                                 <td nowrap><input type="text" name="date_<%=i%>"
                                                   id="date_<%=i%>" readonly size="8" maxlength="10"
-                                                  value="<%= props.getProperty("date_"+i, "") %>" @oscar.formDB
+                                                  value="<carlos:encode value='<%= props.getProperty("date_"+i, "") %>' context="htmlAttribute"/>" @oscar.formDB
                                                   dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif" id="date_<%=i%>_cal">
                                 </td>
                                 <td><input type="text" name="age_<%=i%>"
                                            onDblClick="calcAge(this)" size="1" maxlength="5"
-                                           value="<%= props.getProperty("age_"+i, "") %>" @oscar.formDB/></td>
+                                           value="<carlos:encode value='<%= props.getProperty("age_"+i, "") %>' context="htmlAttribute"/>" @oscar.formDB/></td>
                                 <td><input type="text" name="weight_<%=i%>"
                                            onDblClick="wtEnglish2Metric(this)" size="3" maxlength="6"
-                                           value="<%= props.getProperty("weight_"+i, "") %>" @oscar.formDB/>
+                                           value="<carlos:encode value='<%= props.getProperty("weight_"+i, "") %>' context="htmlAttribute"/>" @oscar.formDB/>
                                 </td>
                                 <td><input type="text" name="length_<%=i%>"
                                            onDblClick="htEnglish2Metric(this)" size="3" maxlength="6"
-                                           value="<%= props.getProperty("length_"+i, "") %>" @oscar.formDB/>
+                                           value="<carlos:encode value='<%= props.getProperty("length_"+i, "") %>' context="htmlAttribute"/>" @oscar.formDB/>
                                 </td>
                                 <td><input type="text" name="headCirc_<%=i%>"
                                            onDblClick="htEnglish2Metric(this)" size="3" maxlength="6"
-                                           value="<%= props.getProperty("headCirc_"+i, "") %>" @oscar.formDB/>
+                                           value="<carlos:encode value='<%= props.getProperty("headCirc_"+i, "") %>' context="htmlAttribute"/>" @oscar.formDB/>
                                 </td>
                                 <td><input type="text" name="comment_<%=i%>" size="20"
-                                           maxlength="25" value="<%= props.getProperty("comment_"+i, "") %>"
+                                           maxlength="25" value="<carlos:encode value='<%= props.getProperty("comment_"+i, "") %>' context="htmlAttribute"/>"
                                            @oscar.formDB/></td>
                             </tr>
                             <% } %>
@@ -487,26 +487,26 @@
                             <tr align="center">
                                 <td nowrap><input type="text" name="date_<%=i%>"
                                                   id="date_<%=i%>" readonly size="8" maxlength="10"
-                                                  value="<%= props.getProperty("date_"+i, "") %>" @oscar.formDB
+                                                  value="<carlos:encode value='<%= props.getProperty("date_"+i, "") %>' context="htmlAttribute"/>" @oscar.formDB
                                                   dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif" id="date_<%=i%>_cal">
                                 </td>
                                 <td><input type="text" name="age_<%=i%>"
                                            onDblClick="calcAge(this)" size="1" maxlength="5"
-                                           value="<%= props.getProperty("age_"+i, "") %>" @oscar.formDB/></td>
+                                           value="<carlos:encode value='<%= props.getProperty("age_"+i, "") %>' context="htmlAttribute"/>" @oscar.formDB/></td>
                                 <td><input type="text" name="weight_<%=i%>"
                                            onDblClick="wtEnglish2Metric(this)" size="3" maxlength="6"
-                                           value="<%= props.getProperty("weight_"+i, "") %>" @oscar.formDB/>
+                                           value="<carlos:encode value='<%= props.getProperty("weight_"+i, "") %>' context="htmlAttribute"/>" @oscar.formDB/>
                                 </td>
                                 <td><input type="text" name="length_<%=i%>"
                                            onDblClick="htEnglish2Metric(this)" size="3" maxlength="6"
-                                           value="<%= props.getProperty("length_"+i, "") %>" @oscar.formDB/>
+                                           value="<carlos:encode value='<%= props.getProperty("length_"+i, "") %>' context="htmlAttribute"/>" @oscar.formDB/>
                                 </td>
                                 <td><input type="text" name="headCirc_<%=i%>"
                                            onDblClick="htEnglish2Metric(this)" size="3" maxlength="6"
-                                           value="<%= props.getProperty("headCirc_"+i, "") %>" @oscar.formDB/>
+                                           value="<carlos:encode value='<%= props.getProperty("headCirc_"+i, "") %>' context="htmlAttribute"/>" @oscar.formDB/>
                                 </td>
                                 <td><input type="text" name="comment_<%=i%>" size="20"
-                                           maxlength="25" value="<%= props.getProperty("comment_"+i, "") %>"
+                                           maxlength="25" value="<carlos:encode value='<%= props.getProperty("comment_"+i, "") %>' context="htmlAttribute"/>"
                                            @oscar.formDB/></td>
                             </tr>
                             <% } %>

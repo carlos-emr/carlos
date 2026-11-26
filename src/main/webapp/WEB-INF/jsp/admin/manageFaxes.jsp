@@ -368,7 +368,7 @@
 
                             for (ProviderData providerData : providerDataList) {
                         %>
-                        <option value="<%=providerData.getId()%>"><%=providerData.getLastName() + ", " + providerData.getFirstName()%>
+                        <option value="<carlos:encode value='<%= providerData.getId() %>' context="htmlAttribute"/>"><carlos:encode value='<%= providerData.getLastName() + ", " + providerData.getFirstName() %>'/>
                         </option>
 
                         <%

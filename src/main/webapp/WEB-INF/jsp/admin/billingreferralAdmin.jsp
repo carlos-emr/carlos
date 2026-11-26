@@ -129,9 +129,13 @@
 
                 if (data == null || data.length == 0) {
                     $("#checked_items_tbl tbody").append("<tr><td>-None-</td></tr>");
+                    return;
                 }
                 for (var x = 0; x < data.length; x++) {
-                    $("#checked_items_tbl tbody").append("<tr><td>" + data[x].formattedName + "</td></tr>");
+                    // .text() inserts the specialist's name as text; concatenating it into an HTML string
+                    // would run any markup stored in the name
+                    var cell = $("<td>").text(data[x].formattedName);
+                    $("#checked_items_tbl tbody").append($("<tr>").append(cell));
                 }
             }
 

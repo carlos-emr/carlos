@@ -33,6 +33,7 @@
 <%@page import="io.github.carlos_emr.carlos.web.admin.ProviderPreferencesUIBean" %>
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+<%@page import="io.github.carlos_emr.carlos.utility.LogSafe" %>
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
     String providerNo = loggedInInfo.getLoggedInProviderNo();
@@ -46,7 +47,7 @@
         String name = request.getParameter("name");
         ProviderPreferencesUIBean.removeQuickLink(providerNo, name);
     } else {
-        MiscUtils.getLogger().error("Missing action case. action=" + action);
+        MiscUtils.getLogger().error("Missing action case. action=" + LogSafe.sanitize(action));
         WebUtils.dumpParameters(request);
     }
 

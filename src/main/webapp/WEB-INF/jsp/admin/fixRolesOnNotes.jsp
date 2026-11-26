@@ -40,6 +40,7 @@
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -88,7 +89,7 @@
     <%
         for (SecRole role : roles) {
     %>
-    <option value="<%=role.getId() %>"><%=role.getName() %>
+    <option value="<%=role.getId() %>"><carlos:encode value='<%= role.getName() %>'/>
     </option>
     <%} %>
 </select>

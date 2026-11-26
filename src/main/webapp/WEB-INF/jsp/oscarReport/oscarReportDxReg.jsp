@@ -188,7 +188,7 @@
                     <select name="codesystem" class="sel" id="codingSystem">
                         <option value="">Select Coding System</option>
                         <c:forEach var="codingSys" items="${codingSystem.codingSystems}">
-                            <option value="${codingSys}">${codingSys}</option>
+                            <option value="${carlos:forHtmlAttribute(codingSys)}">${carlos:forHtml(codingSys)}</option>
                         </c:forEach>
                     </select>
                     <input type="text" id="codesearch" placeholder="search description" name="codesearch"
@@ -268,8 +268,8 @@
                         <%
                             for (Provider p : providerDao.getActiveProviders()) {
                         %>
-                        <option value="<%=p.getProviderNo()%>" <%=mygroupno.equals(p.getProviderNo()) ? "selected" : ""%>>
-                            <%=p.getFormattedName()%>
+                        <option value="<carlos:encode value='<%= p.getProviderNo() %>' context="htmlAttribute"/>" <%=mygroupno.equals(p.getProviderNo()) ? "selected" : ""%>>
+                            <carlos:encode value='<%= p.getFormattedName() %>'/>
                         </option>
                         <%
                             }
@@ -282,15 +282,15 @@
                             for (MyGroup g : myGroupDao.searchmygroupno()) {
 
                         %>
-                        <option value="<%="_grp_"+g.getId().getMyGroupNo()%>" <%=(mygroupno.equals("_grp_" + g.getId().getMyGroupNo())
-                                || (useProviderPreference && mygroupno.equals(g.getId().getMyGroupNo()))) ? "selected" : ""%>><%=g.getId().getMyGroupNo()%>
+                        <option value="<carlos:encode value='<%= "_grp_" + g.getId().getMyGroupNo() %>' context="htmlAttribute"/>" <%=(mygroupno.equals("_grp_" + g.getId().getMyGroupNo())
+                                || (useProviderPreference && mygroupno.equals(g.getId().getMyGroupNo()))) ? "selected" : ""%>><carlos:encode value='<%= g.getId().getMyGroupNo() %>'/>
                         </option>
                         <%
                             }
 
                             for (Provider p : providerDao.getActiveProviders()) {
                         %>
-                        <option value="<%=p.getProviderNo()%>" <%=mygroupno.equals(p.getProviderNo()) ? "selected" : ""%>><%=p.getFormattedName()%>
+                        <option value="<carlos:encode value='<%= p.getProviderNo() %>' context="htmlAttribute"/>" <%=mygroupno.equals(p.getProviderNo()) ? "selected" : ""%>><carlos:encode value='<%= p.getFormattedName() %>'/>
                         </option>
                         <%
                             }

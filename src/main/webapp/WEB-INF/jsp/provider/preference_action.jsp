@@ -45,10 +45,10 @@
 <%
     HashMap<String, String[]> parameters = new HashMap(request.getParameterMap());
 
-    String providerNo = parameters.get("provider_no")[0];
-
     ProviderPreferenceDao preferenceDao = (ProviderPreferenceDao) SpringUtils.getBean(ProviderPreferenceDao.class);
     ProviderPreference preference = ProviderPreferencesUIBean.updateOrCreateProviderPreferences(request);
+    // the provider number of the record that was just saved, not the raw request parameter
+    String providerNo = preference.getProviderNo();
 
     response.sendRedirect(request.getContextPath() + "/provider/ViewProviderDefaultDxCode?provider_no=" + SafeEncode.forUriComponent(providerNo));
 %>

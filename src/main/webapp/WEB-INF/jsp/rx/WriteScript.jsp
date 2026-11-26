@@ -1420,7 +1420,7 @@
                                                                         href="#"><carlos:encode value='<%=limitedUseCode.getUseId()%>' context="html"/>
                                                                 </a>&nbsp;
                                                                 </td>
-                                                                <td><%=limitedUseCode.getTxt()%>
+                                                                <td><carlos:encode value='<%= limitedUseCode.getTxt() %>'/>
                                                                 </td>
                                                             </tr>
                                                             <%}%>

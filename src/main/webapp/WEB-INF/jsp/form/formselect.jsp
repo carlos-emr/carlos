@@ -35,6 +35,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 
@@ -50,8 +51,8 @@
     <div class="card card-body bg-body-tertiary">
 
         <form action="${pageContext.request.contextPath}/form/select" method="post" id="selectForm" name="selectForm">
-            <input type="hidden" id="savedAddSelection" name="savedAddSelection" value="${param.savedAddSelection}" />
-            <input type="hidden" id="savedDeleteSelection" name="savedDeleteSelection" value="${param.savedDeleteSelection}" />
+            <input type="hidden" id="savedAddSelection" name="savedAddSelection" value="${carlos:forHtmlAttribute(param.savedAddSelection)}" />
+            <input type="hidden" id="savedDeleteSelection" name="savedDeleteSelection" value="${carlos:forHtmlAttribute(param.savedDeleteSelection)}" />
             
             <table id="scrollNumber1" name="encounterTable">
                 <tr>

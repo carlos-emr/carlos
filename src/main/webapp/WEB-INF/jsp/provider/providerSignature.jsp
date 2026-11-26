@@ -30,6 +30,7 @@
 --%>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 
 <%@ page import="io.github.carlos_emr.carlos.providers.data.*" %>
@@ -82,7 +83,7 @@
             <td class="MainTableRightColumn">
                 <% boolean hasSig = sig.hasSignature(curUser_no);
                     if (hasSig) {
-                %> <fmt:message key="provider.providerSignature.msgCurrentSignature"/> <u><%=sig.getSignature(curUser_no)%>
+                %> <fmt:message key="provider.providerSignature.msgCurrentSignature"/> <u><carlos:encode value='<%= sig.getSignature(curUser_no) %>'/>
             </u>
                 <br>
                 <a href="<%= request.getContextPath() %>/provider/ViewEditSignature"><fmt:message key="provider.providerSignature.btnClickHere"/></a> <fmt:message key="provider.providerSignature.msgChangeIt"/> <% } else {%> <fmt:message key="provider.providerSignature.msgSigNotSet"/><br>

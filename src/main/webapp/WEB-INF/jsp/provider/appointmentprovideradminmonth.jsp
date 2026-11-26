@@ -260,7 +260,7 @@
     String resourcehelpHtml = "";
     UserProperty rbuHtml = userPropertyDao.getProp("resource_helpHtml");
     if (rbuHtml != null) {
-        resourcehelpHtml = rbuHtml.getValue();
+        resourcehelpHtml = SafeHtml.forFormattedText(rbuHtml.getValue());
     }
 
     GregorianCalendar now = new GregorianCalendar();
@@ -337,6 +337,7 @@
 
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeHtml" %>
 <%@ page import="io.github.carlos_emr.carlos.provider.web.ScheduleWeekLink" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupAccessRestrictionDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroupAccessRestriction" %>

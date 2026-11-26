@@ -567,7 +567,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
             </div> 
            
            <oscar:oscarPropertiesCheck property="RENAL_DOSING_DS" value="yes">
-            <script type="text/javascript">getRenalDosingInformation('renalDosing_<%=rand%>','<%=rx.getAtcCode()%>');</script>
+            <script type="text/javascript">getRenalDosingInformation('renalDosing_<%=rand%>','<carlos:encode value='<%= rx.getAtcCode() %>' context="javaScriptBlock"/>');</script>
             </oscar:oscarPropertiesCheck>
            <oscar:oscarPropertiesCheck property="billregion" value="ON" >
                <script type="text/javascript">getLUC('luc_<%=rand%>','<%=rand%>','<carlos:encode value='<%= rx.getRegionalIdentifier() %>' context="javaScriptBlock"/>');</script>

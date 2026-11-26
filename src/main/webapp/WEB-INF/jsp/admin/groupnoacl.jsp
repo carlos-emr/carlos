@@ -31,6 +31,7 @@
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -150,7 +151,7 @@
                                                     selected = " selected=\"selected\" ";
                                                 }
                                         %>
-                                        <option value="<%=group%>" <%=selected%>><%=group %>
+                                        <option value="<carlos:encode value='<%= group %>' context="htmlAttribute"/>" <%=selected%>><carlos:encode value='<%= group %>'/>
                                         </option>
                                         <% } %>
                                         <%
@@ -160,7 +161,7 @@
                                                     selected = " selected=\"selected\" ";
                                                 }
                                         %>
-                                        <option value="<%=provider.getProviderNo()%>" <%=selected%>><%=provider.getFormattedName() %>
+                                        <option value="<carlos:encode value='<%= provider.getProviderNo() %>' context="htmlAttribute"/>" <%=selected%>><carlos:encode value='<%= provider.getFormattedName() %>'/>
                                         </option>
                                         <% } %>
                                     </select>
@@ -178,11 +179,11 @@
                                     i++;
                             %>
                             <tr BGCOLOR="<%=i%2==0?"ivory":"white"%>">
-                                <td>&nbsp; <%=provider.getLastName()%>, <%=provider.getFirstName()%>
+                                <td>&nbsp; <carlos:encode value='<%= provider.getLastName() %>'/>, <carlos:encode value='<%= provider.getFirstName() %>'/>
                                 </td>
                                 <td ALIGN="center">
                                     <input type="checkbox" name="data" <%=selected%>
-                                           value="<%=provider.getProviderNo()%>">
+                                           value="<carlos:encode value='<%= provider.getProviderNo() %>' context="htmlAttribute"/>">
                             </tr>
                             <% } %>
 

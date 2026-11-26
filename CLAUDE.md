@@ -278,6 +278,10 @@ CARLOS provides null-safe wrappers around OWASP Encoder. **Use the CARLOS wrappe
 - **EL function** (inline in attribute strings and URL components): `href="?id=${carlos:forUriComponent(v)}"` — use where a tag element can't fit.
 - **JSON values**: serialize with Jackson, not an HTML, URI or JavaScript encoder. When placing serialized JSON in an HTML data attribute, HTML-attribute encode the complete JSON string and read it back through the DOM.
 - **Java code / scriptlets**: `SafeEncode.forHtmlContent(v)` — drop-in replacement for `Encode.forHtmlContent(v)` with null-safety.
+- **Stored HTML that is meant to render** (the clinic help panel on the provider main menu): never print it raw and
+  never encode it (the tags would show). Reduce it with `SafeHtml.forFormattedText(v)` in
+  `utility/SafeHtml.java` when it is read, and print the result. It keeps formatting markup and links, and drops
+  scripts, event handlers and script-scheme URLs.
 
 **Legacy forms — DO NOT use in new code:**
 - `<e:forHtmlContent>` and friends, and `${e:forXxx(...)}` EL functions: the OWASP encoder taglib they need is not in the WAR (#5477).

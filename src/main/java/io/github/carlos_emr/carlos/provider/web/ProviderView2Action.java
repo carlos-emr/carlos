@@ -28,13 +28,16 @@
 
 package io.github.carlos_emr.carlos.provider.web;
 
-import java.util.*;
+import java.io.IOException;
+import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.ViewDao;
 import io.github.carlos_emr.carlos.commn.model.View;
+import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
@@ -64,34 +67,50 @@ public class ProviderView2Action extends ActionSupport {
         return save();
     }
 
+    /**
+     * Saves the submitted work view settings for the signed-in provider (#2778).
+     *
+     * <p>Only the settings and values {@link WorkViewSettings} allows are stored, under the role and
+     * provider number of the session. A request the allowlist rejects is answered with HTTP 400 and
+     * stores nothing. The response body is written here (there is none), so the result is {@code NONE}.</p>
+     *
+     * @return {@code NONE}, always
+     */
     public String save() {
-
-        String view_name = request.getParameter("view_name");
         String role = (String) request.getSession().getAttribute("userrole");
         String providerNo = (String) request.getSession().getAttribute("user");
-        Map<String, View> currentview = this.userViewDAO.getView(view_name, role, providerNo);
 
-        Map<String, String[]> parameterMap = new HashMap<>(request.getParameterMap());
-        parameterMap.remove("method");
-        for (Map.Entry<String, String[]> parameter : parameterMap.entrySet()) {
-            View view = currentview.get(parameter.getKey());
+        String view_name = request.getParameter("view_name");
+        Map<String, String> settings;
+        try {
+            settings = WorkViewSettings.accept(view_name, request.getParameterMap());
+        } catch (WorkViewSettings.Rejected rejected) {
+            // the message names the setting, never the submitted value
+            MiscUtils.getLogger().warn("Rejected work view save for view " + LogSafe.sanitize(view_name) + ": "
+                    + rejected.getMessage());
+            try {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            } catch (IOException e) {
+                MiscUtils.getLogger().error("Could not send the work view rejection", e);
+            }
+            return NONE;
+        }
+
+        Map<String, View> currentview = this.userViewDAO.getView(view_name, role, providerNo);
+        for (Map.Entry<String, String> setting : settings.entrySet()) {
+            View view = currentview.get(setting.getKey());
             if (view == null) {
                 view = new View();
+                view.setProviderNo(providerNo);
+                view.setView_name(view_name);
+                view.setRole(role);
+                view.setName(setting.getKey());
             }
-            view.setProviderNo(providerNo);
-            view.setView_name(view_name);
-            view.setRole(role);
-            view.setName(parameter.getKey());
-            view.setValue(parameter.getValue()[0]);
-            currentview.put(parameter.getKey(), view);
-        }
-        if (currentview != null && !currentview.isEmpty()) {
-            for (View value : currentview.values()) {
-                userViewDAO.saveView(value);
-            }
+            view.setValue(setting.getValue());
+            userViewDAO.saveView(view);
         }
 
-        return null;
+        return NONE;
     }
 
 }

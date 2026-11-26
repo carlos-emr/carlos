@@ -104,10 +104,10 @@
                         <c:if test="${ labdocs.size() gt 0}">
                             <input id="topFBtn" type="button" class="smallButton"
                                    value="<fmt:message key="oscarMDS.index.btnForward"/>"
-                                   onClick="submitForward('${ searchProviderNo }', '${ param.status }')">
+                                   onClick="submitForward('${carlos:forJavaScriptAttribute(searchProviderNo)}', '${carlos:forJavaScriptAttribute(param.status)}')">
                             <c:if test="${ ackStatus eq 'N' or empty ackStatus }">
                                 <input id="topFileBtn" type="button" class="smallButton" value="File"
-                                       onclick="submitFile('${ searchProviderNo }', '${ param.status }')"/>
+                                       onclick="submitFile('${carlos:forJavaScriptAttribute(searchProviderNo)}', '${carlos:forJavaScriptAttribute(param.status)}')"/>
                             </c:if>
                         </c:if>
                         <input type="hidden" id="currentNumberOfPages" value="0"/>

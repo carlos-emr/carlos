@@ -64,7 +64,7 @@
 
 </script>
 <form name="ticklerAddForm" id="ticklerAddForm">
-    <input type="hidden" name="demographicNo" value="${ param.demographicNo }"/>
+    <input type="hidden" name="demographicNo" value="${carlos:forHtmlAttribute(param.demographicNo)}"/>
     <div class="row">
         <div class="col-12">
             <div class="mb-3">

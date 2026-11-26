@@ -54,6 +54,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeHtml" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.NavPath" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -82,7 +83,7 @@
     String resourcehelpHtml = "";
     UserProperty rbuHtml = userPropertyDao.getProp("resource_helpHtml");
     if (rbuHtml != null) {
-        resourcehelpHtml = rbuHtml.getValue();
+        resourcehelpHtml = SafeHtml.forFormattedText(rbuHtml.getValue());
     }
 
     Provider loggedInProvider = loggedInInfo != null ? loggedInInfo.getLoggedInProvider() : null;

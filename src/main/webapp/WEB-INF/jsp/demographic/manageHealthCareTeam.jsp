@@ -361,7 +361,7 @@
     <%-- DETACHED VIEW ENABLED  --%>
     <c:if test="${ param.view eq 'detached' }">
         </head>
-        <body id="${ param.view }View" >
+        <body id="${carlos:forHtmlAttribute(param.view)}View" >
         <table class="MainTable" >
 
         <tr class="MainTableTopRow">
@@ -389,7 +389,7 @@
     <table>
         <tr>
             <td>
-                <table id="listHealthCareTeam" class="${ param.view }View">
+                <table id="listHealthCareTeam" class="${carlos:forHtmlAttribute(param.view)}View">
                         <%-- MANAGE PATIENTS HEALTH CARE TEAM  --%>
                         <%-- LIST CURRENT HEALTH CARE TEAM --%>
 
@@ -450,7 +450,7 @@
         </tr>
         <tr>
             <td style="background-color:whitesmoke;border-top:lightgrey thin solid;">
-                <table id="addEditHealthCareTeam" class="${ param.view }View">
+                <table id="addEditHealthCareTeam" class="${carlos:forHtmlAttribute(param.view)}View">
                         <%-- ADD NEW MEMBER TO HEALTH CARE TEAM --%>
 
                         <tr>

@@ -119,7 +119,7 @@
                         onclick="document.caseManagementViewForm.note_view.value='detailed';document.caseManagementViewForm.method.value='search';document.caseManagementViewForm.submit();return false;">Detailed</span>
             </td>
             <td align="right">Sort: <select name="note_sort"
-                                                    onchange="document.caseManagementViewForm.method.value='search';document.caseManagementViewForm.note_view.value='${param.note_view}';document.caseManagementViewForm.submit()">
+                                                    onchange="document.caseManagementViewForm.method.value='search';document.caseManagementViewForm.note_view.value='${carlos:forJavaScriptAttribute(param.note_view)}';document.caseManagementViewForm.submit()">
                 <option value="update_date">Date</option>
                 <option value="providerName">Provider</option>
                 <option value="programName">Program</option>

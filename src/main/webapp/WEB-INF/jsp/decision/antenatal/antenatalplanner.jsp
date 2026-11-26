@@ -115,7 +115,7 @@
             String checklist_content = darp.getChecklistContent();
     %>
     <script type="text/javascript">
-        xmlText = "<xml><planner><%=risk_content%><%=checklist_content%></planner></xml>";
+        xmlText = "<xml><planner><carlos:encode value='<%= risk_content %>' context="javaScriptBlock"/><carlos:encode value='<%= checklist_content %>' context="javaScriptBlock"/></planner></xml>";
     </script>
     <%
             //set the riskdata bean from xml file

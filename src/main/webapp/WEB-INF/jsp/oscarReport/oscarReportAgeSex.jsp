@@ -188,8 +188,8 @@
                                 billinggroup_no = SxmlMisc.getXmlContent(p.getComments(), "<xml_p_billinggroup_no>", "</xml_p_billinggroup_no>");
                                 specialty_code = SxmlMisc.getXmlContent(p.getComments(), "<xml_p_specialty_code>", "</xml_p_specialty_code>");
                         %>
-                        <option value="<%=proOHIP%>"
-                                <%=providerview.equals(proOHIP) ? "selected" : ""%>><%=proLast%>,<%=proFirst%>
+                        <option value="<carlos:encode value='<%= proOHIP %>' context="htmlAttribute"/>"
+                                <%=providerview.equals(proOHIP) ? "selected" : ""%>><carlos:encode value='<%= proLast %>'/>,<carlos:encode value='<%= proFirst %>'/>
                         </option>
                         <% } // -- end of providers dropdown %>
                     </select></div>

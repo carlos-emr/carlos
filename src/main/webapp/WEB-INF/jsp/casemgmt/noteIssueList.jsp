@@ -83,8 +83,8 @@
         <c:choose>
             <c:when test="${not empty param.newNoteIdx}">
                 <c:set var="noteIndex" value="${param.newNoteIdx}" />
-                <div id="summary${param.newNoteIdx}">
-                    <div id="observation${param.newNoteIdx}" style="float: right; margin-right: 3px;">
+                <div id="summary${carlos:forHtmlAttribute(param.newNoteIdx)}">
+                    <div id="observation${carlos:forHtmlAttribute(param.newNoteIdx)}" style="float: right; margin-right: 3px;">
             </c:when>
             <c:otherwise>
                 <c:set var="noteIndex" value="0" />
@@ -227,10 +227,10 @@
 <c:set var="encSelect" value="${encSelect}${noteIndex}" />
 <div style="clear: right; margin: 0 3px 0 0; float: right;">
     <fmt:message key="encounter.encType.title"/>:&nbsp;
-    <span id="encType${noteIndex}">
+    <span id="encType${carlos:forHtmlAttribute(noteIndex)}">
         <c:choose>
             <c:when test="${empty ajaxsave or preserveEditor}">
-                <select id="${encSelect}" class="encTypeCombo" name="caseNote.encounter_type" onchange="noteIssuesChanged = true;">
+                <select id="${carlos:forHtmlAttribute(encSelect)}" class="encTypeCombo" name="caseNote.encounter_type" onchange="noteIssuesChanged = true;">
                     <option value="" ${empty caseManagementEntryForm.caseNote.encounter_type ? 'selected' : ''}></option>
                     <option value="face to face encounter with client" ${caseManagementEntryForm.caseNote.encounter_type == 'face to face encounter with client' ? 'selected' : ''}><fmt:message key="encounter.faceToFaceEnc.title"/></option>
                     <option value="telephone encounter with client" ${caseManagementEntryForm.caseNote.encounter_type == 'telephone encounter with client' ? 'selected' : ''}><fmt:message key="encounter.telephoneEnc.title"/></option>

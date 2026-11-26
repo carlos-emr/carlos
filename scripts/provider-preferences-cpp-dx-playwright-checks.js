@@ -10,11 +10,13 @@
  *   Schedule ▸ Preferences ▸ Account & Advanced ▸ Configure eChart CPP (provider/CppPreferences)
  *     ▸ duplicate positions refused by the form's alert ▸ Save ▸ Search ▸ Master Record ▸ E-Chart;
  *   Schedule ▸ Preferences ▸ Default billing dx code ▸ Save All ▸ Master Record ▸ Create Invoice;
- *   Schedule ▸ Tickler ▸ filter ▸ Save View (saveWorkView) ▸ reopen.
+ *   Schedule ▸ Tickler ▸ filter ▸ Save View (saveWorkView) ▸ reopen ▸ POSTs outside the allowlist.
  * Asserted: each save reaches `property` / `ProviderPreference` / `view` (and the SAVE_CUSTOM_CPP
  * audit row), each reopen shows it, and its consumer honours it: the chart's Allergies items carry
  * the start date and severity, the bill form preselects the dx code, the tickler list reopens on
- * the saved filter, and the chart drops the section set to Hide. GET against both mutators is refused.
+ * the saved filter, and the chart drops the section set to Hide. GET against both mutators is refused,
+ * and saveWorkView answers HTTP 400 and changes nothing for an unknown view, a status or provider filter
+ * value the page cannot produce, or a request with no filter in it (#2778); extra parameters are not stored.
  * Fixtures: the throwaway login, one FAKE- allergy on the owned patient. Cleanup deletes the
  * allergy, the throwaway's ProviderPreference/view rows and the throwaway (property, roles, log).
  */
@@ -189,6 +191,47 @@ async function workflow(s) {
       h.assert(await ticklers.locator('#ticklerview').inputValue() === 'C'
         && await ticklers.locator('#providerview').inputValue() === creator,
       'The reopened tickler list ignored the saved view');
+    });
+  });
+
+  // #2778: /saveWorkView stores an allowlist (the four tickler filters, each with the values the page can
+  // produce) and answers HTTP 400, storing nothing, for anything else. The POSTs go through the tickler page's
+  // own jQuery, so CSRFGuard adds the token exactly as it does for the real Save View button.
+  await s.step('saveWorkView keeps only the allowlisted tickler filters and refuses everything else (HTTP 400)', async () => {
+    const TICKLER_FILTERS = "'ticklerview','providerview','assignedTo','mrpview'";
+    const strayRows = () => sql.value(`SELECT COUNT(*) FROM view WHERE providerNo=${owner}
+      AND NOT (view_name='tickler' AND name IN (${TICKLER_FILTERS}))`);
+    h.assert(strayRows() === '0', 'Save View stored a row that is not one of the four tickler filters');
+    await withTicklers('tickler-main-allowlist', async ticklers => {
+      const post = params => ticklers.evaluate(body => new Promise(resolve => {
+        jQuery.ajax({ type: 'POST', url: ctx + '/saveWorkView', data: body })
+          .always((first, status, second) => resolve((first && first.status !== undefined ? first : second).status));
+      }), params);
+      const snapshot = () => sql.value(`SELECT CONCAT(COUNT(*), '|', COALESCE(GROUP_CONCAT(CONCAT(name, '=', value)
+        ORDER BY name SEPARATOR ','), '')) FROM view WHERE providerNo=${owner}`);
+
+      const refused = [
+        ['an assigned-to value that is markup', { view_name: 'tickler', ticklerview: 'D', assignedTo: '<img src=x onerror=window.xp=1>' }],
+        ['a status that is not A, C or D', { view_name: 'tickler', ticklerview: 'Z' }],
+        ['a provider filter longer than a provider number', { view_name: 'tickler', mrpview: '1234567' }],
+        ['a view CARLOS does not read', { view_name: 'not-a-view', ticklerview: 'A' }],
+        ['no setting of the view at all', { view_name: 'tickler', method: 'save', anything: 'x' }],
+      ];
+      for (const [label, params] of refused) {
+        const before = snapshot();
+        const status = await post(params);
+        h.assert(status === 400, `saveWorkView with ${label} answered HTTP ${status}, expected 400`);
+        h.assert(snapshot() === before, `saveWorkView with ${label} was refused but still changed the saved view`);
+      }
+      h.assert(sql.value(`SELECT COUNT(*) FROM view WHERE providerNo=${owner} AND view_name='not-a-view'`) === '0',
+        'saveWorkView created a row for a view name that is not allowed');
+
+      const status = await post({ view_name: 'tickler', method: 'save', ticklerview: 'A', providerview: 'all',
+        userrole: 'admin', providerno: '111111', injected: '<script>window.xp=1</script>' });
+      h.assert(status === 200, `saveWorkView with valid filters and extra parameters answered HTTP ${status}, expected 200`);
+      h.assert(viewValue('ticklerview') === 'A' && viewValue('providerview') === 'all',
+        'saveWorkView did not store the valid tickler filters');
+      h.assert(strayRows() === '0', 'saveWorkView stored a parameter that is not one of the four tickler filters');
     });
   });
 
