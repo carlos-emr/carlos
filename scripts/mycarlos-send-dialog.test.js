@@ -367,6 +367,34 @@ test('a dialog rebuilt after a lost send reply retries it with the same id and d
     assert.equal(sent.get('deviceKeyId'), 'FAKE-device-b');
 });
 
+test('a late new-copy read from a replaced dialog leaves the newer send it did not start from', async () => {
+    const view = page();
+    const first = view.dialogs['44'];
+    const waiting = index => ({...delivery(index, 'waiting'), deviceKeyId: 'FAKE-current-device'});
+    await openRead(view);
+    first.parts.form.dispatch('submit'); await tick();
+    view.calls[1].resolve(state([waiting(500)])); await tick();
+    // The first dialog asks for a new copy, then closes before that read answers.
+    first.parts.new.click(); await tick();
+    const late = view.calls[2];
+    first.parts.close.click();
+    const second = rebuild(view);
+    await openRead(view, '44', delivery(501).deliveryId, [waiting(500)]);
+    second.parts.new.click(); await tick();
+    view.calls[4].resolve(state([waiting(500)], {deliveryId: delivery(502).deliveryId})); await tick();
+    assert.equal(second.root.dataset.delivery, delivery(502).deliveryId);
+    second.parts.form.dispatch('submit'); await tick();
+    view.calls[5].reject(new Error('FAKE lost reply')); await tick();
+    // The first dialog's read answers only now.
+    late.resolve(state([waiting(500)], {deliveryId: delivery(503).deliveryId})); await tick();
+    second.parts.close.click();
+    const third = rebuild(view);
+    await openRead(view, '44', delivery(504).deliveryId, [waiting(500), waiting(502)]);
+    assert.equal(third.root.dataset.delivery, delivery(502).deliveryId, 'the newer send is taken back');
+    assert.equal(third.parts.send.disabled, true, 'its listed copy is not sent again under a new id');
+    assert.equal(third.parts.new.hidden, false);
+});
+
 test('reopened while Older deliveries loads, the dialog reads the first page again once that load ends', async () => {
     const view = page();
     const {root, parts} = view.dialogs['44'];

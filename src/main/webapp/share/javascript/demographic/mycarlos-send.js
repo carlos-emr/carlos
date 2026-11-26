@@ -208,6 +208,8 @@
             busy = true;
             let ended;
             idle = new Promise(resolve => { ended = resolve; });
+            // The queued operation a new copy replaces, as it stood when the new copy was asked for.
+            const renewedFrom = renew ? root.dataset.delivery : null;
             message.textContent = operation === 'send' ? (copy.sending || copy.busy) : copy.busy;
             updateButtons();
             announce(true, operation);
@@ -251,8 +253,11 @@
                 // or when a new copy was asked for.
                 if (operation === 'read' && typeof result.deliveryId === 'string' && (renew || !root.dataset.delivery)) {
                     root.dataset.delivery = result.deliveryId;
-                    // A new copy is a new operation: the queued one is not taken back again.
-                    if (renew) submitted.delete(key);
+                    // A new copy is a new operation: the queued one it replaces is not taken back again.
+                    // Only that one: this reply can come late, from a dialog the page has replaced since,
+                    // after the replacement kept a newer send for retry.
+                    const current = submitted.get(key);
+                    if (renew && current && current.deliveryId === renewedFrom) submitted.delete(key);
                 }
                 reconcileDevices(result.devices);
                 if (title && typeof result.title === 'string') title.textContent = result.title;
