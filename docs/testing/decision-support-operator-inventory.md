@@ -52,7 +52,9 @@ flowsheet rule set, or codes the calling screen supplies), so the cell reads
 (#6328). An empty source list reads `None recorded`; the error text is now kept
 for a reader that actually failed. The check asserts those cells for notes and
 billing on every visit, the empty diagnosis/medication cells for B, and A's
-diagnosis and medication values, alongside age and sex. It still checks every
+diagnosis and medication values, alongside age and sex. Diagnosis values list
+only active entries, the ones the condition evaluates, so after the native
+resolution A's cell lists the remaining code alone. It still checks every
 per-condition Boolean evaluation against independent SQL fixtures. Existing
 diagnosis-resolution and per-condition cache checks remain registered.
 
