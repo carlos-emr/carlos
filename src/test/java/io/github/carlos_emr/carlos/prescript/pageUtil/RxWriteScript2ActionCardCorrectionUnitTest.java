@@ -364,6 +364,25 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(mockRxManager, mockDrugDao, mockPartialDateDao, mockSignatureStampService);
     }
 
+    @ParameterizedTest
+    @CsvSource({"0, 1, OD", "1, 0, OD", "1, 1,", "1, 1, ''"})
+    void shouldQuoteQuantityWithoutDerivingDuration_whenDoseOrFrequencyIsMissing(
+            float takeMin, float takeMax, String frequency) throws Exception {
+        card.setTakeMin(takeMin);
+        card.setTakeMax(takeMax);
+        card.setFrequencyCode(frequency);
+        card.setDuration("17");
+        request.setParameter("action", "updateQty");
+        request.setParameter("randomId", "1");
+        request.setParameter("quantity", "12.50");
+
+        assertThat(action.updateDrug()).isNull();
+        assertThat(response.getStatus()).isEqualTo(200);
+        var json = new ObjectMapper().readTree(response.getContentAsString());
+        assertThat(json.path("duration").asText()).isEqualTo("17");
+        assertThat(json.path("priceQuantity").asText()).isEqualTo("12.5");
+    }
+
     @Nested
     @DisplayName("inline Min/Max and repeats (#5003)")
     class InlineProperty {
