@@ -462,7 +462,9 @@ function liveCheck(env) {
 }
 
 test('the live-portal check skips an unconfigured run before the database or a browser is opened', () => {
-    for (const env of [{}, {MYCARLOS_PATIENT: '6001', MYCARLOS_DOCUMENTS: '44,45'}, {MYCARLOS_SEND_DIALOG_THROWAWAY: 'yes'}]) {
+    for (const env of [{}, {MYCARLOS_PATIENT: '6001', MYCARLOS_DOCUMENTS: '44,45'}, {MYCARLOS_SEND_DIALOG_THROWAWAY: 'yes'},
+        // The same document twice would send it twice before the two-dialog check means anything.
+        {MYCARLOS_SEND_DIALOG_THROWAWAY: 'yes', MYCARLOS_PATIENT: '6001', MYCARLOS_DOCUMENTS: '44, 44'}]) {
         const options = liveCheck(env);
         assert.equal(typeof options.preflightConfig, 'function', 'the opt-in is checked before SQL setup');
         assert.throws(() => options.preflightConfig({config: {}}), error => error instanceof h.SkipCheck, JSON.stringify(env));

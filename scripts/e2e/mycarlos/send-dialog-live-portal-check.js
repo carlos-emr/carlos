@@ -9,7 +9,7 @@
 // so it runs only on a throwaway CARLOS + portal, never a live demo, and only with
 // MYCARLOS_SEND_DIALOG_THROWAWAY=yes. It needs:
 //   MYCARLOS_PATIENT    a FAKE patient whose myCarlos device is approved, with delivery on;
-//   MYCARLOS_DOCUMENTS  two of that patient's documents, comma-separated (e.g. 55,56);
+//   MYCARLOS_DOCUMENTS  two different documents of that patient, comma-separated (e.g. 55,56);
 // plus the usual BASE_URL, TEST_USER/TEST_PASSWORD/TEST_PIN and MYSQL_* for the harness. The
 // deliveries it makes stay in the throwaway portal; nothing else is written. Without the opt-in it
 // reports SKIP before opening the database or a browser, and it refuses to start unless both
@@ -30,8 +30,11 @@ function fixture() {
   }
   const patient = process.env.MYCARLOS_PATIENT || '';
   const documents = (process.env.MYCARLOS_DOCUMENTS || '').split(',').map(id => id.trim()).filter(Boolean);
-  if (!/^[1-9]\d*$/.test(patient) || documents.length !== 2 || !documents.every(id => /^[1-9]\d*$/.test(id))) {
-    throw new h.SkipCheck('MYCARLOS_PATIENT and two MYCARLOS_DOCUMENTS are needed');
+  // Two different documents: the same one twice would be sent twice before the two-dialog check
+  // proved anything. The ids are canonical (no leading zero), so equal text is the same document.
+  if (!/^[1-9]\d*$/.test(patient) || documents.length !== 2 || documents[0] === documents[1]
+      || !documents.every(id => /^[1-9]\d*$/.test(id))) {
+    throw new h.SkipCheck('MYCARLOS_PATIENT and two different MYCARLOS_DOCUMENTS are needed');
   }
   return { patient, documents };
 }
