@@ -117,6 +117,8 @@ public class RehabStudyFormDao {
         try (PreparedStatement query = connection.prepareStatement(sql)) {
             query.setInt(1, patient);
             query.setInt(2, id);
+            // The text is archiveSql's: one tableOf-validated entity @Table name; values are bound.
+            // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string
             try (ResultSet rows = query.executeQuery()) {
                 return JDBCUtil.toDocument(rows);
             }
