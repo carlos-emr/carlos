@@ -7,8 +7,10 @@ package io.github.carlos_emr.carlos.commn.model;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -17,8 +19,8 @@ import org.junit.jupiter.api.Test;
 /**
  * {@link AbstractModel#equals(Object)} used to dereference both a {@code null} argument and a
  * {@code null} identifier, so {@code equals(null)} and even {@code unsaved.equals(unsaved)} threw
- * (#5303). These cases pin the null-safe, reflexive contract without changing how persisted
- * entities compare.
+ * (#5303), and an identifier-based hash moved an entity to another bucket when it was saved. These
+ * cases pin the null-safe, reflexive equality and the identifier-independent hash.
  */
 @Tag("unit")
 class AbstractModelEqualityUnitTest {
@@ -109,5 +111,83 @@ class AbstractModelEqualityUnitTest {
         assertThat(set.contains(unsaved)).isTrue();
         assertThat(list.remove(unsaved)).isTrue();
         assertThat(list).hasSize(1);
+    }
+
+    /** Entity whose identifier is assigned after construction, as the database does on save. */
+    private static final class MutableProbe extends AbstractModel<Integer> {
+        private Integer id;
+
+        @Override
+        public Integer getId() {
+            return id;
+        }
+
+        void assign(Integer assigned) {
+            this.id = assigned;
+        }
+    }
+
+    @Test
+    @DisplayName("should keep the hash unchanged when the identifier is assigned")
+    void shouldKeepHashStable_whenIdentifierIsAssigned() {
+        MutableProbe entity = new MutableProbe();
+        int unsavedHash = entity.hashCode();
+
+        entity.assign(41);
+
+        assertThat(entity.hashCode()).isEqualTo(unsavedHash);
+        assertThat(entity.hashCode()).isEqualTo(new MutableProbe().hashCode());
+    }
+
+    @Test
+    @DisplayName("should keep set membership when the identifier is assigned after the add")
+    void shouldKeepSetMembership_whenIdentifierAssignedAfterAdd() {
+        MutableProbe entity = new MutableProbe();
+        Set<MutableProbe> set = new HashSet<>();
+        Map<MutableProbe, String> map = new HashMap<>();
+        set.add(entity);
+        map.put(entity, "child");
+
+        entity.assign(41);
+
+        assertThat(set.contains(entity)).isTrue();
+        assertThat(map.get(entity)).isEqualTo("child");
+        assertThat(set.add(entity)).isFalse();
+        assertThat(set.remove(entity)).isTrue();
+        assertThat(set).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should find a reloaded copy once the saved entity carries the same identifier")
+    void shouldFindReloadedCopy_afterIdentifierAssigned() {
+        MutableProbe saved = new MutableProbe();
+        Set<MutableProbe> set = new HashSet<>(Set.of(saved));
+        saved.assign(41);
+        MutableProbe reloaded = new MutableProbe();
+        reloaded.assign(41);
+
+        assertThat(saved.equals(reloaded)).isTrue();
+        assertThat(set.contains(reloaded)).isTrue();
+    }
+
+    @Test
+    @DisplayName("should keep distinct identifiers distinct in a set despite the shared hash")
+    void shouldKeepDistinctEntitiesApart_inHashedCollections() {
+        Set<Probe> set = new HashSet<>();
+        for (int id = 1; id <= 50; id++) {
+            set.add(new Probe(id));
+        }
+
+        assertThat(set).hasSize(50);
+        assertThat(set.contains(new Probe(25))).isTrue();
+        assertThat(set.contains(new Probe(51))).isFalse();
+        assertThat(set.contains(new OtherProbe(25))).isFalse();
+    }
+
+    @Test
+    @DisplayName("should not equal an unsaved instance of another class")
+    void shouldNotEqual_forUnsavedInstanceOfOtherClass() {
+        assertThat(new Probe(null).equals(new OtherProbe(null))).isFalse();
+        assertThat(new Probe(null).equals(new OtherProbe(5))).isFalse();
     }
 }
