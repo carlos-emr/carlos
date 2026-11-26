@@ -21,9 +21,11 @@
  */
 package io.github.carlos_emr.carlos.prevention;
 
-import java.util.Locale;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import io.github.carlos_emr.carlos.commn.dao.PreventionDao;
 import io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.util.TablesNamesFinder;
@@ -32,6 +34,9 @@ import org.springframework.stereotype.Service;
 /** Refuses Date-only SQL decisions before cutoff/filter/aggregate operations can discard uncertainty. */
 @Service
 public class PreventionReadSafetyService {
+    /** The native prevention table, compared without regard to ASCII case. */
+    private static final String PREVENTIONS_TABLE = "preventions";
+
     private final PreventionDao preventions;
 
     public PreventionReadSafetyService(PreventionDao preventions) {
@@ -48,22 +53,52 @@ public class PreventionReadSafetyService {
         if (readsPreventions(sql)) requireExactDates(demographicNo);
     }
 
-    /** Structural table inspection handles aliases, nested queries and qualified/quoted names. */
+    /**
+     * Whether an installed SQL definition reads the native {@code preventions} table.
+     *
+     * <p>Two inspections decide, and either one finding the table is enough. {@link SqlTableReferences}
+     * reads the tables named in MariaDB table positions under MariaDB's own lexical rules; JSqlParser
+     * inspects the statement structurally. Neither alone matches MariaDB (issue #6344): JSqlParser
+     * rejects both shipped influenza dashboard queries, and it takes text MariaDB runs, after
+     * {@code 1--} or inside an executable comment, for a comment. A definition that names no
+     * prevention table in either view keeps its original execution boundary, so an unparseable
+     * definition is never refused only because the parser could not read it.</p>
+     *
+     * @param sql an SQL definition, possibly holding {@code ${...}} template placeholders; may be null
+     * @return true when the definition names {@code preventions} as a table, in any schema or ASCII case
+     */
     public static boolean readsPreventions(String sql) {
-        if (sql == null || !sql.toLowerCase(Locale.ROOT).contains("prevent")) return false;
-        try {
-            String inspection = sql.replaceAll("\\$\\{[^}]+}", "?");
-            for (String table : new TablesNamesFinder<Void>().getTables(CCJSqlParserUtil.parse(inspection))) {
-                String name = table.replace("`", "").replace("\"", "");
-                int dot = name.lastIndexOf('.');
-                if ("preventions".equals(name.substring(dot + 1).toLowerCase(Locale.ROOT))) return true;
+        if (sql == null || !SqlTableReferences.foldAsciiCase(sql).contains("prevent")) {
+            return false;
+        }
+        String inspection = sql.replaceAll("\\$\\{[^}]+}", "?");
+        return namesPreventions(SqlTableReferences.tableNames(inspection))
+                || namesPreventions(parsedTableNames(inspection));
+    }
+
+    private static boolean namesPreventions(Set<String> tables) {
+        for (String table : tables) {
+            if (PREVENTIONS_TABLE.equals(SqlTableReferences.foldAsciiCase(table))) {
+                return true;
             }
-            return false;
+        }
+        return false;
+    }
+
+    /** JSqlParser's tables, unqualified and unquoted; none when it cannot read the statement. */
+    private static Set<String> parsedTableNames(String sql) {
+        try {
+            Set<String> tables = new LinkedHashSet<>();
+            for (String table : new TablesNamesFinder<Void>().getTables(CCJSqlParserUtil.parse(sql))) {
+                String name = table.replace("`", "").replace("\"", "");
+                tables.add(name.substring(name.lastIndexOf('.') + 1));
+            }
+            return tables;
         } catch (JSQLParserException | RuntimeException unsupported) {
-            // Installed legacy dialects are still executed by their original SQL boundary.
-            // Never turn a classifier limitation into a whole-application refusal.
-            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().debug("Prevention SQL classification unavailable");
-            return false;
+            // Legacy MariaDB SQL the parser rejects has already been read by the table-position scan.
+            // The diagnostic never includes the SQL text.
+            MiscUtils.getLogger().debug("Prevention SQL structural inspection unavailable");
+            return Set.of();
         }
     }
 }
