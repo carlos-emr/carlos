@@ -18946,7 +18946,7 @@
         "dsGuidelineProviderMap"
       ],
       "fixtures": "Owned provider, two synthetic patients, fixed clinical records and 41 provider-scoped seeded definitions; no guideline authoring UI exists. Cleanup verifies exact owned mappings and preserves a provider if rule cleanup fails. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "#5718: age year/month/day boundaries, drugs/notes/billing/diagnosis/sex any/all/negative operators, native six-row expansion, alternating chart/list/per-condition detail, independent truth tables and SQL snapshots, native diagnosis resolution. Unsupported/dynamic-context families are inventoried separately. Synthetic JSON observations are retained; all mismatches remain fatal. The #5817 sex all/notall repair passed the current ON native operator retake; no expected-failure pin."
+      "notes": "#5718: age year/month/day boundaries, drugs/notes/billing/diagnosis/sex any/all/negative operators, native six-row expansion, alternating chart/list/per-condition detail, independent truth tables and SQL snapshots, native diagnosis resolution. Unsupported/dynamic-context families are inventoried separately. Synthetic JSON observations are retained; all mismatches remain fatal. The #5817 sex all/notall repair passed the current ON native operator retake; no expected-failure pin. #6328: detail actual-value cells read 'Not shown for this condition type' for notes/billing and 'None recorded' for the empty control sources, with A's diagnosis values checked."
     },
     {
       "name": "rx-same-severity-partners",
