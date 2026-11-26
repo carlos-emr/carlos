@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "53679bd67cef8d5bdb0d43c869410be6eb1beb91",
+  "comparisonSha256": "791fc66b8bdbba232821501330926dd9ab3541db760b2e63ef41074decd8dad5",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/conversion/DrugConverterImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "08741920bf086dc23f54e5fca48f098a4358b3af"
+    }
+  },
+  "exclusions": {},
+  "zeroCoverageWaivers": {},
+  "baselineCommit": "cc613b76961e29692f5ea263d4a103b2659bfc62",
+  "baselineSourceTree": "53679bd67cef8d5bdb0d43c869410be6eb1beb91",
+  "baselineReportSha256": "073c2f05d3455968537061f29ff3ec3e4156eec56eb23826b872b24b638317b8",
+  "baselineLane": "PR #6367 (issue #6185), refresh for DrugConverterImpl.java after review commits d1c2ebd280 and cc613b7696 changed it (any Unicode number, read by code point, counts as the number that follows a strength): complete Java suite (unit and H2 integration tests) with JaCoCo, run locally and not in CI, on PR commit cc613b7696, which has release/2026.08 at c9f259f877 merged in. Command: mvn -B -ntp clean test jacoco:report -Dtest.forkCount=2, OpenJDK 25 and Maven 3.9.11 on Ubuntu. Maven reported 44183 tests run, 0 failures, 0 errors, 503 skipped; baselineTestCounts is the total of the run's Surefire XML reports. The row of this one Java file is measured from that run's jacoco.xml with the checker's own measure(); DoseText and RxDrugData keep evidence 2f6296c1, RxWriteScript2Action keeps 65fb9865 and the other 11 files this PR changes keep 11bccc0a, all unchanged since. No Chromium smoke lane; no zero-floor waiver is added.",
+  "baselineTestCounts": {
+    "tests": 44036,
+    "skipped": 503,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "da679894f8e32b78a1e9df5699b07023bcdbb6ebfba50ea766a7541a34acc660",
+  "baselineTestReportsHashFormat": "SHA-256 of a sha256sum-style manifest of the run's Surefire TEST-*.xml report files: one '<sha256>  <file name>' line each, sorted by name",
+  "baselineTestRunCommit": "cc613b76961e29692f5ea263d4a103b2659bfc62",
+  "baselineAdditionalTestRuns": []
+}
