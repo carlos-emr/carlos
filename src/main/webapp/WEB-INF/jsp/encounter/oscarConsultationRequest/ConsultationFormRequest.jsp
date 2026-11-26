@@ -2972,13 +2972,7 @@ if (userAgent != null) {
                                         </tr>
                                     </oscar:oscarPropertiesCheck>
                                     <tr>
-                                        <%-- The label names whichever consultant control this variant renders: the
-                                             health-care-team picker (#6202) or the directory autocomplete. An
-                                             eReferral shows the consultant as text, so it has no control. --%>
-                                        <c:set var="consultantControlId"><%= thisForm.iseReferral() ? ""
-                                                : CarlosProperties.getInstance().getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true")
-                                                ? "specialist" : "specialistInput" %></c:set>
-                                        <td class="consult-form-label"><c:choose><c:when test="${ not empty consultantControlId }"><label for="${ consultantControlId }" class="mb-0"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formCons"/></label></c:when><c:otherwise><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formCons"/></c:otherwise></c:choose>
+                                        <td class="consult-form-label"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formCons"/>
                                         </td>
                                         <td class="consult-form-value">
                                             <% if (thisForm.iseReferral()) { %>
@@ -2991,6 +2985,9 @@ if (userAgent != null) {
                                                  listed and marked, not dropped; members left out for want of
                                                  consent to contact are counted, so an empty or short list is
                                                  never unexplained. ConsultationHealthCareTeamViewModel decides. --%>
+                                            <%-- Each consultant control carries its own label: the row heading above
+                                                 is shared by three variants (an eReferral has no control). --%>
+                                            <label for="specialist" class="visually-hidden"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formCons"/></label>
                                             <select name="specialist" id="specialist" class="form-select form-select-sm"
                                                     aria-describedby="hctConsultantHints">
                                                 <c:if test="${ empty healthCareTeam }">
@@ -3019,6 +3016,7 @@ if (userAgent != null) {
                                                   class="consult-disclaimer-indicator"
                                                   title="When consult was saved this was the saved consultant but is no longer on this specialist list.">*</span>
                                             <input type="hidden" id="specialist" name="specialist" value=""/>
+                                            <label for="specialistInput" class="visually-hidden"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formCons"/></label>
                                             <input type="text" id="specialistInput" class="form-control form-control-sm"
                                                    autocomplete="off"
                                                    placeholder="<fmt:message key='consultationList.header.consultant'/>"/>
