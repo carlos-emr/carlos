@@ -18,6 +18,9 @@ const DRUG_SEARCH_TERM = process.env.DRUG_SEARCH_TERM || 'amox';
 // A product's name may state its strength with a trailing zero ("250.0MG"); the saved text never
 // does, so the number is compared as the plain decimal ("250", "2.5").
 const plainDecimalText = text => text.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+// Every amount a strength text states in mg, each a whole number: "250mg" gives ["250"], and
+// neither "1250mg" nor "0.250mg" gives "250".
+const mgAmounts = text => [...text.matchAll(/(?:^|[^\d.])(\d+(?:\.\d+)?)mg/gi)].map(match => match[1]);
 
 async function workflow(s) {
   const {sql, patient, provider, marker, config, context} = s, q = h.sqlString, f = await prepareRx(s);
@@ -137,7 +140,7 @@ async function workflow(s) {
     const row = sql.rows(`SELECT GN,dosage FROM drugs WHERE demographic_no=${patient} AND drugid>${savedBefore}`)[0];
     h.assert(row && /\d/.test(row[1] || ''), `The product was saved without a strength: ${JSON.stringify(row)}`);
     // The same number the product's name states: 250, not 25 or 2500.
-    h.assert(new RegExp(`(^|[^\\d.])${stated.replace('.', '\\.')}mg`, 'i').test(row[1]),
+    h.assert(mgAmounts(row[1]).includes(stated),
       `The saved strength ${JSON.stringify(row[1])} is not the ${stated} mg the product's name states`);
     for (const text of row) {
       h.assert(!/\d\.0+(?!\d)/.test(text) && !/\dE[+-]?\d/i.test(text),
@@ -163,4 +166,4 @@ async function workflow(s) {
   });
 }
 if (require.main === module) runWorkflow('rx-dose-text', workflow);
-module.exports = {workflow, plainDecimalText};
+module.exports = {workflow, plainDecimalText, mgAmounts};
