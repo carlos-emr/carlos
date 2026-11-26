@@ -3,66 +3,66 @@
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
   "sourceTree": "3e68e82b8da203093add88d063210e958c98da59",
   "comparisonSha256": "e9abb5aa4de57d29d3a1c98e1da6beb0657f1775f2d29cad609dc9202146ee1e",
-  "baselineCommit": "e4981f9bcbbd26aedb7758685aadece1f05b04cd",
+  "baselineCommit": "236e0dcbadac55e3a5333d4973dbd3bf9b47daeb",
   "baselineSourceTree": "3e68e82b8da203093add88d063210e958c98da59",
-  "baselineReportSha256": "b60e7633b80b16afaaa2e5354a8526e79e050763d7822273f77dbc28ca8b82f0",
-  "baselineTestReportsSha256": "61fba43c7efd13feb381bd0597412f9c9c7420bb6ce77ec29a8cf3412d90171c",
-  "baselineTestReportsHashFormat": "SHA-256 of sorted Surefire report filenames followed by NUL, file SHA-256 and LF",
+  "baselineReportSha256": "348d8380327848927514704ad93287f3307dcba362567a84b06f6a8d53a9acea",
+  "baselineLane": "PR #6363 focused H2 and unit tests on OpenJDK 25 for chart printing, documents, measurements, lab unlinking, and prevention queries, plus dependency convergence and CDS serialization. JaCoCo 0.8.16.",
   "baselineTestCounts": {
-    "tests": 304,
+    "tests": 1884,
+    "skipped": 3,
     "failures": 0,
-    "errors": 0,
-    "skipped": 0
+    "errors": 0
   },
-  "baselineLane": "PR #6309 focused Surefire unit and H2 tests on Ubuntu 26.04 with OpenJDK 25. Covers the eight inherited release sources with stale or missing records. Existing higher floors are retained by the importer.",
+  "baselineTestReportsSha256": "2129d51d568f55c42fcf6c9cadaf672aae2985789ac6ff292aa2009a96ee392c",
+  "baselineTestReportsHashFormat": "SHA-256 of sorted Surefire <filename>\u0000<SHA-256 hex>\n records",
   "files": {
     "src/main/java/io/github/carlos_emr/carlos/casemgmt/service/CaseManagementPrint.java": {
-      "sourceBlob": "f8c7b5c40a5ab35905cae3ce6ab3208b181f59c1",
       "lines": 100.0,
       "instructions": 100.0,
-      "branches": 100.0
+      "branches": 100.0,
+      "sourceBlob": "f8c7b5c40a5ab35905cae3ce6ab3208b181f59c1"
     },
     "src/main/java/io/github/carlos_emr/carlos/documentManager/EDocUtil.java": {
-      "sourceBlob": "37ce2f2c6b3fa15049557872f42a62e7e94650ac",
       "lines": 100.0,
       "instructions": 100.0,
-      "branches": 100.0
+      "branches": 100.0,
+      "sourceBlob": "37ce2f2c6b3fa15049557872f42a62e7e94650ac"
     },
     "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/data/MeasurementTypes.java": {
-      "sourceBlob": "dfb305815d56bf4fb17ea8f920d08595ed08e000",
       "lines": 95.45454545454545,
       "instructions": 96.61016949152543,
-      "branches": 83.33333333333333
+      "branches": 83.33333333333333,
+      "sourceBlob": "dfb305815d56bf4fb17ea8f920d08595ed08e000"
     },
     "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/pageUtil/UnlinkDemographic2Action.java": {
-      "sourceBlob": "9eec98d01ddd42f57a1b4a6b311c0b7db7ad7994",
-      "lines": 96.42857142857143,
-      "instructions": 92.5925925925926,
-      "branches": 100.0
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "9eec98d01ddd42f57a1b4a6b311c0b7db7ad7994"
     },
     "src/main/java/io/github/carlos_emr/carlos/lab/gate/ViewLabValuesGraph2Action.java": {
-      "sourceBlob": "cddce0d75d272c2924e221c612feede1dfbe8c9c",
       "lines": 100.0,
       "instructions": 100.0,
-      "branches": 100.0
+      "branches": 100.0,
+      "sourceBlob": "cddce0d75d272c2924e221c612feede1dfbe8c9c"
     },
     "src/main/java/io/github/carlos_emr/carlos/lab/service/LabPatientUnlinkService.java": {
-      "sourceBlob": "42fd97a1439ff664df20784f732f394e3240f4f2",
       "lines": 100.0,
       "instructions": 98.45758354755785,
-      "branches": 91.17647058823529
+      "branches": 91.17647058823529,
+      "sourceBlob": "42fd97a1439ff664df20784f732f394e3240f4f2"
     },
     "src/main/java/io/github/carlos_emr/carlos/prevention/PreventionReadSafetyService.java": {
-      "sourceBlob": "9705febed88ffa26417b373e02a616f35fe26fc7",
       "lines": 100.0,
       "instructions": 100.0,
-      "branches": 85.71428571428571
+      "branches": 85.71428571428571,
+      "sourceBlob": "9705febed88ffa26417b373e02a616f35fe26fc7"
     },
     "src/main/java/io/github/carlos_emr/carlos/prevention/SqlTableReferences.java": {
-      "sourceBlob": "7ab9bd14a352fcf4045fe8793c01341a1914672f",
       "lines": 100.0,
       "instructions": 99.6268656716418,
-      "branches": 93.71069182389937
+      "branches": 93.71069182389937,
+      "sourceBlob": "7ab9bd14a352fcf4045fe8793c01341a1914672f"
     }
   }
 }

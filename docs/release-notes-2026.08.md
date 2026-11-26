@@ -525,6 +525,14 @@ published release before upgrading. The package now depends on `carlos-ctl` 1.3.
 which reads the format 3 OSCAR 19 schema manifest this release installs. The bundled
 stock eForm asset list records the current `editControl2.js`.
 
+Each library family now ships at one version (#5711). `httpclient5-cache` moves from 5.3.1
+to 5.6.5, beside `httpclient5` 5.6.5, and `jackson-datatype-jsr310` from 2.17.1 to 2.22.4,
+the version of the rest of Jackson. The text CDS import and export write is unchanged, and
+a negative fractional duration now reads back exactly. The build fails when a family splits
+again; see [dependency convergence](dependency-convergence.md). The jsr310 jar is part of
+the CDS ruleset fingerprint, so finish or cancel CDS imports before upgrading, as for any
+upgrade.
+
 ## Upgrade notes
 
 ### Startup configuration and mandatory modern chart
