@@ -3,10 +3,10 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/pageUtil/UnlinkDemographic2Action.java",
   "kind": "floor",
   "floor": {
-    "lines": 96.42857142857143,
-    "instructions": 92.5925925925926,
+    "lines": 100.0,
+    "instructions": 100.0,
     "branches": 100.0,
     "sourceBlob": "9eec98d01ddd42f57a1b4a6b311c0b7db7ad7994"
   },
-  "evidenceSha256": "ac8ad7599ed1235dbb3b026ac939c0ee5bf1d698cf756c3c465b7193c661eb50"
+  "evidenceSha256": "5cb085699a51fd50b4216f7e314be1cc2ed5c4dc4a52252e220309a2e08d8911"
 }
