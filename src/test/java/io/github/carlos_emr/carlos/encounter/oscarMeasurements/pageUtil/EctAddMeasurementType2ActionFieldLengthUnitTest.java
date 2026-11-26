@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
@@ -189,15 +190,30 @@ class EctAddMeasurementType2ActionFieldLengthUnitTest extends CarlosUnitTestBase
     }
 
     @Test
-    void shouldStillReportAnOverlongField_whenAnotherTextFieldIsOmitted() throws Exception {
+    void shouldStillReportAnOverlongField_whenMeasuringInstructionIsOmitted() throws Exception {
         String value = permittedText(COLUMN_WIDTH + 1);
-        action.setTypeDesc(null);
+        action.setMeasuringInstrc(null);
         action.setTypeDisplayName(value);
 
         assertThat(action.execute()).isEqualTo("failure");
 
         assertThat(request.getAttribute("actionErrors"))
                 .isEqualTo(List.of(lengthError(TextField.DISPLAY_NAME.label + value)));
+        verifyNoWrite();
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" \t "})
+    void shouldReportRequiredFieldsWithoutWriting_whenDescriptionAndDisplayNameAreBlank(String value) throws Exception {
+        action.setTypeDesc(value);
+        action.setTypeDisplayName(value);
+
+        assertThat(action.execute()).isEqualTo("failure");
+
+        assertThat(request.getAttribute("actionErrors")).isEqualTo(List.of(
+                rendered("errors.required", new String[]{"The type description"}),
+                rendered("errors.required", new String[]{"The display name"})));
         verifyNoWrite();
     }
 

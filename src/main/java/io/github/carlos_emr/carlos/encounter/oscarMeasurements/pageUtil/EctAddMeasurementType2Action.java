@@ -51,6 +51,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.MeasurementTypes;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
@@ -72,6 +73,7 @@ public class EctAddMeasurementType2Action extends ActionSupport {
     private static final int TEXT_COLUMN_MAX_LENGTH = 255;
     private static final String ERRORS_INVALID = "errors.invalid";
     private static final String ERRORS_MAXLENGTH = "errors.maxlength";
+    private static final String ERRORS_REQUIRED = "errors.required";
 
     HttpServletRequest request = ServletActionContext.getRequest();
 
@@ -154,7 +156,10 @@ public class EctAddMeasurementType2Action extends ActionSupport {
         }
 
         errorField = "The type description " + typeDesc;
-        if (!validate.matchRegExp(regExp, typeDesc)) {
+        if (StringUtils.isBlank(typeDesc)) {
+            addActionError(getText(ERRORS_REQUIRED, new String[]{"The type description"}));
+            isValid = false;
+        } else if (!validate.matchRegExp(regExp, typeDesc)) {
             addActionError(getText(ERRORS_INVALID, new String[]{SafeEncode.forHtmlContent(errorField)}));
             isValid = false;
         }
@@ -163,7 +168,10 @@ public class EctAddMeasurementType2Action extends ActionSupport {
         }
 
         errorField = "The display name " + typeDisplayName;
-        if (!validate.matchRegExp(regExp, typeDisplayName)) {
+        if (StringUtils.isBlank(typeDisplayName)) {
+            addActionError(getText(ERRORS_REQUIRED, new String[]{"The display name"}));
+            isValid = false;
+        } else if (!validate.matchRegExp(regExp, typeDisplayName)) {
             addActionError(getText(ERRORS_INVALID, new String[]{SafeEncode.forHtmlContent(errorField)}));
             isValid = false;
         }
