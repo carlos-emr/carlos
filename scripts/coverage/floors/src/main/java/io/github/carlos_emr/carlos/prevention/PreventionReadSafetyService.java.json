@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/prevention/PreventionReadSafetyService.java",
+  "kind": "floor",
+  "floor": {
+    "sourceBlob": "9705febed88ffa26417b373e02a616f35fe26fc7",
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 85.71428571428571
+  },
+  "evidenceSha256": "42bf8c2478e171c2abf4d6e34f4b39d79010f5ff6db123f23b1622d572f0044e"
+}
