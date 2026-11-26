@@ -58,9 +58,6 @@ public class RxDrugData {
     }
 
 
-    /** The member of a DrugRef component or strength row that holds the strength. */
-    private static final String STRENGTH = "strength";
-
     /**
      * The strength of an ingredient as DrugRef sent it, written without a trailing zero.
      *
@@ -246,7 +243,7 @@ public class RxDrugData {
 
             public DrugComponent(Hashtable h) {
                 name = (String) h.get("name");
-                strength = strengthText(h.get(STRENGTH));
+                strength = strengthText(h.get("strength"));
                 unit = (String) h.get("unit");
             }
 
@@ -838,7 +835,7 @@ public class RxDrugData {
         v = d.getStrengths(drugCode);
         for (int i = 0; i < v.size(); i++) {
             Hashtable h = (Hashtable) v.get(i);
-            dosage = dosage + ((String) h.get(STRENGTH)) + " " + ((String) h.get("strength_unit"));
+            dosage = dosage + ((String) h.get("strength")) + " " + ((String) h.get("strength_unit"));
             dosageDef = dosageDef + ((String) h.get("ingredient"));
             if (i < (v.size() - 1)) {
                 dosage = dosage + "/";
@@ -873,7 +870,7 @@ public class RxDrugData {
         ArrayList dosageDef = new ArrayList();
         for (int i = 0; i < v.size(); i++) {
             Hashtable h = (Hashtable) v.get(i);
-            dosage.add(((String) h.get(STRENGTH)) + " " + ((String) h.get("strength_unit")));
+            dosage.add(((String) h.get("strength")) + " " + ((String) h.get("strength_unit")));
             dosageDef.add((h.get("ingredient")));
 
         }

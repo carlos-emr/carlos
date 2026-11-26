@@ -165,25 +165,35 @@ public final class DoseText {
         int copied = 0;
         int at = 0;
         while (at < text.length()) {
-            if (!isDigit(text, at)) {
-                at++;
-                continue;
+            int end = decimalEnd(text, at);
+            if (end == at) {
+                // No number with a fraction starts here. Step over this character, or over the
+                // whole run of digits, so that no number is read from the middle of a longer one.
+                at = Math.max(at + 1, digitsEnd(text, at));
+            } else {
+                if (plain == null) {
+                    plain = new StringBuilder(text.length());
+                }
+                plain.append(text, copied, at).append(ofNumericText(text.substring(at, end)));
+                copied = end;
+                at = end;
             }
-            // A run of digits starts here; the character before it, if any, is not a digit.
-            int start = at;
-            at = digitsEnd(text, at);
-            if (!isFractionAt(text, at)) {
-                // A whole number ("250mg", "5.", "5.x") has no trailing zero to drop.
-                continue;
-            }
-            at = exponentEnd(text, digitsEnd(text, at + 1));
-            if (plain == null) {
-                plain = new StringBuilder(text.length());
-            }
-            plain.append(text, copied, start).append(ofNumericText(text.substring(start, at)));
-            copied = at;
         }
         return plain == null ? text : plain.append(text, copied, text.length()).toString();
+    }
+
+    /**
+     * The index after the decimal number that starts at {@code index}: digits, a fraction and an
+     * optional exponent ("250.0", "1.0E7"). It is {@code index} itself when no such number starts
+     * there: the character is not a digit, or the digits have no fraction ("250mg", "5.", "5.x"),
+     * and a whole number has no trailing zero to drop.
+     */
+    private static int decimalEnd(String text, int index) {
+        int integerEnd = digitsEnd(text, index);
+        if (integerEnd == index || !isFractionAt(text, integerEnd)) {
+            return index;
+        }
+        return exponentEnd(text, digitsEnd(text, integerEnd + 1));
     }
 
     /** Whether the character at {@code index} exists and is one of 0 to 9. */
