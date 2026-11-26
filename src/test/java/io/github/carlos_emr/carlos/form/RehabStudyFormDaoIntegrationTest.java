@@ -82,6 +82,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * @since 2026-11-26
  */
 @Tag("integration")
+@Tag("dao")
 @Tag("form")
 @ContextConfiguration(locations = "classpath:test-context-rehab-study.xml")
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -565,7 +566,9 @@ class RehabStudyFormDaoIntegrationTest extends CarlosTestBase {
             assertThat(logs.events()).singleElement().satisfies(event -> {
                 assertThat(event.getLevel()).isEqualTo(Level.ERROR);
                 assertThat(event.getMessage().getFormattedMessage())
-                        .isEqualTo("Unable to archive committed rehabilitation study form XML; continuing without XML copy");
+                        .isEqualTo("Unable to archive committed rehabilitation study form XML (%s); continuing without XML copy",
+                                failRead ? "IllegalStateException" : "FileNotFoundException")
+                        .doesNotContain("Écho", Integer.toString(PATIENT), archivePath.toString());
                 assertThat(event.getThrown()).isNull();
             });
             try (var files = Files.list(archive)) {

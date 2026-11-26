@@ -136,7 +136,7 @@ class RehabStudyEntitySchemaContractUnitTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("questionnaires")
-    void shouldBindEveryColumnRecordToItsOwnField(String formClass, RehabStudyFormType<?> type) throws Exception {
+    void shouldBindEveryColumnRecord_toItsOwnField(String formClass, RehabStudyFormType<?> type) throws Exception {
         assertBindings(type);
     }
 
@@ -172,7 +172,7 @@ class RehabStudyEntitySchemaContractUnitTest {
     }
 
     @Test
-    void shouldHaveNoLaterMigrationThatChangesAQuestionnaireTable() throws IOException {
+    void shouldFindNoLaterMigration_thatChangesAQuestionnaireTable() throws IOException {
         List<String> tables = RehabStudyForms.all().stream().map(RehabStudyFormType::table).toList();
         try (Stream<Path> files = Files.walk(MIGRATIONS)) {
             for (Path file : files.filter(p -> p.toString().endsWith(".sql")).toList()) {

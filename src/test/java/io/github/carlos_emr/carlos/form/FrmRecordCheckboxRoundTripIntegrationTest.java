@@ -68,7 +68,7 @@ import static org.mockito.Mockito.when;
  * reports {@code tinyint(1)} as {@code TINYINT}; MySQL Connector/J reports it as {@code BIT}, which
  * {@link FrmRecordCheckboxRestoreUnitTest} covers. The rehabilitation-study questionnaires of the
  * original set moved to typed entities (issue #5693) and are covered by
- * {@code RehabStudyFormPersistenceIntegrationTest}.
+ * {@code RehabStudyFormDaoIntegrationTest}.
  *
  * @since 2026-10-19
  */
@@ -124,7 +124,7 @@ class FrmRecordCheckboxRoundTripIntegrationTest {
         record Case(String name, String table, Supplier<FrmRecord> factory) {
         }
         // The eighteen rehabilitation-study questionnaires that shared this defect now save and
-        // reopen through typed entities (issue #5693); RehabStudyFormPersistenceIntegrationTest
+        // reopen through typed entities (issue #5693); RehabStudyFormDaoIntegrationTest
         // covers their ticks on the shipped tables.
         return Stream.of(
                 new Case("FrmRhImmuneGlobulinRecord", "formRhImmuneGlobulin",

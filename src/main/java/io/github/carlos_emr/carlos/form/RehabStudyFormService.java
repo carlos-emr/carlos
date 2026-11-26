@@ -164,9 +164,11 @@ public class RehabStudyFormService {
                             .resolve(type.table() + "_" + patient + "_" + now + ".xml");
                     // JDBCUtil validates the final path under the configured archive directory.
                     JDBCUtil.saveAsXML(forms.readArchive(type.entity(), patient, id), file.toString());
-                } catch (Exception _) {
-                    MiscUtils.getLogger().error(
-                            "Unable to archive committed rehabilitation study form XML; continuing without XML copy");
+                } catch (Exception failure) {
+                    // The exception class says where it failed (path, permission, XML, read); its
+                    // message and trace can carry clinical values or the patient's file name.
+                    MiscUtils.getLogger().error("Unable to archive committed rehabilitation study form XML ({});"
+                            + " continuing without XML copy", failure.getClass().getSimpleName());
                 }
             }
         });

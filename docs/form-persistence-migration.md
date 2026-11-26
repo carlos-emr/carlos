@@ -269,9 +269,9 @@ the JSPs, `encounterForm` registrations, view gate and XML import allowlist are 
   is typed by entity class and binds patient and version in every read; the one
   native statement (the optional XML copy) names the entity's own `@Table`.
   [RehabStudyFormService](../src/main/java/io/github/carlos_emr/carlos/form/RehabStudyFormService.java)
-  is reached through its Spring proxy. Like Growth, it requires `_form` and
-  `_demographic` read access to the patient's record, refuses a missing or
-  foreign source version, never reads ID, patient or provider from the post,
+  is reached through its Spring proxy. Like Growth, it requires access to the
+  patient's record with `_form` read to load and `_form` write to save, plus
+  `_demographic` read for both; it refuses a missing or foreign source version, never reads ID, patient or provider from the post,
   attributes the version to the authenticated provider and writes the optional XML
   copy only after commit with the existing filename and content contract.
 - **Values.** [RehabStudyFormValues](../src/main/java/io/github/carlos_emr/carlos/form/RehabStudyFormValues.java)
@@ -290,8 +290,9 @@ the JSPs, `encounterForm` registrations, view gate and XML import allowlist are 
   write instead of failing on the `NOT NULL` column. A non-numeric provider number,
   which the retired writer stored as 0, is refused as in the Growth slice.
 
-`RehabStudyFormDaoIntegrationTest` (67 cases) runs on H2 and on the physical
-MariaDB generated, Ontario Flyway and BC Flyway schemas. For every table it saves a
+`RehabStudyFormDaoIntegrationTest` (67 cases) passes on H2 and on the physical
+MariaDB generated, Ontario Flyway and BC Flyway schemas (CI currently runs only the
+H2 and generated lanes; see the end of this section). For every table it saves a
 post that gives every column a value through the service and through the retired
 writer (`FrmRecordHelp.saveFormRecord`, still used by other forms) and requires
 identical stored rows; it then requires the service's read of every column to equal

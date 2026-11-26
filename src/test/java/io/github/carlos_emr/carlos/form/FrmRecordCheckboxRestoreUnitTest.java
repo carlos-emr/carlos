@@ -84,7 +84,7 @@ class FrmRecordCheckboxRestoreUnitTest extends CarlosUnitTestBase {
      * The record classes that used to compare the column type with {@code TINY} and still read
      * through JDBC metadata. The eighteen rehabilitation-study questionnaires among the original
      * nineteen now read typed entities (issue #5693); RehabStudyFormValuesUnitTest and
-     * RehabStudyFormPersistenceIntegrationTest cover their ticks.
+     * RehabStudyFormDaoIntegrationTest cover their ticks.
      */
     private static List<Named> recordClasses() {
         return List.of(new Named("FrmRhImmuneGlobulinRecord", FrmRhImmuneGlobulinRecord::new));

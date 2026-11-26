@@ -65,7 +65,7 @@ class RehabStudyFormsUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldRemoveEveryRetiredRecordClass() {
+    void shouldRemoveEveryRetiredRecordClass_fromTheClasspath() {
         for (String formClass : FORM_CLASSES) {
             String retired = "io.github.carlos_emr.carlos.form.Frm" + formClass + "Record";
             assertThatThrownBy(() -> Class.forName(retired, false, getClass().getClassLoader()))
@@ -134,7 +134,7 @@ class RehabStudyFormsUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldKeepTheLegacyActionNavigation() throws Exception {
+    void shouldKeepTheLegacyActionNavigation_forSaveAndExit() throws Exception {
         RehabStudyForm form = new RehabStudyForm(RehabStudyForms.forFormClass("SF36").orElseThrow());
         assertThat(form.findActionValue("save")).isEqualTo("save");
         assertThat(form.findActionValue("exit")).isEqualTo("exit");
