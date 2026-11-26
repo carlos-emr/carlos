@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOnMriViewModelAssembler.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 92.32954545454545,
+    "branches": 77.27272727272727,
+    "sourceBlob": "69336e0583b64f867c0820d13281311b36239fd8"
+  },
+  "evidenceSha256": "e4fc1961a1f5f55929a0abc9c03b83be6f2d7312bcbb59a66bf0452c7fa22b39"
+}

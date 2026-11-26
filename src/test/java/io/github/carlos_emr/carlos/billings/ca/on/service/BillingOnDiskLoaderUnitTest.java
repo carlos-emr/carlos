@@ -58,13 +58,15 @@ class BillingOnDiskLoaderUnitTest {
     private BillingONDiskNameDao diskNameDao;
     private BillingONFilenameDao filenameDao;
     private BillingOnDiskLoader loader;
+    private BillingOnOutputFilenames outputFilenames;
 
     @BeforeEach
     void setUp() {
         headerDao = mock(BillingONHeaderDao.class);
         diskNameDao = mock(BillingONDiskNameDao.class);
         filenameDao = mock(BillingONFilenameDao.class);
-        loader = new BillingOnDiskLoader(headerDao, diskNameDao, filenameDao);
+        outputFilenames = mock(BillingOnOutputFilenames.class);
+        loader = new BillingOnDiskLoader(headerDao, diskNameDao, filenameDao, outputFilenames);
     }
 
     @Test
@@ -153,16 +155,16 @@ class BillingOnDiskLoaderUnitTest {
     }
 
     @Test
-    void shouldReportOhipFilenameInUse_fromDiskNameTable() {
-        when(diskNameDao.existsByOhipFilename("HJ054321.001")).thenReturn(true);
+    void shouldReportOhipFilenameInUse_fromAllOntarioOutputNames() {
+        when(outputFilenames.isInUse("HJ054321.001")).thenReturn(true);
 
         assertThat(loader.isOhipFilenameInUse("HJ054321.001")).isTrue();
         assertThat(loader.isOhipFilenameInUse("HJ054321.002")).isFalse();
     }
 
     @Test
-    void shouldReportHtmlFilenameInUse_fromFilenameTable() {
-        when(filenameDao.existsByHtmlFilename("HJ054321_001.html")).thenReturn(true);
+    void shouldReportHtmlFilenameInUse_fromAllOntarioOutputNames() {
+        when(outputFilenames.isInUse("HJ054321_001.html")).thenReturn(true);
 
         assertThat(loader.isHtmlFilenameInUse("HJ054321_001.html")).isTrue();
         assertThat(loader.isHtmlFilenameInUse("HJ054321_002.html")).isFalse();

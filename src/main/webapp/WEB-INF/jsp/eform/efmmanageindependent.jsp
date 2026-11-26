@@ -150,7 +150,8 @@
                 </a></td>
                 <td><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent((String) curform.get("formSubject")) %>
                 </td>
-                <td align='center'><%=providerDao.getProviderNameLastFirst((String) curform.get("providerNo"))%>
+                <%-- Issue #3057: the provider name is stored text, encoded like the instance name. --%>
+                <td align='center'><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(providerDao.getProviderNameLastFirst((String) curform.get("providerNo"))) %>
                 </td>
                 <td align='center'><%=curform.get("formDate")%>
                 </td>

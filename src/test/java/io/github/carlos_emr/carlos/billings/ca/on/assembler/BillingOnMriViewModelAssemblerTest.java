@@ -5,6 +5,7 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.assembler;
 
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnFileAccessService;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billing.CA.dao.BillActivityDao;
 import io.github.carlos_emr.carlos.billing.CA.model.BillActivity;
@@ -15,6 +16,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingDataLoadExcepti
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnLookupService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingReviewLoader;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnMriViewModel;
+import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import io.github.carlos_emr.carlos.commn.dao.ProviderBillCenterDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -26,6 +28,9 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Properties;
+import java.util.Map;
+import java.util.Set;
+import io.github.carlos_emr.carlos.commn.model.ProviderData;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -60,6 +65,7 @@ class BillingOnMriViewModelAssemblerTest {
     private SecurityInfoManager securityInfoManager;
     private BillingReviewLoader reviewLoader;
     private BillingOnLookupService lookupService;
+    private BillingOnFileAccessService fileAccess;
     private LoggedInInfo loggedInInfo;
     private LogCapture logCapture;
 
@@ -72,6 +78,7 @@ class BillingOnMriViewModelAssemblerTest {
         securityInfoManager = mock(SecurityInfoManager.class);
         reviewLoader = mock(BillingReviewLoader.class);
         lookupService = mock(BillingOnLookupService.class);
+        fileAccess = mock(BillingOnFileAccessService.class);
         loggedInInfo = mock(LoggedInInfo.class);
 
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
@@ -215,6 +222,52 @@ class BillingOnMriViewModelAssemblerTest {
                 .containsExactly("dated", "null-date");
     }
 
+    @Test
+    void shouldKeepOnlyThePermittedBillingActivityAndPerProviderFile_onAMixedDisk() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_team_access_privacy", "r", null)).thenReturn(true);
+        var local = mock(ProviderData.class);
+        when(local.getId()).thenReturn("100");
+        when(providerDataDao.findByProviderTeam("999998")).thenReturn(List.of(local));
+        var localProvider = provider("100", "Fixture", "West", "OHIP100");
+        var otherProvider = provider("200", "Fixture", "East", "OHIP200");
+        when(providerDao.getActiveProviders()).thenReturn(List.of(localProvider, otherProvider));
+        when(providerDao.getBillableProviders()).thenReturn(List.of(localProvider, otherProvider));
+        when(reviewLoader.getTeamProviderBillingStr("999998"))
+                .thenReturn(List.of(new ProviderDropdownEntry("100", "Fixture", "West", "OHIP100", "", "")));
+        when(providerBillCenterDao.find("100")).thenReturn(billCenter("100", "LOCAL"));
+        var ownRow = new DiskFilenameRow("1", "west.html", "OHIP100", "100", "local", "U", "1.00");
+        var otherRow = new DiskFilenameRow("2", "east.html", "OHIP200", "200", "other", "U", "2.00");
+        var mixed = disk("7", "2026-02-03 04:05:06", "2026-02-03 04:05:06", ownRow);
+        mixed.setFilenames(List.of(ownRow, otherRow));
+        when(reviewLoader.getMRIList(anyString(), anyString(), eq("U"))).thenReturn(List.of(mixed));
+        var own = billActivity("OHIP100", new Date(), "old-local", "1.00", "legacy.001", "old-west.htm");
+        var other = billActivity("OHIP200", new Date(), "old-other", "2.00", "legacy.001", "old-east.htm");
+        var ambiguous = billActivity("REUSED", new Date(), "ambiguous", "3.00", "conflict.001", "unknown.htm");
+        when(billActivityDao.findCurrentByDateRange(any(), any())).thenReturn(List.of(own, other, ambiguous));
+        when(fileAccess.uniqueLegacyOwners(org.mockito.ArgumentMatchers.argThat(
+                numbers -> numbers != null && Set.copyOf(numbers).equals(Set.of("OHIP100", "OHIP200", "REUSED")))))
+                .thenReturn(Map.of("OHIP100", "100", "OHIP200", "200", "REUSED", ""));
+        when(fileAccess.filePermissions(Set.of("claim.ohip", "west.html"), Set.of("100")))
+                .thenReturn(Map.of("claim.ohip", false, "west.html", true));
+        when(fileAccess.filePermissions(Set.of("legacy.001", "old-west.htm"), Set.of("100")))
+                .thenReturn(Map.of("legacy.001", false, "old-west.htm", true));
+
+        var model = assembler().assemble(requestForYear("2026"), loggedInInfo);
+        assertThat(model.getProviderBillCenterMap()).containsOnlyKeys("100");
+        assertThat(model.getMriRows()).singleElement().satisfies(row -> {
+            assertThat(row.claimRecord()).isEqualTo("local");
+            assertThat(row.ohipFile()).isEmpty();
+            assertThat(row.htmlFile()).isEqualTo("west.html");
+            assertThat(row.mayRegenerate()).isFalse();
+        });
+        assertThat(model.getBillActivityRows()).singleElement().satisfies(row -> {
+            assertThat(row.claimRecord()).isEqualTo("old-local");
+            assertThat(row.ohipFile()).isEmpty();
+            assertThat(row.htmlFile()).isEqualTo("old-west.htm");
+        });
+        org.mockito.Mockito.verify(providerBillCenterDao, org.mockito.Mockito.never()).find("200");
+    }
+
     private BillingOnMriViewModelAssembler assembler() {
         return new BillingOnMriViewModelAssembler(
                 providerDao,
@@ -223,7 +276,7 @@ class BillingOnMriViewModelAssemblerTest {
                 providerBillCenterDao,
                 securityInfoManager,
                 reviewLoader,
-                lookupService);
+                lookupService, fileAccess);
     }
 
     private MockHttpServletRequest requestForYear(String year) {
@@ -282,7 +335,10 @@ class BillingOnMriViewModelAssemblerTest {
                 .thenReturn(true);
         when(providerDataDao.findByProviderTeam("999998")).thenReturn(List.of());
 
-        assembler().assemble(requestForYear("2026"), loggedInInfo);
+        try (var settings = org.mockito.Mockito.mockStatic(IsPropertiesOn.class)) {
+            settings.when(IsPropertiesOn::isMultisitesEnable).thenReturn(true);
+            assembler().assemble(requestForYear("2026"), loggedInInfo);
+        }
 
         org.mockito.Mockito.verify(providerDataDao).findByProviderTeam("999998");
         org.mockito.Mockito.verify(providerDataDao, org.mockito.Mockito.never()).findByProviderSite(anyString());

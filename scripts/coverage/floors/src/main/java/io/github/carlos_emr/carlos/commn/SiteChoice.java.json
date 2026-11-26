@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/SiteChoice.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "71665465e24b042e63f9549e776175c0017eb3c4"
+  },
+  "evidenceSha256": "57337e8aa59c77ff4f12c17aa9718efb0bcebd17f555c8761d93caa5c2417772"
+}

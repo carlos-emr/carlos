@@ -13,7 +13,7 @@ const {chromium} = require('playwright');
 const ROOT = path.join(__dirname, '..');
 const JSP = process.env.JOBS_JSP || path.join(ROOT, 'src/main/webapp/WEB-INF/jsp/admin/jobs.jsp');
 const LABELS = {'admin.jobs.saveJob':'Save job','admin.jobs.save':'Save','admin.jobs.cancel':'Cancel','admin.jobs.addNew':'New job',
-  'admin.jobs.checkSavedJob':'Check saved values'};
+  'admin.jobs.checkSavedJob':'Check saved values','admin.jobs.scheduleJob':'Schedule job'};
 let browser;
 before(async () => { browser = await chromium.launch({headless:true,
   ...(process.env.PLAYWRIGHT_BROWSER_PATH ? {executablePath:process.env.PLAYWRIGHT_BROWSER_PATH} : {})}); });
@@ -29,7 +29,7 @@ function fixtureHtml() {
   assert.ok(!/<%|\$\{/.test(script), 'Unrendered JSP expression in browser fixture');
   // These are the two server-generated numeric option loops; the native check also runs the actual JSP.
   const body = translate(jsp.match(/<body\b[^>]*>([\s\S]*?)<\/body>/i)[1]).replace(/<%[\s\S]*?%>/g, '');
-  return `<!doctype html><html><head><link rel="stylesheet" href="/ui.css"><script src="/jquery.js"></script>
+  return `<!doctype html><html><head><link rel="stylesheet" href="/ui.css"><link rel="stylesheet" href="/css/fontawesome-all.min.css"><script src="/jquery.js"></script>
     <script src="/ui.js"></script><script>${script}</script></head><body>${body}</body></html>`;
 }
 const job = {id:41,name:'FAKE persisted job',description:'FAKE stored',oscarJobTypeId:7,providerNo:'999998',
@@ -38,9 +38,12 @@ async function withPage(body) {
   const state = {mode:'success',loadMode:'success',saves:[],lists:0,errors:[],reply:null,loadReply:null,saved:job};
   const json = (res,value,status=200) => {res.writeHead(status,{'Content-Type':'application/json'});res.end(JSON.stringify(value));};
   const assets = {'/jquery.js':'library/jquery/jquery-3.7.1.min.js','/ui.js':'library/jquery/jquery-ui-1.14.2.min.js','/ui.css':'library/jquery/jquery-ui.structure-1.14.2.min.css'};
+  assets['/css/fontawesome-all.min.css'] = 'css/fontawesome-all.min.css';
+  assets['/webfonts/fa-solid-900.woff2'] = 'webfonts/fa-solid-900.woff2';
+  const contentTypes = {'.css': 'text/css', '.js': 'application/javascript', '.woff2': 'font/woff2'};
   const server = http.createServer((req,res)=>{
     const url = new URL(req.url,'http://fixture');
-    if (assets[url.pathname]) {res.writeHead(200,{'Content-Type':url.pathname.endsWith('css')?'text/css':'application/javascript'});res.end(fs.readFileSync(path.join(ROOT,'src/main/webapp',assets[url.pathname])));return;}
+    if (Object.hasOwn(assets,url.pathname)) {res.writeHead(200,{'Content-Type':contentTypes[path.extname(url.pathname)]});res.end(fs.readFileSync(path.join(ROOT,'src/main/webapp',assets[url.pathname])));return;}
     if (url.pathname==='/') {res.writeHead(200,{'Content-Type':'text/html'});res.end(fixtureHtml());return;}
     if (url.pathname.endsWith('/types/all')) return json(res,{types:[{id:7,name:'FAKE disabled',currentlyValid:false}]});
     if (url.pathname.endsWith('/providers_json')) return json(res,{content:[{providerNo:'999998',lastName:'FAKE',firstName:'Provider'}]});
@@ -71,10 +74,11 @@ async function withPage(body) {
     res.writeHead(204).end();
   });
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-  const context = await browser.newContext();const page = await context.newPage();
+  const context = await browser.newContext({baseURL: `http://127.0.0.1:${server.address().port}`});
+  const page = await context.newPage();
   page.on('pageerror',e=>state.errors.push(e.message));page.on('dialog',d=>{state.errors.push('Unexpected dialog');void d.dismiss();});
   try {
-    await page.goto(`http://127.0.0.1:${server.address().port}/`);
+    await page.goto('/');
     await page.waitForFunction(()=>window.jQuery && jQuery.active===0 && jQuery('#new-job').hasClass('ui-dialog-content'));
     await page.evaluate(()=>{for(const name of ['minute','hour']){const select=document.getElementById(name);select.replaceChildren(...Array.from({length:name==='minute'?60:24},(_,i)=>new Option(String(i),String(i))));}});
     await body(page,state);
@@ -84,7 +88,8 @@ async function withPage(body) {
 const dialog = (page,id)=>page.locator(`.ui-dialog:has(#${id})`);
 const button = (page,id)=>dialog(page,id).getByRole('button',{name:id==='new-job'?'Save job':'Save',exact:true});
 async function open(page,id) {
-  await page.evaluate(id=>id==='new-job'?editJob(41):scheduleJob(41),id);
+  const name = id === 'new-job' ? job.name : LABELS['admin.jobs.scheduleJob'];
+  await page.locator('#jobTable').getByRole('link', {name, exact: true}).click();
   await page.waitForFunction(id=>jQuery('#'+id).dialog('isOpen')&&jQuery.active===0,id);
 }
 async function posted(state) {for(let i=0;i<100&&state.saves.length===0;i++)await new Promise(r=>setTimeout(r,10));assert.equal(state.saves.length,1);}

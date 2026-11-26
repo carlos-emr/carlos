@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOutputLock.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "c0004c51723d496ccd2c3526fb92c5193569acd4"
+  },
+  "evidenceSha256": "7012f022a57c60188d0e844d045642c2a04f34417e5a3f202f104cc96c70c954"
+}

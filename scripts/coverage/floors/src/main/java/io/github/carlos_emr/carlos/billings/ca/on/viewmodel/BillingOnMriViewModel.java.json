@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/viewmodel/BillingOnMriViewModel.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "4d2f50263b840b3d363cf383946068bb8bdcb00e"
+  },
+  "evidenceSha256": "e4fc1961a1f5f55929a0abc9c03b83be6f2d7312bcbb59a66bf0452c7fa22b39"
+}

@@ -29,7 +29,18 @@
 package io.github.carlos_emr.carlos.util;
 
 import java.io.File;
+import java.io.Closeable;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
+import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.util.List;
 import java.util.Set;
 import io.github.carlos_emr.CarlosProperties;
 
@@ -39,8 +50,14 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import org.apache.logging.log4j.Logger;
+import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingFilenameImportDao;
+import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingFilenameImportDao.FileReview;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingImportedFiles;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnFileAccessService;
+import io.github.carlos_emr.carlos.report.pageUtil.Obec2Action;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.BoundedSessionAttributes;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingFileWriteException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
@@ -53,6 +70,8 @@ public class OscarDownload extends GenericDownload {
 
     private static final long serialVersionUID = 1L;
     private static final Logger log = MiscUtils.getLogger();
+
+    private static final Set<String> BC_BILLING_REGIONS = Set.of("BC", "Bc", "bC", "bc");
 
     private static final Set<String> ALLOWED_HOMEPATH_KEYS = Set.of(
             "homepath", "ohipdownload", "obecdownload"
@@ -122,18 +141,32 @@ public class OscarDownload extends GenericDownload {
                     return;
                 }
                 if ("ohipdownload".equals(homepath) || billingDirectory) {
+                    // Only the BC Teleplan route shares these download keys. An absent or malformed
+                    // province must not disable the Ontario ownership check on its generated files.
+                    String region = CarlosProperties.getInstance().getProperty("billregion", "");
+                    if (!BC_BILLING_REGIONS.contains(StringUtils.trimToEmpty(region))) {
+                        boolean generatedObec = "obecdownload".equals(homepath) && filename.equals(rawFilename)
+                                && BoundedSessionAttributes.containsKey(session, Obec2Action.DOWNLOAD_CATEGORY,
+                                        Obec2Action.DOWNLOAD_PREFIX + filename);
+                        BillingOnFileAccessService access = SpringUtils.getBean(BillingOnFileAccessService.class);
+                        LoggedInInfo login = LoggedInInfo.getLoggedInInfoFromSession(session);
+                        var permission = access.downloadAccess(login, filename, generatedObec);
+                        if (permission == BillingOnFileAccessService.DownloadAccess.VERIFY_OWNERS) {
+                            serveScopedDownload(res, access, login, downloadDir, filename, rawFilename);
+                            return;
+                        }
+                        if (permission != BillingOnFileAccessService.DownloadAccess.GRANTED) {
+                            res.sendError(HttpServletResponse.SC_FORBIDDEN);
+                            return;
+                        }
+                    }
                     if (!filename.equals(rawFilename)) {
                         requireBillingFile(rawFilename, PathValidationUtils.validatePath(rawFilename, downloadDir).toPath());
                     }
                     try (var reviewed = reviewedBillingFile(filename,
                             PathValidationUtils.validatePath(filename, downloadDir).toPath())) {
                         if (reviewed != null) {
-                            String headerFilename = filename.replaceAll("[\\r\\n\\p{Cntrl}]", "");
-                            res.setContentType("application/octet-stream");
-                            res.setHeader("X-Content-Type-Options", "nosniff");
-                            res.setHeader("Content-Disposition", "attachment;filename=\"" + headerFilename + "\"");
-                            res.setContentLengthLong(reviewed.size());
-                            reviewed.input().transferTo(res.getOutputStream()); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- verified binary response
+                            sendOpenedFile(res, filename, reviewed.input(), reviewed.size());
                             return;
                         }
                     }
@@ -159,15 +192,75 @@ public class OscarDownload extends GenericDownload {
         }
     }
 
+    private record ScopedBillingFile(FileChannel input, List<FileReview> reviews) implements Closeable {
+        private static final ScopedBillingFile DENIED = new ScopedBillingFile(null, List.of());
+
+        @Override public void close() throws IOException {
+            // Before a response stream is created, this handle still owns the open channel.
+            if (input != null && input.isOpen()) input.close();
+        }
+    }
+
+    private void serveScopedDownload(HttpServletResponse res, BillingOnFileAccessService access, LoggedInInfo login,
+                                     File directory, String filename, String rawFilename) throws IOException {
+        Path path = PathValidationUtils.validatePath(filename, directory).toPath();
+        try (var file = access.openScopedDownload(() -> {
+            if (!access.canDownload(login, filename, false)
+                    || (!filename.equals(rawFilename) && !access.canDownload(login, rawFilename, false))) {
+                return ScopedBillingFile.DENIED;
+            }
+            // A reconciled file is pinned by its recorded digest. Its private snapshot can be made after releasing the guard.
+            var reviews = billingFileReviews(filename);
+            if (!reviews.isEmpty()) return new ScopedBillingFile(null, reviews);
+            try {
+                if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) throw new FileNotFoundException();
+                return new ScopedBillingFile(FileChannel.open(path, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS), List.of());
+            } catch (IOException unavailable) {
+                throw new UncheckedIOException(unavailable);
+            }
+        })) {
+            if (file == ScopedBillingFile.DENIED) {
+                res.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return;
+            }
+            if (!filename.equals(rawFilename)) {
+                requireBillingFile(rawFilename, PathValidationUtils.validatePath(rawFilename, directory).toPath());
+            }
+            if (file.input() != null) {
+                try (InputStream input = Channels.newInputStream(file.input())) {
+                    sendOpenedFile(res, filename, input, file.input().size());
+                }
+            } else {
+                try (var reviewed = BillingImportedFiles.openReviewed(file.reviews(), filename, path)) {
+                    sendOpenedFile(res, filename, reviewed.input(), reviewed.size());
+                }
+            }
+        } catch (UncheckedIOException missing) {
+            DownloadStorageWarnings.reportIfUnavailable(directory);
+            res.sendError(HttpServletResponse.SC_NOT_FOUND, "Download file not found.");
+        }
+    }
+
+    private static void sendOpenedFile(HttpServletResponse res, String filename, InputStream input, long size) throws IOException {
+        String headerFilename = filename.replaceAll("[\\r\\n\\p{Cntrl}]", "");
+        res.setContentType("application/octet-stream");
+        res.setHeader("X-Content-Type-Options", "nosniff");
+        res.setHeader("Content-Disposition", "attachment;filename=\"" + headerFilename + "\"");
+        res.setContentLengthLong(size);
+        input.transferTo(res.getOutputStream()); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- validated binary response
+    }
+
+    private List<FileReview> billingFileReviews(String filename) {
+        return SpringUtils.getBean(BillingFilenameImportDao.class).findFileReviews(filename);
+    }
+
     protected void requireBillingFile(String filename, java.nio.file.Path path) {
-        BillingFilenameImportDao dao = SpringUtils.getBean(BillingFilenameImportDao.class);
-        BillingImportedFiles.requireResolved(dao.findFileReviews(filename), filename, path);
+        BillingImportedFiles.requireResolved(billingFileReviews(filename), filename, path);
     }
 
     /** Opens the verified snapshot used for both validation and delivery of an audited file. */
     protected BillingImportedFiles.ReviewedFile reviewedBillingFile(String filename, java.nio.file.Path path) {
-        BillingFilenameImportDao dao = SpringUtils.getBean(BillingFilenameImportDao.class);
-        return BillingImportedFiles.openReviewed(dao.findFileReviews(filename), filename, path);
+        return BillingImportedFiles.openReviewed(billingFileReviews(filename), filename, path);
     }
 
     private void sendErrorForCaughtException(HttpServletResponse res, int statusCode, String message) {

@@ -152,7 +152,9 @@ Then:
    and provenance verification:
 
    ```bash
-   debian/fetch-carlos-ctl.sh "$(mktemp -d)"
+   cli_candidate_dir=$(mktemp -d)
+   debian/fetch-carlos-ctl.sh "$cli_candidate_dir"
+   python3 scripts/ci/candidate_cli_package.py verify --destination "$cli_candidate_dir"
    ```
 
    Run with authenticated `gh` and without `CARLOS_CTL_DEB` or
@@ -173,14 +175,26 @@ Then:
    git push origin "$RELEASE_TAG"
    ```
 
-6. The tag workflow re-runs the full build and tests, creates a clean WAR and
-   CycloneDX SBOM inside a minimal, digest-pinned JDK 25 + Maven image built
-   from `.github/release-build/Dockerfile` in the tagged source, generates signed
-   provenance attestations, attaches and verifies checksums, then publishes
-   the verified draft as an immutable GitHub release.
-7. Confirm prerelease/latest classification and asset attestations, then unfreeze
-   the source branch.
-8. If publication occurred from `main`, back-merge the tagged commit into its
+6. The tag workflow runs the full build and tests, creates a draft release with the
+   WAR and CycloneDX SBOM, and dispatches the Debian build on the same tag.
+7. The Debian workflow builds and attaches the application, DrugRef and pinned
+   CLI packages, with checksums and attestations. It verifies the complete remote
+   asset set against the tagged source and publishes that same release as its
+   final step. The release stays a draft until every required asset is present.
+   A build or verification failure leaves the draft available for a retry.
+8. If the Debian workflow fails, rerun its failed jobs. If the draft's WAR/SBOM
+   build succeeded and its Debian dispatch needs repeating, use the tag's own ref.
+
+   ```bash
+   gh workflow run deb-packages.yml --ref "refs/tags/$RELEASE_TAG" -f "tag=$RELEASE_TAG"
+   ```
+
+   The workflow verifies and publishes the completed draft automatically. The
+   optional qualification route for existing frozen drafts is described in the
+   [release publication guide](testing/release-publication.md).
+9. Confirm the prerelease/latest classification and asset attestations, then
+   unfreeze the source branch.
+10. If publication occurred from `main`, back-merge the tagged commit into its
    maintenance branch. Advance that branch to the next planned snapshot through
    a reviewed PR, then forward-merge the maintenance branch into newer lines.
    If publication occurred directly from an older maintenance branch, advance

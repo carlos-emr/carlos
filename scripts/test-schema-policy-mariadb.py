@@ -15,6 +15,8 @@ import uuid
 ROOT = Path(__file__).resolve().parents[1]
 COLLATION = (ROOT / "database/mysql/migration/common/V1.0.59.6__align_clinical_text_and_status_collations.sql").read_text()
 INDEXES = (ROOT / "database/mysql/migration/common/V1.0.59.7__reconcile_managed_performance_indexes.sql").read_text()
+ROSTER_INDEX = (ROOT / "database/mysql/migration/common/V1.0.59.50.2__ensure_historical_roster_lookup.sql").read_text()
+OHIP_FILE_INDEXES = (ROOT / "database/mysql/migration/on/V1.0.59.50.3__index_ohip_billing_file_owners.sql").read_text()
 CONNECTION = ["--no-defaults", "-h", os.environ.get("MYSQL_HOST", "localhost"), "-u", os.environ.get("MYSQL_USER", "root")]
 
 
@@ -95,6 +97,177 @@ class TestClinicalCollations(DatabaseTest):
                        "FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='demographic' "
                        "AND column_name='first_name'").stdout.strip()
         self.assertEqual(row, "varchar(200)\tYES\t'Unknown'\tclinic width\tutf8mb4_uca1400_ai_ci")
+
+
+class TestHistoricalRosterIndex(DatabaseTest):
+    name = "idx_demographicArchive_provider_roster_date"
+
+    def setUp(self):
+        super().setUp()
+        self.sql("CREATE TABLE demographicArchive (id INT PRIMARY KEY, provider_no VARCHAR(25), roster_date DATE);"
+                 "INSERT INTO demographicArchive VALUES (1,'000001','2000-01-01');")
+
+    def indexes(self):
+        result = self.sql("SELECT index_name, non_unique, ignored, GROUP_CONCAT(CONCAT(column_name, "
+                          "IFNULL(CONCAT('(',sub_part,')'),'')) ORDER BY seq_in_index) "
+                          "FROM information_schema.statistics WHERE table_schema=DATABASE() "
+                          "AND table_name='demographicArchive' GROUP BY index_name, non_unique, ignored")
+        return set(result.stdout.splitlines())
+
+    def test_missing_and_stock_indexes_converge_once(self):
+        before = self.indexes()
+        self.sql(ROSTER_INDEX)
+        expected = before | {self.name + "\t1\tNO\tprovider_no,roster_date"}
+        self.assertEqual(self.indexes(), expected)
+        self.sql(ROSTER_INDEX)
+        self.assertEqual(self.indexes(), expected)
+
+    def test_custom_unique_ignored_and_prefix_indexes_are_preserved(self):
+        self.sql("ALTER TABLE demographicArchive ADD UNIQUE INDEX " + self.name + "(roster_date), "
+                 "ADD UNIQUE INDEX provider_no(id), ADD INDEX clinic_prefix(provider_no(2),roster_date), "
+                 "ADD INDEX clinic_ignored(provider_no,roster_date) IGNORED")
+        before = self.indexes()
+        self.sql(ROSTER_INDEX)
+        added = self.indexes() - before
+        self.assertEqual(len(added), 1)
+        self.assertTrue(added.pop().endswith("\t1\tNO\tprovider_no,roster_date"))
+        self.assertTrue(before <= self.indexes())
+        after = self.indexes()
+        self.sql(ROSTER_INDEX)
+        self.assertEqual(self.indexes(), after)
+        self.assertEqual(self.sql("SELECT id,provider_no,roster_date FROM demographicArchive").stdout.strip(),
+                         "1\t000001\t2000-01-01")
+
+    def test_existing_compound_lookup_with_another_name_is_reused(self):
+        self.sql("ALTER TABLE demographicArchive ADD INDEX " + self.name + "(roster_date), "
+                 "ADD INDEX clinic_history(provider_no,roster_date,id)")
+        before = self.indexes()
+        self.sql(ROSTER_INDEX)
+        self.assertEqual(self.indexes(), before)
+
+    def test_index_limit_does_not_block_upgrade_or_remove_clinic_indexes(self):
+        indexes = ["ADD INDEX " + self.name + "(roster_date)"]
+        indexes.extend("ADD INDEX clinic_{}(roster_date)".format(n) for n in range(62))
+        self.sql("ALTER TABLE demographicArchive " + ", ".join(indexes))
+        before = self.indexes()
+        # Inspect the warning immediately after CALL, before its cleanup statement.
+        result = self.sql(ROSTER_INDEX.replace("CALL carlos_ensure_historical_roster_lookup();",
+                          "CALL carlos_ensure_historical_roster_lookup(); SHOW WARNINGS;"))
+        self.assertIn("Roster lookup index exceeds local index limits", result.stdout)
+        self.assertEqual(self.indexes(), before)
+
+
+class TestOntarioBillingFileIndexes(DatabaseTest):
+    def setUp(self):
+        super().setUp()
+        self.sql("""
+            CREATE TABLE billactivity(id INT PRIMARY KEY, ohipfilename VARCHAR(50), htmlfilename VARCHAR(50),
+                                      providerohipno VARCHAR(6));
+            CREATE TABLE billing_on_diskname(id INT PRIMARY KEY, ohipfilename VARCHAR(50), UNIQUE KEY(ohipfilename));
+            CREATE TABLE billing_on_filename(id INT PRIMARY KEY, disk_id INT, htmlfilename VARCHAR(50),
+                                             providerno VARCHAR(6), UNIQUE KEY(htmlfilename));
+        """)
+
+    def indexes(self):
+        return set(self.sql("""
+            SELECT table_name, index_name, non_unique, ignored,
+                   GROUP_CONCAT(CONCAT(column_name, IFNULL(CONCAT('(',sub_part,')'),'')) ORDER BY seq_in_index)
+              FROM information_schema.statistics WHERE table_schema=DATABASE()
+             GROUP BY table_name, index_name, non_unique, ignored
+        """).stdout.splitlines())
+
+    def test_stock_rows_and_repeated_filenames_survive_and_reapply_is_a_noop(self):
+        self.sql("""
+            INSERT INTO billactivity VALUES (1,'old.001','a.htm','123456'), (2,'old.001','a.htm','123457'),
+                                            (3,NULL,NULL,NULL);
+            INSERT INTO billing_on_filename VALUES (1,7,'a.html','123456'), (2,7,'b.html','123457'), (3,NULL,NULL,NULL);
+        """)
+        rows = "SELECT * FROM billactivity ORDER BY id; SELECT * FROM billing_on_filename ORDER BY id;"
+        before = self.sql(rows).stdout
+        expected = self.indexes() | {
+            "billactivity\tohipfilename\t1\tNO\tohipfilename",
+            "billactivity\thtmlfilename\t1\tNO\thtmlfilename",
+            "billing_on_filename\tdisk_id\t1\tNO\tdisk_id",
+        }
+        for _ in range(2):
+            self.sql(OHIP_FILE_INDEXES)
+            self.assertEqual(self.indexes(), expected)
+            self.assertEqual(self.sql(rows).stdout, before)
+
+    def test_custom_leading_keys_are_reused_and_conflicting_names_are_preserved(self):
+        self.sql("""
+            ALTER TABLE billactivity ADD UNIQUE KEY clinic_archive(ohipfilename,id),
+                ADD INDEX htmlfilename(providerohipno,htmlfilename), ADD INDEX clinic_prefix(htmlfilename(3)),
+                ADD INDEX clinic_ignored(htmlfilename) IGNORED;
+            ALTER TABLE billing_on_filename ADD UNIQUE KEY disk_id(providerno), ADD INDEX clinic_files(disk_id,id);
+        """)
+        before = self.indexes()
+        self.sql(OHIP_FILE_INDEXES)
+        after = self.indexes()
+        self.assertTrue(before <= after)
+        self.assertEqual(len(after - before), 1)
+        self.assertRegex((after - before).pop(), r"^billactivity\thtmlfilename_[0-9]+\t1\tNO\thtmlfilename$")
+        self.sql(OHIP_FILE_INDEXES)
+        self.assertEqual(self.indexes(), after)
+
+    def test_only_missing_full_keys_are_added_while_all_existing_keys_are_retained(self):
+        self.sql("""
+            ALTER TABLE billactivity ADD INDEX by_report(htmlfilename), ADD INDEX ohipfilename(ohipfilename(2));
+            ALTER TABLE billing_on_filename ADD INDEX disk_id(disk_id) IGNORED;
+        """)
+        before = self.indexes()
+        self.sql(OHIP_FILE_INDEXES)
+        after = self.indexes()
+        self.assertTrue(before <= after)
+        definitions = (row.split('\t') for row in after - before)
+        added = {(table, non_unique, ignored, keys) for table, _, non_unique, ignored, keys in definitions}
+        self.assertEqual(added, {("billactivity", "1", "NO", "ohipfilename"),
+                                 ("billing_on_filename", "1", "NO", "disk_id")})
+        self.assertEqual(len(after - before), 2)
+
+    def test_index_limit_warns_keeps_clinic_indexes_and_still_repairs_the_other_table(self):
+        self.sql("ALTER TABLE billactivity " + ", ".join(
+            "ADD INDEX clinic_{}(providerohipno)".format(n) for n in range(63)))
+        before = self.indexes()
+        result = self.sql(OHIP_FILE_INDEXES + "\nSHOW WARNINGS;")
+        self.assertIn("OHIP ownership lookup indexes exceed local index limits", result.stdout)
+        self.assertEqual(self.indexes(), before | {"billing_on_filename\tdisk_id\t1\tNO\tdisk_id"})
+
+    def test_an_unexpected_schema_error_fails_the_migration(self):
+        self.sql("ALTER TABLE billactivity DROP COLUMN htmlfilename")
+        result = self.sql(OHIP_FILE_INDEXES, check=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("htmlfilename", result.stderr)
+
+    def test_ownership_queries_use_the_filename_keys_and_the_disk_id_join(self):
+        self.sql("""
+            INSERT INTO billactivity SELECT seq, CONCAT('claim-',seq), CONCAT('report-',seq), '123456'
+                FROM seq_1_to_20000;
+            INSERT INTO billing_on_diskname SELECT seq, CONCAT('disk-',seq) FROM seq_1_to_4000;
+            INSERT INTO billing_on_filename SELECT seq, 1+((seq-1) DIV 5), CONCAT('file-',seq), '123456'
+                FROM seq_1_to_20000;
+        """)
+
+        def plans():
+            self.sql("ANALYZE TABLE billactivity, billing_on_diskname, billing_on_filename")
+            old = self.sql("EXPLAIN SELECT ohipfilename,htmlfilename,providerohipno FROM billactivity "
+                           "WHERE ohipfilename IN ('claim-301','report-606') OR htmlfilename IN ('claim-301','report-606')")
+            disk = self.sql("EXPLAIN SELECT d.ohipfilename,f.providerno FROM billing_on_diskname d "
+                            "LEFT JOIN billing_on_filename f ON f.disk_id=d.id WHERE d.ohipfilename IN ('disk-300','disk-600')")
+            result = {}
+            for line in (old.stdout + disk.stdout).splitlines():
+                columns = line.split('\t')
+                result[columns[2]] = (columns[3], columns[5])
+            return result
+
+        before = plans()
+        self.assertEqual(before["billactivity"][0], "ALL")
+        self.assertEqual(before["f"][0], "ALL")
+        self.sql(OHIP_FILE_INDEXES)
+        after = plans()
+        self.assertEqual(after["billactivity"][0], "index_merge")
+        self.assertEqual(set(after["billactivity"][1].split(',')), {"ohipfilename", "htmlfilename"})
+        self.assertEqual(after["f"], ("ref", "disk_id"))
 
 
 @unittest.skipUnless(os.environ.get("SCHEMA_POLICY_REFERENCE"), "set SCHEMA_POLICY_REFERENCE for full index tests")
