@@ -3107,7 +3107,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return writeReleaseAnswer(released > 0 ? "released" : "notHeld");
     }
 
-    /** Writes the JSON a classic page's release reads, {@code {"releaseNoteLock": state}}. */
+    /** Writes the JSON a classic page's release reads, {@code {"releaseNoteLock": state}}; state is a server literal. */
+    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     private String writeReleaseAnswer(String state) {
         ObjectNode json = objectMapper.createObjectNode();
         json.put("releaseNoteLock", state);
