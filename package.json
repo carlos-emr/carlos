@@ -225,6 +225,7 @@
     "test:oauth-token-lifecycle-playwright": "node scripts/oauth-token-lifecycle-playwright-checks.js",
     "test:oauth-rest-surfaces-playwright": "node scripts/oauth-rest-surfaces-playwright-checks.js",
     "test:oauth-ws-rate-limit-playwright": "node scripts/oauth-ws-rate-limit-playwright-checks.js",
+    "test:ai-scribe-oauth-api-live": "node scripts/ai-scribe-oauth-api-live-check.js",
     "test:o19-migrated-smoke": "node scripts/o19-migrated-smoke-playwright-checks.js",
     "test:first-nations-encoding-playwright": "node scripts/first-nations-encoding-playwright-checks.js",
     "test:next-appointment-lookup-playwright": "node scripts/next-appointment-lookup-playwright-checks.js",

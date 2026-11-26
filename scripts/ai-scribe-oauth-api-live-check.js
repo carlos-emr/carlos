@@ -17,10 +17,14 @@
  * local-transport tests cannot verify the OAuth handshake, scope enforcement,
  * database persistence, or deployed routing.
  *
- * The check owns one synthetic patient, one BP measurement, one synthetic
+ * The check owns one synthetic patient, two BP measurements (a SQL fixture and,
+ * when the measurement-write group runs, the API reading), one synthetic
  * medication/prescription, one eForm template, OAuth clients, and their issued
  * credentials. Cleanup removes only rows keyed by the unique run markers,
- * including when a request fails part-way through.
+ * including when a request fails part-way through or the run is interrupted
+ * (SIGINT/SIGTERM stop the run before its next request; runCheck then runs
+ * cleanup). It requires
+ * CARLOS_DISPOSABLE_HOST=true and EXPECT_OAUTH_MODE=scoped.
  *
  * Measurement rows are immutable. The REST write operation records a separate
  * new measurement for the patient and leaves previous readings unchanged.
@@ -33,13 +37,13 @@ const {
   SkipCheck, assert, assertNotErrorPage, assertStrictPage, createRecorder, createSqlRunner, insertId,
   launchBrowser, login, newContext, readConfig, runCheck, wireStrictPage,
 } = require('./lib/playwright-harness');
-const { oauthHeader, pct } = require('./oauth-rest-surfaces-playwright-checks');
+const { oauthHeader, pct } = require('./lib/oauth1-signing');
 
 const EXPECT_OAUTH_MODE = process.env.EXPECT_OAUTH_MODE || 'scoped';
 const API_ONLY = process.env.AI_SCRIBE_API_ONLY?.trim().toLowerCase() || '';
 const API_TEST_GROUPS = new Set([
   'demographics', 'measurements', 'measurements.read', 'measurements.write',
-  'labs', 'rxlookup', 'rx', 'schedule', 'eforms',
+  'labs', 'rxlookup', 'rx', 'schedule', 'eforms', 'eforms.templates',
 ]);
 const REQUIRED_SCOPES = [
   'demographic.read', 'demographic.write', 'measurement.read', 'measurement.write',
@@ -78,9 +82,9 @@ function sqlId(value, label) {
 }
 
 function printEndpointResults(results) {
-  const rows = results.map(({ outcome, method, path, status, verification }) => ({
+  const rows = results.map(({ outcome, method, path: endpointPath, status, verification }) => ({
     outcome,
-    endpoint: `${method} ${path}`,
+    endpoint: `${method} ${endpointPath}`,
     http: status,
     verification,
   }));
@@ -117,10 +121,15 @@ function removeOwnedLabFile(state) {
 
 async function cleanup(state) {
   const { sql, consumerKey, marker, formName, providerNo } = state;
+  // A browser that fails to close must not skip the database cleanup, and its error must still
+  // reach the caller (a `return` inside `finally` used to swallow it when there was no SQL runner).
+  let browserCloseError = null;
   try {
     if (state.browser) await state.browser.close();
-  } finally {
-    if (!sql) return;
+  } catch (error) {
+    browserCloseError = error;
+  }
+  if (sql) {
     try {
       if (marker && providerNo) {
         const patient = state.patientNo || sql.value(`SELECT demographic_no FROM demographic
@@ -131,135 +140,157 @@ async function cleanup(state) {
           const ownedRows = sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=?
             AND last_name=? AND first_name IN ('AI-Scribe','AI-Scribe Updated')
             AND provider_no=?`, [id, marker, providerNo]);
-          assert(ownedRows === '1' || (state.patientNo && ownedRows === '0'),
-            'The synthetic demographic ownership check did not match the created patient or its deleted state');
-          if (state.labAccession) {
-            const filePattern = state.labFilePrefix
-              ? `%${state.labRunMarker}%`
-              : null;
-            const fileUploadIds = filePattern
-              ? sql.rows(
-                  'SELECT id FROM fileUploadCheck WHERE filename LIKE ?',
-                  [filePattern],
-                )
-                  .map(([id]) => id)
-                  .filter((id) => /^[1-9]\d*$/.test(id))
-              : [];
-            const fileUploadIdPlaceholders = fileUploadIds.map(() => '?').join(',');
-            const uploadedLabIds = fileUploadIds.length
-              ? sql.rows(
-                  `SELECT lab_id FROM hl7TextMessage
-                    WHERE fileUploadCheck_id IN (${fileUploadIdPlaceholders})`,
-                  fileUploadIds,
-                )
-                  .map(([labId]) => labId)
-                  .filter((labId) => /^[1-9]\d*$/.test(labId))
-              : [];
-            const labIds = [...new Set([
-              ...sql.rows(
-                'SELECT lab_no FROM hl7TextInfo WHERE accessionNum=?',
-                [state.labAccession],
-              )
-                .map(([labNo]) => labNo)
-                .filter((labNo) => /^[1-9]\d*$/.test(labNo)),
-              ...uploadedLabIds,
-            ])];
-
-            if (labIds.length) {
-              const labIdPlaceholders = labIds.map(() => '?').join(',');
-              const measurementIds = [...new Set(
-                sql.rows(
-                  `SELECT measurement_id FROM measurementsExt
-                    WHERE keyval='lab_no' AND val IN (${labIdPlaceholders})`,
-                  labIds,
-                )
-                  .map(([measurementId]) => measurementId)
-                  .filter((measurementId) => /^[1-9]\d*$/.test(measurementId)),
-              )];
-
-              if (measurementIds.length) {
-                const measurementPlaceholders = measurementIds.map(() => '?').join(',');
-                sql.execute(
-                  `DELETE FROM measurementsExt
-                    WHERE measurement_id IN (${measurementPlaceholders})`,
-                  measurementIds,
-                );
-                sql.execute(
-                  `DELETE FROM measurements
-                    WHERE id IN (${measurementPlaceholders})`,
-                  measurementIds,
-                );
-              }
-
-              sql.execute(
-                `DELETE FROM providerLabRoutingLock WHERE lab_no IN (${labIdPlaceholders})`,
-                labIds,
-              );
-              sql.execute(
-                `DELETE FROM providerLabRouting
-                  WHERE lab_type='HL7' AND lab_no IN (${labIdPlaceholders})`,
-                labIds,
-              );
-              sql.execute(
-                `DELETE FROM patientLabRouting
-                  WHERE lab_type='HL7' AND lab_no IN (${labIdPlaceholders})`,
-                labIds,
-              );
-              sql.execute(
-                `DELETE FROM hl7TextInfo WHERE lab_no IN (${labIdPlaceholders})`,
-                labIds,
-              );
-              sql.execute(
-                `DELETE FROM hl7TextMessage WHERE lab_id IN (${labIdPlaceholders})`,
-                labIds,
-              );
-            }
-
-            if (state.labFilePrefix) {
-              sql.execute(
-                'DELETE FROM fileUploadCheck WHERE filename LIKE ?',
-                [filePattern],
-              );
-              assert(
-                sql.value(
-                  'SELECT COUNT(*) FROM fileUploadCheck WHERE filename LIKE ?',
-                  [filePattern],
-                ) === '0',
-                'The owned synthetic HL7 upload bookkeeping row was not removed',
-              );
-
-              if (fileUploadIds.length) {
-                assert(
-                  sql.value(
-                    `SELECT COUNT(*) FROM hl7TextMessage
+          const anyRows = sql.value('SELECT COUNT(*) FROM demographic WHERE demographic_no=?', [id]);
+          // Zero owned rows is the API-deleted state only when no row has this id at all. A row that
+          // exists without the run's marker is someone else's patient: its dependent rows must not
+          // be deleted, so cleanup stops here.
+          assert(ownedRows === '1' || (state.patientNo && ownedRows === '0' && anyRows === '0'),
+            ownedRows === '0' && anyRows !== '0'
+              ? 'The synthetic demographic id now names a patient without this run\'s marker; cleanup stopped'
+              : 'The synthetic demographic ownership check did not match the created patient or its deleted state');
+          // A lab-cleanup failure must not leave the patient's other clinical rows behind: it is
+          // held until the rest of the patient cleanup below has run, then rethrown.
+          let labCleanupError = null;
+          try {
+            if (state.labAccession) {
+              const filePattern = state.labFilePrefix
+                ? `%${state.labRunMarker}%`
+                : null;
+              const fileUploadIds = filePattern
+                ? sql.rows(
+                    'SELECT id FROM fileUploadCheck WHERE filename LIKE ?',
+                    [filePattern],
+                  )
+                    .map(([id]) => id)
+                    .filter((id) => /^[1-9]\d*$/.test(id))
+                : [];
+              const fileUploadIdPlaceholders = fileUploadIds.map(() => '?').join(',');
+              const uploadedLabIds = fileUploadIds.length
+                ? sql.rows(
+                    `SELECT lab_id FROM hl7TextMessage
                       WHERE fileUploadCheck_id IN (${fileUploadIdPlaceholders})`,
                     fileUploadIds,
-                  ) === '0',
-                  'The owned synthetic HL7 message rows were not removed',
-                );
+                  )
+                    .map(([labId]) => labId)
+                    .filter((labId) => /^[1-9]\d*$/.test(labId))
+                : [];
+              const labIds = [...new Set([
+                ...sql.rows(
+                  'SELECT lab_no FROM hl7TextInfo WHERE accessionNum=?',
+                  [state.labAccession],
+                )
+                  .map(([labNo]) => labNo)
+                  .filter((labNo) => /^[1-9]\d*$/.test(labNo)),
+                ...uploadedLabIds,
+              ])];
 
-                if (uploadedLabIds.length) {
-                  const uploadedLabPlaceholders = uploadedLabIds.map(() => '?').join(',');
-                  assert(
-                    sql.value(
-                      `SELECT COUNT(*) FROM hl7TextInfo
-                        WHERE lab_no IN (${uploadedLabPlaceholders})`,
-                      uploadedLabIds,
-                    ) === '0',
-                    'The owned synthetic HL7 lab information rows were not removed',
+              if (labIds.length) {
+                const labIdPlaceholders = labIds.map(() => '?').join(',');
+                const measurementIds = [...new Set(
+                  sql.rows(
+                    `SELECT measurement_id FROM measurementsExt
+                      WHERE keyval='lab_no' AND val IN (${labIdPlaceholders})`,
+                    labIds,
+                  )
+                    .map(([measurementId]) => measurementId)
+                    .filter((measurementId) => /^[1-9]\d*$/.test(measurementId)),
+                )];
+
+                if (measurementIds.length) {
+                  const measurementPlaceholders = measurementIds.map(() => '?').join(',');
+                  sql.execute(
+                    `DELETE FROM measurementsExt
+                      WHERE measurement_id IN (${measurementPlaceholders})`,
+                    measurementIds,
+                  );
+                  sql.execute(
+                    `DELETE FROM measurements
+                      WHERE id IN (${measurementPlaceholders})`,
+                    measurementIds,
                   );
                 }
-              }
-              removeOwnedLabFile(state);
-            }
 
-            assert(
-              sql.value(
-                'SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=?',
-                [state.labAccession],
-              ) === '0',
-              'The owned synthetic HL7 lab rows were not removed',
-            );
+                sql.execute(
+                  `DELETE FROM providerLabRouting
+                    WHERE lab_type='HL7' AND lab_no IN (${labIdPlaceholders})`,
+                  labIds,
+                );
+                // providerLabRoutingLock is keyed by a bare lab_no that other lab types (documents,
+                // other HL7 sources) share and that the row's upsert never re-stamps. Remove only a
+                // lock row this run created (stamped at or after the pre-upload floor) for an owned
+                // lab that no remaining routing row of any type still uses.
+                if (state.labLockFloor) {
+                  sql.execute(
+                    `DELETE FROM providerLabRoutingLock
+                      WHERE lab_no IN (${labIdPlaceholders}) AND lastUpdateDate >= ?
+                        AND NOT EXISTS (SELECT 1 FROM providerLabRouting r
+                          WHERE r.lab_no = providerLabRoutingLock.lab_no)`,
+                    [...labIds, state.labLockFloor],
+                  );
+                }
+                sql.execute(
+                  `DELETE FROM patientLabRouting
+                    WHERE lab_type='HL7' AND lab_no IN (${labIdPlaceholders})`,
+                  labIds,
+                );
+                sql.execute(
+                  `DELETE FROM hl7TextInfo WHERE lab_no IN (${labIdPlaceholders})`,
+                  labIds,
+                );
+                sql.execute(
+                  `DELETE FROM hl7TextMessage WHERE lab_id IN (${labIdPlaceholders})`,
+                  labIds,
+                );
+              }
+
+              if (state.labFilePrefix) {
+                sql.execute(
+                  'DELETE FROM fileUploadCheck WHERE filename LIKE ?',
+                  [filePattern],
+                );
+                assert(
+                  sql.value(
+                    'SELECT COUNT(*) FROM fileUploadCheck WHERE filename LIKE ?',
+                    [filePattern],
+                  ) === '0',
+                  'The owned synthetic HL7 upload bookkeeping row was not removed',
+                );
+
+                if (fileUploadIds.length) {
+                  assert(
+                    sql.value(
+                      `SELECT COUNT(*) FROM hl7TextMessage
+                        WHERE fileUploadCheck_id IN (${fileUploadIdPlaceholders})`,
+                      fileUploadIds,
+                    ) === '0',
+                    'The owned synthetic HL7 message rows were not removed',
+                  );
+
+                  if (uploadedLabIds.length) {
+                    const uploadedLabPlaceholders = uploadedLabIds.map(() => '?').join(',');
+                    assert(
+                      sql.value(
+                        `SELECT COUNT(*) FROM hl7TextInfo
+                          WHERE lab_no IN (${uploadedLabPlaceholders})`,
+                        uploadedLabIds,
+                      ) === '0',
+                      'The owned synthetic HL7 lab information rows were not removed',
+                    );
+                  }
+                }
+                removeOwnedLabFile(state);
+              }
+
+              assert(
+                sql.value(
+                  'SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=?',
+                  [state.labAccession],
+                ) === '0',
+                'The owned synthetic HL7 lab rows were not removed',
+              );
+            }
+          } catch (error) {
+            labCleanupError = error;
           }
           sql.execute('DELETE FROM drugReason WHERE demographicNo=?', [id]);
           sql.execute('DELETE FROM drugs WHERE demographic_no=?', [id]);
@@ -288,6 +319,7 @@ async function cleanup(state) {
               + (SELECT COUNT(*) FROM measurements WHERE demographicNo=?)`,
           [id, id, id]) === '0',
           'Owned clinical test rows remain after cleanup');
+          if (labCleanupError) throw labCleanupError;
         }
       }
     } finally {
@@ -349,18 +381,26 @@ async function cleanup(state) {
       }
     }
   }
+  if (browserCloseError) throw browserCloseError;
 }
 
 async function main(state = {}) {
+  // The suite-wide opt-in for checks that write to the deployment (run-playwright-suite.js
+  // demands it of every live run). Required here too because this check is normally run directly.
+  if (process.env.CARLOS_DISPOSABLE_HOST !== 'true') {
+    throw new SkipCheck('Requires CARLOS_DISPOSABLE_HOST=true: this check creates and deletes '
+      + 'patient, clinical, eForm and OAuth rows on a separate disposable scoped installation');
+  }
   assert(EXPECT_OAUTH_MODE === 'scoped',
     'AI-Scribe API acceptance requires EXPECT_OAUTH_MODE=scoped on a separate disposable installation');
   assert(!API_ONLY || API_ONLY === 'all' || API_TEST_GROUPS.has(API_ONLY),
     `Unsupported AI_SCRIBE_API_ONLY=${API_ONLY}; use all, demographics, measurements, `
-      + 'measurements.read, measurements.write, labs, rxlookup, rx, schedule, or eforms');
+      + 'measurements.read, measurements.write, labs, rxlookup, rx, schedule, eforms, '
+      + 'or eforms.templates');
   const config = readConfig();
   const sql = createSqlRunner(config.mysql);
   state.sql = sql;
-  const app = (path) => `${config.baseUrl}${path}`;
+  const app = (appPath) => `${config.baseUrl}${appPath}`;
   const runMarker = crypto.randomUUID().replace(/-/g, '');
   const marker = `PWAI${runMarker.slice(0, 12)}`;
   const today = new Date();
@@ -397,12 +437,24 @@ async function main(state = {}) {
   const endpointRecords = new WeakMap();
   state.endpointResults = endpointResults;
   state.resultsPrinted = false;
-  const recordEndpoint = (method, path, response, verification, outcome = 'PASS') => {
+  const recordEndpoint = (method, endpointPath, response, verification, outcome = 'PASS') => {
     const row = endpointRecords.get(response);
     if (row) {
-      Object.assign(row, { outcome, path, status: response.status(), verification });
+      Object.assign(row, { outcome, path: endpointPath, status: response.status(), verification });
     } else {
-      endpointResults.push({ outcome, method, path, status: response.status(), verification });
+      endpointResults.push({ outcome, method, path: endpointPath, status: response.status(), verification });
+    }
+  };
+  // A failed check of one request: updates the row its response recorded, or, when the request
+  // itself failed (timeout, connection reset), the FAIL row signedRequest already recorded, so a
+  // transport failure is reported once.
+  const recordFailure = (method, endpointPath, response, error, verification) => {
+    if (response) {
+      recordEndpoint(method, endpointPath, response, verification, 'FAIL');
+    } else if (error && error.endpointRecord) {
+      Object.assign(error.endpointRecord, { outcome: 'FAIL', path: endpointPath, verification });
+    } else {
+      endpointResults.push({ outcome: 'FAIL', method, path: endpointPath, status: 'n/a', verification });
     }
   };
   state.browser = await launchBrowser(config);
@@ -412,6 +464,7 @@ async function main(state = {}) {
   await login(sessionContext, config, recorder, { label: 'ai-scribe-oauth-login' });
 
   async function authorize(scopes) {
+    if (state.throwIfCancelled) state.throwIfCancelled();
     const initiateUrl = app(`/ws/oauth/initiate?scope=${pct(scopes)}`);
     let response = await anon.post(initiateUrl, {
       headers: {
@@ -471,8 +524,11 @@ async function main(state = {}) {
 
   const fullToken = await authorize(REQUIRED_SCOPES);
   const limitedToken = await authorize(LIMITED_SCOPES);
-  const signedRequest = async (method, path, token, body) => {
-    const url = app(path);
+  const signedRequest = async (method, requestPath, token, body) => {
+    // Cooperative cancellation (runCheck's SIGINT/SIGTERM handling): stop before sending the next
+    // request, never mid-request, so a submitted write settles before cleanup removes its rows.
+    if (state.throwIfCancelled) state.throwIfCancelled();
+    const url = app(requestPath);
     const headers = {
       Accept: 'application/json',
       Authorization: oauthHeader({
@@ -501,6 +557,7 @@ async function main(state = {}) {
     } catch (error) {
       result.outcome = 'FAIL';
       result.verification = `request failed: ${error.message}`;
+      if (error && typeof error === 'object') error.endpointRecord = result;
       throw error;
     }
   };
@@ -511,8 +568,12 @@ async function main(state = {}) {
     'The OAuth token is not bound to the provider who approved it');
   recordEndpoint('GET', '/ws/services/oauth/info', infoResponse, 'signed token identity verified');
 
+  // The patient's first name as CARLOS currently stores it. The demographics group renames the
+  // patient; later fixtures that identify the patient by name (the HL7 PID segment) read this
+  // instead of assuming that rename ran, so a focused run (AI_SCRIBE_API_ONLY=labs) matches too.
+  let patientFirstName = 'AI-Scribe';
   const createDemographicResponse = await signedRequest('POST', '/ws/services/demographics/', fullToken, {
-    firstName: 'AI-Scribe',
+    firstName: patientFirstName,
     lastName: marker,
     dobYear: '1980',
     dobMonth: '01',
@@ -636,6 +697,7 @@ async function main(state = {}) {
   const reloadedDemographic = await demographicReload.json();
   assert(reloadedDemographic.firstName === 'AI-Scribe Updated',
     'OAuth demographic update was not persisted');
+  patientFirstName = reloadedDemographic.firstName;
   recordEndpoint('GET', '/ws/services/demographics/{demographicNo}', demographicReload,
     'updated field persisted on read-after-write');
 
@@ -660,6 +722,20 @@ async function main(state = {}) {
     'OAuth measurement fetch did not return the owned BP fixture');
     recordEndpoint('POST', '/ws/services/measurements/{demographicNo}', measurementsResponse,
       'owned BP measurement returned');
+
+    // The limited token (LIMITED_SCOPES) holds measurement.read: show it is accepted for a read
+    // it is granted, not only refused for writes it lacks.
+    const limitedMeasurementsResponse = await signedRequest(
+      'POST', `/ws/services/measurements/${patientNo}`, limitedToken, { types: ['BP'] },
+    );
+    await expectStatus(limitedMeasurementsResponse, 200, 'OAuth measurement fetch with measurement.read only');
+    const limitedMeasurements = await limitedMeasurementsResponse.json();
+    const limitedBpRows = limitedMeasurements.measurements && limitedMeasurements.measurements.BP;
+    assert(Array.isArray(limitedBpRows) && limitedBpRows.some((row) =>
+      row.dataField === '121/79' && row.comments === measurementComment),
+    'The measurement.read-only token did not read the owned BP fixture');
+    recordEndpoint('POST', '/ws/services/measurements/{demographicNo}', limitedMeasurementsResponse,
+      'limited token (demographic.read measurement.read) accepted for the measurement read');
   }
 
   if (shouldRun('measurements') || shouldRun('measurements.write')) {
@@ -668,7 +744,10 @@ async function main(state = {}) {
       type: 'BP',
       dataField: '122/80',
       comments: newMeasurementComment,
-      measuringInstruction: 'Standing',
+      // Must match a configured measurementType row: the endpoint refuses a
+      // type/instruction pair it cannot resolve to exactly one type. The ON and
+      // BC seed data (V1.0.2__*_data.sql) configure BP as "sitting position".
+      measuringInstruction: 'sitting position',
       dateObserved: Date.now(),
     };
     const limitedMeasurementCreate = await signedRequest(
@@ -708,6 +787,21 @@ async function main(state = {}) {
     'OAuth new measurement was not persisted or an existing reading changed');
     recordEndpoint('POST', '/ws/services/measurements/{demographicNo}', newMeasurementReadResponse,
       'new reading persisted and previous reading retained on read-after-write');
+
+    // Correcting an existing measurement is not implemented (#6136): the service routes no PUT.
+    // Sent with the full token, which holds measurement.write, so a 404/405 is the missing route
+    // and not a scope refusal.
+    const measurementCorrectionResponse = await signedRequest(
+      'PUT', `/ws/services/measurements/${patientNo}`, fullToken,
+      { id: Number(newMeasurementId), dataField: '123/81' },
+    );
+    assert([404, 405].includes(measurementCorrectionResponse.status()),
+      `Measurement correction route should be unavailable, got HTTP ${measurementCorrectionResponse.status()}`);
+    assert(sql.value('SELECT dataField FROM measurements WHERE id=?', [newMeasurementId])
+      === newMeasurementPayload.dataField,
+    'The unrouted measurement correction changed the stored reading');
+    recordEndpoint('PUT', '/ws/services/measurements/{demographicNo}', measurementCorrectionResponse,
+      'measurement correction is not implemented (see #6136); PUT is not routed', 'GAP');
   }
 
   if (API_ONLY.startsWith('measurements')) {
@@ -761,11 +855,14 @@ async function main(state = {}) {
       sql.value('SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=?', [state.labAccession]) === '0',
       'The synthetic lab accession already exists',
     );
+    // Database time before the upload: cleanup removes only providerLabRoutingLock rows created
+    // from here on (the lock key is a bare lab_no shared with other lab types' ids).
+    state.labLockFloor = sql.value('SELECT NOW()');
 
     const hl7Timestamp = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
     const hl7Segments = [
       `MSH|^~\\&|PATHL7|CW|CARLOS|TEST|${hl7Timestamp}||ORU^R01|${runMarker}|P|2.3|||ER|AL`,
-      `PID|1||||${marker}^AI-Scribe Updated||19800102|F`,
+      `PID|1||||${marker}^${patientFirstName}||19800102|F`,
       `ORC|NW|${state.labAccession}|${state.labAccession}||F|||||||999998^DR. PROBE|||${hl7Timestamp}`,
       `OBR|1|${state.labAccession}||ML70^SYNTHETIC PANEL||${hl7Timestamp}|${hl7Timestamp}|||||||||999998^DR. PROBE|||||||||F`,
       'OBX|1|ST|7010^SYNTHETIC RESULT|^^CHEMISTRY|NORMAL|||N|||F||765^1007010||70',
@@ -839,17 +936,7 @@ async function main(state = {}) {
       'drug detail returned for the selected catalog id');
   } catch (error) {
     const verification = `details lookup failed: ${error.message || 'response validation failed'}`;
-    if (drugDetailsResponse) {
-      recordEndpoint('GET', '/ws/services/rxlookup/details', drugDetailsResponse, verification, 'FAIL');
-    } else {
-      endpointResults.push({
-        outcome: 'FAIL',
-        method: 'GET',
-        path: '/ws/services/rxlookup/details',
-        status: 'n/a',
-        verification,
-      });
-    }
+    recordFailure('GET', '/ws/services/rxlookup/details', drugDetailsResponse, error, verification);
   }
 
   const parseInstructions = 'Take 1 tablet by mouth twice daily for 7 days';
@@ -873,11 +960,11 @@ async function main(state = {}) {
     [`/rx/drugs/archived/${patientNo}`, 'archived-drugs view'],
   ];
   for (const [route, description] of rxReadRoutes) {
-    const path = route === '/rx/drugs'
+    const requestPath = route === '/rx/drugs'
       ? `${route}?demographicNo=${patientNo}` : route;
     let response;
     try {
-      response = await signedRequest('GET', `/ws/services${path}`, fullToken);
+      response = await signedRequest('GET', `/ws/services${requestPath}`, fullToken);
       await expectStatus(response, 200, `OAuth ${description}`);
       const body = await response.json();
       const bodyShape = Array.isArray(body) ? 'array'
@@ -888,17 +975,7 @@ async function main(state = {}) {
       recordEndpoint('GET', `/ws/services${route}`, response, `${description} returned`);
     } catch (error) {
       const verification = `${description} failed: ${error.message || 'response validation failed'}`;
-      if (response) {
-        recordEndpoint('GET', `/ws/services${route}`, response, verification, 'FAIL');
-      } else {
-        endpointResults.push({
-          outcome: 'FAIL',
-          method: 'GET',
-          path: `/ws/services${route}`,
-          status: 'n/a',
-          verification,
-        });
-      }
+      recordFailure('GET', `/ws/services${route}`, response, error, verification);
     }
   }
 
@@ -991,8 +1068,14 @@ async function main(state = {}) {
   const discontinueResult = await discontinueResponse.json();
   assert(discontinueResult.status === 'SUCCESS',
     'Medication discontinue did not return a success response');
+  // RxManagerImpl.discontinue archives the drug row in place: archived=1, the reason and a date.
+  const discontinuedRows = sql.rows(`SELECT archived, archived_reason, archived_date IS NOT NULL
+    FROM drugs WHERE drugid=? AND demographic_no=?`, [latestDrugId, patientNo]);
+  assert(discontinuedRows.length === 1 && discontinuedRows[0][0] === '1'
+    && discontinuedRows[0][1] === 'other' && discontinuedRows[0][2] === '1',
+  'Medication discontinue did not archive the drug row with reason "other" and an archived date');
   recordEndpoint('POST', '/ws/services/rx/discontinue', discontinueResponse,
-    'synthetic medication discontinued');
+    'drug row archived in the database with reason "other" and an archived date');
 
   const rxHistoryResponse = await signedRequest(
     'GET', `/ws/services/rx/history?id=${latestDrugId}&demographicNo=${patientNo}`, fullToken,
@@ -1007,10 +1090,16 @@ async function main(state = {}) {
     'GET', `/ws/services/rx/prescriptions?demographicNo=${patientNo}`, fullToken,
   );
   await expectStatus(prescriptionsResponse, 200, 'OAuth prescriptions list');
-  assert(Array.isArray(await prescriptionsResponse.json()),
-    'Prescriptions endpoint did not return a list');
+  const prescriptionList = await prescriptionsResponse.json();
+  // The owned patient has exactly the one prescription the prescribe call above created.
+  const scriptNos = sql.rows('SELECT script_no FROM prescription WHERE demographic_no=?', [patientNo]);
+  assert(scriptNos.length === 1, 'The prescribe call did not store exactly one prescription row');
+  const scriptNo = sqlId(scriptNos[0][0], 'stored synthetic prescription id');
+  assert(Array.isArray(prescriptionList)
+    && prescriptionList.some((item) => String(item.scriptId) === scriptNo),
+  'Prescriptions list did not include the prescription created earlier in the run');
   recordEndpoint('GET', '/ws/services/rx/prescriptions', prescriptionsResponse,
-    'patient prescription list returned');
+    'patient prescription list includes the prescription created in this run');
   }
 
   if (shouldRun('schedule')) {
@@ -1025,11 +1114,11 @@ async function main(state = {}) {
     [`/schedule/fetchProviderAppts/${providerNo}/${isoDate}/${isoDate}`, 'provider appointment list for period'],
     [`/schedule/fetchDays/${isoDate}/${isoDate}/${providerNo}`, 'appointments by period and provider'],
   );
-  for (const [path, description] of scheduleRoutes) {
-    const response = await signedRequest('GET', `/ws/services${path}`, fullToken);
+  for (const [route, description] of scheduleRoutes) {
+    const response = await signedRequest('GET', `/ws/services${route}`, fullToken);
     await expectStatus(response, 200, `OAuth ${description}`);
     await response.json();
-    recordEndpoint('GET', `/ws/services${path}`, response, `${description} returned`);
+    recordEndpoint('GET', `/ws/services${route}`, response, `${description} returned`);
   }
 
   const existingAppointmentsResponse = await signedRequest(
@@ -1052,7 +1141,7 @@ async function main(state = {}) {
     availabilityResponse, 'availability operation is commented out and not routed', 'GAP');
   }
 
-  if (shouldRun('eforms')) {
+  if (shouldRun('eforms') || shouldRun('eforms.templates')) {
   const eformsResponse = await signedRequest('GET', '/ws/services/eforms/', fullToken);
   const eforms = await expectSuccessJson(eformsResponse, 'OAuth eForm listing');
   assert(Array.isArray(eforms), 'OAuth eForm listing did not return an array');
@@ -1067,7 +1156,6 @@ async function main(state = {}) {
   });
   const createdEform = await expectSuccessJson(createEformResponse, 'OAuth eForm template create');
   const formId = sqlId(createdEform.id, 'created eForm id');
-  state.formId = formId;
   recordEndpoint('POST', '/ws/services/eform/json', createEformResponse, 'template created');
   const updatedListResponse = await signedRequest('GET', '/ws/services/eforms/', fullToken);
   const updatedList = await expectSuccessJson(updatedListResponse, 'OAuth eForm listing after create');
@@ -1119,9 +1207,13 @@ async function main(state = {}) {
   assert(String(deletedDemographic.demographicNo) === patientNo
     && deletedDemographic.lastName === marker,
   'Demographic delete did not identify the owned synthetic patient');
-  state.demographicDeleted = true;
+  // The REST delete is a soft delete (DemographicManagerImpl.deleteDemographic): the row stays
+  // with patient_status 'DE'. Cleanup removes the row afterwards.
+  assert(sql.value('SELECT patient_status FROM demographic WHERE demographic_no=? AND last_name=?',
+    [patientNo, marker]) === 'DE',
+  'Demographic delete did not mark the owned synthetic patient as deleted (patient_status DE)');
   recordEndpoint('DELETE', '/ws/services/demographics/{dataId}', deleteDemographicResponse,
-    'patient deletion endpoint returned the owned patient; cleanup verifies no row remains');
+    'patient soft-deleted: row kept with patient_status DE (cleanup removes it)');
   }
 
   assertStrictPage(recorder);
@@ -1140,7 +1232,10 @@ if (require.main === module) {
   const state = {};
   runCheck({
     name: 'ai-scribe-oauth-api',
-    run: async () => {
+    run: async ({ throwIfCancelled }) => {
+      // SIGINT/SIGTERM: runCheck keeps the process alive and runs cleanup in its finally; main()
+      // checks this before each request so an interrupted run stops early instead of finishing.
+      state.throwIfCancelled = throwIfCancelled;
       try {
         return await main(state);
       } catch (error) {

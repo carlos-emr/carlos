@@ -14,24 +14,46 @@ together.
   create/update/delete, and database-backed read-after-write.
 - Scoped measurement read and new-measurement write using an owned synthetic BP
   measurement. Each new reading is saved separately; existing measurements
-  remain unchanged.
+  remain unchanged. A `PUT` correction of a measurement is recorded as a `GAP`
+  (HTTP 404/405, see #6136).
 - eForm template listing, create, load, update, and persisted read-after-write.
 - HL7 lab message listing and malformed-upload rejection. A valid synthetic
   PATHL7 ORU upload and patient-specific read-after-upload are also tested when
   `AI_SCRIBE_DOCUMENT_STORE` points to the running server's `DOCUMENT_DIR`.
 - Rx lookup search/details/instruction parsing, patient medication reads and
-  writes, prescription history, and prescription listing.
+  writes (the discontinued drug row is checked in `drugs`), prescription
+  history, and prescription listing (which must include the prescription the
+  run created).
 - Scheduling day/status/month/provider-period/patient-history reads, including
   the endpoint used to find the patient's existing appointments.
 - `insufficient_scope` refusals for demographic update, measurement create,
-  and eForm read/update operations when the token lacks the corresponding scope.
+  and eForm template read/update operations when the token lacks the
+  corresponding scope. The limited `demographic.read measurement.read` token is
+  accepted for the measurement read.
 
 The eForm endpoints manage templates, not completed patient eForm instances.
 New patient measurements use `POST /ws/services/measurements/{demographicNo}/new`
 with a measurement `type` and `dataField`, plus optional comments, instructions,
 and observation timestamp. This records a separate reading and does not edit a
 previous measurement, preserving CARLOS EMR's measurement immutability and audit
-history.
+history. `dataField` is limited to 255 characters, further limited by the
+type's configured validation rule; `comments` and `measuringInstruction` are
+also limited to 255.
+The type must be a configured measurement type. `measuringInstruction` may be
+left out only when the type is configured with one instruction; for a type such
+as BP or WT, configured per site with several, send the exact configured
+instruction (for example `sitting position`), or the request is refused with
+`INSTRUCTION_REQUIRED`. The reading is stored under the configured spelling of
+the type and instruction. `dateObserved` defaults to the time of the request and
+is stored to the second. Repeating a request with the same `dateObserved` and
+values returns the reading already stored instead of saving a second one, so a
+client that sends `dateObserved` can retry safely. Refusals are HTTP 400 with a
+JSON body `{"code": ..., "message": ...}` (`UNKNOWN_TYPE`,
+`INSTRUCTION_REQUIRED`, `AMBIGUOUS_TYPE`, `VALUE_REJECTED`, `INVALID_*`,
+`UNSUPPORTED_FIELD`). A numeric rule accepts only plain decimals (no exponent,
+hex, `NaN` or `Infinity`), and a date rule only `yyyy-MM-dd`. The endpoint
+creates readings only: it does not correct or replace an existing measurement
+(see #6136), and `PUT` to the measurements service is not routed.
 Provider availability is not routed (the implementation is commented out),
 and is reported as a capability gap. When the document-store environment
 variable is omitted, the check still verifies rejection of a malformed upload
@@ -43,10 +65,15 @@ file behind.
 Run only against a **separate, disposable Ontario CARLOS EMR installation**
 with synthetic data. Enable `oauth.scope.enforcement.enabled=true` for that
 installation, restart it, and do not change the mode of a shared installation.
-The OAuth mode setting is server-wide.
+The OAuth mode setting is server-wide; see
+[OAuth access mode validation](oauth-access-mode-validation.md) for the modes.
+The check skips unless `CARLOS_DISPOSABLE_HOST=true` is set, the same opt-in
+`scripts/run-playwright-suite.js` requires for every live run.
 
 Set `BASE_URL` if the installation is not at
-`http://127.0.0.1:8080/carlos`. The login defaults to the devcontainer test
+`http://127.0.0.1:8080/carlos`. A `BASE_URL` whose host is not loopback is
+refused unless `ALLOW_NON_LOCAL_BASE_URL=true` is also set, and must use
+`https`, because the check posts the test login to it. The login defaults to the devcontainer test
 account (`carlosdoc` / `carlos2026`, PIN `2026`); override with `TEST_USER`,
 `TEST_PASSWORD`, and `TEST_PIN` as appropriate. Set `MYSQL_PASSWORD`; optional
 database connection overrides are `MYSQL_HOST`, `MYSQL_USER`, and
@@ -60,10 +87,15 @@ disposable database.
 From the repository root, run:
 
 ```sh
-EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
+CARLOS_DISPOSABLE_HOST=true EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
+# or: CARLOS_DISPOSABLE_HOST=true EXPECT_OAUTH_MODE=scoped npm run test:ai-scribe-oauth-api-live
 ```
 
-For focused runs, set `AI_SCRIBE_API_ONLY` to one of:
+SIGINT or SIGTERM stops the run before its next request, then the usual
+cleanup runs and the process exits 130 or 143.
+
+For focused runs, set `AI_SCRIBE_API_ONLY` to one of (with
+`CARLOS_DISPOSABLE_HOST=true` also set):
 
 ```sh
 AI_SCRIBE_API_ONLY=demographics EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
@@ -75,13 +107,15 @@ AI_SCRIBE_API_ONLY=rxlookup EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oaut
 AI_SCRIBE_API_ONLY=rx EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
 AI_SCRIBE_API_ONLY=schedule EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
 AI_SCRIBE_API_ONLY=eforms EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
+AI_SCRIBE_API_ONLY=eforms.templates EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
 ```
 
 `all` or an unset selector runs the full check. `measurements` runs both the
 read and new-measurement write checks. The `.read` and `.write` selectors run only
 that operation group; the write group also verifies that a token without
 `measurement.write` is refused and reads the saved result back to verify
-persistence. Every focused run still performs OAuth and creates the synthetic
+persistence. `eforms` and `eforms.templates` both run the eForm template
+checks. Every focused run still performs OAuth and creates the synthetic
 patient and measurement fixture used by the API workflows, then skips the
 other endpoint groups. Cleanup removes the temporary patient and its clinical
 rows.
@@ -91,25 +125,26 @@ The script refuses a non-scoped expectation, and the OAuth consent page must
 not show a legacy-mode warning. A run prints an endpoint-by-endpoint table after
 cleanup, including HTTP status, persisted read-after-write checks, scope
 refusals, `UNVERIFIED` activities not executed, and explicit `GAP` rows for
-unsupported operations. Rx lookup-details and medication-list failures are
-recorded while unrelated workflows continue. A failure in a workflow with
-dependent steps stops those steps, and the script exits nonzero if any endpoint
-check failed.
+unsupported operations. Only Rx lookup-details and the drug-list reads are
+isolated: their failures are recorded while the run continues. Any other
+failure stops the run, so every later group is skipped (its endpoints are
+absent from the table). The script exits nonzero if any endpoint check failed.
 
 The Rx lookup details check requires a DrugRef service that supports both
 `get_drug_2` and `get_generic_name`; a successful search alone does not verify
 that details can be loaded.
 
-The check creates one uniquely marked synthetic demographic and BP
-measurement, one synthetic medication/prescription, one eForm template, and
-one temporary OAuth client with issued tokens/nonces. The API deletes the
-synthetic demographic during the workflow; final cleanup verifies/removes any
-remaining owned clinical rows, OAuth records, eForm template, and (when
-configured) the imported lab rows and archived file. Run it serially and never
-against a shared or production database.
+The check creates one uniquely marked synthetic demographic, two BP
+measurements (a SQL fixture and, when the measurement-write group runs, the
+API reading), one synthetic medication/prescription, one eForm template, and
+one temporary OAuth client with issued tokens/nonces. When the `demographics`
+group runs, the API soft-deletes the synthetic demographic (the row stays with
+`patient_status` `DE`, which the check verifies). Final cleanup removes the
+demographic row and verifies/removes any remaining owned clinical rows, OAuth
+records, the eForm template, and (when configured) the imported lab rows, the
+lab routing lock rows the run created, and the archived file. Run it serially
+and never against a shared or production database.
 
 ## API capability follow-up
 
-Measurement creation saves a new row and preserves previous readings. If
-AI-Scribe needs completed eForm instances rather than reusable
-templates, that workflow needs a distinct API contract and test coverage.
+Measurement creation saves a new row and preserves previous readings.
