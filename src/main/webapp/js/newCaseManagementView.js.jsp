@@ -45,6 +45,8 @@
     <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:message key="encounter.sessionEndedNotSaved.msg" var="sessionEndedNotSavedText"/>
+<fmt:message key="encounter.facilitySelectionPendingNotSaved.msg" var="facilitySelectionPendingNotSavedText"/>
 <fmt:message var="noteSavingLabel" key="web.record.details.saving"/>
 <fmt:message var="noteChangedDuringSignLabel" key="oscarEncounter.signSave.noteChangedDuringCheck"/>
 <fmt:message var="noteEditorLabel" key="encounter.noteBrowser.encounterNote"/>
@@ -1758,23 +1760,21 @@ function updateCPPNote() {
         return held.length;
     }
 
-    function pasteToEncounterNote(txt) {
-        if (holdNoteInsertion(function () { pasteToEncounterNote(txt); })) return true;
-        let caseNoteElement = document.getElementById(caseNote);
-        if (caseNoteElement) {
-            caseNoteElement.value += "\n" + txt;
-            try {
-                adjustCaseNote();
-                setCaretPosition(caseNoteElement, caseNoteElement.value.length);
-            } catch (error) {
-                // Text is already inserted. Layout/focus failure is not a failed paste.
-                console.error('Encounter text inserted; could not update layout');
-            }
-            return true;
-        } else {
-            console.error('Element with ID caseNote element not found.');
-            return false;
+    function pasteToEncounterNote(txt, expectedEditor, onInserted) {
+        var caseNoteElement = document.getElementById(caseNote);
+        if (!caseNoteElement || (expectedEditor && expectedEditor !== caseNoteElement) || caseNoteElement.readOnly) return false;
+        if (holdNoteInsertion(function () { pasteToEncounterNote(txt, caseNoteElement, onInserted); })) return true;
+        if (caseNoteElement.disabled) return false;
+        caseNoteElement.value += "\n" + txt;
+        try {
+            adjustCaseNote();
+            setCaretPosition(caseNoteElement, caseNoteElement.value.length);
+        } catch (error) {
+            // Text is already inserted. Layout/focus failure is not a failed paste.
+            console.error('Encounter text inserted; could not update layout');
         }
+        if (onInserted) onInserted(caseNoteElement);
+        return true;
     }
 
     function writeToEncounterNote(request) {
@@ -3204,11 +3204,12 @@ function updateCPPNote() {
         );
         return false;
     }
-    function savePage(method, chain, signIntent) {
+    function savePage(method, chain, click) {
         // Keep Sign, Verify and Bill with this particular click. Validation can reject
         // it, or a plain Save can replace it while the note's issues are refreshing.
         var form = document.forms["caseManagementEntryForm"];
-        if (!signIntent) signIntent = noteSignIntent(form);
+        var editor = document.getElementById(caseNote);
+        if (!click && editor) click = {editor: editor, text: editor.value, intent: noteSignIntent(form)};
         resetNoteSignIntent(form);
         if (lostNoteLock) {
             alert(noteLockLostError);
@@ -3216,16 +3217,11 @@ function updateCPPNote() {
         }
         // Opening/editing a note refreshes its issue fields asynchronously. Save only
         // after both fragments finish, so the form and its issue selection stay intact.
-        if (deferNoteSaveUntilIssues(function () { savePage(method, chain, signIntent); })) return false;
-
-        var noteStr;
-        noteStr = $F(caseNote);
-        /*
-    if( noteStr.replace(/^\s+|\s+$/g,"").length == 0 ) {
-        alert("Please enter a note before saving");
-        return false;
-    }
-    */
+        if (!click || click.editor !== editor || click.text !== editor.value) {
+            alert(noteChangedDuringSignMessage);
+            return false;
+        }
+        if (deferNoteSaveUntilIssues(function () { savePage(method, chain, click); })) return false;
 
         if ($("observationDate") != undefined && $("observationDate").value.length > 0 && !validDate()) {
             alert(pastObservationDateError);
@@ -3281,7 +3277,7 @@ function updateCPPNote() {
             // press during the check (Ctrl+B) may have changed Sign, Verify or Bill; submit the
             // choices made when Sign & Save was chosen.
             restoreControls();
-            if (releaseHeldNoteInsertions() > 0) {
+            if (releaseHeldNoteInsertions() > 0 || document.getElementById(caseNote) !== click.editor || click.editor.value !== click.text) {
                 // Text arrived during the check and is in the note now. The user has not seen
                 // it, so nothing is signed: they review the note and choose Sign & Save again.
                 resetNoteSignIntent(form);
@@ -3289,7 +3285,7 @@ function updateCPPNote() {
                 alert(noteChangedDuringSignMessage);
                 return;
             }
-            applyNoteSignIntent(form, signIntent);
+            applyNoteSignIntent(form, click.intent);
             submitNotePage(method, chain);
         }, function (reason) {
             restoreControls();
@@ -3560,8 +3556,8 @@ function updateCPPNote() {
     var noteSwitchSavePending = false;
     var noteSavingMessage = "${carlos:forJavaScriptBlock(noteSavingLabel)}";
     var noteChangedDuringSignMessage = "${carlos:forJavaScriptBlock(noteChangedDuringSignLabel)}";
-    var sessionEndedNotSavedError;
-    var facilitySelectionPendingNotSavedError;
+    var sessionEndedNotSavedError = "${carlos:forJavaScriptBlock(sessionEndedNotSavedText)}";
+    var facilitySelectionPendingNotSavedError = "${carlos:forJavaScriptBlock(facilitySelectionPendingNotSavedText)}";
 
     // A save counts only when the save action itself answered (#5868). Once the sign-in
     // has ended (the inactivity limit, or a facility still to be chosen), the login filter
@@ -4760,12 +4756,7 @@ function autoSave() {
     function copyCppToCurrentNote(cppText) {
         // Read the CPP text now: the editor may be closed before a held copy is applied.
         var copied = cppText !== undefined ? cppText : jQuery("#noteEditTxt").val();
-        if (holdNoteInsertion(function () { copyCppToCurrentNote(copied); })) return;
-        var currentNoteId = jQuery("input[name='noteId']").val();
-        var currentNoteText = jQuery("#caseNote_note" + currentNoteId).val();
-        currentNoteText += "\n";
-        currentNoteText += copied;
-        jQuery("#caseNote_note" + currentNoteId).val(currentNoteText);
+        return pasteToEncounterNote(copied);
     }
 
     function selectGroup(programId, demographicNo) {

@@ -268,16 +268,16 @@
 <%-- aria-sort names the order the rows are in: sort 0, the default, is client number order,
      the same as the Client No column; the other sortable columns say "none". --%>
 <c:set var="activeSortColumn" value="${requestScope.serverTableSort == 0 ? 1 : requestScope.serverTableSort}"/>
-<c:set var="activeSortOrder" value="${requestScope.serverTableDescending ? 'descending' : 'ascending'}"/>
+<c:set var="activeSortAttribute">aria-sort="${requestScope.serverTableDescending ? 'descending' : 'ascending'}"</c:set>
 <thead><tr>
 
-                <th scope="col" aria-sort="${activeSortColumn == 1 ? activeSortOrder : 'none'}"><button type="submit" form="serverTablePageForm" name="tableSortChange" value="1">Client No</button></th>
-            <th scope="col" aria-sort="${activeSortColumn == 2 ? activeSortOrder : 'none'}"><button type="submit" form="serverTablePageForm" name="tableSortChange" value="2">Name</button></th>
-            <th scope="col" aria-sort="${activeSortColumn == 3 ? activeSortOrder : 'none'}"><button type="submit" form="serverTablePageForm" name="tableSortChange" value="3">Date of Birth</button></th>
-            <th scope="col" aria-sort="${activeSortColumn == 4 ? activeSortOrder : 'none'}"><button type="submit" form="serverTablePageForm" name="tableSortChange" value="4">Gender</button></th>
-            <th scope="col" aria-sort="${activeSortColumn == 5 ? activeSortOrder : 'none'}"><button type="submit" form="serverTablePageForm" name="tableSortChange" value="5">Chart No</button></th>
-            <th scope="col" aria-sort="${activeSortColumn == 6 ? activeSortOrder : 'none'}"><button type="submit" form="serverTablePageForm" name="tableSortChange" value="6">Admitted to Program</button></th>
-            <th scope="col" aria-sort="${activeSortColumn == 7 ? activeSortOrder : 'none'}"><button type="submit" form="serverTablePageForm" name="tableSortChange" value="7">H&S Alert</button></th>
+                <th scope="col" ${activeSortColumn == 1 ? activeSortAttribute : ''}><button type="submit" form="serverTablePageForm" name="tableSortChange" value="1">Client No</button></th>
+            <th scope="col" ${activeSortColumn == 2 ? activeSortAttribute : ''}><button type="submit" form="serverTablePageForm" name="tableSortChange" value="2">Name</button></th>
+            <th scope="col" ${activeSortColumn == 3 ? activeSortAttribute : ''}><button type="submit" form="serverTablePageForm" name="tableSortChange" value="3">Date of Birth</button></th>
+            <th scope="col" ${activeSortColumn == 4 ? activeSortAttribute : ''}><button type="submit" form="serverTablePageForm" name="tableSortChange" value="4">Gender</button></th>
+            <th scope="col" ${activeSortColumn == 5 ? activeSortAttribute : ''}><button type="submit" form="serverTablePageForm" name="tableSortChange" value="5">Chart No</button></th>
+            <th scope="col" ${activeSortColumn == 6 ? activeSortAttribute : ''}><button type="submit" form="serverTablePageForm" name="tableSortChange" value="6">Admitted to Program</button></th>
+            <th scope="col" ${activeSortColumn == 7 ? activeSortAttribute : ''}><button type="submit" form="serverTablePageForm" name="tableSortChange" value="7">H&S Alert</button></th>
 
             <security:oscarSec roleName="<%=roleName$%>" objectName="_merge"
                                rights="r">

@@ -24,8 +24,10 @@ function fixture({globalId = '123', query = '?demographicNo=123', hidden = ['123
     },
     loadDiv(panel, url, limit) { actions.push(['refresh', panel, url, limit]); },
   };
-  const popup = {opener, close() { actions.push(['close']); }};
-  return {popup, opener, editor, otherEditor, actions};
+  const recovery = {hidden: true};
+  const reference = {value: ''};
+  const popup = {opener, document: {getElementById: id => id === 'encounterFormRecovery' ? recovery : reference}, close() { actions.push(['close']); }};
+  return {popup, opener, editor, otherEditor, actions, reference, recovery};
 }
 
 test('completion appends literal text to the modern editor and dispatches dirty events before refresh and close', () => {
@@ -116,14 +118,16 @@ test('missing, closed and cross-origin openers close safely without reading or w
   }
 });
 
-test('missing and readonly editors still allow supported own-patient panel refreshes and closing', () => {
+test('missing, readonly and busy editors preserve the saved reference for manual insertion', () => {
   for (const state of ['missing', 'readOnly', 'disabled']) {
     const f = fixture();
     if (state === 'missing') f.opener.document.querySelector = () => null;
     else f.editor[state] = true;
     completeEncounterForm(f.popup, '123', 'Saved');
     assert.equal(f.editor.value, 'Existing draft');
-    assert.deepEqual(f.actions.map(action => action[0]), ['refresh', 'refresh', 'close']);
+    assert.equal(f.reference.value, 'Saved');
+    assert.equal(f.recovery.hidden, false);
+    assert.deepEqual(f.actions.map(action => action[0]), ['refresh', 'refresh']);
   }
 });
 
@@ -217,7 +221,7 @@ function withChartPaste(f) {
   };
   vm.createContext(chart);
   vm.runInContext(source.slice(start, end), chart);
-  f.opener.pasteToEncounterNote = text => chart.pasteToEncounterNote(text);
+  f.opener.pasteToEncounterNote = (...args) => chart.pasteToEncounterNote(...args);
   return chart;
 }
 
@@ -229,10 +233,11 @@ test('a form completed while Sign & Save checks the sign-in is held, then added 
   f.editor.disabled = true;
   completeEncounterForm(f.popup, '123', 'FAKE completed form text');
   assert.equal(f.editor.value, 'Existing draft', 'nothing reaches the note during the check');
-  assert.deepEqual(f.actions.map(action => action[0]), ['refresh', 'refresh', 'close'], 'the form window still closes');
+  assert.deepEqual(f.actions.map(action => action[0]), ['refresh', 'refresh'], 'the saved reference remains available until insertion');
   f.editor.disabled = false;
   assert.equal(chart.releaseHeldNoteInsertions(), 1, 'the completion text was held, not dropped');
   assert.equal(f.editor.value, 'Existing draft\nFAKE completed form text');
+  assert.deepEqual(f.actions.slice(2).map(action => action[0]), ['event', 'event', 'close']);
 });
 
 test('a form completed outside the check goes through the chart paste and marks the note changed', () => {
@@ -250,4 +255,15 @@ test('a read-only note receives nothing even when the chart paste is available',
   f.editor.readOnly = true;
   completeEncounterForm(f.popup, '123', 'FAKE completed form text');
   assert.equal(f.editor.value, 'Existing draft');
+});
+
+test('ordinary AJAX save keeps its serialized editor intact and leaves the saved form reference available', () => {
+  const f = fixture();
+  withChartPaste(f);
+  f.editor.disabled = true;
+  completeEncounterForm(f.popup, '123', 'Reference to saved form');
+  assert.equal(f.editor.value, 'Existing draft');
+  assert.equal(f.reference.value, 'Reference to saved form');
+  assert.equal(f.recovery.hidden, false);
+  assert.deepEqual(f.actions.map(action => action[0]), ['refresh', 'refresh']);
 });

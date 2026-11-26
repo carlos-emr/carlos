@@ -100,6 +100,8 @@ function harness(heartbeat = valid) {
   vm.runInContext(shortcut[0], context);
   const pressBill = () => keydown({ ctrlKey: true, shiftKey: false, altKey: false, key: 'b', preventDefault() {} });
   const submits = () => effects.filter(effect => effect.submit).map(effect => effect.submit);
+  context.sessionEndedNotSavedError = SIGNED_OUT;
+  context.facilitySelectionPendingNotSavedError = FACILITY_PENDING;
   return { context, requests, alerts, effects, fetches, replaced, fields, editor, toolbar, entryForm, timers, submits, pressBill };
 }
 
@@ -490,8 +492,6 @@ test('CPP text copied into the note while the sign-in check runs is held for rev
   const cppEditor = { value: 'FAKE CPP text' };
   const pageJQuery = h.context.jQuery;
   h.context.jQuery = selector => {
-    if (selector === "input[name='noteId']") return { val: () => '7' };
-    if (selector === '#caseNote_note7') return { val: (...set) => (set.length ? (h.editor.value = set[0]) : h.editor.value) };
     if (selector === '#noteEditTxt') return { val: () => cppEditor.value };
     return pageJQuery(selector);
   };
@@ -537,12 +537,35 @@ test('text inserted while the sign-in check times out is held for review, and au
   assert.equal(h.editor.disabled, false, 'the note controls come back');
 });
 
-test('the encounter page supplies the facility-selection message from the bundle', () => {
-  const layout = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/casemgmt/newEncounterLayout.jsp'), 'utf8');
+test('both encounter layouts use the shared localized facility-selection message', () => {
+  const layout = source;
   assert.match(layout, /key="encounter\.facilitySelectionPendingNotSaved\.msg"/);
   assert.match(layout, /facilitySelectionPendingNotSavedError = "\$\{carlos:forJavaScriptBlock\(facilitySelectionPendingNotSavedText\)\}"/);
   for (const locale of ['en', 'es', 'fr', 'pl', 'pt_BR']) {
     const bundle = fs.readFileSync(path.join(__dirname, `../src/main/resources/oscarResources_${locale}.properties`), 'latin1');
     assert.match(bundle, /^encounter\.facilitySelectionPendingNotSaved\.msg=\S/m, `${locale} has the message`);
   }
+});
+
+test('changing the note while issue updates are pending requires a fresh signing choice', () => {
+  const h = harness();
+  h.context.issueUpdatesPending = 1;
+  signAndSave(h);
+  h.editor.value += ' New text before heartbeat';
+  h.context.issueUpdatesPending = 0;
+  h.context.queuedNoteSave.save();
+  assert.deepEqual(h.submits(), []);
+  assert.equal(h.fetches.length, 0);
+  assert.equal(h.entryForm.sign.value, 'off');
+  assert.deepEqual(h.alerts, [h.context.noteChangedDuringSignMessage]);
+});
+
+test('direct changes to the editor during a successful heartbeat cannot be signed', async () => {
+  const h = harness();
+  signAndSave(h);
+  h.editor.value += ' New text during heartbeat';
+  await settled();
+  assert.deepEqual(h.submits(), []);
+  assert.equal(h.editor.disabled, false);
+  assert.deepEqual(h.alerts, [h.context.noteChangedDuringSignMessage]);
 });

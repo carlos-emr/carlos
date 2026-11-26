@@ -60,34 +60,45 @@
     }
 
     function completeEncounterForm(completionWindow, demographicNo, text) {
+        var keepOpen = false;
+        var refreshing = true;
         try {
             var patient = patientId(demographicNo);
             var opener = completionWindow.opener;
             if (!patient || !opener || opener.closed || !isOwnChart(opener, patient)) return;
             var modernEditor = opener.document.querySelector('textarea[name="caseNote_note"]');
-            var editor = modernEditor
-                || opener.document.querySelector('form[name="encForm"] textarea[name="enTextarea"]');
-            if (editor && !editor.readOnly && typeof text === 'string' && text.length > 0) {
-                var before = editor.value;
-                // The eChart's own insertion. While Sign & Save checks the sign-in, the note's
-                // controls are disabled and this text is held, then added to the note and shown
-                // for review; a direct write would be dropped here and this window is closing.
-                var pasted = editor === modernEditor && typeof opener.pasteToEncounterNote === 'function'
-                    && opener.pasteToEncounterNote(text) === true;
-                if (!pasted && !editor.disabled) {
-                    editor.value += '\n' + text;
-                }
-                if (editor.value !== before) {
-                    editor.dispatchEvent(new opener.Event('input', {bubbles: true}));
-                    editor.dispatchEvent(new opener.Event('change', {bubbles: true}));
-                    editor.scrollTop = editor.scrollHeight;
+            var editor = modernEditor || opener.document.querySelector('form[name="encForm"] textarea[name="enTextarea"]');
+            if (typeof text === 'string' && text.length > 0) {
+                // The form has already been saved. Keep its reference available until the
+                // intended editor actually receives it, including during an asynchronous save.
+                keepOpen = true;
+                var inserted = function (target) {
+                    keepOpen = false;
+                    target.dispatchEvent(new opener.Event('input', {bubbles: true}));
+                    target.dispatchEvent(new opener.Event('change', {bubbles: true}));
+                    target.scrollTop = target.scrollHeight;
+                    if (!refreshing) completionWindow.close();
+                };
+                if (editor && !editor.readOnly) {
+                    if (modernEditor && typeof opener.pasteToEncounterNote === 'function') {
+                        opener.pasteToEncounterNote(text, editor, inserted);
+                    } else if (!editor.disabled) {
+                        editor.value += '\n' + text;
+                        inserted(editor);
+                    }
                 }
             }
             refreshChart(opener, patient);
         } catch (ignored) {
-            // Closed, cross-origin or navigated openers cannot receive this patient's completion.
+            // The opener may have closed or navigated while the form was saving.
         } finally {
-            try { completionWindow.close(); } catch (ignored) { /* Already closed. */ }
+            refreshing = false;
+            if (keepOpen) {
+                completionWindow.document.getElementById('encounterFormReference').value = text;
+                completionWindow.document.getElementById('encounterFormRecovery').hidden = false;
+            } else {
+                try { completionWindow.close(); } catch (ignored) { /* Already closed. */ }
+            }
         }
     }
 

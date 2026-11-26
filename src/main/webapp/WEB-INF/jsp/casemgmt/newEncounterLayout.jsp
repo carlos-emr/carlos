@@ -453,10 +453,6 @@ window.carlosChartContext = '<%= SafeEncode.forJavaScript(io.github.carlos_emr.c
             issueSaveError = "${carlos:forJavaScriptBlock(issueSaveErrorText)}";
             <fmt:message key="encounter.cppSaveError.msg" var="cppSaveErrorText"/>
             cppSaveError = "${carlos:forJavaScriptBlock(cppSaveErrorText)}";
-            <fmt:message key="encounter.sessionEndedNotSaved.msg" var="sessionEndedNotSavedText"/>
-            sessionEndedNotSavedError = "${carlos:forJavaScriptBlock(sessionEndedNotSavedText)}";
-            <fmt:message key="encounter.facilitySelectionPendingNotSaved.msg" var="facilitySelectionPendingNotSavedText"/>
-            facilitySelectionPendingNotSavedError = "${carlos:forJavaScriptBlock(facilitySelectionPendingNotSavedText)}";
             <fmt:message key="encounter.chartLoadError.msg" var="chartLoadErrorText"/>
             chartLoadError = "${carlos:forJavaScriptBlock(chartLoadErrorText)}";
             <fmt:message key="encounter.issueSidebarRefreshError.msg" var="issueSidebarRefreshErrorText"/>
