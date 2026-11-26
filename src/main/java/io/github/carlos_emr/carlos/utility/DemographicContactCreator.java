@@ -145,12 +145,17 @@ public class DemographicContactCreator {
 
         // A link whose target row is gone keeps no details rather than failing the whole team
         // list (every page that shows the team, the consultation request included); callers
-        // already treat a member without ProfessionalContact details as not contactable.
+        // already treat a member without ProfessionalContact details as not contactable. The
+        // name and details are cleared, not just left unset: DemographicManager enriches the
+        // same instance again (MRP, member-by-role), and a row removed in between must not
+        // leave the first lookup's values behind.
         if (demographicContact.getType() == DemographicContact.TYPE_CONTACT) {
             contact = contactDao.find(Integer.parseInt(demographicContact.getContactId()));
             if (contact == null) {
                 logger.warn("Health care team link {} names a contact that no longer exists",
                         LogSafe.sanitizeObject(demographicContact.getId()));
+                demographicContact.setContactName(null);
+                demographicContact.setDetails(null);
             } else {
                 demographicContact.setContactName(contact.getFormattedName());
                 demographicContact.setDetails(contact);
@@ -162,6 +167,8 @@ public class DemographicContactCreator {
             if (professionalSpecialist == null) {
                 logger.warn("Health care team link {} names a directory specialist that no longer exists",
                         LogSafe.sanitizeObject(demographicContact.getId()));
+                demographicContact.setContactName(null);
+                demographicContact.setDetails(null);
             } else {
                 demographicContact.setContactName(professionalSpecialist.getFormattedName());
                 contact = buildContact(professionalSpecialist);

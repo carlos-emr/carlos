@@ -100,4 +100,31 @@ class DemographicContactCreatorHealthCareTeamUnitTest extends CarlosUnitTestBase
         assertThat(filled.get(1).getDetails()).isNull();
         assertThat(filled.get(2).getDetails()).isSameAs(present);
     }
+
+    @Test
+    @DisplayName("should clear an enriched link's name and details when its target row disappears")
+    void shouldClearStaleDetails_whenTargetRowDisappearsBetweenLookups() {
+        ProfessionalContact present = new ProfessionalContact();
+        present.setFirstName("FAKE");
+        present.setLastName("Present");
+        when(contacts.find(12)).thenReturn(present);
+        when(specialists.find(13)).thenReturn(specialist(false));
+        DemographicContact contactLink = DemographicContactCreator.addContactDetailsToDemographicContact(
+                link(DemographicContact.TYPE_CONTACT, "12"));
+        DemographicContact specialistLink = DemographicContactCreator.addContactDetailsToDemographicContact(
+                link(DemographicContact.TYPE_PROFESSIONALSPECIALIST, "13"));
+        assertThat(contactLink.getDetails()).isSameAs(present);
+        assertThat(specialistLink.getContactName()).isNotNull();
+
+        // DemographicManager enriches the same instance again (MRP, member by role).
+        when(contacts.find(12)).thenReturn(null);
+        when(specialists.find(13)).thenReturn(null);
+        DemographicContactCreator.addContactDetailsToDemographicContact(contactLink);
+        DemographicContactCreator.addContactDetailsToDemographicContact(specialistLink);
+
+        assertThat(contactLink.getDetails()).isNull();
+        assertThat(contactLink.getContactName()).isNull();
+        assertThat(specialistLink.getDetails()).isNull();
+        assertThat(specialistLink.getContactName()).isNull();
+    }
 }
