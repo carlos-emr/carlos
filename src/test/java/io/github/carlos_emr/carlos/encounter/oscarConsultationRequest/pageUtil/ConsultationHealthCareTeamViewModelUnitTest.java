@@ -35,7 +35,7 @@ import static org.mockito.Mockito.when;
  */
 @Tag("unit")
 @Tag("consultation")
-class ConsultationHealthCareTeamChoicesUnitTest {
+class ConsultationHealthCareTeamViewModelUnitTest {
 
     private static final Function<String, ConsultationServices> NO_SERVICES = role -> null;
 
@@ -73,7 +73,7 @@ class ConsultationHealthCareTeamChoicesUnitTest {
         DemographicContact blankNumber = member(3, DemographicContact.TYPE_CONTACT, "   ");
         DemographicContact specialistWithoutReferralNo = member(4, DemographicContact.TYPE_PROFESSIONALSPECIALIST, "");
 
-        var choices = ConsultationHealthCareTeamChoices.from(
+        var choices = ConsultationHealthCareTeamViewModel.from(
                 List.of(withNumber, dietitian, blankNumber, specialistWithoutReferralNo), NO_SERVICES);
 
         assertThat(choices.getConsultants())
@@ -102,7 +102,7 @@ class ConsultationHealthCareTeamChoicesUnitTest {
 
         List<DemographicContact> team = new ArrayList<>(Arrays.asList(deleted, inactive, internalProvider,
                 patientContact, personal, deletedDetails, plainContact, noDetails, null));
-        var choices = ConsultationHealthCareTeamChoices.from(team, NO_SERVICES);
+        var choices = ConsultationHealthCareTeamViewModel.from(team, NO_SERVICES);
 
         assertThat(choices.getConsultants()).isEmpty();
         assertThat(choices.getWithoutReferralNumber()).isEmpty();
@@ -122,7 +122,7 @@ class ConsultationHealthCareTeamChoicesUnitTest {
         inactiveWithoutConsent.setConsentToContact(false);
         DemographicContact offered = member(4, DemographicContact.TYPE_CONTACT, "1");
 
-        var choices = ConsultationHealthCareTeamChoices.from(
+        var choices = ConsultationHealthCareTeamViewModel.from(
                 List.of(refused, unrecorded, inactiveWithoutConsent, offered), NO_SERVICES);
 
         assertThat(choices.getConsultants()).containsExactly(offered);
@@ -145,7 +145,7 @@ class ConsultationHealthCareTeamChoicesUnitTest {
         withoutConsent.setConsentToContact(false);
         DemographicContact unmapped = member(4, DemographicContact.TYPE_CONTACT, null);
 
-        var choices = ConsultationHealthCareTeamChoices.from(
+        var choices = ConsultationHealthCareTeamViewModel.from(
                 List.of(cardiologist, secondCardiologist, withoutConsent, unmapped), byDescription::get);
 
         assertThat(choices.getServices()).containsExactly(cardiology);
@@ -155,7 +155,7 @@ class ConsultationHealthCareTeamChoicesUnitTest {
     @Test
     @DisplayName("should treat a missing team as empty and expose unmodifiable views")
     void shouldReturnEmptyChoices_forNullTeam() {
-        var choices = ConsultationHealthCareTeamChoices.from(null, NO_SERVICES);
+        var choices = ConsultationHealthCareTeamViewModel.from(null, NO_SERVICES);
 
         assertThat(choices.getConsultants()).isEmpty();
         assertThat(choices.getServices()).isEmpty();
@@ -193,7 +193,7 @@ class ConsultationHealthCareTeamChoicesUnitTest {
             }
         }
 
-        var offered = ConsultationHealthCareTeamChoices.from(team, NO_SERVICES).getConsultants();
+        var offered = ConsultationHealthCareTeamViewModel.from(team, NO_SERVICES).getConsultants();
 
         assertThat(offered).hasSize(6);
         for (DemographicContact member : team) {

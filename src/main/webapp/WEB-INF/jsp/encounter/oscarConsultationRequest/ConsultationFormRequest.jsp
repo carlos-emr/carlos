@@ -116,7 +116,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationHealthCareTeamChoices" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationHealthCareTeamViewModel" %>
 
 
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationFormPatientResolver" %>
@@ -469,11 +469,11 @@
             }
 
             // Which team members can be chosen, and why others cannot, is decided by
-            // ConsultationHealthCareTeamChoices so it stays aligned with what the save accepts
+            // ConsultationHealthCareTeamViewModel so it stays aligned with what the save accepts
             // (ConsultationConsultantSelection). A missing CPSO/MSP/college number no longer hides
             // a member (issue #6202); the form marks it instead.
-            ConsultationHealthCareTeamChoices healthCareTeamChoices =
-                    ConsultationHealthCareTeamChoices.from(demographicContacts, consultationServiceDao::findByDescription);
+            ConsultationHealthCareTeamViewModel healthCareTeamChoices =
+                    ConsultationHealthCareTeamViewModel.from(demographicContacts, consultationServiceDao::findByDescription);
 
             pageContext.setAttribute("consultationServices", healthCareTeamChoices.getServices());
             pageContext.setAttribute("healthCareTeam", healthCareTeamChoices.getConsultants());
@@ -1794,7 +1794,11 @@
 
                 var msg = "Please select a Consultant. Or add a Consultant using edit Health Care Team.";
                 var specialistElement = document.EctConsultationFormRequest2Form.specialist.options;
-                if (!specialistElement || specialistElement.selectedIndex < 0) {
+                // The empty-team placeholder (#6202) is a disabled, pre-selected option with no
+                // value: selectedIndex is 0, yet nothing would be posted. Treat it as no choice.
+                var selectedSpecialist = specialistElement && specialistElement.selectedIndex >= 0
+                    ? specialistElement[specialistElement.selectedIndex] : null;
+                if (!selectedSpecialist || selectedSpecialist.disabled || !selectedSpecialist.value) {
                     document.EctConsultationFormRequest2Form.specialist.focus();
                     alert(msg);
                     return false;
@@ -2980,7 +2984,7 @@ if (userAgent != null) {
                                             <%-- Issue #6202: a member without a college, MSP or billing number is
                                                  listed and marked, not dropped; members left out for want of
                                                  consent to contact are counted, so an empty or short list is
-                                                 never unexplained. ConsultationHealthCareTeamChoices decides. --%>
+                                                 never unexplained. ConsultationHealthCareTeamViewModel decides. --%>
                                             <select name="specialist" id="specialist" class="form-select form-select-sm"
                                                     aria-describedby="hctConsultantHints">
                                                 <c:if test="${ empty healthCareTeam }">
@@ -3646,7 +3650,15 @@ if (userAgent != null) {
                                 const specialist = "${carlos:forJavaScript(empty consultationSubmittedValues ? consultUtil.specialist : EctConsultationFormRequest2Form.specialist)}";
                                 const servicevalue = "${carlos:forJavaScript(EctConsultationFormRequest2Form.service)}";
 
-                                document.EctConsultationFormRequest2Form.specialist.value = specialist;
+                                // Keep the empty-team placeholder (#6202) when the saved consultant is
+                                // no longer offered; otherwise a stale id still clears the selection,
+                                // so the user must choose again rather than silently get another member.
+                                var hctSelect = document.EctConsultationFormRequest2Form.specialist;
+                                var hctOnlyPlaceholder = hctSelect && hctSelect.options && hctSelect.options.length === 1
+                                    && hctSelect.options[0].disabled && hctSelect.options[0].value === "";
+                                if (hctSelect && !hctOnlyPlaceholder) {
+                                    hctSelect.value = specialist;
+                                }
                                 document.EctConsultationFormRequest2Form.service.value = servicevalue;
 
                                 if (typeof healthCareTeam !== 'undefined' && healthCareTeam !== null && healthCareTeam[specialist]) {

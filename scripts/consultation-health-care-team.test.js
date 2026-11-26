@@ -35,7 +35,9 @@ function fixture(services, role) {
   const scripts = scriptBodies(parseFragment(registry));
   const form = Object.fromEntries(['annotation', 'phone', 'fax', 'address', 'service'].map(name =>
     [name, {value: name === 'service' ? '0' : 'FAKE previous value', focus() {}}]));
-  form.specialist = {options: {selectedIndex: 0}, focus() {}};
+  const options = [{value: '41', disabled: false}];
+  options.selectedIndex = 0;
+  form.specialist = {options, focus() {}};
   const member = {note: 'FAKE referral annotation', phoneNum: '555-0100', specFax: '555-0101',
     specAddress: 'FAKE synthetic address', service: role};
   const alerts = [];
@@ -131,4 +133,19 @@ test('health care team values are JavaScript-encoded strings, never template lit
     assert.ok(!line.includes('`'), 'Template literal in: ' + line.trim());
     assert.match(line, /"\$\{ carlos:forJavaScript\([^)]*\) \}"/, 'Unencoded value in: ' + line.trim());
   }
+});
+
+test('the empty-team placeholder or no selection is refused before submit (#6202)', () => {
+  const f = fixture([], 'FAKE unmatched role');
+  f.choose();
+  const placeholder = [{value: '', disabled: true}];
+  placeholder.selectedIndex = 0;
+  f.form.specialist.options = placeholder;
+  assert.equal(f.context.checkFormHCT(), false);
+  const none = [{value: '41', disabled: false}];
+  none.selectedIndex = -1;
+  f.form.specialist.options = none;
+  assert.equal(f.context.checkFormHCT(), false);
+  assert.equal(f.alerts.length, 2);
+  assert.match(f.alerts[0], /Please select a Consultant/);
 });

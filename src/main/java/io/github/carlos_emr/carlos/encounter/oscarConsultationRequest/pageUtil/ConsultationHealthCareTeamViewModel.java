@@ -25,7 +25,9 @@ import java.util.function.Function;
  * {@link ConsultationConsultantSelection#resolve}, which turns away a deleted, inactive or
  * non-consenting link and any link that is not an external professional contact or a directory
  * specialist. Internal providers are therefore never offered; they carry no address or fax of
- * their own (the details placeholder reads "internal").
+ * their own (the details placeholder reads "internal"). A deleted contact or directory specialist
+ * is not offered either: {@code DemographicContactCreator} reports the directory row's deleted
+ * flag on the details, and leaves no details at all when the target row is gone.
  *
  * <p>A college, MSP or billing number (the contact's {@code cpso} field, or the specialist's
  * referral number) is <em>not</em> required. Until #6202 the form silently dropped every member
@@ -35,19 +37,19 @@ import java.util.function.Function;
  * members are now listed and reported in {@link #getWithoutReferralNumber()}, so the form can say
  * that their letter will print without a number.
  *
- * <p>Instances are immutable view state for {@code ConsultationFormRequest.jsp}; the accessors
- * follow bean naming so JSP EL can read them.
+ * <p>Instances are immutable view state for {@code ConsultationFormRequest.jsp}, built once per
+ * render by {@link #from}; the accessors follow bean naming so JSP EL can read them.
  *
  * @since 2026-11-26
  */
-public final class ConsultationHealthCareTeamChoices {
+public final class ConsultationHealthCareTeamViewModel {
 
     private final List<DemographicContact> consultants;
     private final Set<ConsultationServices> services;
     private final Set<Integer> withoutReferralNumber;
     private final int withoutConsentCount;
 
-    private ConsultationHealthCareTeamChoices(List<DemographicContact> consultants,
+    private ConsultationHealthCareTeamViewModel(List<DemographicContact> consultants,
             Set<ConsultationServices> services, Set<Integer> withoutReferralNumber, int withoutConsentCount) {
         this.consultants = Collections.unmodifiableList(consultants);
         this.services = Collections.unmodifiableSet(services);
@@ -67,7 +69,7 @@ public final class ConsultationHealthCareTeamChoices {
      *             ids, so this lookup is the only bridge between the two.
      * @return the choices; never {@code null}
      */
-    public static ConsultationHealthCareTeamChoices from(List<DemographicContact> team,
+    public static ConsultationHealthCareTeamViewModel from(List<DemographicContact> team,
             Function<String, ConsultationServices> serviceByDescription) {
         List<DemographicContact> consultants = new ArrayList<>();
         Set<ConsultationServices> services = new LinkedHashSet<>();
@@ -90,7 +92,7 @@ public final class ConsultationHealthCareTeamChoices {
                 if (service != null) services.add(service);
             }
         }
-        return new ConsultationHealthCareTeamChoices(consultants, services, withoutNumber, withoutConsent);
+        return new ConsultationHealthCareTeamViewModel(consultants, services, withoutNumber, withoutConsent);
     }
 
     /**
