@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/prescript/util/DrugPriceEstimate.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "35ab20769112a012f563929405f42960b548f3a6"
+  },
+  "evidenceSha256": "be0238a402eac67ef7ae3cfcbdffbdfe922928ea43762749f58ca66aae139ae1"
+}

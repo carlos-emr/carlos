@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "cf05c656acc95f3fef88c1616c82aab06988b09b",
+  "comparisonSha256": "983a3fb85f97ca67cc954433013a12f166bb319df7d48d934120f32dbac42573",
+  "baselineCommit": "edfa3c05e391ba6a0ce7a3e04a48ec457a2ed6b8",
+  "baselineSourceTree": "cf05c656acc95f3fef88c1616c82aab06988b09b",
+  "baselineReportSha256": "4f81e574a740723e27b92c94faed20a1fc307a3e19c70783efd83c6ded508e5a",
+  "baselineLane": "Focused prescription action, instruction parsing and price estimation Maven run on OpenJDK 25 with JaCoCo 0.8.16. The measured Java sources and tests are identical to f1c6404fe4a.",
+  "baselineTestCounts": {
+    "tests": 835,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "5fd12198ca9bfe2b2950d18c6d55f54fc6fcd72d5f1499dca54771b42c11806d",
+  "baselineTestReportsHashFormat": "SHA-256 of sorted Surefire XML manifest lines: '<sha256>  <file name>' followed by LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/prescript/util/DrugPriceEstimate.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "35ab20769112a012f563929405f42960b548f3a6"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/pageUtil/RxWriteScript2Action.java": {
+      "lines": 53.164556962025316,
+      "instructions": 56.833976833976834,
+      "branches": 44.31818181818182,
+      "sourceBlob": "74ce0664e6c1e01d4021b7b4addcb15c23f1ee88"
+    }
+  },
+  "exclusions": {}
+}
