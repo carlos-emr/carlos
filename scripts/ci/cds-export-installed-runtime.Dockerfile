@@ -14,6 +14,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     openjdk-25-jdk-headless tomcat11 openssl python3 python3-bcrypt python3-defusedxml \
     mariadb-client libxml2-utils util-linux procps strace ca-certificates \
+    && jre_version="$(dpkg-query -W -f='${Version}' openjdk-25-jre-headless)" \
+    && echo "Installed OpenJDK runtime: $jre_version" \
+    && dpkg --compare-versions "$jre_version" ge '25.0.5.1+2-1~26.04.1' \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=cli-builder /tmp/carlos-ctl_*_all.deb /tmp/cli-package/
 RUN apt-get update && apt-get install -y --no-install-recommends /tmp/cli-package/*.deb \

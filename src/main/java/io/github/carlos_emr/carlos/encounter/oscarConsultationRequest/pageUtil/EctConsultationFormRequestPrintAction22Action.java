@@ -168,10 +168,6 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         String demoNo = String.valueOf(ownerDemographicNo);
         List<EDoc> docs = retainOwned(DocumentType.DOC, ownerDemographicNo,
                 EDocUtil.listDocs(loggedInInfo, demoNo, reqId, EDocUtil.ATTACHED), EDoc::getDocId);
-        String path = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
-        if (!path.endsWith(File.separator)) {
-            path = path + File.separator;
-        }
         ArrayList<Object> alist = new ArrayList<Object>();
         CommonLabResultData consultLabs = new CommonLabResultData();
         ArrayList<InputStream> streams = new ArrayList<InputStream>();
@@ -237,16 +233,20 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             }
 
             //attached docs
+            // Issue #6345: DOCUMENT_DIR is resolved here, when the first printable stored document
+            // needs it, so a packet without one prints without the setting and a missing setting
+            // fails inside this block, before any response header or byte is written.
+            StoredDocumentDirectory documentDirectory = new StoredDocumentDirectory();
             for (int i = 0; i < docs.size(); i++) {
                 EDoc doc = docs.get(i);
                 if (doc.isPrintable()) {
                     if (doc.isImage()) {
-                        InputStream imagePdf = renderImageAttachment(path, doc);
+                        InputStream imagePdf = renderImageAttachment(documentDirectory.path(), doc);
                         streams.add(imagePdf);
                         alist.add(imagePdf);
 
                     } else if (doc.isPDF()) {
-                        alist.add(consultationPdfPath(PathValidationUtils.getRequiredDocumentDirectory(), doc.getFileName()));
+                        alist.add(consultationPdfPath(new File(documentDirectory.path()), doc.getFileName()));
                     } else if (logger.isErrorEnabled()) {
                         logger.error("EctConsultationFormRequestPrintAction: {} is marked as printable but no means have been established to print it.", LogSafe.sanitize(doc.getType()));
                     }
@@ -335,12 +335,15 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
      * with spaces or accented characters still print, and its canonical target (symbolic links
      * resolved) must stay inside the directory.
      *
-     * @throws IOException if the name is not one safe component or its target leaves the directory
+     * @throws IOException if the directory is missing, the name is invalid or its target leaves the directory
      */
     // FindSecBugs PATH_TRAVERSAL_IN: the stored name is accepted only as one validated path component, and the
     // canonical target built from that value is confined to the document directory before it is returned.
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "stored name accepted only as one validated path component; canonical target confined to the document directory")
     static String consultationPdfPath(File documentDirectory, String storedName) throws IOException {
+        if (!documentDirectory.isDirectory()) {
+            throw new IOException("DOCUMENT_DIR is not an existing directory; rejecting file access");
+        }
         try {
             String storedFileName = PathValidationUtils.validatePathComponent(storedName, "consultation PDF attachment");
             File source = new File(documentDirectory, storedFileName).getCanonicalFile();
@@ -381,6 +384,29 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
     private static final class PdfBuffer extends ByteArrayOutputStream {
         ByteArrayInputStream openInputStream() {
             return new ByteArrayInputStream(buf, 0, count);
+        }
+    }
+
+    /**
+     * The stored-document directory of one print (issue #6345), read from {@code DOCUMENT_DIR} the
+     * first time a printable stored document needs it and reused for the rest of the packet. A
+     * missing or blank setting is an {@link IOException}, which the action reports through its
+     * print-error result like any other attachment it cannot read; a blank value is never turned
+     * into a root- or working-directory-relative path.
+     */
+    private static final class StoredDocumentDirectory {
+        private String resolved;
+
+        /** DOCUMENT_DIR with a trailing separator, as stored file names are appended to it. */
+        String path() throws IOException {
+            if (resolved == null) {
+                String configured = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+                if (configured == null || configured.isBlank()) {
+                    throw new IOException("DOCUMENT_DIR is not configured; stored consultation documents cannot be printed");
+                }
+                resolved = configured.endsWith(File.separator) ? configured : configured + File.separator;
+            }
+            return resolved;
         }
     }
 
