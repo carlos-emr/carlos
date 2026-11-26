@@ -67,6 +67,11 @@
 
 LC_ALL=C
 export LC_ALL
+# No pathname expansion anywhere: unit lists are split on whitespace
+# (--approved, a socket's Triggers), and a unit name (a backslash escape such
+# as foo\x2dbar.service) must never be matched against files in the
+# directory this happens to run from.
+set -f
 
 # printf, not echo: dash's echo expands backslashes, and these lines carry
 # unit names, process names and MariaDB's own error text.
@@ -322,6 +327,16 @@ approved_unit() {
     return 1
 }
 
+# Socket units before everything else. ss lists a socket's owners highest
+# pid first, so the service a socket started (its own process) usually comes
+# before systemd's row for the socket. Deciding the socket first means its
+# services are planned, approved, stopped or kept together with it: never a
+# service stopped alone while the socket that starts it again stays up, and
+# never the same service listed twice in a plan.
+sockets_first() {
+    awk '$3 ~ /\.socket$/ { print; next } { rest[++n] = $0 } END { for (i = 1; i <= n; i++) print rest[i] }'
+}
+
 front_door() {
     mode=free
     # approval=1: stop only the units listed in ${approved}, a space-padded
@@ -334,12 +349,10 @@ front_door() {
         --approved)
             [ $# -ge 2 ] || usage
             approval=1
-            # Split on whitespace only: no unit name may expand as a glob.
-            set -f
+            # Split on whitespace only (set -f above: never as a glob).
             for approved_name in $2; do
                 approved="${approved}${approved_name} "
             done
-            set +f
             shift 2 ;;
     esac
     [ $# = 1 ] || usage
@@ -441,7 +454,7 @@ front_door() {
                     say "stopped: ${unit} (${origin}) was listening on ${addrs}, which the CARLOS front door needs; it is stopped, but could not be disabled or masked and may take the port again at the next boot (keep it off: sudo systemctl mask ${unit})" ;;
             esac
         done <<EOF
-$(printf '%s\n' "${found}" | grouped)
+$(printf '%s\n' "${found}" | grouped | sockets_first)
 EOF
     fi
 

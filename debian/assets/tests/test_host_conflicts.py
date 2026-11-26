@@ -159,13 +159,13 @@ class HostConflictsCase(unittest.TestCase):
         self.log = os.path.join(self.tmp, "calls.log")
         open(self.log, "w").close()
 
-    def run_script(self, scenario, *args):
+    def run_script(self, scenario, *args, cwd=None):
         with open(self.state, "w") as fh:
             json.dump(scenario, fh)
         env = {"PATH": self.bin + ":/usr/bin:/bin", "HOST_STUB_STATE": self.state,
                "HOST_STUB_LOG": self.log}
         return subprocess.run(["sh", str(SCRIPT)] + list(args), capture_output=True,
-                              text=True, env=env, timeout=60)
+                              text=True, env=env, timeout=60, cwd=cwd)
 
     def calls(self):
         with open(self.log) as fh:
@@ -565,10 +565,17 @@ class TestApprovedStop(HostConflictsCase):
                 self.assertIn("not among the services approved", r.stdout)
 
     def test_approval_is_a_literal_unit_list_not_a_pattern(self):
-        for approved in ("*", "apache2.*", "apache2", "apache2.service.extra", "[a]pache2.service"):
+        # Run where a glob WOULD match: a file named like the unit sits in the
+        # working directory, so pathname expansion would turn "*" into approval.
+        cwd = os.path.join(self.tmp, "cwd")
+        os.mkdir(cwd)
+        open(os.path.join(cwd, "apache2.service"), "w").close()
+        for approved in ("*", "apache2.*", "apache2", "apache2.service.extra", "[a]pache2.service",
+                         "?pache2.service"):
             with self.subTest(approved=approved):
                 open(self.log, "w").close()
-                r = self.run_script(apache_and(), "front-door", "--approved", approved, "0.0.0.0")
+                r = self.run_script(apache_and(), "front-door", "--approved", approved, "0.0.0.0",
+                                    cwd=cwd)
                 self.assertEqual(self.stops(), [], r.stdout)
                 self.assertEqual(r.returncode, 1, r.stdout)
 
@@ -631,15 +638,48 @@ class TestApprovedStop(HostConflictsCase):
         self.assertEqual(self.stops(), [])
         self.assertIn("not among the services approved", r.stdout)
 
+    # ss lists a socket's owners highest pid first: the service's own process
+    # before systemd (pid 1). Both orders are checked.
+    OWNER_ORDERS = {"service first": [{"name": "lighttpd", "pid": 300}, {"name": "systemd", "pid": 1}],
+                    "socket first": [{"name": "systemd", "pid": 1}, {"name": "lighttpd", "pid": 300}]}
+
+    def socket_with_its_service(self, owners, triggers="lighttpd.service"):
+        units = {"lighttpd.socket": dict(LIGHTTPD_UNITS["lighttpd.socket"], Triggers=triggers),
+                 "lighttpd.service": {"FragmentPath": "/usr/lib/systemd/system/lighttpd.service"}}
+        return {"listeners": [dict(LIGHTTPD_SOCKET, owners=owners)],
+                "procs": {"300": {"unit": "lighttpd.service"}}, "units": units,
+                "dpkg": {**LIGHTTPD_DPKG, "/usr/lib/systemd/system/lighttpd.service": "lighttpd"}}
+
     def test_service_of_an_unapproved_socket_is_not_stopped_on_its_own(self):
-        # The socket would only start the service again: both stay up.
-        listener = dict(LIGHTTPD_SOCKET, owners=[{"name": "systemd", "pid": 1},
-                                                  {"name": "lighttpd", "pid": 300}])
-        r = self.run_script({"listeners": [listener], "procs": {"300": {"unit": "lighttpd.service"}},
-                             "units": LIGHTTPD_UNITS, "dpkg": LIGHTTPD_DPKG},
-                            "front-door", "--approved", "lighttpd.service", "0.0.0.0")
-        self.assertEqual(r.returncode, 1, r.stdout)
-        self.assertEqual(self.stops(), [])
+        # The socket would only start the service again: both stay up. Here the
+        # socket now also starts other.service, which nobody approved.
+        for order, owners in self.OWNER_ORDERS.items():
+            with self.subTest(order=order):
+                open(self.log, "w").close()
+                r = self.run_script(self.socket_with_its_service(owners, "lighttpd.service other.service"),
+                                    "front-door", "--approved", "lighttpd.socket lighttpd.service",
+                                    "0.0.0.0")
+                self.assertEqual(r.returncode, 1, r.stdout)
+                self.assertEqual(self.stops(), [])
+                self.assertNotIn("stopped:", r.stdout)
+
+    def test_a_socket_and_its_running_service_are_planned_once_in_either_order(self):
+        for order, owners in self.OWNER_ORDERS.items():
+            with self.subTest(order=order):
+                plan = self.run_script(self.socket_with_its_service(owners), "front-door", "--plan",
+                                       "0.0.0.0")
+                self.assertEqual(plan.stdout.count("will-stop:"), 1, plan.stdout)
+                self.assertIn("will-stop: lighttpd.socket (package lighttpd) and the lighttpd.service "
+                              "it starts, on [::]:443", plan.stdout)
+                self.assertEqual([l for l in plan.stdout.splitlines() if l.startswith("will-stop-unit:")],
+                                 ["will-stop-unit: lighttpd.socket", "will-stop-unit: lighttpd.service"])
+                self.assertNotIn("blocked:", plan.stdout)
+                open(self.log, "w").close()
+                r = self.run_script(self.socket_with_its_service(owners), "front-door", "--approved",
+                                    "lighttpd.socket lighttpd.service", "0.0.0.0")
+                self.assertEqual(r.returncode, 0, r.stdout)
+                self.assertEqual(self.stops(),
+                                 ["systemctl disable --now lighttpd.socket lighttpd.service"])
 
     def test_plan_units_round_trip_through_approved(self):
         scenario = apache_and(
