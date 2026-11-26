@@ -22,16 +22,19 @@
 package io.github.carlos_emr.carlos.schedule.service;
 
 import java.util.Date;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.commn.dao.ScheduleDateDao;
 import io.github.carlos_emr.carlos.commn.model.ScheduleDate;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 /**
- * Replaces a provider's schedule override for one date (the schedule date popup's Save and
- * Delete).
+ * Replaces a provider's schedule dates from the date popup and the weekly template editor.
  *
  * <p>The current active override is retired (status {@code D}) and its replacement, if any, is
  * inserted in one transaction. The popup used to retire the current override from the JSP and
@@ -78,6 +81,53 @@ public class ScheduleDateOverrideService {
             scheduleDateDao.persist(replacement);
         }
         return true;
+    }
+
+    /**
+     * Rebuilds the rule-made dates through the later of the old and new end dates. The provider
+     * lock and locking read observe every popup Save or Delete that committed before generation.
+     * The session's rendering cache can therefore be refreshed independently of these writes.
+     *
+     * @param providerNo the provider whose template is being applied
+     * @param from the first date of the rule
+     * @param retireThrough the last date whose old rule-made rows are retired, inclusive
+     * @param generatedDays the rule's candidate dates, including those with custom overrides
+     * @return whether the provider exists
+     */
+    @Transactional
+    public boolean replaceRuleDays(String providerNo, Date from, Date retireThrough, List<ScheduleDate> generatedDays) {
+        if (!lockProviderForChange(providerNo)) {
+            return false;
+        }
+        replaceLockedRuleDays(providerNo, from, retireThrough, generatedDays);
+        return true;
+    }
+
+    /** The enclosing template transaction holds this same provider lock through its header update. */
+    boolean lockProviderForChange(String providerNo) {
+        return scheduleDateDao.lockProviderForScheduleChange(providerNo);
+    }
+
+    /** Called with the provider row locked by either the bulk date command or the template command. */
+    void replaceLockedRuleDays(String providerNo, Date from, Date retireThrough, List<ScheduleDate> generatedDays) {
+        Set<String> customDates = new HashSet<>();
+        for (ScheduleDate existing : scheduleDateDao.findRuleDaysForUpdate(providerNo, from, retireThrough)) {
+            if (existing.getPriority() == 'c') {
+                customDates.add(ConversionUtils.toDateString(existing.getDate()));
+            } else {
+                existing.setStatus('D');
+                scheduleDateDao.merge(existing);
+            }
+        }
+        for (ScheduleDate candidate : generatedDays) {
+            if (!providerNo.equals(candidate.getProviderNo()) || candidate.getPriority() != 'b'
+                    || candidate.getDate().before(from) || candidate.getDate().after(retireThrough)) {
+                throw new IllegalArgumentException("Generated schedule day does not belong to the provider's rule range");
+            }
+            if (!customDates.contains(ConversionUtils.toDateString(candidate.getDate()))) {
+                scheduleDateDao.persist(candidate);
+            }
+        }
     }
 
     /**

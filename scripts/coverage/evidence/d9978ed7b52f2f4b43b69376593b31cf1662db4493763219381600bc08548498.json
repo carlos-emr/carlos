@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "6c9806b70feb1970479f9cff6be10f549121bd81",
+  "comparisonSha256": "461366931e32aaee36c479b2a29312901a3f5314efb45f339dc097c20494413c",
+  "baselineCommit": "b925b94e75dc51ea05148fb54c57915581e63306",
+  "baselineSourceTree": "6c9806b70feb1970479f9cff6be10f549121bd81",
+  "baselineReportSha256": "d8044ca81de2fbf79613b2f56bd9e68c9d4521c2d0a71ab812c6d7bf4f0d9dc4",
+  "baselineLane": "Ubuntu 26.04, OpenJDK 25, Maven Surefire and JaCoCo 0.8.16, eight schedule rule, action, JSP, transaction and DAO test classes with H2 and Spring",
+  "baselineTestCounts": {
+    "tests": 136,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.RscheduleBeanUnitTest",
+    "io.github.carlos_emr.carlos.commn.dao.RScheduleDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.ScheduleDateDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.schedule.ScheduleDateSaveJspRegressionTest",
+    "io.github.carlos_emr.carlos.schedule.ScheduleTemplateApplyingJspRegressionTest",
+    "io.github.carlos_emr.carlos.schedule.service.ScheduleDateOverrideServiceIntegrationTest",
+    "io.github.carlos_emr.carlos.schedule.web.Schedule2ActionsTest",
+    "io.github.carlos_emr.carlos.schedule.web.ScheduleCalendarCacheUnitTest"
+  ],
+  "baselineTestReportsSha256": "48da630b5097440fdcd6e46573c9d1a764ea109372dbd9535f4058fc8c8d308b",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/schedule/web/ScheduleCalendarCache.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "d79a03f02ae60db975ba9501973e849222e7af16"
+    }
+  },
+  "exclusions": {}
+}

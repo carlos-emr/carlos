@@ -388,6 +388,34 @@ class CaseManagementViewPatientIsolationUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"missing", "empty", "blank"})
+    void shouldReturnBadRequest_whenTheCppIssueSelectionIsIncomplete(String selection) throws Exception {
+        request.setParameter("demographicNo", "101");
+        if ("empty".equals(selection)) {
+            request.setParameter("issue_code", new String[0]);
+        } else if ("blank".equals(selection)) {
+            request.setParameter("issue_code", " ");
+        }
+
+        assertThat(action.listNotes()).isEqualTo("none");
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        verifyNoInteractions(manager);
+    }
+
+    @Test
+    void shouldReturnForbidden_whenTheGenericIssueReadIsDenied() throws Exception {
+        request.setParameter("demographicNo", "101");
+        request.setParameter("issue_code", "SocHistory");
+
+        try (var guards = mockConstruction(SecurityManager.class)) {
+            assertThat(action.listNotes()).isEqualTo("none");
+            verify(guards.constructed().getFirst()).hasReadAccess("_SocHistory", "doctor,4249");
+        }
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        verifyNoInteractions(manager);
+    }
+
+    @ParameterizedTest
     @CsvSource({
             "OMeds,_newCasemgmt.otherMeds",
             "RiskFactors,_newCasemgmt.riskFactors",
@@ -398,12 +426,13 @@ class CaseManagementViewPatientIsolationUnitTest extends CarlosUnitTestBase {
         request.setMethod("POST");
         request.setParameter("method", "listNotes");
         request.setParameter("demographicNo", "101");
-        request.setParameter("issue_code", code);
+        request.setParameter("issue_code", new String[]{"SocHistory", code});
         doReturn(false).when(action).hasPrivilege(privilege, "doctor,4249");
 
         try (var guards = mockConstruction(SecurityManager.class,
-                (guard, context) -> when(guard.hasReadAccess("_" + code, "doctor,4249")).thenReturn(true))) {
+                (guard, context) -> when(guard.hasReadAccess(anyString(), eq("doctor,4249"))).thenReturn(true))) {
             assertThat(action.execute()).isEqualTo("none");
+            verify(guards.constructed().getFirst()).hasReadAccess("_SocHistory", "doctor,4249");
             verify(guards.constructed().getFirst()).hasReadAccess("_" + code, "doctor,4249");
         }
 
@@ -414,10 +443,29 @@ class CaseManagementViewPatientIsolationUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldAuthorizeTheStoredCppCode_beforeReadingTheNotesForItsId() throws Exception {
+        request.setParameter("demographicNo", "101");
+        request.setParameter("issue_code", "MedHistory ");
+        var issue = new io.github.carlos_emr.carlos.casemgmt.model.Issue();
+        issue.setCode("MedHistory");
+        when(manager.getIssueInfoByCode(eq("4249"), any(String[].class))).thenReturn(List.of(issue));
+        doReturn(false).when(action).hasPrivilege("_newCasemgmt.medicalHistory", "doctor,4249");
+
+        try (var guards = mockConstruction(SecurityManager.class,
+                (guard, context) -> when(guard.hasReadAccess(anyString(), eq("doctor,4249"))).thenReturn(true))) {
+            assertThat(action.listNotes()).isEqualTo("none");
+            verify(guards.constructed().getFirst()).hasReadAccess("_MedHistory", "doctor,4249");
+        }
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        assertThat(request.getAttribute("Notes")).isNull();
+        verify(manager, never()).getActiveNotes(anyString(), any(String[].class));
+    }
+
+    @Test
     void shouldEncodeCppIssueFieldsIndependently_whenClinicalTextContainsDelimiters() throws Exception {
         request.setParameter("demographicNo", "101");
         request.setParameter("providerNo", "4249");
-        request.setParameter("issue_code", "Social");
+        request.setParameter("issue_code", new String[]{"MedHistory", "MedHistory", "normal"});
         var first = new io.github.carlos_emr.carlos.casemgmt.model.Issue();
         first.setId(73L);
         first.setCode("A&B;#+é");
@@ -429,10 +477,13 @@ class CaseManagementViewPatientIsolationUnitTest extends CarlosUnitTestBase {
         when(manager.getIssueInfoByCode(eq("4249"), any(String[].class))).thenReturn(List.of(first, second));
         when(manager.getActiveNotes(eq("101"), any(String[].class))).thenReturn(List.of());
 
+        doReturn(true).when(action).hasPrivilege("_newCasemgmt.medicalHistory", "doctor,4249");
         try (var constructed = mockConstruction(SecurityManager.class,
-                (guard, context) -> when(guard.hasReadAccess("_Social", "doctor,4249")).thenReturn(true))) {
+                (guard, context) -> when(guard.hasReadAccess(anyString(), eq("doctor,4249"))).thenReturn(true))) {
             assertThat(action.listNotes()).isEqualTo("listNotes");
-            verify(constructed.constructed().get(0)).hasReadAccess("_Social", "doctor,4249");
+            verify(constructed.constructed().getFirst()).hasReadAccess("_MedHistory", "doctor,4249");
+            verify(constructed.constructed().getFirst()).hasReadAccess("_normal", "doctor,4249");
+            verify(constructed.constructed().getFirst()).hasReadAccess("_A&B;#+é", "doctor,4249");
         }
 
         assertThat(request.getAttribute("cppIssue")).isEqualTo(

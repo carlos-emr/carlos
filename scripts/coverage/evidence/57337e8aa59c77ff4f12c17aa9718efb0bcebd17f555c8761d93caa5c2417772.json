@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "71a86fdf5f94f30a010bae7606951a984c0c25f4",
+  "comparisonSha256": "68db4560fd8e68acce050ba60203fccf75f9190c2d4550f771fc3940c58fcd63",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/admin/gate/ViewAdminDisplayMyGroup2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "27286530598daac31327e9865119e69bac4f9ddd"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/admin/web/LogReport2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "6d00d8f90f764af420d30a70a2ff11048a1ac2da"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/admin/web/UnLock2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "d8a4428d2aa2ca88f8e19417d5ef1dca031d7725"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/SiteChoice.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "71665465e24b042e63f9549e776175c0017eb3c4"
+    }
+  },
+  "exclusions": {},
+  "baselineCommit": "58466cbe4768e86840b0ad850c09b38151fbb0e3",
+  "baselineSourceTree": "71a86fdf5f94f30a010bae7606951a984c0c25f4",
+  "baselineReportSha256": "ea59e54e9b787f551d2d74510ed1d4e82023439545211b61c1d3f09cd7318f21",
+  "baselineLane": "Ubuntu 26.04.1, OpenJDK 25 and JaCoCo 0.8.16. Maven Surefire ran the site, audit, account and group access tests, the day-sheet and template action gates, the template JSP regressions, and the H2 report provider/group query integration test. The schedule gate selection was the TemplateApplying nested class.",
+  "baselineTestCounts": {
+    "tests": 89,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.AppointmentMainBeanReportIntegrationTest",
+    "io.github.carlos_emr.carlos.admin.gate.ViewAdminDisplayMyGroup2ActionTest",
+    "io.github.carlos_emr.carlos.admin.web.LogReport2ActionTest",
+    "io.github.carlos_emr.carlos.admin.web.UnLock2ActionUnitTest",
+    "io.github.carlos_emr.carlos.commn.SiteChoiceUnitTest",
+    "io.github.carlos_emr.carlos.report.gate.DaySheetAcknowledgementAuthorizationUnitTest",
+    "io.github.carlos_emr.carlos.schedule.ScheduleTemplateApplyingJspRegressionTest",
+    "io.github.carlos_emr.carlos.schedule.web.Schedule2ActionsTest"
+  ],
+  "baselineTestReportsSha256": "087c1e5450972a669b03e7edb1bd5cfd088eb4627e3d61d00451e531d3e5effa",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

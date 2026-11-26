@@ -30,6 +30,8 @@
  */
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
+const { randomUUID } = require('node:crypto');
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const { bundleMessage, throwawayLoginFixture } = require('./lib/throwaway-login-fixture');
 const { runWorkflow } = require('./lib/workflow-session');
 const { openAdminSection, frameNavigation, navigates } = require('./schedule-admin-settings-playwright-checks');
@@ -40,6 +42,16 @@ const WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const CODE_CANDIDATES = ['Q', 'Z', 'X', 'Y', 'J', 'K', '7', '8', '9', '0', '4', '5'];
 const DATE_SAVE = bundleMessage('schedule.scheduledatepopup.btnSave', 'Save');
 const CODE_SAVE = bundleMessage('schedule.scheduletemplatecodesetting.btnSave', 'Save');
+
+async function expectScheduleConflict(response, messageKey) {
+  try {
+    const html = await response.text();
+    const expected = bundleMessage(messageKey, '');
+    const reason = html.match(/id="refusal-reason"[^>]*>([^<]*)<\/p>/)?.[1].trim();
+    h.assert(response.status() === 409 && !html.includes('function showCalendarMonth'), 'A stale schedule form rendered the calendar');
+    h.assert(expected && reason === expected, `The stale schedule form did not show the recovery message for ${messageKey}`);
+  } finally { await response.dispose(); }
+}
 
 /** Quarter-hour labels from start for count slots, e.g. ('09:00', 3) -> 09:00, 09:15, 09:30. */
 function quarterHours(start, count) {
@@ -197,11 +209,40 @@ async function workflow(s) {
       await f.locator(`input[name="check${weekday}"]`).check();
       await f.locator(`input[name="${weekday}to1"]`).click();
     }
+    const editor = await f.locator('form[name="schedule"]').evaluate(form => ({
+      action: form.action, fields: Array.from(new FormData(form)),
+    }));
+    const staleFields = new URLSearchParams(editor.fields);
+    h.assert(staleFields.get('provider_no') === owner && staleFields.get('templateSelection'), 'The owned schedule editor omitted its selection');
+    // An expired tab carries a validly formed selection that the current session no longer recognizes.
+    staleFields.set('templateSelection', randomUUID());
+    const ownedRows = () => sql.value(`SELECT (SELECT COUNT(*) FROM rschedule WHERE provider_no=${q(owner)})
+      + (SELECT COUNT(*) FROM scheduledate WHERE provider_no=${q(owner)})`);
+    h.assert(ownedRows() === '0', 'The throwaway provider already has a schedule before applying its template');
+    const expired = await authenticatedProbe({ context, config: s.config }, editor.action, {
+      method: 'POST', allowPost: true, mutatingPost: true, data: staleFields.toString(),
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept-Language': 'en' },
+    });
+    await expectScheduleConflict(expired, 'error.refusal.scheduleTemplateChanged');
+    h.assert(ownedRows() === '0', 'The expired editor changed the schedule header or generated dates');
     await frameNavigation(admin, f, () => f.locator('input[type="submit"]').first().click());
     h.assert(/\/schedule\/CreateDate/.test(f.url()), 'Next did not advance to the calendar step');
     for (const [date] of days) {
       h.assert(JSON.stringify(dateRows(date)) === JSON.stringify([['1', A.name, 'A']]), `The week setting did not schedule template A on ${date}`);
     }
+    const month = new URL(await f.locator('a[href*="bFirstDisp=0"]').first().getAttribute('href'), f.url());
+    month.searchParams.set('delta', '0');
+    h.assert(month.searchParams.get('provider_no') === owner && provider !== owner, 'Expected two distinct schedule providers');
+    const otherMonth = new URL(month);
+    otherMonth.searchParams.set('provider_no', provider);
+    const stale = await context.request.get(otherMonth.href, { headers: { 'Accept-Language': 'en' } });
+    await expectScheduleConflict(stale, 'error.refusal.scheduleCalendarChanged');
+    const current = await context.request.get(month.href);
+    try {
+      const html = await current.text();
+      h.assert(current.status() === 200 && html.includes('function showCalendarMonth') && html.includes(`name="provider_no" value="${owner}"`),
+        'The open provider could not redisplay the month after the stale tab was refused');
+    } finally { await current.dispose(); }
   });
 
   await s.step('today\'s and tomorrow\'s day sheets show A\'s code, colour and description on exactly 09:00-10:45', async () => {

@@ -30,9 +30,14 @@
 
 package io.github.carlos_emr;
 
+import java.io.IOException;
+import java.io.ObjectOutputStream;
+import java.io.Serial;
+import java.io.Serializable;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
 import java.util.StringTokenizer;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -54,7 +59,12 @@ import org.apache.commons.lang3.StringUtils;
  *   <li>Site-specific day tags: A7, A1, A2, A3, A4, A5, A6</li>
  * </ul>
  */
-public class RscheduleBean {
+public class RscheduleBean implements Serializable {
+    @Serial
+    private static final long serialVersionUID = 1L;
+
+    // ReentrantLock deserializes unlocked, keeping the rule writable after session activation.
+    private final ReentrantLock ruleLock = new ReentrantLock();
 
     /** Provider number */
     public String provider_no = "";
@@ -99,14 +109,7 @@ public class RscheduleBean {
      * @param creator1 the creator identifier
      */
     public RscheduleBean(String provider_no1, String sdate1, String edate1, String bAvailable1, String day_of_week1, String avail_hourB1, String avail_hour1, String creator1) {
-        provider_no = provider_no1;
-        sdate = sdate1;
-        edate = edate1;
-        available = bAvailable1;
-        day_of_week = day_of_week1;
-        avail_hourB = avail_hourB1;
-        avail_hour = avail_hour1;
-        creator = creator1;
+        replaceRule(provider_no1, sdate1, edate1, bAvailable1, day_of_week1, avail_hourB1, avail_hour1, creator1);
     }
 
     /**
@@ -122,14 +125,7 @@ public class RscheduleBean {
      * @param creator1 the creator identifier
      */
     public void setRscheduleBean(String provider_no1, String sdate1, String edate1, String bAvailable1, String day_of_week1, String avail_hourB1, String avail_hour1, String creator1) {
-        provider_no = provider_no1;
-        sdate = sdate1;
-        edate = edate1;
-        available = bAvailable1;
-        day_of_week = day_of_week1;
-        avail_hourB = avail_hourB1;
-        avail_hour = avail_hour1;
-        creator = creator1;
+        replaceRule(provider_no1, sdate1, edate1, bAvailable1, day_of_week1, avail_hourB1, avail_hour1, creator1);
     }
 
     /**
@@ -147,25 +143,59 @@ public class RscheduleBean {
      * @param creator1 the creator identifier
      */
     public void setRscheduleBean(String provider_no1, String sdate1, String edate1, String bAvailable1, String day_of_week1, String day_of_week2, String avail_hourB1, String avail_hour1, String creator1) {
-        provider_no = provider_no1;
-        sdate = sdate1;
-        edate = edate1;
-        available = bAvailable1;
-        day_of_week = day_of_week1 + "|" + day_of_week2;
-        avail_hourB = avail_hourB1;
-        avail_hour = avail_hour1;
-        creator = creator1;
+        replaceRule(provider_no1, sdate1, edate1, bAvailable1, day_of_week1 + "|" + day_of_week2,
+                avail_hourB1, avail_hour1, creator1);
     }
 
     public void clear() {
-        provider_no = "";
-        sdate = "";
-        edate = "";
-        available = "";
-        day_of_week = "";
-        avail_hourB = "";
-        avail_hour = "";
-        creator = "";
+        replaceRule("", "", "", "", "", "", "", "");
+    }
+
+    private void replaceRule(String providerNo, String startDate, String endDate, String availability,
+                             String days, String hoursB, String hours, String createdBy) {
+        ruleLock.lock();
+        try {
+            provider_no = providerNo;
+            sdate = startDate;
+            edate = endDate;
+            available = availability;
+            day_of_week = days;
+            avail_hourB = hoursB;
+            avail_hour = hours;
+            creator = createdBy;
+        } finally {
+            ruleLock.unlock();
+        }
+    }
+
+    @Serial
+    private void writeObject(ObjectOutputStream out) throws IOException {
+        ruleLock.lock();
+        try {
+            out.defaultWriteObject();
+        } finally {
+            ruleLock.unlock();
+        }
+    }
+
+    /**
+     * Captures the rule that belongs to this provider while schedule template requests
+     * can replace or clear the session bean.
+     *
+     * @param providerNo the provider whose calendar was opened
+     * @return an independent rule for the request, or null when the provider is missing or changed
+     */
+    public RscheduleBean snapshotForProvider(String providerNo) {
+        ruleLock.lock();
+        try {
+            if (providerNo == null || !providerNo.equals(provider_no)) return null;
+            RscheduleBean copy = new RscheduleBean(provider_no, sdate, edate, available, day_of_week,
+                    avail_hourB, avail_hour, creator);
+            copy.active = active;
+            return copy;
+        } finally {
+            ruleLock.unlock();
+        }
     }
 
     public boolean getEvenWeek(GregorianCalendar aDate) {

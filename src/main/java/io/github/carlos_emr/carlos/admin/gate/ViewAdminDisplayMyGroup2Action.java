@@ -22,12 +22,9 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 /**
- * View gate for {@code admin/admindisplaymygroup.jsp}. Requires {@code r} on
- * {@code _site_access_privacy} (the privilege the page already branches on
- * via its {@code <security:oscarSec>} taglib) before forwarding to the JSP at
- * its {@code /WEB-INF/jsp/admin/} location. Part of the admin module
- * security-hardening migration (defense in depth; matches the 2Action
- * gate pattern from #1109, #1629, #1632, #1644, #1662, #1663).
+ * Opens the schedule group list for users with administration or schedule administration read
+ * access. The view scopes the displayed memberships when site privacy applies. Changes use the
+ * group creation privilege on the receiving action.
  *
  * @since 2026-04-13
  */
@@ -40,8 +37,9 @@ public final class ViewAdminDisplayMyGroup2Action extends ActionSupport {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_site_access_privacy", "r", null)) {
-            throw new SecurityException("missing required sec object (_site_access_privacy)");
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.READ, null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.schedule", SecurityInfoManager.READ, null)) {
+            throw new SecurityException("missing required sec object (_admin or _admin.schedule)");
         }
 
         return SUCCESS;

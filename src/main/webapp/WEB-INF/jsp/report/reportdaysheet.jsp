@@ -52,6 +52,7 @@
 </security:oscarSec>
 <%@ page import="java.util.*, io.github.carlos_emr.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
@@ -86,7 +87,7 @@
     boolean isSiteAccessPrivacy = false;
     boolean isTeamAccessPrivacy = false;
 %>
-<security:oscarSec objectName="_site_access_privacy" roleName="<%=roleName$%>" rights="r" reverse="false"><%isSiteAccessPrivacy = true; %></security:oscarSec>
+<security:oscarSec objectName="_site_access_privacy" roleName="<%=roleName$%>" rights="r" reverse="false"><%isSiteAccessPrivacy = IsPropertiesOn.isMultisitesEnable(); %></security:oscarSec>
 <security:oscarSec objectName="_team_access_privacy" roleName="<%=roleName$%>" rights="r" reverse="false"><%isTeamAccessPrivacy = true;%></security:oscarSec>
 <%
     List<ProviderData> pdList = null;

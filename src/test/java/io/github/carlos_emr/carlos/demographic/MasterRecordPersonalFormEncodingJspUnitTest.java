@@ -82,18 +82,15 @@ class MasterRecordPersonalFormEncodingJspUnitTest {
         // (languages, provinces, countries).
         // Option values from the fixed lists are allowed raw only on an <option>: the page also binds `province`
         // to the patient's stored province, which must never be printed raw into a field.
-        Pattern rawValue = Pattern.compile("(<option\\s+)?(?<!carlos:encode )value=[\"']<%=\\s*([^%]+?)\\s*%>");
+        Pattern rawValue = Pattern.compile("(<option\\s++)?(?<!carlos:encode )value=[\"']<%=([^%]++)%>");
         Matcher matcher = rawValue.matcher(read());
         int checked = 0;
         while (matcher.find()) {
             checked++;
-            String expression = matcher.group(2);
-            if (matcher.group(1) != null) {
-                assertThat(expression).as(matcher.group()).matches("splang|pr2|province|cc\\.getCountryId\\(\\)");
-            } else {
-                assertThat(expression).as(matcher.group()).matches("demographic_no|(effDate|renewDate)(Year|Month|Day)|"
-                        + "demographic\\.getEmail\\(\\) !=null \\? SafeEncode\\.forHtmlAttribute\\(demographic\\.getEmail\\(\\)\\) : \"\"");
-            }
+            String allowed = matcher.group(1) != null ? "splang|pr2|province|cc\\.getCountryId\\(\\)"
+                    : "demographic_no|(effDate|renewDate)(Year|Month|Day)|"
+                            + "demographic\\.getEmail\\(\\) !=null \\? SafeEncode\\.forHtmlAttribute\\(demographic\\.getEmail\\(\\)\\) : \"\"";
+            assertThat(matcher.group(2)).as(matcher.group()).matches("\\s*+(?:" + allowed + ")\\s*+");
         }
         assertThat(checked).as("raw field values found by the scan").isPositive();
     }

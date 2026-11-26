@@ -3,12 +3,11 @@
 from types import SimpleNamespace
 import unittest
 import subprocess
-import ast
+from functools import partial
 import io
-from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import patch
 
-from cds_database_readiness import database_client, wait_for_database
+from cds_database_readiness import database_client, run_logged, wait_for_database
 
 
 class OwnedDatabaseReadinessTest(unittest.TestCase):
@@ -87,19 +86,13 @@ class OwnedDatabaseReadinessTest(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'startup timeout'):
             wait_for_database(client, execute, monotonic=lambda: next(clock))
 
-    def test_both_ci_adapters_forward_the_probe_timeout_to_the_subprocess(self):
-        for filename, function in (('run-cds-performance-ci.py', 'execute'),
-                                   ('run-cds-export-installed-ci.py', 'execute'),
-                                   ('run-cds-native-tier.py', 'run')):
-            with self.subTest(adapter=filename):
-                tree = ast.parse(Path(__file__).with_name(filename).read_text())
-                execute = next(node for node in ast.walk(tree)
-                               if isinstance(node, ast.FunctionDef) and node.name == function)
-                process = Mock(return_value=SimpleNamespace(returncode=0))
-                namespace = {'subprocess': SimpleNamespace(run=process, PIPE=-1), 'log': io.StringIO()}
-                exec(compile(ast.Module(body=[execute], type_ignores=[]), filename, 'exec'), namespace)
-                args = [['docker', 'exec', 'owned-database', 'mariadb']]
-                if function == 'run':
-                    args.append(namespace['log'])
-                namespace[function](*args, check=False, timeout=3)
-                self.assertEqual(process.call_args.kwargs['timeout'], 3)
+    def test_readiness_deadline_overrides_the_command_default_and_keeps_output_private(self):
+        client = database_client(['docker'], 'owned-database', '/private/client.cnf')
+        for default_timeout in (None, 1800):
+            with self.subTest(default_timeout=default_timeout), io.StringIO() as log, \
+                    patch('subprocess.run', return_value=SimpleNamespace(returncode=0)) as process:
+                execute = partial(run_logged, log=log, timeout=default_timeout)
+                clock = iter([0, 87, 88])
+                wait_for_database(client, execute, monotonic=lambda: next(clock))
+                process.assert_called_once_with(client + ['-e', 'SELECT 1'], check=False, text=True,
+                                                stdout=log, stderr=log, timeout=3)

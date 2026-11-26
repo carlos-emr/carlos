@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnProviderScope.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 88.46153846153847,
+    "instructions": 87.27272727272727,
+    "branches": 76.19047619047619,
+    "sourceBlob": "790ff919be753ecdd6183a42bd39b7b7404e8691"
+  },
+  "evidenceSha256": "f88900933dba5d12501f0f25c70880c010b4f6c9c08e092e8c7ac9a761761b29"
+}

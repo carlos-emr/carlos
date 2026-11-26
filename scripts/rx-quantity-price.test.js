@@ -44,14 +44,15 @@ function setup() {
     setRequestHeader() {}
     send(body) { this.body = body; }
     abort() { this.aborted = true; }
-    respond(html, status = 200) {
+    respond(html, status = 200, finalUrl = this.url) {
       if (this.aborted) return;
-      Object.assign(this, { status, responseText: html, responseURL: this.url });
+      Object.assign(this, { status, responseText: html, responseURL: finalUrl });
       this.onload();
     }
   }
   const context = vm.createContext({
-    ctx: '/carlos', XMLHttpRequest, URLSearchParams, FormData, console, jsMsg,
+    ctx: '/carlos', XMLHttpRequest, URL, URLSearchParams, FormData, console, jsMsg,
+    window: { location: { href: 'https://carlos.invalid/carlos/rx/Show' } },
     document: {
       getElementById: id => elements.get(id),
       createElement: tagName => ({ tagName, setAttribute(name, value) { this[name] = value; } }),
@@ -172,3 +173,20 @@ test('the limited-use lookup shows a local notice on refusal and renders a later
   assert.equal(limitedUse.innerHTML, fragment);
   assert.equal(limitedUse.notice, null);
 });
+
+for (const [handlerName, panelId, expected] of [
+  ['getCost', 'cost_7', jsMsg.costLookupFailed],
+  ['getLUC', 'luc_7', jsMsg.limitedUseLookupFailed],
+]) {
+  test(handlerName + ' rejects a sign-in response before inserting it into the prescription', () => {
+    const s = setup();
+    for (const redirected of [true, false]) {
+      s.context[handlerName](panelId, '7', '02010909', '30');
+      const request = s.requests.at(-1);
+      const page = redirected ? '<form id="loginForm">Sign in</form>' : '<!doctype html><html><body>Sign in</body></html>';
+      request.respond(page, 200, redirected ? '/carlos/logoutPage' : request.url);
+      assert.equal(s.elements.get(panelId).innerHTML, '');
+      assert.equal(s.elements.get(panelId).notice.textContent, expected);
+    }
+  });
+}

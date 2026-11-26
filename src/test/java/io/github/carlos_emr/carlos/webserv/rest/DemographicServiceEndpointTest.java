@@ -386,16 +386,20 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
             verify(mockDemographicManager, never()).updateDemographic(any(LoggedInInfo.class), any(Demographic.class));
         }
 
-        @Test
-        void shouldNotCheckTheNote_whenNoWaitingListIsNamed() {
+        @ParameterizedTest
+        @org.junit.jupiter.params.provider.NullSource
+        @org.junit.jupiter.params.provider.ValueSource(ints = 0)
+        void shouldNotCheckTheNote_whenNoWaitingListIsNamed(Integer noList) {
             // The note is written only with a list, so without one a long note is not a reason to refuse.
             registerMock(WaitingListDao.class, mockWaitingListDao);
             DemographicTo1 data = payload("PUT");
+            data.setWaitingListID(noList);
             data.setWaitingListNote("A".repeat(256));
 
             try (Response response = request().path("/demographics").invoke("PUT", data)) {
                 assertThat(response.getStatus()).isEqualTo(200);
             }
+            verify(mockDemographicManager).updateDemographic(any(LoggedInInfo.class), any(Demographic.class));
             verifyNoInteractions(mockWaitingListDao);
         }
     }

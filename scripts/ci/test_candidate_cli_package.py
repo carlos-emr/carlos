@@ -39,6 +39,16 @@ class CandidateCliPackageTest(unittest.TestCase):
                    if line and not line.startswith('#'))
         self.assertEqual(references[0], pin['fallback'])
 
+    def test_release_checks_the_attested_download_against_the_qualified_binary_before_reattaching_it(self):
+        workflow = (cli.ROOT / '.github/workflows/deb-packages.yml').read_text()
+        step = workflow.split('      - name: Add the pinned carlos-ctl package to the release assets\n', 1)[1]
+        step = step.split('      - name: ', 1)[0]
+        fetch = step.index('debian/fetch-carlos-ctl.sh /tmp/carlos-ctl')
+        verify = step.index('python3 scripts/ci/candidate_cli_package.py verify --destination /tmp/carlos-ctl')
+        attach = step.index('cp /tmp/carlos-ctl/carlos-ctl_*_all.deb')
+        self.assertLess(fetch, verify)
+        self.assertLess(verify, attach)
+
     def test_changed_bytes_cannot_reach_package_metadata_parsing(self):
         self.package.write_bytes(b'x' * len(self.payload))
         with patch.object(cli.subprocess, 'check_output') as metadata:

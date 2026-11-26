@@ -6709,6 +6709,18 @@
       "fixtures": "Owned private (PAT) bill for an owned patient, and an owned letterhead: a document of the letterhead type filed under the test provider (ctl_document 'providers') with a 1 x 1 PNG in DOCUMENT_DIR named with the run marker; all removed. Every invoice uses the clinic's active letterhead while it exists, so the check refuses to run when the clinic already has one, and it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
+      "name": "billing-on-single-site-visibility",
+      "script": "scripts/billing-on-single-site-visibility-playwright-checks.js",
+      "tiers": ["core"],
+      "assertsDatabase": true,
+      "provinces": ["ON"],
+      "timeoutSec": 120,
+      "env": ["OHIP_DISK_DIR"],
+      "mutates": ["provider", "security", "secRole", "secUserRole", "secObjPrivilege", "billing_on_diskname", "billing_on_filename", "file:owned-ohip-disk"],
+      "fixtures": "Single-site installation with the stock administrator site restriction. Creates and removes an independent unassigned physician, synthetic disk and member reports, files, a scoped login and an owned team restriction. A second unassigned login uses the seeded admin and doctor roles if the configured user already has sites or team restrictions. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Checks both native OHIP selectors and the disk history, disabled simulation and generation for an empty team, and a mixed disk with one authorized member report."
+    },
+    {
       "name": "billing-on-ohip-simulation-report",
       "script": "scripts/billing-on-ohip-simulation-report-playwright-checks.js",
       "tiers": [

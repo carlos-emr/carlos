@@ -212,6 +212,16 @@ class ScopeInventoryTest(unittest.TestCase):
             result = gate.read_json(output / 'scope-result.json')
             self.assertTrue(result['assertions']['complete-production-ownership'])
             self.assertFalse(result['assertions']['published-migrations-byte-identical'])
+            (output / 'scope-result.json').unlink()
+            with patch.object(scope, 'load_plan', return_value=plan), patch.object(scope, 'inventory',
+                    side_effect=lambda p: inventory(p, root)):
+                self.assertEqual(scope.main(['--migration-integrity-only',
+                    '--output', str(output / 'scope.json'),
+                    '--result-output', str(output / 'scope-result.json')]), 1)
+            result = gate.read_json(output / 'scope-result.json')
+            self.assertNotIn('complete-production-ownership', result['assertions'])
+            self.assertFalse(result['assertions']['published-migrations-byte-identical'])
+            self.assertFalse(gate.read_json(output / 'scope.json')['ready'])
 
     def test_scope_command_retains_real_unowned_paths_and_cannot_qualify_inventory_only(self):
         scope = module_from("scope_command", "release-scope-audit.py")
@@ -240,6 +250,23 @@ class ScopeInventoryTest(unittest.TestCase):
                     "assertions": ["complete-production-ownership", "main-only-migration-dispositions", "published-migrations-byte-identical"]}}
                 self.assertFalse(gate.summarize(contract, out, 0)["ready"])
                 self.assertEqual(gate.read_json(details)["unownedProductionPaths"], ["src/main/java/example/Guard.java"])
+                result.unlink()
+                self.assertEqual(scope.main(["--migration-integrity-only", "--output", str(details),
+                    "--result-output", str(result)]), 0)
+                report = gate.read_json(details)
+                self.assertFalse(report['ownershipRequired'])
+                self.assertTrue(report['ready'])
+                self.assertEqual(report['unownedProductionPaths'], ['src/main/java/example/Guard.java'])
+                self.assertNotIn('complete-production-ownership', gate.read_json(result)['assertions'])
+                registered = {row['id']: row for row in gate.load_plan()['checks']}
+                for name in ('scope-and-main-disposition', 'scope-inventory'):
+                    self.assertIn('--migration-integrity-only', registered[name]['command'])
+                self.assertTrue(gate.summarize(registered['scope-and-main-disposition'], out, 0)['ready'])
+                with self.assertRaisesRegex(EvidenceError, 'omitted or added assertions'):
+                    gate.summarize(contract, out, 0)
+                inventory_report = out / 'scope.json'
+                self.assertEqual(scope.main(['--migration-integrity-only', '--output', str(inventory_report)]), 0)
+                self.assertTrue(gate.summarize(registered['scope-inventory'], out, 0, root)['ready'])
                 result.unlink()
                 self.assertEqual(scope.main(["--output", str(details), "--result-output", str(result), "--inventory-only"]), 1)
                 self.assertFalse(result.exists())
@@ -272,6 +299,11 @@ class ScopeInventoryTest(unittest.TestCase):
             plan["pathBindings"][migration]["workstreams"] = ["T01"]
             report = scope.inventory(plan, root)
             sha256 = report["mainOnlyMigrations"][0]["sha256"]
+            inventory = scope.inventory
+            with patch.object(scope, 'load_plan', return_value=plan), patch.object(scope, 'inventory',
+                    side_effect=lambda p: inventory(p, root)):
+                self.assertEqual(scope.main(['--migration-integrity-only',
+                    '--output', str(root / 'migration-audit.json')]), 1)
             for disposition in (None, "TODO", {}, {"reason": "reviewed"},
                                 {"sha256": "0" * 64, "reason": "reviewed"},
                                 {"sha256": sha256, "reason": "  "}):
@@ -280,6 +312,10 @@ class ScopeInventoryTest(unittest.TestCase):
                     self.assertEqual(scope.inventory(plan, root)["unresolvedMainOnlyMigrations"], [migration])
             plan["mainOnlyMigrationDispositions"][migration] = {"sha256": sha256, "reason": "reviewed exclusion"}
             self.assertTrue(scope.inventory(plan, root)["ready"])
+            with patch.object(scope, 'load_plan', return_value=plan), patch.object(scope, 'inventory',
+                    side_effect=lambda p: inventory(p, root)):
+                self.assertEqual(scope.main(['--migration-integrity-only',
+                    '--output', str(root / 'migration-audit.json')]), 0)
         with tempfile.TemporaryDirectory() as temporary:
             document = gate.read_json(gate.DEFAULT_PLAN)
             document.pop('lifecycleBaselineManifest')

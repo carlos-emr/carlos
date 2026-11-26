@@ -17,8 +17,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -113,15 +111,17 @@ class ReportByTemplateLayoutJspRegressionUnitTest {
     private static List<String> selectors(String css) {
         String withoutComments = css.replaceAll("(?s)/\\*.*?\\*/", "");
         List<String> result = new ArrayList<>();
-        Matcher rule = Pattern.compile("([^{}]+)\\{").matcher(withoutComments);
-        while (rule.find()) {
-            String head = rule.group(1).trim();
-            if (head.startsWith("@")) {
-                continue;
+        int start = 0;
+        for (int i = 0; i < withoutComments.length(); i++) {
+            char brace = withoutComments.charAt(i);
+            if (brace != '{' && brace != '}') continue;
+            if (brace == '{' && start < i) {
+                String head = withoutComments.substring(start, i).trim();
+                if (!head.startsWith("@")) {
+                    for (String selector : head.split(",")) result.add(selector.trim());
+                }
             }
-            for (String selector : head.split(",")) {
-                result.add(selector.trim());
-            }
+            start = i + 1;
         }
         return result;
     }

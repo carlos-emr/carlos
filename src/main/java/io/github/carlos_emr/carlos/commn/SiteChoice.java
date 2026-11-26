@@ -38,15 +38,21 @@ public final class SiteChoice {
     private SiteChoice() {
     }
 
+    /** Site assignments restrict a login only when the clinic operates in multisite mode. */
+    public static boolean isSiteAccessRestricted(SecurityInfoManager securityInfoManager, LoggedInInfo loggedInInfo) {
+        return loggedInInfo != null && IsPropertiesOn.isMultisitesEnable()
+                && securityInfoManager.hasPrivilege(loggedInInfo, "_site_access_privacy", SecurityInfoManager.READ, null);
+    }
+
     /**
      * Whether the login sees only its own sites (site or team access privacy).
      *
      * @param securityInfoManager the privilege lookup
      * @param loggedInInfo the login
-     * @return true under {@code _site_access_privacy} or {@code _team_access_privacy} read
+     * @return true when the login is site-restricted or holds {@code _team_access_privacy} read
      */
     public static boolean hasAccessPrivacy(SecurityInfoManager securityInfoManager, LoggedInInfo loggedInInfo) {
-        return securityInfoManager.hasPrivilege(loggedInInfo, "_site_access_privacy", "r", null)
+        return isSiteAccessRestricted(securityInfoManager, loggedInInfo)
                 || securityInfoManager.hasPrivilege(loggedInInfo, "_team_access_privacy", "r", null);
     }
 

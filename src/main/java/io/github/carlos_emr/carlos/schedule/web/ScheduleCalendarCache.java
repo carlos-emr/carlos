@@ -21,16 +21,23 @@
  */
 package io.github.carlos_emr.carlos.schedule.web;
 
+import java.time.DateTimeException;
+import java.time.LocalDate;
 import java.util.Hashtable;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.function.Supplier;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 
 import org.apache.logging.log4j.Logger;
 import org.springframework.web.util.WebUtils;
 
 import io.github.carlos_emr.HScheduleDate;
+import io.github.carlos_emr.RscheduleBean;
 import io.github.carlos_emr.carlos.commn.dao.ScheduleDateDao;
 import io.github.carlos_emr.carlos.commn.model.ScheduleDate;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -54,6 +61,10 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  * @since 2026-11-19
  */
 public final class ScheduleCalendarCache {
+    private static final String RULE_SCHEDULE = "scheduleRscheduleBean";
+    private static final String OPEN_RULE = "scheduleCalendarRule";
+    private static final String TEMPLATE_PERIODS = "scheduleTemplatePeriods";
+    private static final int MAX_TEMPLATE_PERIODS = 32;
 
     /** Session attribute of the JSP {@code scheduleDateBean}: {@code yyyy-MM-dd} to {@link HScheduleDate}. */
     static final String DAYS = "scheduleDateBean";
@@ -65,6 +76,98 @@ public final class ScheduleCalendarCache {
     private static final Logger logger = MiscUtils.getLogger();
 
     private ScheduleCalendarCache() {
+    }
+
+    /** A provider's rule and custom days captured together for rendering a single month request. */
+    public record Month(RscheduleBean rule, Map<String, Object> days) {}
+
+    /** Only the provider and dates of the period originally rendered in an editor tab. */
+    public record TemplatePeriod(String providerNo, String start, String end) implements java.io.Serializable {}
+
+    /** Reads the server-held date range for the submitted form, while its provider is selected. */
+    public static TemplatePeriod templateForApply(HttpServletRequest request, String providerNo) {
+        HttpSession session = request.getSession();
+        synchronized (WebUtils.getSessionMutex(session)) {
+            if (!(session.getAttribute(RULE_SCHEDULE) instanceof RscheduleBean selected)) return null;
+            RscheduleBean current = selected.snapshotForProvider(providerNo);
+            if (current == null) return null;
+
+            String selection = request.getParameter("templateSelection");
+            if (session.getAttribute(TEMPLATE_PERIODS) instanceof Map<?, ?> periods) {
+                Object value = periods.get(selection);
+                return value instanceof TemplatePeriod period && providerNo.equals(period.providerNo()) ? period : null;
+            }
+
+            // A form rendered before this version has no selection key. Accept an ordinary
+            // edit only when its submitted start and original end corroborate the session's rule.
+            if (selection != null || !matchesDate(request, "s", current.sdate)
+                    || !matchesDate(request, "orige", current.edate)) return null;
+            return new TemplatePeriod(providerNo, current.sdate, current.edate);
+        }
+    }
+
+    private static boolean matchesDate(HttpServletRequest request, String prefix, String expected) {
+        try {
+            LocalDate posted = LocalDate.of(Integer.parseInt(request.getParameter(prefix + "year")),
+                    Integer.parseInt(request.getParameter(prefix + "month")), Integer.parseInt(request.getParameter(prefix + "day")));
+            return posted.toString().equals(expected);
+        } catch (NumberFormatException | DateTimeException invalid) {
+            return false;
+        }
+    }
+
+    /** Publishes the provider selection and returns the form's session-bound original period key. */
+    @SuppressWarnings("unchecked")
+    public static String selectTemplate(HttpSession session, String providerNo, RscheduleBean rule) {
+        RscheduleBean selected = rule.snapshotForProvider(providerNo);
+        if (selected == null) return null;
+        synchronized (WebUtils.getSessionMutex(session)) {
+            session.setAttribute(RULE_SCHEDULE, selected);
+            LinkedHashMap<String, TemplatePeriod> periods =
+                    (LinkedHashMap<String, TemplatePeriod>) session.getAttribute(TEMPLATE_PERIODS);
+            if (periods == null) periods = new LinkedHashMap<>();
+            if (periods.size() >= MAX_TEMPLATE_PERIODS) periods.pollFirstEntry();
+            String key = UUID.randomUUID().toString();
+            periods.put(key, new TemplatePeriod(providerNo, selected.sdate, selected.edate));
+            session.setAttribute(TEMPLATE_PERIODS, periods);
+            return key;
+        }
+    }
+
+    /** Publishes a completed request-local rule and returns its provider's own custom days. */
+    public static Map<String, Object> openMonth(HttpSession session, RscheduleBean rule, ScheduleDateDao dao) {
+        synchronized (WebUtils.getSessionMutex(session)) {
+            String providerNo = rule.provider_no;
+            load(session, providerNo, dao.search_scheduledate_c(providerNo));
+            RscheduleBean opened = rule.snapshotForProvider(providerNo);
+            session.setAttribute(RULE_SCHEDULE, opened);
+            session.setAttribute(OPEN_RULE, opened);
+            return Map.copyOf(days(session));
+        }
+    }
+
+    /** Captures the open provider's month, or returns null when the tab was superseded. */
+    public static Month readMonth(HttpSession session, String providerNo, ScheduleDateDao dao) {
+        synchronized (WebUtils.getSessionMutex(session)) {
+            RscheduleBean rule = openRule(session, providerNo);
+            if (rule == null) return null;
+            reloadIfStale(session, providerNo, dao);
+            return new Month(rule, Map.copyOf(days(session)));
+        }
+    }
+
+    /** Reads the rule and calendar ownership together for both the popup and the month view. */
+    static RscheduleBean openRule(HttpSession session, String providerNo) {
+        synchronized (WebUtils.getSessionMutex(session)) {
+            if (!isFor(session, providerNo) || !(session.getAttribute(RULE_SCHEDULE) instanceof RscheduleBean rule)) {
+                return null;
+            }
+            RscheduleBean selected = rule.snapshotForProvider(providerNo);
+            if (selected != null && session.getAttribute(OPEN_RULE) instanceof RscheduleBean opened) {
+                return opened.snapshotForProvider(providerNo);
+            }
+            return selected;
+        }
     }
 
     /**
@@ -82,6 +185,7 @@ public final class ScheduleCalendarCache {
             for (ScheduleDate override : customOverrides) {
                 days.put(ConversionUtils.toDateString(override.getDate()), entry(override));
             }
+            session.setAttribute(DAYS, days);
             session.setAttribute(PROVIDER, providerNo);
             session.removeAttribute(STALE);
         }
@@ -96,7 +200,7 @@ public final class ScheduleCalendarCache {
      */
     public static void reloadIfStale(HttpSession session, String providerNo, ScheduleDateDao scheduleDateDao) {
         synchronized (WebUtils.getSessionMutex(session)) {
-            if (session.getAttribute(STALE) != null) {
+            if (session.getAttribute(STALE) != null && isFor(session, providerNo)) {
                 load(session, providerNo, scheduleDateDao.search_scheduledate_c(providerNo));
             }
         }
@@ -145,6 +249,7 @@ public final class ScheduleCalendarCache {
                 } else {
                     days.remove(day);
                 }
+                session.setAttribute(DAYS, days);
             } catch (RuntimeException readFailure) {
                 session.setAttribute(STALE, Boolean.TRUE);
                 // No provider number or date: they would tie the log line to a patient's schedule.

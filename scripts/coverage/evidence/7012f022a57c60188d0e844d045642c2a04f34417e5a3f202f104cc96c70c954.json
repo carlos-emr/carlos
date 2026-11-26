@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "86c766f3cbdc2dd0b9020f16f94b733119b81a60",
+  "comparisonSha256": "8e54947259e76c5222780bfac923881fe2b7578bc66cfc72dfea3a02f087dbe0",
+  "baselineCommit": "6e38ec29d64a97a103823158cc591990c0637986",
+  "baselineSourceTree": "86c766f3cbdc2dd0b9020f16f94b733119b81a60",
+  "baselineReportSha256": "1ebdaf0ccdfd3610897ee34ff7e6a70f2364145edae74884bf9a1f7e3b7f101c",
+  "baselineLane": "Ubuntu 26.04 with JDK 25 and reduced filesystem permissions. Exact Maven-compiled sources; Tomcat 11 distributable HTTP session passivation, calendar and provider ownership, H2 transactions, and billing lock and servlet I/O.",
+  "baselineTestCounts": {
+    "tests": 282,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.RscheduleBeanUnitTest",
+    "io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONDiskNameDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskConcurrencyUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskServiceGroupDiskUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskServiceUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOutputLockUnitTest",
+    "io.github.carlos_emr.carlos.commn.dao.RScheduleDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.ScheduleDateDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.report.pageUtil.Obec2ActionMethodGuardUnitTest",
+    "io.github.carlos_emr.carlos.schedule.ScheduleDateSaveJspRegressionTest",
+    "io.github.carlos_emr.carlos.schedule.ScheduleTemplateApplyingJspRegressionTest",
+    "io.github.carlos_emr.carlos.schedule.service.ScheduleDateOverrideServiceIntegrationTest",
+    "io.github.carlos_emr.carlos.schedule.web.Schedule2ActionsTest",
+    "io.github.carlos_emr.carlos.schedule.web.ScheduleCalendarCacheUnitTest",
+    "io.github.carlos_emr.carlos.util.DownloadMissingFileUnitTest",
+    "io.github.carlos_emr.carlos.util.OscarDownloadUnitTest"
+  ],
+  "baselineTestReportsSha256": "966c884a9bbce973eeb9aed75fca7e628849e64a5f9a2c41f0001e7765aa4f84",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/HScheduleDate.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "8cd741e8be87413de9510eef9bc132dfed18206f"
+    },
+    "src/main/java/io/github/carlos_emr/RscheduleBean.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "9206df2ac45b7d5de87db43efe23f31a73165d1c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/schedule/web/ScheduleCalendarCache.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "c2fe441d79eb58feaace8f3ba9cd9101f5da3cee"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOutputLock.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "c0004c51723d496ccd2c3526fb92c5193569acd4"
+    }
+  },
+  "exclusions": {}
+}
