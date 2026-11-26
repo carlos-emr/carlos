@@ -10,7 +10,7 @@
 # wrong program (#5439). This names the program, and stops it when that is
 # safe.
 #
-#   front-door [--plan | --report] BIND_IP
+#   front-door [--plan | --report | --approved UNITS] BIND_IP
 #       Ports 80 and 443 belong to nginx.service. Any OTHER system service
 #       listening there on an address that collides with BIND_IP
 #       (CARLOS_BIND_IP) is stopped and disabled, whatever installed it:
@@ -31,6 +31,23 @@
 #       ("will-stop:") and what it would leave ("blocked:"), so the postinst
 #       can ask an interactive operator first; --report names every colliding
 #       listener as "blocked:". Neither changes anything.
+#
+#       Consent binds to what was shown. --plan also prints one
+#       "will-stop-unit:" line per unit it would stop (a socket's triggered
+#       services included), and a caller that asked an operator passes exactly
+#       those units back with --approved (whitespace-separated, one argument).
+#       The stop run re-scans, because the ports may have changed while the
+#       question was open, and stops only a unit found by BOTH the plan and the
+#       fresh scan: anything that took a port while the operator was reading
+#       is left running and named as "blocked:", never stopped unseen (#6060).
+#       Every service a socket starts must also be approved. Stop sockets
+#       before stopping the services they trigger, and hold those services if
+#       any of their sockets stays up. Leave units with systemd stop
+#       propagation or snap-managed activators for manual handling. When
+#       disabling could affect another unit via [Install] Also=, mask only
+#       the approved unit instead.
+#       An empty --approved stops nothing. The legacy form without a flag
+#       reports conflicts for callers that cannot supply the approved list.
 #   mariadb
 #       Why root cannot reach MariaDB over the unix socket: the service is
 #       stopped or failed (and what holds 3306, or its last [ERROR] line), it
@@ -39,6 +56,7 @@
 #
 # Output, one line each:
 #   will-stop: <what a run without --plan would stop>     (--plan only)
+#   will-stop-unit: <one unit behind a will-stop: line>    (--plan only)
 #   stopped: <what was stopped, and how to undo it>
 #   blocked: <a listener left in place, and what to do about it>
 #   cause: <why root cannot reach MariaDB>          (mariadb only)
@@ -52,6 +70,11 @@
 
 LC_ALL=C
 export LC_ALL
+# No pathname expansion anywhere: unit lists are split on whitespace
+# (--approved, a socket's Triggers), and a unit name (a backslash escape such
+# as foo\x2dbar.service) must never be matched against files in the
+# directory this happens to run from.
+set -f
 
 # printf, not echo: dash's echo expands backslashes, and these lines carry
 # unit names, process names and MariaDB's own error text.
@@ -60,7 +83,7 @@ say() {
 }
 
 usage() {
-    say "usage: carlos-emr-host-conflicts front-door [--plan | --report] BIND_IP | mariadb" >&2
+    say "usage: carlos-emr-host-conflicts front-door [--plan | --report | --approved UNITS] BIND_IP | mariadb" >&2
     exit 2
 }
 
@@ -209,21 +232,41 @@ origin_of() {
     printf 'unit file %s\n' "${file:-unknown}"
 }
 
-# Stop service $1 for good (and any units $2.. a socket activates). Prints
+# Stop a single approved unit and keep it off. Prints
 # how it was kept off: "disabled", or "masked" for a unit that cannot be
 # disabled (static, generated, or pulled in by another unit), which would
 # otherwise start again at the next boot and race nginx for the port.
 stop_unit() {
-    systemctl disable --now "$@" >/dev/null 2>&1 || systemctl stop "$@" >/dev/null 2>&1 || return 1
+    stop_status=0
+    systemctl stop "$1" >/dev/null 2>&1 || stop_status=$?
+    case "$1" in
+        *.socket)
+            # Check the state even if systemctl reports a failed stop.
+            unit_is_down "$1" || return 1 ;;
+        *) [ "${stop_status}" = 0 ] || unit_is_down "$1" || return 1 ;;
+    esac
+    if can_disable_unit "$1"; then
+        systemctl disable "$1" >/dev/null 2>&1 || true
+    fi
     case "$(systemctl is-enabled "$1" 2>/dev/null)" in
-        disabled | masked) say disabled ;;
+        disabled) say disabled ;;
+        masked) say masked ;;
         *)
-            if systemctl mask "$@" >/dev/null 2>&1; then
+            if systemctl mask "$1" >/dev/null 2>&1; then
                 say masked
             else
                 say enabled
             fi ;;
     esac
+}
+
+can_disable_unit() {
+    # `disable` follows Also=, including in drop-ins. `cat` reads the loaded
+    # fragment and drop-in paths, so use it only when systemd has seen the
+    # current configuration. A mask affects only the explicitly named unit.
+    reload="$(systemctl show --property=NeedDaemonReload --value "$1" 2>/dev/null)" &&
+            [ "${reload}" = no ] && fragments="$(systemctl cat --no-pager "$1" 2>/dev/null)" &&
+            ! printf '%s\n' "${fragments}" | grep -Eq '^[[:space:]]*Also([[:space:]]|=|\\|$)'
 }
 
 # Advice for a listener left in place: $1 name, $2 unit (may be empty).
@@ -299,86 +342,377 @@ grouped() {
         END { for (i = 1; i <= n; i++) { split(first[order[i]], f, SUBSEP); print f[2], f[1], f[3], addrs[order[i]] } }'
 }
 
+# The read-only plan shows candidates before approval has been given.
+approved_unit() {
+    [ "${mode}" = stop ] || return 0
+    case "${approved}" in *" $1 "*) return 0 ;; esac
+    return 1
+}
+
+unit_is_down() {
+    state="$(systemctl show --property=ActiveState --value "$1" 2>/dev/null)" || return 1
+    case "${state}" in inactive | failed) return 0 ;; esac
+    return 1
+}
+
+# Look up a unit's reason in the stop plan. Unit names may contain literal
+# systemd backslash escapes.
+blocker_for() {
+    while read -r blocked_unit blocked_reason; do
+        if [ "${blocked_unit}" = "$1" ]; then
+            say "${blocked_reason}"
+            return
+        fi
+    done <<REASONS
+${blockers}
+REASONS
+}
+
+remember_blocker() {
+    blockers="${blockers}
+$1 $2"
+}
+
+# Test the same stop rules in the plan and the fresh scan. Each systemd stop
+# is deliberately scoped to one unit. A reverse Requires=, Requisite=,
+# BindsTo= or PartOf=, or a PropagatesStopTo=, would widen that transaction.
+stop_blocker() {
+    if protected_unit "$1"; then
+        say "is protected from automatic stops"
+    elif ! policy_allows_stop "$1"; then
+        say "was left running because policy-rc.d forbids stopping services during this install"
+    elif ! approved_unit "$1"; then
+        say "was not among the services approved for stopping (it took the port, or changed, after the list was shown), so it was left running"
+    elif ! dependents="$(systemctl show --property=RequiredBy --property=RequisiteOf \
+             --property=BoundBy --property=ConsistsOf --property=PropagatesStopTo \
+             --value "$1" 2>/dev/null)"; then
+        say "was left running because its systemd stop dependencies could not be determined"
+    else
+        # The properties are whitespace-separated lists. Keep the reason on
+        # one line even when more than one property contributes units.
+        for dependent in ${dependents}; do
+            [ "${dependent}" = "$1" ] && continue
+            say "was left running because stopping it would also stop ${dependent}. Resolve the linked units manually"
+            return
+        done
+        dependency_blocker "$1"
+    fi
+}
+
+# systemd can also stop a wanted unit after its last user goes away.
+dependency_blocker() {
+    if ! dependencies="$(systemctl show --property=Requires --property=Requisite --property=Wants \
+             --property=BindsTo --property=Upholds --value "$1" 2>/dev/null)"; then
+        say "was left running because its systemd dependencies could not be determined"
+        return
+    fi
+    for dependency in ${dependencies}; do
+        stop_when_unneeded="$(systemctl show --property=StopWhenUnneeded --value "${dependency}" 2>/dev/null)" || stop_when_unneeded=""
+        case "${stop_when_unneeded}" in
+            no) continue ;;
+            yes)
+                say "was left running because stopping it could also stop ${dependency} (StopWhenUnneeded=yes)"
+                return ;;
+            *)
+                say "was left running because the stop behavior of ${dependency} could not be determined"
+                return ;;
+        esac
+    done
+    if snap_app "$1" >/dev/null && command -v snap >/dev/null 2>&1; then
+        snap_stop_blocker "$1"
+    fi
+}
+
+# snapd stops and disables these generated units with the selected app, even
+# if they listen on other ports or are inactive. Leave that group to the operator.
+snap_stop_blocker() {
+    # Filter locally because systemctl returns an error for a glob with no matches.
+    if ! unit_files="$(systemctl list-unit-files --no-legend --no-pager 2>/dev/null)"; then
+        say "was left running because its snap activator files could not be checked"
+        return
+    fi
+    snap_activator="$(printf '%s\n' "${unit_files}" | awk -v app="${1%.service}" '
+        $1 == app ".timer" || (index($1, app ".") == 1 && $1 ~ /\.socket$/) { print $1; exit }')"
+    if [ -n "${snap_activator}" ]; then
+        say "was left running because the snap stop also affects ${snap_activator}"
+    elif ! can_disable_unit "$1"; then
+        say "was left running because the snap disable could affect linked units"
+    fi
+}
+
+# Known triggers by socket, observed using the same scan that found the
+# listeners. A failed lookup is recorded separately from an empty result.
+triggers_for() {
+    while read -r socket_name socket_triggers; do
+        if [ "${socket_name}" = "$1" ]; then
+            say "${socket_triggers}"
+            return
+        fi
+    done <<SOCKETS
+${socket_graph}
+SOCKETS
+}
+
+# When a socket's forward query fails, check the service's reverse link.
+# If neither side can be checked, the service cannot safely be stopped.
+has_unknown_activator() {
+    [ "${unknown_sockets}" != " " ] || return 1
+    activators="$(systemctl show --property=TriggeredBy --value "$1" 2>/dev/null)" || return 0
+    for activator in ${activators}; do
+        case "${unknown_sockets}" in *" ${activator} "*) return 0 ;; esac
+    done
+    return 1
+}
+
+hold_triggers() {
+    for trigger in "$@"; do
+        held="${held}${trigger} "
+    done
+}
+
+service_blocker() {
+    case "${held}" in
+        *" $1 "*) say "was left running because the socket that starts it is left running"; return ;;
+    esac
+    if has_unknown_activator "$1"; then
+        say "was left running because a colliding socket may still start it"
+    else
+        stop_blocker "$1"
+    fi
+}
+
+# Sockets can restart after the batch checks. Use the current reverse links
+# and keep checking any socket that appeared in the earlier scan.
+confirm_service_sockets_down() {
+    if ! activators="$(systemctl show --property=TriggeredBy --value "$1" 2>/dev/null)"; then
+        remember_blocker "$1" "was left running because its socket activators could not be checked"
+        return 1
+    fi
+    for scanned_socket in ${sockets}; do
+        case " ${activators} " in *" ${scanned_socket} "*) continue ;; esac
+        case " $(triggers_for "${scanned_socket}") " in
+            *" $1 "*) activators="${activators} ${scanned_socket}" ;;
+        esac
+    done
+    for activator in ${activators}; do
+        case "${activator}" in *.socket) ;; *) continue ;; esac
+        if ! unit_is_down "${activator}"; then
+            remember_blocker "${activator}" "was active or could not be confirmed stopped before its service stop"
+            remember_blocker "$1" "was left running because ${activator} could still start it"
+            return 1
+        fi
+    done
+    return 0
+}
+
+socket_blocker() {
+    reason="$(stop_blocker "$1")"
+    if [ -n "${reason}" ]; then
+        say "${reason}"
+        return
+    fi
+    shift
+    for service in "$@"; do
+        reason="$(service_blocker "${service}")"
+        if [ -n "${reason}" ]; then
+            say "starts ${service}, which ${reason}"
+            return
+        fi
+    done
+}
+
+# Mark all ineligible sockets before taking any action. If two sockets
+# share a trigger, keeping one also keeps the other and its triggers.
+prepare_sockets() {
+    for socket in "$@"; do
+        if triggers="$(systemctl show --property=Triggers --value "${socket}" 2>/dev/null)"; then
+            # Normalize whitespace before writing a single record.
+            normalized=""
+            for service in ${triggers}; do
+                normalized="${normalized} ${service}"
+            done
+            socket_graph="${socket_graph}
+${socket}${normalized}"
+        else
+            unknown_sockets="${unknown_sockets}${socket} "
+            remember_blocker "${socket}" "was left running because its socket triggers could not be determined"
+        fi
+    done
+
+    changed=1
+    while [ "${changed}" = 1 ]; do
+        changed=0
+        for socket in "$@"; do
+            [ -z "$(blocker_for "${socket}")" ] || continue
+            triggers="$(triggers_for "${socket}")"
+            # shellcheck disable=SC2086 # whitespace-separated unit names
+            reason="$(socket_blocker "${socket}" ${triggers})"
+            if [ -n "${reason}" ]; then
+                remember_blocker "${socket}" "${reason}"
+                # shellcheck disable=SC2086 # whitespace-separated unit names
+                hold_triggers ${triggers}
+                changed=1
+            fi
+        done
+    done
+}
+
+plan_unit() {
+    for planned_unit in "$@"; do
+        case "${planned}" in *" ${planned_unit} "*) continue ;; esac
+        planned="${planned}${planned_unit} "
+        say "will-stop-unit: ${planned_unit}"
+    done
+}
+
+# The first argument is an approved unit. The second describes its listener
+# or how it belongs to a socket whose stop was confirmed.
+stop_and_report() {
+    label="$1 ($(origin_of "$1")) $2"
+    case "$1" in *.service) confirm_service_sockets_down "$1" || return 1 ;; esac
+    if app="$(snap_app "$1")" && command -v snap >/dev/null 2>&1; then
+        # snapd owns its units: systemctl disable would be undone by a refresh.
+        snap stop --disable "${app}" >/dev/null 2>&1 || return 1
+        say "stopped: the ${app%%.*} snap's ${app} service $2; it is stopped and disabled but still installed (to use it again, move it to other ports, then: sudo snap start --enable ${app})"
+        return
+    fi
+    kept_off="$(stop_unit "$1")" || return 1
+    case "${kept_off}" in
+        disabled)
+            say "stopped: ${label}; it is stopped and disabled but still installed (to use it again, move it to other ports, then: sudo systemctl enable --now $1)" ;;
+        masked)
+            say "stopped: ${label}; it is stopped and masked (to use it again, move it to other ports, then: sudo systemctl unmask $1 && sudo systemctl start $1)" ;;
+        *)
+            say "stopped: ${label}; it is stopped, but could not be disabled or masked and may take the port again at the next boot (keep it off: sudo systemctl mask $1)" ;;
+    esac
+}
+
+handle_service() {
+    case "${processed}" in *" $1 "*) return ;; esac
+    processed="${processed}$1 "
+    reason="$(service_blocker "$1")"
+    if [ -n "${reason}" ]; then
+        remember_blocker "$1" "${reason}"
+    elif [ "${mode}" = plan ]; then
+        case "${planned}" in *" $1 "*) return ;; esac
+        if app="$(snap_app "$1")" && command -v snap >/dev/null 2>&1; then
+            say "will-stop: the ${app%%.*} snap's ${app} service, on $2"
+        else
+            say "will-stop: $1 ($(origin_of "$1")), on $2"
+        fi
+        plan_unit "$1"
+    elif stop_and_report "$1" "$2"; then
+        acted=1
+    elif [ -z "$(blocker_for "$1")" ]; then
+        remember_blocker "$1" "could not be stopped"
+    fi
+}
+
 front_door() {
-    mode=free
+    mode=legacy
+    approved=" "
     case "${1:-}" in
         --plan) mode=plan; shift ;;
         --report) mode=report; shift ;;
+        --approved)
+            [ $# -ge 2 ] || usage
+            mode=stop
+            # Split on whitespace only (set -f above: never as a glob).
+            for approved_name in $2; do
+                approved="${approved}${approved_name} "
+            done
+            shift 2 ;;
     esac
     [ $# = 1 ] || usage
     bind_ip="$(printf '%s\n' "$1" | sed 's/^\[\(.*\)\]$/\1/')"
-
     found="$(colliding "${bind_ip}" 80 443)" || return 2
     [ -n "${found}" ] || return 0
 
+    rows="$(printf '%s\n' "${found}" | grouped)"
     acted=0
-    # Units policy-rc.d would not let this configure stop.
-    denied=" "
-    if [ "${mode}" != report ]; then
-        stopped_units=" "
+    blockers=""
+    planned=" "
+    if [ "${mode}" = plan ] || [ "${mode}" = stop ]; then
+        held=" "
+        unknown_sockets=" "
+        socket_graph=""
+        stopped_sockets=""
+        pending=""
+        sockets="$(printf '%s\n' "${rows}" | awk '$3 ~ /\.socket$/ { print $3 }' | sort -u)"
+        # shellcheck disable=SC2086 # whitespace-separated unit names
+        prepare_sockets ${sockets}
+
+        # Finish every socket attempt before stopping any service. One
+        # failed socket must keep its triggers running even if an approved
+        # socket earlier in the scan also started them.
         while read -r name pid unit addrs; do
-            [ "${name}" != "-" ] || continue
-            case "${unit}" in
-                *.service | *.socket) ;;
-                *) continue ;;
-            esac
-            protected_unit "${unit}" && continue
-            case "${stopped_units}" in *" ${unit} "*) continue ;; esac
-            if ! policy_allows_stop "${unit}"; then
-                denied="${denied}${unit} "
-                continue
-            fi
-            if app="$(snap_app "${unit}")" && command -v snap >/dev/null 2>&1; then
-                if [ "${mode}" = plan ]; then
-                    stopped_units="${stopped_units}${unit} "
-                    say "will-stop: the ${app%%.*} snap's ${app} service, on ${addrs}"
-                    continue
-                fi
-                # snapd owns its units: `systemctl disable` would be undone by
-                # the next refresh, `snap stop --disable` is not.
-                snap stop --disable "${app}" >/dev/null 2>&1 || continue
-                stopped_units="${stopped_units}${unit} "
-                acted=1
-                say "stopped: the ${app%%.*} snap's ${app} service was listening on ${addrs}, which the CARLOS front door needs; it is stopped and disabled but still installed (to use it again, move it to other ports, then: sudo snap start --enable ${app})"
-                continue
-            fi
-            # A socket-activated service: stop the socket that holds the port
-            # and the service it starts, or the next connection restarts it.
-            # Each of those is held to the same rules as the socket itself.
-            also=""
-            if [ "${unit}" != "${unit%.socket}" ]; then
-                also="$(systemctl show --property=Triggers --value "${unit}" 2>/dev/null)"
-                also_ok=1
-                for triggered in ${also}; do
-                    protected_unit "${triggered}" && also_ok=0
-                    policy_allows_stop "${triggered}" || also_ok=0
-                done
-                [ "${also_ok}" = 1 ] || continue
-            fi
-            origin="$(origin_of "${unit}")"
-            # The units a socket starts are handled with it: ss names the
-            # service's own process as an owner of the same socket, and that
-            # row must not be planned or stopped a second time.
+            case "${unit}" in *.socket) ;; *) continue ;; esac
+            [ -z "$(blocker_for "${unit}")" ] || continue
+            triggers="$(triggers_for "${unit}")"
             if [ "${mode}" = plan ]; then
-                stopped_units="${stopped_units}${unit} ${also:+${also} }"
-                say "will-stop: ${unit} (${origin}), on ${addrs}"
+                if [ -n "${triggers}" ]; then
+                    say "will-stop: ${unit} ($(origin_of "${unit}")) and the $(printf '%s' "${triggers}" | sed 's/ /, /g') it starts, on ${addrs}"
+                else
+                    say "will-stop: ${unit} ($(origin_of "${unit}")), on ${addrs}"
+                fi
+                # shellcheck disable=SC2086 # whitespace-separated unit names
+                plan_unit "${unit}" ${triggers}
                 continue
             fi
-            # shellcheck disable=SC2086 # $also is a list of unit names
-            kept_off="$(stop_unit "${unit}" ${also})" || continue
-            stopped_units="${stopped_units}${unit} ${also:+${also} }"
-            acted=1
-            case "${kept_off}" in
-                disabled)
-                    say "stopped: ${unit} (${origin}) was listening on ${addrs}, which the CARLOS front door needs; it is stopped and disabled but still installed (to use it again, move it to other ports, then: sudo systemctl enable --now ${unit})" ;;
-                masked)
-                    say "stopped: ${unit} (${origin}) was listening on ${addrs}, which the CARLOS front door needs; it cannot be disabled, so it is stopped and masked (to use it again, move it to other ports, then: sudo systemctl unmask ${unit} && sudo systemctl start ${unit})" ;;
-                *)
-                    say "stopped: ${unit} (${origin}) was listening on ${addrs}, which the CARLOS front door needs; it is stopped, but could not be disabled or masked and may take the port again at the next boot (keep it off: sudo systemctl mask ${unit})" ;;
-            esac
-        done <<EOF
-$(printf '%s\n' "${found}" | grouped)
-EOF
+            # Query the current graph before the stop in case the socket was
+            # reloaded during this scan. A changed set can invalidate the
+            # sharing decisions already made for other sockets.
+            if ! current_triggers="$(systemctl show --property=Triggers --value "${unit}" 2>/dev/null)"; then
+                remember_blocker "${unit}" "was left running because its socket triggers could not be determined"
+                unknown_sockets="${unknown_sockets}${unit} "
+            elif [ "$(printf '%s' "${current_triggers}" | tr -s ' ')" != "${triggers}" ]; then
+                remember_blocker "${unit}" "was left running because its socket triggers changed during the stop"
+            else
+                # shellcheck disable=SC2086 # whitespace-separated unit names
+                reason="$(socket_blocker "${unit}" ${triggers})"
+                if [ -n "${reason}" ]; then
+                    remember_blocker "${unit}" "${reason}"
+                elif stop_and_report "${unit}" "was listening on ${addrs}, which the CARLOS front door needs"; then
+                    stopped_sockets="${stopped_sockets} ${unit}"
+                    acted=1
+                    continue
+                else
+                    remember_blocker "${unit}" "could not be stopped"
+                fi
+            fi
+            # Hold both observed sets if the socket's state is uncertain.
+            # shellcheck disable=SC2086 # whitespace-separated unit names
+            hold_triggers ${triggers} ${current_triggers}
+        done <<ROWS
+${rows}
+ROWS
+
+        # Recheck sockets after enablement changes and the other stop jobs.
+        for socket in ${stopped_sockets}; do
+            triggers="$(triggers_for "${socket}")"
+            if unit_is_down "${socket}"; then
+                pending="${pending} ${triggers}"
+            else
+                remember_blocker "${socket}" "was active again after its stop"
+                # shellcheck disable=SC2086 # whitespace-separated unit names
+                hold_triggers ${triggers}
+            fi
+        done
+
+        processed=" "
+        while read -r name pid unit addrs; do
+            case "${unit}" in *.service) ;; *) continue ;; esac
+            if [ "${mode}" = plan ]; then
+                handle_service "${unit}" "${addrs}"
+            else
+                handle_service "${unit}" "was listening on ${addrs}, which the CARLOS front door needs"
+            fi
+        done <<ROWS
+${rows}
+ROWS
+        for service in ${pending}; do
+            handle_service "${service}" "was started by a socket on a CARLOS front-door port"
+        done
     fi
 
     if [ "${acted}" = 1 ]; then
@@ -390,21 +724,24 @@ EOF
             sleep 0.2
             i=$((i + 1))
         done
+        rows="$(printf '%s\n' "${found}" | grouped)"
     fi
 
     while read -r name pid unit addrs; do
-        # --plan lists only what it would leave: a unit it would stop (or one
-        # a socket it would stop starts) is not also "blocked".
         if [ "${mode}" = plan ]; then
-            case "${stopped_units:- }" in *" ${unit} "*) continue ;; esac
+            case "${planned}" in *" ${unit} "*) continue ;; esac
         fi
         [ "${unit}" != "-" ] || unit=""
-        why=""
-        case "${denied}" in *" ${unit} "*) why="policy-rc.d forbids stopping services during this install, so it was left running; " ;; esac
-        say "blocked: $(describe "${name}" "${pid}" "${unit}" "${addrs}"), so nginx cannot serve the CARLOS front door; ${why}$(advice "${name}" "${unit}")"
-    done <<EOF
-$(printf '%s\n' "${found}" | grouped)
-EOF
+        reason="$(blocker_for "${unit}")"
+        if [ "${mode}" = legacy ]; then
+            reason="the caller provided no approved unit list. Use 'sudo dpkg-reconfigure carlos-emr' to review this conflict; "
+        elif [ -n "${reason}" ]; then
+            reason="it ${reason}; "
+        fi
+        say "blocked: $(describe "${name}" "${pid}" "${unit}" "${addrs}"), so nginx cannot serve the CARLOS front door; ${reason}$(advice "${name}" "${unit}")"
+    done <<ROWS
+${rows}
+ROWS
     return 1
 }
 

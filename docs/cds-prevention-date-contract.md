@@ -113,10 +113,16 @@ Rh injection gestational age stays explicitly unknown when timing is not known.
 Date-only SQL decisions against uncertain imported records. The scalar query checks the
 import marker, null dates and the latest partial metadata, including merged charts.
 Population reports, dashboard SQL and interactive unscoped eForm queries do not inspect
-or refuse unrelated patient charts. Structural table inspection handles supported
-quoted/qualified references and nested queries. Unsupported installed SQL dialects stay
-with their original SQL execution boundary; classifier failure logs a debug diagnostic
-without the query text and does not refuse the query.
+or refuse unrelated patient charts. A definition reads the native table when either of two
+inspections finds `preventions` as a table: `SqlTableReferences` scans MariaDB table
+positions (after `FROM`, `JOIN` or a comma of a `FROM` list) under MariaDB's lexical rules
+for quoting, qualified names and comments. It checks the statements produced by executable
+comment version gates across supported MariaDB versions. JSqlParser inspects the statement
+structurally. JSqlParser alone cannot parse either shipped influenza
+dashboard query, in which MariaDB resolves `preventions` (#6344). Columns, aliases, literals
+and look-alike tables such as `preventionsExt` are not the table. SQL that names no
+prevention table keeps its original SQL execution boundary; a parser failure logs a debug
+diagnostic without the query text and refuses nothing.
 
 Patient-scoped guarded readers include the native prevention report families, the newer
 report builder, ClinicalReports SQL numerators, scoped eForm AP and generated PDF lookups,

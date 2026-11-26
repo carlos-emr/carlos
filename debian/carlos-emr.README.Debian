@@ -1190,7 +1190,9 @@ nginx will not start: port 80 or 443 is already in use
 
   If accepted, each service stopped is disabled, or masked when it cannot be disabled,
   and a note names it; nothing is uninstalled, and the note gives the command
-  that brings it back once it has been moved to other ports. What was stopped,
+  that brings it back once it has been moved to other ports. Only the services
+  the question listed are stopped: one that took port 80 or 443 while the
+  question was open is left running and reported as "NOT stopped". What was stopped,
   or declined, is in the install output, /var/log/apt/term.log and the
   journal (journalctl -t carlos-emr). Non-interactive runs already decline by
   default on fresh installs. Older installs can retain true from the previous
@@ -1198,6 +1200,12 @@ nginx will not start: port 80 or 443 is already in use
   stopping services; preseed false to revoke it before an unattended upgrade.
   Interactive runs ask again on every
   configure that finds a conflict; preseeding false does not suppress the question.
+  A socket that stays active keeps its triggered services running. Units whose
+  stop could also stop other systemd units are left for manual handling. The
+  installer also leaves snap apps with socket or timer activators running.
+  The installer uses a mask if disabling a unit could also disable linked
+  units. If an older carlos-ctl reports a conflict after confirmation, use
+  sudo dpkg-reconfigure carlos-emr to review and approve the stop plan.
 
   Named but left running: containers and the container engines (stopping one
   stops every container), programs started by hand (an nginx started outside
