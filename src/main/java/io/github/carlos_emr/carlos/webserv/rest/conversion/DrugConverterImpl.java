@@ -68,15 +68,24 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
      *
      * <p>The number is digits with an optional fraction, or a fraction stored without its leading
      * zero. Its quantifiers are possessive: a number followed by no unit ("2.5") is read whole, and
-     * is not shortened to "2" to make the "." a unit. The unit is optional and is one run of text
-     * that starts with a letter or a percent sign, so it ends at the blank before the next
-     * ingredient and a unit of concentration ("mg/mL", "mg/5ml") stays whole.
+     * is not shortened to "2" to make the "." a unit. The unit is optional, may follow any run of
+     * blanks, and is one run of text that starts with a letter or a percent sign, so it ends at
+     * the blank before the next ingredient and a unit of concentration ("mg/mL", "mg/5ml") stays
+     * whole.
+     *
+     * <p>A number that goes on after a comma, a slash or a hyphen is not read at all: grouped
+     * digits ("1,000 mg"), a decimal comma ("2,5 mg"), a fraction ("1/2 mg"), a combination
+     * written together ("5/20 mg") and a range ("5-10 mg"). Its first digits are not the strength
+     * (1 is not 1,000) and the single strength field cannot carry the rest, so the text has no
+     * strength to report; the two look-arounds refuse both the number before the separator and
+     * the one after it.
      *
      * <p>The old pattern needed two digits, which went unnoticed while every strength was stored
      * with a trailing zero: "5 mg" had no strength, and "5 mg / 20 mg" reported the 20 (#6185).
      */
     private static final Pattern STORED_STRENGTH = Pattern.compile(
-            "(?<![\\d.])(\\d++(?:\\.\\d++)?+|\\.\\d++)\\s?+((?:\\p{L}|%)\\S*+)?+");
+            "(?<![\\d.])(?<!\\d[,/-])(\\d++(?:\\.\\d++)?+|\\.\\d++)(?![,/-]\\d)"
+                    + "\\s*+((?:\\p{L}|%)\\S*+)?+");
 
     /** A separator between ingredients left at the end of the first one's unit: "mg/" or "mg,". */
     private static final Pattern TRAILING_SEPARATOR = Pattern.compile("[/,;]++$");

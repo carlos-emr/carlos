@@ -15,6 +15,9 @@ const isPost = (response, path) => response.request().method() === 'POST'
   && new URL(response.url()).pathname.endsWith(path);
 // The term the drug-search smoke check uses: a common ingredient the packaged DrugRef answers.
 const DRUG_SEARCH_TERM = process.env.DRUG_SEARCH_TERM || 'amox';
+// A product's name may state its strength with a trailing zero ("250.0MG"); the saved text never
+// does, so the number is compared as the plain decimal ("250", "2.5").
+const plainDecimalText = text => text.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
 
 async function workflow(s) {
   const {sql, patient, provider, marker, config, context} = s, q = h.sqlString, f = await prepareRx(s);
@@ -109,7 +112,7 @@ async function workflow(s) {
     // as "250.0".
     const option = rx.locator('ul.ui-autocomplete li.ui-menu-item').filter({hasText: /\b\d+(?:\.\d+)?\s?MG\s*$/i}).first();
     await option.waitFor({state: 'visible', timeout: 20000});
-    const stated = /(\d+(?:\.\d+)?)\s?MG\s*$/i.exec(await option.innerText())[1];
+    const stated = plainDecimalText(/(\d+(?:\.\d+)?)\s?MG\s*$/i.exec(await option.innerText())[1]);
     const [staged] = await Promise.all([
       rx.waitForResponse(response => isPost(response, '/rx/WriteScript')
         && new URLSearchParams(response.request().postData() || '').get('parameterValue') === 'createNewRx'),
@@ -160,4 +163,4 @@ async function workflow(s) {
   });
 }
 if (require.main === module) runWorkflow('rx-dose-text', workflow);
-module.exports = {workflow};
+module.exports = {workflow, plainDecimalText};

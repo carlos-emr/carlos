@@ -58,7 +58,9 @@ reading such a drug used to fail the whole request. An update that states no qua
 that stored quantity and its unit, and the `instructions` text still states it. `strength`
 is now reported for a strength of one digit ("5 mg") and for one stored without a unit. For
 a combination it is the first ingredient's, with that ingredient's unit: "5 mg / 20 mg"
-reads 5 and "mg", where it read 20 and "mg / ".
+reads 5 and "mg", where it read 20 and "mg / ". Stored text whose first number is not one
+plain decimal ("1,000 mg", "1/2 mg", "5/20 mg", "5-10 mg") has no `strength`: part of such
+a number is a different strength.
 
 Rolling back to an earlier 2026.08 build keeps the prescriptions this build saved. The
 earlier build's REST drug list fails on a quantity that is not a whole number, as it already

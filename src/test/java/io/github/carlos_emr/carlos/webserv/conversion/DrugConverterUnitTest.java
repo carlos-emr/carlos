@@ -314,6 +314,43 @@ class DrugConverterUnitTest {
             assertThat(t.getStrengthUnit()).isNull();
         }
 
+        /**
+         * Stored text may hold more than one blank, or tabs, between the number and its unit. One
+         * blank was allowed, so "5  mg" was read as 5 with no unit and sent back as "5".
+         */
+        @ParameterizedTest(name = "stored \"{0}\"")
+        @ValueSource(strings = {"5  mg", "5\t\tmg", "5 \t mg", "5   mg / 20 mg"})
+        @DisplayName("should read the unit after any run of blanks")
+        void shouldReadUnit_afterAnyRunOfBlanks(String stored) {
+            Drug d = new Drug();
+            d.setDosage(stored);
+
+            DrugTo1 t = converter.getAsTransferObject(info, d);
+
+            assertThat(t.getStrength()).isEqualTo(5f);
+            assertThat(t.getStrengthUnit()).isEqualTo("mg");
+        }
+
+        /**
+         * A number that goes on after a comma, a slash or a hyphen is not one plain decimal:
+         * grouped digits ("1,000 mg"), a decimal comma ("2,5 mg"), a fraction ("1/2 mg"), a
+         * combination written together ("5/20 mg") or a range ("5-10 mg"). Its first digits are
+         * not the strength (1 is not 1,000), and the single strength field cannot carry the rest,
+         * so none is reported; the stored text is unchanged.
+         */
+        @ParameterizedTest(name = "stored \"{0}\"")
+        @ValueSource(strings = {"1,000 mg", "2,5 mg", "1/2 mg", "5/20 mg", "5-10 mg", "0.5-1 mg", "1,000"})
+        @DisplayName("should report no strength when the first number is not one plain decimal")
+        void shouldReportNoStrength_whenFirstNumberIsNotOnePlainDecimal(String stored) {
+            Drug d = new Drug();
+            d.setDosage(stored);
+
+            DrugTo1 t = converter.getAsTransferObject(info, d);
+
+            assertThat(t.getStrength()).isNull();
+            assertThat(t.getStrengthUnit()).isNull();
+        }
+
         @Test
         @DisplayName("should report no strength for digits too long to be one")
         void shouldReportNoStrength_whenStoredNumberIsNotFinite() {
