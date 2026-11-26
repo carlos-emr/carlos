@@ -1,11 +1,16 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 package io.github.carlos_emr.carlos.commn.dao.forms;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.form.model.rehab.RehabStudyAssessment;
 import io.github.carlos_emr.carlos.util.JDBCUtil;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Table;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Optional;
 import javax.xml.parsers.ParserConfigurationException;
 import org.hibernate.Session;
@@ -93,17 +98,7 @@ public class RehabStudyFormDao {
     @Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
     public Document readArchive(Class<? extends RehabStudyAssessment> type, int patient, int id) {
         String sql = archiveSql(tableOf(type));
-        return entityManager.unwrap(Session.class).doReturningWork(connection -> {
-            try (var query = connection.prepareStatement(sql)) {
-                query.setInt(1, patient);
-                query.setInt(2, id);
-                try (var rows = query.executeQuery()) {
-                    return JDBCUtil.toDocument(rows);
-                }
-            } catch (ParserConfigurationException e) {
-                throw new IllegalStateException("Unable to create rehabilitation study form XML", e);
-            }
-        });
+        return entityManager.unwrap(Session.class).doReturningWork(connection -> archive(connection, sql, patient, id));
     }
 
     private static String archiveSql(String table) {
@@ -111,6 +106,23 @@ public class RehabStudyFormDao {
         // @Table value, validated by tableOf; the patient and version remain bind parameters.
         // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string
         return "SELECT * FROM " + table + " WHERE demographic_no = ? AND ID = ?"; // NOSONAR javasecurity:S2077 -- entity @Table name; values are bound
+    }
+
+    // SQL_INJECTION_JDBC is a false positive here: archiveSql is the only caller's source of the
+    // text, and its one identifier is the @Table name of an entity the persistence unit maps,
+    // matched against form[A-Za-z0-9]+ by tableOf. The patient and version are bound. The sink is
+    // a named method rather than the doReturningWork lambda so this suppression covers it.
+    @SuppressFBWarnings(value = "SQL_INJECTION_JDBC", justification = "the only SQL text is archiveSql's: one identifier, the @Table name of a mapped questionnaire entity validated by tableOf against form[A-Za-z0-9]+; the patient and version are bound parameters; identifiers cannot be bound")
+    private static Document archive(Connection connection, String sql, int patient, int id) throws SQLException {
+        try (PreparedStatement query = connection.prepareStatement(sql)) {
+            query.setInt(1, patient);
+            query.setInt(2, id);
+            try (ResultSet rows = query.executeQuery()) {
+                return JDBCUtil.toDocument(rows);
+            }
+        } catch (ParserConfigurationException e) {
+            throw new IllegalStateException("Unable to create rehabilitation study form XML", e);
+        }
     }
 
     /**
