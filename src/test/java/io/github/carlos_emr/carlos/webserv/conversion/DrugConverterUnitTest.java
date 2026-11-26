@@ -297,6 +297,8 @@ class DrugConverterUnitTest {
             "20mg tablet, 20, mg",
             "2.5 mg/mL, 2.5, mg/mL",
             "250mg/5ml, 250, mg/5ml",
+            "250 mg/5mL, 250, mg/5mL",
+            "'  5 mg', 5, mg",
             "10 %, 10, %",
             ".5 mg, 0.5, mg"
         })
@@ -402,7 +404,7 @@ class DrugConverterUnitTest {
         @DisplayName("should read a number at the very end of the text, with or without an exponent")
         void shouldReadStrengthWithoutUnit_whenTextEndsWithTheNumber() {
             Drug plain = new Drug();
-            plain.setDosage("strength 5");
+            plain.setDosage("5");
             Drug exponent = new Drug();
             exponent.setDosage("1.0E7");
 
@@ -429,11 +431,55 @@ class DrugConverterUnitTest {
             assertThat(t.getStrengthUnit()).isNull();
         }
 
+        /**
+         * Text that does not start with a number states no strength. A client that sends a unit and
+         * no strength has the unit stored alone ("mg/5mL"); the 5 inside it is not a strength, and
+         * was read as one with the unit "mL". Such text is read back as the unit, whole, so that
+         * sending it again stores the same text.
+         */
+        @ParameterizedTest(name = "stored \"{0}\" -> unit \"{1}\"")
+        @CsvSource(delimiter = '|', value = {
+            "mg/5mL | mg/5mL",
+            "mg | mg",
+            "% | %",
+            "as directed | as directed",
+            "D3 1000 IU | D3 1000 IU",
+            "'  mg/mL ' | mg/mL"
+        })
+        @DisplayName("should read text that starts with no number as a unit alone, never as a strength")
+        void shouldReadUnitAlone_whenStoredTextStartsWithNoNumber(String stored, String unit) {
+            Drug d = new Drug();
+            d.setDosage(stored);
+
+            DrugTo1 t = converter.getAsTransferObject(info, d);
+
+            assertThat(t.getStrength()).isNull();
+            assertThat(t.getStrengthUnit()).isEqualTo(unit);
+        }
+
         @ParameterizedTest(name = "stored \"{0}\"")
-        @ValueSource(strings = {"as directed", "mg", "/"})
-        @DisplayName("should report no strength for text that states no number")
-        void shouldReportNoStrength_whenStoredTextHasNoNumber(String stored) {
+        @ValueSource(strings = {"/", "(5 mg)", "~5 mg", "- 5 mg", "/5 mL"})
+        @DisplayName("should report nothing for text that starts with neither a number nor a unit")
+        void shouldReportNoStrength_whenStoredTextStartsWithNeitherNumberNorUnit(String stored) {
             assertNoStrengthRead(stored);
+        }
+
+        @Test
+        @DisplayName("should give a client back a unit it sent without a strength, and store it again unchanged")
+        void shouldReadBackUnitAlone_whenClientSentNoStrength() {
+            DrugTo1 sent = restDrug("not in the drug reference");
+            sent.setStrengthUnit("mg/5mL");
+
+            Drug stored = converter.getAsDomainObject(info, sent);
+            DrugTo1 read = converter.getAsTransferObject(info, stored);
+            DrugTo1 sentAgain = restDrug("not in the drug reference");
+            sentAgain.setStrength(read.getStrength());
+            sentAgain.setStrengthUnit(read.getStrengthUnit());
+
+            assertThat(stored.getDosage()).isEqualTo("mg/5mL");
+            assertThat(read.getStrength()).isNull();
+            assertThat(read.getStrengthUnit()).isEqualTo("mg/5mL");
+            assertThat(converter.getAsDomainObject(info, sentAgain).getDosage()).isEqualTo("mg/5mL");
         }
 
         @ParameterizedTest(name = "{0} {1}")
