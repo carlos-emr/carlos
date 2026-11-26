@@ -1137,6 +1137,48 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute(CaseManagementEntry2Action.READER_FORM_ATTRIBUTE)).isSameAs(reader);
     }
 
+    /**
+     * What Save and exit leaves of an editor an Edit attempt opened: its lock given back (the release by
+     * note) and the attempt finished, as {@code saveAndExit} does
+     * ({@link CaseManagementNoteRevisionConflictUnitTest}).
+     */
+    private void exitAfterSave(String attempt) {
+        lockRows.clear();
+        session.removeAttribute(CACHE_KEY);
+        MockHttpServletRequest exit = new MockHttpServletRequest("POST", "/carlos/CaseManagementEntry");
+        exit.setSession(session);
+        exit.setParameter("demographicNo", PATIENT);
+        exit.setParameter("editAttempt", attempt);
+        ReflectionTestUtils.invokeMethod(action(exit), "finishEditAttempt", session, PATIENT);
+    }
+
+    @Test
+    @DisplayName("should keep refusing an Edit that arrives after its Cancel while many editors of the session save and exit")
+    void shouldRefuseADelayedEditAfterItsCancel_whenManyEditorsSavedAndExited() throws Exception {
+        keepLockRows();
+        showSavedNote(5009L);
+        // A long session: many classic editors of this chart were opened, then saved and exited.
+        for (int earlier = 1; earlier <= CaseManagementEntry2Action.MAX_EDIT_ATTEMPTS + 8; earlier++) {
+            String attempt = String.format("%032x", earlier);
+            assertThat(answerOf(edit(5009L, attempt)).path("lockTaken").booleanValue()).isTrue();
+            exitAfterSave(attempt);
+        }
+        // The page gave its Edit up for lost and chose Cancel before the server answered that Edit.
+        assertThat(answerOf(cancelAttempt(ATTEMPT)).path("releaseNoteLock").asText()).isEqualTo("cancelled");
+        // More editors come and go before the delayed Edit arrives.
+        for (int later = 1; later <= 3; later++) {
+            String attempt = String.format("%032x", 1000 + later);
+            assertThat(answerOf(edit(5009L, attempt)).path("lockTaken").booleanValue()).isTrue();
+            exitAfterSave(attempt);
+        }
+
+        var late = answerOf(edit(5009L, ATTEMPT));
+
+        assertThat(late.path("isNoteEdited").asText()).isEqualTo("cancelled");
+        assertThat(late.path("ownedBySession").booleanValue()).isFalse();
+        assertThat(lockRows).isEmpty();
+    }
+
     @Test
     @DisplayName("should never forget an Edit attempt whose lock may still stand, however many attempts follow it")
     void shouldKeepAnOpenEditorsAttempt_whenManyLaterAttemptsAreSettled() throws Exception {

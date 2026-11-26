@@ -219,11 +219,14 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     /** Session key of the classic Edit attempts this session has seen, by patient and attempt. */
     private static final String EDIT_ATTEMPTS_KEY = CaseManagementEntry2Action.class.getName() + ".editAttempts";
     /**
-     * Beyond this many Edit attempts a session forgets its oldest settled ones (cancelled, nothing left to
-     * give back). An attempt whose lock may still stand is kept.
+     * Beyond this many Edit attempts a session forgets its oldest settled ones (over, with nothing left to
+     * give back: cancelled, refused, or saved and exited). An attempt whose lock may still stand is kept.
      */
     static final int MAX_EDIT_ATTEMPTS = 32;
-    /** The most Edit attempts a session keeps whatever their state; only a memory bound, never reached in use. */
+    /**
+     * The most Edit attempts a session keeps whatever their state; only a memory bound. Reaching it takes
+     * that many editors left open or give-backs still failing in one session.
+     */
     static final int MAX_EDIT_ATTEMPTS_KEPT = 256;
     private static final java.util.regex.Pattern EDIT_ATTEMPT_FORMAT = java.util.regex.Pattern.compile("[0-9a-f]{32}");
 
@@ -1217,13 +1220,14 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
     /**
      * What the server knows of one classic Edit attempt (#6132): the lock row the attempt created (null
-     * when it created none, because the session already held the row through another editor), and
-     * whether the page's Cancel has been chosen for it. A cancelled attempt that still names a row has
-     * not given it back yet (its release failed and the page offers Cancel again). An Edit that arrives
-     * after its own Cancel is refused and gives back anything it took. Refused attempts are not kept.
+     * when it created none, because the session already held the row through another editor, or once that
+     * row is given back), and whether the attempt is over: the page's Cancel was chosen, the Edit was
+     * refused, or its editor saved and exited. An attempt that is over and still names a row has not given
+     * it back yet (a delete failed); one that is over and names none is settled. An Edit that arrives after
+     * its attempt is over is refused and gives back anything it took.
      *
-     * @param lockId the row this attempt created, or null
-     * @param cancelled whether the page's Cancel was chosen for this attempt
+     * @param lockId the row this attempt created and has not given back, or null
+     * @param cancelled whether the attempt is over (cancelled, refused, or saved and exited)
      */
     private record EditAttempt(Long lockId, boolean cancelled) implements Serializable {
         private static final long serialVersionUID = 1L;
@@ -1242,11 +1246,13 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
     /**
      * Records what is known of an attempt. Beyond {@link #MAX_EDIT_ATTEMPTS} the oldest settled attempts
-     * (cancelled, nothing left to give back) are forgotten first, never one whose lock may still stand: an
-     * editor left open while many later attempts come and go keeps its own. A cancellation that came
-     * before its Edit is settled too, and is forgotten only once more than {@link #MAX_EDIT_ATTEMPTS}
-     * attempts are known and it is the oldest settled one: far later than a delayed Edit request arrives.
-     * {@link #MAX_EDIT_ATTEMPTS_KEPT} bounds the memory only. Under the session mutex.
+     * (over, nothing left to give back) are forgotten first, never one whose lock may still stand: an
+     * editor left open while many later attempts come and go keeps its own. An editor that saved and
+     * exited settles its attempt ({@link #finishEditAttempt}), so finished editors do not fill these
+     * places. A cancellation that came before its Edit is settled too, and is forgotten only once more
+     * than {@link #MAX_EDIT_ATTEMPTS} attempts are known and it is the oldest settled one: far later than a
+     * delayed Edit request arrives. {@link #MAX_EDIT_ATTEMPTS_KEPT} bounds the memory only. Under the
+     * session mutex.
      */
     private static void rememberEditAttempt(LinkedHashMap<String, EditAttempt> attempts, String key, EditAttempt attempt) {
         attempts.remove(key);
@@ -1278,6 +1284,26 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             LinkedHashMap<String, EditAttempt> attempts = editAttempts(session, false);
             EditAttempt known = attempts == null ? null : attempts.get(editAttemptKey(patient, attempt));
             return known != null && known.cancelled();
+        }
+    }
+
+    /**
+     * Marks the classic Edit attempt this request names as finished, once its editor has saved and given
+     * back its lock (Save and exit). From then on it is settled: an Edit under it is refused, its Cancel
+     * finds nothing to give back, and the session may forget it before a cancellation that still guards
+     * against a delayed Edit. An attempt that is already over is left as it is, so one whose give-back is
+     * pending keeps naming its row.
+     */
+    private void finishEditAttempt(HttpSession session, String patient) {
+        String attempt = request.getParameter(EDIT_ATTEMPT_PARAM);
+        if (!isEditAttemptId(attempt)) return;
+        String key = editAttemptKey(patient, attempt);
+        synchronized (org.springframework.web.util.WebUtils.getSessionMutex(session)) {
+            LinkedHashMap<String, EditAttempt> attempts = editAttempts(session, false);
+            EditAttempt known = attempts == null ? null : attempts.get(key);
+            if (known != null && !known.cancelled()) {
+                attempts.put(key, new EditAttempt(null, true));
+            }
         }
     }
 
@@ -1416,8 +1442,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
      *
      * @return {@link #NONE} after a refused access check or a malformed request, whose status is set;
      *         otherwise {@code null}, once the JSON answer is written
-     * @throws Exception declared for the action's dispatcher; in practice a {@link RuntimeException} when
-     *         the note or the lock store cannot be read or written, which the page treats as a lost answer
+     * @throws IOException when the JSON answer cannot be written to the response
+     * @throws Exception declared for the action's dispatcher; otherwise a {@link RuntimeException} when the
+     *         note or the lock store cannot be read or written, which the page treats as a lost answer
      */
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
@@ -3281,6 +3308,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         releaseNoteLock(providerNo, Integer.parseInt(demoNo), noteId);
+        // The classic editor is finished: its Edit attempt no longer takes a place among the open ones (#6132).
+        finishEditAttempt(session, demoNo);
         this.setMethod("view");
         String error = (String) request.getAttribute("DateError");
         if (error != null) {
