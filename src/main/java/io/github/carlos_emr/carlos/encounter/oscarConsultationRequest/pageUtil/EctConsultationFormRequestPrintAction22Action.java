@@ -240,14 +240,13 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             for (int i = 0; i < docs.size(); i++) {
                 EDoc doc = docs.get(i);
                 if (doc.isPrintable()) {
-                    String path = documentDirectory.path();
                     if (doc.isImage()) {
-                        InputStream imagePdf = renderImageAttachment(path, doc);
+                        InputStream imagePdf = renderImageAttachment(documentDirectory.path(), doc);
                         streams.add(imagePdf);
                         alist.add(imagePdf);
 
                     } else if (doc.isPDF()) {
-                        alist.add(path + doc.getFileName());
+                        alist.add(consultationPdfPath(new File(documentDirectory.path()), doc.getFileName()));
                     } else if (logger.isErrorEnabled()) {
                         logger.error("EctConsultationFormRequestPrintAction: {} is marked as printable but no means have been established to print it.", LogSafe.sanitize(doc.getType()));
                     }
@@ -327,6 +326,31 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         try (PdfBuffer output = new PdfBuffer()) {
             new ConsultationPDFCreator(request, output).printPdf(loggedInInfo);
             return output.openInputStream();
+        }
+    }
+
+    /**
+     * Resolves a stored PDF name to its canonical file inside the clinic document directory before
+     * the merger reads it. The name is validated as one exact filename component, so legacy names
+     * with spaces or accented characters still print, and its canonical target (symbolic links
+     * resolved) must stay inside the directory.
+     *
+     * @throws IOException if the directory is missing, the name is invalid or its target leaves the directory
+     */
+    // FindSecBugs PATH_TRAVERSAL_IN: the stored name is accepted only as one validated path component, and the
+    // canonical target built from that value is confined to the document directory before it is returned.
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "stored name accepted only as one validated path component; canonical target confined to the document directory")
+    static String consultationPdfPath(File documentDirectory, String storedName) throws IOException {
+        if (!documentDirectory.isDirectory()) {
+            throw new IOException("DOCUMENT_DIR is not an existing directory; rejecting file access");
+        }
+        try {
+            String storedFileName = PathValidationUtils.validatePathComponent(storedName, "consultation PDF attachment");
+            File source = new File(documentDirectory, storedFileName).getCanonicalFile();
+            return PathValidationUtils.validateExistingPath(source, documentDirectory).getPath();
+        } catch (IOException | SecurityException _) {
+            // No cause: its message can carry the stored file name, and execute() logs this exception.
+            throw new IOException("Invalid consultation PDF attachment");
         }
     }
 
