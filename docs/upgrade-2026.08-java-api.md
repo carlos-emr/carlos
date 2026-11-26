@@ -82,6 +82,7 @@ preserves every historical edge case. Test those cases in the custom caller.
 
 | Type or dependency | Migration |
 | --- | --- |
+| `utility.OscarTrackingBasicDataSource.debugMap` | The public field and its monitor have been removed. Rebuild extensions using the [JDBC diagnostic methods](release-notes-2026.08.md#jdbc-and-packaged-installation). |
 | `io.github.carlos_emr.AppointmentMainBean` | Fifteen public `queryResults`, `queryResults_paged`, `queryResultsCaisi` and `getString(ResultSet, String/int)` overloads removed in #5694. Migrate JSP query code to typed appointment DAOs/services such as `OscarAppointmentDao`/`AppointmentSearchDao`; remaining `doConfigure(String[][])` does not execute those old query arrays. |
 | `util.SqlUtils` | Both `getQueryResultsList` and `getRow` overload pairs (plain SQL and varargs) removed in #5694. Use the domain DAO/service or a deliberately scoped `LegacyJdbcQuery` boundary with bound parameters. |
 | `billings.ca.bc.pageUtil.BillCodesTableWrapper` | Deleted with displaytag. Use the current JSTL-rendered table and client-side sorting/paging contract; migrate custom `display:table`/`display-el` tags. |

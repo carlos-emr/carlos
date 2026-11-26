@@ -556,6 +556,13 @@ and [modern chart cutover and rollback](modern-chart-cutover.md).
 
 ### JDBC and packaged installation
 
+The public `OscarTrackingBasicDataSource.debugMap` field has been removed.
+Rebuild local Java or JSP extensions that reference it. Use `isConnectionTracked(connection)`
+for membership, `trackedConnectionCount()` for the current count, and
+`logDebugMapToError()` to log a snapshot of acquisition traces. Code that used
+`synchronized (debugMap)` for its own shared state must use its own lock.
+The data source owns tracking updates and shutdown cleanup.
+
 MariaDB Connector/J 3.5.11 replaces MySQL Connector/J. The compatibility adapter
 accepts legacy driver names and MySQL-style URLs, including those still produced
 by the pinned `carlos-ctl` 1.3.1 for **new** packaged installs. WAR/devcontainer
