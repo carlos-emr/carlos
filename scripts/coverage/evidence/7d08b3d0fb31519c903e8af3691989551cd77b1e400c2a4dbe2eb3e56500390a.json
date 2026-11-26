@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "cf05c656acc95f3fef88c1616c82aab06988b09b",
+  "comparisonSha256": "983a3fb85f97ca67cc954433013a12f166bb319df7d48d934120f32dbac42573",
+  "baselineCommit": "edfa3c05e391ba6a0ce7a3e04a48ec457a2ed6b8",
+  "baselineSourceTree": "cf05c656acc95f3fef88c1616c82aab06988b09b",
+  "baselineReportSha256": "fb64819fc995700d18b6f13efc8b538f4a6b4b289d739dfd53e87706c5707400",
+  "baselineLane": "Focused Java unit and H2 integration verification of pre-existing release changes, JDK 25 and JaCoCo 0.8.16. EDocUtil is byte-identical to the release target c8617338a89.",
+  "baselineTestCounts": {
+    "tests": 592,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "08faf06c9529ad2eae7eeee0c47da7af94dd15624d7c84df591e73a526a12564",
+  "baselineTestReportsHashFormat": "SHA-256 of sorted Surefire XML manifest lines: '<sha256>  <file name>' followed by LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/documentManager/EDocUtil.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "37ce2f2c6b3fa15049557872f42a62e7e94650ac"
+    }
+  },
+  "exclusions": {}
+}
