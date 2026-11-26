@@ -13,11 +13,13 @@ import io.github.carlos_emr.carlos.commn.model.DemographicContact;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalContact;
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -89,16 +91,27 @@ class DemographicContactCreatorHealthCareTeamUnitTest extends CarlosUnitTestBase
         ProfessionalContact present = new ProfessionalContact();
         present.setLastName("Present");
         when(contacts.find(11)).thenReturn(present);
-        List<DemographicContact> team = new ArrayList<>(List.of(
-                link(DemographicContact.TYPE_PROFESSIONALSPECIALIST, "9"),
-                link(DemographicContact.TYPE_CONTACT, "10"),
+        DemographicContact missingSpecialist = link(DemographicContact.TYPE_PROFESSIONALSPECIALIST, "9");
+        DemographicContact missingContact = link(DemographicContact.TYPE_CONTACT, "10");
+        ReflectionTestUtils.setField(missingSpecialist, "id", 901);
+        ReflectionTestUtils.setField(missingContact, "id", 902);
+        List<DemographicContact> team = new ArrayList<>(List.of(missingSpecialist, missingContact,
                 link(DemographicContact.TYPE_CONTACT, "11")));
 
-        List<DemographicContact> filled = DemographicContactCreator.addContactDetailsToDemographicContact(team);
+        List<DemographicContact> filled;
+        List<String> warnings;
+        try (LogCapture logs = LogCapture.forLogger(DemographicContactCreator.class)) {
+            filled = DemographicContactCreator.addContactDetailsToDemographicContact(team);
+            warnings = logs.messages();
+        }
 
         assertThat(filled.get(0).getDetails()).isNull();
         assertThat(filled.get(1).getDetails()).isNull();
         assertThat(filled.get(2).getDetails()).isSameAs(present);
+        // Only the link's surrogate id is logged: no name, contact id or other detail.
+        assertThat(warnings).containsExactly(
+                "Health care team link 901 names a directory specialist that no longer exists",
+                "Health care team link 902 names a contact that no longer exists");
     }
 
     @Test
