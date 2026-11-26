@@ -109,6 +109,56 @@ public class LabMeasurementFilingServiceIntegrationTest extends CarlosTestBase {
         return new TransactionTemplate(transactions).execute(status -> measurementDao.findByValue("lab_no", String.valueOf(lab)));
     }
 
+    /** What another transaction sees right now: the upload's own is still open when this is called inside it. */
+    private List<Measurement> filedElsewhere(int lab) {
+        TransactionTemplate other = new TransactionTemplate(transactions);
+        other.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        return other.execute(status -> measurementDao.findByValue("lab_no", String.valueOf(lab)));
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void shouldFileAfterTheUploadCommits_notBefore_whenCalledInsideTheUploadsTransaction() {
+        int lab = storedReport("ACC-INT-AFTER");
+        var service = service(String.valueOf(lab));
+        List<Measurement> beforeCommit = new TransactionTemplate(transactions).execute(status -> {
+            service.fileAfterCommit(filing(lab, "ACC-INT-AFTER", result(lab, "5.1", "3767")));
+            return filedElsewhere(lab);
+        });
+
+        // Not while the upload's transaction was open; and, read from another connection, there once it ended:
+        // the filing committed in a transaction of its own.
+        assertThat(beforeCommit).isEmpty();
+        assertThat(filedElsewhere(lab)).extracting(Measurement::getDataField).containsExactly("5.1");
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void shouldFileNothing_whenTheUploadRollsBack() {
+        int lab = storedReport("ACC-INT-ROLLEDBACK");
+        var service = service(String.valueOf(lab));
+
+        new TransactionTemplate(transactions).executeWithoutResult(status -> {
+            service.fileAfterCommit(filing(lab, "ACC-INT-ROLLEDBACK", result(lab, "5.1", "3767")));
+            status.setRollbackOnly();
+        });
+
+        assertThat(filedElsewhere(lab)).isEmpty();
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void shouldLetTheUploadCommitAndFileNothing_whenTheFilingAfterCommitFails() {
+        int lab = storedReport("ACC-INT-BROKEN");
+        var service = service(String.valueOf(lab));
+
+        // The upload reports success (no exception reaches it) though its filing failed.
+        new TransactionTemplate(transactions).executeWithoutResult(status -> service.fileAfterCommit(
+                filing(lab, "ACC-INT-BROKEN", result(lab, "5.1", "3767"), result(lab, "5.2", "x".repeat(70_000)))));
+
+        assertThat(filedElsewhere(lab)).isEmpty();
+    }
+
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     void shouldKeepNothingOfTheFiling_whenOneResultsExtensionFails() {
