@@ -19649,7 +19649,7 @@
       ],
       "timeoutSec": 240,
       "profile": "consult-health-care-team",
-      "notes": "#6201: unmapped and mapped HCT roles fill contact details and persist the correct service/contact identity; owned fixtures only.",
+      "notes": "#6201: unmapped and mapped HCT roles fill contact details and persist the correct service/contact identity. #6202: members with a NULL or blank college/billing number are listed, marked and save; a member without consent to contact is left out and counted; contact free text cannot run as script. Owned fixtures only.",
       "fixtures": "Owned synthetic patient, professional contact, patient HCT link, consultation service and requests; request descendants and signatures removed by owned keys. These rows are in shared lists, so this check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "mutates": [
         "Contact",

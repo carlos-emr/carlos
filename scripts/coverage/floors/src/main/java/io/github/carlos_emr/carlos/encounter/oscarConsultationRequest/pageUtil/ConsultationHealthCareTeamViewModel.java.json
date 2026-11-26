@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/encounter/oscarConsultationRequest/pageUtil/ConsultationHealthCareTeamViewModel.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 94.11764705882354,
+    "sourceBlob": "87cccc25872b0420485534b8712678b84e44752c"
+  },
+  "evidenceSha256": "0161ea75c2773e07e7145a27890e7cf43430482a10f81462360d54b550ba3239"
+}
