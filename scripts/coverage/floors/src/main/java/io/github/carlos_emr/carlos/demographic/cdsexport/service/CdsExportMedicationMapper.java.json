@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportMedicationMapper.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 97.26027397260275,
+    "instructions": 97.99196787148594,
+    "branches": 87.67123287671232,
+    "sourceBlob": "b8e11c9b918db59847cb132011f55fe86681a7d7"
+  },
+  "evidenceSha256": "11bccc0a31e76b2fe1e25cca7452180cf043a4c4ecfb7084e527bcc7dc4aa19b"
+}

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDrugReferenceLookupService.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 93.47826086956522,
+    "instructions": 94.14634146341463,
+    "branches": 84.21052631578948,
+    "sourceBlob": "cd0bcef37f88bc06788981d160b22d4f6a9b8286"
+  },
+  "evidenceSha256": "11bccc0a31e76b2fe1e25cca7452180cf043a4c4ecfb7084e527bcc7dc4aa19b"
+}
