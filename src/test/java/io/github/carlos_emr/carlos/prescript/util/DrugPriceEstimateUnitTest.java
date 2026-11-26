@@ -32,7 +32,7 @@ class DrugPriceEstimateUnitTest {
 
     @ParameterizedTest
     @NullAndEmptySource
-    @ValueSource(strings = {" ", ".", "-.08", "1.2.3", "1e2", "$2", "1,25", "NA"})
+    @ValueSource(strings = {" ", ".", "-.08", "1.", "1.2.3", "1e2", "$2", "1,25", "１.２", "NA"})
     void shouldOmitEstimate_whenUnitPriceIsInvalid(String price) {
         assertThat(DrugPriceEstimate.from(price, "30")).isNull();
     }
@@ -50,9 +50,13 @@ class DrugPriceEstimateUnitTest {
         "' 30 ', , 30",
         "0, Tablet,",
         "'30 tabs', Tablet, 30",
+        "30tabs, Tablet, 30",
         "'30 TABLETS', Tablet (extended-release), 30",
         "'30 caps.', Capsule, 30",
         "'0.5 tablet', Tablet, 0.5",
+        "'.5 CAP.', Capsule, .5",
+        "'30.', Tablet,",
+        "'30 .', Tablet,",
         "'30 days', Tablet,",
         "'2 wk', Tablet,",
         "'1-2 tabs', Tablet,",
@@ -60,6 +64,8 @@ class DrugPriceEstimateUnitTest {
         "'-30 tabs', Tablet,",
         "'30 mL', Solution,",
         "'30 tabs', Capsule,",
+        "'30 caps', Tablet,",
+        "'30 tabſ', Tablet,",
         "'30 tabs', ,"
     })
     void shouldResolveDispenseCount_whenPlainOrInMatchingDosageUnits(String text, String form, String quantity) {
@@ -69,6 +75,8 @@ class DrugPriceEstimateUnitTest {
     @ParameterizedTest
     @CsvSource({
         "30, null, 30",
+        "30, NuLl, 30",
+        "30, nuⅼⅼ,",
         "30, ' ', 30",
         "30, tabs, 30",
         "30, days,",

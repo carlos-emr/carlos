@@ -4,18 +4,14 @@
  */
 package io.github.carlos_emr.carlos.prescript.util;
 
+import com.google.common.base.Ascii;
+
 import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.util.Locale;
-import java.util.regex.Pattern;
 
 /** A Canadian-dollar estimate from a formulary unit price and an optional dispense quantity. */
 public record DrugPriceEstimate(String amount, String quantity) {
-
-    private static final String DECIMAL = "(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)";
-    private static final Pattern PLAIN_DECIMAL = Pattern.compile(DECIMAL);
-    private static final Pattern COUNT = Pattern.compile(
-            "(" + DECIMAL + ")(?:\\s*(tab(?:let)?s?|cap(?:sule)?s?)\\.?)?", Pattern.CASE_INSENSITIVE);
 
     /**
      * Returns a unit-price estimate when the dispense quantity is unavailable.
@@ -26,10 +22,15 @@ public record DrugPriceEstimate(String amount, String quantity) {
         if (price == null) {
             return null;
         }
-        String count = positiveDecimal(quantity);
+        String count = decimal(quantity);
         BigDecimal amount = new BigDecimal(price);
         if (count != null) {
-            amount = amount.multiply(new BigDecimal(count));
+            BigDecimal units = new BigDecimal(count);
+            if (units.signum() > 0) {
+                amount = amount.multiply(units);
+            } else {
+                count = null;
+            }
         }
         return new DrugPriceEstimate(NumberFormat.getCurrencyInstance(Locale.CANADA).format(amount), count);
     }
@@ -42,31 +43,38 @@ public record DrugPriceEstimate(String amount, String quantity) {
         if (quantityText == null) {
             return null;
         }
-        var count = COUNT.matcher(quantityText.strip());
-        if (!count.matches()) {
+        String text = quantityText.strip();
+        int end = decimalEnd(text);
+        if (end == 0 || (end < text.length() && !matchesDosageUnit(text.substring(end), drugForm))) {
             return null;
         }
-        String unit = count.group(2);
-        if (unit != null) {
-            String expectedForm = unit.toLowerCase(Locale.ROOT).startsWith("tab") ? "tablet" : "capsule";
-            if (drugForm == null || !drugForm.strip().toLowerCase(Locale.ROOT).startsWith(expectedForm)) {
-                return null;
-            }
-        }
-        return positiveDecimal(count.group(1));
+        String count = text.substring(0, end);
+        return new BigDecimal(count).signum() > 0 ? count : null;
     }
 
     /** Resolves the Qty/Mitte display assembled from an existing prescription or calculation. */
     public static String dispenseQuantity(String quantity, String unitName, String drugForm) {
-        if (unitName == null || unitName.isBlank() || "null".equalsIgnoreCase(unitName.strip())) {
+        String unit = unitName == null ? "" : unitName.strip();
+        if (unit.isEmpty() || Ascii.equalsIgnoreCase("null", unit)) {
             return dispenseQuantity(quantity, drugForm);
         }
-        return dispenseQuantity(quantity + " " + unitName.strip(), drugForm);
+        return dispenseQuantity(quantity + " " + unit, drugForm);
     }
 
-    private static String positiveDecimal(String value) {
-        String number = decimal(value);
-        return number != null && new BigDecimal(number).signum() > 0 ? number : null;
+    private static boolean matchesDosageUnit(String suffix, String drugForm) {
+        if (drugForm == null) {
+            return false;
+        }
+        String unit = Ascii.toLowerCase(suffix.stripLeading());
+        if (unit.endsWith(".")) {
+            unit = unit.substring(0, unit.length() - 1);
+        }
+        String form = Ascii.toLowerCase(drugForm.strip());
+        return switch (unit) {
+            case "tab", "tabs", "tablet", "tablets" -> form.startsWith("tablet");
+            case "cap", "caps", "capsule", "capsules" -> form.startsWith("capsule");
+            default -> false;
+        };
     }
 
     private static String decimal(String value) {
@@ -74,6 +82,26 @@ public record DrugPriceEstimate(String amount, String quantity) {
             return null;
         }
         String number = value.strip();
-        return PLAIN_DECIMAL.matcher(number).matches() ? number : null;
+        int end = decimalEnd(number);
+        return end > 0 && end == number.length() ? number : null;
+    }
+
+    /** Returns the end of an ASCII decimal prefix, or zero when the prefix is invalid. */
+    private static int decimalEnd(String value) {
+        int end = digitsEnd(value, 0);
+        if (end < value.length() && value.charAt(end) == '.') {
+            int fraction = end + 1;
+            end = digitsEnd(value, fraction);
+            return end == fraction ? 0 : end;
+        }
+        return end;
+    }
+
+    private static int digitsEnd(String value, int start) {
+        int end = start;
+        while (end < value.length() && value.charAt(end) >= '0' && value.charAt(end) <= '9') {
+            end++;
+        }
+        return end;
     }
 }
