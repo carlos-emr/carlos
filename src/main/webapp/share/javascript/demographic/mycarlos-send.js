@@ -49,6 +49,12 @@
         })]);
     }
 
+    // The operation this page last submitted for each patient's document: its id, its device and
+    // whether it is known to be queued. The inbox redraws a document by rebuilding its dialog, and
+    // the server tells copies apart by operation id only, so a rebuilt dialog takes this operation
+    // back (a send whose reply was lost is retried, never queued again under a new id).
+    const submitted = new Map();
+
     function mount(root, options) {
         if (!root) return null;
         if (root.mycarlosSend) return root.mycarlosSend;
@@ -74,13 +80,27 @@
         copyBox.querySelectorAll('[data-status]').forEach(node => { statuses[node.dataset.status] = node.textContent; });
         let next = root.dataset.next || null;
         let busy = false;
+        // Settles when the running request ends; a first-page read asked for meanwhile runs then.
+        let idle = Promise.resolve();
+        let reread = null;
         // Every operation id known to be queued: each row a reply listed and each send the server took.
         // The server lists the patient's deliveries a page at a time and keeps this document's, so the
         // current operation's row can drop off the first page while the operation stays queued.
         const queued = new Set(Array.from(history.rows, row => row.dataset.delivery));
         // Set when the chosen device is no longer offered; cleared only by the clinician's own choice.
         let choiceLost = false;
-        const alreadyQueued = () => queued.has(root.dataset.delivery);
+        const key = root.dataset.patient + '/' + root.dataset.document;
+        // The submitted operation's device, offered again by a rebuilt dialog's first read.
+        let keptDevice = null;
+        const kept = submitted.get(key);
+        if (kept && !root.dataset.delivery) {
+            root.dataset.delivery = kept.deliveryId;
+            keptDevice = kept.deviceKeyId;
+        }
+        const alreadyQueued = () => {
+            const own = submitted.get(key);
+            return queued.has(root.dataset.delivery) || Boolean(own && own.queued && own.deliveryId === root.dataset.delivery);
+        };
         const updateButtons = () => {
             chooser.disabled = busy || chooser.options.length === 0;
             send.disabled = busy || !chooser.value || !root.dataset.delivery || alreadyQueued();
@@ -132,13 +152,17 @@
                 option.textContent = device.acceptedAt + ' · ' + device.fingerprint;
                 chooser.append(option);
             });
-            // A removed selection requires a deliberate new device choice, on this read and every
-            // later one, a read that offered no device at all included. Only when nothing was on offer
-            // yet and no choice was lost (the dialog's first read) is the first device offered, as the
-            // standalone page offers it.
-            if (offered && !devices.some(device => device.deviceKeyId === selected)) choiceLost = true;
+            // The device to keep: the one chosen before this read or, on a rebuilt dialog's first read,
+            // the submitted operation's own. A removed one requires a deliberate new device choice, on
+            // this read and every later one, a read that offered no device at all included. Only when
+            // nothing was on offer yet, nothing is kept and no choice was lost (the dialog's first read)
+            // is the first device offered, as the standalone page offers it.
+            const wanted = keptDevice !== null ? keptDevice : selected;
+            const constrained = keptDevice !== null || offered;
+            keptDevice = null;
+            if (constrained && !devices.some(device => device.deviceKeyId === wanted)) choiceLost = true;
             if (choiceLost) chooser.value = '';
-            else if (offered) chooser.value = selected;
+            else if (constrained) chooser.value = wanted;
             if (noDevice) noDevice.hidden = devices.length !== 0;
         };
         // What became of the copy a send submitted, from its own row in the reply. The action answers
@@ -182,6 +206,8 @@
         async function request(operation, older, retry, renew) {
             if (busy) return;
             busy = true;
+            let ended;
+            idle = new Promise(resolve => { ended = resolve; });
             message.textContent = operation === 'send' ? (copy.sending || copy.busy) : copy.busy;
             updateButtons();
             announce(true, operation);
@@ -193,6 +219,8 @@
                 if (operation === 'send') {
                     params.set('deliveryId', retry ? retry.deliveryId : root.dataset.delivery);
                     params.set('deviceKeyId', retry ? retry.deviceKeyId : chooser.value);
+                    // Kept for the page before the request leaves, as its reply can be lost.
+                    if (!retry) submitted.set(key, {deliveryId: root.dataset.delivery, deviceKeyId: chooser.value, queued: false});
                 }
                 const url = endpoint();
                 if (options.method === 'GET') {
@@ -223,6 +251,8 @@
                 // or when a new copy was asked for.
                 if (operation === 'read' && typeof result.deliveryId === 'string' && (renew || !root.dataset.delivery)) {
                     root.dataset.delivery = result.deliveryId;
+                    // A new copy is a new operation: the queued one is not taken back again.
+                    if (renew) submitted.delete(key);
                 }
                 reconcileDevices(result.devices);
                 if (title && typeof result.title === 'string') title.textContent = result.title;
@@ -230,6 +260,8 @@
                 if (!older) history.replaceChildren();
                 append(result.deliveries);
                 next = result.nextCursor;
+                const own = submitted.get(key);
+                if (own && queued.has(own.deliveryId)) own.queued = true;
                 message.textContent = result.syncStatus === 'quarantined' ? copy.sync
                     : result.syncStatus === 'busy' ? copy.busy
                     : retry ? copy.retried
@@ -238,10 +270,18 @@
                 message.textContent = (failure && failure.userMessage) || copy.error;
             } finally {
                 busy = false;
+                ended();
                 updateButtons();
                 announce(false, operation);
             }
         }
+        // A read of the first page now, or right after the request that is running (an older page, a
+        // status check), so a dialog reopened meanwhile never keeps what it showed before it closed.
+        const read = () => {
+            if (!busy) return request('read', false);
+            if (!reread) reread = idle.then(() => { reread = null; return read(); });
+            return reread;
+        };
         addRetryControls();
         chooser.addEventListener('change', () => {
             choiceLost = false;
@@ -253,7 +293,7 @@
         if (fresh && fresh.tagName === 'BUTTON') fresh.addEventListener('click', () => request('read', false, null, true));
         updateButtons();
         root.mycarlosSend = {
-            read: () => request('read', false),
+            read,
             isBusy: () => busy,
             focusTarget: () => (chooser.disabled ? null : chooser)
         };

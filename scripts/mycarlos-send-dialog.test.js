@@ -32,6 +32,19 @@ function page({documents = ['44'], scripts = SCRIPTS, context = '/FAKE', globals
     return {document, dialogs, openers, window, calls};
 }
 
+// The inbox redraws a document by rebuilding its dialog and Send button (clearDocView, then showDocLab).
+function rebuild(view, id = '44') {
+    const {root, parts} = sendRoot(view.document, {dialog: true, data: {document: id, context: '/FAKE'}, token: ''});
+    view.document.ids['mycarlos-send-dialog-' + id] = root;
+    const opener = new Element(view.document, 'a');
+    opener.dataset.mycarlosDialog = 'mycarlos-send-dialog-' + id;
+    view.dialogs[id] = {root, parts};
+    view.openers[id] = opener;
+    return {root, parts};
+}
+
+const device = id => ({deviceKeyId: id, acceptedAt: '2026-10-26T00:00:00Z', fingerprint: '0'.repeat(64)});
+
 async function openRead(view, id = '44', minted = MINTED, rows = []) {
     const event = view.openers[id].click();
     assert.equal(event.defaultPrevented, true, 'the link does not open the standalone page');
@@ -316,8 +329,65 @@ test('a send the server took is queued even when its reply lists no row for it',
     assert.equal(parts.new.hidden, false, 'a new copy is offered');
 });
 
+test('a dialog rebuilt after a lost send reply takes that send back, and its listed copy is not sent again', async () => {
+    const view = page();
+    const first = view.dialogs['44'];
+    await openRead(view);
+    first.parts.form.dispatch('submit'); await tick();
+    view.calls[1].reject(new Error('FAKE lost reply')); await tick();
+    assert.equal(first.parts.message.textContent, 'error');
+    first.parts.close.click();
+    const {root, parts} = rebuild(view);
+    // The send had reached the server: its copy waits for pickup on the first page.
+    await openRead(view, '44', delivery(501).deliveryId, [{...delivery(500, 'waiting'), deviceKeyId: 'FAKE-current-device'}]);
+    assert.equal(root.dataset.delivery, MINTED, 'the rebuilt dialog keeps the submitted operation id');
+    assert.equal(parts.send.disabled, true, 'the submitted copy is not sent again');
+    assert.equal(parts.new.hidden, false, 'a new copy is offered');
+});
+
+test('a dialog rebuilt after a lost send reply retries it with the same id and device when no row lists it', async () => {
+    const view = page();
+    const first = view.dialogs['44'];
+    const devices = [device('FAKE-device-a'), device('FAKE-device-b')];
+    view.openers['44'].click(); await tick();
+    view.calls[0].resolve(state([], {deliveryId: MINTED, devices})); await tick(); await tick();
+    first.parts.device.value = 'FAKE-device-b'; first.parts.device.dispatch('change');
+    first.parts.form.dispatch('submit'); await tick();
+    view.calls[1].reject(new Error('FAKE lost reply')); await tick();
+    first.parts.close.click();
+    const {root, parts} = rebuild(view);
+    view.openers['44'].click(); await tick();
+    view.calls[2].resolve(state([], {deliveryId: delivery(501).deliveryId, devices})); await tick(); await tick();
+    assert.equal(root.dataset.delivery, MINTED, 'the rebuilt dialog keeps the submitted operation id');
+    assert.equal(parts.device.value, 'FAKE-device-b', 'and its device');
+    assert.equal(parts.send.disabled, false, 'Send again retries the submitted operation');
+    parts.form.dispatch('submit'); await tick();
+    const sent = new URLSearchParams(view.calls[3].options.body);
+    assert.equal(sent.get('deliveryId'), MINTED);
+    assert.equal(sent.get('deviceKeyId'), 'FAKE-device-b');
+});
+
+test('reopened while Older deliveries loads, the dialog reads the first page again once that load ends', async () => {
+    const view = page();
+    const {root, parts} = view.dialogs['44'];
+    view.openers['44'].click(); await tick();
+    view.calls[0].resolve(state([delivery(400, 'waiting')], {deliveryId: MINTED, nextCursor: '20'})); await tick(); await tick();
+    parts.more.click(); await tick();
+    assert.equal(new URL(view.calls[1].url).searchParams.get('before'), '20');
+    parts.close.click();
+    assert.equal(root.open, false, 'a read does not hold the dialog');
+    view.openers['44'].click(); await tick();
+    assert.equal(view.calls.length, 2, 'the reopened read waits for the older page');
+    view.calls[1].resolve(state([delivery(300, 'picked_up')])); await tick(); await tick();
+    assert.equal(view.calls.length, 3, 'the reopened dialog reads the first page again');
+    const fresh = new URL(view.calls[2].url);
+    assert.equal(fresh.searchParams.get('method'), 'read');
+    assert.equal(fresh.searchParams.has('before'), false);
+    view.calls[2].resolve(state([delivery(400, 'picked_up')])); await tick(); await tick();
+    assert.deepEqual(parts.history.rows.map(row => row.dataset.status), ['picked_up'], 'the first page as it is now');
+});
+
 test('a device choice the patient removed stays unmade across a read that offers no device, until one is picked', async () => {
-    const device = id => ({deviceKeyId: id, acceptedAt: '2026-10-26T00:00:00Z', fingerprint: '0'.repeat(64)});
     const view = page();
     const {parts} = view.dialogs['44'];
     await openRead(view);
