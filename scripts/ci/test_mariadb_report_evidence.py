@@ -25,6 +25,19 @@ GROWTH_REQUIRED_CASES = {
     "shouldCommitDemographicAudit_whenLoadingWithoutAnMrp(boolean)[2]",
 }
 
+# Issue #5693: one physical comparison per rehabilitation-study table, plus the rollback, audit
+# and archive-failure cases. Spelled out here, independently of the verifier.
+REHAB_REQUIRED_CASES = {
+    *(f"shouldStoreAndShowEveryColumn_exactlyAsTheRetiredRecordDid(String, RehabStudyFormType)[{index}]"
+      for index in range(1, 19)),
+    "shouldRetainTheCommittedFormAndLogSafely_whenTheArchiveReadOrWriteFails(boolean)[1]",
+    "shouldRetainTheCommittedFormAndLogSafely_whenTheArchiveReadOrWriteFails(boolean)[2]",
+    "shouldRollBackEarlierFormWrites_whenALaterVersionIsRefused",
+    "shouldRollBackAnEarlierInsert_whenARelatedDatabaseWriteFails",
+    "shouldRollBackTheGeneratedInsert_whenTheServiceFailsAfterFlushing",
+    "shouldCommitTheDemographicAudit_whenStartingANewForm",
+}
+
 
 TOKEN_REQUIRED_CASES = {
     "shouldUseEpochExpiryAcrossDatabaseZones_withoutDeletingRecentOrOtherPurposeTokens(String)[1]",
@@ -227,6 +240,7 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                 suffix = "" if selected == "generated" else "-" + selected
                 required_names = sorted({
                     "Growth0To36FormPersistenceIntegrationTest": GROWTH_REQUIRED_CASES,
+                    "RehabStudyFormDaoIntegrationTest": REHAB_REQUIRED_CASES,
                     "SoapTokenHousekeepingDaoIntegrationTest": TOKEN_REQUIRED_CASES,
                     "DemographicMergeMariaDbIntegrationTest": MERGE_REQUIRED_CASES,
                     "DemographicWebUnmergeIntegrationTest": UNMERGE_REQUIRED_CASES,
@@ -547,6 +561,40 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                                                 f"Required MariaDB {mode} cases missing: Growth0To36FormPersistenceIntegrationTest: {missing}")
                     finally:
                         path.write_bytes(original)
+
+    def test_rehab_study_required_cases_cannot_be_replaced_in_the_generated_lane(self):
+        self.seed()
+        path = self.reports / "TEST-example.RehabStudyFormDaoIntegrationTest.xml"
+        self.assertTrue(path.exists())
+        for missing in sorted(REHAB_REQUIRED_CASES):
+            with self.subTest(missing=missing):
+                original = path.read_bytes()
+                root = ET.fromstring(original)
+                for case in root:
+                    if case.get("name") == missing:
+                        case.set("name", "shouldPass_forUnrelatedScenario")
+                path.write_bytes(ET.tostring(root))
+                try:
+                    self.assert_refused(self.invoke(),
+                                        f"Required MariaDB generated cases missing: RehabStudyFormDaoIntegrationTest: {missing}")
+                finally:
+                    path.write_bytes(original)
+
+    def test_rehab_study_table_comparisons_cannot_be_removed_in_the_generated_lane(self):
+        self.seed()
+        path = self.reports / "TEST-example.RehabStudyFormDaoIntegrationTest.xml"
+        original = path.read_bytes()
+        root = ET.fromstring(original)
+        for case in list(root):
+            if case.get("name", "").startswith("shouldStoreAndShowEveryColumn_exactlyAsTheRetiredRecordDid"):
+                root.remove(case)
+        root.set("tests", str(len(root)))
+        path.write_bytes(ET.tostring(root))
+        try:
+            self.assert_refused(self.invoke(),
+                                "Required MariaDB generated coverage missing: RehabStudyFormDaoIntegrationTest")
+        finally:
+            path.write_bytes(original)
 
     def test_growth_archive_failure_cases_cannot_be_removed_in_any_lane(self):
         self.seed()

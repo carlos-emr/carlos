@@ -66,8 +66,9 @@ import static org.mockito.Mockito.when;
  * <p>The tables are the {@code CREATE TABLE} statements of the Flyway baseline, loaded into an isolated
  * H2 database (MySQL mode) that this test owns, so the column list of each form is the shipped one. H2
  * reports {@code tinyint(1)} as {@code TINYINT}; MySQL Connector/J reports it as {@code BIT}, which
- * {@link FrmRecordCheckboxRestoreUnitTest} covers. Grip Strength and Self Efficacy are left out here
- * because their tables hold no checkbox columns.
+ * {@link FrmRecordCheckboxRestoreUnitTest} covers. The rehabilitation-study questionnaires of the
+ * original set moved to typed entities (issue #5693) and are covered by
+ * {@code RehabStudyFormPersistenceIntegrationTest}.
  *
  * @since 2026-10-19
  */
@@ -122,31 +123,12 @@ class FrmRecordCheckboxRoundTripIntegrationTest {
     private static Stream<Arguments> roundTripCases() {
         record Case(String name, String table, Supplier<FrmRecord> factory) {
         }
+        // The eighteen rehabilitation-study questionnaires that shared this defect now save and
+        // reopen through typed entities (issue #5693); RehabStudyFormPersistenceIntegrationTest
+        // covers their ticks on the shipped tables.
         return Stream.of(
-                new Case("Frm2MinWalkRecord", "form2MinWalk", Frm2MinWalkRecord::new),
-                new Case("FrmCESDRecord", "formCESD", FrmCESDRecord::new),
-                new Case("FrmCaregiverRecord", "formCaregiver", FrmCaregiverRecord::new),
-                new Case("FrmCostQuestionnaireRecord", "formCostQuestionnaire",
-                        FrmCostQuestionnaireRecord::new),
-                new Case("FrmFallsRecord", "formFalls", FrmFallsRecord::new),
-                new Case("FrmHomeFallsRecord", "formHomeFalls", FrmHomeFallsRecord::new),
-                new Case("FrmIntakeInfoRecord", "formIntakeInfo", FrmIntakeInfoRecord::new),
-                new Case("FrmInternetAccessRecord", "formInternetAccess",
-                        FrmInternetAccessRecord::new),
-                new Case("FrmLateLifeFDIDisabilityRecord", "formLateLifeFDIDisability",
-                        FrmLateLifeFDIDisabilityRecord::new),
-                new Case("FrmLateLifeFDIFunctionRecord", "formLateLifeFDIFunction",
-                        FrmLateLifeFDIFunctionRecord::new),
                 new Case("FrmRhImmuneGlobulinRecord", "formRhImmuneGlobulin",
-                        FrmRhImmuneGlobulinRecord::new),
-                new Case("FrmSF36CaregiverRecord", "formSF36Caregiver", FrmSF36CaregiverRecord::new),
-                new Case("FrmSF36Record", "formSF36", FrmSF36Record::new),
-                new Case("FrmSatisfactionScaleRecord", "formSatisfactionScale",
-                        FrmSatisfactionScaleRecord::new),
-                new Case("FrmSelfAdministeredRecord", "formSelfAdministered",
-                        FrmSelfAdministeredRecord::new),
-                new Case("FrmSelfManagementRecord", "formSelfManagement", FrmSelfManagementRecord::new),
-                new Case("FrmTreatmentPrefRecord", "formTreatmentPref", FrmTreatmentPrefRecord::new))
+                        FrmRhImmuneGlobulinRecord::new))
                 .map(c -> Arguments.of(c.name(), c.table(), c.factory()));
     }
 
