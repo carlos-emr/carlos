@@ -218,8 +218,10 @@
                         <td class="alignLeft alignTop smallText">${carlos:forHtml(not empty dContact.details.fax ? dContact.details.fax : unknown)}</td>
                     </tr>
                     <tr>
-                        <td class="alignRight alignTop smallText">CPSO:</td>
-                        <td><c:catch var="exception">${ dContact.details.cpso }</c:catch></td>
+                        <%-- The cpso field holds any college, MSP or billing number, not only a CPSO
+                             number (issue #6202); share the contact form's province-neutral label. --%>
+                        <td class="alignRight alignTop smallText"><fmt:message key="demographic.contactForm.cpso"/>:</td>
+                        <td class="alignLeft alignTop smallText"><c:catch var="exception">${carlos:forHtml(dContact.details.cpso)}</c:catch></td>
                     </tr>
                 </table>
 

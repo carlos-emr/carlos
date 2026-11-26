@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/form/gate/FormViewVersionValidator.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 95.34883720930233,
+    "branches": 100.0,
+    "sourceBlob": "fd4e610bf6cbc000891c1dffff4d50f0c20c1c31"
+  },
+  "evidenceSha256": "47cebb5d46270c49d60b043e55fde8b906b302d709544581fe38bc47e221be90"
+}

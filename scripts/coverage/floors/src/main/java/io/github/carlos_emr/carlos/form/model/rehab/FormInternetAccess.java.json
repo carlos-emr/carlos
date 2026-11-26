@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/FormInternetAccess.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "6cb44b1b356787de0f8a6de9bbab591808a88e5b"
+  },
+  "evidenceSha256": "adaaab45a70f5bda8eeccf055524a91cf74ac6a15433bee9236539eb7e58401f"
+}

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/form/RehabStudyFormType.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "3a0136889a9a9c3a84e840bd8e9e462e70ee70fc"
+  },
+  "evidenceSha256": "adaaab45a70f5bda8eeccf055524a91cf74ac6a15433bee9236539eb7e58401f"
+}

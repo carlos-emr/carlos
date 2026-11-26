@@ -407,9 +407,12 @@
                 </td>
             </tr>
             <tr>
-                <td align="right"><b><fmt:message key="demographic.contactForm.cpso"/></b></td>
+                <td style="text-align: right;"><b><label for="pcontactCpso"><fmt:message key="demographic.contactForm.cpso"/></label></b></td>
                 <td>
-                    <input type="text" name="pcontact.cpso" value="${carlos:forHtmlAttribute(pcontact.cpso)}" size="30">
+                    <input type="text" name="pcontact.cpso" id="pcontactCpso" value="${carlos:forHtmlAttribute(pcontact.cpso)}" size="30"
+                           aria-describedby="pcontactCpsoHint">
+                    <%-- Issue #6202: the number is optional for a consultation request; say what it is used for. --%>
+                    <div id="pcontactCpsoHint" style="font-size: smaller;"><fmt:message key="demographic.contactForm.cpsoHint"/></div>
                 </td>
             </tr>
             <tr>

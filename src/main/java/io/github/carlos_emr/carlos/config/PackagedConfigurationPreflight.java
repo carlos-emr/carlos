@@ -193,7 +193,7 @@ public final class PackagedConfigurationPreflight {
         return key;
     }
 
-    private static Properties readFile(Path path) throws IOException {
+    static Properties readFile(Path path) throws IOException {
         identity(path);
         try (FileChannel channel = FileChannel.open(path, StandardOpenOption.READ);
              FileLock lock = acquire(channel, true, System.nanoTime() + LOCK_TIMEOUT.toNanos())) {
