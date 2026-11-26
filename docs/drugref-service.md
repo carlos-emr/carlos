@@ -37,7 +37,7 @@ The upstream `drugref2.war` ships with a `META-INF/context.xml` that hardcodes a
 
 This is safe for single-host bare-metal installs (CARLOS and DrugRef on the same machine, both reaching each other over loopback) but **breaks any container or multi-host deployment**: requests from the CARLOS container's bridge IP receive `HTTP 403 Forbidden`.
 
-The container's healthcheck (`curl -fs http://localhost:8080/drugref2/`) still passes because it originates from `127.0.0.1` inside the drugref container itself, so the container reports `healthy` while being unreachable from CARLOS — a confusing failure mode.
+The container checks the DrugRef servlet over loopback. Check access from the CARLOS container as well because the address filter evaluates each client separately.
 
 ### The fix (no upstream change required)
 
@@ -77,10 +77,10 @@ To change the allow list, edit `.devcontainer/drugref/drugref2.xml` directly (th
 From the CARLOS container:
 
 ```bash
-curl -i http://drugref:8080/drugref2/DrugrefService?wsdl
+curl -i http://drugref:8080/drugref2/DrugrefService
 ```
 
-A healthy service returns `HTTP/1.1 200` with the WSDL document. `HTTP/1.1 403` means the requesting IP is outside the allow list — widen `DRUGREF_CATALINA_OPTS`.
+The XML-RPC servlet accepts POST and responds to this GET with HTTP 405. The health check also accepts HTTP 200 from older builds. HTTP 403 indicates the address filter refused the client. HTTP 404 indicates the servlet is unavailable at this path.
 
 ## Drug-Drug Interaction Warnings on the Rx Page
 

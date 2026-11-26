@@ -54,7 +54,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * <p><b>What it prints is decided here only.</b> As decided in #5856: the CPP and every current
  * note, as the chart print's "All notes" gives them ({@link #ALL_NOTES}, {@link #CPP}), with no
  * prescriptions, labs, preventions or allergies (prescriptions are their own chooser item), no date
- * range and no selection. Because the attachment goes to someone else, locked notes are left out. The
+ * range and no selection. Because the attachment goes to someone else, locked notes are left out, and so
+ * are archived notes and the CPP entries the chart hides (archived, or hidden with "Hide Cpp"). The
  * print reads none of the Messenger request's parameters ({@link ParameterlessRequest}), so nothing
  * posted to the chooser can add to it.</p>
  *
@@ -99,14 +100,16 @@ public class MsgEncounterPdfComposer {
 
     /**
      * The composer the action uses: the projection service from Spring, and the chart's own print
-     * ({@link CaseManagementPrint}) with locked notes left out, printing only the notes and, when
-     * asked, the CPP.
+     * ({@link CaseManagementPrint}) with locked and archived notes and hidden CPP entries left out,
+     * printing only the notes and, when asked, the CPP.
      */
     public MsgEncounterPdfComposer() {
         this(SpringUtils.getBean(CdsLegacyProjectionService.class),
                 (loggedInInfo, demographicNo, allNotes, cpp, request, out, maxBytes) -> {
                     CaseManagementPrint print = new CaseManagementPrint();
                     print.leaveOutLockedNotes();
+                    // Sent to a third party as current notes: no archived note, no CPP entry the chart hides.
+                    print.leaveOutArchivedAndHiddenNotes();
                     // The print renders and merges on disk, then refuses a finished PDF over the cap
                     // before copying any of it here.
                     print.limitCompletePdfBytes(maxBytes);
