@@ -318,7 +318,8 @@ the JSPs, `encounterForm` registrations, view gate and XML import allowlist are 
   (`requireReadable`, via `FormViewVersionValidator`) before the page renders, so
   the refusal is the form package's 403 security page, logged once by the Struts
   exception interceptor, rather than a page failure that Tomcat logs as SEVERE and
-  answers with its 500 page. This also applies to Growth 0–36. Any other page whose
+  answers with its 500 page. The same check runs when `FormForwardNamed2Action`
+  redisplays a saved version. Both routes also check Growth 0–36. Any other page whose
   record service refuses while rendering gets the 403 page through the gate's
   backstop only while the response is uncommitted; a refusal after the page has
   committed its response is rethrown unchanged, and the container's error page

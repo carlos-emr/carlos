@@ -22,14 +22,14 @@ import java.util.function.Supplier;
  *
  * @since 2026-11-26
  */
-final class FormViewVersionValidator {
+public final class FormViewVersionValidator {
     static final String GROWTH_VIEW = "formGrowth0_36";
 
     private final Supplier<RehabStudyFormService> rehabStudyForms;
     private final Supplier<Growth0To36FormService> growthForms;
 
     /** Resolves the Spring service proxies on first use. */
-    FormViewVersionValidator() {
+    public FormViewVersionValidator() {
         this(() -> SpringUtils.getBean(RehabStudyFormService.class), () -> SpringUtils.getBean(Growth0To36FormService.class));
     }
 
@@ -45,7 +45,7 @@ final class FormViewVersionValidator {
      * @param formId the {@code formId} parameter, as the page reads it
      * @throws SecurityException if the page's service would refuse the record
      */
-    void requireReadable(String view, LoggedInInfo actor, String patient, String formId) {
+    public void requireReadable(String view, LoggedInInfo actor, String patient, String formId) {
         var rehabStudyForm = RehabStudyForms.forView(view);
         if (rehabStudyForm.isEmpty() && !GROWTH_VIEW.equals(view)) return;
         Integer patientNo = parse(patient);

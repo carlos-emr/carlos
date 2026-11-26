@@ -167,21 +167,23 @@ async function workflow(s) {
     const other = sql.value(`SELECT MIN(demographic_no) FROM demographic WHERE demographic_no<>${patient}
       AND patient_status='AC'`);
     h.assert(/^[1-9]\d*$/.test(String(other)), 'No other active patient exists to request the version under');
-    const before = sql.value(`SELECT COUNT(*) FROM formSF36 WHERE demographic_no IN (${patient}, ${other})`);
-    const response = await context.request.get(
-      h.appUrl(s.config.baseUrl, `/form/${SF36.view}?demographic_no=${other}&formId=${firstId}`),
-      { maxRedirects: 0, failOnStatusCode: false });
-    const body = await response.text();
-    // The view gate refuses a version it cannot read for this patient with the security page's 403,
-    // before the form renders. A 200 error page or a redirect would also satisfy the shared helper,
-    // so the route's own status is asserted first.
-    h.assert(response.status() === 403,
-      `SF-36: another patient's request was answered ${response.status()}, not the gate's 403`);
-    h.assert(!body.includes(s.marker), "SF-36: another patient's request was shown the saved answer");
-    h.assert(response.status() !== 200 || !/name="Q1Ex"[^>]*checked/.test(body),
-      "SF-36: another patient's request was shown the saved form");
-    await h.assertRefused(s, { response: { status: response.status(), headers: response.headers(), body },
-      table: SF36.table, where: `demographic_no IN (${patient}, ${other})`, before, label: 'the cross-patient request' });
+    const where = `demographic_no IN (${patient}, ${other})`;
+    const before = sql.value(`SELECT COUNT(*) FROM formSF36 WHERE ${where}`);
+    const query = `demographic_no=${other}&formId=${firstId}`;
+    for (const path of [
+      `/form/${SF36.view}?${query}`,
+      `/form/forwardname?form_link=${SF36.view}.jsp&${query}`,
+    ]) {
+      const route = path.split('?')[0];
+      const response = await context.request.get(h.appUrl(s.config.baseUrl, path),
+        { maxRedirects: 0, failOnStatusCode: false });
+      const body = await response.text();
+      h.assert(response.status() === 403, `SF-36: ${route} returned ${response.status()} for a foreign version (expected 403)`);
+      h.assert(!body.includes(s.marker) && !/name="Q1Ex"[^>]*checked/.test(body),
+        `SF-36: ${route} showed a saved answer to another patient`);
+      await h.assertRefused(s, { response: { status: response.status(), headers: response.headers(), body },
+        table: SF36.table, where, before, label: `the cross-patient request to ${route}` });
+    }
   });
 }
 
