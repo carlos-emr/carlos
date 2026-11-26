@@ -113,6 +113,23 @@ Browser regression: `scripts/rx-interaction-warnings-playwright-checks.js`.
 
 For a single-host install where CARLOS and DrugRef run on the same machine, the upstream localhost-only default already works — no override needed. For split deployments, drop an equivalent `drugref2.xml` under your Tomcat's `conf/Catalina/localhost/` with the desired CIDR ranges hardcoded in the `allow` attribute.
 
+## Running the Standalone Image
+
+The image built from `.devcontainer/drugref/Dockerfile` (published as `carlos-drugref-dev`) holds Tomcat and `drugref2.war` and nothing else. Started on its own, Tomcat comes up and answers on port 8080, but the `drugref2` context fails to deploy. Current WARs declare a `RemoteCIDRValve` whose `allow` value is a placeholder with a comma-separated default, which the valve cannot parse, and the image carries no database settings. An answer from Tomcat therefore says nothing about DrugRef.
+
+The supported configuration is the one the Compose `drugref` service applies:
+
+| Requirement | Supplied by |
+|-------------|-------------|
+| External context descriptor | `.devcontainer/drugref/drugref2.xml` mounted at `/usr/local/tomcat/conf/Catalina/localhost/drugref2.xml` |
+| Database settings | `drugref2.properties` mounted at `/root/drugref2.properties` (DrugRef reads `${user.home}/drugref2.properties`) |
+| Hibernate dialect | `CATALINA_OPTS=-Dhibernate.dialect=org.hibernate.dialect.MariaDBDialect` |
+| Database | MariaDB at the `db_url` host with the `drugref2` schema loaded from `database/mysql/development-drugref.sql` and then `database/mysql/drugref/*.sql`, as `populate_db.sh` does |
+
+Start the database first. Hibernate validates the schema while the context starts, so a database that is missing or still loading takes the whole context down, and it does not retry. DrugRef is ready when `GET /drugref2/DrugrefService` answers HTTP 405, because the XML-RPC servlet accepts only POST. An HTTP 404 there means the context did not deploy; the cause is in `/usr/local/tomcat/logs/localhost.*.log` inside the container, not in `docker logs`.
+
+CI holds the image to this configuration. `scripts/ci/check-drugref-deployment.sh`, run by the `build-drugref` job of the Development Container Images workflow, starts the image with the Compose service's mounts and environment against a database holding the `drugref2` schema and requires that answer. It also requires the same check to reject the bare image and the deployment without its database.
+
 ## Related Files
 
 - `.devcontainer/drugref/Dockerfile` — builds the drugref2 image from `carlos-emr/drugref2026`
@@ -121,3 +138,4 @@ For a single-host install where CARLOS and DrugRef run on the same machine, the 
 - `.devcontainer/development/config/shared/volumes/drugref2.properties` — DrugRef's DB connection config
 - `.devcontainer/development/config/shared/volumes/carlos.properties` — `drugref_url` setting consumed by CARLOS
 - `.devcontainer/db/scripts/populate_db.sh` — creates the `drugref2` database and applies schema patches
+- `scripts/ci/check-drugref-deployment.sh` — CI check that the image deploys DrugRef with this configuration
