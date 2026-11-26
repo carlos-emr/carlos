@@ -21,6 +21,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Properties;
 import java.util.Locale;
 import java.util.Map;
@@ -381,6 +382,29 @@ class Growth0To36FormPersistenceIntegrationTest extends CarlosTestBase {
                     } catch (Exception e) { throw new AssertionError(e); }
                 });
             }
+
+            // Two more versions committed together keep a copy each, named for their own edit
+            // times; the copy named from the commit clock used to replace the first (#5693 review).
+            int[] together = transaction.execute(status -> new int[] {
+                service.saveVersion(actor, patient, 0, values), service.saveVersion(actor, patient, 0, values)});
+            List<Integer> ids = List.of(id, together[0], together[1]);
+            List<String> expected = new java.util.ArrayList<>();
+            java.util.Date previous = null;
+            for (int version : ids) {
+                java.util.Date edited = forms.findForPatient(patient, version).getFormEdited();
+                if (previous != null) assertThat(edited).isAfter(previous);
+                previous = edited;
+                expected.add("formGrowth0_36_" + patient + "_"
+                        + io.github.carlos_emr.carlos.util.UtilDateUtilities.DateToString(edited, "yyyyMMddHHmmss") + ".xml");
+            }
+            try (var files = Files.list(archive)) {
+                assertThat(files.map(file -> file.getFileName().toString()).sorted().toList()).isEqualTo(expected);
+            }
+            String idColumn = isH2() ? "id" : "ID";
+            for (int index = 0; index < ids.size(); index++) {
+                assertThat(Files.readString(archive.resolve(expected.get(index))))
+                        .contains("<" + idColumn + ">" + ids.get(index) + "</" + idColumn + ">");
+            }
         } finally {
             restore(configuration, "save_as_xml", previousEnabled);
             restore(configuration, "form_record_path", previousPath);
@@ -404,7 +428,9 @@ class Growth0To36FormPersistenceIntegrationTest extends CarlosTestBase {
                 var target = io.github.carlos_emr.carlos.util.JDBCUtil.parseImportFileName(file.getFileName().toString());
                 assertThat(target.formName()).isEqualTo("formGrowth0_36");
                 assertThat(target.demographicNo()).isEqualTo(Integer.toString(patient));
-                assertThat(target.timeStamp()).matches("\\d{14}");
+                // Named for the version's stored edit time, the restored row's identity, not the commit clock.
+                assertThat(target.timeStamp()).isEqualTo(io.github.carlos_emr.carlos.util.UtilDateUtilities.DateToString(
+                        forms.findForPatient(patient, id).getFormEdited(), "yyyyMMddHHmmss"));
                 var document = XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().parse(file.toFile());
                 assertThat(xmlColumns(document)).isEqualTo(xmlColumns(forms.readArchive(patient, id)));
                 assertThat(xmlColumns(document)).hasSize(131);

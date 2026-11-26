@@ -8,12 +8,10 @@ import io.github.carlos_emr.carlos.form.RehabStudyFormType.Prefill;
 import io.github.carlos_emr.carlos.form.model.rehab.RehabStudyAssessment;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.util.JDBCUtil;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PatientRecordAccess;
-import java.nio.file.Path;
 import java.util.Date;
 import java.util.Properties;
 import org.apache.commons.lang3.StringUtils;
@@ -139,12 +137,15 @@ public class RehabStudyFormService {
         if (sourceId > 0) requireVersion(type, patient, sourceId);
         // Every page posts its studyID; the column is NOT NULL and the retired records failed without it.
         if (values.getProperty("studyID") == null) throw new IllegalArgumentException("A study identifier is required");
-        E form = RehabStudyFormValues.fromProperties(type, values, editedNow());
+        // Never the same second as the patient's latest version of this questionnaire (even one
+        // saved earlier in this transaction): the edit time is the version's XML archive identity.
+        Date edited = FormXmlArchive.nextEditTime(forms.findLatestEdited(type.entity(), patient));
+        E form = RehabStudyFormValues.fromProperties(type, values, edited);
         form.setDemographicNo(patient);
         form.setProviderNo(Integer.valueOf(actor.getLoggedInProviderNo()));
         forms.persist(form);
         forms.flush();
-        archiveAfterCommit(type, patient, form.getId());
+        archiveAfterCommit(type, patient, form.getId(), edited);
         return form.getId();
     }
 
@@ -165,23 +166,14 @@ public class RehabStudyFormService {
         PatientRecordAccess.require(security, actor, Integer.toString(patient), "_demographic", "r");
     }
 
-    /** The edit time at the column's whole-second precision, so every database stores the same value. */
-    private static Date editedNow() {
-        long now = System.currentTimeMillis();
-        return new Date(now - Math.floorMod(now, 1000L));
-    }
-
-    private void archiveAfterCommit(RehabStudyFormType<?> type, int patient, int id) {
+    private void archiveAfterCommit(RehabStudyFormType<?> type, int patient, int id, Date edited) {
         if (!Boolean.parseBoolean(CarlosProperties.getInstance().getProperty("save_as_xml", "false"))) return;
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
                 try {
-                    String now = UtilDateUtilities.DateToString(new Date(), "yyyyMMddHHmmss");
-                    Path file = Path.of(CarlosProperties.getInstance().getProperty("form_record_path", "/root"))
-                            .resolve(type.table() + "_" + patient + "_" + now + ".xml");
-                    // JDBCUtil validates the final path under the configured archive directory.
-                    JDBCUtil.saveAsXML(forms.readArchive(type.entity(), patient, id), file.toString());
+                    // Named for this version's stored edit time, never replacing another version's copy.
+                    FormXmlArchive.write(type.table(), patient, edited, forms.readArchive(type.entity(), patient, id));
                 } catch (Exception failure) {
                     // The exception class says where it failed (path, permission, XML, read); its
                     // message and trace can carry clinical values or the patient's file name.

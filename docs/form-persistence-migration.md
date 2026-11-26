@@ -188,8 +188,10 @@ XML archive publication runs only after commit and uses a new patient-bound
 DAO read with the existing interchange encoding/path validation. Archive
 failure retains the already committed form, matching existing behavior.
 Archive basenames retain the existing form/patient/timestamp contract required
-by `JDBCUtil.parseImportFileName`. Column names and encoded values retain the
-existing XML interchange contract.
+by `JDBCUtil.parseImportFileName`; since the rehabilitation-study slice the
+timestamp is the version's stored edit time, unique per patient, and a copy never
+replaces another (see "XML copy identity" below). Column names and encoded values
+retain the existing XML interchange contract.
 
 The integration suite runs with H2 and the physical MariaDB/Flyway harness,
 including CI's generated, Ontario Flyway and BC Flyway lanes.
@@ -284,6 +286,22 @@ the JSPs, `encounterForm` registrations, view gate and XML import allowlist are 
   transaction would hold a second pooled connection per archived save; the Growth
   DAO's archive read is changed the same way, and both suites pin this with a pool
   that can lend only the save's connection.
+- **XML copy identity.** The XML import restores a version from its copy's name,
+  `<table>_<patient>_<yyyyMMddHHmmss>.xml`: it stores the name's edit time as the
+  restored `formEdited` and skips a copy whose patient and edit time it already
+  holds. Both services named the copy from the commit clock, so two versions of one
+  questionnaire committed in the same second (always so in one transaction) wrote
+  the same file and only the last survived. `FormXmlArchive` now gives each
+  version, rehabilitation study and Growth alike, an archive of its own:
+  - a new version's edit time is the current second, or the second after the
+    patient's latest version of that questionnaire when that is not earlier
+    (a latest version more than a minute ahead of the clock is treated as bad
+    data and ignored), so each version has its own patient and edit time;
+  - the copy is named from that stored edit time, not the commit clock;
+  - the name is reserved with an atomic create, so an existing copy is never
+    replaced. Two concurrent saves that each committed before seeing the other
+    can still store the same second; the later copy then takes the next free
+    second, and a restore from it dates that version that much later.
 - **Values.** [RehabStudyFormValues](../src/main/java/io/github/carlos_emr/carlos/form/RehabStudyFormValues.java)
   keeps the retired contract column by column: a stored 1 is shown as
   `checked='checked'`, anything else as empty; `on` or `checked='checked'` (any
@@ -308,7 +326,7 @@ the JSPs, `encounterForm` registrations, view gate and XML import allowlist are 
   write instead of failing on the `NOT NULL` column. A non-numeric provider number,
   which the retired writer stored as 0, is refused as in the Growth slice.
 
-`RehabStudyFormDaoIntegrationTest` (68 cases) passes on H2 and on the physical
+`RehabStudyFormDaoIntegrationTest` (69 cases) passes on H2 and on the physical
 MariaDB generated, Ontario Flyway and BC Flyway schemas (CI currently runs only the
 H2 and generated lanes; see the end of this section). For every table it saves a
 post that gives every column a value through the service and through the retired
@@ -319,10 +337,13 @@ router, trusted identifiers, foreign and cross-questionnaire sources, rollback o
 earlier writes across questionnaires when a later version is refused, a later
 database failure and a failure after flush, the committed demographic audit, study
 ID prefill, physical column metadata, and the XML copy (committed rows only,
-import filename contract, read and filesystem failures logged without values).
+import filename contract named for the stored edit time, read and filesystem
+failures logged without values, and two versions committed in one transaction
+keeping a copy each that both restore through the XML import; H2 cannot parse the
+copy's edit time, so there the import's parse of both copies is checked instead).
 Commits and rollbacks are checked from an independent connection. CI's generated
 MariaDB lane selects the suite through `*Dao*IntegrationTest`, and the evidence
-verifier requires all 68 cases there; the Flyway lanes of
+verifier requires all 69 cases there; the Flyway lanes of
 `.github/workflows/maven-project.yml` list their suites explicitly and need
 `RehabStudyFormDaoIntegrationTest` added to run it (it is in the release
 qualification lanes of `docs/testing/release-2026.08-verification.json`).

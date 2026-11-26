@@ -217,6 +217,8 @@ REQUIRED_CASES = {
         "shouldRollBackTheGeneratedInsert_whenTheServiceFailsAfterFlushing",
         "shouldCommitTheDemographicAudit_whenStartingANewForm",
         "shouldArchiveWithTheSavesOwnConnection_whenThePoolHasNoSpareConnection",
+        # Two versions committed together keep an XML copy each, and both restore (#5693 review).
+        "shouldKeepAndRestoreEachVersionsArchive_whenTwoVersionsCommitTogether",
     },
 }
 # AbstractDaoFindAllOrderingIntegrationTest pins issue #5308 where it matters: MariaDB returns an
@@ -250,7 +252,7 @@ REQUIRED = {"generated": {"AppointmentFieldAuditTransactionIntegrationTest": 3, 
                           "Growth0To36FormPersistenceIntegrationTest": 20, "EncounterFormDaoGroupedHistoryIntegrationTest": 2,
                           # The workflow's Flyway lanes list their suites explicitly; this one is
                           # selected by *Dao*IntegrationTest in the generated lane.
-                          "RehabStudyFormDaoIntegrationTest": 68},
+                          "RehabStudyFormDaoIntegrationTest": 69},
             "flyway": {**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 8, "LabRoutingLookupDaoIntegrationTest": 6,
                        "LegacyLabNativeMariaDbIntegrationTest": 8, "ConsultationArchiveDaoIntegrationTest": 1,
                        "ArchiveAuditTimestampIntegrationTest": 2,

@@ -15,13 +15,16 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.commn.dao.DemographicContactDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
+import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.commn.dao.forms.RehabStudyFormDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.form.model.rehab.RehabStudyAssessment;
 import io.github.carlos_emr.carlos.form.model.rehab.RehabStudyColumn;
 import io.github.carlos_emr.carlos.form.model.rehab.RehabStudyEnrolment;
+import io.github.carlos_emr.carlos.form.service.FormXmlImportService;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.AppointmentManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
@@ -103,6 +106,8 @@ class RehabStudyFormDaoIntegrationTest extends CarlosTestBase {
     @Autowired private RehabStudyFormService service;
     @Autowired private RehabStudyFormDao forms;
     @Autowired private OscarLogDao audit;
+    @Autowired private EncounterFormDao encounterForms;
+    @Autowired private FormXmlImportService importer;
     @Autowired private SecurityInfoManager security;
     @Autowired private PlatformTransactionManager transactions;
     @Autowired @Qualifier("dataSource") private DataSource source;
@@ -535,7 +540,8 @@ class RehabStudyFormDaoIntegrationTest extends CarlosTestBase {
                 var target = JDBCUtil.parseImportFileName(file.getFileName().toString());
                 assertThat(target.formName()).isEqualTo(type.table());
                 assertThat(target.demographicNo()).isEqualTo(Integer.toString(PATIENT));
-                assertThat(target.timeStamp()).matches("\\d{14}");
+                // Named for the version's stored edit time, the restored row's identity, not the commit clock.
+                assertThat(target.timeStamp()).isEqualTo(stamp(forms.findForPatient(type.entity(), PATIENT, id).getFormEdited()));
                 var document = XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().parse(file.toFile());
                 Map<String, String> columns = xmlColumns(document);
                 assertThat(columns).isEqualTo(xmlColumns(forms.readArchive(type.entity(), PATIENT, id)));
@@ -580,7 +586,7 @@ class RehabStudyFormDaoIntegrationTest extends CarlosTestBase {
                 assertThat(event.getLevel()).isEqualTo(Level.ERROR);
                 assertThat(event.getMessage().getFormattedMessage())
                         .isEqualTo("Unable to archive committed rehabilitation study form XML (%s); continuing without XML copy",
-                                failRead ? "IllegalStateException" : "FileNotFoundException")
+                                failRead ? "IllegalStateException" : "FileSystemException")
                         .doesNotContain("Écho", Integer.toString(PATIENT), archivePath.toString());
                 assertThat(event.getThrown()).isNull();
             });
@@ -591,6 +597,105 @@ class RehabStudyFormDaoIntegrationTest extends CarlosTestBase {
             ReflectionTestUtils.setField(target, "forms", forms);
             restore(configuration, "save_as_xml", previousEnabled);
             restore(configuration, "form_record_path", previousPath);
+        }
+    }
+
+    /**
+     * Two versions of one questionnaire committed in one transaction keep an XML copy each, and
+     * both restore. The import takes a version's patient and edit time from the archive name and
+     * skips one it already holds, so the second version's edit time follows the first's and each
+     * copy is named for its own version's edit time (#5693 review: both callbacks used to name the
+     * copy from the commit clock, so the second replaced the first).
+     */
+    @Test
+    void shouldKeepAndRestoreEachVersionsArchive_whenTwoVersionsCommitTogether() throws Exception {
+        RehabStudyFormType<?> type = type("SF36");
+        Properties configuration = CarlosProperties.getInstance();
+        String previousEnabled = configuration.getProperty("save_as_xml");
+        String previousPath = configuration.getProperty("form_record_path");
+        EncounterForm registration = null;
+        try {
+            configuration.setProperty("save_as_xml", "true");
+            configuration.setProperty("form_record_path", archive.toString());
+            Properties first = syntheticPost(type, PATIENT);
+            first.setProperty("Q1Cmt", "FAKE first version");
+            Properties second = syntheticPost(type, PATIENT);
+            second.setProperty("Q1Cmt", "FAKE second version");
+            int[] ids = new TransactionTemplate(transactions).execute(status -> new int[] {
+                service.saveVersion(actor, type, PATIENT, 0, first), service.saveVersion(actor, type, PATIENT, 0, second)});
+            java.util.Date firstEdited = forms.findForPatient(type.entity(), PATIENT, ids[0]).getFormEdited();
+            java.util.Date secondEdited = forms.findForPatient(type.entity(), PATIENT, ids[1]).getFormEdited();
+            assertThat(secondEdited).isAfter(firstEdited);
+
+            Map<String, String> answers = Map.of(stamp(firstEdited), "FAKE first version",
+                    stamp(secondEdited), "FAKE second version");
+            Map<String, Path> archives = new TreeMap<>();
+            try (var files = Files.list(archive)) {
+                files.forEach(file -> archives.put(file.getFileName().toString(), file));
+            }
+            assertThat(archives.keySet()).containsExactly(type.table() + "_" + PATIENT + "_" + stamp(firstEdited) + ".xml",
+                    type.table() + "_" + PATIENT + "_" + stamp(secondEdited) + ".xml");
+            int index = 0;
+            for (Path file : archives.values()) {
+                Map<String, String> columns = caseInsensitive(xmlColumns(
+                        XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().parse(file.toFile())));
+                assertThat(columns.get("id")).isEqualTo(Integer.toString(ids[index++]));
+                assertThat(columns.get("q1cmt")).isEqualTo(answers.get(JDBCUtil.parseImportFileName(
+                        file.getFileName().toString()).timeStamp()));
+            }
+
+            // Restore both from their copies alone.
+            if (encounterForms.findByFormTable(type.table()).isEmpty()) {
+                registration = new EncounterForm();
+                registration.setFormName("FAKE " + type.table());
+                registration.setFormTable(type.table());
+                registration.setFormValue("../form/FAKE-archive-restore?table=" + type.table());
+                EncounterForm registered = registration;
+                new TransactionTemplate(transactions).executeWithoutResult(status -> encounterForms.persist(registered));
+            }
+            deleteIndependently(type.table(), PATIENT);
+            if (isH2()) {
+                // H2 cannot read the archive name's yyyyMMddHHmmss edit time as a timestamp (MariaDB, the
+                // server CARLOS ships with, can), so here the importer's parse of both copies is checked.
+                for (Path file : archives.values()) {
+                    try (var input = Files.newInputStream(file)) {
+                        var request = JDBCUtil.readImportRequest(input, file.getFileName().toString());
+                        assertThat(request.target().demographicNo()).isEqualTo(Integer.toString(PATIENT));
+                        assertThat(caseInsensitive(request.values()).get("q1cmt"))
+                                .isEqualTo(answers.get(request.target().timeStamp()));
+                    }
+                }
+            } else {
+                for (Path file : archives.values()) {
+                    try (var input = Files.newInputStream(file)) {
+                        assertThat(importer.importEntry(input, file.getFileName().toString())).isNotNull();
+                    }
+                }
+                Map<String, String> restored = new TreeMap<>();
+                try (var connection = source.getConnection();
+                     var query = connection.prepareStatement("SELECT formEdited, Q1Cmt FROM " + type.table()
+                             + " WHERE demographic_no = ?")) {
+                    query.setInt(1, PATIENT);
+                    try (var rows = query.executeQuery()) {
+                        while (rows.next()) restored.put(stamp(rows.getTimestamp(1)), rows.getString(2));
+                    }
+                }
+                assertThat(restored).isEqualTo(new TreeMap<>(answers));
+                // A copy whose version is already held is skipped, not duplicated.
+                for (Path file : archives.values()) {
+                    try (var input = Files.newInputStream(file)) {
+                        assertThat(importer.importEntry(input, file.getFileName().toString())).isNull();
+                    }
+                }
+                assertThat(independentCount(type.table(), PATIENT)).isEqualTo(2);
+            }
+        } finally {
+            restore(configuration, "save_as_xml", previousEnabled);
+            restore(configuration, "form_record_path", previousPath);
+            if (registration != null && registration.getId() != null) {
+                String registered = registration.getId();
+                new TransactionTemplate(transactions).executeWithoutResult(status -> encounterForms.remove(registered));
+            }
         }
     }
 
@@ -760,6 +865,25 @@ class RehabStudyFormDaoIntegrationTest extends CarlosTestBase {
             }
         }
         return result;
+    }
+
+    private static String stamp(java.util.Date edited) {
+        return UtilDateUtilities.DateToString(edited, "yyyyMMddHHmmss");
+    }
+
+    /** XML and import column names are upper-case on MariaDB and lower-case on H2. */
+    private static Map<String, String> caseInsensitive(Map<String, String> columns) {
+        Map<String, String> folded = new TreeMap<>();
+        columns.forEach((name, value) -> folded.put(name.toLowerCase(Locale.ROOT), value));
+        return folded;
+    }
+
+    private void deleteIndependently(String table, int patient) throws Exception {
+        try (var connection = source.getConnection();
+             var delete = connection.prepareStatement("DELETE FROM " + table + " WHERE demographic_no = ?")) {
+            delete.setInt(1, patient);
+            delete.executeUpdate();
+        }
     }
 
     private static void restore(Properties properties, String key, String value) {

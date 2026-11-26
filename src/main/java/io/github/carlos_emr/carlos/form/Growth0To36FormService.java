@@ -7,12 +7,10 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.form.model.FormGrowth0To36;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.util.JDBCUtil;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PatientRecordAccess;
-import java.nio.file.Path;
 import java.util.Date;
 import java.util.Properties;
 import org.apache.commons.lang3.StringUtils;
@@ -109,11 +107,15 @@ public class Growth0To36FormService {
         require(actor, patient, "w");
         if (sourceId > 0) requireVersion(patient, sourceId);
         FormGrowth0To36 form = Growth0To36FormValues.fromProperties(values);
+        // Never the same second as the patient's latest Growth version (even one saved earlier in
+        // this transaction): the edit time is the version's XML archive identity.
+        Date edited = FormXmlArchive.nextEditTime(forms.findLatestEdited(patient));
+        form.setFormEdited(edited);
         form.setDemographicNo(patient);
         form.setProviderNo(Integer.valueOf(actor.getLoggedInProviderNo()));
         forms.persist(form);
         forms.flush();
-        archiveAfterCommit(patient, form.getId());
+        archiveAfterCommit(patient, form.getId(), edited);
         return form.getId();
     }
 
@@ -130,17 +132,14 @@ public class Growth0To36FormService {
         PatientRecordAccess.require(security, actor, Integer.toString(patient), "_demographic", "r");
     }
 
-    private void archiveAfterCommit(int patient, int id) {
+    private void archiveAfterCommit(int patient, int id, Date edited) {
         if (!Boolean.parseBoolean(CarlosProperties.getInstance().getProperty("save_as_xml", "false"))) return;
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
                 try {
-                    String now = UtilDateUtilities.DateToString(new Date(), "yyyyMMddHHmmss");
-                    Path file = Path.of(CarlosProperties.getInstance().getProperty("form_record_path", "/root"))
-                            .resolve("formGrowth0_36_" + patient + "_" + now + ".xml");
-                    // JDBCUtil validates the final path under the configured archive directory.
-                    JDBCUtil.saveAsXML(forms.readArchive(patient, id), file.toString());
+                    // Named for this version's stored edit time, never replacing another version's copy.
+                    FormXmlArchive.write("formGrowth0_36", patient, edited, forms.readArchive(patient, id));
                 } catch (Exception _) {
                     MiscUtils.getLogger().error("Unable to archive committed Growth form XML; continuing without XML copy");
                 }

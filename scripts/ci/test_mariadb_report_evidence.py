@@ -38,6 +38,7 @@ REHAB_REQUIRED_CASES = {
     "shouldRollBackTheGeneratedInsert_whenTheServiceFailsAfterFlushing",
     "shouldCommitTheDemographicAudit_whenStartingANewForm",
     "shouldArchiveWithTheSavesOwnConnection_whenThePoolHasNoSpareConnection",
+    "shouldKeepAndRestoreEachVersionsArchive_whenTwoVersionsCommitTogether",
 }
 
 

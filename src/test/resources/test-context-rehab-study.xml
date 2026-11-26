@@ -8,4 +8,6 @@
         <constructor-arg ref="demographicManager"/>
         <constructor-arg ref="securityInfoManager"/>
     </bean>
+    <!-- Restores questionnaire versions from their XML copies (archive restore test). -->
+    <bean class="io.github.carlos_emr.carlos.form.service.FormXmlImportService" autowire="constructor"/>
 </beans>
