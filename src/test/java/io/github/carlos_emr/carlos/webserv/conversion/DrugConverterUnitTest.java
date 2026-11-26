@@ -304,7 +304,9 @@ class DrugConverterUnitTest {
             ".5 mg, 0.5, mg",
             "5 mg (10 mg/mL), 5, mg",
             "10% (100 mg/mL), 10, %",
-            "5 mg 1:1000, 5, mg"
+            "5 mg 1:1000, 5, mg",
+            "10 mg/m\u00B2, 10, mg/m\u00B2",
+            "5 mg \u00BD tablet, 5, mg"
         })
         @DisplayName("should read the first ingredient's strength and unit, and keep a unit of concentration whole")
         void shouldReadFirstStrengthAndUnit_forCombinationAndConcentration(String stored, float strength, String unit) {
@@ -356,12 +358,18 @@ class DrugConverterUnitTest {
          * <p>Blanks around the mark between the two numbers change nothing. Only the character
          * directly after the number was looked at, so "1 / 2 mg" was reported as 1 and a client
          * that sent the drug back stored "1".
+         *
+         * <p>The number that follows need not be written in ASCII digits: one and a half written
+         * with the fraction character U+00BD, a superscript two (U+00B2), a Roman numeral
+         * character (U+2163) and a digit of another script (U+0665) are numbers too. The fraction
+         * and the superscript were passed over as punctuation, so one and a half read as 1.
          */
         @ParameterizedTest(name = "stored \"{0}\"")
         @ValueSource(strings = {
             "1,000 mg", "2,5 mg", "1/2 mg", "5/20 mg", "5-10 mg", "0.5-1 mg", "1,000",
             "1 / 2 mg", "1/ 2 mg", "1 /2 mg", "5 - 10 mg", "1 ,000 mg", "1 000 mg", "1\u00A0000 mg",
-            "2 1/2 mg", "1:1000", "1 : 10 000", "5+20 mg", "10^9 CFU", "1.234.567 mg", "5 (10 mg/mL)"
+            "2 1/2 mg", "1:1000", "1 : 10 000", "5+20 mg", "10^9 CFU", "1.234.567 mg", "5 (10 mg/mL)",
+            "1\u00BD mg", "1 \u00BD mg", "10\u00B2 mg", "5 \u2163 mg", "1 \u0665 mg", "1\u00BD"
         })
         @DisplayName("should report no strength when another number follows the first before any unit")
         void shouldReportNoStrength_whenAnotherNumberFollowsBeforeAnyUnit(String stored) {

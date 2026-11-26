@@ -73,6 +73,15 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
     private static final Pattern TRAILING_SEPARATOR = Pattern.compile("[/,;]++$");
 
     /**
+     * Unicode's three categories of number: a digit of any script, a letter number (a Roman
+     * numeral character) and any other number, which is where the fraction characters and the
+     * superscript digits are. One and a half written with the fraction character is not 1.
+     */
+    private static final int NUMBER_CATEGORIES = 1 << Character.DECIMAL_DIGIT_NUMBER
+            | 1 << Character.LETTER_NUMBER
+            | 1 << Character.OTHER_NUMBER;
+
+    /**
      * Converts from a transfer object to a Drug domain object.
      *
      * @param loggedInInfo information regarding the current logged in user.
@@ -259,7 +268,9 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
      * strength: grouped digits ("1,000 mg", "1 000 mg"), a decimal comma ("2,5 mg"), a fraction
      * ("1/2 mg", "1 / 2 mg"), a ratio ("1:1000"), a power ("10^9 CFU"), a combination written
      * together ("5/20 mg") or a range ("5-10 mg"). Its digits are not the amount (1 is not 1,000)
-     * and the single strength field cannot carry the rest, so nothing is reported.
+     * and the single strength field cannot carry the rest, so nothing is reported. A number is
+     * any Unicode number character, so a fraction character or a superscript after the leading
+     * digits counts as well.
      *
      * <p>Text that starts with a unit and no number is what this service stores for a unit sent
      * without a strength. It is reported as that unit, whole, so that a client which sends it
@@ -311,14 +322,19 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
      */
     private static boolean anotherNumberFollows(String text, int end) {
         int next = end;
-        while (next < text.length() && !startsUnitOrNumber(text.charAt(next))) {
+        while (next < text.length() && !startsUnit(text.charAt(next)) && !isNumber(text.charAt(next))) {
             next++;
         }
-        return next < text.length() && Character.isDigit(text.charAt(next));
+        return next < text.length() && isNumber(text.charAt(next));
     }
 
-    private static boolean startsUnitOrNumber(char c) {
-        return Character.isLetterOrDigit(c) || c == '%';
+    private static boolean startsUnit(char c) {
+        return Character.isLetter(c) || c == '%';
+    }
+
+    /** Whether the character is a number of any kind Unicode knows, not only an ASCII digit. */
+    private static boolean isNumber(char c) {
+        return (NUMBER_CATEGORIES >> Character.getType(c) & 1) == 1;
     }
 
     /**
