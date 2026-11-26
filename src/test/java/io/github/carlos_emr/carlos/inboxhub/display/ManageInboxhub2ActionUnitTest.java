@@ -5,6 +5,7 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.inboxhub.inboxdata.LabDataController;
+import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.mds.data.CategoryData;
 import java.util.ArrayList;
 import org.apache.struts2.ServletActionContext;
@@ -32,26 +33,35 @@ class ManageInboxhub2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(controllers.constructed()).isEmpty();
         }
     }
-    @ParameterizedTest @CsvSource({"displayInboxList,displayList", "displayInboxView,displayView"})
-    void shouldRenderEmptyResults_withRequestedPaginationAndFilters(String method, String result) throws Exception {
+    @ParameterizedTest @CsvSource({"displayInboxList,displayList,false,false", "displayInboxView,displayView,false,false",
+            "displayInboxList,displayList,true,false", "displayInboxView,displayView,true,false",
+            "displayInboxList,displayList,false,true", "displayInboxView,displayView,true,true"})
+    void shouldContinueWhenThePageHasRenderableOrOmittedResults(String method, String result, boolean omitted,
+            boolean hasVisibleItem) throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest(); request.setParameter("method", method);
         request.setParameter("page", "2"); request.setParameter("pageSize", "10");
         request.setParameter("demographicFilter", "770001"); request.setParameter("typeFilter", "DOC");
+        request.getSession().setAttribute("user", "999998");
+        if (omitted) request.setAttribute("inboxDocumentsIncomplete", true);
+        var items = new ArrayList<LabResultData>();
+        if (hasVisibleItem) items.add(mock(LabResultData.class));
         LoggedInInfo info = mock(LoggedInInfo.class); LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), info);
         SecurityInfoManager security = createAndRegisterMock(SecurityInfoManager.class);
         when(security.hasPrivilege(info, "_appointment.doctorLink", SecurityInfoManager.READ, null)).thenReturn(true);
         try (MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class);
              MockedConstruction<LabDataController> controllers = mockConstruction(LabDataController.class,
-                (mock, context) -> when(mock.getLabData(eq(info), any())).thenReturn(new ArrayList<>()))) {
+                (mock, context) -> when(mock.getLabData(eq(info), any())).thenReturn(items))) {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             ManageInboxhub2Action action = new ManageInboxhub2Action();
             assertThat(action.execute()).isEqualTo(result);
             assertThat(action.getQuery().getPage()).isEqualTo(2); assertThat(action.getQuery().getPageSize()).isEqualTo(10);
             assertThat(request.getAttribute("page")).isEqualTo("2");
             assertThat(request.getAttribute("pageSize")).isEqualTo("10");
-            assertThat(request.getAttribute("hasMoreData")).isEqualTo(false);
-            assertThat((ArrayList<?>) request.getAttribute("labDocs")).isEmpty();
+            assertThat(request.getAttribute("hasMoreData")).isEqualTo(omitted || hasVisibleItem);
+            assertThat(request.getAttribute("labDocs")).isSameAs(items);
             verify(controllers.constructed().get(0)).sanitizeInboxFormQuery(info, action.getQuery(), "770001", "DOC");
+            verify(controllers.constructed().get(0), times(hasVisibleItem ? 1 : 0))
+                    .getLabLink(items, action.getQuery(), request.getContextPath(), "999998");
         }
     }
     @ParameterizedTest @NullSource @ValueSource(strings = {"displayInboxForm", "unexpected"})

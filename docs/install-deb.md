@@ -259,7 +259,10 @@ another service already listens on the front-door ports, and it lists exactly
 which ones. The default is **no**. Accept to stop each one and, where possible, keep it
 from starting at boot (disabled, or masked when it cannot be disabled); a
 following note shows what was done to each and the command that brings it back
-once it has been moved to other ports.
+once it has been moved to other ports. Only the services the question listed are
+stopped: one that starts using port 80 or 443 while the question is open is left
+running, printed as `NOT stopped`, logged, and recorded as what keeps the
+install from being ready.
 Decline and nothing is changed, but CARLOS is not reachable until you free the
 ports yourself and run `sudo carlos-ctl finish-install`. A non-interactive
 install leaves other services running unless you explicitly opt in by preseeding
@@ -388,6 +391,30 @@ tool shares its name, language, and overlapping verb set (`check`, `db`,
 `db-migrate`, `db-users`, `backup full|verify|status`, `cert-renew`,
 `rotate`) with the carlos-podman deployment's `carlos-ctl`, so operators can
 move between the two without relearning.
+
+### Ontario billing output storage
+
+CARLOS stages complete OHIP claim and HTML files in `HOME_DIR` before publishing
+them. The billing service needs write access to this directory and support for
+file locking. The default Ubuntu filesystem publishes new files with a hard
+link. On Linux mounts that disallow hard links, CARLOS uses
+`renameat2(RENAME_NOREPLACE)` and a filesystem-provided file identity. This
+includes CIFS mounts whose server and client support that operation.
+
+When both publication methods are unavailable, the billing screen identifies
+the storage requirement. Configure a compatible `HOME_DIR` before retrying.
+If the JVM prohibits native calls, the hard-link method remains available.
+If another program occupies a newly allocated basename or replaces a file
+before a confirmed rollback, CARLOS preserves the independent file, withdraws
+this attempt's remaining outputs and retires its provisional disk records.
+The billing screen requests reconciliation when CARLOS cannot confirm cleanup.
+
+If the service stops abruptly during generation or database cleanup fails, the
+disk and provider rows allocated for that attempt may remain. Before downloading,
+regenerating or submitting that disk, have the billing administrator reconcile
+its claim and HTML files with the recorded providers and the last confirmed
+submission. Provider-restricted downloads briefly share the generation lock while
+opening the authorized file. Keep `.carlos-ohip-disk.lock` in place during service use.
 
 ### Incoming document storage
 

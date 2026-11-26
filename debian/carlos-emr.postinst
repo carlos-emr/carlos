@@ -243,6 +243,12 @@ log_action() {
 # FRONT_DOOR_FREED to the "stopped:" lines for
 # the closing note.
 #
+# Consent covers the listed services only. The question can stay open for as
+# long as the operator likes, so the stop run re-scans; it is handed the units
+# of the plan that was shown (--approved) and stops only those it still finds.
+# A service that took 80/443 while the question was open is left running and
+# reported, never stopped and disabled unseen (#6060).
+#
 # $1 is the version being upgraded from (empty on a first install). An nginx
 # an operator stopped (inactive) before an upgrade stays stopped -- the nginx
 # step below honours that -- and so does whatever they put on 80/443 in its
@@ -295,8 +301,12 @@ free_front_door() {
         return 0
     fi
     front_door_ip="$(configured_bind_ip)"
-    front_door_plan="$(host_conflicts front-door --plan "${front_door_ip}" | sed -n 's/^will-stop: //p')"
+    front_door_scan="$(host_conflicts front-door --plan "${front_door_ip}")"
+    front_door_plan="$(printf '%s\n' "${front_door_scan}" | sed -n 's/^will-stop: //p')"
     [ -n "${front_door_plan}" ] || return 0
+    # The units behind those lines, from the same scan: exactly what the
+    # question lists is what a yes approves.
+    front_door_units="$(printf '%s\n' "${front_door_scan}" | sed -n 's/^will-stop-unit: //p' | tr '\n' ' ' | sed 's/ *$//')"
     db_subst carlos-emr/stop-port-conflicts services \
         "$(printf '%s\n' "${front_door_plan}" | join_lines)" || true
     # Asked on every configure that finds a conflict, not once: a service
@@ -322,7 +332,15 @@ free_front_door() {
         echo "carlos-emr: using saved/preseeded stop-port-conflicts=true; the new default does not reset saved answers. The listed services may be stopped and disabled." >&2
         log_action "front door: using saved/preseeded stop-port-conflicts=true; saved answers are retained"
     fi
-    FRONT_DOOR_FREED="$(host_conflicts front-door "${front_door_ip}" | sed -n 's/^stopped: //p')"
+    front_door_result="$(host_conflicts front-door --approved "${front_door_units}" "${front_door_ip}")"
+    # What still holds a port after the stop, including anything that took
+    # one after the question was shown: named here and in the journal, then
+    # recorded by the nginx step below.
+    printf '%s\n' "${front_door_result}" | sed -n 's/^blocked: //p' | while IFS= read -r blocked_line; do
+        echo "carlos-emr: NOT stopped: ${blocked_line}" >&2
+        log_action "front door: not stopped: ${blocked_line}"
+    done
+    FRONT_DOOR_FREED="$(printf '%s\n' "${front_door_result}" | sed -n 's/^stopped: //p')"
     [ -n "${FRONT_DOOR_FREED}" ] || return 0
     printf '%s\n' "${FRONT_DOOR_FREED}" | while IFS= read -r stopped_line; do
         echo "carlos-emr: ${stopped_line}" >&2

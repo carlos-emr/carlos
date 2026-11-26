@@ -75,6 +75,21 @@ where the earlier build saved "2".
 The inventory, with each place checked and the findings that are not number formatting, is
 in `docs/testing/dose-text-format-inventory.md`.
 
+## Ontario OHIP billing after a single-site import
+
+OHIP Simulation and Generate OHIP File now show eligible physicians and their
+billing disk history when a single-site clinic has no provider-site assignments.
+The seeded administrator can use both pages with the existing role configuration.
+When multisite mode is enabled, an operator restricted by site alone sees only
+providers who share an assigned site. An explicit team billing restriction
+continues to apply in either clinic mode.
+
+During an OSCAR 19 migration, compare the source `multisites` setting with
+the setting in CARLOS before opening billing to staff. This also applies to
+completed imports. A clinic that relied on site assignments to restrict billing
+with multisite mode disabled must enable multisite mode and verify access for its
+operators. [OSCAR 19 import guide](o19-import-deb.md)
+
 ## Unlinking a lab archives the readings it filed
 
 Unlinking a lab report from a patient (Unlink on the lab page) now also archives the
@@ -444,6 +459,13 @@ counts the rows that are shown, and a list that cannot be loaded says so
 
 - The note and issue history popup prints the patient name and the issue title as
   text. Markup stored in either was previously run in the reader's browser.
+- The eForm version list prints each saved form's name and subject as text, the
+  patient-independent eForm lists print the saving provider's name as text, and the
+  document pages print stored document sub-classes, queue names and provider names as
+  text. Markup stored in any of them was previously run in the reader's browser. The
+  document information shown by the Document Browser and Browse Notes leaves a missing
+  acknowledging provider's name or date, annotation or tickler message blank instead of
+  printing `null` ([#3057](https://github.com/carlos-emr/carlos/issues/3057)).
 - Hospital reports (HRM) follow the patient's own access rules. A provider who is
   locked out of a patient, or lacks `_demographic` or `_hrm` read for that patient,
   cannot list, open, print, download or change that patient's hospital reports from

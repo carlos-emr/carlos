@@ -83,6 +83,22 @@ async function main() {
         await page.getByText('Page 3', {exact: true}).waitFor();
         assert.equal(await page.evaluate(() => document.activeElement.dataset.serverPageFocus), 'previous', 'last-page focus moves to an enabled paging control');
         assert.equal(requests, 6);
+        await page.clock.install();
+        for (const stalledPath of ['/csrfguard', '/search']) {
+            // Hold one real browser request until the paging deadline expires. The operator must
+            // be able to retry on this page with its active selection and draft still present.
+            let arrived;
+            const intercepted = new Promise(resolve => { arrived = resolve; });
+            await page.route('**' + stalledPath, () => arrived(), {times: 1});
+            await page.getByRole('button', {name: 'Previous', exact: true}).click();
+            await intercepted;
+            await page.clock.fastForward(30_000);
+            await page.getByRole('alert').filter({hasText: 'Could not load'}).waitFor({timeout: 2000});
+            assert.equal(await page.getByText('Page 3', {exact: true}).count(), 1);
+            assert.equal(await page.locator('#draft').inputValue(), 'unsaved clinical draft');
+        }
+        await page.getByRole('button', {name: 'Previous', exact: true}).click();
+        await page.getByText('Page 2', {exact: true}).waitFor();
         assert.deepEqual(errors, []);
         console.log('PASS: POST paging, fresh CSRF, retained drafts/merge selections, keyboard focus and visible failures');
     } finally { await browser.close(); }

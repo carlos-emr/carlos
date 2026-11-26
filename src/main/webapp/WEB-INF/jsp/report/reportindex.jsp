@@ -68,6 +68,7 @@
 <%@ page import="java.net.URLEncoder" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="java.util.Calendar" %>
@@ -105,22 +106,12 @@
 <%
     boolean isSiteAccessPrivacy = false;
     boolean isTeamAccessPrivacy = false;
-    String provider_dboperation = "search_provider";
-    String mygroup_dboperation = "search_group";
 %>
 <security:oscarSec objectName="_site_access_privacy" roleName="<%=roleName2$%>" rights="r" reverse="false">
-    <%
-        isSiteAccessPrivacy = true;
-        provider_dboperation = "site_search_provider";
-        mygroup_dboperation = "site_search_group";
-    %>
+    <%isSiteAccessPrivacy = IsPropertiesOn.isMultisitesEnable(); %>
 </security:oscarSec>
 <security:oscarSec objectName="_team_access_privacy" roleName="<%=roleName2$%>" rights="r" reverse="false">
-    <%
-        isTeamAccessPrivacy = true;
-        provider_dboperation = "team_search_provider";
-    %>
-
+    <%isTeamAccessPrivacy = true; %>
 </security:oscarSec>
 
 <c:set var="flatpickrLanguage" value="${pageContext.request.locale.language}"/>
@@ -296,7 +287,7 @@
                 <td><select name="provider_no" class="form-select form-select-sm" style="width:auto;display:inline-block">
                     <%
                         for (String reportGroup : SpringUtils.getBean(MyGroupDao.class)
-                                .findReportGroups(curUser_no, "site_search_group".equals(mygroup_dboperation))) {
+                                .findReportGroups(curUser_no, isSiteAccessPrivacy)) {
                             if (isTeamAccessPrivacy) continue;
                     %>
                     <option value="<carlos:encode value='<%= "_grp_"+reportGroup %>' context="htmlAttribute"/>"
@@ -306,8 +297,8 @@
                         }
                     %>
                     <%
-                        ProviderDataDao.ReportScope reportScope = "team_search_provider".equals(provider_dboperation)
-                                ? ProviderDataDao.ReportScope.TEAM : "site_search_provider".equals(provider_dboperation)
+                        ProviderDataDao.ReportScope reportScope = isTeamAccessPrivacy
+                                ? ProviderDataDao.ReportScope.TEAM : isSiteAccessPrivacy
                                 ? ProviderDataDao.ReportScope.SITE : ProviderDataDao.ReportScope.ALL;
                         for (ProviderDataDao.ReportChoice reportProvider : SpringUtils.getBean(ProviderDataDao.class)
                                 .findReportChoices(curUser_no, reportScope)) {

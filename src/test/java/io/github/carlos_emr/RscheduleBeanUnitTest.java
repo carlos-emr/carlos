@@ -26,6 +26,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.util.GregorianCalendar;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -40,6 +42,32 @@ import static org.assertj.core.api.Assertions.assertThat;
 class RscheduleBeanUnitTest {
 
     private static final GregorianCalendar ANY_DATE = new GregorianCalendar(2026, 3, 12);
+
+    @Test
+    void shouldReadAndReplaceProviderRulesWhileACallerHoldsThePublicBeanMonitor() throws Exception {
+        var rule = new RscheduleBean();
+        rule.active = "D";
+        try (var worker = Executors.newSingleThreadExecutor()) {
+            synchronized (rule) {
+                var result = worker.submit(() -> {
+                    rule.setRscheduleBean("A", "2031-05-14", "2031-12-31", "A", "4", "4",
+                            "<WED>1300-1400</WED>", "<WED>0800-0900</WED>", "FAKE");
+                    var original = rule.snapshotForProvider("A");
+                    rule.setRscheduleBean("B", "2031-05-14", "2031-12-31", "1", "4", "",
+                            "<WED>1000-1100</WED>", "FAKE");
+                    assertThat(rule.snapshotForProvider("A")).isNull();
+                    assertThat(rule.snapshotForProvider(null)).isNull();
+                    rule.clear();
+                    assertThat(rule.snapshotForProvider("B")).isNull();
+                    return original;
+                });
+                var original = result.get(15, TimeUnit.SECONDS);
+                assertThat(original.active).isEqualTo("D");
+                assertThat(original.getDateAvailHour("2031-05-14")).isEqualTo("0800-0900");
+                assertThat(original.getDateAvailHour("2031-05-21")).isEqualTo("1300-1400");
+            }
+        }
+    }
 
     @Test
     @DisplayName("getDateAvailHour should return empty string when provider_no is null")

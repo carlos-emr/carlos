@@ -64,6 +64,26 @@ class OhipClaimExtractServiceUnitTest {
     }
 
     @Test
+    void shouldRequireInternalProviderForRestrictedExtract_andQueryOnlyThatProvider() {
+        var bills = mock(BillingDao.class);
+        var extract = new OhipClaimExtractService(bills, mock(BillingDetailDao.class));
+        assertThatThrownBy(() -> extract.dbQueryForProvider(null)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> extract.dbQueryForProvider(" ")).isInstanceOf(IllegalArgumentException.class);
+        org.mockito.Mockito.verifyNoInteractions(bills);
+
+        extract.seteFlag("0");
+        extract.setOhipVer("V03");
+        extract.setProviderNo("123456");
+        extract.setOhipCenter("T");
+        extract.setGroupNo("0000");
+        extract.setSpecialty("00");
+        extract.setBatchCount("1");
+        extract.dbQueryForProvider("803602");
+        org.mockito.Mockito.verify(bills).findByProviderStatusAndDates("123456", "803602", List.of("O", "W"), null);
+        org.mockito.Mockito.verifyNoMoreInteractions(bills);
+    }
+
+    @Test
     void shouldCalculateTotals_withoutBinaryFloatingPointRounding() {
         BillingDao billingDao = mock(BillingDao.class);
         BillingDetailDao billingDetailDao = mock(BillingDetailDao.class);
@@ -180,6 +200,21 @@ class OhipClaimExtractServiceUnitTest {
         }
 
         @Test
+        void shouldPreservePreexistingClaimAndHtmlBytes_whenAnotherFileAppearsAfterAllocation() throws IOException {
+            Path claim = tempDir.resolve("HAT456.001");
+            Path html = tempDir.resolve("HAT456_001.htm");
+            Files.writeString(claim, "original claim");
+            Files.writeString(html, "original HTML");
+            extract.setOhipFilename(claim.getFileName().toString());
+            extract.setHtmlFilename(html.getFileName().toString());
+
+            assertThatThrownBy(() -> extract.writeFile("replacement claim")).isInstanceOf(BillingFileWriteException.class);
+            assertThatThrownBy(() -> extract.writeHtml("replacement HTML")).isInstanceOf(BillingFileWriteException.class);
+            assertThat(Files.readString(claim)).isEqualTo("original claim");
+            assertThat(Files.readString(html)).isEqualTo("original HTML");
+        }
+
+        @Test
         void shouldWriteHtml_andLeaveContentOnDisk() throws IOException {
             extract.setHtmlFilename("HCPv03.html");
 
@@ -203,18 +238,15 @@ class OhipClaimExtractServiceUnitTest {
 
         @Test
         void shouldPropagateBillingFileWriteException_whenWriterCloseFails() {
-            // Pin the close-time IOException contract: the round 7 swap from
-            // PrintStream → BufferedWriter is meaningful only because close()
-            // can throw on flush. Mock FileOutputStream construction so close()
-            // throws a fresh IOException (try-with-resources rejects same-
-            // instance suppression).
+            // Buffered writers can report a full filesystem only on close. Use a fresh
+            // exception for each close so try-with-resources can record suppressed failures.
             extract.setOhipFilename("claim.close.txt");
 
-            try (org.mockito.MockedConstruction<java.io.FileOutputStream> ignored =
-                         org.mockito.Mockito.mockConstruction(java.io.FileOutputStream.class,
-                                 (mockFos, ctx) -> org.mockito.Mockito.doAnswer(inv -> {
+            try (org.mockito.MockedConstruction<java.io.OutputStreamWriter> ignored =
+                         org.mockito.Mockito.mockConstruction(java.io.OutputStreamWriter.class,
+                                 (writer, ctx) -> org.mockito.Mockito.doAnswer(inv -> {
                                      throw new java.io.IOException("simulated close-time flush failure");
-                                 }).when(mockFos).close())) {
+                                 }).when(writer).close())) {
 
                 assertThatThrownBy(() -> extract.writeFile("HE B0001234V03 ..."))
                         .isInstanceOf(BillingFileWriteException.class)
@@ -227,11 +259,11 @@ class OhipClaimExtractServiceUnitTest {
         void shouldPropagateBillingFileWriteException_whenHtmlWriterCloseFails() {
             extract.setHtmlFilename("report.close.html");
 
-            try (org.mockito.MockedConstruction<java.io.FileOutputStream> ignored =
-                         org.mockito.Mockito.mockConstruction(java.io.FileOutputStream.class,
-                                 (mockFos, ctx) -> org.mockito.Mockito.doAnswer(inv -> {
+            try (org.mockito.MockedConstruction<java.io.OutputStreamWriter> ignored =
+                         org.mockito.Mockito.mockConstruction(java.io.OutputStreamWriter.class,
+                                 (writer, ctx) -> org.mockito.Mockito.doAnswer(inv -> {
                                      throw new java.io.IOException("simulated close-time flush failure");
-                                 }).when(mockFos).close())) {
+                                 }).when(writer).close())) {
 
                 assertThatThrownBy(() -> extract.writeHtml("<html/>"))
                         .isInstanceOf(BillingFileWriteException.class)

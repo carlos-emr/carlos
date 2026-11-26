@@ -11,25 +11,34 @@ import java.util.List;
 import org.flywaydb.core.api.configuration.Configuration;
 import org.flywaydb.core.api.logging.Log;
 import org.flywaydb.core.api.logging.LogFactory;
-import org.flywaydb.core.internal.sqlscript.DefaultSqlScriptExecutor;
+import org.flywaydb.core.internal.proprietaryStubs.ErrorOverridesSupportStub;
 
 /** Test launcher without a test-framework dependency, run against the deployed WAR's Flyway API during packaging. */
 public final class FlywayRunnerNotesTest {
     private static final String INDEX = "DB: Duplicate key name 'existing_index' "
-            + "(SQL State: 42000 - Error Code: 1061)";
+            + "(SQL State:  - Error Code: 1061)";
     private static final String COLUMN = "DB: Duplicate column name 'existing_column' "
-            + "(SQL State: 42S21 - Error Code: 1060)";
+            + "(SQL State:  - Error Code: 1060)";
+
+    private static final String PROCEDURE = "DB: PROCEDURE carlos.carlos_cds_provider_index68 does not exist "
+            + "(SQL State:  - Error Code: 1305)";
+    private static final String ROSTER_PROCEDURE = "DB: PROCEDURE carlos.carlos_ensure_historical_roster_lookup "
+            + "does not exist (SQL State:  - Error Code: 1305)";
 
     public static void main(String[] args) {
         RecordingLog sink = new RecordingLog();
         FlywayRunner.ExistingObjectNotes notes = new FlywayRunner.ExistingObjectNotes(type -> sink);
-        Log logger = notes.createLogger(DefaultSqlScriptExecutor.class);
+        Log logger = notes.createLogger(ErrorOverridesSupportStub.class);
         require(summary(notes).isEmpty(), "no notes must produce no summary");
         logger.warn(INDEX);
         logger.warn(COLUMN);
+        logger.warn(PROCEDURE);
+        logger.warn(ROSTER_PROCEDURE);
         require(sink.events.isEmpty(), "expected existing-object notes must not look like warnings");
         require(summary(notes).equals("schema setup: 1 index(es) and 1 column(s) were already present; "
-                + "kept their existing definitions." + System.lineSeparator()), "summary must explain both no-ops");
+                + "kept their existing definitions." + System.lineSeparator()
+                + "schema setup: 2 temporary procedure(s) were already absent before creation."
+                + System.lineSeparator()), "summary must explain the no-ops");
 
         // Only the exact message/state/code combination is an expected note.
         // Real data collisions, truncation, unknown columns and format changes
@@ -38,7 +47,10 @@ public final class FlywayRunnerNotesTest {
                 "DB: Duplicate entry '1' for key 'PRIMARY' (SQL State: 23000 - Error Code: 1062)",
                 "DB: Data truncated for column 'value' (SQL State: 01000 - Error Code: 1265)",
                 "DB: Unknown column 'missing' (SQL State: 42S22 - Error Code: 1054)",
-                INDEX.replace("42000", "01000"), COLUMN.replace("1060", "1062"),
+                PROCEDURE.replace("carlos_cds_provider_index68", "unknown_routine"),
+                ROSTER_PROCEDURE.replace("roster_lookup", "roster_lookup_clinic"),
+                PROCEDURE.replace("1305", "1304"), INDEX.replace("State:  ", "State: 01000 "),
+                COLUMN.replace("1060", "1062"),
                 "different prefix: " + INDEX, INDEX + " more details", "duplicate key", "DB: other warning");
         for (String warning : warnings) {
             logger.warn(warning);
@@ -50,6 +62,8 @@ public final class FlywayRunnerNotesTest {
         logger.error(INDEX);
         require(sink.events.getLast().equals("error:" + INDEX), "duplicate index errors must pass through");
         Exception cause = new IllegalStateException("migration failed");
+        logger.error(PROCEDURE);
+        require(sink.events.getLast().equals("error:" + PROCEDURE), "missing procedure errors must pass through");
         logger.error(COLUMN, cause);
         require(sink.events.getLast().equals("error:" + COLUMN) && sink.cause == cause,
                 "duplicate column errors must retain their exception");
@@ -78,14 +92,14 @@ public final class FlywayRunnerNotesTest {
         FlywayRunner.ExistingObjectNotes resetNotes = new FlywayRunner.ExistingObjectNotes(type -> resetSink);
         LogFactory.setFallbackLogCreator(resetNotes);
         LogFactory.setConfiguration(configuration);
-        LogFactory.getLog(DefaultSqlScriptExecutor.class).warn(INDEX);
+        LogFactory.getLog(ErrorOverridesSupportStub.class).warn(INDEX.replace("State:  ", "State: 42000 "));
         // RE-FETCH after the reset rather than reusing the reference above: what
         // has to survive is the LOOKUP, because Flyway asks LogFactory for its
         // logger again on each operation. Logging through a logger obtained
         // before the reset would still reach the old decorator and pass even if
         // the reset handed Flyway an undecorated one.
         LogFactory.setConfiguration(configuration);
-        Log refetched = LogFactory.getLog(DefaultSqlScriptExecutor.class);
+        Log refetched = LogFactory.getLog(ErrorOverridesSupportStub.class);
         refetched.warn(COLUMN);
         require(resetSink.events.isEmpty(), "expected notes must remain summarized after configuration resets");
         require(summary(resetNotes).contains("1 index(es) and 1 column(s)"), "both notes must survive reset");

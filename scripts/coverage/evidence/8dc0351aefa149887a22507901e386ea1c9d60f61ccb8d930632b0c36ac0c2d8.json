@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "33a6a5faceeb4054afc62547b77dd45d28809444",
+  "comparisonSha256": "226c6f71bfa4b45d6e12131967bd33f3d59688a98c26c6e2cc1d10757a00be97",
+  "baselineCommit": "44eff9004988b219d05b2894ba710be918900d69",
+  "baselineSourceTree": "33a6a5faceeb4054afc62547b77dd45d28809444",
+  "baselineReportSha256": "17728307af727b3ffb606570631af77b70356cd091c9a022e393bb82c416df9e",
+  "baselineLane": "Ubuntu 26.04/OpenJDK 25 Inbox omission, result construction and authenticated pagination regressions, fresh isolated Surefire run for three classes",
+  "baselineTestCounts": {
+    "tests": 30,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.commn.dao.InboxDocumentCompletenessUnitTest",
+    "io.github.carlos_emr.carlos.inboxhub.display.ManageInboxhub2ActionUnitTest",
+    "io.github.carlos_emr.carlos.inboxhub.inboxdata.LabDataControllerUnitTest"
+  ],
+  "baselineTestReportsSha256": "0dc909f089ab770371802ceb4936b2faa9a1099a6a0def0353c69b2a4a7b1146",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/inboxhub/display/ManageInboxhub2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "193a644e7ee4a7fe6574864c424cbcb947b796c9"
+    }
+  },
+  "exclusions": {}
+}

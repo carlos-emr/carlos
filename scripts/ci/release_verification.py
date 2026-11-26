@@ -155,14 +155,14 @@ def load_plan(path=DEFAULT_PLAN, root=ROOT):
     role_checks = {check['id']: check['lifecycleRoles'] for check in checks if 'lifecycleRoles' in check}
     if role_checks:
         expected_roles = {'package-clean-reinstall': ['clean'], 'package-main-upgrade': ['main'],
-                          'package-beta5-upgrade': ['historical']}
+                          'package-beta5-upgrade': ['historical'], 'package-beta8-upgrade': ['previous']}
         required_checks = {name for workstream in work for name in workstream.get('requiredChecks', [])}
         if (role_checks != expected_roles or not set(role_checks) <= required_checks
                 or any(set(check.get('profiles', [])) != {'ON', 'BC'}
                        or check.get('repetitions', 1) != 1
                        or check.get('deploymentScope') != 'orchestrated-package-lifecycle'
                        for check in checks if check['id'] in role_checks)):
-            raise EvidenceError('All independent clean/main/historical lifecycle checks must remain required on ON and BC')
+            raise EvidenceError('All independent clean/main/historical/previous lifecycle checks must remain required on ON and BC')
     for check in checks:
         if 'deploymentScope' in check and (check['deploymentScope'] != 'orchestrated-package-lifecycle'
                 or not check.get('packaged') or check.get('kind') != 'command'
