@@ -327,8 +327,7 @@ the JSPs, `encounterForm` registrations, view gate and XML import allowlist are 
   which the retired writer stored as 0, is refused as in the Growth slice.
 
 `RehabStudyFormDaoIntegrationTest` (69 cases) passes on H2 and on the physical
-MariaDB generated, Ontario Flyway and BC Flyway schemas (CI currently runs only the
-H2 and generated lanes; see the end of this section). For every table it saves a
+MariaDB generated, Ontario Flyway and BC Flyway schemas. For every table it saves a
 post that gives every column a value through the service and through the retired
 writer (`FrmRecordHelp.saveFormRecord`, still used by other forms) and requires
 identical stored rows; it then requires the service's read of every column to equal
@@ -342,11 +341,10 @@ failures logged without values, and two versions committed in one transaction
 keeping a copy each that both restore through the XML import; H2 cannot parse the
 copy's edit time, so there the import's parse of both copies is checked instead).
 Commits and rollbacks are checked from an independent connection. CI's generated
-MariaDB lane selects the suite through `*Dao*IntegrationTest`, and the evidence
-verifier requires all 69 cases there; the Flyway lanes of
-`.github/workflows/maven-project.yml` list their suites explicitly and need
-`RehabStudyFormDaoIntegrationTest` added to run it (it is in the release
-qualification lanes of `docs/testing/release-2026.08-verification.json`).
+MariaDB lane selects the suite through `*Dao*IntegrationTest`. The Ontario and
+BC Flyway lanes select it explicitly, and the evidence verifier requires all 69
+cases in each of the three MariaDB lanes. The release qualification plan also
+includes the suite in all three lanes.
 
 ## Consolidated review of #5696 and #5697
 

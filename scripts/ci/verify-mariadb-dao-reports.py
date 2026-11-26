@@ -313,8 +313,6 @@ REQUIRED = {"generated": {"AppointmentFieldAuditTransactionIntegrationTest": 3, 
                           "ReportingPatientListAuditMariaDbIntegrationTest": 4,
                           "SoapTokenHousekeepingDaoIntegrationTest": 8,
                           "Growth0To36FormPersistenceIntegrationTest": 20, "EncounterFormDaoGroupedHistoryIntegrationTest": 2,
-                          # The workflow's Flyway lanes list their suites explicitly; this one is
-                          # selected by *Dao*IntegrationTest in the generated lane.
                           "RehabStudyFormDaoIntegrationTest": 69},
             "flyway": {**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 8, "LabRoutingLookupDaoIntegrationTest": 6,
                        "LegacyLabNativeMariaDbIntegrationTest": 8, "ConsultationArchiveDaoIntegrationTest": 1,
@@ -340,7 +338,8 @@ REQUIRED = {"generated": {"AppointmentFieldAuditTransactionIntegrationTest": 3, 
                           "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
                           "ReportingPatientListAuditMariaDbIntegrationTest": 4,
                           "SoapTokenHousekeepingDaoIntegrationTest": 8,
-                       "Growth0To36FormPersistenceIntegrationTest": 20, "EncounterFormDaoGroupedHistoryIntegrationTest": 2},
+                       "Growth0To36FormPersistenceIntegrationTest": 20, "EncounterFormDaoGroupedHistoryIntegrationTest": 2,
+                       "RehabStudyFormDaoIntegrationTest": 69},
             "bc-flyway": {"FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementTransactionIntegrationTest": 2, "LabRoutingLookupDaoIntegrationTest": 6,
                            "LegacyLabNativeMariaDbIntegrationTest": 8,
                            "ConsultationArchiveDaoIntegrationTest": 1,
@@ -369,7 +368,8 @@ REQUIRED = {"generated": {"AppointmentFieldAuditTransactionIntegrationTest": 3, 
                           "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
                           "ReportingPatientListAuditMariaDbIntegrationTest": 4,
                           "SoapTokenHousekeepingDaoIntegrationTest": 8,
-                           "Growth0To36FormPersistenceIntegrationTest": 20, "EncounterFormDaoGroupedHistoryIntegrationTest": 2}}
+                           "Growth0To36FormPersistenceIntegrationTest": 20, "EncounterFormDaoGroupedHistoryIntegrationTest": 2,
+                           "RehabStudyFormDaoIntegrationTest": 69}}
 
 
 INBOX_CASES = (

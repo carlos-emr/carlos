@@ -314,6 +314,31 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
         self.assertEqual(MODULE.REQUIRED_CASES.get(family, set()), LEGACY_NOTE_FLAG_REQUIRED_CASES)
         self.assertNotIn(family, MODULE.REQUIRED['generated'])
 
+    def test_rehab_study_evidence_is_required_in_both_flyway_lanes(self):
+        family = 'RehabStudyFormDaoIntegrationTest'
+        workflow = (Path(__file__).resolve().parents[2]
+                    / '.github/workflows/maven-project.yml').read_text()
+        blocks = re.split(r'(?m)^      - name: ', workflow)
+        self.seed()
+        baseline = self.invoke()
+        self.assertEqual(baseline.returncode, 0, baseline.stderr)
+        self.assertEqual(MODULE.REQUIRED_CASES[family], REHAB_REQUIRED_CASES)
+        for mode, title in (
+                ('flyway', 'Verify critical DAO paths against the Flyway schema'),
+                ('bc-flyway', 'Verify BC billing, encounter and day-sheet transactions against the Flyway schema')):
+            with self.subTest(mode=mode):
+                block = next(block for block in blocks if block.startswith(title + '\n'))
+                selection = re.search(r'-Dtest=([^\s\'"\\]+)', block).group(1).split(',')
+                self.assertIn(family, selection)
+                self.assertEqual(MODULE.REQUIRED[mode].get(family), 69)
+                report = self.reports / f'TEST-{self.suite(family)}-{mode}.xml'
+                original = report.read_bytes()
+                report.unlink()
+                try:
+                    self.assert_refused(self.invoke(), f'Required MariaDB {mode} coverage missing: {family}')
+                finally:
+                    report.write_bytes(original)
+
     def setUp(self):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
