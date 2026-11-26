@@ -49,9 +49,16 @@ public class Hl7TextInfoChainLockDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     protected Hl7TextInfoChainLockDao locks;
 
-    /** Stored through Hibernate directly: the id is an identity the JPA persist does not report back in H2. */
+    private static final java.util.concurrent.atomic.AtomicInteger LAB_NUMBERS =
+            new java.util.concurrent.atomic.AtomicInteger(7_100_000);
+
+    /**
+     * Stored through Hibernate directly: the id is an identity the JPA persist does not report back in H2.
+     * The lab number is the report's own (the message id), so it is given here.
+     */
     protected Hl7TextInfo stored(String accession, String filler) {
         Hl7TextInfo info = new Hl7TextInfo();
+        info.setLabNumber(LAB_NUMBERS.incrementAndGet());
         info.setAccessionNumber(accession);
         info.setFillerOrderNum(filler);
         info.setFirstName("FAKE");
