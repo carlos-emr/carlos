@@ -34,6 +34,8 @@ import org.junit.jupiter.api.Test;
  * {@link DSGuidelineProviderMapping} compares by provider and guideline, not by the shared
  * {@code AbstractModel} identifier. Its override used to cast and dereference its argument
  * unconditionally, so {@code null}, a foreign type or a mapping without keys threw (#5303).
+ *
+ * @since 2026-11-26
  */
 @Tag("unit")
 class DSGuidelineProviderMappingEqualityUnitTest {

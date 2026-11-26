@@ -105,7 +105,7 @@ small:
   it to another bucket on save. Equal entities always share a type, so the hash stays
   consistent with `equals`. The cost is that same-type keys share one bucket, which is
   acceptable for the small child collections this base class serves; an entity that is
-  held in very large hashed collections overrides both methods with a business key
+  held in large hashed collections overrides both methods with a business key
   (`Demographic`, `Provider`, `Program`, `Site` and `Drug` already do).
 - The argument of `equals` may be a Hibernate proxy: its persistent class and ID come
   from the proxy's metadata, so an uninitialized or detached proxy is never loaded and

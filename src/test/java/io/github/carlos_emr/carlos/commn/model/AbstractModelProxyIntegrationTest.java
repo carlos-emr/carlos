@@ -29,6 +29,7 @@ import java.util.UUID;
 import org.hibernate.Hibernate;
 import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;
+import org.hibernate.proxy.HibernateProxy;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
@@ -43,6 +44,8 @@ import org.junit.jupiter.api.Test;
  * interceptor decides whether a call loads the target, so every proxy case here goes through
  * {@code Session.getReference}. The test owns its database and shares nothing with the Spring
  * test context.</p>
+ *
+ * @since 2026-11-26
  */
 @Tag("integration")
 @Tag("dao")
@@ -180,10 +183,13 @@ class AbstractModelProxyIntegrationTest {
     void shouldEqualEntity_whenReceiverIsAttachedProxy() {
         Integer id = persist(newDepartment());
         Integer otherId = persist(newDepartment());
+        // Loaded in its own session so the session below can hand out real proxies.
+        Department entity = load(id);
         try (var session = factory.openSession()) {
-            Department entity = session.find(Department.class, id);
             Department proxy = session.getReference(Department.class, id);
             Department different = session.getReference(Department.class, otherId);
+            assertThat(proxy).isInstanceOf(HibernateProxy.class);
+            assertThat(Hibernate.isInitialized(proxy)).isFalse();
 
             assertThat(proxy.equals(entity)).isTrue();
             assertThat(entity.equals(proxy)).isTrue();
