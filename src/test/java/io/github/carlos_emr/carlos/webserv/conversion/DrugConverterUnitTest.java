@@ -362,14 +362,18 @@ class DrugConverterUnitTest {
          * <p>The number that follows need not be written in ASCII digits: one and a half written
          * with the fraction character U+00BD, a superscript two (U+00B2), a Roman numeral
          * character (U+2163) and a digit of another script (U+0665) are numbers too. The fraction
-         * and the superscript were passed over as punctuation, so one and a half read as 1.
+         * and the superscript were passed over as punctuation, so one and a half read as 1. So
+         * was a number outside the Basic Multilingual Plane (the mathematical digit U+1D7DA),
+         * which is two {@code char} values of which neither is a number: the text is read by
+         * code point.
          */
         @ParameterizedTest(name = "stored \"{0}\"")
         @ValueSource(strings = {
             "1,000 mg", "2,5 mg", "1/2 mg", "5/20 mg", "5-10 mg", "0.5-1 mg", "1,000",
             "1 / 2 mg", "1/ 2 mg", "1 /2 mg", "5 - 10 mg", "1 ,000 mg", "1 000 mg", "1\u00A0000 mg",
             "2 1/2 mg", "1:1000", "1 : 10 000", "5+20 mg", "10^9 CFU", "1.234.567 mg", "5 (10 mg/mL)",
-            "1\u00BD mg", "1 \u00BD mg", "10\u00B2 mg", "5 \u2163 mg", "1 \u0665 mg", "1\u00BD"
+            "1\u00BD mg", "1 \u00BD mg", "10\u00B2 mg", "5 \u2163 mg", "1 \u0665 mg", "1\u00BD",
+            "1\uD835\uDFDA mg", "1 \uD835\uDFDA mg", "1 / \uD835\uDFDA"
         })
         @DisplayName("should report no strength when another number follows the first before any unit")
         void shouldReportNoStrength_whenAnotherNumberFollowsBeforeAnyUnit(String stored) {
@@ -414,7 +418,8 @@ class DrugConverterUnitTest {
 
         @ParameterizedTest(name = "stored \"{0}\" -> {1}")
         @CsvSource(delimiter = '|', value = {
-            "5/mL | 5", "10, as directed | 10", "2.5- | 2.5", "5 (base) | 5", "2.5 - | 2.5", "10 , as directed | 10"
+            "5/mL | 5", "10, as directed | 10", "2.5- | 2.5", "5 (base) | 5", "2.5 - | 2.5", "10 , as directed | 10",
+            "5 \uD83D\uDC8A mg | 5", "5 \uD83D\uDC8A | 5"
         })
         @DisplayName("should read the number when the separator after it is not followed by a digit")
         void shouldReadStrength_whenSeparatorAfterItStartsNoNumber(String stored, float strength) {

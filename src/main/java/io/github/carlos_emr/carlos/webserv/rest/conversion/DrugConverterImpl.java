@@ -319,22 +319,25 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
      * Whatever stands between the two (blanks of any kind, a comma, a slash, a hyphen, a colon)
      * is passed over, so no list of separators has to be complete; a letter or a percent sign
      * starts the unit and ends the search.
+     *
+     * <p>The text is read by code point: a number outside the Basic Multilingual Plane is two
+     * {@code char} values, neither of which is a number.
      */
     private static boolean anotherNumberFollows(String text, int end) {
         int next = end;
-        while (next < text.length() && !startsUnit(text.charAt(next)) && !isNumber(text.charAt(next))) {
-            next++;
+        while (next < text.length() && !startsUnit(text.codePointAt(next)) && !isNumber(text.codePointAt(next))) {
+            next += Character.charCount(text.codePointAt(next));
         }
-        return next < text.length() && isNumber(text.charAt(next));
+        return next < text.length() && isNumber(text.codePointAt(next));
     }
 
-    private static boolean startsUnit(char c) {
-        return Character.isLetter(c) || c == '%';
+    private static boolean startsUnit(int codePoint) {
+        return Character.isLetter(codePoint) || codePoint == '%';
     }
 
     /** Whether the character is a number of any kind Unicode knows, not only an ASCII digit. */
-    private static boolean isNumber(char c) {
-        return (NUMBER_CATEGORIES >> Character.getType(c) & 1) == 1;
+    private static boolean isNumber(int codePoint) {
+        return (NUMBER_CATEGORIES >> Character.getType(codePoint) & 1) == 1;
     }
 
     /**
