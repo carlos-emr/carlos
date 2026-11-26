@@ -2,15 +2,16 @@
 """Publication refuses stale, skipped, changed, forged or incomplete qualification."""
 from functools import partial
 import json
-import re
 from pathlib import Path
 import shutil
 import subprocess
 import tempfile
 import unittest
-from xml.etree import ElementTree
 from unittest.mock import patch
 import zipfile
+
+from defusedxml import ElementTree
+
 import release_publication as gate
 from cds_war_manifest import REQUIRED_CLASSES, REQUIRED_MIGRATION
 
@@ -270,27 +271,23 @@ class ReleasePublicationTest(unittest.TestCase):
 class PomReleaseIdentityTest(unittest.TestCase):
     """#6336: pom.xml version and scm tag agree and sit on the plan's release line.
 
-    Mirrors publish-release.yml's version/scm-tag equality. A published tag has an
-    exact version equal to its scm tag; a maintenance branch carries -SNAPSHOT with
-    scm tag HEAD. Nothing here names a particular release.
+    Mirrors publish-release.yml's version/scm-tag equality. A published version
+    matches its SCM tag. A development version adds -SNAPSHOT and uses SCM tag HEAD.
     """
 
     NS = {"m": "http://maven.apache.org/POM/4.0.0"}
-    SNAPSHOT = re.compile(r"[0-9]{4}\.(?:0[1-9]|1[0-2])\.[0-9]+-SNAPSHOT")
 
     def setUp(self):
-        self.pom = ElementTree.parse(Path(gate.ROOT) / "pom.xml").getroot()
+        self.pom = ElementTree.parse(Path(gate.ROOT) / "pom.xml", forbid_dtd=True).getroot()
         self.version = self.pom.findtext("m:version", namespaces=self.NS)
         self.scm_tag = self.pom.findtext("m:scm/m:tag", namespaces=self.NS)
         self.plan = json.loads(Path(gate.DEFAULT_PLAN).read_text(encoding="utf-8"))
 
     def test_version_is_a_release_tag_equal_to_scm_tag_or_a_snapshot_on_head(self):
-        if "SNAPSHOT" in self.version:
-            self.assertRegex(self.version, self.SNAPSHOT)
-            self.assertEqual(self.scm_tag, "HEAD")
-        else:
-            self.assertTrue(gate.TAG.fullmatch(self.version), self.version)
-            self.assertEqual(self.scm_tag, self.version)
+        release_version = self.version.removesuffix("-SNAPSHOT")
+        self.assertTrue(gate.TAG.fullmatch(release_version), self.version)
+        expected_tag = "HEAD" if self.version.endswith("-SNAPSHOT") else release_version
+        self.assertEqual(self.scm_tag, expected_tag)
 
     def test_version_line_matches_the_plan_target_branch(self):
         prefix = ".".join(self.version.split(".")[:2])
