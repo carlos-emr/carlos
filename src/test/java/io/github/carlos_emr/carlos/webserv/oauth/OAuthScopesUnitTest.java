@@ -226,8 +226,7 @@ class OAuthScopesUnitTest {
         @Test
         @DisplayName("should treat a non-safe method as a read on a wholly read-only service")
         void shouldRequireRead_whenServiceIsReadOnlyOnNonSafeMethods() {
-            assertThat(OAuthScopes.requiredScope("POST", "/services/measurements/123"))
-                    .isEqualTo("measurement.read");
+            // measurements is no longer wholly read-only: its read is pinned by the measurement tests below.
             assertThat(OAuthScopes.requiredScope("POST", "/services/recordUX/searchTemplates"))
                     .isEqualTo("recordux.read");
             assertThat(OAuthScopes.requiredScope("POST", "/services/patientDetailStatusService/validateHC"))
@@ -278,6 +277,19 @@ class OAuthScopesUnitTest {
                     .isEqualTo("measurement.write");
             assertThat(OAuthScopes.requiredScope("   ", "/services/measurements/123/new"))
                     .isEqualTo("measurement.write");
+        }
+
+        @Test
+        @DisplayName("should treat non-POST and missing methods as writes on a wholly read-only service")
+        void shouldRequireWrite_whenNonPostMethodOnReadOnlyService() {
+            // Only POST is read on these roots; a regression to "any method on a read-only root is a
+            // read" would let measurement.read-style tokens reach their writes.
+            for (String method : new String[] {"DELETE", "PUT", null, "   "}) {
+                assertThat(OAuthScopes.requiredScope(method, "/services/recordUX/searchTemplates"))
+                        .as(String.valueOf(method)).isEqualTo("recordux.write");
+                assertThat(OAuthScopes.requiredScope(method, "/services/patientDetailStatusService/validateHC"))
+                        .as(String.valueOf(method)).isEqualTo("patientstatus.write");
+            }
         }
     }
 
