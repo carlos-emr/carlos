@@ -1200,6 +1200,11 @@ nginx will not start: port 80 or 443 is already in use
   stopping services; preseed false to revoke it before an unattended upgrade.
   Interactive runs ask again on every
   configure that finds a conflict; preseeding false does not suppress the question.
+  A socket that stays active keeps its triggered services running. Units whose
+  stop would propagate to other systemd units are left for manual handling.
+  The installer uses a mask if disabling a unit could also disable linked
+  units. If an older carlos-ctl reports a conflict after confirmation, use
+  sudo dpkg-reconfigure carlos-emr to review and approve the stop plan.
 
   Named but left running: containers and the container engines (stopping one
   stops every container), programs started by hand (an nginx started outside

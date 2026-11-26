@@ -77,22 +77,37 @@ elif cmd == "snap":
     if args[:2] == ["stop", "--disable"]:
         stop(["snap.%s.service" % args[2]])
 elif cmd == "systemctl":
-    if args[0] in ("disable", "stop"):
-        units = [a for a in args[1:] if not a.startswith("-")]
-        if any(st.get("units", {}).get(u, {}).get("stop_fails") for u in units):
+    unit = args[-1]
+    info = st.get("units", {}).get(unit, {})
+    if args[0] == "stop":
+        if info.get("stop_fails"):
             sys.exit(1)
-        if args[0] == "disable" and any(st.get("units", {}).get(u, {}).get("disable_fails")
-                                        for u in units):
+        if not info.get("stop_leaves_active"):
+            stop([unit])
+        if info.get("stop_completes_with_error"):
             sys.exit(1)
-        stop(units)
+    elif args[0] == "disable":
+        sys.exit(1 if info.get("disable_fails") else 0)
+    elif args[0] == "cat":
+        print(info.get("unit_file", "[Install]\nWantedBy=multi-user.target"))
     elif args[0] == "is-enabled":
-        print(st.get("units", {}).get(args[-1], {}).get("enabled_after", "disabled"))
+        print(info.get("enabled_after", "disabled"))
     elif args[0] == "mask":
-        if any(st.get("units", {}).get(u, {}).get("mask_fails") for u in args[1:]):
+        if info.get("mask_fails"):
             sys.exit(1)
     elif args[0] == "show":
-        prop = args[1].split("=", 1)[1]
-        print(st.get("units", {}).get(args[-1], {}).get(prop, ""))
+        for prop in (arg.split("=", 1)[1] for arg in args if arg.startswith("--property=")):
+            if prop in info.get("failed_properties", []):
+                sys.exit(1)
+            if prop == "ActiveState":
+                active = any(l.get("socket") == unit and any(o["pid"] == 1 for o in l["owners"])
+                             for l in st["listeners"])
+                print("active" if active else "inactive")
+            elif prop == "TriggeredBy":
+                print(" ".join(socket for socket, details in st.get("units", {}).items()
+                               if unit in details.get("Triggers", "").split()))
+            else:
+                print(info.get(prop, "no" if prop == "NeedDaemonReload" else ""))
     elif args[0] == "is-active":
         state = st.get("mariadb_state", "active")
         print(state)
@@ -134,6 +149,9 @@ STUBBED = ("ss", "ps", "systemctl", "dpkg-query", "kill", "journalctl",
 
 APACHE_UNIT = {"FragmentPath": "/usr/lib/systemd/system/apache2.service"}
 APACHE_DPKG = {"/usr/lib/systemd/system/apache2.service": "apache2"}
+APACHE_STOP = ["systemctl stop apache2.service", "systemctl disable apache2.service"]
+LIGHTTPD_STOP = ["systemctl stop lighttpd.socket", "systemctl disable lighttpd.socket",
+                 "systemctl stop lighttpd.service", "systemctl disable lighttpd.service"]
 
 
 def apache(addr, pid=100):
@@ -171,6 +189,12 @@ class HostConflictsCase(unittest.TestCase):
         with open(self.log) as fh:
             return fh.read().splitlines()
 
+    def run_after_approval(self, scenario, bind_ip="0.0.0.0"):
+        plan = self.run_script(scenario, "front-door", "--plan", bind_ip)
+        approved = " ".join(line.removeprefix("will-stop-unit: ") for line in plan.stdout.splitlines()
+                            if line.startswith("will-stop-unit: "))
+        return self.run_script(scenario, "front-door", "--approved", approved, bind_ip)
+
     def stops(self):
         return [c for c in self.calls() if c.startswith(
             ("systemctl disable", "systemctl stop", "systemctl mask", "kill ", "snap stop"))]
@@ -179,13 +203,13 @@ class HostConflictsCase(unittest.TestCase):
 class TestFrontDoor(HostConflictsCase):
 
     def test_packaged_web_server_is_stopped_disabled_and_reported(self):
-        r = self.run_script({
+        r = self.run_after_approval({
             "listeners": [apache("*:80"), apache("*:443", pid=101)],
             "procs": {"100": {"unit": "apache2.service"}, "101": {"unit": "apache2.service"}},
             "units": {"apache2.service": APACHE_UNIT}, "dpkg": APACHE_DPKG,
-        }, "front-door", "0.0.0.0")
+        })
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertEqual(self.stops(), ["systemctl disable --now apache2.service"])
+        self.assertEqual(self.stops(), APACHE_STOP)
         lines = r.stdout.splitlines()
         self.assertEqual(len(lines), 1, r.stdout)
         self.assertTrue(lines[0].startswith("stopped: apache2.service (package apache2)"), lines[0])
@@ -206,45 +230,45 @@ class TestFrontDoor(HostConflictsCase):
         self.assertIn("sudo systemctl disable --now apache2.service", r.stdout)
 
     def test_nginx_service_own_listeners_are_not_a_conflict(self):
-        r = self.run_script({
+        r = self.run_after_approval({
             "listeners": [{"addr": "0.0.0.0:80", "owners": [{"name": "nginx", "pid": 300},
                                                             {"name": "nginx", "pid": 301}]}],
             "procs": {"300": {"unit": "nginx.service"}, "301": {"unit": "nginx.service"}},
-        }, "front-door", "0.0.0.0")
+        })
         self.assertEqual((r.returncode, r.stdout), (0, ""))
         self.assertEqual(self.stops(), [])
 
     def test_container_engine_is_never_stopped_even_when_packaged(self):
-        r = self.run_script({
+        r = self.run_after_approval({
             "listeners": [{"addr": "0.0.0.0:80", "owners": [{"name": "docker-proxy", "pid": 400}]}],
             "procs": {"400": {"unit": "docker.service"}},
             "units": {"docker.service": {"FragmentPath": "/usr/lib/systemd/system/docker.service"}},
             "dpkg": {"/usr/lib/systemd/system/docker.service": "docker.io"},
-        }, "front-door", "0.0.0.0")
+        })
         self.assertEqual(r.returncode, 1)
         self.assertEqual(self.stops(), [])
         self.assertIn("a Docker container publishes this port", r.stdout)
 
     def test_service_no_package_ships_is_stopped_too(self):
         # Whatever installed it, a system service on 80/443 keeps nginx down.
-        r = self.run_script({
+        r = self.run_after_approval({
             "listeners": [{"addr": "0.0.0.0:80", "owners": [{"name": "myweb", "pid": 500}]}],
             "procs": {"500": {"unit": "myweb.service"}},
             "units": {"myweb.service": {"FragmentPath": "/etc/systemd/system/myweb.service"}},
-        }, "front-door", "0.0.0.0")
+        })
         self.assertEqual(r.returncode, 0, r.stdout)
-        self.assertEqual(self.stops(), ["systemctl disable --now myweb.service"])
+        self.assertEqual(self.stops(), ["systemctl stop myweb.service", "systemctl disable myweb.service"])
         self.assertIn("stopped: myweb.service (unit file /etc/systemd/system/myweb.service)",
                       r.stdout)
 
     def test_snap_service_is_stopped_through_snapd(self):
         # Ubuntu Server's installer offers the Nextcloud snap, which serves
         # 80/443. systemctl disable would be undone by the next snap refresh.
-        r = self.run_script({
+        r = self.run_after_approval({
             "listeners": [{"addr": "*:80", "owners": [{"name": "httpd", "pid": 800}]},
                           {"addr": "*:443", "owners": [{"name": "httpd", "pid": 800}]}],
             "procs": {"800": {"unit": "snap.nextcloud.apache.service"}},
-        }, "front-door", "0.0.0.0")
+        })
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(self.stops(), ["snap stop --disable nextcloud.apache"])
         self.assertIn("stopped: the nextcloud snap's nextcloud.apache service was listening "
@@ -252,10 +276,10 @@ class TestFrontDoor(HostConflictsCase):
         self.assertIn("sudo snap start --enable nextcloud.apache", r.stdout)
 
     def test_container_engine_snap_is_never_stopped(self):
-        r = self.run_script({
+        r = self.run_after_approval({
             "listeners": [{"addr": "0.0.0.0:80", "owners": [{"name": "docker-proxy", "pid": 810}]}],
             "procs": {"810": {"unit": "snap.docker.dockerd.service"}},
-        }, "front-door", "0.0.0.0")
+        })
         self.assertEqual(r.returncode, 1)
         self.assertEqual(self.stops(), [])
         self.assertIn("Docker container", r.stdout)
@@ -263,68 +287,67 @@ class TestFrontDoor(HostConflictsCase):
     def test_service_that_cannot_be_disabled_is_masked(self):
         # A static unit has no [Install] section: disable leaves it able to
         # start at the next boot and take port 80 back from nginx.
-        r = self.run_script({
+        r = self.run_after_approval({
             "listeners": [apache("*:80")],
             "procs": {"100": {"unit": "apache2.service"}},
             "units": {"apache2.service": dict(APACHE_UNIT, enabled_after="static")},
             "dpkg": APACHE_DPKG,
-        }, "front-door", "0.0.0.0")
+        })
         self.assertEqual(r.returncode, 0, r.stdout)
-        self.assertEqual(self.stops(), ["systemctl disable --now apache2.service",
-                                        "systemctl mask apache2.service"])
-        self.assertIn("it cannot be disabled, so it is stopped and masked", r.stdout)
+        self.assertEqual(self.stops(), APACHE_STOP + ["systemctl mask apache2.service"])
+        self.assertIn("it is stopped and masked", r.stdout)
         self.assertIn("sudo systemctl unmask apache2.service", r.stdout)
 
     def test_unit_whose_disable_fails_is_still_stopped(self):
-        r = self.run_script({
+        r = self.run_after_approval({
             "listeners": [apache("*:80")],
             "procs": {"100": {"unit": "apache2.service"}},
             "units": {"apache2.service": dict(APACHE_UNIT, disable_fails=True,
                                               enabled_after="enabled", mask_fails=True)},
             "dpkg": APACHE_DPKG,
-        }, "front-door", "0.0.0.0")
+        })
         self.assertEqual(r.returncode, 0, r.stdout)
         self.assertIn("systemctl stop apache2.service", self.stops())
         self.assertIn("could not be disabled or masked and may take the port again", r.stdout)
 
     def test_protected_unit_is_named_with_move_advice(self):
-        r = self.run_script({
+        r = self.run_after_approval({
             "listeners": [{"addr": "0.0.0.0:443", "owners": [{"name": "mariadbd", "pid": 900}]}],
             "procs": {"900": {"unit": "mariadb.service"}},
-        }, "front-door", "0.0.0.0")
+        })
         self.assertEqual(r.returncode, 1)
         self.assertEqual(self.stops(), [])
         self.assertIn("the installer never stops mariadb.service; move it to other ports", r.stdout)
 
     def test_listener_on_another_address_does_not_collide_with_a_lan_bind(self):
-        r = self.run_script({
+        r = self.run_after_approval({
             "listeners": [apache("127.0.0.1:80")],
             "procs": {"100": {"unit": "apache2.service"}},
             "units": {"apache2.service": APACHE_UNIT}, "dpkg": APACHE_DPKG,
-        }, "front-door", "192.168.1.10")
+        }, "192.168.1.10")
         self.assertEqual((r.returncode, r.stdout), (0, ""))
         self.assertEqual(self.stops(), [])
 
     def test_wildcard_listener_collides_with_a_lan_bind(self):
-        r = self.run_script({
+        r = self.run_after_approval({
             "listeners": [apache("0.0.0.0:443")],
             "procs": {"100": {"unit": "apache2.service"}},
             "units": {"apache2.service": APACHE_UNIT}, "dpkg": APACHE_DPKG,
-        }, "front-door", "192.168.1.10")
+        }, "192.168.1.10")
         self.assertEqual(r.returncode, 0, r.stdout)
-        self.assertEqual(self.stops(), ["systemctl disable --now apache2.service"])
+        self.assertEqual(self.stops(), APACHE_STOP)
 
     def test_nginx_started_by_hand_is_named_never_signalled(self):
         # A process is not a service: it may serve other sites, and a PID read
         # a moment earlier is not a safe handle to signal.
-        r = self.run_script({
+        r = self.run_after_approval({
             "listeners": [{"addr": "0.0.0.0:80", "owners": [{"name": "nginx", "pid": 200},
                                                             {"name": "nginx", "pid": 201}]}],
             "procs": {
                 "200": {"unit": "session-3.scope", "args": "nginx: master process nginx", "ppid": "1"},
                 "201": {"unit": "session-3.scope", "args": "nginx: worker process", "ppid": "200"},
             },
-        }, "front-door", "0.0.0.0")
+        })
         self.assertEqual(r.returncode, 1)
         self.assertEqual(self.stops(), [])
         self.assertIn("blocked: nginx (pid 200, session-3.scope) is listening on 0.0.0.0:80", r.stdout)
@@ -333,10 +356,10 @@ class TestFrontDoor(HostConflictsCase):
     def test_programs_from_a_desktop_are_hand_started(self):
         for unit in ("user@1000.service", "app-gnome-org.gnome.Terminal-4242.scope"):
             with self.subTest(unit=unit):
-                r = self.run_script({
+                r = self.run_after_approval({
                     "listeners": [{"addr": "0.0.0.0:80", "owners": [{"name": "nginx", "pid": 210}]}],
                     "procs": {"210": {"unit": unit, "args": "nginx: master process nginx"}},
-                }, "front-door", "0.0.0.0")
+                })
                 self.assertEqual(r.returncode, 1)
                 self.assertEqual(self.stops(), [])
                 self.assertIn("started by hand, not by a system service", r.stdout)
@@ -345,29 +368,29 @@ class TestFrontDoor(HostConflictsCase):
     def test_nginx_inside_a_container_is_never_killed(self):
         # A container with host networking shows its own nginx on the host's
         # port 80, in the container's scope; that is not a stray to kill.
-        r = self.run_script({
+        r = self.run_after_approval({
             "listeners": [{"addr": "0.0.0.0:80", "owners": [{"name": "nginx", "pid": 220}]}],
             "procs": {"220": {"unit": "docker-0123abcd.scope", "args": "nginx: master process nginx"}},
-        }, "front-door", "0.0.0.0")
+        })
         self.assertEqual(r.returncode, 1)
         self.assertEqual(self.stops(), [])
         self.assertIn("Docker container", r.stdout)
 
     def test_program_from_a_desktop_terminal_is_not_given_systemctl_advice(self):
-        r = self.run_script({
+        r = self.run_after_approval({
             "listeners": [{"addr": "0.0.0.0:80", "owners": [{"name": "node", "pid": 610}]}],
             "procs": {"610": {"unit": "user@1000.service"}},
-        }, "front-door", "0.0.0.0")
+        })
         self.assertEqual(r.returncode, 1)
         self.assertEqual(self.stops(), [])
         self.assertIn("started by hand", r.stdout)
         self.assertNotIn("systemctl disable", r.stdout)
 
     def test_program_from_a_login_session_is_named_not_killed(self):
-        r = self.run_script({
+        r = self.run_after_approval({
             "listeners": [{"addr": "0.0.0.0:80", "owners": [{"name": "python3", "pid": 600}]}],
             "procs": {"600": {"unit": "session-2.scope"}},
-        }, "front-door", "0.0.0.0")
+        })
         self.assertEqual(r.returncode, 1)
         self.assertEqual(self.stops(), [])
         self.assertIn("python3 (pid 600, session-2.scope) is listening on 0.0.0.0:80", r.stdout)
@@ -375,26 +398,26 @@ class TestFrontDoor(HostConflictsCase):
 
     def test_a_stop_that_fails_is_reported_as_blocked(self):
         unit = dict(APACHE_UNIT, stop_fails=True)
-        r = self.run_script({
+        r = self.run_after_approval({
             "listeners": [apache("*:80")],
             "procs": {"100": {"unit": "apache2.service"}},
             "units": {"apache2.service": unit}, "dpkg": APACHE_DPKG,
-        }, "front-door", "0.0.0.0")
+        })
         self.assertEqual(r.returncode, 1)
         self.assertIn("blocked: apache2 (pid 100, apache2.service)", r.stdout)
         self.assertNotIn("stopped:", r.stdout)
 
     def test_socket_activated_service_stops_its_socket_and_service(self):
-        r = self.run_script({
+        r = self.run_after_approval({
             "listeners": [{"addr": "[::]:80", "owners": [{"name": "systemd", "pid": 1}],
                            "socket": "lighttpd.socket", "triggers": "lighttpd.service"}],
             "units": {"lighttpd.socket": {"FragmentPath": "/usr/lib/systemd/system/lighttpd.socket",
                                           "Triggers": "lighttpd.service"}},
             "dpkg": {"/usr/lib/systemd/system/lighttpd.socket": "lighttpd"},
-        }, "front-door", "0.0.0.0")
+        })
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(self.stops(),
-                         ["systemctl disable --now lighttpd.socket lighttpd.service"])
+                         LIGHTTPD_STOP)
 
     def test_socket_and_the_service_it_started_are_handled_once(self):
         # ss names systemd (the socket) AND the service process it handed the
@@ -414,24 +437,24 @@ class TestFrontDoor(HostConflictsCase):
         plan = self.run_script(scenario, "front-door", "--plan", "0.0.0.0")
         self.assertEqual(plan.stdout.count("will-stop:"), 1, plan.stdout)
         self.assertNotIn("blocked:", plan.stdout)
-        r = self.run_script(scenario, "front-door", "0.0.0.0")
+        r = self.run_after_approval(scenario)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(self.stops(),
-                         ["systemctl disable --now lighttpd.socket lighttpd.service"])
-        self.assertEqual(r.stdout.count("stopped:"), 1, r.stdout)
+                         LIGHTTPD_STOP)
+        self.assertEqual(r.stdout.count("stopped:"), 2, r.stdout)
 
     def test_usrmerge_unit_registered_under_lib_is_recognised(self):
-        r = self.run_script({
+        r = self.run_after_approval({
             "listeners": [apache("*:80")],
             "procs": {"100": {"unit": "apache2.service"}},
             "units": {"apache2.service": APACHE_UNIT},
             "dpkg": {"/lib/systemd/system/apache2.service": "apache2"},
-        }, "front-door", "0.0.0.0")
+        })
         self.assertEqual(r.returncode, 0, r.stdout)
-        self.assertEqual(self.stops(), ["systemctl disable --now apache2.service"])
+        self.assertEqual(self.stops(), APACHE_STOP)
 
     def test_unreadable_listeners_exit_2(self):
-        r = self.run_script({"listeners": [], "ss_fails": True}, "front-door", "0.0.0.0")
+        r = self.run_after_approval({"listeners": [], "ss_fails": True})
         self.assertEqual(r.returncode, 2)
         self.assertEqual(self.stops(), [])
 
@@ -476,36 +499,36 @@ class TestFrontDoor(HostConflictsCase):
                 }
                 plan = self.run_script(scenario, "front-door", "--plan", "0.0.0.0")
                 self.assertNotIn("will-stop:", plan.stdout)
-                r = self.run_script(scenario, "front-door", "0.0.0.0")
+                r = self.run_after_approval(scenario)
                 self.assertEqual(r.returncode, 1)
                 self.assertEqual(self.stops(), [])
                 self.assertIn("policy-rc.d forbids stopping services during this install", r.stdout)
                 self.assertIn("policy-rc.d apache2 stop", self.calls())
 
     def test_policy_rc_d_that_allows_stopping_does_not_get_in_the_way(self):
-        r = self.run_script({
+        r = self.run_after_approval({
             "listeners": [apache("*:80")],
             "procs": {"100": {"unit": "apache2.service"}},
             "units": {"apache2.service": APACHE_UNIT}, "dpkg": APACHE_DPKG,
             "policy_rc": 0,
-        }, "front-door", "0.0.0.0")
+        })
         self.assertEqual(r.returncode, 0, r.stdout)
-        self.assertEqual(self.stops(), ["systemctl disable --now apache2.service"])
+        self.assertEqual(self.stops(), APACHE_STOP)
 
     def test_socket_that_starts_a_protected_service_is_left_alone(self):
-        r = self.run_script({
+        r = self.run_after_approval({
             "listeners": [{"addr": "[::]:80", "owners": [{"name": "systemd", "pid": 1}],
                            "socket": "odd.socket", "triggers": "docker.service"}],
             "units": {"odd.socket": {"FragmentPath": "/usr/lib/systemd/system/odd.socket",
                                      "Triggers": "docker.service"}},
             "dpkg": {"/usr/lib/systemd/system/odd.socket": "odd"},
-        }, "front-door", "0.0.0.0")
+        })
         self.assertEqual(r.returncode, 1)
         self.assertEqual(self.stops(), [])
         self.assertIn("blocked:", r.stdout)
 
     def test_free_ports_print_nothing(self):
-        r = self.run_script({"listeners": []}, "front-door", "0.0.0.0")
+        r = self.run_after_approval({"listeners": []})
         self.assertEqual((r.returncode, r.stdout, r.stderr), (0, "", ""))
 
 
@@ -536,7 +559,7 @@ class TestApprovedStop(HostConflictsCase):
     def test_approved_unit_is_stopped(self):
         r = self.run_script(apache_and(), "front-door", "--approved", "apache2.service", "0.0.0.0")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertEqual(self.stops(), ["systemctl disable --now apache2.service"])
+        self.assertEqual(self.stops(), APACHE_STOP)
         self.assertIn("stopped: apache2.service (package apache2)", r.stdout)
 
     def test_unit_that_appeared_after_the_plan_is_left_running_and_named(self):
@@ -547,7 +570,7 @@ class TestApprovedStop(HostConflictsCase):
             dpkg={"/usr/lib/systemd/system/caddy.service": "caddy"},
         ), "front-door", "--approved", "apache2.service", "0.0.0.0")
         self.assertEqual(r.returncode, 1, r.stdout)
-        self.assertEqual(self.stops(), ["systemctl disable --now apache2.service"])
+        self.assertEqual(self.stops(), APACHE_STOP)
         self.assertIn("stopped: apache2.service", r.stdout)
         self.assertNotIn("stopped: caddy", r.stdout)
         self.assertIn("blocked: caddy (pid 500, caddy.service) is listening on 0.0.0.0:443", r.stdout)
@@ -586,7 +609,7 @@ class TestApprovedStop(HostConflictsCase):
                 open(self.log, "w").close()
                 r = self.run_script(apache_and(), "front-door", "--approved", approved, "0.0.0.0")
                 self.assertEqual(r.returncode, 0, r.stdout)
-                self.assertEqual(self.stops(), ["systemctl disable --now apache2.service"])
+                self.assertEqual(self.stops(), APACHE_STOP)
 
     def test_approved_unit_no_longer_listening_is_not_touched(self):
         r = self.run_script({"listeners": []}, "front-door", "--approved", "apache2.service", "0.0.0.0")
@@ -599,7 +622,7 @@ class TestApprovedStop(HostConflictsCase):
             procs={"800": {"unit": "snap.nextcloud.apache.service"}},
         ), "front-door", "--approved", "apache2.service", "0.0.0.0")
         self.assertEqual(r.returncode, 1, r.stdout)
-        self.assertEqual(self.stops(), ["systemctl disable --now apache2.service"])
+        self.assertEqual(self.stops(), APACHE_STOP)
         self.assertNotIn("snap stop", "\n".join(self.calls()))
         self.assertIn("blocked: httpd (pid 800, snap.nextcloud.apache.service)", r.stdout)
         self.assertIn("not among the services approved", r.stdout)
@@ -627,7 +650,7 @@ class TestApprovedStop(HostConflictsCase):
                              "dpkg": LIGHTTPD_DPKG},
                             "front-door", "--approved", "lighttpd.socket lighttpd.service", "0.0.0.0")
         self.assertEqual(r.returncode, 0, r.stdout)
-        self.assertEqual(self.stops(), ["systemctl disable --now lighttpd.socket lighttpd.service"])
+        self.assertEqual(self.stops(), LIGHTTPD_STOP)
 
     def test_socket_that_now_starts_an_unapproved_service_is_left_running(self):
         units = {"lighttpd.socket": dict(LIGHTTPD_UNITS["lighttpd.socket"],
@@ -636,7 +659,7 @@ class TestApprovedStop(HostConflictsCase):
                             "front-door", "--approved", "lighttpd.socket lighttpd.service", "0.0.0.0")
         self.assertEqual(r.returncode, 1, r.stdout)
         self.assertEqual(self.stops(), [])
-        self.assertIn("not among the services approved", r.stdout)
+        self.assertIn("it starts other.service, which was not among the services approved", r.stdout)
 
     # ss lists a socket's owners highest pid first: the service's own process
     # before systemd (pid 1). Both orders are checked.
@@ -699,7 +722,7 @@ class TestApprovedStop(HostConflictsCase):
                                     "--approved", "lighttpd.socket lighttpd.service", "0.0.0.0")
                 self.assertEqual(r.returncode, 0, r.stdout)
                 self.assertEqual(self.stops(),
-                                 ["systemctl disable --now lighttpd.socket lighttpd.service"])
+                                 LIGHTTPD_STOP)
 
     def test_service_of_a_socket_left_for_a_protected_service_is_not_stopped_alone(self):
         # The socket also starts docker.service, so it is never stopped from
@@ -715,11 +738,12 @@ class TestApprovedStop(HostConflictsCase):
                     self.assertEqual(self.stops(), [])
                     self.assertNotIn("will-stop", r.stdout)
                     self.assertIn("the socket that starts it is left running", r.stdout)
-        # The legacy (unapproved) stop form holds it back too.
+        # The legacy invocation reports conflicts without stopping any unit.
         open(self.log, "w").close()
         r = self.run_script(self.split_ports(True, "lighttpd.service docker.service"),
                             "front-door", "0.0.0.0")
         self.assertEqual(self.stops(), [])
+        self.assertIn("the caller provided no approved unit list", r.stdout)
 
     def test_service_of_a_socket_policy_rc_d_keeps_up_is_not_stopped_alone(self):
         # policy-rc.d refuses the socket but not its service (a per-service
@@ -735,7 +759,7 @@ class TestApprovedStop(HostConflictsCase):
         scenario = {"listeners": [{"addr": "0.0.0.0:80", "owners": [{"name": "worker", "pid": 300}]},
                                   dict(LIGHTTPD_SOCKET)],
                     "procs": {"300": {"unit": "httpd-worker.service"}}, "units": units, "dpkg": {}}
-        for args in (("--plan",), ("--approved", "httpd-worker.service"), ()):
+        for args in (("--plan",), ("--approved", "httpd-worker.service")):
             with self.subTest(args=args):
                 open(self.log, "w").close()
                 r = self.run_script(scenario, "front-door", *args, "0.0.0.0")
@@ -773,7 +797,7 @@ class TestApprovedStop(HostConflictsCase):
                 self.assertEqual(r.returncode, 1, r.stdout)
                 self.assertEqual(self.stops(), [])
                 self.assertIn("blocked: systemd (pid 1, lighttpd.socket)", r.stdout)
-                self.assertIn("another socket left running also starts", r.stdout)
+                self.assertIn("starts lighttpd.service, which was left running", r.stdout)
                 self.assertIn("blocked: systemd (pid 1, lighttpd-alt.socket)", r.stdout)
                 self.assertIn("lighttpd-alt.socket) is listening on 0.0.0.0:" + ("443" if order else "80")
                               + ", so nginx cannot serve the CARLOS front door; it was not among the "
@@ -797,8 +821,87 @@ class TestApprovedStop(HostConflictsCase):
                 r = self.run_script(self.two_sockets_one_service(order), "front-door", "--approved",
                                     " ".join(units), "0.0.0.0")
                 self.assertEqual(r.returncode, 0, r.stdout)
-                stopped = sorted(c.split()[3] for c in self.stops())
-                self.assertEqual(stopped, ["lighttpd-alt.socket", "lighttpd.socket"], self.stops())
+                stops = [c for c in self.stops() if c.startswith("systemctl stop ")]
+                self.assertCountEqual(stops[:2], ["systemctl stop lighttpd-alt.socket",
+                                                 "systemctl stop lighttpd.socket"])
+                self.assertEqual(stops[2:], ["systemctl stop lighttpd.service"])
+
+    def test_failed_socket_stop_keeps_its_service_on_the_other_port(self):
+        for first in (True, False):
+            for outcome in ("stop_fails", "stop_leaves_active"):
+                with self.subTest(service_port_first=first, outcome=outcome):
+                    open(self.log, "w").close()
+                    scenario = self.split_ports(first, "lighttpd.service")
+                    scenario["units"]["lighttpd.socket"][outcome] = True
+                    result = self.run_script(scenario, "front-door", "--approved",
+                                             "lighttpd.socket lighttpd.service", "0.0.0.0")
+                    self.assertEqual(result.returncode, 1, result.stdout)
+                    self.assertEqual(self.stops(), ["systemctl stop lighttpd.socket"])
+                    self.assertIn("the socket that starts it is left running", result.stdout)
+
+    def test_socket_confirmed_down_after_stop_error_allows_service_stop(self):
+        scenario = self.split_ports(True, "lighttpd.service")
+        scenario["units"]["lighttpd.socket"]["stop_completes_with_error"] = True
+        result = self.run_after_approval(scenario)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(self.stops(), LIGHTTPD_STOP)
+
+    def test_any_failed_socket_stop_keeps_their_shared_service(self):
+        for order in (True, False):
+            with self.subTest(failing_socket_first=order):
+                open(self.log, "w").close()
+                scenario = self.two_sockets_one_service(order)
+                scenario["units"]["lighttpd.socket"]["stop_fails"] = True
+                result = self.run_after_approval(scenario)
+                self.assertEqual(result.returncode, 1, result.stdout)
+                self.assertIn("systemctl stop lighttpd.socket", self.stops())
+                self.assertFalse(any(c.endswith(" lighttpd.service") for c in self.stops()), self.stops())
+
+    def test_failed_trigger_query_keeps_the_socket_and_its_service(self):
+        scenario = self.split_ports(True, "lighttpd.service")
+        scenario["listeners"].append(apache("127.0.0.2:80"))
+        scenario["procs"]["100"] = {"unit": "apache2.service"}
+        scenario["units"]["lighttpd.socket"]["failed_properties"] = ["Triggers"]
+        plan = self.run_script(scenario, "front-door", "--plan", "0.0.0.0")
+        self.assertIn("will-stop-unit: apache2.service", plan.stdout)
+        self.assertNotIn("will-stop-unit: lighttpd.", plan.stdout)
+        result = self.run_script(scenario, "front-door", "--approved",
+                                 "lighttpd.socket lighttpd.service apache2.service", "0.0.0.0")
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("its socket triggers could not be determined", result.stdout)
+        self.assertIn("a colliding socket may still start it", result.stdout)
+        self.assertEqual(self.stops(), APACHE_STOP)
+
+    def test_stop_propagation_leaves_the_linked_units_for_manual_handling(self):
+        for property_name in ("ConsistsOf", "RequiredBy", "RequisiteOf", "BoundBy", "PropagatesStopTo"):
+            with self.subTest(property_name=property_name):
+                scenario = apache_and()
+                scenario["units"]["apache2.service"] = dict(APACHE_UNIT, **{property_name: "worker.service"})
+                plan = self.run_script(scenario, "front-door", "--plan", "0.0.0.0")
+                self.assertNotIn("will-stop:", plan.stdout)
+                self.assertIn("would also stop worker.service", plan.stdout)
+                result = self.run_script(scenario, "front-door", "--approved", "apache2.service", "0.0.0.0")
+                self.assertEqual(result.returncode, 1, result.stdout)
+                self.assertIn("would also stop worker.service", result.stdout)
+                self.assertEqual(self.stops(), [])
+
+    def test_also_directive_uses_a_mask_only_on_the_approved_unit(self):
+        scenario = apache_and()
+        scenario["units"]["apache2.service"] = dict(
+            APACHE_UNIT, enabled_after="enabled",
+            unit_file="[Install]\nWantedBy=multi-user.target\n" + "Also \\" + "\n = worker.service\n")
+        result = self.run_after_approval(scenario)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(self.stops(), ["systemctl stop apache2.service", "systemctl mask apache2.service"])
+
+    def test_legacy_caller_can_report_but_cannot_stop_after_its_prompt(self):
+        plan = self.run_script(apache_and(), "front-door", "--plan", "0.0.0.0")
+        self.assertIn("will-stop-unit: apache2.service", plan.stdout)
+        result = self.run_script(apache_and(), "front-door", "0.0.0.0")
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("blocked: apache2", result.stdout)
+        self.assertIn("sudo dpkg-reconfigure carlos-emr", result.stdout)
+        self.assertEqual(self.stops(), [])
 
     def test_a_socket_and_its_running_service_are_planned_once_in_either_order(self):
         for order, owners in self.OWNER_ORDERS.items():
@@ -816,7 +919,7 @@ class TestApprovedStop(HostConflictsCase):
                                     "lighttpd.socket lighttpd.service", "0.0.0.0")
                 self.assertEqual(r.returncode, 0, r.stdout)
                 self.assertEqual(self.stops(),
-                                 ["systemctl disable --now lighttpd.socket lighttpd.service"])
+                                 LIGHTTPD_STOP)
 
     def test_plan_units_round_trip_through_approved(self):
         scenario = apache_and(
@@ -828,7 +931,7 @@ class TestApprovedStop(HostConflictsCase):
         self.assertEqual(units, "apache2.service")
         r = self.run_script(scenario, "front-door", "--approved", units, "0.0.0.0")
         self.assertEqual(r.returncode, 1, r.stdout)
-        self.assertEqual(self.stops(), ["systemctl disable --now apache2.service"])
+        self.assertEqual(self.stops(), APACHE_STOP)
         # The docker blocker keeps its own advice, not the approval wording.
         self.assertIn("blocked: docker-proxy (pid 400, docker.service)", r.stdout)
         self.assertNotIn("not among the services approved", r.stdout)
@@ -1210,7 +1313,7 @@ printf 'FREED=%s\\n' "$FRONT_DOOR_FREED"
         r, asked, journal = self.run_postinst(apache_and(), after)
         self.assertIn("apache2.service (package apache2), on *:80", asked)
         self.assertNotIn("caddy", asked)
-        self.assertEqual(self.stops(), ["systemctl disable --now apache2.service"])
+        self.assertEqual(self.stops(), APACHE_STOP)
         self.assertIn("FREED=apache2.service (package apache2) was listening on *:80", r.stdout)
         self.assertNotIn("caddy", r.stdout)
         self.assertIn("carlos-emr: NOT stopped: caddy (pid 500, caddy.service)", r.stderr)
@@ -1220,7 +1323,7 @@ printf 'FREED=%s\\n' "$FRONT_DOOR_FREED"
 
     def test_an_unchanged_host_stops_exactly_what_was_listed(self):
         r, asked, journal = self.run_postinst(apache_and(), apache_and())
-        self.assertEqual(self.stops(), ["systemctl disable --now apache2.service"])
+        self.assertEqual(self.stops(), APACHE_STOP)
         self.assertNotIn("NOT stopped", r.stderr)
         self.assertNotIn("not stopped", journal)
 
