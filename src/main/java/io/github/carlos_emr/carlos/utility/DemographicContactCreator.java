@@ -153,7 +153,7 @@ public class DemographicContactCreator {
             contact = contactDao.find(Integer.parseInt(demographicContact.getContactId()));
             if (contact == null) {
                 logger.warn("Health care team link {} names a contact that no longer exists",
-                        LogSafe.sanitizeObject(demographicContact.getId()));
+                        () -> LogSafe.sanitizeObject(demographicContact.getId()));
                 demographicContact.setContactName(null);
                 demographicContact.setDetails(null);
             } else {
@@ -166,7 +166,7 @@ public class DemographicContactCreator {
             professionalSpecialist = professionalSpecialistDao.find(Integer.parseInt(demographicContact.getContactId()));
             if (professionalSpecialist == null) {
                 logger.warn("Health care team link {} names a directory specialist that no longer exists",
-                        LogSafe.sanitizeObject(demographicContact.getId()));
+                        () -> LogSafe.sanitizeObject(demographicContact.getId()));
                 demographicContact.setContactName(null);
                 demographicContact.setDetails(null);
             } else {

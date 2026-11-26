@@ -161,7 +161,9 @@ class ConsultationHealthCareTeamViewModelUnitTest {
         assertThat(choices.getServices()).isEmpty();
         assertThat(choices.getWithoutReferralNumber()).isEmpty();
         assertThat(choices.getWithoutConsentCount()).isZero();
-        assertThatThrownBy(() -> choices.getConsultants().add(new DemographicContact()))
+        List<DemographicContact> consultants = choices.getConsultants();
+        DemographicContact extra = new DemographicContact();
+        assertThatThrownBy(() -> consultants.add(extra))
                 .isInstanceOf(UnsupportedOperationException.class);
     }
 

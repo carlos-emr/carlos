@@ -79,7 +79,9 @@ class DemographicContactCreatorSpecialistConversionUnitTest extends CarlosUnitTe
     void shouldThrowSecurityException_withoutDemographicReadRight() {
         when(security.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), (String) isNull())).thenReturn(false);
 
-        assertThatThrownBy(() -> DemographicContactCreator.convertProfessionalContactAsProfessionalSpecialist(user, contact(7)))
+        ProfessionalContact submitted = contact(7);
+
+        assertThatThrownBy(() -> DemographicContactCreator.convertProfessionalContactAsProfessionalSpecialist(user, submitted))
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_demographic)");
         verifyNoInteractions(specialists);

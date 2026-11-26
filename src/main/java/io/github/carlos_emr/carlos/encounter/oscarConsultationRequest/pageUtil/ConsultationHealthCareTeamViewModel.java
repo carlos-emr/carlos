@@ -75,24 +75,29 @@ public final class ConsultationHealthCareTeamViewModel {
         Set<ConsultationServices> services = new LinkedHashSet<>();
         Set<Integer> withoutNumber = new LinkedHashSet<>();
         int withoutConsent = 0;
-        if (team != null) {
-            for (DemographicContact member : team) {
-                if (!isOfferableLink(member)) continue;
-                if (!member.isConsentToContact()) {
+        for (DemographicContact member : team == null ? List.<DemographicContact>of() : team) {
+            if (isOfferableLink(member)) {
+                if (member.isConsentToContact()) {
+                    offer(member, serviceByDescription, consultants, services, withoutNumber);
+                } else {
                     // The one exclusion the user can fix from the form's own "edit Health Care
                     // Team" link, so it is counted and explained rather than dropped silently.
                     withoutConsent++;
-                    continue;
                 }
-                consultants.add(member);
-                if (!hasReferralNumber(member) && member.getId() != null) {
-                    withoutNumber.add(member.getId());
-                }
-                ConsultationServices service = serviceByDescription.apply(member.getRole());
-                if (service != null) services.add(service);
             }
         }
         return new ConsultationHealthCareTeamViewModel(consultants, services, withoutNumber, withoutConsent);
+    }
+
+    /** Adds an offerable, consenting member and records its service and missing number. */
+    private static void offer(DemographicContact member, Function<String, ConsultationServices> serviceByDescription,
+            List<DemographicContact> consultants, Set<ConsultationServices> services, Set<Integer> withoutNumber) {
+        consultants.add(member);
+        if (!hasReferralNumber(member) && member.getId() != null) {
+            withoutNumber.add(member.getId());
+        }
+        ConsultationServices service = serviceByDescription.apply(member.getRole());
+        if (service != null) services.add(service);
     }
 
     /**

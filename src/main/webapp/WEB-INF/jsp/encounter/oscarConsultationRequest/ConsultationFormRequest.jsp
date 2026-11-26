@@ -2972,7 +2972,13 @@ if (userAgent != null) {
                                         </tr>
                                     </oscar:oscarPropertiesCheck>
                                     <tr>
-                                        <td class="consult-form-label"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formCons"/>
+                                        <%-- The label names whichever consultant control this variant renders: the
+                                             health-care-team picker (#6202) or the directory autocomplete. An
+                                             eReferral shows the consultant as text, so it has no control. --%>
+                                        <c:set var="consultantControlId"><%= thisForm.iseReferral() ? ""
+                                                : CarlosProperties.getInstance().getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true")
+                                                ? "specialist" : "specialistInput" %></c:set>
+                                        <td class="consult-form-label"><c:choose><c:when test="${ not empty consultantControlId }"><label for="${ consultantControlId }" class="mb-0"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formCons"/></label></c:when><c:otherwise><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formCons"/></c:otherwise></c:choose>
                                         </td>
                                         <td class="consult-form-value">
                                             <% if (thisForm.iseReferral()) { %>
