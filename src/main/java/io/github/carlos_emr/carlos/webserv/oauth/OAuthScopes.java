@@ -151,7 +151,7 @@ public final class OAuthScopes {
      * is a {@code POST}, so a {@code PUT}/{@code DELETE} to a matching path is never a read.
      */
     private static final Map<String, List<List<String>>> READ_OP_TEMPLATES_BY_ROOT = Map.ofEntries(
-        Map.entry("measurements", List.of(seg("*"))),
+        Map.entry("measurements", List.of(seg("#"))),   // POST /{demographicNo} is the read; /{id}/new and any word-named route are writes
         Map.entry("schedule", List.of(seg("getappointment"), seg("*", "appointmenthistory"))),
         Map.entry("tickler", List.of(seg("search"))),
         Map.entry("demographics", List.of(seg("search"))),

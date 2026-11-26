@@ -41,6 +41,8 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
+import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
+import io.github.carlos_emr.carlos.commn.dao.MeasurementDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDao;
 import io.github.carlos_emr.carlos.commn.dao.ValidationsDao;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
@@ -50,7 +52,9 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctValid
 import io.github.carlos_emr.carlos.managers.MeasurementManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots;
 import io.github.carlos_emr.carlos.webserv.rest.to.MeasurementResponse;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.EmbeddedMeasurementTo1;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.ForbiddenException;
@@ -129,11 +133,18 @@ public class MeasurementService extends AbstractServiceImpl {
     @Autowired
     private ValidationsDao validationsDao;
 
+    @Autowired
+    private MeasurementDao measurementDao;
+
     private io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService projections;
     private final EctValidation ectValidation = new EctValidation();
 
     private static final long MIN_DATETIME_MILLIS = -30610224000000L;
     private static final long MAX_DATETIME_MILLIS = 253402300799000L;
+    /** The yyyy-MM-dd shape a date-only measurement validation rule accepts. */
+    private static final java.util.regex.Pattern DATE_ONLY = java.util.regex.Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
+    /** A plain decimal number: optional sign, digits, optional fraction; no exponent, hex or suffix. */
+    private static final java.util.regex.Pattern PLAIN_DECIMAL = java.util.regex.Pattern.compile("[-+]?(\\d+(\\.\\d*)?|\\.\\d+)");
 
     /** Keeps the framework's public no-argument endpoint lifecycle and requires its projection guard. */
     @Autowired
@@ -207,11 +218,29 @@ public class MeasurementService extends AbstractServiceImpl {
     /**
      * Records a new measurement for a patient without changing any existing measurement.
      *
+     * <p>{@code dataField} may be up to {@link Measurement#DATA_FIELD_MAX_LENGTH} characters, further
+     * limited by the type's configured validation rule; {@code comments} and
+     * {@code measuringInstruction} are limited to 255, the width of their columns.</p>
+     *
+     * <p>The type is resolved against the configured measurement types. With a
+     * {@code measuringInstruction}, the type and instruction must name one configured type. Without
+     * one, the type alone must: a type configured with several instructions (BP, WT, ...) is refused
+     * with {@code INSTRUCTION_REQUIRED}. The reading is stored under the configured spelling of the
+     * type and instruction, not the caller's.</p>
+     *
+     * <p>{@code dateObserved} defaults to now, so a new reading becomes the patient's current one.
+     * It is stored to the whole second, the precision of its column. A request that repeats a
+     * reading already stored with the same patient, type, instruction, value, comments and
+     * {@code dateObserved} returns that reading instead of storing it twice, so a client that sends
+     * {@code dateObserved} can safely retry.</p>
+     *
+     * <p>A refused request is answered with a JSON body {@code {"code": ..., "message": ...}}.</p>
+     *
      * @param json measurement fields: required {@code type} and {@code dataField}, and optional
      *             {@code comments}, {@code measuringInstruction}, and epoch-millisecond
      *             {@code dateObserved}
      * @param demoId patient identifier
-     * @return the newly recorded measurement
+     * @return a detached snapshot of the recorded (or already stored) measurement
      * @throws BadRequestException if identifiers or measurement fields are invalid
      * @throws ForbiddenException if the caller lacks measurement write or patient access
      */
@@ -219,40 +248,42 @@ public class MeasurementService extends AbstractServiceImpl {
     @Path("/{demographicNo}/new")
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
-    public Measurement addMeasurement(ObjectNode json, @PathParam("demographicNo") Integer demoId) {
+    public EmbeddedMeasurementTo1 addMeasurement(ObjectNode json, @PathParam("demographicNo") Integer demoId) {
         if (demoId == null || demoId <= 0) {
-            throw new BadRequestException("Invalid demographic identifier");
+            throw badRequest("INVALID_PATIENT", "Invalid demographic identifier");
         }
         if (json == null || !json.isObject()) {
-            throw new BadRequestException("Measurement data is required");
+            throw badRequest("INVALID_REQUEST", "Measurement data is required");
         }
         for (var field = json.fieldNames(); field.hasNext();) {
             String name = field.next();
             if (!List.of("type", "dataField", "comments", "measuringInstruction", "dateObserved").contains(name)) {
-                throw new BadRequestException("Unsupported measurement field");
+                throw badRequest("UNSUPPORTED_FIELD", "Unsupported measurement field");
             }
         }
         if (!json.has("type") || !json.get("type").isTextual()
                 || json.get("type").textValue().isBlank() || json.get("type").textValue().length() > 50) {
-            throw new BadRequestException("A valid measurement type is required");
+            throw badRequest("INVALID_TYPE", "A valid measurement type is required");
         }
         if (!json.has("dataField") || !json.get("dataField").isTextual()
                 || json.get("dataField").textValue().isBlank()
                 || json.get("dataField").textValue().length() > Measurement.DATA_FIELD_MAX_LENGTH) {
-            throw new BadRequestException("A valid measurement dataField is required");
+            throw badRequest("INVALID_VALUE", "A valid measurement dataField is required");
         }
         String comments = optionalText(json, "comments", 255);
         String instruction = optionalText(json, "measuringInstruction", 255);
+        Long observedAt = null;
         if (json.has("dateObserved")) {
             if (!json.get("dateObserved").isIntegralNumber()
                     || !json.get("dateObserved").canConvertToLong()) {
-                throw new BadRequestException("dateObserved must be epoch milliseconds");
+                throw badRequest("INVALID_DATE_OBSERVED", "dateObserved must be epoch milliseconds");
             }
 
             long timestamp = json.get("dateObserved").longValue();
             if (timestamp < MIN_DATETIME_MILLIS || timestamp > MAX_DATETIME_MILLIS) {
-                throw new BadRequestException("dateObserved is outside the supported database DATETIME range");
+                throw badRequest("INVALID_DATE_OBSERVED", "dateObserved is outside the supported database DATETIME range");
             }
+            observedAt = timestamp;
         }
 
         LoggedInInfo loggedInInfo = getLoggedInInfo();
@@ -269,23 +300,57 @@ public class MeasurementService extends AbstractServiceImpl {
         }
 
         projections.requireRestSupported(demoId, java.util.Set.of("CareElements"));
-        validateMeasurementValue(
-            json.get("type").textValue(),
-            instruction == null ? "" : instruction,
-            json.get("dataField").textValue()
-        );
+        String value = json.get("dataField").textValue();
+        MeasurementType configured = resolveType(json.get("type").textValue(), instruction);
+        validateMeasurementValue(configured, value);
+
+        String type = configured.getType();
+        String configuredInstruction = configured.getMeasuringInstruction() == null
+                ? "" : configured.getMeasuringInstruction();
+        String storedComments = comments == null ? "" : comments;
+        // measurements.dateObserved is DATETIME, which keeps whole seconds. Truncating here makes the
+        // stored value, the echoed value and the retry lookup below all agree.
+        Date dateObserved = new Date(observedAt == null
+                ? truncateToSecond(System.currentTimeMillis()) : truncateToSecond(observedAt));
+
+        if (observedAt != null) {
+            // A retry of a request whose response was lost repeats its dateObserved. The encounter
+            // form skips an identical reading the same way (EctMeasurements2Action).
+            MeasurementDaoImpl.SearchCriteria criteria = new MeasurementDaoImpl.SearchCriteria();
+            criteria.setDemographicNo(demoId);
+            criteria.setType(type);
+            criteria.setDataField(value);
+            criteria.setMeasuringInstrc(configuredInstruction);
+            criteria.setComments(storedComments);
+            criteria.setDateObserved(dateObserved);
+            List<Measurement> stored = measurementDao.find(criteria);
+            if (stored != null && !stored.isEmpty()) {
+                return EmbeddedRecordSnapshots.measurement(loggedInInfo, stored.get(0));
+            }
+        }
 
         Measurement measurement = new Measurement();
-        measurement.setType(json.get("type").textValue());
+        measurement.setType(type);
         measurement.setDemographicId(demoId);
         measurement.setProviderNo(providerNo);
-        measurement.setDataField(json.get("dataField").textValue());
-        measurement.setComments(comments == null ? "" : comments);
-        measurement.setMeasuringInstruction(instruction == null ? "" : instruction);
-        if (json.has("dateObserved")) {
-            measurement.setDateObserved(new Date(json.get("dateObserved").longValue()));
-        }
-        return measurementManager.addMeasurement(loggedInInfo, measurement);
+        measurement.setDataField(value);
+        measurement.setComments(storedComments);
+        measurement.setMeasuringInstruction(configuredInstruction);
+        measurement.setDateObserved(dateObserved);
+        return EmbeddedRecordSnapshots.measurement(loggedInInfo,
+                measurementManager.addMeasurement(loggedInInfo, measurement));
+    }
+
+    private static long truncateToSecond(long millis) {
+        return millis - Math.floorMod(millis, 1000L);
+    }
+
+    /** A 400 whose JSON body names the refusal, so a client can tell its causes apart. */
+    private static BadRequestException badRequest(String code, String message) {
+        return new BadRequestException(jakarta.ws.rs.core.Response.status(jakarta.ws.rs.core.Response.Status.BAD_REQUEST)
+                .type(MediaType.APPLICATION_JSON_TYPE)
+                .entity(java.util.Map.of("code", code, "message", message))
+                .build());
     }
 
     private String optionalText(ObjectNode json, String field, int maxLength) {
@@ -293,20 +358,38 @@ public class MeasurementService extends AbstractServiceImpl {
             return null;
         }
         if (!json.get(field).isTextual() || json.get(field).textValue().length() > maxLength) {
-            throw new BadRequestException("Invalid measurement " + field);
+            throw badRequest("INVALID_" + field.toUpperCase(java.util.Locale.ROOT), "Invalid measurement " + field);
         }
         return json.get(field).textValue();
     }
 
-    private void validateMeasurementValue(String type, String instruction, String value) {
-        List<MeasurementType> types =
-            measurementTypeDao.findByTypeAndMeasuringInstruction(type, instruction);
-
-        if (types == null || types.size() != 1) {
-            throw new BadRequestException("Unknown or ambiguously configured measurement type");
+    /**
+     * Finds the one configured type a request names. Rows that agree on instruction and validation
+     * rule are the same type configured twice (the seeds carry LMP twice) and count as one.
+     */
+    private MeasurementType resolveType(String type, String instruction) {
+        List<MeasurementType> rows = instruction == null
+                ? measurementTypeDao.findByType(type)
+                : measurementTypeDao.findByTypeAndMeasuringInstruction(type, instruction);
+        if (rows == null || rows.isEmpty()) {
+            throw badRequest("UNKNOWN_TYPE", "Unknown measurement type or measuringInstruction");
         }
+        java.util.Map<List<String>, MeasurementType> distinct = new java.util.LinkedHashMap<>();
+        for (MeasurementType row : rows) {
+            distinct.putIfAbsent(Arrays.asList(
+                    row.getMeasuringInstruction() == null ? "" : row.getMeasuringInstruction().toLowerCase(java.util.Locale.ROOT),
+                    row.getValidation() == null ? "" : row.getValidation().trim()), row);
+        }
+        if (distinct.size() != 1) {
+            throw instruction == null
+                    ? badRequest("INSTRUCTION_REQUIRED", "measuringInstruction is required for this type")
+                    : badRequest("AMBIGUOUS_TYPE", "The type and measuringInstruction match more than one configured type");
+        }
+        return distinct.values().iterator().next();
+    }
 
-        String validationId = types.get(0).getValidation();
+    private void validateMeasurementValue(MeasurementType configured, String value) {
+        String validationId = configured.getValidation();
 
         // A configured type without a validation rule is permitted.
         if (validationId == null || validationId.isBlank()) {
@@ -315,7 +398,7 @@ public class MeasurementService extends AbstractServiceImpl {
 
         final int id;
         try {
-            id = Integer.parseInt(validationId);
+            id = Integer.parseInt(validationId.trim());
         } catch (NumberFormatException e) {
             throw new InternalServerErrorException("Invalid measurement validation configuration");
         }
@@ -331,29 +414,30 @@ public class MeasurementService extends AbstractServiceImpl {
         Integer minLength = rule.getMinLength() == null ? 0 : rule.getMinLength();
         String regex = rule.getRegularExp();
         Boolean numeric = rule.isNumeric();
-        Boolean date = rule.isDate();
+        boolean dateOnly = Boolean.TRUE.equals(rule.isDate());
 
         try {
-            if ((Boolean.TRUE.equals(date) && !ectValidation.isDate(value))
-                    || (Boolean.TRUE.equals(numeric)
-                        && (!ectValidation.isNumeric(numeric, value) || !isFiniteNumber(value)))
-                    || !ectValidation.isInRange(maxValue, minValue, value)
+            if (!ectValidation.isInRange(maxValue, minValue, value)
                     || !ectValidation.maxLength(maxLength, value)
                     || !ectValidation.minLength(minLength, value)
                     || !ectValidation.matchRegExp(regex, value)
-                    || !ectValidation.isValidBloodPressure(regex, value)) {
-                throw new BadRequestException("Measurement value violates its configured validation rules");
+                    || !ectValidation.isValidBloodPressure(regex, value)
+                    || !ectValidation.isNumeric(numeric, value)
+                    // isNumeric is Double.valueOf, which also takes NaN, Infinity, hex ("0x1p3") and
+                    // type suffixes ("5d"). An API value must be a plain decimal number.
+                    || (Boolean.TRUE.equals(numeric) && !isPlainDecimal(value))
+                    // SimpleDateFormat.parse stops at the first unparsed character, so the shape is
+                    // checked too: "2026-01-01x" must not pass as a date.
+                    || (dateOnly && !(DATE_ONLY.matcher(value).matches() && ectValidation.isDate(value)))) {
+                throw badRequest("VALUE_REJECTED", "Measurement value violates its configured validation rules");
             }
         } catch (java.util.regex.PatternSyntaxException e) {
             throw new InternalServerErrorException("Invalid measurement validation configuration");
         }
     }
 
-    private boolean isFiniteNumber(String value) {
-        try {
-            return Double.isFinite(Double.parseDouble(value));
-        } catch (NumberFormatException e) {
-            return false;
-        }
+    private static boolean isPlainDecimal(String value) {
+        String trimmed = value.strip();
+        return PLAIN_DECIMAL.matcher(trimmed).matches() && Double.isFinite(Double.parseDouble(trimmed));
     }
 }

@@ -143,7 +143,9 @@ public class MeasurementManagerImpl implements MeasurementManager {
     @Override
     public Measurement addMeasurement(LoggedInInfo loggedInInfo, Measurement measurement) {
         measurementDao.persist(measurement);
-        LogAction.addLogSynchronous(loggedInInfo, "MeasurementManager.addMeasurement", "id=" + measurement.getId());
+        // Filed under the patient, so the write appears in that patient's access audit.
+        LogAction.addLogSynchronous(loggedInInfo, "MeasurementManager.addMeasurement", "measurement",
+                String.valueOf(measurement.getId()), measurement.getDemographicId(), "id=" + measurement.getId());
         return (measurement);
     }
 

@@ -619,6 +619,23 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
         }
 
         @Test
+        @DisplayName("should file the audit entry for a new measurement under its patient")
+        void shouldAuditUnderPatient_whenAdding() {
+            Measurement measurement = createTestMeasurement();
+            measurement.setDemographicId(4321);
+
+            measurementManager.addMeasurement(mockLoggedInInfo, measurement);
+
+            logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogSynchronous(
+                    org.mockito.ArgumentMatchers.eq(mockLoggedInInfo),
+                    org.mockito.ArgumentMatchers.eq("MeasurementManager.addMeasurement"),
+                    org.mockito.ArgumentMatchers.eq("measurement"),
+                    org.mockito.ArgumentMatchers.anyString(),
+                    org.mockito.ArgumentMatchers.eq(Integer.valueOf(4321)),
+                    org.mockito.ArgumentMatchers.anyString()));
+        }
+
+        @Test
         @DisplayName("should return the persisted measurement")
         void shouldReturnPersistedMeasurement() {
             // Given

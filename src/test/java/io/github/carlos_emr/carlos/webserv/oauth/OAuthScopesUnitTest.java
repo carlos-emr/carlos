@@ -250,6 +250,24 @@ class OAuthScopesUnitTest {
         }
 
         @Test
+        @DisplayName("should treat non-POST and missing methods as writes even on a measurement read path")
+        void shouldRequireWrite_whenNonPostMethodOnReadOnlyService() {
+            assertThat(OAuthScopes.requiredScope("DELETE", "/services/measurements/123"))
+                    .isEqualTo("measurement.write");
+            assertThat(OAuthScopes.requiredScope(null, "/services/measurements/123"))
+                    .isEqualTo("measurement.write");
+            assertThat(OAuthScopes.requiredScope("   ", "/services/measurements/123"))
+                    .isEqualTo("measurement.write");
+        }
+
+        @Test
+        @DisplayName("should require measurement write scope for a POST whose segment is not a patient id")
+        void shouldRequireWrite_whenMeasurementSegmentIsNotNumeric() {
+            assertThat(OAuthScopes.requiredScope("POST", "/services/measurements/update"))
+                    .isEqualTo("measurement.write");
+        }
+
+        @Test
         @DisplayName("should require measurement write scope for new measurement requests")
         void shouldRequireWrite_whenNewMeasurementRequested() {
             assertThat(OAuthScopes.requiredScope("POST", "/services/measurements/123/new"))
