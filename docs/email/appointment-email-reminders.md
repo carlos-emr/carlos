@@ -24,7 +24,9 @@ The clinic email footer must be configured, as for every patient email. The `app
   consent type. Implied or unknown consent is not enough, and there is no override for the job.
 - **Address:** the patient has a valid email address on their demographic record. The first valid address is used.
 - **Timing:** the reminder goes from `hours_before` before the start until 2 hours before. A booking made inside
-  that window is reminded at the next run, as long as more than 2 hours remain.
+  that window is reminded at the next run, as long as more than 2 hours remain. Hours are counted on the clinic's
+  clock, as appointment times are: on the night the clocks change, the window and its 2-hour cutoff can be an hour
+  longer or shorter in elapsed time.
 - **Once per start:** each appointment start is reminded once. Moving the appointment by changing its date or time
   (Edit Appointment, dragging it on the schedule, REST, HL7, or a change to a whole repeat series) makes it due
   again for the new start. Giving the appointment to another patient on Edit makes it due again for that patient:
@@ -54,7 +56,9 @@ The clinic email footer must be configured, as for every patient email. The `app
     one fails, the appointments stay saved and the page says the reminder setting was not recorded. Reopen the
     appointment, check its Email Reminder setting, and save the choice you intended. If a reminder could not move to
     the new booking, the box is not applied to that booking either, so a start already reminded is not reminded
-    again from a fresh choice.
+    again from a fresh choice. While reminders are turned off, Group Update leaves them alone, as every page does:
+    a choice made before they were turned off stays with the old appointment number and does not follow the new
+    booking.
   - **A repeat-series Group Update from a form that is out of date** (another user saved the appointment since) is
     refused, as for any other changed field, when its Email Reminder box differs from the choice saved now.
 - **Cut and Paste does not keep it:** the pasted appointment is new, and the choice is not copied, so tick the box
@@ -95,6 +99,10 @@ These need several bookings for the same patient at the same time, and a change 
 - **A booking reminded again for a new time.** A reminder keeps only the last time it went for. If a booking was
   reminded for 14:00, then moved to 15:00 and reminded again, it no longer covers 14:00: another booking ticked later
   at 14:00 sends a second 14:00 reminder.
+- **A booking given to the patient later.** A booking's history is read for the patient it has now (the archive is
+  indexed on the patient, not the appointment). A booking given to this patient after another booking's reminder
+  went for that time therefore counts as already there: if that other booking then leaves the time, the patient
+  keeps the one reminder they already got rather than a second.
 
 ## Where staff see the outcome
 - **Edit Appointment:** a line under the box says when the reminder will go, that it went (and when), or why it was
@@ -124,6 +132,12 @@ These need several bookings for the same patient at the same time, and a change 
 Each reminder is claimed with `SELECT … FOR UPDATE SKIP LOCKED` before it is sent, as the SMS queue does, so every
 server may run the job. An attempt is recorded before the email is sent: a server stopping mid-send can leave a
 reminder "not confirmed", but never sends it twice.
+
+The one-per-visit check is not locked across servers: two bookings for one visit are two reminders, claimed
+separately. If another booking for the same patient and time, whose reminder was first asked for earlier, rejoins
+the visit (its box ticked again, moved to that time, or un-cancelled) in the moment between one server checking a
+booking and marking it, and another server picks it up at once, the patient can get two reminders for that visit.
+One server runs the job on a single thread, so this needs several.
 
 ## Later: SMS
 Each reminder row names its channel. SMS reminders (#3843) can be added as a second channel without a schema

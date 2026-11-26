@@ -34,6 +34,9 @@ import java.util.Objects;
  * sent from {@code start - lead} until {@code start - cutoff}, once per start. The start a reminder went for is
  * kept, so an appointment moved to a new start is due again whichever path moved it: no edit hook is needed.
  *
+ * <p>All times are local wall-clock times, as an appointment's date and time are stored (without a zone). On the
+ * day the clocks change, the lead and the cutoff can therefore be an hour longer or shorter in elapsed time.
+ *
  * @since 2026-11-12
  */
 public final class ReminderWindow {
@@ -82,6 +85,8 @@ public final class ReminderWindow {
     }
 
     /**
+     * A window that opens {@code lead} before each start and closes {@code cutoff} before it.
+     *
      * @param lead   how long before the start a reminder may first go
      * @param cutoff how long before the start it may no longer go
      * @throws NullPointerException     when either is null
