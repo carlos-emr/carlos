@@ -252,7 +252,13 @@ the JSPs, `encounterForm` registrations, view gate and XML import allowlist are 
   `studyID`). One entity per table maps every answer column, 1,364 in all,
   generated from the Flyway baseline by
   [`scripts/forms/generate_rehab_study_entities.py`](../scripts/forms/generate_rehab_study_entities.py)
-  (`--check` reports drift). Each entity lists its columns as typed
+  (`--check` reports drift). `formSF36Caregiver` repeats every `formSF36` answer
+  column (the same survey, asked of a caregiver), so the generator maps those 204
+  columns once, in the `@MappedSuperclass`
+  [SF36Answers](../src/main/java/io/github/carlos_emr/carlos/form/model/rehab/SF36Answers.java),
+  which both entities extend; it refuses the pairing if the two tables ever differ.
+  A mapped superclass rather than entity inheritance keeps a query on one
+  questionnaire from reading the other's table. Each entity lists its columns as typed
   [RehabStudyColumn](../src/main/java/io/github/carlos_emr/carlos/form/model/rehab/RehabStudyColumn.java)
   records bound to the field, so the mapper needs no reflection. `tinyint(1)`
   answers are `Byte`, `date` answers `Date`, and every `varchar`, `char`, `int` and

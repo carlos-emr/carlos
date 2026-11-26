@@ -19,6 +19,7 @@ import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.commn.dao.forms.RehabStudyFormDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.form.model.rehab.RehabStudyAssessment;
 import io.github.carlos_emr.carlos.form.model.rehab.RehabStudyColumn;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.AppointmentManager;
@@ -673,7 +674,9 @@ class RehabStudyFormDaoIntegrationTest extends CarlosTestBase {
     }
 
     private static String physicalType(RehabStudyFormType<?> type, String column) {
-        return Stream.of(type.entity().getDeclaredFields()).map(f -> f.getAnnotation(Column.class))
+        // The SF-36 entities declare their answer fields in the shared SF36Answers superclass.
+        return Stream.<Class<?>>iterate(type.entity(), c -> c != RehabStudyAssessment.class, Class::getSuperclass)
+                .flatMap(c -> Stream.of(c.getDeclaredFields())).map(f -> f.getAnnotation(Column.class))
                 .filter(c -> c != null && c.name().equals(column)).findFirst().orElseThrow().columnDefinition();
     }
 

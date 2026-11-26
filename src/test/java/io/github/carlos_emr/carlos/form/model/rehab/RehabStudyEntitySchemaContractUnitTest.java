@@ -7,6 +7,7 @@ import io.github.carlos_emr.carlos.form.RehabStudyFormType;
 import io.github.carlos_emr.carlos.form.RehabStudyForms;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.MappedSuperclass;
 import jakarta.persistence.Table;
 import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
@@ -78,14 +79,29 @@ class RehabStudyEntitySchemaContractUnitTest {
         return columns;
     }
 
+    /**
+     * The classes between RehabStudyAssessment and the entity, superclass first: the entity alone,
+     * or a generated answer superclass that tables with the same columns share, then the entity.
+     */
+    private static List<Class<?>> answerClasses(Class<?> entity) {
+        List<Class<?>> classes = new ArrayList<>();
+        for (Class<?> type = entity; type != RehabStudyAssessment.class; type = type.getSuperclass()) {
+            assertThat(type).as("%s extends RehabStudyAssessment", entity).isNotEqualTo(Object.class);
+            classes.addFirst(type);
+        }
+        return classes;
+    }
+
     private static Map<String, Field> answerFields(Class<?> entity) {
         Map<String, Field> fields = new LinkedHashMap<>();
-        for (Field field : entity.getDeclaredFields()) {
-            Column column = field.getAnnotation(Column.class);
-            if (column != null) {
-                assertThat(fields.put(column.name(), field)).as("duplicate mapping of %s", column.name()).isNull();
-            } else {
-                assertThat(Modifier.isStatic(field.getModifiers())).as("unmapped instance field %s", field).isTrue();
+        for (Class<?> type : answerClasses(entity)) {
+            for (Field field : type.getDeclaredFields()) {
+                Column column = field.getAnnotation(Column.class);
+                if (column != null) {
+                    assertThat(fields.put(column.name(), field)).as("duplicate mapping of %s", column.name()).isNull();
+                } else {
+                    assertThat(Modifier.isStatic(field.getModifiers())).as("unmapped instance field %s", field).isTrue();
+                }
             }
         }
         return fields;
@@ -97,7 +113,15 @@ class RehabStudyEntitySchemaContractUnitTest {
             throws Exception {
         Class<?> entity = type.entity();
         assertThat(entity.getAnnotation(Entity.class)).isNotNull();
-        assertThat(entity.getSuperclass()).isEqualTo(RehabStudyAssessment.class);
+        List<Class<?>> classes = answerClasses(entity);
+        assertThat(classes).as("%s and its answer superclasses", entity).last().isEqualTo(entity);
+        // A shared answer superclass is mapped, never an entity: entity inheritance would let a
+        // query on one questionnaire's entity read another questionnaire's table.
+        for (Class<?> shared : classes.subList(0, classes.size() - 1)) {
+            assertThat(shared.getAnnotation(MappedSuperclass.class)).as("%s is a mapped superclass", shared).isNotNull();
+            assertThat(shared.getAnnotation(Entity.class)).as("%s is not an entity", shared).isNull();
+            assertThat(Modifier.isAbstract(shared.getModifiers())).as("%s is abstract", shared).isTrue();
+        }
         assertThat(entity.getAnnotation(Table.class).name()).isEqualTo(type.table());
         List<PhysicalColumn> physical = baselineColumns(type.table());
         List<PhysicalColumn> header = physical.stream().filter(c -> HEADER.containsKey(c.name())).toList();
@@ -188,6 +212,33 @@ class RehabStudyEntitySchemaContractUnitTest {
                 }
             }
         }
+    }
+
+    @Test
+    void shouldShareAnswerColumns_onlyBetweenTheTwoSf36Tables() throws IOException {
+        Map<Class<?>, List<String>> sharedBy = new LinkedHashMap<>();
+        for (RehabStudyFormType<?> type : RehabStudyForms.all()) {
+            List<Class<?>> classes = answerClasses(type.entity());
+            for (Class<?> shared : classes.subList(0, classes.size() - 1)) {
+                sharedBy.computeIfAbsent(shared, key -> new ArrayList<>()).add(type.table());
+            }
+        }
+        assertThat(sharedBy).containsOnlyKeys(SF36Answers.class);
+        assertThat(sharedBy.get(SF36Answers.class)).containsExactly("formSF36", "formSF36Caregiver");
+        assertThat(baselineColumns("formSF36Caregiver")).as("formSF36Caregiver repeats every formSF36 column")
+                .isEqualTo(baselineColumns("formSF36"));
+        // Each entity reads and writes its own instance through the shared fields.
+        FormSF36 patient = new FormSF36();
+        FormSF36Caregiver caregiver = new FormSF36Caregiver();
+        RehabStudyColumn.Checkbox<FormSF36> first = (RehabStudyColumn.Checkbox<FormSF36>) FormSF36.columns().getFirst();
+        RehabStudyColumn.Checkbox<FormSF36Caregiver> same =
+                (RehabStudyColumn.Checkbox<FormSF36Caregiver>) FormSF36Caregiver.columns().getFirst();
+        first.writer().accept(patient, (byte) 1);
+        assertThat(first.reader().apply(patient)).isEqualTo((byte) 1);
+        assertThat(same.reader().apply(caregiver)).isNull();
+        same.writer().accept(caregiver, (byte) 0);
+        assertThat(same.reader().apply(caregiver)).isZero();
+        assertThat(first.reader().apply(patient)).isEqualTo((byte) 1);
     }
 
     @Test

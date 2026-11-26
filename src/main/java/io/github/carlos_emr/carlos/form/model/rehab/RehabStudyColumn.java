@@ -2,6 +2,7 @@
 package io.github.carlos_emr.carlos.form.model.rehab;
 
 import java.util.Date;
+import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
@@ -21,6 +22,29 @@ public sealed interface RehabStudyColumn<E extends RehabStudyAssessment>
 
     /** @return the physical column name, which is also the form field name */
     String name();
+
+    /**
+     * The columns of a mapped superclass, typed for one entity that extends it.
+     *
+     * <p>Tables whose answer columns are the same by design ({@code formSF36} and
+     * {@code formSF36Caregiver}) map them once, in a generated {@code @MappedSuperclass}. Each
+     * column only reads and writes a field of that superclass, so it applies unchanged to every
+     * entity that extends it; this re-types the list without an unchecked cast.</p>
+     *
+     * @param columns the superclass's columns, in physical order
+     * @param <S> the mapped superclass that declares the answer fields
+     * @param <E> the entity that extends it
+     * @return the same columns, in the same order, typed for the entity
+     */
+    static <S extends RehabStudyAssessment, E extends S> List<RehabStudyColumn<E>> narrow(
+            List<RehabStudyColumn<S>> columns) {
+        return columns.stream().<RehabStudyColumn<E>>map(column -> switch (column) {
+            case Checkbox<S> checkbox -> new Checkbox<E>(checkbox.name(), checkbox.reader()::apply,
+                    checkbox.writer()::accept);
+            case Text<S> text -> new Text<E>(text.name(), text.reader()::apply, text.writer()::accept);
+            case Day<S> day -> new Day<E>(day.name(), day.reader()::apply, day.writer()::accept);
+        }).toList();
+    }
 
     /**
      * A {@code tinyint(1)} checkbox answer: 1 is ticked, any other stored value is not.

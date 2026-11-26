@@ -31,17 +31,42 @@ class RehabStudyEntityGeneratorTest(unittest.TestCase):
 
     def test_every_committed_entity_is_the_generators_output(self):
         self.assertEqual(sorted(self.tables), sorted(MODULE.TABLES))
-        for table, columns in self.tables.items():
-            path = MODULE.TARGET / f"{MODULE.TABLES[table][0]}.java"
-            with self.subTest(table=table):
+        generated = MODULE.sources(self.tables)
+        self.assertEqual(set(generated), {f"{entity}.java" for entity, _ in MODULE.TABLES.values()}
+                         | {f"{superclass}.java" for superclass in MODULE.SHARED_ANSWERS})
+        for name, source in generated.items():
+            path = MODULE.TARGET / name
+            with self.subTest(file=name):
                 self.assertTrue(path.is_file(), f"{path} is missing")
-                self.assertEqual(path.read_text(encoding="utf-8"), MODULE.render(table, columns),
+                self.assertEqual(path.read_text(encoding="utf-8"), source,
                                  f"{path.name} differs from the generator; run scripts/forms/generate_rehab_study_entities.py")
 
     def test_no_entity_exists_that_the_generator_does_not_produce(self):
-        produced = {f"{entity}.java" for entity, _ in MODULE.TABLES.values()}
+        produced = set(MODULE.sources(self.tables))
         hand_written = {"RehabStudyAssessment.java", "RehabStudyColumn.java", "RehabStudyEnrolment.java", "package-info.java"}
         self.assertEqual({path.name for path in MODULE.TARGET.glob("*.java")}, produced | hand_written)
+
+    def test_maps_the_sf36_answers_once_for_both_sf36_tables(self):
+        generated = MODULE.sources(self.tables)
+        self.assertEqual(MODULE.SHARED_ANSWERS, {"SF36Answers": (("formSF36", "formSF36Caregiver"), "SF-36 Health Survey")})
+        shared = generated["SF36Answers.java"]
+        self.assertIn("@MappedSuperclass\npublic abstract class SF36Answers extends RehabStudyAssessment", shared)
+        self.assertEqual(shared.count("@Column("), len(MODULE.body_columns("formSF36", self.tables["formSF36"])))
+        for table in ("formSF36", "formSF36Caregiver"):
+            entity = generated[f"{MODULE.TABLES[table][0]}.java"]
+            with self.subTest(table=table):
+                self.assertIn(f'@Table(name = "{table}")', entity)
+                self.assertIn("extends SF36Answers", entity)
+                self.assertIn("RehabStudyColumn.narrow(answerColumns())", entity)
+                self.assertNotIn("@Column(", entity)
+        for table in set(MODULE.TABLES) - {"formSF36", "formSF36Caregiver"}:
+            self.assertIn("extends RehabStudyAssessment", generated[f"{MODULE.TABLES[table][0]}.java"])
+
+    def test_refuses_to_share_answers_between_tables_that_differ(self):
+        tables = dict(self.tables)
+        tables["formSF36Caregiver"] = [column for column in tables["formSF36Caregiver"] if column[0] != "Q1Ex"]
+        with self.assertRaises(SystemExit):
+            MODULE.sources(tables)
 
     def test_maps_each_physical_kind_to_its_java_type(self):
         columns = HEADER + [("tick", "tinyint(1)", "DEFAULT NULL"), ("day", "date", "DEFAULT NULL"),
