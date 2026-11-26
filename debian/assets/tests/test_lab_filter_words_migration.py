@@ -906,7 +906,7 @@ class TestLabFilterWordsMigration(unittest.TestCase):
                 continue
             words = []
             for token in tokens:
-                if token in (";", "&&", "||", ";;", "&"):
+                if token in (";", "&&", "||", ";;", "&", "|"):
                     break
                 words.append(token)
             if words[:1] == ["rm"] and target in words:
@@ -938,6 +938,9 @@ class TestLabFilterWordsMigration(unittest.TestCase):
             # M5: the name after a `;`, as an argument of another command
             "after a separator": without.replace(
                 last, last + "        rm -f /nonexistent; echo " + named + "\n", 1),
+            # the name as the other side of a pipe
+            "after a pipe": without.replace(
+                last, last + "        rm -f /nonexistent | echo " + named + "\n", 1),
             # the name only in an echo, not an rm
             "echo": without.replace(last, last + "        echo " + named + "\n", 1),
             # the removal gone altogether
