@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/documentManager/ConvertToEdoc.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 87.09677419354838,
+    "instructions": 85.60885608856088,
+    "branches": 100.0,
+    "sourceBlob": "bc367d06b07187ee802f9705f3304a76a8192409"
+  },
+  "evidenceSha256": "f755970f411b0ac096c337a665b6d94d61c6576249f5517c7857006ea54a71f7"
+}

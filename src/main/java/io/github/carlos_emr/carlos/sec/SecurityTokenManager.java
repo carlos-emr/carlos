@@ -45,6 +45,7 @@ import io.github.carlos_emr.CarlosProperties;
 
 public abstract class SecurityTokenManager {
 
+    private static final Object INSTANCE_LOCK = new Object();
     private static SecurityTokenManager instance = null;
 
     /**
@@ -58,37 +59,41 @@ public abstract class SecurityTokenManager {
      */
     private static final String ALLOWED_PACKAGE_PREFIX = ReflectionConstants.CARLOS_PACKAGE_PREFIX;
 
-    public static synchronized SecurityTokenManager getInstance() {
-        if (instance != null) {
+    public static SecurityTokenManager getInstance() {
+        synchronized (INSTANCE_LOCK) {
+            if (instance != null) {
+                return instance;
+            }
+
+            String managerName = CarlosProperties.getInstance().getProperty("sec.token.manager");
+            if (managerName != null) {
+                managerName = managerName.trim();
+                if (managerName.isEmpty()) {
+                    return null;
+                }
+                if (!managerName.startsWith(ALLOWED_PACKAGE_PREFIX)) {
+                    MiscUtils.getLogger().error("Rejected token manager class outside allowed package: {}",
+                            LogSafe.sanitize(managerName));
+                    throw new IllegalStateException("Configured token manager is outside the allowed package");
+                }
+                try {
+                    instance = (SecurityTokenManager) Class.forName(managerName) // nosemgrep: unsafe-reflection -- managerName is validated against ALLOWED_PACKAGE_PREFIX above
+                            .getDeclaredConstructor().newInstance();
+                } catch (ReflectiveOperationException | ClassCastException | LinkageError e) {
+                    MiscUtils.getLogger().error("Unable to load token manager: {}",
+                            LogSafe.sanitize(managerName), e);
+                    throw new IllegalStateException("Unable to load configured token manager", e);
+                }
+            }
+
             return instance;
         }
-
-        String managerName = CarlosProperties.getInstance().getProperty("sec.token.manager");
-        if (managerName != null) {
-            managerName = managerName.trim();
-            if (managerName.isEmpty()) {
-                return null;
-            }
-            if (!managerName.startsWith(ALLOWED_PACKAGE_PREFIX)) {
-                MiscUtils.getLogger().error("Rejected token manager class outside allowed package: {}",
-                        LogSafe.sanitize(managerName));
-                throw new IllegalStateException("Configured token manager is outside the allowed package");
-            }
-            try {
-                instance = (SecurityTokenManager) Class.forName(managerName) // nosemgrep: unsafe-reflection -- managerName is validated against ALLOWED_PACKAGE_PREFIX above
-                        .getDeclaredConstructor().newInstance();
-            } catch (ReflectiveOperationException | ClassCastException | LinkageError e) {
-                MiscUtils.getLogger().error("Unable to load token manager: {}",
-                        LogSafe.sanitize(managerName), e);
-                throw new IllegalStateException("Unable to load configured token manager", e);
-            }
-        }
-
-        return instance;
     }
 
-    static synchronized void resetForTesting() {
-        instance = null;
+    static void resetForTesting() {
+        synchronized (INSTANCE_LOCK) {
+            instance = null;
+        }
     }
 
     /**

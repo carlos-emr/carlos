@@ -77,12 +77,12 @@ class ConvertToEdocRenderUnitTest extends CarlosUnitTestBase {
     private HtmlPdfRenderService service;
     private NioFileManager files;
     private ServletContext servletContext;
-    private Object originalRealPath;
+    private String originalRealPath;
     private String originalCatalinaBase;
 
     @BeforeEach
     void setUp() throws Exception {
-        originalRealPath = ReflectionTestUtils.getField(ConvertToEdoc.class, "realPath");
+        originalRealPath = (String) ReflectionTestUtils.getField(ConvertToEdoc.class, "realPath");
         originalCatalinaBase = System.getProperty("catalina.base");
         service = mock(HtmlPdfRenderService.class);
         files = mock(NioFileManager.class);
@@ -96,19 +96,11 @@ class ConvertToEdocRenderUnitTest extends CarlosUnitTestBase {
 
     @AfterEach
     void restore() {
-        synchronized (ConvertToEdoc.class) {
-            ReflectionTestUtils.setField(ConvertToEdoc.class, "realPath", originalRealPath);
-        }
+        ConvertToEdoc.setWebappRoot(originalRealPath);
         if (originalCatalinaBase == null) {
             System.clearProperty("catalina.base");
         } else {
             System.setProperty("catalina.base", originalCatalinaBase);
-        }
-    }
-
-    private static void setRealPath(String value) {
-        synchronized (ConvertToEdoc.class) {
-            ReflectionTestUtils.setField(ConvertToEdoc.class, "realPath", value);
         }
     }
 
@@ -144,7 +136,7 @@ class ConvertToEdocRenderUnitTest extends CarlosUnitTestBase {
         String originalImages = CarlosProperties.getInstance().getProperty("EFORM_IMAGES_DIR");
         CarlosProperties.getInstance().setProperty("EFORM_IMAGES_DIR", images.toString());
         try {
-            setRealPath(root.toString());
+            ConvertToEdoc.setWebappRoot(root.toString());
 
             HtmlPdfRenderRequest request = ConvertToEdoc.buildRenderRequest("<p>FAKE-x</p>", HtmlPdfRenderSource.FORM);
 
@@ -166,7 +158,7 @@ class ConvertToEdocRenderUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should leave the base directory out, and still allow the temp directory, when there is no webapp root")
     void shouldPassNullBase_whenNoWebappRoot() {
-        setRealPath(null);
+        ConvertToEdoc.setWebappRoot(null);
         when(servletContext.getRealPath("/")).thenReturn(null);
         System.clearProperty("catalina.base");
 
@@ -179,7 +171,7 @@ class ConvertToEdocRenderUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should treat a filesystem root as no webapp root")
     void shouldPassNullBase_whenRootIsFilesystemRoot() {
-        setRealPath("/");
+        ConvertToEdoc.setWebappRoot("/");
 
         assertThat(ConvertToEdoc.buildRenderRequest("<p>x</p>", HtmlPdfRenderSource.FORM).baseDirectory()).isNull();
     }
@@ -189,7 +181,7 @@ class ConvertToEdocRenderUnitTest extends CarlosUnitTestBase {
     void shouldUseSameRoot_forTranslationAndRendering() throws Exception {
         Path root = Files.createDirectory(directory.resolve("context-root"));
         Files.createFile(root.resolve("stamp.png"));
-        setRealPath(null);
+        ConvertToEdoc.setWebappRoot(null);
         when(servletContext.getRealPath("/")).thenReturn(root + "/");
 
         assertThat(ConvertToEdoc.saveAsTempPDF(form(page("<img src=\"stamp.png\">"), null, "FAKE-name"))).isNotNull();
@@ -204,7 +196,7 @@ class ConvertToEdocRenderUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should label each entry point's request with its source")
     void shouldLabelSources_perEntryPoint() throws Exception {
-        setRealPath(directory.toString());
+        ConvertToEdoc.setWebappRoot(directory.toString());
         FormTransportContainer form = form("<p>FAKE-form</p>", directory.toString(), "FAKE-form");
         EmailData email = mock(EmailData.class);
         when(email.getEncryptedMessage()).thenReturn("<p>FAKE-email</p>");
@@ -228,7 +220,7 @@ class ConvertToEdocRenderUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should render a form through the service, once, and save what it renders")
     void shouldRenderThroughService_once() throws Exception {
-        setRealPath(directory.toString());
+        ConvertToEdoc.setWebappRoot(directory.toString());
 
         Path saved = ConvertToEdoc.saveAsTempPDF(form(page("<p>FAKE-body</p>"), directory.toString(), "FAKE-name"));
 
@@ -242,7 +234,7 @@ class ConvertToEdocRenderUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should return null and retain diagnostics without filename or HTML content")
     void shouldReturnNullAndLogNoHtml_whenRenderFails() throws Exception {
-        setRealPath(directory.toString());
+        ConvertToEdoc.setWebappRoot(directory.toString());
         when(service.render(any())).thenThrow(new PDFGenerationException("FAKE-secret body text from the engine"));
 
         try (LogCapture capture = LogCapture.forLogger(ConvertToEdoc.class)) {
@@ -260,7 +252,7 @@ class ConvertToEdocRenderUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should return null and log only the class of the cause when the service fails unexpectedly")
     void shouldReturnNullAndLogNoMessage_whenServiceFailsUnexpectedly() throws Exception {
-        setRealPath(directory.toString());
+        ConvertToEdoc.setWebappRoot(directory.toString());
         when(service.render(any())).thenThrow(new IllegalStateException("FAKE-secret body text from the engine"));
 
         try (LogCapture capture = LogCapture.forLogger(ConvertToEdoc.class)) {
@@ -277,7 +269,7 @@ class ConvertToEdocRenderUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should return null for blank HTML without letting an exception out")
     void shouldReturnNull_forBlankHtml() throws Exception {
-        setRealPath(directory.toString());
+        ConvertToEdoc.setWebappRoot(directory.toString());
 
         assertThat(ConvertToEdoc.saveAsTempPDF(form("   ", directory.toString(), "FAKE-name"))).isNull();
         assertThat(ConvertToEdoc.saveAsTempPDF(form("", directory.toString(), "FAKE-name"))).isNull();
@@ -289,7 +281,7 @@ class ConvertToEdocRenderUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should return null, and not try again, when the temporary file cannot be saved")
     void shouldReturnNull_whenTempSaveFails() throws Exception {
-        setRealPath(directory.toString());
+        ConvertToEdoc.setWebappRoot(directory.toString());
         when(files.saveTempFile(anyString(), any(ByteArrayOutputStream.class))).thenThrow(new IOException("disk full at " + directory));
 
         try (LogCapture capture = LogCapture.forLogger(ConvertToEdoc.class)) {
@@ -306,7 +298,7 @@ class ConvertToEdocRenderUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should hand the service the document with its resources translated, and the bytes it renders to the file manager")
     void shouldSaveWhatTheServiceRenders_asTheDocument() throws Exception {
-        setRealPath(directory.toString());
+        ConvertToEdoc.setWebappRoot(directory.toString());
         List<byte[]> saved = new java.util.ArrayList<>();
         when(files.saveTempFile(anyString(), any(ByteArrayOutputStream.class))).thenAnswer(invocation -> {
             saved.add(invocation.<ByteArrayOutputStream>getArgument(1).toByteArray());
