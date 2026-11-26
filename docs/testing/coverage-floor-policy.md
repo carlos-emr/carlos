@@ -546,3 +546,41 @@ old floor entries are outside the current comparison because their sources
 were removed or restored to the reviewed base. No executable exclusion, lower
 floor or zero-coverage waiver was added. Passing PR source freshness does not
 certify those outstanding release-wide coverage requirements.
+
+The PR #6133 checkpoint at `5a02e389bda` records a fresh complete H2 execution:
+36,211 actual cases, zero failures/errors and 219 exact registered routed or
+prerequisite skips. Seven physical MariaDB audit-purge cases and five permission
+cases pass separately without skips against identical production/test classes.
+All 6,311 production class hashes match the isolated source-built WAR. Fifteen
+packaging fixtures also exercise a byte-identical preflight helper with JaCoCo.
+Two CDS families abort in `BeforeAll` without their protected native selector;
+their required 12 and 7 cases remain in `java-cds-native` and are explicitly
+recorded in the baseline rather than counted as H2 executions.
+
+The refreshed metadata binds 739 floors and the same six nonexecutable exclusions
+to the final Java tree, report and testcase inventory. Every Java file changed by
+this PR meets its retained floors. Higher historical metrics and every required
+refusal line remain intact. The wider comparison still refuses 194 assertions,
+including 79 existing unreviewed zero floors, pending the complete native-lane
+union and review. This adds no waiver or lower threshold and does not qualify
+the full release matrix.
+
+PR #6135 refreshes the inbox/review source at `3e6960be26b` from a complete
+36,223-case H2 run with zero failures/errors and 212 registered routed/prerequisite
+skips. Complete final retakes of four augmented action/upload/report-identity
+classes pass 144 cases without skips; replacing only those four reports yields
+36,230 verified cases (36,018 passes, 212 routed skips). Both focused physical
+MariaDB 11.8.8 Flyway lanes pass 116 cases separately for ON and BC, without skips.
+All 6,320 production class hashes match across these executions and the
+browser-tested WAR; all five Ontario browser checks pass their 19 steps.
+
+The fresh comparison records 752 source floors and the same six nonexecutable
+exclusions, preserving 114 higher historical metrics across 53 files and every
+required refusal line. All 22 Java paths changed against this PR's release base
+meet their retained floors. The wider release comparison still refuses 191
+assertions, including 77 unreviewed zero floors; no waiver or threshold reduction
+is introduced. This establishes source freshness and measured PR coverage, and
+does not replace the complete same-source native-lane union for release
+qualification. Node 22.22.1 passes all 7,914 regression cases without skips,
+cancellations or source mutation; the release/coverage Python self-tests pass
+405 and 30 cases respectively.

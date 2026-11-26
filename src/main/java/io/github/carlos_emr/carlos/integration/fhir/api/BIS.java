@@ -43,48 +43,51 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 public class BIS {
 
+    private static final Object BUILDER_LOCK = new Object();
     private static Settings settings = new Settings(FhirDestination.DHIR, Region.ON);
 
-    public static synchronized FhirCommunicationBuilder getFhirCommunicationBuilder(LoggedInInfo loggedInInfo, int demographicNo, String wbData, String wbCsdData, String arData, Clinic clinic) {
+    public static FhirCommunicationBuilder getFhirCommunicationBuilder(LoggedInInfo loggedInInfo, int demographicNo, String wbData, String wbCsdData, String arData, Clinic clinic) {
+        synchronized (BUILDER_LOCK) {
 
-        OscarFhirConfigurationManager configurationManager = new OscarFhirConfigurationManager(loggedInInfo, settings);
+            OscarFhirConfigurationManager configurationManager = new OscarFhirConfigurationManager(loggedInInfo, settings);
 
-        Patient patient = OscarFhirResourceManager.getPatientByDemographicNumber(configurationManager, demographicNo);
+            Patient patient = OscarFhirResourceManager.getPatientByDemographicNumber(configurationManager, demographicNo);
 
-        // Practitioner
-        //Practitioner practitioner = new Practitioner(providers, configurationManager);
+            // Practitioner
+            //Practitioner practitioner = new Practitioner(providers, configurationManager);
 
-        FhirCommunicationBuilder fhirCommunicationBuilder = new FhirCommunicationBuilder(configurationManager);
-        fhirCommunicationBuilder.setSubject(patient);
+            FhirCommunicationBuilder fhirCommunicationBuilder = new FhirCommunicationBuilder(configurationManager);
+            fhirCommunicationBuilder.setSubject(patient);
 
-        if (wbData != null) {
-            ClinicalImpression clinicalImpression = new ClinicalImpression(wbData);
-            clinicalImpression.setDescription("Well Baby");
-            fhirCommunicationBuilder.addAttachment(clinicalImpression.copyToAttachement(new Attachment()));
+            if (wbData != null) {
+                ClinicalImpression clinicalImpression = new ClinicalImpression(wbData);
+                clinicalImpression.setDescription("Well Baby");
+                fhirCommunicationBuilder.addAttachment(clinicalImpression.copyToAttachement(new Attachment()));
+            }
+
+            if (wbCsdData != null) {
+                ClinicalImpression clinicalImpression = new ClinicalImpression(wbCsdData);
+                clinicalImpression.setDescription("Well Baby CSD");
+                fhirCommunicationBuilder.addAttachment(clinicalImpression.copyToAttachement(new Attachment()));
+            }
+            if (arData != null) {
+                ClinicalImpression clinicalImpression = new ClinicalImpression(arData);
+                clinicalImpression.setDescription("Antenatal Record");
+                fhirCommunicationBuilder.addAttachment(clinicalImpression.copyToAttachement(new Attachment()));
+            }
+
+
+            patient.setManagingOrganizationReference("#Organization" + clinic.getId());
+
+
+            Organization organization = new org.hl7.fhir.dstu3.model.Organization();
+            organization.setId("#Organization" + clinic.getId());
+            organization.setName(clinic.getClinicName());
+            fhirCommunicationBuilder.addResource(organization);
+
+
+            return fhirCommunicationBuilder;
         }
-
-        if (wbCsdData != null) {
-            ClinicalImpression clinicalImpression = new ClinicalImpression(wbCsdData);
-            clinicalImpression.setDescription("Well Baby CSD");
-            fhirCommunicationBuilder.addAttachment(clinicalImpression.copyToAttachement(new Attachment()));
-        }
-        if (arData != null) {
-            ClinicalImpression clinicalImpression = new ClinicalImpression(arData);
-            clinicalImpression.setDescription("Antenatal Record");
-            fhirCommunicationBuilder.addAttachment(clinicalImpression.copyToAttachement(new Attachment()));
-        }
-
-
-        patient.setManagingOrganizationReference("#Organization" + clinic.getId());
-
-
-        Organization organization = new org.hl7.fhir.dstu3.model.Organization();
-        organization.setId("#Organization" + clinic.getId());
-        organization.setName(clinic.getClinicName());
-        fhirCommunicationBuilder.addResource(organization);
-
-
-        return fhirCommunicationBuilder;
     }
 
 }

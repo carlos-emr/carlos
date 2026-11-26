@@ -9,6 +9,7 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.ProviderManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import org.springframework.stereotype.Service;
@@ -58,10 +59,14 @@ public class DemographicProviderReassignmentService {
             if (old == null) return 0;
             List<Demographic> patients = demographics.getDemographicsNameRangeByProvider(user, old, regex);
             for (Demographic patient : patients) requirePatientWrite(user, patient.getDemographicNo());
+            Date assignedAt = new Date();
             for (Demographic patient : patients) {
                 // Keep the managed original intact until the manager archives it.
                 Demographic replacement = new Demographic(patient);
                 replacement.setProviderNo(newProvider);
+                if (!oldProvider.equals(newProvider)) {
+                    replacement.setLastUpdateDate(assignedAt);
+                }
                 demographics.updateDemographic(user, replacement);
             }
             return patients.size();

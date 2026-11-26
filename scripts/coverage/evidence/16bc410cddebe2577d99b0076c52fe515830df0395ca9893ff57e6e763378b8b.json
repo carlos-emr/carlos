@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "4aa4eb62742035d92e22cb08694281a5696bd007",
+  "comparisonSha256": "1412d80ef6650654861521c11cd0639902d1a910145d363ee25de43a46b9db65",
+  "baselineCommit": "8f97b3b4c187e015b58360f53ecd3d1b5ed6ef11",
+  "baselineSourceTree": "4aa4eb62742035d92e22cb08694281a5696bd007",
+  "baselineReportSha256": "e210061b25eb215dc3cd1c6f7804d24e8456f9c617e4488fb1963cde77c34bc2",
+  "baselineLane": "Focused application input and prevention verification tests on Temurin 25",
+  "baselineTestCounts": {
+    "tests": 60,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "e9c57cbeec55ebe72cd708ab22e5cb6c6a4f603996d55ff5ccc7ad38e79c1eac",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/eform/actions/ManageEForm2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "4d0e319d04d4aef4e7cb7e9cdee82ef7b4db6512"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/oscarConsultationRequest/pageUtil/EctConsultationFormRequestPrintAction22Action.java": {
+      "lines": 97.33333333333333,
+      "instructions": 96.92737430167598,
+      "branches": 72.22222222222223,
+      "sourceBlob": "a189cb001d8fd5e4cc4f0a825fa006c137ebac03"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/pageUtil/EctAddMeasurementType2Action.java": {
+      "lines": 80.0,
+      "instructions": 67.3913043478261,
+      "branches": 83.33333333333333,
+      "sourceBlob": "2e3196e1d4789aba2cbba10cf2d331021e0bf37e"
+    }
+  },
+  "exclusions": {}
+}

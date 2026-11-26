@@ -29,6 +29,7 @@
 
 package io.github.carlos_emr.carlos.waitinglist.util;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -39,8 +40,13 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 public class WLWaitingListUtil {
+
+    /** Serializes all waiting-list updates, including position changes. */
+    private static final Object MUTATION_LOCK = new Object();
 
     /**
      * Why a waiting-list note cannot be saved: it is longer than {@code waitingList.note} holds
@@ -65,20 +71,39 @@ public class WLWaitingListUtil {
 
 
     // Modified this method in Feb 2007 to ensure that all records cannot be deleted except hidden.
-    static public synchronized void removeFromWaitingList(String waitingListID, String demographicNo) {
+    public static void removeFromWaitingList(String waitingListID, String demographicNo) {
+        synchronized (MUTATION_LOCK) {
+            new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class))
+                    .executeWithoutResult(status -> removeEntries(waitingListID, demographicNo));
+        }
+    }
+
+    private static void removeEntries(String waitingListID, String demographicNo) {
         MiscUtils.getLogger().debug("WLWaitingListUtil.removeFromWaitingList(): removing waiting list: " + waitingListID + " for patient " + demographicNo);
 
         WaitingListDao dao = SpringUtils.getBean(WaitingListDao.class);
-        for (WaitingList wl : dao.findByWaitingListIdAndDemographicId(ConversionUtils.fromIntString(waitingListID), ConversionUtils.fromIntString(demographicNo))) {
-            wl.setHistory(true);
-            dao.merge(wl);
+        Integer patientId = ConversionUtils.fromIntString(demographicNo);
+        List<WaitingList> remaining = new ArrayList<>();
+        for (WaitingList entry : dao.findByWaitingListIdForUpdate(ConversionUtils.fromIntString(waitingListID))) {
+            if (patientId.equals(entry.getDemographicNo())) {
+                entry.setHistory(true);
+                dao.merge(entry);
+            } else {
+                remaining.add(entry);
+            }
         }
-        rePositionWaitingList(waitingListID);
+        repositionEntries(dao, remaining);
+    }
+
+    public static void add2WaitingList(String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
+        synchronized (MUTATION_LOCK) {
+            addEntry(waitingListID, waitingListNote, demographicNo, onListSince);
+        }
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    static public synchronized void add2WaitingList(String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
+    private static void addEntry(String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
         requireNoteFits(waitingListNote);
         MiscUtils.getLogger().debug("WLWaitingListUtil.add2WaitingList(): adding to waitingList: " + waitingListID + " for patient " + demographicNo);
 
@@ -106,42 +131,79 @@ public class WLWaitingListUtil {
         dao.persist(list);
 
         // update the waiting list positions
-        rePositionWaitingList(waitingListID);
+        repositionEntries(waitingListID);
     }
 
     /*
      * This method adds the Waiting List note to the same position in the waitingList table but do not delete previous ones - later on DisplayWaitingList.jsp will display only the most current Waiting List Note record.
+     *
+     * This is a no-op when no list was named (id "0") or the patient has no entry on the
+     * named list. The patient edit form can also use a historical entry to put the patient
+     * back on the list.
      */
+    public static void updateWaitingListRecord(String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
+        recordNote(waitingListID, waitingListNote, demographicNo, onListSince, false);
+    }
+
+    /**
+     * {@link #updateWaitingListRecord} for a caller that must not put a patient back on a list: the
+     * note is recorded only when the patient has a current entry on the named list. Entries kept
+     * as history after a removal do not count, so an update prepared before the removal is
+     * reported instead of undoing it (#5298). The caller holds the patient row lock in its
+     * transaction. The waiting-list rows are also locked through commit because this write
+     * repositions the entire list.
+     *
+     * @return {@code true} when the note was recorded; {@code false} when nothing was written
+     *         because no list was named (id "0") or the patient is not on the named list now
+     */
+    public static boolean updateCurrentWaitingListRecord(String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
+        return recordNote(waitingListID, waitingListNote, demographicNo, onListSince, true);
+    }
+
+    private static boolean recordNote(String waitingListID, String waitingListNote, String demographicNo, String onListSince, boolean currentEntryRequired) {
+        synchronized (MUTATION_LOCK) {
+            return recordEntryNote(waitingListID, waitingListNote, demographicNo, onListSince, currentEntryRequired);
+        }
+    }
+
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    static public synchronized void updateWaitingListRecord(String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
+    private static boolean recordEntryNote(String waitingListID, String waitingListNote, String demographicNo, String onListSince, boolean currentEntryRequired) {
         requireNoteFits(waitingListNote);
         MiscUtils.getLogger().debug("WLWaitingListUtil.updateWaitingListRecord(): waitingListID: " + waitingListID + " for patient " + demographicNo);
         boolean isWatingIdSet = !waitingListID.equalsIgnoreCase("0") && !demographicNo.equalsIgnoreCase("0");
-        if (!isWatingIdSet) return;
+        if (!isWatingIdSet) return false;
 
         WaitingListDao dao = SpringUtils.getBean(WaitingListDao.class);
-        List<WaitingList> waitingLists = dao.findByWaitingListIdAndDemographicId(ConversionUtils.fromIntString(waitingListID), ConversionUtils.fromIntString(demographicNo));
-        if (waitingLists.isEmpty()) return;
+        int listId = ConversionUtils.fromIntString(waitingListID);
+        Integer patientId = ConversionUtils.fromIntString(demographicNo);
+        // A locking read sees the committed current rows even when the REST transaction
+        // established a repeatable-read snapshot before waiting for the patient lock.
+        List<WaitingList> lockedEntries = currentEntryRequired ? dao.findByWaitingListIdForUpdate(listId) : List.of();
+        List<WaitingList> waitingLists = currentEntryRequired
+                ? lockedEntries.stream().filter(entry -> patientId.equals(entry.getDemographicNo())).toList()
+                : dao.findByWaitingListIdAndDemographicId(listId, patientId);
+        // Not on this list: the patient edit form relies on this being a no-op (it then offers the
+        // add), so it stays one, but it is reported, because a caller that was asked to save this
+        // note has not saved it.
+        if (waitingLists.isEmpty()) return false;
+        WaitingList previous = waitingLists.getLast();
 
-        long pos = 1;
-        for (WaitingList wl : waitingLists) {
-            pos = wl.getPosition();
-        }
-
-        // set all previous records 'is_history' fielf to 'N' --> to keep as record but never display
+        // Keep the replaced entries as history.
         for (WaitingList wl : waitingLists) {
             wl.setHistory(true);
             dao.merge(wl);
         }
 
         WaitingList wl = new WaitingList();
-        wl.setListId(ConversionUtils.fromIntString(waitingListID));
-        wl.setDemographicNo(ConversionUtils.fromIntString(demographicNo));
+        wl.setListId(listId);
+        wl.setDemographicNo(patientId);
         wl.setNote(waitingListNote);
-        wl.setPosition(pos);
-        if (onListSince == null || onListSince.length() <= 0) {
-            wl.setOnListSince(new Date());
+        wl.setPosition(previous.getPosition());
+        boolean dateOmitted = onListSince == null || onListSince.isEmpty();
+        if (dateOmitted) {
+            // A note edit must keep the locked row's start date, which drives list ordering.
+            wl.setOnListSince(currentEntryRequired ? previous.getOnListSince() : new Date());
         } else {
             wl.setOnListSince(ConversionUtils.fromDateString(onListSince));
         }
@@ -149,16 +211,33 @@ public class WLWaitingListUtil {
 
         dao.saveEntity(wl);
 
-        // update the waiting list positions
-        rePositionWaitingList(waitingListID);
+        if (currentEntryRequired && dateOmitted) {
+            // Replace the old row in the locked order so its new ID never breaks a tie.
+            List<WaitingList> ordered = lockedEntries.stream()
+                    .map(entry -> entry == previous ? wl : entry)
+                    .filter(entry -> WaitingList.IS_HISTORY_NO.equals(entry.getIsHistory()))
+                    .toList();
+            repositionEntries(dao, ordered);
+        } else if (currentEntryRequired) {
+            repositionEntries(dao, dao.findByWaitingListIdForUpdate(listId));
+        } else {
+            repositionEntries(waitingListID);
+        }
+        return true;
     }
 
     /*
      * This method adds the Waiting List note to the same position in the waitingList table but do not delete previous ones - later on DisplayWaitingList.jsp will display only the most current Waiting List Note record.
      */
+    public static void updateWaitingList(String id, String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
+        synchronized (MUTATION_LOCK) {
+            updateEntry(id, waitingListID, waitingListNote, demographicNo, onListSince);
+        }
+    }
+
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    static public synchronized void updateWaitingList(String id, String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
+    private static void updateEntry(String id, String waitingListID, String waitingListNote, String demographicNo, String onListSince) {
         requireNoteFits(waitingListNote);
         MiscUtils.getLogger().debug("WLWaitingListUtil.updateWaitingList(): waitingListID: " + waitingListID + " for patient " + demographicNo);
         boolean idsSet = !waitingListID.equalsIgnoreCase("0") && !demographicNo.equalsIgnoreCase("0");
@@ -188,10 +267,20 @@ public class WLWaitingListUtil {
     }
 
     /** Shares the mutation monitor, including when called directly by an action. */
-    public static synchronized void rePositionWaitingList(String waitingListID) {
-        int i = 1;
+    public static void rePositionWaitingList(String waitingListID) {
+        synchronized (MUTATION_LOCK) {
+            repositionEntries(waitingListID);
+        }
+    }
+
+    private static void repositionEntries(String waitingListID) {
         WaitingListDao dao = SpringUtils.getBean(WaitingListDao.class);
-        for (WaitingList waitingList : dao.findByWaitingListId(ConversionUtils.fromIntString(waitingListID))) {
+        repositionEntries(dao, dao.findByWaitingListId(ConversionUtils.fromIntString(waitingListID)));
+    }
+
+    private static void repositionEntries(WaitingListDao dao, List<WaitingList> entries) {
+        int i = 1;
+        for (WaitingList waitingList : entries) {
             waitingList.setPosition(i);
             dao.merge(waitingList);
             i++;

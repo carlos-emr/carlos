@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "fb65e162db3a2b40c7cedfa747218c79b976392d",
+  "comparisonSha256": "27a9eb10d1d46c539f24040dff2d61458bc7e2f9dd38e76794024766f76412f7",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/OscarJobService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "2619a485d9ef530659245e279cca41295f6345d3"
+    }
+  },
+  "baselineCommit": "edb8488ede6a2402ef4b5c6d01f2919577ad38a9",
+  "baselineSourceTree": "fb65e162db3a2b40c7cedfa747218c79b976392d",
+  "baselineReportSha256": "bc5526890753a110eed5c4f6aedce24300642e8475c002e2d5ab689886ea4ba0",
+  "baselineLane": "PR #6239 Java 25 job REST and persisted scheduler reconciliation",
+  "baselineTestCounts": {
+    "tests": 24,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "b7e40ae1f09dac0a203b51332b24b2c74e150d5615ce7054dbecb9538245a888",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.webserv.rest.OscarJobServiceEndpointTest",
+    "io.github.carlos_emr.carlos.webserv.rest.OscarJobServiceSecurityTest"
+  ]
+}

@@ -70,20 +70,18 @@ class ConvertToEdocRenderIntegrationTest extends CarlosTestBase {
     @TempDir
     Path directory;
 
-    private Object originalRealPath;
+    private String originalRealPath;
     private String originalEformImagesDir;
 
     @BeforeEach
     void rememberSettings() {
-        originalRealPath = ReflectionTestUtils.getField(ConvertToEdoc.class, "realPath");
+        originalRealPath = (String) ReflectionTestUtils.getField(ConvertToEdoc.class, "realPath");
         originalEformImagesDir = CarlosProperties.getInstance().getProperty("EFORM_IMAGES_DIR");
     }
 
     @AfterEach
     void restoreSettings() {
-        synchronized (ConvertToEdoc.class) {
-            ReflectionTestUtils.setField(ConvertToEdoc.class, "realPath", originalRealPath);
-        }
+        ConvertToEdoc.setWebappRoot(originalRealPath);
         if (originalEformImagesDir == null) {
             CarlosProperties.getInstance().remove("EFORM_IMAGES_DIR");
         } else {

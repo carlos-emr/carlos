@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/login/LoginList.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "6f695986b95eb79d57c454c4252a57e0bb44f3ce"
+  },
+  "evidenceSha256": "f755970f411b0ac096c337a665b6d94d61c6576249f5517c7857006ea54a71f7"
+}

@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "4246d165f828deb13bc28706749a80d149ac45d3",
+  "comparisonSha256": "f60ccb2ba95506c4ac7aecc738d6a8fc53bfeff77d5317d79958a067adc11979",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/admin/service/DemographicProviderReassignmentService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "60a949fb36ce353331b142f5e74f125fe51f61aa"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prevention/reports/PreventionReportUtil.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 98.27586206896552,
+      "sourceBlob": "a2cdf234d428da6e5d0db089beef028b29ced255"
+    }
+  },
+  "baselineCommit": "24e2881a7eec098de58b52a68397324c7cb63fb8",
+  "baselineSourceTree": "4246d165f828deb13bc28706749a80d149ac45d3",
+  "baselineReportSha256": "a37ae3501494352a7b3e9cd4965a660c4764e3f7c1dfb9cffbb45368ec43116a",
+  "baselineLane": "JDK 25 focused Surefire with H2 archival replay of UpdateMrp",
+  "baselineTestCounts": {
+    "tests": 49,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "f33d95bc71f423808d830c98c3a9a23ec5ea63281f6b0004e591c14717b3df90",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.admin.service.DemographicProviderReassignmentServiceUnitTest",
+    "io.github.carlos_emr.carlos.admin.service.DemographicProviderReassignmentTransactionIntegrationTest",
+    "io.github.carlos_emr.carlos.prevention.reports.PreventionReportUtilUnitTest",
+    "io.github.carlos_emr.carlos.report.data.RptDemographicQueryAsOfRosterUnitTest"
+  ]
+}

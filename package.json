@@ -826,6 +826,7 @@
     "test:concurrency-demographic-edit-playwright": "node scripts/concurrency-demographic-edit-playwright-checks.js",
     "test:concurrency-demographic-ext-insert-playwright": "node scripts/concurrency-demographic-ext-insert-playwright-checks.js",
     "test:demographic-rest-create-extras-playwright": "node scripts/demographic-rest-create-extras-playwright-checks.js",
+    "test:demographic-rest-update-atomicity-playwright": "node scripts/demographic-rest-update-atomicity-playwright-checks.js",
     "test:demographic-stale-edit-recovery-playwright": "node scripts/demographic-stale-edit-recovery-playwright-checks.js",
     "test:concurrency-appointment-edit-playwright": "node scripts/concurrency-appointment-edit-playwright-checks.js",
     "test:concurrency-tickler-edit-playwright": "node scripts/concurrency-tickler-edit-playwright-checks.js",
@@ -1044,15 +1045,21 @@
     "test:server-table-installed-playwright": "node scripts/server-table-installed-playwright-checks.js",
     "test:admin-keygen-create-key-retry-playwright": "node scripts/admin-keygen-create-key-retry-playwright-checks.js",
     "test:report-blob-text-readers-playwright": "node scripts/report-blob-text-readers-playwright-checks.js",
+    "test:admin-jobs-save-browser": "node --test scripts/admin-jobs-save-browser-checks.js",
+    "test:privacy-html-range": "node scripts/privacy-html-range-playwright-checks.js",
     "test:fax-configuration-save-playwright": "node scripts/fax-configuration-save-playwright-checks.js",
     "test:playwright:provider-document-queue-security": "node scripts/provider-document-queue-security-playwright-checks.js",
+    "test:playwright:forms-default-heading": "node scripts/forms-default-heading-playwright-checks.js",
     "test:consultation-health-care-team-playwright": "node scripts/consultation-health-care-team-playwright-checks.js",
     "test:admin-issue-editor-save": "node scripts/admin-issue-editor-save-playwright-checks.js",
     "test:admin-facility-disable-playwright": "node scripts/admin-facility-disable-playwright-checks.js",
     "test:playwright:log-provider-order": "node scripts/log-provider-order-playwright-checks.js",
     "check:demographic-converted-limits": "node scripts/demographic-converted-limits-playwright-checks.js",
     "test:privacy-static-html-metadata-playwright": "node scripts/privacy-static-html-metadata-playwright-checks.js",
-    "test:eform-large-html-roundtrip-playwright": "node scripts/eform-large-html-roundtrip-playwright-checks.js"
+    "test:eform-large-html-roundtrip-playwright": "node scripts/eform-large-html-roundtrip-playwright-checks.js",
+    "test:consultation-unavailable-hrm-playwright": "node scripts/consultation-unavailable-hrm-playwright-checks.js",
+    "test:hrm-version-history-playwright": "node scripts/hrm-version-history-playwright-checks.js",
+    "test:inbox-failure-states-playwright": "node scripts/inbox-failure-states-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
@@ -1095,7 +1102,6 @@
   "overrides": {
     "ajv@>=7.0.0-alpha.0 <8.18.0": "8.18.0",
     "ajv@<6.14.0": "6.14.0",
-    "minimatch": "10.2.3",
     "qs": "6.16.2",
     "webpack": "5.104.1",
     "lodash": "4.18.1",
@@ -1103,7 +1109,6 @@
     "serialize-javascript": "7.1.4",
     "picomatch": "2.3.2",
     "path-to-regexp@<0.1.13": "0.1.13",
-    "brace-expansion": "5.0.12",
     "baseline-browser-mapping": "2.11.0",
     "browserslist": "4.28.7",
     "colord": "2.9.4",
@@ -1114,7 +1119,7 @@
     "http-proxy-middleware": "2.0.10",
     "js-yaml@<4.0.0": "3.15.2",
     "js-yaml@>=4.0.0 <5.0.0": "4.3.2",
-    "joi": "17.13.8",
+    "joi": "17.13.9",
     "launch-editor": "2.14.2",
     "nanoid": "3.3.18",
     "postcss": "8.5.23",
@@ -1132,6 +1137,7 @@
     "argparse": "$argparse",
     "latest-version": "9.0.0",
     "follow-redirects": "1.16.2",
-    "@svgr/plugin-svgo": "$@svgr/plugin-svgo"
+    "@svgr/plugin-svgo": "$@svgr/plugin-svgo",
+    "serve-handler": "6.1.8"
   }
 }

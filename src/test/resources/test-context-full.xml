@@ -635,6 +635,9 @@
 
     <bean id="hrmProviderRoutingService" class="io.github.carlos_emr.carlos.hospitalReportManager.service.HrmProviderRoutingService" autowire="constructor" />
     <bean id="mrpRoutingService" class="io.github.carlos_emr.carlos.lab.service.MrpRoutingService" autowire="constructor" />
+    <!-- Lab unlink (issue #6214): a real tx proxy so LabPatientUnlinkServiceIntegrationTest proves the
+         routing change, the archive of the report's readings and their audit rows commit together. -->
+    <bean id="labPatientUnlinkService" class="io.github.carlos_emr.carlos.lab.service.LabPatientUnlinkService" autowire="constructor" />
     <!-- Measurement group creation (issue #3335): a real tx proxy so
          MeasurementGroupCreationServiceIntegrationTest can prove a failed member insert
          rolls back the group's style row. -->

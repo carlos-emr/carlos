@@ -80,6 +80,8 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
         response = new MockHttpServletResponse();
         when(security.hasPrivilege(login, "_measurement", "r", "101")).thenReturn(true);
         when(security.hasPrivilege(login, "_lab", "r", "101")).thenReturn(true);
+        // The medication charts also need the prescription read right (#6322).
+        when(security.hasPrivilege(login, "_rx", "r", "101")).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(login, 101)).thenReturn(true);
     }
 

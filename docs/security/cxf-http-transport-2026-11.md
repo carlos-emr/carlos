@@ -117,9 +117,12 @@ from `2c4a886804d` and forced the original Apache 4 backend; it reproduced the
 same 32,768-byte cache after a successful download, confirming this finding
 predates the scoped change. The [control and source](https://github.com/carlos-emr/carlos/pull/5467#issuecomment-6551757367)
 are on the ticket.
-The replay tests intentionally verify the application's streams; they do not
-claim that all CXF attachment caches are released. This finding remains open
-for investigation and must be assessed before release promotion.
+
+The release fix tracks readers that WSS4J opens for each exchange and releases
+them after the response or fault. The synthetic HTTPS regressions verify spill
+cleanup, exact bytes for multiple attachments, and isolation of concurrent
+downloads. Packaged Ministry staging qualification remains required.
+[#5745](https://github.com/carlos-emr/carlos/issues/5745)
 
 Keep the PR draft until approved staging MCEDT/HCV checks and a deployed Tomcat
 smoke test establish the actual endpoint, TLS, proxy/authentication, chunking,
