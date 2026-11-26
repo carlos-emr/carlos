@@ -316,6 +316,17 @@
             setTimer();
         }
 
+        // Cancel was chosen for an open editor: it takes no more changes and sends no more drafts, whatever
+        // the release answers. A release that fails leaves it so, with Cancel offered again (#6132).
+        function freezeLegacyEditing() {
+            legacyAutosaveStopped = true;
+            clearTimeout(legacyAutosaveTimer);
+            document.querySelectorAll('#caseManagementEntryForm [data-note-lock-edit]').forEach(function (field) {
+                field.disabled = true;
+            });
+            document.getElementById('caseNote_note').readOnly = true;
+        }
+
         // The Edit request that has been sent and not answered, and whether Cancel was chosen meanwhile.
         var legacyLockRequestPending = false;
         var legacyCancelRequested = false;
@@ -410,7 +421,7 @@
         // knows which lock the attempt created; one the session held before it (the chart's own editor
         // open on the same note) is kept. Only an answer confirming that nothing of this attempt is left
         // counts: after an error, a timeout or an unreadable answer the lock may still stand, so the
-        // window stays open, says so, and Cancel asks again.
+        // window stays open, says so, and Cancel asks again; editing does not resume.
         function releaseLegacyNoteLock(done) {
             legacyReleasePending = true;
             clearTimeout(legacyAutosaveTimer);
@@ -431,7 +442,6 @@
                     done();
                     return;
                 }
-                setTimer();
                 alert('${carlos:forJavaScriptBlock(noteLockReleaseFailedLabel)}');
             };
             releaseRequest.open('POST', '<%=request.getContextPath() %>/CaseManagementEntry', true);
@@ -462,7 +472,8 @@
             }
             if (legacyEditAttempt) {
                 // The editor goes only after the server confirms what this page's Edit attempt took is
-                // given back.
+                // given back; until then it takes no more changes.
+                if (legacyNoteLockOwned) freezeLegacyEditing();
                 releaseLegacyNoteLock(close);
                 return false;
             }
@@ -582,7 +593,7 @@
             </td>
             <td id="note-issue-description-${status.index}"
                 style="${cbb.issueDisplay.priority eq 'allergy' ? 'background-color: yellow;' : ''}">
-                <label for="note-issue-select-${status.index}">${cbb.issueDisplay.description}</label>
+                <label for="note-issue-select-${status.index}">${carlos:forHtmlContent(cbb.issueDisplay.description)}</label>
             </td>
             <td>
                 <select id="note-issue-acute-${status.index}" name="issueCheckList[${status.index}].issueDisplay.acute"
@@ -618,7 +629,7 @@
             </td>
             <td>
                 <input type="text" name="issueCheckList[${status.index}].issueDisplay.role" 
-                       value="${cbb.issueDisplay.role}" disabled ${disabled ? '' : 'data-note-lock-edit'} />
+                       value="${carlos:forHtmlAttribute(cbb.issueDisplay.role)}" disabled ${disabled ? '' : 'data-note-lock-edit'} />
             </td>
             <td>
                 <c:if test="${cbb.issueDisplay.location eq 'local'}">

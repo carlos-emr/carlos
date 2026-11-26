@@ -724,7 +724,9 @@ test('Cancel with no Edit closes at once; Cancel after Edit gives the lock back 
   assert.equal(editing.requests.length, 2);
   assert.equal(fields(editing.requests[1]).get('method'), 'releaseNoteLock');
   assert.equal(fields(editing.requests[1]).get('editAttempt'), fields(editing.requests[0]).get('editAttempt'));
-  // No draft is sent while the lock is being given back.
+  // Cancel is final: the editor takes no more changes, and no draft is sent while the lock is given back.
+  assert.equal(editing.note.readOnly, true);
+  assert.ok(editing.fields.every(field => field.disabled === true));
   editing.timers[0]();
   assert.equal(editing.requests.length, 2);
   assert.deepEqual(editing.submitted, []);
@@ -732,15 +734,24 @@ test('Cancel with no Edit closes at once; Cancel after Edit gives the lock back 
   assert.deepEqual(editing.submitted, ['cancel'], 'the cancel request discards the draft and closes the window');
   assert.deepEqual(editing.closed, []);
 
-  // A failed release leaves the clinician editing, autosave included.
+  // A failed release leaves the editor closed to changes and drafts, says so, and Cancel asks again.
   const kept = classicEditor();
   kept.context.takeNoteLock();
   kept.requests[0].answer(200, GRANTED);
   kept.context.cancelLegacyNote(kept.form);
   kept.requests[1].answer(500, { releaseNoteLock: 'failed' });
   assert.deepEqual(kept.submitted, []);
-  assert.equal(kept.note.readOnly, false);
-  assert.equal(kept.timers.length, 2, 'autosave is scheduled again');
+  assert.deepEqual(kept.alerts, [labels.noteLockReleaseFailedLabel]);
+  assert.equal(kept.note.readOnly, true, 'editing does not resume while the lock may be gone');
+  assert.ok(kept.fields.every(field => field.disabled === true));
+  assert.equal(kept.timers.length, 1, 'no autosave is scheduled again');
+  kept.timers[0]();
+  assert.equal(kept.requests.length, 2, 'no draft is sent');
+  assert.equal(kept.context.cancelLegacyNote(kept.form), false);
+  assert.equal(fields(kept.requests[2]).get('method'), 'releaseNoteLock');
+  assert.equal(fields(kept.requests[2]).get('editAttempt'), fields(kept.requests[0]).get('editAttempt'));
+  kept.requests[2].answer(200, { releaseNoteLock: 'released' });
+  assert.deepEqual(kept.submitted, ['cancel']);
 });
 
 test('a page rendered after a Save that kept the lock goes straight to editing; a fresh GET does not', () => {

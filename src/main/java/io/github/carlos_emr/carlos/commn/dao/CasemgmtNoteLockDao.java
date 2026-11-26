@@ -43,6 +43,15 @@ public interface CasemgmtNoteLockDao extends AbstractDao<CasemgmtNoteLock> {
     /** Atomically release only a lock still owned by this authenticated session. */
     int removeForSession(String providerNo, Integer demographicNo, Long noteId, String sessionId);
 
+    /**
+     * Atomically releases one lock row by its id, only while this provider, patient and session still own
+     * it. Unlike {@link #removeForSession}, the row's current note does not matter (a Save may have moved
+     * it to the note's next revision), and a later row for the same note is never matched.
+     *
+     * @return the number of rows deleted, 0 or 1
+     */
+    int removeByIdForSession(Long id, String providerNo, Integer demographicNo, String sessionId);
+
     /** Atomically removes locks still owned by the destroyed session. */
     int removeAllForSession(String sessionId);
 

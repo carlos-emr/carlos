@@ -21,7 +21,8 @@
  *     action names, then submits the cancel.
  *  5. An Edit the server refuses as stale or while another note is open keeps the page read-only.
  *  6. An Edit whose answer is lost, with Cancel pending: the page asks the server to settle that attempt.
- *  7. A release that fails (HTTP 500) keeps the window open and says so; Cancel asks again.
+ *  7. A release that fails (HTTP 500) keeps the window open and says so, with the editor closed to
+ *     changes; Cancel asks again.
  *
  * Not part of the live-stack Playwright suite (no scripts/playwright-suite.json entry): it needs no CARLOS server or login.
  * Run: NODE_PATH=$(npm root -g) node scripts/classic-note-editor-lock-fixture-check.js
@@ -226,7 +227,8 @@ const settle = async (until) => {
       await settle(async () => dialogs.length > 0);
       assert.deepEqual(dialogs, [NOT_RELEASED]);
       assert.deepEqual(await h.events(), [], 'the window stays open while the lock may stand');
-      assert.equal(await readOnly(h.page), false, 'the clinician keeps editing');
+      assert.equal(await readOnly(h.page), true, 'Cancel is final: editing does not resume');
+      assert.equal(await h.page.$eval('#save', save => save.disabled), true);
       await h.page.click('#cancel');
       await h.waitForRequest('releaseNoteLock');
       assert.equal(h.log[2].editAttempt, h.log[0].editAttempt);

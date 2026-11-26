@@ -218,8 +218,13 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     public static final String EDIT_ATTEMPT_ATTRIBUTE = "noteEditAttempt";
     /** Session key of the classic Edit attempts this session has seen, by patient and attempt. */
     private static final String EDIT_ATTEMPTS_KEY = CaseManagementEntry2Action.class.getName() + ".editAttempts";
-    /** How many Edit attempts a session remembers; the oldest is forgotten first. */
+    /**
+     * Beyond this many Edit attempts a session forgets its oldest settled ones (cancelled, nothing left to
+     * give back). An attempt whose lock may still stand is kept.
+     */
     static final int MAX_EDIT_ATTEMPTS = 32;
+    /** The most Edit attempts a session keeps whatever their state; only a memory bound, never reached in use. */
+    static final int MAX_EDIT_ATTEMPTS_KEPT = 256;
     private static final java.util.regex.Pattern EDIT_ATTEMPT_FORMAT = java.util.regex.Pattern.compile("[0-9a-f]{32}");
 
     public String execute() throws Exception {
@@ -1142,11 +1147,18 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     /**
      * Whether the form in the chart's active-editor slot belongs to a note this session still holds
      * the lock on: an editor that is open and must not be replaced by a form opened only to read.
+     * A lock read that fails counts as held, so that a reader never replaces an open editor's form and
+     * Edit of another note is refused while the lock cannot be read.
      * Read-only: it changes no lock, session entry or response status.
      */
     private boolean activeEditorHoldsItsLock(String patient, CaseManagementEntryFormBean active) {
         if (active == null || active.getCaseNote() == null) return false;
-        return findOwnedNoteLock(patient, noteIdOf(active)) != null;
+        try {
+            return readOwnedNoteLock(patient, noteIdOf(active)) != null;
+        } catch (RuntimeException failedLockRead) {
+            logger.warn("Note lock check failed; the open editor is kept ({})", failedLockRead.getClass().getSimpleName());
+            return true;
+        }
     }
 
     /** The id of the note a form edits, 0 for a note not saved yet. */
@@ -1175,10 +1187,11 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
     /**
      * The classic Edit attempt a page rendered again by POST continues (after a Save, or an issue change
-     * that went through the issue search page), or null. The attempt the page posted wins while it is
-     * still open for this patient: a second window editing the same note through a lock it did not
-     * create keeps its own attempt, whose Cancel gives back nothing. Otherwise the attempt that created
-     * the lock this session holds on the note.
+     * that went through the issue search page, which carries it along), or null. A page that posts its own
+     * attempt continues only that one, while it is still open for this patient: a second window editing
+     * the same note through a lock it did not create keeps its own attempt, whose Cancel gives back
+     * nothing, and never takes the other window's. A page that posts none continues the attempt that
+     * created the lock this session holds on the note.
      */
     private String continuedEditAttempt(String patient, CasemgmtNoteLock owned) {
         HttpSession session = request.getSession();
@@ -1188,7 +1201,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             String posted = request.getParameter(EDIT_ATTEMPT_PARAM);
             if (isEditAttemptId(posted)) {
                 EditAttempt mine = attempts.get(editAttemptKey(patient, posted));
-                if (mine != null && !mine.cancelled()) return posted;
+                return mine != null && !mine.cancelled() ? posted : null;
             }
             String prefix = editAttemptKey(patient, "");
             for (Map.Entry<String, EditAttempt> entry : attempts.entrySet()) {
@@ -1227,11 +1240,25 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return fresh;
     }
 
-    /** Records what is known of an attempt, forgetting the oldest beyond {@link #MAX_EDIT_ATTEMPTS}. Under the session mutex. */
+    /**
+     * Records what is known of an attempt. Beyond {@link #MAX_EDIT_ATTEMPTS} the oldest settled attempts
+     * (cancelled, nothing left to give back) are forgotten first, never one whose lock may still stand: an
+     * editor left open while many later attempts come and go keeps its own. A cancellation that came
+     * before its Edit is settled too, and is forgotten only once more than {@link #MAX_EDIT_ATTEMPTS}
+     * attempts are known and it is the oldest settled one: far later than a delayed Edit request arrives.
+     * {@link #MAX_EDIT_ATTEMPTS_KEPT} bounds the memory only. Under the session mutex.
+     */
     private static void rememberEditAttempt(LinkedHashMap<String, EditAttempt> attempts, String key, EditAttempt attempt) {
         attempts.remove(key);
         attempts.put(key, attempt);
-        while (attempts.size() > MAX_EDIT_ATTEMPTS) {
+        Iterator<Map.Entry<String, EditAttempt>> oldest = attempts.entrySet().iterator();
+        while (attempts.size() > MAX_EDIT_ATTEMPTS && oldest.hasNext()) {
+            Map.Entry<String, EditAttempt> entry = oldest.next();
+            if (!entry.getKey().equals(key) && entry.getValue().cancelled() && entry.getValue().lockId() == null) {
+                oldest.remove();
+            }
+        }
+        while (attempts.size() > MAX_EDIT_ATTEMPTS_KEPT) {
             attempts.remove(attempts.keySet().iterator().next());
         }
     }
@@ -1243,6 +1270,79 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
     private static boolean isEditAttemptId(String value) {
         return value != null && EDIT_ATTEMPT_FORMAT.matcher(value).matches();
+    }
+
+    /** Whether the page's Cancel has been chosen for this attempt of this patient. */
+    private static boolean editAttemptCancelled(HttpSession session, String patient, String attempt) {
+        synchronized (org.springframework.web.util.WebUtils.getSessionMutex(session)) {
+            LinkedHashMap<String, EditAttempt> attempts = editAttempts(session, false);
+            EditAttempt known = attempts == null ? null : attempts.get(editAttemptKey(patient, attempt));
+            return known != null && known.cancelled();
+        }
+    }
+
+    /** Records that a cancelled attempt's row is given back, unless the attempt names another row by now. */
+    private static void settleEditAttempt(HttpSession session, String key, Long lockId) {
+        synchronized (org.springframework.web.util.WebUtils.getSessionMutex(session)) {
+            LinkedHashMap<String, EditAttempt> attempts = editAttempts(session, false);
+            EditAttempt now = attempts == null ? null : attempts.get(key);
+            if (now != null && now.cancelled() && lockId != null && lockId.equals(now.lockId())) {
+                attempts.put(key, new EditAttempt(null, true));
+            }
+        }
+    }
+
+    /**
+     * Gives back the row a refused Edit created; a row the session held before is never touched. When the
+     * page named its attempt, the attempt keeps naming the row until the delete is confirmed, so that a
+     * failed delete is retried by the chart's next lock request or classic Cancel
+     * ({@link #retryPendingGiveBacks}) even after the page has closed. A refused attempt counts as
+     * cancelled from then on.
+     */
+    private void giveBackRefusedLock(HttpSession session, String patient, String attempt, CasemgmtNoteLock created,
+                                     String provider, String sessionId) {
+        String key = attempt == null || created.getId() == null ? null : editAttemptKey(patient, attempt);
+        if (key != null) {
+            synchronized (org.springframework.web.util.WebUtils.getSessionMutex(session)) {
+                rememberEditAttempt(editAttempts(session, true), key, new EditAttempt(created.getId(), true));
+            }
+        }
+        casemgmtNoteLockDao.removeForSession(provider, Integer.valueOf(patient), created.getNoteId(), sessionId);
+        if (key != null) settleEditAttempt(session, key, created.getId());
+    }
+
+    /**
+     * Gives back the rows that cancelled attempts of this chart still name because an earlier delete
+     * failed, as the chart's next lock request or classic Cancel arrives: the page that named a row may
+     * have closed already. The current request's own attempt is left to that request, and the row this
+     * session's lock cache names is left alone: an editor of this session has taken it (over) since, or
+     * its own release is still pending, and either way that editor gives it back. A failure is logged
+     * and left for the next request; the session's end releases whatever remains.
+     */
+    private void retryPendingGiveBacks(HttpSession session, String patient, String provider, String exceptKey) {
+        Map<String, Long> pending = new LinkedHashMap<>();
+        synchronized (org.springframework.web.util.WebUtils.getSessionMutex(session)) {
+            LinkedHashMap<String, EditAttempt> attempts = editAttempts(session, false);
+            if (attempts == null) return;
+            Object cached = session.getAttribute(NOTE_LOCK_SESSION_PREFIX + patient); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session lock keyed by a validated patient number
+            Long inUse = cached instanceof CasemgmtNoteLock cachedLock ? cachedLock.getId() : null;
+            String prefix = editAttemptKey(patient, "");
+            for (Map.Entry<String, EditAttempt> entry : attempts.entrySet()) {
+                EditAttempt known = entry.getValue();
+                if (entry.getKey().startsWith(prefix) && !entry.getKey().equals(exceptKey)
+                        && known.cancelled() && known.lockId() != null && !known.lockId().equals(inUse)) {
+                    pending.put(entry.getKey(), known.lockId());
+                }
+            }
+        }
+        for (Map.Entry<String, Long> entry : pending.entrySet()) {
+            try {
+                casemgmtNoteLockDao.removeByIdForSession(entry.getValue(), provider, Integer.valueOf(patient), session.getId());
+                settleEditAttempt(session, entry.getKey(), entry.getValue());
+            } catch (RuntimeException failedGiveBack) {
+                logger.warn("Note lock give-back retry failed ({})", failedGiveBack.getClass().getSimpleName());
+            }
+        }
     }
 
     /**
@@ -1304,6 +1404,21 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return casemgmtNoteLock;
     }
 
+    /**
+     * The lock request of the classic page's Edit button and of the chart's own editor
+     * ({@code method=isNoteEdited}, POST only): takes this session's lock on the note, or reports who holds
+     * it. Writes the JSON {@code {"isNoteEdited": state, "ownedBySession": boolean, "lockTaken": boolean}},
+     * where state is {@code unlocked}, {@code user} or {@code other} from the lock, or a refusal that keeps
+     * no lock: {@code reload} (the classic page's reader form is gone), {@code stale} (the page shows a
+     * revision that is no longer the latest), {@code editorOpen} (another note of this chart is open for
+     * editing) or {@code cancelled} (the page's Cancel for this Edit attempt came first). The Edit attempt
+     * the classic page names is recorded for its Cancel (#6132).
+     *
+     * @return {@link #NONE} after a refused access check or a malformed request, whose status is set;
+     *         otherwise {@code null}, once the JSON answer is written
+     * @throws Exception declared for the action's dispatcher; in practice a {@link RuntimeException} when
+     *         the note or the lock store cannot be read or written, which the page treats as a lost answer
+     */
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String isNoteEdited() throws Exception {
@@ -1328,6 +1443,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         HttpSession session = request.getSession();
         Integer patient = Integer.parseInt(demoNo);
         String frmName = ChartProgramContext.formKey(request, demoNo);
+        retryPendingGiveBacks(session, demoNo, providerNo, attempt == null ? null : editAttemptKey(demoNo, attempt));
         // The classic page opened this note read-only by GET; its Edit button is what calls here. The
         // form that page displays waits in the reader slot until Edit succeeds (#6132).
         // Looked up by this note: a second window reading another note of the chart does not hide it.
@@ -1359,7 +1475,12 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             }
         }
 
-        CasemgmtNoteLockDao lockDao = SpringUtils.getBean(CasemgmtNoteLockDao.class);
+        // The page's Cancel for this attempt came first (it gave this answer up for lost): take nothing.
+        if (attempt != null && editAttemptCancelled(session, demoNo, attempt)) {
+            writeLockAnswer("cancelled", false, false);
+            return null;
+        }
+
         CasemgmtNoteLock casemgmtNoteLock = isNoteEdited(noteId, patient, providerNo, ipAddress, sessionId);
 
         String ret = "unlocked";
@@ -1376,7 +1497,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             // A newer revision was saved between the check above and the lock: give back the lock this
             // request took, and refuse Edit.
             if (lockTaken) {
-                lockDao.removeForSession(providerNo, patient, noteId, sessionId);
+                giveBackRefusedLock(session, demoNo, attempt, casemgmtNoteLock, providerNo, sessionId);
             }
             writeLockAnswer("stale", false, false);
             return null;
@@ -1415,7 +1536,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             if (refused != null) {
                 // Give back the row this request created; a row the session already held stays.
                 if (casemgmtNoteLock.isCreatedByThisRequest()) {
-                    lockDao.removeForSession(providerNo, patient, noteId, sessionId);
+                    giveBackRefusedLock(session, demoNo, attempt, casemgmtNoteLock, providerNo, sessionId);
                 }
                 writeLockAnswer(refused, false, false);
                 return null;
@@ -2924,25 +3045,34 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return owned;
     }
 
-    /** The persisted lock this session holds on the note, or null. Changes no response status or session entry. */
+    /**
+     * The persisted lock this session holds on the note, or null; a lock read that fails also gives null,
+     * which refuses a save. Changes no response status or session entry.
+     */
     private CasemgmtNoteLock findOwnedNoteLock(String patient, long selectedId) {
+        try {
+            return readOwnedNoteLock(patient, selectedId);
+        } catch (RuntimeException failedLockRead) {
+            logger.warn("Note lock validation failed ({})", failedLockRead.getClass().getSimpleName());
+            return null;
+        }
+    }
+
+    /** As {@link #findOwnedNoteLock}, except that a lock read that fails throws instead of reading as "no lock". */
+    private CasemgmtNoteLock readOwnedNoteLock(String patient, long selectedId) {
         String sessionId = request.getSession().getId();
         String provider = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
         CasemgmtNoteLock cached = (CasemgmtNoteLock) request.getSession().getAttribute(NOTE_LOCK_SESSION_PREFIX + patient); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- authorized patient's cached lock
-        try {
-            if (cached != null && cached.getNoteId() != null && Math.max(0L, cached.getNoteId()) == selectedId) {
-                CasemgmtNoteLock stored = casemgmtNoteLockDao.find(cached.getId());
-                if (ownsNoteLock(cached, patient, selectedId, provider, sessionId)
-                        && ownsNoteLock(stored, patient, selectedId, provider, sessionId)) return stored;
-            } else {
-                // A separate program's editor has a separate form but shares the patient
-                // lock cache. Its own database lock remains usable by this same session.
-                for (CasemgmtNoteLock stored : casemgmtNoteLockDao.findBySession(sessionId)) {
-                    if (ownsNoteLock(stored, patient, selectedId, provider, sessionId)) return stored;
-                }
+        if (cached != null && cached.getNoteId() != null && Math.max(0L, cached.getNoteId()) == selectedId) {
+            CasemgmtNoteLock stored = casemgmtNoteLockDao.find(cached.getId());
+            if (ownsNoteLock(cached, patient, selectedId, provider, sessionId)
+                    && ownsNoteLock(stored, patient, selectedId, provider, sessionId)) return stored;
+        } else {
+            // A separate program's editor has a separate form but shares the patient
+            // lock cache. Its own database lock remains usable by this same session.
+            for (CasemgmtNoteLock stored : casemgmtNoteLockDao.findBySession(sessionId)) {
+                if (ownsNoteLock(stored, patient, selectedId, provider, sessionId)) return stored;
             }
-        } catch (RuntimeException failedLockRead) {
-            logger.warn("Note lock validation failed ({})", failedLockRead.getClass().getSimpleName());
         }
         return null;
     }
@@ -2998,7 +3128,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
      * patient-level cached lock is preserved; a matching cache is cleared only after its row is deleted.
      * <p>The classic page's Cancel names its Edit attempt instead ({@link #releaseEditAttempt}).</p>
      *
-     * @return null after release, or NONE after a controlled method-not-allowed response or an attempt's answer
+     * @return {@code null} after a release by note, which writes no body (the chart editor and its beacons);
+     *         {@link #NONE} after a method-not-allowed response, a malformed request, or the JSON answer to a
+     *         release that names an Edit attempt
      */
     public String releaseNoteLock() {
         if (!requireNoteReleasePost()) return NONE;
@@ -3065,6 +3197,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
         HttpSession session = request.getSession();
         String key = editAttemptKey(patient, attempt);
+        String provider = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
+        retryPendingGiveBacks(session, patient, provider, key);
         boolean unanswered;
         Long lockId;
         synchronized (org.springframework.web.util.WebUtils.getSessionMutex(session)) {
@@ -3079,27 +3213,18 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         if (unanswered) return writeReleaseAnswer("cancelled");
         if (lockId == null) return writeReleaseAnswer("notHeld");
 
-        String provider = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
-        int released = 0;
+        int released;
         try {
-            CasemgmtNoteLock row = casemgmtNoteLockDao.find(lockId);
-            if (row != null && row.getNoteId() != null
-                    && ownsNoteLock(row, patient, Math.max(0L, row.getNoteId()), provider, session.getId())) {
-                released = casemgmtNoteLockDao.removeForSession(provider, Integer.valueOf(patient), row.getNoteId(), session.getId());
-            }
+            // One conditional delete by the row this attempt created: a Save may have moved that row to
+            // the note's next revision, and a row created since for the same note is another editor's.
+            released = casemgmtNoteLockDao.removeByIdForSession(lockId, provider, Integer.valueOf(patient), session.getId());
         } catch (RuntimeException failedRelease) {
             // The lock may still stand: the attempt keeps naming it, and the page keeps its window open.
             logger.warn("Classic note editor lock release failed ({})", failedRelease.getClass().getSimpleName());
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             return writeReleaseAnswer("failed");
         }
-        synchronized (org.springframework.web.util.WebUtils.getSessionMutex(session)) {
-            LinkedHashMap<String, EditAttempt> attempts = editAttempts(session, true);
-            EditAttempt now = attempts.get(key);
-            if (now != null && now.cancelled() && lockId.equals(now.lockId())) {
-                attempts.put(key, new EditAttempt(null, true));
-            }
-        }
+        settleEditAttempt(session, key, lockId);
         CasemgmtNoteLock cached = (CasemgmtNoteLock) session.getAttribute(NOTE_LOCK_SESSION_PREFIX + patient); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session lock keyed by a validated patient number
         if (released > 0 && cached != null && lockId.equals(cached.getId())) {
             removeCachedNoteLockIfCurrent(session, NOTE_LOCK_SESSION_PREFIX + patient, cached);

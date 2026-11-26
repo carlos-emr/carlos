@@ -88,6 +88,23 @@ public class CasemgmtNoteLockDaoImpl extends AbstractDaoImpl<CasemgmtNoteLock> i
     }
 
     @Override
+    public int removeByIdForSession(Long id, String providerNo, Integer demographicNo, String sessionId) {
+        if (id == null || sessionId == null || sessionId.isBlank()) {
+            return 0;
+        }
+        // One conditional DELETE by the row's identity and owners, so that neither a revision move
+        // between a read and this delete nor a replacement row for the same note changes what is deleted.
+        Query query = entityManager.createQuery("delete from CasemgmtNoteLock lock"
+                + " where lock.id = :id and lock.providerNo = :providerNo"
+                + " and lock.demographicNo = :demo and lock.sessionId = :sessionId");
+        query.setParameter("id", id);
+        query.setParameter("providerNo", providerNo);
+        query.setParameter("demo", demographicNo);
+        query.setParameter("sessionId", sessionId);
+        return query.executeUpdate();
+    }
+
+    @Override
     public int removeAllForSession(String sessionId) {
         if (sessionId == null || sessionId.isBlank()) {
             return 0;

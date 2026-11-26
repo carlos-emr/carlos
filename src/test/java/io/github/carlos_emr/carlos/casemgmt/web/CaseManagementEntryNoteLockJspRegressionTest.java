@@ -126,11 +126,28 @@ class CaseManagementEntryNoteLockJspRegressionTest {
                 "alert('${carlos:forJavaScriptBlock(noteLockReleaseFailedLabel)}');")
                 .doesNotContain("window.close()");
         assertThat(release.indexOf("done();")).isLessThan(release.indexOf("noteLockReleaseFailedLabel"));
-        // Cancel of an editor an attempt opened gives the lock back first, then submits the cancel.
+        // Cancel of an editor an attempt opened gives the lock back first, then submits the cancel. The
+        // editor takes no more changes or drafts from then on; a failed release does not resume them.
         assertThat(cancel).contains("if (legacyReleasePending) return false;", "releaseLegacyNoteLock(close);",
-                "form.elements['method'].value = 'cancel';", "form.submit();");
+                "form.elements['method'].value = 'cancel';", "form.submit();",
+                "if (legacyNoteLockOwned) freezeLegacyEditing();");
+        assertThat(cancel.indexOf("freezeLegacyEditing();")).isLessThan(cancel.indexOf("releaseLegacyNoteLock(close);"));
         assertThat(cancel.indexOf("releaseLegacyNoteLock(close);"))
                 .isLessThan(cancel.lastIndexOf("return true;"));
+        assertThat(release).doesNotContain("setTimer()", "readOnly = false");
+        assertThat(function("freezeLegacyEditing")).contains("legacyAutosaveStopped = true;",
+                "clearTimeout(legacyAutosaveTimer);", "field.disabled = true;", "readOnly = true;");
+    }
+
+    @Test
+    @DisplayName("should carry the window's Edit attempt through the issue search page, so its Cancel names its own attempt")
+    void shouldCarryTheEditAttempt_throughTheIssueSearchPage() throws IOException {
+        String issueSearch = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/casemgmt/IssueSearch.jsp"), StandardCharsets.UTF_8);
+
+        assertThat(issueSearch).contains(
+                "<input type=\"hidden\" name=\"editAttempt\" value=\"${carlos:forHtmlAttribute(param.editAttempt)}\"/>");
+        assertThat(issueSearch.indexOf("name=\"editAttempt\""))
+                .isGreaterThan(issueSearch.indexOf("<form action=\"<%= request.getContextPath() %>/CaseManagementEntry\" method=\"post\">"));
     }
 
     @Test
@@ -154,7 +171,9 @@ class CaseManagementEntryNoteLockJspRegressionTest {
     @Test
     void shouldUseEachIssueDescription_asItsCheckboxLabel() {
         assertThat(page).contains("id=\"note-issue-select-${status.index}\"",
-                "<label for=\"note-issue-select-${status.index}\">${cbb.issueDisplay.description}</label>");
+                "<label for=\"note-issue-select-${status.index}\">${carlos:forHtmlContent(cbb.issueDisplay.description)}</label>",
+                "value=\"${carlos:forHtmlAttribute(cbb.issueDisplay.role)}\"");
+        assertThat(page).doesNotContain(">${cbb.issueDisplay.description}<", "value=\"${cbb.issueDisplay.role}\"");
     }
 
     /** The body of a top-level page function, up to the next function at the same indent. */

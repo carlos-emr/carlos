@@ -13,6 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -47,6 +48,11 @@ class CaseManagementEntryNoteLockCheckUnitTest extends CarlosUnitTestBase {
         assertThat(CaseManagementEntry2Action.isLockedByAnotherProvider(null, 101, PROVIDER)).isFalse();
         verify(locks, never()).persist(any());
         verify(locks, never()).merge(any());
+        // Only the three saved-note lookups: a new note (0 or null) queries nothing, and nothing is deleted.
+        verify(locks).findByNoteDemo(101, 5001L);
+        verify(locks).findByNoteDemo(101, 5002L);
+        verify(locks).findByNoteDemo(101, 5004L);
+        verifyNoMoreInteractions(locks);
     }
 
     private static CasemgmtNoteLock lock(long noteId, String providerNo) {

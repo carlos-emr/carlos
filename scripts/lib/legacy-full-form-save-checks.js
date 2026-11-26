@@ -147,6 +147,12 @@ async function checkLegacyFullFormIsolation(s, { program }) {
   h.assert(openerResponse?.status() === 200, 'Legacy full-form opener did not load its static document');
   const editors = [];
   for (let index = 0; index < ids.length; index++) {
+    if (index > 0) {
+      // Window A stays open on its note, now without the lock, so its later Save is stale.
+      await releaseEditorLock(editors[index - 1], { patient, noteId: ids[index - 1], chartContext });
+      h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note_lock WHERE demographic_no=${patient}
+        AND note_id=${ids[index - 1]}`) === '0', 'The earlier legacy window still holds its note lock');
+    }
     const url = h.appUrl(config.baseUrl, `/CaseManagementEntry?${new URLSearchParams({
       method: 'edit', noteId: ids[index], forceNote: 'true', from: 'casemgmt',
       demographicNo: patient, providerNo: provider, chartContext,
@@ -233,6 +239,23 @@ async function checkLegacyFullFormIsolation(s, { program }) {
   });
   await Promise.all(editors.map(editor => editor.close()));
   await opener.close();
+}
+
+/**
+ * Gives back an open legacy window's note lock as the chart's own release does (no Edit attempt), leaving
+ * that window open and stale. Edit refuses another note of the chart while one note's editor holds its
+ * lock (#6132), so the later window can become the chart's editor only once the earlier window's lock is gone.
+ */
+async function releaseEditorLock(editor, { patient, noteId, chartContext }) {
+  const body = new URLSearchParams({ method: 'releaseNoteLock', demographicNo: patient, noteId, chartContext }).toString();
+  const status = await editor.evaluate(formBody => new Promise(resolve => {
+    const release = new XMLHttpRequest();
+    release.open('POST', document.forms.caseManagementEntryForm.action, true);
+    release.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+    release.onreadystatechange = () => { if (release.readyState === 4) resolve(release.status); };
+    release.send(formBody);
+  }), body);
+  h.assert(status === 200, `Releasing the earlier legacy window's note lock returned HTTP ${status}`);
 }
 
 module.exports = { checkLegacyFullFormIsolation };

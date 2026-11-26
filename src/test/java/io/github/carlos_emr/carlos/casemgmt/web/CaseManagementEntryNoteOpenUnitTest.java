@@ -44,6 +44,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.context.WebApplicationContext;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyCollection;
@@ -763,6 +764,19 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
                 .filter(row -> row.getSessionId().equals(call.getArgument(0)))
                 .map(CaseManagementEntryNoteOpenUnitTest::copyOf).toList());
         doAnswer(removeLockRows()).when(locks).removeForSession(anyString(), any(), anyLong(), anyString());
+        doAnswer(removeLockRowById()).when(locks).removeByIdForSession(any(), anyString(), any(), anyString());
+    }
+
+    /** The DAO's delete of one row by its id, bound to provider, patient and session, over the kept rows. */
+    private Answer<Integer> removeLockRowById() {
+        return call -> {
+            int before = lockRows.size();
+            lockRows.values().removeIf(row -> row.getId().equals(call.getArgument(0))
+                    && row.getProviderNo().equals(call.getArgument(1))
+                    && row.getDemographicNo().equals(call.getArgument(2))
+                    && row.getSessionId().equals(call.getArgument(3)));
+            return before - lockRows.size();
+        };
     }
 
     private Void persistRow(InvocationOnMock call) {
@@ -817,15 +831,19 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
         return edit;
     }
 
-    /** The page's Cancel giving back what an Edit attempt took. */
-    private CaseManagementEntry2Action cancelAttempt(String attempt) {
+    /** The page's Cancel giving back what an Edit attempt took; built, not yet sent. */
+    private CaseManagementEntry2Action releaseAction(String attempt) {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/carlos/CaseManagementEntry");
         request.setSession(session);
         request.setParameter("method", "releaseNoteLock");
         request.setParameter("demographicNo", PATIENT);
         request.setParameter("noteId", "5009");
         request.setParameter("editAttempt", attempt);
-        CaseManagementEntry2Action release = action(request);
+        return action(request);
+    }
+
+    private CaseManagementEntry2Action cancelAttempt(String attempt) {
+        CaseManagementEntry2Action release = releaseAction(attempt);
         release.releaseNoteLock();
         return release;
     }
@@ -852,7 +870,8 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
 
         assertThat(statusOf(cancel)).isEqualTo(200);
         assertThat(answerOf(cancel).path("releaseNoteLock").asText()).isEqualTo("released");
-        verify(locks).removeForSession(PROVIDER, Integer.valueOf(PATIENT), 5009L, session.getId());
+        // One conditional delete of that row, whichever note it covers by now.
+        verify(locks).removeByIdForSession(41L, PROVIDER, Integer.valueOf(PATIENT), session.getId());
         assertThat(lockRows).isEmpty();
         assertThat(session.getAttribute(CACHE_KEY)).isNull();
     }
@@ -875,6 +894,7 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
 
         assertThat(answerOf(cancel).path("releaseNoteLock").asText()).isEqualTo("notHeld");
         verify(locks, never()).removeForSession(anyString(), any(), anyLong(), anyString());
+        verify(locks, never()).removeByIdForSession(any(), anyString(), any(), anyString());
         assertThat(lockRows).containsOnlyKeys(11L);
     }
 
@@ -897,8 +917,8 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should refuse an Edit that arrives after its own Cancel and give back the lock it took")
-    void shouldRefuseAnEditThatArrivesAfterItsCancel_andGiveBackItsLock() throws Exception {
+    @DisplayName("should refuse an Edit that arrives after its own Cancel without taking a lock")
+    void shouldRefuseAnEditThatArrivesAfterItsCancel_withoutTakingALock() throws Exception {
         keepLockRows();
         showSavedNote(5009L);
         // The page gave the Edit answer up for lost and chose Cancel before the server answered Edit.
@@ -909,10 +929,82 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
         assertThat(late.path("isNoteEdited").asText()).isEqualTo("cancelled");
         assertThat(late.path("ownedBySession").booleanValue()).isFalse();
         assertThat(late.path("lockTaken").booleanValue()).isFalse();
-        verify(locks).removeForSession(PROVIDER, Integer.valueOf(PATIENT), 5009L, session.getId());
+        verify(locks, never()).persist(any());
+        verify(locks, never()).findByNoteDemo(any(), any());
         assertThat(lockRows).isEmpty();
         assertThat(form()).as("the closing reader never became the editor").isNull();
         assertThat(session.getAttribute(CACHE_KEY)).isNull();
+    }
+
+    /**
+     * The page's Cancel for {@link #ATTEMPT} arrives after its Edit of note 5009 took row 41 and before
+     * that Edit is answered, and the refused Edit's first delete of row 41 fails: the row may still stand.
+     */
+    private void refuseAnEditWhoseGiveBackFails() throws Exception {
+        CaseManagementEntry2Action cancelling = releaseAction(ATTEMPT);
+        AtomicBoolean lockTaken = new AtomicBoolean(false);
+        AtomicBoolean cancelled = new AtomicBoolean(false);
+        CaseManagementNote shown = note(5009L, ORIGINAL_TEXT);
+        when(manager.getNote("5009")).thenAnswer(call -> {
+            if (lockTaken.get() && cancelled.compareAndSet(false, true)) cancelling.releaseNoteLock();
+            return shown;
+        });
+        doAnswer(call -> {
+            persistRow(call);
+            lockTaken.set(true);
+            return null;
+        }).when(locks).persist(any());
+        doThrow(new RuntimeException("FAKE database outage")).doAnswer(removeLockRows())
+                .when(locks).removeForSession(anyString(), any(), anyLong(), anyString());
+
+        assertThatThrownBy(() -> edit(5009L, ATTEMPT)).hasMessage("FAKE database outage");
+
+        assertThat(answerOf(cancelling).path("releaseNoteLock").asText()).isEqualTo("cancelled");
+        assertThat(lockRows).as("the lock may still stand").containsOnlyKeys(41L);
+    }
+
+    /** The chart's own editor asking for a note's lock: no Edit attempt, and not the classic page's Edit. */
+    private CaseManagementEntry2Action chartEditorLock(long noteId) throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/carlos/CaseManagementEntry");
+        request.setSession(session);
+        request.setParameter("demographicNo", PATIENT);
+        request.setParameter("noteId", Long.toString(noteId));
+        CaseManagementEntry2Action lockRequest = action(request);
+        lockRequest.isNoteEdited();
+        return lockRequest;
+    }
+
+    @Test
+    @DisplayName("should keep a refused Edit's new lock named when its delete fails, and give it back on the chart's next request")
+    void shouldGiveBackARefusedEditsLock_whenItsFirstDeleteFails() throws Exception {
+        keepLockRows();
+        showSavedNote(5009L);
+
+        refuseAnEditWhoseGiveBackFails();
+
+        // The page that named it has closed; the chart's next classic request gives the row back.
+        assertThat(answerOf(cancelAttempt(OTHER_ATTEMPT)).path("releaseNoteLock").asText()).isEqualTo("cancelled");
+        verify(locks).removeByIdForSession(41L, PROVIDER, Integer.valueOf(PATIENT), session.getId());
+        assertThat(lockRows).isEmpty();
+        assertThat(form()).isNull();
+    }
+
+    @Test
+    @DisplayName("should leave a refused Edit's lock alone once an editor of this session has taken it over")
+    void shouldKeepARefusedEditsLock_whenAnEditorOfThisSessionTookItOver() throws Exception {
+        keepLockRows();
+        showSavedNote(5009L);
+        refuseAnEditWhoseGiveBackFails();
+        // The chart's own editor asks for the note's lock while the retry fails as well: it takes row 41 over.
+        doThrow(new RuntimeException("FAKE database outage")).doAnswer(removeLockRowById())
+                .when(locks).removeByIdForSession(any(), anyString(), any(), anyString());
+        assertThat(answerOf(chartEditorLock(5009L)).path("ownedBySession").booleanValue()).isTrue();
+
+        // The chart's next classic request leaves that row to the editor now using it.
+        assertThat(answerOf(cancelAttempt(OTHER_ATTEMPT)).path("releaseNoteLock").asText()).isEqualTo("cancelled");
+
+        assertThat(lockRows).containsOnlyKeys(41L);
+        verify(locks).removeByIdForSession(any(), anyString(), any(), anyString());
     }
 
     @Test
@@ -921,8 +1013,8 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
         keepLockRows();
         showSavedNote(5009L);
         edit(5009L, ATTEMPT);
-        doThrow(new RuntimeException("FAKE database outage")).doAnswer(removeLockRows())
-                .when(locks).removeForSession(anyString(), any(), anyLong(), anyString());
+        doThrow(new RuntimeException("FAKE database outage")).doAnswer(removeLockRowById())
+                .when(locks).removeByIdForSession(any(), anyString(), any(), anyString());
 
         CaseManagementEntry2Action failed = cancelAttempt(ATTEMPT);
 
@@ -944,17 +1036,26 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
         showSavedNote(5001L);
         showSavedNote(5009L);
         CaseManagementEntryFormBean readerOfA = readerOf(5001L);
-        // B's Edit has passed the open-editor check and is persisting its lock when A's Edit runs from
-        // start to finish, as two requests of one session can interleave.
+        // B's Edit has passed the open-editor check, taken its lock and left the acquisition monitor, and
+        // has not yet entered the session's critical section, when A's Edit runs from start to finish, as
+        // two requests of one session can interleave. B's re-check of the note's revision lies between.
         CaseManagementEntry2Action editA = editAction(5001L, OTHER_ATTEMPT);
+        AtomicBoolean bHoldsItsLock = new AtomicBoolean(false);
         AtomicBoolean interleave = new AtomicBoolean(true);
+        CaseManagementNote noteB = note(5009L, ORIGINAL_TEXT);
+        when(manager.getNote("5009")).thenAnswer(call -> {
+            if (bHoldsItsLock.get() && interleave.compareAndSet(true, false)) editA.isNoteEdited();
+            return noteB;
+        });
         doAnswer(call -> {
             persistRow(call);
-            if (interleave.compareAndSet(true, false)) editA.isNoteEdited();
+            if (Long.valueOf(5009L).equals(((CasemgmtNoteLock) call.getArgument(0)).getNoteId())) bHoldsItsLock.set(true);
             return null;
         }).when(locks).persist(any());
 
         CaseManagementEntry2Action editB = edit(5009L, ATTEMPT);
+
+        assertThat(interleave.get()).as("A ran between B's lock and B's critical section").isFalse();
 
         var answerA = answerOf(editA);
         assertThat(answerA.path("ownedBySession").booleanValue()).isTrue();
@@ -979,16 +1080,16 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
         // A second window of this session edits the same note through the row ATTEMPT created.
         assertThat(answerOf(edit(5009L, OTHER_ATTEMPT)).path("lockTaken").booleanValue()).isFalse();
 
-        // After a Save, which posts the attempt from the form.
+        // After a Save, or back from the issue search page, which both post the attempt from the form.
         assertThat(renderedAgain("POST", ATTEMPT)).isEqualTo(ATTEMPT);
-        // Back from the issue search page, which does not carry it: the attempt that created the lock.
+        // A page that posts none: the attempt that created the lock.
         assertThat(renderedAgain("POST", null)).isEqualTo(ATTEMPT);
         // The second window keeps its own attempt, whose Cancel gives back nothing.
         assertThat(renderedAgain("POST", OTHER_ATTEMPT)).isEqualTo(OTHER_ATTEMPT);
         assertThat(renderedAgain("GET", ATTEMPT)).isNull();
-        // An attempt already cancelled is not continued.
+        // An attempt already cancelled is not continued, and its window is never handed another's.
         cancelAttempt(OTHER_ATTEMPT);
-        assertThat(renderedAgain("POST", OTHER_ATTEMPT)).isEqualTo(ATTEMPT);
+        assertThat(renderedAgain("POST", OTHER_ATTEMPT)).isNull();
     }
 
     /** The Edit attempt the action hands a page it renders again, as the Save forward does. */
@@ -1015,6 +1116,42 @@ class CaseManagementEntryNoteOpenUnitTest extends CarlosUnitTestBase {
         verify(locks, never()).findByNoteDemo(any(), any());
         verify(locks, never()).persist(any());
         verify(locks, never()).removeForSession(anyString(), any(), anyLong(), anyString());
+        verify(locks, never()).removeByIdForSession(any(), anyString(), any(), anyString());
         assertThat(session.getAttribute(CACHE_KEY)).isNull();
+    }
+
+    @Test
+    @DisplayName("should keep an open editor's form when its lock cannot be read while another note is opened to read")
+    void shouldKeepTheActiveEditorsForm_whenItsLockCannotBeRead() throws Exception {
+        CaseManagementEntryFormBean editing = editorForm(5001L);
+        forms.put("caseManagementEntryForm" + PATIENT, editing);
+        holdLock(5001L, 10L);
+        when(locks.find(10L)).thenThrow(new RuntimeException("FAKE database outage"));
+
+        MockHttpServletRequest request = openSaved("GET", 5009L);
+
+        // Unknown counts as held: Save from the editor of 5001 still loads its own form.
+        assertThat(form()).isSameAs(editing);
+        CaseManagementEntryFormBean reader = readerOf(5009L);
+        assertThat(reader.getCaseNote().getId()).isEqualTo(5009L);
+        assertThat(request.getAttribute(CaseManagementEntry2Action.READER_FORM_ATTRIBUTE)).isSameAs(reader);
+    }
+
+    @Test
+    @DisplayName("should never forget an Edit attempt whose lock may still stand, however many attempts follow it")
+    void shouldKeepAnOpenEditorsAttempt_whenManyLaterAttemptsAreSettled() throws Exception {
+        keepLockRows();
+        showSavedNote(5009L);
+        edit(5009L, ATTEMPT);
+        // Many later attempts of this session, each cancelled before its Edit was answered.
+        for (int later = 1; later <= CaseManagementEntry2Action.MAX_EDIT_ATTEMPTS + 8; later++) {
+            assertThat(answerOf(cancelAttempt(String.format("%032x", later))).path("releaseNoteLock").asText())
+                    .isEqualTo("cancelled");
+        }
+
+        CaseManagementEntry2Action cancel = cancelAttempt(ATTEMPT);
+
+        assertThat(answerOf(cancel).path("releaseNoteLock").asText()).isEqualTo("released");
+        assertThat(lockRows).isEmpty();
     }
 }
