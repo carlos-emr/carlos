@@ -41,9 +41,11 @@
 #       fresh scan: anything that took a port while the operator was reading
 #       is left running and named as "blocked:", never stopped unseen (#6060).
 #       A socket is stopped only when every service it now starts was approved
-#       too, and a service a socket starts is never stopped while that socket
-#       stays up (whatever order or port ss reports them on): the socket would
-#       only start it again. An empty --approved stops nothing. Without --approved the run
+#       too, and a service a socket starts is never stopped while that socket,
+#       or another socket on these ports that starts it as well, stays up
+#       (whatever order or port ss reports them on): that socket would only
+#       start it again. Every colliding socket is decided before anything is
+#       stopped. An empty --approved stops nothing. Without --approved the run
 #       stops everything that qualifies, as before; that form exists only for
 #       callers that predate the flag (an older carlos-ctl) and must not be
 #       used after asking anyone anything.
@@ -339,12 +341,65 @@ sockets_first() {
     awk '$3 ~ /\.socket$/ { print; next } { rest[++n] = $0 } END { for (i = 1; i <= n; i++) print rest[i] }'
 }
 
+# The units socket $1 starts (its Triggers=).
+triggers_of() {
+    systemctl show --property=Triggers --value "$1" 2>/dev/null
+}
+
 # A socket ($1) that stays up keeps the services it starts: add them to
 # ${held}, so none is stopped on its own. Not a socket: nothing to hold.
 hold_triggers_of() {
     case "$1" in *.socket) ;; *) return 0 ;; esac
-    for triggered in $(systemctl show --property=Triggers --value "$1" 2>/dev/null); do
+    for triggered in $(triggers_of "$1"); do
         held="${held}${triggered} "
+    done
+}
+
+# Will this run leave socket $1 up on its own account: never stopped from
+# here, refused by policy-rc.d, not approved, or starting a service that is
+# any of those? (Sharing a service with another socket left up is decided
+# separately, by hold_shared_sockets.)
+socket_stays() {
+    protected_unit "$1" && return 0
+    policy_allows_stop "$1" || return 0
+    approved_unit "$1" || return 0
+    for triggered in $(triggers_of "$1"); do
+        protected_unit "${triggered}" && return 0
+        policy_allows_stop "${triggered}" || return 0
+        approved_unit "${triggered}" || return 0
+    done
+    return 1
+}
+
+# Decide every colliding socket ($@) before anything is stopped. Two sockets
+# may start the same service: when one of them stays up, stopping that
+# service through the other would only see it started again, so a socket that
+# starts a held service stays up as well (${shared}), and holds the services
+# it starts in turn, until nothing changes.
+hold_shared_sockets() {
+    kept_sockets=" "
+    for socket_unit in "$@"; do
+        if socket_stays "${socket_unit}"; then
+            kept_sockets="${kept_sockets}${socket_unit} "
+            hold_triggers_of "${socket_unit}"
+        fi
+    done
+    changed=1
+    while [ "${changed}" = 1 ]; do
+        changed=0
+        for socket_unit in "$@"; do
+            case "${kept_sockets}" in *" ${socket_unit} "*) continue ;; esac
+            for triggered in $(triggers_of "${socket_unit}"); do
+                case "${held}" in
+                    *" ${triggered} "*)
+                        kept_sockets="${kept_sockets}${socket_unit} "
+                        shared="${shared}${socket_unit} "
+                        hold_triggers_of "${socket_unit}"
+                        changed=1
+                        break ;;
+                esac
+            done
+        done
     done
 }
 
@@ -381,8 +436,15 @@ front_door() {
     # its services may never be stopped from here): stopped alone, the socket
     # would only start them again.
     held=" "
+    # Sockets left up only because they start a service another socket that
+    # stays up also starts.
+    shared=" "
     if [ "${mode}" != report ]; then
+        # shellcheck disable=SC2046 # one word per colliding socket unit
+        hold_shared_sockets $(printf '%s\n' "${found}" | grouped |
+            awk '$1 != "-" && $3 ~ /\.socket$/ { print $3 }' | sort -u)
         stopped_units=" "
+        planned_lines=" "
         while read -r name pid unit addrs; do
             [ "${name}" != "-" ] || continue
             case "${unit}" in
@@ -394,7 +456,7 @@ front_door() {
                 continue
             fi
             case "${stopped_units}" in *" ${unit} "*) continue ;; esac
-            case "${unapproved}${held}" in *" ${unit} "*) continue ;; esac
+            case "${unapproved}${held}${shared}" in *" ${unit} "*) continue ;; esac
             if ! policy_allows_stop "${unit}"; then
                 denied="${denied}${unit} "
                 hold_triggers_of "${unit}"
@@ -447,6 +509,9 @@ front_door() {
                     say "will-stop: ${unit} (${origin}), on ${addrs}"
                 fi
                 for planned_unit in ${unit} ${also}; do
+                    # Two sockets may start one service: list it once.
+                    case "${planned_lines}" in *" ${planned_unit} "*) continue ;; esac
+                    planned_lines="${planned_lines}${planned_unit} "
                     say "will-stop-unit: ${planned_unit}"
                 done
                 continue
@@ -458,9 +523,11 @@ front_door() {
                 approved_unit "${planned_unit}" || unit_ok=0
             done
             if [ "${unit_ok}" = 0 ]; then
-                # The services this socket starts stay up with it: stopping
-                # one alone would only have the socket start it again.
-                unapproved="${unapproved}${unit} ${also:+${also} }"
+                # The services this socket starts stay up with it (held by
+                # hold_shared_sockets): stopping one alone would only have the
+                # socket start it again.
+                unapproved="${unapproved}${unit} "
+                hold_triggers_of "${unit}"
                 continue
             fi
             # shellcheck disable=SC2086 # $also is a list of unit names
@@ -501,6 +568,7 @@ EOF
         why=""
         case "${denied}" in *" ${unit} "*) why="policy-rc.d forbids stopping services during this install, so it was left running; " ;; esac
         case "${held}" in *" ${unit} "*) why="the socket that starts it is left running, so it was left running too; " ;; esac
+        case "${shared}" in *" ${unit} "*) why="it starts a service that another socket left running also starts, so it was left running too; " ;; esac
         case "${unapproved}" in *" ${unit} "*) why="it was not among the services approved for stopping (it took the port, or changed, after the list was shown), so it was left running; " ;; esac
         say "blocked: $(describe "${name}" "${pid}" "${unit}" "${addrs}"), so nginx cannot serve the CARLOS front door; ${why}$(advice "${name}" "${unit}")"
     done <<EOF

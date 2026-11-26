@@ -743,6 +743,58 @@ class TestApprovedStop(HostConflictsCase):
                 self.assertIn("blocked: worker (pid 300, httpd-worker.service)", r.stdout)
                 self.assertIn("the socket that starts it is left running", r.stdout)
 
+    def two_sockets_one_service(self, order):
+        """lighttpd.socket (:443) and lighttpd-alt.socket (:80) both start
+        lighttpd.service, whose own process is also an owner of each."""
+        sockets = [{"addr": "[::]:443", "socket": "lighttpd.socket", "triggers": "lighttpd.service",
+                    "owners": [{"name": "lighttpd", "pid": 300}, {"name": "systemd", "pid": 1}]},
+                   {"addr": "0.0.0.0:80", "socket": "lighttpd-alt.socket", "triggers": "lighttpd.service",
+                    "owners": [{"name": "lighttpd", "pid": 300}, {"name": "systemd", "pid": 1}]}]
+        units = {name: {"FragmentPath": "/usr/lib/systemd/system/" + name, "Triggers": "lighttpd.service"}
+                 for name in ("lighttpd.socket", "lighttpd-alt.socket")}
+        units["lighttpd.service"] = {"FragmentPath": "/usr/lib/systemd/system/lighttpd.service"}
+        return {"listeners": sockets if order else sockets[::-1],
+                "procs": {"300": {"unit": "lighttpd.service"}}, "units": units,
+                "dpkg": {"/usr/lib/systemd/system/" + n: "lighttpd" for n in units}}
+
+    def test_a_service_another_socket_left_up_also_starts_is_not_stopped(self):
+        # Only lighttpd.socket (and its service) was approved; lighttpd-alt.socket
+        # starts the same service and stays up, so stopping the service through
+        # lighttpd.socket would only have the other socket start it again.
+        for order in (True, False):
+            with self.subTest(first_listed="lighttpd.socket" if order else "lighttpd-alt.socket"):
+                open(self.log, "w").close()
+                r = self.run_script(self.two_sockets_one_service(order), "front-door", "--approved",
+                                    "lighttpd.socket lighttpd.service", "0.0.0.0")
+                self.assertEqual(r.returncode, 1, r.stdout)
+                self.assertEqual(self.stops(), [])
+                self.assertIn("blocked: systemd (pid 1, lighttpd.socket)", r.stdout)
+                self.assertIn("another socket left running also starts", r.stdout)
+                self.assertIn("blocked: systemd (pid 1, lighttpd-alt.socket)", r.stdout)
+                self.assertIn("lighttpd-alt.socket) is listening on 0.0.0.0:80, so nginx cannot serve "
+                              "the CARLOS front door; it was not among the services approved", r.stdout)
+                # The service was approved: it is held by its socket, not "unapproved".
+                service = [l for l in r.stdout.splitlines() if "lighttpd.service)" in l]
+                self.assertEqual(len(service), 1, r.stdout)
+                self.assertIn("the socket that starts it is left running", service[0])
+
+    def test_sockets_sharing_a_service_stop_together_when_all_are_approved(self):
+        for order in (True, False):
+            with self.subTest(order=order):
+                plan = self.run_script(self.two_sockets_one_service(order), "front-door", "--plan",
+                                       "0.0.0.0")
+                unit_lines = [l.split(": ", 1)[1] for l in plan.stdout.splitlines()
+                              if l.startswith("will-stop-unit: ")]
+                self.assertEqual(len(unit_lines), len(set(unit_lines)), plan.stdout)
+                units = sorted(unit_lines)
+                self.assertEqual(units, ["lighttpd-alt.socket", "lighttpd.service", "lighttpd.socket"])
+                open(self.log, "w").close()
+                r = self.run_script(self.two_sockets_one_service(order), "front-door", "--approved",
+                                    " ".join(units), "0.0.0.0")
+                self.assertEqual(r.returncode, 0, r.stdout)
+                stopped = sorted(c.split()[3] for c in self.stops())
+                self.assertEqual(stopped, ["lighttpd-alt.socket", "lighttpd.socket"], self.stops())
+
     def test_a_socket_and_its_running_service_are_planned_once_in_either_order(self):
         for order, owners in self.OWNER_ORDERS.items():
             with self.subTest(order=order):
