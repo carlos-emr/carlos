@@ -16,6 +16,8 @@ import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.form.RehabStudyFormService;
+import io.github.carlos_emr.carlos.form.RehabStudyForms;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -35,6 +37,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -131,6 +136,38 @@ class FormForwardNamed2ActionTest extends CarlosUnitTestBase {
         verify(mockResponse).setContentType("text/html;charset=UTF-8");
         verify(mockDispatcher).forward(mockRequest, mockResponse);
         verify(mockDispatcher, never()).include(any(), any());
+    }
+
+    @Test
+    void shouldCheckTheSavedVersion_beforeForwardingToATypedForm() throws Exception {
+        var forms = mock(RehabStudyFormService.class);
+        registerMock(RehabStudyFormService.class, forms);
+        when(mockRequest.getParameter("form_link")).thenReturn("formSF36.jsp");
+        when(mockRequest.getParameter("formId")).thenReturn("456");
+        when(mockRequest.getRequestDispatcher("/WEB-INF/jsp/form/formSF36.jsp?demographic_no=123"))
+                .thenReturn(mockDispatcher);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+        var order = inOrder(forms, mockDispatcher);
+        order.verify(forms).requireReadable(mockLoggedInInfo, RehabStudyForms.forFormClass("SF36").orElseThrow(), 123, 456);
+        order.verify(mockDispatcher).forward(mockRequest, mockResponse);
+    }
+
+    @Test
+    void shouldRefuseBeforeRendering_whenTheSavedVersionIsNotReadable() {
+        var forms = mock(RehabStudyFormService.class);
+        registerMock(RehabStudyFormService.class, forms);
+        when(mockRequest.getParameter("form_link")).thenReturn("formSF36");
+        when(mockRequest.getParameter("formId")).thenReturn("456");
+        when(mockRequest.getRequestDispatcher("/WEB-INF/jsp/form/formSF36.jsp?demographic_no=123"))
+                .thenReturn(mockDispatcher);
+        doThrow(new SecurityException("missing required sec object (_form)")).when(forms)
+                .requireReadable(mockLoggedInInfo, RehabStudyForms.forFormClass("SF36").orElseThrow(), 123, 456);
+
+        assertThatThrownBy(() -> action.execute()).isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_form)");
+        verify(mockRequest, never()).getRequestDispatcher(any());
     }
 
     @Test

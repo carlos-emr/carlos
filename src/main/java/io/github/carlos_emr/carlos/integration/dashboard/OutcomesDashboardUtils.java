@@ -28,6 +28,7 @@
  */
 package io.github.carlos_emr.carlos.integration.dashboard;
 
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -39,10 +40,8 @@ import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.entity.UrlEncodedFormEntity;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
-import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.HttpStatus;
 import org.apache.hc.core5.http.NameValuePair;
-import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.message.BasicNameValuePair;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
@@ -76,7 +75,33 @@ public class OutcomesDashboardUtils {
     private static ClinicDAO clinicDao = SpringUtils.getBean(ClinicDAO.class);
 
 
-    public static void sendProviderIndicatorData(LoggedInInfo x, Provider provider, IndicatorTemplate indicatorTemplate) throws Exception {
+    /**
+     * Computes one provider's indicator panel and publishes it, as a metric set, to the shared
+     * outcomes dashboard configured in {@code shared_outcomes_dashboard_send_url}.
+     *
+     * <p>Each call is one outbound HTTP POST. Nothing is sent, and {@code false} is returned, when
+     * the destination is not configured, when the provider is unknown or when the indicator cannot
+     * be computed (the caller lacks {@code _dashboardDrilldown}); a destination that answers with
+     * anything but a 2xx status also yields {@code false}. The caller must report a {@code false}
+     * result rather than treat it as published.</p>
+     *
+     * @param x the logged-in user context
+     * @param provider the provider whose indicator is published
+     * @param indicatorTemplate the indicator template carrying the shared-metric mapping
+     * @return {@code true} only when the shared dashboard accepted the metric set
+     * @throws Exception when the template cannot be parsed or the destination cannot be reached
+     */
+    public static boolean sendProviderIndicatorData(LoggedInInfo x, Provider provider, IndicatorTemplate indicatorTemplate) throws Exception {
+        String sendUrl = CarlosProperties.getInstance().getProperty("shared_outcomes_dashboard_send_url");
+        if (sendUrl == null || sendUrl.isBlank()) {
+            logger.warn("Shared outcomes dashboard publication skipped: shared_outcomes_dashboard_send_url is not configured");
+            return false;
+        }
+        if (provider == null) {
+            logger.warn("Shared outcomes dashboard publication skipped: provider was not found");
+            return false;
+        }
+
         SimpleDateFormat formatter = new SimpleDateFormat("MMM d, yyyy hh:mm:ss aaa");
 
         //logger.info("indicatorTemplate="+indicatorTemplate.toString());
@@ -108,6 +133,11 @@ public class OutcomesDashboardUtils {
 
         //run indicator
         IndicatorBean indicatorBean = dashboardManager.getIndicatorPanelForProvider(x, provider.getProviderNo(), indicatorTemplate.getId());
+        if (indicatorBean == null) {
+            // The manager returns null when the caller lacks _dashboardDrilldown read or the panel cannot be built.
+            logger.warn("Shared outcomes dashboard publication skipped: indicator panel {} was not produced", indicatorTemplate.getId());
+            return false;
+        }
 
         //map results into Metric Set
         io.github.carlos_emr.carlos.commn.model.Clinic oClinic = clinicDao.getClinic();
@@ -172,23 +202,21 @@ public class OutcomesDashboardUtils {
         urlParameters.add(new BasicNameValuePair("data", data.toString()));
 
         //send to shared dashboard
-        HttpPost postMethod = new HttpPost(CarlosProperties.getInstance().getProperty("shared_outcomes_dashboard_send_url"));
-        postMethod.setEntity(new UrlEncodedFormEntity(urlParameters));
+        HttpPost postMethod = new HttpPost(sendUrl);
+        postMethod.setEntity(new UrlEncodedFormEntity(urlParameters, StandardCharsets.UTF_8));
 
-        logger.info(data);
-
-        postMethod.setHeader("Content-Type", "application/x-www-form-urlencoded");
-
-        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-            var response = httpClient.execute(postMethod);
-
-            logger.info(response.getCode());
-            if (response.getCode() == HttpStatus.SC_OK) {
-                HttpEntity httpEntity = response.getEntity();
-                String content = EntityUtils.toString(httpEntity);
-                logger.info(content);
-                logger.info("sent");
-            }
+        // A redirect is never followed: HttpClient would turn a POST answered 302 into a GET and could end on a
+        // login page that answers 200, which must not count as the metric set being accepted.
+        try (CloseableHttpClient httpClient = HttpClients.custom().disableRedirectHandling().disableAutomaticRetries().build()) {
+            return httpClient.execute(postMethod, response -> {
+                int code = response.getCode();
+                if (code >= HttpStatus.SC_SUCCESS && code < HttpStatus.SC_REDIRECTION) {
+                    logger.info("Shared outcomes dashboard accepted the metric set with HTTP status {}", code);
+                    return true;
+                }
+                logger.warn("Shared outcomes dashboard rejected the metric set with HTTP status {}", code);
+                return false;
+            });
         }
     }
 

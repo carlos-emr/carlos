@@ -33,8 +33,11 @@ import org.apache.struts2.ServletActionContext;
  */
 public class ViewForm2Action extends ActionSupport {
 
+    private static final int MAX_CAUSE_DEPTH = 16;
+
     private SecurityInfoManager securityInfoManager =
             SpringUtils.getBean(SecurityInfoManager.class);
+    private final FormViewVersionValidator versions = new FormViewVersionValidator();
 
     @Override
     public String execute() throws ServletException, IOException {
@@ -60,11 +63,40 @@ public class ViewForm2Action extends ActionSupport {
             return NONE;
         }
 
+        // A typed form page's record refusal is answered here, before the page renders.
+        String view = actionName.substring(actionName.lastIndexOf('/') + 1);
+        versions.requireReadable(view, loggedInInfo, demographicNo, request.getParameter("formId"));
+
         if (request.getDispatcherType() == DispatcherType.INCLUDE) {
             request.getRequestDispatcher(internalView).include(request, response);
         } else {
-            request.getRequestDispatcher(internalView).forward(request, response);
+            try {
+                request.getRequestDispatcher(internalView).forward(request, response);
+            } catch (ServletException | RuntimeException failure) {
+                // Backstop for a page whose record service refuses while it renders (issue
+                // #5693) and that the check above does not know: the container would answer with
+                // its generic 500 page, so hand the refusal to the package's SecurityException
+                // mapping instead, which answers 403, as long as nothing has been sent yet.
+                SecurityException refusal = securityRefusal(failure);
+                if (refusal == null || response.isCommitted()) {
+                    throw failure;
+                }
+                response.resetBuffer();
+                throw refusal;
+            }
         }
         return NONE;
+    }
+
+    /** The SecurityException that caused a failed forward, or {@code null} for any other failure. */
+    static SecurityException securityRefusal(Throwable failure) {
+        // Bounded: a cause chain can be made cyclic, and the wrapping is only a few levels deep.
+        Throwable cause = failure;
+        for (int depth = 0; cause != null && depth < MAX_CAUSE_DEPTH; depth++, cause = cause.getCause()) {
+            if (cause instanceof SecurityException refusal) {
+                return refusal;
+            }
+        }
+        return null;
     }
 }
