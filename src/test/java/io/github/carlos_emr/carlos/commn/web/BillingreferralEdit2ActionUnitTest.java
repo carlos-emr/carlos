@@ -52,6 +52,27 @@ class BillingreferralEdit2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(changeLabels(session, null, false)).isEmpty();
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"7", "invalid", "0"})
+    void shouldLeaveSelectionUntouched_whenReferralIsMissingOrInvalid(String id) throws Exception {
+        createAndRegisterMock(ProfessionalSpecialistDao.class);
+        var security = createAndRegisterMock(SecurityInfoManager.class);
+        when(security.hasPrivilege(any(), eq("_billing"), eq("w"), isNull())).thenReturn(true);
+        var request = new MockHttpServletRequest();
+        var response = new MockHttpServletResponse();
+        var previous = List.of(new ProfessionalSpecialist());
+        request.getSession().setAttribute("billingReferralAdminCheckList", previous);
+        request.setParameter("id", id);
+        request.setParameter("checked", "true");
+        try (var servlet = mockStatic(ServletActionContext.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            new BillingreferralEdit2Action().modifyBatch();
+        }
+        assertThat(response.getStatus()).isEqualTo("7".equals(id) ? 404 : 400);
+        assertThat(request.getSession().getAttribute("billingReferralAdminCheckList")).isSameAs(previous);
+    }
+
     private List<Integer> changeLabels(MockHttpSession session, String id, boolean checked) throws Exception {
         var request = new MockHttpServletRequest();
         var response = new MockHttpServletResponse();

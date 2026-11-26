@@ -121,7 +121,7 @@ public class BillingreferralEdit2Action extends ActionSupport {
                 return NONE;
             }
             if (checked) {
-                specialist = psDao.find(id);
+                specialist = psDao.find(id.intValue());
                 if (specialist == null) {
                     response.sendError(HttpServletResponse.SC_NOT_FOUND);
                     return NONE;
