@@ -157,7 +157,7 @@
         "scripts/tickler-crud-browser-check.js"
       ],
       "source": "scripts/tickler-crud-browser-check.js",
-      "sourceSha256": "9da76229527fb7e094f9195c3425fb41c94c5b4a380268184c21579248e8c0bf",
+      "sourceSha256": "0a1d589d0013b77f8b9a46ec026a97b4ae28f9987ef6930f3e85ba3c50ccf243",
       "minimumAssertions": 17
     },
     {
