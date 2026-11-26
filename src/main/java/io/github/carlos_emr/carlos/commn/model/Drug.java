@@ -54,8 +54,8 @@ import jakarta.persistence.Transient;
 import org.apache.commons.lang3.StringUtils;
 
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
-import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import io.github.carlos_emr.carlos.utility.DoseText;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Entity
@@ -337,13 +337,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
 
     public String getDosageDisplay() {
         if (cdsDoseText != null) return cdsDoseText;
-        String ret = "";
-        if (this.getTakeMin() != this.getTakeMax()) {
-            ret += RxUtil.FloatToString(this.getTakeMin()) + "-" + RxUtil.FloatToString(this.getTakeMax());
-        } else {
-            ret += RxUtil.FloatToString(this.getTakeMin());
-        }
-        return ret;
+        return DoseText.range(this.getTakeMin(), this.getTakeMax());
     }
 
     public boolean isDeleted() {

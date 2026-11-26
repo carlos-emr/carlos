@@ -1,5 +1,50 @@
 # CARLOS 2026.08 release notes
 
+## Dose, strength and quantity numbers are written as plain decimals
+
+ISMP Canada's *Do Not Use* list bans a trailing zero ("1.0 mg" is read as 10 mg) and a
+missing leading zero (".5 mg" is read as 5 mg). A review of every place CARLOS turns a
+dose, strength or quantity number into text (#6185) found the following, all now written by
+one formatter: the exact plain decimal, with no trailing zero, always a leading zero, no
+exponent and no rounding.
+
+- **Rounded dose.** The structured dose (take 1-2) was rounded to three decimal places for
+  display, so a dose of 0.0625 was shown as "0.062" on the Rx record, the Rx page's staging
+  card, the BC health passport forms and the VT form. The Rx page posts that text back as
+  the dose, so opening and saving such a prescription stored 0.062. The dose is now shown in
+  full and saved unchanged. A dose with no finite decimal form is shown to the precision it
+  is stored in: a third of a tablet reads "0.33333334" where it read "0.333". The
+  instruction text the prescriber typed ("Take 1/3 tab") is not changed.
+- **Quantity with a unit.** A quantity typed with a decimal amount and a unit was split at
+  its first run of digits: "2.5 mL" was saved, printed and faxed as `Qty:2 .5 mL`. It is now
+  saved as `Qty:2.5 mL`. An amount typed as ".5 mL" or "30.0 mL" is saved as "0.5 mL" or
+  "30 mL". The default quantity carried over from the previous prescription for the same
+  drug keeps its decimal amount.
+- **Strength.** DrugRef sends an ingredient strength as "250.0". CARLOS copied that into
+  the generic name and strength stored with a new prescription ("amoxicillin 250.0mg
+  capsule"), showed it on the Drug Information page and wrote it to the CDS 5.2 export.
+  New prescriptions store "250mg". The REST medication service stored "500.0 mg", or the
+  word "null" for a strength or unit the client did not send; it now stores "500 mg" and
+  leaves a missing part out.
+- **Other pages.** The Edit Favorites and Copy Favorites pages showed "1.0" for a dose of
+  1, and the immunization submission review page showed "Dose Qty: 1.0". The BPMH form's
+  "How I take it" column left the dose out ("Take TAB BID") when the stored instruction
+  text had no direction line; it now reads "Take 1 TAB BID".
+
+Prescriptions saved before this change keep the text they were saved with: a stored
+"250.0mg", a stored `Qty:2 .5 mL`, and a dose a previous save had already rounded are not
+rewritten by the upgrade. Review any prescription with a liquid or topical quantity that
+was typed as a decimal with a unit; searching the `special` column of the `drugs` table
+for `Qty:` followed by a number, a space and a full stop finds them.
+
+REST clients: `quantity` on a drug or a favourite is a whole number. A stored quantity that
+is not one ("2.5", or imported text such as "100 mL") is now omitted from the response;
+reading such a drug used to fail the whole request. The `instructions` text still states
+the quantity.
+
+The inventory, with each place checked and the findings that are not number formatting, is
+in `docs/testing/dose-text-format-inventory.md`.
+
 ## Unlinking a lab archives the readings it filed
 
 Unlinking a lab report from a patient (Unlink on the lab page) now also archives the

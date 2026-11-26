@@ -40,6 +40,7 @@ import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 import io.github.carlos_emr.carlos.providers.data.ProSignatureData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.DateUtils;
+import io.github.carlos_emr.carlos.utility.DoseText;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
@@ -1622,13 +1623,7 @@ public class RxPrescriptionData {
 
         public String getDosageDisplay() {
             if (cdsDoseText != null) return cdsDoseText;
-            String ret = "";
-            if (this.getTakeMin() != this.getTakeMax()) {
-                ret += this.getTakeMinString() + "-" + this.getTakeMaxString();
-            } else {
-                ret += this.getTakeMinString();
-            }
-            return ret;
+            return DoseText.range(this.getTakeMin(), this.getTakeMax());
         }
 
         public String getCdsCurrentness() { return cdsCurrentness; }
@@ -1691,11 +1686,7 @@ public class RxPrescriptionData {
                     // + gcn.getRoute() + " ";
                 }
 
-                if (this.getTakeMin() != this.getTakeMax()) {
-                    ret += this.getTakeMinString() + "-" + this.getTakeMaxString();
-                } else {
-                    ret += this.getTakeMinString();
-                }
+                ret += DoseText.range(this.getTakeMin(), this.getTakeMax());
 
                 ret += " " + this.getFrequencyCode();
 
@@ -1755,12 +1746,7 @@ public class RxPrescriptionData {
         }
 
         public String getFullFrequency() {
-            String ret = "";
-            if (this.getTakeMin() != this.getTakeMax()) {
-                ret += this.getTakeMinString() + "-" + this.getTakeMaxString();
-            } else {
-                ret += this.getTakeMinString();
-            }
+            String ret = DoseText.range(this.getTakeMin(), this.getTakeMax());
 
             ret += " " + this.getFrequencyCode();
             return ret;
