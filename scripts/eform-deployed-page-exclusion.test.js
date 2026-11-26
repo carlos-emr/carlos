@@ -1,7 +1,7 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later. */
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {verify,producerOf,rendererConfirmed}=require('./eform-deployed-page-exclusion-playwright-checks');
+const {verify,producerOf,rendererConfirmed,approvalBundle,verifyApproval}=require('./eform-deployed-page-exclusion-playwright-checks');
 
 // A handwritten recipient view, independent of the HTML fixture/producer. Each
 // mutation represents output a broken deployed renderer must never certify.
@@ -61,3 +61,46 @@ for(const producer of ['','OpenPDF 2.0.3','iText 2.1.7','openhtmltopdf.com','Ski
   test('reject a PDF whose Producer is '+JSON.stringify(producer),()=>{
     assert.equal(rendererConfirmed({producer,log:'',fdid:'41'}),false);
   });
+
+// The native JSP renders these ten rows for the wrapped and direct fixtures.
+// Keep the recipient's expected display independent of the check's key/value table.
+const approvalReports = {
+  en: [
+    'Failed content resources: 0', 'Excluded visible elements: 1', 'Signature missing: No',
+    'Provider signature stamp not on file: No', 'Timer compatibility failed: No', 'Page script errors: 0',
+    'Blocked dialogs or pop-ups: 0', 'Off-page decoration removed: 0',
+    'Page captured before it finished building: No', 'Lab decision support unavailable: No',
+  ],
+  fr: [
+    'Ressources de contenu en échec: 0', 'Éléments visibles exclus: 1', 'Signature manquante: Non',
+    'Cachet de signature du fournisseur non enregistré: Non', 'Échec de compatibilité des minuteurs: Non',
+    'Erreurs de script de la page: 0', 'Boîtes de dialogue ou fenêtres contextuelles bloquées: 0',
+    'Décoration hors page supprimée: 0', 'Page capturée avant la fin de son chargement: Non',
+    'Aide à la décision de laboratoire indisponible: Non',
+  ],
+};
+for (const [language, rows] of Object.entries(approvalReports)) {
+  test('native approval requires exactly the localized interstitial report in ' + language, () => {
+    const bundle = approvalBundle(language);
+    verifyApproval(rows, bundle, 0);
+    const no = bundle.get('eform.renderIssue.no');
+    const yes = bundle.get('eform.renderIssue.yes');
+    for (const row of rows.filter(row => row.endsWith(': ' + no))) {
+      const raised = rows.map(item => item === row ? item.slice(0, -no.length) + yes : item);
+      assert.throws(() => verifyApproval(raised, bundle, 0), new RegExp('expected ' + no + ', found ' + yes));
+    }
+    assert.throws(() => verifyApproval(rows.slice(1), bundle, 0), /failedContentResources, found 0/);
+    assert.throws(() => verifyApproval([...rows, rows[2]], bundle, 0), /signatureMissing, found 2/);
+    assert.throws(() => verifyApproval([...rows, 'Unexpected: 0'], bundle, 0), /additional rows/);
+    assert.throws(() => verifyApproval(rows.map(row => row.replace(/: 1$/, ': 0')), bundle, 0),
+      /excludedContentElements expected 1, found 0/);
+    assert.throws(() => verifyApproval(rows.map(row => row.replace(/: 0$/, ': 1')), bundle, 0),
+      /failedContentResources expected 0, found 1/);
+    const decoration = bundle.get('eform.renderIssue.decorativeExcludedElements');
+    const withNotice = rows.map(row => row === decoration + ': 0' ? decoration + ': 1' : row);
+    verifyApproval(withNotice, bundle, 1);
+    assert.throws(() => verifyApproval(withNotice, bundle, 0), /decorativeExcludedElements expected 0, found 1/);
+    assert.throws(() => verifyApproval(rows, bundle, 1), /decorativeExcludedElements expected 1, found 0/);
+    assert.throws(() => verifyApproval(withNotice, bundle, 2), /at most one platform confidentiality notice/);
+  });
+}

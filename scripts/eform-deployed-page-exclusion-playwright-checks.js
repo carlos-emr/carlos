@@ -13,7 +13,7 @@ const x=require('./lib/export-content-helpers');
 const graph=require('./lib/pdf-graph');
 const {requirePoppler}=require('./lib/stored-pdf-documents');
 const {serverLogFromEnvironment}=require('./lib/server-log');
-const {bundleMessage}=require('./lib/throwaway-login-fixture');
+const {parseProperties}=require('./lib/java-properties');
 const {readRegular,retireOwnedFile}=require('./lib/owned-file-retirement');
 const q=h.sqlString;
 const SHAPES=['clean','wrapped','direct'];
@@ -61,6 +61,51 @@ function renderLoggedAtInfo(log,fdid) {
 function rendererConfirmed({producer,log,fdid}) {
   if(!BROWSER_PRODUCER.test(producer))return false;
   return !renderLoggedAtInfo(log||'',fdid)||completedRender(log,fdid);
+}
+
+/** The browser context requests Canadian English, which uses the English bundle. */
+function approvalBundle(language = 'en') {
+  const name = 'oscarResources_' + language + '.properties';
+  const source = path.join(__dirname, '..', 'src', 'main', 'resources', name);
+  const webapp = process.env.CARLOS_INSTALLED_WEBAPP_DIR || '/usr/share/carlos-emr/webapp/carlos';
+  const file = fs.existsSync(source) ? source : path.join(webapp, 'WEB-INF', 'classes', name);
+  return parseProperties(fs.readFileSync(file));
+}
+
+/** The interstitial blocks delivery. An installed print notice is separately disclosed as decoration. */
+function verifyApproval(items, bundle, privacyNoticeCount) {
+  function message(key) {
+    const value = bundle.get('eform.renderIssue.' + key);
+    h.assert(value, 'Missing approval message for ' + key);
+    return value;
+  }
+
+  h.assert(privacyNoticeCount === 0 || privacyNoticeCount === 1, 'Expected at most one platform confidentiality notice');
+  const no = message('no');
+  const yes = message('yes');
+  const expected = {
+    failedContentResources: '0',
+    excludedContentElements: '1',
+    signatureMissing: no,
+    providerStampMissing: no,
+    timerCompatibilityFailure: no,
+    severeConsoleErrors: '0',
+    containedInteractions: '0',
+    decorativeExcludedElements: String(privacyNoticeCount),
+    stabilizationCapped: no,
+    labDecisionSupportStubbed: no,
+  };
+  const rows = items.map(text => text.trim());
+  for (const [key, value] of Object.entries(expected)) {
+    const prefix = message(key) + ': ';
+    const matches = rows.filter(row => row.startsWith(prefix));
+    h.assert(matches.length === 1, 'Native approval expected one row for ' + key + ', found ' + matches.length);
+    const actual = matches[0].slice(prefix.length);
+    // Keep free text from an unexpected report out of the diagnostic.
+    const observed = [yes, no, 'true', 'false'].includes(actual) || /^\d+$/.test(actual) ? actual : '<unrecognized>';
+    h.assert(actual === value, 'Native approval ' + key + ' expected ' + value + ', found ' + observed);
+  }
+  h.assert(rows.length === Object.keys(expected).length, 'Native approval has unexpected additional rows');
 }
 
 /** Fixed authored geometry, independent of the production geometry JavaScript. */
@@ -172,6 +217,7 @@ function reserveInstanceIds(s,template) {
 }
 
 async function workflow(s) {
+  const bundle = approvalBundle();
   const templates=SHAPES.map(shape=>({shape,name:s.marker+' page exclusion '+shape}));
   // Register durable marker ownership before any template INSERT/ID allocation.
   s.cleanup(()=>{
@@ -243,6 +289,10 @@ async function workflow(s) {
       const mark=reader.mark();
       let approvedFdid;
       const downloaded=await x.saveDownload(form,scratch,async()=>{
+        // The print filter can append one clinic confidentiality notice outside the authored pages.
+        // Count that specific platform paragraph on the native form before navigating to approval.
+        const privacyNoticeCount = await form.locator('p.yesprint.carlos-print-decoration')
+          .filter({hasText: /END OF PRINTED DOCUMENT\s*$/}).count();
         await form.locator('#remoteDownloadButton').click();
         if(template.shape!=='clean') {
           // An interstitial is BLOCKING even when marked as decoration: only
@@ -256,13 +306,7 @@ async function workflow(s) {
           h.assert(await approval.locator('input[name="demographicNo"]').inputValue()===s.patient
             &&await approval.locator('input[name="renderApproval"]').inputValue(),'Native approval lacks its patient binding or one-time token');
           const items=await form.locator('.card-body > ul > li').allTextContents();
-          for(const key of ['failedContentResources','excludedContentElements','signatureMissing','providerStampMissing','timerCompatibilityFailure',
-            'severeConsoleErrors','containedInteractions','stabilizationCapped','labDecisionSupportStubbed']) {
-            const label=bundleMessage('eform.renderIssue.'+key,key);
-            const item=items.filter(text=>text.trim().startsWith(label+':'));
-            const value=key==='excludedContentElements'?'1':['failedContentResources','severeConsoleErrors','containedInteractions'].includes(key)?'0':'false';
-            h.assert(item.length===1&&item[0].trim()===label+': '+value,'Native approval lists an unexpected or missing omission: '+key);
-          }
+          verifyApproval(items, bundle, privacyNoticeCount);
           const savedBefore=s.sql.value(`SELECT COUNT(*) FROM eform_data WHERE fid=${template.id} AND demographic_no=${s.patient}`);
           await approval.locator('button[type="submit"]').click();
           h.assert(s.sql.value(`SELECT COUNT(*) FROM eform_data WHERE fid=${template.id} AND demographic_no=${s.patient}`)===savedBefore,'Approving PDF output created another saved revision');
@@ -307,7 +351,7 @@ async function workflow(s) {
   }
 }
 
-if(require.main===module)runWorkflow('eform-deployed-page-exclusion',workflow,{preflightConfig:()=>{
+if(require.main===module)runWorkflow('eform-deployed-page-exclusion',workflow,{contextOptions:{locale:'en-CA'},preflightConfig:()=>{
   if(process.env.EXCLUSIVE!=='1')throw new h.SkipCheck('Owned eForm library/identity allocation requires EXCLUSIVE=1');
   // Optional: with a readable server log at INFO the renderer's own completion receipt is checked too.
   const reader=serverLogFromEnvironment();
@@ -317,4 +361,4 @@ if(require.main===module)runWorkflow('eform-deployed-page-exclusion',workflow,{p
   h.assert(fs.lstatSync(rendererTemp()).isDirectory()&&fs.realpathSync(rendererTemp())===rendererTemp(),'Renderer temp store must be a real directory');
   fs.readdirSync(rendererTemp());
 }});
-module.exports={fixture,verify,reserveInstanceIds,rendererFileFixture,completedRender,producerOf,rendererConfirmed,workflow};
+module.exports={fixture,verify,approvalBundle,verifyApproval,reserveInstanceIds,rendererFileFixture,completedRender,producerOf,rendererConfirmed,workflow};

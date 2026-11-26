@@ -15,8 +15,12 @@ has distinct top, right, lower, lower-right and central clinical tokens.
 The release deliberately requires informed approval for **interstitial** content,
 even when the author marks it as decoration. Only decorations before/after all
 pages are advisory. The workflow verifies the native approval's exact saved
-revision/patient/token binding and one excluded visible element, with every other
-blocking component absent. Approval downloads the already saved revision without
+revision/patient/token binding and all ten report rows. On the wrapped and direct
+fixtures it expects one blocking interstitial. The expected advisory count is
+one when the print filter appends the clinic's confidentiality notice to the
+native form and zero when it is absent. The remaining counts are zero. All five
+flags must display the English bundle's `eform.renderIssue.no` value in the
+`en-CA` browser context. Approval downloads the already saved revision without
 another save. Submit & PDF itself creates one new revision per click; the original
 revision must remain unchanged when the saved view is submitted again.
 
@@ -28,12 +32,12 @@ Every variant/revision must also match the clean control within 0.3 point. Ten
 negative controls reject missing/reversed/duplicated pages/content, extra blank
 pages/interstitials, shifts, clipping, wrong scale and invisible extracted text.
 
-Requires `EXCLUSIVE=1`, Poppler, the saved-eForm browser renderer, and a readable
-`LAB_UPLOAD_JOURNAL_UNIT` **or** `LAB_UPLOAD_SERVER_LOG`. Enable INFO receipts for
-`EFormBrowserPdfService` during the disposable test window (for example
-`LOG_VERBOSITY=info`) and restore the original setting afterward. Each downloaded
-PDF requires a new completion receipt naming its exact saved revision and both
-authored pages. Default WARN logging cannot satisfy that evidence requirement.
+Requires `EXCLUSIVE=1`, Poppler and the saved-eForm browser renderer. Every
+download must carry Chromium's Skia/PDF producer. When a configured
+`LAB_UPLOAD_JOURNAL_UNIT` or `LAB_UPLOAD_SERVER_LOG` contains the INFO start
+for that saved revision, the check also requires exactly one completion receipt
+for both authored pages. The default WARN log records the blocking components
+and saved revision when the renderer requests approval.
 
 `EFORM_RENDER_TEMP_DIR` defaults to the Debian Catalina managed renderer store
 `/var/lib/carlos-emr/catalina/work/carlos/eform-browser-pdf-temp`; configure it
