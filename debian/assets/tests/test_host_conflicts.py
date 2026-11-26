@@ -664,13 +664,14 @@ class TestApprovedStop(HostConflictsCase):
                 self.assertNotIn("stopped:", r.stdout)
 
     def split_ports(self, service_port_first, triggers):
-        """The service holds :80 on its own; its socket holds :443 (review case)."""
-        service = {"addr": "0.0.0.0:80", "owners": [{"name": "lighttpd", "pid": 300}]}
-        listeners = [service, dict(LIGHTTPD_SOCKET)]
-        if not service_port_first:
-            listeners.reverse()
+        """The service holds one port on its own; its socket holds the other.
+        colliding scans :80 before :443, so the port each one is on decides
+        which row the helper reads first (listing order would not)."""
+        service_port, socket_port = ("80", "443") if service_port_first else ("443", "80")
+        service = {"addr": "0.0.0.0:" + service_port, "owners": [{"name": "lighttpd", "pid": 300}]}
+        socket_row = dict(LIGHTTPD_SOCKET, addr="[::]:" + socket_port)
         scenario = self.socket_with_its_service([], triggers)
-        scenario["listeners"] = listeners
+        scenario["listeners"] = [service, socket_row]
         return scenario
 
     def test_service_on_another_port_than_its_unapproved_socket_is_not_stopped(self):
@@ -684,8 +685,8 @@ class TestApprovedStop(HostConflictsCase):
                 self.assertEqual(r.returncode, 1, r.stdout)
                 self.assertEqual(self.stops(), [])
                 self.assertNotIn("stopped:", r.stdout)
-                self.assertIn("blocked: lighttpd (pid 300, lighttpd.service) is listening on 0.0.0.0:80",
-                              r.stdout)
+                self.assertIn("blocked: lighttpd (pid 300, lighttpd.service) is listening on 0.0.0.0:"
+                              + ("80" if first else "443"), r.stdout)
 
     def test_service_on_another_port_than_its_approved_socket_stops_with_it(self):
         for first in (True, False):
@@ -744,16 +745,19 @@ class TestApprovedStop(HostConflictsCase):
                 self.assertIn("the socket that starts it is left running", r.stdout)
 
     def two_sockets_one_service(self, order):
-        """lighttpd.socket (:443) and lighttpd-alt.socket (:80) both start
-        lighttpd.service, whose own process is also an owner of each."""
-        sockets = [{"addr": "[::]:443", "socket": "lighttpd.socket", "triggers": "lighttpd.service",
+        """lighttpd.socket and lighttpd-alt.socket both start lighttpd.service,
+        whose own process is also an owner of each. colliding scans :80 first,
+        so ORDER (True: lighttpd.socket on :80) decides which socket is read
+        first."""
+        main_port, alt_port = ("80", "443") if order else ("443", "80")
+        sockets = [{"addr": "0.0.0.0:" + main_port, "socket": "lighttpd.socket", "triggers": "lighttpd.service",
                     "owners": [{"name": "lighttpd", "pid": 300}, {"name": "systemd", "pid": 1}]},
-                   {"addr": "0.0.0.0:80", "socket": "lighttpd-alt.socket", "triggers": "lighttpd.service",
+                   {"addr": "0.0.0.0:" + alt_port, "socket": "lighttpd-alt.socket", "triggers": "lighttpd.service",
                     "owners": [{"name": "lighttpd", "pid": 300}, {"name": "systemd", "pid": 1}]}]
         units = {name: {"FragmentPath": "/usr/lib/systemd/system/" + name, "Triggers": "lighttpd.service"}
                  for name in ("lighttpd.socket", "lighttpd-alt.socket")}
         units["lighttpd.service"] = {"FragmentPath": "/usr/lib/systemd/system/lighttpd.service"}
-        return {"listeners": sockets if order else sockets[::-1],
+        return {"listeners": sockets,
                 "procs": {"300": {"unit": "lighttpd.service"}}, "units": units,
                 "dpkg": {"/usr/lib/systemd/system/" + n: "lighttpd" for n in units}}
 
@@ -771,8 +775,9 @@ class TestApprovedStop(HostConflictsCase):
                 self.assertIn("blocked: systemd (pid 1, lighttpd.socket)", r.stdout)
                 self.assertIn("another socket left running also starts", r.stdout)
                 self.assertIn("blocked: systemd (pid 1, lighttpd-alt.socket)", r.stdout)
-                self.assertIn("lighttpd-alt.socket) is listening on 0.0.0.0:80, so nginx cannot serve "
-                              "the CARLOS front door; it was not among the services approved", r.stdout)
+                self.assertIn("lighttpd-alt.socket) is listening on 0.0.0.0:" + ("443" if order else "80")
+                              + ", so nginx cannot serve the CARLOS front door; it was not among the "
+                              "services approved", r.stdout)
                 # The service was approved: it is held by its socket, not "unapproved".
                 service = [l for l in r.stdout.splitlines() if "lighttpd.service)" in l]
                 self.assertEqual(len(service), 1, r.stdout)
