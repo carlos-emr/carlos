@@ -62,12 +62,6 @@
       "disposition": "required installed retake; blocks release readiness"
     },
     {
-      "check": "mcedt-mailbox-outbox-plaintext",
-      "finding": 189,
-      "step": "the stored MCEDT password is not the text that was typed",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
       "check": "patient-set-repeat-save",
       "finding": 82,
       "step": "saving the same patient into the same set twice retains one membership",

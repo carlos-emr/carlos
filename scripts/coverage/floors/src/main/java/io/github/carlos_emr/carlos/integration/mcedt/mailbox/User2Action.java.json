@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/mailbox/User2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "35093dcc13137c8abfb0d96cf8c5419c6861e8e0"
+  },
+  "evidenceSha256": "3b2d3dcde904c40c90a47d601c5f1f7a74cd6132b145ab3b9ee0444fac9f7a2c"
+}

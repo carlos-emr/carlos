@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/DelegateFactory.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 93.02325581395348,
+    "instructions": 93.45238095238095,
+    "branches": 100.0,
+    "sourceBlob": "5c65da21a6b23aa8e97fe7ceeca0a012d952efcb"
+  },
+  "evidenceSha256": "91a627898acb68445f755ce0e92f57602ee8f98660330bc9702f4e3eb1dcaba1"
+}

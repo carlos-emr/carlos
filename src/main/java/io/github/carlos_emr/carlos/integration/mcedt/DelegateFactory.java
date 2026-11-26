@@ -32,7 +32,6 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
-import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.integration.ebs.client.ng.EdtClientBuilder;
 import io.github.carlos_emr.carlos.integration.ebs.client.ng.EdtClientBuilderConfig;
 import io.github.carlos_emr.carlos.integration.mcedt.mailbox.ActionUtils;
@@ -48,6 +47,10 @@ import java.io.File;
 import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -56,12 +59,33 @@ public class DelegateFactory {
     private static Logger logger = MiscUtils.getLogger();
     private static UserPropertyDAO userPropertyDAO = SpringUtils.getBean(UserPropertyDAO.class);
     private static Map<String, EDTDelegate> edtDelegates = new HashMap<>();
+    private static final Map<String, byte[]> credentialFingerprints = new HashMap<>();
+    // Guarded by edtDelegates; a delayed read cannot replace a newer publication.
+    private static long cacheGeneration;
 
     public static EDTDelegate getEDTDelegateInstance(String serviceId) {
-        if (edtDelegates.get(serviceId) == null) {
-            edtDelegates.put(serviceId, newDelegate(serviceId));
+        for (;;) {
+            long observedGeneration;
+            synchronized (edtDelegates) {
+                observedGeneration = cacheGeneration;
+            }
+            // Database waits stay outside the cache monitor.
+            String password = currentPassword();
+            byte[] fingerprint = passwordFingerprint(password);
+            synchronized (edtDelegates) {
+                if (observedGeneration != cacheGeneration) {
+                    continue;
+                }
+                EDTDelegate cached = edtDelegates.get(serviceId);
+                if (cached == null || !MessageDigest.isEqual(fingerprint, credentialFingerprints.get(serviceId))) {
+                    cached = newDelegate(serviceId, password);
+                    edtDelegates.put(serviceId, cached);
+                    credentialFingerprints.put(serviceId, fingerprint);
+                    cacheGeneration++;
+                }
+                return cached;
+            }
         }
-        return edtDelegates.get(serviceId);
     }
 
     public static EDTDelegate getEDTDelegateInstance() {
@@ -69,16 +93,38 @@ public class DelegateFactory {
         return getEDTDelegateInstance(props.getProperty("mcedt.service.id"));
     }
 
-    private static EDTDelegate newDelegate(String serviceId) {
+    private static String currentPassword() {
+        return SpringUtils.getBean(McedtCredentialService.class)
+                .getPassword(CarlosProperties.getInstance().getProperty("mcedt.service.pass"));
+    }
+
+    /** Cache identity only; neither plaintext nor its digest is logged or exposed. */
+    private static byte[] passwordFingerprint(String password) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            digest.update(password == null ? (byte) 0 : (byte) 1);
+            if (password != null) {
+                byte[] encoded = password.getBytes(StandardCharsets.UTF_8);
+                try {
+                    digest.update(encoded);
+                } finally {
+                    Arrays.fill(encoded, (byte) 0);
+                }
+            }
+            return digest.digest();
+        } catch (NoSuchAlgorithmException unavailable) {
+            throw new IllegalStateException("Unable to identify MCEDT credential state");
+        }
+    }
+
+    private static EDTDelegate newDelegate(String serviceId, String password) {
         CarlosProperties props = CarlosProperties.getInstance();
         EdtClientBuilderConfig config = new EdtClientBuilderConfig();
         config.setLoggingRequired(!Boolean.valueOf(props.getProperty("mcedt.logging.skip")));
         config.setKeystoreUser(props.getProperty("mcedt.keystore.user"));
         config.setKeystorePassword(props.getProperty("mcedt.keystore.pass"));
         config.setUserNameTokenUser(props.getProperty("mcedt.service.user"));
-        //config.setUserNameTokenPassword(props.getProperty("mcedt.service.pass"));
-        UserProperty prop = userPropertyDAO.getProp(UserProperty.MCEDT_ACCOUNT_PASSWORD);
-        config.setUserNameTokenPassword((prop == null || prop.getValue() == null || prop.getValue().trim().equals("")) ? props.getProperty("mcedt.service.pass") : prop.getValue());
+        config.setUserNameTokenPassword(password);
         config.setServiceUrl(props.getProperty("mcedt.service.url"));
         config.setConformanceKey(props.getProperty("mcedt.service.conformanceKey"));
         config.setServiceId((serviceId == null || serviceId.trim().equals("")) ? props.getProperty("mcedt.service.id") : serviceId);
@@ -96,9 +142,25 @@ public class DelegateFactory {
      * Refreshes created delegates in the event that information has been updated
      */
     public static void refreshDelegates() {
-        // For each service id, create a new updated delegate
-        for (String serviceId : ActionUtils.getServiceIds()) {
-            edtDelegates.put(serviceId, newDelegate(serviceId));
+        for (;;) {
+            long observedGeneration;
+            synchronized (edtDelegates) {
+                observedGeneration = cacheGeneration;
+            }
+            String password = currentPassword();
+            byte[] fingerprint = passwordFingerprint(password);
+            synchronized (edtDelegates) {
+                if (observedGeneration != cacheGeneration) {
+                    continue;
+                }
+                // Explicit refresh still rebuilds clients for certificate/config changes.
+                for (String serviceId : ActionUtils.getServiceIds()) {
+                    edtDelegates.put(serviceId, newDelegate(serviceId, password));
+                    credentialFingerprints.put(serviceId, fingerprint);
+                    cacheGeneration++;
+                }
+                break;
+            }
         }
         // Suggests for the Garbage Collector to run in an effort to clean up any lingering connections
         System.gc();

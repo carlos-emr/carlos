@@ -28,16 +28,15 @@
  */
 package io.github.carlos_emr.carlos.integration.mcedt.mailbox;
 
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.struts2.ActionSupport;
-import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
-import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
-import io.github.carlos_emr.carlos.commn.model.UserProperty;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.integration.mcedt.McedtSecurity;
+import io.github.carlos_emr.carlos.integration.mcedt.McedtCredentialService;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -46,15 +45,20 @@ public class User2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private static Logger logger = MiscUtils.getLogger();
-    private UserPropertyDAO userPropertyDAO = SpringUtils.getBean(UserPropertyDAO.class);
+    private final McedtCredentialService credentials;
+
+    public User2Action() {
+        this(SpringUtils.getBean(McedtCredentialService.class));
+    }
+
+    User2Action(McedtCredentialService credentials) {
+        this.credentials = java.util.Objects.requireNonNull(credentials);
+    }
 
     @Override
     public String execute() throws Exception {
         McedtSecurity.requireRead(request);
         if ("changePassword".equals(request.getParameter("method"))) {
-            McedtSecurity.requireWrite(request);
-            McedtSecurity.requirePost(request);
             return changePassword();
         }
         if ("cancel".equals(request.getParameter("method"))) {
@@ -62,35 +66,51 @@ public class User2Action extends ActionSupport {
         }
         request.getSession().setAttribute("mcedtUsername", CarlosProperties.getInstance().getProperty("mcedt.service.user")); // nosemgrep: tainted-session-from-http-request -- value from application properties
 
-        if (request.getSession().getAttribute("isPassChange") != null) {
-            request.getSession().removeAttribute("isPassChange");
-        }
 
         return SUCCESS;
     }
 
     public String changePassword() throws Exception {
+        McedtSecurity.requireWrite(request);
+        McedtSecurity.requirePost(request);
+        var session = request.getSession();
+        var login = LoggedInInfo.getLoggedInInfoFromSession(session);
+        String actor = login == null ? null : login.getLoggedInProviderNo();
+        if (actor == null) {
+            throw new SecurityException("MCEDT password change requires an authenticated provider");
+        }
         try {
-
-            UserProperty prop = userPropertyDAO.getProp(UserProperty.MCEDT_ACCOUNT_PASSWORD);
-            if (prop == null) {
-                prop = new UserProperty();
-                prop.setName(UserProperty.MCEDT_ACCOUNT_PASSWORD);
+            credentials.savePassword(getPassword(), actor);
+            request.setAttribute("isPassChange", true);
+        } catch (RuntimeException failure) {
+            if (isConfirmedNotSaved(failure)) {
+                MiscUtils.getLogger().warn("MCEDT password change failed; credential storage was not updated");
+                request.setAttribute("isPassChange", false);
+            } else {
+                // The service is transactional: an exception that did not come from its own body (a lost
+                // commit acknowledgement, a failed rollback, a connection that dropped) says nothing about
+                // whether the new password was stored. Do not tell the administrator it was not.
+                MiscUtils.getLogger().warn("MCEDT password change could not be confirmed; credential storage may have been updated");
+                request.removeAttribute("isPassChange");
+                request.setAttribute("isPassChangeUnconfirmed", true);
             }
-            prop.setValue(this.getPassword());
-            userPropertyDAO.saveProp(prop);
-            request.getSession().setAttribute("isPassChange", "true"); // nosemgrep: tainted-session-from-http-request -- hardcoded literal
-        } catch (Exception e) {
-            request.getSession().setAttribute("isPassChange", "false"); // nosemgrep: tainted-session-from-http-request -- hardcoded literal
         }
 
         return SUCCESS;
     }
 
+    /**
+     * Whether {@code failure} proves the password was NOT stored: the service's own refusal (it throws
+     * {@link IllegalStateException} before or while writing, and its transaction then rolls back) or a
+     * transaction the framework reports as rolled back. Anything else, such as an exception raised at commit,
+     * leaves the outcome unknown.
+     */
+    static boolean isConfirmedNotSaved(RuntimeException failure) {
+        return failure.getClass() == IllegalStateException.class
+                || failure instanceof org.springframework.transaction.UnexpectedRollbackException;
+    }
+
     public String cancel() throws Exception {
-        if (request.getSession().getAttribute("isPassChange") != null) {
-            request.getSession().removeAttribute("isPassChange");
-        }
         if (request.getSession().getAttribute("mcedtUsername") != null) {
             request.getSession().removeAttribute("mcedtUsername");
         }

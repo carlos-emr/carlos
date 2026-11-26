@@ -401,6 +401,7 @@ INSERT INTO carlos_report_tables (table_name, access, excluded_columns, reason) 
 ('lst_program_type', 'reportable', NULL, NULL),
 ('lst_sector', 'reportable', NULL, NULL),
 ('lst_service_restriction', 'reportable', NULL, NULL),
+('mcedt_credential', 'restricted', NULL, 'Encrypted MCEDT mailbox authentication credential'),
 ('mdsMSH', 'reportable', NULL, NULL),
 ('mdsNTE', 'reportable', NULL, NULL),
 ('mdsOBR', 'reportable', NULL, NULL),

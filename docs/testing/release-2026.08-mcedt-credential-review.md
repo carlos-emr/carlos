@@ -1,0 +1,283 @@
+# MCEDT credential review follow-up
+
+The final review revision stores ciphertext in `mcedt_credential`, separate from
+opaque legacy `property` values. Migration `V1.0.59.51` seeds its single record
+before application traffic and adds a non-unique index on `property.name`.
+The primary key and check constraint protect the stable lock target, including
+concurrent first-ever password saves across application instances. LONGTEXT
+retains the encrypted representation of the former 4,000-character capacity,
+including supplementary Unicode. Larger submitted passwords are refused before
+storage changes.
+
+All reads and writes acquire the singleton database lock. Saves and reads that
+can migrate legacy values also lock legacy rows in ID order. Ordinary reads after
+ciphertext exists use a nonlocking legacy lookup, avoiding absent-name gap locks.
+A first read treats every legacy value as plaintext, including a
+literal `{ENC}` prefix. The first legacy row remains the effective credential;
+all legacy duplicates are removed in the same transaction. Already migrated
+ciphertext is authenticated and decrypted; corruption fails closed. Missing or
+blank credentials keep the configured fallback. Change Password replaces the
+encrypted record and removes every old plaintext row atomically. Failures expose
+only static errors. The page now shows an explicit failure alert, and the action
+emits a fixed credential-free warning. The Struts constructor resolves its
+dependency and delegates to a package-private injection constructor.
+
+Historical first-review validation: all 34 selected Java 25 cases pass: eight unit controls and 26 real H2 transaction
+cases. The same 26 transaction cases pass on a disposable MariaDB 11.8.8 server
+with 32 KiB pages. Each case owns a UUID database; cleanup never deletes a
+credential from a shared fixture or application database. Lock assertions first
+observe the competing operation in the database, then check it remains pending
+until the writer commits. Both first-save serialization and a concurrent legacy
+writer are covered. A held credential transaction also permits an unrelated
+preference update to commit before its credential locks are released.
+
+The first physical runs exposed a real MariaDB `HY000/1020` failure after the
+legacy writer committed. An ordinary encrypted-value SELECT had opened a
+repeatable-read snapshot before the legacy locking read. That historical first-review implementation
+used current locking reads for both values. The later gap-lock cleanup revision
+below records the final distinction between migrating and ordinary reads. The failed physical reports are
+retained; the corrected 23-case retake passes with no failures/errors/skips.
+The actual migration also passes independently: EXPLAIN selects
+`idx_property_name`, LONGTEXT is reported, and inserting a second singleton ID
+is rejected by its constraint. All test databases and the owned server are
+retired. All 10,755 original installed application files and configuration are
+independently retaken exact.
+
+- Final H2/unit JUnit SHA-256: `6bdc0873d667fa62fb1592606f807cb06ed90cc5c0c024711874e9c3a5655106`.
+- Final MariaDB JUnit SHA-256: `550dc3b0894da582ecf904b64ac3cc90c5c54220face78f2fe0fc01a1e85c30b`.
+- Actual migration SHA-256: `2d4f0eec60513259fd8e54a38354abd8fd14575eeed1b3b18ec2f41ce5264b95`.
+- Fresh source-bound coverage evidence SHA-256: `3e028a7aca10e02c6742d370616d8a15062dbde9fa4fd41aa402e136718ed3f8`.
+
+The new credential service and changed action lines have 100% line, instruction
+and branch coverage. Delegate floors rise to 90% / 91.2% / 100%; its existing malformed-keystore-URL
+diagnostic and the required-JDK-algorithm-unavailable diagnostic remain uncovered. The retired service's
+historical evidence is preserved; its floor is replaced by complete evidence
+for the renamed service.
+
+The public client factory checks the committed credential before reusing a cached
+client. Its private cache retains only a SHA-256 credential fingerprint alongside
+the client; it does not log or expose the fingerprint. Real H2 and MariaDB tests
+prove that both this service's committed rotation and a committed update from
+another instance replace the cached client and its WS-Security password. A rolled
+back rotation preserves the existing client, and unchanged credentials reuse it.
+Explicit refresh still rebuilds clients for certificate/configuration changes.
+Reinstating the former cache-once lookup behavior makes all three rotation
+regressions fail; its report is retained (SHA-256
+`fd6cb500c7c20ba51b2dfe5f44fd54ab9ed1ad9f13087c63be1fb92218f9c8c3`).
+No Ministry calls are made by these client-construction tests.
+
+The earlier three-workflow installed component proof in the original document
+belongs to the pre-review property-based format. It does not qualify this revised
+format. The revised native checks now preserve the encrypted record in a
+server-side owned backup, verify both password changes without reading a
+credential, exercise the visible storage-failure alert and restore exact state.
+Their rebuilt-DEB qualification is recorded below. No Ministry transport or
+authentication is exercised.
+
+The migration creates and seeds the encrypted namespace; it does not remove old
+plaintext property rows by itself. After upgrading, complete one successful
+Change Password operation in Administration > MCEDT Mailbox (or a credential read
+through an approved MCEDT operation), then verify removal without reading values:
+`SELECT COUNT(*) FROM property WHERE name='mcedt_account_password';` must be zero.
+An installation that never invokes either path can retain plaintext in its
+current database and new backups. Cleanup does not alter backups already taken.
+
+Upgrade while application instances are stopped, as the packaged service upgrade
+does, and upgrade every instance before resuming MCEDT use. Older code reads only
+plaintext properties and cannot consume ciphertext; mixed old/new MCEDT writers
+are unsupported. Keeping plaintext available to those writers would defeat the
+storage repair. Retain the installation encryption key with its existing
+credential backups and use compatible code/schema when restoring them.
+
+The complete post-review Node retake passes all 8,111 cases across 570 files
+on Node 22.23.5 with zero failures, skips, cancellations or TODOs, and every
+test-source fingerprint unchanged. The generated inventory is byte-identical
+to the tracked inventory. The original one-case failure (missing migration
+merge-order registration) is retained; the ledger is corrected and all five
+migration-order controls pass. Final Node report SHA-256:
+`a622abac48d99d12fa96845233e30296f8984a8437f73aa06268ed47661b5a01`.
+
+The first combined DEB build stopped at the schema-contract guard, before any
+DEB was produced. Both ON and BC reference schemas were then migrated from
+empty databases and validated on MariaDB 11.8.8 with 32 KiB pages. Their exported
+contracts add only the singleton table and property-name index: every prior
+physical definition is unchanged. The generated contract hashes, CDS catalogue
+and its descriptor binding are refreshed together. The new global credential
+table has an explicit OPERATIONAL ruling and is excluded from every patient
+export category. All 10 catalogue/resource cases pass against the four exact
+updated resources ahead of the unchanged production classes; JUnit SHA-256:
+`bd9e7e3cd3d3417ba368f27eaedd4d29a9b48b47fe93f5bd85185933feeb15e6`.
+The initial reference-startup attempt failed before migration because its socket
+readiness probe observed the temporary initialization server; the corrected
+retake waits for the actual TCP listener. Both owned reference schemas/server
+are retired. The rebuilt snapshot below qualifies those resource definitions.
+
+The storage code, JSP and revised workflows are qualified in rebuilt Ubuntu
+26.04 DEBs at private snapshot `e37f4d2b6f7de741691ebb0452804a198cc517c6`. All
+10,757 installed application files match the DEB manifest. All 1,845 installed
+JVM executions pass without production overrides, including 26 H2 and 26 physical
+MariaDB credential cases; all 36 native workflows pass across five profiles on
+locked Chromium 154.0.8025.0. Both MCEDT variants verify encrypted replacement,
+no password echo, visible storage-failure feedback and exact credential restoration.
+
+The retained strict audit exit 1 contains 19 recognized events and seven exactly
+bound intentional faults, leaving zero unexplained events. Three are the MCEDT
+invalid-delete probes; two additional fixed WARN messages belong to the passing
+visible storage-failure steps. No global ignore rule is added. Properties are
+byte-restored, health passes, and all installed file hashes are retaken afterward.
+This qualifies that immutable snapshot and does not claim Ministry authentication.
+
+The later schema-adoption revision (`97103bdf6a`) makes table/index creation and
+singleton seeding idempotent without replacing an existing encrypted value. Both
+ON and BC chains are freshly migrated and validated again on MariaDB 11.8.8/32K;
+the generated contracts exactly match this revision and every physical definition
+is unchanged. Repeating the exact migration twice preserves an owned opaque test
+value, one singleton row and one name index. Its SQL SHA-256 is
+`cdb00ab07687698e9a6d323d799058a5dfd447eda4486f19f381b6f35039ef37` and its Flyway
+checksum is `-1910160356`. The earlier qualified package used the prior unmerged
+migration checksum; this revised SQL/resource revision needs the next DEB batch.
+The owned reference schemas/server are retired. No application database repair
+or live-clinic repair is claimed by this reference proof.
+
+## Ordinary reads leave preference inserts unblocked
+
+First-read migration and saves retain their current locking reads. Once ciphertext
+exists, obsolete legacy rows are found without a locking range scan; a missing
+legacy key therefore cannot gap-lock an unrelated preference insert. Obsolete
+rows are deleted only while their ID and password-property name still match, so
+an old writer renaming its row into a regular preference cannot lose that row.
+
+MariaDB's snapshot-isolation conflict requires current-row deletion when an old
+writer commits after the nonlocking read. `SET STATEMENT` disables that conflict
+policy for the one guarded DELETE; it preserves the same connection's setting,
+keeps the caller's transaction, and borrows no second connection. Other databases
+use the same portable guarded DELETE without the MariaDB prefix. Credential
+values never appear in these statements or failure causes.
+
+The merged final tests comprise 39 distinct cases: 39 H2/consumer-unit executions and
+31 actual MariaDB 11.8.8/32K transaction executions, all passing with zero skips.
+The intentional database-lane repetition totals 70 executions, not 70 distinct
+testcases. Changed-line, instruction and branch coverage remain 100% across the
+two raw, unchanged reports. Those reports' SHA-256 values are
+`d4142b95b3fd3f6cfcc20fb08050b8fd7a6fdc6872a79a4feea7a82ef4b3c1ba`
+and `40973d183987f7ecbc040c1585ab4cb7ca0c98d73f8e5e1ccae4e88b1a3127a5`.
+
+The insert controls keep the credential reader's transaction open and require a
+new `provider.language` row to commit before releasing it. Concurrent legacy-value
+changes, renaming, same-connection isolation restoration, first-save serialization,
+first-read migration, encryption failures and rollback are covered. The owned
+physical server is retired; the application database is untouched. Rebuilt-DEB
+and installed browser qualification of this follow-up remain pending.
+
+Both concurrent repair histories and regression sets are retained. The original
+locking implementation fails two of the final 30 transaction controls on physical
+MariaDB (JUnit `949c907a0dcb54d0964806dc91dace9f9000af0a569184699f052132e56858c7`).
+The intermediate presence-probe implementation at `098e6e5a4e` still produces
+MariaDB error 1020 after a legacy writer commits (one of 31 cases; JUnit
+`70fd8abae44b4d6d908d2d7c252ba1a5ea98a6579e98ae70e2f2e53fe544ee58`).
+The final guarded cleanup passes all 31. Its merged source-bound coverage evidence
+SHA-256 is `f56e7ba0300bd281435e5ba9d649a7b9f5fed5737fb05aca5486cd8eb86f6617`.
+
+## Cache, audit and native-guard revision before the concurrent merge
+
+The client cache now records a publication generation. A lookup or explicit refresh
+that read an older password retries outside the monitor if another operation has
+published a newer client. The generation advances with each publication, including
+a partially completed explicit refresh. Existing unchanged-password reuse and
+explicit certificate/configuration refresh behavior remain covered. Two controlled
+thread interleavings plus post-commit session-feedback failure reproduce three
+failures in nine cases before this revision (JUnit
+`c00aee8b308f7ed07a59b1146149b2723e4a6b8c8a1ecab21a8c88e99e4c73e6`).
+The action's storage-failure catch now encloses only the save. A session invalidated
+after commit cannot report that storage was not updated. Its warning is captured
+and checked for both the synthetic password and sensitive exception text.
+
+The singleton includes lastUpdateUser and lastUpdateDate, as required by the
+repository's database guidance. Explicit replacements record the authenticated
+provider (or the bounded mcedt-service fallback); first-read migration records
+mcedt-migration. Ordinary reads do not rewrite the audit stamp. Audit and ciphertext
+changes roll back together. Two audit regressions fail against the previous
+service (33-case JUnit
+`600ee05d6b4d131a460a1f0b05a9f5f5a2a33f449449abfe7abc946012948954`).
+
+Final exact-source validation passes 50 distinct cases: 39 H2 transactions and
+11 consumer/base-href unit controls. The same 39 transaction cases pass physically
+on MariaDB 11.8.8/32 KiB pages: 89 actual executions across the two database lanes,
+with no failures, errors or skips. H2 JUnit: `72e45c9d50d143fa2cb93d2cd7c9c73a8217e291380dabc22fe41a2ad47f9d3e`.
+MariaDB JUnit: `c87b35f1d04f9e388aed5a60f3c3a86df6e3e3594dadd2fd3605b0f861bb0e9a`. Each physical schema/server is retired.
+
+The contention probe matches the known writer and contender session IDs in
+INNODB_LOCK_WAITS joined to INNODB_TRX. Some engine-stage waits on this MariaDB
+build do not appear in that view; in that case a one-second native lock timeout
+(error 1205, captured from the actual contender's JDBC operation) proves a database
+lock wait rather than a slow scan. The UUID fixture has only its held writer and
+contender; its observer does not write. The test then waits for the controlled
+writer release and retries in a fresh transaction before checking the committed
+value and cleanup. This retry belongs to the test protocol, not production behavior.
+Earlier metadata-only attempts and their raw failures are retained.
+
+Service and action changed-line/instruction/branch coverage stays 100% throughout.
+Delegate coverage rises to 93.02325581395348% lines, 93.45238095238095% instructions
+and 100% branches. Source-bound coverage evidence:
+`504b01687db0834209cb713bb21573566060ed559c7cb6175af5c8ccca47d2e9`.
+
+Fresh complete Ontario and BC Flyway chains validate. Their physical contracts
+add only the two credential audit columns; every prior physical definition stays
+unchanged. Reapplying the migration preserves existing opaque credential bytes,
+actor and date, and keeps one singleton/index. A simulated pre-audit two-column
+table also adopts the columns without changing its opaque credential bytes.
+The migration checksum is -605900384; source SQL SHA-256:
+`0b0e0d21c31bc3b0faf30f1e445ae4f627caf130bf37ebbed1f9704ab3da717d`. Both owned reference schemas/servers are
+retired. The tracked contracts feed the generated WAR resources; no generated
+resource copy is maintained under src/main/resources.
+
+The native entry point now refuses nonexclusive execution before database/browser
+setup. All variants check for interrupted encrypted backups before parking legacy
+rows or demanding the singleton, naming each allowlisted backup and recovery
+steps. Successful saves must leave no live legacy property and must record their
+actor/time. A failed save must preserve the live/parked property digest and leave
+the missing singleton absent. Backup and restoration include all audit fields.
+SQL comparison values are bound, while owned table identifiers remain allowlisted.
+All 94 guard/state/manifest cases pass. The complete Node 22 run passes all 8,139
+cases in 573 files, with no skips/cancellations/TODOs and unchanged
+source fingerprints; its generated inventory is validated. Full report SHA-256:
+`6cd2e406d30322d36bfec5e2f33af0301c27779805bea6d5c5358d913c2b8038`.
+
+These final source/schema proofs do not replace the next rebuilt Ubuntu 26.04
+DEB and native after qualification. The intermediate installed pass above remains
+historical. The final audit-schema, cache and native-guard revision awaits that
+new combined package. No Ministry authentication or external service call is
+claimed by these tests.
+
+## Concurrent review merge qualification
+
+The public review follow-up d4180ef7a2 and this revision are merged without
+rewriting either history. The merged action obtains its audit actor from the
+authenticated LoggedInInfo and refuses a missing actor before storage. A logout
+after commit returns the successful storage outcome without setting a false
+failure flag; lost session feedback emits only a fixed debug message. The public
+single-argument savePassword API remains available for existing internal callers,
+with a bounded service actor. The explicit-actor overload retains validation.
+
+The real two-thread client-publication tests and the incoming reentrant controls
+are both retained. The physical service fixture now executes the actual migration
+from the production classpath, rather than a substitute filesystem-relative DDL.
+Metadata polls are separated by 200 ms; exact-session lock-wait or native-1205
+proof remains required. Schema SQL and the previously qualified ON/BC contracts
+are unchanged, including adoption of an existing two-column table.
+
+All 53 H2/unit cases and all 39 physical MariaDB transaction cases pass: 92 actual
+executions across 53 distinct identities, with zero errors/failures/skips. H2
+JUnit SHA-256: `2c9378f4e34ebc23d4a4610f8e9352b8837ed05fbddf38863cdd145457a5eba3`. Physical JUnit SHA-256:
+`f1cc3e1983cfb82d5c5af35f1855a5a9295ea834ae5071bcc01c90c406e2d699`. Every owned test schema/server is retired.
+Service/action floors remain 100% for lines/instructions/branches; delegate
+floors remain 93.02325581395348% / 93.45238095238095% / 100%, satisfying the maxima
+from both histories. Fresh coverage evidence:
+`91a627898acb68445f755ce0e92f57602ee8f98660330bc9702f4e3eb1dcaba1`.
+
+The complete merged-source Node 22 retake passes all 8,139 cases in 573 files,
+with no skips/cancellations/TODOs or changed source fingerprints. Its generated
+inventory is byte-identical to the checked-in inventory. Full report SHA-256:
+`6cd2e406d30322d36bfec5e2f33af0301c27779805bea6d5c5358d913c2b8038`.
+The next combined installed DEB/native after qualification is still required for
+this merged revision. Earlier installed snapshots remain historical evidence.

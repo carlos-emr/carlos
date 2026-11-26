@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/report/data/QueryByExampleSqlValidator.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "8da216feb75df6ba494e3b794c7c5306edc70ad3"
+  },
+  "evidenceSha256": "7d8c90229ee75639b0fabeb48dc77e1d6f5f46f17331e60feed9a5444784e297"
+}
