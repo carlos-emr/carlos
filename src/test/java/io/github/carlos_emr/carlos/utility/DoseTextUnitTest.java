@@ -317,6 +317,34 @@ class DoseTextUnitTest {
             assertThat(DoseText.withPlainNumbers(text)).isEqualTo(expected);
         }
 
+        /**
+         * Reading a number out of stored text: where it ends, from the place it starts. Used to
+         * read a strength back ("5 mg", ".5 mg", "1.0E7 unit").
+         */
+        @ParameterizedTest(name = "\"{0}\" from {1} ends at {2}")
+        @CsvSource(delimiter = '|', value = {
+            "250mg | 0 | 3",
+            "2.5 mg | 0 | 3",
+            ".5 mg | 0 | 2",
+            "1.0E7unit | 0 | 5",
+            "1.0E-4 mg | 0 | 6",
+            "1.0e+7 | 0 | 6",
+            "5E7 | 0 | 3",
+            "5e | 0 | 1",
+            "5e+ | 0 | 1",
+            "5each | 0 | 1",
+            "5. mg | 0 | 1",
+            "mg | 0 | 0",
+            ". mg | 0 | 0",
+            "- 5 | 0 | 0",
+            "ab12c | 2 | 4",
+            "12 | 2 | 2"
+        })
+        @DisplayName("should find where the number that starts at a position ends")
+        void shouldFindNumberEnd_fromTheGivenStart(String text, int start, int end) {
+            assertThat(DoseText.numberEnd(text, start)).isEqualTo(end);
+        }
+
         @Test
         @DisplayName("should scan a long run of digits without rewriting it")
         void shouldReturnTextUnchanged_whenTextIsOneLongRunOfDigits() {

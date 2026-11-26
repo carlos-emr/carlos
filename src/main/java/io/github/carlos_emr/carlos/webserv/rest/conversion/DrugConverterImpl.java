@@ -63,29 +63,11 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
     protected DrugLookUp drugLookUpManager;
 
     /**
-     * The first strength in stored strength text and the unit that follows it: "5 mg", "250mg",
-     * "2.5 mg/mL", or the first ingredient of "5 mg / 20 mg".
-     *
-     * <p>The number is digits with an optional fraction, or a fraction stored without its leading
-     * zero. Its quantifiers are possessive: a number followed by no unit ("2.5") is read whole, and
-     * is not shortened to "2" to make the "." a unit. The unit is optional, may follow any run of
-     * blanks, and is one run of text that starts with a letter or a percent sign, so it ends at
-     * the blank before the next ingredient and a unit of concentration ("mg/mL", "mg/5ml") stays
-     * whole.
-     *
-     * <p>A number that goes on after a comma, a slash or a hyphen is not read at all: grouped
-     * digits ("1,000 mg"), a decimal comma ("2,5 mg"), a fraction ("1/2 mg"), a combination
-     * written together ("5/20 mg") and a range ("5-10 mg"). Its first digits are not the strength
-     * (1 is not 1,000) and the single strength field cannot carry the rest, so the text has no
-     * strength to report; the two look-arounds refuse both the number before the separator and
-     * the one after it.
-     *
-     * <p>The old pattern needed two digits, which went unnoticed while every strength was stored
-     * with a trailing zero: "5 mg" had no strength, and "5 mg / 20 mg" reported the 20 (#6185).
+     * The unit after the first strength in stored strength text: any blanks, then one run of text
+     * that starts with a letter or a percent sign. It ends at the blank before the next
+     * ingredient, so a unit of concentration ("mg/mL", "mg/5ml") stays whole.
      */
-    private static final Pattern STORED_STRENGTH = Pattern.compile(
-            "(?<![\\d.])(?<!\\d[,/-])(\\d++(?:\\.\\d++)?+|\\.\\d++)(?![,/-]\\d)"
-                    + "\\s*+([\\p{L}%]\\S*+)?+");
+    private static final Pattern UNIT_AFTER_NUMBER = Pattern.compile("\\s*+([\\p{L}%]\\S*+)");
 
     /** A separator between ingredients left at the end of the first one's unit: "mg/" or "mg,". */
     private static final Pattern TRAILING_SEPARATOR = Pattern.compile("[/,;]++$");
@@ -264,6 +246,23 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
         return t;
     }
 
+    /**
+     * Reads {@code strength} and {@code strengthUnit} back from the stored strength text: "5 mg",
+     * "250mg", "2.5 mg/mL", a number with no unit, or the first ingredient of "5 mg / 20 mg".
+     *
+     * <p>Only the first number in the text is read, whole ({@link DoseText#numberEnd}): "2.5" is
+     * 2.5, and "1.0E7 unit", which this service stored for ten million, is ten million. When that
+     * number goes on after a comma, a slash or a hyphen it is not one plain decimal: grouped
+     * digits ("1,000 mg"), a decimal comma ("2,5 mg"), a fraction ("1/2 mg"), a combination
+     * written together ("5/20 mg") or a range ("5-10 mg"). Its first digits are not the strength
+     * (1 is not 1,000) and the single strength field cannot carry the rest, so no strength is
+     * reported. The search does not go on to a later number, which belongs to another ingredient.
+     *
+     * <p>The old pattern needed two digits, which went unnoticed while every strength was stored
+     * with a trailing zero: "5 mg" had no strength, and "5 mg / 20 mg" reported the 20 (#6185).
+     *
+     * @return true when a strength was read
+     */
     protected Boolean populateStrengthFromDosage(Drug d, DrugTo1 t) {
         if (t.getStrength() != null || (t.getStrengthUnit() != null && !t.getStrengthUnit().isEmpty())) {
             return false;
@@ -273,21 +272,43 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
         if (dosage == null) {
             return false;
         }
-        Matcher matcher = STORED_STRENGTH.matcher(dosage);
-        if (!matcher.find()) {
+        int start = firstNumberStart(dosage);
+        if (start < 0) {
             return false;
         }
-        float strength = Float.parseFloat(matcher.group(1));
+        int end = DoseText.numberEnd(dosage, start);
+        if (continuesPastSeparator(dosage, end)) {
+            return false;
+        }
+        float strength = Float.parseFloat(dosage.substring(start, end));
         if (!Float.isFinite(strength)) {
             return false;
         }
         t.setStrength(strength);
-        if (matcher.group(2) != null) {
+        Matcher unit = UNIT_AFTER_NUMBER.matcher(dosage).region(end, dosage.length());
+        if (unit.lookingAt()) {
             // "5 mg / 20 mg" and "5 mg, 20 mg": the separator after the first unit is not part of it.
             // The unit starts with a letter or "%", so something always remains.
-            t.setStrengthUnit(TRAILING_SEPARATOR.matcher(matcher.group(2)).replaceFirst(""));
+            t.setStrengthUnit(TRAILING_SEPARATOR.matcher(unit.group(1)).replaceFirst(""));
         }
         return true;
+    }
+
+    /** The index at which the first number in the text starts, or -1 when it holds none. */
+    private static int firstNumberStart(String text) {
+        for (int index = 0; index < text.length(); index++) {
+            if (DoseText.numberEnd(text, index) > index) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    /** Whether the number that ends at {@code end} goes on: a comma, slash or hyphen, then a digit. */
+    private static boolean continuesPastSeparator(String text, int end) {
+        return end + 1 < text.length()
+                && ",/-".indexOf(text.charAt(end)) >= 0
+                && Character.isDigit(text.charAt(end + 1));
     }
 
     /**

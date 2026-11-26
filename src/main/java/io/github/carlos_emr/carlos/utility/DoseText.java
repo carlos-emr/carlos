@@ -196,6 +196,26 @@ public final class DoseText {
         return exponentEnd(text, digitsEnd(text, integerEnd + 1));
     }
 
+    /**
+     * Where the number that starts at {@code start} ends, for reading a number out of stored text.
+     *
+     * <p>A number is digits with an optional fraction ("250", "2.5"), or a fraction written
+     * without its leading zero (".5"), followed by the exponent a float's own text may carry
+     * ("1.0E7", "1.0E-4"). An "e" with no digits after it is not an exponent: "5 each" and "5e"
+     * end after the 5. A decimal point with no digit after it is not part of the number.
+     *
+     * @param text the text to read; never {@code null}
+     * @param start the index to read from, from 0 to the length of the text
+     * @return the index after the number, or {@code start} when no number starts there
+     */
+    public static int numberEnd(String text, int start) {
+        int end = digitsEnd(text, start);
+        if (isFractionAt(text, end)) {
+            end = digitsEnd(text, end + 1);
+        }
+        return end == start ? start : exponentEnd(text, end);
+    }
+
     /** Whether the character at {@code index} exists and is one of 0 to 9. */
     private static boolean isDigit(String text, int index) {
         return index < text.length() && text.charAt(index) >= '0' && text.charAt(index) <= '9';

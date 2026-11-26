@@ -353,6 +353,70 @@ class DrugConverterUnitTest {
             assertNoStrengthRead(stored);
         }
 
+        /**
+         * Only the first number in the text is the first ingredient's. When it is not one plain
+         * decimal there is no strength to report; the next number belongs to another ingredient
+         * and was reported in its place ("1,000 mg / 20 mg" read 20 and "mg").
+         */
+        @ParameterizedTest(name = "stored \"{0}\"")
+        @ValueSource(strings = {
+            "1,000 mg / 20 mg", "1/2 mg / 20 mg", "5-10 mg / 20 mg", "2,5 mg, 20 mg", "5/20 mg and 10 mg"
+        })
+        @DisplayName("should not report a later ingredient when the first number is not one plain decimal")
+        void shouldReportNoStrength_ratherThanALaterIngredients(String stored) {
+            assertNoStrengthRead(stored);
+        }
+
+        /**
+         * The REST service stored a strength of ten million as the float's own text, "1.0E7 unit".
+         * Such rows are not rewritten, so the exponent is read with the number: read without it,
+         * the strength was 1 with the unit "E7".
+         */
+        @ParameterizedTest(name = "stored \"{0}\" -> {1} {2}")
+        @CsvSource({
+            "1.0E7 unit, 1.0E7, unit",
+            "1.0E7unit, 1.0E7, unit",
+            "1.0E+7 unit, 1.0E7, unit",
+            "1.0E-4 mg, 1.0E-4, mg",
+            "2.5e3 mg, 2500, mg",
+            "5each, 5, each",
+            "5 each, 5, each",
+            "5e, 5, e",
+            "5e+, 5, e+"
+        })
+        @DisplayName("should read a stored exponent with its number, and a unit that starts with e as a unit")
+        void shouldReadExponentWithNumber_forStrengthStoredAsFloatText(String stored, float strength, String unit) {
+            assertStrengthRead(stored, strength, unit);
+        }
+
+        @ParameterizedTest(name = "stored \"{0}\" -> {1}")
+        @CsvSource(delimiter = '|', value = {"5/mL | 5", "10, as directed | 10", "2.5- | 2.5"})
+        @DisplayName("should read the number when the separator after it is not followed by a digit")
+        void shouldReadStrength_whenSeparatorAfterItStartsNoNumber(String stored, float strength) {
+            // Only a separator that leads into more digits makes the number something else
+            // ("1,000", "1/2", "5-10").
+            assertStrengthRead(stored, strength, null);
+        }
+
+        @Test
+        @DisplayName("should read a number at the very end of the text, with or without an exponent")
+        void shouldReadStrengthWithoutUnit_whenTextEndsWithTheNumber() {
+            Drug plain = new Drug();
+            plain.setDosage("strength 5");
+            Drug exponent = new Drug();
+            exponent.setDosage("1.0E7");
+
+            assertThat(converter.getAsTransferObject(info, plain).getStrength()).isEqualTo(5f);
+            assertThat(converter.getAsTransferObject(info, exponent).getStrength()).isEqualTo(1.0E7f);
+            assertThat(converter.getAsTransferObject(info, exponent).getStrengthUnit()).isNull();
+        }
+
+        @Test
+        @DisplayName("should report no strength for an exponent too large to be one")
+        void shouldReportNoStrength_whenStoredExponentIsNotFinite() {
+            assertNoStrengthRead("1E400 mg");
+        }
+
         @Test
         @DisplayName("should report no strength for digits too long to be one")
         void shouldReportNoStrength_whenStoredNumberIsNotFinite() {

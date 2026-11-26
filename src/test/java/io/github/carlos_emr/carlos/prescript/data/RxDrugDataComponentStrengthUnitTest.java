@@ -5,6 +5,7 @@
 package io.github.carlos_emr.carlos.prescript.data;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 
 import java.util.Hashtable;
 
@@ -63,18 +64,19 @@ class RxDrugDataComponentStrengthUnitTest {
     }
 
     @Test
-    @DisplayName("should give no strength, and not fail, when the component has no strength member")
-    void shouldGiveNoStrength_whenComponentHasNoStrengthMember() {
-        // A Hashtable holds no null: a member DrugRef did not send is absent. The Rx page stages
-        // such an ingredient under its name alone (RxWriteScript2Action reads null as "").
+    @DisplayName("should refuse a component that has no strength member, and say why")
+    void shouldRefuseComponent_whenStrengthMemberIsMissing() {
+        // A Hashtable holds no null: a member DrugRef did not send is absent. Such a component was
+        // always refused (the original line called toString() on it). It still is, so that no page
+        // stages a product whose strength is unknown as if it had none, or writes the word "null".
         Hashtable<String, Object> wire = new Hashtable<>();
         wire.put("name", "SYNTHETIC BASE");
-        wire.put("unit", "");
+        wire.put("unit", "MG");
+        RxDrugData.DrugMonograph monograph = new RxDrugData().new DrugMonograph();
 
-        RxDrugData.DrugMonograph.DrugComponent component = new RxDrugData().new DrugMonograph().new DrugComponent(wire);
-
-        assertThat(component.getStrength()).isNull();
-        assertThat(RxDrugData.strengthText(null)).isNull();
+        assertThatNullPointerException()
+                .isThrownBy(() -> monograph.new DrugComponent(wire))
+                .withMessage("DrugRef sent a component with no strength");
     }
 
     @Test

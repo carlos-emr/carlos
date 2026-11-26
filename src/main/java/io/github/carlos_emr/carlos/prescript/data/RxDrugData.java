@@ -67,14 +67,14 @@ public class RxDrugData {
      * written here once as a plain decimal (#6185). Text that is not a single number is kept as
      * sent.
      *
-     * @param sent the value of the component's {@code strength} member; {@code null} when DrugRef
-     *     sent none (a Hashtable holds no null, so the member is then absent)
-     * @return the strength text, or {@code null} for a component with no strength
+     * @param sent the value of the component's {@code strength} member
+     * @return the strength text
+     * @throws NullPointerException if DrugRef sent no strength member. Such a component was always
+     *     refused (the line this replaces called {@code toString()} on it); it still is, so that
+     *     no page stages a product whose strength is unknown as if it had none
      */
     static String strengthText(Object sent) {
-        if (sent == null) {
-            return null;
-        }
+        Objects.requireNonNull(sent, "DrugRef sent a component with no strength");
         if (sent instanceof Float number) {
             return DoseText.of(number.floatValue());
         }
