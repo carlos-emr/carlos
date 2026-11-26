@@ -38,10 +38,12 @@ EARLIER_DENIES = re.compile(r'PROVISION_LOCK_HELD\}" = 0|PROPERTIES_RECOVERY_PEN
 PROP = r'(?:\$\{PROPERTIES\}|\$PROPERTIES\b|/etc/carlos-emr/carlos\.properties|\$\{CONF_DIR\}/carlos\.properties)'
 CTL = r'(?:^|[;&|(!{]\s*|\b(?:el)?if\s+(?:!\s*)?|\b(?:then|else|do)\s+)(?P<w>carlos-ctl )'
 
+# Non-greedy up to the file: each match ends at its own target, so a second writer on the same line is a match of
+# its own (violations() checks every one).
 WRITERS = [
-    ("sed -i on carlos.properties", re.compile(r'\bsed -i\b[^\n]*"?' + PROP)),
+    ("sed -i on carlos.properties", re.compile(r'\bsed -i\b[^\n]*?"?' + PROP)),
     ("a redirect into carlos.properties", re.compile(r'>>?\s*"?' + PROP)),
-    ("tee, mv, cp or truncate on carlos.properties", re.compile(r'\b(?:tee|mv|cp|truncate)\b[^\n]*"?' + PROP)),
+    ("tee, mv, cp or truncate on carlos.properties", re.compile(r'\b(?:tee|mv|cp|truncate)\b[^\n]*?"?' + PROP)),
     ("the in-place rewrite helper with a line to change",
      re.compile(r'migrate_lab_filter "?' + PROP + r'"? "[^"]')),
     # As a command: at the start, after a shell operator, or after if/elif/then/else/do; never inside a message
@@ -147,21 +149,24 @@ def violations(text):
             chains[-1][0].append("")
             chains[-1][1] += 1
         for label, pattern in writers:
-            match = None if number in definitions else pattern.search(stmt)
-            if not match:
+            if number in definitions:
                 continue
-            # Where the writer's own command starts (a pattern may also match the operator before it).
-            position = match.start("w") if "w" in pattern.groupindex else match.start()
-            if one_line:
-                scope = chains + [own_scope(stmt, position, True)]
-            elif header:
-                # The header's own condition stands in for the branch it opens (if) or continues (elif).
-                conds, branch = own_scope(stmt, position, False)
-                scope = chains[:-1] + [[chains[-1][0][:-1] + conds, chains[-1][1]]]
-            else:
-                scope = chains
-            if not any(gates(conds, branch) for conds, branch in scope):
-                found.append((number, label))
+            # Every occurrence, not just the first: in a one-line if, or a header with its branch on the same line,
+            # a gated writer must not hide a later, ungated one of the same kind.
+            for match in pattern.finditer(stmt):
+                # Where the writer's own command starts (a pattern may also match the operator before it).
+                position = match.start("w") if "w" in pattern.groupindex else match.start()
+                if one_line:
+                    scope = chains + [own_scope(stmt, position, True)]
+                elif header:
+                    # The header's own condition stands in for the branch it opens (if) or continues (elif).
+                    conds, branch = own_scope(stmt, position, False)
+                    scope = chains[:-1] + [[chains[-1][0][:-1] + conds, chains[-1][1]]]
+                else:
+                    scope = chains
+                if not any(gates(conds, branch) for conds, branch in scope):
+                    found.append((number, label))
+                    break
         if stmt == "fi" or stmt.startswith("fi ") or stmt.startswith("fi;"):
             chains.pop()
     return found
@@ -301,6 +306,16 @@ class TestTheCheckerItself(unittest.TestCase):
         # opposite one.
         self.accepted('if [ "${PROPERTIES_RECOVERY_PENDING:-0}" = 0 ]; then sed -i \'s/a/b/\' "${PROPERTIES}"; fi\n')
         self.accepted('if [ "${PROVISION_LOCK_HELD}" = 0 ]; then echo no; else carlos-ctl init-config; fi\n')
+
+    def test_every_writer_in_a_statement_is_checked(self):
+        # A gated first writer must not hide a later, ungated one of the same kind in the same statement.
+        self.rejected('if [ "${PROPERTIES_RECOVERY_PENDING:-0}" = 0 ]; then sed -i \'s/a/b/\' "${PROPERTIES}"; '
+                      'else sed -i \'s/c/d/\' "${PROPERTIES}"; fi\n')
+        self.rejected('if [ "${PROVISION_LOCK_HELD}" = 1 ] && carlos-ctl init-config; then echo ok; '
+                      'else carlos-ctl init-config; fi\n')
+        # Every writer gated: still accepted.
+        self.accepted('if [ "${PROVISION_LOCK_HELD}" = 0 ]; then echo no; '
+                      'else carlos-ctl init-config && carlos-ctl db-users && carlos-ctl init-config; fi\n')
 
     def test_a_later_branch_of_a_lock_not_held_chain_is_accepted(self):
         self.accepted('if [ "${PROVISION_LOCK_HELD}" = 0 ]; then\n    MIGRATION_OK=0\n'
