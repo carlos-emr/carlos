@@ -1030,6 +1030,48 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         }
     }
 
+    /**
+     * Issue #3057 (#2656): the document-description fragment the Document Browser and Browse Notes
+     * load into the page prints every stored metadata value HTML-encoded, and a value that is not
+     * there as nothing, never as the word {@code null}.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = { "viewDocumentDescription", "viewDocumentInfo" })
+    void shouldHtmlEncodeStoredMetadata_whenRenderingDocumentDescription(String method) throws Exception {
+        authorizeEdocWrite();
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("r"), isNull())).thenReturn(true);
+        request.setParameter("method", method);
+        request.setParameter("doc_no", "42");
+        String markup = "<i data-xp=\"1\">q</i> \"dq\" 'sq' &amp; </script>";
+        EDoc doc = new EDoc();
+        doc.setDescription("description " + markup);
+        doc.setType("type " + markup);
+        doc.setDocClass("class " + markup);
+        doc.setDocSubClass("subclass " + markup);
+        doc.setSource("source " + markup);
+        doc.setCreatorId("999998");
+        // Responsible and reviewer stay unset: their names resolve to null.
+
+        try (MockedStatic<EDocUtil> edoc = mockStatic(EDocUtil.class)) {
+            edoc.when(() -> EDocUtil.getDoc("42")).thenReturn(doc);
+            edoc.when(() -> EDocUtil.getProviderName("999998")).thenReturn("creator " + markup);
+            edoc.when(() -> EDocUtil.getHtmlAnnotation("42")).thenReturn("");
+            edoc.when(() -> EDocUtil.getHtmlTicklers(any(), eq("42"))).thenReturn("");
+            edoc.when(() -> EDocUtil.getHtmlAcknowledgement(any(), eq("42"))).thenReturn(null);
+
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        }
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        org.jsoup.nodes.Document html = org.jsoup.Jsoup.parse(response.getContentAsString());
+        assertThat(html.select("i, [data-xp], script")).isEmpty();
+        String text = html.body().text();
+        for (String field : List.of("description", "type", "class", "subclass", "source", "creator")) {
+            assertThat(text).contains(field + " <i data-xp=\"1\">q</i> \"dq\" 'sq' &amp; </script>");
+        }
+        assertThat(text).doesNotContainIgnoringCase("null");
+    }
+
     @ParameterizedTest
     @ValueSource(strings = { "viewIncomingDocPageAsPdf", "viewIncomingDocPageAsImage" })
     void shouldReportCorruptIncomingPdfAsFailureWithoutCapacityRetry(String method) throws Exception {
