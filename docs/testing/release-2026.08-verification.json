@@ -5223,6 +5223,15 @@
               "container": ""
             }
           ]
+        },
+        "io.github.carlos_emr.carlos.commn.dao.ArchiveAuditTimestampIntegrationTest": {
+          "check": "java-native-flyway",
+          "cases": [
+            {
+              "name": "shouldIndexArchiveByProviderThenRosterDate_onTheFlywayMigratedSchema",
+              "container": ""
+            }
+          ]
         }
       },
       "runtimeConstraints": {
