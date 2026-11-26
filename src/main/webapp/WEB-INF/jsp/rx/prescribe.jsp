@@ -367,7 +367,8 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
             oninput="clearDrugPrice('cost_<carlos:encode value='<%= rand %>' context="javaScriptAttribute"/>')"
             onblur="updateQty(this)">
         <span id="cost_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" role="status" style="margin-left:4px;"
-              data-din="<carlos:encode value='<%= rx.getRegionalIdentifier() %>' context="htmlAttribute"/>"></span>
+              data-din="<carlos:encode value='<%= rx.getRegionalIdentifier() %>' context="htmlAttribute"/>"
+              data-price-quantity="<carlos:encode value='<%= priceQuantity %>' context="htmlAttribute"/>"></span>
         <label style=""><fmt:message key="WriteScript.msgRepeats"/>:</label><input type="text" size="5" id="repeats_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>"  <%if (rx.isCustomNote()) {%>
                                                disabled <%}%> name="repeats_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" value="<carlos:encode value='<%= repeats %>' context="htmlAttribute"/>"
                                                onInput="updateLongTerm('<carlos:encode value='<%= rand %>' context="javaScriptAttribute"/>',this)"

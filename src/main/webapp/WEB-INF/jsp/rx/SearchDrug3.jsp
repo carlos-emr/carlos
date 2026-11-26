@@ -1885,9 +1885,23 @@ function renderRxStage() {
         var data="demoNo="+demoNo+"&showall=<%=showall%>&rand=" +  Math.floor(Math.random()*10001);
         var url= ctx + "/rx/rePrescribe2";
         data += "&method=repcbAllLongTerm";
-        CarlosAjax.updater({success: 'rxText'}, url, {onFailure: reportRefusedRequest, method:'post',parameters:data,insertion: 'bottom',onSuccess:function(transport){
-		        renderRxStage();
-					}
+        var pricePanels = '#rxText [id^="cost_"]';
+        var previouslyStaged;
+        CarlosAjax.updater({success: 'rxText'}, url, {
+            onFailure: reportRefusedRequest, method: 'post', parameters: data, insertion: 'bottom',
+            onSuccess: function () {
+                previouslyStaged = new Set(document.querySelectorAll(pricePanels));
+                renderRxStage();
+            },
+            onComplete: function (transport) {
+                // This path inserts the cards without running their inline calculation scripts.
+                if (!transport.updateSucceeded) return;
+                for (const panel of document.querySelectorAll(pricePanels)) {
+                    if (!previouslyStaged.has(panel)) {
+                        refreshDrugPrice(panel.id.slice('cost_'.length), panel.dataset.priceQuantity);
+                    }
+                }
+            }
 				});
         return false;
     }
