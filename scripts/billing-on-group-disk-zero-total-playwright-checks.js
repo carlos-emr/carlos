@@ -134,9 +134,8 @@ function createFixture(db, options, state) {
     state.providers[member] = { providerNo, ohipNo }; // Record intent before the INSERT can fail.
     db.execute(`INSERT INTO provider (${providerColumns.map((c) => `\`${c}\``).join(',')})`
       + ` SELECT ${select.join(',')} FROM provider WHERE provider_no=${sqlString(template)}`);
-    // Put the provider in the operator's sites. With _site_access_privacy the
-    // diskette page lists only providers who share a site with the operator,
-    // which is how a clinic's own providers are always set up.
+    // The generator fixture shares the operator's sites on multisite installs.
+    // Single-site visibility without memberships is exercised independently.
     db.execute(`INSERT IGNORE INTO providersite (provider_no, site_id) SELECT DISTINCT ${sqlString(providerNo)}, s.site_id`
       + ` FROM providersite s WHERE s.provider_no=${sqlString(template)} OR s.provider_no IN`
       + ` (SELECT provider_no FROM security WHERE user_name=${sqlString(options.testUser)})`);

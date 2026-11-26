@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "5558f2b8b7fba993b6a902b418a3b2046d1073b7",
+  "comparisonSha256": "a92575331e3a33f2f2f28f53063d0a4309f8d485d1c7e27e7d557adcf58bb4c4",
+  "baselineCommit": "34b7ab7c0acda38a05185172f7cf8e7fea6f9f23",
+  "baselineSourceTree": "5558f2b8b7fba993b6a902b418a3b2046d1073b7",
+  "baselineReportSha256": "83ae9c1897dad4683d68e14da958ada7a899d805eb015cf864180af879b27dc3",
+  "baselineLane": "Ubuntu 26.04.1, OpenJDK 25, JaCoCo 0.8.16. Twelve fully selected JUnit and H2 integration suites exercise the shared historical and physical filename allocator, MRI disk and legacy rows, per-file authorization and rendering, normalized servlet aliases, imported-file review snapshots, and new and regenerated output.",
+  "baselineTestCounts": {
+    "tests": 160,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingONDiskNameDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOnMriViewModelAssemblerTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingDiskCreationServiceUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskConcurrencyUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskLoaderUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskServiceGroupDiskUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskServiceUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnFileAccessServiceIntegrationTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnOutputFilenamesIntegrationTest",
+    "io.github.carlos_emr.carlos.report.pageUtil.Obec2ActionMethodGuardUnitTest",
+    "io.github.carlos_emr.carlos.util.DownloadMissingFileUnitTest",
+    "io.github.carlos_emr.carlos.util.OscarDownloadUnitTest"
+  ],
+  "baselineTestReportsSha256": "993805ff63683b2e77031756a4b39a23d6585ecea282e0d56513c110ed4ce06b",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOnMriViewModelAssembler.java": {
+      "lines": 100.0,
+      "instructions": 92.32954545454545,
+      "branches": 77.27272727272727,
+      "sourceBlob": "69336e0583b64f867c0820d13281311b36239fd8"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnFileAccessService.java": {
+      "lines": 100.0,
+      "instructions": 99.72451790633609,
+      "branches": 88.88888888888889,
+      "sourceBlob": "359900f3b9dbd7e56c8a5eb19f46d630134f5599"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnOutputFilenames.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "ecf6233d308b3762f816cacef8fc82cb284627d3"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnDiskLoader.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "8d6577ed12275f95fec573256072b1519ac7cd8c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/viewmodel/BillingOnMriViewModel.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "4d2f50263b840b3d363cf383946068bb8bdcb00e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/util/OscarDownload.java": {
+      "lines": 94.0,
+      "instructions": 94.85981308411215,
+      "branches": 87.5,
+      "sourceBlob": "d99a56a5f5594bcb048f1cd3886e0ea9e58519a5"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/pageUtil/Obec2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "361579693cbdb03ab190b68b887fbea265f2920b"
+    }
+  },
+  "exclusions": {}
+}

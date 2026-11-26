@@ -1,13 +1,15 @@
 # Installed package lifecycle execution
 
-The required `package-clean-reinstall`, `package-main-upgrade` and
-`package-beta5-upgrade` checks run independent Ubuntu 26.04/systemd cells per
+The required `package-clean-reinstall`, `package-main-upgrade`,
+`package-beta5-upgrade` and `package-beta8-upgrade` checks run independent Ubuntu 26.04/systemd cells per
 province: candidate clean install and equal-version reinstall, pinned current
-main upgrade, and distinct pinned beta5 upgrade. Each cell uses the same client source before and after its package transaction,
+main (beta6) upgrade, historical beta5 upgrade, and direct beta8 upgrade. Each cell uses the same client source before and after its package transaction,
 creates clinical canaries through the UI, reopens them afterward, cleans its owned
 graph, and independently compares all cells in eleven clinical tables and the
-document store. The historical cell additionally requires CLI 1.3.0 dependency
-refusal and compatible 1.3.1 resolution without mutation. The earlier failed manual attempts remain separate evidence.
+document store. The beta5 and beta6 cells additionally verify that APT refuses their original CLI
+versions (1.3.0 and 1.3.1) under the candidate’s 1.3.5 minimum and resolves
+the reviewed 1.3.6 package without changing the installation. Beta8 starts on
+its published CLI 1.3.5. The earlier failed manual attempts remain separate evidence.
 
 The host requires the exclusive disposable local Docker daemon at
 `unix:///var/run/docker.sock`. Cells publish no ports, use the normal bridge and
@@ -44,12 +46,17 @@ every entry, rather than trusting the package version or health endpoint.
     "target": {
       "emr": {"path": "/absolute/candidate-emr.deb", "sha256": "<sha256>"},
       "drugref": {"path": "/absolute/candidate-drugref.deb", "sha256": "<sha256>"},
-      "ctl": {"path": "/absolute/carlos-ctl_1.3.1_all.deb", "sha256": "<sha256>"}
+      "ctl": {"path": "/absolute/carlos-ctl_1.3.6_all.deb", "sha256": "<sha256>"}
     },
     "2026.08.0-beta6": {
       "emr": {"path": "/absolute/main-emr.deb", "sha256": "<sha256>"},
       "drugref": {"path": "/absolute/main-drugref.deb", "sha256": "<sha256>"},
       "ctl": {"path": "/absolute/carlos-ctl_1.3.1_all.deb", "sha256": "<sha256>"}
+    },
+    "2026.08.0-beta8": {
+      "emr": {"path": "/absolute/beta8-emr.deb", "sha256": "<sha256>"},
+      "drugref": {"path": "/absolute/beta8-drugref.deb", "sha256": "<sha256>"},
+      "ctl": {"path": "/absolute/carlos-ctl_1.3.5_all.deb", "sha256": "<sha256>"}
     },
     "2026.08.0-beta5": {
       "emr": {"path": "/absolute/prior-emr.deb", "sha256": "<sha256>"},
@@ -60,11 +67,11 @@ every entry, rather than trusting the package version or health endpoint.
 }
 ```
 
-Use the normal source-bound release runner with each of those three `--check`
+Use the normal source-bound release runner with each of those four `--check`
 values, `--profile ON` (then BC) and `--artifact` pointing to its built WAR. The runner
 keeps `packaged: true`; the explicit orchestrated deployment scope validates the selected
 in-container application record during collection and final receipt verification.
-Plan validation keeps all three role checks required; failure in one does not
+Plan validation keeps all four role checks required; failure in one does not
 prevent collecting an independent baseline. Missing, duplicated or altered cell evidence fails. There is no
 requirement for a candidate application installed on the Docker host.
 
@@ -93,7 +100,7 @@ The transition preflight runs shared application-health, DrugRef search and
 schedule-link read-only probes. Independent snapshots around each read-only
 phase compare all clinical cells, stored files and the key. The same owned
 appointment, tickler, note and prescription workflow creates and reopens canaries
-for both upgrades and reinstall. The complete release smoke selection runs after
+for all three upgrades and reinstall. The complete release smoke selection runs after
 every transition. The earlier full current-contract run against main remains
 failed and retained; its [four baseline observations](release-2026.08-main-release-browser-findings.json)
 require separate HTTP/client compatibility review. No candidate expected-failure

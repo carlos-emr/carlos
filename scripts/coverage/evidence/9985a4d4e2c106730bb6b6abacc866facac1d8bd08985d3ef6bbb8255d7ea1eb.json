@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "99aef7b75dd704d39f67c3767405ebc20e7d2a04",
+  "comparisonSha256": "20d20e0f805d7e946d266df46e0c35ca0dbce6af045c0151ed6b6a821d9cbb8c",
+  "baselineCommit": "1d377b33e8df1e94c23c18c36d856e3894f4092a",
+  "baselineSourceTree": "99aef7b75dd704d39f67c3767405ebc20e7d2a04",
+  "baselineReportSha256": "b2edd7817b5f6baf8f5bc0242dc639eeb15ef8105600b521b915e26b4fec2331",
+  "baselineLane": "Ubuntu 26.04 and JDK 25, same Maven compiler outputs at 1d377b33. 617 reduced-DAC H2, filesystem and action cases plus 90 separate Ontario MariaDB 11.8.9 Flyway cases, including CDS. JaCoCo probes merged across disjoint passing Surefire suites.",
+  "baselineTestCounts": {
+    "tests": 707,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.PMmodule.dao.ProviderDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.admin.gate.ViewAdminDisplayMyGroup2ActionTest",
+    "io.github.carlos_emr.carlos.admin.web.AdminGroupActionsTest",
+    "io.github.carlos_emr.carlos.billing.CA.ON.BillingOnJspRoutingTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOhipSimulationViewModelAssemblerUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOnCorrectionViewModelAssemblerUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOnMriViewModelAssemblerTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOnStatusViewModelAssemblerRoutingUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOnStatusViewModelAssemblerUnreadableCountUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.assembler.GstReportViewModelAssemblerUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.assembler.OnRaViewModelAssemblerUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingDiskTransactionOutcomeUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskConcurrencyUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskLoaderUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskServiceGroupDiskUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskServiceUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskTransactionServiceUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnFileAccessServiceIntegrationTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnOutputFilenamesIntegrationTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnSiteVisibilityIntegrationTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOutputFilesUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOutputLockUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.OhipClaimExtractServiceUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.OhipClaimFileServiceUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.OhipReportGenerationServiceDependencyInjectionUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.web.AddThirdPartyPayment2ActionUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.web.BillingCorrection2ActionUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.web.BillingReportViewActionsAuthorizedUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.web.MissingBillingActionPrivilegeUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.web.ReportActionDependencyInjectionUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.web.SiblingViewBillingOnActionPrivilegeUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.web.UntestedBillingActionPrivilegeUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.web.UpdateBillingOnCorrection2ActionUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingOnMri2ActionUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingOnStatus2ActionUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.web.ViewGenSimulation2ActionUnitTest",
+    "io.github.carlos_emr.carlos.commn.SiteChoiceUnitTest",
+    "io.github.carlos_emr.carlos.commn.dao.BillingDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1DaoIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.SiteDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDemographicArchiveMariaDbIntegrationTest",
+    "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportSelectionIntegrationTest",
+    "io.github.carlos_emr.carlos.report.pageUtil.Obec2ActionMethodGuardUnitTest",
+    "io.github.carlos_emr.carlos.util.OscarDownloadUnitTest",
+    "io.github.carlos_emr.carlos.utility.BoundedSessionAttributesUnitTest"
+  ],
+  "baselineTestReportsSha256": "ad07cd5dd891b5e1b8a2ce91441a6d9acbdb0b4849807f71a3b93ec8a76df4ed",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnDiskService.java": {
+      "lines": 100.0,
+      "instructions": 98.13829787234043,
+      "branches": 86.66666666666667,
+      "sourceBlob": "900f40ec8ddfeaf7dfd95e0887d94e9c5f137828"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingFileWriteException.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "89a54c8ea5abad99dd51104ee95cdea7f3e57db5"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOutputLock.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "1433d4bda287f1a66d7c9bf19d440281ceb5f187"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/BillingDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "989b277237adfe6a47d6c9c4be810a11bcc0f5c9"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/Billing.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "6f116b3118b0853415a54842cc38856e4f5bf31d"
+    }
+  },
+  "exclusions": {}
+}

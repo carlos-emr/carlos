@@ -1937,20 +1937,6 @@
             </plugin>
 
             <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>buildnumber-maven-plugin</artifactId>
-                <version>3.3.1</version>
-                <executions>
-                    <execution>
-                        <phase>validate</phase>
-                        <goals>
-                            <goal>create</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-
-            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-site-plugin</artifactId>
                 <version>3.21.0</version>
@@ -2002,6 +1988,69 @@
                 <artifactId>maven-antrun-plugin</artifactId>
                 <version>3.2.0</version>
                 <executions>
+                    <execution>
+                        <id>git-revision</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <exportAntProperties>true</exportAntProperties>
+                            <!-- buildNumber.properties must identify the tree being built, including
+                                 merge commits. The former SCM provider skipped merges in its Git log lookup.
+                                 Keep the release workflow's explicit -DbuildNumber override authoritative. -->
+                            <target unless="buildNumber">
+                                <!-- At a worktree root Git reports an empty prefix and then true. -->
+                                <exec executable="git" dir="${project.basedir}" failifexecutionfails="false"
+                                      outputproperty="carlos.git.checkoutLocation"
+                                      resultproperty="carlos.git.checkoutStatus">
+                                    <arg value="rev-parse"/>
+                                    <arg value="--show-prefix"/>
+                                    <arg value="--is-inside-work-tree"/>
+                                </exec>
+                                <fail message="The CARLOS project directory must be a Git worktree root for an implicit build revision. Pass -DbuildNumber with the source commit when building an archive.">
+                                    <condition>
+                                        <not>
+                                            <and>
+                                                <equals arg1="${carlos.git.checkoutStatus}" arg2="0"/>
+                                                <equals arg1="${carlos.git.checkoutLocation}" arg2="true" trim="true"/>
+                                            </and>
+                                        </not>
+                                    </condition>
+                                </fail>
+                                <!-- A packaging checkout may share the project root without tracking its inputs. -->
+                                <exec executable="git" dir="${project.basedir}"
+                                      outputproperty="carlos.git.projectInputs"
+                                      resultproperty="carlos.git.projectInputsStatus">
+                                    <arg value="ls-tree"/>
+                                    <arg value="--full-tree"/>
+                                    <arg value="HEAD"/>
+                                    <arg value="--"/>
+                                    <arg value="pom.xml"/>
+                                    <arg value="src/main/resources/buildNumber.properties"/>
+                                </exec>
+                                <fail message="Git HEAD must contain the CARLOS POM and build-number resource for an implicit build revision. Pass -DbuildNumber with the source commit when building an archive.">
+                                    <condition>
+                                        <not>
+                                            <and>
+                                                <equals arg1="${carlos.git.projectInputsStatus}" arg2="0"/>
+                                                <matches string="${carlos.git.projectInputs}"
+                                                         pattern="(?m)^100[0-7]{3} blob [0-9a-f]+\tpom\.xml$"/>
+                                                <matches string="${carlos.git.projectInputs}"
+                                                         pattern="(?m)^100[0-7]{3} blob [0-9a-f]+\tsrc/main/resources/buildNumber\.properties$"/>
+                                            </and>
+                                        </not>
+                                    </condition>
+                                </fail>
+                                <exec executable="git" dir="${project.basedir}"
+                                      outputproperty="buildNumber" failonerror="true">
+                                    <arg value="rev-parse"/>
+                                    <arg value="--verify"/>
+                                    <arg value="HEAD"/>
+                                </exec>
+                            </target>
+                        </configuration>
+                    </execution>
                     <execution>
                         <phase>process-classes</phase>
                         <goals>

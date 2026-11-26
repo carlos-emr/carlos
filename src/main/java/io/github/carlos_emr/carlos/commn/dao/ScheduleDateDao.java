@@ -59,6 +59,9 @@ public interface ScheduleDateDao extends AbstractDao<ScheduleDate> {
      */
     List<ScheduleDate> findActiveForUpdate(String providerNo, Date date);
 
+    /** Rule-made rows to retire and active custom overrides to preserve during generation. */
+    List<ScheduleDate> findRuleDaysForUpdate(String providerNo, Date from, Date through);
+
     List<ScheduleDate> findByProviderPriorityAndDateRange(String providerNo, char priority, Date date, Date date2);
 
     List<ScheduleDate> findByProviderAndDateRange(String providerNo, Date date, Date date2);

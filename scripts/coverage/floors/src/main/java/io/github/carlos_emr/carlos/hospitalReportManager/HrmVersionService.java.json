@@ -3,10 +3,10 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/hospitalReportManager/HrmVersionService.java",
   "kind": "floor",
   "floor": {
-    "lines": 96.72131147540983,
-    "instructions": 92.7360774818402,
-    "branches": 73.33333333333333,
-    "sourceBlob": "737678c46a6a5390a2dd4c021d47c7dbca4c0788"
+    "lines": 100.0,
+    "instructions": 94.93087557603687,
+    "branches": 81.25,
+    "sourceBlob": "7fd233da7d6f055c45cae88ada518dd14c9524b1"
   },
-  "evidenceSha256": "8cab3d16435b80a0bb690170532922c0d1cb8891b55f9604eb693d325682cef5"
+  "evidenceSha256": "ef2ee34bc21cdb205f004c59d3f3902a768ea674f89b605acc52e3ea2ce1a0e5"
 }

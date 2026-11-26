@@ -2,6 +2,7 @@
 package io.github.carlos_emr.carlos.admin.web;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.commn.IsPropertiesOn;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -36,6 +37,7 @@ class UnLock2ActionUnitTest extends CarlosUnitTestBase {
     private MockHttpServletRequest request;
     private MockedStatic<ServletActionContext> servlet;
     private MockedStatic<LoggedInInfo> loggedIn;
+    private MockedStatic<IsPropertiesOn> features;
     private MockedConstruction<LoginCheckLogin> loginChecks;
     private final List<String> locks = new ArrayList<>();
     private UnLock2Action action;
@@ -45,6 +47,8 @@ class UnLock2ActionUnitTest extends CarlosUnitTestBase {
     void setUp() {
         previousLoginLock = CarlosProperties.getInstance().getProperty("login_lock");
         CarlosProperties.getInstance().setProperty("login_lock", "true");
+        features = mockStatic(IsPropertiesOn.class);
+        features.when(IsPropertiesOn::isMultisitesEnable).thenReturn(true);
         privileges = mock(SecurityInfoManager.class);
         accounts = mock(SecurityDao.class);
         login = mock(LoggedInInfo.class);
@@ -78,8 +82,25 @@ class UnLock2ActionUnitTest extends CarlosUnitTestBase {
             CarlosProperties.getInstance().setProperty("login_lock", previousLoginLock);
         }
         loginChecks.close();
+        features.close();
         loggedIn.close();
         servlet.close();
+    }
+
+    @Test
+    void shouldListAndUnlockUsernames_withoutSiteAssignmentsAtASingleSiteClinic() {
+        features.when(IsPropertiesOn::isMultisitesEnable).thenReturn(false);
+        scopedAdmin();
+        request.setMethod("GET");
+        assertThat(action.execute()).isEqualTo("success");
+        assertThat(request.getAttribute("lockList")).isEqualTo(new Vector<>(locks));
+
+        request.setMethod("POST");
+        request.setParameter("userName", "denied-one");
+        assertThat(action.execute()).isEqualTo("success");
+        assertThat(locks).doesNotContain("denied-one");
+        verifyNoInteractions(accounts);
+        logActionMock.verify(() -> LogAction.addLog("900001", "unlock", "adminUnlock", "denied-one", "192.0.2.1"));
     }
 
     private void scopedAdmin() {

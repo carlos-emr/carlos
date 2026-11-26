@@ -88,7 +88,7 @@ public final class BillingOnMriViewModel {
                          String total,
                          String ohipFile,
                          String htmlFile,
-                         String rowBgColor) {}
+                         String rowBgColor, boolean mayRegenerate) {}
 
     /** One row in the older BillActivity records table. */
     public record BillActivityRow(String providerName,
