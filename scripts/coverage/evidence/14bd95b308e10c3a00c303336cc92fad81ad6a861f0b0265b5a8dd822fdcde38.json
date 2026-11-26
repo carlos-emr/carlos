@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "9f09b041d75235670d4ea1a482e05bebcd837f69",
+  "comparisonSha256": "2fea019723803aff476f87cbc174d9486458ffa624af1a5b80a4ab0b11dd3e3d",
+  "baselineCommit": "36dccf5dce6f5563eb9aa81697859b652493680a",
+  "baselineSourceTree": "9f09b041d75235670d4ea1a482e05bebcd837f69",
+  "baselineLane": "PR #6347 focused Maven tests on Ubuntu 26.04.1 LTS with Ubuntu OpenJDK 25.0.5.1 and JaCoCo 0.8.16. Measurement type form validation.",
+  "baselineReportSha256": "898772d430188000e35639f74a79bcc21df1f4958cf8968ca71390e989d8deb0",
+  "baselineTestReportsSha256": "cbedc42cc88cf716ba7acae5cd2068ce3adf53de62ca68f56ae4504f29594676",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementType2ActionFieldLengthUnitTest",
+    "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementType2ActionUnitTest"
+  ],
+  "baselineTestCounts": {
+    "tests": 17,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/pageUtil/EctAddMeasurementType2Action.java": {
+      "lines": 96.0,
+      "instructions": 93.82022471910112,
+      "branches": 100.0,
+      "missedLines": [
+        102
+      ],
+      "missedBranchLines": [],
+      "executableLines": 25,
+      "sourceBlob": "a1e84cf14883c08b4aedf80dfc5b94188e732717"
+    }
+  }
+}
