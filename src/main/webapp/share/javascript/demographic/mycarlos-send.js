@@ -8,7 +8,8 @@
  *
  * The root carries data-context, data-patient, data-document and, on the standalone page,
  * data-delivery and data-next. Its parts are marked data-mycarlos-part (form, message, device, send,
- * check, new, history, empty, no-device, service-date, document-title, more), and its copy is in
+ * check, new, history, empty, no-device, service-date, document-title, more; form may be absent where
+ * a host page's parser dropped it), and its copy is in
  * [data-copy] and [data-status] spans inside its copy part. Options: persistInUrl keeps the operation id in the page URL
  * (the standalone page only: a dialog must never rewrite the document page's URL), and
  * onBusyChange(busy, operation) hears when a request starts and ends.
@@ -72,7 +73,8 @@
         const noDevice = part('no-device');
         const serviceDate = part('service-date');
         const title = part('document-title');
-        if (!form || !message || !history || !send || !check || !chooser) return null;
+        // The form part is optional: see where Send is wired below.
+        if (!message || !history || !send || !check || !chooser) return null;
         const copyBox = part('copy') || root;
         const copy = {};
         copyBox.querySelectorAll('[data-copy]').forEach(node => { copy[node.dataset.copy] = node.textContent; });
@@ -292,7 +294,11 @@
             choiceLost = false;
             updateButtons();
         });
-        form.addEventListener('submit', event => { event.preventDefault(); request('send', false); });
+        // The inbox's reading view inserts the document inside its own reassign form, where the parser
+        // drops the dialog's <form> and keeps its controls. Send then sends from its click, which never
+        // submits the outer form (the controls name the dropped form, so they belong to none).
+        if (form) form.addEventListener('submit', event => { event.preventDefault(); request('send', false); });
+        else send.addEventListener('click', event => { event.preventDefault(); request('send', false); });
         check.addEventListener('click', () => request('refresh', false));
         if (more) more.addEventListener('click', () => request('read', true));
         if (fresh && fresh.tagName === 'BUTTON') fresh.addEventListener('click', () => request('read', false, null, true));

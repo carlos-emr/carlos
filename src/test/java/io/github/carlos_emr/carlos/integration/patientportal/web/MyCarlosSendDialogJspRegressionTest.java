@@ -95,6 +95,22 @@ class MyCarlosSendDialogJspRegressionTest {
     }
 
     @Test
+    @DisplayName("should tie the dialog's controls to its own form, which the inbox's reassign form makes the parser drop")
+    void shouldTieDialogControls_toTheDialogForm() throws IOException {
+        String dialog = read(DIALOG);
+        String form = "mycarlos-send-form-${carlos:forHtmlAttribute(mycarlosSendDoc)}";
+        assertThat(dialog).contains("<form id=\"" + form + "\" data-mycarlos-part=\"form\"");
+        // Where the form is dropped, a control naming it belongs to no form: the token, the device and
+        // Send never join the inbox's form, and Send cannot submit it.
+        for (String control : new String[] {"name=\"CSRF-TOKEN\"", "data-mycarlos-part=\"device\"", "data-mycarlos-part=\"send\""}) {
+            int at = dialog.indexOf(control);
+            assertThat(at).as(control).isPositive();
+            String tag = dialog.substring(dialog.lastIndexOf('<', at), dialog.indexOf('>', at) + 1);
+            assertThat(tag).as(control).contains("form=\"" + form + "\"");
+        }
+    }
+
+    @Test
     @DisplayName("should load the dialog scripts on both inbox pages, which insert documents without running their scripts")
     void shouldLoadDialogScripts_onBothInboxHosts() throws IOException {
         for (Path host : new Path[] {INBOX_LIST, INBOX_INDEX}) {

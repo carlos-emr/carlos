@@ -14,6 +14,11 @@
     page instead. Ids carry the document id, since the inbox shows several documents on one page.
     There is no inline script.
 
+    The inbox's reading view (oscarMDS/Index.jsp) inserts the whole document inside its own reassign
+    form, where the parser drops this form too. The script then mounts without it, and the controls the
+    form would own name it in their form attribute: where it was dropped they belong to no form, so they
+    never join the inbox's form and Send never submits it.
+
     @since 2026-11-06
 --%>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
@@ -42,13 +47,13 @@
     </header>
     <p><fmt:message key="mycarlos.delivery.description"/></p>
     <div class="delivery-message" data-mycarlos-part="message" role="status" aria-live="polite"></div>
-    <form data-mycarlos-part="form" method="post" action="${carlos:forHtmlAttribute(mycarlosSendCtx)}/demographic/PortalDelivery">
-        <input type="hidden" name="CSRF-TOKEN" value="">
+    <form id="mycarlos-send-form-${carlos:forHtmlAttribute(mycarlosSendDoc)}" data-mycarlos-part="form" method="post" action="${carlos:forHtmlAttribute(mycarlosSendCtx)}/demographic/PortalDelivery">
+        <input type="hidden" name="CSRF-TOKEN" value="" form="mycarlos-send-form-${carlos:forHtmlAttribute(mycarlosSendDoc)}">
         <label for="mycarlos-send-device-${carlos:forHtmlAttribute(mycarlosSendDoc)}"><fmt:message key="mycarlos.delivery.device"/></label>
-        <select id="mycarlos-send-device-${carlos:forHtmlAttribute(mycarlosSendDoc)}" data-mycarlos-part="device" name="deviceKeyId" required disabled></select>
+        <select id="mycarlos-send-device-${carlos:forHtmlAttribute(mycarlosSendDoc)}" data-mycarlos-part="device" name="deviceKeyId" required disabled form="mycarlos-send-form-${carlos:forHtmlAttribute(mycarlosSendDoc)}"></select>
         <p data-mycarlos-part="no-device" hidden><fmt:message key="mycarlos.delivery.noDevice"/></p>
         <div class="delivery-actions">
-            <button type="submit" data-mycarlos-part="send" disabled><fmt:message key="mycarlos.delivery.send"/></button>
+            <button type="submit" data-mycarlos-part="send" disabled form="mycarlos-send-form-${carlos:forHtmlAttribute(mycarlosSendDoc)}"><fmt:message key="mycarlos.delivery.send"/></button>
             <button type="button" data-mycarlos-part="check"><fmt:message key="mycarlos.delivery.check"/></button>
             <button type="button" data-mycarlos-part="new" hidden><fmt:message key="mycarlos.delivery.new"/></button>
         </div>

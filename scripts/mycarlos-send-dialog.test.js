@@ -148,11 +148,36 @@ test("closing returns the focus to the document's Send button when the page redr
     assert.equal(view.document.focused, redrawn);
 });
 
+// The inbox's reading view inserts each document inside its own reassign form, where the parser drops
+// the dialog's <form> (a form start tag inside a form is ignored) and keeps the controls it held.
+function dropForm(root, form) {
+    root.children = root.children.flatMap(child => (child === form ? form.children : [child]));
+    form.children.forEach(child => { child.parent = root; });
+}
+
+test('inside the inbox reassign form, which drops the dialog form, the dialog opens and Send submits no other form', async () => {
+    const view = page();
+    const {root, parts} = view.dialogs['44'];
+    dropForm(root, parts.form);
+    await openRead(view);
+    assert.equal(root.open, true);
+    assert.equal(parts.send.disabled, false);
+    const click = parts.send.click(); await tick();
+    assert.equal(click.defaultPrevented, true, 'the inbox form is not submitted');
+    assert.equal(view.calls.length, 2);
+    const sent = new URLSearchParams(view.calls[1].options.body);
+    assert.equal(view.calls[1].options.method, 'POST');
+    assert.equal(sent.get('method'), 'send');
+    assert.equal(sent.get('deliveryId'), MINTED);
+    assert.equal(sent.get('deviceKeyId'), 'FAKE-current-device');
+    assert.equal(sent.get('CSRF-TOKEN'), 'FAKE-CSRF');
+});
+
 test('a dialog its script cannot wire leaves the click to the link, which opens the standalone page', () => {
     const view = page();
     const {root, parts} = view.dialogs['44'];
-    // A part missing, as when a host page's parser dropped the dialog's form.
-    root.children = root.children.filter(child => child !== parts.form);
+    // A part missing (here the delivery table): the script cannot wire the dialog.
+    root.children = root.children.filter(child => child !== parts.history);
     const event = view.openers['44'].click();
     assert.equal(event.defaultPrevented, false, 'the link keeps its default');
     assert.equal(root.open, false);
