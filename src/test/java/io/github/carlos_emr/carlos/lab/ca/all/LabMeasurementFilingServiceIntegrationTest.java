@@ -73,18 +73,21 @@ public class LabMeasurementFilingServiceIntegrationTest extends CarlosTestBase {
     private static final java.util.concurrent.atomic.AtomicInteger LAB_NUMBERS =
             new java.util.concurrent.atomic.AtomicInteger(7_200_000);
 
+    /** Committed in a transaction of its own: these tests run outside the test transaction. */
     private int storedReport(String accession) {
-        Hl7TextInfo info = new Hl7TextInfo();
-        info.setLabNumber(LAB_NUMBERS.incrementAndGet());
-        info.setAccessionNumber(accession);
-        info.setFirstName("FAKE");
-        info.setLastName("FAKE");
-        info.setObrDate(new Date().toString());
-        info.setReportStatus("F");
-        info.setFinalResultCount(0);
-        hibernateTemplate.save(info);
-        hibernateTemplate.flush();
-        return info.getLabNumber();
+        return new TransactionTemplate(transactions).execute(status -> {
+            Hl7TextInfo info = new Hl7TextInfo();
+            info.setLabNumber(LAB_NUMBERS.incrementAndGet());
+            info.setAccessionNumber(accession);
+            info.setFirstName("FAKE");
+            info.setLastName("FAKE");
+            info.setObrDate(new Date().toString());
+            info.setReportStatus("F");
+            info.setFinalResultCount(0);
+            hibernateTemplate.save(info);
+            hibernateTemplate.flush();
+            return info.getLabNumber();
+        });
     }
 
     private static FiledMeasurementDto result(int lab, String value, String extensionValue) {

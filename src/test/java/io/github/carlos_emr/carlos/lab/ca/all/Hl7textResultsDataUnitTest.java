@@ -343,6 +343,8 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
     void shouldReplaceThePartial_whenTheFinalFollowsIt() {
         Measurement partial = new Measurement();
         partial.setDataField("5.1");
+        // This patient's value: a value with no patient is never replaced (#6391).
+        partial.setDemographicId(42);
         when(measurementDao.findByValue("lab_no", "1111")).thenReturn(java.util.List.of(partial));
         Measurement filed;
         try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
@@ -363,8 +365,10 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
             assertThat(fileResult("6.1", ".*", "2026-03-10 12:00:00", LocalDateTime.parse("2026-03-10T14:00:00")))
                     .isNotNull();
         }
-        verify(measurementDao, never()).findByValue(any(), any());
-        verifyNoInteractions(mockedBeans.get(MeasurementsDeletedDao.class));
+        // Only the report's own values are looked up (a repeat must not double them), and none is archived.
+        verify(measurementDao).findByValue("lab_no", "4616");
+        verify(measurementDao, never()).findByValue("lab_no", "1111");
+        verify(measurementDao).batchRemoveAtomically(java.util.List.of());
     }
 
     @Test
@@ -423,7 +427,8 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         assertThat(filed).isNotNull();
         assertThat(filed.getDataField()).isEqualTo("12.7");
         verify(measurementDao).findByValue("lab_no", "2222");
-        verify(measurementDao, never()).findByValue("lab_no", "4616");
+        // The report's own values are looked up too, so that a repeat does not double them (#6391).
+        verify(measurementDao).findByValue("lab_no", "4616");
     }
 
     @Test
@@ -532,10 +537,11 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
             assertThat(fileResult("4.3", ".*", "2026-03-10 07:00:00",
                     LocalDateTime.parse("2026-03-10T14:00:00"))).isNull();
         }
+        // The rows are built before the chain is read under the lock, so the measurement map is read; nothing is
+        // archived or filed.
         org.mockito.Mockito.verifyNoInteractions(measurementDao,
                 mockedBeans.get(io.github.carlos_emr.carlos.commn.dao.MeasurementsDeletedDao.class),
-                mockedBeans.get(io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao.class),
-                mockedBeans.get(MeasurementMapDao.class));
+                mockedBeans.get(io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao.class));
     }
 
     /**
