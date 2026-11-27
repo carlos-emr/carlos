@@ -71,9 +71,14 @@ jobs:
           # Keep findings non-blocking, as before; execution errors and absent
           # evidence must not silently become a successful security scan.
           set +e
-          # The old 30-second per-rule/file limit repeatedly interrupted interfile
-          # taint matching on the larger clinical forms and export actions.
-          semgrep ci --no-suppress-errors --timeout 300 --sarif --output semgrep.sarif
+          # PRs scan a diff. A full scan also needs time to match taint rules
+          # across files. Semgrep otherwise divides a default three-hour budget
+          # between interfile stages. The job deadline still bounds the scan.
+          set -- --timeout 30
+          if [ "$GITHUB_EVENT_NAME" != "pull_request" ]; then
+            set -- --timeout 0 --interfile-timeout 0
+          fi
+          semgrep ci --no-suppress-errors "$@" --sarif --output semgrep.sarif
           status=$?
           set -e
           if [ "$status" -gt 1 ]; then
