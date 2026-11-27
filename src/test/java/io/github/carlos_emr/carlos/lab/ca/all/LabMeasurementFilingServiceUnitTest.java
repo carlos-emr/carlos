@@ -1,0 +1,561 @@
+/**
+ * Copyright (c) 2026. CARLOS EMR Project Contributors. All Rights Reserved.
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ * <p>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * <p>
+ * CARLOS EMR Project: https://github.com/carlos-emr/carlos
+ * CARLOS has no affiliation with OSCAR or McMaster University.
+ */
+package io.github.carlos_emr.carlos.lab.ca.all;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
+import java.util.List;
+import java.util.Map;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
+import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
+import io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoChainLockDao;
+import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
+import io.github.carlos_emr.carlos.commn.dao.MeasurementsDeletedDao;
+import io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao;
+import io.github.carlos_emr.carlos.commn.model.Hl7TextInfo;
+import io.github.carlos_emr.carlos.commn.model.Measurement;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+
+/**
+ * Filing one report's measurements (#6391): the locks come before every read and write, a report
+ * that is not the current version files nothing, the replaced values are only this patient's, and
+ * after the upload commits a failure is logged and audited, never thrown.
+ */
+@Tag("unit")
+@Tag("service")
+@DisplayName("LabMeasurementFilingService")
+class LabMeasurementFilingServiceUnitTest extends CarlosUnitTestBase {
+
+    private PlatformTransactionManager transactions;
+    private Hl7TextInfoChainLockDao locks;
+    private MeasurementDao measurementDao;
+    private MeasurementsExtDao measurementsExtDao;
+    private MeasurementsDeletedDao measurementsDeletedDao;
+
+    @BeforeEach
+    void setUp() {
+        // Hl7textResultsData binds its display DAOs in static fields when it first loads; whichever test
+        // loads it first in a JVM must have them registered, or the class fails for every later user.
+        createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao.class);
+        createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.ConsultResponseDocDao.class);
+        createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao.class);
+        createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao.class);
+        createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao.class);
+        createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.EFormDocsDao.class);
+        transactions = mock(PlatformTransactionManager.class);
+        var txStatus = mock(org.springframework.transaction.TransactionStatus.class);
+        when(transactions.getTransaction(any())).thenReturn(txStatus);
+        locks = mock(Hl7TextInfoChainLockDao.class);
+        measurementDao = mock(MeasurementDao.class);
+        measurementsExtDao = mock(MeasurementsExtDao.class);
+        measurementsDeletedDao = mock(MeasurementsDeletedDao.class);
+        when(locks.lockByLabNumber(anyInt())).thenReturn(new Hl7TextInfo());
+        // A stored measurement has its own id: the extensions name it, and one attached to the wrong
+        // measurement would show.
+        var ids = new java.util.concurrent.atomic.AtomicInteger();
+        org.mockito.Mockito.doAnswer(invocation -> {
+            Object stored = invocation.getArgument(0);
+            org.springframework.test.util.ReflectionTestUtils.setField(stored, "id", ids.incrementAndGet());
+            return null;
+        }).when(measurementDao).persist(any(Measurement.class));
+    }
+
+    @AfterEach
+    void clearSynchronization() {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.clear();
+        }
+        TransactionSynchronizationManager.setActualTransactionActive(false);
+    }
+
+    private LabMeasurementFilingService service(String chain) {
+        return new LabMeasurementFilingService(transactions, locks, measurementDao, measurementsExtDao,
+                measurementsDeletedDao, lab -> chain);
+    }
+
+    private static LabMeasurementFilingDto filing(String lab, Integer patient, boolean revisionOrdered) {
+        Measurement m = new Measurement();
+        m.setDataField("5.2");
+        return new LabMeasurementFilingDto(lab, patient, revisionOrdered, "ACC-1", "FILL-1",
+                List.of(new FiledMeasurementDto(m, Map.of("lab_no", lab))));
+    }
+
+    private static Measurement stored(Integer demographic) {
+        Measurement m = new Measurement();
+        m.setDemographicId(demographic);
+        m.setType("A1C");
+        m.setDataField("7");
+        return m;
+    }
+
+    private void inTransactionWithSynchronization() {
+        TransactionSynchronizationManager.initSynchronization();
+        TransactionSynchronizationManager.setActualTransactionActive(true);
+    }
+
+    private static void commit() {
+        for (TransactionSynchronization synchronization : TransactionSynchronizationManager.getSynchronizations()) {
+            synchronization.afterCommit();
+        }
+    }
+
+    @Test
+    void shouldTakeEveryLockBeforeAnyReadOrWrite_whenFilingTheCurrentVersion() {
+        service("100,101").file(filing("101", 7, false));
+
+        InOrder order = inOrder(locks, measurementDao, measurementsDeletedDao, measurementsExtDao);
+        order.verify(locks).lockByAccession("ACC-1");
+        order.verify(locks).lockByFillerOrderNumber("FILL-1");
+        order.verify(locks).lockByLabNumber(101);
+        order.verify(measurementDao).findByValue("lab_no", "100");
+        order.verify(measurementsDeletedDao).batchPersistAtomically(anyList());
+        order.verify(measurementDao).batchRemoveAtomically(anyList());
+        order.verify(measurementDao).persist(any(Measurement.class));
+        order.verify(measurementsExtDao).batchPersistAtomically(anyList(), eq(50));
+    }
+
+    @Test
+    void shouldFileNothingAndArchiveNothing_whenALaterVersionExists() {
+        var result = service("100,101").file(filing("100", 7, false));
+
+        assertThat(result).isEqualTo(LabMeasurementFilingService.Result.NOT_CURRENT);
+        verify(measurementDao, never()).persist(any(Measurement.class));
+        verify(measurementDao, never()).batchRemoveAtomically(anyList());
+        verifyNoInteractions(measurementsDeletedDao, measurementsExtDao);
+    }
+
+    @Test
+    void shouldFileInTheCallersTransactionWithoutOpeningOne_whenOneIsActive() {
+        inTransactionWithSynchronization();
+
+        var result = service("101").file(filing("101", 7, false));
+
+        assertThat(result).isEqualTo(LabMeasurementFilingService.Result.FILED);
+        // The caller owns the transaction (and its retry and its failure): none of its own is opened.
+        verify(transactions, never()).getTransaction(any());
+    }
+
+    @Test
+    void shouldFileAtOnce_whenSynchronizationIsActiveButNoTransactionIs() {
+        TransactionSynchronizationManager.initSynchronization();
+
+        service("101").fileAfterCommit(filing("101", 7, false));
+
+        verify(measurementDao).persist(any(Measurement.class));
+    }
+
+    @Test
+    void shouldAuditAFailedFilingWithNoPatient_whenTheLabIsNotMatchedYet() {
+        doThrow(new IllegalStateException("broken")).when(measurementDao).persist(any(Measurement.class));
+        inTransactionWithSynchronization();
+        service("101").fileAfterCommit(filing("101", null, false));
+
+        commit();
+
+        logActionMock.verify(() -> LogAction.addLog(anyString(), anyString(), anyString(), anyString(), any(), org.mockito.ArgumentMatchers.isNull(),
+                anyString()));
+    }
+
+    @Test
+    void shouldReplaceAnUnownedRowOfTheReportItself_whenAPatientIsKnown() {
+        Measurement own = stored(null);
+        when(measurementDao.findByValue("lab_no", "101")).thenReturn(List.of(own));
+
+        service("101").file(filing("101", 7, false));
+
+        verify(measurementDao).batchRemoveAtomically(List.of(own));
+    }
+
+    @Test
+    void shouldFileTheLastVersionOfTheLabsOwnOrder_whenTheChainIsRevisionOrdered() {
+        // A CML chain is ordered by the lab's revision evidence: its last version is current even though
+        // it does not have the highest lab number, and the highest one is then history.
+        var higherNumber = service("101,100").file(filing("101", 7, true));
+        var lastRevision = service("101,100").file(filing("100", 7, true));
+
+        assertThat(higherNumber).isEqualTo(LabMeasurementFilingService.Result.NOT_CURRENT);
+        assertThat(lastRevision).isEqualTo(LabMeasurementFilingService.Result.FILED);
+        verify(measurementDao, times(1)).persist(any(Measurement.class));
+    }
+
+    @Test
+    void shouldFileNothing_whenTheReportWasRemovedBeforeItRan() {
+        when(locks.lockByLabNumber(101)).thenReturn(null);
+
+        var result = service("101").file(filing("101", 7, false));
+
+        assertThat(result).isEqualTo(LabMeasurementFilingService.Result.LAB_REMOVED);
+        verifyNoInteractions(measurementDao, measurementsDeletedDao, measurementsExtDao);
+    }
+
+    @Test
+    void shouldThrowBeforeAnyWrite_whenTheReportIsAbsentFromItsChain() {
+        var filingService = service("100,102");
+        var dto = filing("101", 7, false);
+        assertThatThrownBy(() -> filingService.file(dto))
+                .isInstanceOf(IllegalStateException.class);
+
+        verifyNoInteractions(measurementDao, measurementsDeletedDao, measurementsExtDao);
+    }
+
+    @Test
+    void shouldLockOnlyTheReportsOwnRow_whenItHasNoAccessionAndNoFillerNumber() {
+        Measurement m = new Measurement();
+        var dto = new LabMeasurementFilingDto("101", 7, false, null, "  ", List.of(new FiledMeasurementDto(m, Map.of())));
+
+        service("101").file(dto);
+
+        verify(locks).lockByAccession(null);
+        verify(locks).lockByFillerOrderNumber("  ");
+        verify(locks).lockByLabNumber(101);
+    }
+
+    @Test
+    void shouldReplaceThisPatientsValuesIncludingTheReportsOwn_whenRefiling() {
+        Measurement ownEarlier = stored(7);
+        Measurement previousVersion = stored(7);
+        Measurement otherPatient = stored(8);
+        Measurement noPatientOfAnotherVersion = stored(null);
+        when(measurementDao.findByValue("lab_no", "101")).thenReturn(List.of(ownEarlier));
+        when(measurementDao.findByValue("lab_no", "100"))
+                .thenReturn(List.of(previousVersion, otherPatient, noPatientOfAnotherVersion));
+
+        service("100,101").file(filing("101", 7, false));
+
+        // In chain order: version 100's value, then the report's own earlier value.
+        verify(measurementDao).batchRemoveAtomically(List.of(previousVersion, ownEarlier));
+    }
+
+    @Test
+    void shouldReplaceOnlyTheReportsOwnValues_whenNoPatientIsKnown() {
+        Measurement own = stored(null);
+        Measurement ownOfAPatient = stored(7);
+        Measurement otherVersion = stored(7);
+        when(measurementDao.findByValue("lab_no", "101")).thenReturn(List.of(own, ownOfAPatient));
+        when(measurementDao.findByValue("lab_no", "100")).thenReturn(List.of(otherVersion));
+
+        service("100,101").file(filing("101", null, false));
+
+        verify(measurementDao).batchRemoveAtomically(List.of(own, ownOfAPatient));
+    }
+
+    @Test
+    void shouldRetryTheWholeTransactionUpToThreeTimes_whenTheDatabaseRefusesALockAsJpaReportsIt() {
+        // Nothing here translates JPA exceptions to Spring's: a real deadlock arrives as Jakarta's own.
+        when(locks.lockByAccession("ACC-1")).thenThrow(new jakarta.persistence.PersistenceException(
+                new jakarta.persistence.PessimisticLockException("deadlock")));
+        var filingService = service("101");
+        var dto = filing("101", 7, false);
+
+        assertThatThrownBy(() -> filingService.file(dto))
+                .isInstanceOf(jakarta.persistence.PersistenceException.class);
+
+        verify(transactions, times(LabMeasurementFilingService.MAX_ATTEMPTS)).getTransaction(any());
+    }
+
+    @Test
+    void shouldRetryTheWholeTransactionUpToThreeTimes_whenSpringTranslatedTheLockFailure() {
+        when(locks.lockByAccession("ACC-1")).thenThrow(new CannotAcquireLockException("deadlock"));
+        var filingService = service("101");
+        var dto = filing("101", 7, false);
+
+        assertThatThrownBy(() -> filingService.file(dto))
+                .isInstanceOf(CannotAcquireLockException.class);
+
+        verify(transactions, times(LabMeasurementFilingService.MAX_ATTEMPTS)).getTransaction(any());
+    }
+
+    @Test
+    void shouldNotRetry_whenTheFailureIsNotALockFailure() {
+        when(locks.lockByAccession("ACC-1")).thenThrow(new IllegalStateException("not a lock"));
+        var filingService = service("101");
+        var dto = filing("101", 7, false);
+
+        assertThatThrownBy(() -> filingService.file(dto))
+                .isInstanceOf(IllegalStateException.class);
+
+        verify(transactions, times(1)).getTransaction(any());
+    }
+
+    @Test
+    void shouldRetryWithFreshTransientMeasurements_whenLockFailureOccursAfterPersist() {
+        // Attempt 1 persists the measurement (assigning id=1) and then hits a lock failure when storing
+        // extensions; attempt 2 must persist a brand-new transient Measurement with id == null.
+        var persistedIdsBeforeInsert = new java.util.ArrayList<Integer>();
+        var ids = new java.util.concurrent.atomic.AtomicInteger();
+        org.mockito.Mockito.doAnswer(invocation -> {
+            Measurement stored = invocation.getArgument(0);
+            persistedIdsBeforeInsert.add(stored.getId());
+            org.springframework.test.util.ReflectionTestUtils.setField(stored, "id", ids.incrementAndGet());
+            return null;
+        }).when(measurementDao).persist(any(Measurement.class));
+        doThrow(new CannotAcquireLockException("lock wait on extensions"))
+                .doNothing()
+                .when(measurementsExtDao).batchPersistAtomically(anyList(), eq(50));
+
+        var result = service("101").file(filing(" 101 ", 7, false));
+
+        assertThat(result).isEqualTo(LabMeasurementFilingService.Result.FILED);
+        assertThat(persistedIdsBeforeInsert).containsExactly(null, null);
+        verify(transactions, times(2)).getTransaction(any());
+    }
+
+    @Test
+    void shouldCopyAllMeasurementFieldsDefensively_whenCreatingFiledMeasurementDto() {
+        Measurement source = new Measurement();
+        org.springframework.test.util.ReflectionTestUtils.setField(source, "id", 99);
+        source.setType("A1C");
+        source.setDemographicId(7);
+        source.setProviderNo("0");
+        source.setDataField("6.4");
+        source.setMeasuringInstruction("Lab");
+        source.setComments("comment");
+        source.setDateObserved(new java.util.Date(1_700_000_000_000L));
+        source.setAppointmentNo(12);
+        source.setCreateDate(new java.util.Date(1_700_000_010_000L));
+
+        FiledMeasurementDto dto = new FiledMeasurementDto(source, Map.of("lab_no", "101"));
+        source.setDataField("mutated");
+        source.getDateObserved().setTime(0L);
+        source.getCreateDate().setTime(0L);
+
+        Measurement copy = dto.newTransientMeasurement();
+        assertThat(copy.getId()).isNull();
+        assertThat(copy.getType()).isEqualTo("A1C");
+        assertThat(copy.getDemographicId()).isEqualTo(7);
+        assertThat(copy.getProviderNo()).isEqualTo("0");
+        assertThat(copy.getDataField()).isEqualTo("6.4");
+        assertThat(copy.getMeasuringInstruction()).isEqualTo("Lab");
+        assertThat(copy.getComments()).isEqualTo("comment");
+        assertThat(copy.getDateObserved()).isEqualTo(new java.util.Date(1_700_000_000_000L));
+        assertThat(copy.getAppointmentNo()).isEqualTo(12);
+        assertThat(copy.getCreateDate()).isEqualTo(new java.util.Date(1_700_000_010_000L));
+
+        // Null dates must also copy cleanly without NPE.
+        Measurement withNullDates = new Measurement();
+        withNullDates.setDateObserved(null);
+        withNullDates.setCreateDate(null);
+        Measurement nullDatesCopy = new FiledMeasurementDto(withNullDates, Map.of()).newTransientMeasurement();
+        assertThat(nullDatesCopy.getDateObserved()).isNull();
+        assertThat(nullDatesCopy.getCreateDate()).isNull();
+    }
+
+    @Test
+    void shouldRecogniseEveryWayTheDatabaseRefusesALock_inTheCauseChain() {
+        var driver = new java.sql.SQLTransactionRollbackException("deadlock", "40001", 1213);
+        assertThat(LabMeasurementFilingService.isLockFailure(new RuntimeException(new RuntimeException(driver))))
+                .isTrue();
+        assertThat(LabMeasurementFilingService.isLockFailure(
+                new RuntimeException(new java.sql.SQLException("lock wait timeout", "HY000", 1205)))).isTrue();
+        assertThat(LabMeasurementFilingService.isLockFailure(
+                new jakarta.persistence.LockTimeoutException("timeout"))).isTrue();
+        assertThat(LabMeasurementFilingService.isLockFailure(
+                new org.hibernate.PessimisticLockException("lock", new java.sql.SQLException(), "select"))).isTrue();
+        assertThat(LabMeasurementFilingService.isLockFailure(
+                new org.hibernate.exception.LockAcquisitionException("deadlock", new java.sql.SQLException())))
+                .isTrue();
+        assertThat(LabMeasurementFilingService.isLockFailure(
+                new org.hibernate.exception.LockTimeoutException("timeout", new java.sql.SQLException()))).isTrue();
+        // Either vendor code alone is enough, whatever the state.
+        assertThat(LabMeasurementFilingService.isLockFailure(new java.sql.SQLException("deadlock", "HY000", 1213)))
+                .isTrue();
+        // Neither another SQL error, nor a failure with no lock anywhere in its chain, nor a cause cycle.
+        assertThat(LabMeasurementFilingService.isLockFailure(
+                new RuntimeException(new java.sql.SQLException("duplicate", "23000", 1062)))).isFalse();
+        assertThat(LabMeasurementFilingService.isLockFailure(new IllegalStateException("x"))).isFalse();
+        assertThat(LabMeasurementFilingService.isLockFailure(null)).isFalse();
+        var a = new RuntimeException("a");
+        var b = new RuntimeException("b", a);
+        a.initCause(b);
+        assertThat(LabMeasurementFilingService.isLockFailure(a)).isFalse();
+    }
+
+    @Test
+    void shouldStopRetryingAndKeepTheInterrupt_whenTheBackoffIsInterrupted() {
+        when(locks.lockByAccession("ACC-1")).thenThrow(new jakarta.persistence.PersistenceException(
+                new jakarta.persistence.PessimisticLockException("deadlock")));
+        var filingService = service("101");
+        var dto = filing("101", 7, false);
+        Thread.currentThread().interrupt();
+        try {
+            assertThatThrownBy(() -> filingService.file(dto))
+                    .isInstanceOf(jakarta.persistence.PersistenceException.class);
+
+            assertThat(Thread.currentThread().isInterrupted()).isTrue();
+            verify(transactions, times(1)).getTransaction(any());
+        } finally {
+            Thread.interrupted();
+        }
+    }
+
+    @Test
+    void shouldNotFileUntilTheUploadCommits_whenATransactionIsActive() {
+        inTransactionWithSynchronization();
+        var service = service("101");
+
+        service.fileAfterCommit(filing("101", 7, false));
+
+        verifyNoInteractions(locks, measurementDao, measurementsExtDao);
+        commit();
+        verify(measurementDao).persist(any(Measurement.class));
+    }
+
+    @Test
+    void shouldFileNothing_whenTheUploadRollsBack() {
+        inTransactionWithSynchronization();
+
+        service("101").fileAfterCommit(filing("101", 7, false));
+        for (TransactionSynchronization synchronization : TransactionSynchronizationManager.getSynchronizations()) {
+            synchronization.afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK);
+        }
+
+        verifyNoInteractions(locks, measurementDao, measurementsExtDao);
+    }
+
+    @Test
+    void shouldFileAtOnceAndThrow_whenNoTransactionIsActive() {
+        doThrow(new IllegalStateException("broken")).when(measurementDao).persist(any(Measurement.class));
+        var filingService = service("101");
+        var dto = filing("101", 7, false);
+
+        assertThatThrownBy(() -> filingService.fileAfterCommit(dto))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void shouldLogAuditAndContinueWithTheNextLab_whenAFilingAfterCommitFails() {
+        doThrow(new IllegalStateException("Result 7.2 mmol/L for John Doe")).when(measurementDao)
+                .persist(org.mockito.ArgumentMatchers.argThat((io.github.carlos_emr.carlos.commn.model.AbstractModel<?> m) ->
+                        m instanceof Measurement x && "first".equals(x.getDataField())));
+        inTransactionWithSynchronization();
+        var service = service("101");
+        Measurement first = new Measurement();
+        first.setDataField("first");
+        service.fileAfterCommit(new LabMeasurementFilingDto("101", 7, false, "ACC-1", null,
+                List.of(new FiledMeasurementDto(first, Map.of()))));
+        service.fileAfterCommit(filing("101", 7, false));
+
+        try (LogCapture log = LogCapture.forLogger(LabMeasurementFilingService.class)) {
+            commit();
+
+            assertThat(log.messages()).anySatisfy(message -> assertThat(message)
+                    .contains("101").contains("re-match the lab").doesNotContain("mmol").doesNotContain("John Doe"));
+        }
+        // The second lab's callback still ran and filed.
+        verify(measurementDao, times(2)).persist(any(Measurement.class));
+        logActionMock.verify(() -> LogAction.addLog(anyString(), anyString(), anyString(), anyString(), any(), anyString(),
+                anyString()));
+    }
+
+    @Test
+    void shouldNotThrow_whenTheAuditRowItselfFails() {
+        doThrow(new IllegalStateException("broken")).when(measurementDao).persist(any(Measurement.class));
+        logActionMock.when(() -> LogAction.addLog(anyString(), anyString(), anyString(), anyString(), any(), anyString(),
+                anyString())).thenThrow(new IllegalStateException("audit down"));
+        inTransactionWithSynchronization();
+        service("101").fileAfterCommit(filing("101", 7, false));
+
+        try (LogCapture log = LogCapture.forLogger(LabMeasurementFilingService.class)) {
+            org.assertj.core.api.Assertions.assertThatCode(LabMeasurementFilingServiceUnitTest::commit)
+                    .doesNotThrowAnyException();
+
+            assertThat(log.messages()).anySatisfy(message -> assertThat(message).contains("101"));
+        }
+    }
+
+    @Test
+    void shouldRethrowAVirtualMachineError_whenFilingAfterCommit() {
+        doThrow(new OutOfMemoryError("heap")).when(measurementDao).persist(any(Measurement.class));
+        inTransactionWithSynchronization();
+        service("101").fileAfterCommit(filing("101", 7, false));
+
+        assertThatThrownBy(LabMeasurementFilingServiceUnitTest::commit).isInstanceOf(OutOfMemoryError.class);
+    }
+
+    @Test
+    void shouldSwallowAnyOtherError_whenFilingAfterCommit() {
+        doThrow(new AssertionError("boom")).when(measurementDao).persist(any(Measurement.class));
+        inTransactionWithSynchronization();
+        service("101").fileAfterCommit(filing("101", 7, false));
+
+        try (LogCapture log = LogCapture.forLogger(LabMeasurementFilingService.class)) {
+            org.assertj.core.api.Assertions.assertThatCode(LabMeasurementFilingServiceUnitTest::commit)
+                    .doesNotThrowAnyException();
+
+            assertThat(log.messages()).anySatisfy(message -> assertThat(message).contains("AssertionError"));
+        }
+    }
+
+    @Test
+    void shouldSayInfoNotError_whenTheReportWasRemovedBeforeTheCallbackRan() {
+        when(locks.lockByLabNumber(101)).thenReturn(null);
+        inTransactionWithSynchronization();
+        service("101").fileAfterCommit(filing("101", 7, false));
+
+        try (LogCapture log = LogCapture.forLogger(LabMeasurementFilingService.class)) {
+            commit();
+
+            assertThat(log.events()).noneMatch(event -> event.getLevel().isMoreSpecificThan(org.apache.logging.log4j.Level.ERROR));
+            assertThat(log.messages()).anySatisfy(message -> assertThat(message).contains("removed"));
+        }
+        verifyNoInteractions(measurementDao, measurementsExtDao);
+    }
+
+    @Test
+    void shouldTerminateLogging_whenAfterCommitFailureHasACyclicCauseChain() {
+        var first = new IllegalStateException("outer");
+        var second = new IllegalArgumentException("inner", first);
+        first.initCause(second);
+        doThrow(first).when(measurementDao).persist(any(Measurement.class));
+        inTransactionWithSynchronization();
+        service("101").fileAfterCommit(filing("101", 7, false));
+
+        try (LogCapture log = LogCapture.forLogger(LabMeasurementFilingService.class)) {
+            org.assertj.core.api.Assertions.assertThatCode(LabMeasurementFilingServiceUnitTest::commit)
+                    .doesNotThrowAnyException();
+
+            assertThat(log.messages()).anySatisfy(message -> assertThat(message)
+                    .contains("101").contains("IllegalStateException").contains("IllegalArgumentException"));
+        }
+    }
+}
