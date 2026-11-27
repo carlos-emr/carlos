@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "147ecaa50067dccce3b902a68791a5ff219ba5ed",
+  "comparisonSha256": "6f5e960b988fdc271f79489271d35cb899521ad1134696e113f5916c9f292c03",
+  "baselineCommit": "ceb4bae21913c611ec8e96d683dabe1a048a8289",
+  "baselineSourceTree": "147ecaa50067dccce3b902a68791a5ff219ba5ed",
+  "baselineReportSha256": "d4e92f0e73dfed09725f3269264d7c7ba3557532df54ffc089e01a5af77e0274",
+  "baselineLane": "PR #6391 FOCUSED run (Maven, JDK 25.0.5, JaCoCo 0.8.16, H2) of the lab filing, version filing, lab unlink, CML, chain-lock DAO and rematch unit and integration tests on this branch at its head (release/2026.08 a885bde411 plus the #6391 commits). Rows are measured with the checker's measure() from target/site/jacoco/jacoco.xml for the five Java sources of the change only; it is not a full-suite run and qualifies no other source. The MariaDB class does not run here.",
+  "baselineTestCounts": {
+    "tests": 290,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "f0d466303ad6002097ac647aa2030073affb906647f6d253c2b3ff1392881d4d",
+  "baselineTestReportsHashFormat": "SHA-256 of compact, key-sorted JSON mapping each Surefire XML filename to the SHA-256 of its unchanged bytes",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/Hl7textResultsData.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "5bdd72d6438eabdeee389decf597f42b19637e3c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/LabMeasurementFilingService.java": {
+      "lines": 99.13793103448276,
+      "instructions": 99.7971602434077,
+      "branches": 95.58823529411765,
+      "sourceBlob": "8512302b412353092dea03ca03c3b9d29e88463b"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/LabMeasurementFilingDto.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "2283ec606e92f8a0ccf8e4c176662df8ae4108c9"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/FiledMeasurementDto.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "08fc40c156ae8825ad264f8347a55af5fafcfe87"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/Hl7TextInfoChainLockDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "3130f9fdd8a876a146a4f1dc9b7a84a652d73527"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/Hl7TextInfoChainLockDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "e0774fd59b1bfb103bd87f8c8cf0912f0265472f"
+    }
+  },
+  "exclusions": {},
+  "exclusionSourceBlobs": {},
+  "zeroCoverageWaivers": {}
+}

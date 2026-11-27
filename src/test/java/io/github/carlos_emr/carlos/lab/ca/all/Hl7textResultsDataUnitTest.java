@@ -80,9 +80,15 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
     private final Map<Field, Object> originalDaos = new LinkedHashMap<>();
     private MeasurementDao measurementDao;
+    private final java.util.concurrent.atomic.AtomicInteger storedIds = new java.util.concurrent.atomic.AtomicInteger();
+    /** Whether the one result {@code fileResult} reads is a blocked test result. */
+    private boolean blockedResult;
 
     @BeforeEach
     void setUpDaos() throws Exception {
+        // Measurement mapping and stored HL7 messages are looked up through SpringUtils at call time.
+        createAndRegisterMock(MeasurementMapDao.class);
+        createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao.class);
         // Register all beans before the class initializes, then replace any cached by earlier tests.
         for (Field field : Hl7textResultsData.class.getDeclaredFields()) {
             if (Modifier.isStatic(field.getModifiers()) && field.getName().endsWith("Dao")) {
@@ -97,10 +103,26 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
             }
         }
 
-        measurementDao = (MeasurementDao) mockedBeans.get(MeasurementDao.class);
+        // Filing is LabMeasurementFilingService's (#6391): built over these mocks, with a transaction
+        // manager that does nothing, and found by Hl7textResultsData through SpringUtils as in production.
+        measurementDao = createAndRegisterMock(MeasurementDao.class);
+        var chainLocks = createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoChainLockDao.class);
+        var extensions = createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao.class);
+        var deleted = createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.MeasurementsDeletedDao.class);
+        var transactions = mock(org.springframework.transaction.PlatformTransactionManager.class);
+        var status = mock(org.springframework.transaction.TransactionStatus.class);
+        when(transactions.getTransaction(any())).thenReturn(status);
+        registerMock(LabMeasurementFilingService.class, new LabMeasurementFilingService(
+                transactions, chainLocks, measurementDao, extensions, deleted));
+        when(chainLocks.lockByLabNumber(anyInt())).thenReturn(new io.github.carlos_emr.carlos.commn.model.Hl7TextInfo());
+        // The report's own row, which names the accession and filler number that lock its chain.
+        var infos = (io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao) mockedBeans.get(
+                io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao.class);
+        when(infos.findLabId(anyInt())).thenReturn(new io.github.carlos_emr.carlos.commn.model.Hl7TextInfo());
         doAnswer(invocation -> {
             Measurement measurement = invocation.getArgument(0);
-            ReflectionTestUtils.setField(measurement, "id", 1);
+            // A different id for each stored measurement: an extension attached to the wrong one is noticed.
+            ReflectionTestUtils.setField(measurement, "id", storedIds.incrementAndGet());
             return null;
         }).when(measurementDao).persist(any(Measurement.class));
 
@@ -249,6 +271,171 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
                     .isInstanceOf(IllegalStateException.class);
         }
         verifyNoInteractions(measurementDao, mockedBeans.get(MeasurementsDeletedDao.class));
+    }
+
+    @Test
+    @DisplayName("should refuse a report that is not stored, before anything is filed")
+    void shouldRefuse_whenTheReportIsNotStored() {
+        var infos = (io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao) mockedBeans.get(
+                io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao.class);
+        when(infos.findLabId(4616)).thenReturn(null);
+        MessageHandler handler = mock(MessageHandler.class);
+        try (MockedStatic<Factory> factory = mockStatic(Factory.class)) {
+            factory.when(() -> Factory.getHandler("4616")).thenReturn(handler);
+
+            assertThatThrownBy(() -> Hl7textResultsData.populateMeasurementsTable("4616", "42"))
+                    .isInstanceOf(IllegalStateException.class);
+        }
+        verifyNoInteractions(measurementDao);
+    }
+
+    @Test
+    @DisplayName("should ask the current context's DAO for the report's row, not one cached when the class loaded")
+    void shouldAskTheCurrentContextsDao_whenAStaleOneIsCachedInTheStaticField() throws Exception {
+        // What another test class leaves behind when it loaded Hl7textResultsData first (a mocked or
+        // another context's DAO): it knows no report. The report's row is read from the registered bean.
+        Field cached = Hl7textResultsData.class.getDeclaredField("hl7TxtInfoDao");
+        cached.setAccessible(true);
+        var stale = mock(io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao.class);
+        cached.set(null, stale);
+        MessageHandler handler = mock(MessageHandler.class);
+        try (MockedStatic<Factory> factory = mockStatic(Factory.class);
+             var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
+            factory.when(() -> Factory.getHandler("4616")).thenReturn(handler);
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("4616");
+
+            Hl7textResultsData.populateMeasurementsTable(" 4616 ", "42");
+        }
+        // The stale DAO was never asked, and the report was filed (restoreDaos puts the original field back).
+        verifyNoInteractions(stale);
+        verify(measurementDao).findByValue("lab_no", "4616");
+    }
+
+    private static io.github.carlos_emr.carlos.commn.model.Hl7TextInfo infoOf(int labNumber, String fillerOrderNumber) {
+        var info = new io.github.carlos_emr.carlos.commn.model.Hl7TextInfo();
+        info.setLabNumber(labNumber);
+        info.setFillerOrderNum(fillerOrderNumber);
+        return info;
+    }
+
+    @Test
+    @DisplayName("should list every version of a CLS report found by accession, in order, without the filler lookup")
+    void shouldListEveryVersionInOrder_whenAClsReportHasSeveralVersions() {
+        var infos = (io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao) mockedBeans.get(
+                io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao.class);
+        when(infos.findByLabIdViaMagic(any())).thenReturn(java.util.List.of(
+                new Object[]{infoOf(30, "F1"), infoOf(30, "F1")}, new Object[]{infoOf(20, "F1"), infoOf(20, "F1")}));
+
+        assertThat(Hl7textResultsData.getMatchingLabs_CLS("20")).isEqualTo("20,30");
+        verify(infos, never()).findByFillerOrderNumber(any());
+    }
+
+    @Test
+    @DisplayName("should add the reports sharing the filler order number, when only the CLS report itself is found")
+    void shouldAddTheFillerOrderSiblings_whenOnlyTheClsReportItselfIsFound() {
+        var infos = (io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao) mockedBeans.get(
+                io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao.class);
+        // singletonList: List.of(oneArray) would spread the array into the list's elements.
+        when(infos.findByLabIdViaMagic(any())).thenReturn(java.util.Collections.singletonList(
+                new Object[]{infoOf(20, "GTT-1"), infoOf(20, "GTT-1")}));
+        // The real query returns every row with that filler number, the report itself included.
+        when(infos.findByFillerOrderNumber("GTT-1")).thenReturn(
+                java.util.List.of(infoOf(20, "GTT-1"), infoOf(22, "GTT-1"), infoOf(21, "GTT-1")));
+
+        String chain = Hl7textResultsData.getMatchingLabs_CLS("20");
+        // What this test is about: the chain is exactly the reports 20, 21 and 22, whatever the repeats.
+        assertThat(new java.util.TreeSet<>(java.util.Arrays.asList(chain.split(",")))).containsExactly("20", "21", "22");
+        // KNOWN ISSUE (existing behaviour, not fixed here): the report is already in the list from the
+        // accession pass and the filler-order query returns it again, so it shows twice. #6391 does not
+        // change that; when it is de-duplicated, only this labelled line changes.
+        assertThat(chain).isEqualTo("20,20,21,22");
+    }
+
+    @Test
+    @DisplayName("should read the CLS chain from the current context's DAO, not one cached when the class loaded")
+    void shouldReadTheClsChainFromTheCurrentContext_whenAStaleDaoIsCached() throws Exception {
+        Field cached = Hl7textResultsData.class.getDeclaredField("hl7TxtInfoDao");
+        cached.setAccessible(true);
+        var stale = mock(io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao.class);
+        cached.set(null, stale);
+        var infos = (io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao) mockedBeans.get(
+                io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao.class);
+        when(infos.findByLabIdViaMagic(any())).thenReturn(java.util.List.of(
+                new Object[]{infoOf(30, "F1"), infoOf(30, "F1")}, new Object[]{infoOf(20, "F1"), infoOf(20, "F1")}));
+
+        assertThat(Hl7textResultsData.getMatchingLabs_CLS("20")).isEqualTo("20,30");
+        verifyNoInteractions(stale);
+    }
+
+    @Test
+    @DisplayName("should read the chain's stored message and rows from the current context, not a cached DAO")
+    void shouldReadTheChainFromTheCurrentContext_whenStaleDaosAreCached() throws Exception {
+        Field infoField = Hl7textResultsData.class.getDeclaredField("hl7TxtInfoDao");
+        infoField.setAccessible(true);
+        var staleInfo = mock(io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao.class);
+        infoField.set(null, staleInfo);
+        var infos = (io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao) mockedBeans.get(
+                io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao.class);
+        var messages = (io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao) mockedBeans.get(
+                io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao.class);
+        var clsMessage = new io.github.carlos_emr.carlos.commn.model.Hl7TextMessage();
+        clsMessage.setType("CLS");
+        when(messages.find(20)).thenReturn(clsMessage);
+        when(infos.findByLabIdViaMagic(any())).thenReturn(java.util.Collections.singletonList(
+                new Object[]{infoOf(20, "F1"), infoOf(20, "F1")}));
+        when(infos.findByFillerOrderNumber("F1")).thenReturn(java.util.List.of(infoOf(20, "F1")));
+
+        // A CLS report is routed to the CLS reader after the stored message is read from SpringUtils.
+        String chain = Hl7textResultsData.getMatchingLabs("20");
+        // What this test is about: the chain is exactly the report 20, read from the registered DAOs.
+        assertThat(new java.util.TreeSet<>(java.util.Arrays.asList(chain.split(",")))).containsExactly("20");
+        // KNOWN ISSUE (existing behaviour, not fixed here): the same repeat as in the CLS case above.
+        assertThat(chain).isEqualTo("20,20");
+        verifyNoInteractions(staleInfo);
+        verify(messages).find(20);
+    }
+
+    @Test
+    @DisplayName("should return the CLS report itself, when nothing else is found for it")
+    void shouldReturnTheReportItself_whenNothingIsFoundForAClsReport() {
+        var infos = (io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao) mockedBeans.get(
+                io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao.class);
+        when(infos.findByLabIdViaMagic(any())).thenReturn(java.util.List.<Object[]>of());
+
+        assertThat(Hl7textResultsData.getMatchingLabs_CLS("20")).isEqualTo("20");
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.NullSource
+    @ValueSource(strings = {"abc", "0", "-3", " "})
+    @DisplayName("should replace only the report's own values, when the patient number is not usable")
+    void shouldReplaceOnlyTheReportsOwnValues_whenThePatientNumberIsNotUsable(String patient) {
+        MessageHandler handler = mock(MessageHandler.class);
+        try (MockedStatic<Factory> factory = mockStatic(Factory.class);
+             var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
+            factory.when(() -> Factory.getHandler("4616")).thenReturn(handler);
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("4616");
+
+            Hl7textResultsData.populateMeasurementsTable("4616", patient);
+        }
+        verify(measurementDao).findByValue("lab_no", "4616");
+    }
+
+    @Test
+    @DisplayName("should file the blocked marker with the result's other values")
+    void shouldFileTheBlockedMarker_whenTheResultIsBlocked() {
+        blockedResult = true;
+        assertThat(fileResult("6.1", ".*", "2026-03-10 12:00:00", LocalDateTime.parse("2026-03-10T14:00:00")))
+                .isNotNull();
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<java.util.List<io.github.carlos_emr.carlos.commn.model.MeasurementsExt>> filed =
+                ArgumentCaptor.forClass(java.util.List.class);
+        verify((io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao) mockedBeans.get(
+                io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao.class))
+                .batchPersistAtomically(filed.capture(), org.mockito.ArgumentMatchers.anyInt());
+        assertThat(filed.getValue()).extracting(io.github.carlos_emr.carlos.commn.model.MeasurementsExt::getKeyVal)
+                .contains("blocked");
     }
 
     private static Date inDefaultTimeZone(LocalDateTime timestamp) {
@@ -438,10 +625,10 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
                 ArgumentCaptor.forClass(java.util.List.class);
         verify((MeasurementsDeletedDao) mockedBeans.get(MeasurementsDeletedDao.class)).batchPersistAtomically(archived.capture());
         assertThat(archived.getValue()).hasSize(1);
+        // Every version's values are looked up, the report's own included (#6391: a repeat must not double them).
         for (String other : chain.split(",")) {
-            if (!other.equals("4616")) verify(measurementDao).findByValue("lab_no", other);
+            verify(measurementDao).findByValue("lab_no", other);
         }
-        verify(measurementDao, never()).findByValue("lab_no", "4616");
     }
 
     @Test
@@ -449,6 +636,7 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
     void shouldReplaceThePartial_whenTheFinalFollowsIt() {
         Measurement partial = new Measurement();
         partial.setDataField("5.1");
+        // This patient's value: a value with no patient is never replaced (#6391).
         partial.setDemographicId(42);
         when(measurementDao.findByValue("lab_no", "1111")).thenReturn(java.util.List.of(partial));
         Measurement filed;
@@ -470,8 +658,12 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
             assertThat(fileResult("6.1", ".*", "2026-03-10 12:00:00", LocalDateTime.parse("2026-03-10T14:00:00")))
                     .isNotNull();
         }
-        verify(measurementDao, never()).findByValue(any(), any());
-        verifyNoInteractions(mockedBeans.get(MeasurementsDeletedDao.class));
+        // Only the report's own values are looked up (a repeat must not double them), and none is archived.
+        verify(measurementDao).findByValue("lab_no", "4616");
+        verify(measurementDao, never()).findByValue("lab_no", "1111");
+        verify(measurementDao).batchRemoveAtomically(java.util.List.of());
+        verify((MeasurementsDeletedDao) mockedBeans.get(MeasurementsDeletedDao.class))
+                .batchPersistAtomically(java.util.List.of());
     }
 
     @Test
@@ -530,7 +722,8 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         assertThat(filed).isNotNull();
         assertThat(filed.getDataField()).isEqualTo("12.7");
         verify(measurementDao).findByValue("lab_no", "2222");
-        verify(measurementDao, never()).findByValue("lab_no", "4616");
+        // The report's own values are looked up too, so that a repeat does not double them (#6391).
+        verify(measurementDao).findByValue("lab_no", "4616");
     }
 
     @Test
@@ -639,10 +832,13 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
             assertThat(fileResult("4.3", ".*", "2026-03-10 07:00:00",
                     LocalDateTime.parse("2026-03-10T14:00:00"))).isNull();
         }
+        // The rows are built before the chain is read under the lock, so the measurement map is read; nothing is
+        // archived or filed.
+        verify((MeasurementMapDao) mockedBeans.get(MeasurementMapDao.class), org.mockito.Mockito.atLeastOnce())
+                .findMeasurements(any(), any(), any());
         org.mockito.Mockito.verifyNoInteractions(measurementDao,
                 mockedBeans.get(io.github.carlos_emr.carlos.commn.dao.MeasurementsDeletedDao.class),
-                mockedBeans.get(io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao.class),
-                mockedBeans.get(MeasurementMapDao.class));
+                mockedBeans.get(io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao.class));
     }
 
     /** The HL7_LAB_FILE_TEXT_RESULTS value a test sets before filing; {@code null} leaves the property unset. */
@@ -690,6 +886,7 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         when(handler.getOBXName(0, 0)).thenReturn("Hemoglobin A1C");
         when(handler.getOBXIdentifier(0, 0)).thenReturn("3767");
         when(handler.getOBXReferenceRange(0, 0)).thenReturn("");
+        when(handler.isTestResultBlocked(0, 0)).thenReturn(blockedResult);
         when(handler.getTimeStamp(0, 0)).thenReturn(observationTimestamp);
 
         CarlosProperties properties = mock(CarlosProperties.class);

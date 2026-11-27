@@ -10,7 +10,7 @@
 # Adapted for CARLOS by Peter Hutten-Czapski Aug 2026
 # Version 1.0.6 Sept 15, 2026
 
-<<'###BLOCK-COMMENT'
+: <<'DOCUMENTATION'
 INSTRUCTIONS
 * Place this script into a DIRECTORY in your server and make it executable
 
@@ -49,7 +49,7 @@ https://api.bc.excelleris.com/hl7pull.aspx
 * Setup automated uploading for the received files eg hl7_file_management
 https://bitbucket.org/oscaremr/hl7_file_management/src/master/
 
-###BLOCK-COMMENT
+DOCUMENTATION
 
 # Script starts here
 set -e

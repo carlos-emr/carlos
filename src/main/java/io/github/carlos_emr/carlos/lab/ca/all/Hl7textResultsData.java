@@ -49,10 +49,7 @@ import io.github.carlos_emr.carlos.commn.dao.ConsultResponseDocDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao;
 import io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao;
-import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementMapDao;
-import io.github.carlos_emr.carlos.commn.dao.MeasurementsDeletedDao;
-import io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao;
 import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.commn.model.ConsultResponseDoc;
@@ -62,8 +59,6 @@ import io.github.carlos_emr.carlos.commn.model.Hl7TextMessage;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.commn.model.MeasurementMap;
 import io.github.carlos_emr.carlos.commn.model.MeasurementType;
-import io.github.carlos_emr.carlos.commn.model.MeasurementsDeleted;
-import io.github.carlos_emr.carlos.commn.model.MeasurementsExt;
 import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -83,19 +78,33 @@ public class Hl7textResultsData {
     static final String FILE_TEXT_RESULTS_PROPERTY = "HL7_LAB_FILE_TEXT_RESULTS";
 
     private static Logger logger = MiscUtils.getLogger();
-    private static MeasurementsDeletedDao measurementsDeletedDao = (MeasurementsDeletedDao) SpringUtils.getBean(MeasurementsDeletedDao.class);
-    private static MeasurementDao measurementDao = SpringUtils.getBean(MeasurementDao.class);
-    private static MeasurementsExtDao measurementsExtDao = SpringUtils.getBean(MeasurementsExtDao.class);
-    private static MeasurementMapDao measurementMapDao = SpringUtils.getBean(MeasurementMapDao.class);
     private static ConsultDocsDao consultDocsDao = SpringUtils.getBean(ConsultDocsDao.class);
     private static ConsultResponseDocDao consultResponseDocDao = SpringUtils.getBean(ConsultResponseDocDao.class);
     private static Hl7TextInfoDao hl7TxtInfoDao = SpringUtils.getBean(Hl7TextInfoDao.class);
-    private static Hl7TextMessageDao hl7TxtMsgDao = SpringUtils.getBean(Hl7TextMessageDao.class);
     private static PatientLabRoutingDao patientLabRoutingDao = SpringUtils.getBean(PatientLabRoutingDao.class);
     private static EFormDocsDao eformDocsDao = SpringUtils.getBean(EFormDocsDao.class);
 
     private Hl7textResultsData() {
         // no one should instantiate this
+    }
+
+    // The reads that decide what a report files look their DAO up here, when they run, and not in the
+    // static fields above: the report's own row, the chain reader (getMatchingLabs and its CLS twin,
+    // which the display code shares: same bean, same behaviour), the stored source of a CML version
+    // and the measurement mapping. A static field is bound when this class loads, which in a test JVM
+    // may be in another class's mocked or different Spring context, and a DAO of another context cannot
+    // see the row the current transaction has just written (#6391: "Lab report is not stored" in an
+    // unrelated test class). The display and list readers further down keep their static fields.
+    private static Hl7TextInfoDao currentInfoDao() {
+        return SpringUtils.getBean(Hl7TextInfoDao.class);
+    }
+
+    private static Hl7TextMessageDao currentMessageDao() {
+        return SpringUtils.getBean(Hl7TextMessageDao.class);
+    }
+
+    private static MeasurementMapDao currentMeasurementMapDao() {
+        return SpringUtils.getBean(MeasurementMapDao.class);
     }
 
     /**
@@ -120,58 +129,46 @@ public class Hl7textResultsData {
      * {@link #currentVersion(String[], boolean)}). A report that is not current is a late delivery of
      * history: nothing is archived and nothing is filed for it.</p>
      *
+     * <p>The filing is {@link LabMeasurementFilingService}'s (#6391): one transaction, serialized per
+     * lab chain by row locks, that archives every version's values (this report's own included) and
+     * writes one complete set. Called inside a transaction, as every upload entry does, it files
+     * after that transaction commits, in one of its own; a failure then is retried, logged and
+     * audited, and does not undo the upload. Called with no transaction it files at once and
+     * throws.</p>
+     *
      * @param lab_no the report to file: at upload, the report just received
      * @param demographic_no the patient the report was matched to
-     * @throws IllegalArgumentException if the patient identifier is not a positive integer
-     * @throws IllegalStateException if the report cannot be read or is missing from its own chain;
-     *                               nothing has been archived when it is thrown
+     * @throws IllegalStateException if the report cannot be read or stored; with no transaction
+     *                               around the call also if it is missing from its own chain.
+     *                               Nothing has been archived when it is thrown
      */
     public static void populateMeasurementsTable(String lab_no, String demographic_no) {
-        Integer patient = ConversionUtils.fromIntString(demographic_no);
-        if (patient <= 0) {
-            throw new IllegalArgumentException("A positive patient number is required to file lab measurements");
-        }
-        MessageHandler h = Factory.getHandler(lab_no);
+        String labNo = lab_no.trim();
+        MessageHandler h = Factory.getHandler(labNo);
         if (h == null) {
             // Refuse before the previous version's measurements are archived: with nothing
             // readable to file in their place, the chart would be left with neither.
             throw new IllegalStateException("Lab report could not be read; its measurements were not filed");
         }
-        //Check for other versions of this lab
-        String[] matchingLabs = getMatchingLabs(lab_no, patient).split(",");
-
-        if (!java.util.Arrays.asList(matchingLabs).contains(lab_no)) {
-            throw new IllegalStateException("The incoming lab is absent from its resolved version chain");
+        // The report's own row names the accession and filler order number that lock its chain.
+        Hl7TextInfo own = currentInfoDao().findLabId(Integer.parseInt(labNo));
+        if (own == null) {
+            throw new IllegalStateException("Lab report is not stored; its measurements were not filed");
         }
-        // A late historical delivery must not replace the current version's measurements.
-        if (!lab_no.equals(currentVersion(matchingLabs, h instanceof io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler))) {
-            return;
-        }
-
-        // The current version replaces every other version of its report, not only the one sorted
-        // just before it: the version whose values are on the chart is the previous delivery,
-        // wherever the chain's order puts it, and an older defect may have left two versions filed
-        // (#5820). Archiving only the neighbour left both versions' values on the chart.
-        java.util.Set<String> superseded = new java.util.LinkedHashSet<>(java.util.Arrays.asList(matchingLabs));
-        superseded.remove(lab_no);
-        if (!superseded.isEmpty()) {
-            // The chain is resolved by accession number alone, so a recycled or colliding accession
-            // can put another patient's report in it. Only this patient's values are superseded.
-            List<MeasurementsDeleted> measurementsDeletedList = new ArrayList<>();
-            List<Measurement> measurementsToRemove = new ArrayList<>();
-            for (String previous : superseded) {
-                for (Measurement m : measurementDao.findByValue("lab_no", previous)) {
-                    if (!patient.equals(m.getDemographicId())) {
-                        continue;
-                    }
-                    measurementsDeletedList.add(new MeasurementsDeleted(m));
-                    measurementsToRemove.add(m);
-                }
-            }
-            measurementsDeletedDao.batchPersistAtomically(measurementsDeletedList);
-            measurementDao.batchRemoveAtomically(measurementsToRemove);
-        }
-        fileMeasurements(h, lab_no, patient);
+        // Parsing and building the rows touch no measurement tables, so they happen before any lock.
+        // The chain check ("absent from its chain", "not the current version"), the archive of the
+        // replaced versions' values and the filing itself run in LabMeasurementFilingService, under
+        // the chain's row locks (#6391), after the upload that called this has committed.
+        LabMeasurementFilingDto filing = new LabMeasurementFilingDto(
+                labNo,
+                patientNumber(demographic_no),
+                h instanceof io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler,
+                own.getAccessionNumber(),
+                own.getFillerOrderNum(),
+                buildFiledMeasurements(h, labNo, demographic_no));
+        // Looked up here, in the method, never held in a static field: a static field would resolve at
+        // class load, before the Spring context exists in tests and with more than one context.
+        SpringUtils.getBean(LabMeasurementFilingService.class).fileAfterCommit(filing);
     }
 
     /**
@@ -265,8 +262,11 @@ public class Hl7textResultsData {
         return newest;
     }
 
-    /** Files every viewable result of one report as a measurement. */
-    private static void fileMeasurements(MessageHandler h, String lab_no, Integer patient) {
+    /**
+     * Builds every viewable result of one report as a measurement to file, with its extension
+     * values. Reads the report and the measurement map only; nothing is stored here.
+     */
+    static List<FiledMeasurementDto> buildFiledMeasurements(MessageHandler h, String lab_no, String demographic_no) {
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         Calendar calender = Calendar.getInstance();
         String day = Integer.toString(calender.get(Calendar.DAY_OF_MONTH));
@@ -290,7 +290,7 @@ public class Hl7textResultsData {
          */
         boolean isSearchName = Boolean.parseBoolean(CarlosProperties.getInstance().getProperty("MAP_BY_IDENTIFIER_AND_NAME", "false"));
 
-        List<MeasurementsExt> measurementsExts = new ArrayList<>();
+        List<FiledMeasurementDto> filed = new ArrayList<>();
         for (int i = 0; i < h.getOBRCount(); i++) {
             for (int j = 0; j < h.getOBXCount(i); j++) {
                 String result = h.getOBXResult(i, j);
@@ -349,7 +349,7 @@ public class Hl7textResultsData {
                         searchName = name;
                     }
 
-                    List<Object[]> measurements = measurementMapDao.findMeasurements("FLOWSHEET", identifier, searchName);
+                    List<Object[]> measurements = currentMeasurementMapDao().findMeasurements("FLOWSHEET", identifier, searchName);
 
                     if (measurements.isEmpty()) {
                         logger.debug("CODE:" + identifier + " needs to be mapped");
@@ -403,125 +403,50 @@ public class Hl7textResultsData {
                      * Remove HTML
                      */
                     m.setComments(measurementComment(comments));
-                    measurementDao.persist(m);
 
-                    int mId = m.getId();
-
-                    MeasurementsExt me = new MeasurementsExt();
-                    me.setMeasurementId(mId);
-                    me.setKeyVal("lab_no");
-                    me.setVal(lab_no);
-                    measurementsExts.add(me);
-
-                    me = new MeasurementsExt();
-                    me.setMeasurementId(mId);
-                    me.setKeyVal("abnormal");
-                    me.setVal(abnormal);
-                    measurementsExts.add(me);
-
-                    me = new MeasurementsExt();
-                    me.setMeasurementId(mId);
-                    me.setKeyVal("identifier");
-                    me.setVal(identifier);
-                    measurementsExts.add(me);
-
-                    me = new MeasurementsExt();
-                    me.setMeasurementId(mId);
-                    me.setKeyVal("name");
-                    me.setVal(name);
-                    measurementsExts.add(me);
-
-                    me = new MeasurementsExt();
-                    me.setMeasurementId(mId);
-                    me.setKeyVal("labname");
-                    me.setVal(labname);
-                    measurementsExts.add(me);
-
-                    me = new MeasurementsExt();
-                    me.setMeasurementId(mId);
-                    me.setKeyVal("accession");
-                    me.setVal(accession);
-                    measurementsExts.add(me);
-
-                    me = new MeasurementsExt();
-                    me.setMeasurementId(mId);
-                    me.setKeyVal("request_datetime");
-                    me.setVal(req_datetime);
-                    measurementsExts.add(me);
-
-                    me = new MeasurementsExt();
-                    me.setMeasurementId(mId);
-                    me.setKeyVal("datetime");
-                    me.setVal(observationDate);
-                    measurementsExts.add(me);
-
+                    // The extension values in the order they are written. "blocked" is in the same list
+                    // as the rest, so one failure rolls back all of them (it used to be persisted alone).
+                    java.util.Map<String, String> extensions = new java.util.LinkedHashMap<>();
+                    extensions.put("lab_no", lab_no);
+                    extensions.put("abnormal", abnormal);
+                    extensions.put("identifier", identifier);
+                    extensions.put("name", name);
+                    extensions.put("labname", labname);
+                    extensions.put("accession", accession);
+                    extensions.put("request_datetime", req_datetime);
+                    extensions.put("datetime", observationDate);
                     if (olis_status != null && olis_status.length() > 0) {
-                        me = new MeasurementsExt();
-                        me.setMeasurementId(mId);
-                        me.setKeyVal("olis_status");
-                        me.setVal(olis_status);
-                        measurementsExts.add(me);
+                        extensions.put("olis_status", olis_status);
                     }
-
                     if (unit != null && unit.length() > 0) {
-                        me = new MeasurementsExt();
-                        me.setMeasurementId(mId);
-                        me.setKeyVal("unit");
-                        me.setVal(unit);
-                        measurementsExts.add(me);
+                        extensions.put("unit", unit);
                     }
-
                     if (refRange[0].length() > 0) {
-                        me = new MeasurementsExt();
-                        me.setMeasurementId(mId);
-                        me.setKeyVal("range");
-                        me.setVal(refRange[0]);
-                        measurementsExts.add(me);
+                        extensions.put("range", refRange[0]);
                     } else {
-
-
                         if (refRange[1].length() > 0) {
-                            me = new MeasurementsExt();
-                            me.setMeasurementId(mId);
-                            me.setKeyVal("minimum");
-                            me.setVal(refRange[1]);
-                            measurementsExts.add(me);
+                            extensions.put("minimum", refRange[1]);
                         }
                         if (refRange[2].length() > 0) {
-                            me = new MeasurementsExt();
-                            me.setMeasurementId(mId);
-                            me.setKeyVal("maximum");
-                            me.setVal(refRange[2]);
-                            measurementsExts.add(me);
+                            extensions.put("maximum", refRange[2]);
                         }
                     }
-
                     if (blocked != null) {
-                        me = new MeasurementsExt();
-                        me.setMeasurementId(mId);
-                        me.setKeyVal("blocked");
-                        me.setVal(blocked);
-                        measurementsExtDao.persist(me);
+                        extensions.put("blocked", blocked);
                     }
-
-                    me = new MeasurementsExt();
-                    me.setMeasurementId(mId);
-                    me.setKeyVal("other_id");
-                    me.setVal(i + "-" + j);
-                    measurementsExts.add(me);
-
+                    extensions.put("other_id", i + "-" + j);
+                    // A final or corrected word result filed whole is marked as text (#6122), so the chart
+                    // and the graphs treat it as a word and not a number.
                     if (textResult) {
-                        me = new MeasurementsExt();
-                        me.setMeasurementId(mId);
-                        me.setKeyVal(MeasurementsExt.VALUE_TYPE_KEY);
-                        me.setVal(MeasurementsExt.TEXT_VALUE_TYPE);
-                        measurementsExts.add(me);
+                        extensions.put(
+                                io.github.carlos_emr.carlos.commn.model.MeasurementsExt.VALUE_TYPE_KEY,
+                                io.github.carlos_emr.carlos.commn.model.MeasurementsExt.TEXT_VALUE_TYPE);
                     }
-
+                    filed.add(new FiledMeasurementDto(m, extensions));
                 }
             }
         }
-        measurementsExtDao.batchPersistAtomically(measurementsExts, 50);
+        return filed;
     }
 
     /**
@@ -674,7 +599,7 @@ public class Hl7textResultsData {
         Hl7TextInfo self = null;
         List<Integer> idList = new ArrayList<Integer>();
 
-        for (Object[] o : hl7TxtInfoDao.findByLabIdViaMagic(ConversionUtils.fromIntString(lab_no))) {
+        for (Object[] o : currentInfoDao().findByLabIdViaMagic(ConversionUtils.fromIntString(lab_no))) {
             Hl7TextInfo a = (Hl7TextInfo) o[0];
             int labNo = a.getLabNumber();
             if (lab_no.equals(String.valueOf(labNo))) {
@@ -689,7 +614,7 @@ public class Hl7textResultsData {
         //they come in with different accessions but same filler order no.
         if (self != null && ret.length() > 0 && ret.substring(1).indexOf(",") == -1) {
             ret = "";
-            for (Hl7TextInfo info : hl7TxtInfoDao.findByFillerOrderNumber(self.getFillerOrderNum())) {
+            for (Hl7TextInfo info : currentInfoDao().findByFillerOrderNumber(self.getFillerOrderNum())) {
                 ret = ret + "," + info.getLabNumber();
                 idList.add(info.getLabNumber());
             }
@@ -762,8 +687,7 @@ public class Hl7textResultsData {
         String ret = "";
         int monthsBetween = 0;
 
-        int incoming = Integer.parseInt(lab_no);
-        Hl7TextMessage hl7Msg = hl7TxtMsgDao.find(incoming);
+        Hl7TextMessage hl7Msg = currentMessageDao().find(Integer.parseInt(lab_no));
         if (hl7Msg != null && "CLS".equals(hl7Msg.getType())) {
             String chain = getMatchingLabs_CLS(lab_no);
             return patient == null ? chain : String.join(",", ownVersions(chain.split(","), lab_no, patient));
@@ -773,7 +697,7 @@ public class Hl7textResultsData {
         java.util.Map<Integer, io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler> cmlVersions = new java.util.LinkedHashMap<>();
         java.util.Set<Integer> seenVersions = new java.util.HashSet<>();
 
-        for (Object[] o : hl7TxtInfoDao.findByLabIdViaMagic(ConversionUtils.fromIntString(lab_no))) {
+        for (Object[] o : currentInfoDao().findByLabIdViaMagic(ConversionUtils.fromIntString(lab_no))) {
             Hl7TextInfo a = (Hl7TextInfo) o[0];
             Hl7TextInfo b = (Hl7TextInfo) o[1];
 
@@ -803,7 +727,7 @@ public class Hl7textResultsData {
                 if (cml) {
                     if (!seenVersions.add(labNo)) continue;
                     Hl7TextMessage version = labNo == Integer.parseInt(lab_no)
-                            ? hl7Msg : hl7TxtMsgDao.find(labNo);
+                            ? hl7Msg : currentMessageDao().find(labNo);
                     if (version == null) throw new IncompleteCmlVersionChainException("A CML version has no stored source message");
                     if ("CML".equals(version.getType())) {
                         MessageHandler parser = Factory.getHandler(version);

@@ -638,6 +638,10 @@
     <!-- Lab unlink (issue #6214): a real tx proxy so LabPatientUnlinkServiceIntegrationTest proves the
          routing change, the archive of the report's readings and their audit rows commit together. -->
     <bean id="labPatientUnlinkService" class="io.github.carlos_emr.carlos.lab.service.LabPatientUnlinkService" autowire="constructor" />
+    <!-- Lab measurement filing (issue #6391): Hl7textResultsData resolves it from SpringUtils. The class has
+         two constructors; the public one carries @Autowired, which the context's annotation configuration
+         honours here as in production (the other, package-private, is for unit tests). -->
+    <bean id="labMeasurementFilingService" class="io.github.carlos_emr.carlos.lab.ca.all.LabMeasurementFilingService" />
     <!-- Measurement group creation (issue #3335): a real tx proxy so
          MeasurementGroupCreationServiceIntegrationTest can prove a failed member insert
          rolls back the group's style row. -->
