@@ -1366,6 +1366,11 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             withRealUnit.setUnitName("mL");
 
             assertThat(RxUtil.findDuration(withRealUnit)).isNull();
+
+            assertThat(RxUtil.wholeDurationUnits("9", 0.1f, "OD", "D")).isEqualTo("90");
+            RxPrescriptionData.Prescription pointOneDaily = prescriptionWithSpecial("Take 0.1 mL PO OD");
+            pointOneDaily.setQuantity("9");
+            assertThat(RxUtil.findDuration(pointOneDaily)).isEqualTo("90");
         }
     }
 

@@ -187,11 +187,11 @@ public final class OmpO09Builder {
                     .setValue("Dose as recorded: " + drug.getCdsDoseText());
         }
         if (!structuredQuantity && StringUtils.isNotBlank(drug.getQuantity())) {
-            String recordedQuantity = drug.getQuantity().trim();
+            String recordedQuantity = drug.getQuantity();
             String unitName = drug.getUnitName() == null ? "" : drug.getUnitName().trim();
             if (!unitName.isEmpty() && !org.apache.commons.lang3.Strings.CI.equals("null", unitName)
-                    && !recordedQuantity.endsWith(unitName)) {
-                recordedQuantity = recordedQuantity + " " + unitName;
+                    && !recordedQuantity.stripTrailing().endsWith(unitName)) {
+                recordedQuantity = recordedQuantity + (recordedQuantity.endsWith(" ") ? "" : " ") + unitName;
             }
             rxo.getProviderSPharmacyTreatmentInstructions(instruction++).getText()
                     .setValue("Quantity as recorded: " + recordedQuantity);

@@ -1145,7 +1145,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             }
             sequence = Integer.parseInt(requestedSequence);
             if (sequence <= current.getCalculationSequence()) {
-                response.sendError(HttpServletResponse.SC_CONFLICT);
+                refuseStaleStash();
                 return NONE;
             }
         }

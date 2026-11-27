@@ -74,6 +74,12 @@ class OmpO09MedicationUnitTest {
         assertThat(rxo.getRequestedGiveAmountMaximum().getValue()).isEqualTo("1.5");
         assertThat(rxo.getProviderSPharmacyTreatmentInstructions(1).getText().getValue())
                 .isEqualTo("Quantity as recorded: 1/2 bottle");
+        String encoded = new PipeParser().encode(message);
+        String[] fields = java.util.Arrays.stream(encoded.split("\r"))
+                .filter(segment -> segment.startsWith("RXO|")).findFirst().orElseThrow().split("\\|", -1);
+        assertThat(fields.length > 11 ? fields[11] : "").isEmpty();
+        assertThat(fields.length > 12 ? fields[12] : "").isEmpty();
+        assertThat(fields[6]).contains("Quantity as recorded: 1/2 bottle");
         assertThat(message.getORDER().getTIMING(0).getTQ1().getServiceDuration().getQuantity().getValue())
                 .isEqualTo("7");
         assertThat(message.getORDER().getTIMING(0).getTQ1().getServiceDuration().getUnits().getText().getValue())

@@ -404,7 +404,7 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldReturnStaleStashErrorBody_whenCalculationDraftRevisionIsStale() throws Exception {
+    void shouldReturnStaleStashErrorBody_whenCalculationDraftRevisionOrSequenceIsStale() throws Exception {
         request.setParameter("action", "updateQty");
         request.setParameter("randomId", "1");
         request.setParameter("quantity", "30");
@@ -415,6 +415,41 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(409);
         var json = new ObjectMapper().readTree(response.getContentAsString());
         assertThat(json.path("error").asText()).isEqualTo("STALE_RX_STASH");
+
+        // Window 1 applies quantity 60 at sequence 1 on the current revision.
+        response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        request.setParameter("draftRevision", card.getDraftRevision());
+        request.setParameter("quantity", "60");
+        request.setParameter("calculationSequence", "1");
+        assertThat(new RxWriteScript2Action(mockSignatureStampService).updateDrug()).isNull();
+        assertThat(card.getQuantity()).isEqualTo("60");
+        assertThat(card.getCalculationSequence()).isEqualTo(1);
+
+        // Window 2 sends quantity 30 at sequence 1 -> must receive structured STALE_RX_STASH so Reopen is offered instead of Retry.
+        response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        request.setParameter("quantity", "30");
+        request.setParameter("calculationSequence", "1");
+        assertThat(new RxWriteScript2Action(mockSignatureStampService).updateDrug()).isEqualTo(RxWriteScript2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(409);
+        var conflictJson = new ObjectMapper().readTree(response.getContentAsString());
+        assertThat(conflictJson.path("error").asText()).isEqualTo("STALE_RX_STASH");
+        assertThat(card.getQuantity()).isEqualTo("60");
+
+        // 0.1 dose once daily with quantity 9 must derive 90 days (not 89 from float-to-double widening).
+        response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        card.setTakeMin(0.1f);
+        card.setTakeMax(0.1f);
+        card.setFrequencyCode("OD");
+        card.setDurationUnit("D");
+        card.setDurationSpecifiedByUser(false);
+        request.setParameter("quantity", "9");
+        request.setParameter("calculationSequence", "2");
+        assertThat(new RxWriteScript2Action(mockSignatureStampService).updateDrug()).isNull();
+        var boundaryJson = new ObjectMapper().readTree(response.getContentAsString());
+        assertThat(boundaryJson.path("duration").asText()).isEqualTo("90");
     }
 
     @Test

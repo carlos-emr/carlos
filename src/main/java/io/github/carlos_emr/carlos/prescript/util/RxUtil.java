@@ -622,7 +622,11 @@ public class RxUtil {
         if (quantity.amount() == null || quantity.unit() != null || hasTypedUnit || rx.getPrn()) {
             return null;
         }
-        return wholeDurationUnits(quantity.amount(), rx.getTakeMax(), rx.getFrequencyCode(), rx.getDurationUnit());
+        float takeMax = rx.getTakeMax();
+        return Float.isFinite(takeMax) && takeMax > 0f
+                ? wholeDurationUnits(quantity.amount(), new BigDecimal(Float.toString(takeMax)), BigDecimal.ONE,
+                        rx.getFrequencyCode(), rx.getDurationUnit())
+                : null;
     }
 
     /** True when the unit name is non-blank and not the legacy placeholder string {@code "null"}. */
@@ -650,39 +654,54 @@ public class RxUtil {
      */
     public static String wholeDurationUnits(double quantity, double dosePerAdministration, String frequency,
             String durationUnit) {
-        return Double.isFinite(quantity) && quantity >= 0
-                ? wholeDurationUnits(BigDecimal.valueOf(quantity), dosePerAdministration, frequency, durationUnit)
+        return Double.isFinite(quantity) && quantity >= 0 && Double.isFinite(dosePerAdministration) && dosePerAdministration > 0d
+                ? wholeDurationUnits(BigDecimal.valueOf(quantity), BigDecimal.valueOf(dosePerAdministration),
+                        BigDecimal.ONE, frequency, durationUnit)
                 : null;
     }
 
-    /** Derives duration only from an unambiguous dispense count. */
+    /** Derives duration only from an unambiguous dispense count, converting float doses via their decimal spelling. */
     public static String wholeDurationUnits(String quantity, float dosePerAdministration, String frequency,
             String durationUnit) {
         DispenseQuantity parsed = parseDispenseQuantity(quantity);
-        return parsed.unit() == null && parsed.amount() != null
-                ? wholeDurationUnits(parsed.amount(), dosePerAdministration, frequency, durationUnit) : null;
+        return parsed.unit() == null && parsed.amount() != null && Float.isFinite(dosePerAdministration) && dosePerAdministration > 0f
+                ? wholeDurationUnits(parsed.amount(), new BigDecimal(Float.toString(dosePerAdministration)),
+                        BigDecimal.ONE, frequency, durationUnit)
+                : null;
     }
 
-    private static String wholeDurationUnits(BigDecimal quantity, double dosePerAdministration, String frequency,
+    private static String wholeDurationUnits(String quantity, ExactAmount dosePerAdministration, String frequency,
             String durationUnit) {
+        DispenseQuantity parsed = parseDispenseQuantity(quantity);
+        return parsed.unit() == null && parsed.amount() != null && dosePerAdministration != null
+                ? wholeDurationUnits(parsed.amount(), dosePerAdministration.numerator(),
+                        dosePerAdministration.denominator(), frequency, durationUnit)
+                : null;
+    }
+
+    private static String wholeDurationUnits(BigDecimal quantity, BigDecimal doseNumerator, BigDecimal doseDenominator,
+            String frequency, String durationUnit) {
         double nDays = durationUnit == null ? 0d : findNDays(durationUnit);
-        if (!Double.isFinite(dosePerAdministration) || dosePerAdministration <= 0d || nDays == 0d || frequency == null) {
+        if (doseNumerator == null || doseDenominator == null
+                || doseNumerator.signum() <= 0 || doseDenominator.signum() <= 0
+                || nDays == 0d || frequency == null) {
             return null;
         }
+        BigDecimal effectiveQuantity = quantity.multiply(doseDenominator);
         BigDecimal unitsPerDurationUnit;
         int intervalDays = periodicIntervalDays(frequency);
         if (intervalDays > 0) {
-            unitsPerDurationUnit = BigDecimal.valueOf(dosePerAdministration).multiply(BigDecimal.valueOf(nDays))
+            unitsPerDurationUnit = doseNumerator.multiply(BigDecimal.valueOf(nDays))
                     .divide(BigDecimal.valueOf(intervalDays), MathContext.DECIMAL64);
         } else {
             double nPerDay = findNPerDay(frequency);
             if (nPerDay == 0d) {
                 return null;
             }
-            unitsPerDurationUnit = BigDecimal.valueOf(dosePerAdministration).multiply(BigDecimal.valueOf(nPerDay))
+            unitsPerDurationUnit = doseNumerator.multiply(BigDecimal.valueOf(nPerDay))
                     .multiply(BigDecimal.valueOf(nDays));
         }
-        return quantity.divide(unitsPerDurationUnit, MathContext.DECIMAL64)
+        return effectiveQuantity.divide(unitsPerDurationUnit, MathContext.DECIMAL64)
                 .setScale(6, RoundingMode.HALF_UP).setScale(0, RoundingMode.FLOOR)
                 .min(BigDecimal.valueOf(Integer.MAX_VALUE)).toPlainString();
     }
@@ -1291,7 +1310,7 @@ public class RxUtil {
         if (duration.equals("0") || duration.length() == 0 || duration == null) {//if duration is not specified, find duration based on quantity
             rx.setDurationSpecifiedByUser(false);
             String derived = isUnitNameUsed || prn ? null
-                    : wholeDurationUnits(rx.getQuantity(), maximumDose.floatValue(), frequency, durationUnit);
+                    : wholeDurationUnits(rx.getQuantity(), maximumDose, frequency, durationUnit);
             rx.setDuration(derived == null ? "0" : derived);
         } else {//if duration is valid, find quantity based on duration
             rx.setDurationSpecifiedByUser(true);
