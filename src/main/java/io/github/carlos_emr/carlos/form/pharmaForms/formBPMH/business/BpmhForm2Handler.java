@@ -541,8 +541,6 @@ public class BpmhForm2Handler {
         return DigestUtils.sha256Hex(fields.toString());
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String getDrugReason(Integer drugId) {
 
         List<DrugReason> reasons = getDrugReasonDao().getReasonsForDrugID(drugId, true);
@@ -564,7 +562,7 @@ public class BpmhForm2Handler {
         String code = reason.getCode();
         if (StringUtils.isBlank(code)) return "";
         String system = reason.getCodingSystem();
-        if ("icd9".equalsIgnoreCase(system)) {
+        if (org.apache.commons.lang3.Strings.CI.equals("icd9", system)) {
             Icd9Synonym translation = getDxCodeTranslationsDao().findPatientFriendlyTranslationFor(code);
             if (translation != null && StringUtils.isNotBlank(translation.getPatientFriendly())) {
                 return translation.getPatientFriendly();

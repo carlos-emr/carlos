@@ -1156,16 +1156,25 @@ public final class RxWriteScript2Action extends ActionSupport {
 
         try {
             var calculated = current.copyForCalculation();
+            String reportedQuantity;
             if (parseInstructions) {
+                String previousQuantity = calculated.getQuantity();
+                String previousUnit = calculated.getUnitName();
                 calculateStagedInstructions(calculated, input);
+                reportedQuantity = calculated.getQuantity();
+                if (!calculated.isCustomNote() && "0".equals(reportedQuantity) && !previousQuantity.isEmpty()) {
+                    calculated.setQuantity(previousQuantity);
+                    calculated.setUnitName(previousUnit);
+                }
             } else {
                 calculateStagedQuantity(calculated, input);
+                reportedQuantity = calculated.getQuantity();
             }
             if (!Float.isFinite(calculated.getTakeMin()) || !Float.isFinite(calculated.getTakeMax())) {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST);
                 return NONE;
             }
-            byte[] result = objectMapper.writeValueAsBytes(calculationResult(calculated, sequence));
+            byte[] result = objectMapper.writeValueAsBytes(calculationResult(calculated, reportedQuantity, sequence));
             response.setContentType("application/json");
             response.getOutputStream().write(result);
             current.applyCalculation(calculated, sequence);
@@ -1181,21 +1190,15 @@ public final class RxWriteScript2Action extends ActionSupport {
     }
 
     void calculateStagedInstructions(RxPrescriptionData.Prescription rx, String instructions) {
-        String previousQuantity = rx.getQuantity();
-        String previousUnit = rx.getUnitName();
         rx.setSpecial(instructions);
         RxUtil.instrucParser(rx);
-        if (!rx.isCustomNote() && "0".equals(rx.getQuantity())) {
-            rx.setQuantity(previousQuantity);
-            rx.setUnitName(previousUnit);
-        }
-        if ("null".equalsIgnoreCase(rx.getRoute())) {
+        if (org.apache.commons.lang3.Strings.CI.equals("null", rx.getRoute())) {
             rx.setRoute("");
         }
     }
 
     void calculateStagedQuantity(RxPrescriptionData.Prescription rx, String submittedQuantity) {
-        String quantity = "null".equalsIgnoreCase(submittedQuantity) ? "" : submittedQuantity;
+        String quantity = org.apache.commons.lang3.Strings.CI.equals("null", submittedQuantity) ? "" : submittedQuantity;
         rx.setQuantity(RxUtil.getQuantityFromQuantityText(quantity));
         rx.setUnitName(RxUtil.getUnitNameFromQuantityText(quantity));
         if (RxUtil.isMitte(quantity)) {
@@ -1216,7 +1219,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         }
     }
 
-    private Map<String, Object> calculationResult(RxPrescriptionData.Prescription rx, int sequence) {
+    private Map<String, Object> calculationResult(RxPrescriptionData.Prescription rx, String calQuantity, int sequence) {
         Map<String, Object> result = new HashMap<>();
         result.put("calculationSequence", sequence);
         result.put("method", rx.getMethod());
@@ -1227,7 +1230,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         result.put("route", rx.getRoute());
         result.put("durationUnit", rx.getDurationUnit());
         result.put("prn", rx.getPrn());
-        result.put("calQuantity", rx.getQuantity());
+        result.put("calQuantity", calQuantity);
         result.put("unitName", rx.getUnitName());
         result.put("priceQuantity", DrugPriceEstimate.dispenseQuantity(rx.getQuantity(), rx.getUnitName(), rx.getDrugForm()));
         result.put("policyViolations", rx.getPolicyViolations() == null ? List.of() : rx.getPolicyViolations());

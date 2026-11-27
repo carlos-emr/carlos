@@ -758,13 +758,13 @@ class CdsExportMedicationCaptureMariaDbIntegrationTest {
                     } catch (java.io.IOException invalid) {
                         throw new java.io.UncheckedIOException(invalid);
                     }
-                    assertThat(drugs.readCdsExportReceiptColumns()).hasSize(65);
+                    assertThat(drugs.readCdsExportReceiptColumns()).hasSize(69);
                     assertThat(drugs.countCdsExportRows(patient)).isEqualTo(35);
                     var first = drugs.findCdsExportRowsAfter(patient, null, 32);
                     var last = drugs.findCdsExportRowsAfter(patient, first.getLast().id(), 32);
                     assertThat(first).hasSize(32);
                     assertThat(last).hasSize(3);
-                    assertThat(first.getFirst().cells()).hasSize(65);
+                    assertThat(first.getFirst().cells()).hasSize(69);
                     assertThat(first.getFirst().cells().get("comment").sqlNull()).isTrue();
                     assertThat(first.get(1).cells().get("comment").sqlNull()).isFalse();
                     assertThat(first.get(1).cells().get("comment").bytes()).isZero();

@@ -2802,21 +2802,30 @@ function requestRxCalculation(element, action, deferPrice) {
             card._rxPolicy = result.policyViolations;
             showRxCalculationState(card, rand);
             const field = name => document.getElementById(name + '_' + rand);
+            const updateQuantity = !instructions || !['', '0'].includes(result.calQuantity);
             for (const [property, name] of Object.entries({
                 method: 'method', route: 'route', frequency: 'frequency', takeMin: 'minimum', takeMax: 'maximum',
-                duration: 'duration', durationUnit: 'durationUnit', calQuantity: 'quantityStr', unitName: 'unitName'
+                duration: 'duration', durationUnit: 'durationUnit'
             })) {
                 const value = result[property];
                 field(name).textContent = value == null || String(value).toLowerCase() === 'null' ? '' : value;
+            }
+            if (updateQuantity) {
+                for (const [property, name] of Object.entries({calQuantity: 'quantityStr', unitName: 'unitName'})) {
+                    const value = result[property];
+                    field(name).textContent = value == null || String(value).toLowerCase() === 'null' ? '' : value;
+                }
             }
             field('minimum').removeAttribute('aria-invalid');
             field('maximum').removeAttribute('aria-invalid');
             field('prn').textContent = result.prn ? 'prn' : '';
             field('prnVal').value = result.prn;
-            if (instructions && !['', '0'].includes(result.calQuantity)) {
+            if (instructions && updateQuantity) {
                 field('quantity').value = [result.calQuantity, field('unitName').textContent].filter(Boolean).join(' ');
             }
-            if (!deferPrice && (instructions || element.value === submittedValue)) refreshDrugPrice(rand, result.priceQuantity);
+            if (!deferPrice && (instructions ? updateQuantity : element.value === submittedValue)) {
+                refreshDrugPrice(rand, result.priceQuantity);
+            }
         }
     });
     return true;

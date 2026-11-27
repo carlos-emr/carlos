@@ -205,6 +205,23 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
         assertThat(card.getSpecial()).doesNotContain("Qty:", "Repeats:");
     }
 
+    @Test
+    void shouldReturnZeroCalQuantityAndPreserveStagedQuantity_whenInstructionHasOnlyConcentration() throws Exception {
+        card.setQuantity("200");
+        card.setUnitName("mL");
+        request.setParameter("action", "parseInstructions");
+        request.setParameter("randomId", "1");
+        request.setParameter("instruction", "20mg/ml");
+
+        action.updateDrug();
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        var json = new ObjectMapper().readTree(response.getContentAsString());
+        assertThat(json.path("calQuantity").asText()).isEqualTo("0");
+        assertThat(card.getQuantity()).isEqualTo("200");
+        assertThat(card.getUnitName()).isEqualTo("mL");
+    }
+
     @Nested
     @DisplayName("discarded-card calculation callbacks (#5036)")
     class DiscardedCalculation {

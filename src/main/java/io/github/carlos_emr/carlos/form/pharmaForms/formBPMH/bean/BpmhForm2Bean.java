@@ -77,7 +77,9 @@ public class BpmhForm2Bean implements Serializable {
     // lazy collections
     private List<Allergy> allergies;
     private List<BpmhDrug> drugs;
+    @jakarta.xml.bind.annotation.XmlTransient
     private String reviewToken;
+    @jakarta.xml.bind.annotation.XmlTransient
     private List<BpmhDrug> removedReviewRows = List.of();
 
     public String getReviewToken() {

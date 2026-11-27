@@ -146,7 +146,7 @@ public class RxWebService extends AbstractServiceImpl {
         if (message == null) return false;
         String value = new org.apache.cxf.jaxrs.impl.UriInfoImpl(message)
                 .getQueryParameters().getFirst("includeMedicationDetails");
-        return "true".equalsIgnoreCase(value);
+        return Boolean.parseBoolean(value);
     }
 
     private static MedicationDetails medicationDetails(Drug drug) {

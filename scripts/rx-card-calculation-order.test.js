@@ -117,3 +117,17 @@ test('HTTP and malformed success failures block only the affected card until ret
   f.reply(f.requests[3]);
   assert.equal(f.field('set').attributes.has('data-calculation-blocked'), false);
 });
+
+test('a parseIntr reply with calQuantity 0 keeps the displayed quantity and unit unchanged', () => {
+  const f = fixture();
+  f.field('quantity').value = '200';
+  f.field('quantityStr').textContent = '200';
+  f.field('unitName').textContent = 'mL';
+  f.field('instructions').value = '20mg/ml';
+  f.context.parseIntr(f.field('instructions'));
+  f.reply(f.requests[0], { calQuantity: '0', priceQuantity: null, unitName: null });
+  assert.equal(f.field('quantity').value, '200');
+  assert.equal(f.field('quantityStr').textContent, '200');
+  assert.equal(f.field('unitName').textContent, 'mL');
+  assert.deepEqual(f.quotes, []);
+});

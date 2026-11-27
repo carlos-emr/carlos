@@ -126,13 +126,15 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
                 d.setQuantity(t.getQuantity().toString());
             }
 
-            populateDrugStrength(d, t);
             var details = t.getMedicationDetails();
             if (details != null) {
                 details.validateQuantity(t.getQuantity());
                 details.validateStrength(t.getStrength(), t.getStrengthUnit());
+                d.setUnit(t.getStrengthUnit());
                 d.setExactMedicationDetails(details.getQuantityText(), details.getDispenseUnit(),
                         details.getDosageText(), details.encodeComponents());
+            } else {
+                populateDrugStrength(d, t);
             }
 
         } catch (RuntimeException re) {

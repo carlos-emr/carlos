@@ -224,20 +224,58 @@ class JaxbImplementationCompatibilityUnitTest {
         }
     }
 
-    /** The optional RX concurrency token is an explicit additive REST contract. Keep the frozen
-     * corpus as legacy input and require every other element to remain exactly unchanged. */
+    /** Optional RX concurrency tokens, medication details, and drug-lookup completeness/rawStrength fields
+     * are explicit additive REST contracts. Keep the frozen corpus as legacy input and require every
+     * other element to remain exactly unchanged. */
     private static String withoutOptionalRxVersion(Class<?> type, String xml, boolean populated) throws Exception {
-        if (!java.util.Set.of("DrugTo1", "DrugResponse", "PrescriptionResponse").contains(type.getSimpleName())) return xml;
+        String name = type.getSimpleName();
+        boolean hasRowVersion = java.util.Set.of("DrugTo1", "DrugResponse", "PrescriptionResponse").contains(name);
+        boolean hasMedicationDetails = hasRowVersion || java.util.Set.of("FavoriteTo1", "FavoriteResponse").contains(name);
+        boolean hasLookupCompleteness = java.util.Set.of("DrugSearchTo1", "DrugLookupResponse").contains(name);
+        boolean hasRawStrength = hasLookupCompleteness || "DrugComponentTo1".equals(name);
+        if (!hasMedicationDetails && !hasRawStrength) return xml;
         var factory = io.github.carlos_emr.carlos.utility.XmlUtils.createSecureDocumentBuilderFactory();
         factory.setNamespaceAware(true);
         var document = factory.newDocumentBuilder().parse(new org.xml.sax.InputSource(new StringReader(xml)));
-        var versions = document.getElementsByTagName("rowVersion");
-        assertThat(versions.getLength()).as("optional RX versions: " + type).isEqualTo(populated ? 1 : 0);
-        if (populated) {
-            var version = versions.item(0);
-            assertThat(version.getTextContent()).isEqualTo("7");
-            assertThat(version.getPreviousSibling().getLocalName()).isEqualTo("drugId");
-            version.getParentNode().removeChild(version);
+        if (hasRowVersion) {
+            var versions = document.getElementsByTagName("rowVersion");
+            assertThat(versions.getLength()).as("optional RX versions: " + type).isEqualTo(populated ? 1 : 0);
+            if (populated) {
+                var version = versions.item(0);
+                assertThat(version.getTextContent()).isEqualTo("7");
+                assertThat(version.getPreviousSibling().getLocalName()).isEqualTo("drugId");
+                version.getParentNode().removeChild(version);
+            }
+        }
+        if (hasMedicationDetails) {
+            var detailsNodes = document.getElementsByTagName("medicationDetails");
+            assertThat(detailsNodes.getLength()).as("optional medicationDetails: " + type).isEqualTo(populated ? 1 : 0);
+            if (populated) {
+                var details = detailsNodes.item(0);
+                String expectedPrevious = hasRowVersion ? "refillQuantity" : "noSubstitutions";
+                assertThat(details.getPreviousSibling().getLocalName()).isEqualTo(expectedPrevious);
+                assertThat(details.getNextSibling()).isNull();
+                details.getParentNode().removeChild(details);
+            }
+        }
+        if (hasLookupCompleteness) {
+            var completenessNodes = document.getElementsByTagName("componentDataComplete");
+            assertThat(completenessNodes.getLength()).as("optional componentDataComplete: " + type).isEqualTo(populated ? 1 : 0);
+            if (populated) {
+                var completeness = completenessNodes.item(0);
+                assertThat(completeness.getTextContent()).isEqualTo("true");
+                assertThat(completeness.getPreviousSibling().getLocalName()).isEqualTo("components");
+                completeness.getParentNode().removeChild(completeness);
+            }
+        }
+        if (hasRawStrength) {
+            var rawNodes = document.getElementsByTagName("rawStrength");
+            assertThat(rawNodes.getLength()).as("optional rawStrength: " + type).isEqualTo(populated ? 1 : 0);
+            if (populated) {
+                var raw = rawNodes.item(0);
+                assertThat(raw.getTextContent()).isEqualTo("7");
+                raw.getParentNode().removeChild(raw);
+            }
         }
         var output = new StringWriter();
         io.github.carlos_emr.carlos.utility.XmlUtils.createSecureTransformerFactory().newTransformer().transform(

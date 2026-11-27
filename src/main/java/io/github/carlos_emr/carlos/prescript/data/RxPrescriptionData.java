@@ -2486,7 +2486,7 @@ public class RxPrescriptionData {
             f.setMethod(this.getMethod());
             f.setRoute(this.getRoute());
             f.setDrugForm(this.getDrugForm());
-            f.setCustomInstructions(this.getCustomInstr());
+            if (f.isCustomInstructions() != this.getCustomInstr()) f.setCustomInstructions(this.getCustomInstr());
             f.setDosage(this.getDosage());
             if (medicationComponents != null) f.setMedicationComponents(medicationComponents);
             f.setDispenseInternal(Boolean.TRUE.equals(this.getDispenseInternal()));

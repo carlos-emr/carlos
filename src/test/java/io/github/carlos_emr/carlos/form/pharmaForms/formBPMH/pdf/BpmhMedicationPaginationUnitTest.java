@@ -92,4 +92,35 @@ class BpmhMedicationPaginationUnitTest {
         assertThatThrownBy(() -> pdf.writeDataToPDF(bean, new String[]{"1"}, "synthetic"))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("missing a medication field");
     }
+
+    @Test
+    void shouldKeepNineMedicationsOnSinglePage_whenRowNineReasonIsBlank(@TempDir Path output) throws Exception {
+        var bean = new BpmhForm2Bean();
+        var patient = new Demographic();
+        patient.setFirstName("Synthetic");
+        patient.setLastName("RowNine-BlankWhy");
+        bean.setDemographic(patient);
+        var drugs = new ArrayList<BpmhDrug>();
+        for (int i = 1; i <= 9; i++) {
+            var drug = new BpmhDrug();
+            drug.setId(Integer.toString(i));
+            drug.setWhat("Fixture-Med-%02d".formatted(i));
+            drug.setHow("DIR-%02d".formatted(i));
+            drug.setWhy(i == 9 ? "" : "WHY-%02d".formatted(i));
+            drug.setInstruction("NOTE-%02d".formatted(i));
+            drugs.add(drug);
+        }
+        bean.setDrugs(drugs);
+        var template = getClass().getResource("/oscar/form/prop/bpmh_template_marked.pdf");
+        var pdf = new PDFController(Path.of(template.toURI()).toString());
+        pdf.setOutputPath(output.toString());
+        pdf.setContinueInstructions(true);
+        pdf.writeDataToPDF(bean, new String[]{"1"}, "synthetic");
+        try (var rendered = Loader.loadPDF(Path.of(pdf.getOutputPath()).toFile())) {
+            assertThat(rendered.getNumberOfPages()).isEqualTo(1);
+            String text = new PDFTextStripper().getText(rendered);
+            assertThat(text).contains("Fixture-Med-09", "DIR-09", "NOTE-09")
+                    .doesNotContain("See instructions #9");
+        }
+    }
 }

@@ -88,6 +88,7 @@ public class BpmhDrug {
     private String reviewedVersion;
     private boolean reviewChanged;
 
+    @jakarta.xml.bind.annotation.XmlTransient
     public String getPatientReportedUse() {
         return patientReportedUse;
     }
@@ -96,6 +97,7 @@ public class BpmhDrug {
         this.patientReportedUse = patientReportedUse;
     }
 
+    @jakarta.xml.bind.annotation.XmlTransient
     public String getReportedMedication() {
         return reportedMedication;
     }
@@ -104,6 +106,7 @@ public class BpmhDrug {
         this.reportedMedication = reportedMedication;
     }
 
+    @jakarta.xml.bind.annotation.XmlTransient
     public String getReviewedVersion() {
         return reviewedVersion;
     }
@@ -112,6 +115,7 @@ public class BpmhDrug {
         this.reviewedVersion = reviewedVersion;
     }
 
+    @jakarta.xml.bind.annotation.XmlTransient
     public boolean isReviewChanged() {
         return reviewChanged;
     }

@@ -1500,4 +1500,26 @@ class CdsExportNativeMedicationMapperUnitTest {
         assertThat(CdsExportNativeMedicationMapper.doseUnit("tab", "500", "Tablet"))
                 .isEqualTo("tab");
     }
+
+    @Test
+    void shouldCarryLifecycleHistoryAndComponents_inResidualWithoutHoldingPatient()
+            throws Exception {
+        var fields = source();
+        fields.put("archived_before_lifecycle", "0");
+        fields.put("archived_date_before_lifecycle", "2026-01-15 10:30:00");
+        fields.put("archived_reason_before_lifecycle", "other");
+        fields.put(
+                "medication_components",
+                "[{\"name\":\"Amoxicillin\",\"strength\":\"500\",\"unit\":\"mg\"}]");
+        var captured = medication(fields);
+        var result = mapper.map(27, captured, List.of(), Map.of());
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(List.of(captured), result.fields(), () -> {});
+        assertThat(result.metadata())
+                .contains(
+                        "\"archived_before_lifecycle\":\"0\"",
+                        "\"archived_reason_before_lifecycle\":\"other\"",
+                        "\"medication_components\"");
+        render(CdsCategory.MEDICATIONS_AND_TREATMENTS, xml -> mapper.write(result, xml));
+    }
 }

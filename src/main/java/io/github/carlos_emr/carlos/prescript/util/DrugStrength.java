@@ -6,6 +6,9 @@ package io.github.carlos_emr.carlos.prescript.util;
 
 import io.github.carlos_emr.carlos.utility.DoseText;
 
+import org.apache.commons.lang3.Strings;
+
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -15,30 +18,106 @@ import java.util.regex.Pattern;
  * @since 2026-11-26
  */
 public record DrugStrength(Float amount, String unit) {
-    private static final Pattern STRENGTH_IN_TEXT = Pattern.compile(
-            "(?i)(?<![\\p{L}\\p{N}.])([0-9]++(?:\\.[0-9]++)?+|\\.[0-9]++)\\h*+"
-                    + "(mcg|mg|kg|µg|μg|ug|g|ml|l|meq|mmol|iu|units?|%)(?![\\p{L}\\p{N}])");
+    private static final List<String> STRENGTH_UNITS = List.of(
+            "units", "unit", "mmol", "mcg", "meq", "mg", "kg", "µg", "μg", "ug", "ml", "iu", "g", "l", "%");
 
     /** Comparison only. Never rewrite the stored medication name, directions or dosage. */
     public static String identityText(String text) {
         if (text == null) return null;
         String value = text.strip();
-        Matcher strengths = STRENGTH_IN_TEXT.matcher(value);
-        StringBuilder result = new StringBuilder();
-        while (strengths.find()) {
-            int previous = strengths.start() - 1;
-            while (previous >= 0 && (Character.isWhitespace(value.charAt(previous))
-                    || Character.isSpaceChar(value.charAt(previous)))) previous--;
-            if (previous >= 0 && (Character.isDigit(value.charAt(previous))
-                    || ",./–-:+".indexOf(value.charAt(previous)) >= 0)) continue;
-            String amount = DoseText.ofNumericText(strengths.group(1));
-            strengths.appendReplacement(result, Matcher.quoteReplacement(amount + strengths.group(2)));
+        StringBuilder result = null;
+        int copied = 0;
+        int at = 0;
+        while (at < value.length()) {
+            int numberEnd = plainDecimalEnd(value, at);
+            if (numberEnd > at && isStrengthBoundaryBefore(value, at)) {
+                int unitStart = skipHorizontalSpace(value, numberEnd);
+                int unitEnd = matchStrengthUnit(value, unitStart);
+                if (unitEnd > unitStart) {
+                    if (result == null) result = new StringBuilder(value.length());
+                    String amount = DoseText.ofNumericText(value.substring(at, numberEnd));
+                    result.append(value, copied, at).append(amount).append(value, unitStart, unitEnd);
+                    copied = unitEnd;
+                    at = unitEnd;
+                    continue;
+                }
+                at = numberEnd;
+                continue;
+            }
+            at += Character.charCount(value.codePointAt(at));
         }
-        return strengths.appendTail(result).toString();
+        return result == null ? value : result.append(value, copied, value.length()).toString();
+    }
+
+    private static int plainDecimalEnd(String value, int start) {
+        int end = start;
+        while (end < value.length() && isAsciiDigit(value.charAt(end))) end++;
+        if (end < value.length() && value.charAt(end) == '.'
+                && end + 1 < value.length() && isAsciiDigit(value.charAt(end + 1))) {
+            end++;
+            while (end < value.length() && isAsciiDigit(value.charAt(end))) end++;
+        }
+        return end;
+    }
+
+    private static boolean isStrengthBoundaryBefore(String value, int start) {
+        if (start == 0) return true;
+        int immediate = value.codePointBefore(start);
+        if (Character.isLetterOrDigit(immediate) || immediate == '.') return false;
+        int previous = skipWhitespaceBackward(value, start - 1);
+        if (previous < 0) return true;
+        char prevChar = value.charAt(previous);
+        if (Character.isDigit(prevChar) || prevChar == '.') return false;
+        if (",/–-:+".indexOf(prevChar) >= 0) {
+            int beforeSeparator = skipWhitespaceBackward(value, previous - 1);
+            if (beforeSeparator < 0) return false;
+            char beforeChar = value.charAt(beforeSeparator);
+            return !Character.isDigit(beforeChar) && ",./–-:+".indexOf(beforeChar) < 0;
+        }
+        return true;
+    }
+
+    private static int skipWhitespaceBackward(String value, int index) {
+        int i = index;
+        while (i >= 0 && (Character.isWhitespace(value.charAt(i)) || Character.isSpaceChar(value.charAt(i)))) {
+            i--;
+        }
+        return i;
+    }
+
+    private static int skipHorizontalSpace(String value, int start) {
+        int i = start;
+        while (i < value.length()) {
+            char ch = value.charAt(i);
+            if (ch == ' ' || ch == '\t' || Character.getType(ch) == Character.SPACE_SEPARATOR) {
+                i++;
+            } else {
+                break;
+            }
+        }
+        return i;
+    }
+
+    private static int matchStrengthUnit(String value, int start) {
+        int remaining = value.length() - start;
+        for (String unit : STRENGTH_UNITS) {
+            int len = unit.length();
+            if (remaining >= len && Strings.CI.equals(value.substring(start, start + len), unit)) {
+                int end = start + len;
+                if (end == value.length() || !Character.isLetterOrDigit(value.codePointAt(end))) {
+                    return end;
+                }
+            }
+        }
+        return start;
+    }
+
+    private static boolean isAsciiDigit(char ch) {
+        return ch >= '0' && ch <= '9';
     }
 
     public static boolean sameIdentityText(String a, String b) {
-        return org.apache.commons.lang3.StringUtils.equalsIgnoreCase(identityText(a), identityText(b));
+        return Strings.CI.equals(identityText(a), identityText(b));
     }
 
     private static final DrugStrength UNKNOWN = new DrugStrength(null, null);

@@ -104,7 +104,7 @@ class CdsExportMedicationMapperUnitTest {
                         medication(fields),
                         List.of(precision(11, 51, 3, "YYYY"), precision(12, 51, 5, "YYYY-MM")));
         assertThat(mapped.nativeRowRepresentable()).isTrue();
-        assertThat(mapped.fields()).hasSize(75);
+        assertThat(mapped.fields()).hasSize(79);
         var patient = new LinkedHashMap<String, String>();
         CdsExportDemographicRowDto.COLUMNS.forEach(column -> patient.put(column, null));
         patient.putAll(
@@ -393,7 +393,7 @@ class CdsExportMedicationMapperUnitTest {
                                 "CPSO"));
         var result = mapper.map(27, medication(fields), List.of(), Map.of("0é27", provider));
         assertThat(result.nativeRowRepresentable()).isTrue();
-        assertThat(result.fields()).hasSize(71);
+        assertThat(result.fields()).hasSize(75);
         assertThat(result.value().prescriber().firstName()).isEqualTo("Élodie");
         assertThat(result.value().prescriber().ohipNumber()).isEqualTo("001234");
         assertThat(mapper.map(27, medication(fields), List.of()).nativeRowRepresentable())

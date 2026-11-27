@@ -194,7 +194,8 @@ public class FavoriteDaoImpl extends AbstractDaoImpl<Favorite> implements Favori
     @org.springframework.transaction.annotation.Transactional
     public Favorite createOrFind(Favorite candidate) {
         // Serialize both the legacy and REST creation paths for the same provider.
-        if (entityManager.find(Provider.class, candidate.getProviderNo(), LockModeType.PESSIMISTIC_WRITE) == null) {
+        if (candidate.getProviderNo() == null
+                || entityManager.find(Provider.class, candidate.getProviderNo(), LockModeType.PESSIMISTIC_WRITE) == null) {
             throw new IllegalArgumentException("Favorite provider is unavailable");
         }
         Favorite existing = findDuplicate(candidate);

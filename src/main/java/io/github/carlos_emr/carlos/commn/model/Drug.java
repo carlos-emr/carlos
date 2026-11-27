@@ -200,6 +200,8 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
         if (original.takeMin == null && getTakeMin() == 0f) takeMin = null;
         if (original.takeMax == null && getTakeMax() == 0f) takeMax = null;
         if (original.customInstructions == null && !isCustomInstructions()) customInstructions = null;
+        if (original.shortTerm == null && !getShortTerm()) shortTerm = null;
+        if (original.customNote == null && !isCustomNote()) customNote = null;
         if (original.hideFromCpp == null && !getHideFromCpp()) hideFromCpp = null;
         if (original.startDateUnknown == null && !getStartDateUnknown()) startDateUnknown = null;
     }

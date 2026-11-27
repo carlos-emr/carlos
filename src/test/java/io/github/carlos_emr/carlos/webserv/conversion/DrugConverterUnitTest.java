@@ -204,6 +204,41 @@ class DrugConverterUnitTest {
             assertThat(d.isNoSubs()).isFalse();
             assertThat(d.getOutsideProviderName()).isEqualTo("foo");
         }
+
+        @Test
+        @DisplayName("should write opt-in medicationDetails without calling DrugRef catalogue")
+        void shouldWriteExactMedicationDetails_withoutCatalogueLookup() {
+            converter.setDrugLookUpManager(new DrugLookUpManager() {
+                @Override
+                public List<DrugSearchTo1> search(String name) {
+                    throw new AssertionError("Catalogue lookup must not run for opt-in medicationDetails writes");
+                }
+            });
+            DrugTo1 t = new DrugTo1();
+            t.setBrandName("aspirin");
+            t.setProviderNo("1");
+            t.setDemographicNo(1);
+            t.setTakeMin(1.0f);
+            t.setTakeMax(1.0f);
+            t.setRepeats(0);
+            t.setPrn(false);
+            t.setArchived(false);
+            t.setLongTerm(false);
+            t.setNoSubstitutions(false);
+            var details = new io.github.carlos_emr.carlos.webserv.rest.to.model.MedicationDetails();
+            details.setQuantityText("7.5");
+            details.setDispenseUnit("mL");
+            details.setDosageText("250 mg/5 mL");
+            t.setMedicationDetails(details);
+
+            Drug d = converter.getAsDomainObject(info, t);
+
+            assertThat(d.getQuantity()).isEqualTo("7.5");
+            assertThat(d.getUnitName()).isEqualTo("mL");
+            assertThat(d.getDosage()).isEqualTo("250 mg/5 mL");
+            assertThat(t.getStrength()).isNull();
+            assertThat(t.getStrengthUnit()).isNull();
+        }
     }
 
     @Nested

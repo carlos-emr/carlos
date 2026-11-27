@@ -95,4 +95,27 @@ class RxFavoriteSaveUnitTest extends CarlosUnitTestBase {
         verify(dao).find(42);
         verifyNoMoreInteractions(dao);
     }
+
+    @Test
+    void shouldPreserveNullCustomInstructions_whenEditingExistingFavoriteUnchanged() throws Exception {
+        FavoriteDao dao = mock(FavoriteDao.class);
+        registerMock(FavoriteDao.class, dao);
+        Favorite stored = new Favorite();
+        stored.setId(42);
+        stored.setName("Original");
+        stored.setSpecial("Synthetic instructions");
+        var field = Favorite.class.getDeclaredField("customInstructions");
+        field.setAccessible(true);
+        field.set(stored, null);
+        when(dao.find(42)).thenReturn(stored);
+
+        var favorite = new RxPrescriptionData().getFavorite(42);
+        favorite.setFavoriteName("Renamed");
+        assertThat(favorite.Save()).isTrue();
+        assertThat(field.get(stored)).isNull();
+
+        favorite.setCustomInstr(true);
+        assertThat(favorite.Save()).isTrue();
+        assertThat(field.get(stored)).isEqualTo(Boolean.TRUE);
+    }
 }

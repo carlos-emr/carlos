@@ -326,10 +326,11 @@ public class RxUtil {
 
     /** A recorded dose unit when the record distinguishes it from the product and the dispense unit. */
     public static String recordedDoseUnit(String unit, String form, String strength, String explicitDose) {
-        if (org.apache.commons.lang3.StringUtils.isBlank(unit) || "null".equalsIgnoreCase(unit.strip())) return null;
+        if (org.apache.commons.lang3.StringUtils.isBlank(unit)
+                || org.apache.commons.lang3.Strings.CI.equals("null", unit.strip())) return null;
         if (org.apache.commons.lang3.StringUtils.isNotBlank(explicitDose)
                 || org.apache.commons.lang3.StringUtils.isBlank(strength)
-                || unit.equalsIgnoreCase(form)
+                || org.apache.commons.lang3.Strings.CI.equals(unit.strip(), org.apache.commons.lang3.StringUtils.trimToNull(form))
                 || (org.apache.commons.lang3.StringUtils.isBlank(form) && isCountedForm(unit.strip()))) return unit;
         return null;
     }
@@ -3225,7 +3226,8 @@ public class RxUtil {
                     && DrugStrength.sameIdentityText(rx.getDosage(), drug.getDosage())
                     && DrugStrength.sameIdentityText(rx.getDrugForm(), drug.getDrugForm());
         }
-        return org.apache.commons.lang3.StringUtils.isNotBlank(rx.getGenericName())
+        return (org.apache.commons.lang3.StringUtils.isNotBlank(rx.getGenericName())
+                        || org.apache.commons.lang3.StringUtils.isNotBlank(rx.getBrandName()))
                 && DrugStrength.sameIdentityText(rx.getGenericName(), drug.getGenericName())
                 && DrugStrength.sameIdentityText(rx.getBrandName(), drug.getBrandName())
                 && DrugStrength.sameIdentityText(rx.getDosage(), drug.getDosage())

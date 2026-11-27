@@ -146,11 +146,11 @@ class RxPrescriptionDataNullRepeatUnitTest extends CarlosUnitTestBase {
             assertThat(saved.isDispenseInternal()).isTrue();
             assertThat(saved.getSpecial()).isEqualTo(drug.getSpecial());
             saved.setId(42);
-            return null;
-        }).when(dao).persist(any(Favorite.class));
+            return saved;
+        }).when(dao).createOrFind(any(Favorite.class));
 
         assertThat(RxPrescriptionData.addToFavorites("999998", "Synthetic favorite", drug)).isTrue();
-        verify(dao).persist(any(Favorite.class));
+        verify(dao).createOrFind(any(Favorite.class));
         assertThat(drug.getRepeat()).isEqualTo(repeats);
     }
 }
