@@ -86,6 +86,19 @@ public class Hl7textResultsData {
         // no one should instantiate this
     }
 
+    // The two reads that decide what a report files (the report's own row, and the stored source of
+    // a CML version) look their DAO up here, when they run, and not in the static fields above: a
+    // static field is bound when this class loads, which in a test JVM may be in another class's
+    // mocked or different Spring context, and a DAO of another context cannot see the row the current
+    // transaction has just written (#6391: "Lab report is not stored" in an unrelated test class).
+    private static Hl7TextInfoDao currentInfoDao() {
+        return SpringUtils.getBean(Hl7TextInfoDao.class);
+    }
+
+    private static Hl7TextMessageDao currentMessageDao() {
+        return SpringUtils.getBean(Hl7TextMessageDao.class);
+    }
+
     /**
      * Parses a handler-formatted observation time, accepting a missing seconds, minutes or time
      * component so a result observed in the past is never re-dated to the moment it was filed
@@ -129,7 +142,7 @@ public class Hl7textResultsData {
             throw new IllegalStateException("Lab report could not be read; its measurements were not filed");
         }
         // The report's own row names the accession and filler order number that lock its chain.
-        Hl7TextInfo own = hl7TxtInfoDao.findLabId(Integer.parseInt(lab_no.trim()));
+        Hl7TextInfo own = currentInfoDao().findLabId(Integer.parseInt(lab_no.trim()));
         if (own == null) {
             throw new IllegalStateException("Lab report is not stored; its measurements were not filed");
         }
@@ -457,7 +470,7 @@ public class Hl7textResultsData {
         Hl7TextInfo self = null;
         List<Integer> idList = new ArrayList<Integer>();
 
-        for (Object[] o : hl7TxtInfoDao.findByLabIdViaMagic(ConversionUtils.fromIntString(lab_no))) {
+        for (Object[] o : currentInfoDao().findByLabIdViaMagic(ConversionUtils.fromIntString(lab_no))) {
             Hl7TextInfo a = (Hl7TextInfo) o[0];
             int labNo = a.getLabNumber();
             if (lab_no.equals(String.valueOf(labNo))) {
@@ -472,7 +485,7 @@ public class Hl7textResultsData {
         //they come in with different accessions but same filler order no.
         if (self != null && ret.length() > 0 && ret.substring(1).indexOf(",") == -1) {
             ret = "";
-            for (Hl7TextInfo info : hl7TxtInfoDao.findByFillerOrderNumber(self.getFillerOrderNum())) {
+            for (Hl7TextInfo info : currentInfoDao().findByFillerOrderNumber(self.getFillerOrderNum())) {
                 ret = ret + "," + info.getLabNumber();
                 idList.add(info.getLabNumber());
             }
@@ -525,7 +538,7 @@ public class Hl7textResultsData {
         String ret = "";
         int monthsBetween = 0;
 
-        Hl7TextMessage hl7Msg = hl7TxtMsgDao.find(Integer.parseInt(lab_no));
+        Hl7TextMessage hl7Msg = currentMessageDao().find(Integer.parseInt(lab_no));
         if (hl7Msg != null && "CLS".equals(hl7Msg.getType())) {
             return getMatchingLabs_CLS(lab_no);
         }
@@ -534,7 +547,7 @@ public class Hl7textResultsData {
         java.util.Map<Integer, io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler> cmlVersions = new java.util.LinkedHashMap<>();
         java.util.Set<Integer> seenVersions = new java.util.HashSet<>();
 
-        for (Object[] o : hl7TxtInfoDao.findByLabIdViaMagic(ConversionUtils.fromIntString(lab_no))) {
+        for (Object[] o : currentInfoDao().findByLabIdViaMagic(ConversionUtils.fromIntString(lab_no))) {
             Hl7TextInfo a = (Hl7TextInfo) o[0];
             Hl7TextInfo b = (Hl7TextInfo) o[1];
 
@@ -561,7 +574,7 @@ public class Hl7textResultsData {
                 if (cml) {
                     if (!seenVersions.add(labNo)) continue;
                     Hl7TextMessage version = labNo == Integer.parseInt(lab_no)
-                            ? hl7Msg : hl7TxtMsgDao.find(labNo);
+                            ? hl7Msg : currentMessageDao().find(labNo);
                     if (version == null) throw new IncompleteCmlVersionChainException("A CML version has no stored source message");
                     if ("CML".equals(version.getType())) {
                         MessageHandler parser = Factory.getHandler(version);
