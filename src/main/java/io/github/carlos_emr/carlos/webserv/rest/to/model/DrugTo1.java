@@ -34,12 +34,22 @@ import jakarta.xml.bind.annotation.XmlAccessorType;
 import jakarta.xml.bind.annotation.XmlRootElement;
 import jakarta.xml.bind.annotation.XmlElement;
 import jakarta.xml.bind.annotation.XmlTransient;
+import jakarta.xml.bind.annotation.XmlType;
 import java.io.Serializable;
 import java.util.Date;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 
 @XmlAccessorType(XmlAccessType.FIELD)
+// Preserve the legacy XSD sequence when JAXB binds presence-aware properties through their setters.
+@XmlType(propOrder = {
+        "drugId", "rowVersion", "brandName", "genericName", "customName", "atc", "regionalIdentifier",
+        "demographicNo", "providerNo", "takeMin", "takeMax", "rxDate", "endDate", "writtenDate", "frequency",
+        "duration", "durationUnit", "route", "form", "method", "prn", "repeats", "quantity", "instructions",
+        "additionalInstructions", "archived", "archivedReason", "archivedDate", "strength", "strengthUnit",
+        "externalProvider", "longTerm", "noSubstitutions", "dispenseIntervalNumber", "refillDuration",
+        "refillQuantity"
+})
 @XmlRootElement(name = "drug")
 public class DrugTo1 implements Serializable {
 
