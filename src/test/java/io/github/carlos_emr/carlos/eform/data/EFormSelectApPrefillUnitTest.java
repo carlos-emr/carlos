@@ -468,7 +468,7 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
         assertThat(edit).isNotNull();
         StringBuilder out = new StringBuilder(html);
         edit.applyTo(out);
-        assertThat(out.toString()).isEqualTo(
+        assertThat(out).hasToString(
                 "<select name=\"f\" oscarDB=x><option selected value=\"Yes\">y</option><option value=\"No\" selected");
     }
 
@@ -520,8 +520,8 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
 
     // ---- Review of the select prefill: each case is the markup and the browser behaviour that was reported ----
 
-    /** The whole form's markup after the database tag run, as a browser would load it. */
-    private static Document rendered(String formBody, String output) {
+    /** The raw form HTML after the database tag run. */
+    private static String renderedHtml(String formBody, String output) {
         DatabaseAP ap = new DatabaseAP("choice", "", output);
         try (var loader = mockStatic(EFormLoader.class)) {
             loader.when(EFormLoader::getMarker).thenReturn("oscarDB");
@@ -530,8 +530,13 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
             form.setDemographicNo("7");
             form.setFormHtml("<form>" + formBody + "</form>");
             form.setDatabaseAPs();
-            return Jsoup.parse(form.getFormHtml());
+            return form.getFormHtml();
         }
+    }
+
+    /** The whole form's markup after the database tag run, as a browser would load it. */
+    private static Document rendered(String formBody, String output) {
+        return Jsoup.parse(renderedHtml(formBody, output));
     }
 
     /** The value a dependent database tag would read for {@code {name}}: what the form recorded for the field. */
@@ -1007,20 +1012,62 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldLeaveTheTemplateAsItIs_whenItsMarkupIsPathological() {
-        // Very deep nesting, an unterminated select and a select inside a tag that never closes: the form
-        // still opens, the select keeps the template's own default, and nothing throws.
+    void shouldHandlePathologicalMarkupSafely_withoutThrowingOrCorruptingSelects() {
+        // Past jsoup's nesting depth limit, the parser drops the deeply nested options, so the edit is skipped and
+        // the template markup stays verbatim (keeping its authored default B).
         String deep = "<div>".repeat(5_000);
         String body = deep + "<select name=\"deep\" oscarDB=choice><option value=\"A\">a</option>"
                 + "<option value=\"B\" selected>b</option></select>";
-        Document page = rendered(body, "A");
-        assertThat(page.select("select[name=deep]")).hasSize(1);
+        assertThat(renderedHtml(body, "A")).isEqualTo("<form>" + body + "</form>");
 
+        // Missing optional end tags at EOF are still valid HTML5, so the select resolves cleanly to A and clears B.
         String unterminated = "<select name=\"open\" oscarDB=choice><option value=\"A\">a<option value=\"B\" selected>b";
-        assertThat(rendered(unterminated, "A").select("select[name=open]")).hasSize(1);
+        Document openPage = rendered(unterminated, "A");
+        assertThat(openPage.select("select[name=open] option[selected]").eachAttr("value")).containsExactly("A");
 
+        // An unclosed attribute quote swallows the option tag; nothing is guessed and the template stays verbatim.
         String brokenTag = "<select name=\"cut\" oscarDB=choice><option value=\"A\" title=\"unclosed>a</option>";
-        assertThat(rendered(brokenTag, "A").select("select")).hasSize(1);
+        assertThat(renderedHtml(brokenTag, "A")).isEqualTo("<form>" + brokenTag + "</form>");
+    }
+
+    @Test
+    void shouldPreserveBareAttributeBeforeEquals_whenEarlierSelectsShiftOffsets() {
+        // First select shifts offsets before the second select whose bare attribute precedes selected=""=legacy
+        // and whose disabled bare attribute also precedes selected=""=flag; neither bare attribute absorbs "=...".
+        String body = "<select name=\"first\" oscarDB=choice><option value=\"A\">a</option><option value=\"B\">b</option></select>"
+                + "<select name=\"second\" oscarDB=choice>"
+                + "<option value selected=\"\"=legacy>x</option>"
+                + "<option disabled selected=1 =flag>d</option>"
+                + "<option value=\"B\">b</option></select>";
+
+        String html = renderedHtml(body, "B");
+
+        assertThat(html).contains("<option value /=legacy>x</option>");
+        assertThat(html).contains("<option disabled / =flag>d</option>");
+        assertThat(html).contains("<option selected value=\"B\">b</option>");
+        Document page = Jsoup.parse(html);
+        org.jsoup.nodes.Element second = page.selectFirst("select[name=second]");
+        assertThat(second.select("option").get(0).attr("value")).isEmpty();
+        assertThat(second.select("option").get(0).hasAttr("selected")).isFalse();
+        assertThat(second.select("option").get(1).hasAttr("disabled")).isTrue();
+        assertThat(second.select("option").get(1).attr("disabled")).isEmpty();
+        assertThat(second.select("option[selected]").eachAttr("value")).containsExactly("B");
+    }
+
+    @Test
+    void shouldReturnNullFromSelectLookup_whenPointerFallsOutsideAllSelectStartTags() {
+        String html = "<p>lead</p>"
+                + "<select name=\"s1\" oscarDB=x><option value=\"A\">a</option></select>"
+                + "<p>gap</p>"
+                + "<select name=\"s2\" oscarDB=x><option value=\"A\">a</option></select>"
+                + "<p>tail</p>";
+        EFormSelectMarkup.ParsedForm parsed = EFormSelectMarkup.parseForm(html);
+
+        assertThat(EFormSelectMarkup.edit(parsed, 1, "A")).isNull();
+        assertThat(EFormSelectMarkup.edit(parsed, html.indexOf("gap"), "A")).isNull();
+        assertThat(EFormSelectMarkup.edit(parsed, html.indexOf("tail"), "A")).isNull();
+        assertThat(EFormSelectMarkup.edit(parsed, html.indexOf("s1"), "A")).isNotNull();
+        assertThat(EFormSelectMarkup.edit(parsed, html.indexOf("s2"), "A")).isNotNull();
     }
 
     @Test

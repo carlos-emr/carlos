@@ -29,6 +29,7 @@ import java.util.Map;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.jsoup.nodes.FormElement;
 import org.jsoup.nodes.Node;
 import org.jsoup.nodes.Range;
 import org.jsoup.nodes.TextNode;
@@ -57,7 +58,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * <p>What a select submits is also the value a database tag that names the field ({@code {name}}) binds
  * ({@link #submittedValues}): the option a browser shows as selected for the select's display size (a drop-down
  * with none marked shows its first enabled option), never a disabled one, and nothing for a select a save does not
- * submit (inert {@code template} content, a disabled select, or a select that belongs to another form).</p>
+ * submit (inert {@code template} content, a disabled select, or a select that does not belong to the saved
+ * form).</p>
  *
  * <p>Anything that cannot be resolved with certainty (the select is not found, a start tag cannot be read)
  * changes nothing: the template's own default stays.</p>
@@ -70,6 +72,7 @@ final class EFormSelectMarkup {
     private static final String MULTIPLE_ATTRIBUTE = "multiple";
     private static final String SELECTED_ATTRIBUTE = "selected";
     private static final String DISABLED_ATTRIBUTE = "disabled";
+    private static final String SELECT_TAG = "select";
     private static final String TEMPLATE_TAG = "template";
     private static final String FORM_TAG = "form";
     /**
@@ -88,6 +91,21 @@ final class EFormSelectMarkup {
     private EFormSelectMarkup() {
     }
 
+    /** One tracked {@code <select>} element with its start tag's {@code [start, end]} source offsets. */
+    private record SelectRange(int start, int end, Element select) {
+    }
+
+    /**
+     * One {@code [start, end)} slice of a tag to replace with {@code text} (empty to drop a {@code selected}
+     * attribute, or {@code "/"} when dropping it would let a following {@code =} attach to a preceding bare
+     * attribute).
+     */
+    private record Replacement(int start, int end, String text) {
+        Replacement shifted(int by) {
+            return new Replacement(start + by, end + by, text);
+        }
+    }
+
     /**
      * One parse of a form, from which every database-tagged select of one pass is edited. Edits are written
      * against this parse's own text and positions; the caller moves them by the difference between the form's
@@ -96,11 +114,11 @@ final class EFormSelectMarkup {
      */
     static final class ParsedForm {
         private final String source;
-        private final Document document;
+        private final List<SelectRange> selects;
 
-        private ParsedForm(String source, Document document) {
+        private ParsedForm(String source, List<SelectRange> selects) {
             this.source = source;
-            this.document = document;
+            this.selects = selects;
         }
 
         /** The length of the markup that was parsed. */
@@ -112,14 +130,14 @@ final class EFormSelectMarkup {
     /** Parses {@code html} once, for {@link #edit(ParsedForm, int, String)} to read as often as it needs. */
     static ParsedForm parseForm(CharSequence html) {
         String source = html.toString();
-        return new ParsedForm(source, parse(source));
+        return new ParsedForm(source, selectRanges(parse(source)));
     }
 
     /** Where {@code " selected"} goes and which {@code selected} attributes of the other options come out. */
     static final class SelectEdit {
         final int insertAt;
-        /** Ascending, non-overlapping {@code [start, end)} ranges, none inside the matched option's tag. */
-        final List<int[]> removals = new ArrayList<>();
+        /** Ascending, non-overlapping {@code [start, end)} replacements, none inside the matched option's tag. */
+        final List<Replacement> removals = new ArrayList<>();
         /** The parse's own text from the chosen option's {@code <option} on, and of each removal, to check against. */
         private String optionWindow = "";
         private final List<String> removedText = new ArrayList<>();
@@ -133,7 +151,7 @@ final class EFormSelectMarkup {
             SelectEdit moved = new SelectEdit(insertAt + by);
             moved.optionWindow = optionWindow;
             moved.removedText.addAll(removedText);
-            for (int[] range : removals) moved.removals.add(new int[] {range[0] + by, range[1] + by});
+            for (Replacement removal : removals) moved.removals.add(removal.shifted(by));
             return moved;
         }
 
@@ -147,7 +165,7 @@ final class EFormSelectMarkup {
             int from = insertAt - OPTION_OPEN;
             if (!holds(html, from, optionWindow)) return false;
             for (int r = 0; r < removals.size(); r++) {
-                if (!holds(html, removals.get(r)[0], removedText.get(r))) return false;
+                if (!holds(html, removals.get(r).start(), removedText.get(r))) return false;
             }
             return true;
         }
@@ -161,12 +179,12 @@ final class EFormSelectMarkup {
         void applyTo(StringBuilder html) {
             boolean inserted = false;
             for (int r = removals.size() - 1; r >= 0; r--) {
-                int[] range = removals.get(r);
-                if (!inserted && range[0] < insertAt) {
+                Replacement removal = removals.get(r);
+                if (!inserted && removal.start() < insertAt) {
                     html.insert(insertAt, " selected");
                     inserted = true;
                 }
-                html.delete(range[0], range[1]);
+                html.replace(removal.start(), removal.end(), removal.text());
             }
             if (!inserted) html.insert(insertAt, " selected");
         }
@@ -204,7 +222,7 @@ final class EFormSelectMarkup {
     static SelectEdit edit(ParsedForm form, int pointer, String wanted) {
         if (wanted == null) return null;
         String source = form.source;
-        Element select = selectHolding(form.document, pointer);
+        Element select = selectHolding(form.selects, pointer);
         if (select == null) return null;
         String inside = markupInside(select, source);
         if (inside == null || holdsStyleElement(inside)) return null;
@@ -220,20 +238,20 @@ final class EFormSelectMarkup {
         return edit;
     }
 
-    /** Collects the {@code selected} attribute ranges of every other option, or leaves none if a tag cannot be read. */
+    /** Collects the {@code selected} attribute replacements of every other option, or leaves none if a tag cannot be read. */
     private static void collectOtherSelectedRemovals(List<Element> options, Element chosen, String source,
             SelectEdit edit) {
-        List<int[]> removals = new ArrayList<>();
+        List<Replacement> removals = new ArrayList<>();
         for (Element option : options) {
             if (option == chosen) continue;
             Integer otherStart = tagStart(option);
             TagAttributes tag = otherStart == null ? null : readTagAttributes(source, otherStart + OPTION_OPEN);
             if (tag == null) return; // a tag that cannot be read: only the insert, never a guess
-            removals.addAll(tag.selectedRanges);
+            removals.addAll(tag.selectedRemovals);
         }
-        removals.sort((a, b) -> Integer.compare(a[0], b[0]));
+        removals.sort((a, b) -> Integer.compare(a.start(), b.start()));
         edit.removals.addAll(removals);
-        for (int[] range : removals) edit.removedText.add(source.substring(range[0], range[1]));
+        for (Replacement removal : removals) edit.removedText.add(source.substring(removal.start(), removal.end()));
     }
 
     /**
@@ -248,9 +266,13 @@ final class EFormSelectMarkup {
         if (selectStarts.isEmpty()) return submitted;
         String source = html.toString();
         Document document = parse(source);
-        Element savedForm = firstLiveForm(document);
+        FormElement savedForm = firstLiveForm(document);
+        Map<Integer, Element> selectsByStart = new HashMap<>();
+        for (SelectRange range : selectRanges(document)) {
+            selectsByStart.put(range.start(), range.select());
+        }
         for (int start : selectStarts) {
-            Element select = selectHolding(document, start + 1);
+            Element select = selectsByStart.get(start);
             String value = select == null ? null : valueSubmittedBy(select, source, document, savedForm);
             if (value != null) submitted.put(start, value);
         }
@@ -264,7 +286,7 @@ final class EFormSelectMarkup {
      * disabled, and submits it unless it is disabled; a list box with none marked submits nothing. The options of a
      * select that holds a style element are those a browser lists (see {@link #holdsStyleElement}).
      */
-    private static String valueSubmittedBy(Element select, String source, Document document, Element savedForm) {
+    private static String valueSubmittedBy(Element select, String source, Document document, FormElement savedForm) {
         String inside = markupInside(select, source);
         if (inside == null || !submittedWith(select, document, savedForm)) return null;
         List<Element> options = holdsStyleElement(inside) ? optionsOutsideSelect(inside) : ownedOptions(select);
@@ -306,11 +328,12 @@ final class EFormSelectMarkup {
      * Whether a save submits {@code select} with {@code savedForm}, the page's first live form (the one
      * {@code EForm.setAction} makes the save form). Never a select in inert {@code template} content, nor a disabled
      * one (see {@link #isDisabledControl}), nor one whose {@code form} attribute names another element or nothing, nor
-     * one inside another form. A select outside every form is read as before: a form written between
-     * {@code <table>} and {@code <tr>} owns the controls of its rows without holding them. So is every select of a
-     * page that has no form, apart from template content.
+     * one inside another form or unowned outside {@code savedForm}. A control outside the form subtree that the HTML
+     * parser associates with {@code savedForm} (such as a {@code <form>} written between {@code <table>} and
+     * {@code <tr>}) is still submitted with it. When the page has no live form, every non-template select is still
+     * read as before.
      */
-    private static boolean submittedWith(Element select, Document document, Element savedForm) {
+    private static boolean submittedWith(Element select, Document document, FormElement savedForm) {
         if (ancestorNamed(select, TEMPLATE_TAG, null) != null) return false;
         if (savedForm == null) return true;
         if (isDisabledControl(select)) return false;
@@ -318,12 +341,12 @@ final class EFormSelectMarkup {
             return targetsForm(document, select.attr(FORM_TAG), savedForm);
         }
         Element form = ancestorNamed(select, FORM_TAG, null);
-        return form == null || form == savedForm;
+        return form == savedForm || (form == null && savedForm.elements().contains(select));
     }
 
     /** The first {@code <form>} outside inert {@code <template>} content, or null. */
-    private static Element firstLiveForm(Document document) {
-        for (Element form : document.getElementsByTag(FORM_TAG)) {
+    private static FormElement firstLiveForm(Document document) {
+        for (FormElement form : document.forms()) {
             if (ancestorNamed(form, TEMPLATE_TAG, null) == null) return form;
         }
         return null;
@@ -450,11 +473,33 @@ final class EFormSelectMarkup {
         return Parser.htmlParser().setTrackPosition(true).parseInput(html, "");
     }
 
-    /** The select whose start tag contains {@code pointer}, or null. */
-    private static Element selectHolding(Document document, int pointer) {
-        for (Element select : document.getElementsByTag("select")) {
+    /** All tracked {@code <select>} start-tag ranges in {@code document}, sorted by start offset. */
+    private static List<SelectRange> selectRanges(Document document) {
+        List<SelectRange> ranges = new ArrayList<>();
+        for (Element select : document.getElementsByTag(SELECT_TAG)) {
             Range range = select.sourceRange();
-            if (range.isTracked() && range.start().pos() <= pointer && pointer <= range.end().pos()) return select;
+            if (range.isTracked()) {
+                ranges.add(new SelectRange(range.start().pos(), range.end().pos(), select));
+            }
+        }
+        ranges.sort((a, b) -> Integer.compare(a.start(), b.start()));
+        return ranges;
+    }
+
+    /** The select whose start tag contains {@code pointer}, or null. */
+    private static Element selectHolding(List<SelectRange> selects, int pointer) {
+        int lo = 0;
+        int hi = selects.size() - 1;
+        while (lo <= hi) {
+            int mid = (lo + hi) >>> 1;
+            SelectRange candidate = selects.get(mid);
+            if (pointer < candidate.start()) {
+                hi = mid - 1;
+            } else if (pointer > candidate.end()) {
+                lo = mid + 1;
+            } else {
+                return candidate.select();
+            }
         }
         return null;
     }
@@ -512,7 +557,7 @@ final class EFormSelectMarkup {
     private static boolean isOwnedOption(Element option, Element select) {
         for (Element ancestor = option.parent(); ancestor != null && ancestor != select; ancestor = ancestor.parent()) {
             String tag = ancestor.normalName();
-            if (tag.equals("select") || tag.equals(TEMPLATE_TAG)) return false;
+            if (tag.equals(SELECT_TAG) || tag.equals(TEMPLATE_TAG)) return false;
         }
         return true;
     }
@@ -565,11 +610,19 @@ final class EFormSelectMarkup {
     /** One start tag's attributes as the edit needs them (see {@link #readTagAttributes}). */
     private static final class TagAttributes {
         String value;
-        final List<int[]> selectedRanges = new ArrayList<>();
+        final List<Replacement> selectedRemovals = new ArrayList<>();
     }
 
-    /** One parsed attribute value from {@link #readAttributeValue}, with its end offset and whether it was unquoted. */
-    private record ParsedAttrValue(String value, int end, boolean unquoted) {
+    /** Syntactic shape of the previous surviving attribute before a {@code selected} attribute. */
+    private enum AttrValueKind {
+        NONE,
+        BARE,
+        QUOTED,
+        UNQUOTED
+    }
+
+    /** One parsed attribute value from {@link #readAttributeValue}, with its end offset and syntactic shape. */
+    private record ParsedAttrValue(String value, int end, AttrValueKind kind) {
     }
 
     /**
@@ -578,22 +631,24 @@ final class EFormSelectMarkup {
      * belongs to the name or the unquoted value it is in), a name may begin with {@code =}, a quoted value may
      * hold {@code >}, an unquoted value ends at white space or {@code >}, and a {@code /} between attributes is
      * stepped over. It records the first {@code value} attribute as written (a bare one is empty), since a
-     * browser keeps the first of repeated attributes, and the {@code [start, end)} range of every
-     * {@code selected} attribute with the white space before it. Names are matched as HTML matches them, ASCII
-     * letters in any case. The tag's start is known from the parser, so this only reads inside one tag; null for
-     * an unterminated tag or an unclosed quote, where nothing can be trusted.
+     * browser keeps the first of repeated attributes, and the {@link Replacement} for every {@code selected}
+     * attribute. Names are matched as HTML matches them, ASCII letters in any case. The tag's start is known from
+     * the parser, so this only reads inside one tag; null for an unterminated tag or an unclosed quote, where
+     * nothing can be trusted.
      */
     private static TagAttributes readTagAttributes(String text, int from) {
         int length = text.length();
         int p = from;
         TagAttributes tag = new TagAttributes();
-        boolean prevWasUnquotedValue = false;
+        AttrValueKind prevKind = AttrValueKind.NONE;
         while (true) {
+            int beforeSkip = p;
             p = skipSpaceAndSlash(text, p);
+            if (containsSlash(text, beforeSkip, p)) prevKind = AttrValueKind.NONE;
             if (p >= length) return null;
             if (text.charAt(p) == '>') return tag;
-            int nameStart = p++; // the first character is the name's, even "="
-            while (p < length && !isHtmlSpace(text.charAt(p)) && "=>/".indexOf(text.charAt(p)) < 0) p++;
+            int nameStart = p;
+            p = readAttributeNameEnd(text, nameStart);
             String name = text.substring(nameStart, p);
             ParsedAttrValue parsed = readAttributeValue(text, p);
             if (parsed == null) return null;
@@ -602,11 +657,18 @@ final class EFormSelectMarkup {
                 tag.value = parsed.value();
             }
             if (Ascii.equalsIgnoreCase(name, SELECTED_ATTRIBUTE)) {
-                tag.selectedRanges.add(selectedRange(text, from, nameStart, p, prevWasUnquotedValue));
+                tag.selectedRemovals.add(selectedRemoval(text, from, nameStart, p, prevKind));
             } else {
-                prevWasUnquotedValue = parsed.unquoted();
+                prevKind = parsed.kind();
             }
         }
+    }
+
+    private static int readAttributeNameEnd(String text, int start) {
+        int length = text.length();
+        int p = start + 1; // the first character is the name's, even "="
+        while (p < length && !isHtmlSpace(text.charAt(p)) && "=>/".indexOf(text.charAt(p)) < 0) p++;
+        return p;
     }
 
     private static int skipHtmlSpace(String text, int p) {
@@ -621,38 +683,52 @@ final class EFormSelectMarkup {
         return p;
     }
 
+    private static boolean containsSlash(String text, int from, int to) {
+        for (int i = from; i < to; i++) {
+            if (text.charAt(i) == '/') return true;
+        }
+        return false;
+    }
+
     /** Reads {@code =value} at {@code afterName}, or an empty bare value if absent; returns null on an unclosed quote. */
     private static ParsedAttrValue readAttributeValue(String text, int afterName) {
         int length = text.length();
         int q = skipHtmlSpace(text, afterName);
         if (q >= length || text.charAt(q) != '=') {
-            return new ParsedAttrValue("", afterName, false);
+            return new ParsedAttrValue("", afterName, AttrValueKind.BARE);
         }
         int p = skipHtmlSpace(text, q + 1);
         if (p < length && (text.charAt(p) == '"' || text.charAt(p) == '\'')) {
             int close = text.indexOf(text.charAt(p), p + 1);
             if (close < 0) return null;
-            return new ParsedAttrValue(text.substring(p + 1, close), close + 1, false);
+            return new ParsedAttrValue(text.substring(p + 1, close), close + 1, AttrValueKind.QUOTED);
         }
         int valueStart = p;
         while (p < length && !isHtmlSpace(text.charAt(p)) && text.charAt(p) != '>') p++;
-        return new ParsedAttrValue(text.substring(valueStart, p), p, p > valueStart);
+        return new ParsedAttrValue(text.substring(valueStart, p), p, AttrValueKind.UNQUOTED);
     }
 
     /**
-     * Computes the {@code [start, end)} range to remove for a {@code selected} attribute. Preceding HTML white space
-     * is removed too unless it must stay to keep remaining tag parts apart: when another attribute immediately
-     * follows, or when {@code /} immediately follows after an unquoted attribute value (dropping the space there
-     * would fold {@code /} into the preceding unquoted value, changing what the browser submits for that option).
+     * Computes the {@link Replacement} for a {@code selected} attribute. When a preceding surviving attribute is
+     * bare (no {@code =value}) and the next non-space character is {@code =}, dropping {@code selected} would
+     * attach that {@code =} as the bare attribute's value (e.g., turning {@code <option value selected=""=legacy>}
+     * into {@code <option value =legacy>}); replacing {@code selected} with {@code "/"} closes the bare attribute
+     * so the browser preserves both attributes as before. Otherwise {@code selected} and its preceding HTML white
+     * space are dropped unless that space must stay to keep remaining tag parts apart (before another attribute, or
+     * before {@code /} after an unquoted attribute value).
      */
-    private static int[] selectedRange(String text, int from, int nameStart, int end, boolean prevWasUnquotedValue) {
+    private static Replacement selectedRemoval(String text, int from, int nameStart, int end, AttrValueKind prevKind) {
+        int afterSpace = skipHtmlSpace(text, end);
+        if (prevKind == AttrValueKind.BARE && afterSpace < text.length() && text.charAt(afterSpace) == '=') {
+            return new Replacement(nameStart, end, "/");
+        }
         int spaceStart = nameStart;
         boolean keepSpace = false;
         if (end < text.length()) {
             char next = text.charAt(end);
-            keepSpace = !isHtmlSpace(next) && next != '>' && (next != '/' || prevWasUnquotedValue);
+            keepSpace = !isHtmlSpace(next) && next != '>' && (next != '/' || prevKind == AttrValueKind.UNQUOTED);
         }
         while (!keepSpace && spaceStart > from && isHtmlSpace(text.charAt(spaceStart - 1))) spaceStart--;
-        return new int[] {spaceStart, end};
+        return new Replacement(spaceStart, end, "");
     }
 }

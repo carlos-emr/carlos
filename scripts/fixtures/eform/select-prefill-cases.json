@@ -133,6 +133,48 @@
       "wanted": "Yes",
       "after": "<select name=\"a\" oscarDB=choice><option value=\"No\">n</option><template><style><option value=\"X\"></style></template><option selected value=\"Yes\">y</option></select>",
       "submitted": "Yes"
+    },
+    {
+      "name": "a bare attribute before selected and an equals-prefixed attribute keeps its empty value",
+      "before": "<select name=\"a\" oscarDB=choice><option value selected=\"\"=legacy>x</option><option value=\"B\">b</option></select>",
+      "wanted": "B",
+      "after": "<select name=\"a\" oscarDB=choice><option value /=legacy>x</option><option selected value=\"B\">b</option></select>",
+      "submitted": "B"
+    },
+    {
+      "name": "a bare attribute before selected, space and an equals-prefixed attribute keeps its empty value",
+      "before": "<select name=\"a\" oscarDB=choice><option value selected=\"\" =legacy>x</option><option value=\"B\">b</option></select>",
+      "wanted": "B",
+      "after": "<select name=\"a\" oscarDB=choice><option value / =legacy>x</option><option selected value=\"B\">b</option></select>",
+      "submitted": "B"
+    },
+    {
+      "name": "a bare attribute before repeated selected attributes and an equals-prefixed attribute keeps its empty value",
+      "before": "<select name=\"a\" oscarDB=choice><option value selected=\"\"selected=\"\"=legacy>x</option><option value=\"B\">b</option></select>",
+      "wanted": "B",
+      "after": "<select name=\"a\" oscarDB=choice><option value /=legacy>x</option><option selected value=\"B\">b</option></select>",
+      "submitted": "B"
+    },
+    {
+      "name": "a bare attribute before selected and a regular attribute removes selected cleanly",
+      "before": "<select name=\"a\" oscarDB=choice><option value selected=\"\"title=\"t\">x</option><option value=\"B\">b</option></select>",
+      "wanted": "B",
+      "after": "<select name=\"a\" oscarDB=choice><option value title=\"t\">x</option><option selected value=\"B\">b</option></select>",
+      "submitted": "B"
+    },
+    {
+      "name": "a bare attribute already closed by a slash before selected and an equals-prefixed attribute needs no second slash",
+      "before": "<select name=\"a\" oscarDB=choice><option value/selected=\"\"=legacy>x</option><option value=\"B\">b</option></select>",
+      "wanted": "B",
+      "after": "<select name=\"a\" oscarDB=choice><option value/=legacy>x</option><option selected value=\"B\">b</option></select>",
+      "submitted": "B"
+    },
+    {
+      "name": "a quoted attribute before selected and an equals-prefixed attribute keeps its value without a slash",
+      "before": "<select name=\"a\" oscarDB=choice><option value=\"A\" selected=\"\"=legacy>x</option><option value=\"B\">b</option></select>",
+      "wanted": "B",
+      "after": "<select name=\"a\" oscarDB=choice><option value=\"A\" =legacy>x</option><option selected value=\"B\">b</option></select>",
+      "submitted": "B"
     }
   ],
   "reads": [
@@ -280,6 +322,26 @@
       "name": "a live non-form element sharing the saved form's id earlier in the document prevents form association",
       "form": "<div id=\"f1\"></div><form id=\"f1\"></form><select name=\"a\" form=\"f1\"><option>Yes</option></select>",
       "submitted": null
+    },
+    {
+      "name": "an unowned select after the saved form does not overwrite the form's select",
+      "form": "<form><select name=\"a\"><option>Current</option></select></form><select name=\"a\"><option>Other</option></select>",
+      "submitted": "Current"
+    },
+    {
+      "name": "a form written between table and tr excludes an unowned select after the table",
+      "form": "<table><form id=\"f1\"><tr><td><select name=\"a\"><option>T</option></select></td></tr></form></table><select name=\"a\"><option>Other</option></select>",
+      "submitted": "T"
+    },
+    {
+      "name": "a form closed before tr does not own a select in the following table row",
+      "form": "<table><form id=\"f1\"></form><tr><td><select name=\"a\"><option>T</option></select></td></tr></table>",
+      "submitted": null
+    },
+    {
+      "name": "a select inside a datalist in the saved form is still submitted by Chromium",
+      "form": "<form><datalist><select name=\"a\"><option>Ghost</option></select></datalist></form>",
+      "submitted": "Ghost"
     }
   ]
 }
