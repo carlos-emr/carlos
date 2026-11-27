@@ -14,6 +14,14 @@ const start = source.indexOf('    function updateNavbarLoadState(');
 const end = source.indexOf('// display in place editor', start);
 assert.ok(start > 0 && end > start);
 const script = source.slice(start, end).replace(/<%--[\s\S]*?--%>/g, '');
+const loadDivStart = source.indexOf('    function loadDiv(');
+const loadDivEnd = source.indexOf('\n    /*', loadDivStart);
+assert.ok(loadDivStart > 0 && loadDivEnd > loadDivStart);
+const loadDivScript = source.slice(loadDivStart, loadDivEnd);
+const onIssueUpdateStart = source.indexOf('    function onIssueUpdate(');
+const onIssueUpdateEnd = source.indexOf('    function submitIssue(', onIssueUpdateStart);
+assert.ok(onIssueUpdateStart > 0 && onIssueUpdateEnd > onIssueUpdateStart);
+const onIssueUpdateScript = source.slice(onIssueUpdateStart, onIssueUpdateEnd);
 
 function makeDom() {
   const elements = {};
@@ -21,6 +29,7 @@ function makeDom() {
     return {
       id, attrs: {}, children: [], html: '', getHeight: () => 400,
       setAttribute(name, value) { this.attrs[name] = value; },
+      querySelector() { return null; },
       appendChild(child) {
         if (child.parent) child.parent.children = child.parent.children.filter(entry => entry !== child);
         this.children.push(child); child.parent = this; elements[child.id] = child;
@@ -69,7 +78,7 @@ function harness({ throwFirstSend = false, doctorPanels = [], patient = '2', app
 /** Execute the real CarlosAjax request path and dispatch native XHR events. */
 function nativeAjaxHarness({ doctorPanels = [], patient = '2', appointment = 0 } = {}) {
   const { elements, element } = makeDom();
-  const nativeRequests = []; const errors = []; const timers = [];
+  const nativeRequests = []; const errors = []; const timers = []; const alerts = [];
   class NativeXhr {
     constructor() {
       this.timeout = 0; this.headers = {}; this.listeners = {};
@@ -100,16 +109,19 @@ function nativeAjaxHarness({ doctorPanels = [], patient = '2', appointment = 0 }
     $: id => elements[id], Element: { remove: el => { delete elements[el.id]; } },
     Colour: new Proxy({}, { get: () => '#fff' }), ctx: '/carlos', echartDoctorPanels: doctorPanels, providerNo: '9', demographicNo: patient, appointmentNo: appointment,
     famHistoryLabel: 'Family', oMedsLabel: 'Other', riskFactorsLabel: 'Risk',
+    chartLoadError: 'chart load failed',
+    issueSidebarRefreshError: 'sidebar refresh failed; saving remains available',
+    alert: message => alerts.push(message),
     console: { error: (...args) => errors.push(args) },
     setTimeout: callback => timers.push(callback),
   };
   context.chartContext = '';
   vm.createContext(context);
   vm.runInContext(ajaxSource, context);
-  vm.runInContext(chartHelper + script, context);
+  vm.runInContext(chartHelper + script + loadDivScript + onIssueUpdateScript, context);
   const loader = new context.navBarLoader(); loader.load();
   return {
-    context, loader, elements, nativeRequests, errors, timers,
+    context, loader, elements, nativeRequests, errors, timers, alerts,
     runRetry() { timers.shift()(); },
     state: () => context.window.carlosNavbarLoadState,
   };
@@ -436,6 +448,107 @@ test('stale retry timeout or post-load abort cannot clobber a settled or superse
   fresh.dispatch('abort');
   assert.equal(h.state().modules.preventions.status, 'loaded');
   assert.equal(h.elements.preventions.html, '<a>fresh</a>');
+  assert.deepEqual(Array.from(h.state().failed), []);
+});
+
+test('onIssueUpdate loadDiv refreshes supersede queued and in-flight navbar retries for unresolved and resolved issues', () => {
+  const h = nativeAjaxHarness();
+  const unresolvedReq = h.nativeRequests.find(r => r.url.includes('/encounter/displayIssues?'));
+  const resolvedReq = h.nativeRequests.find(r => r.url.includes('/encounter/displayResolvedIssues?'));
+  assert.ok(unresolvedReq && resolvedReq);
+  for (const req of h.nativeRequests) {
+    if (req !== unresolvedReq && req !== resolvedReq) req.succeed();
+  }
+  // Fail both initial issue-panel requests: queue retry for unresolvedIssues, start in-flight retry for resolvedIssues.
+  unresolvedReq.failNetwork();
+  resolvedReq.failNetwork();
+  assert.equal(h.timers.length, 2);
+  // Start only the second timer (resolvedIssues retry) so one retry is queued and one is in flight.
+  const queuedUnresolvedRetry = h.timers.shift();
+  h.runRetry();
+  const inflightResolvedRetry = h.nativeRequests[22];
+  assert.match(inflightResolvedRetry.url, /\/encounter\/displayResolvedIssues\?/);
+
+  let editorReleased;
+  h.context.onIssueUpdate(ok => { editorReleased = ok; });
+  assert.equal(editorReleased, undefined);
+  assert.equal(h.nativeRequests.length, 25);
+  const freshUnresolved = h.nativeRequests[23];
+  const freshResolved = h.nativeRequests[24];
+  assert.match(freshUnresolved.url, /\/encounter\/displayIssues\?/);
+  assert.match(freshResolved.url, /\/encounter\/displayResolvedIssues\?/);
+
+  // The superseded queued timer must not send a stale retry.
+  queuedUnresolvedRetry();
+  assert.equal(h.nativeRequests.length, 25);
+
+  // Complete both fresh loadDiv refreshes and verify the editor callback is released.
+  freshUnresolved.succeed('<a>fresh unresolved</a>');
+  assert.equal(editorReleased, undefined);
+  freshResolved.succeed('<a>fresh resolved</a>');
+  assert.equal(editorReleased, true);
+  assert.equal(h.state().pending, 0);
+  assert.equal(h.elements.rightNavBar.attrs['aria-busy'], 'false');
+  assert.deepEqual(Array.from(h.state().failed), []);
+  assert.deepEqual(h.alerts, []);
+
+  // A late stale response or timeout/error from the superseded in-flight retry must be ignored.
+  inflightResolvedRetry.succeed('<a>stale resolved</a>');
+  inflightResolvedRetry.dispatch('timeout');
+  assert.equal(h.elements.unresolvedIssues.html, '<a>fresh unresolved</a>');
+  assert.equal(h.elements.resolvedIssues.html, '<a>fresh resolved</a>');
+  assert.equal(h.state().modules.unresolvedIssues.status, 'loaded');
+  assert.equal(h.state().modules.resolvedIssues.status, 'loaded');
+  assert.deepEqual(Array.from(h.state().failed), []);
+});
+
+test('a failing onIssueUpdate loadDiv settles navbar state to error while still releasing the editor', () => {
+  const h = nativeAjaxHarness();
+  const unresolvedReq = h.nativeRequests.find(r => r.url.includes('/encounter/displayIssues?'));
+  for (const req of h.nativeRequests) {
+    if (req !== unresolvedReq) req.succeed();
+  }
+  unresolvedReq.failNetwork();
+  assert.equal(h.timers.length, 1);
+
+  let editorReleased;
+  h.context.onIssueUpdate(ok => { editorReleased = ok; });
+  // Queued retry timer fires after loadDiv took ownership: must be ignored.
+  h.runRetry();
+  assert.equal(h.nativeRequests.length, 24);
+  h.nativeRequests[22].respondHttp(500, 'server error');
+  h.nativeRequests[23].succeed('<a>fresh resolved</a>');
+
+  assert.equal(editorReleased, true);
+  assert.deepEqual(h.alerts, ['sidebar refresh failed; saving remains available']);
+  assert.equal(h.state().modules.unresolvedIssues.status, 'error');
+  assert.equal(h.state().modules.resolvedIssues.status, 'loaded');
+  assert.deepEqual(Array.from(h.state().failed), ['unresolvedIssues']);
+  assert.equal(h.state().pending, 0);
+  assert.equal(h.elements.rightNavBar.attrs['aria-busy'], 'false');
+});
+
+test('a newer requestNavbarColumn supersedes an in-flight onIssueUpdate loadDiv without trapping the editor', () => {
+  const h = nativeAjaxHarness();
+  for (const req of h.nativeRequests) req.succeed();
+
+  let editorReleased;
+  h.context.onIssueUpdate(ok => { editorReleased = ok; });
+  const staleLoadDivUnresolved = h.nativeRequests[22];
+  const loadDivResolved = h.nativeRequests[23];
+
+  h.context.requestNavbarColumn('/carlos/encounter/displayIssues?hC=fff', 'unresolvedIssues', 'cmd=unresolvedIssues', 'rightNavBar');
+  const newerNavbarReq = h.nativeRequests[24];
+  newerNavbarReq.succeed('<a>newer navbar unresolved</a>');
+
+  staleLoadDivUnresolved.succeed('<a>stale loadDiv unresolved</a>');
+  loadDivResolved.succeed('<a>fresh resolved</a>');
+
+  assert.equal(h.elements.unresolvedIssues.html, '<a>newer navbar unresolved</a>');
+  assert.equal(h.elements.resolvedIssues.html, '<a>fresh resolved</a>');
+  assert.equal(editorReleased, true);
+  assert.deepEqual(h.alerts, []);
+  assert.equal(h.state().pending, 0);
   assert.deepEqual(Array.from(h.state().failed), []);
 });
 

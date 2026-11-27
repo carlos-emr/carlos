@@ -1536,30 +1536,85 @@ function updateCPPNote() {
 
     function loadDiv(div, url, limit, complete) {
         var refreshed = false;
+        var completed = false;
+        var navKey = typeof div === 'string' ? div : (div && div.id);
+        var navState = typeof window !== 'undefined' ? window.carlosNavbarLoadState : null;
+        var navModule = null;
+        // Share navbar module ownership with requestNavbarColumn so a newer loadDiv
+        // refresh (such as onIssueUpdate) supersedes queued or in-flight navbar retries.
+        if (navKey && navState && navState.modules && Object.prototype.hasOwnProperty.call(navState.modules, navKey)) {
+            navModule = {column: navState.modules[navKey].column, status: 'loading'};
+            navState.modules[navKey] = navModule;
+            if (typeof updateNavbarLoadState === 'function') updateNavbarLoadState(navState);
+        }
+        function navCurrent() {
+            return !navModule || (typeof window !== 'undefined'
+                && window.carlosNavbarLoadState === navState
+                && navState.modules[navKey] === navModule);
+        }
+        function settleNav(status) {
+            if (!navModule || !navCurrent()) return;
+            navModule.status = status;
+            if (typeof updateNavbarLoadState === 'function') updateNavbarLoadState(navState);
+        }
+        function finish(ok) {
+            if (completed) return;
+            completed = true;
+            if (complete) complete(ok);
+        }
 
-        CarlosAjax.request(
-            url,
-            {
-                method: 'post',
-                // ChartNotes.jsp's standalone route loads this script without the chart layout's
-                // appointmentNo global; an undeclared name must mean "no appointment", not a ReferenceError.
-                postBody: 'demographicNo=' + encodeURIComponent(demographicNo)
-                    + '&appointmentNo=' + encodeURIComponent(typeof appointmentNo === 'undefined' || appointmentNo == null ? '0' : appointmentNo)
-                    + (chartContext ? '&chartContext=' + encodeURIComponent(chartContext) : ''),
-                evalScripts: true,
-                onSuccess: function (request) {
-                    $(div).update(request.responseText);
-                    if (typeof notifyDivLoaded === 'function') notifyDivLoaded($(div).id);
-                    refreshed = true;
-                },
-                onFailure: function (request) {
-                    showChartLoadError(div, request.status);
-                },
-                onComplete: function (request) {
-                    if (complete) complete(refreshed && request.status >= 200 && request.status < 300);
+        var xhr;
+        try {
+            xhr = CarlosAjax.request(
+                url,
+                {
+                    method: 'post',
+                    // ChartNotes.jsp's standalone route loads this script without the chart layout's
+                    // appointmentNo global; an undeclared name must mean "no appointment", not a ReferenceError.
+                    postBody: 'demographicNo=' + encodeURIComponent(demographicNo)
+                        + '&appointmentNo=' + encodeURIComponent(typeof appointmentNo === 'undefined' || appointmentNo == null ? '0' : appointmentNo)
+                        + (chartContext ? '&chartContext=' + encodeURIComponent(chartContext) : ''),
+                    evalScripts: true,
+                    onSuccess: function (request) {
+                        if (!navCurrent()) return;
+                        try {
+                            $(div).update(request.responseText);
+                            if (typeof notifyDivLoaded === 'function') notifyDivLoaded($(div).id);
+                            refreshed = true;
+                            settleNav('loaded');
+                        } catch (error) {
+                            settleNav('error');
+                            throw error;
+                        }
+                    },
+                    onFailure: function (request) {
+                        if (!navCurrent()) return;
+                        showChartLoadError(div, request.status);
+                        settleNav('error');
+                    },
+                    onComplete: function (request) {
+                        if (navModule && navCurrent() && navModule.status === 'loading') {
+                            settleNav('error');
+                        }
+                        finish(!navCurrent() || (refreshed && request.status >= 200 && request.status < 300));
+                    }
                 }
-            }
-        );
+            );
+        } catch (error) {
+            settleNav('error');
+            finish(false);
+            throw error;
+        }
+        if ((navModule || complete) && xhr && typeof xhr.addEventListener === 'function') {
+            xhr.addEventListener('abort', function () {
+                if (navModule && navModule.status === 'loading') settleNav('error');
+                finish(!navCurrent());
+            });
+            xhr.addEventListener('timeout', function () {
+                if (navModule && navModule.status === 'loading') settleNav('error');
+                finish(!navCurrent());
+            });
+        }
         return false;
 
     }

@@ -67,6 +67,30 @@ async function main() {
 
     const waitForReloadedNavbars = watchNavbarRecovery(chartPage, recorder);
     const hasFamilyDoctor = await chartPage.evaluate(() => Boolean(window.carlosNavbarLoadState?.modules?.fDoc));
+    const exercisedPanels = hasFamilyDoctor ? ['preventions', 'Dx', 'fDoc'] : ['preventions', 'Dx'];
+    const capturePanelSnapshots = (panelIds) => chartPage.evaluate((ids) => {
+      const snapshots = {};
+      for (const id of ids) {
+        const el = document.getElementById(id);
+        const heading = el?.querySelector('.nav-menu-title h3')?.textContent?.trim() || '';
+        const listId = el?.querySelector('ul[id]')?.id || '';
+        const reloadUrl = el?.querySelector('input[name="reloadUrl"]')?.value || '';
+        const text = (el?.textContent || '').trim();
+        snapshots[id] = {
+          present: Boolean(el),
+          nonEmpty: Boolean(el && (el.childElementCount > 0 || text.length > 0)),
+          heading,
+          listId,
+          reloadUrl,
+          linkCount: el ? el.querySelectorAll('a').length : 0,
+          text,
+        };
+      }
+      return snapshots;
+    }, panelIds);
+    const baselinePanels = await capturePanelSnapshots(exercisedPanels);
+    assert(exercisedPanels.some((id) => baselinePanels[id].nonEmpty),
+      'Expected at least one exercised navbar panel to render baseline content before fault injection');
 
     // 1. Single-retry recovery across left, optional doctor, and right display modules.
     const counts = { prevention: 0, familyDoctor: 0, disease: 0 };
@@ -106,18 +130,37 @@ async function main() {
       leftBusy: document.getElementById('leftNavBar')?.getAttribute('aria-busy'),
       rightBusy: document.getElementById('rightNavBar')?.getAttribute('aria-busy'),
     }));
-    assert(recoveredState.preventions?.status === 'loaded' && recoveredState.preventions?.recovered === true,
-      'Preventions did not report recovered === true after network-error retry');
-    assert(recoveredState.Dx?.status === 'loaded' && recoveredState.Dx?.recovered === true,
-      'Disease Registry (right navbar) did not report recovered === true after network-error retry');
-    if (hasFamilyDoctor) {
-      assert(recoveredState.fDoc?.status === 'loaded' && recoveredState.fDoc?.recovered === true,
-        'Family Doctor optional panel did not report recovered === true after network-error retry');
+    const recoveredPanels = await capturePanelSnapshots(exercisedPanels);
+    for (const id of exercisedPanels) {
+      assert(recoveredState[id]?.status === 'loaded' && recoveredState[id]?.recovered === true,
+        `Panel ${id} did not report recovered === true after network-error retry`);
+      const before = baselinePanels[id];
+      const after = recoveredPanels[id];
+      assert(after.present === before.present, `Panel ${id} DOM presence changed after retry`);
+      assert(!after.text.includes(`${id} Error:`), `Panel ${id} retained error text after retry`);
+      if (before.nonEmpty) {
+        assert(after.nonEmpty, `Panel ${id} rendered blank after network-error retry`);
+        if (before.heading) {
+          assert(after.heading === before.heading,
+            `Panel ${id} heading mismatch after retry: expected "${before.heading}", got "${after.heading}"`);
+        }
+        if (before.listId) {
+          assert(after.listId === before.listId,
+            `Panel ${id} list container mismatch after retry: expected "${before.listId}", got "${after.listId}"`);
+        }
+        if (before.reloadUrl) {
+          assert(after.reloadUrl === before.reloadUrl,
+            `Panel ${id} reloadUrl mismatch after retry: expected "${before.reloadUrl}", got "${after.reloadUrl}"`);
+        }
+        if (before.linkCount > 0) {
+          assert(after.linkCount > 0, `Panel ${id} lost its rendered links after network-error retry`);
+        }
+      }
     }
     assert(recoveredState.leftBusy === 'false' && recoveredState.rightBusy === 'false',
       'Navbar columns stayed busy after display recovery');
     assertStrictPage(recorder, ['login', 'patient-search', 'master-record', 'echart']);
-    console.log('  PASS left, doctor, and right display modules each recovered once after net::ERR_FAILED');
+    console.log('  PASS left, doctor, and right display modules each recovered once and restored their rendered fragments after net::ERR_FAILED');
 
     // 2. Retry exhaustion: two network errors settle to error with no third attempt.
     let ticklerAttempts = 0;
@@ -194,8 +237,30 @@ async function main() {
       await route.abort('aborted').catch(() => {});
     };
     const msgsSince = { failures: recorder.requestFailures.length, console: recorder.consoleIssues.length };
+    let timeoutProbe = null;
     await chartPage.route('**/encounter/displayMessages?*', stallRetry);
     try {
+      await chartPage.evaluate(() => {
+        const origOpen = XMLHttpRequest.prototype.open;
+        const probe = { origOpen, xhrs: [], timeoutEvents: 0, timedOutAttempts: [] };
+        window.__carlosMsgsTimeoutProbe = probe;
+        XMLHttpRequest.prototype.open = function (method, url) {
+          if (typeof url === 'string' && url.includes('/encounter/displayMessages')) {
+            const xhr = this;
+            const attemptIndex = probe.xhrs.length;
+            probe.xhrs.push(xhr);
+            xhr.addEventListener('timeout', () => {
+              probe.timeoutEvents += 1;
+              probe.timedOutAttempts.push({
+                attemptIndex,
+                timeoutMs: xhr.timeout,
+                statusBeforeTimeout: window.carlosNavbarLoadState?.modules?.msgs?.status || null,
+              });
+            });
+          }
+          return origOpen.apply(this, arguments);
+        };
+      });
       await chartPage.evaluate(() => {
         window.requestNavbarColumn(window.ctx + '/encounter/displayMessages?hC=009999', 'msgs', 'cmd=msgs', 'leftNavBar');
       });
@@ -204,25 +269,54 @@ async function main() {
         return state && state.modules.msgs?.status === 'loading'
           && document.getElementById('leftNavBar')?.getAttribute('aria-busy') === 'true';
       }, undefined, { timeout: 5000 });
-      // Wait for real Chromium's 15s xhr.timeout to fire and transition msgs to error.
+      // Require the native timeout event on the replacement XHR before accepting terminal error state.
       await chartPage.waitForFunction(() => {
         const state = window.carlosNavbarLoadState;
-        return state && state.pending === 0 && state.modules.msgs?.status === 'error';
+        const probe = window.__carlosMsgsTimeoutProbe;
+        return state && state.pending === 0 && state.modules.msgs?.status === 'error'
+          && probe && probe.xhrs.length === 2
+          && probe.timeoutEvents >= 1;
       }, undefined, { timeout: 22000 });
+      timeoutProbe = await chartPage.evaluate(() => {
+        const probe = window.__carlosMsgsTimeoutProbe;
+        return {
+          xhrs: probe.xhrs.length,
+          configuredTimeouts: probe.xhrs.map((xhr) => xhr.timeout),
+          timeoutEvents: probe.timeoutEvents,
+          timedOutAttempts: probe.timedOutAttempts,
+        };
+      });
     } finally {
+      await chartPage.evaluate(() => {
+        const probe = window.__carlosMsgsTimeoutProbe;
+        if (probe && probe.origOpen) {
+          XMLHttpRequest.prototype.open = probe.origOpen;
+        }
+        delete window.__carlosMsgsTimeoutProbe;
+      }).catch(() => {});
       releaseStall();
       await chartPage.unroute('**/encounter/displayMessages?*', stallRetry);
     }
     assert(msgsAttempts === 2, `Expected 2 displayMessages attempts (initial + stalled retry), observed ${msgsAttempts}`);
+    assert(timeoutProbe && timeoutProbe.xhrs === 2,
+      `Expected 2 observed displayMessages XHRs, got ${timeoutProbe?.xhrs}`);
+    assert(timeoutProbe.configuredTimeouts[0] === 0 && timeoutProbe.configuredTimeouts[1] === 15000,
+      `Unexpected displayMessages XHR timeouts: ${JSON.stringify(timeoutProbe.configuredTimeouts)}`);
+    assert(timeoutProbe.timeoutEvents === 1
+      && timeoutProbe.timedOutAttempts.length === 1
+      && timeoutProbe.timedOutAttempts[0].attemptIndex === 1
+      && timeoutProbe.timedOutAttempts[0].timeoutMs === 15000
+      && timeoutProbe.timedOutAttempts[0].statusBeforeTimeout === 'loading',
+      `Expected native timeout event to transition replacement displayMessages XHR from loading (15000ms), observed ${JSON.stringify(timeoutProbe.timedOutAttempts)}`);
     assert((await chartPage.locator('#msgs').innerText()).includes('msgs Error: 0'),
       'Timed-out displayMessages retry did not display error text');
     assert(await chartPage.locator('#leftNavBar').getAttribute('aria-busy') === 'false',
       'Left navbar stayed busy after stalled retry timed out');
     consumeInjectedFault(recorder, msgsSince, '/encounter/displayMessages');
     assertStrictPage(recorder, ['login', 'patient-search', 'master-record', 'echart']);
-    console.log('  PASS stalled retry expired via real XHR timeout and cleared column busy state');
+    console.log('  PASS stalled retry fired native 15s XHR timeout event and cleared column busy state');
 
-    return { recovered: hasFamilyDoctor ? 3 : 2 };
+    return { recovered: exercisedPanels.length };
   } finally {
     await closeBrowserWithChartCleanup(browser, config.baseUrl);
   }
