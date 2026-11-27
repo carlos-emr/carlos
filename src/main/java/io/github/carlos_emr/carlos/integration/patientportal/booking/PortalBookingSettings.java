@@ -22,8 +22,10 @@
 package io.github.carlos_emr.carlos.integration.patientportal.booking;
 
 import io.github.carlos_emr.CarlosProperties;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -42,15 +44,41 @@ import java.util.function.Function;
  */
 public record PortalBookingSettings(
         Set<Character> offerableCodes, int leadHours, String visitMode, String locationCode,
-        boolean syncEnabled, long syncIntervalSeconds) {
+        boolean syncEnabled, long syncIntervalSeconds, List<String> visitModes) {
 
     static final String PREFIX = "patient_portal.booking.";
     static final String SYNC_ENABLED_KEY = PREFIX + "sync.enabled";
     static final int DEFAULT_LEAD_HOURS = 24;
     static final long DEFAULT_SYNC_INTERVAL_SECONDS = 60;
+    /** The visit modes a time can be offered with; {@code visit_mode} and {@code visit_modes} use only these. */
+    public static final List<String> KNOWN_VISIT_MODES = List.of("in_person", "phone", "video");
 
+    /**
+     * {@code visitMode} is the clinic's default mode (an offer with no mode of its own is shown
+     * with it). {@code visitModes} are the modes staff may choose per request: the default is
+     * always one of them, listed first, and anything unknown or repeated is left out.
+     */
     public PortalBookingSettings {
         offerableCodes = Collections.unmodifiableSet(new LinkedHashSet<>(offerableCodes));
+        Set<String> modes = new LinkedHashSet<>();
+        if (visitMode != null) {
+            modes.add(visitMode);
+        }
+        if (visitModes != null) {
+            for (String mode : visitModes) {
+                if (KNOWN_VISIT_MODES.contains(mode)) {
+                    modes.add(mode);
+                }
+            }
+        }
+        visitModes = List.copyOf(modes);
+    }
+
+    /** As before the per-request visit mode: the default is the only mode. */
+    public PortalBookingSettings(
+            Set<Character> offerableCodes, int leadHours, String visitMode, String locationCode,
+            boolean syncEnabled, long syncIntervalSeconds) {
+        this(offerableCodes, leadHours, visitMode, locationCode, syncEnabled, syncIntervalSeconds, List.of());
     }
 
     public static PortalBookingSettings fromCarlosProperties() {
@@ -71,8 +99,18 @@ public record PortalBookingSettings(
             }
         }
         String mode = trimmed(lookup.apply(PREFIX + "visit_mode"));
-        if (mode == null || !Set.of("in_person", "phone", "video").contains(mode)) {
+        if (mode == null || !KNOWN_VISIT_MODES.contains(mode)) {
             mode = "in_person";
+        }
+        // The modes staff may choose per request (optional; default: just the one above).
+        List<String> modes = new ArrayList<>();
+        String configuredModes = lookup.apply(PREFIX + "visit_modes");
+        if (configuredModes != null) {
+            for (String candidate : configuredModes.split("[,\\s]+")) {
+                if (KNOWN_VISIT_MODES.contains(candidate)) {
+                    modes.add(candidate);
+                }
+            }
         }
         String location = trimmed(lookup.apply(PREFIX + "location_code"));
         if (location != null && !location.matches("[a-z0-9_-]{1,32}")) {
@@ -82,7 +120,8 @@ public record PortalBookingSettings(
                 (int) bounded(lookup.apply(PREFIX + "offer_lead_hours"), DEFAULT_LEAD_HOURS, 0, 24 * 30),
                 mode, location,
                 "true".equals(trimmed(lookup.apply(SYNC_ENABLED_KEY))),
-                bounded(lookup.apply(PREFIX + "sync.interval_seconds"), DEFAULT_SYNC_INTERVAL_SECONDS, 15, 3600));
+                bounded(lookup.apply(PREFIX + "sync.interval_seconds"), DEFAULT_SYNC_INTERVAL_SECONDS, 15, 3600),
+                modes);
     }
 
     private static String trimmed(String value) {

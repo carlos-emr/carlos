@@ -328,7 +328,8 @@ async function main() {
     const offerProvider = page.locator('[data-role="offerProvider"]');
     const creates = () => calls.filter(call => call.method === 'create');
     const providerCalls = () => calls.filter(call => call.method === 'providers');
-    const mayOffer = { mayOffer: true, codesConfigured: true, visitMode: 'phone', defaultWithinDays: 14,
+    const mayOffer = { mayOffer: true, codesConfigured: true, visitMode: 'phone', visitModes: ['phone'],
+      defaultWithinDays: 14,
       maxWithinDays: 92, maxAfterDays: 365, defaultCount: 4, maxCount: 8 };
     const fresh = async () => {
       await page.evaluate(() => sessionStorage.clear());
@@ -400,6 +401,37 @@ async function main() {
     assert.deepEqual([offerRetry.operationId, offerRetry.offerFrom, offerRetry.offerAfterDays, offerRetry.offerWithinDays, offerRetry.offerCount],
       [offerFirst.operationId, '102', '2', '14', '4']);
     console.log('PASS a retry after an unconfirmed send keeps its offer, so the same times come back');
+    // ---- A per-request visit mode: the clinic enabled several, so staff choose; with one it stays
+    // read-only and nothing is sent (the clinic default). The mode chosen is kept with a retry.
+    const visitModeField = page.locator('[data-role="offerVisitModeField"]');
+    const visitModeSelect = page.locator('[data-role="offerVisitMode"]');
+    assert.equal(creates().at(-1).offerVisitMode, undefined);
+    offering = mayOffer; await fresh(); await offerToggle.check(); await listed(3);
+    assert.equal(await visitModeField.isHidden(), true);
+    assert.equal(await page.locator('[data-role="offerMode"]').isVisible(), true);
+    await offerProvider.selectOption('101'); await send.click();
+    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('Open times sent with the request'));
+    assert.equal(creates().at(-1).offerVisitMode, undefined);
+    console.log('PASS one enabled visit mode stays read-only and no mode is sent');
+    offering = { ...mayOffer, visitModes: ['phone', 'video', 'in_person'] }; await fresh(); await offerToggle.check(); await listed(3);
+    assert.equal(await visitModeField.isVisible(), true);
+    assert.equal(await page.locator('[data-role="offerMode"]').isHidden(), true);
+    assert.deepEqual(await visitModeSelect.locator('option').allInnerTexts(), ['By phone', 'By video', 'In person']);
+    assert.equal(await visitModeSelect.inputValue(), 'phone');
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    await visitModeSelect.selectOption('video'); await offerProvider.selectOption('101'); await send.click();
+    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('Open times sent with the request'));
+    assert.equal(creates().at(-1).offerVisitMode, 'video');
+    console.log('PASS several enabled visit modes: staff choose one and it is sent with the request');
+    loseCreate = true; await fresh(); await offerToggle.check(); await listed(3);
+    await visitModeSelect.selectOption('in_person'); await offerProvider.selectOption('102'); await send.click();
+    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('could not be confirmed'));
+    const modeFirst = creates().at(-1);
+    await page.reload(); await openDialog(); await waitReady();
+    assert.equal(await visitModeSelect.inputValue(), 'in_person'); assert.equal(await visitModeSelect.isDisabled(), true);
+    await send.click(); await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('Open times sent with the request'));
+    assert.deepEqual([creates().at(-1).operationId, creates().at(-1).offerVisitMode], [modeFirst.operationId, 'in_person']);
+    console.log('PASS a retry keeps the visit mode it was first sent with');
     offering = null;
     assert.deepEqual(errors, []);
     if (process.env.PORTAL_BOOKING_SCREENSHOT) {

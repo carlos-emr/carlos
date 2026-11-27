@@ -96,8 +96,11 @@ public class PortalBookingPrompt2Action extends PortalJsonAction {
     /** The first and last day to look for open times. */
     record Window(LocalDate from, LocalDate to) {}
 
-    /** Which provider's schedule to offer from, and the window; null when no times are offered. */
-    record OfferRequest(String providerNo, LocalDate from, LocalDate to, int count) {
+    /**
+     * Which provider's schedule to offer from, the window, and the visit mode ({@code null}: the
+     * clinic's default); null when no times are offered.
+     */
+    record OfferRequest(String providerNo, LocalDate from, LocalDate to, int count, String visitMode) {
         static final int DEFAULT_COUNT = 4;
         static final int DEFAULT_WITHIN_DAYS = 14;
 
@@ -113,7 +116,16 @@ public class PortalBookingPrompt2Action extends PortalJsonAction {
             Window window = window(request, today);
             int count = bounded(request.getParameter("offerCount"), DEFAULT_COUNT, 1,
                     PatientPortalOfferedSlot.MAX_PER_PROMPT);
-            return new OfferRequest(provider, window.from(), window.to(), count);
+            // Only the shape is checked here; that the mode is one the clinic enabled is checked
+            // against the clinic's settings (PortalBookingOfferService.offer) before anything is stored.
+            String mode = request.getParameter("offerVisitMode");
+            if (mode != null && mode.isBlank()) {
+                mode = null;
+            }
+            if (mode != null && !PortalBookingSettings.KNOWN_VISIT_MODES.contains(mode)) {
+                throw new IllegalArgumentException("offered times visit mode is invalid");
+            }
+            return new OfferRequest(provider, window.from(), window.to(), count, mode);
         }
 
         /**
@@ -229,7 +241,8 @@ public class PortalBookingPrompt2Action extends PortalJsonAction {
                     List<PatientPortalOfferedSlot> times;
                     try {
                         times = offers().offer(creation.operationId(), patient, offer.providerNo(), offer.from(),
-                                offer.to(), offer.count(), session.getLoggedInProviderNo(), clinic);
+                                offer.to(), offer.count(), session.getLoggedInProviderNo(), clinic,
+                                offer.visitMode());
                     } catch (IllegalArgumentException reused) {
                         return badRequest(response, "booking prompt request is invalid");
                     }
@@ -299,15 +312,18 @@ public class PortalBookingPrompt2Action extends PortalJsonAction {
     /**
      * What the dialog needs to show the "offer open times" controls honestly: whether this user may
      * offer (schedule write as well as booking-prompt write), whether the clinic has chosen any
-     * bookable template codes, how the times are shown to the patient (the clinic's one visit mode),
-     * and the limits the controls enforce. Nothing patient-specific.
+     * bookable template codes, how the times are shown to the patient (the clinic's default visit
+     * mode, and the modes it lets staff choose per request), and the limits the controls enforce. Nothing patient-specific.
      */
     private void describeOffering(ObjectNode offering, LoggedInInfo session, int patient) {
         PortalBookingSettings clinic = settings.get();
         offering.put("mayOffer", security.hasPrivilege(session, OBJECT_APPOINTMENT, SecurityInfoManager.WRITE,
                 String.valueOf(patient)));
         offering.put("codesConfigured", !clinic.offerableCodes().isEmpty());
+        // The clinic's default mode, and the modes staff may choose per request (the default first).
         offering.put("visitMode", clinic.visitMode());
+        var modes = offering.putArray("visitModes");
+        clinic.visitModes().forEach(modes::add);
         offering.put("defaultWithinDays", OfferRequest.DEFAULT_WITHIN_DAYS);
         offering.put("maxWithinDays", 92);
         offering.put("maxAfterDays", PortalBookingOfferService.MAX_DAYS_AHEAD);

@@ -126,7 +126,7 @@ class PortalBookingPrompt2ActionOfferedTimesUnitTest {
 
     @Test
     void shouldSendOpenTimesWithThePrompt_whenStaffOfferThem() throws Exception {
-        when(offers.offer(eq("operation-1"), eq(123), eq("101"), any(), any(), eq(4), eq("999998"), any()))
+        when(offers.offer(eq("operation-1"), eq(123), eq("101"), any(), any(), eq(4), eq("999998"), any(), any()))
                 .thenReturn(List.of(SLOT));
         execute();
         assertThat(response.getStatus()).isEqualTo(201);
@@ -140,28 +140,67 @@ class PortalBookingPrompt2ActionOfferedTimesUnitTest {
 
     @Test
     void shouldOfferAFortnightFromToday_byDefault() throws Exception {
-        when(offers.offer(any(), anyInt(), any(), any(), any(), anyInt(), any(), any())).thenReturn(List.of(SLOT));
+        when(offers.offer(any(), anyInt(), any(), any(), any(), anyInt(), any(), any(), any())).thenReturn(List.of(SLOT));
         execute();
         ArgumentCaptor<LocalDate> from = ArgumentCaptor.forClass(LocalDate.class);
         ArgumentCaptor<LocalDate> to = ArgumentCaptor.forClass(LocalDate.class);
-        verify(offers).offer(any(), anyInt(), any(), from.capture(), to.capture(), anyInt(), any(), any());
+        verify(offers).offer(any(), anyInt(), any(), from.capture(), to.capture(), anyInt(), any(), any(), any());
         assertThat(to.getValue()).isEqualTo(from.getValue().plusDays(13));
+    }
+
+    @Test
+    void shouldPassTheChosenVisitModeToTheOffer_andNullWhenNoneIsGiven() throws Exception {
+        clinic = new PortalBookingSettings(Set.of('B'), 24, "phone", null, false, 60, List.of("video"));
+        request.setParameter("offerVisitMode", "video");
+        when(offers.offer(any(), anyInt(), any(), any(), any(), anyInt(), any(), any(), any())).thenReturn(List.of(SLOT));
+        execute();
+        assertThat(response.getStatus()).isEqualTo(201);
+        verify(offers).offer(eq("operation-1"), eq(123), eq("101"), any(), any(), eq(4), eq("999998"), same(clinic),
+                eq("video"));
+    }
+
+    @Test
+    void shouldPassNoVisitMode_whenTheRequestHasNone() throws Exception {
+        when(offers.offer(any(), anyInt(), any(), any(), any(), anyInt(), any(), any(), any())).thenReturn(List.of(SLOT));
+        execute();
+        verify(offers).offer(any(), anyInt(), any(), any(), any(), anyInt(), any(), any(),
+                org.mockito.ArgumentMatchers.isNull());
+    }
+
+    @Test
+    void shouldRefuseAVisitModeThatIsNotOneOfTheThree_beforeAnythingIsStored() throws Exception {
+        request.setParameter("offerVisitMode", "teleport");
+        execute();
+        assertThat(response.getStatus()).isEqualTo(400);
+        verify(offers, never()).offer(any(), anyInt(), any(), any(), any(), anyInt(), any(), any(), any());
+        verify(portal, never()).createBookingPrompt(anyInt(), any(), any());
+    }
+
+    @Test
+    void shouldRefuseAVisitModeTheClinicHasNotEnabled_withoutCreatingAPrompt() throws Exception {
+        request.setParameter("offerVisitMode", "video");
+        // The service refuses a mode the clinic did not enable (phone only, here).
+        when(offers.offer(any(), anyInt(), any(), any(), any(), anyInt(), any(), any(), eq("video")))
+                .thenThrow(new IllegalArgumentException("offered times visit mode is not enabled"));
+        execute();
+        assertThat(response.getStatus()).isEqualTo(400);
+        verify(portal, never()).createBookingPrompt(anyInt(), any(), any());
     }
 
     @Test
     void shouldStayInsideAYear_whenTheWindowRunsPastIt() throws Exception {
         request.setParameter("offerAfterDays", "360");
         request.setParameter("offerWithinDays", "30");
-        when(offers.offer(any(), anyInt(), any(), any(), any(), anyInt(), any(), any())).thenReturn(List.of(SLOT));
+        when(offers.offer(any(), anyInt(), any(), any(), any(), anyInt(), any(), any(), any())).thenReturn(List.of(SLOT));
         execute();
         ArgumentCaptor<LocalDate> to = ArgumentCaptor.forClass(LocalDate.class);
-        verify(offers).offer(any(), anyInt(), any(), any(), to.capture(), anyInt(), any(), any());
+        verify(offers).offer(any(), anyInt(), any(), any(), to.capture(), anyInt(), any(), any(), any());
         assertThat(to.getValue()).isEqualTo(LocalDate.now().plusDays(365));
     }
 
     @Test
     void shouldSayNoTimesWereFound_withoutCreatingAPrompt() throws Exception {
-        when(offers.offer(any(), anyInt(), any(), any(), any(), anyInt(), any(), any())).thenReturn(List.of());
+        when(offers.offer(any(), anyInt(), any(), any(), any(), anyInt(), any(), any(), any())).thenReturn(List.of());
         execute();
         assertThat(response.getStatus()).isEqualTo(409);
         assertThat(new ObjectMapper().readTree(response.getContentAsString()).get("reason").asText())
@@ -172,7 +211,7 @@ class PortalBookingPrompt2ActionOfferedTimesUnitTest {
     @Test
     void shouldSayOfferingIsNotSetUp_whenTheClinicChoseNoTemplateCodes() throws Exception {
         clinic = new PortalBookingSettings(Set.of(), 24, "in_person", null, false, 60);
-        when(offers.offer(any(), anyInt(), any(), any(), any(), anyInt(), any(), any())).thenReturn(List.of());
+        when(offers.offer(any(), anyInt(), any(), any(), any(), anyInt(), any(), any(), any())).thenReturn(List.of());
         execute();
         // Told apart from "no open time in that window": the clinic has not turned offering on.
         assertThat(response.getStatus()).isEqualTo(409);
@@ -184,7 +223,7 @@ class PortalBookingPrompt2ActionOfferedTimesUnitTest {
     void shouldGiveARetriedOperationItsTimes_evenIfTheCodesWereClearedSince() throws Exception {
         // The service answers an operation that already has offers with those offers.
         clinic = new PortalBookingSettings(Set.of(), 24, "in_person", null, false, 60);
-        when(offers.offer(eq("operation-1"), eq(123), eq("101"), any(), any(), eq(4), eq("999998"), any()))
+        when(offers.offer(eq("operation-1"), eq(123), eq("101"), any(), any(), eq(4), eq("999998"), any(), any()))
                 .thenReturn(List.of(SLOT));
         execute();
         assertThat(response.getStatus()).isEqualTo(201);
@@ -197,7 +236,7 @@ class PortalBookingPrompt2ActionOfferedTimesUnitTest {
                 .thenReturn(false);
         execute();
         assertThat(response.getStatus()).isEqualTo(403);
-        verify(offers, never()).offer(any(), anyInt(), any(), any(), any(), anyInt(), any(), any());
+        verify(offers, never()).offer(any(), anyInt(), any(), any(), any(), anyInt(), any(), any(), any());
         verify(portal, never()).createBookingPrompt(anyInt(), any(), any());
     }
 
@@ -210,6 +249,6 @@ class PortalBookingPrompt2ActionOfferedTimesUnitTest {
         request.setParameter("offerFrom", "101; DROP");
         execute();
         assertThat(response.getStatus()).isEqualTo(400);
-        verify(offers, never()).offer(any(), anyInt(), any(), any(), any(), anyInt(), any(), any());
+        verify(offers, never()).offer(any(), anyInt(), any(), any(), any(), anyInt(), any(), any(), any());
     }
 }

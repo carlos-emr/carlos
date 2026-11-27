@@ -184,13 +184,25 @@ class PortalBookingPrompt2ActionOfferingControlsUnitTest {
         JsonNode offering = body().get("offering");
         assertThat(offering.get("mayOffer").asBoolean()).isTrue();
         assertThat(offering.get("codesConfigured").asBoolean()).isTrue();
-        // The clinic's one visit mode, shown read-only: a per-request mode waits for its own column.
+        // The clinic's default visit mode; with no others enabled it is the only choice (read-only).
         assertThat(offering.get("visitMode").asText()).isEqualTo("phone");
+        assertThat(offering.get("visitModes")).extracting(JsonNode::asText).containsExactly("phone");
         assertThat(offering.get("defaultWithinDays").asInt()).isEqualTo(14);
         assertThat(offering.get("maxWithinDays").asInt()).isEqualTo(92);
         assertThat(offering.get("maxAfterDays").asInt()).isEqualTo(PortalBookingOfferService.MAX_DAYS_AHEAD);
         assertThat(offering.get("defaultCount").asInt()).isEqualTo(4);
         assertThat(offering.get("maxCount").asInt()).isEqualTo(8);
+    }
+
+    @Test
+    void shouldListTheEnabledVisitModesInThePanel_theClinicDefaultFirst() throws Exception {
+        request.setParameter("method", "panel");
+        clinic = new PortalBookingSettings(Set.of('B'), 24, "phone", null, false, 60, List.of("in_person", "video"));
+        execute();
+        JsonNode offering = body().get("offering");
+        assertThat(offering.get("visitMode").asText()).isEqualTo("phone");
+        assertThat(offering.get("visitModes")).extracting(JsonNode::asText)
+                .containsExactly("phone", "in_person", "video");
     }
 
     @Test

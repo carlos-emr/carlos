@@ -229,6 +229,94 @@ class PortalBookingOfferServiceUnitTest {
         verify(providers, never()).getProvider(any());
     }
 
+    /** Phone is the clinic default; video and in person are also enabled for a request. */
+    private static final PortalBookingSettings SEVERAL_MODES = new PortalBookingSettings(
+            Set.of('B'), 24, "phone", "main", false, 60, List.of("video", "in_person"));
+
+    @Test
+    void shouldStoreTheChosenVisitModeWithEachOffer_andShowIt() {
+        when(offers.findByOperation("operation-1")).thenReturn(List.of());
+        when(loader.load(eq("101"), eq(FROM), eq(FROM.plusDays(13)), eq(4), anySet(), eq(SEVERAL_MODES), any()))
+                .thenReturn(List.of(time(19, 9), time(20, 14)));
+        var slots = service.offer("operation-1", 123, "101", FROM, FROM.plusDays(13), 4, "999998", SEVERAL_MODES,
+                "video");
+        // The clinic default is phone; these times are offered as video, and say so.
+        assertThat(slots).extracting(slot -> slot.visitMode()).containsExactly("video", "video");
+        ArgumentCaptor<PortalBookingOffer> saved = ArgumentCaptor.forClass(PortalBookingOffer.class);
+        verify(offers, org.mockito.Mockito.times(2)).persist(saved.capture());
+        assertThat(saved.getAllValues()).extracting(PortalBookingOffer::getVisitMode)
+                .containsExactly("video", "video");
+    }
+
+    @Test
+    void shouldStoreNoVisitMode_whenNoneIsChosen_soTheClinicDefaultApplies() {
+        when(offers.findByOperation("operation-1")).thenReturn(List.of());
+        when(loader.load(eq("101"), eq(FROM), eq(FROM.plusDays(13)), eq(4), anySet(), eq(SEVERAL_MODES), any()))
+                .thenReturn(List.of(time(19, 9)));
+        var slots = service.offer("operation-1", 123, "101", FROM, FROM.plusDays(13), 4, "999998", SEVERAL_MODES);
+        ArgumentCaptor<PortalBookingOffer> saved = ArgumentCaptor.forClass(PortalBookingOffer.class);
+        verify(offers).persist(saved.capture());
+        assertThat(saved.getValue().getVisitMode()).isNull();
+        assertThat(slots).extracting(slot -> slot.visitMode()).containsExactly("phone");
+    }
+
+    @Test
+    void shouldRefuseAVisitMode_theClinicHasNotEnabled() {
+        when(offers.findByOperation("operation-1")).thenReturn(List.of());
+        // SETTINGS enables only its default, phone.
+        assertThatThrownBy(() -> service.offer("operation-1", 123, "101", FROM, FROM, 4, "999998", SETTINGS, "video"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.offer("operation-1", 123, "101", FROM, FROM, 4, "999998", SEVERAL_MODES,
+                "teleport")).isInstanceOf(IllegalArgumentException.class);
+        verify(loader, never()).load(any(), any(), any(), anyInt(), anySet(), any(), any());
+        verify(offers, never()).persist(any());
+    }
+
+    @Test
+    void shouldShowAStoredOffersOwnMode_whenTheOperationIsRetried() {
+        PortalBookingOffer video = stored("slot-a", 123, 19, 9);
+        video.setVisitMode("video");
+        PortalBookingOffer older = stored("slot-b", 123, 20, 9);
+        when(offers.findByOperation("operation-1")).thenReturn(List.of(video, older));
+        // A retry ignores the mode it is given; each offer keeps its own, and an offer with none
+        // (made before the column) has the clinic's default.
+        var slots = service.offer("operation-1", 123, "101", FROM, FROM.plusDays(13), 4, "999998", SEVERAL_MODES,
+                "in_person");
+        assertThat(slots).extracting(slot -> slot.visitMode()).containsExactly("video", "phone");
+        verify(offers, never()).persist(any());
+    }
+
+    @Test
+    void shouldKeepTheRefusedTimesMode_whenOfferingReplacements() {
+        PortalBookingOffer refused = stored("slot-a", 123, 19, 9);
+        refused.setVisitMode("video");
+        when(offers.findReplacements("operation-1", 11)).thenReturn(List.of());
+        when(offers.findOpenForOperation(eq("operation-1"), any())).thenReturn(List.of());
+        when(loader.load(eq("101"), any(), any(), eq(3), anySet(), eq(SEVERAL_MODES), any()))
+                .thenReturn(List.of(time(20, 9), time(20, 14)));
+        var replacements = service.replacementsFor(refused, 7, 11, SEVERAL_MODES);
+        // The clinic default is phone; the refused time was video, and so are its replacements.
+        assertThat(replacements).extracting(slot -> slot.visitMode()).containsExactly("video", "video");
+        ArgumentCaptor<PortalBookingOffer> saved = ArgumentCaptor.forClass(PortalBookingOffer.class);
+        verify(offers, org.mockito.Mockito.times(2)).persist(saved.capture());
+        assertThat(saved.getAllValues()).extracting(PortalBookingOffer::getVisitMode)
+                .containsExactly("video", "video");
+    }
+
+    @Test
+    void shouldGiveReplacementsTheClinicDefault_whenTheRefusedTimeHasNoMode() {
+        PortalBookingOffer refused = stored("slot-a", 123, 19, 9);
+        when(offers.findReplacements("operation-1", 11)).thenReturn(List.of());
+        when(offers.findOpenForOperation(eq("operation-1"), any())).thenReturn(List.of());
+        when(loader.load(eq("101"), any(), any(), eq(3), anySet(), eq(SEVERAL_MODES), any()))
+                .thenReturn(List.of(time(20, 9)));
+        var replacements = service.replacementsFor(refused, 7, 11, SEVERAL_MODES);
+        ArgumentCaptor<PortalBookingOffer> saved = ArgumentCaptor.forClass(PortalBookingOffer.class);
+        verify(offers).persist(saved.capture());
+        assertThat(saved.getValue().getVisitMode()).isNull();
+        assertThat(replacements).extracting(slot -> slot.visitMode()).containsExactly("phone");
+    }
+
     @Test
     void shouldReuseReplacements_whenTheReportIsRetried() {
         when(offers.findReplacements("operation-1", 11)).thenReturn(List.of(stored("slot-b", 123, 20, 9)));

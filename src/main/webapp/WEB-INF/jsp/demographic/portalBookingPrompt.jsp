@@ -113,6 +113,10 @@
                 <label><fmt:message key="portal.booking.offer.count"/>
                     <input type="number" inputmode="numeric" min="1" max="8" value="4" data-role="offerCount">
                 </label>
+                <%-- One enabled visit mode: said read-only. Several: staff choose, from the modes the server listed. --%>
+                <label data-role="offerVisitModeField" hidden><fmt:message key="portal.booking.offer.modeLabel"/>
+                    <select data-role="offerVisitMode"></select>
+                </label>
                 <p class="portal-booking-muted" data-role="offerMode"></p>
             </div>
         </div>

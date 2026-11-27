@@ -74,6 +74,14 @@ public class PortalBookingOffer extends AbstractModel<String> {
     @Column(name = "template_code", length = 1, nullable = false)
     private String templateCode;
 
+    /**
+     * The visit mode this time was offered with (in_person, phone or video), or null when the offer
+     * was made before the column existed or with the clinic's default mode. A replacement for a
+     * refused pick is made with the refused time's own mode (the portal's pick carries none).
+     */
+    @Column(name = "visit_mode", length = 16)
+    private String visitMode;
+
     @Column(name = "offered_by", length = 6, nullable = false)
     private String offeredBy;
 
@@ -118,6 +126,8 @@ public class PortalBookingOffer extends AbstractModel<String> {
     public void setDurationMinutes(int durationMinutes) { this.durationMinutes = durationMinutes; }
     public String getTemplateCode() { return templateCode; }
     public void setTemplateCode(String templateCode) { this.templateCode = templateCode; }
+    public String getVisitMode() { return visitMode; }
+    public void setVisitMode(String visitMode) { this.visitMode = visitMode; }
     public String getOfferedBy() { return offeredBy; }
     public void setOfferedBy(String offeredBy) { this.offeredBy = offeredBy; }
     public String getStatus() { return status; }

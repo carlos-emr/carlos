@@ -28,7 +28,9 @@
     // The offer kept with a retry: the provider and the window it was first sent with, so that a
     // retry sends the same (the action gives a retried operation the times it already offered).
     function validOffer(offer) {
+        // A kept request made before visit modes has no mode (the clinic's default); otherwise one of the three.
         return !!offer && typeof offer === 'object' && PROVIDER_NUMBER.test(String(offer.provider))
+            && (offer.visitMode === undefined || VISIT_MODES.includes(offer.visitMode))
             && wholeNumber(offer.after, 0, 365) !== null && wholeNumber(offer.within, 1, 92) !== null
             && wholeNumber(offer.count, 1, 8) !== null;
     }
@@ -36,6 +38,8 @@
     function parseOffering(value) {
         const valid = !!value && typeof value === 'object' && typeof value.mayOffer === 'boolean'
             && typeof value.codesConfigured === 'boolean' && VISIT_MODES.includes(value.visitMode)
+            && Array.isArray(value.visitModes) && value.visitModes.includes(value.visitMode)
+            && value.visitModes.every(mode => VISIT_MODES.includes(mode))
             && [value.maxAfterDays, value.maxWithinDays, value.maxCount].every(limit =>
                 Number.isInteger(limit) && limit > 0 && limit <= 366);
         return valid ? value : null;
@@ -78,6 +82,8 @@
         const offerWithin = role('offerWithin');
         const offerCount = role('offerCount');
         const offerMode = role('offerMode');
+        const offerVisitModeField = role('offerVisitModeField');
+        const offerVisitMode = role('offerVisitMode');
         const key = 'portal.booking.pending:' + root.dataset.actor + ':' + root.dataset.patient;
         // What the panel said about offering, and the provider list for the window last asked for.
         let offering = null;
@@ -148,12 +154,32 @@
                 offerProvider.append(new Option(offer.provider, offer.provider));
             }
             offerProvider.value = offer.provider;
+            // A kept request keeps the mode it was first sent with (the portal refuses a retry whose
+            // times differ); one with no mode of its own is the clinic's default.
+            if (offerVisitMode && offering) {
+                const kept = offer.visitMode || offering.visitMode;
+                if (!Array.from(offerVisitMode.options).some(option => option.value === kept)) {
+                    offerVisitMode.append(new Option(message('offer.mode.' + kept), kept));
+                }
+                offerVisitMode.value = kept;
+            }
+        }
+        // The visit-mode select lists the modes the server said staff may choose, the clinic's default first.
+        function fillVisitModes() {
+            if (!offerVisitMode || !offering) { return; }
+            const wanted = offering.visitModes.join(',');
+            if (offerVisitMode.dataset.modes === wanted) { return; }
+            offerVisitMode.dataset.modes = wanted;
+            offerVisitMode.replaceChildren(...offering.visitModes.map(mode =>
+                new Option(message('offer.mode.' + mode), mode)));
+            offerVisitMode.value = offering.visitMode;
         }
         // The offer controls follow what the panel said, the retry kept in storage, and the list.
         function updateOffer() {
             if (!offerGroup) { return; }
             offerGroup.hidden = !offering;
             if (!offering) { return; }
+            fillVisitModes();
             if (pending) {
                 offerToggle.checked = !!pending.offer;
                 if (pending.offer) { setOfferValues(pending.offer); }
@@ -162,14 +188,19 @@
             offerToggle.disabled = busy || !!pending || !possible;
             if (!possible) { offerToggle.checked = false; }
             offerFields.hidden = !offerToggle.checked;
-            [offerProvider, offerAfter, offerWithin, offerCount].forEach(field => {
+            [offerProvider, offerAfter, offerWithin, offerCount, offerVisitMode].forEach(field => {
                 field.disabled = busy || !!pending;
             });
             const noteKey = !offering.codesConfigured ? 'offer.off' : !offering.mayOffer ? 'offer.noSchedule'
                 : offerToggle.checked ? providersState : '';
             offerNote.textContent = noteKey ? message(noteKey) : '';
             offerNote.hidden = !noteKey;
-            offerMode.textContent = message('offer.modeLabel') + ' ' + message('offer.mode.' + offering.visitMode);
+            // One enabled mode is said read-only; several are chosen from a select.
+            const choose = offering.visitModes.length > 1;
+            offerVisitModeField.hidden = !choose;
+            offerMode.hidden = choose;
+            offerMode.textContent = choose ? ''
+                : message('offer.modeLabel') + ' ' + message('offer.mode.' + offering.visitMode);
         }
         // The providers with bookable time in the window, asked of the server (never built here).
         async function loadProviders() {
@@ -211,6 +242,8 @@
                 params.offerAfterDays = String(request.offer.after);
                 params.offerWithinDays = String(request.offer.within);
                 params.offerCount = String(request.offer.count);
+                // Only a mode the staff chose is sent; none means the clinic's default.
+                if (request.offer.visitMode) { params.offerVisitMode = request.offer.visitMode; }
             }
             return params;
         }
@@ -403,6 +436,11 @@
                             .find(([, value]) => value === null);
                         if (bad) { bad[0].reportValidity(); bad[0].focus(); update(); return; }
                         if (!PROVIDER_NUMBER.test(offer.provider)) { offerProvider.focus(); update(); return; }
+                        // The chosen mode, when the clinic lets staff choose: kept with the offer even when it
+                        // is the default one, so a later change of the clinic default does not change it.
+                        if (offering.visitModes.length > 1 && offering.visitModes.includes(offerVisitMode.value)) {
+                            offer.visitMode = offerVisitMode.value;
+                        }
                         request.offer = offer;
                     }
                     sessionStorage.setItem(key, JSON.stringify(request));
