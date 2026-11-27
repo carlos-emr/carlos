@@ -123,6 +123,12 @@ information. [ISMP Canada dose designations](https://ismpcanada.ca/resource/do-n
 [BPMH interview guide](https://ismpcanada.ca/wp-content/uploads/BPMH-Interview-Guide.pdf),
 [Ontario College of Pharmacists documentation guideline](https://ocpinfo.com/pharmacy-professionals/rules-and-standards-of-the-profession/practice-policies-guidelines/documentation-guidelines/).
 
+The College of Physicians and Surgeons of BC requires a clear record of medication specifics
+and a record-keeping system that audits subsequent changes. Preserving imported fields through
+transfer and display supports that requirement. Issue #6408 tracks the separate history of
+changes when a clinician supersedes an imported prescription.
+[CPSBC Medical Records Documentation, sections 2(e) and 7](https://www.cpsbc.ca/files/pdf/CPSBC-PS-Medical-Records-Documentation.pdf)
+
 The ON and BC import manifests now leave nullable medication and favourite dose bounds as SQL
 `NULL`. The persisted model also retains nullable medication flags and favourite repeat counts.
 The Java accessors still supply the defaults their callers expect. An earlier import may already
