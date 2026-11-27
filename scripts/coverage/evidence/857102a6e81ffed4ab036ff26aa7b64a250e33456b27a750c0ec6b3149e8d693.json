@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "2f4cb177e72cf49fb3dcbc9b819c8eb4948a502d",
+  "comparisonSha256": "26b3e019274abb0cb1dec83a711046cc985d6472b1b85ef49e5faba53dae652d",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/config/PackagedReportLeaseCheck.java": {
+      "lines": 98.34983498349835,
+      "instructions": 97.38717339667458,
+      "branches": 90.34482758620689,
+      "sourceBlob": "f7a3dea251b1234d1b98cd0867eaf97d822ba8ea"
+    }
+  },
+  "baselineCommit": "91abca380fe6ee7a1cb0e263ae4e1157a35c6f7e",
+  "baselineSourceTree": "2f4cb177e72cf49fb3dcbc9b819c8eb4948a502d",
+  "baselineReportSha256": "98fb9b62950505a61124b8f4ad270b3bcec6d1403042d07ed5b5af3d1db577fc",
+  "baselineLane": "PackagedReportLeaseCheck CodeRabbit hardening JaCoCo 0.8.16 baseline (JDK 25)",
+  "baselineTestCounts": {
+    "tests": 8,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "9c4bc65660c8d43bc42b59f96ff80ce64dcd7d2859650dcc2fd07879cc14285a",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.config.PackagedReportLeaseCheckUnitTest"
+  ]
+}
