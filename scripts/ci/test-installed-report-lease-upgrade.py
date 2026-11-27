@@ -20,13 +20,15 @@ KEY = "db_remove_abandoned_timeout"
 
 
 class TestReportLeaseUpgrade(unittest.TestCase):
-    def warning_for(self, installed, *, options="", override=None, home=None, env_text="", setenv=False):
-        block = re.search(
-            r"^        REPORT_WEB_INF=.*?^        }\n",
-            POSTINST.read_text(encoding="utf-8"),
-            re.M | re.S,
-        )
+    def warning_for(self, installed, *, options="", override=None, home=None, env_text="", setenv=False,
+                    alternate_webapp=False, with_reload=False):
+        postinst = POSTINST.read_text(encoding="utf-8")
+        block = re.search(r"^    REPORT_WEB_INF=.*?^    }\n", postinst, re.M | re.S)
         self.assertIsNotNone(block, "the report lease warning is missing from postinst")
+        script = block.group(0)
+        if with_reload:
+            start = postinst.rindex('if [ "$1" = configure ]; then\n', 0, block.start())
+            script = postinst[start:postinst.index("\nfi\n", block.end() - 1) + 4]
         with tempfile.TemporaryDirectory(dir="/var/lib/carlos-emr") as directory:
             Path(directory).chmod(0o711)
             properties = Path(directory) / "carlos.properties"
@@ -58,9 +60,30 @@ class TestReportLeaseUpgrade(unittest.TestCase):
             (base / "bin").mkdir(parents=True)
             base.chmod(0o755)
             (base / "bin").chmod(0o755)
+            (base / "webapps").mkdir(mode=0o755)
+            conf = base / "conf"
+            (conf / "Catalina/localhost").mkdir(parents=True)
+            for path in (base / "webapps", conf, conf / "Catalina", conf / "Catalina/localhost"):
+                path.chmod(0o755)
+            stock = Path("/etc/carlos-emr/tomcat")
+            for name in ("server.xml", "context.xml", "catalina.properties", "Catalina/localhost/carlos.xml"):
+                data = (stock / name).read_bytes()
+                if alternate_webapp and name.endswith("carlos.xml"):
+                    other = Path(directory) / "clinic-webapp"
+                    other_classes = other / "WEB-INF/classes"
+                    other_classes.mkdir(parents=True)
+                    (other_classes / "carlos.properties").write_text("db_remove_abandoned_timeout=15\n")
+                    data = data.replace(b'docBase="/usr/share/carlos-emr/webapp/carlos"',
+                                        f'docBase="{other}"'.encode())
+                    self.assertIn(str(other).encode(), data)
+                (conf / name).write_bytes(data)
+                (conf / name).chmod(0o644)
             tomcat_home = Path(directory) / "tomcat"
-            tomcat_home.mkdir()
+            (tomcat_home / "bin").mkdir(parents=True)
             tomcat_home.chmod(0o755)
+            (tomcat_home / "bin").chmod(0o755)
+            for name in ("catalina.sh", "setclasspath.sh"):
+                (tomcat_home / "bin" / name).symlink_to(Path("/usr/share/tomcat11/bin") / name)
             if setenv:
                 hook = base / "bin" / "setenv.sh"
                 hook.write_text(f'CATALINA_OPTS="$CATALINA_OPTS -Dcarlos_override_properties={shlex.quote(str(site_file))}"\n')
@@ -69,7 +92,7 @@ class TestReportLeaseUpgrade(unittest.TestCase):
                                 + "CARLOS_JAVA_OPTS=" + shlex.quote(flags) + "\n" + extra)
             env_file.chmod(0o644)
             result = subprocess.run(
-                ["sh", "-c", "set -e\n" + block.group(0)],
+                ["sh", "-c", "set -e\n" + script, "postinst", "configure"],
                 env={"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "SHARE": str(SHARE),
                      "PROPERTIES": str(properties), "ENV_FILE": str(env_file)},
                 capture_output=True, text=True, check=True,
@@ -129,6 +152,29 @@ class TestReportLeaseUpgrade(unittest.TestCase):
                                    override=b"db_remove_abandoned_timeout=15\n")
         self.assertIn("could not verify", warning)
 
+    def test_alternate_webapp_defaults_require_manual_verification(self):
+        self.assertIn("could not verify", self.warning_for(b"", alternate_webapp=True))
+
+    def test_reloads_changed_unit_before_checking_a_retained_lease(self):
+        dropins = Path("/run/systemd/system/carlos-emr.service.d")
+        created_directory = not dropins.exists()
+        dropins.mkdir(exist_ok=True)
+        try:
+            with tempfile.NamedTemporaryFile(mode="w", dir=dropins, prefix="lease-check-", suffix=".conf") as f:
+                f.write("[Service]\n# Exercise an upgrade with new unit files on disk.\n")
+                f.flush()
+                os.chmod(f.name, 0o644)
+                stale = subprocess.check_output(
+                    ["/usr/bin/systemctl", "show", "--value", "-p", "NeedDaemonReload", "carlos-emr.service"],
+                    text=True).strip()
+                self.assertEqual(stale, "yes")
+                warning = self.warning_for(b"db_remove_abandoned_timeout=15\n", with_reload=True)
+                self.assertIn("resolves to 15 seconds", warning)
+        finally:
+            if created_directory:
+                dropins.rmdir()
+            subprocess.run(["/usr/bin/systemctl", "daemon-reload"], check=True)
+
     def test_refuses_dynamic_environment_settings_without_executing_them(self):
         warning = self.warning_for(b"db_remove_abandoned_timeout=360\n",
                                    env_text='CARLOS_JAVA_OPTS="$(printf private-marker > {probe})"\n')
@@ -183,9 +229,12 @@ class TestReportLeaseUpgrade(unittest.TestCase):
                 dropin.mkdir()
                 conf = dropin / "site.conf"
                 try:
-                    conf.write_text('[Service]\nEnvironment="JAVA_TOOL_OPTIONS=-Duser.home=/private-marker"\n')
-                    subprocess.run(reload_manager, check=True)
-                    self.assertFalse(check(unit_path.name))
+                    for setting in ('Environment="JAVA_TOOL_OPTIONS=-Duser.home=/private-marker"',
+                                    "SupplementaryGroups=adm"):
+                        with self.subTest(setting=setting):
+                            conf.write_text(f"[Service]\n{setting}\n")
+                            subprocess.run(reload_manager, check=True)
+                            self.assertFalse(check(unit_path.name))
                 finally:
                     conf.unlink(missing_ok=True)
                     dropin.rmdir()

@@ -3,6 +3,7 @@
 # Copyright (C) 2026 CARLOS Contributors
 """Run the read-only configure check with the packaged service's configuration paths."""
 
+import hashlib
 import os
 import pwd
 import re
@@ -73,11 +74,11 @@ def service_environment_is_known(unit="carlos-emr.service"):
     # Ask the manager for its effective configuration, including drop-ins.
     # An offline/unknown manager or another EnvironmentFile is unverifiable.
     properties = dict(line.split("=", 1) for line in systemctl(
-        "show", "--all", "--property=LoadState,NeedDaemonReload,User,Group,Environment,EnvironmentFiles,"
+        "show", "--all", "--property=LoadState,NeedDaemonReload,User,Group,SupplementaryGroups,Environment,EnvironmentFiles,"
         "PassEnvironment,UnsetEnvironment,ExecStartEx," + ",".join(UNIT_FILE_OVERRIDES), unit).splitlines())
     expected = {"LoadState": "loaded", "NeedDaemonReload": "no", "User": "carlos", "Group": "carlos",
                 "EnvironmentFiles": "/etc/carlos-emr/carlos-emr.env (ignore_errors=yes)",
-                "PassEnvironment": "", "UnsetEnvironment": ""}
+                "SupplementaryGroups": "", "PassEnvironment": "", "UnsetEnvironment": ""}
     expected.update(dict.fromkeys(UNIT_FILE_OVERRIDES, ""))
     if any(properties.get(key) != value for key, value in expected.items()):
         return False
@@ -106,6 +107,33 @@ def visible_in_service(path):
         item.is_relative_to(directory) for item in (path, path.resolve()) for directory in hidden)
 
 
+def deployment_is_packaged(base, tomcat):
+    stock_bin = Path("/usr/share/tomcat11/bin")
+    for script in ("catalina.sh", "setclasspath.sh"):
+        if not (tomcat / "bin" / script).samefile(stock_bin / script):
+            return False
+    conf = base / "conf"
+    manifest = Path("/usr/share/carlos-emr/tomcat-deployment.sha256")
+    verified = set()
+    for line in manifest.read_text().splitlines():
+        expected, name = line.split("  ", 1)
+        path = conf / name
+        if not visible_in_service(path) or not path.is_file():
+            return False
+        with path.open("rb") as stream:
+            if hashlib.file_digest(stream, "sha256").hexdigest() != expected:
+                return False
+        verified.add(name)
+    if verified != {"server.xml", "context.xml", "catalina.properties", "Catalina/localhost/carlos.xml"}:
+        return False
+    # Stock server.xml deploys external contexts from this host. A per-host
+    # default or a parallel version can change which resources serve /carlos.
+    host = conf / "Catalina/localhost"
+    if any(p.name == "context.xml.default" or p.name.startswith("carlos##") for p in host.iterdir()):
+        return False
+    return not any(p.name.startswith("carlos##") for p in (base / "webapps").iterdir())
+
+
 def main(env_file, java, classpath, classes, managed):
     if not service_environment_is_known():
         return 1
@@ -122,6 +150,8 @@ def main(env_file, java, classpath, classes, managed):
     # catalina.sh sources the first readable hook after the wrapper assembles
     # the JVM flags. A hook may replace both paths or run other site commands.
     if any(os.access(directory / "bin/setenv.sh", os.R_OK) for directory in (base, tomcat)):
+        return 1
+    if not deployment_is_packaged(base, tomcat):
         return 1
     os.chdir(base)
     managed = settings.get("PROPERTIES", managed)
@@ -140,8 +170,9 @@ def main(env_file, java, classpath, classes, managed):
                                   "-agentpath:", "-Xrun", "-Xbootclasspath")):
                 return 1
             name, _, value = option.partition("=")
-            if name in ("-Duser.dir", "-Djava.system.class.loader"):
-                return 1  # Java can resolve relative configuration paths against a different base.
+            if name in ("-Duser.dir", "-Djava.system.class.loader", "-Dcatalina.config",
+                        "-Dcommon.loader", "-Dserver.loader", "-Dshared.loader"):
+                return 1
             if name in ("-Dcarlos_override_properties", "-Duser.home") and not Path(value).is_absolute():
                 return 1
             if name == "-Dcarlos_override_properties":

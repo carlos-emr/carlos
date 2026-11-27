@@ -722,25 +722,6 @@ case "$1" in
         install_once "${SHARE}/skel/carlos.properties" "${PROPERTIES}" 0640 root:carlos
         install_once "${SHARE}/skel/backup.env" "${BACKUP_ENV}" 0640 root:carlos-backup
 
-        # Earlier packages copied the 15-second default into this override.
-        # Resolve it read-only with the packaged Spring libraries as the service user.
-        REPORT_WEB_INF="${SHARE}/webapp/carlos/WEB-INF"
-        # Load only Spring's resolver and its logging facade. The webapp's logging
-        # appenders need a running Tomcat and must not start during dpkg configure.
-        REPORT_CLASSPATH="${REPORT_WEB_INF}/classes"
-        for jar in "${REPORT_WEB_INF}"/lib/spring-core-*.jar "${REPORT_WEB_INF}"/lib/commons-logging-*.jar; do
-            REPORT_CLASSPATH="${REPORT_CLASSPATH}:${jar}"
-        done
-        runuser -u carlos -- /usr/lib/carlos-emr/carlos-emr-report-lease-check "${ENV_FILE}" \
-            "/usr/lib/jvm/java-25-openjdk-$(dpkg --print-architecture)/bin/java" \
-            "${REPORT_CLASSPATH}" "${REPORT_WEB_INF}/classes" "${PROPERTIES}" || {
-            case "$?" in
-                15) echo "carlos-emr: WARNING: db_remove_abandoned_timeout resolves to 15 seconds. Abandoned lease cleanup can end a running report early." >&2 ;;
-                *)  echo "carlos-emr: WARNING: could not verify db_remove_abandoned_timeout. Check systemd service settings, JVM options and any Tomcat bin/setenv.sh before running long reports." >&2 ;;
-            esac
-            echo "carlos-emr: Check ${PROPERTIES} or the file selected by -Dcarlos_override_properties in ${ENV_FILE}, then any service-user home carlos.properties override. To adopt the 360-second default, remove the override or set it to 360, then run sudo carlos-ctl restart." >&2
-        }
-
         # One-time migration (2026.08): earlier packages shipped
         # consultation_signature_enabled=false. install_once copied that into the
         # persistent /etc override, and carlos-emr-tomcat loads that file as the
@@ -2274,17 +2255,41 @@ emr_start_and_wait() {
 
 # Everything below runs AFTER the debhelper snippets, so the units exist and
 # are enabled by the time we start them.
+if [ "$1" = configure ]; then
+    if [ -d /run/systemd/system ]; then
+        # dh_installsystemd runs with --no-start (the service cannot come up before
+        # this script has provisioned the DB and rendered carlos.properties), and
+        # --no-start suppresses debhelper's own daemon-reload along with the start.
+        # So on an UPGRADE that ships a changed unit, systemd still holds the old
+        # fragment: without an explicit reload here the start below launches the
+        # stale unit and prints "unit file ... changed on disk. Run daemon-reload".
+        # deb-systemd-invoke has no reload verb, so call systemctl directly.
+        # Best-effort; never fail configure. The reload also makes systemd see the
+        # renderer's carlos-emr.service drop-in before either unit starts.
+        systemctl --system daemon-reload >/dev/null 2>&1 || true
+    fi
+
+    # Earlier packages copied the 15-second default into this override.
+    # Resolve it read-only with the packaged Spring libraries as the service user.
+    REPORT_WEB_INF="${SHARE}/webapp/carlos/WEB-INF"
+    # Load only Spring's resolver and its logging facade. The webapp's logging
+    # appenders need a running Tomcat and must not start during dpkg configure.
+    REPORT_CLASSPATH="${REPORT_WEB_INF}/classes"
+    for jar in "${REPORT_WEB_INF}"/lib/spring-core-*.jar "${REPORT_WEB_INF}"/lib/commons-logging-*.jar; do
+        REPORT_CLASSPATH="${REPORT_CLASSPATH}:${jar}"
+    done
+    runuser -u carlos -- /usr/lib/carlos-emr/carlos-emr-report-lease-check "${ENV_FILE}" \
+        "/usr/lib/jvm/java-25-openjdk-$(dpkg --print-architecture)/bin/java" \
+        "${REPORT_CLASSPATH}" "${REPORT_WEB_INF}/classes" "${PROPERTIES}" || {
+        case "$?" in
+            15) echo "carlos-emr: WARNING: db_remove_abandoned_timeout resolves to 15 seconds. Abandoned lease cleanup can end a running report early." >&2 ;;
+            *)  echo "carlos-emr: WARNING: could not verify db_remove_abandoned_timeout. Check systemd service settings, JVM options and the Tomcat deployment before running long reports." >&2 ;;
+        esac
+        echo "carlos-emr: Check ${PROPERTIES} or the file selected by -Dcarlos_override_properties in ${ENV_FILE}, then any service-user home carlos.properties override. To adopt the 360-second default, remove the override or set it to 360, then run sudo carlos-ctl restart." >&2
+    }
+fi
+
 if [ "$1" = configure ] && [ -d /run/systemd/system ]; then
-    # dh_installsystemd runs with --no-start (the service cannot come up before
-    # this script has provisioned the DB and rendered carlos.properties), and
-    # --no-start suppresses debhelper's own daemon-reload along with the start.
-    # So on an UPGRADE that ships a changed unit, systemd still holds the old
-    # fragment: without an explicit reload here the start below launches the
-    # stale unit and prints "unit file ... changed on disk. Run daemon-reload".
-    # deb-systemd-invoke has no reload verb, so call systemctl directly.
-    # Best-effort; never fail configure. The reload also makes systemd see the
-    # renderer's carlos-emr.service drop-in before either unit starts.
-    systemctl --system daemon-reload >/dev/null 2>&1 || true
     # The render browser comes up BEFORE the EMR: the application probes it from
     # @PostConstruct, i.e. while Tomcat deploys, so chromedriver must already be
     # listening or the first boot after install logs a failure for a deployment
