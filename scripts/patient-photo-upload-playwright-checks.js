@@ -127,6 +127,7 @@ function watchNavbarRecovery(chart, recorder) {
       const original = failure.requestRef?.deref();
       if (!requests.includes(original)) continue;
       const body = original.postData();
+      if (typeof body !== 'string') continue;
       const name = new URLSearchParams(body).get('cmd');
       if (!recovered.includes(name)) continue;
       const attempts = requests.filter(request => request.url() === failure.url && request.postData() === body);
@@ -502,4 +503,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('patient-photo-upload', workflow, { openPatient: true });
-module.exports = { workflow };
+module.exports = { workflow, watchNavbarRecovery };

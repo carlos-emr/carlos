@@ -249,6 +249,7 @@ var CarlosAjax = (function () {
             xhr.send(body);
         } catch (e) {
             var errorTransport = makeTransport(0, 'Network error: ' + e.message);
+            errorTransport.networkError = true;
             if (options.onFailure) options.onFailure(errorTransport);
             if (options.onComplete) options.onComplete(errorTransport);
             return errorTransport;

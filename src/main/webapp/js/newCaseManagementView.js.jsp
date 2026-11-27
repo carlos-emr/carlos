@@ -998,12 +998,13 @@
             if (element) element.textContent = div + " Error: " + request.status;
             updateNavbarLoadState(state);
         }
-        // These display actions render read-only fragments, even though they use POST.
+        // Every encounter/display* navbar action renders a read-only fragment, even though it uses POST.
         var displayPrefix = ctx + "/encounter/";
-        var path = typeof url === "string" ? url.split("?")[0] : "";
+        var path = typeof url === "string" ? url.split(/[?#]/)[0] : "";
         var canRetry = path.indexOf(displayPrefix) === 0
-            && /^display(?:Prevention|Tickler|Messages|Documents|Labs|HRM|Measurements|Consultation|Forms|EForms)$/
+            && /^display(?:FamilyDoctor|ReferringDoctor|Prevention|Tickler|Messages|Documents|Labs|HRM|Measurements|Consultation|Econsultation|Forms|EForms|Disease|Allergy|Rx|Issues|ResolvedIssues|DecisionSupportAlerts|Episodes|Pregnancies|Contacts)$/
                 .test(path.slice(displayPrefix.length));
+        var retryTimeoutMs = 15000;
 
         function send(retry) {
             try {
@@ -1035,9 +1036,18 @@
                         }
                     }
                 });
-                if (xhr && typeof xhr.addEventListener === "function") {
-                    xhr.addEventListener("abort", function () { failed({status: 0}); });
-                    xhr.addEventListener("timeout", function () { failed({status: 0}); });
+                if (xhr) {
+                    // Bound the replacement attempt so a stalled retry surfaces an error instead of
+                    // leaving module.status === "loading" and its column busy indefinitely.
+                    if (retry) xhr.timeout = retryTimeoutMs;
+                    if (typeof xhr.addEventListener === "function") {
+                        xhr.addEventListener("abort", function () {
+                            if (module.status === "loading") failed({status: 0});
+                        });
+                        xhr.addEventListener("timeout", function () {
+                            if (module.status === "loading") failed({status: 0});
+                        });
+                    }
                 }
                 return xhr;
             } catch (error) {
