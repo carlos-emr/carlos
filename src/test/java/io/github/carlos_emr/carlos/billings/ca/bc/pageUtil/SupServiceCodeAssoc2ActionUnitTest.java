@@ -81,6 +81,15 @@ class SupServiceCodeAssoc2ActionUnitTest extends CarlosUnitTestBase {
         action.setActionMode("delete"); action.setId("77"); action.execute();
         verify(dao).deleteServiceCodeAssociation("77");
     }
+    @Test
+    void shouldRejectInvalidPage_beforeListingServiceAssociations() {
+        request.setParameter("tablePage", "-1");
+
+        assertThat(action.execute()).isEqualTo("none");
+        assertThat(response.getStatus()).isEqualTo(400);
+        verify(dao, never()).getServiceCodeAssociationsPage(anyInt());
+    }
+
     @Test void shouldRenderList_withoutWritingOnDefaultView() {
         request.setMethod("GET"); assertThat(action.execute()).isEqualTo("success");
         verify(dao).getServiceCodeAssociationsPage(0);

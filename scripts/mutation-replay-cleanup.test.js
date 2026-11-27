@@ -22,7 +22,12 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {DatabaseSync} = require('node:sqlite');
+let DatabaseSync;
+try {
+  ({ DatabaseSync } = require('node:sqlite'));
+} catch (error) {
+  if (error.code !== 'ERR_UNKNOWN_BUILTIN_MODULE') throw error;
+}
 const {demographicUpdate, chartNoteSave} = require('./lib/mutation-families');
 
 const marker = "FAKE-PW0123456789abcdef'quoted";
@@ -59,7 +64,7 @@ function fixture(t, factory, support) {
 }
 
 for (const [factory, support] of families) {
-  test(`${factory.name}: cleans replay support and preserves foreign rows and both parents`, t => {
+  test(`${factory.name}: cleans replay support and preserves foreign rows and both parents`, { skip: !DatabaseSync }, t => {
     const f = fixture(t, factory, support);
     f.family.cleanup();
     for (const [table, column] of support) {
@@ -68,14 +73,14 @@ for (const [factory, support] of families) {
     }
     assert.equal(f.db.prepare('SELECT COUNT(*) count FROM demographic').get().count, 2);
   });
-  test(`${factory.name}: lost parent ownership refuses every delete`, t => {
+  test(`${factory.name}: lost parent ownership refuses every delete`, { skip: !DatabaseSync }, t => {
     const f = fixture(t, factory, support);
     f.db.exec("UPDATE demographic SET last_name='FOREIGN' WHERE demographic_no=42");
     assert.throws(() => f.family.cleanup(), /ownership changed/);
     assert.equal(f.writes.length, 0);
     for (const [table, column] of support) assert.equal(f.count(table, column, 42), 1);
   });
-  test(`${factory.name}: ownership changes between check and delete cannot sweep support rows`, t => {
+  test(`${factory.name}: ownership changes between check and delete cannot sweep support rows`, { skip: !DatabaseSync }, t => {
     const f = fixture(t, factory, support);
     f.state.beforeWrite = () => f.db.exec("UPDATE demographic SET last_name='FOREIGN' WHERE demographic_no=42");
     assert.throws(() => f.family.cleanup(), /support rows remain/);

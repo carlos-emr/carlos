@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.PMmodule.web;
 
 import java.util.List;
 
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,6 +55,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
@@ -70,6 +72,7 @@ import static org.mockito.Mockito.verify;
 class ClientSearchAttachNoteUnitTest extends CarlosUnitTestBase {
 
     private final MockHttpSession session = new MockHttpSession();
+    private final MockHttpServletResponse response = new MockHttpServletResponse();
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockHttpServletRequest request;
     private ClientManager clients;
@@ -90,12 +93,37 @@ class ClientSearchAttachNoteUnitTest extends CarlosUnitTestBase {
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenAnswer(invocation -> request);
-        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
     }
 
     @AfterEach
     void tearDown() {
         servletActionContextMock.close();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"-1", "8", "invalid"})
+    void shouldRefuseInvalidSort_beforeQueryingPatients(String sort) {
+        newRequest().setParameter("tableSortChange", sort);
+        var search = new ClientSearchAction22Action();
+        search.setCriteria(new ClientSearchFormBean());
+
+        assertThat(search.attachSearch()).isEqualTo("none");
+        assertThat(response.getStatus()).isEqualTo(400);
+        verify(clients, org.mockito.Mockito.never()).searchClientPage(any(), anyInt(), anyInt(), anyBoolean());
+    }
+
+    @Test
+    void shouldReverseDefaultColumn_whenItsHeaderIsSelected() {
+        newRequest().setParameter("tableSort", "0");
+        request.setParameter("tableSortChange", "1");
+        var search = new ClientSearchAction22Action();
+        search.setCriteria(new ClientSearchFormBean());
+
+        search.attachSearch();
+
+        verify(clients).searchClientPage(any(), eq(0), eq(1), eq(true));
+        assertThat(request.getAttribute("serverTableDescending")).isEqualTo(true);
     }
 
     @Test
@@ -216,6 +244,81 @@ class ClientSearchAttachNoteUnitTest extends CarlosUnitTestBase {
 
         assertThat(request.getAttribute("noteId")).isNull();
         assertThat(request.getAttribute("sourceChartContext")).isNull();
+    }
+
+    /**
+     * #6134: an invalid page or sort answers 400 and ends Struts processing before any search runs.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"tablePage=abc", "tablePage=-1", "tablePage=1000000000", "tableSort=-1",
+            "tableSort=8", "tableSort=abc", "tableSortChange=8", "tableSortChange=-1", "tableSortChange=abc"})
+    void shouldAnswer400WithoutSearching_whenPageOrSortIsInvalid(String badParameter) {
+        newRequest().setParameter("noteId", "11");
+        String[] pair = badParameter.split("=", 2);
+        request.setParameter(pair[0], pair[1]);
+        ClientSearchAction22Action search = new ClientSearchAction22Action();
+        search.setCriteria(new ClientSearchFormBean());
+
+        assertThat(search.attachSearch()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        verify(clients, never()).searchClientPage(any(), anyInt(), anyInt(), anyBoolean());
+        assertThat(request.getAttribute("serverTablePage")).isNull();
+    }
+
+    /** #6134: choosing the sorted column again flips direction and returns to the first page. */
+    @Test
+    void shouldToggleDirectionAndRestartPaging_whenSortedColumnIsChosenAgain() {
+        newRequest().setParameter("tablePage", "2");
+        request.setParameter("tableSort", "3");
+        request.setParameter("tableDescending", "false");
+        request.setParameter("tableSortChange", "3");
+        ClientSearchFormBean criteria = new ClientSearchFormBean();
+        ClientSearchAction22Action search = new ClientSearchAction22Action();
+        search.setCriteria(criteria);
+
+        assertThat(search.attachSearch()).isEqualTo("attachSearch");
+
+        verify(clients).searchClientPage(same(criteria), eq(0), eq(3), eq(true));
+        assertThat(request.getAttribute("serverTableSort")).isEqualTo(3);
+        assertThat(request.getAttribute("serverTableDescending")).isEqualTo(true);
+        @SuppressWarnings("unchecked")
+        var parameters = (java.util.Map<String, String[]>) request.getAttribute("serverTableParameters");
+        assertThat(parameters.get("tableSort")).containsExactly("3");
+        assertThat(parameters.get("tableDescending")).containsExactly("true");
+        assertThat(parameters.get("method")).containsExactly("attachSearch");
+    }
+
+    /** #6134: repeating a descending sort column toggles back to ascending. */
+    @Test
+    void shouldToggleBackToAscending_whenDescendingColumnIsChosenAgain() {
+        newRequest().setParameter("tableSort", "3");
+        request.setParameter("tableDescending", "true");
+        request.setParameter("tableSortChange", "3");
+        ClientSearchFormBean criteria = new ClientSearchFormBean();
+        ClientSearchAction22Action search = new ClientSearchAction22Action();
+        search.setCriteria(criteria);
+
+        search.attachSearch();
+
+        verify(clients).searchClientPage(same(criteria), eq(0), eq(3), eq(false));
+        assertThat(request.getAttribute("serverTableDescending")).isEqualTo(false);
+    }
+
+    /** #6134: a different column starts ascending whatever the previous direction was. */
+    @Test
+    void shouldSortAscendingOnTheNewColumn_whenAnotherColumnIsChosen() {
+        newRequest().setParameter("tableSort", "3");
+        request.setParameter("tableDescending", "true");
+        request.setParameter("tableSortChange", "5");
+        ClientSearchFormBean criteria = new ClientSearchFormBean();
+        ClientSearchAction22Action search = new ClientSearchAction22Action();
+        search.setCriteria(criteria);
+
+        search.attachSearch();
+
+        verify(clients).searchClientPage(same(criteria), eq(0), eq(5), eq(false));
+        assertThat(request.getAttribute("serverTableSort")).isEqualTo(5);
     }
 
     private void useSourcePatient() {
