@@ -231,10 +231,10 @@ echo "dumping to $OUT/o19-fixture.sql.gz (via $DUMP_CMD) ..."
 float_args=()
 for option in "${MYSQL_ARGS[@]}"; do float_args+=("--mysql-arg=$option"); done
 dump_tmp=$(mktemp "$OUT/.o19-dump.XXXXXX")
-if { "$DUMP_CMD" ${MYSQL_ARGS+"${MYSQL_ARGS[@]}"} --single-transaction --quick --skip-triggers \
-       --default-character-set=latin1 "$DB" &&
-     python3 "$SCRIPT_DIR/export-medication-floats.py" --mysql-cmd "$MYSQL_CMD" --db "$DB" "${float_args[@]}"; } \
-     | gzip > "$dump_tmp"; then
+if "$DUMP_CMD" ${MYSQL_ARGS+"${MYSQL_ARGS[@]}"} --single-transaction --quick --skip-triggers \
+     --default-character-set=latin1 "$DB" |
+   python3 "$SCRIPT_DIR/export-medication-floats.py" --complete-dump --mysql-cmd "$MYSQL_CMD" --db "$DB" "${float_args[@]}" |
+   gzip > "$dump_tmp"; then
   mv "$dump_tmp" "$OUT/o19-fixture.sql.gz"
 else
   rm -f "$dump_tmp"

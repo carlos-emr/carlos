@@ -271,10 +271,9 @@ digests have been generated.
 ```bash
 set -euo pipefail
 umask 077
-{
-  mysqldump --single-transaction --quick --skip-triggers oscar &&
-  python3 export-medication-floats.py --db oscar
-} | gzip > o19.sql.gz.partial
+mysqldump --single-transaction --quick --skip-triggers oscar |
+  python3 export-medication-floats.py --complete-dump --db oscar |
+  gzip > o19.sql.gz.partial
 mv o19.sql.gz.partial o19.sql.gz
 ```
 

@@ -81,6 +81,7 @@ import io
 import re
 import shutil
 import subprocess
+import tempfile
 import os
 import sys
 from pathlib import Path
@@ -492,13 +493,20 @@ def check_medication_dump(client: Client, src: str, dst: str, fields: str) -> Li
         client.setup("ALTER TABLE drugs ADD recorded TIMESTAMP DEFAULT '2001-01-01 00:00:00' "
                      "ON UPDATE CURRENT_TIMESTAMP", schema)
     fields = fields.replace(" FROM drugs", ", recorded FROM drugs")
-    args = [dump] + client.args + ["--single-transaction", "--no-create-info",
+    args = [dump] + client.args + ["--single-transaction",
                                    "--skip-triggers", "--default-character-set=utf8mb4", src, "drugs"]
     stock = subprocess.run(args, check=True, stdout=subprocess.PIPE).stdout
     exporter = Path(__file__).with_name("export-medication-floats.py")
-    supplement = subprocess.run([sys.executable, str(exporter), "--db", src, "--mysql-cmd", client.cmd]
-                               + ["--mysql-arg=" + option for option in client.args],
-                               check=True, stdout=subprocess.PIPE).stdout
+    exact = subprocess.run([sys.executable, str(exporter), "--complete-dump", "--db", src,
+                            "--mysql-cmd", client.cmd] + ["--mysql-arg=" + option for option in client.args],
+                           input=stock, check=True, stdout=subprocess.PIPE).stdout
+    if o19_preflight.DIGEST_FORMAT >= 4:
+        from carlos_ctl import o19sources
+        with tempfile.NamedTemporaryFile(suffix=".sql") as staged:
+            staged.write(exact)
+            staged.flush()
+            if set(o19sources.inventory(staged.name)) != {"drugs"}:
+                raise ValueError("the medication dump failed the production staging inventory")
     expected = client.rows(fields, src)
     restore = [client.cmd] + client.args + ["--default-character-set=utf8mb4", dst]
     subprocess.run(restore, input=stock, check=True, stdout=subprocess.DEVNULL)
@@ -511,7 +519,7 @@ def check_medication_dump(client: Client, src: str, dst: str, fields: str) -> Li
     if (stock_changed and o19_preflight.DIGEST_FORMAT >= 4
             and client.rows(target_query, dst) == source_hash):
         failures.append("the source transfer verifier accepted rounded medication floats")
-    subprocess.run(restore, input=supplement, check=True, stdout=subprocess.DEVNULL)
+    subprocess.run(restore, input=exact, check=True, stdout=subprocess.DEVNULL)
     matches = (client.rows(fields, dst) == expected and client.rows(fields, src) == expected
                and client.rows(target_query, dst) == source_hash)
     client.setup("DELETE FROM drugs", dst)

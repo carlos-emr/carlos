@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Append exact OSCAR19 medication FLOAT values to a dump of a quiescent source.
+"""Preserve exact OSCAR19 medication FLOAT values in a dump of a quiescent source.
 
 Run on the source with the same read-only connection options as the dump.
 The generated SQL belongs at the end of that dump, for its staging restore.
@@ -49,7 +49,9 @@ def export(command, out):
         key = TABLE_KEYS[table.lower()]
         primary = [name.lower() for name, kind, flag, _ in columns if flag == "PRI"]
         integers = [name.lower() for name, kind, _, _ in columns if kind in INTEGER_TYPES]
-        floats = [identifier(name) for name, kind, _, _ in columns if kind == "float"]
+        floats = [identifier(name) for name, kind, _, extra in columns
+                  if kind == "float" and name.lower() in ("takemin", "takemax")
+                  and "generated" not in extra.lower()]
         if not floats:
             continue
         if primary != [key] or key not in integers:
@@ -72,18 +74,45 @@ def export(command, out):
                 identifier(table), ", ".join(assignments), identifier(key), row[0]))
 
 
+def complete_dump(source, destination, command):
+    """Keep the vendor's genuine completion record last while streaming large SQL statements."""
+    tail = b""
+    for chunk in iter(lambda: source.read(1024 * 1024), b""):
+        tail += chunk
+        if len(tail) > 8192:
+            destination.write(tail[:-8192])
+            tail = tail[-8192:]
+    trailer = re.search(rb"(?:^|\n)(-- Dump completed[^\r\n]*\r?\n?)[ \t\r\n]*\Z", tail)
+    if not trailer:
+        raise ValueError("the source dump lacks its final completion record")
+    destination.write(tail[:trailer.start(1)])
+
+    class SqlOutput(object):
+        def write(self, text):
+            destination.write(text.encode("ascii"))
+
+    export(command, SqlOutput())
+    destination.write(tail[trailer.start(1):])
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db", required=True)
     parser.add_argument("--mysql-cmd", default="mysql")
     parser.add_argument("--mysql-arg", action="append", default=[])
+    parser.add_argument("--complete-dump", action="store_true",
+                        help="read a completed vendor dump from stdin and write the exact dump to stdout")
     args = parser.parse_args()
     if not re.match(r"^[A-Za-z0-9_]+$", args.db):
         parser.error("invalid database name")
     if any(opt.startswith("-p") or opt.startswith("--password") for opt in args.mysql_arg):
         parser.error("use a client defaults file or MYSQL_PWD for credentials")
-    export([args.mysql_cmd] + args.mysql_arg + ["--batch", "--raw", "--skip-column-names",
-           "--database=" + args.db], sys.stdout)
+    command = [args.mysql_cmd] + args.mysql_arg + ["--batch", "--raw", "--skip-column-names",
+               "--database=" + args.db]
+    if args.complete_dump:
+        complete_dump(sys.stdin.buffer, sys.stdout.buffer, command)
+    else:
+        export(command, sys.stdout)
 
 
 if __name__ == "__main__":
