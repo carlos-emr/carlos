@@ -568,7 +568,7 @@ public class BillingOnPayments2Action extends ActionSupport {
             logger.warn("savePayment rejected: {}", e.getMessage());
             return writeRejectionJson(e.getMessage());
         }
-        settlePortalPaymentRequests(billNo);
+        settlePortalPaymentRequests(billNo, cheader1.getDemographicNo());
 
         ret.put("ret", 0);
         return writeJsonResponse(ret, "savePayment success JSON response");
@@ -578,13 +578,13 @@ public class BillingOnPayments2Action extends ActionSupport {
      * Closes the invoice's patient-portal payment requests once the payment is committed. Runs after
      * the transaction and never fails the save: the payment is recorded whatever the portal does.
      */
-    private void settlePortalPaymentRequests(int billNo) {
+    private void settlePortalPaymentRequests(int billNo, Integer patient) {
         if (!PatientPortalSettings.isConfigured()) {
             return;
         }
         try {
             SpringUtils.getBean(PortalPaymentSettlementService.class)
-                    .afterPaymentSaved(LoggedInInfo.getLoggedInInfoFromSession(request), billNo);
+                    .afterPaymentSaved(LoggedInInfo.getLoggedInInfoFromSession(request), billNo, patient);
         } catch (RuntimeException failed) {
             logger.warn("Portal payment requests were not settled after a payment; exceptionClass={}",
                     failed.getClass().getSimpleName());

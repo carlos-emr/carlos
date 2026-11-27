@@ -123,15 +123,19 @@ public class PortalPaymentSettlementService {
      * @return how many requests were closed locally; 0 when the portal is not configured or nothing
      *     was open for the invoice
      */
-    public int afterPaymentSaved(LoggedInInfo session, int billingNo) {
+    public int afterPaymentSaved(LoggedInInfo session, int billingNo, Integer patient) {
         if (!portalConfigured.getAsBoolean()) {
             return 0;
         }
         try {
             int closed = requests.settleLocally(billingNo);
+            if (patient == null || patient <= 0) {
+                return closed;
+            }
             PatientPortalStaffContext staff = null;
             try {
-                staff = resolver.get().resolve(session, Set.of(PortalStaffContextResolver.OBJECT_PAYMENT_REQUEST));
+                staff = resolver.get().resolveForPatient(session,
+                        Set.of(PortalStaffContextResolver.OBJECT_PAYMENT_REQUEST), patient);
             } catch (SecurityException withoutPortalPrivilege) {
                 // Closed locally above; the portal is told by someone who may.
             }

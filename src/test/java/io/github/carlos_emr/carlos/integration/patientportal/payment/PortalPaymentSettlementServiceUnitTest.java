@@ -54,7 +54,7 @@ class PortalPaymentSettlementServiceUnitTest {
     void shouldDoNothing_whenThePortalIsNotConfigured() {
         PortalPaymentSettlementService service = new PortalPaymentSettlementService(requests, () -> resolver, () -> false, Runnable::run);
 
-        assertThat(service.afterPaymentSaved(session, 55)).isZero();
+        assertThat(service.afterPaymentSaved(session, 55, 123)).isZero();
 
         verifyNoInteractions(requests, resolver);
     }
@@ -62,10 +62,10 @@ class PortalPaymentSettlementServiceUnitTest {
     @Test
     void shouldCloseLocallyThenTellThePortal_whenTheUserMayUseThePaymentObject() {
         when(requests.settleLocally(55)).thenReturn(1);
-        when(resolver.resolve(session, Set.of(PortalStaffContextResolver.OBJECT_PAYMENT_REQUEST))).thenReturn(staff);
+        when(resolver.resolveForPatient(session, Set.of(PortalStaffContextResolver.OBJECT_PAYMENT_REQUEST), 123)).thenReturn(staff);
         PortalPaymentSettlementService service = new PortalPaymentSettlementService(requests, () -> resolver, () -> true, Runnable::run);
 
-        assertThat(service.afterPaymentSaved(session, 55)).isEqualTo(1);
+        assertThat(service.afterPaymentSaved(session, 55, 123)).isEqualTo(1);
 
         verify(requests).settleLocally(55);
         verify(requests).reportPaid(same(staff), eq(55));
@@ -74,10 +74,10 @@ class PortalPaymentSettlementServiceUnitTest {
     @Test
     void shouldStillCloseLocallyAndSendNothing_whenTheUserHasNoPortalPrivilege() {
         when(requests.settleLocally(55)).thenReturn(1);
-        when(resolver.resolve(any(), any())).thenThrow(new SecurityException("missing required sec object"));
+        when(resolver.resolveForPatient(any(), any(), eq(123))).thenThrow(new SecurityException("missing required sec object"));
         PortalPaymentSettlementService service = new PortalPaymentSettlementService(requests, () -> resolver, () -> true, Runnable::run);
 
-        assertThat(service.afterPaymentSaved(session, 55)).isEqualTo(1);
+        assertThat(service.afterPaymentSaved(session, 55, 123)).isEqualTo(1);
 
         verify(requests).settleLocally(55);
         verify(requests, never()).reportPaid(any(), eq(55));
@@ -86,11 +86,11 @@ class PortalPaymentSettlementServiceUnitTest {
     @Test
     void shouldTellThePortalOnTheBackgroundThread_notBeforeTheAnswerIsReturned() {
         when(requests.settleLocally(55)).thenReturn(1);
-        when(resolver.resolve(session, Set.of(PortalStaffContextResolver.OBJECT_PAYMENT_REQUEST))).thenReturn(staff);
+        when(resolver.resolveForPatient(session, Set.of(PortalStaffContextResolver.OBJECT_PAYMENT_REQUEST), 123)).thenReturn(staff);
         List<Runnable> queued = new ArrayList<>();
         PortalPaymentSettlementService service = new PortalPaymentSettlementService(requests, () -> resolver, () -> true, queued::add);
 
-        assertThat(service.afterPaymentSaved(session, 55)).isEqualTo(1);
+        assertThat(service.afterPaymentSaved(session, 55, 123)).isEqualTo(1);
 
         // The local close is done and the answer is back; the portal has not been called yet.
         verify(requests).settleLocally(55);
@@ -103,7 +103,7 @@ class PortalPaymentSettlementServiceUnitTest {
     @Test
     void shouldLeaveTheRowForTheRetry_whenTheReportIsRejected() {
         when(requests.settleLocally(55)).thenReturn(1);
-        when(resolver.resolve(session, Set.of(PortalStaffContextResolver.OBJECT_PAYMENT_REQUEST))).thenReturn(staff);
+        when(resolver.resolveForPatient(session, Set.of(PortalStaffContextResolver.OBJECT_PAYMENT_REQUEST), 123)).thenReturn(staff);
         java.util.concurrent.Executor full = task -> {
             throw new java.util.concurrent.RejectedExecutionException("queue full");
         };
@@ -111,7 +111,7 @@ class PortalPaymentSettlementServiceUnitTest {
 
         // The payment's local close stands and nothing throws; the report is simply not sent now. The
         // row stays paid and unsynced, which is what findPaidNotSynced (next view or save) picks up.
-        assertThat(service.afterPaymentSaved(session, 55)).isEqualTo(1);
+        assertThat(service.afterPaymentSaved(session, 55, 123)).isEqualTo(1);
 
         verify(requests).settleLocally(55);
         verify(requests, never()).reportPaid(any(), eq(55));
@@ -120,7 +120,7 @@ class PortalPaymentSettlementServiceUnitTest {
     @Test
     void shouldDropReportsBeyondTheBoundedQueue_withoutBlockingOrThrowing() throws Exception {
         when(requests.settleLocally(55)).thenReturn(1);
-        when(resolver.resolve(session, Set.of(PortalStaffContextResolver.OBJECT_PAYMENT_REQUEST))).thenReturn(staff);
+        when(resolver.resolveForPatient(session, Set.of(PortalStaffContextResolver.OBJECT_PAYMENT_REQUEST), 123)).thenReturn(staff);
         java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
         java.util.concurrent.CountDownLatch started = new java.util.concurrent.CountDownLatch(1);
         org.mockito.Mockito.doAnswer(call -> {
@@ -135,10 +135,10 @@ class PortalPaymentSettlementServiceUnitTest {
             PortalPaymentSettlementService service = new PortalPaymentSettlementService(requests, () -> resolver, () -> true, pool);
 
             // One running (blocked in the slow portal), one queued, the third is dropped: all return.
-            assertThat(service.afterPaymentSaved(session, 55)).isEqualTo(1);
+            assertThat(service.afterPaymentSaved(session, 55, 123)).isEqualTo(1);
             assertThat(started.await(5, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
-            assertThat(service.afterPaymentSaved(session, 55)).isEqualTo(1);
-            assertThat(service.afterPaymentSaved(session, 55)).isEqualTo(1);
+            assertThat(service.afterPaymentSaved(session, 55, 123)).isEqualTo(1);
+            assertThat(service.afterPaymentSaved(session, 55, 123)).isEqualTo(1);
             assertThat(pool.getQueue()).hasSize(1);
         } finally {
             release.countDown();
@@ -149,7 +149,7 @@ class PortalPaymentSettlementServiceUnitTest {
     @Test
     void shouldReturnTheSaveWhileThePortalIsStillSlow() throws Exception {
         when(requests.settleLocally(55)).thenReturn(1);
-        when(resolver.resolve(session, Set.of(PortalStaffContextResolver.OBJECT_PAYMENT_REQUEST))).thenReturn(staff);
+        when(resolver.resolveForPatient(session, Set.of(PortalStaffContextResolver.OBJECT_PAYMENT_REQUEST), 123)).thenReturn(staff);
         java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
         java.util.concurrent.CountDownLatch finished = new java.util.concurrent.CountDownLatch(1);
         org.mockito.Mockito.doAnswer(call -> {
@@ -162,7 +162,7 @@ class PortalPaymentSettlementServiceUnitTest {
             PortalPaymentSettlementService service = new PortalPaymentSettlementService(requests, () -> resolver, () -> true, pool);
 
             // The portal call is blocked until released: the save's answer must not wait for it.
-            assertThat(java.util.concurrent.CompletableFuture.supplyAsync(() -> service.afterPaymentSaved(session, 55))
+            assertThat(java.util.concurrent.CompletableFuture.supplyAsync(() -> service.afterPaymentSaved(session, 55, 123))
                     .get(5, java.util.concurrent.TimeUnit.SECONDS)).isEqualTo(1);
             assertThat(finished.getCount()).isEqualTo(1);
 
@@ -180,7 +180,7 @@ class PortalPaymentSettlementServiceUnitTest {
         PortalPaymentSettlementService service = new PortalPaymentSettlementService(requests);
 
         // Not configured here, so nothing runs; the pool exists only for the bean's life.
-        assertThat(service.afterPaymentSaved(session, 55)).isZero();
+        assertThat(service.afterPaymentSaved(session, 55, 123)).isZero();
         service.shutdown();
         service.shutdown();
     }
@@ -188,11 +188,11 @@ class PortalPaymentSettlementServiceUnitTest {
     @Test
     void shouldNeverThrowFromTheBackgroundThread_whenTheReportFails() {
         when(requests.settleLocally(55)).thenReturn(1);
-        when(resolver.resolve(session, Set.of(PortalStaffContextResolver.OBJECT_PAYMENT_REQUEST))).thenReturn(staff);
+        when(resolver.resolveForPatient(session, Set.of(PortalStaffContextResolver.OBJECT_PAYMENT_REQUEST), 123)).thenReturn(staff);
         org.mockito.Mockito.doThrow(new IllegalStateException("portal down")).when(requests).reportPaid(any(), eq(55));
         PortalPaymentSettlementService service = new PortalPaymentSettlementService(requests, () -> resolver, () -> true, Runnable::run);
 
-        assertThat(service.afterPaymentSaved(session, 55)).isEqualTo(1);
+        assertThat(service.afterPaymentSaved(session, 55, 123)).isEqualTo(1);
     }
 
     @Test
@@ -200,7 +200,7 @@ class PortalPaymentSettlementServiceUnitTest {
         when(requests.settleLocally(55)).thenThrow(new IllegalStateException("database down"));
         PortalPaymentSettlementService service = new PortalPaymentSettlementService(requests, () -> resolver, () -> true, Runnable::run);
 
-        assertThat(service.afterPaymentSaved(session, 55)).isZero();
+        assertThat(service.afterPaymentSaved(session, 55, 123)).isZero();
 
         verify(requests, never()).reportPaid(any(), eq(55));
     }

@@ -214,3 +214,4 @@
         refresh();
     }());
 </script>
+            request_unconfirmed: 'The portal has not confirmed this request. Retry sending it before withdrawing it.',

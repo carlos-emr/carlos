@@ -121,10 +121,6 @@ public class PortalPaymentRequestService {
      */
     public Sent send(PatientPortalStaffContext staff, String providerNo, int demographicNo, int billingNo,
             String category, LocalDate dueOn) {
-        LocalDate today = LocalDate.now(clock);
-        if (dueOn == null || dueOn.isBefore(today) || dueOn.isAfter(today.plusDays(MAX_DUE_DAYS_AHEAD))) {
-            throw new PortalPaymentRequestException(PortalPaymentRequestException.Reason.DUE_DATE_INVALID);
-        }
         PortalPaymentRequest local = transactions.execute(status -> prepare(
                 providerNo, demographicNo, billingNo, category, dueOn));
         PatientPortalPaymentRequestRequest wire = new PatientPortalPaymentRequestRequest(local.getOperationId(),
@@ -174,6 +170,10 @@ public class PortalPaymentRequestService {
                 return open;
             }
             throw new PortalPaymentRequestException(PortalPaymentRequestException.Reason.OPEN_REQUEST_DIFFERS);
+        }
+        LocalDate today = LocalDate.now(clock);
+        if (dueOn == null || dueOn.isBefore(today) || dueOn.isAfter(today.plusDays(MAX_DUE_DAYS_AHEAD))) {
+            throw new PortalPaymentRequestException(PortalPaymentRequestException.Reason.DUE_DATE_INVALID);
         }
         // Only an unsettled (pending or open) request is ever reused above. After a withdrawal, a
         // resend is a NEW request with a NEW random reference and operation id: the portal keeps

@@ -117,6 +117,7 @@ class PortalPaymentRequest2ActionUnitTest {
 
     private PortalPaymentRequest row(String status) {
         PortalPaymentRequest row = new PortalPaymentRequest();
+        row.setId(9L);
         row.setInvoiceRef("inv-secret-ref");
         row.setOperationId("op-secret");
         row.setBillingNo(55);
@@ -259,14 +260,16 @@ class PortalPaymentRequest2ActionUnitTest {
     }
 
     @Test
-    void shouldAnswer404ForAnInvoiceThatIsNotThePatients_and409ForAnOpenDifferentRequest() throws Exception {
+    void shouldAnswer404ForAnInvoiceThatIsNotThePatients() throws Exception {
         when(requests.send(any(), anyString(), anyInt(), anyInt(), anyString(), any()))
                 .thenThrow(new PortalPaymentRequestException(PortalPaymentRequestException.Reason.INVOICE_NOT_FOUND));
         JsonNode missing = execute();
         assertThat(response.getStatus()).isEqualTo(404);
         assertThat(missing.get("reason").asText()).isEqualTo("invoice_not_found");
+    }
 
-        response.reset();
+    @Test
+    void shouldAnswer409ForAnOpenDifferentRequest() throws Exception {
         when(requests.send(any(), anyString(), anyInt(), anyInt(), anyString(), any()))
                 .thenThrow(new PortalPaymentRequestException(PortalPaymentRequestException.Reason.OPEN_REQUEST_DIFFERS));
         JsonNode differs = execute();
@@ -289,13 +292,16 @@ class PortalPaymentRequest2ActionUnitTest {
     }
 
     @Test
-    void shouldWithdrawByRequestId_andRefuseAMissingId() throws Exception {
+    void shouldRefuseWithdrawalWithoutARequestId() throws Exception {
         request.setParameter("method", "withdraw");
         execute();
         assertThat(response.getStatus()).isEqualTo(400);
         verifyNoInteractions(requests);
+    }
 
-        response.reset();
+    @Test
+    void shouldWithdrawByRequestId() throws Exception {
+        request.setParameter("method", "withdraw");
         request.setParameter("requestId", "9");
         when(requests.withdraw(same(staff), eq(123), eq(55), eq(9L))).thenReturn(row("withdrawn"));
         JsonNode body = execute();
