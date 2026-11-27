@@ -26,10 +26,10 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import com.google.common.base.Ascii;
 import org.apache.commons.lang3.StringUtils;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -524,7 +524,7 @@ public class EFormInstanceService {
         if (filled == null || before == null || before.equals(form.getFormHtml())) {
             return prefilled;
         }
-        String marker = StringUtils.removeEnd(EFormLoader.getMarker(), "=").toLowerCase(Locale.ROOT);
+        String marker = Ascii.toLowerCase(StringUtils.removeEnd(EFormLoader.getMarker(), "="));
         for (Element control : filled.select("[" + marker + "][name]")) {
             String name = control.attr("name");
             boolean sent = values != null && values.get(name) != null;
