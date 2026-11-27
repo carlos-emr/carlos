@@ -80,13 +80,29 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
         StringBuilder where = new StringBuilder(" FROM ProfessionalSpecialist x WHERE x.deleted = false");
         java.util.Map<String, Object> values = new java.util.LinkedHashMap<>();
         if (referralNo != null) {
-            if (referralNo.isBlank()) where.append(" AND 1 = 0");
-            else { where.append(" AND x.referralNo LIKE :referral"); values.put("referral", referralNo); }
+            if (referralNo.isBlank()) {
+                where.append(" AND 1 = 0");
+            } else {
+                where.append(" AND x.referralNo LIKE :referral");
+                values.put("referral", referralNo);
+            }
         }
-        if (lastName != null) { where.append(" AND x.lastName LIKE :last"); values.put("last", "%" + lastName + "%"); }
-        if (firstName != null) { where.append(" AND x.firstName LIKE :first"); values.put("first", "%" + firstName + "%"); }
-        if (specialty != null && !specialty.isEmpty()) { where.append(" AND x.specialtyType LIKE :specialty"); values.put("specialty", "%" + specialty + "%"); }
-        if (address != null && !address.isEmpty()) { where.append(" AND x.streetAddress LIKE :address"); values.put("address", "%" + address + "%"); }
+        if (lastName != null) {
+            where.append(" AND x.lastName LIKE :last");
+            values.put("last", "%" + lastName + "%");
+        }
+        if (firstName != null) {
+            where.append(" AND x.firstName LIKE :first");
+            values.put("first", "%" + firstName + "%");
+        }
+        if (specialty != null && !specialty.isEmpty()) {
+            where.append(" AND x.specialtyType LIKE :specialty");
+            values.put("specialty", "%" + specialty + "%");
+        }
+        if (address != null && !address.isEmpty()) {
+            where.append(" AND x.streetAddress LIKE :address");
+            values.put("address", "%" + address + "%");
+        }
         if (!includeHidden) where.append(" AND x.hideFromView = false");
         Query query = entityManager.createQuery("SELECT x" + where);
         values.forEach(query::setParameter);

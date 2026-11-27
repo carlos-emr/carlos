@@ -10919,6 +10919,21 @@
       "notes": "Covers preferred ordering, duplicate selection, initial load and pending-write guards, repeated clicks, null/malformed JSON responses, committed writes with unreadable responses, and retry after refresh; stored links and order checked throughout."
     },
     {
+      "name": "rx-preview-drug-info",
+      "script": "scripts/rx-preview-drug-info-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "fixtures": "One owned synthetic patient and the Ezetimibe 10 mg and Lorazepam 0.5 mg generic entries from the release DrugRef seed. Cleanup removes the two prescriptions, their drug rows and any prescription signatures for the owned patient.",
+      "notes": "Opens Drug Information below the signature after Save and Print. Checks the saved drug and DIN, the preview link, and the popup brand, DIN, ingredient, strength and form. Looking up the selected generic search key also shows the representative brand for that DIN."
+    },
+    {
       "name": "gap-encounter-rx-drug-info-on-host",
       "script": "scripts/gap-encounter-rx-drug-info-on-host-playwright-checks.js",
       "tiers": [
@@ -10948,8 +10963,8 @@
       ],
       "timeoutSec": 180,
       "env": [],
-      "fixtures": "The owned synthetic patient and one session-only custom drug card; nothing is saved.",
-      "notes": "Fails at its last step on 2026.08: leaving the Qty box throws 'Insertion is not defined' (SearchDrug3.jsp getCost) and no rx/ViewDrugPrice request is sent (same defect as L81)."
+      "fixtures": "The owned synthetic patient, the test provider's default quantity of 30, the packaged AG-Ramipril 5 mg, Lipitor 20 mg and Blexten 20 mg products, and a session-only custom drug. The check saves and cleans up one prescription.",
+      "notes": "Asserts the displayed formulary estimate on selection, after Qty/Mitte edits and a directions calculation, and on ReRx. Distinguishes tablet counts from durations and verifies that a DIN with no price and a custom drug produce no estimate."
     },
     {
       "name": "search-sort-patient-order",

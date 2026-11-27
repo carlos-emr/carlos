@@ -722,6 +722,25 @@ case "$1" in
         install_once "${SHARE}/skel/carlos.properties" "${PROPERTIES}" 0640 root:carlos
         install_once "${SHARE}/skel/backup.env" "${BACKUP_ENV}" 0640 root:carlos-backup
 
+        # Earlier packages copied the 15-second default into this override.
+        # Resolve it read-only with the packaged Spring libraries as the service user.
+        REPORT_WEB_INF="${SHARE}/webapp/carlos/WEB-INF"
+        # Load only Spring's resolver and its logging facade. The webapp's logging
+        # appenders need a running Tomcat and must not start during dpkg configure.
+        REPORT_CLASSPATH="${REPORT_WEB_INF}/classes"
+        for jar in "${REPORT_WEB_INF}"/lib/spring-core-*.jar "${REPORT_WEB_INF}"/lib/commons-logging-*.jar; do
+            REPORT_CLASSPATH="${REPORT_CLASSPATH}:${jar}"
+        done
+        runuser -u carlos -- "/usr/lib/jvm/java-25-openjdk-$(dpkg --print-architecture)/bin/java" \
+            -cp "${REPORT_CLASSPATH}" \
+            io.github.carlos_emr.carlos.config.PackagedReportLeaseCheck "${REPORT_WEB_INF}/classes" "${PROPERTIES}" || {
+            case "$?" in
+                15) echo "carlos-emr: WARNING: db_remove_abandoned_timeout resolves to 15 seconds. Abandoned lease cleanup can end a running report early." >&2 ;;
+                *)  echo "carlos-emr: WARNING: could not verify db_remove_abandoned_timeout. Check the effective timeout before running long reports." >&2 ;;
+            esac
+            echo "carlos-emr: Check ${PROPERTIES} and any service-user home carlos.properties override. To adopt the 360-second default, remove the override or set it to 360, then run sudo carlos-ctl restart." >&2
+        }
+
         # One-time migration (2026.08): earlier packages shipped
         # consultation_signature_enabled=false. install_once copied that into the
         # persistent /etc override, and carlos-emr-tomcat loads that file as the
