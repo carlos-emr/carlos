@@ -117,6 +117,17 @@ class FormXmlArchiveUnitTest {
         assertThat(Files.readString(written)).contains("<ID>8</ID>");
     }
 
+    @Test
+    void shouldChooseAnUnusedEditTime_whenArchivesFillMoreThanAMinute() throws Exception {
+        for (long second = SECOND; second <= SECOND + 61_000L; second += 1000L) {
+            Files.createFile(archive.resolve("formSF36_42_" + stamp(second) + ".xml"));
+        }
+
+        Date edited = nextEditTime();
+        assertThat(edited).isEqualTo(new Date(SECOND + 62_000L));
+        assertThat(FormXmlArchive.write("formSF36", 42, edited, document(9))).exists();
+    }
+
     private static Date nextEditTime(Date... existing) {
         return FormXmlArchive.nextEditTime("formSF36", 42, new Date(SECOND), List.of(existing));
     }

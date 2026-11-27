@@ -14,9 +14,10 @@ final class FormVersionEdits {
 
     static List<Date> lockAndFindEditsSince(EntityManager entityManager, Class<?> entity, int patient, Date from) {
         // The patient row serializes saves even before this patient has a version of the form.
-        entityManager.createNativeQuery(
+        var lockedPatient = entityManager.createNativeQuery(
                 "SELECT demographic_no FROM demographic WHERE demographic_no = ?1 FOR UPDATE", Integer.class)
                 .setParameter(1, patient).getResultList();
+        if (lockedPatient.isEmpty()) throw new SecurityException("Patient record access denied");
 
         var builder = entityManager.getCriteriaBuilder();
         var query = builder.createQuery(Date.class);

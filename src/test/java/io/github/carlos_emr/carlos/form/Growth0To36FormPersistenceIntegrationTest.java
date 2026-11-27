@@ -15,6 +15,7 @@ import io.github.carlos_emr.carlos.managers.DemographicManagerImpl;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
+import io.github.carlos_emr.carlos.test.support.IntegrationTestSeedService;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 import jakarta.persistence.EntityManager;
@@ -70,6 +71,10 @@ class Growth0To36FormPersistenceIntegrationTest extends CarlosTestBase {
     void prepareForm() {
         actor = mock(LoggedInInfo.class);
         when(actor.getLoggedInProviderNo()).thenReturn("999998");
+        new TransactionTemplate(transactions).executeWithoutResult(status -> {
+            IntegrationTestSeedService.ensureDemographicExists(entityManager, patient);
+            IntegrationTestSeedService.ensureDemographicExists(entityManager, patient + 1);
+        });
         values = new Properties();
         values.setProperty("demographic_no", Integer.toString(patient));
         values.setProperty("provider_no", "999998");
@@ -94,10 +99,14 @@ class Growth0To36FormPersistenceIntegrationTest extends CarlosTestBase {
     void removeCommittedForms() throws Exception {
         LegacyJdbcQuery.releaseThreadResources();
         try (var connection = source.getConnection();
-             var delete = connection.prepareStatement("DELETE FROM formGrowth0_36 WHERE demographic_no IN (?, ?)")) {
+             var delete = connection.prepareStatement("DELETE FROM formGrowth0_36 WHERE demographic_no IN (?, ?)");
+             var deletePatients = connection.prepareStatement("DELETE FROM demographic WHERE demographic_no IN (?, ?)")) {
             delete.setInt(1, patient);
             delete.setInt(2, patient + 1);
             delete.executeUpdate();
+            deletePatients.setInt(1, patient);
+            deletePatients.setInt(2, patient + 1);
+            deletePatients.executeUpdate();
         }
     }
 

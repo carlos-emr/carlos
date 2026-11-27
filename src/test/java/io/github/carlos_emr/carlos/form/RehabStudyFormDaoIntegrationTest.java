@@ -135,6 +135,10 @@ class RehabStudyFormDaoIntegrationTest extends CarlosTestBase {
     void prepareActor() {
         actor = mock(LoggedInInfo.class);
         when(actor.getLoggedInProviderNo()).thenReturn("999998");
+        new TransactionTemplate(transactions).executeWithoutResult(status -> {
+            IntegrationTestSeedService.ensureDemographicExists(entityManager, PATIENT);
+            IntegrationTestSeedService.ensureDemographicExists(entityManager, OTHER_PATIENT);
+        });
     }
 
     @AfterEach
@@ -150,6 +154,11 @@ class RehabStudyFormDaoIntegrationTest extends CarlosTestBase {
             }
             try (var delete = connection.prepareStatement("DELETE FROM rehabStudy2004 WHERE demographic_no IN (?, ?, ?)")) {
                 for (int i = 0; i < PATIENTS.length; i++) delete.setInt(i + 1, PATIENTS[i]);
+                delete.executeUpdate();
+            }
+            try (var delete = connection.prepareStatement("DELETE FROM demographic WHERE demographic_no IN (?, ?)")) {
+                delete.setInt(1, PATIENT);
+                delete.setInt(2, OTHER_PATIENT);
                 delete.executeUpdate();
             }
         }
@@ -547,12 +556,20 @@ class RehabStudyFormDaoIntegrationTest extends CarlosTestBase {
     // ------------------------------------------------------------------------------------------
 
     @Test
+    void shouldRefuseAFirstSave_whenThePatientDoesNotExist() throws Exception {
+        RehabStudyFormType<?> type = type("SF36");
+        int missingPatient = Integer.MAX_VALUE;
+        assertThatThrownBy(() -> service.saveVersion(actor, type, missingPatient, 0, basePost(missingPatient)))
+                .isInstanceOf(SecurityException.class).hasMessage("Patient record access denied");
+        assertThat(independentCount(type.table(), missingPatient)).isZero();
+    }
+
+    @Test
     void shouldArchiveAtTheStoredEditTimes_whenTwoSavesOverlap() throws Exception {
         RehabStudyFormType<?> type = type("SF36");
         var transaction = new TransactionTemplate(transactions);
         transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
         int previousId = transaction.execute(status -> {
-            IntegrationTestSeedService.ensureDemographicExists(entityManager, PATIENT);
             Date previousEdited = new Date(FormXmlArchive.currentSecond().getTime() + 30_000L);
             var previous = RehabStudyFormValues.fromProperties(type, basePost(PATIENT), previousEdited);
             previous.setDemographicNo(PATIENT);
@@ -606,8 +623,6 @@ class RehabStudyFormDaoIntegrationTest extends CarlosTestBase {
         } finally {
             restore(configuration, "save_as_xml", previousEnabled);
             restore(configuration, "form_record_path", previousPath);
-            transaction.executeWithoutResult(status -> entityManager.createNativeQuery(
-                    "DELETE FROM demographic WHERE demographic_no = ?1").setParameter(1, PATIENT).executeUpdate());
         }
     }
 

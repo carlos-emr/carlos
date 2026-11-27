@@ -62,8 +62,7 @@ final class FormXmlArchive {
                 candidate = second + 1000L;
             }
         }
-        long archiveLimit = candidate + MAX_AHEAD_MILLIS;
-        while (occupied.contains(candidate) || (candidate <= archiveLimit && archiveExists(table, patient, candidate))) {
+        while (occupied.contains(candidate) || archiveExists(table, patient, candidate)) {
             candidate += 1000L;
         }
         return new Date(candidate);
