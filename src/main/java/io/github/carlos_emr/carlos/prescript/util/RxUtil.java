@@ -326,7 +326,7 @@ public class RxUtil {
 
     /** A recorded dose unit when the record distinguishes it from the product and the dispense unit. */
     public static String recordedDoseUnit(String unit, String form, String strength, String explicitDose) {
-        if (org.apache.commons.lang3.StringUtils.isBlank(unit)) return null;
+        if (org.apache.commons.lang3.StringUtils.isBlank(unit) || "null".equalsIgnoreCase(unit.strip())) return null;
         if (org.apache.commons.lang3.StringUtils.isNotBlank(explicitDose)
                 || org.apache.commons.lang3.StringUtils.isBlank(strength)
                 || unit.equalsIgnoreCase(form)) return unit;
