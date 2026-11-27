@@ -523,22 +523,26 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest
     @ValueSource(strings = {"0", "-7"})
-    @DisplayName("should archive every other version's measurements when the matched patient has no positive number")
-    void shouldArchiveEveryOtherVersion_whenThePatientNumberIsNotPositive(String patientNumber) {
-        // Nothing to compare a measurement's patient with, so the chain is judged as before: none is spared.
+    @DisplayName("should replace only the report's own measurements when the matched patient has no positive number")
+    void shouldReplaceOnlyTheReportsOwn_whenThePatientNumberIsNotPositive(String patientNumber) {
+        // Nothing to compare a measurement's patient with. Before the filing service (#6391) every other
+        // version's values were archived here; the service replaces only the report's own, because the
+        // chain is resolved by accession number alone and a recycled accession must not delete another
+        // patient's values. #6171 pinned the older behaviour; this pins the one now in force.
         Measurement otherPatients = new Measurement();
         otherPatients.setDataField("7.7");
         otherPatients.setDemographicId(4711);
         when(measurementDao.findByValue("lab_no", "1111")).thenReturn(java.util.List.of(otherPatients));
         fileForPatient(patientNumber);
 
-        verify(measurementDao).batchRemoveAtomically(
-                org.mockito.ArgumentMatchers.argThat(removed -> removed.size() == 1 && removed.get(0) == otherPatients));
+        verify(measurementDao).batchRemoveAtomically(org.mockito.ArgumentMatchers.argThat(java.util.List::isEmpty));
     }
 
     @Test
-    @DisplayName("should archive a measurement that names no patient when the matched patient is known")
-    void shouldArchiveAMeasurementWithoutAPatient_whenThePatientIsKnown() {
+    @DisplayName("should leave another version's measurement that names no patient alone when the matched patient is known")
+    void shouldLeaveAnotherVersionsUnownedMeasurement_whenThePatientIsKnown() {
+        // As above: #6171 pinned archiving an earlier version's value that names no patient; the filing
+        // service (#6391) replaces an unowned value only when it is the report's own.
         Measurement unattributed = new Measurement();
         unattributed.setDataField("7.7");
         Measurement otherPatients = new Measurement();
@@ -547,8 +551,7 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         when(measurementDao.findByValue("lab_no", "1111")).thenReturn(java.util.List.of(unattributed, otherPatients));
         fileForPatient("42");
 
-        verify(measurementDao).batchRemoveAtomically(
-                org.mockito.ArgumentMatchers.argThat(removed -> removed.size() == 1 && removed.get(0) == unattributed));
+        verify(measurementDao).batchRemoveAtomically(org.mockito.ArgumentMatchers.argThat(java.util.List::isEmpty));
     }
 
     @ParameterizedTest
