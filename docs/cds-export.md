@@ -44,8 +44,11 @@ reaches it, is listed under "Prevention holds that remain" below.
 
 Every value the demographic add and edit screens write is exported, never held. Values with a
 Demographics element map to it. The patient alert (`demographiccust.cust3`, the forms' Alert
-box) is one AlertsAndSpecialNeeds occurrence whose AlertDescription is the exact text (a carriage
-return is a character reference); the CARLOS importer files it as a Reminders note. Values that
+box, widened to `TEXT` in V1.0.59.54 with a 16,383-character limit, #6264) is one
+AlertsAndSpecialNeeds occurrence: alerts up to 1,000 characters carry the exact text in
+AlertDescription (a carriage return is a character reference), and longer alerts leave
+AlertDescription out and travel whole in `CARLOS.PatientAlert.v1` in ResidualInfo; the CARLOS
+importer files either as a Reminders note. Values that
 CDS 5.2 Demographics has no element for travel together in one NewCategory record per patient,
 `CARLOS.NativeDemographic.v1` (`CdsExportDemographicSupportingMapper`): its single
 `CARLOS.Demographic.v1` residual is a versioned JSON object in a fixed key order (`version`,
@@ -306,7 +309,9 @@ provider row). A screen can reach it.
 **Imports made before the native baseline.** An import made on 2026.08.0-beta7 or an earlier build
 recorded no native baseline (V1.0.59.40), only its receipt's digest of each row it wrote; a
 missing baseline is never backfilled from today's rows. An unchanged row is proved by its
-digest, as before. Once a row of an imported personal contact changed, the contact is decided
+digest, as before (and a `demographiccust` row receipted before V1.0.59.54 widened `cust3` from
+`VARCHAR(255)` to `TEXT` is proved unchanged when, restated with its pre-widening `cust3`
+definition via `CdsExportPatientAlertColumnHistory`, its digest still equals the receipt). Once a row of an imported personal contact changed, the contact is decided
 from its current rows as any contact added in CARLOS (`Result.current`): the imported element is
 removed, its source fields stay in the import's retained source, replaced, and the contact is
 appended. Content the element held that no column holds (purposes behind the marker, a separate
@@ -4030,7 +4035,11 @@ The demographics-only `demographiccust` capture now retains actual driver metada
 five selected columns. Its receipt is explicitly partial, with a separate partial-row count.
 An original full-row baseline can qualify comparisons of those five fields; `cust3` remains
 omitted and unverified. Missing legacy baselines and changed column definitions remain
-unqualified. A partial comparison always leaves the import unit in the review set and cannot
+unqualified, with one historical exception: when `AlertsAndSpecialNeeds` is selected and the full
+`demographiccust` row is witnessed, `CdsExportPatientAlertColumnHistory` restates a baseline
+`cust3` receipted before V1.0.59.54 (`VARCHAR(255)`) to the shipped post-migration `TEXT`
+definition (and proves an unchanged pre-baseline row by restating the current row to
+`VARCHAR(255)`). Any other column definition change remains unqualified. A partial comparison always leaves the import unit in the review set and cannot
 be promoted to a whole-row match, even when every selected field is unchanged. Original
 import receipt hashes and baseline documents are unchanged. The installed non-root proof
 compares actual MariaDB metadata and confirms that an alert edit invalidates the original

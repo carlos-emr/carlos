@@ -295,6 +295,125 @@ class CdsExportRetainedReceiptVerificationServiceUnitTest {
                 .isEqualTo(Reason.RECEIPT_FIELD_CODEC_UNQUALIFIED);
     }
 
+    @Test
+    void shouldAcceptShippedCust3Widening_whileRejectingOtherColumnDefinitionChanges()
+            throws Exception {
+        var demographicNo =
+                new io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column(
+                        "demographic_no", "INT", 10, 0);
+        var content =
+                new io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column(
+                        "content", "TEXT", 65535, 0);
+        var beforeColumns = List.of(demographicNo, CdsExportPatientAlertColumnHistory.BEFORE, content);
+        var afterColumns = List.of(demographicNo, CdsExportPatientAlertColumnHistory.AFTER, content);
+        var otherDefColumns =
+                List.of(
+                        demographicNo,
+                        new io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest
+                                .Column("cust3", "MEDIUMTEXT", 16777215, 0),
+                        content);
+        var cellsUnchanged =
+                List.of(cell("27"), cell("Alert text"), cell("<unotes>Patient note</unotes>"));
+        var cellsEditedAlert =
+                List.of(cell("27"), cell("Updated alert"), cell("<unotes>Patient note</unotes>"));
+
+        var baselineUnchanged =
+                new io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowState(
+                        "demographiccust", "27", beforeColumns, cellsUnchanged);
+        var baselineEdited =
+                new io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowState(
+                        "demographiccust", "27", beforeColumns, cellsEditedAlert);
+        var baselineOther =
+                new io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowState(
+                        "demographiccust", "27", otherDefColumns, cellsUnchanged);
+        var current =
+                new io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowState(
+                        "demographiccust", "27", afterColumns, cellsUnchanged);
+
+        var metadata = new LinkedHashMap<String, CdsExportCapturedTextRowDto>();
+        var references = new LinkedHashMap<String, List<Reference>>();
+        for (var entry :
+                Map.of(
+                                "unchanged", baselineUnchanged,
+                                "edited", baselineEdited,
+                                "other-def", baselineOther)
+                        .entrySet()) {
+            String refs =
+                    "{\"protocol\":2,\"refs\":[{\"table\":\"demographiccust\",\"id\":\"27\",\"digest\":\""
+                            + entry.getValue().digest()
+                            + "\"}]}";
+            String targetDigest = sha(refs);
+            var fields = new LinkedHashMap<String, String>();
+            fields.put("run_id", "run");
+            fields.put("unit_key", entry.getKey());
+            fields.put("target_references", refs);
+            fields.put("target_digest", targetDigest);
+            fields.put(
+                    "native_baseline",
+                    io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeBaselineCodec
+                            .encode(refs, targetDigest, List.of(entry.getValue())));
+            metadata.put(
+                    entry.getKey(),
+                    new CdsExportCapturedTextRowDto("cds_import_unit", entry.getKey(), fields));
+            references.put(
+                    "run:" + entry.getKey(),
+                    List.of(ref("demographiccust", "27", entry.getValue().digest())));
+        }
+        doAnswer(
+                        call -> {
+                            ((CdsExportNativeRowReceiptReader.Receipts) call.getArgument(7))
+                                    .accept(
+                                            new CdsExportNativeRowReceiptDto(
+                                                    "demographiccust",
+                                                    "27",
+                                                    CdsExportPatientTableSourceReader.key(27),
+                                                    current.digest(),
+                                                    current));
+                            return new CdsExportNativeRowReceiptsDto(
+                                    SOURCE, Map.of("demographiccust", 1L), 1, 0, Set.of());
+                        })
+                .when(rows)
+                .scan(any(), any(), any(), any(), anyLong(), anyLong(), any(), any());
+        var index =
+                new CdsExportRetainedIndexDto(
+                        SOURCE,
+                        0,
+                        0,
+                        Map.of("cds_import_unit", metadata),
+                        references.keySet(),
+                        references,
+                        Map.of());
+        var result = verify(index, 20);
+
+        var unchangedRef = result.units().get("run:unchanged").getFirst();
+        assertThat(unchangedRef.reason()).isEqualTo(Reason.CHANGED_ROW);
+        assertThat(unchangedRef.fields().schemaChanged()).isFalse();
+        assertThat(unchangedRef.fields().changedColumns()).isEmpty();
+
+        var editedRef = result.units().get("run:edited").getFirst();
+        assertThat(editedRef.reason()).isEqualTo(Reason.CHANGED_ROW);
+        assertThat(editedRef.fields().schemaChanged()).isFalse();
+        assertThat(editedRef.fields().changedColumns()).containsExactly("cust3");
+
+        var otherRef = result.units().get("run:other-def").getFirst();
+        assertThat(otherRef.reason()).isEqualTo(Reason.RECEIPT_FIELD_CODEC_UNQUALIFIED);
+        assertThat(otherRef.fields().schemaChanged()).isTrue();
+    }
+
+    private static io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowState.Cell cell(
+            String value) {
+        byte[] bytes = value.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return new io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowState.Cell(
+                false, bytes.length, sha(value));
+    }
+
+    private static String sha(String value) {
+        return java.util.HexFormat.of()
+                .formatHex(
+                        io.github.carlos_emr.carlos.utility.CdsImportKeys.digest()
+                                .digest(value.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+    }
+
     private CdsExportRetainedReceiptVerificationDto verify(
             CdsExportRetainedIndexDto index, int maximum) throws Exception {
         return new CdsExportRetainedReceiptVerificationService(rows, captures)

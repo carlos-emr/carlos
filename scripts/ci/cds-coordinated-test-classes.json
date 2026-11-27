@@ -240,6 +240,7 @@
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportPackageComposerUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportPackageInventoryServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportPartialRowComparatorUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportPatientAlertColumnHistoryUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportPatientAuthorizationUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportPatientDocumentServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportPatientFileBindingServiceUnitTest",

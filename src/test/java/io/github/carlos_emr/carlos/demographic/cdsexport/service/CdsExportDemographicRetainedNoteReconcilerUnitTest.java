@@ -46,6 +46,10 @@ class CdsExportDemographicRetainedNoteReconcilerUnitTest {
             current = new ArrayList<>();
     private boolean active;
     private Set<CdsCategory> selected;
+    /** Column definitions of the rows as read now, where they differ from the receipted ones. */
+    private Map<String, CdsNativeRowDigest.Column> currentDefinitions;
+    /** Whether the import kept a native baseline (imports before V1.0.59.40 did not). */
+    private boolean nativeBaseline;
 
     @BeforeEach
     void setup() {
@@ -57,6 +61,8 @@ class CdsExportDemographicRetainedNoteReconcilerUnitTest {
         current.clear();
         active = true;
         selected = Set.of(CdsCategory.DEMOGRAPHICS);
+        currentDefinitions = Map.of();
+        nativeBaseline = true;
         source.put("Names[1]/LegalName[1]/@namePurpose", "L");
         source.put("Names[1]/LegalName[1]/FirstName[1]/Part[1]", "Ada");
         source.put("Names[1]/LegalName[1]/FirstName[1]/PartType[1]", "GIV");
@@ -230,6 +236,80 @@ class CdsExportDemographicRetainedNoteReconcilerUnitTest {
     }
 
     @Test
+    void shouldKeepTheUnchangedNote_whenTheAlertColumnWasWidenedAfterTheImport() throws Exception {
+        // #6264: V1.0.59.54 made cust3 TEXT. A row receipted before it (cust3 VARCHAR 255) used
+        // to be a schema change, and an export selecting alerts stopped on the first such chart.
+        widenedAlertSelected();
+        var result = reconcile();
+        assertThat(result.noteRepresentable()).isTrue();
+        assertThat(result.alertsOmitted()).isFalse();
+        assertThat(result.changes()).isEmpty();
+        assertThat(result.fields().values())
+                .anyMatch(field -> field.rule().equals("VERIFIED_UNCHANGED_SOURCE_PATIENT_NOTE"));
+        assertThat(result.deferredNativeFields().stream().map(CdsExportNativeFieldKeyDto::column))
+                .contains("cust3");
+        assertThat(text(render(result), "NoteAboutPatient")).containsExactly("Original 😀 note");
+    }
+
+    @Test
+    void shouldExportTheEditedNote_whenTheAlertColumnWasWidenedAfterTheImport() throws Exception {
+        widenedAlertSelected();
+        change("content", DemographicCust.wrapPatientNotes("Edited after the upgrade"));
+        var result = reconcile();
+        assertThat(result.noteRepresentable()).isTrue();
+        assertThat(result.changes()).hasSize(1);
+        assertThat(text(render(result), "NoteAboutPatient"))
+                .containsExactly("Edited after the upgrade");
+    }
+
+    @Test
+    void shouldProveTheUnchangedRow_whenAnImportWithoutABaselineReceiptedItBeforeTheWidening()
+            throws Exception {
+        // Imports made before V1.0.59.40 kept no native baseline: an unchanged row is proved by
+        // its receipt digest, which it still has when described as it was before V1.0.59.54.
+        widenedAlertSelected();
+        nativeBaseline = false;
+        var result = reconcile();
+        assertThat(result.noteRepresentable()).isTrue();
+        assertThat(result.changes()).isEmpty();
+        assertThat(text(render(result), "NoteAboutPatient")).containsExactly("Original 😀 note");
+    }
+
+    @Test
+    void shouldStillRequireABaseline_whenARowReceiptedBeforeTheWideningChangedSince() {
+        widenedAlertSelected();
+        nativeBaseline = false;
+        change("cust3", "Alert edited after the upgrade");
+        assertThatThrownBy(this::reconcile)
+                .hasMessage("CDS_EXPORT_DEMOGRAPHIC_NOTE_FIELD_BASELINE_REQUIRED");
+    }
+
+    @Test
+    void shouldStillRequireReview_whenAnyOtherColumnDefinitionChanged() {
+        widenedAlertSelected();
+        currentDefinitions =
+                Map.of(
+                        "cust3",
+                        CdsExportPatientAlertColumnHistory.AFTER,
+                        "cust1",
+                        new CdsNativeRowDigest.Column("cust1", "TEXT", 65535, 0));
+        assertThatThrownBy(this::reconcile)
+                .hasMessage("CDS_EXPORT_DEMOGRAPHIC_NOTE_FIELD_CODEC_REQUIRES_REVIEW");
+        // Only the shipped TEXT column is the widened alert; a local MEDIUMTEXT is not.
+        currentDefinitions =
+                Map.of("cust3", new CdsNativeRowDigest.Column("cust3", "MEDIUMTEXT", 16777215, 0));
+        assertThatThrownBy(this::reconcile)
+                .hasMessage("CDS_EXPORT_DEMOGRAPHIC_NOTE_FIELD_CODEC_REQUIRES_REVIEW");
+    }
+
+    /** Alerts selected, the whole row witnessed, cust3 read as V1.0.59.54 left it. */
+    private void widenedAlertSelected() {
+        selected = Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.ALERTS_AND_SPECIAL_NEEDS);
+        current.set(0, cust(DemographicCust.wrapPatientNotes("Original 😀 note"), true));
+        currentDefinitions = Map.of("cust3", CdsExportPatientAlertColumnHistory.AFTER);
+    }
+
+    @Test
     void shouldVerifyExpiredValuesAndSubstitutedRowsFailClosed_forDemographicRetainedNoteReconcilerContract() throws Exception {
         active = false;
         assertThatThrownBy(this::reconcile).hasMessage("EXPIRED_VALUES");
@@ -263,11 +343,25 @@ class CdsExportDemographicRetainedNoteReconcilerUnitTest {
                 "demographiccust", CdsExportPatientTableSourceReader.key(27), fields);
     }
 
+    /** The row as receipted: every column VARCHAR(255), as cust3 was before V1.0.59.54. */
     private static CdsNativeRowState state(CdsExportCapturedTextRowDto row) {
+        return state(row, Map.of());
+    }
+
+    /** The row as read now: {@link #currentDefinitions} replace the receipted definitions. */
+    private CdsNativeRowState currentState(CdsExportCapturedTextRowDto row) {
+        return state(row, currentDefinitions);
+    }
+
+    private static CdsNativeRowState state(
+            CdsExportCapturedTextRowDto row, Map<String, CdsNativeRowDigest.Column> definitions) {
         var columns = new ArrayList<CdsNativeRowDigest.Column>();
         var cells = new ArrayList<CdsNativeRowState.Cell>();
         for (var entry : row.fields().entrySet()) {
-            columns.add(new CdsNativeRowDigest.Column(entry.getKey(), "VARCHAR", 255, 0));
+            columns.add(
+                    definitions.getOrDefault(
+                            entry.getKey(),
+                            new CdsNativeRowDigest.Column(entry.getKey(), "VARCHAR", 255, 0)));
             String value = entry.getValue();
             cells.add(
                     value == null
@@ -281,8 +375,8 @@ class CdsExportDemographicRetainedNoteReconcilerUnitTest {
                 row.table(), row.fields().get("demographic_no"), columns, cells);
     }
 
-    private static CdsExportNativeRowReceiptDto witness(CdsExportCapturedTextRowDto row) {
-        var state = state(row);
+    private CdsExportNativeRowReceiptDto witness(CdsExportCapturedTextRowDto row) {
+        var state = currentState(row);
         return new CdsExportNativeRowReceiptDto(
                 row.table(),
                 state.id(),
@@ -318,6 +412,18 @@ class CdsExportDemographicRetainedNoteReconcilerUnitTest {
         var states = new ArrayList<>(baseline.rows());
         var refs = new ArrayList<>(original.index().references().get(address));
         var checkedRefs = new ArrayList<>(original.checked().units().get(address));
+        if (!nativeBaseline) {
+            // Pre-V1.0.59.40 imports have no native_baseline; an unchanged demographic row is
+            // proved by its matching receipt digest so the note reconciler's no-baseline path runs.
+            checkedRefs.replaceAll(
+                    ref ->
+                            ref.expected().table().equals("demographic")
+                                    ? new CheckedReference(
+                                            ref.expected(),
+                                            ref.currentDigest(),
+                                            Reason.UNCHANGED_ROW)
+                                    : ref);
+        }
         for (var row : old) {
             var oldState = state(row);
             states.add(oldState);
@@ -338,7 +444,7 @@ class CdsExportDemographicRetainedNoteReconcilerUnitTest {
             if (actual == null)
                 checkedRefs.add(new CheckedReference(reference, null, Reason.ROW_NOT_IN_CAPTURE));
             else {
-                var currentState = state(actual);
+                var currentState = currentState(actual);
                 if (!actual.fields().containsKey("cust3")) {
                     var partial = CdsExportPartialRowComparator.compare(oldState, currentState);
                     checkedRefs.add(
@@ -349,14 +455,27 @@ class CdsExportDemographicRetainedNoteReconcilerUnitTest {
                                     null,
                                     partial));
                 } else {
-                    var difference = CdsNativeRowComparison.compare(oldState, currentState);
+                    // As CdsExportRetainedReceiptVerificationService decides it.
+                    var difference =
+                            nativeBaseline
+                                    ? CdsNativeRowComparison.compare(
+                                            CdsExportPatientAlertColumnHistory.widened(
+                                                    oldState, currentState),
+                                            currentState)
+                                    : null;
                     checkedRefs.add(
                             new CheckedReference(
                                     reference,
                                     currentState.digest(),
-                                    oldState.digest().equals(currentState.digest())
-                                            ? Reason.UNCHANGED_ROW
-                                            : Reason.CHANGED_ROW,
+                                    difference != null
+                                                    && (difference.schemaChanged()
+                                                            || !difference
+                                                                    .unqualifiedColumns()
+                                                                    .isEmpty())
+                                            ? Reason.RECEIPT_FIELD_CODEC_UNQUALIFIED
+                                            : oldState.digest().equals(currentState.digest())
+                                                    ? Reason.UNCHANGED_ROW
+                                                    : Reason.CHANGED_ROW,
                                     difference));
                 }
             }
@@ -367,7 +486,9 @@ class CdsExportDemographicRetainedNoteReconcilerUnitTest {
                 digest = sha(references);
         raw.put("target_references", references);
         raw.put("target_digest", digest);
-        raw.put("native_baseline", CdsNativeBaselineCodec.encode(references, digest, states));
+        raw.put(
+                "native_baseline",
+                nativeBaseline ? CdsNativeBaselineCodec.encode(references, digest, states) : null);
         var tables = new LinkedHashMap<String, Map<String, CdsExportCapturedTextRowDto>>();
         original.index()
                 .tables()
@@ -396,12 +517,7 @@ class CdsExportDemographicRetainedNoteReconcilerUnitTest {
         var base =
                 new CdsExportDemographicProjectionEvidenceUnitTest.Graph(
                         index, checked, original.fields(), original.current(), original.witness());
-        return new Graph(
-                base,
-                address,
-                current.stream()
-                        .map(CdsExportDemographicRetainedNoteReconcilerUnitTest::witness)
-                        .toList());
+        return new Graph(base, address, current.stream().map(this::witness).toList());
     }
 
     private CdsExportDemographicRetainedNoteReconciler.Result reconcile() throws Exception {
