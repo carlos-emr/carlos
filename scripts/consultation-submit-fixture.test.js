@@ -26,7 +26,8 @@ test('owns each request by a unique exact reason and removes only its dependenci
   assert.match(cleanup, /DELETE FROM consultationRequests WHERE requestId IN \(85\) AND demographicNo=42 AND reason IN/);
   assert.ok(cleanup.includes(first) && cleanup.includes(second));
   assert.match(cleanup, /DELETE FROM DigitalSignature WHERE id=99\s+AND demographicId=42/);
-  assert.match(cleanup, /NOT EXISTS \(SELECT 1 FROM consultationRequestsArchive WHERE signature_img='99'\)/);
+  assert.match(cleanup, /NOT EXISTS \(SELECT 1 FROM consultationRequests WHERE demographicNo=42 AND signature_img='99'\)/);
+  assert.match(cleanup, /NOT EXISTS \(SELECT 1 FROM consultationRequestsArchive WHERE demographicNo=42 AND signature_img='99'\)/);
   assert.ok(cleanup.indexOf('DELETE FROM consultdocs') < cleanup.indexOf('DELETE FROM consultationRequests WHERE'));
 });
 

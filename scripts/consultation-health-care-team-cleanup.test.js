@@ -16,7 +16,9 @@ test('removes only unused consultation signatures of the verified owned patient'
   assert.equal(sql.writes.length, 1);assert.deepEqual(sql.writes[0].parameters, ['42']);
   assert.match(sql.writes[0].query, /demographicId=\? AND ModuleType='CONSULTATION'/);
   for (const table of ['consultationRequests', 'consultationRequestsArchive']) {
-    assert.ok(sql.writes[0].query.includes('NOT EXISTS (SELECT 1 FROM ' + table + ' WHERE signature_img=CAST(DigitalSignature.id AS CHAR))'));
+    assert.ok(sql.writes[0].query.includes(
+      'NOT EXISTS (SELECT 1 FROM ' + table + ' WHERE demographicNo=DigitalSignature.demographicId AND signature_img=CAST(DigitalSignature.id AS CHAR))'
+    ));
   }
   assert.deepEqual(sql.reads[1].parameters, ['42']);
 });

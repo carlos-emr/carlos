@@ -17,8 +17,8 @@ function cleanupUnusedHctSignatures(sql, patient, marker) {
   h.assert(sql.value('SELECT COUNT(*) FROM demographic WHERE demographic_no=? AND last_name=?',
     [patient, marker]) === '1', 'HCT patient fixture ownership changed');
   const unused = `demographicId=? AND ModuleType='CONSULTATION'
-    AND NOT EXISTS (SELECT 1 FROM consultationRequests WHERE signature_img=CAST(DigitalSignature.id AS CHAR))
-    AND NOT EXISTS (SELECT 1 FROM consultationRequestsArchive WHERE signature_img=CAST(DigitalSignature.id AS CHAR))`;
+    AND NOT EXISTS (SELECT 1 FROM consultationRequests WHERE demographicNo=DigitalSignature.demographicId AND signature_img=CAST(DigitalSignature.id AS CHAR))
+    AND NOT EXISTS (SELECT 1 FROM consultationRequestsArchive WHERE demographicNo=DigitalSignature.demographicId AND signature_img=CAST(DigitalSignature.id AS CHAR))`;
   sql.execute('DELETE FROM DigitalSignature WHERE ' + unused, [patient]);
   h.assert(sql.value('SELECT COUNT(*) FROM DigitalSignature WHERE ' + unused, [patient]) === '0',
     'Unused owned HCT signatures remain');
