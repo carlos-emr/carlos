@@ -65,6 +65,7 @@
  */
 
 
+const { medicationSnapshot } = require('./lib/medication-snapshot');
 const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const { readNativeClinicianCredentials, validateNativeImportedCredentials, proveNativeClinicianLogin, redactNativeAuthError } = require('./lib/o19-native-auth');
@@ -422,6 +423,7 @@ function discoverFixtures(adminUser) {
     }
     : null;
 
+  const medicationRows = medicationSnapshot(query, patient.demographicNo);
   const drugRow = queryOne(
     'SELECT drugid, HEX(IFNULL(BN, \'\')), HEX(IFNULL(GN, \'\')) FROM drugs'
     + ` WHERE demographic_no = ${sqlInt(patient.demographicNo)} AND archived = 0`
@@ -488,7 +490,7 @@ function discoverFixtures(adminUser) {
     .map(([shadow]) => ({ shadow, table: shadow.slice(0, -'__unknown_cols'.length) }));
 
   return {
-    patient, note, provider, appointment, drug, lab, clinician,
+    patient, note, provider, appointment, drug, medicationRows, lab, clinician,
     preservedColumns, unknownShadows,
   };
 }
@@ -950,6 +952,8 @@ legacyHarness.runLegacyCheck('o19-migrated-smoke',async context=>{
         assert(text.toUpperCase().includes(drugName.toUpperCase()),
           'the Rx module did not list the migrated prescription '
           + '(drug withheld: PHI)');
+        assert(medicationSnapshot(query, fixtures.patient.demographicNo) === fixtures.medicationRows,
+          'Opening the migrated chart changed a stored medication row (values withheld)');
         await screenshot(page, 'o19-smoke-rx');
         await page.close();
       });

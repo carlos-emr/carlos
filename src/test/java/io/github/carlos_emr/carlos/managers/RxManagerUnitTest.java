@@ -283,6 +283,27 @@ class RxManagerUnitTest extends RxManagerImpl {
             assertThat(stored.getUnitName()).isEqualTo("mL");
         }
 
+        @ParameterizedTest
+        @CsvSource({"ASA,tab", "Other,mL"})
+        void shouldKeepSubmittedQuantity_whenUnitOrProductChanges(String name, String unit) {
+            Drug source = new Drug();
+            source.setId(4);
+            source.setDemographicId(1);
+            source.setGenericName("ASA");
+            source.setQuantity("30.0");
+            source.setUnitName("mL");
+            ((MockDrugDao) drugDao).seed(source);
+            Drug changed = new Drug();
+            changed.setId(4);
+            changed.setDemographicId(1);
+            changed.setGenericName(name);
+            changed.setQuantity("30");
+            changed.setUnitName(unit);
+            Drug replacement = updateDrug(new LoggedInInfo(), changed);
+            assertThat(replacement.getQuantity()).isEqualTo("30");
+            assertThat(replacement.getUnitName()).isEqualTo(unit);
+        }
+
         @Test
         @DisplayName("should take the quantity the replacement states")
         void shouldTakeReplacementQuantity_whenReplacementStatesOne() {

@@ -114,6 +114,15 @@ Stored values are out of scope for #6185, and are not rewritten:
   review have a `unitName` that starts with a full stop:
   `SELECT drugid, demographic_no, quantity, unitName FROM drugs WHERE unitName LIKE '.%';`
 
+The ISMP Canada dose-designation guidance supports a leading zero for a new decimal
+less than one and omitting trailing zeros from new dose designations. Its BPMH guide
+calls for an interview and confirmation with another reliable source. Displaying stored
+prescription directions supplies one source for that conversation. Ontario's pharmacy
+documentation guideline describes how to correct an entry while retaining the original
+information. [ISMP Canada dose designations](https://ismpcanada.ca/resource/do-not-use-list/),
+[BPMH interview guide](https://ismpcanada.ca/wp-content/uploads/BPMH-Interview-Guide.pdf),
+[Ontario College of Pharmacists documentation guideline](https://ocpinfo.com/pharmacy-professionals/rules-and-standards-of-the-profession/practice-policies-guidelines/documentation-guidelines/).
+
 The follow-up tickets for the inventory cover legacy editing and duration (#6398–#6400),
 REST and DrugRef (#6401–#6402, carlos-emr/drugref2026#21), discontinued warnings and favourites
 (#6403–#6404), data entry and measurements (#6405–#6406), legacy CDS (#6407) and DHIR (#3972).

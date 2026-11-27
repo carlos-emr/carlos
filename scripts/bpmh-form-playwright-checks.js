@@ -20,6 +20,7 @@
  * clinic-wide, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).
  * Cleanup deletes the patient's formBPMH rows, drug reason, drug and allergy, and asserts them gone.
  */
+const { medicationSnapshot } = require('./lib/medication-snapshot');
 const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
@@ -214,7 +215,7 @@ async function workflow(s) {
       VALUES (${q(provider)},${patient},CURDATE(),DATE_ADD(CURDATE(),INTERVAL 30 DAY),CURDATE(),${q(name)},${q(name)},
         0,'',NOW(),${position},NOW(),0,'.50',1,3,'mg','mL','TAB','Take','daily')`);
   }
-  const sourceRows = () => JSON.stringify(sql.rows(`SELECT * FROM drugs WHERE demographic_no=${patient} ORDER BY drugid`));
+  const sourceRows = () => medicationSnapshot(statement => sql.rows(statement), patient);
   const originalRows = sourceRows();
 
   const chart = await s.chart();
