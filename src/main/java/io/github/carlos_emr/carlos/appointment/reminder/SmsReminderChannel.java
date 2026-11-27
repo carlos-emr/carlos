@@ -32,12 +32,14 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException;
 import io.github.carlos_emr.carlos.sms.SmsMessagePurpose;
+import io.github.carlos_emr.carlos.sms.SmsDirection;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
 import io.github.carlos_emr.carlos.sms.dao.SmsTransactionDao;
 import io.github.carlos_emr.carlos.sms.dto.SmsSendResultDto;
 import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 import io.github.carlos_emr.carlos.sms.service.SmsQueueService;
+import io.github.carlos_emr.carlos.sms.service.SmsProviderRetirementService;
 import io.github.carlos_emr.carlos.sms.service.SmsSendService;
 import io.github.carlos_emr.carlos.sms.support.SmsPhoneNumbers;
 import io.github.carlos_emr.carlos.sms.support.SmsSegments;
@@ -220,32 +222,43 @@ public class SmsReminderChannel implements AppointmentReminderChannel {
     }
 
     /**
-     * Where the text got to: the queue sends it after this channel hands it over, so a reminder recorded as
-     * queued reads its newest text (a provider swap moves a waiting text to a new row). The text is found by the
-     * appointment number on the text the reminder handed over, so a reminder Group Update moved to a new number still
-     * finds the text it handed over under the old one.
+     * Reads the queue attempt recorded by this reminder, following the linked copy after a provider swap.
+     * A Group Update can move the appointment and a rebooking can reuse its number.
      */
     @Override
     public AppointmentReminderStatus currentStatus(AppointmentReminder reminder) {
-        if (reminder.getLastStatus() != AppointmentReminderStatus.QUEUED || reminder.getAppointmentNo() == null) {
+        if (reminder.getLastStatus() != AppointmentReminderStatus.QUEUED) {
             return reminder.getLastStatus();
         }
-        int appointmentNo = reminder.getAppointmentNo();
-        if (reminder.getLastSmsTransactionId() != null) {
-            SmsTransaction handedOver = texts.find(reminder.getLastSmsTransactionId());
-            if (handedOver != null && handedOver.getAppointmentNo() != null) {
-                appointmentNo = handedOver.getAppointmentNo();
+        Long id = reminder.getLastSmsTransactionId();
+        SmsTransaction text = id == null ? null : texts.find(id);
+        Integer appointment = text == null ? null : text.getAppointmentNo();
+        while (text != null && text.getDirection() == SmsDirection.OUTBOUND
+                && text.getMessagePurpose() == SmsMessagePurpose.APPOINTMENT_REMINDER
+                && Objects.equals(text.getDemographicNo(), reminder.getSentForDemographicNo())
+                && Objects.equals(text.getAppointmentNo(), appointment)) {
+            if (!SmsProviderRetirementService.QUEUE_PROVIDER_MOVED_CODE.equals(text.getErrorCode())) {
+                return deliveryStatus(text);
             }
+            Long next = SmsProviderRetirementService.movedToTransactionId(text);
+            if (next == null || next <= id) {
+                break;
+            }
+            id = next;
+            text = texts.find(id);
         }
-        Optional<SmsTransaction> text = texts.findLatestOutboundByAppointment(appointmentNo,
-                SmsMessagePurpose.APPOINTMENT_REMINDER);
-        if (text.isEmpty()) {
+        // Missing or unverifiable queue history cannot establish a different outcome.
+        return AppointmentReminderStatus.QUEUED;
+    }
+
+    private static AppointmentReminderStatus deliveryStatus(SmsTransaction text) {
+        if (text.getStatus() == null) {
             return AppointmentReminderStatus.QUEUED;
         }
-        return switch (text.get().getStatus()) {
+        return switch (text.getStatus()) {
             case SENT, DELIVERED -> AppointmentReminderStatus.SENT;
             case CONSENT_BLOCKED, OPTOUT_BLOCKED -> AppointmentReminderStatus.BLOCKED_CONSENT;
-            case FAILED -> "QUEUE_EXPIRED".equals(text.get().getErrorCode())
+            case FAILED -> "QUEUE_EXPIRED".equals(text.getErrorCode())
                     ? AppointmentReminderStatus.EXPIRED : AppointmentReminderStatus.FAILED;
             default -> AppointmentReminderStatus.QUEUED;
         };

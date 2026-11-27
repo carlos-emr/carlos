@@ -1,7 +1,6 @@
 package io.github.carlos_emr.carlos.sms.dao;
 
 import io.github.carlos_emr.carlos.commn.dao.AbstractDao;
-import io.github.carlos_emr.carlos.sms.SmsMessagePurpose;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.dto.SmsQueueCountDto;
@@ -39,12 +38,6 @@ public interface SmsTransactionDao extends AbstractDao<SmsTransaction> {
     Optional<SmsTransaction> findByProviderMessageId(SmsProviderType providerType, String providerMessageId);
 
     Optional<SmsTransaction> findByClientReferenceId(SmsProviderType providerType, String clientReferenceId);
-
-    /**
-     * The newest outbound text for an appointment with this purpose (#884: the appointment reminder's text). A
-     * provider swap moves a waiting text to a new row, so the newest one is the text as it stands.
-     */
-    Optional<SmsTransaction> findLatestOutboundByAppointment(int appointmentNo, SmsMessagePurpose purpose);
 
     List<SmsTransaction> claimDueOutboundQueue(SmsProviderType providerType, Date claimAt, int limit);
 

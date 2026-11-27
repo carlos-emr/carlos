@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.sms.SmsMessagePurpose;
+import io.github.carlos_emr.carlos.sms.SmsDirection;
 import io.github.carlos_emr.carlos.sms.SmsRecipientPhoneType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
@@ -58,7 +59,6 @@ import java.time.ZoneId;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -380,30 +380,50 @@ class SmsReminderChannelUnitTest {
         reminder.startSending(new Date(), PATIENT, new Date());
         reminder.finish(AppointmentReminderStatus.QUEUED, null, 55L, new Date());
         reminder.moveTo(201, "999998", new Date());
-        SmsTransaction handedOver = text(SmsStatus.QUEUED, null);
-        ReflectionTestUtils.setField(handedOver, "appointmentNo", 101);
-        when(texts.find((Object) 55L)).thenReturn(handedOver);
-
         assertThat(statusFor(reminder, text(SmsStatus.SENT, null))).isEqualTo(AppointmentReminderStatus.SENT);
-        verify(texts, never()).findLatestOutboundByAppointment(201, SmsMessagePurpose.APPOINTMENT_REMINDER);
+        assertThat(statusFor(reminder, null)).isEqualTo(AppointmentReminderStatus.QUEUED);
+    }
 
-        // A text row without a number, or one no longer found, falls back to the reminder's own number.
-        ReflectionTestUtils.setField(handedOver, "appointmentNo", null);
-        when(texts.findLatestOutboundByAppointment(201, SmsMessagePurpose.APPOINTMENT_REMINDER))
-                .thenReturn(Optional.of(text(SmsStatus.FAILED, "QUEUE_EXPIRED")));
-        assertThat(channel.currentStatus(reminder)).isEqualTo(AppointmentReminderStatus.EXPIRED);
-        when(texts.find((Object) 55L)).thenReturn(null);
-        assertThat(channel.currentStatus(reminder)).isEqualTo(AppointmentReminderStatus.EXPIRED);
+    @Test
+    void shouldFollowOnlyItsOwnAttempt_whenAProviderSwapInterleavesWithRebooking() {
+        AppointmentReminder previous = AppointmentReminder.requested(101, ReminderChannel.SMS, "999998", new Date());
+        previous.startSending(new Date(), PATIENT, new Date());
+        previous.finish(AppointmentReminderStatus.QUEUED, null, 55L, new Date());
+        AppointmentReminder rebooked = AppointmentReminder.requested(101, ReminderChannel.SMS, "999998", new Date());
+        rebooked.startSending(new Date(), PATIENT, new Date());
+        rebooked.finish(AppointmentReminderStatus.QUEUED, null, 56L, new Date());
+        when(texts.find((Object) 55L)).thenReturn(movedText(57));
+        when(texts.find((Object) 56L)).thenReturn(text(SmsStatus.SENT, null));
+        when(texts.find((Object) 57L)).thenReturn(movedText(58));
+        when(texts.find((Object) 58L)).thenReturn(text(SmsStatus.CONSENT_BLOCKED, null));
+
+        assertThat(channel.currentStatus(previous)).isEqualTo(AppointmentReminderStatus.BLOCKED_CONSENT);
+        assertThat(channel.currentStatus(rebooked)).isEqualTo(AppointmentReminderStatus.SENT);
+        when(texts.find((Object) 58L)).thenReturn(movedText(55));
+        assertThat(channel.currentStatus(previous)).isEqualTo(AppointmentReminderStatus.QUEUED);
+        SmsTransaction unrelated = text(SmsStatus.DELIVERED, null);
+        ReflectionTestUtils.setField(unrelated, "demographicNo", PATIENT + 1);
+        when(texts.find((Object) 58L)).thenReturn(unrelated);
+        assertThat(channel.currentStatus(previous)).isEqualTo(AppointmentReminderStatus.QUEUED);
+    }
+
+    private static SmsTransaction movedText(long nextId) {
+        SmsTransaction row = text(SmsStatus.FAILED, "QUEUE_PROVIDER_MOVED");
+        ReflectionTestUtils.setField(row, "errorMessage", "Moved to STUB as text " + nextId + ".");
+        return row;
     }
 
     private AppointmentReminderStatus statusFor(AppointmentReminder reminder, SmsTransaction text) {
-        when(texts.findLatestOutboundByAppointment(101, SmsMessagePurpose.APPOINTMENT_REMINDER))
-                .thenReturn(Optional.ofNullable(text));
+        when(texts.find((Object) 55L)).thenReturn(text);
         return channel.currentStatus(reminder);
     }
 
     private static SmsTransaction text(SmsStatus status, String errorCode) {
         SmsTransaction text = new SmsTransaction();
+        ReflectionTestUtils.setField(text, "messagePurpose", SmsMessagePurpose.APPOINTMENT_REMINDER);
+        ReflectionTestUtils.setField(text, "direction", SmsDirection.OUTBOUND);
+        ReflectionTestUtils.setField(text, "demographicNo", PATIENT);
+        ReflectionTestUtils.setField(text, "appointmentNo", 101);
         ReflectionTestUtils.setField(text, "status", status);
         ReflectionTestUtils.setField(text, "errorCode", errorCode);
         return text;

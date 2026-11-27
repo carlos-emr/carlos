@@ -41,6 +41,8 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Serializes selection changes and queue ownership across servers. The existing STUB limiter key is
@@ -53,6 +55,7 @@ import java.util.Set;
 public class SmsProviderRetirementService {
     /** Closes a retired provider's waiting text that was queued again, as a new row, for the selected provider. */
     public static final String QUEUE_PROVIDER_MOVED_CODE = "QUEUE_PROVIDER_MOVED";
+    private static final Pattern MOVE_TARGET = Pattern.compile("Moved to [A-Z0-9_]+ as text ([1-9][0-9]{0,18})\\.");
     /** The retry code a provider refusal was saved with before the fixed codes; rows saved then keep it. */
     static final String LEGACY_PROVIDER_FAILURE_RETRY_SCHEDULED_CODE = "QUEUE_PROVIDER_FAILURE_RETRY_SCHEDULED";
     /**
@@ -164,6 +167,23 @@ public class SmsProviderRetirementService {
     static SmsProviderSendResultDto movedResult(SmsProviderType selected, Long movedToId) {
         return SmsProviderSendResultDto.failed(QUEUE_PROVIDER_MOVED_CODE,
                 "Moved to " + selected.name() + " as text " + movedToId + ".");
+    }
+
+    /** Reads the durable link written by movedResult, including moves recorded by earlier releases. */
+    public static Long movedToTransactionId(SmsTransaction row) {
+        if (row.getStatus() != SmsStatus.FAILED || !QUEUE_PROVIDER_MOVED_CODE.equals(row.getErrorCode())
+                || row.getErrorMessage() == null) {
+            return null;
+        }
+        Matcher match = MOVE_TARGET.matcher(row.getErrorMessage());
+        if (!match.matches()) {
+            return null;
+        }
+        try {
+            return Long.valueOf(match.group(1));
+        } catch (NumberFormatException outsideIdRange) {
+            return null;
+        }
     }
 
     static SmsProviderSendResultDto retirementFailure(SmsTransaction row) {
