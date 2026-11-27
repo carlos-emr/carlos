@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "5c28c500d5febe27a308b698275d70573f3d897e",
+  "comparisonSha256": "32410a10020d8ea91073b82f1918e5402d5abaaf034c4aeb2ead37eedddd90a6",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/form/pharmaForms/formBPMH/bean/BpmhDrug.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "7a0d09d9f4285e3c4e812c738c7cf0df7560c5d8"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/util/DrugStrength.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 97.61904761904762,
+      "sourceBlob": "9851e6718a4acc036da95c68ab137994f24bed8f"
+    }
+  },
+  "exclusions": {},
+  "zeroCoverageWaivers": {},
+  "baselineCommit": "5433871a0cd43ca215f8ffa678faf1594bf81984",
+  "baselineSourceTree": "5c28c500d5febe27a308b698275d70573f3d897e",
+  "baselineReportSha256": "5c1d7d6f3864b8d6e0596fc8d4cae4a11832e523e4cccaeebd8baa8cff7e7173",
+  "baselineLane": "PR 6367 focused JDK 25 Maven unit and H2 integration tests for prescriptions, BPMH, REST and CDS export. Counts describe test cases in the final Surefire XML reports from this run.",
+  "baselineTestCounts": {
+    "tests": 1729,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "2f671cf653055a69defb2ec6d06a3ed357c00f55a11b70fac96fd6d01d28cf31",
+  "baselineTestReportsHashFormat": "SHA-256 of a sha256sum-style manifest of the run's Surefire TEST-*.xml report files: one '<sha256>  <file name>' line each, sorted by name",
+  "baselineTestRunCommit": "5433871a0cd43ca215f8ffa678faf1594bf81984",
+  "baselineAdditionalTestRuns": []
+}
