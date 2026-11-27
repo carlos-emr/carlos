@@ -23,6 +23,9 @@ function fixture() {
         removeAttribute(name) { attributes.delete(name); },
       });
     }
+    elements.set('draftRevision_' + card, { value: 'current-draft' });
+    elements.set('rxCalculationStatus_' + card, { dataset: { failure: 'Retry calculation', pending: 'Calculating' } });
+    elements.set('rxCalculationRetry_' + card, { hidden: true });
   }
   const requests = [];
   const quotes = [];
@@ -34,8 +37,10 @@ function fixture() {
   };
   vm.runInNewContext(source, context);
   const reply = (request, values) => request.options.onSuccess({ responseText: JSON.stringify({
+    calculationSequence: Number(new URLSearchParams(request.options.parameters).get('calculationSequence')),
     method: 'tab', route: 'PO', takeMin: 1, takeMax: 1, frequency: 'BID', duration: '14',
-    durationUnit: 'D', calQuantity: '28', priceQuantity: '28', unitName: null, prn: false, ...values,
+    durationUnit: 'D', calQuantity: '28', priceQuantity: '28', unitName: null, prn: false,
+    policyViolations: [], ...values,
   }) });
   return { context, elements, requests, quotes, reply, field: (prefix, card = '11') => elements.get(`${prefix}_${card}`) };
 }
@@ -91,4 +96,24 @@ test('a response for a discarded card cannot change a replacement with the same 
   f.reply(f.requests[0]);
   assert.equal(f.field('frequency').textContent, '');
   assert.equal(f.field('minimum').attributes.get('aria-invalid'), 'true');
+});
+
+test('HTTP and malformed success failures block only the affected card until retry', () => {
+  const f = fixture();
+  f.field('instructions').value = 'Keep this text on failure';
+  f.context.parseIntr(f.field('instructions'));
+  f.requests[0].options.onSuccess({responseText: '{}'});
+  assert.equal(f.field('set').attributes.get('data-calculation-blocked'), 'true');
+  assert.match(f.elements.get('rxCalculationStatus_11').textContent, /Retry/);
+  assert.equal(f.field('instructions').value, 'Keep this text on failure');
+  f.context.updateQty(f.field('quantity', '22'));
+  f.reply(f.requests[1]);
+  assert.equal(f.field('set').attributes.get('data-calculation-blocked'), 'true');
+  assert.equal(f.field('set', '22').attributes.has('data-calculation-blocked'), false);
+  f.context.parseIntr(f.field('instructions'));
+  f.requests[2].options.onFailure({status: 500});
+  assert.equal(f.field('set').attributes.get('data-calculation-blocked'), 'true');
+  f.context.parseIntr(f.field('instructions'));
+  f.reply(f.requests[3]);
+  assert.equal(f.field('set').attributes.has('data-calculation-blocked'), false);
 });

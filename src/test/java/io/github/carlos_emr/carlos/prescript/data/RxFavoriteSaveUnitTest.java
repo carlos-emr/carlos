@@ -23,8 +23,8 @@ class RxFavoriteSaveUnitTest extends CarlosUnitTestBase {
         doAnswer(invocation -> {
             Favorite saved = invocation.getArgument(0);
             saved.setId(42);
-            return null;
-        }).when(dao).persist(any(Favorite.class));
+            return saved;
+        }).when(dao).createOrFind(any(Favorite.class));
         var prescription = new RxPrescriptionData().newPrescription("999998", 1);
         prescription.setCustomName("Synthetic custom drug");
         prescription.setSpecial(instructions);
@@ -32,8 +32,7 @@ class RxFavoriteSaveUnitTest extends CarlosUnitTestBase {
         assertThat(prescription.AddToFavorites("999998", "Synthetic favorite")).isTrue();
 
         String expected = instructions == null ? "" : instructions;
-        verify(dao).findDuplicate(argThat(favorite -> expected.equals(favorite.getSpecial())));
-        verify(dao).persist(argThat((Favorite favorite) -> expected.equals(favorite.getSpecial())
+        verify(dao).createOrFind(argThat((Favorite favorite) -> expected.equals(favorite.getSpecial())
                 && "Synthetic custom drug".equals(favorite.getCustomName())));
     }
 

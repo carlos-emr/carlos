@@ -224,6 +224,7 @@ class RxManagerUnitTest extends RxManagerImpl {
         @Test
         @DisplayName("should archive old drug and return new version")
         void shouldArchiveOldDrug_andReturnNewVersion() {
+            drugDao.find(1).setArchived(false);
             LoggedInInfo info = new LoggedInInfo();
             Drug drug = new Drug();
             drug.setDemographicId(1);
@@ -242,6 +243,7 @@ class RxManagerUnitTest extends RxManagerImpl {
         @Test
         @DisplayName("should return null when add fails")
         void shouldReturnNull_whenAddFails() {
+            drugDao.find(1).setArchived(false);
             LoggedInInfo info = new LoggedInInfo();
             Drug drug = new Drug();
             drug.setDemographicId(1);
@@ -338,7 +340,9 @@ class RxManagerUnitTest extends RxManagerImpl {
         @DisplayName("should create prescription with single drug")
         void shouldCreatePrescription_withSingleDrug() {
             List<Drug> drugs = new ArrayList<>();
-            drugs.add(createTestDrug());
+            Drug newDrug = createTestDrug();
+            newDrug.setId(null);
+            drugs.add(newDrug);
             LoggedInInfo info = new LoggedInInfo();
 
             PrescriptionDrugs pd = prescribe(info, drugs, 1);
@@ -367,9 +371,11 @@ class RxManagerUnitTest extends RxManagerImpl {
         @DisplayName("should create prescription with multiple drugs")
         void shouldCreatePrescription_withMultipleDrugs() {
             List<Drug> drugs = new ArrayList<>();
-            drugs.add(createTestDrug());
-            drugs.add(createTestDrug());
-            drugs.add(createTestDrug());
+            for (int i = 0; i < 3; i++) {
+                Drug newDrug = createTestDrug();
+                newDrug.setId(null);
+                drugs.add(newDrug);
+            }
             LoggedInInfo info = new LoggedInInfo();
 
             PrescriptionDrugs pd = prescribe(info, drugs, 1);

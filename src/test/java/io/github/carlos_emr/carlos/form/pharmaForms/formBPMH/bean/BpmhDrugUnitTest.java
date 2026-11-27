@@ -146,13 +146,15 @@ class BpmhDrugUnitTest {
             drug.setSpecial("Take 1 tablet by mouth twice daily\nwith food");
 
             String how = drug.getHow();
-            assertThat(how).isNotEmpty();
+            assertThat(how).isEqualTo("Take 1 tablet by mouth twice daily\nwith food");
         }
 
         @Test
         @DisplayName("should compose instruction from method, take, and frequency")
         void shouldComposeInstruction_fromMethodTakeFreq() {
             drug.setMethod("Take");
+            drug.setCustomName("Synthetic");
+            drug.setUnit("mL");
             drug.setTakeMin("1");
             drug.setTakeMax("2");
             drug.setFreqCode("BID");
@@ -161,8 +163,43 @@ class BpmhDrugUnitTest {
             drug.setDurUnit("D");
 
             String how = drug.getHow();
-            assertThat(how).isNotEmpty();
+            assertThat(how).isEqualTo("Take 1 to 2 mL BID PO");
         }
+    }
+
+    @Test
+    void shouldRequireARecordedUnit_whenOnlyAProductStrengthIsAvailable() {
+        drug.setCustomName("Recorded product");
+        drug.setDosage("10 mg");
+        drug.setTakeMin("1");
+        drug.setUnit("mg");
+        drug.setDrugForm("tablet");
+        assertThat(drug.getHow()).isEmpty();
+
+        drug.setHow(null);
+        drug.setUnit("tablet");
+        drug.setTakeMax("0");
+        assertThat(drug.getHow()).isEqualTo("1 tablet");
+    }
+
+    @Test
+    void shouldKeepAuthoredDirections_whenTextResemblesAPrescriptionEnvelope() {
+        drug.setGenericName("Synthetic");
+        drug.setSpecial("Synthetic substitute on Monday\nQty: verify with patient");
+        assertThat(drug.getHow()).isEqualTo("Synthetic substitute on Monday\nQty: verify with patient");
+    }
+
+    @Test
+    void shouldLeaveDirectionsMissing_whenOnlyDispensingInstructionsWereRecorded() {
+        drug.setSpecial("Qty:30 Repeats:1");
+        assertThat(drug.getHow()).isEmpty();
+
+        drug.setGenericName("Synthetic");
+        drug.setDosage("10 units");
+        drug.setSpecial("Synthetic 10 units\nSupply blister pack");
+        drug.usePrescriptionDirections(null, "Supply blister pack", null);
+        assertThat(drug.getHow()).isEmpty();
+        assertThat(drug.toString()).isEqualTo("BpmhDrug[protected]");
     }
 
     @Nested

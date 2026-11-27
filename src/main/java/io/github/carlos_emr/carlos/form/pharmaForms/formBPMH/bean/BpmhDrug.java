@@ -29,6 +29,7 @@
 
 package io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.commons.lang3.StringUtils;
 
 /*
@@ -82,6 +83,42 @@ public class BpmhDrug {
     private String how;
     private String why;
     private String instruction;
+    private String patientReportedUse;
+    private String reportedMedication;
+    private String reviewedVersion;
+    private boolean reviewChanged;
+
+    public String getPatientReportedUse() {
+        return patientReportedUse;
+    }
+
+    public void setPatientReportedUse(String patientReportedUse) {
+        this.patientReportedUse = patientReportedUse;
+    }
+
+    public String getReportedMedication() {
+        return reportedMedication;
+    }
+
+    public void setReportedMedication(String reportedMedication) {
+        this.reportedMedication = reportedMedication;
+    }
+
+    public String getReviewedVersion() {
+        return reviewedVersion;
+    }
+
+    public void setReviewedVersion(String reviewedVersion) {
+        this.reviewedVersion = reviewedVersion;
+    }
+
+    public boolean isReviewChanged() {
+        return reviewChanged;
+    }
+
+    public void setReviewChanged(boolean reviewChanged) {
+        this.reviewChanged = reviewChanged;
+    }
 
     /*
      * Treats what disease or reason?
@@ -100,63 +137,60 @@ public class BpmhDrug {
     /*
      * Prescription details. Take once per day with food
      */
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Compares recorded form and unit labels for display only. The displayed unit retains its source spelling.")
     public String getHow() {
-
-        if (this.how != null) {
-            return this.how;
+        if (how == null) {
+            usePrescriptionDirections(null, getSpecial_instruction(),
+                    (!getCustomName().isBlank() && getDosage().isBlank()) || getUnit().equalsIgnoreCase(getDrugForm()) ? getUnit() : null);
         }
+        return how;
+    }
 
-        StringBuilder stringBuilder = new StringBuilder("");
-        String direction = "";
-        String[] specialArray = null;
-
-        if (getSpecial() != null) {
-            // instruction is normally on the second line.
-            specialArray = getSpecial().split("\\n");
-            if ((specialArray != null) && (specialArray.length > 1)) {
-                direction = specialArray[1];
-            }
+    /** Keep the saved directions, including each taper step. Only remove recognized Rx envelope lines. */
+    public void usePrescriptionDirections(String brandName, String pharmacyInstruction, String doseUnit) {
+        String text = StringUtils.defaultString(getSpecial()).replace("\r\n", "\n").replace('\r', '\n');
+        int lineBreak = text.indexOf('\n');
+        String first = lineBreak < 0 ? text : text.substring(0, lineBreak);
+        boolean hasHeading = isMedicationHeading(first, brandName) || isMedicationHeading(first, getCustomName())
+                || isMedicationHeading(first, getGenericName());
+        if (hasHeading) {
+            text = lineBreak < 0 ? "" : text.substring(lineBreak + 1);
         }
-
-        if (!StringUtils.isBlank(direction)) {
-
-            stringBuilder.append(direction);
-
-        } else {
-
-            if (!getMethod().isEmpty()) {
-                stringBuilder.append(getMethod() + " ");
-            }
-            if (!getTakeMin().isEmpty()) {
-                stringBuilder.append(getTakeMin() + " ");
-            }
-            if (!getTakeMax().isEmpty() && !getTakeMax().equals("0") && !getTakeMax().equals(getTakeMin())) {
-                stringBuilder.append("or " + getTakeMax() + " ");
-            }
-            if (!getDrugForm().isEmpty()) {
-                stringBuilder.append(getDrugForm() + " ");
-            }
-
-            if (!getFreqCode().isEmpty()) {
-                stringBuilder.append(getFreqCode() + " ");
-            }
-
-            if (!getRoute().isEmpty()) {
-                stringBuilder.append(getRoute() + " ");
-            }
-
-            if (!getSpecial_instruction().isEmpty()) {
-                stringBuilder.append(getSpecial_instruction() + " ");
-            }
-
-            if (!getCustomInstructions().isEmpty()) {
-                stringBuilder.append(getCustomInstructions());
-            }
+        String withoutTrailingSpace = text.stripTrailing();
+        int lastBreak = withoutTrailingSpace.lastIndexOf('\n');
+        String last = withoutTrailingSpace.substring(lastBreak + 1);
+        if (last.startsWith("Qty:") && last.contains(" Repeats:")) {
+            text = lastBreak < 0 ? "" : text.substring(0, lastBreak);
         }
+        if (hasHeading && StringUtils.isNotBlank(pharmacyInstruction)) {
+            String pharmacy = pharmacyInstruction.replace("\r\n", "\n").replace('\r', '\n');
+            text = text.equals(pharmacy) ? "" : StringUtils.removeEnd(text, "\n" + pharmacy);
+        }
+        if (!text.isBlank()) {
+            how = text;
+            return;
+        }
+        // An empty how activates the form's existing missing-information indicator.
+        if (getTakeMin().isBlank() || StringUtils.isBlank(doseUnit)) {
+            how = "";
+            return;
+        }
+        String amount = getTakeMin();
+        if (!getTakeMax().isBlank() && !"0".equals(getTakeMax()) && !getTakeMax().equals(amount)) {
+            amount += " to " + getTakeMax();
+        }
+        how = String.join(" ", java.util.stream.Stream.of(getMethod(), amount, doseUnit, getFreqCode(), getRoute())
+                .filter(StringUtils::isNotBlank).toList());
+    }
 
-        setHow(stringBuilder.toString());
-
-        return this.how;
+    @SuppressFBWarnings(value = "REDOS", justification = "Possessive digit runs, a single optional space and a fixed unit vocabulary bound the match to linear time.")
+    private boolean isMedicationHeading(String first, String name) {
+        if (StringUtils.isBlank(name)) return false;
+        String heading = first.strip();
+        if (heading.equals(name)) return true;
+        if (!heading.startsWith(name + " ")) return false;
+        String suffix = heading.substring(name.length() + 1);
+        return suffix.equals(getDosage()) || suffix.matches("[0-9]++(?:\\.[0-9]++)?+ ?(?:mg|mcg|g|mL|%)");
     }
 
     public void setHow(String how) {
@@ -167,6 +201,9 @@ public class BpmhDrug {
      * Drug Generic name, Strength, Dose/Delivery
      */
     public String getWhat() {
+        if (StringUtils.isNotBlank(reportedMedication)) {
+            return reportedMedication;
+        }
 
         if (this.what != null) {
             return this.what;

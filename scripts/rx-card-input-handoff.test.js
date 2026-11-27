@@ -247,7 +247,8 @@ test('the timeline form marks a submitted selection so an empty one is not a fir
 test('a refused inline field blocks Save until the server accepts its correction', () => {
   const s = cardFields();
   const el = s.element('minimum_5', { textContent: 'two', focus() { this.focused = true; } });
-  s.context.document.querySelector = () => el.attributes['aria-invalid'] === 'true' ? el : null;
+  s.context.document.querySelector = selector =>
+    selector.includes('aria-invalid') && el.attributes['aria-invalid'] === 'true' ? el : null;
   el.removeAttribute = name => { delete el.attributes[name]; };
   s.context.updateProperty(el.id);
   assert.equal(s.context.validateCardProperties(), false);

@@ -40,6 +40,13 @@ public class FavoriteTo1 implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+    private MedicationDetails medicationDetails;
+
+    public MedicationDetails getMedicationDetails() { return medicationDetails; }
+    public void setMedicationDetails(MedicationDetails medicationDetails) { this.medicationDetails = medicationDetails; }
+
+
     private Integer favoriteId;
 
     private String brandName;

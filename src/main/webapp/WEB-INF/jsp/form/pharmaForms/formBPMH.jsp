@@ -80,6 +80,24 @@
             }
 
             jQuery(document).ready(function ($) {
+                const rows = document.getElementById('bpmhMedicationRows');
+                const add = document.getElementById('bpmhAddReportedMedication');
+                if (add) {
+                    let index = rows.rows.length;
+                    add.addEventListener('click', function () {
+                        const row = document.getElementById('bpmhReportedMedicationTemplate').content.cloneNode(true);
+                        for (const field of row.querySelectorAll('[data-medication-field]')) {
+                            field.name = 'form.drugs[' + index + '].' + field.dataset.medicationField;
+                        }
+                        const name = row.querySelector('input');
+                        row.querySelector('button').addEventListener('click', function () {
+                            this.closest('tr').remove();
+                        });
+                        rows.append(row);
+                        ++index;
+                        name.focus();
+                    });
+                }
                 $("#editFamilyDr").click(function () {
                     var familyDrContactId = $("#familyDrContactId").val();
                     var demographicNo = '${ bpmh.demographic.demographicNo }';
@@ -103,6 +121,17 @@
         <%-- BpmhFormRetrieve2Action binds its bean as "form": every posted field is form.<property>. --%>
         <input type="hidden" name="form.demographicNo" id="demographicNo" value="${carlos:forHtmlAttribute(bpmh.demographicNo)}"/>
         <input type="hidden" name="form.formId" id="formId" value="${carlos:forHtmlAttribute(bpmh.formId)}"/>
+        <input type="hidden" name="form.reviewToken" value="${carlos:forHtmlAttribute(bpmh.reviewToken)}"/>
+        <c:if test="${bpmhReviewChanged}">
+            <div class="alert alert-warning" role="alert">
+                <p><fmt:message key="colcamex.formBPMH.review.changed"/></p>
+                <c:forEach var="removed" items="${bpmh.removedReviewRows}">
+                    <p><fmt:message key="colcamex.formBPMH.review.removed"/> #${carlos:forHtml(removed.id)}
+                      <br/>${carlos:forHtml(removed.patientReportedUse)}
+                      <br/>${carlos:forHtml(removed.instruction)}</p>
+                </c:forEach>
+            </div>
+        </c:if>
         <header>
 
             <h1><fmt:message key="colcamex.formBPMH.title"/></h1>
@@ -296,72 +325,99 @@
 						</span>
                     </td>
                 </tr>
-                <c:set value="missingDrugData" var="false"/>
-                <c:if test="${not empty bpmh.drugs}">
-                    <c:forEach var="drugs" items="${bpmh.drugs}" varStatus="status">
-                        <tr>
-                            <td id="drugWhat${status.index}">
-                                <input type="hidden" name="form.drugs[${status.index}].id" value="${carlos:forHtmlAttribute(drugs.id)}"/>
-                                <!-- WHAT -->
-                                ${carlos:forHtml(drugs.what)}
-                            </td>
-
+                <tbody id="bpmhMedicationRows">
+                <c:forEach var="drugs" items="${bpmh.drugs}" varStatus="status">
+                    <tr>
+                        <td id="drugWhat${status.index}">
                             <c:choose>
-                                <c:when test="${empty drugs.how}">
-                                    <c:set var="missingDrugData" value="true"/>
-                                    <td style="border:red medium solid;">
-                                        <!-- HOW ERROR -->
-                                        &nbsp;
-                                    </td>
+                                <c:when test="${bpmh.formId == 0 and not empty drugs.reportedMedication}">
+                                    <label><fmt:message key="colcamex.formBPMH.reported.medication"/>
+                                        <input name="form.drugs[${status.index}].reportedMedication"
+                                               value="${carlos:forHtmlAttribute(drugs.reportedMedication)}" required/>
+                                    </label>
                                 </c:when>
                                 <c:otherwise>
-                                    <td>
-                                        <!-- HOW -->
-                                        ${carlos:forHtml(drugs.how)}
-                                    </td>
+                                    ${carlos:forHtml(drugs.what)}
+                                    <c:if test="${not empty drugs.reportedMedication}">
+                                        <small><fmt:message key="colcamex.formBPMH.reported.medication"/></small>
+                                    </c:if>
+                                    <c:if test="${bpmh.formId == 0}">
+                                        <input type="hidden" name="form.drugs[${status.index}].id" value="${carlos:forHtmlAttribute(drugs.id)}"/>
+                                        <input type="hidden" name="form.drugs[${status.index}].reviewedVersion"
+                                               value="${carlos:forHtmlAttribute(drugs.reviewedVersion)}"/>
+                                    </c:if>
                                 </c:otherwise>
                             </c:choose>
-
+                            <c:if test="${bpmhReviewChanged and drugs.reviewChanged}">
+                                <p><fmt:message key="colcamex.formBPMH.review.rowChanged"/></p>
+                            </c:if>
+                        </td>
+                        <td>
                             <c:choose>
-                                <c:when test="${empty drugs.why}">
-                                    <c:set var="missingDrugData" value="true"/>
-                                    <td style="border:red medium solid;">
-                                        <!-- WHY ERROR -->
-                                        &nbsp;
-                                    </td>
+                                <c:when test="${not empty drugs.how}">
+                                    <div style="white-space:pre-wrap">${carlos:forHtml(drugs.how)}</div>
                                 </c:when>
-                                <c:otherwise>
-                                    <td>
-                                        <!-- WHY -->
-                                        ${carlos:forHtml(drugs.why)}
-                                    </td>
-                                </c:otherwise>
+                                <c:when test="${empty drugs.reportedMedication}">
+                                    <fmt:message key="colcamex.formBPMH.review.unknown"/>
+                                </c:when>
                             </c:choose>
-
-                            <td>
-                                <!-- INSTRUCTION -->
-                                <c:choose>
-                                    <c:when test="${not empty drugs.instruction}">
-                                        ${carlos:forHtml(drugs.instruction)}
-                                    </c:when>
-                                    <c:otherwise>
-                                        <textarea name="form.drugs[${status.index}].instruction" id="drugInstruction${status.index}"
-                                                  aria-labelledby="drugInstructionsHeader drugWhat${status.index}" rows="2"></textarea>
-                                    </c:otherwise>
-                                </c:choose>
-                            </td>
-                        </tr>
-                    </c:forEach>
-                </c:if>
-
-
+                            <c:choose>
+                                <c:when test="${bpmh.formId == 0}">
+                                    <label><fmt:message key="colcamex.formBPMH.reported.use"/>
+                                        <textarea name="form.drugs[${status.index}].patientReportedUse"
+                                                  rows="2">${carlos:forHtml(drugs.patientReportedUse)}</textarea>
+                                    </label>
+                                </c:when>
+                                <c:when test="${not empty drugs.patientReportedUse}">
+                                    <div style="white-space:pre-wrap"><fmt:message key="colcamex.formBPMH.reported.use"/>
+${carlos:forHtml(drugs.patientReportedUse)}</div>
+                                </c:when>
+                            </c:choose>
+                        </td>
+                        <td>
+                            <c:choose>
+                                <c:when test="${empty drugs.why and empty drugs.reportedMedication}">
+                                    <fmt:message key="colcamex.formBPMH.review.unknown"/>
+                                </c:when>
+                                <c:otherwise><div style="white-space:pre-wrap">${carlos:forHtml(drugs.why)}</div></c:otherwise>
+                            </c:choose>
+                        </td>
+                        <td>
+                            <c:choose>
+                                <c:when test="${bpmh.formId == 0}">
+                                    <textarea name="form.drugs[${status.index}].instruction" id="drugInstruction${status.index}"
+                                              aria-labelledby="drugInstructionsHeader drugWhat${status.index}" rows="2">${carlos:forHtml(drugs.instruction)}</textarea>
+                                </c:when>
+                                <c:otherwise><div style="white-space:pre-wrap">${carlos:forHtml(drugs.instruction)}</div></c:otherwise>
+                            </c:choose>
+                        </td>
+                    </tr>
+                </c:forEach>
+                </tbody>
             </table>
+            <c:if test="${bpmh.formId == 0}">
+                <button type="button" id="bpmhAddReportedMedication"><fmt:message key="colcamex.formBPMH.reported.add"/></button>
+                <template id="bpmhReportedMedicationTemplate">
+                    <tr>
+                        <td><label><fmt:message key="colcamex.formBPMH.reported.medication"/>
+                            <input data-medication-field="reportedMedication" required/>
+                        </label></td>
+                        <td><label><fmt:message key="colcamex.formBPMH.reported.use"/>
+                            <textarea data-medication-field="patientReportedUse" rows="2"></textarea>
+                        </label></td>
+                        <td><button type="button"><fmt:message key="colcamex.formBPMH.reported.remove"/></button></td>
+                        <td><label><fmt:message key="colcamex.formBPMH.drugs.instructions"/>
+                            <textarea data-medication-field="instruction" rows="2"></textarea>
+                        </label></td>
+                    </tr>
+                </template>
+            </c:if>
         </section>
         <section id="declaration">
             <table>
                 <tr>
                     <td>
-                        <input type="checkbox" name="form.confirm" id="confirm" value="true"/>
+                        <input type="checkbox" name="form.confirm" id="confirm" value="true" ${bpmh.confirm ? 'checked' : ''}/>
                         <label for="confirm"><fmt:message key="colcamex.formBPMH.confirm"/></label>
                     </td>
                 </tr>
@@ -382,7 +438,7 @@
                             </c:when>
                             <c:otherwise>
                                 <%-- "note" is the section's id. --%>
-                                <textarea name="form.note" id="bpmhNote" aria-labelledby="bpmhNoteLabel" rows="4"></textarea>
+                                <textarea name="form.note" id="bpmhNote" aria-labelledby="bpmhNoteLabel" rows="4">${carlos:forHtml(bpmh.note)}</textarea>
                             </c:otherwise>
                         </c:choose>
                     </td>
@@ -394,10 +450,6 @@
             <table>
                 <tr>
                     <td>
-                        <c:if test="${ missingDrugData }">
-                            <c:set var="controls" value="off" scope="page"/>
-                            <span style="color:red;"><fmt:message key="form.bpmh.missingMedicationData"/></span>
-                        </c:if>
                         <c:choose>
                             <c:when test="${empty bpmh.allergiesString}">
                                 <c:set var="controls" value="off" scope="page"/>

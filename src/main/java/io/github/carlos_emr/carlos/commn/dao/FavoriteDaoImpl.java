@@ -32,9 +32,12 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.Favorite;
+import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.prescript.util.DrugStrength;
 import org.springframework.stereotype.Repository;
 
 import jakarta.persistence.Query;
+import jakarta.persistence.LockModeType;
 import java.util.List;
 
 /**
@@ -157,7 +160,6 @@ public class FavoriteDaoImpl extends AbstractDaoImpl<Favorite> implements Favori
         fields.put("nosubs", candidate.isNosubs());
         fields.put("prn", candidate.isPrn());
         fields.put("special", candidate.getSpecial());
-        fields.put("gn", candidate.getGn());
         fields.put("atc", candidate.getAtc());
         fields.put("regionalIdentifier", candidate.getRegionalIdentifier());
         fields.put("unit", candidate.getUnit());
@@ -166,16 +168,37 @@ public class FavoriteDaoImpl extends AbstractDaoImpl<Favorite> implements Favori
         fields.put("route", candidate.getRoute());
         fields.put("drugForm", candidate.getDrugForm());
         fields.put("customInstructions", candidate.isCustomInstructions());
-        fields.put("dosage", candidate.getDosage());
         fields.put("dispenseInternal", candidate.isDispenseInternal());
         StringBuilder hql = new StringBuilder("FROM Favorite f WHERE 1=1");
         fields.forEach((field, value) -> hql.append(" AND f.").append(field)
                 .append(value == null ? " IS NULL" : " = :" + field));
-        Query query = entityManager.createQuery(hql.toString());
+        hql.append(" ORDER BY f.id");
+        var query = entityManager.createQuery(hql.toString(), Favorite.class);
         fields.forEach((field, value) -> {
             if (value != null) query.setParameter(field, value);
         });
-        return getSingleResultOrNull(query);
+        for (Favorite existing : query.getResultList()) {
+            if (DrugStrength.sameIdentityText(existing.getGn(), candidate.getGn())
+                    && DrugStrength.sameIdentityText(existing.getDosage(), candidate.getDosage())
+                    && (existing.getMedicationComponents() == null || candidate.getMedicationComponents() == null
+                        || existing.getMedicationComponents().equals(candidate.getMedicationComponents()))) {
+                return existing;
+            }
+        }
+        return null;
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional
+    public Favorite createOrFind(Favorite candidate) {
+        // Serialize both the legacy and REST creation paths for the same provider.
+        if (entityManager.find(Provider.class, candidate.getProviderNo(), LockModeType.PESSIMISTIC_WRITE) == null) {
+            throw new IllegalArgumentException("Favorite provider is unavailable");
+        }
+        Favorite existing = findDuplicate(candidate);
+        if (existing != null) return existing;
+        persist(candidate);
+        return candidate;
     }
 
 }

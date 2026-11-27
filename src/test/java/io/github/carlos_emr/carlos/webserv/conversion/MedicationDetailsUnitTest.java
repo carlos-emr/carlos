@@ -1,0 +1,66 @@
+/* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+package io.github.carlos_emr.carlos.webserv.conversion;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.DrugTo1;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.FavoriteTo1;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.MedicationDetails;
+import jakarta.xml.bind.JAXBContext;
+import java.io.StringReader;
+import java.io.StringWriter;
+import java.util.List;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+
+@Tag("unit")
+class MedicationDetailsUnitTest {
+    @Test
+    void strictLegacyShapesOmitTheOptInDetails() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        JAXBContext xml = JAXBContext.newInstance(DrugTo1.class, FavoriteTo1.class);
+        for (Object legacy : List.of(new DrugTo1(), new FavoriteTo1())) {
+            assertThat(mapper.writeValueAsString(legacy)).doesNotContain("medicationDetails");
+            StringWriter body = new StringWriter();
+            xml.createMarshaller().marshal(legacy, body);
+            assertThat(body.toString()).doesNotContain("medicationDetails");
+        }
+    }
+
+    @Test
+    void jsonAndXmlKeepTheRecordedAmountAndEveryComponent() throws Exception {
+        var entered = new MedicationDetails();
+        entered.setQuantityText(" 7.50 ");
+        entered.setDispenseUnit("mL");
+        entered.setDosageText("250.0 mg/5 mL + 31.25 mg/5 mL");
+        entered.setComponents(List.of(new MedicationDetails.Component("Ingredient A", "250.0", "mg/5 mL"),
+                new MedicationDetails.Component("Ingredient B", "31.25", "mg/5 mL")));
+        var stored = MedicationDetails.read(entered.getQuantityText(), entered.getDispenseUnit(),
+                entered.getDosageText(), entered.encodeComponents());
+        assertThat(stored.isComponentDataComplete()).isTrue();
+        DrugTo1 dto = new DrugTo1();
+        dto.setMedicationDetails(stored);
+        ObjectMapper mapper = new ObjectMapper();
+        assertComplete(mapper.readValue(mapper.writeValueAsString(dto), DrugTo1.class).getMedicationDetails());
+        JAXBContext xml = JAXBContext.newInstance(DrugTo1.class);
+        StringWriter body = new StringWriter();
+        xml.createMarshaller().marshal(dto, body);
+        assertComplete(((DrugTo1) xml.createUnmarshaller().unmarshal(new StringReader(body.toString()))).getMedicationDetails());
+        assertThatThrownBy(() -> stored.validateQuantity(7)).isInstanceOf(IllegalArgumentException.class);
+        assertThat(MedicationDetails.read("1/2 bottle", null, "250 mg", null).isComponentDataComplete()).isFalse();
+    }
+
+    private static void assertComplete(MedicationDetails details) {
+        assertThat(details.getQuantityText()).isEqualTo(" 7.50 ");
+        assertThat(details.getDispenseUnit()).isEqualTo("mL");
+        assertThat(details.getDosageText()).isEqualTo("250.0 mg/5 mL + 31.25 mg/5 mL");
+        assertThat(details.getComponents()).extracting(MedicationDetails.Component::getName)
+                .containsExactly("Ingredient A", "Ingredient B");
+        assertThat(details.getComponents()).extracting(MedicationDetails.Component::getStrength)
+                .containsExactly("250.0", "31.25");
+        assertThat(details.getComponents()).extracting(MedicationDetails.Component::getUnit)
+                .containsOnly("mg/5 mL");
+    }
+}

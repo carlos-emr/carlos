@@ -656,7 +656,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     @Override
     public Integer findLastNotArchivedId(String brandName, String genericName, int demographicNo) {
         Query query = entityManager.createQuery(
-                "SELECT max(d.id) from Drug d where d.archived = false AND d.archivedReason='' AND d.brandName = :bn AND d.genericName = :gn  AND d.demographicId = :dn");
+                "SELECT max(d.id) from Drug d where d.archived = false AND (d.archivedReason IS NULL OR d.archivedReason='')"
+                        + " AND d.brandName = :bn AND d.genericName = :gn AND d.demographicId = :dn");
         query.setParameter("bn", brandName);
         query.setParameter("gn", genericName);
         query.setParameter("dn", demographicNo);

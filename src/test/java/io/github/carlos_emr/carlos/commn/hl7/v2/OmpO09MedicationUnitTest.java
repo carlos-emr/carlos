@@ -1,0 +1,53 @@
+/* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+package io.github.carlos_emr.carlos.commn.hl7.v2;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import ca.uhn.hl7v2.model.v26.message.OMP_O09;
+import ca.uhn.hl7v2.parser.PipeParser;
+import io.github.carlos_emr.carlos.commn.model.Drug;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+
+@Tag("unit")
+class OmpO09MedicationUnitTest {
+    @Test
+    void receiverCanReadDispenseAndDoseInTheirOwnFields() throws Exception {
+        Drug drug = new Drug();
+        drug.setRegionalIdentifier("01234567");
+        drug.setUnit("tablet");
+        drug.setDrugForm("Tablet");
+        drug.setTakeMin(.5f);
+        drug.setTakeMax(.5f);
+        drug.setQuantity("7.50");
+        drug.setUnitName("tablets");
+        drug.setDosage("250.0 mg/5 mL + 31.25 mg/5 mL");
+        OMP_O09 message = new OMP_O09();
+        message.initQuickstart("OMP", "O09", "P");
+        OmpO09Builder.fillRxo(message.getORDER().getRXO(), drug);
+        String encoded = new PipeParser().encode(message);
+        String[] fields = java.util.Arrays.stream(encoded.split("\r"))
+                .filter(segment -> segment.startsWith("RXO|")).findFirst().orElseThrow().split("\\|", -1);
+        assertThat(fields[1]).startsWith("01234567^");
+        assertThat(fields[2]).isEqualTo("0.5");
+        assertThat(fields[4]).contains("tablet");
+        assertThat(fields[11]).isEqualTo("7.5");
+        assertThat(fields[12]).contains("tablets");
+        assertThat(fields[6]).contains("250.0 mg/5 mL + 31.25 mg/5 mL");
+    }
+
+    @Test
+    void receiverReadsAmbiguousQuantityAsRecordedText() throws Exception {
+        Drug drug = new Drug();
+        drug.setDosage("120 mg/5 mL");
+        drug.setUnit("mg");
+        drug.setDrugForm("Suspension");
+        drug.setQuantity("1/2 bottle");
+        var segment = new OMP_O09().getORDER().getRXO();
+        OmpO09Builder.fillRxo(segment, drug);
+        assertThat(segment.getRequestedGiveAmountMinimum().getValue()).isNull();
+        assertThat(segment.getRequestedDispenseAmount().getValue()).isNull();
+        assertThat(segment.getProviderSPharmacyTreatmentInstructions(1).getText().getValue())
+                .isEqualTo("Quantity as recorded: 1/2 bottle");
+    }
+}

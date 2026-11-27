@@ -64,6 +64,18 @@ var RxInputValidation = (function () {
         return text === '' || DOSE.test(text);
     }
 
+    /** Advisory for newly authored instructions. The entered value is never changed. */
+    function usesAmbiguousDoseNotation(value) {
+        return /(?:^|[^\d.,])(?:\.\d+|\d+\.0+)(?![\d.,])/.test(String(value ?? ''));
+    }
+
+    function showDoseNotation(field, statusId) {
+        var status = document.getElementById(statusId);
+        if (!status) return;
+        var value = typeof field.value === 'string' ? field.value : field.textContent;
+        status.textContent = usesAmbiguousDoseNotation(value) ? status.dataset.message : '';
+    }
+
     /** Fills {0} in a translated message with the prescriber's own input. */
     function format(message, input) {
         return String(message).split('{0}').join(trimmed(input));
@@ -75,6 +87,8 @@ var RxInputValidation = (function () {
         pickupDate: pickupDate,
         pickupTime: pickupTime,
         isDoseAmount: isDoseAmount,
+        usesAmbiguousDoseNotation: usesAmbiguousDoseNotation,
+        showDoseNotation: showDoseNotation,
         format: format
     };
 }());

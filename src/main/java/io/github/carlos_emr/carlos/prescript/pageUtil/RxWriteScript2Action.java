@@ -1018,8 +1018,11 @@ public final class RxWriteScript2Action extends ActionSupport {
             String dosage = "";
             String unit = "";
             Vector comps = dmono.components;
+            List<io.github.carlos_emr.carlos.webserv.rest.to.model.MedicationDetails.Component> components = new ArrayList<>();
             for (int i = 0; i < comps.size(); i++) {
                 RxDrugData.DrugMonograph.DrugComponent drugComp = (RxDrugData.DrugMonograph.DrugComponent) comps.get(i);
+                components.add(new io.github.carlos_emr.carlos.webserv.rest.to.model.MedicationDetails.Component(
+                        drugComp.getName(), drugComp.strength, drugComp.unit));
                 String strength = drugComp.strength;
                 unit = drugComp.unit;
 
@@ -1040,6 +1043,11 @@ public final class RxWriteScript2Action extends ActionSupport {
 				dosage += (" " + strength.toLowerCase());
             }
             rx.setDosage(removeExtraChars(dosage));
+            if (!components.isEmpty()) {
+                var details = new io.github.carlos_emr.carlos.webserv.rest.to.model.MedicationDetails();
+                details.setComponents(components);
+                rx.setMedicationComponents(details.encodeComponents());
+            }
             rx.setUnit(removeExtraChars(unit));
             rx.setGCN_SEQNO(drugId+"");
             rx.setRegionalIdentifier(dmono.regionalIdentifier);
@@ -1113,142 +1121,117 @@ public final class RxWriteScript2Action extends ActionSupport {
         }
     }
 
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of internal domain values")
     private String updateDrugLocked(RxSessionBean bean) throws IOException {
         String action = request.getParameter("action");
-        response.setContentType("application/json");
-        if (!"parseInstructions".equals(action) && !"updateQty".equals(action)) {
-            return null;
+        boolean parseInstructions = "parseInstructions".equals(action);
+        if (!parseInstructions && !"updateQty".equals(action)) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
         }
-        RxPrescriptionData.Prescription rx = stagedCard(bean, request.getParameter("randomId"));
-        if (rx == null) {
-            // Another Rx window may discard this card while its blur calculation is in flight.
-            // Nothing remains to calculate; report the conflict without logging clinical input.
+        RxPrescriptionData.Prescription current = stagedCard(bean, request.getParameter("randomId"));
+        String revision = request.getParameter("draftRevision");
+        if (current == null || current.getPendingSubmission() != null
+                || (revision != null && !current.getDraftRevision().equals(revision))) {
             response.sendError(HttpServletResponse.SC_CONFLICT);
             return NONE;
         }
-        int randomId = (int) rx.getRandomId();
-
-        if ("parseInstructions".equals(action)) {
-
-            try {
-                String instructions = request.getParameter("instruction");
-                rx.setSpecial(instructions);
-                RxUtil.instrucParser(rx);
-                bean.setStashItem(bean.getIndexFromRx(randomId), rx);
-
-                HashMap<String, Object> hm = new HashMap<String, Object>();
-
-                if (rx.getRoute() == null || rx.getRoute().equalsIgnoreCase("null")) {
-                    rx.setRoute("");
-                }
-
-                hm.put("method", rx.getMethod());
-                hm.put("takeMin", rx.getTakeMin());
-                hm.put("takeMax", rx.getTakeMax());
-                hm.put("duration", rx.getDuration());
-                hm.put("frequency", rx.getFrequencyCode());
-                hm.put("route", rx.getRoute());
-                hm.put("durationUnit", rx.getDurationUnit());
-                hm.put("prn", rx.getPrn());
-                hm.put("calQuantity", rx.getQuantity());
-                hm.put("unitName", rx.getUnitName());
-                hm.put("priceQuantity", DrugPriceEstimate.dispenseQuantity(
-                        rx.getQuantity(), rx.getUnitName(), rx.getDrugForm()));
-                hm.put("policyViolations", rx.getPolicyViolations());
-                ObjectNode jsonObject = objectMapper.valueToTree(hm);
-                response.getOutputStream().write(jsonObject.toString().getBytes());
-            } catch (Exception e) {
-                logger.error("Error ({})", e.getClass().getSimpleName());
+        int sequence = current.getCalculationSequence();
+        String requestedSequence = request.getParameter("calculationSequence");
+        if (requestedSequence != null) {
+            if (revision == null || !requestedSequence.matches(UP_TO_NINE_DIGITS)) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
             }
-
-        } else if ("updateQty".equals(action)) {
-
-            try {
-                String quantity = request.getParameter("quantity");
-                // get prescript from randomId
-                if (quantity == null || quantity.equalsIgnoreCase("null")) {
-                    quantity = "";
-                }
-                // check if quantity is same as prescript.getquantity(), if yes, do nothing.
-                if (quantity.equals(rx.getQuantity()) && rx.getUnitName() == null) {
-                    // do nothing
-                } else {
-
-                    if (RxUtil.isStringToNumber(quantity)) {
-                        rx.setQuantity(quantity);
-                        rx.setUnitName(null);
-                    } else if (RxUtil.isMitte(quantity)) {// set duration for mitte
-
-                        String duration = RxUtil.getDurationFromQuantityText(quantity);
-                        String durationUnit = RxUtil.getDurationUnitFromQuantityText(quantity);
-                        rx.setDuration(duration);
-                        rx.setDurationUnit(durationUnit);
-                        rx.setQuantity(RxUtil.getQuantityFromQuantityText(quantity));
-                        rx.setUnitName(RxUtil.getUnitNameFromQuantityText(quantity)); // this is actually an indicator for Mitte prescript
-                    } else {
-                        rx.setQuantity(RxUtil.getQuantityFromQuantityText(quantity));
-                        rx.setUnitName(RxUtil.getUnitNameFromQuantityText(quantity));
-                    }
-
-                    String frequency = rx.getFrequencyCode();
-                    String durationUnit = rx.getDurationUnit();
-                    // The duration is derived only for a plain numeric quantity with a positive dose and
-                    // a frequency. The stored dose is compared and divided as a number: its three-decimal
-                    // text ("0.667" for two thirds of a tablet) would shorten the derived duration.
-                    if (rx.getUnitName() == null && rx.getTakeMin() > 0f && rx.getTakeMax() > 0f
-                            && frequency != null && !frequency.isEmpty()) {
-                        if (durationUnit == null || durationUnit.isEmpty()) {
-                            durationUnit = "D";
-                        }
-
-                        if (RxUtil.isStringToNumber(quantity) && !rx.isDurationSpecifiedByUser()) {// don't not caculate duration if it's already specified by the user
-                            // quantity = takeMax * nDays * duration * nPerDay; a weekly or monthly
-                            // frequency divides by its exact interval (RxUtil.wholeDurationUnits).
-                            String derived = RxUtil.wholeDurationUnits(Double.parseDouble(quantity),
-                                    rx.getTakeMax(), frequency, durationUnit);
-                            if (derived != null) {
-                                rx.setDuration(derived);
-                            }
-                        } else {
-                            // don't calculate duration if quantity can't be parsed to string
-                        }
-                        rx.setDurationUnit(durationUnit);
-                    }
-                    // duration=quantity divide by no. of pills per duration period.
-                    // if not, recalculate duration based on frequency if frequency is not empty
-                    // if there is already a duration uni present, use that duration unit. if not, set duration unit to days, and output duration in days
-                }
-                bean.setStashItem(bean.getIndexFromRx(randomId), rx);
-
-                if (rx.getRoute() == null) {
-                    rx.setRoute("");
-                }
-                HashMap<String, Object> hm = new HashMap<String, Object>();
-                hm.put("method", rx.getMethod());
-                hm.put("takeMin", rx.getTakeMin());
-                hm.put("takeMax", rx.getTakeMax());
-                hm.put("duration", rx.getDuration());
-                hm.put("frequency", rx.getFrequencyCode());
-                hm.put("route", rx.getRoute());
-                hm.put("durationUnit", rx.getDurationUnit());
-                hm.put("prn", rx.getPrn());
-                hm.put("calQuantity", rx.getQuantity());
-                hm.put("unitName", rx.getUnitName());
-                // The legacy Qty/Mitte parser can extract only the first integer from free text.
-                // Quote a total only when the submitted count agrees with the acknowledged quantity.
-                String priceQuantity = DrugPriceEstimate.dispenseQuantity(quantity, rx.getDrugForm());
-                hm.put("priceQuantity", rx.getQuantity().strip().equals(priceQuantity) ? priceQuantity : null);
-                ObjectNode jsonObject = objectMapper.valueToTree(hm);
-
-                response.getOutputStream().write(jsonObject.toString().getBytes());
-            } catch (Exception e) {
-                logger.error("Error ({})", e.getClass().getSimpleName());
+            sequence = Integer.parseInt(requestedSequence);
+            if (sequence <= current.getCalculationSequence()) {
+                response.sendError(HttpServletResponse.SC_CONFLICT);
+                return NONE;
             }
         }
+        String input = request.getParameter(parseInstructions ? "instruction" : "quantity");
+        if (input == null) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
 
-        return null;
+        try {
+            var calculated = current.copyForCalculation();
+            if (parseInstructions) {
+                calculateStagedInstructions(calculated, input);
+            } else {
+                calculateStagedQuantity(calculated, input);
+            }
+            if (!Float.isFinite(calculated.getTakeMin()) || !Float.isFinite(calculated.getTakeMax())) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
+            byte[] result = objectMapper.writeValueAsBytes(calculationResult(calculated, sequence));
+            response.setContentType("application/json");
+            response.getOutputStream().write(result);
+            current.applyCalculation(calculated, sequence);
+            return null;
+        } catch (RuntimeException | IOException failure) {
+            logger.error("Staged prescription calculation failed ({})", failure.getClass().getSimpleName());
+            if (!response.isCommitted()) {
+                response.resetBuffer();
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            }
+            return NONE;
+        }
+    }
 
+    void calculateStagedInstructions(RxPrescriptionData.Prescription rx, String instructions) {
+        String previousQuantity = rx.getQuantity();
+        String previousUnit = rx.getUnitName();
+        rx.setSpecial(instructions);
+        RxUtil.instrucParser(rx);
+        if (!rx.isCustomNote() && "0".equals(rx.getQuantity())) {
+            rx.setQuantity(previousQuantity);
+            rx.setUnitName(previousUnit);
+        }
+        if ("null".equalsIgnoreCase(rx.getRoute())) {
+            rx.setRoute("");
+        }
+    }
+
+    void calculateStagedQuantity(RxPrescriptionData.Prescription rx, String submittedQuantity) {
+        String quantity = "null".equalsIgnoreCase(submittedQuantity) ? "" : submittedQuantity;
+        rx.setQuantity(RxUtil.getQuantityFromQuantityText(quantity));
+        rx.setUnitName(RxUtil.getUnitNameFromQuantityText(quantity));
+        if (RxUtil.isMitte(quantity)) {
+            rx.setDuration(RxUtil.getDurationFromQuantityText(quantity));
+            rx.setDurationUnit(RxUtil.getDurationUnitFromQuantityText(quantity));
+            rx.setDurationSpecifiedByUser(true);
+            return;
+        }
+        if (!rx.isDurationSpecifiedByUser()) {
+            String durationUnit = rx.getDurationUnit();
+            if (durationUnit == null || durationUnit.isBlank()) {
+                durationUnit = "D";
+            }
+            String duration = rx.getPrn() ? null
+                    : RxUtil.wholeDurationUnits(quantity, rx.getTakeMax(), rx.getFrequencyCode(), durationUnit);
+            rx.setDuration(duration);
+            rx.setDurationUnit(duration == null ? null : durationUnit);
+        }
+    }
+
+    private Map<String, Object> calculationResult(RxPrescriptionData.Prescription rx, int sequence) {
+        Map<String, Object> result = new HashMap<>();
+        result.put("calculationSequence", sequence);
+        result.put("method", rx.getMethod());
+        result.put("takeMin", rx.getTakeMin());
+        result.put("takeMax", rx.getTakeMax());
+        result.put("duration", rx.getDuration());
+        result.put("frequency", rx.getFrequencyCode());
+        result.put("route", rx.getRoute());
+        result.put("durationUnit", rx.getDurationUnit());
+        result.put("prn", rx.getPrn());
+        result.put("calQuantity", rx.getQuantity());
+        result.put("unitName", rx.getUnitName());
+        result.put("priceQuantity", DrugPriceEstimate.dispenseQuantity(rx.getQuantity(), rx.getUnitName(), rx.getDrugForm()));
+        result.put("policyViolations", rx.getPolicyViolations() == null ? List.of() : rx.getPolicyViolations());
+        return result;
     }
 
     /**
@@ -2042,6 +2025,11 @@ public final class RxWriteScript2Action extends ActionSupport {
                     String[] revisions = request.getParameterValues("draftRevision_" + key);
                     if (revisions == null || revisions.length != 1
                             || !card.getDraftRevision().equals(revisions[0])) {
+                        return refuseStaleStash();
+                    }
+                    String[] acknowledgements = request.getParameterValues("calculationAck_" + key);
+                    if (acknowledgements != null && (acknowledgements.length != 1
+                            || !Integer.toString(card.getCalculationSequence()).equals(acknowledgements[0]))) {
                         return refuseStaleStash();
                     }
                     submittedIndexes.add(index);

@@ -220,7 +220,7 @@ class DrugConverterUnitTest {
 
             Boolean result = converter.populateDrugStrength(d, t);
 
-            assertThat(d.getDosage()).isEqualTo("100.0 mg");
+            assertThat(d.getDosage()).isEqualTo("100 mg");
             assertThat(d.getUnit()).isEqualTo("mg");
             assertThat(result).isTrue();
         }
@@ -234,7 +234,7 @@ class DrugConverterUnitTest {
 
             Boolean result = converter.populateDrugStrength(d, t);
 
-            assertThat(d.getDosage()).isEqualTo("1.0 mg");
+            assertThat(d.getDosage()).isEqualTo("1 mg");
             assertThat(d.getUnit()).isEqualTo("mg");
             assertThat(result).isTrue();
         }

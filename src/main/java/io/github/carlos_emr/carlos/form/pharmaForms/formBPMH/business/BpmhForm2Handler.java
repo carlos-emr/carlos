@@ -30,6 +30,8 @@ package io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.business;
 
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
+import io.github.carlos_emr.carlos.utility.DoseText;
+import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.beans.BeanUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -40,12 +42,14 @@ import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean.BpmhDrug;
 import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean.BpmhForm2Bean;
 import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.util.CaseNoteParser;
 import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.util.JsonUtil;
-import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.util.SortDrugList;
-import io.github.carlos_emr.carlos.prescript.data.RxDrugData;
 
 import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.Comparator;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.nio.charset.StandardCharsets;
+import org.apache.commons.codec.digest.DigestUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /*
@@ -86,12 +90,15 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class BpmhForm2Handler {
 
     private static final Logger logger = MiscUtils.getLogger();
+    private static final int MEDICATION_HISTORY_BYTES = 16_777_215;
     private static final String[] IGNORE_METHODS = new String[]{
             "handler",
             "hibernateLazyInitializer",
             "hours",
             "minutes",
-            "seconds"};
+            "seconds",
+            "reviewedVersion",
+            "reviewChanged"};
     private static final String PRIMARY_DR_TITLE = "family physician";
 
     private BpmhForm2Bean bpmhFormBean;
@@ -196,6 +203,7 @@ public class BpmhForm2Handler {
             familyDrFax = getFormHistory().getFamilyDrFax();
             // note is only set and saved from the form table.
             getBpmhFormBean().setNote(getFormHistory().getNote());
+            getBpmhFormBean().setConfirm(Boolean.TRUE.equals(getFormHistory().getOtcReviewed()));
 
             // allergies and drugs are stored as serialized JSON
             formBeanAllergyList = (List<Allergy>) JsonUtil.jsonToPojoList(getFormHistory().getAllergies(), Allergy.class);
@@ -254,18 +262,23 @@ public class BpmhForm2Handler {
         formBpmh.setDemographicNo(Integer.parseInt(bpmhFormBean.getDemographicNo()));
         formBpmh.setProviderNo(Integer.parseInt(bpmhFormBean.getProvider().getProviderNo()));
         formBpmh.setNote(bpmhFormBean.getNote());
+        formBpmh.setOtcReviewed(bpmhFormBean.isConfirm());
         formBpmh.setFamilyDrName(bpmhFormBean.getFamilyDrName());
         formBpmh.setFamilyDrPhone(bpmhFormBean.getFamilyDrPhone());
         formBpmh.setFamilyDrFax(bpmhFormBean.getFamilyDrFax());
 
         if (drugList != null) {
             jsonDrugs = JsonUtil.pojoCollectionToJson(drugList, IGNORE_METHODS);
-            logger.debug("JSON serialization of drugs " + jsonDrugs);
+            if (jsonDrugs.getBytes(StandardCharsets.UTF_8).length > MEDICATION_HISTORY_BYTES) {
+                throw new IllegalArgumentException("Medication history exceeds the database capacity");
+            }
         }
 
         if (allergyList != null) {
             jsonAllergies = JsonUtil.pojoCollectionToJson(allergyList, IGNORE_METHODS);
-            logger.debug("JSON serialization of allergies " + jsonAllergies);
+            if (jsonAllergies.getBytes(StandardCharsets.UTF_8).length > 65_535) {
+                throw new IllegalArgumentException("Allergy history exceeds the database capacity");
+            }
         }
 
         formBpmh.setAllergies(jsonAllergies);
@@ -439,177 +452,127 @@ public class BpmhForm2Handler {
                     "known CARLOS types; no user-controlled property name reaches the sink")
     public void setFormBeanDrugList(List<BpmhDrug> bpmhDrugBeans) {
 
-        Iterator<Drug> drugListIterator = null;
-        List<Drug> drugList = null;
-        Drug drug;
-        String drugId = null;
-        String drugDIN = null;
-        RxDrugData drugFetch = null;
-
         if (bpmhDrugBeans != null) {
 
             getBpmhFormBean().setDrugs(bpmhDrugBeans);
 
         } else {
 
-            drugList = getDrugDao().findByDemographicId(this.demographicNo, false);
-
-            for (Drug drugItem : drugList) {
-                logger.debug("DRUG: " + drugItem.getGenericName());
-            }
+            List<Drug> drugList = getDrugDao().findByDemographicId(this.demographicNo, false);
 
             // Every row is built from the patient's current medications. A posted row supplies only its
             // instruction, matched by drug id; any other posted field, and any id that is not a current
             // medication, is dropped (#4731).
             List<BpmhDrug> postedRows = getBpmhFormBean().getDrugs();
+            Map<String, BpmhDrug> editedChartRows = new LinkedHashMap<>();
+            List<BpmhDrug> reportedRows = new ArrayList<>();
+            if (postedRows != null) {
+                for (BpmhDrug posted : postedRows) {
+                    if (posted == null) continue;
+                    if (StringUtils.isNotBlank(posted.getId())) {
+                        editedChartRows.putIfAbsent(posted.getId(), posted);
+                    } else if (StringUtils.isNotBlank(posted.getReportedMedication())) {
+                        reportedRows.add(posted);
+                    }
+                }
+            }
             bpmhDrugBeans = new ArrayList<>();
             getBpmhFormBean().setDrugs(bpmhDrugBeans);
+            StringBuilder versions = new StringBuilder().append(demographicNo).append(':');
 
-            if ((drugList != null) && (drugList.size() > 0)) {
-
-                drugFetch = new RxDrugData();
-
-                drugListIterator = drugList.iterator();
-                while (drugListIterator.hasNext()) {
-
-                    drug = drugListIterator.next();
-                    drugId = drug.getId() + "";
-                    drugDIN = drug.getRegionalIdentifier();
+            if (drugList != null) {
+                // Use the numeric source position, retaining DAO order among equal positions.
+                List<Drug> ordered = new ArrayList<>(drugList);
+                ordered.sort(Comparator.comparing(Drug::getPosition, Comparator.nullsLast(Comparator.naturalOrder()))
+                        .thenComparing(Drug::getId));
+                for (Drug drug : ordered) {
+                    String drugId = drug.getId().toString();
                     BpmhDrug bpmhDrug = new BpmhDrug();
-                    RxDrugData.DrugMonograph drugData = null;
-                    StringBuilder stringBuilder = null;
-                    ArrayList<RxDrugData.DrugMonograph.DrugComponent> drugComponents = null;
-                    String drugName = "";
-                    String drugProduct = "";
-
+                    BeanUtils.copyProperties(drug, bpmhDrug);
                     bpmhDrugBeans.add(bpmhDrug);
-
-                    try {
-                        BeanUtils.copyProperties(drug, bpmhDrug);
-                    } catch (Exception e) {
-                        logger.fatal("Failed to copy bean properties", e);
-                    }
                     // Spring's copyProperties skips Integer -> String, so the id is set here: the form posts it back
                     // to match each typed instruction to its drug (#4731).
                     bpmhDrug.setId(drugId);
-                    if (postedRows != null) {
-                        for (BpmhDrug postedRow : postedRows) {
-                            if (postedRow != null && drugId.equals(postedRow.getId())) {
-                                bpmhDrug.setInstruction(postedRow.getInstruction());
-                            }
-                        }
+                    // The structured dose is a float on the drug and text on the form, so it is not
+                    // copied either. Without it "How I take it" read "Take TAB BID" with no amount
+                    // whenever the instruction text had no direction line (#6185).
+                    // Only a positive number is a dose: 0 is the column default for "no structured
+                    // dose" and the legacy editor stores -1 for a dose it was not given.
+                    float min = drug.getTakeMin();
+                    float max = drug.getTakeMax();
+                    if (Float.isFinite(min) && Float.isFinite(max) && min > 0 && max >= min) {
+                        bpmhDrug.setTakeMin(DoseText.of(min));
+                        bpmhDrug.setTakeMax(DoseText.of(max));
                     }
-
-                    // drug reason needs to be hacked together from different
-                    // sources.
+                    // A selected product's unit can be its strength unit. Its form alone
+                    // cannot establish an administered dose. A CDS import records the dose unit.
+                    String doseUnit = RxUtil.recordedDoseUnit(drug.getUnit(), drug.getDrugForm(),
+                            drug.getDosage(), drug.getCdsDoseText());
+                    bpmhDrug.usePrescriptionDirections(drug.getBrandName(), drug.getSpecialInstruction(),
+                            StringUtils.isBlank(drug.getCdsDoseText()) ? doseUnit : null);
+                    if (StringUtils.isBlank(bpmhDrug.getHow()) && StringUtils.isNotBlank(drug.getCdsDoseText())) {
+                        bpmhDrug.setHow(drug.getCdsDoseText() + (doseUnit == null ? "" : " " + doseUnit));
+                    }
                     bpmhDrug.setWhy(getDrugReason(drug.getId()));
-
-                    // Oscar's Drug table does not (or did not) hold accurate
-                    // drug ingredient information.
-                    // this block is added to ensure proper ingredient info is
-                    // retrieved from DrugRef.
-                    // using this uses wayyyy too many resources, but it is the only way to
-                    // ensure this form is extensible with other Oscar changes.
-                    //TODO: fix once othe parts merged in
-					/*
-					if( ! StringUtils.isBlank(drugDIN) ) {
-						
-						stringBuilder = new StringBuilder();
-						try {
-							drugData = drugFetch.getDrugByDIN(drugDIN);
-                        } catch (Exception e) {
-                        	logger.fatal("Failed to fetch Drug from DrugRef with DIN " + drugDIN, e); 
-                        } 
-
-						if( drugData != null ) {	
-							
-							drugName = drugData.getName();
-							drugProduct = drugData.getProduct();
-							drugComponents = drugData.getDrugComponentList();							
-						}
-						
-						if( drugComponents != null && drugComponents.size() > 0 ) {
-							
-							int count = 0;
-							for( RxDrugData.DrugMonograph.DrugComponent drugComponent : drugComponents ) {
-								
-								stringBuilder.append( drugComponent.getName() );
-								stringBuilder.append(" ");
-								stringBuilder.append( drugComponent.getStrength() );
-								stringBuilder.append( drugComponent.getUnit() );
-								
-								count++;
-								if( count > 0 && count != drugComponents.size() ) {
-									stringBuilder.append( " / " );
-								}
-							}
-							
-							stringBuilder.append(" " + drugData.getDrugForm());
-							
-							bpmhDrug.setWhat( stringBuilder.toString() );
-						
-						} else if( ! StringUtils.isBlank( drugName ) ) {
-							
-							bpmhDrug.setGenericName( drugName );
-							
-						} else if( ! StringUtils.isBlank( drugProduct ) ) {
-							
-							bpmhDrug.setGenericName( drugProduct );
-							
-						} else {
-							// do nothing
-						}												
-					}*/
+                    String version = reviewVersion(drugId, drug.getRowVersion(), bpmhDrug);
+                    bpmhDrug.setReviewedVersion(version);
+                    versions.append(version);
+                    BpmhDrug edited = editedChartRows.remove(drugId);
+                    if (edited != null) {
+                        bpmhDrug.setInstruction(edited.getInstruction());
+                        bpmhDrug.setPatientReportedUse(edited.getPatientReportedUse());
+                    }
+                    bpmhDrug.setReviewChanged(postedRows != null
+                            && (edited == null || !version.equals(edited.getReviewedVersion())));
                 }
-
-                SortDrugList.byPositionOrder(bpmhDrugBeans);
             }
+            getBpmhFormBean().setReviewToken(DigestUtils.sha256Hex(versions.toString()));
+            getBpmhFormBean().setRemovedReviewRows(new ArrayList<>(editedChartRows.values()));
+            bpmhDrugBeans.addAll(reportedRows);
         }
 
+    }
+
+    private static String reviewVersion(String id, Long rowVersion, BpmhDrug drug) {
+        StringBuilder fields = new StringBuilder();
+        for (String value : List.of(id, String.valueOf(rowVersion), drug.getWhat(), drug.getHow(), drug.getWhy())) {
+            fields.append(value.length()).append(':').append(value);
+        }
+        return DigestUtils.sha256Hex(fields.toString());
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String getDrugReason(Integer drugId) {
 
-        Icd9 icd9 = null;
-        String patientFriendlyDx = "";
-        String drugReasonCode = null;
-        Icd9Synonym dxCodeTranslations = null;
-        StringBuilder stringBuilder = new StringBuilder("");
-        List<DrugReason> drugReasonList = getDrugReasonDao().getReasonsForDrugID(drugId, true);
-
-        if ((drugReasonList != null) && (drugReasonList.size() > 0)) {
-
-            for (DrugReason drugReason : drugReasonList) {
-
-                if (drugReason.getCodingSystem().equalsIgnoreCase("icd9")) {
-
-                    drugReasonCode = drugReason.getCode();
-                }
-
-                if (drugReasonCode != null) {
-                    dxCodeTranslations = getDxCodeTranslationsDao().findPatientFriendlyTranslationFor(drugReasonCode);
-                }
-
-                if (dxCodeTranslations != null) {
-
-                    patientFriendlyDx = dxCodeTranslations.getPatientFriendly();
-
-                } else {
-
-                    icd9 = getIcd9Dao().findByCode(drugReasonCode);
-                    patientFriendlyDx = icd9.getDescription();
-
-                }
-
-                stringBuilder.append(patientFriendlyDx + " ");
-                stringBuilder.append(drugReason.getComments());
+        List<DrugReason> reasons = getDrugReasonDao().getReasonsForDrugID(drugId, true);
+        if (reasons == null) return "";
+        List<String> descriptions = new ArrayList<>();
+        for (DrugReason reason : reasons) {
+            String description = describeReason(reason);
+            String comment = reason.getComments();
+            if (StringUtils.isNotBlank(comment)) {
+                descriptions.add(description.isEmpty() ? comment : description + " " + comment);
+            } else if (!description.isEmpty()) {
+                descriptions.add(description);
             }
-
         }
+        return String.join("\n", descriptions);
+    }
 
-        return stringBuilder.toString();
+    private String describeReason(DrugReason reason) {
+        String code = reason.getCode();
+        if (StringUtils.isBlank(code)) return "";
+        String system = reason.getCodingSystem();
+        if ("icd9".equalsIgnoreCase(system)) {
+            Icd9Synonym translation = getDxCodeTranslationsDao().findPatientFriendlyTranslationFor(code);
+            if (translation != null && StringUtils.isNotBlank(translation.getPatientFriendly())) {
+                return translation.getPatientFriendly();
+            }
+            Icd9 entry = getIcd9Dao().findByCode(code);
+            if (entry != null && StringUtils.isNotBlank(entry.getDescription())) return entry.getDescription();
+        }
+        return StringUtils.isBlank(system) ? code : system + " " + code;
     }
 
     public void setFormBeanAllergyList(List<Allergy> allergyList) {

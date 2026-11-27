@@ -317,13 +317,20 @@ public class RxUtil {
      * default locale is.
      */
     public static String FloatToString(float value) {
-        java.text.NumberFormat fmt = java.text.NumberFormat.getNumberInstance(Locale.ROOT);
-        fmt.setGroupingUsed(false);
-        return fmt.format(value);
+        return io.github.carlos_emr.carlos.utility.DoseText.of(value);
     }
 
     public static float StringToFloat(String value) {
         return Float.parseFloat(value);
+    }
+
+    /** A recorded dose unit when the record distinguishes it from the product and the dispense unit. */
+    public static String recordedDoseUnit(String unit, String form, String strength, String explicitDose) {
+        if (org.apache.commons.lang3.StringUtils.isBlank(unit)) return null;
+        if (org.apache.commons.lang3.StringUtils.isNotBlank(explicitDose)
+                || org.apache.commons.lang3.StringUtils.isBlank(strength)
+                || unit.equalsIgnoreCase(form)) return unit;
+        return null;
     }
 
     public static Object IIf(boolean Expression, Object TruePart, Object FalsePart) {
@@ -464,31 +471,59 @@ public class RxUtil {
     }
 
     public static String getUnitNameFromQuantityText(String qStr) {
-        if (qStr != null) {
-            Pattern p1 = Pattern.compile("\\d+");
-            Matcher m1 = p1.matcher(qStr);
-            if (m1.find()) {
-                String qNum = qStr.substring(m1.start(), m1.end());
-                //get the quantity unit
-                String qUnit = qStr.replace(qNum, "").trim();
-                if (qUnit != null && qUnit.length() > 0) {
-                    return qUnit;
+        return parseDispenseQuantity(qStr).unit();
+    }
+
+    /** An ambiguous amount stays whole in the quantity field, with no separately inferred unit. */
+    public static String getQuantityFromQuantityText(String qStr) {
+        return parseDispenseQuantity(qStr).text();
+    }
+
+    private record DispenseQuantity(String text, String unit, BigDecimal amount) {}
+
+    private static DispenseQuantity parseDispenseQuantity(String input) {
+        if (input == null || input.isBlank()) {
+            return new DispenseQuantity(null, null, null);
+        }
+        String trimmed = input.strip();
+        NumberToken token = findDecimalAt(trimmed, 0);
+        if (token == null) {
+            return new DispenseQuantity(input, null, null);
+        }
+        String unit = trimmed.substring(token.end).strip();
+        // In "1 bottle (120 mL)" the parenthesis qualifies the package. A
+        // second number outside it may be a range, fraction, or grouped amount.
+        if (!unit.isEmpty() && !isDispenseUnit(unit)) {
+            return new DispenseQuantity(input, null, null);
+        }
+        BigDecimal amount = new BigDecimal(token.value);
+        return new DispenseQuantity(amount.stripTrailingZeros().toPlainString(),
+                unit.isEmpty() ? null : unit, amount);
+    }
+
+    private static boolean isDispenseUnit(String unit) {
+        if (!Character.isLetter(unit.codePointAt(0))) {
+            return false;
+        }
+        int depth = 0;
+        for (int index = 0; index < unit.length();) {
+            int ch = unit.codePointAt(index);
+            index += Character.charCount(ch);
+            if (ch == '(') {
+                depth++;
+            } else if (ch == ')') {
+                if (--depth < 0) {
+                    return false;
+                }
+            } else if (depth == 0) {
+                int type = Character.getType(ch);
+                if (type == Character.DECIMAL_DIGIT_NUMBER || type == Character.LETTER_NUMBER
+                        || type == Character.OTHER_NUMBER) {
+                    return false;
                 }
             }
         }
-        return null;
-    }
-
-    public static String getQuantityFromQuantityText(String qStr) {
-        if (qStr != null) {
-            Pattern p1 = Pattern.compile("\\d+");
-            Matcher m1 = p1.matcher(qStr);
-            if (m1.find()) {
-                String qNum = qStr.substring(m1.start(), m1.end());
-                return qNum;
-            }
-        }
-        return null;
+        return depth == 0;
     }
 
     public static boolean isMitte(String qStr) {
@@ -569,46 +604,29 @@ public class RxUtil {
      *         quantity), a missing quantity or a zero dose leaves it incalculable
      */
     public static String findDuration(RxPrescriptionData.Prescription rx) {
-        String typedQuantity = rx.getQuantity() == null ? "" : rx.getQuantity().trim();
+        String typedQuantity = rx.getQuantity();
+        String typedUnit = rx.getUnitName();
+        DispenseQuantity quantity = parseDispenseQuantity(typedQuantity);
         instrucParser(rx);
-        if (!typedQuantity.isEmpty() && calculatedNoQuantity(rx)) {
+        if (quantity.text() != null && (calculatedNoQuantity(rx) || quantity.amount() == null
+                || quantity.unit() != null || (typedUnit != null && !typedUnit.isBlank()))) {
             rx.setQuantity(typedQuantity);
+            rx.setUnitName(typedUnit);
         }
         if (rx.isDurationSpecifiedByUser()) {
             return rx.getDuration();
         }
-        if (rx.getUnitName() != null) {
+        if (quantity.amount() == null || quantity.unit() != null
+                || (typedUnit != null && !typedUnit.isBlank()) || rx.getPrn()) {
             return null;
         }
-        Matcher digits = Pattern.compile("\\d+").matcher(typedQuantity);
-        if (!digits.find()) {
-            logger.error("quantity is not specified");
-            return null;
-        }
-        String number = digits.group();
-        String quantityUnit = typedQuantity.replace(number, "").trim();
-        if (!quantityUnit.isEmpty()) {
-            // A quantity typed with its own unit (a Mitte quantity) leaves the duration incalculable.
-            rx.setUnitName(quantityUnit);
-            return null;
-        }
-        return durationForQuantity(rx, Double.parseDouble(number));
+        return wholeDurationUnits(quantity.amount(), rx.getTakeMax(), rx.getFrequencyCode(), rx.getDurationUnit());
     }
 
     /** True when the parser left no calculated quantity behind: null, empty or "0". */
     private static boolean calculatedNoQuantity(RxPrescriptionData.Prescription rx) {
         String quantity = rx.getQuantity();
         return quantity == null || quantity.isEmpty() || "0".equals(quantity);
-    }
-
-    /**
-     * Divides the quantity by the units taken per duration unit: the maximum dose per
-     * administration, the administrations per day and the days per duration unit.
-     *
-     * @return the whole duration, or null when the dose, the frequency or the duration unit is unknown
-     */
-    private static String durationForQuantity(RxPrescriptionData.Prescription rx, double quantity) {
-        return wholeDurationUnits(quantity, rx.getTakeMax(), rx.getFrequencyCode(), rx.getDurationUnit());
     }
 
     /**
@@ -624,8 +642,23 @@ public class RxUtil {
      */
     public static String wholeDurationUnits(double quantity, double dosePerAdministration, String frequency,
             String durationUnit) {
+        return Double.isFinite(quantity) && quantity >= 0
+                ? wholeDurationUnits(BigDecimal.valueOf(quantity), dosePerAdministration, frequency, durationUnit)
+                : null;
+    }
+
+    /** Derives duration only from an unambiguous dispense count. */
+    public static String wholeDurationUnits(String quantity, float dosePerAdministration, String frequency,
+            String durationUnit) {
+        DispenseQuantity parsed = parseDispenseQuantity(quantity);
+        return parsed.unit() == null && parsed.amount() != null
+                ? wholeDurationUnits(parsed.amount(), dosePerAdministration, frequency, durationUnit) : null;
+    }
+
+    private static String wholeDurationUnits(BigDecimal quantity, double dosePerAdministration, String frequency,
+            String durationUnit) {
         double nDays = durationUnit == null ? 0d : findNDays(durationUnit);
-        if (dosePerAdministration <= 0d || nDays == 0d || frequency == null) {
+        if (!Double.isFinite(dosePerAdministration) || dosePerAdministration <= 0d || nDays == 0d || frequency == null) {
             return null;
         }
         BigDecimal unitsPerDurationUnit;
@@ -641,7 +674,7 @@ public class RxUtil {
             unitsPerDurationUnit = BigDecimal.valueOf(dosePerAdministration).multiply(BigDecimal.valueOf(nPerDay))
                     .multiply(BigDecimal.valueOf(nDays));
         }
-        return BigDecimal.valueOf(quantity).divide(unitsPerDurationUnit, MathContext.DECIMAL64)
+        return quantity.divide(unitsPerDurationUnit, MathContext.DECIMAL64)
                 .setScale(6, RoundingMode.HALF_UP).setScale(0, RoundingMode.FLOOR)
                 .min(BigDecimal.valueOf(Integer.MAX_VALUE)).toPlainString();
     }
@@ -1232,9 +1265,6 @@ public class RxUtil {
             maximumDose = swap;
         }
 
-        double nPerDay = 0d; //number of drugs per day
-        double nDays = 0d; //number of days per duration unit
-
         boolean isUnitNameUsed = true;
         if (rx.getUnitName() == null || rx.getUnitName().trim().length() == 0) isUnitNameUsed = false;
         else if (rx.getUnitName().equalsIgnoreCase("null")) isUnitNameUsed = false;
@@ -1252,16 +1282,9 @@ public class RxUtil {
         ExactAmount courseTotal = null;
         if (duration.equals("0") || duration.length() == 0 || duration == null) {//if duration is not specified, find duration based on quantity
             rx.setDurationSpecifiedByUser(false);
-            if (!isUnitNameUsed && rx.getQuantity() != null && !rx.getQuantity().equalsIgnoreCase("null") && !rx.getQuantity().equals("") && !durationUnit.equals("") && !frequency.equals("") && !maximumDose.isZero()) {
-                quantity = Integer.parseInt(rx.getQuantity());
-                double quantityD = quantity;
-                nPerDay = findNPerDay(frequency);
-                nDays = findNDays(durationUnit);
-                double durationD = quantityD / (maximumDose.doubleValue() * nPerDay * nDays);
-                Integer durationI = (int) durationD;
-                duration = durationI.toString();
-                rx.setDuration(duration);
-            } else rx.setDuration("0");
+            String derived = isUnitNameUsed || prn ? null
+                    : wholeDurationUnits(rx.getQuantity(), maximumDose.floatValue(), frequency, durationUnit);
+            rx.setDuration(derived == null ? "0" : derived);
         } else {//if duration is valid, find quantity based on duration
             rx.setDurationSpecifiedByUser(true);
             rx.setDuration(duration);
@@ -2976,18 +2999,7 @@ public class RxUtil {
     }
 
     private static void setResultSpecialQuantityRepeat(RxPrescriptionData.Prescription rx, Drug d) {
-        String qStr = d.getQuantity() == null ? "" : d.getQuantity();
-        Pattern p1 = Pattern.compile("\\d+");
-        Matcher m1 = p1.matcher(qStr);
-        if (m1.find()) {
-            String qNum = qStr.substring(m1.start(), m1.end());
-            rx.setQuantity(qNum);
-            //get the quantity unit
-            String qUnit = qStr.replace(qNum, "").trim();
-            if (qUnit != null && qUnit.length() > 0) {
-                rx.setUnitName(qUnit);
-            }
-        }
+        if (d.getQuantity() != null) rx.setQuantity(d.getQuantity());
         rx.setUnitName(d.getUnitName());
 
         rx.setRepeat(d.getRepeat() == null ? 0 : d.getRepeat());
@@ -3181,65 +3193,42 @@ public class RxUtil {
         }
     }
 
-    private static boolean checkLastPrescribed(RxPrescriptionData.Prescription rx, int drugId) {
-        //make a another query to get the latest drug with same name but archived not equals one and arhived reason equals to deleted.
-        //check if drugId is greater than that compare id
-        //if yes, return true;
-        //if not, return false;
-        boolean lastPrescribed = true;
-        //need the max drugId, not using DIN because it doesn't work with customed drugs.
+    public static boolean checkDiscontinuedBefore(RxPrescriptionData.Prescription rx) {
         DrugDao dao = SpringUtils.getBean(DrugDao.class);
-        Integer lastId = dao.findLastNotArchivedId(rx.getBrandName(), rx.getGenericName(), rx.getDemographicNo());
-
-        if (lastId != null) {
-            int compareId = lastId.intValue();
-            if (drugId > compareId) {
-                lastPrescribed = true;
-            } else {
-                lastPrescribed = false;
+        Drug lastDiscontinued = null;
+        int lastActiveId = 0;
+        for (Drug drug : dao.findByDemographicId(rx.getDemographicNo())) {
+            if (!sameMedicationProduct(rx, drug)) continue;
+            if (!drug.isArchived() && (drug.getCdsCurrentness() == null || drug.isCurrent())) {
+                lastActiveId = Math.max(lastActiveId, drug.getId());
+            } else if (drug.isDiscontinued() && !Drug.REPRESCRIBED.equals(drug.getArchivedReason())
+                    && (lastDiscontinued == null || lastDiscontinued.getId() < drug.getId())) {
+                lastDiscontinued = drug;
             }
-        } else {
-            lastPrescribed = true;
         }
-        return lastPrescribed;
+        boolean show = lastDiscontinued != null && lastDiscontinued.getId() > lastActiveId;
+        rx.setLastArchDate(show ? DateToString(lastDiscontinued.getArchivedDate()) : null);
+        rx.setLastArchReason(show ? lastDiscontinued.getArchivedReason() : null);
+        return show;
     }
 
-    public static boolean checkDiscontinuedBefore(RxPrescriptionData.Prescription rx) {
-
-        //check if this drug was discontinued before
-        //String sql="SELECT * FROM drugs WHERE archived=1 AND (archived_reason>'' OR archived_reason<'' ) AND ATC='" + this.atcCode + "' AND regional_identifier='" + this.regionalIdentifier + "' AND demographic_no=" + this.demographicNo+" order by written_date desc";
-        //the query will fail to check if a drug A is prescribed, and drug A is prescribed again, and then the first drug A is discontinued, when the second drug A is represcribed
-        //or a third drug A is added, no warning will be given.
-        boolean discontinuedLatest = false;
-
-        DrugDao dao = SpringUtils.getBean(DrugDao.class);
-        Drug drug = dao.findByDemographicIdRegionalIdentifierAndAtcCode(rx.getAtcCode(), rx.getRegionalIdentifier(), rx.getDemographicNo());
-
-        if (drug != null) {//get the first result which has the largest drugid and hence the most recent result.
-
-            int drugId = drug.getId();
-
-            boolean isLastPrescribed = checkLastPrescribed(rx, drugId); //check if this drug was saved after discontinued.
-            if (isLastPrescribed) {
-
-                //get date discontinued
-                //get reason for discontinued
-                Date archivedDate = drug.getArchivedDate();
-                // String archDate = rs.getProperty("archived_date");
-                String archDate = RxUtil.DateToString(archivedDate);
-                String archReason = drug.getArchivedReason();
-
-                rx.setLastArchDate(archDate);
-                rx.setLastArchReason(archReason);
-                discontinuedLatest = true;
-            } else {
-                discontinuedLatest = false;
-            }
-        } else {
-            discontinuedLatest = false;
+    static boolean sameMedicationProduct(RxPrescriptionData.Prescription rx, Drug drug) {
+        String requestedDin = org.apache.commons.lang3.StringUtils.trimToNull(rx.getRegionalIdentifier());
+        String storedDin = org.apache.commons.lang3.StringUtils.trimToNull(drug.getRegionalIdentifier());
+        if (requestedDin != null || storedDin != null) {
+            return requestedDin != null && requestedDin.equals(storedDin);
         }
-
-        return discontinuedLatest;
+        if (rx.isCustom()) {
+            return org.apache.commons.lang3.StringUtils.isNotBlank(rx.getCustomName())
+                    && DrugStrength.sameIdentityText(rx.getCustomName(), drug.getCustomName())
+                    && DrugStrength.sameIdentityText(rx.getDosage(), drug.getDosage())
+                    && DrugStrength.sameIdentityText(rx.getDrugForm(), drug.getDrugForm());
+        }
+        return org.apache.commons.lang3.StringUtils.isNotBlank(rx.getGenericName())
+                && DrugStrength.sameIdentityText(rx.getGenericName(), drug.getGenericName())
+                && DrugStrength.sameIdentityText(rx.getBrandName(), drug.getBrandName())
+                && DrugStrength.sameIdentityText(rx.getDosage(), drug.getDosage())
+                && DrugStrength.sameIdentityText(rx.getDrugForm(), drug.getDrugForm());
     }
 
     //check to see if a represcription of a med is clicked twice.

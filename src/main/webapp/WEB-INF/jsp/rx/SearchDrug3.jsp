@@ -1526,6 +1526,12 @@ function renderRxStage() {
 
     /** A refused inline edit must be corrected before saving the older staged value. */
     function validateCardProperties() {
+        var calculating = document.querySelector('#drugForm [data-calculation-blocked]');
+        if (calculating) {
+            var status = calculating.querySelector('[data-calculation-status]');
+            if (status && status.textContent) alert(status.textContent);
+            return false;
+        }
         var invalid = document.querySelector('#drugForm [aria-invalid="true"]');
         if (!invalid) return true;
         var value = /^repeats_/.test(invalid.id) ? invalid.value : invalid.textContent;
@@ -1973,6 +1979,8 @@ function openSavedPrescriptionPreview(transport) {
             if (!/^[0-9]+$/.test(key)) return;
             var field = document.getElementById('drugForm').elements.namedItem('draftRevision_' + key);
             if (field) field.value = saved.draftRevisions[key];
+            var acknowledgement = document.getElementById('calculationAck_' + key);
+            if (acknowledgement) acknowledgement.value = '0';
         });
     }
     popForm2(saved.scriptId, true);
@@ -2740,153 +2748,107 @@ function getReRxCheckboxByUiRefId(uiRefId) {
     return document.getElementById('reRxCheckBox_' + uiRefId);
 }
 
-function updateQty(element){
-        var elemId=element.id;
-        var ar=elemId.split("_");
-        var rand=ar[1];
-        var card = document.getElementById('set_' + rand);
-        if (!card) return false;
-        var calculation = {};
-        card._rxCalculation = calculation;
-        var submittedQuantity = element.value;
-        var data="parameterValue=updateDrug&randomId="+rand+"&action=updateQty&quantity="+encodeURIComponent(submittedQuantity);
-        var url= ctx + "/rx/WriteScript";
-
-        var rxMethod="rxMethod_"+rand;
-        var rxRoute="rxRoute_"+rand;
-        var rxFreq="rxFreq_"+rand;
-        var rxDrugForm="rxDrugForm_"+rand;
-        var rxDuration="rxDuration_"+rand;
-        var rxDurationUnit="rxDurationUnit_"+rand;
-        var rxAmt="rxAmount_"+rand;
-        var str;
-       // var rxString="rxString_"+rand;
-       var methodStr="method_"+rand;
-       var routeStr="route_"+rand;
-       var frequencyStr="frequency_"+rand;
-       var minimumStr="minimum_"+rand;
-       var maximumStr="maximum_"+rand;
-       var durationStr="duration_"+rand;
-       var durationUnitStr="durationUnit_"+rand;
-       var quantityStr="quantityStr_"+rand;
-       var unitNameStr="unitName_"+rand;
-       var prnStr="prn_"+rand;
-       var prnVal="prnVal_"+rand;
-        CarlosAjax.request(url, {method: 'POST',parameters:data,
-          requestHeaders: { 'Accept': 'application/json' },
-          onSuccess:function(transport){
-                // Staging starts an async quantity calculation. Its old answer must not erase
-                // directions parsed since then, or update a discarded/replaced card (#5183).
-                if (document.getElementById('set_' + rand) !== card || card._rxCalculation !== calculation) return;
-                var json = null;
-                try { json = JSON.parse(transport.responseText); } catch(e) { return; }
-                document.getElementById(methodStr).textContent=json.method;
-                document.getElementById(routeStr).textContent=json.route;
-                document.getElementById(frequencyStr).textContent=json.frequency;
-                document.getElementById(minimumStr).textContent=json.takeMin;
-                document.getElementById(maximumStr).textContent=json.takeMax;
-                document.getElementById(minimumStr).removeAttribute('aria-invalid');
-                document.getElementById(maximumStr).removeAttribute('aria-invalid');
-                if(json.duration==null || json.duration=="null"){
-                    document.getElementById(durationStr).textContent='';
-                }else{
-                    document.getElementById(durationStr).textContent=json.duration;
-                }
-                document.getElementById(durationUnitStr).textContent=json.durationUnit;
-                document.getElementById(quantityStr).textContent=json.calQuantity;
-                if(json.unitName!=null && json.unitName!="null" && json.unitName!="NULL" && json.unitName!="Null"){
-                    document.getElementById(unitNameStr).textContent=json.unitName;
-                }else{
-                    document.getElementById(unitNameStr).textContent='';
-                }
-                if(json.prn){
-                    document.getElementById(prnStr).textContent="prn";
-                    document.getElementById(prnVal).value=true;
-                } else{
-                    document.getElementById(prnStr).textContent="";document.getElementById(prnVal).value=false;
-                }
-                if (element.value === submittedQuantity) refreshDrugPrice(rand, json.priceQuantity);
-            }});
-        return true;
+function updateQty(element) {
+    return requestRxCalculation(element, 'updateQty', false);
 }
-    function parseIntr(element, deferPrice){
-        var elemId=element.id;
-        var ar=elemId.split("_");
-        var rand=ar[1];
-        var card = document.getElementById('set_' + rand);
-        if (!card) return false;
-        var calculation = {};
-        card._rxCalculation = calculation;
-        var instruction="parameterValue=updateDrug&instruction="+encodeURIComponent(element.value)+"&action=parseInstructions&randomId="+rand;
-        var url= ctx + "/rx/UpdateScript";
-        var quantity="quantity_"+rand;
-        var str;
-       var methodStr="method_"+rand;
-       var routeStr="route_"+rand;
-       var frequencyStr="frequency_"+rand;
-       var minimumStr="minimum_"+rand;
-       var maximumStr="maximum_"+rand;
-       var durationStr="duration_"+rand;
-       var durationUnitStr="durationUnit_"+rand;
-       var quantityStr="quantityStr_"+rand;
-       var unitNameStr="unitName_"+rand;
-       var prnStr="prn_"+rand;
-       var prnVal="prnVal_"+rand;
-        CarlosAjax.request(url, {method: 'POST',parameters:instruction,synchronous:true,
-          requestHeaders: { 'Accept': 'application/json' },
-          onSuccess:function(transport){
-                if (document.getElementById('set_' + rand) !== card || card._rxCalculation !== calculation) return;
-                var json = null;
-                try { json = JSON.parse(transport.responseText); } catch(e) { return; }
-                if(json.policyViolations != null && json.policyViolations.length>0) {
-                       for(var x=0;x<json.policyViolations.length;x++) {
-                               alert(json.policyViolations[x]);
-                       }
-                       document.getElementById("saveButton").disabled=true;
-                       document.getElementById("saveOnlyButton").disabled=true;
-                } else {
-                       document.getElementById("saveButton").disabled=false;
-                       document.getElementById("saveOnlyButton").disabled=false;
-                }
 
-                document.getElementById(methodStr).textContent=json.method;
-                document.getElementById(routeStr).textContent=json.route;
-                document.getElementById(frequencyStr).textContent=json.frequency;
-                document.getElementById(minimumStr).textContent=json.takeMin;
-                document.getElementById(maximumStr).textContent=json.takeMax;
-                document.getElementById(minimumStr).removeAttribute('aria-invalid');
-                document.getElementById(maximumStr).removeAttribute('aria-invalid');
-                if(json.duration==null || json.duration=="null"){
-                    document.getElementById(durationStr).textContent='';
-                }else{
-                    document.getElementById(durationStr).textContent=json.duration;
-                }
-                document.getElementById(durationUnitStr).textContent=json.durationUnit;
-                if(json.unitName!=null && json.unitName!="null" && json.unitName!="NULL" && json.unitName!="Null"){
-                    document.getElementById(unitNameStr).textContent=json.unitName;
-                }else{
-                    document.getElementById(unitNameStr).textContent='';
-                }
-                if (json.calQuantity != 0) {
-                    //this is oftentimes zero when re-prescribing a drug where the unitName != null.  
-                    //Until a more reliable calculated quantity is being returned, don't update if the calculated quantity is 0
-                    //silently changing to 0 can be problematic in situations where the quantity has already been set
-                    //to an appropriate value.                 
-                    document.getElementById(quantityStr).textContent=json.calQuantity; 
-                    if(document.getElementById(unitNameStr).textContent!='')
-                        document.getElementById(quantity).value=document.getElementById(quantityStr).textContent+" "+document.getElementById(unitNameStr).textContent;
-                    else
-                        document.getElementById(quantity).value=document.getElementById(quantityStr).textContent;
-                    if (!deferPrice) refreshDrugPrice(rand, json.priceQuantity);
-                }                
-                if(json.prn){
-                    document.getElementById(prnStr).textContent="prn";document.getElementById(prnVal).value=true;
-                } else{
-                    document.getElementById(prnStr).textContent="";document.getElementById(prnVal).value=false;
-                }
-            }});
-        return true;
-    }
+function parseIntr(element, deferPrice) {
+    return requestRxCalculation(element, 'parseInstructions', deferPrice);
+}
+
+function requestRxCalculation(element, action, deferPrice) {
+    if (!element) return false;
+    const rand = element.id.split('_')[1];
+    const card = document.getElementById('set_' + rand);
+    if (!card) return false;
+
+    const instructions = action === 'parseInstructions';
+    const revision = document.getElementById('draftRevision_' + rand);
+    const sequence = (card._rxSequence ?? Number(card.dataset?.calculationSequence || 0)) + 1;
+    const submittedValue = element.value;
+    const calculation = {};
+    card._rxSequence = sequence;
+    card._rxCalculation = calculation;
+    card._rxCalculationPending = true;
+    card._rxCalculationErrors ??= {};
+    showRxCalculationState(card, rand);
+    const current = () => document.getElementById('set_' + rand) === card && card._rxCalculation === calculation;
+    const fail = () => {
+        if (!current()) return;
+        card._rxCalculationPending = false;
+        card._rxCalculationErrors[action] = element;
+        showRxCalculationState(card, rand);
+    };
+    const data = 'parameterValue=updateDrug&randomId=' + rand + '&action=' + action
+        + '&' + (instructions ? 'instruction' : 'quantity') + '=' + encodeURIComponent(submittedValue)
+        + '&draftRevision=' + encodeURIComponent(revision.value) + '&calculationSequence=' + sequence;
+
+    CarlosAjax.request(ctx + (instructions ? '/rx/UpdateScript' : '/rx/WriteScript'), {
+        method: 'POST', parameters: data, synchronous: instructions,
+        requestHeaders: {Accept: 'application/json'},
+        onFailure: fail,
+        onSuccess(transport) {
+            if (!current()) return;
+            let result;
+            try { result = JSON.parse(transport.responseText); } catch (error) { fail(); return; }
+            if (!validRxCalculation(result, sequence)) {
+                fail();
+                return;
+            }
+            card._rxCalculationPending = false;
+            delete card._rxCalculationErrors[action];
+            const acknowledgement = document.getElementById('calculationAck_' + rand);
+            if (acknowledgement) acknowledgement.value = sequence;
+            card._rxPolicy = result.policyViolations;
+            showRxCalculationState(card, rand);
+            const field = name => document.getElementById(name + '_' + rand);
+            for (const [property, name] of Object.entries({
+                method: 'method', route: 'route', frequency: 'frequency', takeMin: 'minimum', takeMax: 'maximum',
+                duration: 'duration', durationUnit: 'durationUnit', calQuantity: 'quantityStr', unitName: 'unitName'
+            })) {
+                const value = result[property];
+                field(name).textContent = value == null || String(value).toLowerCase() === 'null' ? '' : value;
+            }
+            field('minimum').removeAttribute('aria-invalid');
+            field('maximum').removeAttribute('aria-invalid');
+            field('prn').textContent = result.prn ? 'prn' : '';
+            field('prnVal').value = result.prn;
+            if (instructions && !['', '0'].includes(result.calQuantity)) {
+                field('quantity').value = [result.calQuantity, field('unitName').textContent].filter(Boolean).join(' ');
+            }
+            if (!deferPrice && (instructions || element.value === submittedValue)) refreshDrugPrice(rand, result.priceQuantity);
+        }
+    });
+    return true;
+}
+
+function validRxCalculation(result, sequence) {
+    return result && result.calculationSequence === sequence
+        && Number.isFinite(result.takeMin) && Number.isFinite(result.takeMax)
+        && typeof result.prn === 'boolean' && typeof result.calQuantity === 'string'
+        && Array.isArray(result.policyViolations)
+        && result.policyViolations.every(message => typeof message === 'string')
+        && ['method', 'route', 'frequency', 'duration', 'durationUnit', 'unitName', 'priceQuantity']
+            .every(key => result[key] === null || typeof result[key] === 'string');
+}
+
+function showRxCalculationState(card, rand) {
+    const errors = Object.keys(card._rxCalculationErrors);
+    const blocked = card._rxCalculationPending || errors.length > 0 || card._rxPolicy?.length;
+    if (blocked) card.setAttribute('data-calculation-blocked', 'true');
+    else card.removeAttribute('data-calculation-blocked');
+    const status = document.getElementById('rxCalculationStatus_' + rand);
+    status.textContent = errors.length ? status.dataset.failure
+        : (card._rxCalculationPending ? status.dataset.pending : (card._rxPolicy || []).join(' '));
+    document.getElementById('rxCalculationRetry_' + rand).hidden = !errors.length || card._rxCalculationPending;
+}
+
+function retryRxCalculation(button) {
+    const card = button.closest('fieldset');
+    const errors = card._rxCalculationErrors || {};
+    const action = errors.parseInstructions ? 'parseInstructions' : 'updateQty';
+    if (errors[action]) requestRxCalculation(errors[action], action, false);
+}
 
     function addLuCode(eleId,luCode){
         document.getElementById(eleId).value = document.getElementById(eleId).value +" LU Code: "+luCode;
@@ -3330,6 +3292,8 @@ function updateQty(element){
             keys.forEach(function (key) {
                 var field = form.elements.namedItem('draftRevision_' + key);
                 if (field) field.value = revisions[key];
+                var acknowledgement = document.getElementById('calculationAck_' + key);
+                if (acknowledgement) acknowledgement.value = '0';
             });
         } else {
             clearStashDisplay();

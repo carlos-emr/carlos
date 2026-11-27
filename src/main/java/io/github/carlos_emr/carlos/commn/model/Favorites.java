@@ -70,10 +70,10 @@ public class Favorites extends AbstractModel<Integer> {
     private String customName;
 
     @Column(name = "takemin")
-    private double takeMin;
+    private Double takeMin = 0d;
 
     @Column(name = "takemax")
-    private double takeMax;
+    private Double takeMax = 0d;
 
     @Column(name = "freqcode")
     private String freqCode;
@@ -86,7 +86,7 @@ public class Favorites extends AbstractModel<Integer> {
     private String quantity;
 
     @Column(name = "`repeat`")
-    private int repeat;
+    private Integer repeat = 0;
 
     @Column(name = "nosubs")
     private boolean noSubs;
@@ -116,7 +116,7 @@ public class Favorites extends AbstractModel<Integer> {
     private String dosage;
 
     @Column(name = "custom_instructions")
-    private boolean customInstructions;
+    private Boolean customInstructions = false;
 
     private String unitName;
 
@@ -171,7 +171,7 @@ public class Favorites extends AbstractModel<Integer> {
     }
 
     public double getTakeMin() {
-        return takeMin;
+        return takeMin != null ? takeMin : 0d;
     }
 
     public void setTakeMin(double takeMin) {
@@ -179,7 +179,7 @@ public class Favorites extends AbstractModel<Integer> {
     }
 
     public double getTakeMax() {
-        return takeMax;
+        return takeMax != null ? takeMax : 0d;
     }
 
     public void setTakeMax(double takeMax) {
@@ -219,7 +219,7 @@ public class Favorites extends AbstractModel<Integer> {
     }
 
     public int getRepeat() {
-        return repeat;
+        return repeat != null ? repeat : 0;
     }
 
     public void setRepeat(int repeat) {
@@ -315,7 +315,7 @@ public class Favorites extends AbstractModel<Integer> {
     }
 
     public boolean isCustomInstructions() {
-        return customInstructions;
+        return Boolean.TRUE.equals(customInstructions);
     }
 
     public void setCustomInstructions(boolean customInstructions) {

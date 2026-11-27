@@ -280,7 +280,7 @@ public class RxManagerImpl implements RxManager {
             throw new AccessDeniedException("_rx", "w", String.valueOf(d.getDemographicId()));
         }
 
-        if (d.getRowVersion() != null && !Objects.equals(d.getRowVersion(), old.getRowVersion())) {
+        if (old.isArchived() || (d.getRowVersion() != null && !Objects.equals(d.getRowVersion(), old.getRowVersion()))) {
             throw new RxSourceVersionValidator.Conflict();
         }
 
@@ -289,6 +289,7 @@ public class RxManagerImpl implements RxManager {
         // omitted its CDS fields from the incoming object.
         CdsMedicationCompatibilityException.requireLegacyCompatible(old);
         CdsMedicationCompatibilityException.requireLegacyCompatible(d);
+        d.preserveUnchangedMedicationValues(old);
 
         // Attempt to add the new drug first, if this fails
         // the don't try to update the old drug to archived.
@@ -579,37 +580,9 @@ public class RxManagerImpl implements RxManager {
      */
     @Override
     public Boolean addFavorite(Favorite f) {
-
-        // Consider adding write check here...but we are not accessing a patient
-        // record. This may change if access control policy changes.
-
-        if (f == null && !this.validFavorite(f)) {
-
-            return false;
-
-        } else {
-
-            this.favoriteDao.persist(f);
-            return true;
-
-        }
-    }
-
-    /**
-     * Determines if a Favorite object contains the minimum information.
-     *
-     * @param f the Favorite objec to check.
-     * @return true if the objec is valid, false otherwise.
-     */
-    protected Boolean validFavorite(Favorite f) {
-
-        if (f.getProviderNo() == null || f.getProviderNo().isEmpty()) return false;
-        else if (f.getBn() == null || f.getBn().isEmpty()) return false;
-        else if (f.getGn() == null || f.getGn().isEmpty()) return false;
-        else if (f.getSpecial() == null || f.getSpecial().isEmpty()) return false;
-        else if (f.getDuration() == null || f.getDuration().isEmpty()) return false;
-        else if (f.getDurationUnit() == null || f.getDurationUnit().isEmpty()) return false;
-        else return true;
+        if (f == null) return false;
+        favoriteDao.createOrFind(f);
+        return true;
     }
 
     /**

@@ -218,8 +218,8 @@ public class EctMeasurements2Action extends ActionSupport {
                 iMin = 0;
             }
             if (!ectValidation.isInRange(dMax, dMin, inputValue)) {
-                addActionError(getText("errors.range", new String[]{inputTypeDisplay, Double.toString(dMin),
-                        Double.toString(dMax)}));
+                addActionError(getText("errors.range", new String[]{inputTypeDisplay, io.github.carlos_emr.carlos.utility.DoseText.of(dMin.doubleValue()),
+                        io.github.carlos_emr.carlos.utility.DoseText.of(dMax.doubleValue())}));
                 valid = false;
             }
             if (!ectValidation.maxLength(iMax, inputValue)) {

@@ -314,8 +314,8 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
     @CsvSource({
         "'30 tabs', 30, 30",
         "'30 days', 30,",
-        "'12.5 tabs', 12,",
-        "'30 30 tabs', 30,",
+        "'12.5 tabs', 12.5, 12.5",
+        "'30 30 tabs', '30 30 tabs',",
         "12.5, 12.5, 12.5",
         "0, 0,"
     })
@@ -333,6 +333,37 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
         assertThat(json.path("calQuantity").asText()).isEqualTo(acknowledged);
         assertThat(json.get("priceQuantity").asText(null)).isEqualTo(priceQuantity);
         verifyNoInteractions(mockRxManager, mockDrugDao, mockPartialDateDao, mockSignatureStampService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"updateQty", "parseInstructions"})
+    void shouldKeepStagedCardWhenCalculationFailsAfterChangingItsCopy(String operation) throws Exception {
+        request.setParameter("action", operation);
+        request.setParameter("randomId", "1");
+        request.setParameter("instruction", "new directions");
+        request.setParameter("quantity", "7.5");
+        request.setParameter("draftRevision", card.getDraftRevision());
+        request.setParameter("calculationSequence", "2");
+        RxWriteScript2Action failing = org.mockito.Mockito.spy(action);
+        var calculation = org.mockito.Mockito.doAnswer(input -> {
+            var copy = input.getArgument(0, RxPrescriptionData.Prescription.class);
+            copy.setQuantity("7.5");
+            copy.setSpecial("new directions");
+            throw new IllegalStateException("fixture failure");
+        }).when(failing);
+        if ("updateQty".equals(operation)) {
+            calculation.calculateStagedQuantity(any(), any());
+        } else {
+            calculation.calculateStagedInstructions(any(), any());
+        }
+
+        assertThat(failing.updateDrug()).isEqualTo(RxWriteScript2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(card.getQuantity()).isEqualTo("30");
+        assertThat(card.getSpecial()).isEqualTo("1 tab PO OD");
+        assertThat(card.getCalculationSequence()).isZero();
+        assertThat(action.updateDrug()).isNull();
+        assertThat(card.getCalculationSequence()).isEqualTo(2);
     }
 
     @Nested

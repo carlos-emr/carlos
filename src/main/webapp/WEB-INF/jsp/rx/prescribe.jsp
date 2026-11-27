@@ -274,8 +274,13 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
 <fmt:message key="WriteScript.msgRefillDurationError" var="i18nRefillDurationError"/>
 <fmt:message key="WriteScript.msgClose" var="i18nClose"/>
 
+<fmt:message key="WriteScript.doseNotation" var="doseNotation"/>
+<fmt:message key="WriteScript.calculationPending" var="calculationPending"/>
+<fmt:message key="WriteScript.calculationFailed" var="calculationFailed"/>
 <%-- data-drug-ref-id links a ReRx card to its source drug so unticking ReRx can find the card (#3872); 0 for a new drug. --%>
-<fieldset style="margin-top:2px;" id="<%=fieldSetId%>" data-drug-ref-id="<carlos:encode value='<%= String.valueOf(DrugReferenceId) %>' context="htmlAttribute"/>">
+<fieldset style="margin-top:2px;" id="<%=fieldSetId%>"
+          data-drug-ref-id="<carlos:encode value='<%= String.valueOf(DrugReferenceId) %>' context="htmlAttribute"/>"
+          data-calculation-sequence="<%=rx.getCalculationSequence()%>">
     <a tabindex="-1" href="javascript:void(0);"  style="float:right;margin-left:5px;margin-top:0px;padding-top:0px;" onclick="removePrescribingDrug(this.closest('fieldset'), <%=DrugReferenceId%>);"><img src='${carlos:forHtmlAttribute(ctx)}/images/close.png' border="0"></a>
     <a tabindex="-1" href="javascript:void(0);"  style="float:right;;margin-left:5px;margin-top:0px;padding-top:0px;" title="${i18nAddToFavorites}" onclick="addFav('<%=rand%>','<carlos:encode value='<%= drugName %>' context="javaScriptAttribute"/>')">F</a>
     <a tabindex="-1" href="javascript:void(0);" style="float:right;margin-top:0px;padding-top:0px;" onclick="var el=document.getElementById('rx_more_<%=rand%>');el.style.display=el.style.display==='none'?'':'none';">  <span id="moreLessWord_<%=rand%>" onclick="updateMoreLess(id)" >${i18nMore}</span> </a>
@@ -284,8 +289,18 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
     <div style="display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-bottom:5px;">
         <label style="width:101px;flex-shrink:0;" title="<carlos:encode value='<%= ATC %>' context="htmlAttribute"/>" >${i18nName}:</label>
         <input type="hidden" name="atcCode" value="<carlos:encode value='<%= ATCcode %>' context="htmlAttribute"/>" />
-        <input type="hidden" name="draftRevision_<%=rand%>" value="<carlos:encode value='<%= rx.getDraftRevision() %>' context="htmlAttribute"/>"/>
+        <input type="hidden" id="draftRevision_<%=rand%>" name="draftRevision_<%=rand%>" value="<carlos:encode value='<%= rx.getDraftRevision() %>' context="htmlAttribute"/>"/>
+        <input type="hidden" id="calculationAck_<%=rand%>" name="calculationAck_<%=rand%>" value="<%=rx.getCalculationSequence()%>"/>
         <input tabindex="-1" type="text" id="drugName_<%=rand%>"  name="drugName_<%=rand%>"  size="30" <%if("0".equals(gcnCode)){%> onkeyup="saveCustomName(this);" value="<carlos:encode value='<%= drugName %>' context="htmlAttribute"/>"<%} else{%> value="<carlos:encode value='<%= drugName %>' context="htmlAttribute"/>"  onchange="changeDrugName('<%=rand%>','<carlos:encode value='<%= drugName %>' context="javaScriptAttribute"/>');" <%}%> TITLE="<carlos:encode value='<%= drugName %>' context="htmlAttribute"/>"/>&nbsp;<span id="inactive_<%=rand%>" style="color:red;"></span>
+    </div>
+
+    <div>
+        <span id="rxDoseNotation_<%=rand%>" data-message="${carlos:forHtmlAttribute(doseNotation)}" role="status"></span>
+        <span id="rxCalculationStatus_<%=rand%>" data-calculation-status role="status"
+              data-pending="${carlos:forHtmlAttribute(calculationPending)}"
+              data-failure="${carlos:forHtmlAttribute(calculationFailed)}"></span>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="rxCalculationRetry_<%=rand%>"
+                hidden onclick="retryRxCalculation(this)"><fmt:message key="WriteScript.calculationRetry"/></button>
     </div>
 
 	<!-- Allergy Alert Table-->
@@ -331,7 +346,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
                  The newline after the opening tag is the one the HTML parser drops, so directions
                  that themselves start with a line break keep it. --%>
             <textarea id="instructions_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" name="instructions_<carlos:encode value='<%= rand %>' context="htmlAttribute"/>" onkeypress="handleEnter(this,event);"
-                   rows="<%= instructionRows %>" cols="60" style="resize:vertical;vertical-align:middle;" onchange="parseIntr(this);">
+                   rows="<%= instructionRows %>" cols="60" style="resize:vertical;vertical-align:middle;" oninput="RxInputValidation.showDoseNotation(this, 'rxDoseNotation_<%=rand%>')" onchange="parseIntr(this);">
 <carlos:encode value='<%= instructions %>' context="html"/></textarea><a href="javascript:void(0);" tabindex="-1"
                                                                                    onclick="displayMedHistory('<carlos:encode value='<%= rand %>' context="javaScriptAttribute"/>');"
                                                                                    style="color:red;font-size:13pt;vertical-align:super;text-decoration:none"
@@ -405,8 +420,8 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
            <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('method_<%=rand%>')">${i18nMethod}:</a><a   id="method_<%=rand%>" onclick="focusTo(this.id)" onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"><carlos:encode value='<%= methodStr %>' context="html"/></a>
            <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('route_<%=rand%>')">${i18nRoute}:</a><a id="route_<%=rand%>" onclick="focusTo(this.id)" onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"> <carlos:encode value='<%= routeStr %>' context="html"/></a>
            <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('frequency_<%=rand%>')">${i18nFrequency}:</a><a  id="frequency_<%=rand%>" onclick="focusTo(this.id) " onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"> <carlos:encode value='<%= frequencyStr %>' context="html"/></a>
-           <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('minimum_<%=rand%>')">${i18nMin}:</a><a  id="minimum_<%=rand%>" onclick="focusTo(this.id) " onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"> <carlos:encode value='<%= minimumStr %>' context="html"/></a>
-           <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('maximum_<%=rand%>')">${i18nMax}:</a><a id="maximum_<%=rand%>" onclick="focusTo(this.id) " onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"> <carlos:encode value='<%= maximumStr %>' context="html"/></a>
+           <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('minimum_<%=rand%>')">${i18nMin}:</a><a  id="minimum_<%=rand%>" oninput="RxInputValidation.showDoseNotation(this, 'rxDoseNotation_<%=rand%>')" onclick="focusTo(this.id) " onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"> <carlos:encode value='<%= minimumStr %>' context="html"/></a>
+           <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('maximum_<%=rand%>')">${i18nMax}:</a><a id="maximum_<%=rand%>" oninput="RxInputValidation.showDoseNotation(this, 'rxDoseNotation_<%=rand%>')" onclick="focusTo(this.id) " onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"> <carlos:encode value='<%= maximumStr %>' context="html"/></a>
            <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('duration_<%=rand%>')">${i18nDuration}:</a><a  id="duration_<%=rand%>" onclick="focusTo(this.id) " onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"> <carlos:encode value='<%= durationStr %>' context="html"/></a>
            <a tabindex="-1" href="javascript:void(0);" onclick="focusTo('durationUnit_<%=rand%>')">${i18nDurationUnit}:</a><a  id="durationUnit_<%=rand%>" onclick="focusTo(this.id) " onfocus="lookEdittable(this.id)" onblur="lookNonEdittable(this.id);updateProperty(this.id);"> <carlos:encode value='<%= durationUnitStr %>' context="html"/></a>
            <a tabindex="-1" >${i18nQtyMitte}:</a><a tabindex="-1" id="quantityStr_<%=rand%>"> <carlos:encode value='<%= quantityStr %>' context="html"/></a>

@@ -195,7 +195,7 @@ public class HealthTrackerMeasurementPersister {
 
         if (!validation.isInRange(maxValue, minValue, value)) {
             failures.add(new ValidationFailure("errors.range",
-                    List.of(label, Double.toString(minValue), Double.toString(maxValue))));
+                    List.of(label, io.github.carlos_emr.carlos.utility.DoseText.of(minValue.doubleValue()), io.github.carlos_emr.carlos.utility.DoseText.of(maxValue.doubleValue()))));
         }
         if (!validation.maxLength(maxLength, value)) {
             failures.add(new ValidationFailure("errors.maxlength",

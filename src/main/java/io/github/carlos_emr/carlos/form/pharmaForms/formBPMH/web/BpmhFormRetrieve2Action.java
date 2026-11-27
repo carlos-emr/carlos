@@ -41,13 +41,18 @@ import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.pdf.PDFController;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.OutputStream;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
+import java.util.function.Supplier;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean.BpmhDrug;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
@@ -85,20 +90,21 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
             }
             return NONE;
         }
-        if ("save".equals(method)) {
-            return save(loggedInInfo);
-        } else if ("print".equals(method)) {
+        if ("save".equals(method) || "print".equals(method)) {
             try {
-                return print(loggedInInfo);
-            } catch (Exception ex) {
-                // No fallback to the page: print() may already have reset the response.
-                logger.error("BPMH print failed", ex);
+                return "save".equals(method) ? save(loggedInInfo) : print(loggedInInfo);
+            } catch (ReviewChanged changed) {
+                response.setStatus(HttpServletResponse.SC_CONFLICT);
+                request.setAttribute("bpmhReviewChanged", true);
+                request.setAttribute("bpmh", bpmhFormHandler.getBpmhFormBean());
+                return SUCCESS;
+            } catch (IOException | RuntimeException error) {
+                if (error instanceof SecurityException denied) throw denied;
+                logger.error("BPMH operation failed ({})", error.getClass().getSimpleName());
                 try {
-                    if (!response.isCommitted()) {
-                        response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                    }
-                } catch (IOException e) {
-                    logger.error("BPMH print error response failed", e);
+                    if (!response.isCommitted()) response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                } catch (IOException failure) {
+                    logger.error("BPMH error response failed ({})", failure.getClass().getSimpleName());
                 }
                 return NONE;
             }
@@ -149,12 +155,19 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
         if (posted.getDrugs() != null) {
             List<BpmhDrug> rows = new ArrayList<>();
             for (BpmhDrug postedRow : posted.getDrugs()) {
-                if (postedRow != null && postedRow.getId() != null) {
-                    BpmhDrug row = new BpmhDrug();
+                if (postedRow == null) continue;
+                BpmhDrug row = new BpmhDrug();
+                row.setInstruction(postedRow.getInstruction());
+                row.setPatientReportedUse(postedRow.getPatientReportedUse());
+                if (StringUtils.isNotBlank(postedRow.getId())) {
                     row.setId(postedRow.getId());
-                    row.setInstruction(postedRow.getInstruction());
-                    rows.add(row);
+                    row.setReviewedVersion(postedRow.getReviewedVersion());
+                } else if (StringUtils.isNotBlank(postedRow.getReportedMedication())) {
+                    row.setReportedMedication(postedRow.getReportedMedication());
+                } else {
+                    continue;
                 }
+                rows.add(row);
             }
             editable.setDrugs(rows);
         }
@@ -184,104 +197,100 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
     // FindSecBugs UNVALIDATED_REDIRECT: the target is this application's own context path plus a literal
     // and two integer ids; no request string reaches it.
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "same-application relative redirect; only integer ids are interpolated")
-    public String save(LoggedInInfo loggedInInfo) {
-        
-        Integer demographicNo = Integer.parseInt(form.getDemographicNo());
-        Integer formId = null;
+    public String save(LoggedInInfo loggedInInfo) throws IOException {
+        int demographicNo = Integer.parseInt(form.getDemographicNo());
+        Integer formId = inReviewTransaction(() -> {
+            prepareForm(loggedInInfo, demographicNo, 0);
+            return saveReviewedSnapshot();
+        });
+        if (formId == null) throw new IllegalStateException("BPMH history was not saved");
+        response.sendRedirect(request.getContextPath() + "/formBPMH?method=fetch&demographic_no="
+                + demographicNo + "&formId=" + formId + "&provNo=");
+        return NONE;
+    }
 
-        bpmhFormHandler = newHandler(editableFields(form));
-        bpmhFormHandler.setDemographicNo(demographicNo);
-        requirePatientRead(loggedInInfo, demographicNo);
-        bpmhFormHandler.populateFormBean();
-        // The handler saves its own copy of the bean, so the dates are set on that copy.
-        Date now = new Date();
-        bpmhFormHandler.getBpmhFormBean().setFormDate(now);
-        bpmhFormHandler.getBpmhFormBean().setEditDate(now);
-
-        formId = bpmhFormHandler.saveFormHistory();
-
-        addActionMessage("Form Saved");
-
-
-        StringBuilder actionRedirect = new StringBuilder("/formBPMH?method=fetch");
-        actionRedirect.append("&demographic_no=").append(demographicNo);
-        actionRedirect.append("&formId=").append(formId);
-        actionRedirect.append("&provNo=");
-
-        try {
-            // A redirect path starting with "/" is relative to the server root, not this application.
-            response.sendRedirect(request.getContextPath() + actionRedirect);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+    public String print(LoggedInInfo loggedInInfo) throws IOException {
+        int demographicNo = Integer.parseInt(form.getDemographicNo());
+        int formId = Integer.parseInt(form.getFormId());
+        PdfResult pdf = inReviewTransaction(() -> {
+            prepareForm(loggedInInfo, demographicNo, formId);
+            try {
+                PdfResult result = renderReviewedForm();
+                if (formId == 0 && saveReviewedSnapshot() == null) {
+                    throw new IllegalStateException("BPMH history was not saved");
+                }
+                return result;
+            } catch (IOException error) {
+                throw new UncheckedIOException(error);
+            }
+        });
+        response.reset();
+        response.setContentType("application/pdf");
+        response.setContentLength(pdf.content().length);
+        response.setHeader("Content-Disposition", "inline; filename=" + pdf.filename());
+        try (var output = response.getOutputStream()) {
+            output.write(pdf.content());
         }
         return NONE;
     }
 
-    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
-    public String print(LoggedInInfo loggedInInfo) throws IOException {
-
-        OutputStream output = null;
-        byte[] pdfContent = null;
-        Integer demographicNo = Integer.parseInt(form.getDemographicNo());
-        Integer formId = Integer.parseInt(form.getFormId());
-
+    private void prepareForm(LoggedInInfo loggedInInfo, int demographicNo, int formId) {
         bpmhFormHandler = newHandler(editableFields(form));
-
-        // form Id greater than zero means that this is a saved instance.
         if (formId > 0) {
             bpmhFormHandler.setFormHistory(formId);
-        } else if (demographicNo != null) {
+            if (bpmhFormHandler.getFormHistory() == null) throw new IllegalArgumentException("BPMH history is missing");
+        } else {
             bpmhFormHandler.setDemographicNo(demographicNo);
         }
-
         requirePatientRead(loggedInInfo, demographicNo);
         bpmhFormHandler.populateFormBean();
-
-        PDFController pdfController = new PDFController(ServletActionContext.getServletContext().getRealPath(BPMH_PDF_TEMPLATE));
-        pdfController.setContinueInstructions(true);
-        pdfController.setOutputPath(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
-        try {
-            // The filled copy, not the posted form: the PDF needs the patient, provider and medication data.
-            pdfController.writeDataToPDF(bpmhFormHandler.getBpmhFormBean(), new String[]{"1"}, demographicNo + "");
-
-            // writeDataToPDF logs and swallows its own failures, so a name alone does not prove a PDF exists.
-            // Read it before the form is saved: a failed print must not leave a saved form behind.
-            File generatedPdf = PathValidationUtils.resolveTrustedPath(new File(pdfController.getOutputPath()));
-            if (pdfController.getFileName() == null || !generatedPdf.isFile()) {
-                throw new IOException("BPMH PDF was not generated");
+        if (formId == 0) {
+            var reviewed = bpmhFormHandler.getBpmhFormBean();
+            reviewed.setFormId("0");
+            if (form.getReviewToken() == null || !Objects.equals(form.getReviewToken(), reviewed.getReviewToken())) {
+                throw new ReviewChanged();
             }
-            try (FileInputStream pdfInput = new FileInputStream(generatedPdf)) {
-                pdfContent = pdfInput.readAllBytes();
-            }
-
             Date now = new Date();
-            bpmhFormHandler.getBpmhFormBean().setEditDate(now);
+            reviewed.setFormDate(now);
+            reviewed.setEditDate(now);
+        }
+    }
 
-            if (formId == 0) {
-                bpmhFormHandler.getBpmhFormBean().setFormDate(now);
-                bpmhFormHandler.saveFormHistory();
-            }
+    private Integer saveReviewedSnapshot() {
+        return bpmhFormHandler.saveFormHistory();
+    }
+
+    <T> T inReviewTransaction(Supplier<T> action) {
+        // MariaDB serializable reads hold the patient medication and indication
+        // ranges through snapshot persistence, including inserts into either range.
+        var transaction = new TransactionTemplate((PlatformTransactionManager) SpringUtils.getBean("transactionManager"));
+        transaction.setIsolationLevel(TransactionDefinition.ISOLATION_SERIALIZABLE);
+        return transaction.execute(status -> action.get());
+    }
+
+    private record PdfResult(String filename, byte[] content) {}
+
+    private static class ReviewChanged extends RuntimeException {}
+
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+            justification = "Paths come from the configured directory and the shipped PDF template")
+    private PdfResult renderReviewedForm() throws IOException {
+        var reviewed = bpmhFormHandler.getBpmhFormBean();
+        PDFController controller = new PDFController(ServletActionContext.getServletContext().getRealPath(BPMH_PDF_TEMPLATE));
+        controller.setContinueInstructions(true);
+        controller.setOutputPath(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
+        try {
+            controller.writeDataToPDF(reviewed, new String[]{"1"}, "history");
+            if (controller.getFileName() == null) throw new IOException("BPMH PDF was not generated");
+            var path = PathValidationUtils.resolveTrustedPath(new File(controller.getOutputPath())).toPath();
+            byte[] pdf = Files.readAllBytes(path);
+            if (pdf.length == 0) throw new IOException("BPMH PDF is empty");
+            return new PdfResult(controller.getFileName(), pdf);
         } finally {
-            // The PDF is stamped to a file only to be streamed; a copy of the patient's medications left in
-            // DOCUMENT_DIR serves nothing and is never cleaned up. The name is set once the file exists.
-            if (pdfController.getFileName() != null) {
-                Files.deleteIfExists(PathValidationUtils.resolveTrustedPath(new File(pdfController.getOutputPath())).toPath());
+            if (controller.getFileName() != null) {
+                Files.deleteIfExists(PathValidationUtils.resolveTrustedPath(new File(controller.getOutputPath())).toPath());
             }
         }
-
-        response.reset();
-        response.setContentType("application/pdf");
-        response.setHeader("Content-Disposition", "inline; filename=" + pdfController.getFileName());
-        output = response.getOutputStream();
-
-        if (output != null) {
-            output.write(pdfContent);
-            output.close();
-        }
-
-        // The PDF is already written: no result may forward to a page after it.
-        return NONE;
     }
 
     private BpmhForm2Bean form;

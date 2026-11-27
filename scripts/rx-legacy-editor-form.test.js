@@ -185,6 +185,7 @@ test('initial suggestions are calculated without changing stored quantities or i
   let labels = 0;
   const context = {frm, freqMin: [1], freqMax: [2], calculateDuration: () => 14,
     setQuantity() { labels += 1; }};
+  vm.runInNewContext(functionSource('ceilDispenseQuantity', 'function calcQuantity('), context);
   vm.runInNewContext(functionSource('refreshSuggestedQuantity', 'function pageLoad('), context);
   context.refreshSuggestedQuantity();
   assert.equal(frm.sugQtyMin.value, 14);
@@ -196,4 +197,13 @@ test('initial suggestions are calculated without changing stored quantities or i
   context.refreshSuggestedQuantity();
   assert.equal(labels, 1, 'unknown historical frequency must not calculate a dose');
   assert.equal(frm.quantity.value, '018');
+});
+
+test('legacy dispense calculation rounds an exact decimal course once', () => {
+  const context = {};
+  vm.runInNewContext(functionSource('ceilDispenseQuantity', 'function calcQuantity('), context);
+  assert.equal(context.ceilDispenseQuantity('0.2', 3, 10, 'TID'), 6);
+  assert.equal(context.ceilDispenseQuantity('0.20000000001', 3, 10, 'TID'), 7);
+  assert.equal(context.ceilDispenseQuantity('.5', 1 / 7, 28, 'Q1Week'), 2);
+  assert.equal(context.ceilDispenseQuantity('1/2', 3, 10, 'TID'), undefined);
 });

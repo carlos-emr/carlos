@@ -30,6 +30,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -90,6 +91,11 @@ class BpmhFormRetrieve2ActionUnitTest extends CarlosUnitTestBase {
 
         action = new BpmhFormRetrieve2Action() {
             @Override
+            <T> T inReviewTransaction(java.util.function.Supplier<T> work) {
+                return work.get();
+            }
+
+            @Override
             BpmhForm2Handler newHandler(BpmhForm2Bean bean) {
                 handedToHandler = bean;
                 return handler;
@@ -142,6 +148,8 @@ class BpmhFormRetrieve2ActionUnitTest extends CarlosUnitTestBase {
         when(handler.saveFormHistory()).thenReturn(42);
         BpmhForm2Bean posted = new BpmhForm2Bean();
         posted.setDemographicNo("1001");
+        posted.setReviewToken("reviewed");
+        filled.setReviewToken("reviewed");
         action.setForm(posted);
 
         String result = action.execute();
@@ -271,6 +279,8 @@ class BpmhFormRetrieve2ActionUnitTest extends CarlosUnitTestBase {
         BpmhForm2Bean posted = new BpmhForm2Bean();
         posted.setDemographicNo("1001");
         posted.setFormId("0");
+        posted.setReviewToken("reviewed");
+        filled.setReviewToken("reviewed");
         action.setForm(posted);
 
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
@@ -280,5 +290,22 @@ class BpmhFormRetrieve2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(handedToHandler).isNotNull();
         verify(handler).populateFormBean();
         verify(response, never()).sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"save", "print"})
+    void shouldShowChartConflictBeforeSavingOrPrinting(String method) throws Exception {
+        when(request.getMethod()).thenReturn("POST");
+        when(request.getParameter("method")).thenReturn(method);
+        BpmhForm2Bean posted = new BpmhForm2Bean();
+        posted.setDemographicNo("1001");
+        posted.setFormId("0");
+        posted.setReviewToken("earlier-chart");
+        filled.setReviewToken("current-chart");
+        action.setForm(posted);
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(response).setStatus(409);
+        verify(request).setAttribute("bpmhReviewChanged", true);
+        verify(handler, never()).saveFormHistory();
     }
 }

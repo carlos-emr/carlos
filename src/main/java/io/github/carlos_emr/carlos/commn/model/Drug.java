@@ -37,9 +37,6 @@ import java.util.GregorianCalendar;
 import java.util.Locale;
 
 import jakarta.persistence.Column;
-import jakarta.persistence.Convert;
-import io.github.carlos_emr.carlos.commn.model.converter.LegacyFalseFlagConverter;
-import io.github.carlos_emr.carlos.commn.model.converter.LegacyZeroFloatConverter;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -93,11 +90,9 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
 	private String gcnSeqNo = "0";
     private String customName = null;
     @Column(name = "takemin")
-    @Convert(converter = LegacyZeroFloatConverter.class)
-    private float takeMin = 0;
+    private Float takeMin = 0f;
     @Column(name = "takemax")
-    @Convert(converter = LegacyZeroFloatConverter.class)
-    private float takeMax = 0;
+    private Float takeMax = 0f;
     @Column(name = "freqcode")
     private String freqCode = null;
     private String duration = null;
@@ -137,9 +132,73 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     @Temporal(TemporalType.TIMESTAMP)
     private Date createDate = new Date();
     private String dosage = null;
+
+    @Column(name = "medication_components")
+    private String medicationComponents;
+    public String getMedicationComponents() { return medicationComponents; }
+    public void setMedicationComponents(String medicationComponents) { this.medicationComponents = medicationComponents; }
+
+    @Transient
+    private boolean exactMedicationDetails;
+
+    /** The exact REST representation may contain significant spaces or an explicit NULL. */
+    public void setExactMedicationDetails(String quantity, String dispenseUnit, String dosage, String components) {
+        this.quantity = quantity;
+        this.unitName = dispenseUnit;
+        this.dosage = dosage;
+        this.medicationComponents = components;
+        exactMedicationDetails = true;
+    }
+
+    /**
+     * A legacy REST client cannot echo exact prescription and component fields.
+     * Carry them to an unchanged product, while leaving the source row untouched.
+     */
+    public void preserveUnchangedMedicationValues(Drug original) {
+        if (!java.util.Objects.equals(regionalIdentifier, StringUtils.trimToNull(original.regionalIdentifier))
+                || !java.util.Objects.equals(brandName, StringUtils.trimToNull(original.brandName))
+                || !java.util.Objects.equals(genericName, StringUtils.trimToNull(original.genericName))
+                || !java.util.Objects.equals(customName, StringUtils.trimToNull(original.customName))
+                || !java.util.Objects.equals(drugForm, StringUtils.trimToNull(original.drugForm))) {
+            return;
+        }
+
+        regionalIdentifier = original.regionalIdentifier;
+        brandName = original.brandName;
+        genericName = original.genericName;
+        customName = original.customName;
+        drugForm = original.drugForm;
+        if (java.util.Objects.equals(special, StringUtils.trimToNull(original.special))) special = original.special;
+        if (java.util.Objects.equals(special_instruction, StringUtils.trimToNull(original.special_instruction))) {
+            special_instruction = original.special_instruction;
+        }
+        if (java.util.Objects.equals(route, StringUtils.trimToNull(original.route))) route = original.route;
+        if (java.util.Objects.equals(method, StringUtils.trimToNull(original.method))) method = original.method;
+        if (java.util.Objects.equals(freqCode, StringUtils.trimToNull(original.freqCode))) freqCode = original.freqCode;
+        if (exactMedicationDetails) {
+            if (unit == null || java.util.Objects.equals(dosage, original.dosage)) unit = original.unit;
+        } else {
+            Integer projected = io.github.carlos_emr.carlos.webserv.rest.to.model.MedicationDetails.wholeQuantity(original.quantity);
+            if (quantity == null || quantity.equals(java.util.Objects.toString(projected, null))) {
+                quantity = original.quantity;
+            }
+            if (unitName == null) unitName = original.unitName;
+            String projectedDosage = io.github.carlos_emr.carlos.prescript.util.DrugStrength.fromDosage(original.dosage).dosageText();
+            if (dosage == null || dosage.equals(projectedDosage)) {
+                dosage = original.dosage;
+                unit = original.unit;
+                medicationComponents = original.medicationComponents;
+            }
+        }
+        if (original.takeMin == null && getTakeMin() == 0f) takeMin = null;
+        if (original.takeMax == null && getTakeMax() == 0f) takeMax = null;
+        if (original.customInstructions == null && !isCustomInstructions()) customInstructions = null;
+        if (original.hideFromCpp == null && !getHideFromCpp()) hideFromCpp = null;
+        if (original.startDateUnknown == null && !getStartDateUnknown()) startDateUnknown = null;
+    }
+
     @Column(name = "custom_instructions")
-    @Convert(converter = LegacyFalseFlagConverter.class)
-    private boolean customInstructions;
+    private Boolean customInstructions = false;
     private String unitName = null;
     @Column(name = "long_term")
     private Boolean longTerm = null;
@@ -178,9 +237,8 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     @Column(name = "cds_projection_incomplete")
     private Boolean cdsProjectionIncomplete;
     @Column(name = "hide_cpp")
-    @Convert(converter = LegacyFalseFlagConverter.class)
     @org.hibernate.annotations.OptimisticLock(excluded = true)
-    private boolean hideFromCpp;
+    private Boolean hideFromCpp = false;
     @Column(name = "refill_duration")
     private Integer refillDuration;
     @Column(name = "refill_quantity")
@@ -191,8 +249,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     @org.hibernate.annotations.OptimisticLock(excluded = true)
     private Integer position;
     @Column(name = "start_date_unknown")
-    @Convert(converter = LegacyFalseFlagConverter.class)
-    private boolean startDateUnknown;
+    private Boolean startDateUnknown = false;
     private String comment;
 
     @Temporal(TemporalType.TIMESTAMP)
@@ -247,6 +304,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
         this.duration = drug.getDuration();
         this.durUnit = drug.getDurationUnit();
         this.quantity = drug.getQuantity();
+        this.medicationComponents = drug.getMedicationComponents();
         this.repeat = drug.getRepeat();
         this.lastRefillDate = drug.getLastRefillDate();
         this.noSubs = drug.getCdsCurrentness() == null
@@ -327,8 +385,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public Boolean isHideFromDrugProfile() {
-        if (hideFromDrugProfile == null) hideFromDrugProfile = false;
-        return hideFromDrugProfile;
+        return Boolean.TRUE.equals(hideFromDrugProfile);
     }
 
     public void setHideFromDrugProfile(Boolean c) {
@@ -479,7 +536,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public boolean getHideFromCpp() {
-        return hideFromCpp;
+        return Boolean.TRUE.equals(hideFromCpp);
     }
 
     public void setHideFromCpp(boolean hideFromCpp) {
@@ -528,7 +585,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public float getTakeMin() {
-        return takeMin;
+        return takeMin != null ? takeMin : 0f;
     }
 
     public void setTakeMin(float takeMin) {
@@ -536,7 +593,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public float getTakeMax() {
-        return takeMax;
+        return takeMax != null ? takeMax : 0f;
     }
 
     public void setTakeMax(float takeMax) {
@@ -717,7 +774,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public boolean isCustomInstructions() {
-        return customInstructions;
+        return Boolean.TRUE.equals(customInstructions);
     }
 
     public void setCustomInstructions(boolean customInstructions) {
@@ -750,8 +807,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public Boolean getShortTerm() {
-        if (shortTerm == null) shortTerm = false;
-        return shortTerm;
+        return Boolean.TRUE.equals(shortTerm);
     }
 
     public void setShortTerm(Boolean shortTerm) {
@@ -759,8 +815,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public Boolean isCustomNote() {
-        if (customNote == null) customNote = false;
-        return customNote;
+        return Boolean.TRUE.equals(customNote);
     }
 
     public void setCustomNote(Boolean c) {
@@ -953,7 +1008,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public boolean getStartDateUnknown() {
-        return startDateUnknown;
+        return Boolean.TRUE.equals(startDateUnknown);
     }
 
     public void setStartDateUnknown(boolean startDateUnknown) {

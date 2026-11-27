@@ -52,4 +52,21 @@ class DemographicExportAction42ActionDosageFormatUnitTest {
     void shouldReturnZero_forNullDose() {
         assertThat(DemographicExportAction42Action.plainDosage(null)).isEqualTo("0");
     }
+
+    @Test
+    void shouldWriteDoseAndUnitsToTheLegacyCdsMedicationRecord() throws Exception {
+        var prescription = new io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.Prescription(0, "1", 7);
+        prescription.setUnit("tablet");
+        prescription.setDrugForm("Tablet");
+        prescription.setDosage("250 mg");
+        prescription.setTakeMin(.5f);
+        prescription.setTakeMax(.5f);
+        var record = cds.MedicationsAndTreatmentsDocument.Factory.newInstance();
+        DemographicExportAction42Action.writeMedicationDose(record.addNewMedicationsAndTreatments(), prescription);
+        var factory = javax.xml.parsers.DocumentBuilderFactory.newInstance();
+        factory.setNamespaceAware(true);
+        var xml = factory.newDocumentBuilder().parse(new org.xml.sax.InputSource(new java.io.StringReader(record.xmlText())));
+        assertThat(xml.getElementsByTagNameNS("*", "Dosage").item(0).getTextContent()).isEqualTo("0.5");
+        assertThat(xml.getElementsByTagNameNS("*", "DosageUnitOfMeasure").item(0).getTextContent()).isEqualTo("tablet");
+    }
 }

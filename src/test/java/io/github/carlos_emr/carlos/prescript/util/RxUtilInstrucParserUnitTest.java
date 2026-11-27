@@ -897,6 +897,8 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
         @CsvSource(delimiter = '|', value = {
             "Take 1 tab po tid x 7 days | 21 | 7",
             "Take 1 tab po tid | 21 | 7",
+            "Take 0.5 tab po tid | 7.5 | 5",
+            "Take 1 tab po tid | 0.5 | 0",
             "Take 2 tabs po bid | 28 | 7"
         })
         @DisplayName("should return the stated duration or derive it by dividing the quantity by the daily amount")
@@ -916,6 +918,23 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
 
             assertThat(RxUtil.findDuration(rx)).isEqualTo("7");
             assertThat(rx.getQuantity()).isEqualTo("30");
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"1,000 mL", "1/2 bottle", "2–4 bottles", "1 bottle (120 mL)", "2.5 mL"})
+        void shouldKeepUnavailableDurationAndOriginalQuantity(String quantity) {
+            RxPrescriptionData.Prescription rx = prescriptionWithSpecial("Take 0.5 tab po tid");
+            rx.setQuantity(quantity);
+            assertThat(RxUtil.findDuration(rx)).isNull();
+            assertThat(rx.getQuantity()).isEqualTo(quantity);
+        }
+
+        @Test
+        void shouldSplitACompleteDecimalAndKeepThePackagingDetail() {
+            assertThat(RxUtil.getQuantityFromQuantityText("2.5 mL")).isEqualTo("2.5");
+            assertThat(RxUtil.getUnitNameFromQuantityText("2.5 mL")).isEqualTo("mL");
+            assertThat(RxUtil.getQuantityFromQuantityText("1 bottle (120 mL)")).isEqualTo("1");
+            assertThat(RxUtil.getUnitNameFromQuantityText("1 bottle (120 mL)")).isEqualTo("bottle (120 mL)");
         }
 
         /** Periodic frequencies divide by their exact interval, so three doses every three months last nine months. */

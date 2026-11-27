@@ -257,23 +257,33 @@
                 return dur;
             }
 
-            function calcQuantity() {
-                var takeMax = frm.takeMax.value;
-
-                var dailyMax = freqMax[frm.frequencyCode.selectedIndex];
-                var dur = 1;
-
-                // calculate duration units
-                dur = calculateDuration(frm.durationUnit.value, frm.duration.value);
-
-                var maxQty = (takeMax * dailyMax * dur);
-
-                if (isNaN(maxQty)) {
-
-                } else {
-                    maxQty = Math.ceil(maxQty);
-                    return maxQty;
+            function ceilDispenseQuantity(dose, daily, days, frequency) {
+                // Weekly/monthly counts are stored as floating-point reciprocals in freqMax/Min.
+                var intervals = {Q1WEEK: 7n, Q2WEEK: 14n, Q1MONTH: 30n, Q3MONTH: 90n};
+                var interval = intervals[String(frequency).toUpperCase()];
+                if (!Number.isFinite(daily)) {
+                    return undefined;
                 }
+                var numerator = 1n;
+                var denominator = interval || 1n;
+                for (var value of [dose, interval ? 1 : daily, days]) {
+                    var text = String(value).trim() || "0";
+                    if (text.length > 64 || !/^(?:\d+(?:\.\d+)?|\.\d+)$/.test(text)) {
+                        return undefined;
+                    }
+                    var parts = text.split(".");
+                    var decimals = parts[1] || "";
+                    numerator *= BigInt((parts[0] || "0") + decimals);
+                    denominator *= 10n ** BigInt(decimals.length);
+                }
+                var result = Number((numerator + denominator - 1n) / denominator);
+                return Number.isSafeInteger(result) ? result : undefined;
+            }
+
+            function calcQuantity() {
+                var days = calculateDuration(frm.durationUnit.value, frm.duration.value);
+                return ceilDispenseQuantity(frm.takeMax.value, freqMax[frm.frequencyCode.selectedIndex],
+                    days, frm.frequencyCode.value);
             }
 
             function calcQty() {
@@ -297,15 +307,13 @@
                 dur = calculateDuration(frm.durationUnit.value, frm.duration.value);
 
                 // calculate quantity
-                var minQty = (takeMin * dailyMin * dur);
-                var maxQty = (takeMax * dailyMax * dur);
+                var minQty = ceilDispenseQuantity(takeMin, dailyMin, dur, frm.frequencyCode.value);
+                var maxQty = ceilDispenseQuantity(takeMax, dailyMax, dur, frm.frequencyCode.value);
 
-                if (isNaN(minQty) || isNaN(maxQty)) {
+                if (!Number.isFinite(minQty) || !Number.isFinite(maxQty)) {
                     alert('The value entered is invalid.');
                 } else {
 
-                    minQty = Math.ceil(minQty);
-                    maxQty = Math.ceil(maxQty);
                     frm.sugQtyMin.value = minQty;
                     frm.sugQtyMax.value = maxQty;
                     if (frm.autoQty.checked == true) {
@@ -373,7 +381,7 @@
                     var beforeFirstDigit = "";
 
                     //find first digit
-                    var firstDigitRegExp = /[0-9][0-9,\/,-]*/;
+                    var firstDigitRegExp = /(?:\d+(?:[.,]\d+)?|\.\d+)(?:\s*[/–-]\s*(?:\d+(?:[.,]\d+)?|\.\d+))*/;
                     var b = firstDigitRegExp.exec(origMinusName);
                     if (b) {
                         //regexDebug(b);
@@ -394,19 +402,6 @@
                             }
                         }
                         var firstDigitStringLen = b.index + b[0].length;
-
-                        if (origMinusName.substring(b.index + b[0].length, b.index + b[0].length + 1) == '.') {   //Another Kludge, \. does not seem to work correctly t get values 0.5
-                            firstDigitStringLen++;
-                            var afterDot = /[0-9][0-9]*/;
-                            var afterDotResult = afterDot.exec(origMinusName.substring(firstDigitStringLen));
-                            if (afterDotResult) {
-
-                                //regexDebug(afterDotResult);
-                                if (afterDotResult.index == 0) {
-                                    firstDigitStringLen = firstDigitStringLen + afterDotResult.index + afterDotResult[0].length;
-                                }
-                            }
-                        }
 
                         var afterFirstDigit = origMinusName.substring(firstDigitStringLen);
 
@@ -727,13 +722,6 @@
                 return numcheck.test(keychar)
             }
 
-            function chkQty(val) {
-                if (val.match(/\D/))
-                    return false;
-
-                return true;
-            }
-
             function restoreEditorSelect(select, value) {
                 select.value = value;
                 if (select.value !== value) {
@@ -745,8 +733,8 @@
             function refreshSuggestedQuantity() {
                 var index = frm.frequencyCode.selectedIndex;
                 var duration = calculateDuration(frm.durationUnit.value, frm.duration.value);
-                var minimum = Math.ceil(Number(frm.takeMin.value) * freqMin[index] * duration);
-                var maximum = Math.ceil(Number(frm.takeMax.value) * freqMax[index] * duration);
+                var minimum = ceilDispenseQuantity(frm.takeMin.value, freqMin[index], duration, frm.frequencyCode.value);
+                var maximum = ceilDispenseQuantity(frm.takeMax.value, freqMax[index], duration, frm.frequencyCode.value);
                 if (Number.isFinite(minimum) && Number.isFinite(maximum)) {
                     frm.sugQtyMin.value = minimum;
                     frm.sugQtyMax.value = maximum;
@@ -1293,8 +1281,7 @@
                                     </td>
                                     <td colspan=2 width=65%><input type="text" name="quantity"
                                                                        size="8"
-                                                                       onchange="javascript:if( chkQty(this.value) ) {writeScriptDisplay(); customQty(this.value);}"
-                                                                       onkeypress="return validNum(event);"
+                                                                       onchange="writeScriptDisplay(); customQty(this.value);"
                                                                        onkeyup="customQty(this.value);" value="<carlos:encode value='<%= thisForm.getQuantity() %>' context="htmlAttribute"/>"/> <input
                                             type=button
                                             value="<<" onclick=" javascript:useQtyMax();"/>

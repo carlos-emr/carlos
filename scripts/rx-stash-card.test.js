@@ -214,11 +214,15 @@ for (const helper of ['updateQty', 'parseIntr']) {
         let request;
         let present = true;
         let touchedMissingField = false;
+        const card = {setAttribute() {}, removeAttribute() {}};
         const context = {
             ctx: '/carlos',
             CarlosAjax: { request(url, options) { request = options; } },
             document: { getElementById(id) {
-                if (id === 'set_901') return present ? {} : null;
+                if (id === 'set_901') return present ? card : null;
+                if (present && id === 'draftRevision_901') return {value: 'current-revision'};
+                if (present && id === 'rxCalculationStatus_901') return {dataset: {}};
+                if (present && id === 'rxCalculationRetry_901') return {};
                 touchedMissingField = true;
                 throw new Error('removed card fields must not be read');
             } },
