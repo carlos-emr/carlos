@@ -2812,7 +2812,12 @@ function updateQty(element){
 }
     function applyCalculatedDose(id, dose) {
         var field = document.getElementById(id);
-        field.textContent = dose == null ? '' : String(dose);
+        var text = dose == null ? '' : String(dose);
+        // JSON numbers already carry the recorded float precision. Expand any exponent for display and blur.
+        if (typeof dose === 'number' && /e/i.test(text)) {
+            text = dose.toLocaleString('en-US', {useGrouping: false, maximumSignificantDigits: 21});
+        }
+        field.textContent = text;
         field.dataset.storedDose = field.textContent;
         field.removeAttribute('aria-invalid');
     }

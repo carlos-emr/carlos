@@ -333,9 +333,9 @@ async function workflow(s) {
   });
   await s.step('missing directions stay missing on a new BPMH with an otherwise documented medication', async () => {
     const name = `FAKE unspecified dose ${tag}`;
-    const missing = sql.value(`INSERT INTO drugs (provider_no,demographic_no,rx_date,end_date,written_date,customName,special,
+    const missing = sql.value(`INSERT INTO drugs (provider_no,demographic_no,rx_date,end_date,written_date,customName,special,special_instruction,
         archived,archived_reason,create_date,position,lastUpdateDate,dispenseInternal,quantity,takemin,takemax,unit,drug_form)
-      VALUES (${q(provider)},${patient},CURDATE(),DATE_ADD(CURDATE(),INTERVAL 30 DAY),CURDATE(),${q(name)},${q(name)},
+      VALUES (${q(provider)},${patient},CURDATE(),DATE_ADD(CURDATE(),INTERVAL 30 DAY),CURDATE(),${q(name)},${q(name + "\r\nSupply blister pack\r\n")},'Supply blister pack',
         0,'',NOW(),19,NOW(),0,'30.0',NULL,NULL,'mg','TAB'); SELECT LAST_INSERT_ID()`);
     h.assert(/^[1-9]\d*$/.test(missing), 'The missing-dose fixture was not created');
     sql.execute(`INSERT INTO drugReason (drugId,codingSystem,code,comments,primaryReasonFlag,archivedFlag,demographicNo,providerNo,dateCoded)

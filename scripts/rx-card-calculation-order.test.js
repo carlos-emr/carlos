@@ -49,6 +49,10 @@ for (const action of ['parseIntr', 'updateQty']) {
     assert.equal(f.field('minimum').dataset.storedDose, '0.0009765625');
     assert.equal(f.field('minimum').textContent, '0.0009765625');
     assert.equal(f.field('maximum').dataset.storedDose, '');
+    f.context[action](f.field(action === 'parseIntr' ? 'instructions' : 'quantity'));
+    f.reply(f.requests[1], { takeMin: 1e-10 });
+    assert.equal(f.field('minimum').dataset.storedDose, '0.0000000001');
+    assert.equal(f.field('minimum').textContent, '0.0000000001');
   });
 }
 

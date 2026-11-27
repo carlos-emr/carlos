@@ -75,13 +75,23 @@ async function workflow(s) {
 
   await s.step('a quantity typed with a decimal amount and a unit is saved whole', async () => {
     const key = await stageCustomDrug(rx, `${marker} liquid`);
-    await rx.locator(`#instructions_${key}`).fill('Apply as directed');
+    await rx.locator(`#instructions_${key}`).fill('0.0000000001 tab po od');
     const [parsed] = await Promise.all([
       rx.waitForResponse(response => isPost(response, '/rx/UpdateScript')),
       rx.locator(`label[for="jsonDxSearch_${key}"]`).click(),
     ]);
     h.assert(parsed.status() === 200, 'The card instructions were not parsed');
     await rx.waitForLoadState('networkidle');
+    const minimum = rx.locator(`#minimum_${key}`);
+    h.assert((await minimum.textContent()).trim() === low && await minimum.getAttribute('data-stored-dose') === low,
+      'The card did not retain the plain-decimal dose accepted by the instruction parser');
+    await rx.locator(`a[onclick="focusTo('minimum_${key}')"]`).click();
+    const [confirmed] = await Promise.all([
+      rx.waitForResponse(response => isPost(response, '/rx/WriteScript')
+        && new URLSearchParams(response.request().postData()).get('elementId') === `minimum_${key}`),
+      minimum.blur(),
+    ]);
+    h.assert(confirmed.status() === 200, 'The server refused the unchanged calculated dose');
     const quantity = rx.locator(`#quantity_${key}`);
     await quantity.fill('2.5 mL');
     const [updated] = await Promise.all([
