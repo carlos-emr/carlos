@@ -14,8 +14,10 @@ package io.github.carlos_emr.carlos.prescript.data;
 
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.prescript.util.RxDrugRef;
+import io.github.carlos_emr.carlos.prescript.util.SimpleXmlRpcClient;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
 import java.util.Vector;
@@ -29,6 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.when;
 
@@ -106,6 +109,29 @@ class RxDrugDataAtcClassAllergyUnitTest {
             assertThat(new RxDrugData().getAllergyWarnings(BIAXIN, new Allergy[]{penicillins}, new ArrayList<>()))
                     .usingElementComparator(SAME).containsExactly(penicillins);
         }
+    }
+
+    @Test
+    @DisplayName("should keep confirmed warnings and leave ingredients unchecked after a DIN mismatch")
+    void shouldKeepConfirmedWarnings_whenDrugRefReturnsAnotherProductsIngredients() throws Exception {
+        Allergy confirmed = classAllergy("PENICILLINS", "J01C");
+        Allergy unchecked = classAllergy("SULFONAMIDES", "J01E");
+        List<Allergy> missing = new ArrayList<>();
+        var ingredient = new Hashtable<>(Map.of("name", "EZETIMIBE", "strength", "10", "unit", "MG"));
+        var unrelated = new Hashtable<>(Map.of("regional_identifier", "02247521",
+                "components", new Vector<>(List.of(ingredient))));
+        var warnings = new Hashtable<>(Map.of("warnings", new Vector<>(List.of("0")),
+                "missing", new Vector<>(List.of("1"))));
+
+        try (MockedConstruction<SimpleXmlRpcClient> ignored = mockConstruction(SimpleXmlRpcClient.class,
+                (client, context) -> {
+                    when(client.execute(eq("get_allergy_warnings"), any())).thenReturn(new Vector<>(List.of(warnings)));
+                    when(client.execute(eq("get_drug_by_DIN"), any())).thenReturn(new Vector<>(List.of(unrelated)));
+                })) {
+            assertThat(new RxDrugData().getAllergyWarnings(HP_PAC, new Allergy[]{confirmed, unchecked}, missing, "02041413"))
+                    .usingElementComparator(SAME).containsExactly(confirmed);
+        }
+        assertThat(missing).usingElementComparator(SAME).containsExactly(unchecked);
     }
 
     @Test

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/form/FrmRecordFactory.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "b379358d6d09bc5662a3423bbc84001b6af8a681"
+  },
+  "evidenceSha256": "adaaab45a70f5bda8eeccf055524a91cf74ac6a15433bee9236539eb7e58401f"
+}

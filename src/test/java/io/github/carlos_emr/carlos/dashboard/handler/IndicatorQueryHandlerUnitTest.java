@@ -182,4 +182,34 @@ class IndicatorQueryHandlerUnitTest {
         }
         assertThat(total).isEqualTo(Double.valueOf(14));
     }
+
+    @Test
+    @DisplayName("createOriginalGraphPlots emits strict JSON for several rows, odd labels and null values")
+    void shouldEmitStrictJson_forOriginalGraphPlotsOfAnyShape() throws Exception {
+        java.util.Map<String, Object> first = new java.util.LinkedHashMap<>();
+        first.put("A", new java.math.BigDecimal("1"));
+        first.put("it's \"B\"", 2L);
+        java.util.Map<String, Object> second = new java.util.LinkedHashMap<>();
+        second.put("C", null);
+        second.put("D", 3.5);
+
+        String json = IndicatorQueryHandler.createOriginalGraphPlots(List.of(first, second));
+
+        com.fasterxml.jackson.databind.JsonNode tree = new com.fasterxml.jackson.databind.ObjectMapper().readTree(json);
+        assertThat(tree.get("results")).hasSize(4);
+        assertThat(tree.at("/results/0/A").asInt()).isEqualTo(1);
+        assertThat(tree.at("/results/1").fieldNames().next()).isEqualTo("it's \"B\"");
+        assertThat(tree.at("/results/1").elements().next().asInt()).isEqualTo(2);
+        assertThat(tree.at("/results/2/C").isNull()).isTrue();
+        assertThat(tree.at("/results/3/D").asDouble()).isEqualTo(3.5);
+    }
+
+    @Test
+    @DisplayName("createOriginalGraphPlots is valid JSON with no rows or a row without columns")
+    void shouldEmitEmptyResults_whenThereAreNoRowsOrColumns() throws Exception {
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        assertThat(mapper.readTree(IndicatorQueryHandler.createOriginalGraphPlots(List.of())).get("results")).isEmpty();
+        assertThat(mapper.readTree(IndicatorQueryHandler.createOriginalGraphPlots(List.of(new HashMap<String, Object>())))
+                .get("results")).isEmpty();
+    }
 }

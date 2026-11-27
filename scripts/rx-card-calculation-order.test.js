@@ -25,17 +25,19 @@ function fixture() {
     }
   }
   const requests = [];
+  const quotes = [];
   const context = {
     ctx: '/carlos', encodeURIComponent, alert() {},
+    refreshDrugPrice(card, quantity) { quotes.push({ card, quantity }); },
     document: { getElementById: id => elements.get(id) },
     CarlosAjax: { request(url, options) { requests.push({ url, options }); } },
   };
   vm.runInNewContext(source, context);
   const reply = (request, values) => request.options.onSuccess({ responseText: JSON.stringify({
     method: 'tab', route: 'PO', takeMin: 1, takeMax: 1, frequency: 'BID', duration: '14',
-    durationUnit: 'D', calQuantity: '28', unitName: null, prn: false, ...values,
+    durationUnit: 'D', calQuantity: '28', priceQuantity: '28', unitName: null, prn: false, ...values,
   }) });
-  return { context, elements, requests, reply, field: (prefix, card = '11') => elements.get(`${prefix}_${card}`) };
+  return { context, elements, requests, quotes, reply, field: (prefix, card = '11') => elements.get(`${prefix}_${card}`) };
 }
 
 test('a delayed staging quantity response cannot erase newer parsed directions (#5183)', () => {
@@ -51,6 +53,7 @@ test('a delayed staging quantity response cannot erase newer parsed directions (
   assert.equal(f.field('quantityStr').textContent, '28');
   assert.equal(f.field('quantity').value, '28');
   assert.equal(f.field('minimum').attributes.has('aria-invalid'), false);
+  assert.deepEqual(f.quotes, [{ card: '11', quantity: '28' }]);
 });
 
 test('the latest quantity calculation updates its card and does not invalidate another card', () => {
@@ -58,13 +61,26 @@ test('the latest quantity calculation updates its card and does not invalidate a
   f.context.updateQty(f.field('quantity'));
   f.context.updateQty(f.field('quantity', '22'));
   f.context.updateQty(f.field('quantity'));
-  f.reply(f.requests[2], { duration: '7', calQuantity: '14' });
-  f.reply(f.requests[1], { frequency: 'OD', duration: '30', calQuantity: '30' });
+  f.reply(f.requests[2], { duration: '7', calQuantity: '14', priceQuantity: '14' });
+  f.reply(f.requests[1], { frequency: 'OD', duration: '30', calQuantity: '30', priceQuantity: '30' });
   f.reply(f.requests[0]);
   assert.equal(f.field('duration').textContent, '7');
   assert.equal(f.field('quantityStr').textContent, '14');
   assert.equal(f.field('frequency', '22').textContent, 'OD');
   assert.equal(f.field('duration', '22').textContent, '30');
+  assert.deepEqual(f.quotes, [{ card: '11', quantity: '14' }, { card: '22', quantity: '30' }]);
+});
+
+test('a quantity calculation completed during a subsequent edit cannot quote the previous value', () => {
+  const f = fixture();
+  f.field('quantity').value = '30 tabs';
+  f.context.updateQty(f.field('quantity'));
+  f.field('quantity').value = '30 days';
+  f.reply(f.requests[0], { calQuantity: '30', priceQuantity: '30' });
+  assert.deepEqual(f.quotes, []);
+  f.context.updateQty(f.field('quantity'));
+  f.reply(f.requests[1], { calQuantity: '30', priceQuantity: null, unitName: 'days' });
+  assert.deepEqual(f.quotes, [{ card: '11', quantity: null }]);
 });
 
 test('a response for a discarded card cannot change a replacement with the same id', () => {

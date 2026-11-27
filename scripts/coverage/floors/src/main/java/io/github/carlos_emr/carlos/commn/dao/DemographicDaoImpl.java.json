@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/dao/DemographicDaoImpl.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 86.77248677248677,
+    "instructions": 86.61016949152543,
+    "branches": 72.52747252747253,
+    "sourceBlob": "e83ab6c1a2eaf65599d14d2624ae4dd3f6759fe1"
+  },
+  "evidenceSha256": "b9b96dc8024730d71b5018081176c3eb8ddd5e20fcb2212859c0bd5aa73293ef"
+}

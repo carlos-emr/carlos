@@ -4,7 +4,12 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const {DatabaseSync} = require('node:sqlite');
+let DatabaseSync;
+try {
+  ({ DatabaseSync } = require('node:sqlite'));
+} catch (error) {
+  if (error.code !== 'ERR_UNKNOWN_BUILTIN_MODULE') throw error;
+}
 const REPO = process.env.DOUBLE_SUBMIT_BILLING_REPO_ROOT || path.resolve(__dirname, '..');
 const CALLERS = process.env.DOUBLE_SUBMIT_BILLING_CALLER_ROOT || __dirname;
 const SCRIPT = path.join(CALLERS, 'double-submit-billing-on-playwright-checks.js');
@@ -96,22 +101,22 @@ function fixture(body, options = {}) {
 }
 async function openOwnedLink(f) {await assert.rejects(f.subject.workflow(f.s),new RegExp(STOP));assert.equal(f.state.popup,true);}
 
-test('actual caller INSERT uses the displayed authorized named site so the native JSP exposes its exact owned billing link',()=>fixture(async f=>{
+test('actual caller INSERT uses the displayed authorized named site so the native JSP exposes its exact owned billing link',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
   await openOwnedLink(f);const [a]=f.appointments();assert.equal(a.location,'West Clinic');assert.equal(a.appointment_date,'2024-05-06');
   assert.equal(a.provider_no,'999998');assert.equal(a.demographic_no,41);assert.equal(a.name,`${MARKER},Workflow`);
   assert.equal(a.reason,`${MARKER}-dblclick bill`);assert.equal(a.notes,a.reason);assert.ok(f.visible(a));
   assert.equal(f.state.billLocators[0],`a[onclick*="/billing?billRegion"][onclick*="appointment_no=${a.appointment_no}&"]`);
 }));
-test('an already displayed All Clinics view uses a real authorized site without changing the view',()=>fixture(async f=>{
+test('an already displayed All Clinics view uses a real authorized site without changing the view',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
   await openOwnedLink(f);assert.equal(f.state.current,'none');assert.equal(f.appointments()[0].location,'West Clinic');
 },{current:'none'}));
-test('a displayed East Clinic remains East and never switches to another offered clinic',()=>fixture(async f=>{
+test('a displayed East Clinic remains East and never switches to another offered clinic',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
   await openOwnedLink(f);assert.equal(f.state.current,'East Clinic');assert.equal(f.appointments()[0].location,'East Clinic');
 },{current:'East Clinic'}));
-test('legacy nonmultisite view keeps its blank location and exact appointment link',()=>fixture(async f=>{
+test('legacy nonmultisite view keeps its blank location and exact appointment link',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
   await openOwnedLink(f);assert.equal(f.appointments()[0].location,'');assert.ok(f.visible(f.appointments()[0]));
 },{multisites:false}));
-test('explicit historical billing date override is retained rather than using today',()=>fixture(async f=>{
+test('explicit historical billing date override is retained rather than using today',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
   await openOwnedLink(f);assert.equal(f.appointments()[0].appointment_date,'2023-08-09');
 },{billDate:'2023-08-09'}));
 for(const [name,options]of[
@@ -121,26 +126,26 @@ for(const [name,options]of[
   ['unoffered clinic',{current:'Unknown Clinic'}],
   ['missing named site',{current:'none',sites:['none']}],
   ['wrong displayed billing day',{displayedDate:'2024-05-07'}],
-])test(`${name} refuses before any patient or appointment write`,()=>fixture(async f=>{
+])test(`${name} refuses before any patient or appointment write`,{ skip: !DatabaseSync }, ()=>fixture(async f=>{
   await assert.rejects(f.subject.workflow(f.s));assert.equal(f.state.writes.length,0);assert.equal(f.appointments().length,0);assert.equal(f.state.popup,false);
 },options));
-test('changed site after appointment creation fails instead of loosening the locator or changing preferences',()=>fixture(async f=>{
+test('changed site after appointment creation fails instead of loosening the locator or changing preferences',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
   await assert.rejects(f.subject.workflow(f.s),/native schedule context changed/);assert.equal(f.appointments().length,1);
   assert.equal(f.appointments()[0].location,'West Clinic');assert.equal(f.state.current,'East Clinic');assert.equal(f.state.popup,false);assert.deepEqual(f.state.billLocators,[]);
 },{reloadSite:'East Clinic'}));
-test('native context reads precede fixture writes and do not mutate memberships or preferences',()=>fixture(async f=>{
+test('native context reads precede fixture writes and do not mutate memberships or preferences',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
   await openOwnedLink(f);assert.equal(f.state.queries.filter(q=>q.includes('COUNT(DISTINCT site.site_id)')).length,3);
   assert.ok(f.state.writes.every(q=>!/\b(?:site|providersite|userProperty|user_properties)\b/.test(q)));
 }));
-test('failed browser closure retains owned billing appointments and prevents all DELETEs',()=>fixture(async f=>{
+test('failed browser closure retains owned billing appointments and prevents all DELETEs',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
   await openOwnedLink(f);f.state.connected=true;assert.throws(()=>f.state.callbacks[0](),/browser closure/);
   assert.equal(f.appointments().length,1);assert.equal(f.state.writes.filter(q=>q.startsWith('DELETE')).length,0);
 },{multisites:false}));
-test('changed live patient marker retains billing appointment evidence',()=>fixture(async f=>{
+test('changed live patient marker retains billing appointment evidence',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
   await openOwnedLink(f);f.db.exec("UPDATE demographic SET last_name='FOREIGN' WHERE demographic_no=41");
   assert.throws(()=>f.state.callbacks[0](),/patient identity changed/);assert.equal(f.appointments().length,1);
 },{multisites:false}));
-test('confirmed closed browser cleanup still removes the exact appointment and preserves a foreign row',()=>fixture(async f=>{
+test('confirmed closed browser cleanup still removes the exact appointment and preserves a foreign row',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
   await openOwnedLink(f);f.db.exec("INSERT INTO appointment(appointment_no,provider_no,demographic_no,location) VALUES(99,'999997',42,'East Clinic')");
   f.state.callbacks[0]();assert.equal(f.appointments().length,1);assert.equal(f.appointments()[0].demographic_no,42);
 },{multisites:false}));

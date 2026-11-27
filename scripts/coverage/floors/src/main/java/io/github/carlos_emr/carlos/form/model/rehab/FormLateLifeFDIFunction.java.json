@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/FormLateLifeFDIFunction.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "873bfcced1bc1857aa80908bc4b933c0329b0858"
+  },
+  "evidenceSha256": "adaaab45a70f5bda8eeccf055524a91cf74ac6a15433bee9236539eb7e58401f"
+}

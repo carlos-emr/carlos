@@ -157,7 +157,7 @@ class InheritedHandlerLogPrivacyUnitTest extends CarlosUnitTestBase {
         json.putArray("queryList").add(ATTACK);
         request.setParameter("data", Base64.getEncoder().encodeToString(json.toString().getBytes(StandardCharsets.UTF_8)));
         try (var capture = LogCapture.forLogger(OutcomesDashboard2Action.class)) {
-            assertThat(new OutcomesDashboard2Action().execute()).isNull();
+            assertThat(new OutcomesDashboard2Action().execute()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
             verify(providers).getProvider(login, "999998");
             assertThat(response.getStatus()).isEqualTo(200);
             assertThat(response.getContentType()).startsWith("application/json");

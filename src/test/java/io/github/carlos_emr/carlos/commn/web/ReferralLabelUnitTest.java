@@ -94,6 +94,28 @@ class ReferralLabelUnitTest extends CarlosWebTestBase {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void shouldConsumeOnlyThePrintedSnapshot_whenAnotherTabChangesTheChecklist(boolean changed) throws Exception {
+        var action = action();
+        var original = mock(ProfessionalSpecialist.class);
+        when(original.getId()).thenReturn(7);
+        var next = mock(ProfessionalSpecialist.class);
+        when(next.getId()).thenReturn(8);
+        var session = mockRequest.getSession();
+        session.setAttribute("billingReferralAdminCheckList", List.of(original));
+        mockRequest.setParameter("useCheckList", "true");
+        doAnswer(invocation -> {
+            if (changed) session.setAttribute("billingReferralAdminCheckList", List.of(next));
+            return pdf("Printed selection");
+        }).when(action).renderLabel(any(), eq("7"));
+
+        assertThat(action.execute()).isEqualTo("none");
+        assertThat(mockResponse.getContentType()).isEqualTo("application/pdf");
+        assertThat(session.getAttribute("billingReferralAdminCheckList"))
+                .isEqualTo(changed ? List.of(next) : List.of());
+    }
+
     @Test
     void shouldPreserveChecklistAndReturnError_whenLaterLabelFails() throws Exception {
         PrintReferralLabel2Action action = action();

@@ -147,7 +147,10 @@ public class SupServiceCodeAssoc2Action extends ActionSupport {
         request.setAttribute("actionErrors", renderedErrors);
         int requestedPage;
         try { requestedPage = io.github.carlos_emr.carlos.utility.ServerTablePage.requested(request); }
-        catch (IllegalArgumentException invalidPage) { response.setStatus(400); return NONE; }
+        catch (IllegalArgumentException invalidPage) {
+            response.setStatus(400);
+            return NONE;
+        }
         var page = dao.getServiceCodeAssociationsPage(requestedPage);
         request.setAttribute("list", page.getRows());
         io.github.carlos_emr.carlos.utility.ServerTablePage.publish(request, page,
