@@ -1,0 +1,115 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "claims",
+    "sections",
+    "coverage"
+  ],
+  "properties": {
+    "claims": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "text",
+          "source_ids"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,80}$"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_ids": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "sections": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "claim_ids"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "clinical_overview",
+              "active_problems",
+              "medications_allergies",
+              "results_observations",
+              "plan_follow_up"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "enum": [
+              "Clinical overview",
+              "Active problems",
+              "Medications and allergies",
+              "Results and observations",
+              "Plan and follow-up"
+            ]
+          },
+          "claim_ids": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "coverage": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_id",
+          "status",
+          "reason"
+        ],
+        "properties": {
+          "source_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "reviewed_not_cited",
+              "excluded"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

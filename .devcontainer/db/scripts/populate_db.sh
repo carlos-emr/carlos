@@ -134,6 +134,10 @@ $SQL carlos < /scripts/demo-specialists.sql
 echo 'Preparing demographic and provider names for development environment...'
 $SQL carlos < /scripts/demo-name-sanitization.sql
 $SQL carlos < /scripts/demo-name-sanitization-on.sql
+echo 'Adding NHS synthetic development patients...'
+$SQL carlos < /scripts/nhs-synthetic/patients.sql
+# The NHS synthetic patients above take ordinary auto-increment numbers, so they are inserted
+# before the range-owning file below (90001-90099), which deletes that range first.
 # Synthetic patients with full histories for the AI chart tools (#6148): 22 FAKE adults
 # generated once with Synthea (scripts/devdata/synthea/run_synthea.sh) and converted by generate_dev_patients.py.
 # Loaded after the sanitization, whose rules they already meet (FAKE- names). Additive and

@@ -26,6 +26,7 @@ COPY ./.devcontainer/db/scripts/demo-hrm-report.sql /scripts/demo-hrm-report.sql
 COPY ./.devcontainer/db/scripts/demo-synthetic-patients.sql /scripts/demo-synthetic-patients.sql
 COPY ./.devcontainer/db/scripts/admin_test_data.sql /scripts/admin_test_data.sql
 COPY ./.devcontainer/db/scripts/admin_test_account.sql /scripts/admin_test_account.sql
+COPY ./.devcontainer/db/scripts/nhs-synthetic /scripts/nhs-synthetic
 # The Query by Example reporting-account grant list: the copy the WAR ships (issue #3372).
 COPY ./src/main/resources/db/reporting/carlos_report_grants.sql /scripts/carlos_report_grants.sql
 COPY ./database /database

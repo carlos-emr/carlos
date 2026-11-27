@@ -1,0 +1,17 @@
+# Optional NVIDIA GPU access for Ollama running inside the CARLOS devcontainer.
+# Add this after docker-compose.yml in devcontainer.json's dockerComposeFile list.
+# Requires a working NVIDIA GPU/container runtime on the Docker host.
+services:
+  carlos:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    volumes:
+      - ollama-models:/root/.ollama
+
+volumes:
+  ollama-models:
