@@ -453,6 +453,24 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldMarkDurationSpecifiedByUser_whenDurationUpdatedInline() throws Exception {
+        card.setDurationSpecifiedByUser(false);
+        card.setDuration("30");
+        card.setDurationUnit("D");
+        card.setTakeMax(1f);
+        card.setFrequencyCode("OD");
+        request.setParameter("elementId", "duration_1");
+        request.setParameter("propertyValue", "14");
+
+        assertThat(action.updateProperty()).isNull();
+        assertThat(card.getDuration()).isEqualTo("14");
+        assertThat(card.isDurationSpecifiedByUser()).isTrue();
+
+        action.calculateStagedQuantity(card, "30");
+        assertThat(card.getDuration()).isEqualTo("14");
+    }
+
+    @Test
     void shouldRestoreCalculationSequence_whenSavedIdentityIsRestoredAfterRollback() {
         String originalRevision = card.getDraftRevision();
         var calculated = card.copyForCalculation();

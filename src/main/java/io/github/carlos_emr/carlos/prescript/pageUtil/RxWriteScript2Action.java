@@ -1396,7 +1396,10 @@ public final class RxWriteScript2Action extends ActionSupport {
                     rx.setTakeMax(dose);
                 }
             } else if (elem.equals("duration_" + num)) {
-                if (!val.equals("") && !val.equalsIgnoreCase("null")) rx.setDuration(val);
+                if (!val.equals("") && !val.equalsIgnoreCase("null")) {
+                    rx.setDuration(val);
+                    rx.setDurationSpecifiedByUser(true);
+                }
             } else if (elem.equals("durationUnit_" + num)) {
                 if (!val.equals("") && !val.equalsIgnoreCase("null")) rx.setDurationUnit(val);
             } else if (elem.equals("repeats_" + num)) {

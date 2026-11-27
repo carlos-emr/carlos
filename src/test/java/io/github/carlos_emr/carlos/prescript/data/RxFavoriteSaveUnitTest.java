@@ -118,4 +118,30 @@ class RxFavoriteSaveUnitTest extends CarlosUnitTestBase {
         assertThat(favorite.Save()).isTrue();
         assertThat(field.get(stored)).isEqualTo(Boolean.TRUE);
     }
+
+    @Test
+    void shouldCopyMedicationComponents_whenAddingDrugViaStaticAddToFavorites() {
+        FavoriteDao dao = mock(FavoriteDao.class);
+        registerMock(FavoriteDao.class, dao);
+        doAnswer(invocation -> {
+            Favorite saved = invocation.getArgument(0);
+            saved.setId(99);
+            return saved;
+        }).when(dao).createOrFind(any(Favorite.class));
+
+        String components = "[{\"name\":\"Amoxicillin\",\"strength\":\"500\",\"unit\":\"mg\"}]";
+        var drug = new io.github.carlos_emr.carlos.commn.model.Drug();
+        drug.setBrandName("SyntheticCombo");
+        drug.setGenericName("Amoxicillin 500mg");
+        drug.setSpecial("Take 1 tab BID");
+        drug.setMedicationComponents(components);
+
+        assertThat(RxPrescriptionData.addToFavorites("999998", "Combo fav", drug)).isTrue();
+        verify(dao).createOrFind(argThat((Favorite favorite) -> components.equals(favorite.getMedicationComponents())));
+
+        clearInvocations(dao);
+        drug.setMedicationComponents(null);
+        assertThat(RxPrescriptionData.addToFavorites("999998", "Legacy fav", drug)).isTrue();
+        verify(dao).createOrFind(argThat((Favorite favorite) -> favorite.getMedicationComponents() == null));
+    }
 }

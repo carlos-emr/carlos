@@ -191,6 +191,46 @@ class BpmhDrugUnitTest {
         drug.setHow(null);
         drug.setSpecial("Synthetic\nQty: confirm remaining tablets before resuming Repeats: reassess at next visit");
         assertThat(drug.getHow()).isEqualTo("Qty: confirm remaining tablets before resuming Repeats: reassess at next visit");
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nQty:30 tablets then taper to 15 Repeats:0");
+        assertThat(drug.getHow()).isEqualTo("Qty:30 tablets then taper to 15 Repeats:0");
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nQty:30 Repeats:2.5");
+        assertThat(drug.getHow()).isEqualTo("Qty:30 Repeats:2.5");
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nQty:30 Repeats:");
+        assertThat(drug.getHow()).isEqualTo("Qty:30 Repeats:");
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nQty:30 Repeats:1a");
+        assertThat(drug.getHow()).isEqualTo("Qty:30 Repeats:1a");
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nQty:30mg Repeats:1");
+        assertThat(drug.getHow()).isEqualTo("Qty:30mg Repeats:1");
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nQty:30 (120 mL) Repeats:0");
+        assertThat(drug.getHow()).isEqualTo("Qty:30 (120 mL) Repeats:0");
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nQty:30 mL) Repeats:0");
+        assertThat(drug.getHow()).isEqualTo("Qty:30 mL) Repeats:0");
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nQty:30 bottle (120 mL Repeats:0");
+        assertThat(drug.getHow()).isEqualTo("Qty:30 bottle (120 mL Repeats:0");
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nQty:30 mL, call clinic Repeats:0");
+        assertThat(drug.getHow()).isEqualTo("Qty:30 mL, call clinic Repeats:0");
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nQty:abc Repeats:1");
+        assertThat(drug.getHow()).isEqualTo("Qty:abc Repeats:1");
     }
 
     @Test
@@ -207,9 +247,21 @@ class BpmhDrugUnitTest {
         drug.usePrescriptionDirections(null, null, "TAB", false);
         assertThat(drug.getHow()).isEqualTo("Take 1 TAB BID PO");
 
+        drug.setFreqCode("");
+        drug.usePrescriptionDirections(null, null, "TAB", true);
+        assertThat(drug.getHow()).isEqualTo("Take 1 TAB PO PRN");
+
         drug.setFreqCode("PRN");
         drug.usePrescriptionDirections(null, null, "TAB", true);
         assertThat(drug.getHow()).isEqualTo("Take 1 TAB PRN PO");
+
+        drug.setFreqCode("Q4H, PRN!");
+        drug.usePrescriptionDirections(null, null, "TAB", true);
+        assertThat(drug.getHow()).isEqualTo("Take 1 TAB Q4H, PRN! PO");
+
+        drug.setFreqCode("BID!");
+        drug.usePrescriptionDirections(null, null, "TAB", true);
+        assertThat(drug.getHow()).isEqualTo("Take 1 TAB BID! PO PRN");
 
         drug.setSpecial("Take 1 tablet for breakthrough pain");
         drug.usePrescriptionDirections(null, null, "TAB", true);
@@ -219,6 +271,10 @@ class BpmhDrugUnitTest {
     @Test
     void shouldLeaveDirectionsMissing_whenOnlyDispensingInstructionsWereRecorded() {
         drug.setSpecial("Qty:30 Repeats:1");
+        assertThat(drug.getHow()).isEmpty();
+
+        drug.setHow(null);
+        drug.setSpecial("Qty:1 pre-filled/mL (120 mL) Repeats:0");
         assertThat(drug.getHow()).isEmpty();
 
         drug.setGenericName("Synthetic");

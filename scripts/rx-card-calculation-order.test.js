@@ -165,3 +165,16 @@ test('a 409 STALE_RX_STASH calculation conflict offers Reopen instead of Retry',
   assert.equal(f.elements.get('rxCalculationRetry_11').hidden, true);
   assert.equal(f.elements.get('rxCalculationReopen_11').hidden, false);
 });
+
+test('a returning calculation does not unblock Save or advance calculationAck while inline reconciliation is pending', () => {
+  const f = fixture();
+  f.elements.set('calculationAck_11', { value: '0' });
+  f.context.updateQty(f.field('quantity'));
+  f.field('set')._rxNeedsReconciliation = true;
+  f.field('set')._rxPropertyVersions = { maximum: 1 };
+  f.field('maximum').textContent = '2';
+  f.reply(f.requests[0], { takeMax: 1, duration: '30' });
+  assert.equal(f.field('maximum').textContent, '2');
+  assert.equal(f.elements.get('calculationAck_11').value, '0');
+  assert.equal(f.field('set').attributes.get('data-calculation-blocked'), 'true');
+});

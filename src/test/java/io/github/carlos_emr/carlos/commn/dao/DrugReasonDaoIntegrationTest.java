@@ -166,5 +166,34 @@ public class DrugReasonDaoIntegrationTest extends CarlosTestBase {
             assertThat(result).hasSameSizeAs(expectedResult);
             assertThat(result).containsAll(expectedResult);
         }
+
+        @Test
+        @DisplayName("should return matching reasons in deterministic ascending id order")
+        void shouldReturnReasonsInAscendingIdOrder_whenMultipleMatchingReasonsExist() throws Exception {
+            Integer drugId = 20;
+
+            DrugReason first = new DrugReason();
+            EntityDataGenerator.generateTestDataForModelClass(first);
+            first.setDrugId(drugId);
+            first.setCode("Z99");
+            first.setArchivedFlag(false);
+
+            DrugReason second = new DrugReason();
+            EntityDataGenerator.generateTestDataForModelClass(second);
+            second.setDrugId(drugId);
+            second.setCode("A01");
+            second.setArchivedFlag(false);
+
+            dao.persist(first);
+            dao.persist(second);
+            hibernateTemplate.flush();
+
+            List<DrugReason> result = dao.getReasonsForDrugID(drugId, true);
+
+            assertThat(result)
+                    .extracting(DrugReason::getId)
+                    .containsExactly(first.getId(), second.getId());
+            assertThat(first.getId()).isLessThan(second.getId());
+        }
     }
 }

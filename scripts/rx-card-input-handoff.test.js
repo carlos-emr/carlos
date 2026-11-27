@@ -270,6 +270,23 @@ test('an accepted inline dose edit supersedes a pending quantity calculation', (
   s.context.updateQty = el => recalculated.push(el);
   s.context.updateProperty(max.id);
   assert.equal(card._rxPropertyVersions.maximum, 1);
+  assert.equal(card._rxNeedsReconciliation, true);
   s.requests[0].options.onSuccess({ status: 200 });
+  assert.equal(card._rxNeedsReconciliation, false);
+  assert.deepEqual(recalculated, [qty]);
+});
+
+test('an inline dose edit still reconciles when the prior calculation finishes before updateProperty succeeds', () => {
+  const s = cardFields();
+  const card = s.element('set_5', { _rxCalculationPending: true });
+  const qty = s.element('quantity_5', { value: '30' });
+  const max = s.element('maximum_5', { textContent: '2', removeAttribute() {} });
+  const recalculated = [];
+  s.context.updateQty = el => recalculated.push(el);
+  s.context.updateProperty(max.id);
+  // Prior calculation finishes before updateProperty completes
+  card._rxCalculationPending = false;
+  s.requests[0].options.onSuccess({ status: 200 });
+  assert.equal(card._rxNeedsReconciliation, false);
   assert.deepEqual(recalculated, [qty]);
 });

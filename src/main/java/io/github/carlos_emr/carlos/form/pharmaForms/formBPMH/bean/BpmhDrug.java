@@ -254,10 +254,26 @@ public class BpmhDrug implements java.io.Serializable {
     }
 
     private void setStructuredDirections(String amount, boolean prn) {
-        boolean appendPrn = prn && !org.apache.commons.lang3.Strings.CI.equals("PRN", StringUtils.trimToEmpty(getFreqCode()));
-        how = String.join(" ", java.util.stream.Stream.of(getMethod(), amount, getFreqCode(), getRoute(),
+        String frequency = getFreqCode();
+        boolean appendPrn = prn && !hasPrnToken(frequency);
+        how = String.join(" ", java.util.stream.Stream.of(getMethod(), amount, frequency, getRoute(),
                         appendPrn ? "PRN" : null)
                 .filter(StringUtils::isNotBlank).toList());
+    }
+
+    private static boolean hasPrnToken(String text) {
+        if (StringUtils.isBlank(text)) return false;
+        int start = 0;
+        while (start < text.length()) {
+            while (start < text.length() && !Character.isLetterOrDigit(text.charAt(start))) start++;
+            int end = start;
+            while (end < text.length() && Character.isLetterOrDigit(text.charAt(end))) end++;
+            if (org.apache.commons.lang3.Strings.CI.equals("PRN", text.substring(start, end))) {
+                return true;
+            }
+            start = end;
+        }
+        return false;
     }
 
     private static boolean isDispensingTrailer(String line) {
@@ -266,16 +282,51 @@ public class BpmhDrug implements java.io.Serializable {
         if (repeatsIndex < 4) return false;
         String qtyPart = line.substring(4, repeatsIndex).strip();
         String repeatsPart = line.substring(repeatsIndex + " Repeats:".length()).strip();
-        return startsWithPlainDecimal(qtyPart) && isPlainDecimal(repeatsPart);
+        if (!isPlainInteger(repeatsPart)) return false;
+        int numberEnd = plainDecimalEnd(qtyPart);
+        if (numberEnd == 0) return false;
+        if (numberEnd == qtyPart.length()) return true;
+        if (!Character.isWhitespace(qtyPart.charAt(numberEnd))) return false;
+        return isDispenseUnitTrailer(qtyPart.substring(numberEnd).strip());
     }
 
-    private static boolean startsWithPlainDecimal(String value) {
-        int end = plainDecimalEnd(value);
-        return end > 0 && (end == value.length() || Character.isWhitespace(value.charAt(end)));
+    private static boolean isPlainInteger(String value) {
+        if (value.isEmpty()) return false;
+        for (int i = 0; i < value.length(); i++) {
+            char ch = value.charAt(i);
+            if (ch < '0' || ch > '9') return false;
+        }
+        return true;
     }
 
-    private static boolean isPlainDecimal(String value) {
-        return !value.isEmpty() && plainDecimalEnd(value) == value.length();
+    private static boolean isDispenseUnitTrailer(String unit) {
+        if (!Character.isLetter(unit.codePointAt(0))) return false;
+        int depth = 0;
+        int wordsOutsideParens = 0;
+        boolean inWord = false;
+        for (int index = 0; index < unit.length();) {
+            int ch = unit.codePointAt(index);
+            index += Character.charCount(ch);
+            if (ch == '(') {
+                depth++;
+                inWord = false;
+            } else if (ch == ')') {
+                if (--depth < 0) return false;
+                inWord = false;
+            } else if (depth == 0) {
+                if (Character.isWhitespace(ch)) {
+                    inWord = false;
+                } else {
+                    if (!Character.isLetter(ch) && ch != '/' && ch != '-') return false;
+                    if (!inWord) {
+                        wordsOutsideParens++;
+                        if (wordsOutsideParens > 2) return false;
+                        inWord = true;
+                    }
+                }
+            }
+        }
+        return depth == 0;
     }
 
     private static int plainDecimalEnd(String value) {
