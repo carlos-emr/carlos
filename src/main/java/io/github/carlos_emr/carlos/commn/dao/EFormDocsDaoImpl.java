@@ -125,4 +125,32 @@ public class EFormDocsDaoImpl extends AbstractDaoImpl<EFormDocs> implements EFor
                 .setLockMode(LockModeType.PESSIMISTIC_WRITE).getResultList();
     }
 
+    @Override
+    public void copyActiveAttachmentsToRevision(Integer sourceFdid, Integer targetFdid) {
+        if (sourceFdid == null || targetFdid == null || sourceFdid.equals(targetFdid)) {
+            throw new IllegalArgumentException("Revision attachment copy requires two distinct eForm instance ids");
+        }
+        EFormData source = entityManager.find(EFormData.class, sourceFdid);
+        EFormData target = entityManager.find(EFormData.class, targetFdid);
+        if (source == null || target == null || source.getDemographicId() == null
+                || !source.getDemographicId().equals(target.getDemographicId())) {
+            throw new IllegalArgumentException("Revision attachment copy requires two eForm instances for the same patient");
+        }
+        List<EFormDocs> attachments = entityManager.createQuery(
+                        "select x from EFormDocs x where x.fdid = :fdid and x.deleted is null order by x.id",
+                        EFormDocs.class)
+                .setParameter("fdid", sourceFdid)
+                .getResultList();
+        for (EFormDocs attached : attachments) {
+            EFormDocs copy = new EFormDocs(targetFdid, attached.getDocumentNo(), attached.getDocType(),
+                    attached.getProviderNo());
+            copy.setLabType(attached.getLabType());
+            copy.setAttachDate(attached.getAttachDate());
+            // Copy existing historical attachment rows verbatim without calling LabAttachmentReference.resolve:
+            // findLabs() still filters by current patientLabRouting when reading labs, while revising an
+            // eForm whose lab was later reassigned to another patient must still succeed.
+            super.persist(copy);
+        }
+    }
+
 }

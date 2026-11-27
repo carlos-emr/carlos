@@ -14,9 +14,13 @@ together.
 - Scoped demographic list/detail/basic/summary reads, both search forms,
   create/update/delete, and database-backed read-after-write.
 - Scoped measurement read and new-measurement write using an owned synthetic BP
-  measurement. Each new reading is saved separately; existing measurements
-  remain unchanged. A `PUT` correction of a measurement is recorded as a `GAP`
-  (HTTP 404/405, see #6136).
+  measurement plus an owned blank-validation free-text type (`4,000`-character
+  multiline value with HTML markup, idempotent retry, case-sensitive retry
+  distinction, `4,001`-character `INVALID_VALUE` refusal, and provider browser
+  verification in `SetupDisplayHistory` and the eChart Measurements box). Each
+  new reading is saved separately; existing measurements remain unchanged. A
+  `PUT` correction of a measurement is recorded as a `GAP` (HTTP 404/405, see
+  #6136).
 - eForm template listing, create, load, update, and persisted read-after-write.
 - Saved patient eForm instances (`/ws/services/eform/instance`): create, read,
   revise (sending a GET response back with new values) and delete, each checked
@@ -62,10 +66,11 @@ time of the request and is stored to the second. A `dateObserved` more than five
 minutes ahead of the server clock is refused with `DATE_OBSERVED_IN_FUTURE`,
 because the latest reading is shown as the patient's current one. Repeating a request with the same `dateObserved` and
 values returns the reading already stored instead of saving a second one, so a
-client that sends `dateObserved` can retry safely. Refusals are HTTP 400 with a
+client that sends `dateObserved` can retry safely. Validation refusals are HTTP 400 with a
 JSON body `{"code": ..., "message": ...}` (`UNKNOWN_TYPE`,
 `INSTRUCTION_REQUIRED`, `AMBIGUOUS_TYPE`, `VALUE_REJECTED`, `INVALID_*`,
-`DATE_OBSERVED_IN_FUTURE`, `UNSUPPORTED_FIELD`). A numeric rule accepts only plain decimals (no exponent,
+`DATE_OBSERVED_IN_FUTURE`, `UNSUPPORTED_FIELD`); authorization, missing-patient,
+and unexpected failures return HTTP 403, 404, 409, or 500. A numeric rule accepts only plain decimals (no exponent,
 hex, `NaN` or `Infinity`), and a date rule only `yyyy-MM-dd`. The endpoint
 creates readings only: it does not correct or replace an existing measurement
 (see #6136), and `PUT` to the measurements service is not routed.

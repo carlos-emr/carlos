@@ -31,7 +31,7 @@
  *   1137                BC billing reprocess notes: no British Columbia work is in scope (issue #4439)
  *   1010 beyond the note body: the CPP editor (value and the six prose boxes), the draft autosave (note) and the
  *                       save-on-switch (noteTxt) name arguments no row here posts
- *   1020, 1050, 1060, 1070, 1080  signature and eForm-editor routes whose arguments are data URIs and HTML documents, not prose
+ *   1020, 1050, 1060, 1070, 1076, 1080  signature and eForm-editor/instance routes whose arguments are data URIs and HTML documents, not prose
  *   1046-1049, 1088-1090  label layouts and the Host header rule: not prose
  *   1101-1103, 1106, 1110-1112, 1114, 1115, 1119, 1121, 1122, 1124, 1127-1133, 1138-1139, 1142
  *                       prose routes outside this plan's route list, still open for a later row

@@ -41,6 +41,8 @@ const {
   SkipCheck, assert, assertNotErrorPage, assertStrictPage, createRecorder, createSqlRunner, insertId,
   gotoApp, launchBrowser, login, newContext, readConfig, runCheck, wirePage, wireStrictPage,
 } = require('./lib/playwright-harness');
+const { releaseChartLocks } = require('./lib/chart-lock-cleanup');
+const { waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 const { oauthHeader, pct } = require('./lib/oauth1-signing');
 
 const EXPECT_OAUTH_MODE = process.env.EXPECT_OAUTH_MODE || 'scoped';
@@ -316,6 +318,20 @@ async function cleanup(state) {
           sql.execute(`DELETE FROM measurementsExt WHERE measurement_id IN
             (SELECT id FROM measurements WHERE demographicNo=?)`, [id]);
           sql.execute('DELETE FROM measurements WHERE demographicNo=?', [id]);
+          sql.execute('DELETE FROM measurementsDeleted WHERE demographicNo=?', [id]);
+          // Opening the patient's eChart during free-text measurement checks can create chart rows.
+          sql.execute(`DELETE FROM casemgmt_issue_notes WHERE note_id IN
+            (SELECT note_id FROM casemgmt_note WHERE demographic_no=?)`, [id]);
+          sql.execute(`DELETE FROM casemgmt_note_ext WHERE note_id IN
+            (SELECT note_id FROM casemgmt_note WHERE demographic_no=?)`, [id]);
+          sql.execute(`DELETE FROM casemgmt_note_link WHERE note_id IN
+            (SELECT note_id FROM casemgmt_note WHERE demographic_no=?)`, [id]);
+          sql.execute('DELETE FROM casemgmt_note WHERE demographic_no=?', [id]);
+          sql.execute('DELETE FROM casemgmt_issue WHERE demographic_no=?', [id]);
+          sql.execute('DELETE FROM casemgmt_cpp WHERE demographic_no=?', [id]);
+          sql.execute('DELETE FROM casemgmt_note_lock WHERE demographic_no=?', [id]);
+          sql.execute('DELETE FROM casemgmt_tmpsave WHERE demographic_no=?', [id]);
+          sql.execute('DELETE FROM eChart WHERE demographicNo=?', [id]);
           sql.execute('DELETE FROM demographicExtArchive WHERE demographic_no=?', [id]);
           sql.execute('DELETE FROM demographicExt WHERE demographic_no=?', [id]);
           sql.execute('DELETE FROM demographicArchive WHERE demographic_no=?', [id]);
@@ -334,45 +350,56 @@ async function cleanup(state) {
               + (SELECT COUNT(*) FROM prescription WHERE demographic_no=?)
               + (SELECT COUNT(*) FROM measurements WHERE demographicNo=?)
               + (SELECT COUNT(*) FROM eform_data WHERE demographic_no=?)
-              + (SELECT COUNT(*) FROM eform_values WHERE demographic_no=?)`,
-          [id, id, id, id, id]) === '0',
+              + (SELECT COUNT(*) FROM eform_values WHERE demographic_no=?)
+              + (SELECT COUNT(*) FROM eChart WHERE demographicNo=?)
+              + (SELECT COUNT(*) FROM casemgmt_note_lock WHERE demographic_no=?)`,
+          [id, id, id, id, id, id, id]) === '0',
           'Owned clinical test rows remain after cleanup');
           if (labCleanupError) throw labCleanupError;
         }
       }
     } finally {
       try {
-        if (formName && providerNo) {
-          // Template names must be unique, so the instance template has its own owned name.
-          const ownedNames = [formName, `${formName} instances`];
-          // Instances of the owned templates first, in case patient cleanup did not reach them.
-          const ownedTemplateIds = sql.rows(
-            'SELECT fid FROM eform WHERE form_name IN (?, ?) AND form_creator=?',
-            [...ownedNames, providerNo],
-          ).map(([fid]) => fid).filter((fid) => /^[1-9]\d*$/.test(fid));
-          if (ownedTemplateIds.length) {
-            const templatePlaceholders = ownedTemplateIds.map(() => '?').join(',');
-            sql.execute(`DELETE FROM eform_values WHERE fid IN (${templatePlaceholders})`, ownedTemplateIds);
-            sql.execute(`DELETE FROM eform_data WHERE fid IN (${templatePlaceholders})`, ownedTemplateIds);
-            assert(
-              sql.value(`SELECT COUNT(*) FROM eform_data WHERE fid IN (${templatePlaceholders})`,
-                ownedTemplateIds) === '0',
-              'The owned synthetic eForm instances were not removed',
-            );
-          }
-          sql.execute(
-            'DELETE FROM eform WHERE form_name IN (?, ?) AND form_creator=?',
-            [...ownedNames, providerNo],
-          );
+        if (state.freeTextMeasurementType) {
+          sql.execute('DELETE FROM measurementType WHERE type=?', [state.freeTextMeasurementType]);
           assert(
-            sql.value(
-              'SELECT COUNT(*) FROM eform WHERE form_name IN (?, ?) AND form_creator=?',
-              [...ownedNames, providerNo],
-            ) === '0',
-            'The owned synthetic eForm template was not removed',
+            sql.value('SELECT COUNT(*) FROM measurementType WHERE type=?', [state.freeTextMeasurementType]) === '0',
+            'The owned synthetic free-text measurementType was not removed',
           );
         }
       } finally {
+        try {
+          if (formName && providerNo) {
+            // Template names must be unique, so the instance template has its own owned name.
+            const ownedNames = [formName, `${formName} instances`];
+            // Instances of the owned templates first, in case patient cleanup did not reach them.
+            const ownedTemplateIds = sql.rows(
+              'SELECT fid FROM eform WHERE form_name IN (?, ?) AND form_creator=?',
+              [...ownedNames, providerNo],
+            ).map(([fid]) => fid).filter((fid) => /^[1-9]\d*$/.test(fid));
+            if (ownedTemplateIds.length) {
+              const templatePlaceholders = ownedTemplateIds.map(() => '?').join(',');
+              sql.execute(`DELETE FROM eform_values WHERE fid IN (${templatePlaceholders})`, ownedTemplateIds);
+              sql.execute(`DELETE FROM eform_data WHERE fid IN (${templatePlaceholders})`, ownedTemplateIds);
+              assert(
+                sql.value(`SELECT COUNT(*) FROM eform_data WHERE fid IN (${templatePlaceholders})`,
+                  ownedTemplateIds) === '0',
+                'The owned synthetic eForm instances were not removed',
+              );
+            }
+            sql.execute(
+              'DELETE FROM eform WHERE form_name IN (?, ?) AND form_creator=?',
+              [...ownedNames, providerNo],
+            );
+            assert(
+              sql.value(
+                'SELECT COUNT(*) FROM eform WHERE form_name IN (?, ?) AND form_creator=?',
+                [...ownedNames, providerNo],
+              ) === '0',
+              'The owned synthetic eForm template was not removed',
+            );
+          }
+        } finally {
         try {
           if (consumerKey) {
             const clientIds = sql.rows(
@@ -412,6 +439,7 @@ async function cleanup(state) {
           }
         } finally {
           sql.dispose();
+        }
         }
       }
     }
@@ -478,29 +506,33 @@ function createAuthorizer({
 
     checkCancelled();
     const consent = await sessionContext.newPage();
-    wireStrictPage(consent, 'oauth-clinical-api-consent', recorder);
-    const pageResponse = await handshakeStep('OAuth consent page', () => consent.goto(
-      app(`/ws/oauth/authorize?oauth_token=${pct(requestToken.oauth_token)}`), { waitUntil: 'load' }));
-    assert(pageResponse && pageResponse.status() === 200, 'The OAuth consent page did not load successfully');
-    await assertNotErrorPage(consent, 'OAuth clinical API consent page');
-    recordEndpoint('GET', '/ws/oauth/authorize', pageResponse, `consent page loaded (${scopes})`);
-    const consentText = await consent.locator('body').innerText();
-    for (const scope of scopes.split(' ')) {
-      assert(consentText.includes(scope), `The OAuth consent page omitted requested scope ${scope}`);
+    let verifier;
+    try {
+      wireStrictPage(consent, 'oauth-clinical-api-consent', recorder);
+      const pageResponse = await handshakeStep('OAuth consent page', () => consent.goto(
+        app(`/ws/oauth/authorize?oauth_token=${pct(requestToken.oauth_token)}`), { waitUntil: 'load' }));
+      assert(pageResponse && pageResponse.status() === 200, 'The OAuth consent page did not load successfully');
+      await assertNotErrorPage(consent, 'OAuth clinical API consent page');
+      recordEndpoint('GET', '/ws/oauth/authorize', pageResponse, `consent page loaded (${scopes})`);
+      const consentText = await consent.locator('body').innerText();
+      for (const scope of scopes.split(' ')) {
+        assert(consentText.includes(scope), `The OAuth consent page omitted requested scope ${scope}`);
+      }
+      assert(await consent.locator('#legacyRestrictedWarning, #fullAccessWarning').count() === 0,
+        'The test server is not using OAuth scoped mode; use a separate disposable scoped installation');
+      checkCancelled();
+      const [approval] = await handshakeStep('OAuth consent approval', () => Promise.all([
+        consent.waitForResponse((item) => item.request().method() === 'POST'
+          && new URL(item.url()).pathname.endsWith('/ws/oauth/authorize'), { timeout: 30000 }),
+        consent.locator('#scopeForm button[type="submit"]').click(),
+      ]));
+      await expectStatus(approval, 200, 'OAuth consent approval');
+      verifier = formFields(await approval.text()).oauth_verifier;
+      assert(verifier, 'OAuth consent did not issue a verifier');
+      recordEndpoint('POST', '/ws/oauth/authorize', approval, `consent approved (${scopes})`);
+    } finally {
+      await consent.close();
     }
-    assert(await consent.locator('#legacyRestrictedWarning, #fullAccessWarning').count() === 0,
-      'The test server is not using OAuth scoped mode; use a separate disposable scoped installation');
-    checkCancelled();
-    const [approval] = await handshakeStep('OAuth consent approval', () => Promise.all([
-      consent.waitForResponse((item) => item.request().method() === 'POST'
-        && new URL(item.url()).pathname.endsWith('/ws/oauth/authorize'), { timeout: 30000 }),
-      consent.locator('#scopeForm button[type="submit"]').click(),
-    ]));
-    await expectStatus(approval, 200, 'OAuth consent approval');
-    const verifier = formFields(await approval.text()).oauth_verifier;
-    assert(verifier, 'OAuth consent did not issue a verifier');
-    recordEndpoint('POST', '/ws/oauth/authorize', approval, `consent approved (${scopes})`);
-    await consent.close();
 
     checkCancelled();
     const tokenUrl = app('/ws/oauth/token');
@@ -887,8 +919,8 @@ async function checkMeasurementRead({
 }
 
 async function checkMeasurementWrite({
-  sql, signedRequest, fullToken, limitedToken, recordEndpoint, runMarker, patientNo,
-  measurementComment, measurementId,
+  state, sql, config, recorder, sessionContext, signedRequest, fullToken, limitedToken,
+  recordEndpoint, runMarker, marker, providerNo, patientNo, measurementComment, measurementId,
 }) {
   const newMeasurementComment = `OAuth clinical API new measurement ${runMarker}`;
   const newMeasurementPayload = {
@@ -953,6 +985,153 @@ async function checkMeasurementWrite({
   'The unrouted measurement correction changed the stored reading');
   recordEndpoint('PUT', '/ws/services/measurements/{demographicNo}', measurementCorrectionResponse,
     'measurement correction is not implemented (see #6136); PUT is not routed', 'GAP');
+
+  // Free-text measurement (up to 4,000 chars) on an uncached blank-validation type, verified
+  // over OAuth REST (exact retry idempotency, case-sensitive MariaDB retry distinction, 4,001-char
+  // refusal) and in the provider browser (DisplayHistory and eChart Measurements box).
+  const freeTextType = `ECG${runMarker.slice(0, 8)}`;
+  const freeTextDisplayName = 'ECG <Report>';
+  assert(sql.value('SELECT COUNT(*) FROM measurementType WHERE type=?', [freeTextType]) === '0',
+    'The synthetic free-text measurementType already exists');
+  state.freeTextMeasurementType = freeTextType;
+  sql.execute(`INSERT INTO measurementType
+      (type, typeDisplayName, typeDescription, measuringInstruction, validation, createDate)
+    VALUES (?, ?, ?, '', '', NOW())`,
+  [freeTextType, freeTextDisplayName, `OAuth clinical API OCR ECG fixture ${runMarker}`]);
+
+  const freeTextPrefix = 'NSR\n\n  <b id="pw-meas-xss">72</b> ';
+  const freeTextSuffix = ` end-report-${marker}`;
+  const freeTextFiller = 'No acute ST changes. Normal PR and QRS intervals. ';
+  const bodyLen = 4000 - freeTextPrefix.length - freeTextSuffix.length;
+  const freeTextReport = freeTextPrefix
+    + freeTextFiller.repeat(Math.ceil(bodyLen / freeTextFiller.length)).slice(0, bodyLen)
+    + freeTextSuffix;
+  assert(freeTextReport.length === 4000, 'Synthetic free-text report must be exactly 4000 characters');
+  const freeTextObservedMs = Math.floor(Date.now() / 1000) * 1000;
+  const freeTextComment = `OAuth free-text ECG ${runMarker}`;
+  const freeTextPayload = {
+    type: freeTextType,
+    dataField: freeTextReport,
+    comments: freeTextComment,
+    dateObserved: freeTextObservedMs,
+  };
+
+  const freeTextCreateResponse = await signedRequest(
+    'POST', `/ws/services/measurements/${patientNo}/new`, fullToken, freeTextPayload,
+  );
+  await expectStatus(freeTextCreateResponse, 200, 'OAuth 4000-char free-text measurement create');
+  const freeTextCreated = await freeTextCreateResponse.json();
+  const freeTextId = sqlId(freeTextCreated.id, 'created free-text measurement id');
+  assert(freeTextCreated.dataField === freeTextReport
+    && sql.value('SELECT CHAR_LENGTH(dataField) FROM measurements WHERE id=?', [freeTextId]) === '4000',
+  'OAuth 4000-char free-text measurement was truncated or altered on save');
+  recordEndpoint('POST', '/ws/services/measurements/{demographicNo}/new', freeTextCreateResponse,
+    '4,000-character free-text measurement recorded without truncation');
+
+  const freeTextRetryResponse = await signedRequest(
+    'POST', `/ws/services/measurements/${patientNo}/new`, fullToken, freeTextPayload,
+  );
+  await expectStatus(freeTextRetryResponse, 200, 'OAuth free-text measurement idempotent retry');
+  const freeTextRetried = await freeTextRetryResponse.json();
+  assert(String(freeTextRetried.id) === freeTextId,
+    'Retrying an identical free-text measurement created a duplicate row');
+  recordEndpoint('POST', '/ws/services/measurements/{demographicNo}/new', freeTextRetryResponse,
+    'identical retry returned the already-stored free-text measurement');
+
+  const freeTextCaseVariant = freeTextReport.replace('end-report-', 'END-REPORT-');
+  const freeTextVariantResponse = await signedRequest(
+    'POST', `/ws/services/measurements/${patientNo}/new`, fullToken,
+    { ...freeTextPayload, dataField: freeTextCaseVariant },
+  );
+  await expectStatus(freeTextVariantResponse, 200, 'OAuth case-variant free-text measurement create');
+  const freeTextVariant = await freeTextVariantResponse.json();
+  const freeTextVariantId = sqlId(freeTextVariant.id, 'case-variant free-text measurement id');
+  assert(freeTextVariantId !== freeTextId && freeTextVariant.dataField === freeTextCaseVariant,
+    'Case-variant free-text reading collapsed onto the earlier row under case-insensitive collation');
+  recordEndpoint('POST', '/ws/services/measurements/{demographicNo}/new', freeTextVariantResponse,
+    'case-variant reading at the same timestamp stored as a distinct row');
+
+  const overCeilingResponse = await signedRequest(
+    'POST', `/ws/services/measurements/${patientNo}/new`, fullToken,
+    { ...freeTextPayload, dataField: `${freeTextReport}x` },
+  );
+  await expectStatus(overCeilingResponse, 400, 'OAuth 4001-char measurement ceiling refusal');
+  const overCeilingBody = await overCeilingResponse.json();
+  assert(overCeilingBody && overCeilingBody.code === 'INVALID_VALUE',
+    '4,001-character measurement was not refused with INVALID_VALUE');
+  recordEndpoint('POST', '/ws/services/measurements/{demographicNo}/new', overCeilingResponse,
+    '4,001-character dataField refused with HTTP 400 INVALID_VALUE');
+
+  const freeTextReadResponse = await signedRequest(
+    'POST', `/ws/services/measurements/${patientNo}`, fullToken, { types: [freeTextType] },
+  );
+  await expectStatus(freeTextReadResponse, 200, 'OAuth free-text measurement read-after-write');
+  const freeTextRead = await freeTextReadResponse.json();
+  const freeTextRows = freeTextRead.measurements && freeTextRead.measurements[freeTextType];
+  assert(Array.isArray(freeTextRows)
+    && freeTextRows.some((row) => String(row.id) === freeTextId && row.dataField === freeTextReport)
+    && freeTextRows.some((row) => String(row.id) === freeTextVariantId && row.dataField === freeTextCaseVariant),
+  'OAuth free-text measurement read-after-write lost or altered the stored 4,000-char readings');
+  recordEndpoint('POST', '/ws/services/measurements/{demographicNo}', freeTextReadResponse,
+    '4,000-character free-text readings returned intact on read-after-write');
+
+  // Verify the provider browser renders the uncached blank-validation type and encodes markup.
+  const openProviderPage = createProviderPageOpener({ state, config, recorder, sessionContext });
+  {
+    const { page, response } = await openProviderPage(
+      'oauth-clinical-api-measurement-history',
+      `/encounter/oscarMeasurements/SetupDisplayHistory?type=${encodeURIComponent(freeTextType)}&demographicNo=${patientNo}`,
+    );
+    try {
+      const dataCells = await page.locator('tr.data td[title="data"]').allTextContents();
+      assert(dataCells.some((text) => text.trim() === freeTextReport),
+        `Measurement history did not display the exact 4,000-char free-text report for the uncached type (rows=${dataCells.length}, lengths=${dataCells.map((t) => t.trim().length).join(',')})`);
+      assert(await page.locator('#pw-meas-xss').count() === 0,
+        'Markup inside the free-text measurement became a DOM element on DisplayHistory');
+      recordEndpoint('WEB', '/encounter/oscarMeasurements/SetupDisplayHistory', response,
+        'uncached blank-validation type renders full 4,000-char encoded report in history');
+    } finally {
+      await page.close();
+    }
+  }
+  {
+    const { page: chartPage, response: chartResponse } = await openProviderPage(
+      'oauth-clinical-api-measurement-echart',
+      `/encounter/IncomingEncounter?demographicNo=${encodeURIComponent(patientNo)}&providerNo=${encodeURIComponent(providerNo)}`,
+    );
+    try {
+      await waitForNavbars(chartPage, 20000);
+      const typeLink = chartPage.locator(`#measurements a[onclick*="type=${freeTextType}"]`);
+      if (await typeLink.count() === 0) {
+        const expand = chartPage.locator('#measurements img[src*="expand.gif"]');
+        if (await expand.count() > 0) {
+          await expand.first().click();
+          await typeLink.first().waitFor({ state: 'visible', timeout: 15000 });
+        }
+      }
+      assert(await typeLink.count() > 0,
+        'The eChart Measurements box did not list the uncached blank-validation free-text type');
+      const row = chartPage.locator('#measurements li', {
+        has: chartPage.locator(`a[onclick*="type=${freeTextType}"]`),
+      }).first();
+      const labelText = (await row.locator('.measureCol1').innerText()).trim();
+      assert(labelText === freeTextDisplayName,
+        `eChart Measurements box cropped or unencoded display name: got ${JSON.stringify(labelText)}`);
+      const rowText = await row.innerText();
+      assert(rowText.includes('NSR <b id=...'),
+        `eChart Measurements box did not show flattened encoded preview: got ${JSON.stringify(rowText)}`);
+      assert(await chartPage.locator('#pw-meas-xss').count() === 0,
+        'Markup inside the free-text measurement became a DOM element in eChart');
+      recordEndpoint('WEB', '/encounter/displayMeasurements', chartResponse,
+        'eChart Measurements box preserves encoded display name and flattened 12-char preview');
+    } finally {
+      try {
+        await releaseChartLocks(sessionContext, config.baseUrl, [chartPage]);
+      } finally {
+        await chartPage.close();
+      }
+    }
+  }
 }
 
 async function checkLabs(ctx) {
@@ -1034,8 +1213,9 @@ async function checkLabs(ctx) {
     assert(path.basename(savedLabFile) === savedLabFile && savedLabFile.startsWith(state.labFilePrefix)
       && /^LabUpload\.oauth-clinical-[A-Fa-f0-9]+\.xml\.\d+$/.test(savedLabFile),
     'HL7 lab upload returned a saved file name outside this run\'s owned prefix');
-    assert(fs.existsSync(path.join(state.documentStore, savedLabFile)),
-      'The uploaded lab file is not in LAB_UPLOAD_DOCUMENT_STORE; point it at the server document directory');
+    const savedLabPath = path.join(state.documentStore, savedLabFile);
+    assert(fs.existsSync(savedLabPath) && fs.lstatSync(savedLabPath).isFile(),
+      'The uploaded lab file is not a regular file in LAB_UPLOAD_DOCUMENT_STORE; point it at the server document directory');
     const labNo = sqlId(
       sql.value('SELECT lab_no FROM hl7TextInfo WHERE accessionNum=?', [state.labAccession]),
       'stored synthetic HL7 lab id',
@@ -1426,10 +1606,33 @@ async function createInstanceTemplate({ sql, signedRequest, fullToken, recordEnd
 }
 
 /**
+ * Returns openProviderPage(label, appPath) for opening browser pages in the signed-in provider
+ * session while honoring cooperative SIGINT/SIGTERM cancellation and closing the page on failure.
+ */
+function createProviderPageOpener({ state = {}, config, recorder, sessionContext }) {
+  return async (label, appPath) => {
+    if (state.throwIfCancelled) state.throwIfCancelled();
+    const page = await sessionContext.newPage();
+    try {
+      wirePage(page, label, recorder);
+      if (state.throwIfCancelled) state.throwIfCancelled();
+      const response = await gotoApp(page, config.baseUrl, appPath, 'load');
+      assert(response && response.status() === 200,
+        `${label}: expected HTTP 200, got ${response ? response.status() : 'no response'}`);
+      await assertNotErrorPage(page, label);
+      return { page, response };
+    } catch (error) {
+      await page.close().catch(() => {});
+      throw error;
+    }
+  };
+}
+
+/**
  * Database and browser probes for the instance checks. Browser pages are opened in the provider's
  * signed-in session, as a clinician would open them.
  */
-function createInstanceProbes({ sql, config, recorder, sessionContext, recordEndpoint, patientNo }) {
+function createInstanceProbes({ state = {}, sql, config, recorder, sessionContext, recordEndpoint, patientNo }) {
   const instanceRow = (fdid) => {
     const rows = sql.rows(`SELECT status, fid, demographic_no, form_provider, subject
       FROM eform_data WHERE fdid=?`, [fdid]);
@@ -1443,16 +1646,7 @@ function createInstanceProbes({ sql, config, recorder, sessionContext, recordEnd
   const patientInstanceCount = () => sql.value(
     'SELECT COUNT(*) FROM eform_data WHERE demographic_no=?', [patientNo]);
 
-  // Browser pages are opened in the provider's signed-in session, as a clinician would.
-  const openProviderPage = async (label, appPath) => {
-    const page = await sessionContext.newPage();
-    wirePage(page, label, recorder);
-    const response = await gotoApp(page, config.baseUrl, appPath, 'load');
-    assert(response && response.status() === 200,
-      `${label}: expected HTTP 200, got ${response ? response.status() : 'no response'}`);
-    await assertNotErrorPage(page, label);
-    return { page, response };
-  };
+  const openProviderPage = createProviderPageOpener({ state, config, recorder, sessionContext });
   const listPath = `/eform/efmpatientformlist?demographic_no=${patientNo}`;
   const deletedListPath = `/eform/efmpatientformlistdeleted?demographic_no=${patientNo}`;
   // The fdids on the patient's ACTIVE eForm list. An fdid missing from a page proves nothing unless
@@ -1827,4 +2021,15 @@ if (require.main === module) {
   });
 }
 
-module.exports = { main, cleanup };
+module.exports = {
+  main,
+  cleanup,
+  createAuthorizer,
+  createEndpointRecorder,
+  createInstanceProbes,
+  createProviderPageOpener,
+  createSignedRequest,
+  handshakeStep,
+  removeOwnedLabFile,
+  requestFailure,
+};

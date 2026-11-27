@@ -454,6 +454,10 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
                     + "</form></body></html>");
             when(eFormDao.findById(FID)).thenReturn(template);
 
+            assertThat(EFormLoader.getAP("today"))
+                    .as("bundled apconfig.xml must define the 'today' database AP for this test")
+                    .isNotNull();
+
             try (org.mockito.MockedStatic<EFormUtil> util = org.mockito.Mockito.mockStatic(EFormUtil.class,
                     org.mockito.Mockito.CALLS_REAL_METHODS)) {
                 util.when(() -> EFormUtil.getValues(org.mockito.ArgumentMatchers.anyList(),
@@ -774,10 +778,6 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
         @DisplayName("should give the revision the old row's attachments and the packets and eForms that attached it")
         void shouldMoveAttachments_toRevision() {
             when(eFormDataDao.lockForAttachmentSync(5)).thenReturn(instance(5, true));
-            io.github.carlos_emr.carlos.commn.model.EFormDocs ownLab =
-                    new io.github.carlos_emr.carlos.commn.model.EFormDocs(5, 300, "L", "111");
-            ownLab.setLabType("HL7");
-            when(eFormDocsDao.findByFdid(5)).thenReturn(List.of(ownLab));
             io.github.carlos_emr.carlos.commn.model.ConsultDocs packet =
                     new io.github.carlos_emr.carlos.commn.model.ConsultDocs(40, 5, "E", "111");
             when(consultDocsDao.findActiveByAttachedDocumentForUpdate("E", 5)).thenReturn(List.of(packet));
@@ -787,15 +787,8 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
 
             service.revise(loggedInInfo, 5, null, Map.of("bp", "1"), CONTEXT);
 
-            ArgumentCaptor<io.github.carlos_emr.carlos.commn.model.EFormDocs> copies =
-                    ArgumentCaptor.forClass(io.github.carlos_emr.carlos.commn.model.EFormDocs.class);
-            verify(eFormDocsDao).persist(copies.capture());
-            assertThat(copies.getValue().getFdid()).isEqualTo(SAVED_FDID);
-            assertThat(copies.getValue().getDocumentNo()).isEqualTo(300);
-            assertThat(copies.getValue().getDocType()).isEqualTo("L");
-            assertThat(copies.getValue().getLabType()).isEqualTo("HL7");
-            // The retired row keeps its own attachment, so its history still shows what it carried.
-            assertThat(ownLab.getFdid()).isEqualTo(5);
+            verify(eFormDocsDao).copyActiveAttachmentsToRevision(5, SAVED_FDID);
+            verify(eFormDocsDao, never()).persist(any());
             assertThat(packet.getDocumentNo()).isEqualTo(SAVED_FDID);
             verify(consultDocsDao).merge(packet);
             assertThat(otherEForm.getDocumentNo()).isEqualTo(SAVED_FDID);
@@ -803,27 +796,17 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should carry a lab link to the revision as the old row has it, without re-checking its routing")
+        @DisplayName("should delegate attachment copying to revision-copy path rather than persist so unrouted labs are preserved")
         void shouldCarryLabLink_whenLabNoLongerRoutedToPatient() {
-            // The revision copies the old row's links; it adds none the caller chose. A lab re-matched
-            // to another patient after the form was saved therefore keeps the link the old row
-            // already has, and the revision is allowed. The service has no lab-routing lookup.
+            // EFormDocsDaoImpl.persist() validates lab routing against PatientLabRouting and throws for
+            // reassigned/unrouted labs; revise must delegate to copyActiveAttachmentsToRevision instead.
             when(eFormDataDao.lockForAttachmentSync(5)).thenReturn(instance(5, true));
-            io.github.carlos_emr.carlos.commn.model.EFormDocs unroutedLab =
-                    new io.github.carlos_emr.carlos.commn.model.EFormDocs(5, 301, "L", "111");
-            unroutedLab.setLabType("MDS");
-            when(eFormDocsDao.findByFdid(5)).thenReturn(List.of(unroutedLab));
 
             EFormData revision = service.revise(loggedInInfo, 5, null, Map.of("bp", "1"), CONTEXT);
 
             assertThat(revision.getId()).isEqualTo(SAVED_FDID);
-            ArgumentCaptor<io.github.carlos_emr.carlos.commn.model.EFormDocs> copy =
-                    ArgumentCaptor.forClass(io.github.carlos_emr.carlos.commn.model.EFormDocs.class);
-            verify(eFormDocsDao).persist(copy.capture());
-            assertThat(copy.getValue().getFdid()).isEqualTo(SAVED_FDID);
-            assertThat(copy.getValue().getDocumentNo()).isEqualTo(301);
-            assertThat(copy.getValue().getLabType()).isEqualTo("MDS");
-            assertThat(unroutedLab.getFdid()).isEqualTo(5);
+            verify(eFormDocsDao).copyActiveAttachmentsToRevision(5, SAVED_FDID);
+            verify(eFormDocsDao, never()).persist(any());
         }
 
         @Test
@@ -978,6 +961,38 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
 
             var html = Jsoup.parse(revision.getFormData());
             assertThat(html.select("input[checked]")).extracting(box -> box.attr("name")).containsExactly("Flag");
+        }
+
+        @Test
+        @DisplayName("should update only the text and radio controls named exactly as sent, not differently cased ones")
+        void shouldUpdateOnlyExactName_whenTextAndRadioNamesDifferInCase() {
+            String templateHtml = "<html><body><form>"
+                    + "<input type=\"text\" name=\"Note\" value=\"Upper\">"
+                    + "<input type=\"text\" name=\"note\" value=\"Lower\">"
+                    + "<input type=\"radio\" name=\"Risk\" value=\"high\" checked>"
+                    + "<input type=\"radio\" name=\"Risk\" value=\"low\">"
+                    + "<input type=\"radio\" name=\"risk\" value=\"high\">"
+                    + "<input type=\"radio\" name=\"risk\" value=\"low\">"
+                    + "</form></body></html>";
+            EForm template = template(true, null);
+            template.setFormHtml(templateHtml);
+            when(eFormDao.findById(FID)).thenReturn(template);
+            when(eFormDataDao.lockForAttachmentSync(5)).thenAnswer(call -> instance(5, true));
+
+            EFormData revision = service.revise(loggedInInfo, 5, null,
+                    Map.of("note", "UpdatedLower", "risk", "low"), CONTEXT);
+
+            var html = Jsoup.parse(revision.getFormData());
+            var inputs = html.select("input[type=text]");
+            assertThat(inputs.stream().filter(e -> e.attr("name").equals("Note")).findFirst().orElseThrow().attr("value"))
+                    .isEqualTo("Upper");
+            assertThat(inputs.stream().filter(e -> e.attr("name").equals("note")).findFirst().orElseThrow().attr("value"))
+                    .isEqualTo("UpdatedLower");
+            assertThat(html.select("input[type=radio][checked]"))
+                    .extracting(radio -> radio.attr("name"), radio -> radio.attr("value"))
+                    .containsExactly(
+                            org.assertj.core.groups.Tuple.tuple("Risk", "high"),
+                            org.assertj.core.groups.Tuple.tuple("risk", "low"));
         }
 
     }

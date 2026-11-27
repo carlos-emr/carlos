@@ -337,13 +337,7 @@ public class EFormInstanceService {
      * retired eForm is otherwise listed as unavailable in a consultation packet and left out of it.
      */
     private void moveAttachments(int oldFdid, int newFdid) {
-        for (EFormDocs attached : eFormDocsDao.findByFdid(oldFdid)) {
-            EFormDocs copy = new EFormDocs(newFdid, attached.getDocumentNo(), attached.getDocType(),
-                    attached.getProviderNo());
-            copy.setLabType(attached.getLabType());
-            copy.setAttachDate(attached.getAttachDate());
-            eFormDocsDao.persist(copy);
-        }
+        eFormDocsDao.copyActiveAttachmentsToRevision(oldFdid, newFdid);
         for (ConsultDocs packet : consultDocsDao.findActiveByAttachedDocumentForUpdate(ConsultDocs.DOCTYPE_EFORM, oldFdid)) {
             packet.setDocumentNo(newFdid);
             consultDocsDao.merge(packet);

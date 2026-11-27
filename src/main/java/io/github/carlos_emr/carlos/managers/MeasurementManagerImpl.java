@@ -172,10 +172,32 @@ public class MeasurementManagerImpl implements MeasurementManager {
         criteria.setComments(measurement.getComments());
         criteria.setDateObserved(measurement.getDateObserved());
         List<Measurement> stored = measurementDao.find(criteria);
-        if (stored != null && !stored.isEmpty()) {
-            return stored.get(0);
+        if (stored != null) {
+            for (Measurement candidate : stored) {
+                // MariaDB measurements columns use utf8mb4_general_ci, which compares text
+                // case-insensitively and ignores trailing spaces; verify exact equality in Java.
+                if (isExactRetryMatch(measurement, candidate)) {
+                    return candidate;
+                }
+            }
         }
         return addMeasurement(loggedInInfo, measurement);
+    }
+
+    private static boolean isExactRetryMatch(Measurement requested, Measurement candidate) {
+        return java.util.Objects.equals(requested.getDemographicId(), candidate.getDemographicId())
+                && java.util.Objects.equals(requested.getType(), candidate.getType())
+                && java.util.Objects.equals(requested.getDataField(), candidate.getDataField())
+                && java.util.Objects.equals(requested.getMeasuringInstruction(), candidate.getMeasuringInstruction())
+                && java.util.Objects.equals(requested.getComments(), candidate.getComments())
+                && sameObservedSecond(requested.getDateObserved(), candidate.getDateObserved());
+    }
+
+    private static boolean sameObservedSecond(Date requested, Date candidate) {
+        if (requested == null || candidate == null) {
+            return requested == candidate;
+        }
+        return Math.floorDiv(requested.getTime(), 1000L) == Math.floorDiv(candidate.getTime(), 1000L);
     }
 
     /**

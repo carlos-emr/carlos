@@ -56,4 +56,36 @@ class ResponseDefaultsFilterUnitTest {
 
         assertThat(response.getHeader("Referrer-Policy")).isEqualTo("same-origin");
     }
+
+    @Test
+    @DisplayName("should set Cache-Control no-store for canonical and trailing-slash REST endpoints")
+    void shouldSetNoStoreCacheControl_forTrailingSlashRestEndpoints() throws Exception {
+        ResponseDefaultsFilter filter = new ResponseDefaultsFilter();
+        for (String uri : new String[]{
+                "/carlos/ws/services/eform/instance/5",
+                "/carlos/ws/services/eform/instance/5/",
+                "/carlos/ws/services/demographics/",
+                "/carlos/ws/rs/eform/instance/5//"}) {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", uri);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            filter.doFilter(request, response, (req, res) -> {});
+
+            assertThat(response.getHeader("Cache-Control"))
+                    .as("Cache-Control for %s", uri)
+                    .isEqualTo("no-store, no-cache, must-revalidate");
+        }
+    }
+
+    @Test
+    @DisplayName("should not set Cache-Control no-store for static file extensions")
+    void shouldNotSetNoStoreCacheControl_forStaticAssetExtensions() throws Exception {
+        ResponseDefaultsFilter filter = new ResponseDefaultsFilter();
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/js/app.js");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, (req, res) -> {});
+
+        assertThat(response.getHeader("Cache-Control")).isNull();
+    }
 }

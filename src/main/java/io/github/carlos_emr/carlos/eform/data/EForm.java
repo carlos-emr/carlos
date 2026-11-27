@@ -43,7 +43,6 @@ import org.apache.logging.log4j.Logger;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
-import org.jsoup.parser.TokenQueue;
 import org.jsoup.select.Elements;
 import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.commn.OtherIdManager;
@@ -1138,7 +1137,7 @@ public class EForm extends EFormBase {
     }
 
     private StringBuilder putValueUsingDocument(String fieldName, String type, String value) {
-        Element field = getDocument().selectFirst("[name=\"" + TokenQueue.escapeCssIdentifier(fieldName) + "\"]");
+        Element field = firstControlNamed(getDocument(), fieldName);
         if (field == null) return new StringBuilder(getFormHtml());
         switch (type) {
             case "text":
@@ -1155,8 +1154,8 @@ public class EForm extends EFormBase {
                 field.attr("checked", "checked");
                 break;
             case "radio":
-                // For radio buttons, find all radios with the same name and check the correct one based on value
-                for (Element radio : getDocument().select("input[type=radio][name=\"" + TokenQueue.escapeCssIdentifier(fieldName) + "\"]")) {
+                // For radio buttons, find all radios with the exact same name and check the matching value
+                for (Element radio : radiosNamed(getDocument(), fieldName)) {
                     if (value.equals(radio.attr(VALUE_ATTRIBUTE))) {
                         radio.attr("checked", "checked");
                     } else {
@@ -1173,6 +1172,29 @@ public class EForm extends EFormBase {
         }
 
 		return new StringBuilder(getFormHtml());
+    }
+
+    /**
+     * The first element named exactly {@code fieldName}. jsoup's {@code [name="..."]} selector
+     * compares attribute values ignoring case and surrounding whitespace, which would overwrite a
+     * differently cased control on templates that carry both (e.g. {@code Note} and {@code note}).
+     */
+    private static Element firstControlNamed(Document document, String fieldName) {
+        if (document == null || fieldName == null) return null;
+        for (Element candidate : document.select("[name]")) {
+            if (candidate.attr("name").equals(fieldName)) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    /** Radio inputs named exactly {@code fieldName}, using case-sensitive comparison. */
+    private static List<Element> radiosNamed(Document document, String fieldName) {
+        if (document == null || fieldName == null) return List.of();
+        return document.select("input[type=radio][name]").stream()
+                .filter(radio -> radio.attr("name").equals(fieldName))
+                .toList();
     }
 
     /**

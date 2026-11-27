@@ -19673,9 +19673,10 @@
       },
       "mutates": [
         "eform",
+        "measurementType",
         "ServiceClient"
       ],
-      "fixtures": "Needs a separate, disposable Ontario install in scoped OAuth mode (CARLOS_DISPOSABLE_HOST=true). Owns one synthetic patient with its measurements, medication, prescription, eForm instances and optional HL7 lab, two uniquely named eForm templates and one temporary ServiceClient with its tokens; all removed by run marker. Adds eForm templates and an OAuth client, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "fixtures": "Needs a separate, disposable Ontario install in scoped OAuth mode (CARLOS_DISPOSABLE_HOST=true). Owns one synthetic patient with its measurements, medication, prescription, eForm instances and optional HL7 lab, one uniquely named blank-validation measurementType, two uniquely named eForm templates and one temporary ServiceClient with its tokens; all removed by run marker. Adds eForm templates, a temporary measurementType and an OAuth client, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "OAuth REST acceptance for an external OAuth client such as an AI scribe: demographics, measurements (read and the measurement.write create), labs, Rx lookup and prescribing, schedule, eForm templates and saved eForm instances, each with scope refusals and database read-after-write. Runbook: docs/ui-tests/oauth-clinical-api.md."
     }
   ]

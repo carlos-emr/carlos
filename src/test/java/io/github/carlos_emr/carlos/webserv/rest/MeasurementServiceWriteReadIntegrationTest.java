@@ -178,4 +178,51 @@ class MeasurementServiceWriteReadIntegrationTest extends CarlosTestBase {
         assertThat(refused).isNotNull();
         assertThat(measurementDao.findByType(patient, List.of("BP"))).isEmpty();
     }
+
+    @Test
+    @DisplayName("should persist and read back a 4,000-character free-text measurement and refuse 4,001 characters")
+    void shouldPersist4000CharFreeText_whenTypeHasNoValidationRule() throws Exception {
+        MeasurementType ecg = new MeasurementType();
+        ecg.setType("ECGT");
+        ecg.setTypeDisplayName("ECG Report");
+        ecg.setTypeDescription("OCR ECG report text");
+        ecg.setMeasuringInstruction("");
+        ecg.setValidation("");
+        measurementTypeDao.persist(ecg);
+        entityManager.flush();
+
+        String report = "FAKE sinus rhythm\n" + "R".repeat(4_000 - "FAKE sinus rhythm\n".length());
+        assertThat(report).hasSize(4_000);
+        ObjectNode validBody = mapper.createObjectNode();
+        validBody.put("type", "ECGT");
+        validBody.put("dataField", report);
+        validBody.put("dateObserved", 1_770_000_000_000L);
+
+        EmbeddedMeasurementTo1 written = service.addMeasurement(validBody, patient);
+        entityManager.flush();
+        entityManager.clear();
+
+        MeasurementResponse read = service.getMeasurements(
+                (ObjectNode) mapper.readTree("{\"types\":[\"ECGT\"]}"), patient);
+        List<Measurement> readings = read.getMeasurements().values().stream().flatMap(List::stream).toList();
+        assertThat(readings).singleElement().satisfies(reading -> {
+            assertThat(reading.getId()).isEqualTo(written.getId());
+            assertThat(reading.getDataField()).isEqualTo(report);
+        });
+
+        // A reading at the same dateObserved differing only in letter case must be stored separately.
+        ObjectNode caseVariant = mapper.createObjectNode();
+        caseVariant.put("type", "ECGT");
+        caseVariant.put("dataField", report.toLowerCase(java.util.Locale.ROOT));
+        caseVariant.put("dateObserved", 1_770_000_000_000L);
+        EmbeddedMeasurementTo1 second = service.addMeasurement(caseVariant, patient);
+        assertThat(second.getId()).isNotEqualTo(written.getId());
+
+        ObjectNode tooLong = mapper.createObjectNode();
+        tooLong.put("type", "ECGT");
+        tooLong.put("dataField", report + "x");
+        BadRequestException refused = catchThrowableOfType(() -> service.addMeasurement(tooLong, patient),
+                BadRequestException.class);
+        assertThat(refused).isNotNull();
+    }
 }

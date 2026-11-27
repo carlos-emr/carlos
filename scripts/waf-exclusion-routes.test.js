@@ -275,7 +275,13 @@ test('shouldFindEveryAnchoredRoute_inTheExclusionFiles', () => {
   // And a floor just under today's 105, so that both counts collapsing to nothing cannot pass.
   assert.ok(rules.length >= 100, `expected the exclusion files to hold 100+ route rules (105 today), parsed ${rules.length}`);
   const routes = new Set(rules.map((rule) => rule.route));
-  for (const known of ['CaseManagementEntry', 'eform/addEForm', 'rx/writeScript', 'ws/rs/eform/(?:[0-9]+/)?json']) {
+  for (const known of [
+    'CaseManagementEntry',
+    'eform/addEForm',
+    'rx/writeScript',
+    'ws/(?:rs|services)/eform/(?:[0-9]+/)?json',
+    'ws/(?:rs|services)/eform/instance/[0-9]+',
+  ]) {
     assert.ok(routes.has(known), `the parser did not find the known route "${known}"`);
   }
   assert.ok(rules.every((rule) => /^\d+$/.test(rule.id)), 'every rule must carry the id of its head rule');

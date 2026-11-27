@@ -629,9 +629,13 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
         @Test
         @DisplayName("should return the identical stored reading and insert nothing")
         void shouldReturnStoredReading_whenIdenticalReadingStored() {
+            Date observed = new Date(1_770_000_000_000L);
             Measurement measurement = createTestMeasurement();
             measurement.setDemographicId(4321);
+            measurement.setDateObserved(observed);
             Measurement stored = createTestMeasurementWithId(TEST_MEASUREMENT_ID);
+            stored.setDemographicId(4321);
+            stored.setDateObserved(observed);
             when(mockDemographicDao.findForUpdate(4321)).thenReturn(new io.github.carlos_emr.carlos.commn.model.Demographic());
             when(mockMeasurementDao.find(any(io.github.carlos_emr.carlos.commn.dao.MeasurementDaoImpl.SearchCriteria.class)))
                     .thenReturn(List.of(stored));
@@ -640,6 +644,36 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
 
             assertThat(result).isSameAs(stored);
             verify(mockMeasurementDao, never()).persist(any());
+        }
+
+        @Test
+        @DisplayName("should insert a new reading when a database candidate differs in case or trailing space")
+        void shouldInsertNewReading_whenCandidateDiffersInCaseOrTrailingSpace() {
+            Date observed = new Date(1_770_000_000_000L);
+            Measurement requested = createTestMeasurement("ECGT", "Normal sinus rhythm");
+            requested.setDemographicId(4321);
+            requested.setDateObserved(observed);
+
+            Measurement differentCase = createTestMeasurementWithId(TEST_MEASUREMENT_ID);
+            differentCase.setDemographicId(4321);
+            differentCase.setType("ECGT");
+            differentCase.setDataField("normal sinus rhythm");
+            differentCase.setDateObserved(observed);
+
+            Measurement trailingSpace = createTestMeasurementWithId(TEST_MEASUREMENT_ID + 1);
+            trailingSpace.setDemographicId(4321);
+            trailingSpace.setType("ECGT");
+            trailingSpace.setDataField("Normal sinus rhythm ");
+            trailingSpace.setDateObserved(observed);
+
+            when(mockDemographicDao.findForUpdate(4321)).thenReturn(new io.github.carlos_emr.carlos.commn.model.Demographic());
+            when(mockMeasurementDao.find(any(io.github.carlos_emr.carlos.commn.dao.MeasurementDaoImpl.SearchCriteria.class)))
+                    .thenReturn(List.of(differentCase, trailingSpace));
+
+            Measurement result = measurementManager.addMeasurementUnlessStored(mockLoggedInInfo, requested);
+
+            assertThat(result).isSameAs(requested);
+            verify(mockMeasurementDao).persist(requested);
         }
 
         @Test

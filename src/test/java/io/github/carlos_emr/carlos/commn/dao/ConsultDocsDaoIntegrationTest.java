@@ -497,6 +497,90 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
 
             assertThat(found).extracting(EFormDocs::getId).containsExactly(first.getId(), second.getId());
         }
+
+        @Test
+        @DisplayName("should copy active attachments including unrouted or reassigned labs while skipping deleted links")
+        void shouldCopyActiveAttachments_whenLabNoLongerRoutedToPatient() {
+            createDemographic(991001);
+            createDemographic(991002);
+            EFormData source = new EFormData();
+            source.setFormId(1);
+            source.setDemographicId(991001);
+            source.setCurrent(true);
+            source.setFormName("Source");
+            source.setFormData("<html>source</html>");
+            source.setProviderNo(PROVIDER_NO);
+            eFormDataDao.persist(source);
+
+            EFormData target = new EFormData();
+            target.setFormId(1);
+            target.setDemographicId(991001);
+            target.setCurrent(true);
+            target.setFormName("Revision");
+            target.setFormData("<html>revision</html>");
+            target.setProviderNo(PROVIDER_NO);
+            eFormDataDao.persist(target);
+
+            // Lab 991500 is routed to a DIFFERENT patient (991002), simulating a lab reassigned after save.
+            entityManager.persist(new PatientLabRouting(991500, "HL7", 991002));
+            EFormDocs reassignedLab = new EFormDocs(source.getId(), 991500, EFormDocs.DOCTYPE_LAB, PROVIDER_NO);
+            reassignedLab.setLabType("HL7");
+            entityManager.persist(reassignedLab);
+
+            // Deleted attachment on the old row must not be copied.
+            EFormDocs deletedDoc = new EFormDocs(source.getId(), 991501, EFormDocs.DOCTYPE_DOC, PROVIDER_NO);
+            deletedDoc.setDeleted(EFormDocs.DELETED);
+            entityManager.persist(deletedDoc);
+
+            // Active non-lab attachment must be copied too.
+            EFormDocs activeDoc = new EFormDocs(source.getId(), 991502, EFormDocs.DOCTYPE_DOC, PROVIDER_NO);
+            entityManager.persist(activeDoc);
+            entityManager.flush();
+
+            eFormDocsDao.copyActiveAttachmentsToRevision(source.getId(), target.getId());
+            entityManager.flush();
+            entityManager.clear();
+
+            List<EFormDocs> copied = eFormDocsDao.findByFdid(target.getId());
+            assertThat(copied)
+                    .extracting(EFormDocs::getDocType, EFormDocs::getDocumentNo, EFormDocs::getLabType)
+                    .containsExactlyInAnyOrder(
+                            tuple(EFormDocs.DOCTYPE_LAB, 991500, "HL7"),
+                            tuple(EFormDocs.DOCTYPE_DOC, 991502, null));
+            // Reassigned lab stays omitted from patient-filtered lab reads.
+            assertThat(eFormDocsDao.findLabs(target.getId())).isEmpty();
+            // Source row keeps its historical attachments untouched.
+            assertThat(eFormDocsDao.findByFdid(source.getId())).hasSize(2);
+        }
+
+        @Test
+        @DisplayName("should refuse to copy attachments across different patients")
+        void shouldRefuseAttachmentCopy_whenInstancesBelongToDifferentPatients() {
+            createDemographic(991011);
+            createDemographic(991012);
+            EFormData source = new EFormData();
+            source.setFormId(1);
+            source.setDemographicId(991011);
+            source.setCurrent(true);
+            source.setFormName("PatientA");
+            source.setFormData("<html>a</html>");
+            source.setProviderNo(PROVIDER_NO);
+            eFormDataDao.persist(source);
+
+            EFormData otherPatient = new EFormData();
+            otherPatient.setFormId(1);
+            otherPatient.setDemographicId(991012);
+            otherPatient.setCurrent(true);
+            otherPatient.setFormName("PatientB");
+            otherPatient.setFormData("<html>b</html>");
+            otherPatient.setProviderNo(PROVIDER_NO);
+            eFormDataDao.persist(otherPatient);
+            entityManager.flush();
+
+            assertThatThrownBy(() -> eFormDocsDao.copyActiveAttachmentsToRevision(source.getId(), otherPatient.getId()))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("same patient");
+        }
     }
 
     private static class AttachmentFixture {
