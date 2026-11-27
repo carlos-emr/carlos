@@ -72,7 +72,33 @@ class PortalBookingSettingsUnitTest {
         assertThat(settings.visitMode()).isEqualTo("in_person");
         assertThat(Arrays.stream(PortalBookingSettings.class.getRecordComponents()).map(RecordComponent::getName))
                 .containsExactly("offerableCodes", "leadHours", "visitMode", "locationCode", "syncEnabled",
-                        "syncIntervalSeconds");
+                        "syncIntervalSeconds", "visitModes");
+    }
+
+    @Test
+    void shouldEnableOnlyTheDefaultVisitMode_whenNoListIsConfigured() {
+        PortalBookingSettings settings = PortalBookingSettings.fromProperties(
+                Map.of("patient_portal.booking.visit_mode", "video")::get);
+        assertThat(settings.visitModes()).containsExactly("video");
+        assertThat(PortalBookingSettings.fromProperties(key -> null).visitModes()).containsExactly("in_person");
+    }
+
+    @Test
+    void shouldReadTheEnabledVisitModes_theDefaultFirstAndUnknownOnesLeftOut() {
+        PortalBookingSettings settings = PortalBookingSettings.fromProperties(Map.of(
+                "patient_portal.booking.visit_mode", "phone",
+                "patient_portal.booking.visit_modes", "video, in_person teleport video")::get);
+        assertThat(settings.visitMode()).isEqualTo("phone");
+        // The default is always enabled and first; a repeat or an unknown mode is not kept.
+        assertThat(settings.visitModes()).containsExactly("phone", "video", "in_person");
+    }
+
+    @Test
+    void shouldKeepTheDefaultEnabled_whenTheListLeavesItOut() {
+        PortalBookingSettings settings = PortalBookingSettings.fromProperties(Map.of(
+                "patient_portal.booking.visit_mode", "in_person",
+                "patient_portal.booking.visit_modes", "video")::get);
+        assertThat(settings.visitModes()).containsExactly("in_person", "video");
     }
 
     @Test

@@ -114,6 +114,27 @@ public class PortalOfferedSlotLoader {
     }
 
     /**
+     * Whether the provider has at least one time {@link #load} could offer between {@code from} and
+     * {@code to}. It stops at the first day with one, so the staff dialog can list the providers who
+     * have bookable time without reading every day of every provider's window.
+     */
+    public boolean hasOpenTime(String providerNo, LocalDate from, LocalDate to,
+            PortalBookingSettings settings, ZonedDateTime now) {
+        if (settings.offerableCodes().isEmpty() || to.isBefore(from)) {
+            return false;
+        }
+        LocalDate last = to.isAfter(from.plusDays(MAX_WINDOW_DAYS)) ? from.plusDays(MAX_WINDOW_DAYS) : to;
+        ZonedDateTime earliest = now.plusHours(settings.leadHours());
+        for (LocalDate day = from; !day.isAfter(last); day = day.plusDays(1)) {
+            if (openTimes(providerNo, day, settings.offerableCodes(), now.getZone()).stream()
+                    .anyMatch(time -> !time.start().isBefore(earliest))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * True when the time is still bookable: on a bookable code for its whole length, free, and not
      * started. The lead time applies only when offering; a patient may still pick an offered time
      * inside it.

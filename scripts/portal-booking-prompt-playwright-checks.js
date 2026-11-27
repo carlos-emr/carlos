@@ -54,6 +54,9 @@ function prompt(id = 7, state = 'sent') {
 async function main() {
   let active = true, readOnly = false, outage = false, loseCreate = false, loseWithdraw = false;
   let malformed = false, refuseCreate = false;
+  // Offering open times (#3850): what the panel says about it (null: an older panel with no such part),
+  // the providers the server lists, and why a create with times is refused.
+  let offering = null, providersList = [], providersOutage = false, offerRefusal = null;
   let prompts = [], notifications = 0, calls = [];
   const operations = new Map();
   const server = http.createServer(async (req, res) => {
@@ -76,15 +79,25 @@ async function main() {
     let body;
     if (params.method === 'panel') {
       body = { ok: true, accountActive: active, mayCreate: !readOnly, mayWithdraw: !readOnly, prompts };
+      if (offering && !readOnly) { body.offering = offering; }
       if (malformed) { delete body.accountActive; }
+    } else if (params.method === 'providers') {
+      if (providersOutage) { res.writeHead(503).end('{"ok":false}'); return; }
+      // A one-day window has no bookable time for anyone: the list is empty.
+      body = { ok: true, codesConfigured: !!offering && offering.codesConfigured,
+        providers: params.offerWithinDays === '1' ? [] : providersList };
     } else if (params.method === 'create') {
       if (refuseCreate) { res.writeHead(404).end('{"ok":false,"code":"portal_account_inactive"}'); return; }
+      if (params.offerFrom && offerRefusal) {
+        res.writeHead(409).end(JSON.stringify({ ok: false, reason: offerRefusal, message: 'refused' })); return;
+      }
       const created = !operations.has(params.operationId);
       if (created) {
         const item = { ...prompt(), urgency: params.urgency, appointmentType: params.appointmentType };
         operations.set(params.operationId, item); prompts = [item]; notifications++;
       }
-      body = { ok: true, created, prompt: operations.get(params.operationId) };
+      body = { ok: true, created, prompt: operations.get(params.operationId),
+        offeredTimes: params.offerFrom ? Number(params.offerCount) : 0 };
       if (loseCreate) { loseCreate = false; res.writeHead(502).end('{"ok":false}'); return; }
     } else if (params.method === 'withdraw') {
       prompts = prompts.map(item => item.id === Number(params.promptId) ? { ...item, state: 'withdrawn' } : item);
@@ -300,12 +313,132 @@ async function main() {
     assert.equal(await send.isDisabled(), true);
     assert.doesNotMatch(await status.innerText(), /could not be confirmed/);
     console.log('PASS corrupt pending storage refuses fresh identity');
+    // ---- Offering open times with the request (#3850): the provider list the server builds, the
+    // window and count, the clinic's one visit mode shown read-only, and each refusal said as itself.
+    const until = async condition => {
+      for (let attempt = 0; attempt < 100; attempt++) {
+        if (condition()) { return; }
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      assert.fail('timed out waiting for the page');
+    };
+    const offerBox = page.locator('[data-role="offer"]');
+    const offerToggle = page.locator('[data-role="offerToggle"]');
+    const offerNote = page.locator('[data-role="offerNote"]');
+    const offerProvider = page.locator('[data-role="offerProvider"]');
+    const creates = () => calls.filter(call => call.method === 'create');
+    const providerCalls = () => calls.filter(call => call.method === 'providers');
+    const mayOffer = { mayOffer: true, codesConfigured: true, visitMode: 'phone', visitModes: ['phone'],
+      defaultWithinDays: 14,
+      maxWithinDays: 92, maxAfterDays: 365, defaultCount: 4, maxCount: 8 };
+    const fresh = async () => {
+      await page.evaluate(() => sessionStorage.clear());
+      await page.reload(); await openDialog(); await waitReady();
+    };
+    const listed = count => page.waitForFunction(
+      expected => document.querySelector('[data-role="offerProvider"]').options.length === expected, count);
+    providersList = [{ providerNo: '101', name: 'Alpha, Ann' }, { providerNo: '102', name: 'Zeta, Zoe' }];
+    offering = mayOffer; await fresh();
+    assert.equal(await offerBox.isVisible(), true);
+    assert.equal(await page.locator('[data-role="offerFields"]').isHidden(), true);
+    await offerToggle.check(); await listed(3);
+    assert.equal(providerCalls().at(-1).offerAfterDays, '0'); assert.equal(providerCalls().at(-1).offerWithinDays, '14');
+    assert.equal(await send.isDisabled(), true);
+    assert.match(await page.locator('[data-role="offerMode"]').innerText(), /shown to the patient as: By phone/);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    await offerProvider.selectOption('101'); assert.equal(await send.isDisabled(), false);
+    if (process.env.PORTAL_BOOKING_OFFER_SCREENSHOT) {
+      await page.screenshot({ path: process.env.PORTAL_BOOKING_OFFER_SCREENSHOT, fullPage: true });
+    }
+    await page.fill('[data-role="offerWithin"]', '7');
+    await until(() => providerCalls().at(-1).offerWithinDays === '7');
+    await listed(3); assert.equal(await offerProvider.inputValue(), '101');
+    await page.fill('[data-role="offerCount"]', '3'); await send.click();
+    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('Open times sent with the request: 3'));
+    assert.deepEqual([creates().at(-1).offerFrom, creates().at(-1).offerAfterDays, creates().at(-1).offerWithinDays,
+      creates().at(-1).offerCount], ['101', '0', '7', '3']);
+    assert.equal(await page.evaluate(() => sessionStorage.length), 0);
+    console.log('PASS offering times: server-built provider list, window, count, the clinic mode read-only, one request');
+    offerRefusal = 'no_open_times'; await fresh(); await offerToggle.check(); await listed(3);
+    await offerProvider.selectOption('101'); await send.click();
+    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('No bookable times were found'));
+    assert.equal(await page.evaluate(() => sessionStorage.length), 0);
+    assert.equal(await send.isDisabled(), false); assert.equal(await offerProvider.inputValue(), '101');
+    offerRefusal = null;
+    console.log('PASS no open time in the window is said as that, nothing is kept, and the window can be changed');
+    offering = { ...mayOffer, codesConfigured: false }; await fresh();
+    assert.equal(await offerToggle.isDisabled(), true);
+    assert.match(await offerNote.innerText(), /not set up/);
+    await send.click(); await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('portal confirmed it'));
+    assert.equal(creates().at(-1).offerFrom, undefined);
+    console.log('PASS no bookable template codes: offering says it is not set up, and the request still goes without times');
+    offering = { ...mayOffer, mayOffer: false }; await fresh();
+    assert.equal(await offerToggle.isDisabled(), true); assert.match(await offerNote.innerText(), /needs schedule access/);
+    console.log('PASS without schedule access offering is off and says why');
+    offering = mayOffer; await fresh(); await offerToggle.check(); await listed(3); await offerProvider.selectOption('101');
+    const beforeInvalid = creates().length;
+    await page.fill('[data-role="offerWithin"]', '0'); await send.click();
+    assert.equal(creates().length, beforeInvalid);
+    assert.equal(await page.locator('[data-role="offerWithin"]').evaluate(input => !input.checkValidity()), true);
+    console.log('PASS a window the action would refuse is stopped in the field, nothing is sent');
+    await fresh(); await offerToggle.check(); await listed(3); await page.fill('[data-role="offerWithin"]', '1');
+    await until(() => providerCalls().at(-1).offerWithinDays === '1'); await listed(1);
+    assert.match(await offerNote.innerText(), /No provider has open times/); assert.equal(await send.isDisabled(), true);
+    providersOutage = true; await page.fill('[data-role="offerWithin"]', '5');
+    await page.waitForFunction(() => document.querySelector('[data-role="offerNote"]').textContent.includes('could not be listed'));
+    providersOutage = false; await page.fill('[data-role="offerWithin"]', '6'); await listed(3);
+    console.log('PASS an empty window and a failed provider list are each said, and a new window recovers');
+    loseCreate = true; await fresh(); await offerToggle.check(); await listed(3); await offerProvider.selectOption('102');
+    await page.fill('[data-role="offerAfter"]', '2'); await send.click();
+    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('could not be confirmed'));
+    const offerFirst = creates().at(-1);
+    await page.reload(); await openDialog(); await waitReady();
+    assert.equal(await offerToggle.isChecked(), true); assert.equal(await offerProvider.inputValue(), '102');
+    assert.equal(await page.locator('[data-role="offerAfter"]').inputValue(), '2');
+    assert.equal(await offerProvider.isDisabled(), true);
+    await send.click(); await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('Open times sent with the request'));
+    const offerRetry = creates().at(-1);
+    assert.deepEqual([offerRetry.operationId, offerRetry.offerFrom, offerRetry.offerAfterDays, offerRetry.offerWithinDays, offerRetry.offerCount],
+      [offerFirst.operationId, '102', '2', '14', '4']);
+    console.log('PASS a retry after an unconfirmed send keeps its offer, so the same times come back');
+    // ---- A per-request visit mode: the clinic enabled several, so staff choose; with one it stays
+    // read-only and nothing is sent (the clinic default). The mode chosen is kept with a retry.
+    const visitModeField = page.locator('[data-role="offerVisitModeField"]');
+    const visitModeSelect = page.locator('[data-role="offerVisitMode"]');
+    assert.equal(creates().at(-1).offerVisitMode, undefined);
+    offering = mayOffer; await fresh(); await offerToggle.check(); await listed(3);
+    assert.equal(await visitModeField.isHidden(), true);
+    assert.equal(await page.locator('[data-role="offerMode"]').isVisible(), true);
+    await offerProvider.selectOption('101'); await send.click();
+    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('Open times sent with the request'));
+    assert.equal(creates().at(-1).offerVisitMode, undefined);
+    console.log('PASS one enabled visit mode stays read-only and no mode is sent');
+    offering = { ...mayOffer, visitModes: ['phone', 'video', 'in_person'] }; await fresh(); await offerToggle.check(); await listed(3);
+    assert.equal(await visitModeField.isVisible(), true);
+    assert.equal(await page.locator('[data-role="offerMode"]').isHidden(), true);
+    assert.deepEqual(await visitModeSelect.locator('option').allInnerTexts(), ['By phone', 'By video', 'In person']);
+    assert.equal(await visitModeSelect.inputValue(), 'phone');
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    await visitModeSelect.selectOption('video'); await offerProvider.selectOption('101'); await send.click();
+    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('Open times sent with the request'));
+    assert.equal(creates().at(-1).offerVisitMode, 'video');
+    console.log('PASS several enabled visit modes: staff choose one and it is sent with the request');
+    loseCreate = true; await fresh(); await offerToggle.check(); await listed(3);
+    await visitModeSelect.selectOption('in_person'); await offerProvider.selectOption('102'); await send.click();
+    await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('could not be confirmed'));
+    const modeFirst = creates().at(-1);
+    await page.reload(); await openDialog(); await waitReady();
+    assert.equal(await visitModeSelect.inputValue(), 'in_person'); assert.equal(await visitModeSelect.isDisabled(), true);
+    await send.click(); await page.waitForFunction(() => document.querySelector('[data-role="status"]').textContent.includes('Open times sent with the request'));
+    assert.deepEqual([creates().at(-1).operationId, creates().at(-1).offerVisitMode], [modeFirst.operationId, 'in_person']);
+    console.log('PASS a retry keeps the visit mode it was first sent with');
+    offering = null;
     assert.deepEqual(errors, []);
     if (process.env.PORTAL_BOOKING_SCREENSHOT) {
       await page.evaluate(() => sessionStorage.clear()); await page.reload(); await openDialog(); await waitReady();
       await page.screenshot({ path: process.env.PORTAL_BOOKING_SCREENSHOT, fullPage: true });
     }
-    console.log('PASS all 25 browser scenarios; no page errors');
+    console.log('PASS all browser scenarios; no page errors');
   } finally { await browser.close(); await new Promise(resolve => server.close(resolve)); }
 }
 require('./lib/legacy-check').runLegacyCheck('portal-booking-prompt', main);

@@ -86,6 +86,22 @@ public class PortalBookingOfferService {
     @Transactional
     public List<PatientPortalOfferedSlot> offer(String operationId, int demographicNo, String providerNo,
             LocalDate from, LocalDate to, int count, String offeredBy, PortalBookingSettings settings) {
+        return offer(operationId, demographicNo, providerNo, from, to, count, offeredBy, settings, null);
+    }
+
+    /**
+     * As above, with the visit mode these times are offered with ({@code null}: the clinic's
+     * default, shown with the clinic setting as it is when the time is read). A mode must be one the
+     * clinic enabled ({@link PortalBookingSettings#visitModes()}); it is stored with each offer, so
+     * a replacement for a refused pick keeps it. A retried operation keeps the mode it was first
+     * given and ignores this argument, like its times.
+     *
+     * @throws IllegalArgumentException as above, and when the mode is not enabled
+     */
+    @Transactional
+    public List<PatientPortalOfferedSlot> offer(String operationId, int demographicNo, String providerNo,
+            LocalDate from, LocalDate to, int count, String offeredBy, PortalBookingSettings settings,
+            String visitMode) {
         List<PortalBookingOffer> existing = offers.findByOperation(operationId);
         if (!existing.isEmpty()) {
             if (existing.stream().anyMatch(offer -> offer.getDemographicNo() != demographicNo)) {
@@ -97,13 +113,52 @@ public class PortalBookingOfferService {
         if (provider == null || !ACTIVE.equals(provider.getStatus())) {
             throw new IllegalArgumentException("offered times provider is not an active provider");
         }
+        if (visitMode != null && !settings.visitModes().contains(visitMode)) {
+            throw new IllegalArgumentException("offered times visit mode is not enabled");
+        }
         ZonedDateTime now = ZonedDateTime.now(clock);
         int wanted = Math.min(count, PatientPortalOfferedSlot.MAX_PER_PROMPT);
         List<PatientPortalOfferedSlot> slots = new ArrayList<>();
         for (var time : loader.load(providerNo, from, to, wanted, Set.of(), settings, now)) {
-            slots.add(toSlot(record(time, operationId, null, demographicNo, offeredBy, null, now), settings));
+            slots.add(toSlot(record(time, operationId, null, demographicNo, offeredBy, null, visitMode, now),
+                    settings));
         }
         return slots;
+    }
+
+    /** A provider the staff dialog may offer times from: the number the action accepts, and a name to show. */
+    public record OfferableProvider(String providerNo, String name) {}
+
+    /**
+     * The active providers who have at least one time that {@link #offer} could offer between
+     * {@code from} and {@code to}, for the staff dialog's provider list. Built here, on the server,
+     * so the browser only ever sends back a provider number from this list (and the action still
+     * checks it again). Empty when the clinic has chosen no bookable template codes.
+     */
+    public List<OfferableProvider> offerableProviders(LocalDate from, LocalDate to, PortalBookingSettings settings) {
+        if (settings.offerableCodes().isEmpty()) {
+            return List.of();
+        }
+        ZonedDateTime now = ZonedDateTime.now(clock);
+        List<OfferableProvider> found = new ArrayList<>();
+        for (Provider provider : providers.getActiveProviders(true)) {
+            String number = provider.getProviderNo();
+            // Only a number the action accepts can be offered from; an odd one is left out of the list.
+            if (number == null || !number.matches("[A-Za-z0-9-]{1,6}") || !ACTIVE.equals(provider.getStatus())
+                    || !loader.hasOpenTime(number, from, to, settings, now)) {
+                continue;
+            }
+            found.add(new OfferableProvider(number, displayName(provider)));
+        }
+        found.sort((left, right) -> left.name().compareToIgnoreCase(right.name()));
+        return List.copyOf(found);
+    }
+
+    private static String displayName(Provider provider) {
+        String last = provider.getLastName() == null ? "" : provider.getLastName().strip();
+        String first = provider.getFirstName() == null ? "" : provider.getFirstName().strip();
+        String name = last.isEmpty() ? first : first.isEmpty() ? last : last + ", " + first;
+        return name.isEmpty() ? provider.getProviderNo() : name;
     }
 
     /** The portal confirmed the prompt; its id lets a later pick be matched to its prompt. */
@@ -156,14 +211,16 @@ public class PortalBookingOfferService {
         }
         List<PatientPortalOfferedSlot> slots = new ArrayList<>();
         for (var time : loader.load(refused.getProviderNo(), from, to, room, exclude, settings, now)) {
+            // The mode of the time it replaces (null: the clinic's default, as for the refused one).
             slots.add(toSlot(record(time, refused.getOperationId(), promptId,
-                    refused.getDemographicNo(), Provider.SYSTEM_PROVIDER_NO, choiceId, now), settings));
+                    refused.getDemographicNo(), Provider.SYSTEM_PROVIDER_NO, choiceId, refused.getVisitMode(), now),
+                    settings));
         }
         return slots;
     }
 
     private PortalBookingOffer record(PortalOfferedSlotLoader.OpenTime time, String operationId, Long promptId,
-            int demographicNo, String offeredBy, Long refusedChoiceId, ZonedDateTime now) {
+            int demographicNo, String offeredBy, Long refusedChoiceId, String visitMode, ZonedDateTime now) {
         PortalBookingOffer offer = new PortalBookingOffer();
         offer.setSlotId(newSlotId());
         offer.setOperationId(operationId);
@@ -174,6 +231,7 @@ public class PortalBookingOfferService {
         offer.setDurationMinutes(time.durationMinutes());
         offer.setTemplateCode(String.valueOf(time.templateCode()));
         offer.setOfferedBy(offeredBy);
+        offer.setVisitMode(visitMode);
         offer.setStatus(PortalBookingOffer.OFFERED);
         // A replacement remembers the refused pick it answers, so a retried report reuses it.
         offer.setChoiceId(refusedChoiceId);
@@ -192,7 +250,11 @@ public class PortalBookingOfferService {
     private PatientPortalOfferedSlot toSlot(PortalBookingOffer offer, PortalBookingSettings settings) {
         return new PatientPortalOfferedSlot(offer.getSlotId(),
                 OffsetDateTime.ofInstant(offer.getStartTime().toInstant(), clock.getZone()),
-                offer.getDurationMinutes(), settings.visitMode(), settings.locationCode());
+                offer.getDurationMinutes(),
+                // The offer's own mode; an offer made without one (or before the column) has the
+                // clinic's default.
+                offer.getVisitMode() != null ? offer.getVisitMode() : settings.visitMode(),
+                settings.locationCode());
     }
 
     private ZonedDateTime zoned(Date date, ZonedDateTime now) {

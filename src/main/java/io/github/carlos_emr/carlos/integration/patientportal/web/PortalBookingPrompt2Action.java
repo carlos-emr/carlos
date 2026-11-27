@@ -42,6 +42,7 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 
@@ -57,6 +58,7 @@ public class PortalBookingPrompt2Action extends PortalJsonAction {
     private final transient SecurityInfoManager security;
     private final transient PortalStaffContextResolver resolver;
     private final transient PortalBookingOfferService injectedOffers;
+    private final transient Supplier<PortalBookingSettings> settings;
     /** Schedule write: an offered time the patient picks becomes a booking. */
     static final String OBJECT_APPOINTMENT = "_appointment";
 
@@ -72,10 +74,18 @@ public class PortalBookingPrompt2Action extends PortalJsonAction {
 
     PortalBookingPrompt2Action(SecurityInfoManager security, PatientPortalService service,
             PortalStaffContextResolver resolver, PortalBookingOfferService offers) {
+        this(security, service, resolver, offers, PortalBookingSettings::fromCarlosProperties);
+    }
+
+    /** The clinic's booking settings come from {@code settings}, so a test can say what they are. */
+    PortalBookingPrompt2Action(SecurityInfoManager security, PatientPortalService service,
+            PortalStaffContextResolver resolver, PortalBookingOfferService offers,
+            Supplier<PortalBookingSettings> settings) {
         super(service);
         this.security = security;
         this.resolver = resolver;
         this.injectedOffers = offers;
+        this.settings = settings;
     }
 
     /** Looked up only when times are offered, so a prompt without times needs no schedule beans. */
@@ -83,8 +93,14 @@ public class PortalBookingPrompt2Action extends PortalJsonAction {
         return injectedOffers != null ? injectedOffers : SpringUtils.getBean(PortalBookingOfferService.class);
     }
 
-    /** Which provider's schedule to offer from, and the window; null when no times are offered. */
-    record OfferRequest(String providerNo, LocalDate from, LocalDate to, int count) {
+    /** The first and last day to look for open times. */
+    record Window(LocalDate from, LocalDate to) {}
+
+    /**
+     * Which provider's schedule to offer from, the window, and the visit mode ({@code null}: the
+     * clinic's default); null when no times are offered.
+     */
+    record OfferRequest(String providerNo, LocalDate from, LocalDate to, int count, String visitMode) {
         static final int DEFAULT_COUNT = 4;
         static final int DEFAULT_WITHIN_DAYS = 14;
 
@@ -97,15 +113,36 @@ public class PortalBookingPrompt2Action extends PortalJsonAction {
             if (!provider.matches("[A-Za-z0-9-]{1,6}")) {
                 throw new IllegalArgumentException("offered times provider is invalid");
             }
-            int after = bounded(request.getParameter("offerAfterDays"), 0, 0, PortalBookingOfferService.MAX_DAYS_AHEAD);
-            int within = bounded(request.getParameter("offerWithinDays"), DEFAULT_WITHIN_DAYS, 1, 92);
+            Window window = window(request, today);
             int count = bounded(request.getParameter("offerCount"), DEFAULT_COUNT, 1,
                     PatientPortalOfferedSlot.MAX_PER_PROMPT);
+            // Only the shape is checked here; that the mode is one the clinic enabled is checked
+            // against the clinic's settings (PortalBookingOfferService.offer) before anything is stored.
+            String mode = request.getParameter("offerVisitMode");
+            if (mode != null && mode.isBlank()) {
+                mode = null;
+            }
+            if (mode != null && !PortalBookingSettings.KNOWN_VISIT_MODES.contains(mode)) {
+                throw new IllegalArgumentException("offered times visit mode is invalid");
+            }
+            return new OfferRequest(provider, window.from(), window.to(), count, mode);
+        }
+
+        /**
+         * The days to offer from: {@code offerAfterDays} from today, for {@code offerWithinDays}
+         * (default 14, at most 92), never past the portal's limit. Also what the staff dialog's
+         * provider list is built for, so the list and the offer agree.
+         *
+         * @throws IllegalArgumentException for a malformed or out-of-range window
+         */
+        static Window window(HttpServletRequest request, LocalDate today) {
+            int after = bounded(request.getParameter("offerAfterDays"), 0, 0, PortalBookingOfferService.MAX_DAYS_AHEAD);
+            int within = bounded(request.getParameter("offerWithinDays"), DEFAULT_WITHIN_DAYS, 1, 92);
             LocalDate from = today.plusDays(after);
             // The portal refuses a time more than 366 days ahead.
             LocalDate last = today.plusDays(PortalBookingOfferService.MAX_DAYS_AHEAD);
             LocalDate to = from.plusDays(within - 1L);
-            return new OfferRequest(provider, from, to.isAfter(last) ? last : to, count);
+            return new Window(from, to.isAfter(last) ? last : to);
         }
 
         private static int bounded(String value, int fallback, int min, int max) {
@@ -139,12 +176,15 @@ public class PortalBookingPrompt2Action extends PortalJsonAction {
         }
         requirePatientAccess(security, session, patient);
         String method = request.getParameter("method");
-        if (!Set.of("create", "list", "panel", "withdraw").contains(method == null ? "" : method)) {
+        if (!Set.of("create", "list", "panel", "withdraw", "providers").contains(method == null ? "" : method)) {
             return badRequest(response, "unsupported booking prompt action");
         }
         requirePatientPrivilege(security, session, PortalStaffContextResolver.OBJECT_BOOKING_PROMPT,
                 "list".equals(method) || "panel".equals(method)
                         ? SecurityInfoManager.READ : SecurityInfoManager.WRITE, patient);
+        if ("providers".equals(method)) {
+            return providers(request, response, session, patient);
+        }
         PatientPortalBookingPromptRequest creation = null;
         OfferRequest offer = null;
         long promptId = 0;
@@ -188,6 +228,7 @@ public class PortalBookingPrompt2Action extends PortalJsonAction {
                 payload.put("mayCreate", mayWrite);
                 if (mayWrite) {
                     payload.put("accountActive", portal.isBookingEligible(patient, staff));
+                    describeOffering(payload.putObject("offering"), session, patient);
                 }
             }
             if ("create".equals(method)) {
@@ -196,15 +237,22 @@ public class PortalBookingPrompt2Action extends PortalJsonAction {
                             "This patient does not have an active portal account. Contact the patient directly.");
                 }
                 if (offer != null) {
+                    PortalBookingSettings clinic = settings.get();
                     List<PatientPortalOfferedSlot> times;
                     try {
                         times = offers().offer(creation.operationId(), patient, offer.providerNo(), offer.from(),
-                                offer.to(), offer.count(), session.getLoggedInProviderNo(),
-                                PortalBookingSettings.fromCarlosProperties());
+                                offer.to(), offer.count(), session.getLoggedInProviderNo(), clinic,
+                                offer.visitMode());
                     } catch (IllegalArgumentException reused) {
                         return badRequest(response, "booking prompt request is invalid");
                     }
                     if (times.isEmpty()) {
+                        // Told apart: no codes chosen (offering is not set up) or no open time in the window.
+                        // (An operation already offered times keeps them, so a retry never reaches here.)
+                        if (clinic.offerableCodes().isEmpty()) {
+                            return conflict(response, "offering_off",
+                                    "Offering times is not set up: the clinic has not chosen which schedule template codes patients may book.");
+                        }
                         return conflict(response, "no_open_times",
                                 "No bookable times were found in that window. Choose another window, or ask the patient to call.");
                     }
@@ -259,6 +307,57 @@ public class PortalBookingPrompt2Action extends PortalJsonAction {
             }
             return portalFailure(response, exception);
         }
+    }
+
+    /**
+     * What the dialog needs to show the "offer open times" controls honestly: whether this user may
+     * offer (schedule write as well as booking-prompt write), whether the clinic has chosen any
+     * bookable template codes, how the times are shown to the patient (the clinic's default visit
+     * mode, and the modes it lets staff choose per request), and the limits the controls enforce. Nothing patient-specific.
+     */
+    private void describeOffering(ObjectNode offering, LoggedInInfo session, int patient) {
+        PortalBookingSettings clinic = settings.get();
+        offering.put("mayOffer", security.hasPrivilege(session, OBJECT_APPOINTMENT, SecurityInfoManager.WRITE,
+                String.valueOf(patient)));
+        offering.put("codesConfigured", !clinic.offerableCodes().isEmpty());
+        // The clinic's default mode, and the modes staff may choose per request (the default first).
+        offering.put("visitMode", clinic.visitMode());
+        var modes = offering.putArray("visitModes");
+        clinic.visitModes().forEach(modes::add);
+        offering.put("defaultWithinDays", OfferRequest.DEFAULT_WITHIN_DAYS);
+        offering.put("maxWithinDays", 92);
+        offering.put("maxAfterDays", PortalBookingOfferService.MAX_DAYS_AHEAD);
+        offering.put("defaultCount", OfferRequest.DEFAULT_COUNT);
+        offering.put("maxCount", PatientPortalOfferedSlot.MAX_PER_PROMPT);
+    }
+
+    /**
+     * The providers with bookable time in the window, for the dialog's provider select: built here,
+     * so the browser only sends back a number from this list. Read-only, but it follows the same
+     * rule as offering (booking-prompt write, checked by the caller, and schedule write), because it
+     * tells a user where bookable time is.
+     */
+    private String providers(HttpServletRequest request, HttpServletResponse response, LoggedInInfo session,
+            int patient) throws IOException {
+        requirePatientPrivilege(security, session, OBJECT_APPOINTMENT, SecurityInfoManager.WRITE, patient);
+        Window window;
+        try {
+            window = OfferRequest.window(request, LocalDate.now());
+        } catch (IllegalArgumentException invalid) {
+            return badRequest(response, "offered times request is invalid");
+        }
+        PortalBookingSettings clinic = settings.get();
+        ObjectNode payload = newPayload();
+        payload.put("ok", true);
+        payload.put("codesConfigured", !clinic.offerableCodes().isEmpty());
+        var items = payload.putArray("providers");
+        for (PortalBookingOfferService.OfferableProvider provider
+                : offers().offerableProviders(window.from(), window.to(), clinic)) {
+            ObjectNode item = items.addObject();
+            item.put("providerNo", provider.providerNo());
+            item.put("name", provider.name());
+        }
+        return write(response, HttpServletResponse.SC_OK, payload);
     }
 
     private ObjectNode promptJson(PatientPortalBookingPromptDto prompt) {

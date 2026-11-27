@@ -34,7 +34,8 @@ window. A visit longer than one template slot can be offered at each slot it may
 |---|---|---|
 | `patient_portal.booking.offerable_codes` | empty | Template code letters patients may book, for example `B,F`. Empty: nothing is offered. |
 | `patient_portal.booking.offer_lead_hours` | `24` | Earliest offered time, in hours from now (0 to 720). |
-| `patient_portal.booking.visit_mode` | `in_person` | `in_person`, `phone`, or `video`, shown to the patient. |
+| `patient_portal.booking.visit_mode` | `in_person` | `in_person`, `phone`, or `video`: the clinic's default, shown with an offer that has no mode of its own. |
+| `patient_portal.booking.visit_modes` | the default only | Optional list (`phone,video`) of the modes staff may choose per request; the default is always one of them. Unknown words are ignored. |
 | `patient_portal.booking.location_code` | none | One of the portal's `PATIENT_PORTAL_BOOKING_LOCATIONS` codes. |
 | `patient_portal.booking.sync.enabled` | `false` | Turns the polling job on. |
 | `patient_portal.booking.sync.interval_seconds` | `60` | How often the job polls (15 to 3600). |
@@ -43,6 +44,35 @@ window. A visit longer than one template slot can be offered at each slot it may
 
 CARLOS reads these settings, and `patient_portal.enabled`, when it starts: restart CARLOS after
 changing any of them.
+
+## The staff dialog (offering times from the screen)
+
+In the booking dialog (the "Ask patient to book a follow-up" box on the patient's record and on an
+appointment), staff tick **Offer open times with the request** and choose:
+
+- **Offer times from:** a provider. The list is built by the server for the chosen window
+  (`PortalBookingPrompt2Action`, `method=providers`, POST only): the active providers who have at
+  least one open time on a bookable template code in the window, listed by name. The browser only
+  sends back a provider number from that list, and the action checks it again. Listing needs the
+  same two privileges as offering (booking prompt write and schedule write).
+- **Start in / Look within (days)** and **How many times:** the window (`offerAfterDays`,
+  `offerWithinDays`, up to 92) and the count (`offerCount`, 1 to 8). Changing the window asks the
+  server for the providers again.
+- **The visit mode.** With one enabled mode it is shown read-only ("The times are shown to the
+  patient as: By phone"). When the clinic enables several (`patient_portal.booking.visit_modes`),
+  staff choose one per request (`offerVisitMode`, validated against the enabled modes). It is stored
+  on each offer (`portal_booking_offer.visit_mode`, V1.0.83), shown to the patient with the times,
+  and the booking-sync job gives replacement times for a refused pick **the refused time's own
+  mode**. An offer with no stored mode (made before the column, or with no choice) is shown with
+  the clinic's `visit_mode`.
+
+The dialog says so, in words, when offering cannot work: **offering is not set up** (no
+`patient_portal.booking.offerable_codes`, so the toggle is off and the request still goes without
+times), **no schedule access** (the user may not offer), **no provider has open times in that
+window**, and **no bookable times were found** when a request is refused for that (409
+`no_open_times`; nothing was stored, so the window can be changed and sent again). A retry of an
+unconfirmed request keeps the provider and window it was first sent with, because the portal refuses a
+retry whose times differ. The panel (`method=panel`) carries an `offering` part for all of this.
 
 `patient_portal.booking.sync.provider_no` is no longer used: the job signs with its own key
 (below), not as a provider. Remove it from `carlos.properties`. If a non-login provider was made
