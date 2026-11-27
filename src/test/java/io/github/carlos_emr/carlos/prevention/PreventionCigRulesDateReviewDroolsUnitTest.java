@@ -30,6 +30,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.kie.api.KieBase;
 
 import io.github.carlos_emr.carlos.drools.DroolsCompilationException;
@@ -55,6 +56,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("unit")
 @Tag("drools")
 @Tag("prevention")
+@Isolated("PreventionDSImpl retains a static kieBase reference")
 @DisplayName("CIG prevention rules refuse imported history of uncertain timing")
 class PreventionCigRulesDateReviewDroolsUnitTest {
 

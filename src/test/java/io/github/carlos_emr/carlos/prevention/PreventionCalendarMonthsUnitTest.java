@@ -112,9 +112,9 @@ class PreventionCalendarMonthsUnitTest {
             for (int n : new int[] {1, 2, 11, 12, 13, 120, 121}) {
                 assertThat(Prevention.calendarMonthsBetween(from, from.plusMonths(n)))
                         .as("%s plus %d months", from, n).isEqualTo(n);
-                // The day before is never n months old, whatever the month lengths: at most n - 1.
+                // The day before is never n months old, whatever the month lengths: always n - 1.
                 assertThat(Prevention.calendarMonthsBetween(from, from.plusMonths(n).minusDays(1)))
-                        .as("%s plus %d months, the day before", from, n).isLessThanOrEqualTo(n);
+                        .as("%s plus %d months, the day before", from, n).isEqualTo(n - 1);
             }
         }
     }

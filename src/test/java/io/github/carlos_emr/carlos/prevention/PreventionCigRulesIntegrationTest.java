@@ -85,6 +85,7 @@ class PreventionCigRulesIntegrationTest extends CarlosTestBase {
     private static final String NEEDS_SECOND_ROTA = "Needs Second Rota vaccine";
     private static final String NEEDS_THIRD_ROTA = "Needs Third Rota vaccine";
     private static final String NEEDS_ADULT_TDAP = "Needs adult Tdap (one dose)";
+    private static final String NEEDS_TD = "Needs Td";
     private static final String NEEDS_REPEAT_TD = "Needs repeat Td";
     private static final String REVIEW = "review history before applying due or dose rules";
 
@@ -257,5 +258,48 @@ class PreventionCigRulesIntegrationTest extends CarlosTestBase {
         assertThat(count(evaluated, NEEDS_THIRD_ROTA)).isZero();
         assertThat(evaluated.getWarningMsgs()).containsKey("Rota-5");
         assertThat(evaluated.getWarnings()).allMatch(warning -> warning.contains(REVIEW));
+    }
+
+    @Test
+    void shouldSwitchFromAdultTdapToRepeatTd_whenPersistedAdultTdapIsRefused() throws Exception {
+        LocalDate today = LocalDate.now(ZONE);
+        stubPatientBorn(today.minusYears(70));
+
+        persistRecord("Td", today.minusYears(12), false, false, null);
+
+        Prevention beforeRefusal = evaluatePersistedHistory();
+        assertThat(count(beforeRefusal, NEEDS_ADULT_TDAP)).isEqualTo(1);
+        assertThat(count(beforeRefusal, NEEDS_REPEAT_TD)).isZero();
+
+        // Refused adult Tdap (status 1) clears the adult Tdap prompt and lets the overdue repeat Td show.
+        persistRecord("Tdap", today, true, false, null);
+
+        Prevention afterRefusal = evaluatePersistedHistory();
+        assertThat(count(afterRefusal, NEEDS_ADULT_TDAP)).isZero();
+        assertThat(count(afterRefusal, NEEDS_REPEAT_TD)).isEqualTo(1);
+    }
+
+    @Test
+    void shouldAskForFirstTd_whenPersistedExternallyCompletedAdultTdapIsTenYearsOld() throws Exception {
+        LocalDate today = LocalDate.now(ZONE);
+        stubPatientBorn(today.minusYears(70));
+
+        io.github.carlos_emr.carlos.commn.model.Prevention externalTdap =
+                new io.github.carlos_emr.carlos.commn.model.Prevention();
+        externalTdap.setDemographicId(PATIENT);
+        externalTdap.setPreventionType("Tdap");
+        externalTdap.setPreventionDate(atStartOfDay(today.minusMonths(120)));
+        externalTdap.setProviderNo("999998");
+        externalTdap.setCreatorProviderNo("999998");
+        externalTdap.setDeleted(false);
+        externalTdap.setNever(false);
+        externalTdap.setCompletedExternally(true);
+        preventionDao.persist(externalTdap);
+
+        Prevention evaluated = evaluatePersistedHistory();
+
+        assertThat(count(evaluated, NEEDS_ADULT_TDAP)).isZero();
+        assertThat(count(evaluated, NEEDS_TD)).isEqualTo(1);
+        assertThat(count(evaluated, NEEDS_REPEAT_TD)).isZero();
     }
 }

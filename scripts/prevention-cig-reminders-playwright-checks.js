@@ -5,16 +5,20 @@
  * patient's Preventions page. prevention-reminders covers a 70-year-old's adult Tdap and repeat Td; the Drools unit
  * tests fire every rule on prevention.drl. This check proves the installed page shows the infant, teen and young
  * adult paths the same way, with each dose entered through the type's own form.
- * User path: E-Chart ▸ Preventions (the Prevention Recommendations box); ▸ Rota-1 / Rota-5 / Rota / Tdap ▸ Completed
- * or Ineligible ▸ date ▸ Save.
+ * User path: E-Chart ▸ Preventions (the Prevention Recommendations box); ▸ Rota-1 / Rota-5 / Rota / Tdap / Td ▸
+ * Completed, Refused or Ineligible ▸ date (and optional next date) ▸ Save.
  * Asserts:
  *   - an infant of 90 days with no rotavirus dose is asked for the first dose; at 150 days (past 15 weeks) is not;
  *   - at 150 days, a Rota-1 given 56 days ago asks for the second dose, 28 days after it;
  *   - a Rota-5 given 28 days ago as the second dose asks for the third dose (a Rot-5 in the series), not a second;
  *   - an "ineligible" rotavirus record dated the day of the second dose takes the third-dose reminder away;
+ *   - at 150 days, a preceding refused Rota with a passed next date does not override a future next date on an
+ *     administered Rota-5;
  *   - a 15-year-old with no tetanus record is asked for the teen Tdap, not a Td or the adult Tdap; recording a Tdap
  *     today takes it away;
- *   - an 18-year-old whose only Tdap was given at 15 is asked for the adult Tdap (one dose), not the teen one.
+ *   - an 18-year-old whose only Tdap was given at 15 is asked for the adult Tdap (one dose), not the teen one;
+ *   - a 70-year-old with a 12-year-old Td sees the adult Tdap alone until a refused Tdap today clears it and reveals
+ *     "Needs repeat Td".
  * Ages and dates are set from the date the application offers as today (its clock, which can differ from the
  * database's). SKIP when the clinic loads its own rule base from the database (ResourceStorage).
  * Fixtures: the runWorkflow FAKE- patient, whose birth date is set per case; its preventions and their ext rows are
@@ -47,6 +51,7 @@ async function workflow(s) {
   const index = await openPreventionIndex(s);
   const today = await applicationToday(s, index);
   const daysAgo = days => sql.value(`SELECT DATE_SUB(${q(today)}, INTERVAL ${Number(days)} DAY)`);
+  const daysAhead = days => sql.value(`SELECT DATE_ADD(${q(today)}, INTERVAL ${Number(days)} DAY)`);
   const yearsAgo = years => sql.value(`SELECT DATE_SUB(${q(today)}, INTERVAL ${Number(years)} YEAR)`);
 
   /** A fresh case: no preventions on record, born on the given yyyy-mm-dd date. */
@@ -65,16 +70,27 @@ async function workflow(s) {
     h.assert(!shown.failed, 'Decision support reported an error');
     return [...shown.warnings, ...shown.reminders];
   }
-  /** Records one prevention through its form, as `given` (Completed given, ineligible), on the date. */
-  async function record(type, given, date) {
+  /** Records one prevention through its form, as `given` (given, refused, ineligible), on the date with optional next date. */
+  async function record(type, given, date, nextDate = null) {
     const forms = preventionForms(s, index, type);
     const editor = await forms.openNew();
     await editor.locator(`[name="given"][value="${given}"]`).check();
     await editor.locator('#prevDate').fill(date);
+    if (nextDate !== null) {
+      const disclosure = editor.getByRole('link', { name: /set next date/i }).first();
+      await disclosure.or(editor.locator('#nextDateDiv')).first().waitFor({ state: 'visible' });
+      if (await disclosure.isVisible()) await disclosure.click();
+      await editor.locator('#nextDateDiv').waitFor({ state: 'visible' });
+      await editor.locator('#nextDate').fill(nextDate);
+    }
     const id = await forms.saveNew(editor);
-    const status = { given: '0', ineligible: '2' }[given];
+    const status = { given: '0', refused: '1', ineligible: '2' }[given];
     h.assert(sql.value(`SELECT CONCAT(DATE(prevention_date),'|',refused) FROM preventions WHERE id=${id}`) === `${date}|${status}`,
       `The ${type} was not stored as ${given} on ${date}`);
+    if (nextDate !== null) {
+      h.assert(sql.value(`SELECT DATE(next_date) FROM preventions WHERE id=${id}`) === nextDate,
+        `The ${type} next date ${nextDate} was not stored`);
+    }
     return id;
   }
   const expect = (shown, message, wanted, why) =>
@@ -109,6 +125,14 @@ async function workflow(s) {
     expect(shown, ROTA_SECOND, false, 'Two rotavirus doses and an ineligible record on file');
   });
 
+  await s.step('a preceding refused Rota with a passed next date does not override a future next date on an administered Rota-5', async () => {
+    await startCase(daysAgo(150));
+    await record('Rota', 'refused', daysAgo(90), daysAgo(20));
+    await record('Rota-5', 'given', daysAgo(60), daysAhead(14));
+    const shown = await recommendations();
+    expect(shown, ROTA_SECOND, false, 'A prior refusal passed next date with an administered Rota-5 future next date');
+  });
+
   await s.step('a 15-year-old with no tetanus record is asked for the teen Tdap, and a Tdap today takes it away', async () => {
     let shown = await startCase(yearsAgo(15));
     expect(shown, TEEN_TDAP, true, 'A 15-year-old with no booster on file');
@@ -128,6 +152,18 @@ async function workflow(s) {
     expect(shown, TEEN_TDAP, false, 'An 18-year-old');
     expect(shown, TD_FIRST, false, 'An 18-year-old while the adult Tdap is due');
     expect(shown, TD_REPEAT, false, 'An 18-year-old while the adult Tdap is due');
+  });
+
+  await s.step('a 70-year-old with a 12-year-old Td sees adult Tdap alone until a refused Tdap today reveals repeat Td', async () => {
+    await startCase(yearsAgo(70));
+    await record('Td', 'given', yearsAgo(12));
+    let shown = await recommendations();
+    expect(shown, ADULT_TDAP, true, 'A 70-year-old with a 12-year-old Td and no Tdap');
+    expect(shown, TD_REPEAT, false, 'Repeat Td waits while adult Tdap is due');
+    await record('Tdap', 'refused', today);
+    shown = await recommendations();
+    expect(shown, ADULT_TDAP, false, 'Adult Tdap after refusal today');
+    expect(shown, TD_REPEAT, true, 'Overdue repeat Td after adult Tdap was refused today');
   });
 }
 
