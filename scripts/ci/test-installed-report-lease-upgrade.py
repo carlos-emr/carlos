@@ -19,7 +19,7 @@ KEY = "db_remove_abandoned_timeout"
 
 
 class TestReportLeaseUpgrade(unittest.TestCase):
-    def warning_for(self, installed, *, options="", override=None, home=None):
+    def warning_for(self, installed, *, options="", override=None, home=None, env_text="", setenv=False):
         block = re.search(
             r"^        REPORT_WEB_INF=.*?^        }\n",
             POSTINST.read_text(encoding="utf-8"),
@@ -38,6 +38,8 @@ class TestReportLeaseUpgrade(unittest.TestCase):
             if override is not None:
                 site_file.write_bytes(override)
                 site_file.chmod(0o644)
+            literal_file = Path(directory) / "literal.properties"
+            literal_file.symlink_to(site_file.name)
             user_home = Path(directory) / "home"
             user_home.mkdir()
             user_home.chmod(0o755)
@@ -46,13 +48,28 @@ class TestReportLeaseUpgrade(unittest.TestCase):
                 (user_home / "carlos.properties").chmod(0o644)
             flags = options.format(site=shlex.quote(str(site_file)), home=shlex.quote(str(user_home)))
             env_file = Path(directory) / "carlos-emr.env"
-            env_file.write_text("CARLOS_JAVA_OPTS=" + shlex.quote(flags) + "\n")
+            probe = Path(directory) / "read-only-probe"
+            probe.touch()
+            os.chown(probe, 0, grp.getgrnam("carlos").gr_gid)
+            probe.chmod(0o660)
+            extra = env_text.replace("{probe}", shlex.quote(str(probe))).replace("{literal}", str(literal_file))
+            if setenv:
+                base = Path(directory) / "catalina"
+                (base / "bin").mkdir(parents=True)
+                base.chmod(0o755)
+                (base / "bin").chmod(0o755)
+                hook = base / "bin" / "setenv.sh"
+                hook.write_text(f'CATALINA_OPTS="$CATALINA_OPTS -Dcarlos_override_properties={shlex.quote(str(site_file))}"\n')
+                hook.chmod(0o644)
+                extra += "CATALINA_BASE=" + shlex.quote(str(base)) + "\n"
+            env_file.write_text("CARLOS_JAVA_OPTS=" + shlex.quote(flags) + "\n" + extra)
             env_file.chmod(0o644)
             result = subprocess.run(
                 ["sh", "-c", "set -e\n" + block.group(0)],
                 env=dict(os.environ, SHARE=str(SHARE), PROPERTIES=str(properties), ENV_FILE=str(env_file)),
                 capture_output=True, text=True, check=True,
             )
+            self.assertEqual(probe.read_bytes(), b"", "configure executed a site environment command")
             self.assertEqual(properties.read_bytes(), installed)
             self.assertEqual(stat.S_IMODE(properties.stat().st_mode), 0o640)
             if override is not None:
@@ -68,6 +85,11 @@ class TestReportLeaseUpgrade(unittest.TestCase):
         self.assertIn("360", warning)
         self.assertIn("sudo carlos-ctl restart", warning)
 
+    def test_accepts_the_shipped_service_environment_and_literal_assignments(self):
+        stock = (SHARE / "skel" / "carlos-emr.env").read_text()
+        settings = stock + "\nCARLOS_JAVA_OPTS='' # local setting\n"
+        self.assertEqual("", self.warning_for(b"db_remove_abandoned_timeout=420\n", env_text=settings))
+
     def test_preserves_a_site_specific_setting(self):
         self.assertEqual(self.warning_for(b"db_remove_abandoned_timeout = 17\n"), "")
 
@@ -79,6 +101,11 @@ class TestReportLeaseUpgrade(unittest.TestCase):
         self.assertEqual("", self.warning_for(unsafe, options=flags, override=safe))
         self.assertEqual("", self.warning_for(unsafe, options=flags, override=b""))
 
+    def test_uses_the_literal_properties_path_selected_by_the_service_wrapper(self):
+        warning = self.warning_for(b"db_remove_abandoned_timeout=420\n", env_text="PROPERTIES={literal}\n",
+                                   override=b"db_remove_abandoned_timeout=15\n")
+        self.assertIn("resolves to 15 seconds", warning)
+
     def test_service_home_loads_after_the_selected_override(self):
         flags = "-Duser.home={home} -Dcarlos_override_properties={site}"
         warning = self.warning_for(b"", options=flags, override=b"db_remove_abandoned_timeout=420\n",
@@ -86,11 +113,22 @@ class TestReportLeaseUpgrade(unittest.TestCase):
         self.assertIn("resolves to 15 seconds", warning)
 
     def test_unreadable_selection_or_indirect_options_warn_without_exposing_values(self):
-        for flags in ("-Dcarlos_override_properties={site}", "@/private-marker"):
+        for flags in ("-Dcarlos_override_properties={site}", "@/private-marker", "-Duser.dir=/private-marker"):
             with self.subTest(flags=flags):
                 warning = self.warning_for(b"db_remove_abandoned_timeout=360\n", options=flags)
                 self.assertIn("could not verify", warning)
                 self.assertNotIn("private-marker", warning)
+
+    def test_reports_that_a_catalina_startup_hook_can_change_the_selection(self):
+        warning = self.warning_for(b"db_remove_abandoned_timeout=360\n", setenv=True,
+                                   override=b"db_remove_abandoned_timeout=15\n")
+        self.assertIn("could not verify", warning)
+
+    def test_refuses_dynamic_environment_settings_without_executing_them(self):
+        warning = self.warning_for(b"db_remove_abandoned_timeout=360\n",
+                                   env_text='CARLOS_JAVA_OPTS="$(printf private-marker > {probe})"\n')
+        self.assertIn("could not verify", warning)
+        self.assertNotIn("private-marker", warning)
 
     def test_last_definition_wins(self):
         old = b"  db_remove_abandoned_timeout : 15  \r\n"

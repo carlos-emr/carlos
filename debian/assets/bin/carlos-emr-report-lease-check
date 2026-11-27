@@ -4,47 +4,78 @@
 """Run the read-only configure check with the packaged service's configuration paths."""
 
 import os
+import re
 import shlex
-import subprocess
 import sys
+from pathlib import Path
+
+# The packaged file is shared by systemd EnvironmentFile and the Bash wrapper.
+# Accept literal assignments with shell quoting, escapes and trailing comments.
+# Anything requiring shell evaluation is unverifiable during package configure.
+ASSIGNMENT = re.compile(r"""
+    ([A-Za-z_][A-Za-z_0-9]*)=
+    ((?:
+          [A-Za-z0-9_./:@%=+,#-]  # ordinary unquoted character
+        | \\.                     # backslash-quoted character
+        | '[^']*'                 # literal single-quoted text
+        | "(?:[^"\\$`]|\\["\\])*"  # double quotes, without shell expansion
+    )*)
+    (?:[ \t]+\#.*)?                # optional trailing comment
+""", re.VERBOSE)
+
+
+def read_settings(path):
+    settings = {}
+    # A CR in a sourced Bash assignment is data. Preserve line endings so the
+    # checker cannot silently normalize a different setting to a valid path.
+    for line in Path(path).read_bytes().decode("utf-8").split("\n"):
+        if "\r" in line:
+            raise ValueError("unexpected service environment line ending")
+        line = line.strip(" \t")
+        if not line or line.startswith("#"):
+            continue
+        assignment = ASSIGNMENT.fullmatch(line)
+        if assignment is None:
+            raise ValueError("non-literal service environment")
+        name, word = assignment.groups()
+        settings[name] = "".join(shlex.split(word))
+    return settings
 
 
 def main(env_file, java, classpath, classes, managed):
-    # Read the same operator-owned environment file as carlos-emr-tomcat, as
-    # carlos. Do not inherit the package installer's JVM options or run a site's
-    # Java agents, profilers or heap settings in the diagnostic JVM.
-    environment = {"HOME": os.environ["HOME"], "PATH": "/usr/bin:/bin"}
-    read_options = subprocess.run(
-        ["/bin/bash", "-euc", """
-            CONF_DIR=/etc/carlos-emr
-            PROPERTIES=$2
-            CATALINA_HOME=/usr/share/tomcat11
-            CATALINA_BASE=/var/lib/carlos-emr/catalina
-            . "$1" >/dev/null
-            printf '%s\\0' "${CARLOS_JAVA_OPTS:-}" "${JAVA_OPTS:-}" "${JAVA_TOOL_OPTIONS:-}" \
-                "${JDK_JAVA_OPTIONS:-}" "${_JAVA_OPTIONS:-}"
-        """, "report-lease-check", env_file, managed],
-        env=environment, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, check=True,
-    )
-    site, java_opts, tool_opts, jdk_opts, last_opts, end = os.fsdecode(read_options.stdout).split("\0")
-    if end or tool_opts or jdk_opts or last_opts:
-        # JVM-wide injection uses distinct quoting and precedence rules.
+    settings = read_settings(env_file)
+    if any(settings.get(key) for key in ("JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS")):
         return 1
-    os.chdir("/var/lib/carlos-emr/catalina")  # Tomcat resolves relative paths here.
+    base = Path(settings.get("CATALINA_BASE", "/var/lib/carlos-emr/catalina"))
+    tomcat = Path(settings.get("CATALINA_HOME", "/usr/share/tomcat11"))
+    # catalina.sh sources the first readable hook after the wrapper assembles
+    # the JVM flags. A hook may replace both paths or run other site commands.
+    if any(os.access(directory / "bin/setenv.sh", os.R_OK) for directory in (base, tomcat)):
+        return 1
+    if not base.is_absolute() or not tomcat.is_absolute():
+        return 1
+    os.chdir(base)
+    managed = settings.get("PROPERTIES", managed)
+    if not managed or any(ch.isspace() or ch in "\\\"'" for ch in managed):
+        return 1  # The wrapper inserts this particular path into CATALINA_OPTS without quoting it.
     selected = managed
     home_args = []
     # Catalina puts JAVA_OPTS first, then the packaged override, then site flags.
-    for options in (java_opts, shlex.quote("-Dcarlos_override_properties=" + managed), site):
+    for options in (settings.get("JAVA_OPTS", ""), "-Dcarlos_override_properties=" + managed,
+                    settings.get("CARLOS_JAVA_OPTS", "")):
         if any(char in options for char in "$`*?[]{}~#;&|<>()\n"):
             return 1  # Shell expansion cannot be inspected as a literal argument.
         for option in shlex.split(options):
             if option.startswith(("@", "-XX:VMOptionsFile=", "-XX:Flags=")):
                 return 1
             name, _, value = option.partition("=")
+            if name == "-Duser.dir":
+                return 1  # Java can resolve relative configuration paths against a different base.
             if name == "-Dcarlos_override_properties":
                 selected = value
             elif name == "-Duser.home":
                 home_args = ["-Duser.home=" + value]
+    environment = {"HOME": os.environ["HOME"], "PATH": "/usr/bin:/bin"}
     os.execve(java, [java, *home_args, "-cp", classpath,
                      "io.github.carlos_emr.carlos.config.PackagedReportLeaseCheck", classes, selected],
               environment)
@@ -53,6 +84,6 @@ def main(env_file, java, classpath, classes, managed):
 if __name__ == "__main__":
     try:
         sys.exit(main(*sys.argv[1:]))
-    except (OSError, ValueError, subprocess.CalledProcessError):
+    except (OSError, ValueError):
         # The package prints one actionable warning. Never print site option values.
         sys.exit(1)
