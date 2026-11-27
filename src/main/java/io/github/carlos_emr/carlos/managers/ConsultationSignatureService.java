@@ -33,6 +33,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import jakarta.servlet.http.HttpSession;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -104,14 +105,49 @@ public class ConsultationSignatureService {
     /**
      * Reports whether a manual signature was actually captured for {@code signatureRequestId} (a
      * non-empty temp file is present), so the caller can distinguish a genuine "captured but failed to
-     * persist" outcome from the benign "provider did not sign" case.
+     * persist" outcome from the benign "provider did not sign" case. Only a request id issued to
+     * {@code session} counts; any other id reports {@code false}.
      *
+     * @param session            the logged-in user's session, which holds the issued request ids
      * @param signatureRequestId the manual signature-pad request id
      * @return {@code true} when a non-empty captured signature file exists for the request id
      */
-    public boolean wasManualSignatureCaptured(String signatureRequestId) {
-        byte[] captured = readTempSignatureImage(signatureRequestId);
+    public boolean wasManualSignatureCaptured(HttpSession session, String signatureRequestId) {
+        byte[] captured = readTempSignatureImage(session, signatureRequestId);
         return captured != null && captured.length > 0;
+    }
+
+    /**
+     * What the consultation form shows again for a manual signature after a rejected POST: the
+     * signature field's value and whether the user must be told the drawing was lost.
+     *
+     * @param signatureImg the value to render in the form's {@code signatureImg} field: the pad's
+     *                     request id while its capture is still there, otherwise empty
+     * @param captureLost  {@code true} when the rejected POST carried a capture that is gone now. The
+     *                     re-rendered form then has no signature, and a further submit would save the
+     *                     consultation unsigned without the server's "signature not applied" warning,
+     *                     so the page must say so.
+     */
+    public record ManualSignatureRetry(String signatureImg, boolean captureLost) {
+    }
+
+    /**
+     * Decides how the consultation form re-renders a manual signature after a rejected POST.
+     *
+     * @param session               the logged-in user's session, which holds the issued request ids
+     * @param signatureRequestId    the pad request id the re-rendered page uses
+     * @param submittedSignatureImg the {@code signatureImg} value the rejected POST carried (nullable)
+     * @return the field value to render and whether a capture was lost
+     */
+    public ManualSignatureRetry retryManualSignature(HttpSession session, String signatureRequestId,
+                                                     String submittedSignatureImg) {
+        String submitted = StringUtils.trimToEmpty(submittedSignatureImg);
+        if (wasManualSignatureCaptured(session, signatureRequestId)) {
+            return new ManualSignatureRetry(signatureRequestId, false);
+        }
+        // A non-empty, non-stored value was a capture marker: the user signed, and the drawing is gone.
+        boolean captureLost = !submitted.isEmpty() && !SignatureReference.isStoredId(submitted);
+        return new ManualSignatureRetry("", captureLost);
     }
 
     /**
@@ -186,7 +222,7 @@ public class ConsultationSignatureService {
             return ConsultationPreviewSignatureOutcome.of(ConsultationPreviewSignatureOutcome.Status.DEMOGRAPHIC_MISMATCH);
         }
 
-        boolean manualCaptured = wasManualSignatureCaptured(manualSignatureRequestId);
+        boolean manualCaptured = wasManualSignatureCaptured(loggedInInfo.getSession(), manualSignatureRequestId);
         boolean manualSignatureSubmitted = StringUtils.isNotBlank(submittedSignatureImg)
                 && !SignatureReference.isStoredId(submittedSignatureImg);
         DigitalSignature signature = digitalSignatureManager.processAndSaveDigitalSignature(
@@ -234,7 +270,8 @@ public class ConsultationSignatureService {
         }
 
         if (newSignature) {
-            byte[] manualSignature = readTempSignatureImage(resolveManualSignatureRequestId(submittedSignatureImg, newSignatureImg));
+            byte[] manualSignature = readTempSignatureImage(loggedInInfo == null ? null : loggedInInfo.getSession(),
+                    resolveManualSignatureRequestId(submittedSignatureImg, newSignatureImg));
             if (manualSignature != null && manualSignature.length > 0) {
                 return manualSignature;
             }
@@ -311,8 +348,8 @@ public class ConsultationSignatureService {
     // FindSecBugs PATH_TRAVERSAL_IN: DigitalSignatureUtils and PathValidationUtils constrain the temp signature path to java.io.tmpdir.
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "DigitalSignatureUtils and PathValidationUtils constrain the temp signature path to java.io.tmpdir")
     @SuppressWarnings("java:S1168")
-    private byte[] readTempSignatureImage(String signatureRequestId) {
-        if (StringUtils.isBlank(signatureRequestId)) {
+    private byte[] readTempSignatureImage(HttpSession session, String signatureRequestId) {
+        if (StringUtils.isBlank(signatureRequestId) || !DigitalSignatureUtils.isIssued(session, signatureRequestId)) {
             return null;
         }
 

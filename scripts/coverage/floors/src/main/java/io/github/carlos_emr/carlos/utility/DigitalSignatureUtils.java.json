@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/utility/DigitalSignatureUtils.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "ab013db9641d733f64be57771a5d0003eb27e12c"
+  },
+  "evidenceSha256": "2009bbd5728dbcf6436f814944b1a1efbe67fb7943f1dc6228c896054914b1ab"
+}

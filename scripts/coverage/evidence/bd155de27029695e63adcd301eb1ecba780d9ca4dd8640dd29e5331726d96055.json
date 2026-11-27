@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "a0833b79726227d27bbd40d47c1b45b2957d4c2a",
+  "comparisonSha256": "6bdc62c14426d36ed3c1c1440ecdb444aab34857d7fa49f7df1f589cdc9b617c",
+  "baselineCommit": "8259b606ff0cb26739173a7c74fa84c0c67df93f",
+  "baselineSourceTree": "a0833b79726227d27bbd40d47c1b45b2957d4c2a",
+  "baselineReportSha256": "3b99a2579aec588857734df4fd685eddf789a4eee3675ee55e79a6bfafefcc65",
+  "baselineLane": "PR #5141 FOCUSED run: SaveSignatureUpload2ActionTest, SaveSignatureUpload2ActionIssuedKeyUnitTest and UploadActionBindingSecurityUnitTest (Maven, JDK 25.0.5, JaCoCo 0.8.16) on this PR's merge of release/2026.08 (eaba7c5023). The row is measured with the checker's measure() from target/site/jacoco/jacoco.xml for SaveSignatureUpload2Action.java only; it is not a full-suite run and qualifies no other source.",
+  "baselineTestCounts": {
+    "tests": 39,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "1b8068a8ee2cd7ee0152034cb9340268ce4e0e2029bf9f12239637436c3effcc",
+  "baselineTestReportsHashFormat": "SHA-256 of compact, key-sorted JSON mapping each Surefire XML filename to the SHA-256 of its unchanged bytes",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/signature/action/SaveSignatureUpload2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "a650e638a74aec0afba5d66f6b4dcdcc8bb5cfab"
+    }
+  }
+}

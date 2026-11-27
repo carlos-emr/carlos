@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.signature.action;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -32,6 +33,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 
 import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.owasp.encoder.Encode;
@@ -68,6 +70,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *   <li>405 — non-POST method</li>
  *   <li>400 — missing/non-alphanumeric {@code signatureKey}, or malformed
  *       {@code demographicNo} when {@code saveToDB=true}</li>
+ *   <li>403 — {@code signatureKey} is unknown to this session or its pad has expired
+ *       ({@link DigitalSignatureUtils#isIssued})</li>
  *   <li>400 — malformed {@code data:} URI or non-Base64 {@code signatureImage}
  *       on the IPAD branch</li>
  *   <li>413 — raw-stream upload exceeds {@value #MAX_UPLOAD_BYTES} bytes</li>
@@ -78,7 +82,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *   <li>200 — HTML fragment with hidden {@code signatureId} input</li>
  * </ul>
  * Partial temp files from rejected uploads and orphaned temp files from
- * failed persistence are deleted before returning.
+ * failed persistence are deleted before returning. An exact replay in the
+ * same session receives the ID previously committed for that capture.
  */
 public final class SaveSignatureUpload2Action extends ActionSupport {
 
@@ -86,8 +91,7 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
             SpringUtils.getBean(SecurityInfoManager.class);
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
-    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use")
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Case-insensitive comparison of an HTTP method name")
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -110,13 +114,9 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
             return NONE;
         }
 
-        String signatureId = "";
-        String uploadSource = request.getParameter("source");
-        String imageString = request.getParameter("signatureImage");
         String demographic = request.getParameter("demographicNo");
         boolean saveToDB = "true".equals(request.getParameter("saveToDB"));
         String signatureKey = request.getParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY);
-        ModuleType moduleType = ModuleType.getByName(request.getParameter(ModuleType.class.getSimpleName()));
         Integer demographicNo = null;
         if (saveToDB) {
             try {
@@ -144,6 +144,32 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
             return NONE;
         }
 
+        // Only a key this session was given by the page that opened the pad is accepted, so a
+        // capture is written for, and read back by, that page alone.
+        HttpSession session = request.getSession(false);
+        if (!DigitalSignatureUtils.isIssued(session, signatureKey)) {
+            return refuseInvalidPad(response);
+        }
+
+        var receipts = DigitalSignatureUtils.uploadReceipts(session);
+        synchronized (receipts.lockFor(session, signatureKey)) {
+            // The pad can expire after the check above. Once it has, lockFor may drop its lock entry
+            // while an earlier upload still holds that lock, and this request then holds a new one.
+            // An expired pad is never issued again, so check again before touching its capture.
+            if (!DigitalSignatureUtils.isIssued(session, signatureKey)) {
+                return refuseInvalidPad(response);
+            }
+            return storeCapture(request, response, loggedInInfo, signatureKey, demographicNo, receipts);
+        }
+    }
+
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "IMPROPER_UNICODE: compares an upload-source label; PATH_TRAVERSAL_IN: the signature path is validated before reading or writing it")
+    private String storeCapture(HttpServletRequest request, HttpServletResponse response, LoggedInInfo loggedInInfo,
+                                String signatureKey, Integer demographicNo, DigitalSignatureUtils.UploadReceipts receipts)
+            throws IOException {
+        String signatureId = "";
+        String uploadSource = request.getParameter("source");
+        String imageString = request.getParameter("signatureImage");
         String filename = DigitalSignatureUtils.getTempFilePath(signatureKey);
 
         // Defence-in-depth: confirm the resolved path is within the temp directory,
@@ -178,7 +204,7 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
             try {
                 imageData = new Base64().decode(encoded.getBytes(StandardCharsets.US_ASCII));
             } catch (IllegalArgumentException e) {
-                MiscUtils.getLogger().warn("Invalid Base64 signatureImage for key {}", LogSafe.sanitize(signatureKey)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                MiscUtils.getLogger().warn("Invalid Base64 signatureImage in a signature upload");
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid image data");
                 return NONE;
             }
@@ -235,7 +261,27 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
             return NONE;
         }
 
-        if (saveToDB) {
+        if (demographicNo != null) {
+            ModuleType moduleType = ModuleType.getByName(request.getParameter(ModuleType.class.getSimpleName()));
+            String digest;
+            try (InputStream capture = Files.newInputStream(safeTarget.toPath())) {
+                digest = DigestUtils.sha256Hex(capture);
+            } catch (IOException e) {
+                deleteQuietly(safeTarget);
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Save failed");
+                return NONE;
+            }
+            var facility = loggedInInfo.getCurrentFacility();
+            var identity = new DigitalSignatureUtils.UploadIdentity(signatureKey, demographicNo,
+                    loggedInInfo.getLoggedInProviderNo(), facility == null ? null : facility.getId(), moduleType, digest);
+            var previous = receipts.lookup(request.getSession(false), identity);
+            if (!previous.issued()) {
+                deleteQuietly(safeTarget);
+                return refuseInvalidPad(response);
+            }
+            if (previous.signatureId() != null) {
+                return acknowledgeCapture(response, previous.signatureId().toString());
+            }
             DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
             DigitalSignature signature;
             try {
@@ -248,8 +294,7 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
                 // Manager documents null-return on expected failures; any propagated
                 // RuntimeException is an unexpected failure mode (e.g. encryption,
                 // DB connectivity). Delete the orphan temp file before surfacing 500.
-                MiscUtils.getLogger().error("Digital signature persist failed for key {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
-                        LogSafe.sanitize(signatureKey), e);
+                MiscUtils.getLogger().error("Digital signature persist failed for a signature upload", e);
                 deleteQuietly(safeTarget);
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Save failed");
                 return NONE;
@@ -260,15 +305,32 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
                 // exception. The file upload succeeded but persistence did not —
                 // surface 500 rather than returning an empty signatureId that the
                 // caller has no way to distinguish from a successful save.
-                MiscUtils.getLogger().warn("Digital signature persist returned null for key {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
-                        LogSafe.sanitize(signatureKey));
+                MiscUtils.getLogger().warn("Digital signature persist returned null for a signature upload");
                 deleteQuietly(safeTarget);
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Save failed");
                 return NONE;
             }
+            receipts.remember(request.getSession(false), identity, signature.getId());
             signatureId = String.valueOf(signature.getId());
+        } else if (!DigitalSignatureUtils.isIssued(request.getSession(false), signatureKey)) {
+            // A temporary capture is read back later through its pad key. The pad can expire while the
+            // image is being received (another pad opened in this session), and the preview would then
+            // refuse the key and show a blank image. Refuse instead, as for an expired pad, so the page
+            // keeps its drawing for the user to reopen the pad, and drop the unusable file.
+            deleteQuietly(safeTarget);
+            return refuseInvalidPad(response);
         }
 
+        return acknowledgeCapture(response, signatureId);
+    }
+
+    private String refuseInvalidPad(HttpServletResponse response) throws IOException {
+        MiscUtils.getLogger().warn("Refused a signature upload with an unknown or expired pad");
+        response.sendError(HttpServletResponse.SC_FORBIDDEN, "Unknown or expired signature pad. Reopen the pad.");
+        return NONE;
+    }
+
+    private String acknowledgeCapture(HttpServletResponse response, String signatureId) throws IOException {
         response.setStatus(HttpServletResponse.SC_OK);
 
         // Preserve the JSP's HTML-fragment response contract so existing

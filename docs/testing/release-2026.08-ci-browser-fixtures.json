@@ -91,6 +91,16 @@
       "minimumAssertions": 1383
     },
     {
+      "id": "tablet-signature-browser-check",
+      "command": [
+        "node",
+        "scripts/tablet-signature-browser-check.js"
+      ],
+      "source": "scripts/tablet-signature-browser-check.js",
+      "sourceSha256": "7988ff8edc079fa2cf132b7927bd0e084f8032a87d529c049486808ab06e1239",
+      "minimumAssertions": 43
+    },
+    {
       "id": "dashboard-tickler-picker-browser-check",
       "command": [
         "node",
@@ -237,5 +247,5 @@
       ]
     }
   ],
-  "workflowSha256": "fb464d4f9cd7c6dbf1ccefdbedd236cdee1223d66a9e6b7cf631635757df8730"
+  "workflowSha256": "4cc2ede972327729233365e1cb815def653fd279ff46b8414896980cd2a14cb9"
 }

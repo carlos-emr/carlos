@@ -47,6 +47,7 @@ import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import org.springframework.mock.web.MockHttpSession;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -57,6 +58,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -80,6 +82,8 @@ class ConsultationSignatureServiceUnitTest {
     @Mock
     private ConsultationRequestDao consultationRequestDao;
 
+    private final MockHttpSession session = new MockHttpSession();
+
     private ConsultationSignatureService service;
     private boolean hadEformImagesDir;
     private Object originalEformImagesDir;
@@ -96,6 +100,7 @@ class ConsultationSignatureServiceUnitTest {
         facility.setEnableDigitalSignatures(true);
         when(loggedInInfo.getCurrentFacility()).thenReturn(facility);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        when(loggedInInfo.getSession()).thenReturn(session);
 
         service = new ConsultationSignatureService(digitalSignatureManager, securityInfoManager, consultationRequestDao);
     }
@@ -249,13 +254,14 @@ class ConsultationSignatureServiceUnitTest {
     @DisplayName("reports no manual signature captured when the temp file exceeds the size limit")
     void shouldReportNoManualSignatureCaptured_whenTempFileExceedsSizeLimit() throws Exception {
         Path oversized = tempDir.resolve("signature_oversized.png");
+        String requestId = DigitalSignatureUtils.generateSignatureRequestId(session);
 
-        try (var digitalSignatureUtils = mockStatic(DigitalSignatureUtils.class)) {
-            digitalSignatureUtils.when(() -> DigitalSignatureUtils.getTempFilePath("sig-request"))
+        try (var digitalSignatureUtils = mockStatic(DigitalSignatureUtils.class, CALLS_REAL_METHODS)) {
+            digitalSignatureUtils.when(() -> DigitalSignatureUtils.getTempFilePath(requestId))
                     .thenReturn(oversized.toString());
             Files.write(oversized, new byte[5 * 1024 * 1024 + 1]);
 
-            boolean captured = service.wasManualSignatureCaptured("sig-request");
+            boolean captured = service.wasManualSignatureCaptured(session, requestId);
 
             assertThat(captured).isFalse();
         }
@@ -264,7 +270,7 @@ class ConsultationSignatureServiceUnitTest {
     @Test
     @DisplayName("uses temporary manual signature bytes for non-mutating print preview")
     void shouldCreatePreviewOverride_forManualSignatureTempFile() throws Exception {
-        String requestId = "9999981000";
+        String requestId = DigitalSignatureUtils.generateSignatureRequestId(session);
         byte[] manualBytes = new byte[] {4, 5, 6};
         Path tempSignature = Path.of(DigitalSignatureUtils.getTempFilePath(requestId));
         Files.write(tempSignature, manualBytes);
@@ -340,12 +346,12 @@ class ConsultationSignatureServiceUnitTest {
     @Test
     @DisplayName("reports a captured manual signature when a non-empty temp file is present")
     void shouldReportManualCaptured_whenTempFilePresent() throws Exception {
-        String requestId = "9999982000";
+        String requestId = DigitalSignatureUtils.generateSignatureRequestId(session);
         Path tempSignature = Path.of(DigitalSignatureUtils.getTempFilePath(requestId));
         Files.write(tempSignature, new byte[] {1, 2, 3});
 
         try {
-            assertThat(service.wasManualSignatureCaptured(requestId)).isTrue();
+            assertThat(service.wasManualSignatureCaptured(session, requestId)).isTrue();
         } finally {
             Files.deleteIfExists(tempSignature);
         }
@@ -354,8 +360,75 @@ class ConsultationSignatureServiceUnitTest {
     @Test
     @DisplayName("reports no captured manual signature when the temp file is absent or the id blank")
     void shouldReportNoManualCapture_whenTempFileAbsent() {
-        assertThat(service.wasManualSignatureCaptured("9999983000")).isFalse();
-        assertThat(service.wasManualSignatureCaptured("")).isFalse();
+        assertThat(service.wasManualSignatureCaptured(session, DigitalSignatureUtils.generateSignatureRequestId(session))).isFalse();
+        assertThat(service.wasManualSignatureCaptured(session, "")).isFalse();
+    }
+
+    @Test
+    @DisplayName("ignores a temp signature whose request id this session was not issued")
+    void shouldIgnoreTempSignature_whenRequestIdWasNotIssuedToSession() throws Exception {
+        String otherSessionsId = DigitalSignatureUtils.generateSignatureRequestId(new MockHttpSession());
+        Path tempSignature = Path.of(DigitalSignatureUtils.getTempFilePath(otherSessionsId));
+        Files.write(tempSignature, new byte[] {1, 2, 3});
+
+        try {
+            assertThat(service.wasManualSignatureCaptured(session, otherSessionsId)).isFalse();
+            assertThat(service.wasManualSignatureCaptured(session, "9999983000")).isFalse();
+            assertThat(service.resolvePreviewSignatureImage(loggedInInfo, true, otherSessionsId, otherSessionsId, "999998"))
+                    .isNull();
+        } finally {
+            Files.deleteIfExists(tempSignature);
+        }
+    }
+
+    @Test
+    @DisplayName("keeps the pad id and announces nothing when a rejected form's capture is still there")
+    void shouldKeepThePadId_whenTheRejectedFormsCaptureIsStillThere() throws Exception {
+        String requestId = DigitalSignatureUtils.generateSignatureRequestId(session);
+        Path tempSignature = Path.of(DigitalSignatureUtils.getTempFilePath(requestId));
+        Files.write(tempSignature, new byte[] {1, 2, 3});
+
+        try {
+            assertThat(service.retryManualSignature(session, requestId, requestId))
+                    .isEqualTo(new ConsultationSignatureService.ManualSignatureRetry(requestId, false));
+        } finally {
+            Files.deleteIfExists(tempSignature);
+        }
+    }
+
+    @Test
+    @DisplayName("announces a lost capture and clears the field when a rejected form's drawing is gone")
+    void shouldAnnounceALostCapture_whenTheRejectedFormsDrawingIsGone() {
+        String requestId = DigitalSignatureUtils.generateSignatureRequestId(session);
+
+        assertThat(service.retryManualSignature(session, requestId, " " + requestId + " "))
+                .isEqualTo(new ConsultationSignatureService.ManualSignatureRetry("", true));
+    }
+
+    @Test
+    @DisplayName("announces nothing when the rejected form carried no capture or a stored signature id")
+    void shouldAnnounceNothing_whenTheRejectedFormCarriedNoCapture() {
+        String requestId = DigitalSignatureUtils.generateSignatureRequestId(session);
+        var unsigned = new ConsultationSignatureService.ManualSignatureRetry("", false);
+
+        assertThat(service.retryManualSignature(session, requestId, "")).isEqualTo(unsigned);
+        assertThat(service.retryManualSignature(session, requestId, null)).isEqualTo(unsigned);
+        assertThat(service.retryManualSignature(session, requestId, "42")).isEqualTo(unsigned);
+    }
+
+    @Test
+    @DisplayName("treats another session's capture as lost, not as this form's signature")
+    void shouldAnnounceALostCapture_whenTheCaptureBelongsToAnotherSession() throws Exception {
+        String otherSessionsId = DigitalSignatureUtils.generateSignatureRequestId(new MockHttpSession());
+        Path tempSignature = Path.of(DigitalSignatureUtils.getTempFilePath(otherSessionsId));
+        Files.write(tempSignature, new byte[] {1, 2, 3});
+
+        try {
+            assertThat(service.retryManualSignature(session, otherSessionsId, otherSessionsId))
+                    .isEqualTo(new ConsultationSignatureService.ManualSignatureRetry("", true));
+        } finally {
+            Files.deleteIfExists(tempSignature);
+        }
     }
 
     @Test

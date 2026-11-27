@@ -152,6 +152,27 @@ class ConsultationFormServiceSelectionJspRegressionTest {
                 .contains("lastResolvedServiceId = String(serviceId || '');");
     }
 
+    @Test
+    @DisplayName("should take a rejected form's lost-capture decision from the service and alert on it")
+    void shouldAlertOnALostCapture_whenTheServiceReportsIt() throws Exception {
+        String jsp = Files.readString(CONSULT_JSP, StandardCharsets.UTF_8);
+        int decision = jsp.indexOf("consultationSignatureService.retryManualSignature(session, signatureRequestId, signatureImgValue)");
+        int lost = jsp.indexOf("signatureCaptureLost = signatureRetryState.captureLost();");
+        int field = jsp.indexOf("signatureImgValue = signatureRetryState.signatureImg();");
+        int alert = jsp.indexOf("if (<%=signatureCaptureLost%>) {");
+
+        // The scriptlet holds no decision of its own; ConsultationSignatureServiceUnitTest covers it.
+        assertThat(decision).isGreaterThanOrEqualTo(0);
+        assertThat(lost).isGreaterThan(decision);
+        assertThat(field).isGreaterThan(decision);
+        assertThat(alert).isGreaterThan(field);
+        // The alert is the statement right inside that if (the message's ${...} has a brace of its own).
+        String body = jsp.substring(alert + "if (<%=signatureCaptureLost%>) {".length()).stripLeading();
+        assertThat(body).startsWith(
+                "alert('<carlos:encode value=\"${signatureCaptureLostMessage}\" context=\"javaScriptBlock\"/>');");
+        assertThat(jsp).contains("<fmt:message key=\"tabletSignature.msgCaptureLost\" var=\"signatureCaptureLostMessage\"/>");
+    }
+
     /**
      * Resolves a project fixture from the compiled test location. This remains stable when an IDE
      * or a direct Surefire invocation uses a working directory outside the repository.
