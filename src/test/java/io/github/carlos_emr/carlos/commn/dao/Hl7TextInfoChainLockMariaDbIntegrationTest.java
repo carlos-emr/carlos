@@ -21,7 +21,11 @@ import static org.assertj.core.api.Assertions.catchThrowable;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
-import java.sql.Statement;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import javax.sql.DataSource;
 
 import jakarta.persistence.EntityManager;
@@ -113,45 +117,96 @@ class Hl7TextInfoChainLockMariaDbIntegrationTest extends Hl7TextInfoChainLockDao
         });
     }
 
-    /** What a lock of one accession leaves free: another accession, locked on a second connection, must not wait. */
+    /**
+     * Enough rows for the optimizer to prefer the accession index to a scan (on two rows it may
+     * scan, and then every lock would touch every row whatever the statement is), committed so
+     * that the statistics see them. Accessions and filler numbers share one prefix, so they can be
+     * deleted by it.
+     */
+    private void commitFillerRows(String prefix) {
+        new TransactionTemplate(transactions).executeWithoutResult(status -> {
+            entityManager.createNativeQuery(
+                    "INSERT INTO hl7TextInfo (lab_no, report_status, accessionNum, filler_order_num) "
+                            + "SELECT 8000000 + seq, 'F', CONCAT(?1, seq), CONCAT(?1, seq) FROM seq_1_to_2000")
+                    .setParameter(1, prefix).executeUpdate();
+        });
+        // ANALYZE TABLE answers with a result set.
+        new TransactionTemplate(transactions).executeWithoutResult(
+                status -> entityManager.createNativeQuery("ANALYZE TABLE hl7TextInfo").getResultList());
+    }
+
+    private void deleteFillerRows(String prefix) {
+        new TransactionTemplate(transactions).executeWithoutResult(status -> entityManager
+                .createNativeQuery("DELETE FROM hl7TextInfo WHERE accessionNum LIKE ?1")
+                .setParameter(1, prefix + "%").executeUpdate());
+    }
+
+    /**
+     * What the DAO's lock of one accession leaves free: with the chain's rows held through
+     * {@link Hl7TextInfoChainLockDao#lockByAccession} by another transaction, locking an unrelated
+     * accession must not wait. The held lock is taken by the DAO itself (a raw statement would only
+     * show MariaDB's plan for that statement), on a second thread parked on a latch.
+     */
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    void shouldNotHoldUpAnUnrelatedAccession_whenAnotherOneIsLocked() throws Exception {
-        String held = "ACC-HELD-" + System.nanoTime();
-        String other = "ACC-OTHER-" + System.nanoTime();
+    void shouldNotHoldUpAnUnrelatedAccession_whenTheDaoHoldsAnotherOne() throws Exception {
+        String suffix = String.valueOf(System.nanoTime());
+        String held = "ACC-HELD-" + suffix;
+        String other = "ACC-OTHER-" + suffix;
+        String fillers = "ACC-FILL-" + suffix + "-";
+        CountDownLatch holding = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        ExecutorService holder = Executors.newSingleThreadExecutor();
         try {
             commit(held);
             commit(other);
-            try (Connection holder = dataSource.getConnection(); Connection second = dataSource.getConnection()) {
-                holder.setAutoCommit(false);
-                second.setAutoCommit(false);
-                try (PreparedStatement lock = holder.prepareStatement(
-                        "SELECT lab_no FROM hl7TextInfo WHERE accessionNum = ? FOR UPDATE")) {
-                    lock.setString(1, held);
-                    lock.executeQuery().close();
-                }
-                // One second: a lock that waited for the held rows would time out here. The setting is read
-                // first and put back, so a pooled connection does not keep it.
-                try (Statement set = second.createStatement()) {
-                    set.execute("SET @carlos_previous_lock_wait = @@SESSION.innodb_lock_wait_timeout");
-                    set.execute("SET SESSION innodb_lock_wait_timeout=1");
-                }
-                try {
-                    try (PreparedStatement lock = second.prepareStatement(
-                            "SELECT lab_no FROM hl7TextInfo WHERE accessionNum = ? FOR UPDATE")) {
-                        lock.setString(1, other);
-                        lock.executeQuery().close();
-                    }
-                } finally {
-                    try (Statement restore = second.createStatement()) {
-                        restore.execute("SET SESSION innodb_lock_wait_timeout = @carlos_previous_lock_wait");
-                    }
-                    holder.rollback();
-                    second.rollback();
-                }
-            }
+            commitFillerRows(fillers);
+
+            Future<?> holdsTheRow = holder.submit(() -> new TransactionTemplate(transactions)
+                    .executeWithoutResult(status -> {
+                        locks.lockByAccession(held);
+                        holding.countDown();
+                        try {
+                            release.await(60, TimeUnit.SECONDS);
+                        } catch (InterruptedException interrupted) {
+                            Thread.currentThread().interrupt();
+                        }
+                    }));
+            assertThat(holding.await(60, TimeUnit.SECONDS)).as("the held lock was taken").isTrue();
+
+            // One second: a lock that waited for the held rows would time out here.
+            Throwable thrown = catchThrowable(() -> new TransactionTemplate(transactions)
+                    .executeWithoutResult(status -> {
+                        entityManager.createNativeQuery(
+                                "SET @carlos_previous_lock_wait = @@SESSION.innodb_lock_wait_timeout")
+                                .executeUpdate();
+                        try {
+                            entityManager.createNativeQuery("SET SESSION innodb_lock_wait_timeout=1").executeUpdate();
+                            assertThat(locks.lockByAccession(other)).hasSize(1);
+                        } finally {
+                            restoreLockWaitTimeout();
+                        }
+                    }));
+
+            release.countDown();
+            holdsTheRow.get(60, TimeUnit.SECONDS);
+            assertThat(thrown).as("an unrelated accession must lock without waiting").isNull();
         } finally {
+            release.countDown();
+            holder.shutdownNow();
+            deleteFillerRows(fillers);
             deleteCommitted(held, other);
+        }
+    }
+
+    /** Puts the session's lock wait setting back; never throws, so it cannot replace what a test asserts on. */
+    private void restoreLockWaitTimeout() {
+        try {
+            entityManager.createNativeQuery("SET SESSION innodb_lock_wait_timeout = @carlos_previous_lock_wait")
+                    .executeUpdate();
+        } catch (RuntimeException ignored) {
+            // The connection goes back to the pool with the test's own transaction; a failure here is
+            // not what is being tested.
         }
     }
 
@@ -170,35 +225,38 @@ class Hl7TextInfoChainLockMariaDbIntegrationTest extends Hl7TextInfoChainLockDao
             commit(accession);
 
             try (Connection holder = dataSource.getConnection()) {
-                holder.setAutoCommit(false);
-                try (PreparedStatement lock = holder.prepareStatement(
-                        "SELECT lab_no FROM hl7TextInfo WHERE accessionNum = ? FOR UPDATE")) {
-                    lock.setString(1, accession);
-                    lock.executeQuery().close();
-                }
+                try {
+                    holder.setAutoCommit(false);
+                    try (PreparedStatement lock = holder.prepareStatement(
+                            "SELECT lab_no FROM hl7TextInfo WHERE accessionNum = ? FOR UPDATE")) {
+                        lock.setString(1, accession);
+                        lock.executeQuery().close();
+                    }
 
-                Throwable thrown = catchThrowable(() -> new TransactionTemplate(transactions)
-                        .executeWithoutResult(status -> {
-                            // The pooled connection is given back as it was: the setting is read first
-                            // (into a session variable) and restored afterwards on the same connection.
-                            entityManager.createNativeQuery(
-                                    "SET @carlos_previous_lock_wait = @@SESSION.innodb_lock_wait_timeout")
-                                    .executeUpdate();
-                            try {
-                                // One second, not the server's fifty: a wrong lock fails in seconds.
-                                entityManager.createNativeQuery("SET SESSION innodb_lock_wait_timeout=1")
-                                        .executeUpdate();
-                                locks.lockByAccession(accession);
-                            } finally {
+                    Throwable thrown = catchThrowable(() -> new TransactionTemplate(transactions)
+                            .executeWithoutResult(status -> {
+                                // The pooled connection is given back as it was: the setting is read first
+                                // (into a session variable) and restored afterwards on the same connection.
                                 entityManager.createNativeQuery(
-                                        "SET SESSION innodb_lock_wait_timeout = @carlos_previous_lock_wait")
+                                        "SET @carlos_previous_lock_wait = @@SESSION.innodb_lock_wait_timeout")
                                         .executeUpdate();
-                            }
-                        }));
-                holder.rollback();
+                                try {
+                                    // One second, not the server's fifty: a wrong lock fails in seconds.
+                                    entityManager.createNativeQuery("SET SESSION innodb_lock_wait_timeout=1")
+                                            .executeUpdate();
+                                    locks.lockByAccession(accession);
+                                } finally {
+                                    // Its own try/catch: a failure here must not replace the lock exception.
+                                    restoreLockWaitTimeout();
+                                }
+                            }));
 
-                assertThat(thrown).as("the second lock must time out while the row is held").isNotNull();
-                assertThat(LabMeasurementFilingService.isLockFailure(thrown)).as(String.valueOf(thrown)).isTrue();
+                    assertThat(thrown).as("the second lock must time out while the row is held").isNotNull();
+                    assertThat(LabMeasurementFilingService.isLockFailure(thrown))
+                            .as(String.valueOf(thrown)).isTrue();
+                } finally {
+                    holder.rollback();
+                }
             }
         } finally {
             deleteCommitted(accession);
