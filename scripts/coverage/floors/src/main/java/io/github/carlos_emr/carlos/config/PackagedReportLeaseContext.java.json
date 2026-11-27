@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/config/PackagedReportLeaseContext.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 95.41284403669725,
+    "instructions": 96.2914769030579,
+    "branches": 79.6875,
+    "sourceBlob": "de8780def5ab1974e075b2feb266e52c7de7d7cd"
+  },
+  "evidenceSha256": "78087e9d911ab3fb221ccaee7a583389fe1e301c5b7693eded5349ad96d5c4f0"
+}

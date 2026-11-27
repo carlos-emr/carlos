@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/form/FormNoReplaceMove.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 72.5,
+    "instructions": 85.22167487684729,
+    "branches": 64.28571428571429,
+    "sourceBlob": "640d9742d8e9adbc3211a36956ac8661c67e673f"
+  },
+  "evidenceSha256": "78087e9d911ab3fb221ccaee7a583389fe1e301c5b7693eded5349ad96d5c4f0"
+}
