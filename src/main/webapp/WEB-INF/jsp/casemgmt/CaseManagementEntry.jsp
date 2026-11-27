@@ -54,6 +54,8 @@
 <fmt:message var="draftSaveFailedLabel" key="encounter.draftSaveFailed.msg"/>
 <fmt:message var="draftSaveConflictLabel" key="encounter.draftSaveConflict.msg"/>
 <fmt:message var="draftSavedLabel" key="encounter.draftSaved.msg"/>
+<fmt:message var="noteLockLostLabel" key="encounter.noteLockLostError.msg"/>
+<fmt:message var="noteLockReleaseFailedLabel" key="encounter.noteLockReleaseFailed.msg"/>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 
@@ -78,7 +80,11 @@
 
             String demographicNo = request.getParameter("demographicNo");
             String sessionFrmName = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.formKey(request, demographicNo);
-            CaseManagementEntryFormBean form=(CaseManagementEntryFormBean) session.getAttribute(sessionFrmName);
+            // A read-only GET shows its own form, kept apart from the active editor's (#6132); every
+            // other request shows the active editor's form from the session.
+            CaseManagementEntryFormBean form=(CaseManagementEntryFormBean) request.getAttribute(
+                    io.github.carlos_emr.carlos.casemgmt.web.CaseManagementEntry2Action.READER_FORM_ATTRIBUTE);
+            if (form == null) form=(CaseManagementEntryFormBean) session.getAttribute(sessionFrmName);
             request.setAttribute("caseManagementEntryForm", form);
 
         int size = (form.getIssueCheckList() != null) ? form.getIssueCheckList().size() : 0;
@@ -98,6 +104,12 @@
         <%}%>
 
         var issueSize =<%=size%>;
+
+        // True when the action verified that this session's lock owns the note on this page, as after an
+        // ordinary Save, which forwards back here: the clinician keeps editing without Edit (#6132).
+        // A fresh read-only GET never sets it.
+        var noteLockOwnedAtRender = <%= "true".equals(request.getAttribute(
+                io.github.carlos_emr.carlos.casemgmt.web.CaseManagementEntry2Action.NOTE_LOCK_OWNED_ATTRIBUTE)) %>;
 
         function setChangeFlag(change) {
             flag = change;
@@ -194,6 +206,9 @@
         var legacyAutosavePending = false;
         var legacyAutosaveStopped = false;
         var legacyAutosaveSuspended = false;
+        var legacyNoteLockOwned = false;
+        // Cancel is giving back this page's lock: no draft is sent meanwhile (#6132).
+        var legacyReleasePending = false;
 
         function showLegacyAutosaveStatus(state, text) {
             var status = document.getElementById('legacyAutosaveStatus');
@@ -217,7 +232,7 @@
 
         function autoSave() {
             clearTimeout(legacyAutosaveTimer);
-            if (legacyAutosavePending || legacyAutosaveStopped) return;
+            if (!legacyNoteLockOwned || legacyAutosavePending || legacyAutosaveStopped || legacyReleasePending) return;
             XMLHttpRequestObject = window.XMLHttpRequest ? new XMLHttpRequest()
                 : window.ActiveXObject ? new ActiveXObject("Microsoft.XMLHTTP") : false;
             if (XMLHttpRequestObject) {
@@ -263,7 +278,7 @@
 
         function setTimer() {
             clearTimeout(legacyAutosaveTimer);
-            if (!legacyAutosaveStopped) legacyAutosaveTimer = setTimeout(autoSave, 60000);
+            if (legacyNoteLockOwned && !legacyAutosaveStopped) legacyAutosaveTimer = setTimeout(autoSave, 60000);
         }
 
         window.addEventListener('pagehide', function () {
@@ -280,8 +295,194 @@
         });
 
         function init() {
+            if (window.opener && !window.opener.closed) window.opener.location.reload(true);
+            if (noteLockOwnedAtRender) beginLegacyEditing(false);
+        }
+
+        // The lock is this session's: the form accepts changes and autosave starts. The form carries the
+        // Edit attempt, so a Save that renders this page again continues it.
+        function beginLegacyEditing(focusNote) {
+            legacyNoteLockOwned = true;
+            var edit = document.getElementById('editLegacyNote');
+            if (edit) edit.hidden = true;
+            var attemptField = document.getElementById('editAttemptField');
+            if (attemptField) attemptField.value = legacyEditAttempt;
+            document.querySelectorAll('#caseManagementEntryForm [data-note-lock-edit]').forEach(function (field) {
+                field.disabled = false;
+            });
+            var note = document.getElementById('caseNote_note');
+            note.readOnly = false;
+            if (focusNote) note.focus();
             setTimer();
-            window.opener.location.reload(true);
+        }
+
+        // Cancel was chosen for an open editor: it takes no more changes and sends no more drafts, whatever
+        // the release answers. A release that fails leaves it so, with Cancel offered again (#6132).
+        function freezeLegacyEditing() {
+            legacyAutosaveStopped = true;
+            clearTimeout(legacyAutosaveTimer);
+            document.querySelectorAll('#caseManagementEntryForm [data-note-lock-edit]').forEach(function (field) {
+                field.disabled = true;
+            });
+            document.getElementById('caseNote_note').readOnly = true;
+        }
+
+        // The Edit request that has been sent and not answered, and whether Cancel was chosen meanwhile.
+        var legacyLockRequestPending = false;
+        var legacyCancelRequested = false;
+        // This page's Edit attempt (#6132): 32 hex digits sent with Edit and with Cancel's release, so the
+        // server gives back exactly the lock this attempt created, even when the answer to Edit was lost.
+        // A retried Edit after a lost answer repeats it. The action gives it when it renders the page
+        // again for an editor an attempt opened (after a Save); it is empty on a page opened to read.
+        var legacyEditAttempt = '<%= SafeEncode.forJavaScript((String) request.getAttribute(
+                io.github.carlos_emr.carlos.casemgmt.web.CaseManagementEntry2Action.EDIT_ATTEMPT_ATTRIBUTE)) %>';
+
+        function newLegacyEditAttempt() {
+            var bytes = new Uint8Array(16);
+            window.crypto.getRandomValues(bytes);
+            var attempt = '';
+            for (var i = 0; i < bytes.length; i++) attempt += (bytes[i] < 16 ? '0' : '') + bytes[i].toString(16);
+            return attempt;
+        }
+
+        // The reader can view and copy the note before asking to edit it.
+        function takeNoteLock() {
+            var edit = document.getElementById('editLegacyNote');
+            if (edit.disabled || legacyNoteLockOwned) return;
+            var lockRequest = window.XMLHttpRequest ? new XMLHttpRequest() : null;
+            if (!lockRequest || !window.crypto) {
+                alert('${carlos:forJavaScriptBlock(noteLockLostLabel)}');
+                return;
+            }
+            if (!legacyEditAttempt) legacyEditAttempt = newLegacyEditAttempt();
+            edit.disabled = true;
+            legacyLockRequestPending = true;
+            lockRequest.onreadystatechange = function () {
+                if (lockRequest.readyState !== 4) return;
+                legacyLockRequestPending = false;
+                var answered = false;
+                var owned = false;
+                var taken = false;
+                if (lockRequest.status === 200) {
+                    try {
+                        var answer = JSON.parse(lockRequest.responseText);
+                        owned = answer.ownedBySession === true;
+                        taken = answer.lockTaken === true;
+                        answered = true;
+                    } catch (e) {
+                        owned = false;
+                    }
+                }
+                // A refused Edit took nothing, so the next Edit is a new attempt. An attempt whose answer
+                // was lost keeps its identity: the server may have granted it.
+                if (answered && !owned) legacyEditAttempt = '';
+                if (legacyCancelRequested) {
+                    // Cancel was chosen while this request was in flight: the reader is closing. A lock
+                    // this attempt took, or may have taken when its answer was lost, is given back first;
+                    // a lock the session already held (another editor of the note) is not.
+                    if (taken || !answered) {
+                        releaseLegacyNoteLock(closeLegacyWindow);
+                    } else {
+                        closeLegacyWindow();
+                    }
+                    return;
+                }
+                if (!owned) {
+                    edit.disabled = false;
+                    // Also the answer when the displayed revision is no longer the latest ("stale") or
+                    // another note of this chart is open for editing: the page stays read-only and the
+                    // clinician reopens the chart to get the current note.
+                    alert('${carlos:forJavaScriptBlock(noteLockLostLabel)}');
+                    return;
+                }
+                beginLegacyEditing(true);
+            };
+            lockRequest.open('POST', '<%=request.getContextPath() %>/CaseManagementEntry', true);
+            lockRequest.timeout = 45000;
+            lockRequest.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            lockRequest.send(legacyNoteLockBody('isNoteEdited'));
+        }
+
+        // The body of a lock request for this page's patient, note and Edit attempt.
+        function legacyNoteLockBody(method) {
+            var demographicNo = '${carlos:forJavaScript(param.demographicNo)}';
+            var noteId = '<carlos:encode value='<%= String.valueOf(form.getCaseNote().getId() == null || form.getCaseNote().getId() <= 0 ? 0 : form.getCaseNote().getId()) %>' context="javaScriptBlock"/>';<%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+            var chartContext = '<%= SafeEncode.forJavaScript(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>';
+            return (chartContext ? "chartContext=" + encodeURIComponent(chartContext) + "&" : "")
+                + "method=" + method + "&demographicNo=" + encodeURIComponent(demographicNo)
+                + "&noteId=" + encodeURIComponent(noteId)
+                // Says this page is asking, so the server refuses (reload) when the form this page
+                // displayed is no longer kept, instead of skipping its stale-note checks.
+                + (method === 'isNoteEdited' ? "&classicEdit=true" : "")
+                + "&editAttempt=" + encodeURIComponent(legacyEditAttempt);
+        }
+
+        // Asks the server to give back what this page's Edit attempt took, then calls done. The server
+        // knows which lock the attempt created; one the session held before it (the chart's own editor
+        // open on the same note) is kept. Only an answer confirming that nothing of this attempt is left
+        // counts: after an error, a timeout or an unreadable answer the lock may still stand, so the
+        // window stays open, says so, and Cancel asks again; editing does not resume.
+        function releaseLegacyNoteLock(done) {
+            legacyReleasePending = true;
+            clearTimeout(legacyAutosaveTimer);
+            var releaseRequest = new XMLHttpRequest();
+            releaseRequest.onreadystatechange = function () {
+                if (releaseRequest.readyState !== 4) return;
+                legacyReleasePending = false;
+                var state = null;
+                if (releaseRequest.status === 200) {
+                    try {
+                        state = JSON.parse(releaseRequest.responseText).releaseNoteLock;
+                    } catch (e) {
+                        state = null;
+                    }
+                }
+                if (state === 'released' || state === 'notHeld' || state === 'cancelled') {
+                    legacyEditAttempt = '';
+                    done();
+                    return;
+                }
+                alert('${carlos:forJavaScriptBlock(noteLockReleaseFailedLabel)}');
+            };
+            releaseRequest.open('POST', '<%=request.getContextPath() %>/CaseManagementEntry', true);
+            releaseRequest.timeout = 15000;
+            releaseRequest.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            releaseRequest.send(legacyNoteLockBody('releaseNoteLock'));
+        }
+
+        function closeLegacyWindow() {
+            window.close();
+        }
+
+        function cancelLegacyNote(form) {
+            // A release is on its way: its answer closes the window or offers Cancel again.
+            if (legacyReleasePending) return false;
+            if (legacyLockRequestPending) {
+                // Wait for the answer: closing now could leave the lock it takes behind a closed reader.
+                legacyCancelRequested = true;
+                return false;
+            }
+            var close = closeLegacyWindow;
+            if (legacyNoteLockOwned) {
+                // The cancel request discards this editor's draft, then closes the window.
+                close = function () {
+                    form.elements['method'].value = 'cancel';
+                    form.submit();
+                };
+            }
+            if (legacyEditAttempt) {
+                // The editor goes only after the server confirms what this page's Edit attempt took is
+                // given back; until then it takes no more changes.
+                if (legacyNoteLockOwned) freezeLegacyEditing();
+                releaseLegacyNoteLock(close);
+                return false;
+            }
+            if (legacyNoteLockOwned) {
+                form.elements['method'].value = 'cancel';
+                return true;
+            }
+            window.close();
+            return false;
         }
 
         function restore() {
@@ -315,6 +516,9 @@
         <input type="hidden" name="caseNote.program_no" value="<carlos:encode value='<%= pId %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="method" value="save"/>
         <input type="hidden" name="noteId" value="<carlos:encode value='<%= String.valueOf(form.getCaseNote().getId() == null || form.getCaseNote().getId() <= 0 ? 0 : form.getCaseNote().getId()) %>' context="htmlAttribute"/>"/>
+        <%-- The Edit attempt this editor continues (#6132): filled once editing starts, so a Save that
+             renders the page again keeps it for Cancel. --%>
+        <input type="hidden" name="editAttempt" id="editAttemptField" value=""/>
         <c:if test="${param.from=='casemgmt'||requestScope.from=='casemgmt'}">
             <input type="hidden" name="from" value="casemgmt"/>
         </c:if>
@@ -361,10 +565,10 @@
             <tr class="title">
                 <td></td>
                 <td><fmt:message key="casemanagementEntry.Issue"/></td>
-                <td><fmt:message key="casemanagementEntry.Acute"/></td>
-                <td><fmt:message key="casemanagementEntry.Certain"/></td>
-                <td><fmt:message key="casemanagementEntry.Major"/></td>
-                <td><fmt:message key="casemanagementEntry.Resolved"/></td>
+                <td id="note-issue-acute-heading"><fmt:message key="casemanagementEntry.Acute"/></td>
+                <td id="note-issue-certain-heading"><fmt:message key="casemanagementEntry.Certain"/></td>
+                <td id="note-issue-major-heading"><fmt:message key="casemanagementEntry.Major"/></td>
+                <td id="note-issue-resolved-heading"><fmt:message key="casemanagementEntry.Resolved"/></td>
                 <td><fmt:message key="casemanagementEntry.Type"/></td>
                 <td></td>
             </tr>
@@ -382,51 +586,61 @@
         <tr style="background-color: ${counter % 2 == 0 ? '#EEEEFF' : 'white'}; text-align: center;">
             <td>
                 <input type="checkbox" name="${cbb.issue.id > 0 ? 'selectedCaseIssueId' : 'selectedCatalogIssueId'}"
+                       id="note-issue-select-${status.index}"
                        value="<carlos:encode value='${cbb.issue.id > 0 ? cbb.issue.id : cbb.issue.issue_id}' context='htmlAttribute'/>"
                        onchange="setChangeFlag(true);"
-                       ${checkBoxDisabled ? 'disabled' : ''} />
+                       disabled ${checkBoxDisabled ? '' : 'data-note-lock-edit'} />
             </td>
-            <td style="${cbb.issueDisplay.priority eq 'allergy' ? 'background-color: yellow;' : ''}">
-                ${cbb.issueDisplay.description}
+            <td id="note-issue-description-${status.index}"
+                style="${cbb.issueDisplay.priority eq 'allergy' ? 'background-color: yellow;' : ''}">
+                <label for="note-issue-select-${status.index}">${carlos:forHtmlContent(cbb.issueDisplay.description)}</label>
             </td>
             <td>
-                <select name="issueCheckList[${status.index}].issueDisplay.acute" ${disabled ? 'disabled' : ''}>
+                <select id="note-issue-acute-${status.index}" name="issueCheckList[${status.index}].issueDisplay.acute"
+                        aria-labelledby="note-issue-acute-heading note-issue-description-${status.index}"
+                        disabled ${disabled ? '' : 'data-note-lock-edit'}>
                     <option value="acute" ${cbb.issueDisplay.acute eq 'acute' ? 'selected' : ''}>acute</option>
                     <option value="chronic" ${cbb.issueDisplay.acute eq 'chronic' ? 'selected' : ''}>chronic</option>
                 </select>
             </td>
             <td>
-                <select name="issueCheckList[${status.index}].issueDisplay.certain" ${disabled ? 'disabled' : ''}>
+                <select id="note-issue-certain-${status.index}" name="issueCheckList[${status.index}].issueDisplay.certain"
+                        aria-labelledby="note-issue-certain-heading note-issue-description-${status.index}"
+                        disabled ${disabled ? '' : 'data-note-lock-edit'}>
                     <option value="certain" ${cbb.issueDisplay.certain eq 'certain' ? 'selected' : ''}>certain</option>
                     <option value="uncertain" ${cbb.issueDisplay.certain eq 'uncertain' ? 'selected' : ''}>uncertain</option>
                 </select>
             </td>
             <td>
-                <select name="issueCheckList[${status.index}].issueDisplay.major" ${disabled ? 'disabled' : ''}>
+                <select id="note-issue-major-${status.index}" name="issueCheckList[${status.index}].issueDisplay.major"
+                        aria-labelledby="note-issue-major-heading note-issue-description-${status.index}"
+                        disabled ${disabled ? '' : 'data-note-lock-edit'}>
                     <option value="major" ${cbb.issueDisplay.major eq 'major' ? 'selected' : ''}>major</option>
                     <option value="not major" ${cbb.issueDisplay.major eq 'not major' ? 'selected' : ''}>not major</option>
                 </select>
             </td>
             <td>
-                <select name="issueCheckList[${status.index}].issueDisplay.resolved" ${disabled ? 'disabled' : ''}>
+                <select id="note-issue-resolved-${status.index}" name="issueCheckList[${status.index}].issueDisplay.resolved"
+                        aria-labelledby="note-issue-resolved-heading note-issue-description-${status.index}"
+                        disabled ${disabled ? '' : 'data-note-lock-edit'}>
                     <option value="resolved" ${cbb.issueDisplay.resolved eq 'resolved' ? 'selected' : ''}>resolved</option>
                     <option value="unresolved" ${cbb.issueDisplay.resolved eq 'unresolved' ? 'selected' : ''}>unresolved</option>
                 </select>
             </td>
             <td>
                 <input type="text" name="issueCheckList[${status.index}].issueDisplay.role" 
-                       value="${cbb.issueDisplay.role}" ${disabled ? 'disabled' : ''} />
+                       value="${carlos:forHtmlAttribute(cbb.issueDisplay.role)}" disabled ${disabled ? '' : 'data-note-lock-edit'} />
             </td>
             <td>
                 <c:if test="${cbb.issueDisplay.location eq 'local'}">
                     <c:if test="${!cbb.used}">
-                        <button type="submit" 
+                        <button type="submit" disabled data-note-lock-edit
                                 onclick="this.form.method.value='issueDelete'; this.form.caseIssueId.value=this.getAttribute('data-case-issue-id');"
                                 data-case-issue-id="<carlos:encode value='${cbb.issue.id}' context='htmlAttribute'/>">
                             Delete
                         </button>
                     </c:if>
-                    <button type="submit" 
+                    <button type="submit" disabled data-note-lock-edit
                             onclick="this.form.method.value='changeDiagnosis'; this.form.caseIssueId.value=this.getAttribute('data-case-issue-id');"
                             data-case-issue-id="<carlos:encode value='${cbb.issue.id}' context='htmlAttribute'/>">
                         Change Issue
@@ -459,10 +673,11 @@
         %>
         <br>
         <security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.issues" rights="w">
-            <input type="submit" value="add new issue" onclick="this.form.method.value='addNewIssue';" />
+            <input type="submit" value="add new issue" disabled data-note-lock-edit onclick="this.form.method.value='addNewIssue';" />
         </security:oscarSec>
 
         <p><b><fmt:message key="casemanagementEntry.progressnoteentryview"/> </b></p>
+        <button type="button" id="editLegacyNote" onclick="takeNoteLock()"><fmt:message key="encounter.edit.msgEdit"/></button>
         <%if ("true".equalsIgnoreCase((String) request.getAttribute("change_flag"))) {%>
         <span id="spanMsg" style="color:red"><fmt:message key="casemanagementEntry.notenotsavedyet"/></span>
         <%} else {%>
@@ -484,7 +699,7 @@
                          point, which the server stores as part of the note (#3955). The closing
                          tag follows the value directly: any whitespace between them is textarea
                          content and would be appended to the note on every save. --%>
-                    <textarea name="caseNote_note" id="caseNote_note" cols="60" rows="20" wrap="soft" aria-label="<fmt:message key='encounter.noteBrowser.encounterNote'/>"
+                    <textarea name="caseNote_note" id="caseNote_note" cols="60" rows="20" wrap="soft" readonly aria-label="<fmt:message key='encounter.noteBrowser.encounterNote'/>"
                               onchange="setChangeFlag(true);">${carlos:forHtmlContent(caseManagementEntryForm.caseNote.note)}</textarea>
                 </td>
                 <td class="fieldTitle"></td>
@@ -494,7 +709,7 @@
             <tr>
                 <td class="fieldTitle"><fmt:message key="casemanagementEntry.encountertype"/></td>
                 <td class="fieldValue"><select
-                        name="caseNote.encounter_type" onchange="setChangeFlag(true);">
+                        name="caseNote.encounter_type" disabled data-note-lock-edit onchange="setChangeFlag(true);">
                     <option value="">&nbsp;</option>
                     <option value="face to face encounter with client"><fmt:message key="casemanagementEntry.facetofaceencounterwithclient"/></option>
                     <option value="telephone encounter with client"><fmt:message key="casemanagementEntry.telephoneencounterwithclient"/></option>
@@ -503,13 +718,13 @@
             </tr>
 
             <tr>
-                <td class="fieldTitle"><fmt:message key="casemanagementEntry.Sign"/></td>
-                <td class="fieldValue"><input type="checkbox" name="sign" onchange="setChangeFlag(true);"/></td>
+                <td class="fieldTitle"><label for="note-sign"><fmt:message key="casemanagementEntry.Sign"/></label></td>
+                <td class="fieldValue"><input type="checkbox" id="note-sign" name="sign" disabled data-note-lock-edit onchange="setChangeFlag(true);"/></td>
             </tr>
 
             <tr>
-                <td class="fieldTitle"><fmt:message key="casemanagementEntry.includecheckedissuesinnote"/></td>
-                <td class="fieldValue"><input type="checkbox" name="includeIssue" onchange="setChangeFlag(true);"/></td>
+                <td class="fieldTitle"><label for="note-include-issues"><fmt:message key="casemanagementEntry.includecheckedissuesinnote"/></label></td>
+                <td class="fieldValue"><input type="checkbox" id="note-include-issues" name="includeIssue" disabled data-note-lock-edit onchange="setChangeFlag(true);"/></td>
             </tr>
 
             <caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
@@ -523,7 +738,7 @@
 
                             <td class="fieldValue">
                                 ${carlos:forHtml(caseManagementEntryForm.caseNote.billing_code)}
-                                <input type="button" value="add billing"
+                                <input type="button" value="add billing" disabled data-note-lock-edit
                                        onclick="self.open('<carlos:encode value='<%= StringUtils.noNull((String)request.getAttribute("billing_url")) %>' context="javaScriptAttribute"/>','','scrollbars=yes,menubars=no,toolbars=no,resizable=yes');return false;">
                             </td>
                         </tr>
@@ -533,13 +748,13 @@
 
             <tr>
                 <td class="fieldValue" colspan="2">
-                    <input type="submit" value="Save"
+                    <input type="submit" value="Save" disabled data-note-lock-edit
                            onclick="this.form.method.value='save';return validateSave();">
                     <input type="submit"
-                           value="Save and Exit"
+                           value="Save and Exit" disabled data-note-lock-edit
                            onclick="this.form.method.value='saveAndExit';if (validateSave()) {return true;}else return false;">
                     <input type="submit"
-                           value="cancel" onclick="this.form.method.value='cancel';return true;">
+                           value="cancel" onclick="return cancelLegacyNote(this.form);">
                 </td>
 
             </tr>

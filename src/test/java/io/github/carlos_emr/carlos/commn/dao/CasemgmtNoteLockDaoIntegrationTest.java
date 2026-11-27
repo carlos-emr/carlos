@@ -44,7 +44,7 @@ class CasemgmtNoteLockDaoIntegrationTest {
         return dao;
     }
 
-    private void seed(String provider, int patient, long note, String session) {
+    private Long seed(String provider, int patient, long note, String session) {
         try (var em = factory.createEntityManager()) {
             em.getTransaction().begin();
             var lock = new CasemgmtNoteLock();
@@ -54,6 +54,31 @@ class CasemgmtNoteLockDaoIntegrationTest {
             lock.setSessionId(session);
             em.persist(lock);
             em.getTransaction().commit();
+            return lock.getId();
+        }
+    }
+
+    @Test
+    void shouldRemoveOnlyTheNamedRow_whenItsOwnersStillHoldIt() {
+        // The row a classic Edit attempt created, which a Save has since moved to the note's next revision,
+        // and a later row of this session for the attempt's original note.
+        Long moved = seed("1001", 1, 43, "owner");
+        Long later = seed("1001", 1, 42, "owner");
+        Long otherProvider = seed("1002", 1, 44, "owner");
+        try (var em = factory.createEntityManager()) {
+            em.getTransaction().begin();
+            var dao = dao(em);
+            assertThat(dao.removeByIdForSession(null, "1001", 1, "owner")).isZero();
+            assertThat(dao.removeByIdForSession(moved, "1001", 1, "another-session")).isZero();
+            assertThat(dao.removeByIdForSession(moved, "1002", 1, "owner")).isZero();
+            assertThat(dao.removeByIdForSession(moved, "1001", 2, "owner")).isZero();
+            assertThat(dao.removeByIdForSession(moved, "1001", 1, "owner")).isEqualTo(1);
+            assertThat(dao.removeByIdForSession(moved, "1001", 1, "owner")).isZero();
+            em.getTransaction().commit();
+            em.clear();
+            assertThat(dao.find(moved)).isNull();
+            assertThat(dao.find(later)).isNotNull();
+            assertThat(dao.find(otherProvider)).isNotNull();
         }
     }
 
@@ -121,10 +146,11 @@ class CasemgmtNoteLockDaoIntegrationTest {
     @NullAndEmptySource
     @ValueSource(strings = " ")
     void shouldPreserveLocks_whenSessionIdentityIsMissing(String session) {
-        seed("1001", 1, 0, session);
+        Long id = seed("1001", 1, 0, session);
         try (var em = factory.createEntityManager()) {
             em.getTransaction().begin();
             assertThat(dao(em).removeForSession("1001", 1, 0L, session)).isZero();
+            assertThat(dao(em).removeByIdForSession(id, "1001", 1, session)).isZero();
             assertThat(dao(em).removeAllForSession(session)).isZero();
             em.getTransaction().commit();
             assertThat(dao(em).findByNoteDemo(1, 0L)).isNotNull();

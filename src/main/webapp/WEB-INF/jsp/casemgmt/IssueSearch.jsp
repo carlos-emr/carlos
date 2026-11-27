@@ -99,6 +99,8 @@
     <input type="hidden" name="lastPage" value="true"/>
     <input type="hidden" name="change_diagnosis" value="${carlos:forHtmlAttribute(change_diagnosis)}"/>
     <input type="hidden" name="change_diagnosis_id" value="${carlos:forHtmlAttribute(change_diagnosis_id)}"/>
+    <%-- The classic editor's Edit attempt, carried back so that its Cancel names this window's own attempt (#6132). --%>
+    <input type="hidden" name="editAttempt" value="${carlos:forHtmlAttribute(param.editAttempt)}"/>
 
     <c:if test="${param.from=='casemgmt'||requestScope.from=='casemgmt'}">
         <input type="hidden" name="from" value="casemgmt"/>

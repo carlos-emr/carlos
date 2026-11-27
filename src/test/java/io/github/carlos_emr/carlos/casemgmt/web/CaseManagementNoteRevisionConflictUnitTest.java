@@ -1114,6 +1114,48 @@ class CaseManagementNoteRevisionConflictUnitTest extends CarlosUnitTestBase {
         if ("saveAndExit".equals(operation)) verify(locks).removeForSession("999998", 101, 600L, request.getSession().getId());
     }
 
+    /** Records an open classic Edit attempt of patient 101 that created lock row {@code lockId}, as a granted Edit leaves it. */
+    private void openEditAttempt(String attempt, Long lockId) throws Exception {
+        Class<?> attemptType = Class.forName(CaseManagementEntry2Action.class.getName() + "$EditAttempt");
+        java.lang.reflect.Constructor<?> open = attemptType.getDeclaredConstructor(Long.class, boolean.class);
+        open.setAccessible(true);
+        Map<String, Object> attempts = org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                CaseManagementEntry2Action.class, "editAttempts", request.getSession(), true);
+        String key = org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                CaseManagementEntry2Action.class, "editAttemptKey", "101", attempt);
+        attempts.put(key, open.newInstance(lockId, false));
+    }
+
+    @Test
+    void shouldFinishTheClassicEditAttempt_whenSaveAndExitGivesBackItsLock() throws Exception {
+        String attempt = "0123456789abcdef0123456789abcdef";
+        openEditAttempt(attempt, 10L);
+        request.setParameter("editAttempt", attempt);
+        when(manager.saveCaseManagementNote(any(), any(), any(), any(), any(), anyBoolean(),
+                any(), any(), any(), any(), any(), any(), any())).thenAnswer(call -> {
+            CaseManagementNote saved = ((CaseManagementNote) call.getArgument(1)).copyForRevision();
+            saved.setId(600L);
+            return saved;
+        });
+
+        action.saveAndExit();
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        verify(locks).removeForSession("999998", 101, 600L, request.getSession().getId());
+        // The attempt is over and names no row, so it no longer takes a place among the open attempts:
+        // the page's Cancel for it now finds nothing to give back.
+        MockHttpServletRequest cancel = new MockHttpServletRequest("POST", "/CaseManagementEntry");
+        cancel.setSession(request.getSession());
+        cancel.setParameter("demographicNo", "101");
+        cancel.setParameter("editAttempt", attempt);
+        MockHttpServletResponse answer = new MockHttpServletResponse();
+        action.request = cancel;
+        action.response = answer;
+        action.releaseNoteLock();
+        assertThat(answer.getContentAsString()).isEqualTo("{\"releaseNoteLock\":\"notHeld\"}");
+        verify(locks, never()).removeByIdForSession(any(), any(), any(), any());
+    }
+
     @ParameterizedTest
     @org.junit.jupiter.params.provider.NullSource
     @ValueSource(strings = {"0", "01", "0.1"})
