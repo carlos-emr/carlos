@@ -12,7 +12,7 @@
  */
 
 /*
- * Exercise the OAuth API workflows needed by AI-Scribe against a running,
+ * Exercise the OAuth clinical API workflows an external client relies on against a running,
  * disposable CARLOS EMR deployment. This is intentionally a live check: CXF
  * local-transport tests cannot verify the OAuth handshake, scope enforcement,
  * database persistence, or deployed routing.
@@ -40,7 +40,7 @@ const {
 const { oauthHeader, pct } = require('./lib/oauth1-signing');
 
 const EXPECT_OAUTH_MODE = process.env.EXPECT_OAUTH_MODE || 'scoped';
-const API_ONLY = process.env.AI_SCRIBE_API_ONLY?.trim().toLowerCase() || '';
+const API_ONLY = process.env.OAUTH_CLINICAL_API_ONLY?.trim().toLowerCase() || '';
 const API_TEST_GROUPS = new Set([
   'demographics', 'measurements', 'measurements.read', 'measurements.write',
   'labs', 'rxlookup', 'rx', 'schedule', 'eforms', 'eforms.templates',
@@ -96,7 +96,7 @@ function printEndpointResults(results) {
   const line = (row) => `${row.outcome.padEnd(widths.outcome)}  `
     + `${row.endpoint.padEnd(widths.endpoint)}  `
     + `${String(row.http).padEnd(widths.http)}  ${row.verification}`;
-  console.log('\nAI-Scribe OAuth API endpoint results');
+  console.log('\nOAuth clinical API endpoint results');
   console.log(line({ outcome: 'RESULT', endpoint: 'ENDPOINT', http: 'HTTP', verification: 'VERIFICATION' }));
   console.log(rows.map(line).join('\n'));
   console.log(`\n${rows.filter((row) => row.outcome === 'PASS').length} passed; `
@@ -110,7 +110,7 @@ function removeOwnedLabFile(state) {
   const root = fs.realpathSync(state.documentStore);
   const ownedFiles = () => fs.readdirSync(root)
     .filter((name) => name.startsWith(state.labFilePrefix)
-      && /^LabUpload\.ai-scribe-[A-Fa-f0-9]+\.xml\.\d+$/.test(name));
+      && /^LabUpload\.oauth-clinical-[A-Fa-f0-9]+\.xml\.\d+$/.test(name));
   for (const name of ownedFiles()) {
     const file = path.join(root, name);
     assert(fs.lstatSync(file).isFile(), `Refusing to remove non-file lab artifact ${name}`);
@@ -133,12 +133,12 @@ async function cleanup(state) {
     try {
       if (marker && providerNo) {
         const patient = state.patientNo || sql.value(`SELECT demographic_no FROM demographic
-          WHERE last_name=? AND first_name IN ('AI-Scribe','AI-Scribe Updated')
+          WHERE last_name=? AND first_name IN ('FAKE-OAuth','FAKE-OAuth Updated')
             AND provider_no=?`, [marker, providerNo]);
         if (patient) {
           const id = sqlId(patient, 'owned synthetic demographic id');
           const ownedRows = sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=?
-            AND last_name=? AND first_name IN ('AI-Scribe','AI-Scribe Updated')
+            AND last_name=? AND first_name IN ('FAKE-OAuth','FAKE-OAuth Updated')
             AND provider_no=?`, [id, marker, providerNo]);
           const anyRows = sql.value('SELECT COUNT(*) FROM demographic WHERE demographic_no=?', [id]);
           // Zero owned rows is the API-deleted state only when no row has this id at all. A row that
@@ -309,7 +309,7 @@ async function cleanup(state) {
           sql.execute('DELETE FROM DemographicContact WHERE demographicNo=?', [id]);
           sql.execute('DELETE FROM demographicPharmacy WHERE demographic_no=?', [id]);
           sql.execute(`DELETE FROM demographic WHERE demographic_no=?
-            AND last_name=? AND first_name IN ('AI-Scribe','AI-Scribe Updated')
+            AND last_name=? AND first_name IN ('FAKE-OAuth','FAKE-OAuth Updated')
             AND provider_no=?`, [id, marker, providerNo]);
 
           assert(sql.value('SELECT COUNT(*) FROM demographic WHERE demographic_no=?', [id]) === '0',
@@ -443,11 +443,11 @@ function createAuthorizer({
 
     checkCancelled();
     const consent = await sessionContext.newPage();
-    wireStrictPage(consent, 'ai-scribe-oauth-consent', recorder);
+    wireStrictPage(consent, 'oauth-clinical-api-consent', recorder);
     const pageResponse = await handshakeStep('OAuth consent page', () => consent.goto(
       app(`/ws/oauth/authorize?oauth_token=${pct(requestToken.oauth_token)}`), { waitUntil: 'load' }));
     assert(pageResponse && pageResponse.status() === 200, 'The OAuth consent page did not load successfully');
-    await assertNotErrorPage(consent, 'AI-Scribe OAuth consent page');
+    await assertNotErrorPage(consent, 'OAuth clinical API consent page');
     recordEndpoint('GET', '/ws/oauth/authorize', pageResponse, `consent page loaded (${scopes})`);
     const consentText = await consent.locator('body').innerText();
     for (const scope of scopes.split(' ')) {
@@ -570,9 +570,9 @@ async function setUpRun(state) {
       + 'patient, clinical, eForm and OAuth rows on a separate disposable scoped installation');
   }
   assert(EXPECT_OAUTH_MODE === 'scoped',
-    'AI-Scribe API acceptance requires EXPECT_OAUTH_MODE=scoped on a separate disposable installation');
+    'OAuth clinical API acceptance requires EXPECT_OAUTH_MODE=scoped on a separate disposable installation');
   assert(!API_ONLY || API_ONLY === 'all' || API_TEST_GROUPS.has(API_ONLY),
-    `Unsupported AI_SCRIBE_API_ONLY=${API_ONLY}; use all, demographics, measurements, `
+    `Unsupported OAUTH_CLINICAL_API_ONLY=${API_ONLY}; use all, demographics, measurements, `
       + 'measurements.read, measurements.write, labs, rxlookup, rx, schedule, eforms, '
       + 'or eforms.templates');
   const config = readConfig();
@@ -586,7 +586,7 @@ async function setUpRun(state) {
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
   const nextIsoDate = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
-  const formName = `PW AI-Scribe ${runMarker}`;
+  const formName = `PW OAuth clinical API ${runMarker}`;
   const consumerKey = crypto.randomBytes(12).toString('hex');
   const consumerSecret = crypto.randomBytes(24).toString('hex');
   const providerNo = sql.value(
@@ -606,8 +606,8 @@ async function setUpRun(state) {
     sql,
     `INSERT INTO ServiceClient(name,clientKey,clientSecret,uri,lifetime)
       VALUES(?,?,?,'oob',3600)`,
-    'AI-Scribe OAuth client',
-    [`PW AI-Scribe ${runMarker}`, consumerKey, consumerSecret],
+    'OAuth clinical API client',
+    [`PW OAuth clinical API ${runMarker}`, consumerKey, consumerSecret],
   );
 
   const recorder = createRecorder();
@@ -619,7 +619,7 @@ async function setUpRun(state) {
   const anonContext = await newContext(state.browser, config);
   const anon = anonContext.request;
   const sessionContext = await newContext(state.browser, config);
-  await login(sessionContext, config, recorder, { label: 'ai-scribe-oauth-login' });
+  await login(sessionContext, config, recorder, { label: 'oauth-clinical-api-login' });
 
   const authorize = createAuthorizer({
     state, app, anon, sessionContext, recorder, consumerKey, consumerSecret, recordEndpoint,
@@ -658,8 +658,8 @@ async function createPatientFixture(ctx) {
   } = ctx;
   // The patient's first name as CARLOS currently stores it. The demographics group renames the
   // patient; later fixtures that identify the patient by name (the HL7 PID segment) read this
-  // instead of assuming that rename ran, so a focused run (AI_SCRIBE_API_ONLY=labs) matches too.
-  let patientFirstName = 'AI-Scribe';
+  // instead of assuming that rename ran, so a focused run (OAUTH_CLINICAL_API_ONLY=labs) matches too.
+  let patientFirstName = 'FAKE-OAuth';
   const createDemographicResponse = await signedRequest('POST', '/ws/services/demographics/', fullToken, {
     firstName: patientFirstName,
     lastName: marker,
@@ -679,13 +679,13 @@ async function createPatientFixture(ctx) {
   await expectStatus(createDemographicResponse, 200, 'OAuth synthetic demographic create');
   const createdDemographic = await createDemographicResponse.json();
   const patientNo = sqlId(createdDemographic.demographicNo, 'created synthetic demographic id');
-  assert(createdDemographic.firstName === 'AI-Scribe' && createdDemographic.lastName === marker,
+  assert(createdDemographic.firstName === 'FAKE-OAuth' && createdDemographic.lastName === marker,
     'Demographic create did not return the uniquely owned synthetic record');
   state.patientNo = patientNo;
   recordEndpoint('POST', '/ws/services/demographics/', createDemographicResponse,
     'temporary patient created as selected-workflow setup');
 
-  const measurementComment = `AI-Scribe OAuth measurement ${runMarker}`;
+  const measurementComment = `OAuth clinical API measurement ${runMarker}`;
   sql.execute(`INSERT INTO measurements
       (type,demographicNo,providerNo,dataField,measuringInstruction,comments,dateObserved,dateEntered)
     VALUES ('BP',?,?, '121/79','',?,NOW(),NOW())`,
@@ -796,17 +796,17 @@ async function checkDemographics(ctx) {
   recordEndpoint('POST', '/ws/services/demographics/search', demographicSearchResponse,
     'structured name search finds the synthetic patient');
 
-  demographic.firstName = 'AI-Scribe Updated';
+  demographic.firstName = 'FAKE-OAuth Updated';
   const updateResponse = await signedRequest('PUT', '/ws/services/demographics/', fullToken, demographic);
   await expectStatus(updateResponse, 200, 'OAuth demographic update');
   const updated = await updateResponse.json();
-  assert(String(updated.demographicNo) === patientNo && updated.firstName === 'AI-Scribe Updated',
+  assert(String(updated.demographicNo) === patientNo && updated.firstName === 'FAKE-OAuth Updated',
     'OAuth demographic update response did not contain the changed field');
   recordEndpoint('PUT', '/ws/services/demographics/', updateResponse, 'updated field returned');
   const demographicReload = await signedRequest('GET', demographicPath, fullToken);
   await expectStatus(demographicReload, 200, 'OAuth demographic update read-after-write');
   const reloadedDemographic = await demographicReload.json();
-  assert(reloadedDemographic.firstName === 'AI-Scribe Updated',
+  assert(reloadedDemographic.firstName === 'FAKE-OAuth Updated',
     'OAuth demographic update was not persisted');
   ctx.patientFirstName = reloadedDemographic.firstName;
   recordEndpoint('GET', '/ws/services/demographics/{demographicNo}', demographicReload,
@@ -855,7 +855,7 @@ async function checkMeasurementWrite({
   sql, signedRequest, fullToken, limitedToken, recordEndpoint, runMarker, patientNo,
   measurementComment, measurementId,
 }) {
-  const newMeasurementComment = `AI-Scribe OAuth new measurement ${runMarker}`;
+  const newMeasurementComment = `OAuth clinical API new measurement ${runMarker}`;
   const newMeasurementPayload = {
     type: 'BP',
     dataField: '122/80',
@@ -966,7 +966,7 @@ async function checkLabs(ctx) {
     // response is lost.
     state.labRunMarker = runMarker;
     state.labAccession = labAccession;
-    state.labFilePrefix = `LabUpload.ai-scribe-${runMarker}.xml.`;
+    state.labFilePrefix = `LabUpload.oauth-clinical-${runMarker}.xml.`;
     // Database time before the upload: cleanup removes only providerLabRoutingLock rows created
     // from here on (the lock key is a bare lab_no shared with other lab types' ids).
     state.labLockFloor = sql.value('SELECT NOW()');
@@ -981,7 +981,7 @@ async function checkLabs(ctx) {
     ];
     const escapeXml = (text) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const hl7Xml = `<messages><message>${hl7Segments.map(escapeXml).join('&#13;')}</message></messages>`;
-    const labFileName = `ai-scribe-${runMarker}.xml`;
+    const labFileName = `oauth-clinical-${runMarker}.xml`;
     const uploadLabResponse = await signedRequest(
       'POST', '/ws/services/labs/hl7LabUpload', fullToken,
       {
@@ -997,7 +997,7 @@ async function checkLabs(ctx) {
     // Cleanup removes files by this run's prefix; a name outside it, or a file not on the configured
     // mount, would leave the archived upload behind.
     assert(path.basename(savedLabFile) === savedLabFile && savedLabFile.startsWith(state.labFilePrefix)
-      && /^LabUpload\.ai-scribe-[A-Fa-f0-9]+\.xml\.\d+$/.test(savedLabFile),
+      && /^LabUpload\.oauth-clinical-[A-Fa-f0-9]+\.xml\.\d+$/.test(savedLabFile),
     'HL7 lab upload returned a saved file name outside this run\'s owned prefix');
     assert(fs.existsSync(path.join(state.documentStore, savedLabFile)),
       'The uploaded lab file is not in LAB_UPLOAD_DOCUMENT_STORE; point it at the server document directory');
@@ -1111,7 +1111,7 @@ async function checkRxReads({ signedRequest, fullToken, recordEndpoint, recordFa
 async function checkMedicationLifecycle({
   sql, signedRequest, fullToken, recordEndpoint, runMarker, providerNo, patientNo, isoDate, nextIsoDate,
 }) {
-  const medicationName = `AI-Scribe synthetic medication ${runMarker}`;
+  const medicationName = `OAuth clinical API synthetic medication ${runMarker}`;
   const medication = {
     customName: medicationName,
     genericName: medicationName,
@@ -1134,7 +1134,7 @@ async function checkMedicationLifecycle({
     archived: false,
     repeats: 0,
     quantity: 14,
-    instructions: 'AI-Scribe test fixture: take one tablet twice daily',
+    instructions: 'OAuth clinical API test fixture: take one tablet twice daily',
     longTerm: false,
     noSubstitutions: false,
   };
@@ -1163,7 +1163,7 @@ async function checkMedicationLifecycle({
 
   const updatedMedication = {
     ...addedDrug,
-    instructions: 'AI-Scribe test fixture: updated to one tablet once daily',
+    instructions: 'OAuth clinical API test fixture: updated to one tablet once daily',
     frequency: 'OD',
   };
   const updateDrugResponse = await signedRequest(
@@ -1286,7 +1286,7 @@ async function checkEformTemplates({
   const htmlBefore = `<html><body><form><input name="${marker}" value="initial"></form></body></html>`;
   const createEformResponse = await signedRequest('POST', '/ws/services/eform/json', fullToken, {
     formName,
-    formSubject: 'AI-Scribe OAuth API acceptance fixture',
+    formSubject: 'OAuth clinical API acceptance fixture',
     formHtml: htmlBefore,
     patientIndependent: false,
   });
@@ -1309,7 +1309,7 @@ async function checkEformTemplates({
   const updateEform = await signedRequest('PUT', `/ws/services/eform/${formId}/json`, fullToken, {
     formName,
     formHtml: htmlAfter,
-    formSubject: 'AI-Scribe OAuth API acceptance fixture updated',
+    formSubject: 'OAuth clinical API acceptance fixture updated',
   });
   const updatedEform = await expectSuccessJson(updateEform, 'OAuth eForm template update');
   assert(String(updatedEform.id) === formId, 'OAuth eForm update returned a different template id');
@@ -1317,7 +1317,7 @@ async function checkEformTemplates({
   const reloadedEformResponse = await signedRequest('GET', `/ws/services/eform/${formId}`, fullToken);
   const reloadedEform = await expectSuccessJson(reloadedEformResponse, 'OAuth eForm update read-after-write');
   assert(reloadedEform.formHtml === htmlAfter
-    && reloadedEform.subject === 'AI-Scribe OAuth API acceptance fixture updated',
+    && reloadedEform.subject === 'OAuth clinical API acceptance fixture updated',
   'OAuth eForm template update was not persisted');
   recordEndpoint('GET', '/ws/services/eform/{id}', reloadedEformResponse,
     'updated template persisted on read-after-write');
@@ -1397,7 +1397,7 @@ async function main(state = {}) {
 if (require.main === module) {
   const state = {};
   runCheck({
-    name: 'ai-scribe-oauth-api',
+    name: 'oauth-clinical-api',
     run: async ({ throwIfCancelled }) => {
       // SIGINT/SIGTERM: runCheck keeps the process alive and runs cleanup in its finally; main()
       // checks this before each request so an interrupted run stops early instead of finishing.

@@ -1,7 +1,8 @@
-# AI-Scribe OAuth API live check
+# OAuth clinical API live check
 
-`scripts/ai-scribe-oauth-api-live-check.js` exercises the deployed OAuth 1.0a
-workflow and database-backed API calls that AI-Scribe needs. It complements
+`scripts/oauth-clinical-api-playwright-checks.js` exercises the deployed OAuth 1.0a
+workflow and the database-backed clinical API calls an external OAuth client
+(for example an AI scribe) relies on. It complements
 unit and local-transport tests; those do not prove that OAuth consent, signed
 requests, deployed routing, scope enforcement, and persisted writes work
 together.
@@ -89,27 +90,27 @@ disposable database.
 From the repository root, run:
 
 ```sh
-CARLOS_DISPOSABLE_HOST=true EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
-# or: CARLOS_DISPOSABLE_HOST=true EXPECT_OAUTH_MODE=scoped npm run test:ai-scribe-oauth-api-live
+CARLOS_DISPOSABLE_HOST=true EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
+# or: CARLOS_DISPOSABLE_HOST=true EXPECT_OAUTH_MODE=scoped npm run test:oauth-clinical-api-playwright
 ```
 
 SIGINT or SIGTERM stops the run before its next request, then the usual
 cleanup runs and the process exits 130 or 143.
 
-For focused runs, set `AI_SCRIBE_API_ONLY` to one of (with
+For focused runs, set `OAUTH_CLINICAL_API_ONLY` to one of (with
 `CARLOS_DISPOSABLE_HOST=true` also set):
 
 ```sh
-AI_SCRIBE_API_ONLY=demographics EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
-AI_SCRIBE_API_ONLY=measurements EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
-AI_SCRIBE_API_ONLY=measurements.read EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
-AI_SCRIBE_API_ONLY=measurements.write EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
-AI_SCRIBE_API_ONLY=labs EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
-AI_SCRIBE_API_ONLY=rxlookup EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
-AI_SCRIBE_API_ONLY=rx EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
-AI_SCRIBE_API_ONLY=schedule EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
-AI_SCRIBE_API_ONLY=eforms EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
-AI_SCRIBE_API_ONLY=eforms.templates EXPECT_OAUTH_MODE=scoped node scripts/ai-scribe-oauth-api-live-check.js
+OAUTH_CLINICAL_API_ONLY=demographics EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
+OAUTH_CLINICAL_API_ONLY=measurements EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
+OAUTH_CLINICAL_API_ONLY=measurements.read EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
+OAUTH_CLINICAL_API_ONLY=measurements.write EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
+OAUTH_CLINICAL_API_ONLY=labs EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
+OAUTH_CLINICAL_API_ONLY=rxlookup EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
+OAUTH_CLINICAL_API_ONLY=rx EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
+OAUTH_CLINICAL_API_ONLY=schedule EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
+OAUTH_CLINICAL_API_ONLY=eforms EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
+OAUTH_CLINICAL_API_ONLY=eforms.templates EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
 ```
 
 `all` or an unset selector runs the full check. `measurements` runs both the
