@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -24,6 +25,7 @@ public class MedicationDetails implements Serializable {
     private String quantityText;
     private String dispenseUnit;
     private String dosageText;
+    @JsonProperty("components")
     @XmlElementWrapper(name = "components")
     @XmlElement(name = "component")
     private List<Component> components;

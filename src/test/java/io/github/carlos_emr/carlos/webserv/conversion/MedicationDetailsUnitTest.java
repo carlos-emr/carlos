@@ -5,9 +5,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.introspect.AnnotationIntrospectorPair;
+import com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DrugTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.FavoriteTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.MedicationDetails;
+import io.github.carlos_emr.carlos.webserv.rest.util.RestXmlAnnotationIntrospector;
 import jakarta.xml.bind.JAXBContext;
 import java.io.StringReader;
 import java.io.StringWriter;
@@ -19,7 +22,7 @@ import org.junit.jupiter.api.Test;
 class MedicationDetailsUnitTest {
     @Test
     void strictLegacyShapesOmitTheOptInDetails() throws Exception {
-        ObjectMapper mapper = new ObjectMapper();
+        ObjectMapper mapper = restMapper();
         JAXBContext xml = JAXBContext.newInstance(DrugTo1.class, FavoriteTo1.class);
         for (Object legacy : List.of(new DrugTo1(), new FavoriteTo1())) {
             assertThat(mapper.writeValueAsString(legacy)).doesNotContain("medicationDetails");
@@ -42,14 +45,24 @@ class MedicationDetailsUnitTest {
         assertThat(stored.isComponentDataComplete()).isTrue();
         DrugTo1 dto = new DrugTo1();
         dto.setMedicationDetails(stored);
-        ObjectMapper mapper = new ObjectMapper();
-        assertComplete(mapper.readValue(mapper.writeValueAsString(dto), DrugTo1.class).getMedicationDetails());
+        ObjectMapper mapper = restMapper();
+        String json = mapper.writeValueAsString(dto);
+        var details = mapper.readTree(json).path("medicationDetails");
+        assertThat(details.path("components").isArray()).isTrue();
+        assertThat(details.has("component")).isFalse();
+        assertComplete(mapper.readValue(json, DrugTo1.class).getMedicationDetails());
         JAXBContext xml = JAXBContext.newInstance(DrugTo1.class);
         StringWriter body = new StringWriter();
         xml.createMarshaller().marshal(dto, body);
         assertComplete(((DrugTo1) xml.createUnmarshaller().unmarshal(new StringReader(body.toString()))).getMedicationDetails());
         assertThatThrownBy(() -> stored.validateQuantity(7)).isInstanceOf(IllegalArgumentException.class);
         assertThat(MedicationDetails.read("1/2 bottle", null, "250 mg", null).isComponentDataComplete()).isFalse();
+    }
+
+    private static ObjectMapper restMapper() {
+        ObjectMapper mapper = new ObjectMapper();
+        return mapper.setAnnotationIntrospector(new AnnotationIntrospectorPair(new JacksonAnnotationIntrospector(),
+                new RestXmlAnnotationIntrospector(mapper.getTypeFactory())));
     }
 
     private static void assertComplete(MedicationDetails details) {
