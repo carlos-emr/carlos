@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "e3a2cd7940250ce92eda8da3bc24a12f2453b308",
+  "comparisonSha256": "7860e7b2e334caec003ad45d01fb5a89cf1262f6d783b911eb0d1f4eded44800",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/eform/data/EForm.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "bda8566c85fce7260c962f2ffbbbf302943453a1"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/eform/data/EFormSelectMarkup.java": {
+      "lines": 100.0,
+      "instructions": 98.59514687100894,
+      "branches": 90.3225806451613,
+      "sourceBlob": "50963956d4e7e6e96ae89e41ccc6e49f2f6b6349"
+    }
+  },
+  "baselineCommit": "b44f1bbe9d3c19a691c661d481fb99d773ca9b4d",
+  "baselineSourceTree": "e3a2cd7940250ce92eda8da3bc24a12f2453b308",
+  "baselineReportSha256": "4e8d83dbd3ab79853a2f4fd8c480397cbd14eb9aa220f62179ba45c739da4deb",
+  "baselineLane": "PR #6284: a FOCUSED local run, JDK 25, one Maven invocation of 27 eForm unit and H2 integration test classes with JaCoCo (AddEForm2ActionTemplateWriteUnitTest, BundledDatabaseApSqlUnitTest, DatabaseAPUnitTest, EFormBackgroundImagePreservationUnitTest, EFormCdnJqueryAliasUnitTest, EFormFdidMarkerSaveUnitTest, EFormHiddenAttachmentsUnitTest, EFormImageFileNameEncodingUnitTest, EFormImagePublicationOwnershipUnitTest, EFormLargeHtmlRoundTripUnitTest, EFormRenderPdfHtmlComposerUnitTest, EFormRuntimeNormalizationCacheUnitTest, EFormSelectApPrefillUnitTest, EFormSelectValueRestoreUnitTest, EFormSetContextPathUnitTest, EFormSubjectInputUnitTest, EFormSubmissionGuardUnitTest, EFormUploadFilenameValidationUnitTest, EFormViewerRelativeAssetUnitTest, EFormApValuesUnitTest, EFormLoaderOpenEformUnitTest, EFormServiceUnitTest, HtmlEdit2ActionUnitTest, EFormConstructorsUnitTest, EFormSelectApPrefillIntegrationTest, EFormUtilIntegrationTest, EFormApColumnLookupIntegrationTest), on commit b44f1bbe9d. The rows of the 2 Java files this PR changes are measured from that run's target/site/jacoco/jacoco.xml with the checker's own measure(). No zero-floor waiver is added.",
+  "baselineTestCounts": {
+    "tests": 448,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "57c2742cc0c4805cf059cc14367e2decbeb80a469d46cbd95e846b22c53d5bb5",
+  "baselineTestReportsHashFormat": "SHA-256 of a sha256sum-style manifest of the run's Surefire report files (target/surefire-reports/TEST-*.xml): one '<sha256>  <file name>' line each, sorted by name",
+  "baselineTestRunCommit": "b44f1bbe9d",
+  "baselineAdditionalTestRuns": [],
+  "baselineSelectedTestClasses": [
+    "AddEForm2ActionTemplateWriteUnitTest",
+    "BundledDatabaseApSqlUnitTest",
+    "DatabaseAPUnitTest",
+    "EFormBackgroundImagePreservationUnitTest",
+    "EFormCdnJqueryAliasUnitTest",
+    "EFormFdidMarkerSaveUnitTest",
+    "EFormHiddenAttachmentsUnitTest",
+    "EFormImageFileNameEncodingUnitTest",
+    "EFormImagePublicationOwnershipUnitTest",
+    "EFormLargeHtmlRoundTripUnitTest",
+    "EFormRenderPdfHtmlComposerUnitTest",
+    "EFormRuntimeNormalizationCacheUnitTest",
+    "EFormSelectApPrefillUnitTest",
+    "EFormSelectValueRestoreUnitTest",
+    "EFormSetContextPathUnitTest",
+    "EFormSubjectInputUnitTest",
+    "EFormSubmissionGuardUnitTest",
+    "EFormUploadFilenameValidationUnitTest",
+    "EFormViewerRelativeAssetUnitTest",
+    "EFormApValuesUnitTest",
+    "EFormLoaderOpenEformUnitTest",
+    "EFormServiceUnitTest",
+    "HtmlEdit2ActionUnitTest",
+    "EFormConstructorsUnitTest",
+    "EFormSelectApPrefillIntegrationTest",
+    "EFormUtilIntegrationTest",
+    "EFormApColumnLookupIntegrationTest"
+  ]
+}
