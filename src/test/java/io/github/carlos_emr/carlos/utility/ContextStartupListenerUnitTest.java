@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.fax.core.FaxSchedulerJob;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMFixMissingReportHelper;
 import io.github.carlos_emr.carlos.integration.mcedt.mailbox.CidPrefixResourceResolver;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteCodeSweeper;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalMyCarlosCodeEmailSweeper;
 import jakarta.servlet.ServletContextEvent;
 import java.time.Instant;
 import java.util.List;
@@ -100,13 +101,17 @@ class ContextStartupListenerUnitTest {
         }
     }
 
-    @Test void shouldScheduleThePortalInviteSweepOnce_evenWhenInitializationRunsTwice_andCancelItOnShutdown() {
+    @Test void shouldScheduleBothCodeSweepsOnce_evenWhenInitializationRunsTwice_andCancelThemOnShutdown() {
         var maintenance = mock(CdsImportMaintenanceService.class);
         var emailLogs = mock(EmailLogDao.class);
         var scheduler = mock(TaskScheduler.class);
         var future = mock(ScheduledFuture.class);
         var transactionManager = mock(PlatformTransactionManager.class);
-        doReturn(future).when(scheduler).scheduleWithFixedDelay(any(Runnable.class), any(Instant.class), any(java.time.Duration.class));
+        var deviceFuture = mock(ScheduledFuture.class);
+        doReturn(future).when(scheduler).scheduleWithFixedDelay(any(PortalInviteCodeSweeper.class),
+                any(Instant.class), eq(PortalInviteCodeSweeper.INTERVAL));
+        doReturn(deviceFuture).when(scheduler).scheduleWithFixedDelay(any(PortalMyCarlosCodeEmailSweeper.class),
+                any(Instant.class), eq(PortalMyCarlosCodeEmailSweeper.INTERVAL));
         var listener = spy(new ContextStartupListener());
         doNothing().when(listener).initializeDefaultData(transactionManager);
         doNothing().when(listener).loadCaches();
@@ -124,11 +129,13 @@ class ContextStartupListenerUnitTest {
             // The coordinator re-runs the whole initialization after maintenance returns or a gate read fails.
             ReflectionTestUtils.invokeMethod(listener, "initializeClinicalProcesses");
 
-            // The sweep that clears invitation codes from saved emails is scheduled once, with its own interval.
             verify(scheduler, times(1)).scheduleWithFixedDelay(any(PortalInviteCodeSweeper.class), any(Instant.class),
                     eq(PortalInviteCodeSweeper.INTERVAL));
+            verify(scheduler).scheduleWithFixedDelay(any(PortalMyCarlosCodeEmailSweeper.class),
+                    any(Instant.class), eq(PortalMyCarlosCodeEmailSweeper.INTERVAL));
             listener.contextDestroyed(new ServletContextEvent(new MockServletContext()));
             verify(future).cancel(false);
+            verify(deviceFuture).cancel(false);
         } finally { MiscUtils.setShutdownSignaled(false); }
     }
 
@@ -151,7 +158,13 @@ class ContextStartupListenerUnitTest {
         }
     }
 
-    @Test void shouldRetryPortalInviteSweepRegistration_afterTheSchedulerRejectsIt() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "forgetLeftoverPortalInviteCodes, 15",
+            "forgetLeftoverMyCarlosCodes, 5"
+    })
+    void shouldRetryCodeSweepRegistration_afterTheSchedulerRejectsIt(String startMethod, int minutes) {
+        var interval = java.time.Duration.ofMinutes(minutes);
         var maintenance = mock(CdsImportMaintenanceService.class);
         var scheduler = mock(TaskScheduler.class);
         var future = mock(ScheduledFuture.class);
@@ -159,24 +172,27 @@ class ContextStartupListenerUnitTest {
         var listener = new ContextStartupListener();
         ReflectionTestUtils.setField(listener, "maintenance", maintenance);
         doThrow(new RejectedExecutionException("temporarily unavailable")).doReturn(future).when(scheduler)
-                .scheduleWithFixedDelay(any(Runnable.class), any(Instant.class), eq(PortalInviteCodeSweeper.INTERVAL));
+                .scheduleWithFixedDelay(any(Runnable.class), any(Instant.class), eq(interval));
 
         try (var spring = mockStatic(SpringUtils.class); var executors = mockStatic(Executors.class)) {
             spring.when(() -> SpringUtils.getBean(EmailLogDao.class)).thenReturn(mock(EmailLogDao.class));
             spring.when(() -> SpringUtils.getBean(TaskScheduler.class)).thenReturn(scheduler);
             executors.when(() -> Executors.newSingleThreadScheduledExecutor(any(ThreadFactory.class))).thenReturn(retryWorker);
-            ReflectionTestUtils.invokeMethod(listener, "forgetLeftoverPortalInviteCodes");
-
+            ReflectionTestUtils.invokeMethod(listener, startMethod);
+            // A second startup attempt while retrying must reuse the one pending worker.
+            ReflectionTestUtils.invokeMethod(listener, startMethod);
             var retry = ArgumentCaptor.forClass(Runnable.class);
             verify(retryWorker).scheduleWithFixedDelay(retry.capture(), anyLong(), anyLong(), eq(TimeUnit.SECONDS));
             when(maintenance.isClinicalAccessBlocked()).thenReturn(true, false);
             retry.getValue().run();
-            verify(scheduler).scheduleWithFixedDelay(any(Runnable.class), any(Instant.class), eq(PortalInviteCodeSweeper.INTERVAL));
+            verify(scheduler).scheduleWithFixedDelay(any(Runnable.class), any(Instant.class), eq(interval));
             retry.getValue().run();
-            verify(scheduler, times(2)).scheduleWithFixedDelay(any(Runnable.class), any(Instant.class), eq(PortalInviteCodeSweeper.INTERVAL));
+            verify(scheduler, times(2)).scheduleWithFixedDelay(any(Runnable.class), any(Instant.class), eq(interval));
             verify(retryWorker).shutdown();
             listener.contextDestroyed(new ServletContextEvent(new MockServletContext()));
             verify(future).cancel(false);
+            retry.getValue().run();
+            verify(scheduler, times(2)).scheduleWithFixedDelay(any(Runnable.class), any(Instant.class), eq(interval));
         } finally { MiscUtils.setShutdownSignaled(false); }
     }
 
