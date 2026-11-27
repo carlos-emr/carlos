@@ -101,6 +101,11 @@ class PortalPaymentRequestServiceUnitTest {
         when(dao.find(1L)).thenAnswer(call -> persisted);
     }
 
+    private void unconfirmedOperation() {
+        when(portal.lookupPaymentOperation(eq(123), any(), same(STAFF))).thenThrow(PatientPortalException.ofStatus(
+                404, "/internal/carlos/patients/%d/payment-requests", PatientPortalService.PAYMENT_REQUEST_NOT_FOUND_DETAIL));
+    }
+
     private PortalPaymentRequest persisted;
 
     private PortalPaymentRequest stored(String status) {
@@ -149,6 +154,7 @@ class PortalPaymentRequestServiceUnitTest {
 
     @Test
     void shouldWithdrawAfterALateConfirmation_whenFirstWithdrawalFoundNoPortalId() {
+        unconfirmedOperation();
         when(portal.createPaymentRequest(eq(123), any(), same(STAFF))).thenAnswer(call -> {
             assertThatThrownBy(() -> service.withdraw(STAFF, 123, 55, 1L))
                     .isInstanceOfSatisfying(PortalPaymentRequestException.class,
@@ -163,6 +169,7 @@ class PortalPaymentRequestServiceUnitTest {
 
     @Test
     void shouldReportPaymentAfterLateConfirmation_whenTheInvoiceWasSettledDuringSend() {
+        unconfirmedOperation();
         when(portal.createPaymentRequest(eq(123), any(), same(STAFF))).thenAnswer(call -> {
             when(dao.findUnsettledForUpdate(55)).thenReturn(List.of(persisted));
             when(totals.calculateBalanceOwing(55)).thenReturn(BigDecimal.ZERO);
@@ -436,7 +443,7 @@ class PortalPaymentRequestServiceUnitTest {
         PatientPortalPaymentRequestDto listed = mock(PatientPortalPaymentRequestDto.class);
         when(listed.invoiceRef()).thenReturn("inv-ref");
         when(listed.id()).thenReturn(12L);
-        when(portal.listPaymentRequests(123, STAFF)).thenReturn(List.of(listed));
+        when(portal.lookupPaymentOperation(eq(123), any(), same(STAFF))).thenReturn(listed);
 
         service.withdraw(STAFF, 123, 55, 4);
 
@@ -451,7 +458,7 @@ class PortalPaymentRequestServiceUnitTest {
         pending.setId(4L);
         when(dao.find(4L)).thenReturn(pending);
         when(dao.findForUpdate(4L)).thenReturn(pending);
-        when(portal.listPaymentRequests(123, STAFF)).thenReturn(List.of());
+        unconfirmedOperation();
 
         assertThatThrownBy(() -> service.withdraw(STAFF, 123, 55, 4))
                 .isInstanceOfSatisfying(PortalPaymentRequestException.class,
@@ -459,6 +466,19 @@ class PortalPaymentRequestServiceUnitTest {
 
         verify(portal, never()).withdrawPaymentRequest(anyInt(), anyLong(), any());
         assertThat(pending.getStatus()).isEqualTo(PortalPaymentRequest.PENDING);
+    }
+
+    @Test
+    void shouldAllowReplacementAfterAConfirmedPastDueMiss() {
+        PortalPaymentRequest pending = stored("pending");
+        when(dao.find(2L)).thenReturn(pending);
+        when(dao.findForUpdate(2L)).thenReturn(pending);
+        when(portal.lookupPaymentOperation(eq(123), any(), same(STAFF))).thenThrow(PatientPortalException.ofStatus(
+                422, "/internal/carlos/patients/%d/payment-requests", PatientPortalService.PAYMENT_REQUEST_PAST_DUE_DETAIL));
+        assertThat(service.withdraw(STAFF, 123, 55, 2L).getStatus()).isEqualTo(PortalPaymentRequest.WITHDRAWN);
+        verify(portal, never()).withdrawPaymentRequest(anyInt(), anyLong(), any());
+        when(portal.createPaymentRequest(eq(123), any(), same(STAFF))).thenReturn(confirmed(11, true));
+        assertThat(service.send(STAFF, "999998", 123, 55, "other", DUE).created()).isTrue();
     }
 
     @Test
@@ -539,7 +559,7 @@ class PortalPaymentRequestServiceUnitTest {
         PatientPortalPaymentRequestDto listed = mock(PatientPortalPaymentRequestDto.class);
         when(listed.invoiceRef()).thenReturn("inv-ref");
         when(listed.id()).thenReturn(12L);
-        when(portal.listPaymentRequests(123, STAFF)).thenReturn(List.of(listed));
+        when(portal.lookupPaymentOperation(eq(123), any(), same(STAFF))).thenReturn(listed);
 
         assertThat(service.reportPaid(STAFF, 55)).isEqualTo(1);
 
@@ -554,7 +574,7 @@ class PortalPaymentRequestServiceUnitTest {
         paid.setPortalRequestId(null);
         when(dao.findPaidNotSynced(55)).thenReturn(List.of(paid));
         when(dao.findForUpdate(2L)).thenReturn(paid);
-        when(portal.listPaymentRequests(123, STAFF)).thenReturn(List.of());
+        unconfirmedOperation();
 
         assertThat(service.reportPaid(STAFF, 55)).isEqualTo(0);
 

@@ -180,6 +180,16 @@ class PatientPortalPaymentRequestCallsUnitTest {
     }
 
     @Test
+    void shouldLookUpTheOriginalOperationWithoutCreatingANewRequest() throws Exception {
+        Exchange exchange = new Exchange().reply(201, created(false));
+        assertThat(service(exchange).lookupPaymentOperation(123, REQUEST, STAFF).id()).isEqualTo(7);
+        assertThat(body(exchange.sent.getFirst())).contains("\"lookup_only\":true");
+        Exchange wrong = new Exchange().reply(201, created(true));
+        assertThatThrownBy(() -> service(wrong).lookupPaymentOperation(123, REQUEST, STAFF))
+                .isInstanceOf(PatientPortalException.class);
+    }
+
+    @Test
     void shouldConfirmTheOriginalRequest_whenCreationIsRetried() throws Exception {
         Exchange exchange = new Exchange().reply(201, created(true)).reply(201, created(false));
         PatientPortalService service = service(exchange);

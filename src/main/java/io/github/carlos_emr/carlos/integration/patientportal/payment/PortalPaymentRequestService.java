@@ -123,14 +123,12 @@ public class PortalPaymentRequestService {
             String category, LocalDate dueOn) {
         PortalPaymentRequest local = transactions.execute(status -> prepare(
                 providerNo, demographicNo, billingNo, category, dueOn));
-        PatientPortalPaymentRequestRequest wire = new PatientPortalPaymentRequestRequest(local.getOperationId(),
-                local.getInvoiceRef(), local.getCategory(), local.getAmountCents(), local.getTaxCents(),
-                local.getDueOn());
+        PatientPortalPaymentRequestRequest wire = wireRequest(local);
         PatientPortalPaymentRequestDto.Creation confirmed;
         try {
             confirmed = portal.get().createPaymentRequest(demographicNo, wire, staff);
         } catch (PatientPortalException refused) {
-            if (refused.isAccountAbsent() && PortalPaymentRequest.PENDING.equals(local.getStatus())
+            if ((refused.isAccountAbsent() || absentAfterDueDate(refused)) && PortalPaymentRequest.PENDING.equals(local.getStatus())
                     && local.getPortalRequestId() == null) {
                 // The portal stored nothing for a patient with no account: close the local row so a
                 // later send, once the patient has an account, starts clean.
@@ -233,10 +231,9 @@ public class PortalPaymentRequestService {
             return row;
         }
         Long portalId = portalIdOf(staff, row);
-        if (portalId == null) {
-            throw new PortalPaymentRequestException(PortalPaymentRequestException.Reason.REQUEST_UNCONFIRMED);
+        if (portalId != null) {
+            portal.get().withdrawPaymentRequest(demographicNo, portalId, staff);
         }
-        portal.get().withdrawPaymentRequest(demographicNo, portalId, staff);
         transactions.executeWithoutResult(status -> {
             PortalPaymentRequest locked = requests.findForUpdate(requestId);
             if (PortalPaymentRequest.PAID.equals(locked.getStatus())) {
@@ -248,21 +245,34 @@ public class PortalPaymentRequestService {
     }
 
     /**
-     * The portal's id for a row: the stored one, or, when the confirmation was lost, the one the
-     * portal lists for this patient under the row's reference. Null when the portal has none.
+     * Null only when the portal serialized the lookup with creates and confirmed the due date passed.
      */
     private Long portalIdOf(PatientPortalStaffContext staff, PortalPaymentRequest row) {
         if (row.getPortalRequestId() != null) {
             return row.getPortalRequestId();
         }
-        for (PatientPortalPaymentRequestDto listed : portal.get().listPaymentRequests(row.getDemographicNo(), staff)) {
-            if (row.getInvoiceRef().equals(listed.invoiceRef())) {
-                long id = listed.id();
-                transactions.executeWithoutResult(status -> requests.findForUpdate(row.getId()).setPortalRequestId(id));
-                return id;
+        try {
+            long id = portal.get().lookupPaymentOperation(row.getDemographicNo(), wireRequest(row), staff).id();
+            transactions.executeWithoutResult(status -> requests.findForUpdate(row.getId()).setPortalRequestId(id));
+            return id;
+        } catch (PatientPortalException refused) {
+            if (absentAfterDueDate(refused)) {
+                return null;
             }
+            if (refused.statusCode() == 404 && PatientPortalService.PAYMENT_REQUEST_NOT_FOUND_DETAIL.equals(refused.detail())) {
+                throw new PortalPaymentRequestException(PortalPaymentRequestException.Reason.REQUEST_UNCONFIRMED);
+            }
+            throw refused;
         }
-        return null;
+    }
+
+    private static boolean absentAfterDueDate(PatientPortalException refused) {
+        return refused.statusCode() == 422 && PatientPortalService.PAYMENT_REQUEST_PAST_DUE_DETAIL.equals(refused.detail());
+    }
+
+    private static PatientPortalPaymentRequestRequest wireRequest(PortalPaymentRequest row) {
+        return new PatientPortalPaymentRequestRequest(row.getOperationId(), row.getInvoiceRef(), row.getCategory(),
+                row.getAmountCents(), row.getTaxCents(), row.getDueOn());
     }
 
     /**
@@ -309,16 +319,17 @@ public class PortalPaymentRequestService {
         int reported = 0;
         for (PortalPaymentRequest row : waiting == null ? List.<PortalPaymentRequest>of() : waiting) {
             try {
-                // A send may still be in flight. An empty list cannot confirm settlement.
                 Long portalId = portalIdOf(staff, row);
-                if (portalId == null) {
-                    continue;
+                if (portalId != null) {
+                    portal.get().markPaymentRequestPaid(row.getDemographicNo(), portalId, staff);
                 }
-                portal.get().markPaymentRequestPaid(row.getDemographicNo(), portalId, staff);
                 markSynced(row.getId());
                 reported++;
+            } catch (PortalPaymentRequestException unconfirmed) {
+                // A concurrent create may still arrive. The next attempt will look up the operation again.
             } catch (PatientPortalException refused) {
-                if (refused.kind() == PatientPortalException.Kind.CONFLICT) {
+                if (refused.kind() == PatientPortalException.Kind.CONFLICT
+                        && PatientPortalService.PAYMENT_REQUEST_STATE_CONFLICT_DETAIL.equals(refused.detail())) {
                     // The portal will never take this one as paid (it was withdrawn there while the
                     // payment was being saved): stop asking, or every later view would warn again.
                     markSynced(row.getId());

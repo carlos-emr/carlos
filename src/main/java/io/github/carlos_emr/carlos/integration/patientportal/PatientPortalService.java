@@ -102,6 +102,7 @@ public class PatientPortalService implements Closeable {
             "another invite delivery is being prepared", "invite delivery is not committed",
             "booking prompt not found", PatientPortalService.PAYMENT_REQUEST_NOT_FOUND_DETAIL,
             PatientPortalService.PAYMENT_REQUEST_OPERATION_CONFLICT_DETAIL,
+            PatientPortalService.PAYMENT_REQUEST_PAST_DUE_DETAIL,
             PatientPortalService.PAYMENT_REQUEST_STATE_CONFLICT_DETAIL,
             "payment request is invalid", PatientPortalService.CHOICE_NOT_PENDING_DETAIL,
             PatientPortalService.CHOICE_WITHDRAWN_DETAIL, PatientPortalService.CHOICE_EXPIRED_DETAIL,
@@ -124,6 +125,7 @@ public class PatientPortalService implements Closeable {
      * The text is part of the contract; none of it carries a request's content.
      */
     public static final String PAYMENT_REQUEST_NOT_FOUND_DETAIL = "payment request not found";
+    public static final String PAYMENT_REQUEST_PAST_DUE_DETAIL = "payment operation absent after its due date";
     public static final String PAYMENT_REQUEST_OPERATION_CONFLICT_DETAIL =
             "operation id or invoice reference was used for a different payment request";
     public static final String PAYMENT_REQUEST_STATE_CONFLICT_DETAIL =
@@ -538,7 +540,21 @@ public class PatientPortalService implements Closeable {
     public PatientPortalPaymentRequestDto.Creation createPaymentRequest(
             int demographicNo, PatientPortalPaymentRequestRequest request,
             PatientPortalStaffContext staff) {
+        return paymentOperation(demographicNo, request, staff, false);
+    }
+
+    /** Looks up an exact operation without creating a patient-visible request. */
+    public PatientPortalPaymentRequestDto lookupPaymentOperation(int demographicNo,
+            PatientPortalPaymentRequestRequest request, PatientPortalStaffContext staff) {
+        return paymentOperation(demographicNo, request, staff, true).request();
+    }
+
+    private PatientPortalPaymentRequestDto.Creation paymentOperation(int demographicNo,
+            PatientPortalPaymentRequestRequest request, PatientPortalStaffContext staff, boolean lookupOnly) {
         ObjectNode body = objectMapper.createObjectNode();
+        if (lookupOnly) {
+            body.put("lookup_only", true);
+        }
         body.put("operation_id", request.operationId());
         body.put("invoice_ref", request.invoiceRef());
         body.put("category", request.category());
@@ -554,7 +570,7 @@ public class PatientPortalService implements Closeable {
             boolean created = PortalJson.requiredBool(parsed.payload(), "created");
             if (parsed.statusCode() != CREATED
                     || confirmed.demographicNo() != demographicNo
-                    || created && !"sent".equals(confirmed.state())
+                    || created && (lookupOnly || !"sent".equals(confirmed.state()))
                     || !request.invoiceRef().equals(confirmed.invoiceRef())
                     || !request.category().equals(confirmed.category())
                     || request.amountCents() != confirmed.amountCents()
