@@ -107,7 +107,8 @@ CARLOS_DISPOSABLE_HOST=true EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical
 ```
 
 The Ontario release verification check runs all operation groups on the scoped
-installation and requires `LAB_UPLOAD_DOCUMENT_STORE` to verify the valid HL7 upload.
+installation and sets `REQUIRE_LAB_UPLOAD_VERIFICATION=true` alongside
+`LAB_UPLOAD_DOCUMENT_STORE`, failing the run if any endpoint remains `UNVERIFIED`.
 
 SIGINT or SIGTERM stops the run before its next request, then the usual
 cleanup runs and the process exits 130 or 143.

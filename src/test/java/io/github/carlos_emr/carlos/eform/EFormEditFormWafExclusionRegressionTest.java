@@ -115,7 +115,7 @@ class EFormEditFormWafExclusionRegressionTest {
         String rule = readRule("1076");
 
         assertThat(rule)
-                .contains("SecRule REQUEST_URI \"@rx ^/carlos/ws/(?:rs|services)/eform/instance/[0-9]+(?:[;?]|$)\"")
+                .contains("SecRule REQUEST_URI \"@rx ^/carlos/ws/(?:rs|services)/eform/instance/[0-9]+(?:\\.json)?(?:[;?]|$)\"")
                 .contains("\"id:1076,phase:1,pass,nolog,chain\"")
                 .contains("SecRule REQUEST_METHOD \"@streq PUT\"");
 

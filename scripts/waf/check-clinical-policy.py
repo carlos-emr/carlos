@@ -519,6 +519,16 @@ def build_cases(phrases, corpus, repo=ROOT):
                           json.dumps({"fdid": 12, "subject": "Follow-up", "formHtml": html_doc,
                                       "values": {"bp": "120/80"}}),
                           request_content_type=json_ct))
+        cases.append(Case(f"eform-instance-{mount}-put-json-suffix-echoed-html", 6334, "PUT",
+                          f"/carlos/ws/{mount}/eform/instance/12.json",
+                          json.dumps({"fdid": 12, "subject": "Follow-up", "formHtml": html_doc,
+                                      "values": {"bp": "120/80"}}),
+                          request_content_type=json_ct))
+        cases.append(Case(f"eform-instance-{mount}-put-json-suffix-subject-xss-inspected", 6334, "PUT",
+                          f"/carlos/ws/{mount}/eform/instance/12.json",
+                          json.dumps({"subject": XSS, "formHtml": html_doc, "values": {"bp": "120/80"}}),
+                          expect="inbound", signatures=("941100", "941110"),
+                          request_content_type=json_ct))
         cases.append(Case(f"eform-instance-{mount}-put-subject-xss-inspected", 6334, "PUT",
                           f"/carlos/ws/{mount}/eform/instance/12",
                           json.dumps({"subject": XSS, "formHtml": html_doc, "values": {"bp": "120/80"}}),
@@ -536,6 +546,11 @@ def build_cases(phrases, corpus, repo=ROOT):
                           request_content_type=json_ct))
         cases.append(Case(f"eform-instance-{mount}-put-wrong-route", 6334, "PUT",
                           f"/carlos/ws/{mount}/eform/instance/12Evil",
+                          json.dumps({"subject": "Follow-up", "formHtml": html_doc, "values": {"bp": "120/80"}}),
+                          expect="inbound", signatures=html_sigs,
+                          request_content_type=json_ct))
+        cases.append(Case(f"eform-instance-{mount}-put-xml-suffix-inspected", 6334, "PUT",
+                          f"/carlos/ws/{mount}/eform/instance/12.xml",
                           json.dumps({"subject": "Follow-up", "formHtml": html_doc, "values": {"bp": "120/80"}}),
                           expect="inbound", signatures=html_sigs,
                           request_content_type=json_ct))

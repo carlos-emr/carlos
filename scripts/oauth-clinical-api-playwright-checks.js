@@ -291,7 +291,6 @@ async function cleanup(state) {
                     );
                   }
                 }
-                removeOwnedLabFile(state);
               }
 
               assert(
@@ -304,6 +303,21 @@ async function cleanup(state) {
             }
           } catch (error) {
             labCleanupError = error;
+          } finally {
+            if (state.labFilePrefix) {
+              try {
+                removeOwnedLabFile(state);
+              } catch (fileError) {
+                if (labCleanupError) {
+                  labCleanupError = new AggregateError(
+                    [labCleanupError, fileError],
+                    `${labCleanupError.message}; also failed to remove owned lab archive file: ${fileError.message}`,
+                  );
+                } else {
+                  labCleanupError = fileError;
+                }
+              }
+            }
           }
           // Saved eForm instances (current and retired revisions) for the owned patient.
           sql.execute('DELETE FROM eform_values WHERE demographic_no=?', [id]);
@@ -906,6 +920,13 @@ async function checkMeasurementWrite({
   );
   await expectInsufficientScope(limitedMeasurementCreate,
     'OAuth new measurement without measurement.write');
+  assert(
+    sql.value(
+      'SELECT COUNT(*) FROM measurements WHERE demographicNo=? AND comments=?',
+      [patientNo, newMeasurementComment],
+    ) === '0',
+    'The refused measurement.write request should not have written a measurement row',
+  );
   recordEndpoint('POST', '/ws/services/measurements/{demographicNo}/new', limitedMeasurementCreate,
     'missing measurement.write refused with insufficient_scope');
 
@@ -1737,6 +1758,11 @@ function finishRun({ recorder, endpointResults }, summary) {
   const failedEndpoints = endpointResults.filter((row) => row.outcome === 'FAIL');
   assert(failedEndpoints.length === 0,
     `${failedEndpoints.length} endpoint validation(s) failed; see the endpoint results table`);
+  if (process.env.REQUIRE_LAB_UPLOAD_VERIFICATION === 'true') {
+    const unverifiedEndpoints = endpointResults.filter((row) => row.outcome === 'UNVERIFIED');
+    assert(unverifiedEndpoints.length === 0,
+      `${unverifiedEndpoints.length} endpoint validation(s) remained UNVERIFIED while REQUIRE_LAB_UPLOAD_VERIFICATION=true; set LAB_UPLOAD_DOCUMENT_STORE and verify HL7 upload`);
+  }
   return summary;
 }
 

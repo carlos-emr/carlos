@@ -6814,7 +6814,8 @@
         "LAB_UPLOAD_DOCUMENT_STORE"
       ],
       "environment": {
-        "OAUTH_CLINICAL_API_ONLY": "all"
+        "OAUTH_CLINICAL_API_ONLY": "all",
+        "REQUIRE_LAB_UPLOAD_VERIFICATION": "true"
       },
       "runtimeConstraints": {
         "node": "22",
