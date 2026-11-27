@@ -158,7 +158,7 @@ async function workflow(s) {
   const secondStep = `Then take half a tablet daily ${tag}`;
   const lastMedication = `FAKE overflow ${tag}`;
   const additionalReason = 'LOCAL Z99 recorded indication';
-  const asNeededDose = 'Take 1 to 3 mg daily as needed';
+  const asNeededDose = 'Take 1 to 3 mg daily PO as needed';
   const medicationText = [direction, secondStep, lastMedication, asNeededDose, additionalReason];
   const instruction = `${marker} continue at discharge`;
   const note = `${marker} reconciled with the patient`;
@@ -213,9 +213,9 @@ async function workflow(s) {
   for (let position = 2; position <= 18; position++) {
     const name = position === 18 ? lastMedication : `FAKE row ${position} ${tag}`;
     sql.execute(`INSERT INTO drugs (provider_no,demographic_no,rx_date,end_date,written_date,customName,special,
-        archived,archived_reason,create_date,position,lastUpdateDate,dispenseInternal,quantity,takemin,takemax,unit,unitName,drug_form,method,freqcode,prn)
+        archived,archived_reason,create_date,position,lastUpdateDate,dispenseInternal,quantity,takemin,takemax,unit,unitName,drug_form,method,freqcode,route,prn)
       VALUES (${q(provider)},${patient},CURDATE(),DATE_ADD(CURDATE(),INTERVAL 30 DAY),CURDATE(),${q(name)},${q(name)},
-        0,'',NOW(),${position},NOW(),0,'.50',1,3,'mg','mL','TAB','Take','daily',${position === 18 ? 1 : 0})`);
+        0,'',NOW(),${position},NOW(),0,'.50',1,3,'mg','mL','TAB','Take','daily','PO',${position === 18 ? 1 : 0})`);
   }
   sql.execute(`INSERT INTO drugReason (drugId,codingSystem,code,comments,primaryReasonFlag,archivedFlag,demographicNo,providerNo,dateCoded)
     SELECT drugid,'icd9',${q(code)},${q(`FAKE ${tag}`)},1,0,${patient},${q(provider)},CURDATE()
