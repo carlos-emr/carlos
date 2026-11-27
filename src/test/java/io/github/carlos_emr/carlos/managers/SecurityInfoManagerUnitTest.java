@@ -1171,6 +1171,17 @@ public class SecurityInfoManagerUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        void shouldPreserveRolePermission_whenEveryoneHasReadAndDelete() {
+            var everyone = createPrivilege("_all", "_eChart$42", "|r|d|", 0);
+            stubRows(createPrivilege(ROLE_DOCTOR, "_eChart", "x", 0), everyone);
+            assertThat(securityInfoManager.hasPrivilegeReadOnly(mockLoggedInInfo, "_eChart", "w", "42")).isTrue();
+            assertThat(securityInfoManager.hasPrivilege(mockLoggedInInfo, "_eChart", "d", "42")).isTrue();
+
+            stubRows(createPrivilege(ROLE_DOCTOR, "_eChart", "r", 0), everyone);
+            assertThat(securityInfoManager.hasPrivilegeReadOnly(mockLoggedInInfo, "_eChart", "d", "42")).isFalse();
+        }
+
+        @Test
         void shouldKeepExistingAccess_whenEveryoneHasAdditionalRights() {
             stubRows(createPrivilege(ROLE_DOCTOR, "_eChart", "x", 0), createPrivilege("_all", "_eChart$42", "|ow|", 0));
             assertThat(securityInfoManager.hasPrivilegeReadOnly(mockLoggedInInfo, "_eChart", "w", "42")).isTrue();

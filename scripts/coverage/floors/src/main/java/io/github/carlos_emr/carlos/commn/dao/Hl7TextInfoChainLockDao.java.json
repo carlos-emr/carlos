@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/dao/Hl7TextInfoChainLockDao.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "e0774fd59b1bfb103bd87f8c8cf0912f0265472f"
+  },
+  "evidenceSha256": "94570e336d61aab69b38149daf434409389b0b00393030fa74b6f60e284e6402"
+}

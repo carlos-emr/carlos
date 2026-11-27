@@ -3,10 +3,10 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/config/PackagedConfigurationPreflight.java",
   "kind": "floor",
   "floor": {
-    "lines": 62.20472440944882,
-    "instructions": 60.48951048951049,
-    "branches": 42.30769230769231,
-    "sourceBlob": "26efea38fca329eca5eb326bf32fb4660ac25993"
+    "lines": 77.16535433070867,
+    "instructions": 84.79020979020979,
+    "branches": 62.82051282051282,
+    "sourceBlob": "ffda88b33d9469cd4fa26fc4704631e5ad113905"
   },
-  "evidenceSha256": "51eb9370e3ebf3e60c1ffcf636a3e6fc80afa4233306e481fc981615a50b2050"
+  "evidenceSha256": "9a8c0eb90ae9da91d8b03654a7c32e0166cd88d742596c896e95ec9260bb80fd"
 }

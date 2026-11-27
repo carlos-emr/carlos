@@ -52,6 +52,7 @@
     "test:pmm-attach-note-two-window-isolation-playwright": "node scripts/pmm-attach-note-two-window-isolation-playwright-checks.js",
     "test:chart-session-state-two-window-isolation-playwright": "node scripts/chart-session-state-two-window-isolation-playwright-checks.js",
     "test:rx-drug-pick-patient-isolation-playwright": "node scripts/rx-drug-pick-patient-isolation-playwright-checks.js",
+    "test:rx-preview-drug-info-playwright": "node scripts/rx-preview-drug-info-playwright-checks.js",
     "test:rx-preview-visit-site-isolation-playwright": "node scripts/rx-preview-visit-site-isolation-playwright-checks.js",
     "test:multisite-schedule-visibility-playwright": "node scripts/multisite-schedule-visibility-playwright-checks.js",
     "test:rx-favorites-choose-drug-playwright": "node scripts/rx-favorites-choose-drug-playwright-checks.js",
@@ -548,6 +549,7 @@
     "test:workflow-tickler-suggested-text-playwright": "node scripts/workflow-tickler-suggested-text-playwright-checks.js",
     "test:billing-on-invoice-third-party-playwright": "node scripts/billing-on-invoice-third-party-playwright-checks.js",
     "test:billing-on-invoice-letterhead-playwright": "node scripts/billing-on-invoice-letterhead-playwright-checks.js",
+    "test:billing-on-single-site-visibility-playwright": "node scripts/billing-on-single-site-visibility-playwright-checks.js",
     "test:billing-on-ohip-simulation-report-playwright": "node scripts/billing-on-ohip-simulation-report-playwright-checks.js",
     "test:provider-signature-contact-playwright": "node scripts/provider-signature-contact-playwright-checks.js",
     "test:billing-on-payment-status-playwright": "node scripts/billing-on-payment-status-playwright-checks.js",
@@ -596,6 +598,7 @@
     "test:form-catalog-smoke-adfv2-window-playwright": "FORM_CATALOG_ONLY=adfv2.redisplay node scripts/form-catalog-smoke-playwright-checks.js",
     "test:form-adfv2-save-exit-playwright": "node scripts/form-adfv2-save-exit-playwright-checks.js",
     "test:form-checkbox-reopen-playwright": "node scripts/form-checkbox-reopen-playwright-checks.js",
+    "test:rehab-study-forms-playwright": "node scripts/rehab-study-forms-playwright-checks.js",
     "test:form-consultant-print-no-save-playwright": "node scripts/form-consultant-print-no-save-playwright-checks.js",
     "test:form-vt-save-refusal-playwright": "node scripts/form-vt-save-refusal-playwright-checks.js",
     "test:rh-workflow-form-links-playwright": "node scripts/rh-workflow-form-links-playwright-checks.js",
@@ -1035,6 +1038,7 @@
     "test:demographic-merge-clinical-history-playwright": "node scripts/demographic-merge-clinical-history-playwright-checks.js",
     "test:eform-visual-widgets-playwright": "node scripts/eform-visual-widgets-playwright-checks.js",
     "test:lab-qualified-results-playwright": "node scripts/lab-qualified-results-playwright-checks.js",
+    "test:lab-measurement-filing-playwright": "node scripts/lab-measurement-filing-playwright-checks.js",
     "test:rx-favorite-groups-playwright": "node scripts/rx-favorite-groups-playwright-checks.js",
     "test:rx-original-version-playwright": "node scripts/rx-original-version-playwright-checks.js",
     "test:rx-renal-waf-privacy-playwright": "node scripts/rx-renal-waf-privacy-playwright-checks.js",
@@ -1102,7 +1106,6 @@
   "overrides": {
     "ajv@>=7.0.0-alpha.0 <8.18.0": "8.18.0",
     "ajv@<6.14.0": "6.14.0",
-    "minimatch": "10.2.3",
     "qs": "6.16.2",
     "webpack": "5.104.1",
     "lodash": "4.18.1",
@@ -1110,7 +1113,6 @@
     "serialize-javascript": "7.1.4",
     "picomatch": "2.3.2",
     "path-to-regexp@<0.1.13": "0.1.13",
-    "brace-expansion": "5.0.12",
     "baseline-browser-mapping": "2.11.0",
     "browserslist": "4.28.7",
     "colord": "2.9.4",
@@ -1121,7 +1123,7 @@
     "http-proxy-middleware": "2.0.10",
     "js-yaml@<4.0.0": "3.15.2",
     "js-yaml@>=4.0.0 <5.0.0": "4.3.2",
-    "joi": "17.13.8",
+    "joi": "17.13.9",
     "launch-editor": "2.14.2",
     "nanoid": "3.3.18",
     "postcss": "8.5.23",
@@ -1139,6 +1141,7 @@
     "argparse": "$argparse",
     "latest-version": "9.0.0",
     "follow-redirects": "1.16.2",
-    "@svgr/plugin-svgo": "$@svgr/plugin-svgo"
+    "@svgr/plugin-svgo": "$@svgr/plugin-svgo",
+    "serve-handler": "6.1.8"
   }
 }

@@ -3733,7 +3733,8 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Creates and removes an owned FAKE-PW patient plus its flowsheet_customization and measurements rows; local disposable database only."
+      "fixtures": "Creates and removes an owned FAKE-PW patient plus its flowsheet_customization and measurements rows; local disposable database only.",
+      "notes": "Steps include: a customized measurement renders as a tracker card with an entry field; a saved value is not doubled when the same observation is submitted again; a refused value writes nothing, in the browser or on the server; and the delete path's CSRF token is present and deleting an observation removes it. The delete step also reads the confirmation's #deleteObsDate line, which must be \"<entered by> — Date: <observed>\" with a real em dash (U+2014, matched by code point) and neither U+FFFD nor the windows-1252 reading; #6305 writes that dash as a JavaScript escape in HealthTrackerPage.jspf, a dynamic include Jasper reads as ISO-8859-1. That em-dash assertion has not yet run against a package."
     },
     {
       "name": "measurement-history",
@@ -5153,12 +5154,16 @@
       ],
       "timeoutSec": 300,
       "assertsDatabase": true,
+      "mutates": [
+        "property:schedule.week_view_weekends"
+      ],
       "env": [
         "TEST_PASSWORD",
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Owned synthetic patient plus one appointment row (marker in name) at a free slot inside the provider's schedule hours today; on weekend runs the schedule.week_view_weekends property is snapshotted, enabled and restored."
+      "fixtures": "Owned synthetic patient plus one appointment row (marker in name) at a free slot inside the provider's schedule hours today; on weekend runs the schedule.week_view_weekends property is snapshotted, enabled and restored. On those runs this check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "One seeded appointment through the day, week, month, Flip View and zoom views, the W+ multiplier, Alt+T and the 2W, 4W, 3M and 6M buttons. A step on today's day view, before Flip View opens, reads the visually hidden label of the provider's Flip View radio (appointmentprovideradminday.jsp:1743): it must be the schedule.scheduleflipview.title message, \" — \" (U+2014) and the provider name the column's zoom link prints, with no mojibake and no literal &#8212; (#6305 writes the dash as that entity, which a page Jasper reads as ISO-8859-1 keeps). That step has not yet run against a package."
     },
     {
       "name": "schedule-month-week-links",
@@ -5480,8 +5485,8 @@
       ],
       "timeoutSec": 360,
       "env": [],
-      "notes": "#5813: a lone empty text parameter survives native upload, edit, reopen, run and export while the other template stays unchanged. #5725: two template schemas (text and list parameters) and four tabs sharing one context/login. Alternating native runs and actual CSV/XLS downloads prove per-instance parameters, values and cell types. Includes empty results and normal Back clear-session beacons and subsequent tab closure; beacons are never suppressed.",
-      "fixtures": "Two natively uploaded marker-owned templates and two owned synthetic patients. Native middle-click opens report instances from the Administration library. Clinical rows remain unchanged; exact owned templates/patient and scratch-download cleanup are verified. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5813: a lone empty text parameter survives native upload, edit, reopen, run and export while the other template stays unchanged. #5725: two template schemas (text and list parameters) and four tabs sharing one context/login. Alternating native runs and actual CSV/XLS downloads prove per-instance parameters, values and cell types. Includes empty results and normal Back clear-session beacons and subsequent tab closure; beacons are never suppressed. A last step (#6236, reportByTemplateLayout.css) uploads a third owned template whose query returns a 400-character unbroken value: on the result page the report region scrolls the wide cell itself (overflow-x auto, no row gutter) while the page does not scroll horizontally and the action row wraps, and in print emulation the region is not clipped and the .noprint bars are hidden; on View Template XML the template text wraps (pre-wrap, overflow-wrap anywhere) without widening its box or the page, the body keeps its 1rem screen gutter, and print hides the navigation bar and the template actions. That step has not yet run against a package; the third template is deleted with the other two.",
+      "fixtures": "Three natively uploaded marker-owned templates (the third, uploaded by the last step, returns the wide value) and two owned synthetic patients. Native middle-click opens report instances from the Administration library. Clinical rows remain unchanged; exact owned templates/patient and scratch-download cleanup are verified. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "mutates": [
         "reportTemplates"
       ]
@@ -5597,13 +5602,17 @@
         "core"
       ],
       "assertsDatabase": true,
+      "mutates": [
+        "eform_groups",
+        "eform"
+      ],
       "provinces": [
         "all"
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "The group mutators answer POST/redirect/GET since #4130 (findings 69 and 74: the panel lost its CSRF token, and a success result forwarded the POST to a GET-only gate that answered 405). submitInPanel follows the chain the panel's POST starts: the POST answers 200 or a redirect, every hop stays on the origin and is a GET, and the page it ends on answers 200. Passes all eight steps on an installed release/2026.08 package. The Add eForm list also throws a TypeError on unload (unguarded window.opener, finding 77), which does not fail the check.",
-      "fixtures": "Two marker eForm templates, one saved instance of each for the owned patient, a seeded PW<hex> group and a PV<hex> group created by the panel (eform_groups.group_name is varchar(20)); only these rows are removed."
+      "notes": "The group mutators answer POST/redirect/GET since #4130 (findings 69 and 74: the panel lost its CSRF token, and a success result forwarded the POST to a GET-only gate that answered 405). submitInPanel follows the chain the panel's POST starts: the POST answers 200 or a redirect, every hop stays on the origin and is a GET, and the page it ends on answers 200. Passed all eight steps it then had on an installed release/2026.08 package. A ninth step, after the duplicate-name one (#5842), holds the panel's Add Group POST with page.route, changes the name to the seeded group's while it is out and answers it HTTP 500 without reaching the server: the shell's notice must appear above the form and the page must check the name again, keeping Add Group disabled; it has not yet run against a package. The Add eForm list also throws a TypeError on unload (unguarded window.opener, finding 77), which does not fail the check.",
+      "fixtures": "Two marker eForm templates, one saved instance of each for the owned patient, a seeded PW<hex> group and a PV<hex> group created by the panel, and the PF<hex> name the failed Add Group request carries, which never reaches the server (eform_groups.group_name is varchar(20)); only these rows are removed. The eForm library and group list are clinic-wide, so this check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "measurement-type-group-admin",
@@ -6335,12 +6344,13 @@
       "provinces": [
         "all"
       ],
-      "timeoutSec": 120,
+      "timeoutSec": 240,
       "env": [
-        "SHARED_OUTCOMES_TEST_FIXTURE"
+        "SHARED_OUTCOMES_TEST_FIXTURE",
+        "SHARED_OUTCOMES_SEND_PORT"
       ],
-      "notes": "Schedule Common Dashboard launches an encrypted payload with the external provider role (#5053); Playwright stubs all dashboard requests.",
-      "fixtures": "Disposable install with the synthetic Shared Outcomes properties documented in the script. Owned throwaway login and dashboard grants are removed."
+      "notes": "Schedule Common Dashboard launches an encrypted payload with the external provider role (#5053); Playwright stubs all dashboard requests. The refresh the dashboard window requests (#5335) posts to /web/dashboard/OutcomesDashboard and publishes the owned indicator's metric set to a loopback listener standing in for shared_outcomes_dashboard_send_url: payload, a rejected delivery answered 502 and not reported as done, foreign-origin messages ignored, GET and token-less POST refused, the old /OutcomesDashboard URL gone. Optional SHARED_OUTCOMES_SEND_PORT (default 18335) must match the configured send URL.",
+      "fixtures": "Disposable install with the synthetic Shared Outcomes properties documented in the script, including a shared_outcomes_dashboard_send_url on the loopback listener the script starts. Owned throwaway login, dashboard grants, one synthetic shared indicator template with its dashboard, and three owned patients are removed."
     },
     {
       "name": "measurement-group-entry",
@@ -6707,6 +6717,18 @@
       ],
       "notes": "Master Record ▸ Billing History ▸ Print, with and without the clinic's invoice letterhead (an active document of the invoice_head_logo_doctype type, 'invoice letterhead' by default): with one, the third-party invoice header shows its image (billing/ca/on/DisplayInvoiceLogo) in place of the clinic's name, address and phone; once it is archived, the header shows the clinic's details again; LAST, with it active again, the image request answers its exact PNG bytes and the browser draws it. The last step failed on release before #4935 (#4931's fix, finding 387) merged on 18 Oct. billing-on-invoice-third-party prints the invoice without a letterhead.",
       "fixtures": "Owned private (PAT) bill for an owned patient, and an owned letterhead: a document of the letterhead type filed under the test provider (ctl_document 'providers') with a 1 x 1 PNG in DOCUMENT_DIR named with the run marker; all removed. Every invoice uses the clinic's active letterhead while it exists, so the check refuses to run when the clinic already has one, and it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "billing-on-single-site-visibility",
+      "script": "scripts/billing-on-single-site-visibility-playwright-checks.js",
+      "tiers": ["core"],
+      "assertsDatabase": true,
+      "provinces": ["ON"],
+      "timeoutSec": 120,
+      "env": ["OHIP_DISK_DIR"],
+      "mutates": ["provider", "security", "secRole", "secUserRole", "secObjPrivilege", "billing_on_diskname", "billing_on_filename", "file:owned-ohip-disk"],
+      "fixtures": "Single-site installation with the stock administrator site restriction. Creates and removes an independent unassigned physician, synthetic disk and member reports, files, a scoped login and an owned team restriction. A second unassigned login uses the seeded admin and doctor roles if the configured user already has sites or team restrictions. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Checks both native OHIP selectors and the disk history, disabled simulation and generation for an empty team, and a mixed disk with one authorized member report."
     },
     {
       "name": "billing-on-ohip-simulation-report",
@@ -7248,7 +7270,7 @@
       "mutates": [
         "encounterForm"
       ],
-      "notes": "The thirteen forms whose record class once compared the column type with TINY and that have TINYINT answers, finding 231 (fixed, #4466): after Save stores the ticked boxes, the redisplayed form and the reopened form show them ticked. The record classes now ask FrmRecordHelp.isBooleanColumnType, which accepts the BIT and TINYINT names the MySQL driver reports. Asserts the restore pair of CESD, Caregiver, Caregiver - SF36, SF36, Cost Questionnaire, Falls History, HOME FAST, Intake Information, FDI Disability, FDI Function, Risk Assessment, Self Management and Treatment Preference. The restore pair stays in its own entry so a regression is attributed to the finding. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240), -bare-contact (241).",
+      "notes": "The thirteen forms whose record class once compared the column type with TINY and that have TINYINT answers, finding 231 (fixed, #4466): after Save stores the ticked boxes, the redisplayed form and the reopened form show them ticked. The record classes then asked FrmRecordHelp.isBooleanColumnType, which accepts the BIT and TINYINT names the MySQL driver reports; since #5693 these forms read typed entities, and rehab-study-forms covers the three the catalogue does not reach. Asserts the restore pair of CESD, Caregiver, Caregiver - SF36, SF36, Cost Questionnaire, Falls History, HOME FAST, Intake Information, FDI Disability, FDI Function, Risk Assessment, Self Management and Treatment Preference. The restore pair stays in its own entry so a regression is attributed to the finding. Each known defect has its own entry (a script stops at its first failing step, and one pin holds one finding); FORM_CATALOG_ONLY and FORM_CATALOG_EXCEPT choose the (form, concern) pairs an entry asserts, scripts/form-claims.test.js proves the entries together claim every pair once, and every entry still runs the flow of the forms it asserts. The entries: form-catalog-smoke (everything not below), -alpha (230), -checkbox-restore (231), -cesd-redisplay (232), -letterhead-restore (233), -message-keys (234), -position-hazard-css (235), -rourke2006-reopen (236), -adfv2-window (240), -bare-contact (241).",
       "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide (the shipped rows are hidden on Ontario installs), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
@@ -7632,6 +7654,22 @@
       "mutates": [],
       "notes": "Finding 231 (fixed, #4466), the four forms the form catalogue does not reach: 2 Minute Walk, Internet Access, Rh Immune Globulin and Satisfaction Scale. Their record classes compared the column type with TINY, which the MySQL driver never reports, so a saved tick was shown as the raw value 1 written into the tag (1=\"\") and an unticked box. A saved record is seeded for the owned patient and its form opened (form/<form>?demographic_no=&formId=): the boxes stored as 1 are ticked, the boxes stored as 0 or NULL are not, and no checkbox carries an attribute named by a digit. Save is not driven: it stores the ticks correctly, and the catalogue (form-catalog-smoke-checkbox-restore) proves that for the thirteen forms it reaches.",
       "fixtures": "Owned synthetic patient and one seeded row in each of form2MinWalk, formInternetAccess, formRhImmuneGlobulin and formSatisfactionScale; cleanup deletes the owned patient's rows from the four tables and asserts each gone. Nothing is added to the Forms menu, so the check does not need EXCLUSIVE=1."
+    },
+    {
+      "name": "rehab-study-forms",
+      "script": "scripts/rehab-study-forms-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "mutates": [],
+      "notes": "Issue #5693: the eighteen 2004 rehabilitation-study questionnaires save and reopen through one JPA entity per table and RehabStudyFormService instead of their Frm*Record classes. form-catalog-smoke drives fifteen of them and form-checkbox-reopen reads seeded rows of the other three; this check drives the rest. Two Minute Walk, Internet Access and Satisfaction Scale are opened for the owned patient (form/<view>?demographic_no=&formId=0), boxes ticked and answers typed, and Save through form/formname stores one row with exactly those values, the signed-in provider and the N/A study ID, and redisplays them. A patient enrolled in rehabStudy2004 opens a new SF-36 that shows the study ID, and Save stores it. Save on a reopened SF-36 adds a version and leaves the version it was opened from unchanged. The saved version requested under another active patient's number is refused by the application and its answer is not in the response.",
+      "fixtures": "Owned synthetic patient, one rehabStudy2004 enrolment of that patient with an unused study ID, and the rows Save stores in form2MinWalk, formInternetAccess, formSatisfactionScale and formSF36; cleanup deletes the owned patient's rows from the four tables and the enrolment, and asserts each gone. The cross-patient request reads one other active demo patient's number and writes nothing. Nothing is added to the Forms menu, so the check does not need EXCLUSIVE=1."
     },
     {
       "name": "form-catalog-smoke-bare-contact",
@@ -9398,7 +9436,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Patients whose surname starts with the run tag, created through Search > Create Demographic; cleanup removes every row of those patients (relabels to the marker, then removeMarkedPatients) and asserts none remain. The append-only audit log is not touched.",
-      "notes": "Checks Add and Edit field limits against the database, preserving fifty-character Unicode names and visibly rejecting overflow without saving or truncating names. Pronoun and gender (25) are limited in both forms and validated before persistence (#5638). Name Used is checked against the alias (70), not pref_name: it must be stored whole in the alias, with pref_name holding its first 30 characters by design (#5128, which needs #5127; before both, a Name Used over 30 characters fails the save under a strict sql_mode and is cut under an empty one)."
+      "notes": "Checks Add and Edit field limits against the database, preserving fifty-character Unicode names and visibly rejecting overflow without saving or truncating names. Pronoun and gender (25) are limited in both forms and validated before persistence (#5638). Name Used is checked against the alias (70), not pref_name: it must be stored whole in the alias, with pref_name holding its first 30 characters by design (#5128, which needs #5127; before both, a Name Used over 30 characters fails the save under a strict sql_mode and is cut under an empty one). Two steps after the Add-form limits (#5869) check the patient alert (cust3 on the Add form, alert on the Edit form) and the waiting-list note against their columns in Unicode code points, each alert line break counted as the CR LF the browser submits: an alert at the limit is saved whole and redisplayed whole by the Edit form, and one more character is refused in both forms without being cut or sent. The Edit-form step needs DEMOGRAPHIC_WAITING_LIST=true, the packaged default (the devcontainer sets it false): edit-form-clinical.jsp draws the waiting-list note only then, and the step fails when the box is missing. These two steps have not yet run against a package."
     },
     {
       "name": "boundary-demographic-search",
@@ -10881,6 +10919,21 @@
       "notes": "Covers preferred ordering, duplicate selection, initial load and pending-write guards, repeated clicks, null/malformed JSON responses, committed writes with unreadable responses, and retry after refresh; stored links and order checked throughout."
     },
     {
+      "name": "rx-preview-drug-info",
+      "script": "scripts/rx-preview-drug-info-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "fixtures": "One owned synthetic patient and the Ezetimibe 10 mg and Lorazepam 0.5 mg generic entries from the release DrugRef seed. Cleanup removes the two prescriptions, their drug rows and any prescription signatures for the owned patient.",
+      "notes": "Opens Drug Information below the signature after Save and Print. Checks the saved drug and DIN, the preview link, and the popup brand, DIN, ingredient, strength and form. Looking up the selected generic search key also shows the representative brand for that DIN."
+    },
+    {
       "name": "gap-encounter-rx-drug-info-on-host",
       "script": "scripts/gap-encounter-rx-drug-info-on-host-playwright-checks.js",
       "tiers": [
@@ -10910,8 +10963,8 @@
       ],
       "timeoutSec": 180,
       "env": [],
-      "fixtures": "The owned synthetic patient and one session-only custom drug card; nothing is saved.",
-      "notes": "Fails at its last step on 2026.08: leaving the Qty box throws 'Insertion is not defined' (SearchDrug3.jsp getCost) and no rx/ViewDrugPrice request is sent (same defect as L81)."
+      "fixtures": "The owned synthetic patient, the test provider's default quantity of 30, the packaged AG-Ramipril 5 mg, Lipitor 20 mg and Blexten 20 mg products, and a session-only custom drug. The check saves and cleans up one prescription.",
+      "notes": "Asserts the displayed formulary estimate on selection, after Qty/Mitte edits and a directions calculation, and on ReRx. Distinguishes tablet counts from durations and verifies that a DIN with no price and a custom drug produce no estimate."
     },
     {
       "name": "search-sort-patient-order",
@@ -11994,8 +12047,8 @@
         "MYSQL_PASSWORD",
         "XSS_POISON_LEDGER_DIR"
       ],
-      "fixtures": "One owned FAKE patient with a poisoned document routed to the test provider's inbox, and a second poisoned document filed under the test provider (eDoc list). Neither has a file behind it; the ManageDocument preview answer is ignored as a fixture limit. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
-      "notes": "Stored-markup regression for Inbox, eDoc provider/patient lists and document editing. The shared demographic name/age sink is encoded (#4905); the walk now passes and is required."
+      "fixtures": "One owned FAKE patient with a poisoned document routed to the test provider's inbox (with a poisoned routing comment), a second poisoned document filed under the test provider (eDoc list), a poisoned document class (report class and sub-class) and a poisoned document queue. Inserts GLOBALLY VISIBLE poisoned rows while it runs (the document class and the queue): other checks run in parallel would see them, so run it alone (the suite runner is sequential). Neither has a file behind it; the ManageDocument preview answer is ignored as a fixture limit. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
+      "notes": "Stored-markup regression for Inbox, eDoc provider/patient lists and document editing. The shared demographic name/age sink is encoded (#4905); the walk now passes and is required. Issue #3057 added the sub-class autocomplete array on both document lists and the Edit popup (typed suggestions must show the stored sub-class as text), the report-class selects, the document information fragment (metadata and acknowledgement comment) and both upload pages' queue selects; before the fix the sub-class array broke the document pages' inline script and the multi-file upload page printed queue names raw."
     },
     {
       "name": "xss-poison-note-history",
@@ -12035,7 +12088,7 @@
         "XSS_POISON_LEDGER_DIR"
       ],
       "fixtures": "One owned FAKE patient, a poisoned eForm template and a patient-independent template with current and deleted instances, an eForm group and a security role. Inserts GLOBALLY VISIBLE poisoned rows while it runs (an eForm template, an eForm group, a role): other checks run in parallel would see them, and forms that echo them back are refused by the WAF, so run it alone (the suite runner is sequential). The group Delete confirmation is only opened and dismissed. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
-      "notes": "Regression for findings 121 and 125, fixed in beta1. Manage eForms upload role names, group Delete confirmation, current/deleted patient-independent instance names and subjects, and the patient eForm lists must render stored markup as literal text. Coverage is asserted for every reached seeded field; missing fields and unopened links fail. All six steps passed on the installed Ubuntu 26.04 beta1 packages on 2026-10-19."
+      "notes": "Regression for findings 121 and 125, fixed in beta1. Manage eForms upload role names, group Delete confirmation, current/deleted patient-independent instance names and subjects, and the patient eForm lists must render stored markup as literal text. Coverage is asserted for every reached seeded field; missing fields and unopened links fail. All six steps passed on the installed Ubuntu 26.04 beta1 packages on 2026-10-19. Issue #3057 added the eForm version list (efmpatientformlistsingle, opened by route: no page links to it), which printed the current instance name and subject raw before the fix."
     },
     {
       "name": "xss-poison-messenger-consult",
@@ -18934,7 +18987,7 @@
         "dsGuidelineProviderMap"
       ],
       "fixtures": "Owned provider, two synthetic patients, fixed clinical records and 41 provider-scoped seeded definitions; no guideline authoring UI exists. Cleanup verifies exact owned mappings and preserves a provider if rule cleanup fails. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "#5718: age year/month/day boundaries, drugs/notes/billing/diagnosis/sex any/all/negative operators, native six-row expansion, alternating chart/list/per-condition detail, independent truth tables and SQL snapshots, native diagnosis resolution. Unsupported/dynamic-context families are inventoried separately. Synthetic JSON observations are retained; all mismatches remain fatal. The #5817 sex all/notall repair passed the current ON native operator retake; no expected-failure pin."
+      "notes": "#5718: age year/month/day boundaries, drugs/notes/billing/diagnosis/sex any/all/negative operators, native six-row expansion, alternating chart/list/per-condition detail, independent truth tables and SQL snapshots, native diagnosis resolution. Unsupported/dynamic-context families are inventoried separately. Synthetic JSON observations are retained; all mismatches remain fatal. The #5817 sex all/notall repair passed the current ON native operator retake; no expected-failure pin. #6328: detail actual-value cells read 'Not shown for this condition type' for notes/billing and 'None recorded' for the empty control sources, with A's diagnosis values checked."
     },
     {
       "name": "rx-same-severity-partners",
@@ -19618,7 +19671,7 @@
       ],
       "timeoutSec": 240,
       "profile": "consult-health-care-team",
-      "notes": "#6201: unmapped and mapped HCT roles fill contact details and persist the correct service/contact identity; owned fixtures only.",
+      "notes": "#6201: unmapped and mapped HCT roles fill contact details and persist the correct service/contact identity. #6202: members with a NULL or blank college/billing number are listed, marked and save; a member without consent to contact is left out and counted; contact free text cannot run as script. Owned fixtures only.",
       "fixtures": "Owned synthetic patient, professional contact, patient HCT link, consultation service and requests; request descendants and signatures removed by owned keys. These rows are in shared lists, so this check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "mutates": [
         "Contact",
@@ -19863,6 +19916,26 @@
       ],
       "fixtures": "Owned patient, PDF documents, invalid document and routing rows. Deliberately renames HRMDocument briefly and restores it before cleanup; requires a disposable installation and must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Every owned row/file is removed.",
       "notes": "Visible incomplete-list notice with later valid rows, no fake clinical row, and a real HRM count SQL failure returning HTTP 500 without totals. Verifies recovery after restoring the table. Requires explicit CARLOS_DISPOSABLE_VM=true and EXCLUSIVE=1; never runs from a tier."
+    },
+    {
+      "name": "lab-measurement-filing",
+      "script": "scripts/lab-measurement-filing-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ],
+      "mutates": [
+        "providerLabRoutingLock"
+      ],
+      "fixtures": "Owned FAKE- patient and two per-run multi-OBX CML accessions uploaded through the native HL7 uploader (original, correction, late older delivery, and an unmatched lab matched concurrently via PatientMatch). Cleanup removes all owned lab, routing, unshared providerLabRoutingLock, active/archived measurement, measurementsExt, fileUploadCheck, and archived upload files and asserts zero residue. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#6391: end-to-end verification of atomic after-commit measurement filing, correction archival to measurementsDeleted without stale active rows, late older delivery protection, and serialized duplicate-free concurrent/repeated PatientMatch filing."
     }
   ]
 }

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/dashboard/handler/IndicatorQueryHandler.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "3bb459b457717ff81789726c6259c453a16237a5"
+  },
+  "evidenceSha256": "91cd3daee766f60c96f1e6cad5544999bca0b27c4c03b8ce3b071ebc9299c6a3"
+}

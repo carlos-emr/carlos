@@ -134,6 +134,18 @@
   (the built WAR, run by `debian/rules`) enforce this from
   `scripts/fixtures/tomcat-container-packages.json`. The `jspc` profile compiles with Tomcat 11's
   Jasper (`${tomcat.version}`), not the plugin's default 10.1. See `docs/container-provided-apis.md`.
+
+## Dependency Convergence
+
+- The `require-converged-dependencies` enforcer execution fails `validate` when a library family
+  splits (`requireSameVersions`), when a resolved version is below one a dependency asks for
+  (`requireUpperBoundDeps`), or when two WAR jars define one class differently
+  (`banDuplicateClasses`) (#5711: `httpclient5-cache` 5.3.1 and `jackson-datatype-jsr310` 2.17.1
+  had shipped beside 5.6.5 and 2.22.4).
+- Jackson comes from `jackson-bom` at `${jackson.version}`: declare Jackson dependencies without a
+  version. Fix a failure by managing the artifact at its family's version, then `make lock`; a
+  deliberate downgrade needs a reasoned `requireUpperBoundDeps` exclude. See
+  `docs/dependency-convergence.md`.
 ## HAPI HL7 v2 Parsing
 
 - `ca.uhn.hapi` (HL7 v2, 2.6.0; not the `ca.uhn.hapi.fhir` line) reads lab and PHS/STAR messages

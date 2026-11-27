@@ -386,6 +386,9 @@ With it, a copied result whose report is no longer linked to the patient (the la
 or matched to another patient) is not exported either and does not hold the patient: the
 ReadMe lists such readings for the patient by test name, date and count (`Patient records not
 exported: Laboratory readings whose report is not linked to this chart (HbA1c, 2020-02-29): 2`).
+Unlinking a lab now archives the readings it filed, so the ReadMe lists only readings that an
+earlier unlink left on the chart, including charts migrated from OSCAR 19; unlinking the same
+report again archives them.
 Excluding a required supporting category requests review; the exporter does not silently expand
 the accepted selection.
 

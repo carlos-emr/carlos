@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/documentManager/IncomingDocUtil.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 77.77777777777777,
+    "instructions": 78.37837837837837,
+    "branches": 100.0,
+    "sourceBlob": "fa78e070f03561b3b1b9b85a9c58d02cb22b1755"
+  },
+  "evidenceSha256": "923e47e31f81640d370963ebc0957ffa747f069e010c390ec0e6c9e873e39607"
+}

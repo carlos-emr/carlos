@@ -47,7 +47,8 @@ public class FrmRecordFactory {
      * is ever called, preventing unsafe reflective class instantiation (CWE-470).</p>
      *
      * <p>When a new {@code Frm*Record} class is added to the codebase, its name suffix must
-     * also be added here.</p>
+     * also be added here. Growth 0-36 and the {@link RehabStudyForms} questionnaires keep their
+     * names here although no {@code Frm*Record} class backs them any more.</p>
      */
     public static final Set<String> ALLOWED_FORM_CLASSES;
 
@@ -139,6 +140,13 @@ public class FrmRecordFactory {
 
         if ("Growth0_36".equals(which)) {
             return new Growth0To36Form();
+        }
+
+        // The 2004 rehabilitation-study questionnaires keep their form_class names; their
+        // Frm*Record classes were replaced by one JPA-backed router entry (issue #5693).
+        var rehabStudyForm = RehabStudyForms.forFormClass(which);
+        if (rehabStudyForm.isPresent()) {
+            return new RehabStudyForm(rehabStudyForm.get());
         }
 
         // Build the full class name from the whitelisted form name.

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/prescript/util/DrugPriceLookup.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 50.0,
+    "instructions": 50.0,
+    "branches": 100.0,
+    "sourceBlob": "cd209ff88cd05200ac045b856ad5f95d41036c6f"
+  },
+  "evidenceSha256": "f755970f411b0ac096c337a665b6d94d61c6576249f5517c7857006ea54a71f7"
+}

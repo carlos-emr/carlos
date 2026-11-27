@@ -243,6 +243,12 @@ log_action() {
 # FRONT_DOOR_FREED to the "stopped:" lines for
 # the closing note.
 #
+# Consent covers the listed services only. The question can stay open for as
+# long as the operator likes, so the stop run re-scans; it is handed the units
+# of the plan that was shown (--approved) and stops only those it still finds.
+# A service that took 80/443 while the question was open is left running and
+# reported, never stopped and disabled unseen (#6060).
+#
 # $1 is the version being upgraded from (empty on a first install). An nginx
 # an operator stopped (inactive) before an upgrade stays stopped -- the nginx
 # step below honours that -- and so does whatever they put on 80/443 in its
@@ -295,8 +301,12 @@ free_front_door() {
         return 0
     fi
     front_door_ip="$(configured_bind_ip)"
-    front_door_plan="$(host_conflicts front-door --plan "${front_door_ip}" | sed -n 's/^will-stop: //p')"
+    front_door_scan="$(host_conflicts front-door --plan "${front_door_ip}")"
+    front_door_plan="$(printf '%s\n' "${front_door_scan}" | sed -n 's/^will-stop: //p')"
     [ -n "${front_door_plan}" ] || return 0
+    # The units behind those lines, from the same scan: exactly what the
+    # question lists is what a yes approves.
+    front_door_units="$(printf '%s\n' "${front_door_scan}" | sed -n 's/^will-stop-unit: //p' | tr '\n' ' ' | sed 's/ *$//')"
     db_subst carlos-emr/stop-port-conflicts services \
         "$(printf '%s\n' "${front_door_plan}" | join_lines)" || true
     # Asked on every configure that finds a conflict, not once: a service
@@ -322,7 +332,15 @@ free_front_door() {
         echo "carlos-emr: using saved/preseeded stop-port-conflicts=true; the new default does not reset saved answers. The listed services may be stopped and disabled." >&2
         log_action "front door: using saved/preseeded stop-port-conflicts=true; saved answers are retained"
     fi
-    FRONT_DOOR_FREED="$(host_conflicts front-door "${front_door_ip}" | sed -n 's/^stopped: //p')"
+    front_door_result="$(host_conflicts front-door --approved "${front_door_units}" "${front_door_ip}")"
+    # What still holds a port after the stop, including anything that took
+    # one after the question was shown: named here and in the journal, then
+    # recorded by the nginx step below.
+    printf '%s\n' "${front_door_result}" | sed -n 's/^blocked: //p' | while IFS= read -r blocked_line; do
+        echo "carlos-emr: NOT stopped: ${blocked_line}" >&2
+        log_action "front door: not stopped: ${blocked_line}"
+    done
+    FRONT_DOOR_FREED="$(printf '%s\n' "${front_door_result}" | sed -n 's/^stopped: //p')"
     [ -n "${FRONT_DOOR_FREED}" ] || return 0
     printf '%s\n' "${FRONT_DOOR_FREED}" | while IFS= read -r stopped_line; do
         echo "carlos-emr: ${stopped_line}" >&2
@@ -703,6 +721,25 @@ case "$1" in
         install_once "${SHARE}/skel/carlos-emr.env" "${ENV_FILE}" 0644 root:root
         install_once "${SHARE}/skel/carlos.properties" "${PROPERTIES}" 0640 root:carlos
         install_once "${SHARE}/skel/backup.env" "${BACKUP_ENV}" 0640 root:carlos-backup
+
+        # Earlier packages copied the 15-second default into this override.
+        # Resolve it read-only with the packaged Spring libraries as the service user.
+        REPORT_WEB_INF="${SHARE}/webapp/carlos/WEB-INF"
+        # Load only Spring's resolver and its logging facade. The webapp's logging
+        # appenders need a running Tomcat and must not start during dpkg configure.
+        REPORT_CLASSPATH="${REPORT_WEB_INF}/classes"
+        for jar in "${REPORT_WEB_INF}"/lib/spring-core-*.jar "${REPORT_WEB_INF}"/lib/commons-logging-*.jar; do
+            REPORT_CLASSPATH="${REPORT_CLASSPATH}:${jar}"
+        done
+        runuser -u carlos -- /usr/lib/carlos-emr/carlos-emr-report-lease-check "${ENV_FILE}" \
+            "/usr/lib/jvm/java-25-openjdk-$(dpkg --print-architecture)/bin/java" \
+            "${REPORT_CLASSPATH}" "${REPORT_WEB_INF}/classes" "${PROPERTIES}" || {
+            case "$?" in
+                15) echo "carlos-emr: WARNING: db_remove_abandoned_timeout resolves to 15 seconds. Abandoned lease cleanup can end a running report early." >&2 ;;
+                *)  echo "carlos-emr: WARNING: could not verify db_remove_abandoned_timeout. Check the effective timeout before running long reports." >&2 ;;
+            esac
+            echo "carlos-emr: Check ${PROPERTIES} or the file selected by -Dcarlos_override_properties in ${ENV_FILE}, then any service-user home carlos.properties override. To adopt the 360-second default, remove the override or set it to 360, then run sudo carlos-ctl restart." >&2
+        }
 
         # One-time migration (2026.08): earlier packages shipped
         # consultation_signature_enabled=false. install_once copied that into the

@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "4913da70c5c43632ca3c8a7162e5074c0b332fc3",
+  "comparisonSha256": "72299076d1b66d3d188cb8c02bf9c95c326766064585581ef0d25884ee44750a",
+  "baselineCommit": "9e2fef6922f1962f535844bacc607990899678eb",
+  "baselineSourceTree": "4913da70c5c43632ca3c8a7162e5074c0b332fc3",
+  "baselineReportSha256": "511cd85fe9888936c1bd9c2d05b0786c93357bc93daa77e0d3d4c0b997d24129",
+  "baselineLane": "PR #6341 focused consultation print, eForm import and measurement type Maven tests with JaCoCo on Temurin 25.0.3 after merging release/2026.08. Retain higher active floors.",
+  "baselineTestCounts": {
+    "tests": 57,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "02cb4843817e6010877ceadff13ce845bc10fd542c90827662a40ba8d5225da1",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/encounter/oscarConsultationRequest/pageUtil/EctConsultationFormRequestPrintAction22Action.java": {
+      "lines": 98.80952380952381,
+      "instructions": 98.74055415617129,
+      "branches": 83.33333333333333,
+      "missedLines": [
+        443
+      ],
+      "missedBranchLines": [
+        250,
+        402,
+        420,
+        442
+      ],
+      "executableLines": 84,
+      "sourceBlob": "6f834b1dd990b59ef631921a9574159f186a8a93"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/pageUtil/EctAddMeasurementType2Action.java": {
+      "lines": 92.3076923076923,
+      "instructions": 90.75630252100841,
+      "branches": 100.0,
+      "missedLines": [
+        90
+      ],
+      "missedBranchLines": [],
+      "executableLines": 13,
+      "sourceBlob": "e0cdf12982b1ad51a4e94ebed074fb1aa1b06354"
+    }
+  },
+  "exclusions": {}
+}

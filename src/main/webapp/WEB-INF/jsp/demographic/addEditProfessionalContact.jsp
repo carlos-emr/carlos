@@ -289,7 +289,7 @@
             <tr>
                 <td align="right"><b><label for="pcontact.address"><fmt:message key="demographic.contactForm.address"/></label></b></td>
                 <td>
-                    <textarea name="pcontact.address" id="pcontact.address" cols="50" rows="2">${carlos:forHtml(pcontact.address)}</textarea>
+                    <textarea name="pcontact.address" id="pcontact.address" cols="50" rows="2">${carlos:forHtmlContent(pcontact.address)}</textarea>
                 </td>
             </tr>
             <tr>
@@ -319,7 +319,7 @@
                     <select name="pcontact.province" id="pcontact.province">
                         <c:set var="selectedProvinceToken" value="|${pageScope.select}|"/>
                         <c:if test="${empty pageScope.select or fn:contains(pageScope.select, '|') or not fn:contains('|AB|BC|MB|NB|NL|NT|NS|NU|ON|PE|QC|SK|YT|US|', selectedProvinceToken)}">
-                            <option value="${carlos:forHtmlAttribute(pageScope.select)}" selected="selected">${carlos:forHtml(pageScope.select)}</option>
+                            <option value="${carlos:forHtmlAttribute(pageScope.select)}" selected="selected">${carlos:forHtmlContent(pageScope.select)}</option>
                         </c:if>
                         <option value="AB" ${ pageScope.select eq 'AB' ? 'selected' : '' }><fmt:message key="admin.sitesAdminDetail.province.AB"/></option>
                         <option value="BC" ${ pageScope.select eq 'BC' ? 'selected' : '' }><fmt:message key="admin.sitesAdminDetail.province.BC"/></option>
@@ -407,9 +407,12 @@
                 </td>
             </tr>
             <tr>
-                <td align="right"><b><fmt:message key="demographic.contactForm.cpso"/></b></td>
+                <td style="text-align: right;"><b><label for="pcontactCpso"><fmt:message key="demographic.contactForm.cpso"/></label></b></td>
                 <td>
-                    <input type="text" name="pcontact.cpso" value="${carlos:forHtmlAttribute(pcontact.cpso)}" size="30">
+                    <input type="text" name="pcontact.cpso" id="pcontactCpso" value="${carlos:forHtmlAttribute(pcontact.cpso)}" size="30"
+                           aria-describedby="pcontactCpsoHint">
+                    <%-- Issue #6202: the number is optional for a consultation request; say what it is used for. --%>
+                    <div id="pcontactCpsoHint" style="font-size: smaller;"><fmt:message key="demographic.contactForm.cpsoHint"/></div>
                 </td>
             </tr>
             <tr>

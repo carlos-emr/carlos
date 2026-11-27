@@ -8,6 +8,8 @@ import subprocess
 import sys
 import tempfile
 
+from carlos_ctl_pin import verify_checkout
+
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -18,16 +20,7 @@ def main():
     args = parser.parse_args()
     output = args.output.resolve()
     source = Path(os.environ["CARLOS_CTL_SRC"]).resolve()
-    pin = dict(line.split("=", 1) for line in (ROOT / "debian/carlos-ctl.pin").read_text().splitlines()
-               if line and not line.startswith("#"))
-    revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=source, text=True).strip()
-    # Prefer the published pin. The explicit fallback is allowed only when its
-    # tag is absent, matching the repository's test (not packaging) policy.
-    tag = subprocess.run(["git", "rev-parse", "--verify", "refs/tags/" + pin["tag"] + "^{commit}"],
-                         cwd=source, capture_output=True, text=True)
-    expected = tag.stdout.strip() if tag.returncode == 0 else pin.get("fallback")
-    if not expected or revision != expected:
-        raise ValueError("CARLOS_CTL_SRC does not match the committed CLI pin")
+    verify_checkout(source)
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="pinned-cli-", dir=output.parent) as temporary:
         copy = Path(temporary) / "source"

@@ -4,6 +4,12 @@ import time
 import subprocess
 
 
+def run_logged(command, log, *, check=True, capture=False, timeout=None):
+    """Run a harness command with its diagnostics in the private log."""
+    return subprocess.run(command, check=check, text=True, stdout=subprocess.PIPE if capture else log,
+                          stderr=log, timeout=timeout)
+
+
 def database_client(docker, database, defaults_file):
     # MariaDB's temporary initialization server accepts socket connections and
     # then exits. Only the final daemon accepts TCP on the container loopback.

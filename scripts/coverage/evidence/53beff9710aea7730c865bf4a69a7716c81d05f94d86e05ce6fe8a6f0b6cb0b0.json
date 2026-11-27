@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "55ae3132913b6523cf62bb088dfc60869282e5c2",
+  "comparisonSha256": "907bac18ae9c338cc7dac8155b59aa4f6b48e70b23b44da859786ddaa1e313aa",
+  "baselineCommit": "e4f9ec5fbb5503547f9d022958d17099cb5a0699",
+  "baselineSourceTree": "55ae3132913b6523cf62bb088dfc60869282e5c2",
+  "baselineReportSha256": "7c2b685515ff121efaa2cb6f747fa10fe69ad9d3a74511a5b2a7a9afc07c8b3a",
+  "baselineLane": "Ubuntu 26.04, OpenJDK 25, Maven Surefire and JaCoCo 0.8.16, seven schedule rule, action, JSP, transaction and DAO test classes with H2 and Spring",
+  "baselineTestCounts": {
+    "tests": 126,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.RscheduleBeanUnitTest",
+    "io.github.carlos_emr.carlos.commn.dao.ScheduleDateDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.schedule.ScheduleDateSaveJspRegressionTest",
+    "io.github.carlos_emr.carlos.schedule.ScheduleTemplateApplyingJspRegressionTest",
+    "io.github.carlos_emr.carlos.schedule.service.ScheduleDateOverrideServiceIntegrationTest",
+    "io.github.carlos_emr.carlos.schedule.web.Schedule2ActionsTest",
+    "io.github.carlos_emr.carlos.schedule.web.ScheduleCalendarCacheUnitTest"
+  ],
+  "baselineTestReportsSha256": "e46bb229c1f955368a6913993d8b9d339103183f48ad4c86553628bc5395f055",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/RscheduleBean.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "cdc14ddb29e34ca633de36c964bd4a24d3918808"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/schedule/web/ScheduleCalendarCache.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "b6cfe1e955986765a5959945dd6bf5604b16a775"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/schedule/web/ScheduleDateSave2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "834d57c34723871be163694cf2215aa00861bf77"
+    }
+  },
+  "exclusions": {}
+}

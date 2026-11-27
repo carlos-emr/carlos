@@ -115,8 +115,15 @@ test('editing an imported value enables a new measurement save', () => {
   closed(f);
 });
 
-for (const date of [Date.UTC(2026,0,8), {time:Date.UTC(2026,0,8)}, '2026-01-08T00:00:00Z', null]) {
-  test(`measurement history accepts its observation-date representation: ${JSON.stringify(date)}`, () => {
+// Legacy history has only a timestamp, which the modal displays in the browser's local zone.
+const localObservation = new Date(2026, 0, 8);
+for (const [representation, date] of [
+  ['epoch milliseconds', localObservation.getTime()],
+  ['nested epoch milliseconds', {time: localObservation.getTime()}],
+  ['ISO timestamp', localObservation.toISOString()],
+  ['null', null],
+]) {
+  test(`measurement history accepts its observation-date representation: ${representation}`, () => {
     const f = setup({12:{dateObserved:date, dataField:'3.6', measuringInstruction:'in kg'}});
     const link = f.body.find(element => element.tag === 'a');
     assert.ok(link, 'Existing measurement is not displayed');

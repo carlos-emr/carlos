@@ -1531,6 +1531,19 @@ class TestPrimitiveColumnManifest(unittest.TestCase):
                 gen.JAVA_ROOT)})
         self.assertEqual(o19map_schema.PRIMITIVE_COLUMNS, expected)
 
+    def test_a_missing_legacy_billing_appointment_stays_null_in_both_provinces(self):
+        self.addCleanup(o19map_schema.bind, o19map_schema.O19_PROFILE)
+        rows = [("billing", name, "int", "int(11)", "YES", "0", "NULL", "")
+                for name in ("appointment_no", "clinic_no")]
+        for province in ("on", "bc"):
+            with self.subTest(province=province):
+                self.assertEqual(o19map_schema.bind(province), province)
+                columns = o19etl.introspect_columns(lambda query: rows, "target")["billing"]
+                self.assertEqual(o19etl.sanitize_expr("s.`appointment_no`", columns["appointment_no"]),
+                                 "s.`appointment_no`")
+                self.assertEqual(o19etl.sanitize_expr("s.`clinic_no`", columns["clinic_no"]),
+                                 "IFNULL(s.`clinic_no`, 0)")
+
     def test_the_columns_that_broke_every_migrated_chart_are_named(self):
         """`casemgmt_note.locked` and `.appointmentNo` are nullable with
         a NULL default and OSCAR 19 leaves both NULL. CARLOS maps them
@@ -1823,7 +1836,7 @@ class TestTheManifestVersionBindsAProfile(unittest.TestCase):
 
     TABLES = {"t": {"class": "copy", "cols": ["a"]}}
 
-    def versions(self):
+    def versions(self, primitives=None):
         import sys
         gen = load_generator()
         sys.path.insert(0, str(GEN.parent))
@@ -1831,8 +1844,8 @@ class TestTheManifestVersionBindsAProfile(unittest.TestCase):
             import overrides_schema as ov
         finally:
             sys.path.pop(0)
-        return (gen.schema_map_version(self.TABLES, ov, "on"),
-                gen.schema_map_version(self.TABLES, ov, "bc"))
+        return tuple(gen.schema_map_version(self.TABLES, ov, province, primitives or {})
+                     for province in ("on", "bc"))
 
     def test_the_same_tables_under_two_provinces_differ(self):
         on, bc = self.versions()
@@ -1840,6 +1853,10 @@ class TestTheManifestVersionBindsAProfile(unittest.TestCase):
 
     def test_the_version_is_stable_for_one_province(self):
         self.assertEqual(self.versions()[0], self.versions()[0])
+
+    def test_changing_null_coercion_invalidates_each_provinces_checkpoint(self):
+        for before, after in zip(self.versions({"t": ["a"]}), self.versions()):
+            self.assertNotEqual(before, after)
 
     def test_the_shipped_profiles_carry_distinct_versions(self):
         # the property that matters at run time, read off the manifest
@@ -1875,10 +1892,20 @@ class TestOnePackageCarriesEveryProvince(unittest.TestCase):
                                             "nondefault": predicate}}}}
 
     def emit(self, profiles=None, predicate="`x` IS NOT NULL"):
-        return self.gen.emit_preflight_data(
-            self.tables(), self.ov, self.props_ov,
-            {"province": "on", "stock_role_names": ["doctor"]},
-            profiles)
+        def profile(name, tables, roles):
+            return {"O19_PROFILE": name, "TABLES": tables, "STOCK_ROLE_NAMES": roles,
+                    "SCHEMA_MAP_VERSION": self.gen.schema_map_version(tables, self.ov, name, {})}
+
+        schema = profile("on", self.tables(predicate), ["doctor"])
+        schema.update({
+            "PROFILES": {name: profile(name, data["tables"], data["stock_role_names"])
+                         for name, data in (profiles or {}).items() if name != "on"},
+            "SUPPORTED_PROVINCES": list(self.ov.SUPPORTED_PROVINCES),
+            "REQUIRED_TABLES": list(self.ov.REQUIRED_TABLES),
+            "PREVENTION_TYPE_MAP": {},
+        })
+        return self.gen.render_preflight_block(
+            self.gen.preflight_manifest_data(schema, self.props_ov))
 
     def test_a_second_province_is_emitted_and_the_default_is_not(self):
         block = self.emit({
@@ -1922,9 +1949,7 @@ class TestOnePackageCarriesEveryProvince(unittest.TestCase):
         whose author is the generator."""
         long_predicate = "`" + "x" * 90 + "` IS NOT NULL"
         with self.assertRaises(SystemExit) as caught:
-            self.gen.emit_preflight_data(
-                self.tables(long_predicate), self.ov, self.props_ov,
-                {"province": "on", "stock_role_names": []}, None)
+            self.emit(predicate=long_predicate)
         self.assertIn("79 columns", str(caught.exception))
 
     def test_the_shipped_schema_manifest_snapshot_matches_too(self):

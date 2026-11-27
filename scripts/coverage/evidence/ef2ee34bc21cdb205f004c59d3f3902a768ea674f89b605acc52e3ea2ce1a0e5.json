@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "33a6a5faceeb4054afc62547b77dd45d28809444",
+  "comparisonSha256": "226c6f71bfa4b45d6e12131967bd33f3d59688a98c26c6e2cc1d10757a00be97",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/hospitalReportManager/HRMUtil.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 90.0,
+      "sourceBlob": "e5d2fb8f937a7c322ff07f045f5a87608141fb33"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/hospitalReportManager/HrmVersionService.java": {
+      "lines": 100.0,
+      "instructions": 94.93087557603687,
+      "branches": 81.25,
+      "sourceBlob": "7fd233da7d6f055c45cae88ada518dd14c9524b1"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/on/HRMResultsData.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "c8a2c05bcdc8f65b17c8517e7cec7b1f8ebf6440"
+    }
+  },
+  "baselineCommit": "064ef5fb655ff67ab30aeec247c8c004fa3f8bf0",
+  "baselineSourceTree": "33a6a5faceeb4054afc62547b77dd45d28809444",
+  "baselineReportSha256": "08397e11009b41550368d8cbdd562ba4325c1f0f57447aa416da0fe9f39a6645",
+  "baselineLane": "Ubuntu 26.04 and Java 25 focused HRM inbox, chart display, patient access, report selection and version-history tests",
+  "baselineTestCounts": {
+    "tests": 123,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.hospitalReportManager.HRMModifyDocument2ActionUnitTest",
+    "io.github.carlos_emr.carlos.hospitalReportManager.HRMReportAccessUnitTest",
+    "io.github.carlos_emr.carlos.hospitalReportManager.HRMUtilAttachmentHistoryUnitTest",
+    "io.github.carlos_emr.carlos.hospitalReportManager.HRMUtilPatientAccessUnitTest",
+    "io.github.carlos_emr.carlos.hospitalReportManager.HRMUtilRenderFailureUnitTest",
+    "io.github.carlos_emr.carlos.hospitalReportManager.HrmReportViewerPatientAccessJspRegressionTest",
+    "io.github.carlos_emr.carlos.hospitalReportManager.HrmVersionServiceUnitTest",
+    "io.github.carlos_emr.carlos.lab.ca.on.HRMResultsDataUnitTest"
+  ],
+  "baselineTestReportsSha256": "d28e1aba80cb78c09374a9b5684fc0babcdaa638602807195f964a53fab2e8c3",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

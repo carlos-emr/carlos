@@ -19,6 +19,7 @@ import tarfile
 import installed_package_state as state
 import release_verification as gate
 from junit_evidence import EvidenceError
+from lifecycle_baselines import CANDIDATE_CLI_FLOOR
 from process_group import run_process_group
 from release_deployment import attest, attest_package, package_contents
 from installed_front_door import wait_for_login
@@ -152,22 +153,23 @@ def transition_command(context, mode, output):
 def dependency_contract(context):
     target = context['target']
     dependencies = subprocess.check_output(['dpkg-deb', '-f', target['emr']['path'], 'Depends'], text=True, timeout=20)
-    if not re.search(r'(?:^|,)\s*carlos-ctl\s*\(>=\s*1\.3\.1\s*\)\s*(?:,|$)', dependencies):
+    if not re.search(r'(?:^|,)\s*carlos-ctl\s*\(>=\s*' + re.escape(CANDIDATE_CLI_FLOOR) + r'\s*\)\s*(?:,|$)', dependencies):
         raise EvidenceError('Candidate does not declare its reviewed CLI dependency floor')
     actual = subprocess.check_output(['dpkg-query', '-W', '-f=${Version}', 'carlos-ctl'], text=True, timeout=20)
-    if context['role'] != 'historical':
-        if subprocess.run(['dpkg', '--compare-versions', actual, 'ge', '1.3.1']).returncode:
-            raise EvidenceError('Installed CLI is below its declared dependency floor')
-        return {'floor': '1.3.1', 'installedCli': actual}
-    if actual != '1.3.0':
-        raise EvidenceError('Historical dependency refusal requires its real older CLI')
+    initial = target if context['role'] == 'clean' else context['baseline']
+    expected = subprocess.check_output(['dpkg-deb', '-f', initial['ctl']['path'], 'Version'], text=True, timeout=20).strip()
+    if actual != expected:
+        raise EvidenceError('Installed CLI differs from its pinned starting package')
+    contract = {'floor': CANDIDATE_CLI_FLOOR, 'installedCli': actual}
+    if not state.version_allowed('upgrade', actual, CANDIDATE_CLI_FLOOR):
+        return contract
     before = {'clinical': state.clinical_state(), 'files': state.stored_files(), 'key': state.encryption_key(),
               'dpkgStatus': gate.digest(Path('/var/lib/dpkg/status'))}
     command = ['apt-get', '-s', 'install', '--no-remove', target['emr']['path'], target['drugref']['path']]
     code = run(command, 'older-cli-refusal', environment={**os.environ, 'LC_ALL': 'C'}, timeout=90, check=False)
     text = (OUTPUT / 'older-cli-refusal.log').read_text()
-    refused = (code == 100 and 'carlos-ctl' in text and '(>= 1.3.1)' in text
-               and ('1.3.0' in text or 'not going to be installed' in text))
+    refused = (code == 100 and f'carlos-ctl (>= {CANDIDATE_CLI_FLOOR})' in text
+               and (actual in text or 'not going to be installed' in text))
     if not refused:
         raise EvidenceError('Dependency refusal was absent or caused by a different prerequisite')
     run(command + [target['ctl']['path']], 'compatible-cli-resolution',
@@ -177,8 +179,7 @@ def dependency_contract(context):
     gate.write_json(OUTPUT / 'dependency-state.json', {'before': before, 'after': after})
     if before != after:
         raise EvidenceError('Dependency refusal/resolution probe changed installed data or package state')
-    return {'floor': '1.3.1', 'installedCli': actual, 'olderCliRefused': True,
-            'compatibleCliResolved': True, 'statePreserved': True}
+    return {**contract, 'olderCliRefused': True, 'compatibleCliResolved': True, 'statePreserved': True}
 
 
 def write_installer_wrapper(wrapper, command):

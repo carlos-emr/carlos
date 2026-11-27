@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/form/pageUtil/FormForwardNamed2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 50.0,
+    "sourceBlob": "8865fac25ca80630b964f5ff4cac10d0cf7a19d4"
+  },
+  "evidenceSha256": "47cebb5d46270c49d60b043e55fde8b906b302d709544581fe38bc47e221be90"
+}

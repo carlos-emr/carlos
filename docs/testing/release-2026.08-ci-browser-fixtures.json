@@ -22,6 +22,16 @@
       "minimumAssertions": 47
     },
     {
+      "id": "server-table-page-playwright-checks",
+      "command": [
+        "node",
+        "scripts/server-table-page-playwright-checks.js"
+      ],
+      "source": "scripts/server-table-page-playwright-checks.js",
+      "sourceSha256": "c5a5b6535272a4ed5f19bdbbe78f0494434a256d086006a7de3c68e48c34767f",
+      "minimumAssertions": 64
+    },
+    {
       "id": "navigation-cancellation-browser-checks",
       "command": [
         "node",
@@ -157,8 +167,8 @@
         "scripts/tickler-crud-browser-check.js"
       ],
       "source": "scripts/tickler-crud-browser-check.js",
-      "sourceSha256": "d9ce7b57af867d4fabad48cd8bf6f27e928c5def2724d1568406d0441fe3f4c9",
-      "minimumAssertions": 17
+      "sourceSha256": "d457413ad92911f10cbd7627de8d001e0fed4d63a5ee8fc8c86477600e077d69",
+      "minimumAssertions": 44
     },
     {
       "id": "ui-scroll-quick-pick-browser-check",
@@ -205,7 +215,7 @@
         "scripts/admin-jobs-save-browser-checks.js"
       ],
       "source": "scripts/admin-jobs-save-browser-checks.js",
-      "sourceSha256": "92df6f06adb6fc02679dece197b73656663e2152a13ee262995c18f2c131d5c6",
+      "sourceSha256": "50d5eb22654db38c45f578b2ead8bcd4eef96d5fce09d940c9c4ca83716b3ec8",
       "minimumAssertions": 98,
       "requiredCases": [
         "shouldKeepJobDialogOpen_whileItsSaveIsPending",
@@ -227,5 +237,5 @@
       ]
     }
   ],
-  "workflowSha256": "9076a414bc8b4f77d3b38b1fb5ab8acc74c1134082de795d72349e30ff948d23"
+  "workflowSha256": "fb464d4f9cd7c6dbf1ccefdbedd236cdee1223d66a9e6b7cf631635757df8730"
 }
