@@ -4,7 +4,7 @@ name: Release Verification Tooling
 on:
   pull_request:
   push:
-    branches: ['release/2026.08']
+    branches: ['main', 'release/2026.08']
   workflow_dispatch:
     inputs:
       tag:
@@ -90,7 +90,7 @@ jobs:
         # This job verifies tooling; it does not certify release readiness.
         run: python3 scripts/ci/release-scope-audit.py --inventory-only --output target/verification-tooling/scope.json
       - name: Check coverage baseline source freshness
-        if: github.event_name != 'pull_request' || github.base_ref == 'release/2026.08'
+        if: github.event_name != 'pull_request' || github.base_ref == 'release/2026.08' || github.base_ref == 'main'
         # Freshness does not approve unreviewed zero floors or qualify coverage.
         run: |
           python3 scripts/coverage/check-coverage-floors.py --freshness-only \

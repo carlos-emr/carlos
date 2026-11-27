@@ -225,6 +225,130 @@ class FormXmlArchiveUnitTest {
     void shouldIgnoreUnusableArchivePath_whenChoosingNextEditTime() {
         assertThat(FormXmlArchive.nextEditTime(".hidden", 42, new Date(SECOND), List.of()))
                 .isEqualTo(new Date(SECOND));
+        CarlosProperties.getInstance().setProperty("save_as_xml", "false");
+        assertThat(FormXmlArchive.nextEditTime("formSF36", 42, new Date(SECOND), List.of()))
+                .isEqualTo(new Date(SECOND));
+    }
+
+    @Test
+    @org.junit.jupiter.api.condition.EnabledOnOs(org.junit.jupiter.api.condition.OS.LINUX)
+    void shouldPublishArchiveViaAtomicNoReplaceMove_whenHardLinksAreUnsupported() throws Exception {
+        Path expected = archive.resolve("formSF36_42_" + stamp(SECOND) + ".xml");
+        try (var fs = withoutHardLinks()) {
+            Path written = FormXmlArchive.write("formSF36", 42, new Date(NOW), document(21));
+            assertThat(written).isEqualTo(expected);
+        }
+        assertThat(Files.readString(expected)).contains("<Results>", "<Row>", "<ID>21</ID>");
+        try (var entries = Files.list(archive)) {
+            assertThat(entries.toList()).containsExactly(expected);
+        }
+    }
+
+    @Test
+    @org.junit.jupiter.api.condition.EnabledOnOs(org.junit.jupiter.api.condition.OS.LINUX)
+    void shouldPreserveExistingArchiveAndCleanStagedFile_whenTargetAppearsBeforeNoReplaceMove() throws Exception {
+        Path expected = archive.resolve("formSF36_42_" + stamp(SECOND) + ".xml");
+        try (var fs = withoutHardLinks()) {
+            assertThatThrownBy(() -> FormXmlArchive.write("formSF36", 42, new Date(NOW), document(22),
+                    (doc, target) -> {
+                        JDBCUtil.saveAsXML(doc, target.toString());
+                        Files.writeString(expected, "existing archive");
+                    }))
+                    .isInstanceOf(FileAlreadyExistsException.class)
+                    .hasSuppressedException(new UnsupportedOperationException("hard links unavailable"));
+        }
+        assertThat(Files.readString(expected)).isEqualTo("existing archive");
+        try (var entries = Files.list(archive)) {
+            assertThat(entries.toList()).containsExactly(expected);
+        }
+    }
+
+    @Test
+    void shouldSurfaceStorageRequirementAndLeaveNoArchive_whenNeitherHardLinkNorNoReplaceMoveExists() throws Exception {
+        try (var fs = withoutHardLinks();
+             var kernel = org.mockito.Mockito.mockStatic(FormNoReplaceMove.class, call -> {
+                 if ("move".equals(call.getMethod().getName())) {
+                     throw FormNoReplaceMove.unsupported(call.getArgument(0), call.getArgument(1));
+                 }
+                 return call.callRealMethod();
+             });
+             var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(
+                     FormXmlArchive.class.getName())) {
+            assertThatThrownBy(() -> FormXmlArchive.write("formSF36", 42, new Date(NOW), document(23)))
+                    .isInstanceOf(java.nio.file.AtomicMoveNotSupportedException.class)
+                    .hasMessageContaining("RENAME_NOREPLACE")
+                    .hasMessageContaining("save_as_xml");
+            assertThat(logs.messages()).anySatisfy(msg ->
+                    assertThat(msg).contains(FormXmlArchive.STORAGE_REQUIREMENT_MESSAGE));
+        }
+        try (var entries = Files.list(archive)) {
+            assertThat(entries.toList()).isEmpty();
+        }
+    }
+
+    @Test
+    void shouldVerifyStorageAtStartupWhenEnabled_andSurfaceUnsupportedOrUnwritablePaths() throws Exception {
+        var validator = new FormXmlArchiveStartupValidator();
+
+        // Disabled: no probe or warning.
+        CarlosProperties.getInstance().setProperty("save_as_xml", "false");
+        validator.verifyArchiveStorageAtStartup();
+
+        // Enabled on supported storage (hard links and/or Linux RENAME_NOREPLACE): probe leaves directory clean.
+        CarlosProperties.getInstance().setProperty("save_as_xml", "true");
+        validator.verifyArchiveStorageAtStartup();
+        try (var fs = withoutHardLinks()) {
+            validator.verifyArchiveStorageAtStartup();
+        }
+        try (var entries = Files.list(archive)) {
+            assertThat(entries.toList()).isEmpty();
+        }
+
+        // Enabled on storage supporting neither primitive: logs storage requirement without throwing.
+        try (var fs = withoutHardLinks();
+             var kernel = org.mockito.Mockito.mockStatic(FormNoReplaceMove.class, call -> {
+                 if ("move".equals(call.getMethod().getName())) {
+                     throw FormNoReplaceMove.unsupported(call.getArgument(0), call.getArgument(1));
+                 }
+                 return call.callRealMethod();
+             });
+             var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(
+                     FormXmlArchive.class.getName())) {
+            validator.verifyArchiveStorageAtStartup();
+            assertThat(logs.messages()).anySatisfy(msg ->
+                    assertThat(msg).contains(FormXmlArchive.STORAGE_REQUIREMENT_MESSAGE));
+        }
+        try (var entries = Files.list(archive)) {
+            assertThat(entries.toList()).isEmpty();
+        }
+
+        // Enabled with unusable form_record_path (regular file instead of directory): logs failure without throwing.
+        Path notDirectory = Files.writeString(archive.resolve("not_a_dir"), "x");
+        CarlosProperties.getInstance().setProperty("form_record_path", notDirectory.toString());
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(
+                FormXmlArchive.class.getName())) {
+            validator.verifyArchiveStorageAtStartup();
+            assertThat(logs.messages()).anySatisfy(msg ->
+                    assertThat(msg).contains("form_record_path could not be verified"));
+        }
+    }
+
+    @Test
+    @org.junit.jupiter.api.condition.EnabledOnOs(org.junit.jupiter.api.condition.OS.LINUX)
+    void shouldReportMissingSourceFromNoReplaceMove_whenStagedFileDoesNotExist() {
+        Path missing = archive.resolve("missing.tmp");
+        Path target = archive.resolve("target.xml");
+        assertThatThrownBy(() -> FormNoReplaceMove.move(missing, target))
+                .isInstanceOf(java.nio.file.NoSuchFileException.class);
+    }
+
+    private static org.mockito.MockedStatic<Files> withoutHardLinks() {
+        return org.mockito.Mockito.mockStatic(Files.class, call -> {
+            if ("createLink".equals(call.getMethod().getName())) {
+                throw new UnsupportedOperationException("hard links unavailable");
+            }
+            return call.callRealMethod();
+        });
     }
 
     private static Date nextEditTime(Date... existing) {

@@ -256,9 +256,59 @@ class OscarTrackingBasicDataSourceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldRetainDetachedLeaseAndRetryAtShutdown_whenCloseFailsWithOpenDelegate() throws Exception {
+    void shouldRetainDetachedLeaseAcrossGcAndRetryAtShutdown_whenCallerDropsWrapperAfterFailedClose() throws Exception {
         AtomicInteger closeAttempts = new AtomicInteger();
-        try (var pool = new OscarTrackingBasicDataSource() {
+        try (var pool = createFirstCloseFailingH2Pool(closeAttempts)) {
+            java.lang.ref.WeakReference<Connection> releasedWrapper = acquireDetachedAndFailFirstClose(pool);
+            awaitGarbageCollection();
+
+            assertThat(closeAttempts.get()).isOne();
+            assertThat(releasedWrapper.get()).isNotNull();
+            assertThat(pool.getNumActive()).isOne();
+            assertThat(OscarTrackingBasicDataSource.trackedConnectionCount()).isOne();
+
+            OscarTrackingBasicDataSource.clearTrackingState();
+
+            assertThat(closeAttempts.get()).isEqualTo(2);
+            assertThat(pool.getNumActive()).isZero();
+            assertThat(OscarTrackingBasicDataSource.trackedConnectionCount()).isZero();
+            awaitGarbageCollection();
+            assertThat(releasedWrapper.get()).isNull();
+        }
+    }
+
+    @Test
+    void shouldReleaseRecoveryReference_whenSubsequentCloseSucceedsBeforeShutdown() throws Exception {
+        AtomicInteger closeAttempts = new AtomicInteger();
+        try (var pool = createFirstCloseFailingH2Pool(closeAttempts)) {
+            java.lang.ref.WeakReference<Connection> releasedWrapper = acquireDetachedFailAndRetryClose(pool);
+            awaitGarbageCollection();
+
+            assertThat(closeAttempts.get()).isEqualTo(2);
+            assertThat(pool.getNumActive()).isZero();
+            assertThat(OscarTrackingBasicDataSource.trackedConnectionCount()).isZero();
+            assertThat(failedCloseRecoveryLeases()).isEmpty();
+            assertThat(releasedWrapper.get()).isNull();
+        }
+    }
+
+    @Test
+    void shouldNotPinUntrackedOrExtendedWrappers_whenCloseFailsWithOpenDelegate() throws Exception {
+        Connection delegate = mock(Connection.class);
+        doThrow(new SQLException("close failed")).when(delegate).close();
+        when(delegate.isClosed()).thenReturn(false);
+
+        Connection untracked = new OscarTrackingBasicDataSource.TrackingJdbcConnection(delegate);
+        Connection extended = new OscarTrackingBasicDataSource.TrackingJdbcConnection(delegate) { };
+
+        assertThatThrownBy(untracked::close).isInstanceOf(SQLException.class);
+        assertThatThrownBy(extended::close).isInstanceOf(SQLException.class);
+        assertThat(failedCloseRecoveryLeases()).isEmpty();
+        assertThat(OscarTrackingBasicDataSource.trackedConnectionCount()).isZero();
+    }
+
+    private static OscarTrackingBasicDataSource createFirstCloseFailingH2Pool(AtomicInteger closeAttempts) {
+        var pool = new OscarTrackingBasicDataSource() {
             @Override
             protected synchronized DataSource createDataSource() throws SQLException {
                 DataSource underlying = super.createDataSource();
@@ -282,34 +332,47 @@ class OscarTrackingBasicDataSourceUnitTest extends CarlosUnitTestBase {
                             return result;
                         });
             }
-        }) {
-            pool.setDriverClassName("org.h2.Driver");
-            pool.setUrl("jdbc:h2:mem:tracking_close_" + UUID.randomUUID().toString().replace("-", "") + ";DB_CLOSE_DELAY=-1");
-            pool.setUsername("sa");
-            pool.setPassword("");
-            pool.setMaxTotal(2);
+        };
+        pool.setDriverClassName("org.h2.Driver");
+        pool.setUrl("jdbc:h2:mem:tracking_close_" + UUID.randomUUID().toString().replace("-", "") + ";DB_CLOSE_DELAY=-1");
+        pool.setUsername("sa");
+        pool.setPassword("");
+        pool.setMaxTotal(2);
+        return pool;
+    }
 
-            Connection lease = pool.getConnection();
-            OscarTrackingBasicDataSource.detachFromRequestCleanup(lease);
-            OscarTrackingBasicDataSource.releaseThreadConnections();
+    private static java.lang.ref.WeakReference<Connection> acquireDetachedAndFailFirstClose(
+            OscarTrackingBasicDataSource pool) throws SQLException {
+        Connection lease = pool.getConnection();
+        OscarTrackingBasicDataSource.detachFromRequestCleanup(lease);
+        OscarTrackingBasicDataSource.releaseThreadConnections();
+        assertThatThrownBy(lease::close)
+                .isInstanceOf(SQLException.class)
+                .hasMessageContaining("rollback failure");
+        assertThat(lease.isClosed()).isFalse();
+        assertThat(OscarTrackingBasicDataSource.isConnectionTracked(lease)).isTrue();
+        return new java.lang.ref.WeakReference<>(lease);
+    }
 
-            assertThatThrownBy(lease::close)
-                    .isInstanceOf(SQLException.class)
-                    .hasMessageContaining("rollback failure");
-            assertThat(closeAttempts.get()).isOne();
-            assertThat(lease.isClosed()).isFalse();
-            assertThat(pool.getNumActive()).isOne();
-            assertThat(OscarTrackingBasicDataSource.isConnectionTracked(lease)).isTrue();
-            assertThat(OscarTrackingBasicDataSource.trackedConnectionCount()).isOne();
+    private static java.lang.ref.WeakReference<Connection> acquireDetachedFailAndRetryClose(
+            OscarTrackingBasicDataSource pool) throws SQLException {
+        Connection lease = pool.getConnection();
+        OscarTrackingBasicDataSource.detachFromRequestCleanup(lease);
+        OscarTrackingBasicDataSource.releaseThreadConnections();
+        assertThatThrownBy(lease::close).isInstanceOf(SQLException.class);
+        lease.close();
+        assertThat(lease.isClosed()).isTrue();
+        assertThat(OscarTrackingBasicDataSource.isConnectionTracked(lease)).isFalse();
+        return new java.lang.ref.WeakReference<>(lease);
+    }
 
-            OscarTrackingBasicDataSource.clearTrackingState();
-
-            assertThat(closeAttempts.get()).isEqualTo(2);
-            assertThat(lease.isClosed()).isTrue();
-            assertThat(pool.getNumActive()).isZero();
-            assertThat(OscarTrackingBasicDataSource.isConnectionTracked(lease)).isFalse();
-            assertThat(OscarTrackingBasicDataSource.trackedConnectionCount()).isZero();
+    private static void awaitGarbageCollection() throws InterruptedException {
+        var canary = new java.lang.ref.WeakReference<>(new Object());
+        for (int attempt = 0; attempt < 50 && canary.get() != null; attempt++) {
+            System.gc();
+            Thread.sleep(10);
         }
+        assertThat(canary.get()).as("GC canary should be collected").isNull();
     }
 
     @Test
@@ -400,5 +463,12 @@ class OscarTrackingBasicDataSourceUnitTest extends CarlosUnitTestBase {
         Field field = owner.getClass().getDeclaredField("ownedConnections");
         field.setAccessible(true);
         return (Set<Connection>) field.get(owner);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Set<Connection> failedCloseRecoveryLeases() throws Exception {
+        Field field = OscarTrackingBasicDataSource.class.getDeclaredField("failedCloseRecoveryLeases");
+        field.setAccessible(true);
+        return (Set<Connection>) field.get(null);
     }
 }

@@ -131,6 +131,8 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
     public static final Logger logger = MiscUtils.getLogger();
     private static final Object DIAGNOSTICS_LOCK = new Object();
     private static final Map<Connection, StackTraceElement[]> acquisitionTraces = new WeakHashMap<>();
+    private static final Set<Connection> failedCloseRecoveryLeases =
+            Collections.newSetFromMap(new IdentityHashMap<Connection, Boolean>());
     private static final ThreadLocal<OwnerState> connections = new ThreadLocal<>();
     private static final Set<OwnerState> trackedThreadConnectionSets = Collections.synchronizedSet(
             Collections.newSetFromMap(new IdentityHashMap<OwnerState, Boolean>()));
@@ -276,6 +278,7 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
         synchronized (DIAGNOSTICS_LOCK) {
             trackedConnections = acquisitionTraces.keySet().toArray(Connection[]::new);
             acquisitionTraces.clear();
+            failedCloseRecoveryLeases.clear();
         }
         for (Connection c : trackedConnections) {
             try {
@@ -424,6 +427,8 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
             } catch (SQLException | RuntimeException failure) {
                 if (isDelegateClosedAfterFailure(failure)) {
                     untrackAfterClose();
+                } else {
+                    pinForCloseRecovery();
                 }
                 throw failure;
             }
@@ -439,10 +444,21 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
             }
         }
 
+        private void pinForCloseRecovery() {
+            if (isPoolWrapper(this)) {
+                synchronized (DIAGNOSTICS_LOCK) {
+                    if (acquisitionTraces.containsKey(this)) {
+                        failedCloseRecoveryLeases.add(this);
+                    }
+                }
+            }
+        }
+
         private void untrackAfterClose() {
             if (isPoolWrapper(this)) {
                 synchronized (DIAGNOSTICS_LOCK) {
                     acquisitionTraces.remove(this);
+                    failedCloseRecoveryLeases.remove(this);
                 }
             }
 

@@ -48,12 +48,22 @@ public final class PackagedReportLeaseCheck {
     private static final String CATALINA_BASE_PROPERTY = "carlos.reportLeaseCheck.catalinaBase";
     private static final String CATALINA_HOME_PROPERTY = "carlos.reportLeaseCheck.catalinaHome";
     private static final String SYSTEMD_DIRS_PROPERTY = "carlos.reportLeaseCheck.systemdDirs";
+    private static final String MANAGER_ENV_FILE_PROPERTY = "carlos.reportLeaseCheck.managerEnvFile";
+    private static final String MANAGER_ENV_UNAVAILABLE_PROPERTY = "carlos.reportLeaseCheck.managerEnvUnavailable";
+    private static final String SYSTEMD_MANAGER_CONF_DIRS_PROPERTY = "carlos.reportLeaseCheck.systemdManagerConfDirs";
+    private static final String ETC_ENVIRONMENT_PROPERTY = "carlos.reportLeaseCheck.etcEnvironment";
+    private static final String ENVIRONMENT_DIRS_PROPERTY = "carlos.reportLeaseCheck.environmentDirs";
 
     private static final String DEFAULT_ENV_FILE = "/etc/carlos-emr/carlos-emr.env";
     private static final String DEFAULT_CATALINA_BASE = "/var/lib/carlos-emr/catalina";
     private static final String DEFAULT_CATALINA_HOME = "/usr/share/tomcat11";
     private static final String DEFAULT_SYSTEMD_DIRS =
             "/etc/systemd/system:/run/systemd/system:/usr/lib/systemd/system";
+    private static final String DEFAULT_SYSTEMD_MANAGER_CONF_DIRS =
+            "/usr/lib/systemd:/run/systemd:/etc/systemd";
+    private static final String DEFAULT_ETC_ENVIRONMENT = "/etc/environment";
+    private static final String DEFAULT_ENVIRONMENT_DIRS =
+            "/usr/lib/environment.d:/run/environment.d:/etc/environment.d";
     private static final String SERVICE_UNIT = "carlos-emr.service";
     private static final List<String> SERVICE_DROPIN_DIRS = List.of(
             SERVICE_UNIT + ".d", "carlos-.service.d", "service.d");
@@ -65,46 +75,78 @@ public final class PackagedReportLeaseCheck {
     private static final Set<String> UNVERIFIABLE_SERVICE_KEYS = Set.of(
             "ExecStart", "ExecStartPre", "User", "EnvironmentFile",
             "PassEnvironment", "UnsetEnvironment", "WorkingDirectory",
-            "RootDirectory", "RootImage", "BindPaths", "BindReadOnlyPaths");
+            "RootDirectory", "RootImage", "BindPaths", "BindReadOnlyPaths",
+            "PrivateTmp", "ProtectHome", "TemporaryFileSystem", "InaccessiblePaths", "OverlayPaths");
     private static final Set<String> LAUNCH_ENV_VARS = Set.of(
             VAR_PROPERTIES, "CONF_DIR", "CARLOS_JAVA_OPTS", "JAVA_OPTS", "CATALINA_OPTS",
             VAR_CATALINA_BASE, VAR_CATALINA_HOME, "JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS",
             "JDK_JAVA_OPTIONS", "HOME");
 
     /**
-     * Paths inspected to determine which properties file the packaged service launches with.
+     * Paths and systemd environment sources inspected to determine how the packaged service launches.
      *
      * @param envFile Path optional {@code carlos-emr.env} file read by the Tomcat wrapper
-     * @param catalinaBase Path Tomcat {@code CATALINA_BASE} directory checked for {@code bin/setenv.sh}
+     * @param catalinaBase Path Tomcat {@code CATALINA_BASE} directory checked for context descriptors and {@code bin/setenv.sh}
      * @param catalinaHome Path Tomcat {@code CATALINA_HOME} directory checked for {@code bin/setenv.sh}
-     * @param systemdDirs List of systemd unit directories checked for overrides and drop-ins
+     * @param systemdDirs List of systemd unit directories checked for unit files, overrides, and drop-ins
+     * @param managerEnvFile Path optional NUL-delimited live systemd manager environment snapshot
+     * @param managerEnvUnavailable boolean true when the live systemd manager environment could not be queried
+     * @param systemdManagerConfDirs List of systemd config directories checked for {@code system.conf} and {@code system.conf.d}
+     * @param etcEnvironment Path optional {@code /etc/environment} file
+     * @param environmentDirs List of {@code environment.d} directories checked for generator assignments
      */
-    record LaunchConfig(Path envFile, Path catalinaBase, Path catalinaHome, List<Path> systemdDirs) {
+    record LaunchConfig(
+            Path envFile,
+            Path catalinaBase,
+            Path catalinaHome,
+            List<Path> systemdDirs,
+            Path managerEnvFile,
+            boolean managerEnvUnavailable,
+            List<Path> systemdManagerConfDirs,
+            Path etcEnvironment,
+            List<Path> environmentDirs) {
+
+        LaunchConfig(Path envFile, Path catalinaBase, Path catalinaHome, List<Path> systemdDirs) {
+            this(envFile, catalinaBase, catalinaHome, systemdDirs, null, false, List.of(), null, List.of());
+        }
+
         static LaunchConfig none() {
-            return new LaunchConfig(null, null, null, List.of());
+            return new LaunchConfig(null, null, null, List.of(), null, false, List.of(), null, List.of());
         }
 
         static LaunchConfig fromSystemProperties() {
-            String dirsRaw = System.getProperty(SYSTEMD_DIRS_PROPERTY, DEFAULT_SYSTEMD_DIRS);
-            List<Path> dirs = new ArrayList<>();
-            for (String entry : dirsRaw.split(":")) {
-                if (!entry.isEmpty()) {
-                    dirs.add(Path.of(entry));
-                }
-            }
-            String envRaw = System.getProperty(ENV_FILE_PROPERTY, DEFAULT_ENV_FILE);
-            Path env = envRaw.isEmpty() ? null : Path.of(envRaw);
             return new LaunchConfig(
-                    env,
+                    optionalPath(System.getProperty(ENV_FILE_PROPERTY, DEFAULT_ENV_FILE)),
                     Path.of(System.getProperty(CATALINA_BASE_PROPERTY, DEFAULT_CATALINA_BASE)),
                     Path.of(System.getProperty(CATALINA_HOME_PROPERTY, DEFAULT_CATALINA_HOME)),
-                    dirs);
+                    colonPaths(System.getProperty(SYSTEMD_DIRS_PROPERTY, DEFAULT_SYSTEMD_DIRS)),
+                    optionalPath(System.getProperty(MANAGER_ENV_FILE_PROPERTY, "")),
+                    Boolean.getBoolean(MANAGER_ENV_UNAVAILABLE_PROPERTY),
+                    colonPaths(System.getProperty(SYSTEMD_MANAGER_CONF_DIRS_PROPERTY, DEFAULT_SYSTEMD_MANAGER_CONF_DIRS)),
+                    optionalPath(System.getProperty(ETC_ENVIRONMENT_PROPERTY, DEFAULT_ETC_ENVIRONMENT)),
+                    colonPaths(System.getProperty(ENVIRONMENT_DIRS_PROPERTY, DEFAULT_ENVIRONMENT_DIRS)));
+        }
+
+        private static Path optionalPath(String raw) {
+            return raw == null || raw.isEmpty() ? null : Path.of(raw);
+        }
+
+        private static List<Path> colonPaths(String raw) {
+            List<Path> paths = new ArrayList<>();
+            for (String entry : raw.split(":")) {
+                if (!entry.isEmpty()) {
+                    paths.add(Path.of(entry));
+                }
+            }
+            return paths;
         }
     }
 
     private record LaunchSelection(Path properties, Path home) { }
 
-    private record ParsedToken(String token, int nextIndex) { }
+    private record LaunchResolution(Path classes, Path properties, Path home) { }
+
+    record ParsedToken(String token, int nextIndex) { }
 
     private PackagedReportLeaseCheck() {
     }
@@ -112,12 +154,12 @@ public final class PackagedReportLeaseCheck {
     /**
      * Exits with:
      * <ul>
-     *   <li>{@code 10} when the launcher selects the managed file and publishing the candidate restores 360;</li>
-     *   <li>{@code 0} when the launcher selects the managed file and its effective timeout is not 15;</li>
-     *   <li>{@code 15} when the launcher selects the managed file and its effective timeout remains 15;</li>
-     *   <li>{@code 20} when the launcher selects a separate file whose effective timeout is not 15;</li>
-     *   <li>{@code 25} when the launcher selects a separate file whose effective timeout is 15;</li>
-     *   <li>{@code 1} when launch selection or configuration cannot be verified.</li>
+     *   <li>{@code 10} when the launcher deploys the packaged webapp with the managed file and publishing the candidate restores 360;</li>
+     *   <li>{@code 0} when the launcher deploys the packaged webapp with the managed file and its effective timeout is not 15;</li>
+     *   <li>{@code 15} when the launcher deploys the packaged webapp with the managed file and its effective timeout remains 15;</li>
+     *   <li>{@code 20} when the launcher selects a separate properties file or webapp whose effective timeout is not 15;</li>
+     *   <li>{@code 25} when the launcher selects a separate properties file or webapp whose effective timeout is 15;</li>
+     *   <li>{@code 1} when launch selection, mount-namespace visibility, or configuration cannot be verified.</li>
      * </ul>
      * Property values must never reach package logs.
      *
@@ -137,12 +179,15 @@ public final class PackagedReportLeaseCheck {
             return STATUS_UNVERIFIABLE;
         }
         try {
-            Path classes = Path.of(args[0]);
+            Path packagedClasses = Path.of(args[0]);
             Path managed = Path.of(args[1]);
-            LaunchSelection selection = resolveLaunch(managed, home, launch);
-            boolean selectsManaged = resolvesToManaged(managed, selection.properties());
-            Properties defaults = PackagedConfigurationPreflight.readFile(classes.resolve("jdbc-defaults.properties"));
-            defaults.putAll(PackagedConfigurationPreflight.readFile(classes.resolve(PROPERTIES_FILE_NAME)));
+            LaunchResolution selection = resolveLaunch(packagedClasses, managed, home, launch);
+            boolean selectsManaged = resolvesToManaged(managed, selection.properties())
+                    && sameFile(packagedClasses, selection.classes());
+            Properties defaults = PackagedConfigurationPreflight.readFile(
+                    selection.classes().resolve("jdbc-defaults.properties"));
+            defaults.putAll(PackagedConfigurationPreflight.readFile(
+                    selection.classes().resolve(PROPERTIES_FILE_NAME)));
             Properties installed = PackagedConfigurationPreflight.readFile(selection.properties());
             Properties overrides = new Properties();
             if (!Files.notExists(selection.home()) && !Files.isSameFile(selection.properties(), selection.home())) {
@@ -167,11 +212,16 @@ public final class PackagedReportLeaseCheck {
         }
     }
 
-    private static LaunchSelection resolveLaunch(Path managed, Path defaultHome, LaunchConfig launch)
-            throws IOException {
+    private static LaunchResolution resolveLaunch(
+            Path packagedClasses, Path managed, Path defaultHome, LaunchConfig launch) throws IOException {
         verifySystemd(launch.systemdDirs());
+        var isolation = PackagedReportLeaseContext.readPackagedUnitIsolation(launch.systemdDirs());
         Map<String, String> vars = buildLaunchVariables(managed, launch);
         verifyNoTomcatSetenv(launch, vars);
+        Path effectiveCatalinaBase = effectiveCatalinaPath(vars, VAR_CATALINA_BASE, launch.catalinaBase());
+        Path effectiveCatalinaHome = effectiveCatalinaPath(vars, VAR_CATALINA_HOME, launch.catalinaHome());
+        Path deployedClasses = PackagedReportLeaseContext.resolveDeployedClasses(
+                effectiveCatalinaBase, effectiveCatalinaHome, packagedClasses);
 
         Path envProperties = requireAbsoluteNoWhitespace(vars.get(VAR_PROPERTIES));
         Path selectedProperties = envProperties;
@@ -190,11 +240,18 @@ public final class PackagedReportLeaseCheck {
         if (!sameFile(envProperties, selectedProperties) && !Files.isReadable(envProperties)) {
             throw new IOException("Wrapper PROPERTIES is unreadable");
         }
-        return new LaunchSelection(selectedProperties, selectedHome);
+        PackagedReportLeaseContext.verifyServiceFilesystemView(
+                managed, packagedClasses, selectedProperties, selectedHome, deployedClasses, isolation);
+        return new LaunchResolution(deployedClasses, selectedProperties, selectedHome);
+    }
+
+    private static Path effectiveCatalinaPath(Map<String, String> vars, String key, Path fallback) throws IOException {
+        return vars.containsKey(key) ? requireAbsoluteNoWhitespace(vars.get(key)) : fallback;
     }
 
     private static Map<String, String> buildLaunchVariables(Path managed, LaunchConfig launch) throws IOException {
         Map<String, String> vars = new HashMap<>();
+        PackagedReportLeaseContext.loadManagerEnvironment(launch, vars);
         Path confDir = launch.envFile() != null && launch.envFile().getParent() != null
                 ? launch.envFile().getParent() : Path.of("/etc/carlos-emr");
         vars.put("CONF_DIR", confDir.toString());
@@ -268,12 +325,14 @@ public final class PackagedReportLeaseCheck {
         }
     }
 
-    private static boolean isPackagedSystemdDir(Path dir) {
+    static boolean isPackagedSystemdDir(Path dir) {
         String normalized = dir.normalize().toString();
-        return "/usr/lib/systemd/system".equals(normalized) || "/lib/systemd/system".equals(normalized);
+        return "/usr/lib/systemd/system".equals(normalized)
+                || "/lib/systemd/system".equals(normalized)
+                || normalized.endsWith("/usr/lib/systemd/system");
     }
 
-    private static boolean isMaskSymlink(Path path) throws IOException {
+    static boolean isMaskSymlink(Path path) throws IOException {
         return Files.isSymbolicLink(path) && Path.of("/dev/null").equals(Files.readSymbolicLink(path));
     }
 
@@ -288,7 +347,7 @@ public final class PackagedReportLeaseCheck {
         }
     }
 
-    private static List<String> logicalDropInLines(Path dropIn) throws IOException {
+    static List<String> logicalDropInLines(Path dropIn) throws IOException {
         List<String> logical = new ArrayList<>();
         StringBuilder continued = new StringBuilder();
         for (String rawLine : Files.readAllLines(dropIn, StandardCharsets.UTF_8)) {
@@ -340,7 +399,7 @@ public final class PackagedReportLeaseCheck {
         }
     }
 
-    private static int skipWhitespace(String value, int start) {
+    static int skipWhitespace(String value, int start) {
         int index = start;
         while (index < value.length() && Character.isWhitespace(value.charAt(index))) {
             index++;
@@ -348,7 +407,7 @@ public final class PackagedReportLeaseCheck {
         return index;
     }
 
-    private static ParsedToken readEnvironmentToken(String value, int start) throws IOException {
+    static ParsedToken readEnvironmentToken(String value, int start) throws IOException {
         char first = value.charAt(start);
         if (first == '"' || first == '\'') {
             return readQuotedEnvironmentToken(value, start + 1, first);
@@ -384,6 +443,14 @@ public final class PackagedReportLeaseCheck {
         }
     }
 
+    static boolean isLaunchVariable(String key) {
+        return LAUNCH_ENV_VARS.contains(key);
+    }
+
+    static boolean isIdentifier(String key) {
+        return IDENTIFIER.matcher(key).matches();
+    }
+
     private static void requireNoSetenv(Path catalinaDir) throws IOException {
         if (catalinaDir != null && !Files.notExists(catalinaDir.resolve("bin").resolve("setenv.sh"),
                 LinkOption.NOFOLLOW_LINKS)) {
@@ -416,11 +483,11 @@ public final class PackagedReportLeaseCheck {
         }
     }
 
-    private static String stripCarriageReturn(String line) {
+    static String stripCarriageReturn(String line) {
         return line.endsWith("\r") ? line.substring(0, line.length() - 1) : line;
     }
 
-    private static String parseShellValue(String raw, Map<String, String> vars) throws IOException {
+    static String parseShellValue(String raw, Map<String, String> vars) throws IOException {
         if (raw.isEmpty()) {
             return "";
         }
@@ -598,7 +665,7 @@ public final class PackagedReportLeaseCheck {
         return path;
     }
 
-    private static boolean resolvesToManaged(Path managed, Path selected) throws IOException {
+    static boolean resolvesToManaged(Path managed, Path selected) throws IOException {
         if (managed.equals(selected)) {
             return true;
         }
@@ -606,7 +673,7 @@ public final class PackagedReportLeaseCheck {
                 && managed.toRealPath().equals(selected.toRealPath());
     }
 
-    private static boolean sameFile(Path first, Path second) throws IOException {
+    static boolean sameFile(Path first, Path second) throws IOException {
         if (first.equals(second)) {
             return true;
         }
