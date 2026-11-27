@@ -274,6 +274,27 @@ public class DrugDaoIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    void shouldCopyOriginalTextBytes_whenRestEchoesATrimmedProjection() throws Exception {
+        Drug source = createAndPersist(DEMO_NO, "Synthetic medication", "", false);
+        entityManager.createNativeQuery("UPDATE drugs SET quantity=' 30.0 ', unitName='mL ', "
+                + "dosage='250.0 mg ', special='  first line  ', BN='Synthetic medication ' WHERE drugid=:id")
+                .setParameter("id", source.getId()).executeUpdate();
+        entityManager.clear();
+        Drug stored = drugDao.find(source.getId());
+        var converter = new io.github.carlos_emr.carlos.webserv.rest.conversion.DrugConverterImpl();
+        var info = new io.github.carlos_emr.carlos.utility.LoggedInInfo();
+        var dto = converter.getAsTransferObject(info, stored);
+        dto.setExternalProvider("New provider");
+        Drug replacement = converter.getAsDomainObject(info, dto);
+        replacement.preserveUnchangedMedicationValues(stored);
+        assertThat(replacement.getQuantity()).isEqualTo(" 30.0 ");
+        assertThat(replacement.getUnitName()).isEqualTo("mL ");
+        assertThat(replacement.getDosage()).isEqualTo("250.0 mg ");
+        assertThat(replacement.getSpecial()).isEqualTo("  first line  ");
+        assertThat(replacement.getBrandName()).isEqualTo("Synthetic medication ");
+    }
+
+    @Test
     void shouldKeepSqlNullsDistinctFromZero_whenReadingAndUpdatingAnUnrelatedMedicationField() {
         Drug source = createAndPersist(DEMO_NO, "Synthetic medication", "", false);
         int id = source.getId();
@@ -286,7 +307,7 @@ public class DrugDaoIntegrationTest extends CarlosTestBase {
         assertThat(loaded.isCustomInstructions()).isFalse();
         loaded.setComment("Updated note");
         Drug copy = createDrug(DEMO_NO, "Synthetic medication", "", false);
-        copy.preserveUnchangedNullableValues(loaded);
+        copy.preserveUnchangedMedicationValues(loaded);
         entityManager.persist(copy);
         entityManager.flush();
         assertThat(((Number) entityManager.createNativeQuery("SELECT COUNT(*) FROM drugs "

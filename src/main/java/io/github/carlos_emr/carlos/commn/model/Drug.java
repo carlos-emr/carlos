@@ -31,6 +31,8 @@ package io.github.carlos_emr.carlos.commn.model;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.util.Objects;
+import io.github.carlos_emr.carlos.prescript.util.DrugStrength;
 import java.util.Calendar;
 import java.util.Comparator;
 import java.util.Date;
@@ -535,13 +537,46 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
         this.customName = StringUtils.trimToNull(customName);
     }
 
-    /** A whole-object REST edit echoes primitive defaults for schema-legal NULL fields. */
-    public void preserveUnchangedNullableValues(Drug source) {
+    /**
+     * Retain source values that the legacy REST medication cannot return on an unrelated edit.
+     * Assign the stored fields directly: the public setters also trim newly submitted text.
+     */
+    public void preserveUnchangedMedicationValues(Drug source) {
+        if (!sameStoredText(regionalIdentifier, source.regionalIdentifier)
+                || !sameStoredText(brandName, source.brandName) || !sameStoredText(genericName, source.genericName)
+                || !sameStoredText(customName, source.customName) || !sameStoredText(drugForm, source.drugForm)) {
+            return;
+        }
+        regionalIdentifier = source.regionalIdentifier;
+        brandName = source.brandName;
+        genericName = source.genericName;
+        customName = source.customName;
+        drugForm = source.drugForm;
+        if (sameStoredText(special, source.special)) special = source.special;
+        if (sameStoredText(special_instruction, source.special_instruction)) special_instruction = source.special_instruction;
+        if (sameStoredText(route, source.route)) route = source.route;
+        if (sameStoredText(freqCode, source.freqCode)) freqCode = source.freqCode;
+        if (sameStoredText(method, source.method)) method = source.method;
+
+        Integer publishedQuantity = wholeQuantity(source.quantity);
+        if (source.quantity != null && (unitName == null || sameStoredText(unitName, source.unitName))
+                && Objects.equals(Objects.toString(publishedQuantity, null), quantity)) {
+            quantity = source.quantity;
+            unitName = source.unitName;
+        }
+        if (source.dosage != null && (dosage == null || DrugStrength.fromDosage(source.dosage).dosageText().equals(dosage))) {
+            dosage = source.dosage;
+            unit = source.unit;
+        }
         if (source.takeMin == null && getTakeMin() == 0f) takeMin = null;
         if (source.takeMax == null && getTakeMax() == 0f) takeMax = null;
         if (source.customInstructions == null && !isCustomInstructions()) customInstructions = null;
         if (source.hideFromCpp == null && !getHideFromCpp()) hideFromCpp = null;
         if (source.startDateUnknown == null && !getStartDateUnknown()) startDateUnknown = null;
+    }
+
+    private static boolean sameStoredText(String submitted, String stored) {
+        return Objects.equals(submitted, stored) || Objects.equals(submitted, StringUtils.trimToNull(stored));
     }
 
     public float getTakeMin() {
