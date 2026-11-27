@@ -65,9 +65,9 @@ public class DrugTo1 implements Serializable {
 
     private String providerNo;
 
-    private float takeMin;
+    private Float takeMin;
 
-    private float takeMax;
+    private Float takeMax;
 
     private Date rxDate;
 
@@ -91,7 +91,9 @@ public class DrugTo1 implements Serializable {
 
     private Integer repeats;
 
+    @jakarta.xml.bind.annotation.XmlTransient
     private Integer quantity;
+    private transient boolean quantitySubmitted;
 
     private String instructions;
 
@@ -208,7 +210,11 @@ public class DrugTo1 implements Serializable {
     }
 
     public float getTakeMin() {
-        return takeMin;
+        return takeMin == null ? 0f : takeMin;
+    }
+
+    public boolean hasSubmittedTakeMin() {
+        return takeMin != null;
     }
 
     public void setTakeMin(float takeMin) {
@@ -216,7 +222,11 @@ public class DrugTo1 implements Serializable {
     }
 
     public float getTakeMax() {
-        return takeMax;
+        return takeMax == null ? 0f : takeMax;
+    }
+
+    public boolean hasSubmittedTakeMax() {
+        return takeMax != null;
     }
 
     public void setTakeMax(float takeMax) {
@@ -351,12 +361,18 @@ public class DrugTo1 implements Serializable {
         this.strengthUnit = strengthUnit;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name = "quantity")
     public Integer getQuantity() {
         return quantity;
     }
 
     public void setQuantity(Integer quantity) {
         this.quantity = quantity;
+        quantitySubmitted = true;
+    }
+
+    public boolean hasSubmittedQuantity() {
+        return quantitySubmitted;
     }
 
     public Date getWrittenDate() {

@@ -127,8 +127,11 @@ public class BpmhDrug {
             text = lastBreak < 0 ? "" : text.substring(0, lastBreak);
         }
         if (hasHeading && StringUtils.isNotBlank(pharmacyInstruction)) {
-            String pharmacy = pharmacyInstruction.replace("\r\n", "\n").replace('\r', '\n');
-            text = text.equals(pharmacy) ? "" : StringUtils.removeEnd(text, "\n" + pharmacy);
+            String pharmacy = pharmacyInstruction.replace("\r\n", "\n").replace('\r', '\n').stripTrailing();
+            String body = text.stripTrailing();
+            String suffix = "\n" + pharmacy;
+            if (body.equals(pharmacy)) text = "";
+            else if (body.endsWith(suffix)) text = body.substring(0, body.length() - suffix.length());
         }
         if (!text.isBlank()) {
             how = text;

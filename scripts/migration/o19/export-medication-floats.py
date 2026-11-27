@@ -107,7 +107,7 @@ def main():
         parser.error("invalid database name")
     if any(opt.startswith("-p") or opt.startswith("--password") for opt in args.mysql_arg):
         parser.error("use a client defaults file or MYSQL_PWD for credentials")
-    command = [args.mysql_cmd] + args.mysql_arg + ["--batch", "--raw", "--skip-column-names",
+    command = [args.mysql_cmd] + args.mysql_arg + ["--quick", "--batch", "--raw", "--skip-column-names",
                "--database=" + args.db]
     if args.complete_dump:
         complete_dump(sys.stdin.buffer, sys.stdout.buffer, command)

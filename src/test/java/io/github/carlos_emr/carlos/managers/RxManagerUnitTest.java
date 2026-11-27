@@ -321,6 +321,60 @@ class RxManagerUnitTest extends RxManagerImpl {
             assertThat(replacement.getUnitName()).isNull();
         }
 
+        @ParameterizedTest
+        @CsvSource({
+                "json, omitted", "xml, omitted", "json, clear", "json, zero", "xml, zero",
+                "json, differentProduct", "xml, differentProduct"
+        })
+        void shouldRespectSubmittedMedicationFieldsOnTheWire(String format, String change) throws Exception {
+            Drug stored = new Drug();
+            stored.setId(4);
+            stored.setDemographicId(1);
+            stored.setGenericName("ASA");
+            stored.setGcnSeqNo("001234");
+            stored.setQuantity("30.0");
+            stored.setUnitName("mL");
+            stored.setTakeMin(0.33333334f);
+            stored.setTakeMax(3f);
+            ((MockDrugDao) drugDao).seed(stored);
+
+            String name = "differentProduct".equals(change) ? "Other" : "ASA";
+            var type = io.github.carlos_emr.carlos.webserv.rest.to.model.DrugTo1.class;
+            io.github.carlos_emr.carlos.webserv.rest.to.model.DrugTo1 dto;
+            if ("json".equals(format)) {
+                String changes = switch (change) {
+                    case "clear" -> ",\"quantity\":null";
+                    case "zero" -> ",\"takeMin\":0,\"quantity\":5";
+                    default -> "";
+                };
+                dto = new com.fasterxml.jackson.databind.ObjectMapper().readValue(
+                        "{\"drugId\":4,\"demographicNo\":1,\"providerNo\":\"999001\",\"genericName\":\"" + name + "\"" + changes + "}", type);
+            } else {
+                String changes = "zero".equals(change) ? "<takeMin>0</takeMin><quantity>5</quantity>" : "";
+                String xml = "<drug><drugId>4</drugId><demographicNo>1</demographicNo><providerNo>999001</providerNo>"
+                        + "<genericName>" + name + "</genericName>" + changes + "</drug>";
+                dto = type.cast(jakarta.xml.bind.JAXBContext.newInstance(type).createUnmarshaller()
+                        .unmarshal(new java.io.StringReader(xml)));
+            }
+            var converter = new io.github.carlos_emr.carlos.webserv.rest.conversion.DrugConverterImpl();
+            var info = new LoggedInInfo();
+            Drug replacement = updateDrug(info, converter.getAsDomainObject(info, dto));
+            boolean changedProduct = "differentProduct".equals(change);
+            assertThat(replacement.getGcnSeqNo()).isEqualTo(changedProduct ? "0" : "001234");
+            if ("omitted".equals(change)) {
+                assertThat(replacement.getQuantity()).isEqualTo("30.0");
+                assertThat(replacement.getUnitName()).isEqualTo("mL");
+            } else if ("zero".equals(change)) {
+                assertThat(replacement.getQuantity()).isEqualTo("5");
+            } else {
+                assertThat(replacement.getQuantity()).isNull();
+            }
+            assertThat(replacement.getTakeMin()).isEqualTo(changedProduct || "zero".equals(change) ? 0f : 0.33333334f);
+            assertThat(replacement.getTakeMax()).isEqualTo(changedProduct ? 0f : 3f);
+            assertThat(stored.getGcnSeqNo()).isEqualTo("001234");
+            assertThat(stored.getQuantity()).isEqualTo("30.0");
+        }
+
         @Test
         @DisplayName("should leave the quantity out when the client could see the stored whole number and sent none")
         void shouldLeaveQuantityOut_whenStoredQuantityIsWholeAndReplacementStatesNone() {

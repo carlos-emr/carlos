@@ -102,6 +102,13 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     @Column(name = "durunit")
     private String durUnit = null;
     private String quantity = null;
+
+    @Transient
+    private Boolean restQuantitySubmitted;
+    @Transient
+    private boolean restMinimumOmitted;
+    @Transient
+    private boolean restMaximumOmitted;
     @Column(name = "`repeat`")
     private Integer repeat = 0;
     @Column(name = "last_refill_date")
@@ -547,6 +554,9 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
                 || !sameStoredText(customName, source.customName) || !sameStoredText(drugForm, source.drugForm)) {
             return;
         }
+        // REST has no GCN field. Other callers can submit a different catalog product.
+        if (restQuantitySubmitted == null && !Objects.equals(gcnSeqNo, source.gcnSeqNo)) return;
+        gcnSeqNo = source.gcnSeqNo;
         regionalIdentifier = source.regionalIdentifier;
         brandName = source.brandName;
         genericName = source.genericName;
@@ -560,7 +570,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
 
         Integer publishedQuantity = wholeQuantity(source.quantity);
         if (source.quantity != null && (unitName == null || sameStoredText(unitName, source.unitName))
-                && Objects.equals(Objects.toString(publishedQuantity, null), quantity)) {
+                && (Boolean.FALSE.equals(restQuantitySubmitted) || Objects.equals(Objects.toString(publishedQuantity, null), quantity))) {
             quantity = source.quantity;
             unitName = source.unitName;
         }
@@ -568,11 +578,18 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
             dosage = source.dosage;
             unit = source.unit;
         }
-        if (source.takeMin == null && getTakeMin() == 0f) takeMin = null;
-        if (source.takeMax == null && getTakeMax() == 0f) takeMax = null;
+        if (restMinimumOmitted || (source.takeMin == null && getTakeMin() == 0f)) takeMin = source.takeMin;
+        if (restMaximumOmitted || (source.takeMax == null && getTakeMax() == 0f)) takeMax = source.takeMax;
         if (source.customInstructions == null && !isCustomInstructions()) customInstructions = null;
         if (source.hideFromCpp == null && !getHideFromCpp()) hideFromCpp = null;
         if (source.startDateUnknown == null && !getStartDateUnknown()) startDateUnknown = null;
+    }
+
+    /** Preserve fields absent from a same-product REST replacement, including its unrepresented GCN. */
+    public void recordRestFieldPresence(boolean quantitySubmitted, boolean minimumSubmitted, boolean maximumSubmitted) {
+        restQuantitySubmitted = quantitySubmitted;
+        restMinimumOmitted = !minimumSubmitted;
+        restMaximumOmitted = !maximumSubmitted;
     }
 
     private static boolean sameStoredText(String submitted, String stored) {

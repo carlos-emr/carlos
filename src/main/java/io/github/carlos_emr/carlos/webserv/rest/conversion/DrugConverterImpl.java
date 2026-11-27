@@ -121,6 +121,7 @@ public class DrugConverterImpl extends AbstractConverter<Drug, DrugTo1> implemen
             d.setRefillDuration(zeroIfNull(t.getRefillDuration()));
             d.setRefillQuantity(zeroIfNull(t.getRefillQuantity()));
 
+            d.recordRestFieldPresence(t.hasSubmittedQuantity(), t.hasSubmittedTakeMin(), t.hasSubmittedTakeMax());
             if (t.getQuantity() != null) {
                 d.setQuantity(t.getQuantity().toString());
             }

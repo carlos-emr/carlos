@@ -229,11 +229,11 @@ fi
 echo "dumping to $OUT/o19-fixture.sql.gz (via $DUMP_CMD) ..."
 # Read both exports while this disposable source is quiescent. A stock dump rounds FLOATs.
 float_args=()
-for option in "${MYSQL_ARGS[@]}"; do float_args+=("--mysql-arg=$option"); done
+for option in ${MYSQL_ARGS+"${MYSQL_ARGS[@]}"}; do float_args+=("--mysql-arg=$option"); done
 dump_tmp=$(mktemp "$OUT/.o19-dump.XXXXXX")
 if "$DUMP_CMD" ${MYSQL_ARGS+"${MYSQL_ARGS[@]}"} --single-transaction --quick --skip-triggers \
      --default-character-set=latin1 "$DB" |
-   python3 "$SCRIPT_DIR/export-medication-floats.py" --complete-dump --mysql-cmd "$MYSQL_CMD" --db "$DB" "${float_args[@]}" |
+   python3 "$SCRIPT_DIR/export-medication-floats.py" --complete-dump --mysql-cmd "$MYSQL_CMD" --db "$DB" ${float_args+"${float_args[@]}"} |
    gzip > "$dump_tmp"; then
   mv "$dump_tmp" "$OUT/o19-fixture.sql.gz"
 else

@@ -2786,10 +2786,8 @@ function updateQty(element){
                 document.getElementById(methodStr).textContent=json.method;
                 document.getElementById(routeStr).textContent=json.route;
                 document.getElementById(frequencyStr).textContent=json.frequency;
-                document.getElementById(minimumStr).textContent=json.takeMin;
-                document.getElementById(maximumStr).textContent=json.takeMax;
-                document.getElementById(minimumStr).removeAttribute('aria-invalid');
-                document.getElementById(maximumStr).removeAttribute('aria-invalid');
+                applyCalculatedDose(minimumStr, json.takeMin);
+                applyCalculatedDose(maximumStr, json.takeMax);
                 if(json.duration==null || json.duration=="null"){
                     document.getElementById(durationStr).textContent='';
                 }else{
@@ -2812,6 +2810,13 @@ function updateQty(element){
             }});
         return true;
 }
+    function applyCalculatedDose(id, dose) {
+        var field = document.getElementById(id);
+        field.textContent = dose == null ? '' : String(dose);
+        field.dataset.storedDose = field.textContent;
+        field.removeAttribute('aria-invalid');
+    }
+
     function parseIntr(element, deferPrice){
         var elemId=element.id;
         var ar=elemId.split("_");
@@ -2855,10 +2860,8 @@ function updateQty(element){
                 document.getElementById(methodStr).textContent=json.method;
                 document.getElementById(routeStr).textContent=json.route;
                 document.getElementById(frequencyStr).textContent=json.frequency;
-                document.getElementById(minimumStr).textContent=json.takeMin;
-                document.getElementById(maximumStr).textContent=json.takeMax;
-                document.getElementById(minimumStr).removeAttribute('aria-invalid');
-                document.getElementById(maximumStr).removeAttribute('aria-invalid');
+                applyCalculatedDose(minimumStr, json.takeMin);
+                applyCalculatedDose(maximumStr, json.takeMax);
                 if(json.duration==null || json.duration=="null"){
                     document.getElementById(durationStr).textContent='';
                 }else{

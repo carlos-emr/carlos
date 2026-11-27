@@ -196,9 +196,15 @@ class BpmhDrugUnitTest {
 
         drug.setGenericName("Synthetic");
         drug.setDosage("10 units");
-        drug.setSpecial("Synthetic 10 units\nSupply blister pack");
+        drug.setSpecial("Synthetic 10 units\r\nSupply blister pack\r\n  ");
         drug.usePrescriptionDirections(null, "Supply blister pack", null);
         assertThat(drug.getHow()).isEmpty();
+        drug.setSpecial("Synthetic 10 units\nTake with food  \nSupply blister pack\n");
+        drug.usePrescriptionDirections(null, "Supply blister pack", null);
+        assertThat(drug.getHow()).isEqualTo("Take with food  ");
+        drug.setSpecial("Synthetic 10 units\nTake with food  \n");
+        drug.usePrescriptionDirections(null, "Supply blister pack", null);
+        assertThat(drug.getHow()).isEqualTo("Take with food  \n");
         assertThat(drug.toString()).isEqualTo("BpmhDrug[protected]");
     }
 

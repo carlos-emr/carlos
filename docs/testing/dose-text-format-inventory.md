@@ -163,7 +163,9 @@ source dose uncertainty (#6411), and export and rollback verification (#6412) tr
   with stored directions retain those directions. Additional medications and text that exceed a
   printed row appear on continuation pages.
 - An unrelated same-product REST edit keeps the original dispense quantity and unit, including
-  the spelling of a whole number such as `30.0 mL`. Opening, saving and printing a BPMH form
+  the spelling of a whole number such as `30.0 mL`. Omitting quantity or a dose bound retains
+  the stored value. An explicit JSON null still clears a whole-number quantity. The catalog GCN
+  survives an update to the same product. Opening, saving and printing a BPMH form
   leave the source drug rows intact.
 - REST: a stored quantity that is not a whole number is omitted from `quantity` instead of
   failing the read, and is kept by an update that states no quantity. `strength` is reported for
