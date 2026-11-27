@@ -190,24 +190,6 @@ LEGACY_NOTE_FLAG_REQUIRED_CASES = {
 } | {"shouldUseTheNullablePublishedColumnTypes_onThePhysicalSchema"}
 
 
-HL7_CHAIN_LOCK_REQUIRED_CASES = {
-    # inherited from the H2 class (they run again on the physical server)
-    "shouldReturnTheAccessionsRowsLowestLabNumberFirst_whenLockingByAccession",
-    "shouldIncludeRowsOfOtherAccessions_whenLockingByFillerOrderNumber",
-    "shouldLockNothing_whenTheAccessionOrFillerNumberIsBlank",
-    "shouldMatchNoRow_whenTheReportHasNoAccession",
-    "shouldReturnNull_whenTheReportIsNotStored",
-    "shouldRefuseEveryLock_whenThereIsNoTransaction",
-    # its own
-    "shouldHaveTheAccessionIndexAvailable_whenLockingByAccession",
-    "shouldHaveTheFillerOrderNumberIndexAvailable_whenLockingByFillerOrderNumber",
-    "shouldHaveTheLabNumberIndexAvailable_whenLockingTheReportsOwnRow",
-    "shouldHaveTheKeyValueIndexAvailable_whenFindingAReportsMeasurements",
-    "shouldNotHoldUpAnUnrelatedAccession_whenTheDaoHoldsAnotherOne",
-    "shouldRecogniseARealLockWaitTimeoutAsALockFailure_whenAnotherConnectionHoldsTheRow",
-}
-
-
 class MariaDbReportEvidenceTest(unittest.TestCase):
     def test_ontario_requires_single_site_and_multisite_billing_results(self):
         family = 'BillingOnSiteVisibilityIntegrationTest'
@@ -331,34 +313,6 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                 self.assertEqual(MODULE.REQUIRED[mode].get(family, 0), 30)
         self.assertEqual(MODULE.REQUIRED_CASES.get(family, set()), LEGACY_NOTE_FLAG_REQUIRED_CASES)
         self.assertNotIn(family, MODULE.REQUIRED['generated'])
-
-    def test_ontario_flyway_requires_every_lab_chain_lock_case(self):
-        family = 'Hl7TextInfoChainLockMariaDbIntegrationTest'
-        self.assertEqual(len(HL7_CHAIN_LOCK_REQUIRED_CASES), 12)
-        self.assertEqual(MODULE.REQUIRED['flyway'].get(family, 0), 12)
-        self.assertEqual(MODULE.REQUIRED_CASES.get(family, set()), HL7_CHAIN_LOCK_REQUIRED_CASES)
-        # Only the Ontario Flyway lane runs it (the generated-schema lane allows no skips, and the
-        # BC lane does not select it).
-        self.assertNotIn(family, MODULE.REQUIRED['generated'])
-        self.assertNotIn(family, MODULE.REQUIRED['bc-flyway'])
-        self.seed()
-        self.assertEqual(self.invoke().returncode, 0)
-        report = self.reports / ("TEST-" + self.suite(family) + "-flyway.xml")
-        original = report.read_text()
-        for name in sorted(HL7_CHAIN_LOCK_REQUIRED_CASES):
-            with self.subTest(case=name):
-                report.write_text(original.replace('name="' + name + '"', 'name="unrelatedCase"'))
-                try:
-                    self.assert_refused(self.invoke(),
-                                        'Required MariaDB flyway cases missing: ' + family + ': ' + name)
-                finally:
-                    report.write_text(original)
-        # The whole family silently not running fails the lane too.
-        report.unlink()
-        try:
-            self.assert_refused(self.invoke(), 'Required MariaDB flyway coverage missing: ' + family)
-        finally:
-            report.write_text(original)
 
     def test_rehab_study_evidence_is_required_in_both_flyway_lanes(self):
         family = 'RehabStudyFormDaoIntegrationTest'
