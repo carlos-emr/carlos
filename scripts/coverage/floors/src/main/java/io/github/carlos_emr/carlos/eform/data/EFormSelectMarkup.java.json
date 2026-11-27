@@ -4,9 +4,9 @@
   "kind": "floor",
   "floor": {
     "lines": 100.0,
-    "instructions": 98.59514687100894,
-    "branches": 90.3225806451613,
-    "sourceBlob": "50963956d4e7e6e96ae89e41ccc6e49f2f6b6349"
+    "instructions": 98.8,
+    "branches": 90.79754601226993,
+    "sourceBlob": "a7aea192e7b773d52a687b7286debd8aa2488d94"
   },
-  "evidenceSha256": "ffb43acfd52a2be2046092c3057e47b427a9a24685d104808f12bb9700a71d34"
+  "evidenceSha256": "6e5af52f3e114852c5789f0b1570b7d263fe8f3675868265f2135ee92a83a80f"
 }
