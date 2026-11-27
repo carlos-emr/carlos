@@ -85,7 +85,8 @@ class LabMeasurementFilingServiceUnitTest extends CarlosUnitTestBase {
         // measurement would show.
         var ids = new java.util.concurrent.atomic.AtomicInteger();
         org.mockito.Mockito.doAnswer(invocation -> {
-            org.springframework.test.util.ReflectionTestUtils.setField(invocation.getArgument(0), "id", ids.incrementAndGet());
+            Object stored = invocation.getArgument(0);
+            org.springframework.test.util.ReflectionTestUtils.setField(stored, "id", ids.incrementAndGet());
             return null;
         }).when(measurementDao).persist(any(Measurement.class));
     }

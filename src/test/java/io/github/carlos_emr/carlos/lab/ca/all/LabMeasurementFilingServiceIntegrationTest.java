@@ -248,7 +248,8 @@ public class LabMeasurementFilingServiceIntegrationTest extends CarlosTestBase {
         String chain = theirs + "," + mine;
         FiledMeasurementDto other = result(theirs, "4.4", "3767");
         other.measurement().setDemographicId(PATIENT + 1);
-        service(chain).file(new LabMeasurementFilingDto(String.valueOf(theirs), PATIENT + 1, false,
+        // Their report was filed when it was the only one of the accession (later, mine joins its chain).
+        service(String.valueOf(theirs)).file(new LabMeasurementFilingDto(String.valueOf(theirs), PATIENT + 1, false,
                 "ACC-INT-RECYCLED", null, List.of(other)));
 
         service(chain).file(filing(mine, "ACC-INT-RECYCLED", result(mine, "5.5", "3767")));
