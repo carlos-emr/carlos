@@ -17,6 +17,12 @@ test('every booking label exists, with its own text, in all five catalogs', () =
   });
   // A dropped placeholder would silently lose the number in the box.
   bundles.forEach((bundle, index) => assert.match(bundle['portal.booking.openCount'], /\{count\}/, locales[index]));
+  bundles.forEach((bundle, index) => assert.match(bundle['portal.booking.offer.sentTimes'], /\{count\}/, locales[index]));
+  // The dialog's script asks for each of these by name (data-message), so each must be rendered.
+  for (const key of ['providerChoose', 'modeLabel', 'mode.in_person', 'mode.phone', 'mode.video',
+    'loadingProviders', 'noProviders', 'providersFailed', 'off', 'noOpenTimes', 'sentTimes', 'noSchedule']) {
+    assert.ok(fragment.includes(`data-message="offer.${key}"`), `the box does not render offer.${key}`);
+  }
   for (const key of [...fragment.matchAll(/<fmt:message key="(portal\.booking\.[^"]+)"/g)].map(match => match[1])) {
     assert.ok(bundles[0][key], `missing English label ${key}`);
     // Each catalog carries its own translated text; none may be missing, blank or still English.

@@ -91,6 +91,31 @@
                 <option value="lab_review"><fmt:message key="portal.booking.lab_review"/></option>
             </select>
         </label>
+        <%-- Offering open times with the request (#3850): shown only while the panel says this user may
+             offer (booking-prompt write and schedule write). The provider list is built by the server
+             for the chosen window; the browser only sends back a number from it. --%>
+        <div class="portal-booking-offer" data-role="offer" hidden>
+            <label class="portal-booking-check"><input type="checkbox" data-role="offerToggle">
+                <fmt:message key="portal.booking.offer.toggle"/></label>
+            <p class="portal-booking-note" data-role="offerNote" hidden></p>
+            <div class="portal-booking-offer-fields" data-role="offerFields" hidden>
+                <label><fmt:message key="portal.booking.offer.provider"/>
+                    <select data-role="offerProvider">
+                        <option value=""><fmt:message key="portal.booking.offer.providerChoose"/></option>
+                    </select>
+                </label>
+                <label><fmt:message key="portal.booking.offer.after"/>
+                    <input type="number" inputmode="numeric" min="0" max="365" value="0" data-role="offerAfter">
+                </label>
+                <label><fmt:message key="portal.booking.offer.within"/>
+                    <input type="number" inputmode="numeric" min="1" max="92" value="14" data-role="offerWithin">
+                </label>
+                <label><fmt:message key="portal.booking.offer.count"/>
+                    <input type="number" inputmode="numeric" min="1" max="8" value="4" data-role="offerCount">
+                </label>
+                <p class="portal-booking-muted" data-role="offerMode"></p>
+            </div>
+        </div>
         <button type="button" class="portal-booking-button" data-role="send" disabled><fmt:message key="portal.booking.send"/></button>
     </div>
     <% } %>
@@ -149,6 +174,18 @@
         <span data-message="noscript"><fmt:message key="portal.booking.noscript"/></span>
         <span data-message="last"><fmt:message key="portal.booking.last"/></span>
         <span data-message="openCount"><fmt:message key="portal.booking.openCount"/></span>
+        <span data-message="offer.providerChoose"><fmt:message key="portal.booking.offer.providerChoose"/></span>
+        <span data-message="offer.modeLabel"><fmt:message key="portal.booking.offer.modeLabel"/></span>
+        <span data-message="offer.mode.in_person"><fmt:message key="portal.booking.offer.mode.in_person"/></span>
+        <span data-message="offer.mode.phone"><fmt:message key="portal.booking.offer.mode.phone"/></span>
+        <span data-message="offer.mode.video"><fmt:message key="portal.booking.offer.mode.video"/></span>
+        <span data-message="offer.loadingProviders"><fmt:message key="portal.booking.offer.loadingProviders"/></span>
+        <span data-message="offer.noProviders"><fmt:message key="portal.booking.offer.noProviders"/></span>
+        <span data-message="offer.providersFailed"><fmt:message key="portal.booking.offer.providersFailed"/></span>
+        <span data-message="offer.off"><fmt:message key="portal.booking.offer.off"/></span>
+        <span data-message="offer.noOpenTimes"><fmt:message key="portal.booking.offer.noOpenTimes"/></span>
+        <span data-message="offer.sentTimes"><fmt:message key="portal.booking.offer.sentTimes"/></span>
+        <span data-message="offer.noSchedule"><fmt:message key="portal.booking.offer.noSchedule"/></span>
     </div>
     <template data-role="withdraw-template">
         <% if (portalMayWrite) { %><button type="button" class="portal-booking-button small"><fmt:message key="portal.booking.withdraw"/></button><% } %>

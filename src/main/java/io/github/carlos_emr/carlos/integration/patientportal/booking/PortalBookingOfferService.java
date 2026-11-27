@@ -106,6 +106,41 @@ public class PortalBookingOfferService {
         return slots;
     }
 
+    /** A provider the staff dialog may offer times from: the number the action accepts, and a name to show. */
+    public record OfferableProvider(String providerNo, String name) {}
+
+    /**
+     * The active providers who have at least one time that {@link #offer} could offer between
+     * {@code from} and {@code to}, for the staff dialog's provider list. Built here, on the server,
+     * so the browser only ever sends back a provider number from this list (and the action still
+     * checks it again). Empty when the clinic has chosen no bookable template codes.
+     */
+    public List<OfferableProvider> offerableProviders(LocalDate from, LocalDate to, PortalBookingSettings settings) {
+        if (settings.offerableCodes().isEmpty()) {
+            return List.of();
+        }
+        ZonedDateTime now = ZonedDateTime.now(clock);
+        List<OfferableProvider> found = new ArrayList<>();
+        for (Provider provider : providers.getActiveProviders(true)) {
+            String number = provider.getProviderNo();
+            // Only a number the action accepts can be offered from; an odd one is left out of the list.
+            if (number == null || !number.matches("[A-Za-z0-9-]{1,6}") || !ACTIVE.equals(provider.getStatus())
+                    || !loader.hasOpenTime(number, from, to, settings, now)) {
+                continue;
+            }
+            found.add(new OfferableProvider(number, displayName(provider)));
+        }
+        found.sort((left, right) -> left.name().compareToIgnoreCase(right.name()));
+        return List.copyOf(found);
+    }
+
+    private static String displayName(Provider provider) {
+        String last = provider.getLastName() == null ? "" : provider.getLastName().strip();
+        String first = provider.getFirstName() == null ? "" : provider.getFirstName().strip();
+        String name = last.isEmpty() ? first : first.isEmpty() ? last : last + ", " + first;
+        return name.isEmpty() ? provider.getProviderNo() : name;
+    }
+
     /** The portal confirmed the prompt; its id lets a later pick be matched to its prompt. */
     @Transactional
     public void attachPrompt(String operationId, long promptId) {

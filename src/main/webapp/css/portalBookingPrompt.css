@@ -91,6 +91,18 @@
 .portal-booking [data-role="create"] { display: flex; flex-wrap: wrap; gap: .75rem; align-items: end; margin-bottom: .75rem; }
 .portal-booking label { display: flex; flex-direction: column; gap: .25rem; }
 .portal-booking-dialog select { font: inherit; padding: .4rem .6rem; }
+/* Offering open times with the request (#3850): the checkbox, then the provider, window and count
+   in a grid that wraps by itself (a narrow dialog never needs a sideways scroll). */
+.portal-booking-offer { flex: 1 1 100%; }
+.portal-booking-offer[hidden], .portal-booking-offer-fields[hidden],
+.portal-booking-dialog p.portal-booking-note[hidden] { display: none; }
+.portal-booking .portal-booking-check { flex-direction: row; align-items: center; gap: .5rem; }
+.portal-booking-offer-fields {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: .75rem; margin-top: .5rem;
+}
+.portal-booking-offer-fields input[type="number"] { font: inherit; padding: .4rem .6rem; width: 100%; box-sizing: border-box; }
+.portal-booking-offer-fields .portal-booking-muted { grid-column: 1 / -1; margin: 0; }
+.portal-booking-dialog p.portal-booking-note { background-color: #fff3cd; color: #664d03; border-radius: 3px; padding: 6px 10px; margin: .5rem 0 0; }
 .portal-booking-button {
     font: inherit; font-weight: 600; padding: .4rem .75rem; border-radius: 3px; cursor: pointer;
     background-color: var(--carlos-primary, #337ab7) !important; color: #fff !important; border: 0 !important;

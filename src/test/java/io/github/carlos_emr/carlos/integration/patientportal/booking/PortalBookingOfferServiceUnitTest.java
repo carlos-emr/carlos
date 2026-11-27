@@ -82,6 +82,53 @@ class PortalBookingOfferServiceUnitTest {
         verify(loader, never()).load(any(), any(), any(), anyInt(), anySet(), any(), any());
     }
 
+    private static io.github.carlos_emr.carlos.commn.model.Provider provider(String number, String status,
+            String last, String first) {
+        io.github.carlos_emr.carlos.commn.model.Provider provider = new io.github.carlos_emr.carlos.commn.model.Provider();
+        provider.setProviderNo(number);
+        provider.setStatus(status);
+        provider.setLastName(last);
+        provider.setFirstName(first);
+        return provider;
+    }
+
+    @Test
+    void shouldListOnlyProvidersWithOpenTime_byNameForTheDialog() {
+        when(providers.getActiveProviders(true)).thenReturn(List.of(
+                provider("102", "1", "Zeta", "Zoe"),
+                provider("101", "1", "Alpha", "Ann"),
+                provider("103", "1", "Beta", "Bo")));
+        when(loader.hasOpenTime(eq("101"), eq(FROM), eq(FROM.plusDays(13)), eq(SETTINGS), any())).thenReturn(true);
+        when(loader.hasOpenTime(eq("102"), eq(FROM), eq(FROM.plusDays(13)), eq(SETTINGS), any())).thenReturn(true);
+        when(loader.hasOpenTime(eq("103"), any(), any(), any(), any())).thenReturn(false);
+        assertThat(service.offerableProviders(FROM, FROM.plusDays(13), SETTINGS))
+                .containsExactly(new PortalBookingOfferService.OfferableProvider("101", "Alpha, Ann"),
+                        new PortalBookingOfferService.OfferableProvider("102", "Zeta, Zoe"));
+    }
+
+    @Test
+    void shouldLeaveOutAnInactiveProviderOrANumberTheActionWouldRefuse() {
+        when(providers.getActiveProviders(true)).thenReturn(List.of(
+                provider("101", "0", "Gone", "Gail"),
+                provider("1234567", "1", "Toolong", "Tia"),
+                provider("1 2", "1", "Spaced", "Sam"),
+                provider(null, "1", "Nameless", "Nan")));
+        when(loader.hasOpenTime(any(), any(), any(), any(), any())).thenReturn(true);
+        assertThat(service.offerableProviders(FROM, FROM.plusDays(13), SETTINGS)).isEmpty();
+        verify(loader, never()).hasOpenTime(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldShowTheNumberWhenAProviderHasNoName_andReadNothingWhenNoCodesAreChosen() {
+        when(providers.getActiveProviders(true)).thenReturn(List.of(provider("101", "1", " ", null)));
+        when(loader.hasOpenTime(any(), any(), any(), any(), any())).thenReturn(true);
+        assertThat(service.offerableProviders(FROM, FROM, SETTINGS)).extracting(
+                PortalBookingOfferService.OfferableProvider::name).containsExactly("101");
+        PortalBookingSettings none = new PortalBookingSettings(Set.of(), 24, "phone", "main", false, 60);
+        assertThat(service.offerableProviders(FROM, FROM, none)).isEmpty();
+        verify(providers, org.mockito.Mockito.times(1)).getActiveProviders(true);
+    }
+
     @Test
     void shouldKeepReplacementsInsideAYear_forARefusedTimeFarAhead() {
         PortalBookingOffer refused = stored("slot-a", 123, 19, 9);

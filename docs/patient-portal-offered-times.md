@@ -44,6 +44,32 @@ window. A visit longer than one template slot can be offered at each slot it may
 CARLOS reads these settings, and `patient_portal.enabled`, when it starts: restart CARLOS after
 changing any of them.
 
+## The staff dialog (offering times from the screen)
+
+In the booking dialog (the "Ask patient to book a follow-up" box on the patient's record and on an
+appointment), staff tick **Offer open times with the request** and choose:
+
+- **Offer times from:** a provider. The list is built by the server for the chosen window
+  (`PortalBookingPrompt2Action`, `method=providers`, POST only): the active providers who have at
+  least one open time on a bookable template code in the window, listed by name. The browser only
+  sends back a provider number from that list, and the action checks it again. Listing needs the
+  same two privileges as offering (booking prompt write and schedule write).
+- **Start in / Look within (days)** and **How many times:** the window (`offerAfterDays`,
+  `offerWithinDays`, up to 92) and the count (`offerCount`, 1 to 8). Changing the window asks the
+  server for the providers again.
+- **The visit mode is shown read-only** ("The times are shown to the patient as: By phone"): it is
+  the clinic's one `patient_portal.booking.visit_mode`. Choosing a mode per request waits for a
+  column on `portal_booking_offer` (the booking-sync job offers replacement times for a refused pick
+  and must give them the same mode the prompt had).
+
+The dialog says so, in words, when offering cannot work: **offering is not set up** (no
+`patient_portal.booking.offerable_codes`, so the toggle is off and the request still goes without
+times), **no schedule access** (the user may not offer), **no provider has open times in that
+window**, and **no bookable times were found** when a request is refused for that (409
+`no_open_times`; nothing was stored, so the window can be changed and sent again). A retry of an
+unconfirmed request keeps the provider and window it was first sent with, because the portal refuses a
+retry whose times differ. The panel (`method=panel`) carries an `offering` part for all of this.
+
 `patient_portal.booking.sync.provider_no` is no longer used: the job signs with its own key
 (below), not as a provider. Remove it from `carlos.properties`. If a non-login provider was made
 for the old sync, deactivate it rather than delete it, so its past log rows still show its name.

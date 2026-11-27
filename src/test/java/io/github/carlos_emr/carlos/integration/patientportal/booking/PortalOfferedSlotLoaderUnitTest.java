@@ -26,6 +26,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyChar;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
@@ -162,6 +165,45 @@ class PortalOfferedSlotLoaderUnitTest {
         // Monday morning, Tuesday morning, Monday afternoon, Tuesday afternoon; listed in time order.
         assertThat(times).extracting(time -> time.start().toLocalDateTime().toString()).containsExactly(
                 "2026-10-19T09:00", "2026-10-19T14:00", "2026-10-20T09:00", "2026-10-20T15:00");
+    }
+
+    @Test
+    void shouldHaveAnOpenTime_whenABookableTimeIsInTheWindow() {
+        template(MONDAY, Map.of("09:00", 'B', "09:15", 'A'));
+        assertThat(loader.hasOpenTime("101", MONDAY, MONDAY, SETTINGS, NOW)).isTrue();
+    }
+
+    @Test
+    void shouldHaveNoOpenTime_whenNothingBookableIsLeftInTheWindow() {
+        // Only another code, so nothing is bookable.
+        template(MONDAY, Map.of("09:00", 'A', "09:15", 'A'));
+        assertThat(loader.hasOpenTime("101", MONDAY, MONDAY, SETTINGS, NOW)).isFalse();
+        // The one bookable time is taken.
+        template(MONDAY, Map.of("09:00", 'B'));
+        when(appointments.findByProviderAndDayandNotStatus(eq("101"), any(), eq("C")))
+                .thenReturn(List.of(booked(MONDAY, "09:00", "09:14")));
+        assertThat(loader.hasOpenTime("101", MONDAY, MONDAY, SETTINGS, NOW)).isFalse();
+        // A bookable time inside the lead time (24 hours) is not offerable, so it does not count.
+        when(appointments.findByProviderAndDayandNotStatus(eq("101"), any(), eq("C"))).thenReturn(List.of());
+        ZonedDateTime tooLate = MONDAY.atTime(8, 0).atZone(ZONE);
+        assertThat(loader.hasOpenTime("101", MONDAY, MONDAY, SETTINGS, tooLate)).isFalse();
+        // And a window that ends before it starts has none.
+        assertThat(loader.hasOpenTime("101", MONDAY, MONDAY.minusDays(1), SETTINGS, NOW)).isFalse();
+    }
+
+    @Test
+    void shouldHaveNoOpenTime_andReadNoSchedule_whenTheClinicChoseNoCodes() {
+        PortalBookingSettings none = new PortalBookingSettings(Set.of(), 24, "in_person", null, false, 60);
+        assertThat(loader.hasOpenTime("101", MONDAY, MONDAY.plusDays(14), none, NOW)).isFalse();
+        verify(schedules, never()).getDayWorkSchedule(any(), any());
+    }
+
+    @Test
+    void shouldStopAtTheFirstDayWithATime_whenLookingForOne() {
+        template(MONDAY, Map.of("09:00", 'B'));
+        assertThat(loader.hasOpenTime("101", MONDAY, MONDAY.plusDays(60), SETTINGS, NOW)).isTrue();
+        // One day read, not sixty-one: the dialog asks this of every provider.
+        verify(schedules, times(1)).getDayWorkSchedule(any(), any());
     }
 
     @Test

@@ -13,6 +13,33 @@
     const URGENCIES = ['routine', 'soon', 'as_soon_as_possible'];
     const BOOKING_KINDS = ['follow_up', 'annual_exam', 'lab_review'];
     const choice = (options, value) => options.find(option => option === value);
+    // The provider list is built by the server for the chosen window, but a retry kept in this
+    // browser's storage is checked again before it is reused: a provider number the action accepts.
+    const PROVIDER_NUMBER = /^[A-Za-z0-9-]{1,6}$/;
+    const VISIT_MODES = ['in_person', 'phone', 'video'];
+    // The reasons the action refuses an offer with before anything reaches the portal.
+    const OFFER_REFUSALS = ['no_open_times', 'offering_off'];
+    const WINDOW_DEBOUNCE_MS = 400;
+    const wholeNumber = (value, min, max) => {
+        const text = String(value).trim();
+        const number = Number(text);
+        return /^\d{1,3}$/.test(text) && Number.isInteger(number) && number >= min && number <= max ? number : null;
+    };
+    // The offer kept with a retry: the provider and the window it was first sent with, so that a
+    // retry sends the same (the action gives a retried operation the times it already offered).
+    function validOffer(offer) {
+        return !!offer && typeof offer === 'object' && PROVIDER_NUMBER.test(String(offer.provider))
+            && wholeNumber(offer.after, 0, 365) !== null && wholeNumber(offer.within, 1, 92) !== null
+            && wholeNumber(offer.count, 1, 8) !== null;
+    }
+    // What the panel says about offering open times; anything that is not that shape means "not offered".
+    function parseOffering(value) {
+        const valid = !!value && typeof value === 'object' && typeof value.mayOffer === 'boolean'
+            && typeof value.codesConfigured === 'boolean' && VISIT_MODES.includes(value.visitMode)
+            && [value.maxAfterDays, value.maxWithinDays, value.maxCount].every(limit =>
+                Number.isInteger(limit) && limit > 0 && limit <= 366);
+        return valid ? value : null;
+    }
     function newOperationId() {
         if (crypto.randomUUID) { return crypto.randomUUID(); }
         // randomUUID needs a secure context (HTTPS or localhost); getRandomValues does not.
@@ -30,14 +57,33 @@
             const node = root.querySelector('[data-message="' + key + '"]');
             return node ? node.textContent : '';
         };
+        // How many open times the last request was sent with, for the "sent" message that follows.
+        let sentTimes = 0;
+        const text = key => key === 'offer.sentTimes'
+            ? message(key).replace('{count}', String(sentTimes)) : message(key);
         const status = (...keys) => {
-            role('status').textContent = keys.filter(Boolean).map(message).join(' ');
+            role('status').textContent = keys.flat().filter(Boolean).map(text).join(' ');
         };
         const create = role('create');
         const send = role('send');
         const urgency = role('urgency');
         const type = role('appointmentType');
+        // Offering open times with the request (#3850). Absent when the user may not create.
+        const offerGroup = role('offer');
+        const offerToggle = role('offerToggle');
+        const offerNote = role('offerNote');
+        const offerFields = role('offerFields');
+        const offerProvider = role('offerProvider');
+        const offerAfter = role('offerAfter');
+        const offerWithin = role('offerWithin');
+        const offerCount = role('offerCount');
+        const offerMode = role('offerMode');
         const key = 'portal.booking.pending:' + root.dataset.actor + ':' + root.dataset.patient;
+        // What the panel said about offering, and the provider list for the window last asked for.
+        let offering = null;
+        let providersRequest = 0;
+        let providersState = '';
+        let windowTimer = null;
         let pending = null;
         let busy = false;
         let eligible = false;
@@ -61,7 +107,8 @@
                 pending = JSON.parse(saved);
                 if (!/^[a-f0-9-]{36}$/.test(pending.operationId)
                         || !URGENCIES.includes(pending.urgency)
-                        || !BOOKING_KINDS.includes(pending.appointmentType)) {
+                        || !BOOKING_KINDS.includes(pending.appointmentType)
+                        || (pending.offer !== undefined && !validOffer(pending.offer))) {
                     throw new Error('invalid pending request');
                 }
             }
@@ -83,8 +130,89 @@
                 type.value = pending.appointmentType;
             }
             urgency.disabled = type.disabled = busy || !!pending;
-            send.disabled = busy || !eligible || !storageReady;
+            updateOffer();
+            send.disabled = busy || !eligible || !storageReady || (offerOn() && !offerProvider.value);
             send.textContent = message(pending ? 'retry' : 'send');
+        }
+        // Whether the request will carry open times: the box is on, and offering is possible.
+        function offerOn() {
+            return !!offerToggle && offerToggle.checked && !offerToggle.disabled;
+        }
+        function setOfferValues(offer) {
+            offerAfter.value = String(offer.after);
+            offerWithin.value = String(offer.within);
+            offerCount.value = String(offer.count);
+            if (!Array.from(offerProvider.options).some(option => option.value === offer.provider)) {
+                // A retry from before this page loaded: the provider is shown by its number until
+                // the list is read again (a name is never taken from storage).
+                offerProvider.append(new Option(offer.provider, offer.provider));
+            }
+            offerProvider.value = offer.provider;
+        }
+        // The offer controls follow what the panel said, the retry kept in storage, and the list.
+        function updateOffer() {
+            if (!offerGroup) { return; }
+            offerGroup.hidden = !offering;
+            if (!offering) { return; }
+            if (pending) {
+                offerToggle.checked = !!pending.offer;
+                if (pending.offer) { setOfferValues(pending.offer); }
+            }
+            const possible = offering.mayOffer && offering.codesConfigured;
+            offerToggle.disabled = busy || !!pending || !possible;
+            if (!possible) { offerToggle.checked = false; }
+            offerFields.hidden = !offerToggle.checked;
+            [offerProvider, offerAfter, offerWithin, offerCount].forEach(field => {
+                field.disabled = busy || !!pending;
+            });
+            const noteKey = !offering.codesConfigured ? 'offer.off' : !offering.mayOffer ? 'offer.noSchedule'
+                : offerToggle.checked ? providersState : '';
+            offerNote.textContent = noteKey ? message(noteKey) : '';
+            offerNote.hidden = !noteKey;
+            offerMode.textContent = message('offer.modeLabel') + ' ' + message('offer.mode.' + offering.visitMode);
+        }
+        // The providers with bookable time in the window, asked of the server (never built here).
+        async function loadProviders() {
+            if (!offerOn() || !offering) { return; }
+            const after = wholeNumber(offerAfter.value, 0, offering.maxAfterDays);
+            const within = wholeNumber(offerWithin.value, 1, offering.maxWithinDays);
+            // A window that is not valid is reported by the field itself when the request is sent.
+            if (after === null || within === null) { return; }
+            const request = ++providersRequest;
+            providersState = 'offer.loadingProviders';
+            update();
+            try {
+                const body = await post({ method: 'providers', offerAfterDays: String(after),
+                    offerWithinDays: String(within) });
+                if (request !== providersRequest) { return; }
+                if (!Array.isArray(body.providers) || !body.providers.every(provider =>
+                        provider && PROVIDER_NUMBER.test(String(provider.providerNo))
+                        && typeof provider.name === 'string')) {
+                    throw new Error('invalid provider list');
+                }
+                const previous = offerProvider.value;
+                offerProvider.replaceChildren(new Option(message('offer.providerChoose'), ''));
+                body.providers.forEach(provider => offerProvider.append(new Option(provider.name, provider.providerNo)));
+                if (previous && body.providers.some(provider => provider.providerNo === previous)) {
+                    offerProvider.value = previous;
+                }
+                providersState = body.providers.length ? ''
+                    : body.codesConfigured === false ? 'offer.off' : 'offer.noProviders';
+            } catch (_) {
+                if (request === providersRequest) { providersState = 'offer.providersFailed'; }
+            } finally { if (request === providersRequest) { update(); } }
+        }
+        // The parameters of a create request for a kept request (its offer, if it has one, flattened).
+        function createParams(request) {
+            const params = { operationId: request.operationId, urgency: request.urgency,
+                appointmentType: request.appointmentType };
+            if (request.offer) {
+                params.offerFrom = request.offer.provider;
+                params.offerAfterDays = String(request.offer.after);
+                params.offerWithinDays = String(request.offer.within);
+                params.offerCount = String(request.offer.count);
+            }
+            return params;
         }
         async function csrfToken() {
             // csrf-token.jspf publishes its token fetch as window.csrfTokenReady on
@@ -120,6 +248,11 @@
                 if (!response.ok) {
                     const failure = new Error('request failed');
                     failure.status = response.status;
+                    // The action says why it refused an offer (no open time, offering not set up).
+                    try {
+                        const refusal = await response.json();
+                        if (typeof refusal.reason === 'string') { failure.reason = refusal.reason; }
+                    } catch (_) { /* a refusal without a body has no reason to show */ }
                     throw failure;
                 }
                 const body = await response.json();
@@ -220,6 +353,12 @@
                     throw new Error('invalid panel');
                 }
                 eligible = body.mayCreate && body.accountActive === true;
+                offering = parseOffering(body.offering);
+                if (offering && offerAfter) {
+                    offerAfter.max = String(offering.maxAfterDays);
+                    offerWithin.max = String(offering.maxWithinDays);
+                    offerCount.max = String(offering.maxCount);
+                }
                 mayWithdraw = body.mayWithdraw;
                 accountInactive = body.mayCreate && !eligible;
                 withdrawFailed = false;
@@ -233,7 +372,7 @@
                     status(lead, inactive || (lead ? null : storageReady ? 'ready' : 'storage'));
                 }
             } catch (_) {
-                eligible = false; mayWithdraw = false; accountInactive = false; shownPrompts = null;
+                eligible = false; mayWithdraw = false; accountInactive = false; shownPrompts = null; offering = null;
                 role('prompts').replaceChildren();
                 role('summary').textContent = message('unavailable');
                 role('openCount').hidden = true;
@@ -253,6 +392,19 @@
                     const chosenType = choice(BOOKING_KINDS, type.value);
                     if (!chosenUrgency || !chosenType) { update(); return; }
                     const request = { operationId: newOperationId(), urgency: chosenUrgency, appointmentType: chosenType };
+                    if (offerOn()) {
+                        // The window and count are whole numbers inside the limits the panel gave (the
+                        // fields say what is wrong); the provider is one the server listed.
+                        const offer = { provider: offerProvider.value,
+                            after: wholeNumber(offerAfter.value, 0, offering.maxAfterDays),
+                            within: wholeNumber(offerWithin.value, 1, offering.maxWithinDays),
+                            count: wholeNumber(offerCount.value, 1, offering.maxCount) };
+                        const bad = [[offerAfter, offer.after], [offerWithin, offer.within], [offerCount, offer.count]]
+                            .find(([, value]) => value === null);
+                        if (bad) { bad[0].reportValidity(); bad[0].focus(); update(); return; }
+                        if (!PROVIDER_NUMBER.test(offer.provider)) { offerProvider.focus(); update(); return; }
+                        request.offer = offer;
+                    }
                     sessionStorage.setItem(key, JSON.stringify(request));
                     pending = request;
                 }
@@ -260,18 +412,28 @@
             busy = true; update(); status('sending');
             let confirmed = false;
             let refused = false;
+            // What to say when the action refused before anything reached the portal.
+            let refusalKey = 'notSent';
             try {
-                const body = await post(Object.assign({ method: 'create' }, pending));
+                const body = await post(Object.assign({ method: 'create' }, createParams(pending)));
                 if (!validPrompt(body.prompt) || typeof body.created !== 'boolean'
                         || body.prompt.urgency !== pending.urgency
                         || body.prompt.appointmentType !== pending.appointmentType) {
                     throw new Error('invalid confirmation');
                 }
                 sessionStorage.removeItem(key);
+                sentTimes = pending.offer && Number.isInteger(body.offeredTimes) && body.offeredTimes > 0
+                    ? body.offeredTimes : 0;
                 pending = null; confirmed = true;
-                status('sent');
+                status('sent', sentTimes > 0 ? 'offer.sentTimes' : null);
             } catch (failure) {
-                refused = failure.notSent === true || DEFINITE_REFUSALS.includes(failure.status);
+                // No open time in the window, or offering not set up: nothing was stored, so the
+                // retry identity goes and staff can change the window and send again.
+                const offerRefused = failure.status === 409 && OFFER_REFUSALS.includes(failure.reason);
+                if (offerRefused) {
+                    refusalKey = failure.reason === 'no_open_times' ? 'offer.noOpenTimes' : 'offer.off';
+                }
+                refused = offerRefused || failure.notSent === true || DEFINITE_REFUSALS.includes(failure.status);
                 if (refused && fresh) {
                     try { sessionStorage.removeItem(key); } catch (_) { /* nothing left to retry */ }
                     pending = null;
@@ -281,9 +443,9 @@
                 }
             }
             finally { busy = false; update(); }
-            if (confirmed) { await refresh('sent'); }
+            if (confirmed) { await refresh(sentTimes > 0 ? ['sent', 'offer.sentTimes'] : 'sent'); }
             // A refusal says so, then shows the refreshed state (for example, not on the portal).
-            if (refused) { await refresh(pending ? null : 'notSent'); }
+            if (refused) { await refresh(pending ? null : refusalKey); }
         }
         async function withdraw(id) {
             if (busy || !mayWithdraw || !samePatient()) { update(); return; }
@@ -302,6 +464,16 @@
             // A failed withdrawal stays disabled until staff refresh the confirmed status.
         }
         if (send) { send.addEventListener('click', submit); }
+        if (offerGroup) {
+            // Turning offering on asks the server which providers have bookable time in the window; a
+            // change to the window asks again, once the typing has paused.
+            offerToggle.addEventListener('change', () => { update(); if (offerToggle.checked) { loadProviders(); } });
+            offerProvider.addEventListener('change', update);
+            [offerAfter, offerWithin].forEach(input => input.addEventListener('input', () => {
+                clearTimeout(windowTimer);
+                windowTimer = setTimeout(loadProviders, WINDOW_DEBOUNCE_MS);
+            }));
+        }
         if (patientInput) {
             patientInput.addEventListener('input', update);
             patientInput.addEventListener('change', update);
