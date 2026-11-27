@@ -47,6 +47,7 @@ import io.github.carlos_emr.carlos.commn.model.LabTestResults;
 import io.github.carlos_emr.carlos.commn.model.MdsMSH;
 import io.github.carlos_emr.carlos.commn.model.MdsOBX;
 import io.github.carlos_emr.carlos.commn.model.MdsZMN;
+import io.github.carlos_emr.carlos.commn.model.MeasurementsExt;
 import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -236,6 +237,7 @@ public class CommonLabTestValues {
             h.put("date", dateObserved);
             h.put("abn", abnormal);
             h.put("collDateDate", dateObserved);
+            putValueType(h, i, 4);
             labList.add(h);
         }
 
@@ -271,6 +273,7 @@ public class CommonLabTestValues {
             h.put("abn", abnormal);
             h.put("collDateDate", dateObserved);
             h.put("units", units);
+            putValueType(h, i, 5);
             labList.add(h);
         }
 
@@ -466,40 +469,49 @@ public class CommonLabTestValues {
 
         } else if (labType != null && labType.equals("HL7")) {
             MeasurementDao dao = SpringUtils.getBean(MeasurementDao.class);
+            // The history reads each value from its report. A value filed as text is labelled so (#6122),
+            // matched by its report and its OBX position: another result with the same code in that report
+            // may be a number.
+            Set<String> textResults = new HashSet<>();
+            for (Object[] position : dao.findTextResultPositions(demographicNo == null ? 0 : demographicNo, identCode)) {
+                textResults.add(position[0] + "/" + position[1]);
+            }
 
             for (Object lNo : dao.findLabNumbers(demographicNo == null ? 0 : demographicNo, identCode)) {
                 String lab_no = String.valueOf(lNo);
 
                 MessageHandler handler = Factory.getHandler(lab_no);
-                HashMap<String, Serializable> h = new HashMap<String, Serializable>();
-                int i = 0;
-                while (i < handler.getOBRCount() && h.get("testName") == null) {
+                // One history row for each observation of this identifier in the report, each marked by its
+                // own OBR-OBX position: a report can hold 5.7 and then a filed Not detected with the same
+                // code, and the graph can then count the text result it leaves out (#6142 review).
+                for (int i = 0; i < handler.getOBRCount(); i++) {
                     for (int j = 0; j < handler.getOBXCount(i); j++) {
-                        if (handler.getOBXIdentifier(i, j).equals(identCode)) {
+                        if (!handler.getOBXIdentifier(i, j).equals(identCode)) {
+                            continue;
+                        }
+                        String result = handler.getOBXResult(i, j);
 
-                            String result = handler.getOBXResult(i, j);
-
-                            // only add measurements with actual results
-                            if (!result.equals("")) {
-                                h.put("testName", testName);
-                                h.put("abn", handler.getOBXAbnormalFlag(i, j));
-                                h.put("result", result);
-                                h.put("range", handler.getOBXReferenceRange(i, j));
-                                h.put("units", handler.getOBXUnits(i, j));
-                                h.put("lab_no", lab_no);
-
-                                String collDate = handler.getServiceDate();
-                                if (collDate == null || collDate.isEmpty()) {
-                                    collDate = handler.getTimeStamp(i, j);
-                                }
-                                h.put("collDate", collDate);
-                                labList.add(h);
-                                break;
+                        // only add measurements with actual results
+                        if (!result.equals("")) {
+                            HashMap<String, Serializable> h = new HashMap<String, Serializable>();
+                            h.put("testName", testName);
+                            h.put("abn", handler.getOBXAbnormalFlag(i, j));
+                            h.put("result", result);
+                            h.put("range", handler.getOBXReferenceRange(i, j));
+                            h.put("units", handler.getOBXUnits(i, j));
+                            h.put("lab_no", lab_no);
+                            if (textResults.contains(lab_no + "/" + i + "-" + j)) {
+                                h.put(VALUE_TYPE, MeasurementsExt.TEXT_VALUE_TYPE);
                             }
 
+                            String collDate = handler.getServiceDate();
+                            if (collDate == null || collDate.isEmpty()) {
+                                collDate = handler.getTimeStamp(i, j);
+                            }
+                            h.put("collDate", collDate);
+                            labList.add(h);
                         }
                     }
-                    i++;
                 }
             }
 
@@ -524,6 +536,24 @@ public class CommonLabTestValues {
         });
 
         return labList;
+    }
+
+    /**
+     * Key of a value row that holds {@link MeasurementsExt#TEXT_VALUE_TYPE} when the result was filed as
+     * text (#6122); absent otherwise. The grid, value history and Row Display label such a value.
+     */
+    public static final String VALUE_TYPE = "valueType";
+
+    /** Copies a query row's trailing value_type column, when present and set, into a value row. */
+    private static void putValueType(Map<String, Serializable> row, Object[] columns, int index) {
+        if (columns.length > index && columns[index] != null) {
+            row.put(VALUE_TYPE, String.valueOf(columns[index]));
+        }
+    }
+
+    /** {@code true} when a value row from this class was filed as text (#6122). */
+    public static boolean isTextResult(Map<String, ?> row) {
+        return row != null && MeasurementsExt.TEXT_VALUE_TYPE.equals(row.get(VALUE_TYPE));
     }
 
     private static String parseObservationId(String id) {

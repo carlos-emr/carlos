@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/dao/MeasurementDao.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "11de43f17c18b494ca3e90a5d98a851b776e5a8a"
+  },
+  "evidenceSha256": "2a62d880533d92a73a49731f8e6bc896d86dbcefd550c1da566c195e5f5a0552"
+}

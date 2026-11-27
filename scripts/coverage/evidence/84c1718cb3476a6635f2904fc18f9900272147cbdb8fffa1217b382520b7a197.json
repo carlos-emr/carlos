@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "64b95ce270959967e56d2c182016921cfe3f60a0",
+  "comparisonSha256": "35921282a7eae8e20b8aaef700cd3e9588912d5123930d5db10076e63b9f848f",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/Hl7textResultsData.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "90a5ee0e530a16282708d4023b8d85789282c362"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/LabMeasurementFilingService.java": {
+      "lines": 99.15254237288136,
+      "instructions": 99.81024667931689,
+      "branches": 100.0,
+      "sourceBlob": "6b28fab67145ccf1008334aba7a0470d2e4e4d30"
+    }
+  },
+  "baselineCommit": "ab078850b4457015ea8218bccf97e818e3505b85",
+  "baselineSourceTree": "64b95ce270959967e56d2c182016921cfe3f60a0",
+  "baselineReportSha256": "a2aba0e5fedac4f502b3ee88a2b75e67327a1106f5f9962bfa846d059ee0cb71",
+  "baselineLane": "Focused offline JDK 25 Maven test and JaCoCo report across eight lab filing suites; 305 tests passed, zero failures, errors or skips."
+}

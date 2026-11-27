@@ -34,10 +34,12 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.Hashtable;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.Vector;
 
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
@@ -213,8 +215,18 @@ public class EctMeasurementsDataBeanHandler {
                 sourceLabs.put(extension.getMeasurementId(), LabPatientAccess.positiveIdentity(extension.getVal()));
             }
         }
+        // A result filed as the lab's own words is marked on the measurement (#6122); a graph counts it as
+        // not shown instead of reading it as a number, or as a malformed blood pressure.
+        Set<Integer> filedAsText = new HashSet<>();
+        for (MeasurementsExt extension : extensions.findByMeasurementIdsAndKey(new ArrayList<>(sourceLabs.keySet()),
+                MeasurementsExt.VALUE_TYPE_KEY)) {
+            if (MeasurementsExt.TEXT_VALUE_TYPE.equals(extension.getVal())) {
+                filedAsText.add(extension.getMeasurementId());
+            }
+        }
         for (EctMeasurementsDataBean measurement : measurements) {
             measurement.setSourceLabNo(sourceLabs.get(measurement.getId()));
+            measurement.setFiledAsText(filedAsText.contains(measurement.getId()));
         }
     }
 

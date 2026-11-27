@@ -112,7 +112,7 @@ public class LabMeasurementFilingConcurrencyIntegrationTest extends CarlosTestBa
 
     private LabMeasurementFilingService service(Hl7TextInfoChainLockDao chainLocks, String chain) {
         return new LabMeasurementFilingService(transactions, chainLocks, measurementDao, measurementsExtDao,
-                measurementsDeletedDao, lab -> chain);
+                measurementsDeletedDao, (lab, patient) -> chain);
     }
 
     private int storedReport(String accession) {

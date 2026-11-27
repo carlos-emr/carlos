@@ -18,6 +18,7 @@ import io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -351,6 +352,13 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
         assertThat(rendered.get().toConfig()).containsEntry("medicationPanel", true);
         var datasets = (List<Map<String, Object>>) rendered.get().toConfig().get("datasets");
         assertThat(datasets).singleElement().satisfies(dataset -> assertThat((List<?>) dataset.get("data")).isEmpty());
+        if (lookupFails) {
+            assertThat(rendered.get().toConfig()).doesNotContainKey("note");
+        } else {
+            // CodeRabbit review: the number has no date to place it by, so it is counted as not shown.
+            assertThat(rendered.get().toConfig()).containsEntry("note",
+                    "Results not shown on this chart: 1. Open the full report to see them.");
+        }
     }
 
     // The other charts the graph action draws, all from FAKE values.
@@ -397,9 +405,79 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
 
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(rendered.get().toConfig()).containsEntry("yLabel", "kg").containsEntry("secondAxis", "cm");
+        assertThat(rendered.get().toConfig()).doesNotContainKey("note");
         assertThat(datasets(rendered.get()))
                 .extracting(dataset -> dataset.get("label"), dataset -> dataset.get("yAxisID"))
                 .containsExactly(tuple("Weight", "y"), tuple("Height", "y2"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"inclRef", "rxincl", "lab", "labRef"})
+    void shouldReportOmittedText_whenAMeasurementChartAlsoHasANumber(String method) throws Exception {
+        request.setParameter("method", method);
+        AtomicReference<MeasurementChart> rendered = new AtomicReference<>();
+        executeChartFrom(type -> List.of(fromReport(measurement("WT", "Weight", "kg", "Pending")),
+                measurement("WT", "Weight", "kg", "63")), rendered);
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(rendered.get().toConfig()).containsEntry("note",
+                "Results not shown on this chart: 1. Open the full report to see them.");
+        assertThat(datasets(rendered.get())).filteredOn(dataset -> "line".equals(dataset.get("kind")))
+                .singleElement().satisfies(dataset -> assertThat(points(dataset))
+                        .extracting(point -> point.get("y")).containsExactly(63.0));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"inclRef", "rxincl", "lab", "labRef"})
+    void shouldOmitAResultFiledAsText_whenItsWordsStartWithANumber(String method) throws Exception {
+        // #6142 review: "2 bands present" filed as text is the lab's words, not a reading of 2. A value
+        // without the marker is still read as a number, with or without its unit.
+        request.setParameter("method", method);
+        AtomicReference<MeasurementChart> rendered = new AtomicReference<>();
+        EctMeasurementsDataBean filed = measurement("WT", "Weight", "kg", "2 bands present");
+        filed.setFiledAsText(true);
+        filed.setDateObservedAsDate(new Date(1_705_363_200_000L));
+        executeChartFrom(type -> List.of(measurement("WT", "Weight", "kg", "63 kg"), filed), rendered);
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(rendered.get().toConfig()).containsEntry("note",
+                "Results not shown on this chart: 1. Open the full report to see them.");
+        assertThat(datasets(rendered.get())).filteredOn(dataset -> "line".equals(dataset.get("kind")))
+                .singleElement().satisfies(dataset -> assertThat(points(dataset))
+                        .extracting(point -> point.get("y")).containsExactly(63.0));
+    }
+
+    @Test
+    void shouldCountOmittedResultsFromBothAxes_inTheBrowserLanguage() throws Exception {
+        request.setParameter("type2", "HT");
+        request.addHeader("Accept-Language", "fr");
+        request.addPreferredLocale(Locale.FRENCH);
+        AtomicReference<MeasurementChart> rendered = new AtomicReference<>();
+        executeChartFrom(type -> "HT".equals(type)
+                ? List.of(fromReport(measurement("HT", "Height", "cm", "Not detected")), measurement("HT", "Height", "cm", "170"))
+                : List.of(fromReport(measurement("WT", "Weight", "kg", "Pending")), measurement("WT", "Weight", "kg", "63")), rendered);
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(rendered.get().toConfig()).containsEntry("note",
+                "Résultats non affichés sur ce graphique : 2. Ouvrez le compte rendu complet pour les voir.");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"inclRef", "rxincl", "lab", "labRef"})
+    void shouldLeaveAValueEnteredByHandOutOfTheNote_whenItIsNotANumber(String method) throws Exception {
+        // CodeRabbit review: the note sends the reader to the full report. A value typed into the chart has none,
+        // so only the result filed from a report is counted; the hand-entered N/A stays off the chart, as before.
+        request.setParameter("method", method);
+        AtomicReference<MeasurementChart> rendered = new AtomicReference<>();
+        executeChartFrom(type -> List.of(measurement("WT", "Weight", "kg", "N/A"),
+                fromReport(measurement("WT", "Weight", "kg", "Pending")), measurement("WT", "Weight", "kg", "63")), rendered);
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(rendered.get().toConfig()).containsEntry("note",
+                "Results not shown on this chart: 1. Open the full report to see them.");
+        assertThat(datasets(rendered.get())).filteredOn(dataset -> "line".equals(dataset.get("kind")))
+                .singleElement().satisfies(dataset -> assertThat(points(dataset))
+                        .extracting(point -> point.get("y")).containsExactly(63.0));
     }
 
     @Test
@@ -411,12 +489,45 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
                 measurement("BP", "Blood pressure", "mmHg", "")), rendered);
 
         assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(rendered.get().toConfig()).doesNotContainKey("note");
         assertThat(datasets(rendered.get())).filteredOn(dataset -> "line".equals(dataset.get("kind")))
                 .extracting(dataset -> dataset.get("label"), dataset -> points(dataset).getFirst().get("y"))
                 .containsExactly(tuple("Diastolic", 80.0), tuple("Systolic", 120.0));
         assertThat(datasets(rendered.get())).filteredOn(dataset -> "range".equals(dataset.get("kind")))
                 .singleElement().satisfies(range -> assertThat(points(range)).isEmpty());
         verifyNoInteractions(extensions);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"lab", "labRef", "rxincl", "inclRef"})
+    void shouldCountAFiledTextBloodPressureAsOmitted_andKeepBothSeries(String method) throws Exception {
+        // #6142 review: 120/80 and a final Pending filed as text in the same history. The request must not
+        // fail with 422; the text reading is counted as not shown and the numeric pair keeps both series.
+        request.setParameter("method", method);
+        request.setParameter("type", "BP");
+        AtomicReference<MeasurementChart> rendered = new AtomicReference<>();
+        EctMeasurementsDataBean filed = measurement("BP", "Blood pressure", "mmHg", "Pending");
+        filed.setFiledAsText(true);
+        executeChartFrom(type -> List.of(measurement("BP", "Blood pressure", "mmHg", "120/80"), filed), rendered);
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(rendered.get().toConfig()).containsEntry("note",
+                "Results not shown on this chart: 1. Open the full report to see them.");
+        assertThat(datasets(rendered.get())).filteredOn(dataset -> "line".equals(dataset.get("kind")))
+                .extracting(dataset -> dataset.get("label"), dataset -> points(dataset).getFirst().get("y"))
+                .containsExactly(tuple("Diastolic", 80.0), tuple("Systolic", 120.0));
+    }
+
+    @Test
+    void shouldStillAnswer422_whenAnUnmarkedBloodPressureIsMalformedBesideAFiledText() throws Exception {
+        request.setParameter("type", "BP");
+        AtomicReference<MeasurementChart> rendered = new AtomicReference<>();
+        EctMeasurementsDataBean filed = measurement("BP", "Blood pressure", "mmHg", "Pending");
+        filed.setFiledAsText(true);
+        executeChartFrom(type -> List.of(filed, measurement("BP", "Blood pressure", "mmHg", "120")), rendered);
+
+        assertThat(rendered).hasNullValue();
+        assertThat(response.getStatus()).isEqualTo(422);
     }
 
     @Test
@@ -670,6 +781,65 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
     }
 
     private MeasurementChart executeLabChart(Map<String, Serializable> value) throws Exception {
+        return executeLabChart(List.of(value));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldReportTextResultsOmittedFromTheLabPlot_withOrWithoutMedications(boolean withMedications) throws Exception {
+        if (withMedications) {
+            request.setParameter("drug", new String[0]);
+        }
+        Map<String, Serializable> numeric = labValue("");
+        Map<String, Serializable> text = new java.util.HashMap<>(numeric);
+        text.put("result", "Resistant");
+        MeasurementChart chart = executeLabChart(List.of(text, numeric));
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(chart.toConfig()).containsEntry("note",
+                "Results not shown on this chart: 1. Open the full report to see them.");
+        assertThat(datasets(chart)).singleElement().satisfies(dataset -> assertThat(points(dataset))
+                .extracting(point -> point.get("y")).containsExactly(4.2));
+    }
+
+    @Test
+    void shouldCountALabNumber_whenTheSourceGaveItNoCollectionDate() throws Exception {
+        Map<String, Serializable> undated = new java.util.HashMap<>(labValue(""));
+        undated.remove("collDate");
+        undated.remove("collDateDate");
+        undated.put("result", "5.0");
+        MeasurementChart chart = executeLabChart(List.of(labValue(""), undated));
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(chart.toConfig()).containsEntry("note",
+                "Results not shown on this chart: 1. Open the full report to see them.");
+        assertThat(datasets(chart)).singleElement().satisfies(dataset -> assertThat(points(dataset))
+                .extracting(point -> point.get("y")).containsExactly(4.2));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldOmitALabRowFiledAsText_whenItsWordsStartWithANumber(boolean withMedications) throws Exception {
+        // #6142 review: a source-lab row marked as filed text is counted as not shown, not plotted at 2.
+        if (withMedications) {
+            request.setParameter("drug", new String[0]);
+        }
+        Map<String, Serializable> text = new java.util.HashMap<>(labValue(""));
+        text.put("result", "2 bands present");
+        text.put("collDateDate", new Date(1_705_363_200_000L));
+        text.put(CommonLabTestValues.VALUE_TYPE, MeasurementsExt.TEXT_VALUE_TYPE);
+        Map<String, Serializable> unmarked = new java.util.HashMap<>(labValue(""));
+        unmarked.put("result", "4.2 mmol/L");
+        MeasurementChart chart = executeLabChart(List.of(unmarked, text));
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(chart.toConfig()).containsEntry("note",
+                "Results not shown on this chart: 1. Open the full report to see them.");
+        assertThat(datasets(chart)).singleElement().satisfies(dataset -> assertThat(points(dataset))
+                .extracting(point -> point.get("y")).containsExactly(4.2));
+    }
+
+    private MeasurementChart executeLabChart(List<Map<String, Serializable>> values) throws Exception {
         request.setParameter("method", "actualLab");
         request.setParameter("labType", "CML");
         request.setParameter("identifier", "synthetic-code");
@@ -677,7 +847,9 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
         AtomicReference<MeasurementChart> rendered = new AtomicReference<>();
         try (var labs = mockStatic(CommonLabTestValues.class)) {
             labs.when(() -> CommonLabTestValues.findValuesForTest("CML", 101, "Synthetic potassium", "synthetic-code"))
-                    .thenReturn(new ArrayList<>(List.of(value)));
+                    .thenReturn(new ArrayList<>(values));
+            // The action reads a row's text marker through the real check.
+            labs.when(() -> CommonLabTestValues.isTextResult(any())).thenCallRealMethod();
             executeMeasurementChart(null, rendered);
         }
         return rendered.get();
@@ -722,6 +894,12 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
                     });
             assertThat(graphAction.get().execute()).isEqualTo("none");
         }
+    }
+
+    /** The measurement as filed from a lab report: {@code populateSourceLabs} gives it the report's number. */
+    private static EctMeasurementsDataBean fromReport(EctMeasurementsDataBean measurement) {
+        measurement.setSourceLabNo(4616);
+        return measurement;
     }
 
     private static EctMeasurementsDataBean measurement(String type, String name, String units, String result) {

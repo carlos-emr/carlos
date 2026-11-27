@@ -67,7 +67,7 @@ public class LabMeasurementFilingServiceIntegrationTest extends CarlosTestBase {
 
     private LabMeasurementFilingService service(String chain) {
         return new LabMeasurementFilingService(transactions, locks, measurementDao, measurementsExtDao,
-                measurementsDeletedDao, lab -> chain);
+                measurementsDeletedDao, (lab, patient) -> chain);
     }
 
     private static final java.util.concurrent.atomic.AtomicInteger LAB_NUMBERS =
@@ -234,7 +234,7 @@ public class LabMeasurementFilingServiceIntegrationTest extends CarlosTestBase {
             return invocation.getMethod().invoke(measurementsExtDao, invocation.getArguments());
         });
         var flakyService = new LabMeasurementFilingService(transactions, locks, measurementDao, flakyExtDao,
-                measurementsDeletedDao, id -> String.valueOf(lab));
+                measurementsDeletedDao, (id, patient) -> String.valueOf(lab));
 
         var outcome = flakyService.file(filing(lab, "ACC-INT-LOCK-RETRY",
                 result(lab, "5.1", "3767"), result(lab, "5.2", "3767")));

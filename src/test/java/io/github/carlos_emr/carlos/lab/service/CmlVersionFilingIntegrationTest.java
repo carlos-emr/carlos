@@ -77,6 +77,8 @@ class CmlVersionFilingIntegrationTest extends CarlosTestBase {
     private final List<Integer> reports = new ArrayList<>();
     private TransactionTemplate tx;
     private int patient;
+    /** A second patient, created by the cases whose accession number another patient's report shares. */
+    private Integer otherPatient;
     private String accession;
     private String oldFilter;
 
@@ -95,7 +97,11 @@ class CmlVersionFilingIntegrationTest extends CarlosTestBase {
         oldFilter = CarlosProperties.getInstance().getProperty("HL7_LAB_MEASUREMENT_FILTER");
         CarlosProperties.getInstance().setProperty("HL7_LAB_MEASUREMENT_FILTER", ".*");
         accession = "CML-FILING-" + UUID.randomUUID();
-        tx.executeWithoutResult(status -> {
+        patient = syntheticPatient();
+    }
+
+    private int syntheticPatient() {
+        return tx.execute(status -> {
             var demo = new Demographic();
             demo.setFirstName("Synthetic");
             demo.setLastName(accession);
@@ -106,8 +112,13 @@ class CmlVersionFilingIntegrationTest extends CarlosTestBase {
             demo.setPatientStatus("AC");
             demo.setProviderNo("999998");
             demographics.save(demo);
-            patient = demo.getDemographicNo();
+            return demo.getDemographicNo();
         });
+    }
+
+    private int anotherPatient() {
+        otherPatient = syntheticPatient();
+        return otherPatient;
     }
 
     @AfterEach
@@ -127,6 +138,9 @@ class CmlVersionFilingIntegrationTest extends CarlosTestBase {
                     em.createQuery("delete from Hl7TextMessage h where h.id in ?1").setParameter(1, reports).executeUpdate();
                 }
                 em.createQuery("delete from Demographic d where d.demographicNo=?1").setParameter(1, patient).executeUpdate();
+                if (otherPatient != null) {
+                    em.createQuery("delete from Demographic d where d.demographicNo=?1").setParameter(1, otherPatient).executeUpdate();
+                }
             });
         } finally {
             if (oldFilter == null) CarlosProperties.getInstance().remove("HL7_LAB_MEASUREMENT_FILTER");
@@ -162,10 +176,15 @@ class CmlVersionFilingIntegrationTest extends CarlosTestBase {
 
     /** Stores, files and routes a report in the order {@code MessageUploader} does. */
     private int ingestBody(String body, String status, int finalResults) {
+        return ingestBody(body, status, finalResults, patient);
+    }
+
+    /** As above, for the given patient. */
+    private int ingestBody(String body, String status, int finalResults, int owner) {
         return tx.execute(transaction -> {
             int report = store(body, status, finalResults);
-            Hl7textResultsData.populateMeasurementsTable(Integer.toString(report), Integer.toString(patient));
-            patients.persist(new PatientLabRouting(report, "HL7", patient));
+            Hl7textResultsData.populateMeasurementsTable(Integer.toString(report), Integer.toString(owner));
+            patients.persist(new PatientLabRouting(report, "HL7", owner));
             return report;
         });
     }
@@ -174,8 +193,25 @@ class CmlVersionFilingIntegrationTest extends CarlosTestBase {
         return ingestBody(CmlVersionPolicyUnitTest.body(accession, time, status, rows), status, rows.length);
     }
 
+    /** The report with its revision time (OBR-22) left empty, as a lab that sends none delivers it. */
+    private static String withoutRevisionTime(String body) {
+        String[] segments = body.split("\\r");
+        for (int i = 0; i < segments.length; i++) {
+            if (segments[i].startsWith("OBR|")) {
+                String[] fields = segments[i].split("\\|", -1);
+                fields[22] = "";
+                segments[i] = String.join("|", fields);
+            }
+        }
+        return String.join("\r", segments) + "\r";
+    }
+
     private List<String> filed() {
-        return tx.execute(status -> measurements.findByDemographicNo(patient).stream().map(Measurement::getDataField).sorted().toList());
+        return filed(patient);
+    }
+
+    private List<String> filed(int owner) {
+        return tx.execute(status -> measurements.findByDemographicNo(owner).stream().map(Measurement::getDataField).sorted().toList());
     }
 
     private long archived() {
@@ -239,18 +275,43 @@ class CmlVersionFilingIntegrationTest extends CarlosTestBase {
     @Test
     void shouldFileACorrection_whenOnlyItsCollectionDateIsEarlier() {
         ingest("20260311120000", "F", "7010=5.1");
-        String correction = CmlVersionPolicyUnitTest.body(accession, "20260310", "C", "7010=12.7");
-        String[] segments = correction.split("\\r");
-        for (int i = 0; i < segments.length; i++) {
-            if (segments[i].startsWith("OBR|")) {
-                String[] fields = segments[i].split("\\|", -1);
-                fields[22] = "";
-                segments[i] = String.join("|", fields);
-            }
-        }
-        ingestBody(String.join("\r", segments) + "\r", "C", 1);
+        ingestBody(withoutRevisionTime(CmlVersionPolicyUnitTest.body(accession, "20260310", "C", "7010=12.7")), "C", 1);
         assertThat(filed()).containsExactly("12.7");
         assertThat(archived()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldKeepTheNewerRevision_whenAnotherPatientsUndatedFinalSharesTheAccession() {
+        // #6142 review: this patient's newer revision arrives first and its older one last. Another patient's
+        // final on the same accession carries no revision time; ranked with this patient's versions it sent the
+        // whole chain back to arrival order, and the late older revision replaced 12.7 with 5.1.
+        int other = anotherPatient();
+        ingest("20260310120000", "F", "7010=12.7");
+        ingestBody(withoutRevisionTime(CmlVersionPolicyUnitTest.body(accession, "20260310100000", "F", "7010=8.8")), "F", 1, other);
+        ingest("20260310080000", "F", "7010=5.1");
+
+        assertThat(filed()).containsExactly("12.7");
+        assertThat(archived()).isZero();
+        assertThat(filed(other)).containsExactly("8.8");
+    }
+
+    @Test
+    void shouldFileTheNewerRevision_whenAPatientMatchNamesTheOlderBesideAnotherPatientsUndatedFinal() {
+        // The same accession matched after upload: neither of this patient's versions had a patient when it arrived.
+        // The match names the late older revision; the newer one is still the version filed.
+        int other = anotherPatient();
+        int newer = tx.execute(status -> store(CmlVersionPolicyUnitTest.body(accession, "20260310120000", "F", "7010=12.7"), "F", 1));
+        ingestBody(withoutRevisionTime(CmlVersionPolicyUnitTest.body(accession, "20260310100000", "F", "7010=8.8")), "F", 1, other);
+        int older = tx.execute(status -> store(CmlVersionPolicyUnitTest.body(accession, "20260310080000", "F", "7010=5.1"), "F", 1));
+
+        tx.executeWithoutResult(status -> {
+            patients.persist(new PatientLabRouting(newer, "HL7", patient));
+            patients.persist(new PatientLabRouting(older, "HL7", patient));
+            Hl7textResultsData.populateCurrentVersionMeasurements(Integer.toString(older), Integer.toString(patient));
+        });
+
+        assertThat(filed()).containsExactly("12.7");
+        assertThat(filed(other)).containsExactly("8.8");
     }
 
     @ParameterizedTest

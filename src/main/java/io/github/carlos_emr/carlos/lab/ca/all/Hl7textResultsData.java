@@ -67,11 +67,15 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
+import io.github.carlos_emr.carlos.lab.ca.all.parsers.ObxResultStatus;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 public class Hl7textResultsData {
+
+    /** Property: file final word results the result filter does not match (default on; see {@link #fileTextResults()}). */
+    static final String FILE_TEXT_RESULTS_PROPERTY = "HL7_LAB_FILE_TEXT_RESULTS";
 
     private static Logger logger = MiscUtils.getLogger();
     private static ConsultDocsDao consultDocsDao = SpringUtils.getBean(ConsultDocsDao.class);
@@ -178,6 +182,41 @@ public class Hl7textResultsData {
     }
 
     /**
+     * The versions of a CLS report that belong to this patient (see {@link #getMatchingLabs(String, Integer)}).
+     * A CLS chain is not ranked, its current version being the highest lab number, so another patient's
+     * versions can be left out after it is resolved. A version routed to a different patient is left out; a
+     * version with no routing (not yet matched), and the incoming report itself, stay. The chain's order is kept.
+     */
+    static String[] ownVersions(String[] chain, String incoming, Integer patient) {
+        List<String> own = new ArrayList<>();
+        for (String version : chain) {
+            String trimmed = version.trim();
+            if (!trimmed.equals(incoming.trim()) && routedToAnotherPatient(trimmed, patient)) {
+                continue;
+            }
+            own.add(version);
+        }
+        return own.toArray(new String[0]);
+    }
+
+    private static boolean routedToAnotherPatient(String labNo, Integer patient) {
+        int number;
+        try {
+            number = Integer.parseInt(labNo);
+        } catch (NumberFormatException notANumber) {
+            return false;
+        }
+        PatientLabRoutingDao routingDao = SpringUtils.getBean(PatientLabRoutingDao.class);
+        for (PatientLabRouting routing : routingDao.findByLabNoAndLabType(number, "HL7")) {
+            Integer routed = routing.getDemographicNo();
+            if (routed != null && routed > 0 && !routed.equals(patient)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Files the current version of a report that has no measurements yet, whichever of its versions
      * the caller names. A patient match made after upload uses this: the version to file is decided
      * here, by the same rule as at upload, not by the caller's position in the display order.
@@ -187,11 +226,18 @@ public class Hl7textResultsData {
      * @throws IllegalStateException if the report cannot be read; nothing has been archived
      */
     public static void populateCurrentVersionMeasurements(String lab_no, String demographic_no) {
+        Integer patient = patientNumber(demographic_no);
+        if (patient == null) {
+            // A shared accession alone cannot identify another version as this patient's. Keep the named
+            // lab as the filing target. The locked filing service still checks whether it is current.
+            populateMeasurementsTable(lab_no, demographic_no);
+            return;
+        }
         MessageHandler named = Factory.getHandler(lab_no);
         if (named == null) {
             throw new IllegalStateException("Lab report could not be read; its measurements were not filed");
         }
-        String[] matchingLabs = getMatchingLabs(lab_no).split(",");
+        String[] matchingLabs = getMatchingLabs(lab_no, patient).split(",");
         populateMeasurementsTable(
                 currentVersion(matchingLabs, named instanceof io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler),
                 demographic_no);
@@ -215,7 +261,7 @@ public class Hl7textResultsData {
      * with one difference: every other version is superseded, so two versions' values never stay
      * on the chart together.</p>
      *
-     * @param chain the report's versions as {@link #getMatchingLabs(String)} resolved them
+     * @param chain the report's versions as {@link #getMatchingLabs(String, Integer)} resolved them
      * @param revisionOrdered true when the chain's order is the source's revision order (CML)
      * @return the lab number of the current version
      */
@@ -336,6 +382,13 @@ public class Hl7textResultsData {
 
 
                 String value = projectableValue(result, lab_no, i, j);
+                // A final or corrected result the filter does not match is filed whole, as text (#6122). One the
+                // filter matches but cannot file (too long, or splitting a character) stays unfiled (#6142 review).
+                boolean textResult = false;
+                if (value == null && fileTextResults() && filterFindsNothing(result)) {
+                    value = textResultValue(result, olis_status, "lab " + LogSafe.sanitize(lab_no) + ", OBX " + i + "-" + j);
+                    textResult = value != null;
+                }
                 if (value != null) {
                     Measurement m = new Measurement();
                     m.setType(measType);
@@ -398,6 +451,13 @@ public class Hl7textResultsData {
                         extensions.put("blocked", blocked);
                     }
                     extensions.put("other_id", i + "-" + j);
+                    // A final or corrected word result filed whole is marked as text (#6122), so the chart
+                    // and the graphs treat it as a word and not a number.
+                    if (textResult) {
+                        extensions.put(
+                                io.github.carlos_emr.carlos.commn.model.MeasurementsExt.VALUE_TYPE_KEY,
+                                io.github.carlos_emr.carlos.commn.model.MeasurementsExt.TEXT_VALUE_TYPE);
+                    }
                     filed.add(new FiledMeasurementDto(m, extensions));
                 }
             }
@@ -430,11 +490,10 @@ public class Hl7textResultsData {
     // Locale.ROOT folding is only for the clinic's result filter, never identity or authorization.
     private static String projectableValue(String result, String context) {
         if (result == null || result.isEmpty() || "DNR".equals(result)) return null;
-        String trimmed = StringUtils.trimToEmpty(result).replaceAll("\\<br\\s?/?\\>", "").trim();
+        String trimmed = filterInput(result);
         Locale locale = Locale.ROOT;
         String shadow = trimmed.toLowerCase(locale);
-        Matcher match = Pattern.compile(CarlosProperties.getInstance()
-                .getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*")).matcher(shadow);
+        Matcher match = measurementFilter(shadow);
         if (!match.find()) return null;
         int start = originalBoundary(trimmed, shadow, match.start(), locale);
         int end = originalBoundary(trimmed, shadow, match.end(), locale);
@@ -449,6 +508,87 @@ public class Hl7textResultsData {
             return null;
         }
         return value;
+    }
+
+    /** A result as {@code HL7_LAB_MEASUREMENT_FILTER} reads it: trimmed, without its line-break markers. */
+    private static String filterInput(String result) {
+        return StringUtils.trimToEmpty(result).replaceAll("\\<br\\s?/?\\>", "").trim();
+    }
+
+    private static Matcher measurementFilter(String shadow) {
+        return Pattern.compile(CarlosProperties.getInstance().getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*")).matcher(shadow);
+    }
+
+    /**
+     * Whether {@code HL7_LAB_MEASUREMENT_FILTER} finds nothing in the result, read as {@code projectableValue}
+     * reads it. Only such a result may be filed as text (#6122). A result the filter does match but that cannot
+     * be filed (longer than a measurement holds, or a match that would split a character) stays unfiled, as it
+     * was before (#6142 review).
+     */
+    static boolean filterFindsNothing(String result) {
+        return !measurementFilter(filterInput(result).toLowerCase(Locale.ROOT)).find();
+    }
+
+    /**
+     * The operator's switch for filing final word results the filter does not match (#6122): the property
+     * {@value #FILE_TEXT_RESULTS_PROPERTY}. On unless it is set to {@code false}, {@code no} or {@code off}, so an
+     * install that never sets it, or sets something else, files them. Off keeps exactly the filing from before
+     * #6122: only what {@code HL7_LAB_MEASUREMENT_FILTER} matches becomes a measurement.
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an operator's on/off word in the properties file; not a security or authorization decision. See docs/static-analysis-workflows.md
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE",
+            justification = "Case-insensitive comparison of an operator's on/off word in the properties file; not a security or authorization decision")
+    static boolean fileTextResults() {
+        String configured = CarlosProperties.getInstance().getProperty(FILE_TEXT_RESULTS_PROPERTY, "true");
+        if (configured == null) {
+            return true;
+        }
+        String value = configured.trim();
+        return !(value.equalsIgnoreCase("false") || value.equalsIgnoreCase("no") || value.equalsIgnoreCase("off"));
+    }
+
+    /**
+     * The value a final or corrected result is filed as when {@code HL7_LAB_MEASUREMENT_FILTER} does
+     * not match it (#6122): the lab's own words, whole, each line-break marker ({@code <br />}, in any
+     * case) read as one space.
+     * Such a result ({@code Pending}, {@code Not detected}, {@code Resistant}) was left unfiled
+     * before, so the cumulative grid and the value history showed nothing for it. Final means what
+     * {@link ObxResultStatus#isFinal} says, in the handler's own words ({@code F}, {@code Final},
+     * {@code Corrected}, ...). A result with any other status (preliminary included) stays unfiled,
+     * as does an empty one and one longer than a measurement holds; the full result always stays
+     * in the report.
+     *
+     * @param result the OBX result as the handler reads it
+     * @param status the OBX result status as the handler reports it
+     * @param context where the result is, for the log; never the result itself. May be {@code null}
+     * @return the text to file, marked {@link MeasurementsExt#TEXT_VALUE_TYPE}, or {@code null}
+     */
+    static String textResultValue(String result, String status, String context) {
+        if (result == null || !ObxResultStatus.isFinal(status)) return null;
+        // Handlers mark line breaks as <br />; a lab may send its own in capitals.
+        // Start at the marker: a leading \\s* makes a failed search rescan every whitespace suffix.
+        Matcher breaks = Pattern.compile("(?i)<br\\s?/?>\\s*").matcher(result);
+        StringBuilder normalized = new StringBuilder();
+        int start = 0;
+        while (breaks.find()) {
+            int end = breaks.start();
+            while (end > start) {
+                char c = result.charAt(end - 1);
+                // Preserve the regex's default ASCII whitespace semantics.
+                if (c != ' ' && (c < '\t' || c > '\r')) break;
+                end--;
+            }
+            normalized.append(result, start, end).append(' ');
+            start = breaks.end();
+        }
+        String text = normalized.append(result, start, result.length()).toString().trim();
+        if (text.isEmpty() || "DNR".equals(text)) return null;
+        int characters = text.codePointCount(0, text.length());
+        if (characters > Measurement.DATA_FIELD_MAX_LENGTH) {
+            if (context != null) logger.warn("A final text result of {} characters is longer than a measurement holds; original remains in the source report ({})", characters, context);
+            return null;
+        }
+        return text;
     }
 
     /** Map a lowercase-shadow boundary without cutting a source character in half. */
@@ -540,12 +680,34 @@ public class Hl7textResultsData {
     }
 
     public static String getMatchingLabs(String lab_no) {
+        return getMatchingLabs(lab_no, null);
+    }
+
+    /**
+     * The versions of a report, as {@link #getMatchingLabs(String)} resolves them, that can be the given
+     * patient's: the chain a report is filed by.
+     *
+     * <p>The chain is found by accession number alone, so a recycled or colliding accession can put another
+     * patient's report in it. A version routed to a different patient is left out as it is found, before any
+     * version is read or ranked (#6142 review). Ranked with this patient's CML revisions, one such report
+     * without a revision time sent the whole chain back to arrival order, so a stale revision delivered late
+     * could replace newer measurements; one that cannot be read would refuse this patient's filing. A version
+     * with no routing yet, which may be this patient's own newer delivery waiting for its match, and
+     * {@code lab_no} itself stay.</p>
+     *
+     * @param lab_no any version of the report
+     * @param patient the patient the report is filed for; {@code null} keeps every version (the display chain)
+     * @return the chain's lab numbers, comma-separated, in the order {@link #getMatchingLabs(String)} gives them
+     */
+    static String getMatchingLabs(String lab_no, Integer patient) {
         String ret = "";
         int monthsBetween = 0;
 
-        Hl7TextMessage hl7Msg = currentMessageDao().find(Integer.parseInt(lab_no));
+        int incoming = Integer.parseInt(lab_no);
+        Hl7TextMessage hl7Msg = currentMessageDao().find(incoming);
         if (hl7Msg != null && "CLS".equals(hl7Msg.getType())) {
-            return getMatchingLabs_CLS(lab_no);
+            String chain = getMatchingLabs_CLS(lab_no);
+            return patient == null ? chain : String.join(",", ownVersions(chain.split(","), lab_no, patient));
         }
 
         boolean cml = hl7Msg != null && "CML".equals(hl7Msg.getType());
@@ -576,6 +738,9 @@ public class Hl7textResultsData {
             logger.debug("lab_no: " + labNo + " lab: " + lab_no);
 
             if (monthsBetween < 4) {
+                if (patient != null && labNo != incoming && routedToAnotherPatient(String.valueOf(labNo), patient)) {
+                    continue;
+                }
                 if (cml) {
                     if (!seenVersions.add(labNo)) continue;
                     Hl7TextMessage version = labNo == Integer.parseInt(lab_no)
