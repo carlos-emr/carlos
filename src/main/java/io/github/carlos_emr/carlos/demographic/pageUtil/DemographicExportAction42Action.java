@@ -1887,6 +1887,17 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     medi.setPrescriptionInstructions(arr[p].getSpecialInstruction());
                                     mSummary = Util.addSummary(mSummary, "Prescription Instructions", arr[p].getSpecialInstruction());
                                 }
+                                // A missing structured dose must still leave the receiver
+                                // with the recorded directions for this medication.
+                                if (!medi.isSetDosage() && StringUtils.filled(arr[p].getSpecial())) {
+                                    String recorded = arr[p].getSpecial();
+                                    if (!medi.isSetPrescriptionInstructions() && recorded.length() <= 32_768) {
+                                        medi.setPrescriptionInstructions(recorded);
+                                    } else if (!recorded.equals(medi.getPrescriptionInstructions())) {
+                                        addResidualInformation(medi.addNewResidualInfo(), "string",
+                                                "Recorded prescription directions", recorded);
+                                    }
+                                }
 
                                 if (StringUtils.filled(arr[p].getRoute())) {
                                     medi.setRoute(arr[p].getRoute());

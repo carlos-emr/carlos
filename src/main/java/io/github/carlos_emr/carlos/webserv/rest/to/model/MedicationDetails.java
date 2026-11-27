@@ -42,9 +42,18 @@ public class MedicationDetails implements Serializable {
         details.componentDataComplete = details.components != null && !details.components.isEmpty()
                 && details.components.stream().allMatch(component -> component != null
                     && component.name != null && !component.name.isBlank()
-                    && component.strength != null && !component.strength.isBlank()
+                    && hasNumericStrength(component.strength)
                     && component.unit != null && !component.unit.isBlank());
         return details;
+    }
+
+    private static boolean hasNumericStrength(String text) {
+        if (text == null) return false;
+        try {
+            return new BigDecimal(text.strip()).signum() > 0;
+        } catch (NumberFormatException invalid) {
+            return false;
+        }
     }
 
     public String encodeComponents() {

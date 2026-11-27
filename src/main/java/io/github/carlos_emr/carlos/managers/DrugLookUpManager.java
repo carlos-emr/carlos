@@ -213,11 +213,8 @@ public class DrugLookUpManager implements DrugLookUp {
             //
             // This solution is not ideal, drugref seems to do some weird things....
 
-            if (t.getComponents().size() >= 1) {
-                t.setGenericName(t.getComponents().get(0).getName());
-            } else {
-                t.setGenericName(t.getName());
-            }
+            t.setGenericName(t.getComponents().stream().map(DrugSearchTo1.DrugComponentTo1::getName)
+                    .filter(name -> name != null && !name.isBlank()).findFirst().orElse(t.getName()));
 
         } else {
             t.setGenericName(gn);
