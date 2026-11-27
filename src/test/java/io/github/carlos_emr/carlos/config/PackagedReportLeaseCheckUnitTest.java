@@ -171,6 +171,9 @@ class PackagedReportLeaseCheckUnitTest {
                 "PROPERTIES=\"$1\"\n",
                 "CARLOS_JAVA_OPTS=\"@/etc/carlos-emr/jvm.args\"\n",
                 "CARLOS_JAVA_OPTS=\"-XX:Flags=/etc/carlos-emr/flags\"\n",
+                "CARLOS_JAVA_OPTS=\"-XX:VMOptionsFile=/etc/carlos-emr/vm.options\"\n",
+                "CARLOS_JAVA_OPTS=\"$SITE_OPTS\"\n",
+                "CARLOS_JAVA_OPTS=\"${SITE_OPTS}\"\n",
                 "CARLOS_JAVA_OPTS=\"-Dcarlos_override_properties\"\n",
                 "CARLOS_JAVA_OPTS=\"-Duser.home\"\n",
                 "CARLOS_JAVA_OPTS=\"-Dcarlos_override_properties=relative.properties\"\n",
@@ -181,8 +184,8 @@ class PackagedReportLeaseCheckUnitTest {
             assertEquals(1, PackagedReportLeaseCheck.status(args, home, launch), "Expected fail-closed for: " + content);
         }
 
-        // Valid escapes and literal trailing '$' inside double quotes still parse cleanly.
-        Files.writeString(env, "UNRELATED=\"a\\$b\\\\c\\\"d\\e$\"\nEMPTY=\n");
+        // Valid escapes, literal trailing '$', and explicitly defined empty variables parse cleanly.
+        Files.writeString(env, "UNRELATED=\"a\\$b\\\\c\\\"d\\e$\"\nEMPTY=\nCARLOS_JAVA_OPTS=\"$EMPTY ${EMPTY}\"\n");
         assertEquals(15, PackagedReportLeaseCheck.status(args, home, launch));
 
         // Directory instead of regular file for envFile fails closed.
@@ -200,6 +203,7 @@ class PackagedReportLeaseCheckUnitTest {
         Path env = directory.resolve("carlos-emr.env");
         Path base = Files.createDirectories(directory.resolve("catalina-base/bin"));
         Path catalinaHome = Files.createDirectories(directory.resolve("catalina-home/bin"));
+        Path systemdHigh = Files.createDirectory(directory.resolve("systemd-high"));
         Path systemd = Files.createDirectory(directory.resolve("systemd"));
         Path dropInDir = Files.createDirectory(systemd.resolve("carlos-emr.service.d"));
         Files.writeString(managed, "db_remove_abandoned_timeout = 15\n");
@@ -207,7 +211,7 @@ class PackagedReportLeaseCheckUnitTest {
         Files.writeString(env, "CARLOS_JAVA_OPTS=\"\"\n");
         String[] args = {directory.toString(), managed.toString(), candidate.toString()};
         var launch = new PackagedReportLeaseCheck.LaunchConfig(env, base.getParent(), catalinaHome.getParent(),
-                List.of(systemd, directory.resolve("missing-systemd")));
+                List.of(systemdHigh, systemd, directory.resolve("missing-systemd")));
 
         // Packaged-style benign drop-in and masked symlink to /dev/null both remain verifiable.
         Path benign = dropInDir.resolve("10-eform-renderer.conf");
@@ -224,9 +228,9 @@ class PackagedReportLeaseCheckUnitTest {
         assertEquals(1, PackagedReportLeaseCheck.status(args, home, launch));
         Files.delete(mask);
 
-        // Quoted benign Environment and line continuation pass; launch-affecting drop-ins fail closed.
+        // Quoted benign Environment with comments inside line continuation passes; launch-affecting drop-ins fail closed.
         Path custom = dropInDir.resolve("20-site.conf");
-        Files.writeString(custom, "[Service]\nEnvironment=\"FOO=1\" \\\n 'BAR=2'\n");
+        Files.writeString(custom, "[Service]\nEnvironment=\"FOO=1\" \\\n# comment mid-continuation\n; semicolon comment\n 'BAR=2'\n");
         assertEquals(10, PackagedReportLeaseCheck.status(args, home, launch));
 
         for (String dropIn : List.of(
@@ -243,8 +247,37 @@ class PackagedReportLeaseCheckUnitTest {
             Files.writeString(custom, dropIn);
             assertEquals(1, PackagedReportLeaseCheck.status(args, home, launch), "Expected fail-closed for: " + dropIn);
         }
+
+        // A higher-priority /dev/null mask shadows the lower-priority drop-in of the same name.
+        Path highDropInDir = Files.createDirectory(systemdHigh.resolve("carlos-emr.service.d"));
+        Path maskedDropIn = highDropInDir.resolve("20-site.conf");
+        Files.createSymbolicLink(maskedDropIn, Path.of("/dev/null"));
+        assertEquals(10, PackagedReportLeaseCheck.status(args, home, launch));
+        Files.delete(maskedDropIn);
         Files.delete(custom);
         assertEquals(10, PackagedReportLeaseCheck.status(args, home, launch));
+
+        // Prefix (carlos-.service.d) and service-wide (service.d) drop-ins also apply and fail closed when overriding launch.
+        for (String dropInDirName : List.of("carlos-.service.d", "service.d")) {
+            Path extraDropInDir = Files.createDirectory(systemd.resolve(dropInDirName));
+            Path override = extraDropInDir.resolve("10-override.conf");
+            Files.writeString(override, "[Service]\nEnvironment=PROPERTIES=/tmp/other.properties\n");
+            assertEquals(1, PackagedReportLeaseCheck.status(args, home, launch), "Expected fail-closed for: " + dropInDirName);
+            Files.delete(override);
+            Files.delete(extraDropInDir);
+        }
+
+        // Symlink to managed file updates on rename (10), whereas a hard-link/bind-mount alias does not (25).
+        Path symlinkAlias = directory.resolve("symlink-carlos.properties");
+        Files.createSymbolicLink(symlinkAlias, managed);
+        Files.writeString(env, "PROPERTIES=" + symlinkAlias + "\n");
+        assertEquals(10, PackagedReportLeaseCheck.status(args, home, launch));
+
+        Path hardlinkAlias = directory.resolve("hardlink-carlos.properties");
+        Files.createLink(hardlinkAlias, managed);
+        Files.writeString(env, "PROPERTIES=" + hardlinkAlias + "\n");
+        assertEquals(25, PackagedReportLeaseCheck.status(args, home, launch));
+        Files.writeString(env, "CARLOS_JAVA_OPTS=\"\"\n");
 
         // Symlinked drop-in directory fails closed.
         Path symlinkSystemd = Files.createDirectory(directory.resolve("systemd-sym"));

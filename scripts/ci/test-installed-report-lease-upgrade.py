@@ -18,7 +18,7 @@ KEY = "db_remove_abandoned_timeout"
 
 
 class TestReportLeaseUpgrade(unittest.TestCase):
-    def configure(self, properties, *, previous="1.0", locked=True, extra_env=None):
+    def configure(self, properties, *, previous="1.0", locked=True, extra_env=None, use_host_launch=False):
         block = re.search(
             r"^        # BEGIN REPORT_LEASE_UPGRADE\n.*?^        # END REPORT_LEASE_UPGRADE$",
             POSTINST.read_text(encoding="utf-8"),
@@ -27,6 +27,15 @@ class TestReportLeaseUpgrade(unittest.TestCase):
         self.assertIsNotNone(block, "the report lease migration is missing from postinst")
         env = dict(os.environ, SHARE=str(SHARE), STATE=str(properties.parent),
                    PROPERTIES=str(properties), PROVISION_LOCK_HELD=str(int(locked)))
+        if not use_host_launch:
+            isolated = properties.parent / "_isolated_launch"
+            env["ENV_FILE"] = str(isolated / "carlos-emr.env")
+            env["CARLOS_CATALINA_BASE"] = str(isolated / "catalina-base")
+            env["CARLOS_CATALINA_HOME"] = str(isolated / "catalina-home")
+            env["CARLOS_SYSTEMD_UNIT_DIRS"] = str(isolated / "systemd")
+        else:
+            for key in ("ENV_FILE", "CARLOS_CATALINA_BASE", "CARLOS_CATALINA_HOME", "CARLOS_SYSTEMD_UNIT_DIRS"):
+                env.pop(key, None)
         if extra_env:
             env.update(extra_env)
         return subprocess.run(
@@ -216,6 +225,43 @@ class TestReportLeaseUpgrade(unittest.TestCase):
             self.assertIn("could not verify", res.stderr)
             self.assertEqual(managed.read_bytes(), old)
             self.assertFalse(marker.exists())
+
+    def test_fresh_install_with_separate_properties_records_marker_and_preserves_later_custom_15(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            root.chmod(0o755)
+            managed = root / "carlos.properties"
+            site = root / "site.properties"
+            env_file = root / "carlos-emr.env"
+            marker = root / ".report-lease-default-migrated"
+            managed.write_bytes(SHIPPED.read_bytes())
+            site.write_bytes(b"db_remove_abandoned_timeout = 420\n")
+            managed.chmod(0o644)
+            site.chmod(0o644)
+            env_file.write_text(f'PROPERTIES="{site}"\n', encoding="utf-8")
+            env_file.chmod(0o644)
+
+            fresh = self.configure(managed, previous="", extra_env={"ENV_FILE": str(env_file)})
+            self.assertEqual(fresh.stderr, "")
+            self.assertTrue(marker.exists())
+
+            # Later switching back to the managed file with an explicit 15-second setting must not migrate it.
+            old = b"db_remove_abandoned_timeout = 15\n"
+            managed.write_bytes(old)
+            env_file.write_text('CARLOS_JAVA_OPTS=""\n', encoding="utf-8")
+            upgrade = self.configure(managed, previous="1.0", extra_env={"ENV_FILE": str(env_file)})
+            self.assertIn("resolves to 15 seconds", upgrade.stderr)
+            self.assertEqual(managed.read_bytes(), old)
+
+    def test_packaged_host_launch_environment_verifies_cleanly(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            root.chmod(0o711)
+            properties = root / "carlos.properties"
+            properties.write_bytes(SHIPPED.read_bytes())
+            properties.chmod(0o644)
+            result = self.configure(properties, previous="", use_host_launch=True)
+            self.assertEqual(result.stderr, "")
 
 
 if __name__ == "__main__":

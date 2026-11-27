@@ -1092,6 +1092,10 @@ except ValueError:
                     if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${marker}" ]; then
                         : > "${marker}"
                     fi ;;
+                20|25)
+                    if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${marker}" ] && [ -z "${2:-}" ]; then
+                        : > "${marker}"
+                    fi ;;
             esac
             if [ "${status}" != 0 ] && [ "${status}" != 10 ] && [ "${status}" != 20 ]; then
                 echo "carlos-emr: Check ${PROPERTIES}, ${env_file}, any service unit override, and any service-user home carlos.properties override. To adopt the 360-second default, remove the override or set it to 360, then run sudo carlos-ctl restart." >&2

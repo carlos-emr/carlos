@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -50,6 +51,8 @@ public final class PackagedReportLeaseCheck {
     private static final String DEFAULT_SYSTEMD_DIRS =
             "/etc/systemd/system:/run/systemd/system:/usr/lib/systemd/system";
     private static final String SERVICE_UNIT = "carlos-emr.service";
+    private static final List<String> SERVICE_DROPIN_DIRS = List.of(
+            SERVICE_UNIT + ".d", "carlos-.service.d", "service.d");
     private static final String OVERRIDE_FLAG = "-Dcarlos_override_properties";
     private static final String HOME_FLAG = "-Duser.home";
 
@@ -131,7 +134,7 @@ public final class PackagedReportLeaseCheck {
             Path classes = Path.of(args[0]);
             Path managed = Path.of(args[1]);
             LaunchSelection selection = resolveLaunch(managed, home, launch);
-            boolean selectsManaged = sameFile(managed, selection.properties());
+            boolean selectsManaged = resolvesToManaged(managed, selection.properties());
             Properties defaults = PackagedConfigurationPreflight.readFile(classes.resolve("jdbc-defaults.properties"));
             defaults.putAll(PackagedConfigurationPreflight.readFile(classes.resolve("carlos.properties")));
             Properties installed = PackagedConfigurationPreflight.readFile(selection.properties());
@@ -205,6 +208,7 @@ public final class PackagedReportLeaseCheck {
     }
 
     private static void verifySystemd(List<Path> systemdDirs) throws IOException {
+        Map<String, Set<String>> seenDropIns = new HashMap<>();
         for (Path dir : systemdDirs) {
             if (Files.notExists(dir, LinkOption.NOFOLLOW_LINKS)) {
                 continue;
@@ -215,17 +219,24 @@ public final class PackagedReportLeaseCheck {
                     throw new IOException("Custom systemd unit override cannot be verified");
                 }
             }
-            Path dropInDir = dir.resolve(SERVICE_UNIT + ".d");
-            if (Files.notExists(dropInDir, LinkOption.NOFOLLOW_LINKS)) {
-                continue;
-            }
-            if (Files.isSymbolicLink(dropInDir) || !Files.isDirectory(dropInDir)) {
-                throw new IOException("Unexpected systemd drop-in entry");
-            }
-            try (var entries = Files.list(dropInDir)) {
-                for (Path entry : entries.toList()) {
-                    if (entry.getFileName().toString().endsWith(".conf")) {
-                        verifyDropIn(entry);
+            for (String dropInName : SERVICE_DROPIN_DIRS) {
+                Path dropInDir = dir.resolve(dropInName);
+                if (Files.notExists(dropInDir, LinkOption.NOFOLLOW_LINKS)) {
+                    continue;
+                }
+                if (Files.isSymbolicLink(dropInDir) || !Files.isDirectory(dropInDir)) {
+                    throw new IOException("Unexpected systemd drop-in entry");
+                }
+                Set<String> seen = seenDropIns.computeIfAbsent(dropInName, _ -> new HashSet<>());
+                try (var entries = Files.list(dropInDir)) {
+                    for (Path entry : entries.toList()) {
+                        String fileName = entry.getFileName().toString();
+                        if (!fileName.endsWith(".conf") || !seen.add(fileName)) {
+                            continue;
+                        }
+                        if (!isMaskSymlink(entry)) {
+                            verifyDropIn(entry);
+                        }
                     }
                 }
             }
@@ -248,7 +259,10 @@ public final class PackagedReportLeaseCheck {
         for (String rawLine : lines) {
             String line = rawLine.endsWith("\r") ? rawLine.substring(0, rawLine.length() - 1) : rawLine;
             String trimmed = line.trim();
-            if (continued.isEmpty() && (trimmed.isEmpty() || trimmed.startsWith("#") || trimmed.startsWith(";"))) {
+            if (trimmed.startsWith("#") || trimmed.startsWith(";")) {
+                continue;
+            }
+            if (continued.isEmpty() && trimmed.isEmpty()) {
                 continue;
             }
             if (line.endsWith("\\")) {
@@ -440,7 +454,7 @@ public final class PackagedReportLeaseCheck {
             if (!IDENTIFIER.matcher(name).matches()) {
                 throw new IOException("Unsupported variable expansion in carlos-emr.env");
             }
-            out.append(vars.getOrDefault(name, ""));
+            out.append(resolveKnownVariable(name, vars));
             return close;
         }
         if (raw.charAt(next) == '(') {
@@ -454,8 +468,15 @@ public final class PackagedReportLeaseCheck {
         if (!IDENTIFIER.matcher(name).matches()) {
             throw new IOException("Unsupported variable reference in carlos-emr.env");
         }
-        out.append(vars.getOrDefault(name, ""));
+        out.append(resolveKnownVariable(name, vars));
         return end - 1;
+    }
+
+    private static String resolveKnownVariable(String name, Map<String, String> vars) throws IOException {
+        if (!vars.containsKey(name)) {
+            throw new IOException("Unknown variable reference in carlos-emr.env cannot be verified");
+        }
+        return vars.get(name);
     }
 
     private static boolean isEmptyOrComment(String trailing) {
@@ -475,7 +496,7 @@ public final class PackagedReportLeaseCheck {
         Path properties = selectedProperties;
         Path home = selectedHome;
         for (String token : options.trim().split("[ \\t]+")) {
-            if (token.startsWith("@") || token.startsWith("-XX:Flags=")) {
+            if (token.startsWith("@") || token.startsWith("-XX:Flags=") || token.startsWith("-XX:VMOptionsFile=")) {
                 throw new IOException("Indirect JVM options file cannot be verified");
             }
             if (OVERRIDE_FLAG.equals(token) || HOME_FLAG.equals(token)) {
@@ -508,6 +529,14 @@ public final class PackagedReportLeaseCheck {
             throw new IOException("Relative properties path cannot be verified");
         }
         return path;
+    }
+
+    private static boolean resolvesToManaged(Path managed, Path selected) throws IOException {
+        if (managed.equals(selected)) {
+            return true;
+        }
+        return Files.exists(managed) && Files.exists(selected)
+                && managed.toRealPath().equals(selected.toRealPath());
     }
 
     private static boolean sameFile(Path first, Path second) throws IOException {
