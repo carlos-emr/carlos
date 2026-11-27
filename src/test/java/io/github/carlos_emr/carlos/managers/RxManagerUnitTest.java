@@ -348,10 +348,10 @@ class RxManagerUnitTest extends RxManagerImpl {
                     default -> "";
                 };
                 dto = new com.fasterxml.jackson.databind.ObjectMapper().readValue(
-                        "{\"drugId\":4,\"demographicNo\":1,\"providerNo\":\"999001\",\"genericName\":\"" + name + "\"" + changes + "}", type);
+                        "{\"drugId\":4,\"demographicNo\":1,\"archived\":false,\"prn\":false,\"providerNo\":\"999001\",\"genericName\":\"" + name + "\"" + changes + "}", type);
             } else {
                 String changes = "zero".equals(change) ? "<takeMin>0</takeMin><quantity>5</quantity>" : "";
-                String xml = "<drug><drugId>4</drugId><demographicNo>1</demographicNo><providerNo>999001</providerNo>"
+                String xml = "<drug><drugId>4</drugId><demographicNo>1</demographicNo><archived>false</archived><prn>false</prn><providerNo>999001</providerNo>"
                         + "<genericName>" + name + "</genericName>" + changes + "</drug>";
                 dto = type.cast(jakarta.xml.bind.JAXBContext.newInstance(type).createUnmarshaller()
                         .unmarshal(new java.io.StringReader(xml)));
