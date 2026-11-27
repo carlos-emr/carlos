@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/utility/DoseText.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 78.46153846153847,
+    "instructions": 80.38585209003216,
+    "branches": 67.14285714285714,
+    "sourceBlob": "9eaf9580517d432a238e401e8453fa84435bdf16"
+  },
+  "evidenceSha256": "ec8227f9bed2c496b687648bfbdefb2a7cdcab2c9049b430711fe98fbd74c615"
+}

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/form/pharmaForms/formBPMH/web/BpmhFormRetrieve2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 57.6271186440678,
+    "instructions": 55.172413793103445,
+    "branches": 57.142857142857146,
+    "sourceBlob": "34a86bd157be65eea1aa616a1ae6395a2b291a59"
+  },
+  "evidenceSha256": "ec8227f9bed2c496b687648bfbdefb2a7cdcab2c9049b430711fe98fbd74c615"
+}

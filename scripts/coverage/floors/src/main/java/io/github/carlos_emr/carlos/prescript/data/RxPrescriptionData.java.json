@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/prescript/data/RxPrescriptionData.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "7e1f9c3ce09f81c10556e6af5d7b7116916621d6"
+  },
+  "evidenceSha256": "ec8227f9bed2c496b687648bfbdefb2a7cdcab2c9049b430711fe98fbd74c615"
+}

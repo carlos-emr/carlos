@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/webserv/rest/to/model/MedicationDetails.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 83.87096774193549,
+    "instructions": 82.5278810408922,
+    "branches": 56.81818181818182,
+    "sourceBlob": "2bac01eaefa6cbe0e619134aceb28bc7fb0409f8"
+  },
+  "evidenceSha256": "ec8227f9bed2c496b687648bfbdefb2a7cdcab2c9049b430711fe98fbd74c615"
+}

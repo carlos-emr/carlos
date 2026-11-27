@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/managers/DrugLookUpManager.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 75.86206896551724,
+    "instructions": 69.18604651162791,
+    "branches": 47.61904761904762,
+    "sourceBlob": "890cada720cc17ef54d4c50dc8a33cb4a9870a38"
+  },
+  "evidenceSha256": "ec8227f9bed2c496b687648bfbdefb2a7cdcab2c9049b430711fe98fbd74c615"
+}

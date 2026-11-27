@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/hl7/v2/OmpO09Builder.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 75.0,
+    "instructions": 65.48223350253807,
+    "branches": 100.0,
+    "sourceBlob": "3dadfd1ab17888201042da146b6b340e96e69855"
+  },
+  "evidenceSha256": "ec8227f9bed2c496b687648bfbdefb2a7cdcab2c9049b430711fe98fbd74c615"
+}
