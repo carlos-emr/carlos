@@ -19,11 +19,13 @@ revision/patient/token binding and all ten report rows. On the wrapped and direc
 fixtures it expects one blocking interstitial. The expected advisory count is
 one when the print filter appends the clinic's confidentiality notice and zero
 when it is absent. The check counts that paragraph on the installed printable
-`gpl.htm` control before rendering the fixtures. The remaining counts are zero. All five
-flags must display the English bundle's `eform.renderIssue.no` value in the
-`en-CA` browser context. Approval downloads the already saved revision without
-another save. Submit & PDF itself creates one new revision per click; the original
-revision must remain unchanged when the saved view is submitted again.
+`gpl.htm` control immediately before each wrapped or direct render. The remaining
+counts are zero. All five flags must display the `eform.renderIssue.no` value in the
+`en-CA` browser context. The check uses the installed English bundle when present
+and falls back to the checkout bundle. Set `CARLOS_INSTALLED_WEBAPP_DIR` for a
+non-default install. Approval downloads the already saved revision without another
+save. Submit & PDF itself creates one new revision per click. The original revision
+must remain unchanged when the saved view is submitted again.
 
 Poppler independently checks exactly two ordered pages, every unique clinical
 token and no interstitial/extra content, 540 × 705 point authored extent (under

@@ -64,12 +64,16 @@ function rendererConfirmed({producer,log,fdid}) {
 }
 
 /** The browser context requests Canadian English, which uses the English bundle. */
-function approvalBundle(language = 'en') {
+function approvalBundle(language = 'en', webapp = process.env.CARLOS_INSTALLED_WEBAPP_DIR || '/usr/share/carlos-emr/webapp/carlos') {
   const name = 'oscarResources_' + language + '.properties';
-  const source = path.join(__dirname, '..', 'src', 'main', 'resources', name);
-  const webapp = process.env.CARLOS_INSTALLED_WEBAPP_DIR || '/usr/share/carlos-emr/webapp/carlos';
-  const file = fs.existsSync(source) ? source : path.join(webapp, 'WEB-INF', 'classes', name);
-  return parseProperties(fs.readFileSync(file));
+  let bytes;
+  try {
+    bytes = fs.readFileSync(path.join(webapp, 'WEB-INF', 'classes', name));
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    bytes = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'resources', name));
+  }
+  return parseProperties(bytes);
 }
 
 /** The interstitial blocks delivery. An installed print notice is separately disclosed as decoration. */
@@ -216,21 +220,23 @@ function reserveInstanceIds(s,template) {
   h.assert(s.sql.value(`SELECT COUNT(*) FROM eform_data WHERE fdid=${seed}`)==='0','Saved-eForm identity sentinel was not removed');
 }
 
-async function workflow(s) {
-  const bundle = approvalBundle();
+async function countInstalledPrintNotices(s) {
   // The interactive editor does not render the print footer. The ordinary HTML
   // response used by the privacy-html-range check goes through the same print filter as the renderer.
   const printable = await s.context.newPage();
-  let privacyNoticeCount;
   try {
     const url = h.appUrl(s.config.baseUrl, '/gpl.htm');
     const response = await printable.goto(url, {waitUntil: 'load'});
     h.assert(response?.status() === 200 && printable.url() === url, 'Could not read the installed printable HTML control');
-    privacyNoticeCount = await printable.locator('p.yesprint.carlos-print-decoration')
+    return await printable.locator('p.yesprint.carlos-print-decoration')
       .filter({hasText: /END OF PRINTED DOCUMENT\s*$/}).count();
   } finally {
     await printable.close();
   }
+}
+
+async function workflow(s) {
+  const bundle = approvalBundle();
   const templates=SHAPES.map(shape=>({shape,name:s.marker+' page exclusion '+shape}));
   // Register durable marker ownership before any template INSERT/ID allocation.
   s.cleanup(()=>{
@@ -280,6 +286,7 @@ async function workflow(s) {
   const list=await s.popup(chart,chart.locator('#menuTitleeforms a').first(),'page-exclusion-add-list');
   let control,patientList;
   for(const template of templates) {
+    const requiresApproval = template.shape !== 'clean';
     let form=await s.popup(list,list.locator('#efmTable a').filter({hasText:template.name}),'page-exclusion-new-'+template.shape);
     let fdid,originalRow;
     for(const stage of ['new','saved'])await s.step(template.shape+' '+stage+': native server PDF keeps both complete clinical pages and excludes only decoration',async()=>{
@@ -299,11 +306,12 @@ async function workflow(s) {
       h.assert(template.shape==='direct'?topology.parent==='BODY'&&topology.form===null:topology.form==='FormName',
         'The native '+stage+' eForm did not preserve the requested '+template.shape+' page topology: '+JSON.stringify(topology));
       if(stage==='new')await form.locator('#remote_eform_subject').fill(template.name);
+      const privacyNoticeCount = requiresApproval ? await countInstalledPrintNotices(s) : 0;
       const mark=reader.mark();
       let approvedFdid;
       const downloaded=await x.saveDownload(form,scratch,async()=>{
         await form.locator('#remoteDownloadButton').click();
-        if(template.shape!=='clean') {
+        if(requiresApproval) {
           // An interstitial is BLOCKING even when marked as decoration: only
           // pre/post-page decorations are advisory. Review the exact omission
           // and approve through the native one-time download form, without save.

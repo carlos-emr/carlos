@@ -1,6 +1,9 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later. */
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const {verify,producerOf,rendererConfirmed,approvalBundle,verifyApproval}=require('./eform-deployed-page-exclusion-playwright-checks');
 
 // A handwritten recipient view, independent of the HTML fixture/producer. Each
@@ -62,6 +65,23 @@ for(const producer of ['','OpenPDF 2.0.3','iText 2.1.7','openhtmltopdf.com','Ski
     assert.equal(rendererConfirmed({producer,log:'',fdid:'41'}),false);
   });
 
+function temporaryWebapp(t) {
+  const webapp = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-approval-webapp-'));
+  t.after(() => fs.rmSync(webapp, {recursive: true, force: true}));
+  return webapp;
+}
+
+test('native approval prefers the installed bundle and falls back when it is missing', t => {
+  const webapp = temporaryWebapp(t);
+  const key = 'eform.renderIssue.no';
+  assert.equal(approvalBundle('en', webapp).get(key), 'No');
+
+  const classes = path.join(webapp, 'WEB-INF', 'classes');
+  fs.mkdirSync(classes, {recursive: true});
+  fs.writeFileSync(path.join(classes, 'oscarResources_en.properties'), key + '=Installed translation\n');
+  assert.equal(approvalBundle('en', webapp).get(key), 'Installed translation');
+});
+
 // The native JSP renders these ten rows for the wrapped and direct fixtures.
 // Keep the recipient's expected display independent of the check's key/value table.
 const approvalReports = {
@@ -80,8 +100,8 @@ const approvalReports = {
   ],
 };
 for (const [language, rows] of Object.entries(approvalReports)) {
-  test('native approval requires exactly the localized interstitial report in ' + language, () => {
-    const bundle = approvalBundle(language);
+  test('native approval requires exactly the localized interstitial report in ' + language, t => {
+    const bundle = approvalBundle(language, temporaryWebapp(t));
     verifyApproval(rows, bundle, 0);
     const no = bundle.get('eform.renderIssue.no');
     const yes = bundle.get('eform.renderIssue.yes');
