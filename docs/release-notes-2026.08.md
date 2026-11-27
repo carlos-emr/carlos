@@ -69,6 +69,16 @@ with no `strength`.
 For the same product, a REST update that omits the strength or echoes the projected amount
 and unit keeps the stored dosage, including additional ingredients. An updated amount, unit
 or product uses the replacement's fields.
+For `250 mg/5 mL`, the returned unit includes the full `mg/5 mL` denominator. A nonzero
+strength too small for the REST numeric field is left unknown. On a same-product edit,
+an explicit JSON null for a fractional dispense quantity is indistinguishable from an
+echo of the old response and retains that quantity. [REST representation follow-up](https://github.com/carlos-emr/carlos/issues/6401)
+
+OSCAR19 transfers that use the new exact-dose supplement require a matching carlos-ctl
+release on the source and destination. The current 1.3.6 importer rejects that dump, and
+its format 3 digests can accept rounded doses in a stock dump. Preserve the original source
+until the installed package pair passes transfer verification.
+[#6420](https://github.com/carlos-emr/carlos/issues/6420)
 
 Rolling back to an earlier 2026.08 build keeps the prescriptions this build saved. The
 earlier build's REST drug list fails on a quantity that is not a whole number, as it already

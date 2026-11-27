@@ -253,6 +253,13 @@ truncation it guards against.
 
 ## Preserve medication doses during source export
 
+**Package prerequisite.** The bundled carlos-ctl 1.3.6 rejects the supplemented dump during
+staging. Its format 3 digests can also match a rounded stock dump. Use the procedure below
+only with a released source preflight and destination importer that support the precision
+supplement and digest format 4. Keep the original source available for re-export.
+The matching package release and installed transfer rehearsal are tracked in
+[#6420](https://github.com/carlos-emr/carlos/issues/6420).
+
 MariaDB can print only six significant digits when dumping an OSCAR19 `FLOAT`. A dose
 stored as the nearest float to one third can therefore restore as a different number.
 Once only the rounded dump remains, the original dose cannot be recovered by formatting it.

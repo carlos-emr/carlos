@@ -76,7 +76,6 @@ Code that compares the stored generic name or dosage text therefore meets both f
 | Kind | Where | Why it is correct |
 | --- | --- | --- |
 | Dose | `prescript/pageUtil/RxWriteScript2Action.java` puts the float in the card's JSON (`hm.put("takeMin", …)`); `rx/SearchDrug3.jsp:2769-2770`, `:2838-2839` print it | JavaScript prints the number as `1`, `0.5`, `0.0625`, `500`, `10000000` |
-| Dose | eForm tags `druglist_generic`, `druglist_line` (`resources/oscar/eform/apconfig.xml:1480-1492`); document transfer "Take" (`resources/DocXferConfig.xml:27`) | MariaDB writes the FLOAT column in `CONCAT` as `1`, `0.5`, `0.0625`, `500`, `10000000`, to six significant digits (a third is `0.333333`); checked against the packaged MariaDB 11.8 |
 | Dose, quantity | The instruction text (`drugs.special`, `getFullOutLine()`): prescription preview, print, PDF and fax (`rx/Preview2.jsp:709-724`, `form/pdfservlet/FrmCustomedPDFServlet.java`), drug profile and lists, encounter Rx box, CPP, consult request, chart print (`casemgmt/service/CaseManagementPrintPdf.java`, `casemgmt/print/OscarChartPrinter.java`, `commn/service/PdfRecordPrinter.java`), REST summary, eForm tags `current_rx`/`today_rx` | Text the prescriber typed, shown as written. CARLOS adds only the `Qty:`/`Repeats:` suffix |
 | Quantity | Calculated quantity, `prescript/util/RxUtil.java` (`Integer.toString(ceilingUnits())`); derived duration (`setScale(0, FLOOR).toPlainString()`) | Whole numbers |
 | Dose, strength | REST and SOAP number fields (`DrugTo1`, `FavoriteTo1`, `DrugSearchTo1`, `DrugTransfer`) | Serialized as numbers; the server builds no text |
@@ -86,8 +85,14 @@ Code that compares the stored generic name or dosage text therefore meets both f
 
 ## Not fixed here
 
-These were found during the review and are not number-to-text formatting. Each needs its own
-change.
+The bundled eForm tags `druglist_generic` and `druglist_line`
+(`resources/oscar/eform/apconfig.xml:1480–1494`) and the document-transfer `Take` field
+(`resources/DocXferConfig.xml:27`) still round some structured doses. On MariaDB 11.8.9,
+both eForm queries rendered the stored float `0.33333334` as `0.333333`, and document
+transfer sent `0.333333 to 0.333333`. All three convert the float to text inside SQL,
+before the Java formatter sees it. This defect predates this change.
+
+The following findings also need separate changes.
 
 | Finding | Where |
 | --- | --- |
@@ -166,6 +171,7 @@ source dose uncertainty (#6411), and export and rollback verification (#6412) tr
 - BPMH keeps authored direction lines together, including later taper steps. When directions are
   missing, the form can show a recorded dose and administered unit, with a range as "1 to 3"
   and “as needed” when the prescription carries the PRN flag.
+  The generated `Qty:` and `Mitte:` dispensing footers are excluded from administration directions.
   A product strength or form on its own is insufficient to fill this field. Historical BPMH forms
   with stored directions retain those directions. Additional medications and text that exceed a
   printed row appear on continuation pages.

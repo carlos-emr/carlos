@@ -853,6 +853,17 @@ class TestTheSqlSemanticsOracleStaysUsable(unittest.TestCase):
             "--password", "-p", "--protocol=tcp",
         ]), ["-p", "--password", "--password", "--password", "-p"])
 
+    def test_exact_medication_transfer_requires_a_capable_verifier_on_both_sides(self):
+        for source, destination in ((3, 3), (3, 4), (4, 3)):
+            with self.subTest(source=source, destination=destination), \
+                    mock.patch.object(self.mod.o19_preflight, "DIGEST_FORMAT", source), \
+                    mock.patch.object(self.mod.o19digest, "DIGEST_FORMAT", destination):
+                client = mock.Mock()
+                failures = self.mod.check_medication_dump(client, "scratch_src", "scratch_dst", "")
+                self.assertEqual(len(failures), 1)
+                self.assertIn("format 4", failures[0])
+                self.assertEqual(client.mock_calls, [])
+
     def test_old_cli_skips_only_the_optional_exact_repair_check(self):
         client = mock.Mock()
         output = io.StringIO()

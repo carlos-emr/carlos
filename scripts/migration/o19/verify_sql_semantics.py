@@ -486,6 +486,9 @@ def _charset_repair_on(client: Client, db: str, charset: str) -> List[str]:
 
 def check_medication_dump(client: Client, src: str, dst: str, fields: str) -> List[str]:
     """Restore the actual vendor dump and its source-generated precision supplement."""
+    if min(o19_preflight.DIGEST_FORMAT, o19digest.DIGEST_FORMAT) < 4:
+        return ["exact medication transfer requires format 4 source and destination verifiers; "
+                "carlos-ctl 1.3.6 cannot admit the supplemented dump (#6420)"]
     dump = shutil.which("mariadb-dump") or shutil.which("mysqldump")
     if not dump:
         return ["the OSCAR19 medication transfer check requires mariadb-dump or mysqldump"]
@@ -500,13 +503,12 @@ def check_medication_dump(client: Client, src: str, dst: str, fields: str) -> Li
     exact = subprocess.run([sys.executable, str(exporter), "--complete-dump", "--db", src,
                             "--mysql-cmd", client.cmd] + ["--mysql-arg=" + option for option in client.args],
                            input=stock, check=True, stdout=subprocess.PIPE).stdout
-    if o19_preflight.DIGEST_FORMAT >= 4:
-        from carlos_ctl import o19sources
-        with tempfile.NamedTemporaryFile(suffix=".sql") as staged:
-            staged.write(exact)
-            staged.flush()
-            if set(o19sources.inventory(staged.name)) != {"drugs"}:
-                raise ValueError("the medication dump failed the production staging inventory")
+    from carlos_ctl import o19sources
+    with tempfile.NamedTemporaryFile(suffix=".sql") as staged:
+        staged.write(exact)
+        staged.flush()
+        if set(o19sources.inventory(staged.name)) != {"drugs"}:
+            raise ValueError("the medication dump failed the production staging inventory")
     expected = client.rows(fields, src)
     restore = [client.cmd] + client.args + ["--default-character-set=utf8mb4", dst]
     subprocess.run(restore, input=stock, check=True, stdout=subprocess.DEVNULL)
@@ -516,8 +518,7 @@ def check_medication_dump(client: Client, src: str, dst: str, fields: str) -> Li
     target_query = o19digest.digest_sql(dst, "drugs", columns, types)
     failures = []
     stock_changed = client.rows(fields, dst) != expected
-    if (stock_changed and o19_preflight.DIGEST_FORMAT >= 4
-            and client.rows(target_query, dst) == source_hash):
+    if stock_changed and client.rows(target_query, dst) == source_hash:
         failures.append("the source transfer verifier accepted rounded medication floats")
     subprocess.run(restore, input=exact, check=True, stdout=subprocess.DEVNULL)
     matches = (client.rows(fields, dst) == expected and client.rows(fields, src) == expected
