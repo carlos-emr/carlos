@@ -43,6 +43,8 @@ final class RestDateSemantics {
             entry("webserv.rest.to.model.DrugTo1.rxDate", Kind.DATE),
             entry("webserv.rest.to.model.DrugTo1.writtenDate", Kind.DATE),
             entry("webserv.rest.to.model.EFormReportToolTo1.expiryDate", Kind.DATE),
+            entry("webserv.rest.to.model.EFormInstanceTo1.formDate", Kind.DATE),
+            entry("webserv.rest.to.model.EFormInstanceTo1.formTime", Kind.TIME),
             entry("webserv.rest.to.model.EFormTo1.formDate", Kind.DATE),
             entry("webserv.rest.to.model.EFormTo1.formTime", Kind.TIME),
             entry("webserv.rest.to.model.FormTo1.date", Kind.DATE),

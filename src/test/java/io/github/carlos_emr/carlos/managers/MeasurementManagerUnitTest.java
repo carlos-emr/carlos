@@ -92,6 +92,9 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
     @Mock
     private MeasurementGroupStyleDao mockMeasurementGroupStyleDao;
 
+    @Mock
+    private io.github.carlos_emr.carlos.commn.dao.DemographicDao mockDemographicDao;
+
     /** The MeasurementManagerImpl instance under test. */
     private MeasurementManagerImpl measurementManager;
 
@@ -120,6 +123,7 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
         injectDependency(measurementManager, "measurementDao", mockMeasurementDao);
         injectDependency(measurementManager, "measurementMapDao", mockMeasurementMapDao);
         injectDependency(measurementManager, "patientConsentManager", mockPatientConsentManager);
+        injectDependency(measurementManager, "demographicDao", mockDemographicDao);
     }
 
     /**
@@ -596,6 +600,95 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
     }
 
     /**
+     * Tests for {@link MeasurementManagerImpl#addMeasurementUnlessStored}: the REST retry path.
+     */
+    @Nested
+    @DisplayName("addMeasurementUnlessStored")
+    @Tag("create")
+    class AddMeasurementUnlessStored {
+
+        @Test
+        @DisplayName("should lock the patient row before looking for an identical reading, then insert")
+        void shouldLockPatientBeforeLookup_whenNoIdenticalReadingStored() {
+            Measurement measurement = createTestMeasurement();
+            measurement.setDemographicId(4321);
+            when(mockDemographicDao.findForUpdate(4321)).thenReturn(new io.github.carlos_emr.carlos.commn.model.Demographic());
+            when(mockMeasurementDao.find(any(io.github.carlos_emr.carlos.commn.dao.MeasurementDaoImpl.SearchCriteria.class)))
+                    .thenReturn(List.of());
+
+            Measurement result = measurementManager.addMeasurementUnlessStored(mockLoggedInInfo, measurement);
+
+            // The lock serializes overlapping identical requests; a lookup before it could not.
+            var order = inOrder(mockDemographicDao, mockMeasurementDao);
+            order.verify(mockDemographicDao).findForUpdate(4321);
+            order.verify(mockMeasurementDao).find(any(io.github.carlos_emr.carlos.commn.dao.MeasurementDaoImpl.SearchCriteria.class));
+            order.verify(mockMeasurementDao).persist(measurement);
+            assertThat(result).isSameAs(measurement);
+        }
+
+        @Test
+        @DisplayName("should return the identical stored reading and insert nothing")
+        void shouldReturnStoredReading_whenIdenticalReadingStored() {
+            Date observed = new Date(1_770_000_000_000L);
+            Measurement measurement = createTestMeasurement();
+            measurement.setDemographicId(4321);
+            measurement.setDateObserved(observed);
+            Measurement stored = createTestMeasurementWithId(TEST_MEASUREMENT_ID);
+            stored.setDemographicId(4321);
+            stored.setDateObserved(observed);
+            when(mockDemographicDao.findForUpdate(4321)).thenReturn(new io.github.carlos_emr.carlos.commn.model.Demographic());
+            when(mockMeasurementDao.find(any(io.github.carlos_emr.carlos.commn.dao.MeasurementDaoImpl.SearchCriteria.class)))
+                    .thenReturn(List.of(stored));
+
+            Measurement result = measurementManager.addMeasurementUnlessStored(mockLoggedInInfo, measurement);
+
+            assertThat(result).isSameAs(stored);
+            verify(mockMeasurementDao, never()).persist(any());
+        }
+
+        @Test
+        @DisplayName("should insert a new reading when a database candidate differs in case or trailing space")
+        void shouldInsertNewReading_whenCandidateDiffersInCaseOrTrailingSpace() {
+            Date observed = new Date(1_770_000_000_000L);
+            Measurement requested = createTestMeasurement("ECGT", "Normal sinus rhythm");
+            requested.setDemographicId(4321);
+            requested.setDateObserved(observed);
+
+            Measurement differentCase = createTestMeasurementWithId(TEST_MEASUREMENT_ID);
+            differentCase.setDemographicId(4321);
+            differentCase.setType("ECGT");
+            differentCase.setDataField("normal sinus rhythm");
+            differentCase.setDateObserved(observed);
+
+            Measurement trailingSpace = createTestMeasurementWithId(TEST_MEASUREMENT_ID + 1);
+            trailingSpace.setDemographicId(4321);
+            trailingSpace.setType("ECGT");
+            trailingSpace.setDataField("Normal sinus rhythm ");
+            trailingSpace.setDateObserved(observed);
+
+            when(mockDemographicDao.findForUpdate(4321)).thenReturn(new io.github.carlos_emr.carlos.commn.model.Demographic());
+            when(mockMeasurementDao.find(any(io.github.carlos_emr.carlos.commn.dao.MeasurementDaoImpl.SearchCriteria.class)))
+                    .thenReturn(List.of(differentCase, trailingSpace));
+
+            Measurement result = measurementManager.addMeasurementUnlessStored(mockLoggedInInfo, requested);
+
+            assertThat(result).isSameAs(requested);
+            verify(mockMeasurementDao).persist(requested);
+        }
+
+        @Test
+        @DisplayName("should refuse without a lookup or insert when the patient does not exist")
+        void shouldRefuse_whenPatientMissing() {
+            Measurement measurement = createTestMeasurement();
+            measurement.setDemographicId(4321);
+
+            assertThatThrownBy(() -> measurementManager.addMeasurementUnlessStored(mockLoggedInInfo, measurement))
+                    .isInstanceOf(IllegalArgumentException.class);
+            verifyNoInteractions(mockMeasurementDao);
+        }
+    }
+
+    /**
      * Tests for {@link MeasurementManagerImpl#addMeasurement(io.github.carlos_emr.carlos.utility.LoggedInInfo, Measurement)}.
      *
      * <p>Verifies measurement persistence and audit logging on add.</p>
@@ -616,6 +709,23 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
 
             // Then
             verify(mockMeasurementDao).persist(measurement);
+        }
+
+        @Test
+        @DisplayName("should file the audit entry for a new measurement under its patient")
+        void shouldAuditUnderPatient_whenAdding() {
+            Measurement measurement = createTestMeasurement();
+            measurement.setDemographicId(4321);
+
+            measurementManager.addMeasurement(mockLoggedInInfo, measurement);
+
+            logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogSynchronous(
+                    org.mockito.ArgumentMatchers.eq(mockLoggedInInfo),
+                    org.mockito.ArgumentMatchers.eq("MeasurementManager.addMeasurement"),
+                    org.mockito.ArgumentMatchers.eq("measurement"),
+                    org.mockito.ArgumentMatchers.anyString(),
+                    org.mockito.ArgumentMatchers.eq(Integer.valueOf(4321)),
+                    org.mockito.ArgumentMatchers.anyString()));
         }
 
         @Test

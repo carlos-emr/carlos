@@ -189,6 +189,39 @@ class EctMeasurements2ActionUnitTest extends CarlosUnitTestBase {
         logActionMock.verifyNoInteractions();
     }
 
+    @Test
+    @DisplayName("should accept free text for a type with no rule when an earlier row's rule is numeric")
+    void shouldAcceptFreeText_whenEarlierRowRuleIsNumeric() throws Exception {
+        MeasurementTypeDao measurementTypeDao = io.github.carlos_emr.carlos.utility.SpringUtils.getBean(MeasurementTypeDao.class);
+        io.github.carlos_emr.carlos.commn.dao.ValidationsDao validationsDao =
+                mock(io.github.carlos_emr.carlos.commn.dao.ValidationsDao.class);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.ValidationsDao.class, validationsDao);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.MeasurementDao.class,
+                mock(io.github.carlos_emr.carlos.commn.dao.MeasurementDao.class));
+        io.github.carlos_emr.carlos.commn.model.MeasurementType numericType =
+                new io.github.carlos_emr.carlos.commn.model.MeasurementType();
+        numericType.setValidation("14");
+        when(measurementTypeDao.findByTypeAndMeasuringInstruction("TEMP", "NA")).thenReturn(List.of(numericType));
+        io.github.carlos_emr.carlos.commn.model.Validations numericRule = new io.github.carlos_emr.carlos.commn.model.Validations();
+        numericRule.setNumeric(true);
+        // EctValidation looks the rule up by an Integer id, so stub find(Object), not find(int).
+        when(validationsDao.find((Object) Integer.valueOf(14))).thenReturn(numericRule);
+
+        request.getSession().setAttribute("user", "999998");
+        request.setParameter("demographicNo", "123");
+        request.setParameter("numType", "2");
+        request.setParameter("ajax", "true");
+        request.setParameter("skipCreateNote", "true");
+        postReading(0, "TEMP", "37.1", "");
+        postReading(1, "ECGT", "FAKE sinus rhythm, rate 72 bpm, no acute ST changes", "");
+
+        action.execute();
+
+        // A refused submission answers {"errors":[...]}; a saved one names the patient.
+        assertThat(response.getContentAsString()).doesNotContain("errors.numeric")
+                .contains("\"demographicNo\":\"123\"");
+    }
+
     private static final class TestableEctMeasurements2Action extends EctMeasurements2Action {
 
         @Override

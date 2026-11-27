@@ -186,4 +186,13 @@ public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements 
                 .setParameter("id", id).setParameter("docType", docType)
                 .setLockMode(LockModeType.PESSIMISTIC_WRITE).getResultList();
     }
+
+    @Override
+    public List<ConsultDocs> findActiveByAttachedDocumentForUpdate(String docType, Integer documentNo) {
+        // Ordered by id, so concurrent callers lock the rows in the same order.
+        return entityManager.createQuery("select x from ConsultDocs x where x.docType = :docType"
+                        + " and x.documentNo = :documentNo and x.deleted is null order by x.id", ConsultDocs.class)
+                .setParameter("docType", docType).setParameter("documentNo", documentNo)
+                .setLockMode(LockModeType.PESSIMISTIC_WRITE).getResultList();
+    }
 }

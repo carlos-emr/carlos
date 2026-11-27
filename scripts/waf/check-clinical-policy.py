@@ -137,6 +137,7 @@ class Case:
     text: str = ""
     response_status: int = 200
     response_budget_seconds: float | None = None
+    request_mime: str = "application/x-www-form-urlencoded"
 
 
 def request_case(name, issue, route, field, value, method="POST", extra=(), **kw):
@@ -483,6 +484,32 @@ def build_cases(phrases, corpus, repo=ROOT):
         cases.append(request_case(f"data-uri-carrier-{family}-still-inspected", 3552, LETTER, "carlos-data-uri",
                                   value, expect="inbound", signatures=signatures))
 
+    # Exclusions 1070 and 1076: REST eForm template JSON (POST/PUT /ws/(rs|services)/eform/(<id>/)?json)
+    # and saved eForm instance revision (PUT /ws/(rs|services)/eform/instance/<fdid>) carry HTML in
+    # ARGS:json.formHtml. Only json.formHtml on those exact routes/methods is exempt; other JSON fields
+    # (formName, subject) and other methods (POST /instance) stay fully inspected.
+    eform_html = '<!doctype html><html><body><form action="../eform/addEForm"><input name="a" value="1"></form></body></html>'
+    json_mime = "application/json"
+    for prefix in ("rs", "services"):
+        cases.append(Case(f"eform-json-create-{prefix}", 6337, "POST", f"/carlos/ws/{prefix}/eform/json",
+                          json.dumps({"formName": "Template", "formHtml": eform_html}),
+                          request_mime=json_mime))
+        cases.append(Case(f"eform-json-update-{prefix}", 6337, "PUT", f"/carlos/ws/{prefix}/eform/7/json",
+                          json.dumps({"formName": "Template", "formHtml": eform_html}),
+                          request_mime=json_mime))
+        cases.append(Case(f"eform-instance-revise-{prefix}", 6337, "PUT", f"/carlos/ws/{prefix}/eform/instance/5",
+                          json.dumps({"subject": "Revised", "formHtml": eform_html, "values": {"a": "ok"}}),
+                          request_mime=json_mime))
+    cases.append(Case("eform-json-formname-xss-inspected", 6337, "POST", "/carlos/ws/services/eform/json",
+                      json.dumps({"formName": XSS, "formHtml": eform_html}),
+                      expect="inbound", signatures=("941100", "941110"), request_mime=json_mime))
+    cases.append(Case("eform-instance-revise-subject-xss-inspected", 6337, "PUT", "/carlos/ws/services/eform/instance/5",
+                      json.dumps({"subject": XSS, "formHtml": eform_html, "values": {"a": "ok"}}),
+                      expect="inbound", signatures=("941100", "941110"), request_mime=json_mime))
+    cases.append(Case("eform-instance-create-formhtml-still-inspected", 6337, "POST", "/carlos/ws/services/eform/instance",
+                      json.dumps({"fid": 7, "demographicNo": 1, "formHtml": eform_html, "values": {"a": "ok"}}),
+                      expect="inbound", signatures=("941100", "941140"), request_mime=json_mime))
+
     if len({case.name for case in cases}) != len(cases):
         raise ValueError("duplicate case names")
     return cases
@@ -806,7 +833,7 @@ def perform_request(port, case, token, timeout):
                "Accept": "application/json", "Connection": "close"}
     payload = None
     if case.method != "GET":
-        headers["Content-Type"] = "application/x-www-form-urlencoded"
+        headers["Content-Type"] = case.request_mime
         payload = case.body.encode("ascii")
     try:
         # http.client preserves literal /../ and percent escapes in the target.

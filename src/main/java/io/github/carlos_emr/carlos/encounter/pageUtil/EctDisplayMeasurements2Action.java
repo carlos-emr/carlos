@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBeanHandler;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 import org.owasp.encoder.Encode;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
@@ -278,10 +279,13 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
 
                     String formattedDate = DateUtils.formatDate(date, request.getLocale());
                     item.setLinkTitle(title + " " + data.getDataField() + " " + formattedDate);
-                    title = padd(title, data.getDataField());
-                    String tmp = "<span class=\"measureCol1\">" + title + "</span>";
+                    String preview = preview(data.getDataField());
+                    // Sized against the preview shown, not the stored value: a long text value
+                    // (an OCR'd ECG report) must not crop the type's name away.
+                    title = padd(title, preview);
+                    String tmp = "<span class=\"measureCol1\">" + SafeEncode.forHtmlContent(title) + "</span>";
                     //tmp += "<span class=\"measureCol2\">" + data.getDataField() + "&nbsp;</span>";
-                    item.setValue(StringUtils.maxLenString(data.getDataField(), 6, 5, ELLIPSES));
+                    item.setValue(preview);
                     //tmp += "<span class=\"measureCol3\">" + formattedDate + "</span><br style=\"clear:both\">";
                     item.setTitle(tmp);
                     item.setDate(date);
@@ -297,6 +301,23 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
 
     public String getCmd() {
         return cmd;
+    }
+
+    /** Longest value the Measurements box shows whole; a longer one is cut to {@link #PREVIEW_CROP_LEN}. */
+    static final int PREVIEW_MAX_LEN = 12;
+    static final int PREVIEW_CROP_LEN = 10;
+
+    /**
+     * The value as the Measurements box previews it: line breaks and runs of spaces become one
+     * space, and a value longer than {@link #PREVIEW_MAX_LEN} is cut with an ellipsis. The full
+     * value stays in the row's tooltip and the type's history. The page encodes it for HTML.
+     *
+     * @param dataField the stored value; may be null
+     * @return the plain-text preview, never null
+     */
+    static String preview(String dataField) {
+        String flat = dataField == null ? "" : dataField.trim().replaceAll("\\s+", " ");
+        return StringUtils.maxLenString(flat, PREVIEW_MAX_LEN, PREVIEW_CROP_LEN, ELLIPSES);
     }
 
     /**

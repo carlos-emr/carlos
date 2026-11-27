@@ -90,6 +90,54 @@ class EFormEditFormWafExclusionRegressionTest {
         assertThat(Pattern.compile("\\.gen-widget input,\\r?\\n").matcher(jsp).find()).isTrue();
     }
 
+    @Test
+    @DisplayName("should exempt only json.formHtml on POST/PUT eForm template JSON routes for both rs and services")
+    void shouldExemptOnlyJsonFormHtml_forRestTemplateJsonRoutes() throws IOException {
+        String rule = readRule("1070");
+
+        assertThat(rule)
+                .contains("SecRule REQUEST_URI \"@rx ^/carlos/ws/(?:rs|services)/eform/(?:[0-9]+/)?json(?:[;?]|$)\"")
+                .contains("\"id:1070,phase:1,pass,nolog,chain\"")
+                .contains("SecRule REQUEST_METHOD \"@rx ^(?:POST|PUT)$\"");
+
+        List<String> found = new ArrayList<>();
+        Matcher matcher = CTL_ACTION.matcher(rule);
+        while (matcher.find()) {
+            found.add(matcher.group(1));
+        }
+        assertThat(found).containsExactlyInAnyOrder(
+                "ruleRemoveTargetByTag=attack-sqli;ARGS:json.formHtml",
+                "ruleRemoveTargetByTag=attack-xss;ARGS:json.formHtml",
+                "ruleRemoveTargetByTag=attack-rce;ARGS:json.formHtml",
+                "ruleRemoveTargetByTag=attack-injection-php;ARGS:json.formHtml",
+                "ruleRemoveTargetByTag=attack-protocol;ARGS:json.formHtml",
+                "ruleRemoveTargetByTag=attack-lfi;ARGS:json.formHtml");
+    }
+
+    @Test
+    @DisplayName("should exempt only ignored json.formHtml on PUT eForm instance revision routes")
+    void shouldExemptOnlyJsonFormHtml_forRestInstanceRevisionRoute() throws IOException {
+        String rule = readRule("1076");
+
+        assertThat(rule)
+                .contains("SecRule REQUEST_URI \"@rx ^/carlos/ws/(?:rs|services)/eform/instance/[0-9]+(?:[;?]|$)\"")
+                .contains("\"id:1076,phase:1,pass,nolog,chain\"")
+                .contains("SecRule REQUEST_METHOD \"@streq PUT\"");
+
+        List<String> found = new ArrayList<>();
+        Matcher matcher = CTL_ACTION.matcher(rule);
+        while (matcher.find()) {
+            found.add(matcher.group(1));
+        }
+        assertThat(found).containsExactlyInAnyOrder(
+                "ruleRemoveTargetByTag=attack-sqli;ARGS:json.formHtml",
+                "ruleRemoveTargetByTag=attack-xss;ARGS:json.formHtml",
+                "ruleRemoveTargetByTag=attack-rce;ARGS:json.formHtml",
+                "ruleRemoveTargetByTag=attack-injection-php;ARGS:json.formHtml",
+                "ruleRemoveTargetByTag=attack-protocol;ARGS:json.formHtml",
+                "ruleRemoveTargetByTag=attack-lfi;ARGS:json.formHtml");
+    }
+
     private static String readRule(String ruleId) throws IOException {
         String exclusions = read();
         int idPosition = exclusions.indexOf("\"id:" + ruleId + ",");

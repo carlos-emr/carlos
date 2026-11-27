@@ -205,7 +205,13 @@ public class DrugLookUpManager implements DrugLookUp {
         for (Hashtable<String, Object> o : components) {
             comp = new DrugSearchTo1.DrugComponentTo1();
             comp.setName((String) o.get("name"));
-            comp.setStrength((Double) o.get("strength"));
+            // DrugRef's XML-RPC response can encode the strength as decimal text.
+            Object strength = o.get("strength");
+            if (strength instanceof Number number) {
+                comp.setStrength(number.doubleValue());
+            } else if (strength != null) {
+                comp.setStrength(Double.valueOf((String) strength));
+            }
             comp.setUnit((String) o.get("unit"));
             t.addComponent(comp);
         }

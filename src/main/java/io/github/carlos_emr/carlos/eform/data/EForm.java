@@ -43,7 +43,6 @@ import org.apache.logging.log4j.Logger;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
-import org.jsoup.parser.TokenQueue;
 import org.jsoup.select.Elements;
 import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.commn.OtherIdManager;
@@ -373,6 +372,59 @@ public class EForm extends EFormBase {
         } finally {
             this.submittedSelectValues = Map.of();
         }
+    }
+
+    /**
+     * Unchecks every checkbox with this name. For callers that send an explicit clear, such as
+     * the REST API: {@link #setValues} checks a box for any submitted value, because a browser
+     * leaves an unchecked box out of its submission and so never needs to clear one.
+     *
+     * @param fieldName the checkbox name
+     */
+    public void uncheckCheckboxes(String fieldName) {
+        Document document = getDocument();
+        if (document == null) return;
+        for (Element box : checkboxesNamed(document, fieldName)) {
+            box.removeAttr("checked");
+        }
+        // Flush the edited DOM to formHtml now: the later string-level steps (setAction,
+        // setNowDateTime) read the field directly and would otherwise be overwritten by it.
+        getFormHtml();
+    }
+
+    /**
+     * Checks exactly the checkbox of this name whose submitted value is {@code value} (its
+     * {@code value} attribute, or {@code "on"} without one, as a browser submits it) and unchecks the
+     * other boxes of that name. For the REST API, which carries a stored value into a revision:
+     * {@link #setValues} checks only the first box of a name, which is wrong for any other box of a
+     * group. A value that names no box leaves every box of the name unchecked.
+     *
+     * @param fieldName the checkbox name
+     * @param value the value of the box to check
+     */
+    public void checkCheckboxWithValue(String fieldName, String value) {
+        Document document = getDocument();
+        if (document == null) return;
+        for (Element box : checkboxesNamed(document, fieldName)) {
+            String submitted = box.hasAttr(VALUE_ATTRIBUTE) ? box.attr(VALUE_ATTRIBUTE) : "on";
+            if (submitted.equals(value)) {
+                box.attr("checked", "checked");
+            } else {
+                box.removeAttr("checked");
+            }
+        }
+        getFormHtml();
+    }
+
+    /**
+     * The checkboxes named exactly {@code fieldName}. Not a {@code [name="..."]} selector: jsoup
+     * compares attribute values ignoring case and surrounding space, so it would also take boxes of a
+     * differently cased name, which a browser submits as a different field.
+     */
+    private static List<Element> checkboxesNamed(Document document, String fieldName) {
+        return document.select("input[type=checkbox][name]").stream()
+                .filter(box -> box.attr("name").equals(fieldName))
+                .toList();
     }
 
     // ------------------Saving the Form (inserting fdid$value= statements)---------------------
@@ -1085,7 +1137,7 @@ public class EForm extends EFormBase {
     }
 
     private StringBuilder putValueUsingDocument(String fieldName, String type, String value) {
-        Element field = getDocument().selectFirst("[name=\"" + TokenQueue.escapeCssIdentifier(fieldName) + "\"]");
+        Element field = firstControlNamed(getDocument(), fieldName);
         if (field == null) return new StringBuilder(getFormHtml());
         switch (type) {
             case "text":
@@ -1102,8 +1154,8 @@ public class EForm extends EFormBase {
                 field.attr("checked", "checked");
                 break;
             case "radio":
-                // For radio buttons, find all radios with the same name and check the correct one based on value
-                for (Element radio : getDocument().select("input[type=radio][name=\"" + TokenQueue.escapeCssIdentifier(fieldName) + "\"]")) {
+                // For radio buttons, find all radios with the exact same name and check the matching value
+                for (Element radio : radiosNamed(getDocument(), fieldName)) {
                     if (value.equals(radio.attr(VALUE_ATTRIBUTE))) {
                         radio.attr("checked", "checked");
                     } else {
@@ -1120,6 +1172,29 @@ public class EForm extends EFormBase {
         }
 
 		return new StringBuilder(getFormHtml());
+    }
+
+    /**
+     * The first element named exactly {@code fieldName}. jsoup's {@code [name="..."]} selector
+     * compares attribute values ignoring case and surrounding whitespace, which would overwrite a
+     * differently cased control on templates that carry both (e.g. {@code Note} and {@code note}).
+     */
+    private static Element firstControlNamed(Document document, String fieldName) {
+        if (document == null || fieldName == null) return null;
+        for (Element candidate : document.select("[name]")) {
+            if (candidate.attr("name").equals(fieldName)) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    /** Radio inputs named exactly {@code fieldName}, using case-sensitive comparison. */
+    private static List<Element> radiosNamed(Document document, String fieldName) {
+        if (document == null || fieldName == null) return List.of();
+        return document.select("input[type=radio][name]").stream()
+                .filter(radio -> radio.attr("name").equals(fieldName))
+                .toList();
     }
 
     /**

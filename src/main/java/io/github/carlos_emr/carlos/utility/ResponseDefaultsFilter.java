@@ -179,19 +179,23 @@ public final class ResponseDefaultsFilter implements Filter {
      */
     private void setCaching(HttpServletRequest request, HttpServletResponse response) {
         String requestUri = request.getRequestURI();
+        String normalizedUri = requestUri;
+        while (normalizedUri.length() > 1 && normalizedUri.endsWith("/")) {
+            normalizedUri = normalizedUri.substring(0, normalizedUri.length() - 1);
+        }
         String[] arr$ = this.noCacheEndings;
         int len$ = arr$.length;
 
         for (int i$ = 0; i$ < len$; ++i$) {
             String noCacheEnding = arr$[i$];
-            if (requestUri.endsWith(noCacheEnding)) {
+            if (requestUri.endsWith(noCacheEnding) || normalizedUri.endsWith(noCacheEnding)) {
                 response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
                 return;
             }
         }
-        int lastSlash = requestUri.lastIndexOf('/');
-        String lastSegment = lastSlash >= 0 ? requestUri.substring(lastSlash + 1) : requestUri;
-        if (!lastSegment.isEmpty() && !lastSegment.contains(".")) {
+        int lastSlash = normalizedUri.lastIndexOf('/');
+        String lastSegment = lastSlash >= 0 ? normalizedUri.substring(lastSlash + 1) : normalizedUri;
+        if (!lastSegment.contains(".")) {
             response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
         }
     }

@@ -46,4 +46,28 @@ public interface EFormDocsDao extends AbstractDao<EFormDocs> {
     List<Object[]> findLabs(Integer fdid);
     List<EFormDocs> findByFdidIdDocTypeForUpdate(Integer id, String docType);
 
+    /**
+     * Active attachments of other eForms that point at this document, locked for update. Used when
+     * an eForm instance is replaced by a revision, so eForms that attached it follow the revision.
+     *
+     * @param docType the attached document's type, such as {@link io.github.carlos_emr.carlos.commn.model.EFormDocs#DOCTYPE_EFORM}
+     * @param documentNo the attached document's id
+     * @return the active (not deleted) attachment rows naming it
+     */
+    List<EFormDocs> findActiveByAttachedDocumentForUpdate(String docType, Integer documentNo);
+
+    /**
+     * Copies every active (non-deleted) attachment of {@code sourceFdid} onto {@code targetFdid}
+     * verbatim, without re-resolving laboratory routing against the patient's current inbox. Both
+     * eForm instances must exist and belong to the same patient. Used when an eForm revision takes
+     * over the replaced row's attachments so a lab re-matched to another patient after the original
+     * save keeps its historical link and does not block revision.
+     *
+     * @param sourceFdid Integer the replaced eForm instance id
+     * @param targetFdid Integer the new revision's eForm instance id
+     * @throws IllegalArgumentException if either instance is missing, equal, or belongs to a
+     *                                  different patient
+     */
+    void copyActiveAttachmentsToRevision(Integer sourceFdid, Integer targetFdid);
+
 }
