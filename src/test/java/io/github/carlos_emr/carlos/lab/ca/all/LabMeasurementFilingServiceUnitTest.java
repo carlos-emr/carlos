@@ -156,6 +156,48 @@ class LabMeasurementFilingServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldFileInTheCallersTransactionWithoutOpeningOne_whenOneIsActive() {
+        inTransactionWithSynchronization();
+
+        var result = service("101").file(filing("101", 7, false));
+
+        assertThat(result).isEqualTo(LabMeasurementFilingService.Result.FILED);
+        // The caller owns the transaction (and its retry and its failure): none of its own is opened.
+        verify(transactions, never()).getTransaction(any());
+    }
+
+    @Test
+    void shouldFileAtOnce_whenSynchronizationIsActiveButNoTransactionIs() {
+        TransactionSynchronizationManager.initSynchronization();
+
+        service("101").fileAfterCommit(filing("101", 7, false));
+
+        verify(measurementDao).persist(any(Measurement.class));
+    }
+
+    @Test
+    void shouldAuditAFailedFilingWithNoPatient_whenTheLabIsNotMatchedYet() {
+        doThrow(new IllegalStateException("broken")).when(measurementDao).persist(any(Measurement.class));
+        inTransactionWithSynchronization();
+        service("101").fileAfterCommit(filing("101", null, false));
+
+        commit();
+
+        logActionMock.verify(() -> LogAction.addLog(anyString(), anyString(), anyString(), anyString(), any(), org.mockito.ArgumentMatchers.isNull(),
+                anyString()));
+    }
+
+    @Test
+    void shouldReplaceAnUnownedRowOfTheReportItself_whenAPatientIsKnown() {
+        Measurement own = stored(null);
+        when(measurementDao.findByValue("lab_no", "101")).thenReturn(List.of(own));
+
+        service("101").file(filing("101", 7, false));
+
+        verify(measurementDao).batchRemoveAtomically(List.of(own));
+    }
+
+    @Test
     void shouldFileTheLastVersionOfTheLabsOwnOrder_whenTheChainIsRevisionOrdered() {
         // A CML chain is ordered by the lab's revision evidence: its last version is current even though
         // it does not have the highest lab number, and the highest one is then history.
@@ -274,6 +316,9 @@ class LabMeasurementFilingServiceUnitTest extends CarlosUnitTestBase {
                 .isTrue();
         assertThat(LabMeasurementFilingService.isLockFailure(
                 new org.hibernate.exception.LockTimeoutException("timeout", new java.sql.SQLException()))).isTrue();
+        // Either vendor code alone is enough, whatever the state.
+        assertThat(LabMeasurementFilingService.isLockFailure(new java.sql.SQLException("deadlock", "HY000", 1213)))
+                .isTrue();
         // Neither another SQL error, nor a failure with no lock anywhere in its chain, nor a cause cycle.
         assertThat(LabMeasurementFilingService.isLockFailure(
                 new RuntimeException(new java.sql.SQLException("duplicate", "23000", 1062)))).isFalse();
