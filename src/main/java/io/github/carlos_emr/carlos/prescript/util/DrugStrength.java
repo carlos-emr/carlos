@@ -9,7 +9,11 @@ import io.github.carlos_emr.carlos.utility.DoseText;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** The single amount and unit that the legacy medication API can carry. */
+/**
+ * The single amount and unit that the legacy medication API can carry.
+ *
+ * @since 2026-11-26
+ */
 public record DrugStrength(Float amount, String unit) {
 
     private static final DrugStrength UNKNOWN = new DrugStrength(null, null);

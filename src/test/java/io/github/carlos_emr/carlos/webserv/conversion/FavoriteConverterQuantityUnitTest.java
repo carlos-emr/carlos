@@ -20,6 +20,8 @@ import io.github.carlos_emr.carlos.webserv.rest.conversion.FavoriteConverterImpl
  * A favourite saved from a prescription keeps that prescription's quantity as text. A quantity of
  * 2.5 (mL) is "2.5", which the transfer object's {@code Integer} cannot carry;
  * {@code Integer.parseInt} threw on it and failed the read of every favourite (#6185).
+ *
+ * @since 2026-11-26
  */
 @Tag("unit")
 @Tag("prescription")
