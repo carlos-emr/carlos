@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.catchThrowable;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -68,40 +69,39 @@ class Hl7TextInfoChainLockMariaDbIntegrationTest extends Hl7TextInfoChainLockDao
     private PlatformTransactionManager transactions;
 
     /**
-     * The {@code possible_keys} column of the first EXPLAIN row. On a near-empty table the optimizer
-     * may choose a scan whatever the indexes are, so what is asserted is that the index is available
-     * to the statement; that an unrelated lock is not held up is shown by the behavioural test below.
+     * The first column of an index, from {@code information_schema.STATISTICS}: what the schema
+     * promises, whatever plan the optimizer picks. (EXPLAIN is no evidence here: on an empty table
+     * it answers "Impossible WHERE noticed after reading const tables" with a NULL {@code
+     * possible_keys}, and on a small one it may choose a scan whatever the indexes are. That an
+     * unrelated lock is not held up is shown by the behavioural test below, on a table big enough
+     * for the optimizer to use the index.)
      */
-    private String indexesAvailableFor(String explain) {
-        Object[] row = (Object[]) entityManager.createNativeQuery(explain).getResultList().get(0);
-        // EXPLAIN columns: id, select_type, table, type, possible_keys, key, ... (a partitions column
-        // sits after table on some versions): find "possible_keys" by the row's width.
-        int possibleKeys = row.length >= 12 ? 5 : 4;
-        return String.valueOf(row[possibleKeys]);
+    private String leadingColumnOf(String table, String index) {
+        List<?> rows = entityManager.createNativeQuery(
+                "SELECT COLUMN_NAME FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() "
+                        + "AND TABLE_NAME = ?1 AND INDEX_NAME = ?2 AND SEQ_IN_INDEX = 1")
+                .setParameter(1, table).setParameter(2, index).getResultList();
+        return rows.isEmpty() ? null : String.valueOf(rows.get(0));
     }
 
     @Test
     void shouldHaveTheAccessionIndexAvailable_whenLockingByAccession() {
-        assertThat(indexesAvailableFor("EXPLAIN SELECT * FROM hl7TextInfo WHERE accessionNum = 'ACC-EXPLAIN'"))
-                .contains("accession_index");
+        assertThat(leadingColumnOf("hl7TextInfo", "accession_index")).isEqualTo("accessionNum");
     }
 
     @Test
     void shouldHaveTheFillerOrderNumberIndexAvailable_whenLockingByFillerOrderNumber() {
-        assertThat(indexesAvailableFor("EXPLAIN SELECT * FROM hl7TextInfo WHERE filler_order_num = 'FILL-EXPLAIN'"))
-                .contains("idx_hl7TextInfo_filler_order_num");
+        assertThat(leadingColumnOf("hl7TextInfo", "idx_hl7TextInfo_filler_order_num")).isEqualTo("filler_order_num");
     }
 
     @Test
     void shouldHaveTheLabNumberIndexAvailable_whenLockingTheReportsOwnRow() {
-        assertThat(indexesAvailableFor("EXPLAIN SELECT * FROM hl7TextInfo WHERE lab_no = 101"))
-                .contains("labno_index");
+        assertThat(leadingColumnOf("hl7TextInfo", "labno_index")).isEqualTo("lab_no");
     }
 
     @Test
     void shouldHaveTheKeyValueIndexAvailable_whenFindingAReportsMeasurements() {
-        assertThat(indexesAvailableFor("EXPLAIN SELECT * FROM measurementsExt WHERE keyval = 'lab_no' AND val = '101'"))
-                .contains("measurements_ext_keyval_val");
+        assertThat(leadingColumnOf("measurementsExt", "measurements_ext_keyval_val")).isEqualTo("keyval");
     }
 
     private void commit(String accession) {
