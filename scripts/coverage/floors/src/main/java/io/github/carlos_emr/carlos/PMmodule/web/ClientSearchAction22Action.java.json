@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/PMmodule/web/ClientSearchAction22Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 99.38650306748467,
+    "branches": 88.88888888888889,
+    "sourceBlob": "81e8b00e004f569ac4ac982b3262f5f56538b64f"
+  },
+  "evidenceSha256": "b9b96dc8024730d71b5018081176c3eb8ddd5e20fcb2212859c0bd5aa73293ef"
+}

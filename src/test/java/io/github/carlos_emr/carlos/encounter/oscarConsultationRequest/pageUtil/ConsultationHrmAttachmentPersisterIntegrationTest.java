@@ -79,27 +79,40 @@ class ConsultationHrmAttachmentPersisterIntegrationTest extends CarlosTestBase {
         proxy.addAdvice(new TransactionInterceptor(transactions, new AnnotationTransactionAttributeSource()));
         service = (ConsultationHrmAttachmentPersister) proxy.getProxy();
         tx.executeWithoutResult(status -> {
-            var request = new ConsultationRequest(); request.setDemographicId(9705756);
-            requests.persist(request); requestId = request.getId(); patient = 9705756 + requestId;
-            request.setDemographicId(patient); requests.merge(request);
-            selectedId = attachment(128); duplicateId = attachment(128); otherId = attachment(129);
-            var ext = new ConsultationRequestExt(); ext.setRequestId(requestId);
-            ext.setKey("ereferral_ref"); ext.setValue("synthetic"); ext.setDateCreated(new java.util.Date()); extensions.persist(ext);
-            queueId = queue(patient); foreignQueueId = queue(patient + 1);
+            var request = new ConsultationRequest();
+            request.setDemographicId(9705756);
+            requests.persist(request);
+            requestId = request.getId();
+            patient = 9705756 + requestId;
+            request.setDemographicId(patient);
+            requests.merge(request);
+            selectedId = attachment(128);
+            duplicateId = attachment(128);
+            otherId = attachment(129);
+            var ext = new ConsultationRequestExt();
+            ext.setRequestId(requestId);
+            ext.setKey("ereferral_ref");
+            ext.setValue("synthetic");
+            ext.setDateCreated(new java.util.Date());
+            extensions.persist(ext);
+            queueId = queue(patient);
+            foreignQueueId = queue(patient + 1);
             em.flush();
         });
     }
 
     private int attachment(int document) {
         var row = new ConsultDocs(requestId, document, ConsultDocs.DOCTYPE_HRM, "999998");
-        attachments.persist(row); return row.getId();
+        attachments.persist(row);
+        return row.getId();
     }
 
     private int queue(int demographic) {
         var queue = new EReferAttachment(demographic);
         queue.setAttachments(List.of(new EReferAttachmentData(queue, 128, ConsultDocs.DOCTYPE_HRM),
                 new EReferAttachmentData(queue, 129, ConsultDocs.DOCTYPE_HRM)));
-        em.persist(queue); return queue.getId();
+        em.persist(queue);
+        return queue.getId();
     }
 
     @AfterEach
