@@ -501,12 +501,25 @@ def check_medication_dump(client: Client, src: str, dst: str, fields: str) -> Li
                                check=True, stdout=subprocess.PIPE).stdout
     expected = client.rows(fields, src)
     restore = [client.cmd] + client.args + ["--default-character-set=utf8mb4", dst]
-    subprocess.run(restore, input=stock + b"\n" + supplement, check=True, stdout=subprocess.DEVNULL)
-    matches = client.rows(fields, dst) == expected and client.rows(fields, src) == expected
+    subprocess.run(restore, input=stock, check=True, stdout=subprocess.DEVNULL)
+    columns = ["drugid", "takemin", "takemax"]
+    types = {"drugid": "int", "takemin": "float", "takemax": "float"}
+    source_hash = client.rows(o19_preflight.digest_sql(src, "drugs", columns, types), src)
+    target_query = o19digest.digest_sql(dst, "drugs", columns, types)
+    failures = []
+    stock_changed = client.rows(fields, dst) != expected
+    if (stock_changed and o19_preflight.DIGEST_FORMAT >= 4
+            and client.rows(target_query, dst) == source_hash):
+        failures.append("the source transfer verifier accepted rounded medication floats")
+    subprocess.run(restore, input=supplement, check=True, stdout=subprocess.DEVNULL)
+    matches = (client.rows(fields, dst) == expected and client.rows(fields, src) == expected
+               and client.rows(target_query, dst) == source_hash)
     client.setup("DELETE FROM drugs", dst)
     for schema in (src, dst):
         client.setup("ALTER TABLE drugs DROP COLUMN recorded", schema)
-    return [] if matches else ["the vendor dump and supplement changed a stored medication field"]
+    if not matches:
+        failures.append("the vendor dump and supplement changed a stored medication field")
+    return failures
 
 
 def check_exact_special_repair(client: Client, src: str, dst: str,
