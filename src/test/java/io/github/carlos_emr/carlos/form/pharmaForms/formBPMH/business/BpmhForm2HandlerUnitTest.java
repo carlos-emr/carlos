@@ -200,10 +200,10 @@ class BpmhForm2HandlerUnitTest {
                 reason("icd9", "001", "recorded detail"), reason("other", "001", "second detail"),
                 reason(null, null, " author's wording "), reason("ICD9", "002", null),
                 reason("ICD9", "unmapped", null), reason(null, "original", null), reason(null, null, null),
-                reason("ICD9", "003", null)));
+                reason("ICD9", "003", null), reason("\u0131CD9", "001", null)));
 
         assertThat(handler.getDrugReason(56)).isEqualTo("First indication recorded detail\nother 001 second detail"
-                + "\n author's wording \nDictionary description\nICD9 unmapped\noriginal\nICD9 003");
+                + "\n author's wording \nDictionary description\nICD9 unmapped\noriginal\nICD9 003\n\u0131CD9 001");
         when(reasons.getReasonsForDrugID(78, true)).thenReturn(null);
         assertThat(handler.getDrugReason(78)).isEmpty();
     }

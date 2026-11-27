@@ -28,6 +28,7 @@
  */
 package io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.business;
 
+import com.google.common.base.Ascii;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.utility.DoseText;
@@ -502,8 +503,6 @@ public class BpmhForm2Handler {
 
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String getDrugReason(Integer drugId) {
 
         List<DrugReason> reasons = getDrugReasonDao().getReasonsForDrugID(drugId, true);
@@ -525,7 +524,7 @@ public class BpmhForm2Handler {
         String code = reason.getCode();
         if (StringUtils.isBlank(code)) return "";
         String system = reason.getCodingSystem();
-        if ("icd9".equalsIgnoreCase(system)) {
+        if (Ascii.equalsIgnoreCase("icd9", StringUtils.defaultString(system))) {
             Icd9Synonym translation = getDxCodeTranslationsDao().findPatientFriendlyTranslationFor(code);
             if (translation != null && StringUtils.isNotBlank(translation.getPatientFriendly())) {
                 return translation.getPatientFriendly();
