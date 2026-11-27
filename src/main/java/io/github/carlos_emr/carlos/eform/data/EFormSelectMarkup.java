@@ -22,9 +22,12 @@
 package io.github.carlos_emr.carlos.eform.data;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -267,16 +270,25 @@ final class EFormSelectMarkup {
         String source = html.toString();
         Document document = parse(source);
         FormElement savedForm = firstLiveForm(document);
+        Set<Element> savedFormControls = formControlSet(savedForm);
         Map<Integer, Element> selectsByStart = new HashMap<>();
         for (SelectRange range : selectRanges(document)) {
             selectsByStart.put(range.start(), range.select());
         }
         for (int start : selectStarts) {
             Element select = selectsByStart.get(start);
-            String value = select == null ? null : valueSubmittedBy(select, source, document, savedForm);
+            String value = select == null ? null : valueSubmittedBy(select, source, document, savedForm, savedFormControls);
             if (value != null) submitted.put(start, value);
         }
         return submitted;
+    }
+
+    /** Caches parser-associated controls of {@code form} once per read in an identity set for O(1) membership checks. */
+    private static Set<Element> formControlSet(FormElement form) {
+        if (form == null) return Set.of();
+        Set<Element> controls = Collections.newSetFromMap(new IdentityHashMap<>());
+        controls.addAll(form.elements());
+        return controls;
     }
 
     /**
@@ -286,9 +298,10 @@ final class EFormSelectMarkup {
      * disabled, and submits it unless it is disabled; a list box with none marked submits nothing. The options of a
      * select that holds a style element are those a browser lists (see {@link #holdsStyleElement}).
      */
-    private static String valueSubmittedBy(Element select, String source, Document document, FormElement savedForm) {
+    private static String valueSubmittedBy(Element select, String source, Document document, FormElement savedForm,
+            Set<Element> savedFormControls) {
         String inside = markupInside(select, source);
-        if (inside == null || !submittedWith(select, document, savedForm)) return null;
+        if (inside == null || !submittedWith(select, document, savedForm, savedFormControls)) return null;
         List<Element> options = holdsStyleElement(inside) ? optionsOutsideSelect(inside) : ownedOptions(select);
         if (select.hasAttr(MULTIPLE_ATTRIBUTE)) {
             return firstSelectedEnabledValue(options, select);
@@ -333,7 +346,8 @@ final class EFormSelectMarkup {
      * {@code <tr>}) is still submitted with it. When the page has no live form, every non-template select is still
      * read as before.
      */
-    private static boolean submittedWith(Element select, Document document, FormElement savedForm) {
+    private static boolean submittedWith(Element select, Document document, FormElement savedForm,
+            Set<Element> savedFormControls) {
         if (ancestorNamed(select, TEMPLATE_TAG, null) != null) return false;
         if (savedForm == null) return true;
         if (isDisabledControl(select)) return false;
@@ -341,7 +355,7 @@ final class EFormSelectMarkup {
             return targetsForm(document, select.attr(FORM_TAG), savedForm);
         }
         Element form = ancestorNamed(select, FORM_TAG, null);
-        return form == savedForm || (form == null && savedForm.elements().contains(select));
+        return form == savedForm || (form == null && savedFormControls.contains(select));
     }
 
     /** The first {@code <form>} outside inert {@code <template>} content, or null. */
