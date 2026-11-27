@@ -1,6 +1,9 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 package io.github.carlos_emr.carlos.appointment.service;
 
+import io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderChoice;
+import io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderService;
+import io.github.carlos_emr.carlos.appointment.reminder.ReminderChannel;
 import io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
@@ -37,13 +40,16 @@ public class RecurringAppointmentService {
     private final AppointmentArchiveDao archives;
     private final SecurityInfoManager security;
     private final AppointmentLocationResolver locations;
+    private final AppointmentReminderService reminders;
 
     public RecurringAppointmentService(OscarAppointmentDao appointments, AppointmentArchiveDao archives,
-                                       SecurityInfoManager security, AppointmentLocationResolver locations) {
+                                       SecurityInfoManager security, AppointmentLocationResolver locations,
+                                       AppointmentReminderService reminders) {
         this.appointments = appointments;
         this.archives = archives;
         this.security = security;
         this.locations = locations;
+        this.reminders = reminders;
     }
 
     /**
@@ -109,7 +115,7 @@ public class RecurringAppointmentService {
         String renderedVersion = values.get(APPOINTMENT_VERSION);
         if (anchor != null && renderedVersion != null && !renderedVersion.isBlank()
                 && !renderedVersion.trim().equals(anchor.getEditVersion())
-                && !alreadyStored(operation, anchor, template)) {
+                && !alreadyStored(operation, anchor, template, values)) {
             throw new AppointmentUpdateException(AppointmentUpdateException.Reason.STALE_VERSION);
         }
         if (anchor != null && !Objects.equals(anchor.getAppointmentDate(), template.getAppointmentDate())) {
@@ -141,6 +147,7 @@ public class RecurringAppointmentService {
                 Appointment occurrence = copy(identity);
                 occurrence.setAppointmentDate(Date.valueOf(date));
                 appointments.persist(occurrence);
+                recordReminderChoice(user, values, occurrence);
                 audit.add(new AuditRow(LogConst.ADD, occurrence, null));
             }
             auditAfterCommit(user, audit);
@@ -163,11 +170,24 @@ public class RecurringAppointmentService {
                 occurrence.setUpdateDateTime(updated);
                 occurrence.setLastUpdateUser(user.getLoggedInProviderNo());
                 appointments.merge(occurrence);
+                if (operation.equals("Group Update")) recordReminderChoice(user, values, occurrence);
                 audit.add(new AuditRow(LogConst.UPDATE, occurrence, cancel ? "status=C" : null));
             }
         }
         auditAfterCommit(user, audit);
         return existing.size();
+    }
+
+    /**
+     * The Email Reminder box travels with the form to this page (#5887). Each appointment this action books or
+     * updates gets the box's choice, in this transaction, so a ticked box is never dropped. A form without the box
+     * (reminders off) leaves every stored choice as it is.
+     */
+    private void recordReminderChoice(LoggedInInfo user, Map<String, String> values, Appointment appointment) {
+        if (AppointmentReminderChoice.isOnCopiedForm(values)) {
+            reminders.recordRequest(user, appointment.getId(), appointment.getDemographicNo(), ReminderChannel.EMAIL,
+                    AppointmentReminderChoice.isTickedOnCopiedForm(values));
+        }
     }
 
     /** One appointment of the series as its audit row will name it: by id and patient, never by its text. */
@@ -271,15 +291,29 @@ public class RecurringAppointmentService {
      * and moved the version on, the second still names the version the page was rendered from.
      * Writing the same values again cannot undo anyone's change, so it is not a conflict, and
      * answering it as one would tell the user their saved change was refused. Any other
-     * difference between the form and the stored appointment remains a conflict.</p>
+     * difference between the form and the stored appointment remains a conflict, the Email
+     * Reminder box included.</p>
      */
-    private static boolean alreadyStored(String operation, Appointment anchor, Appointment template) {
+    private boolean alreadyStored(String operation, Appointment anchor, Appointment template,
+                                  Map<String, String> values) {
         return switch (operation) {
             case "Group Update" -> Objects.equals(anchor.getAppointmentDate(), template.getAppointmentDate())
-                    && sameDetails(anchor, template);
+                    && sameDetails(anchor, template) && sameReminderChoice(anchor, values);
             case "Group Cancel" -> "C".equals(anchor.getStatus());
             default -> false;
         };
+    }
+
+    /**
+     * The Email Reminder box is stored apart from the appointment (#5887), so matching fields cannot show that a
+     * stale form is a repeat of this save: a colleague may have ticked or unticked the box since, and the
+     * replay would write the old choice over the series. A form that carries the box is a repeat only when its
+     * choice is the one saved for the appointment now. A form without the box changes no choice.
+     */
+    private boolean sameReminderChoice(Appointment anchor, Map<String, String> values) {
+        return !AppointmentReminderChoice.isOnCopiedForm(values)
+                || reminders.isRequested(anchor.getId(), ReminderChannel.EMAIL)
+                == AppointmentReminderChoice.isTickedOnCopiedForm(values);
     }
 
     private static boolean sameDetails(Appointment a, Appointment b) {

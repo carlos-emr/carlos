@@ -7,6 +7,8 @@ package io.github.carlos_emr.carlos.appointment.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -28,6 +30,9 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentEditConflict;
+import io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderChoice;
+import io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderService;
+import io.github.carlos_emr.carlos.appointment.reminder.ReminderChannel;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
@@ -45,6 +50,7 @@ class RecurringAppointmentServiceStaleFormUnitTest extends CarlosUnitTestBase {
     private final OscarAppointmentDao appointments = mock(OscarAppointmentDao.class);
     private final AppointmentArchiveDao archives = mock(AppointmentArchiveDao.class);
     private final SecurityInfoManager security = mock(SecurityInfoManager.class);
+    private final AppointmentReminderService reminders = mock(AppointmentReminderService.class);
     private final LoggedInInfo user = mock(LoggedInInfo.class);
     private final Appointment anchor = new Appointment();
     private RecurringAppointmentService service;
@@ -65,7 +71,7 @@ class RecurringAppointmentServiceStaleFormUnitTest extends CarlosUnitTestBase {
         when(appointments.findRecurringSeries(eq(anchor), any())).thenReturn(List.of(anchor));
         service = new RecurringAppointmentService(appointments, archives, security,
                 new io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver(
-                        mock(io.github.carlos_emr.carlos.commn.dao.LookupListDao.class)));
+                        mock(io.github.carlos_emr.carlos.commn.dao.LookupListDao.class)), reminders);
         values = new HashMap<>(Map.of("appointment_no", "61", "provider_no", "999998",
                 "appointment_date", "2027-01-31", "start_time", "10:00", "end_time", "10:14",
                 "keyword", "FAKE-PATIENT,Check", "status", "t", "groupappt", "Group Update",
@@ -88,7 +94,7 @@ class RecurringAppointmentServiceStaleFormUnitTest extends CarlosUnitTestBase {
                         assertThat(refused.getReason()).isEqualTo(AppointmentUpdateException.Reason.STALE_VERSION));
 
         assertThat(anchor.getStatus()).isEqualTo("C");
-        verifyNoInteractions(archives);
+        verifyNoInteractions(archives, reminders);
         verify(appointments, never()).merge(any());
         verify(appointments, never()).remove(any(Integer.class));
     }
@@ -120,8 +126,45 @@ class RecurringAppointmentServiceStaleFormUnitTest extends CarlosUnitTestBase {
                 .isInstanceOfSatisfying(AppointmentUpdateException.class, refused ->
                         assertThat(refused.getReason()).isEqualTo(AppointmentUpdateException.Reason.STALE_VERSION));
         assertThat(anchor.getReason()).isEqualTo("Changed by a colleague");
+        verifyNoInteractions(archives, reminders);
+        verify(appointments, never()).merge(any());
+    }
+
+    /**
+     * #5887 (review): the Email Reminder box is stored apart from the appointment. A colleague ticked it since this
+     * form was rendered unticked; the fields match, but the replay would withdraw that newer choice. Refused.
+     */
+    @Test
+    void shouldRefuseGroupUpdate_whenTheStaleFormsReminderChoiceDiffersFromTheSavedOne() {
+        anchor.setStatus("t");
+        anchor.setName("FAKE-PATIENT,Check");
+        values.put(RecurringAppointmentService.APPOINTMENT_VERSION, "5000");
+        values.put(AppointmentReminderChoice.SHOWN_PARAMETER, "1");
+        when(reminders.isRequested(61, ReminderChannel.EMAIL)).thenReturn(true);
+
+        assertThatThrownBy(() -> service.apply(user, values, 0))
+                .isInstanceOfSatisfying(AppointmentUpdateException.class, refused ->
+                        assertThat(refused.getReason()).isEqualTo(AppointmentUpdateException.Reason.STALE_VERSION));
+        verify(reminders, never()).recordRequest(any(), anyInt(), anyInt(), any(), anyBoolean());
         verifyNoInteractions(archives);
         verify(appointments, never()).merge(any());
+    }
+
+    /** The same user's repeated save carries the choice it stored: still a repeat, applied again. */
+    @Test
+    void shouldApplyGroupUpdateAgain_whenTheRepeatedSaveCarriesTheSavedReminderChoice() {
+        anchor.setStatus("t");
+        anchor.setName("FAKE-PATIENT,Check");
+        values.put(RecurringAppointmentService.APPOINTMENT_VERSION, "5000");
+        values.put(AppointmentReminderChoice.SHOWN_PARAMETER, "1");
+        values.put(AppointmentReminderChoice.PARAMETER, "email reminder");
+        when(reminders.isRequested(61, ReminderChannel.EMAIL)).thenReturn(true);
+
+        int updated = service.apply(user, values, 0);
+
+        assertThat(updated).isEqualTo(1);
+        verify(appointments).merge(anchor);
+        verify(reminders).recordRequest(user, 61, 0, ReminderChannel.EMAIL, true);
     }
 
     @Test
@@ -146,6 +189,7 @@ class RecurringAppointmentServiceStaleFormUnitTest extends CarlosUnitTestBase {
                 .isInstanceOfSatisfying(AppointmentUpdateException.class, refused ->
                         assertThat(refused.getReason()).isEqualTo(AppointmentUpdateException.Reason.STALE_VERSION));
         assertThat(anchor.getStatus()).isEqualTo("B");
+        verifyNoInteractions(reminders);
         verify(appointments, never()).merge(any());
     }
 

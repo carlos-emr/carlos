@@ -54,6 +54,7 @@ records the staged persistence migration and module follow-ups.
 | [Response-filter lifecycle](response-filter-lifecycle.md) | Response capture ownership, nested forwards, error sanitization, and the Tomcat compatibility contract |
 | [Resources Directory](resources-directory.md) | Application resources structure |
 | [Provider-to-Patient Email Operations](email/provider-to-patient-email-operations.md) | Email workflow setup, monitoring, and safety runbook |
+| [Email Appointment Reminders](email/appointment-email-reminders.md) | Turning on appointment reminder emails: settings, consent, timing, wording, where staff see outcomes (#5887) |
 | [Container-provided Jakarta APIs](container-provided-apis.md) | Which web-tier Jakarta APIs Tomcat 11 supplies (`provided`), why JSTL still ships in the WAR, and the checks that hold it |
 | [Dependency footprint replacements](dependency-footprint-5472.md) | Report, chart, browser and table dependency replacements, output differences and validation (#5472) |
 | [JAXB provider compatibility](jaxb-provider-compatibility.md) | Glassfish JAXB, preserved MOXy XML/JSON contracts, published SOAP schemas, and compatibility evidence |

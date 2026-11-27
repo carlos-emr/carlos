@@ -63,6 +63,13 @@ public interface EmailLogDao extends AbstractDao<EmailLog> {
     public List<EmailLog> getEmailStatusByDateDemographicSenderStatus(Date dateBegin, Date dateEnd, String demographicNo, String senderEmailAddress, String emailStatus);
 
     /**
+     * As {@link #getEmailStatusByDateDemographicSenderStatus}, keeping only emails of {@code transactionType}
+     * (Manage Emails' Type filter, #5887). A {@code null} type keeps every email.
+     */
+    public List<EmailLog> getEmailStatusByDateDemographicSenderStatusType(Date dateBegin, Date dateEnd, String demographicNo,
+            String senderEmailAddress, String emailStatus, EmailLog.TransactionType transactionType);
+
+    /**
      * Replaces the stored body of one email, in its own transaction.
      *
      * <p>Used to drop a one-time credential from the outbox once it can no longer be needed: the row

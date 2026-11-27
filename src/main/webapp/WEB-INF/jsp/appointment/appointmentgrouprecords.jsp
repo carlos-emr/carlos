@@ -85,6 +85,9 @@
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="org.owasp.csrfguard.CsrfGuard" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderChoice" %>
+<%@ page import="io.github.carlos_emr.carlos.appointment.reminder.GroupUpdateReminders" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -142,6 +145,8 @@
             param[19] = request.getParameter("reasonCode");
 
             String[] param2 = new String[7];
+            // #5887: the bookings made here, so the Email Reminder box can be recorded on one of them.
+            java.util.List<Appointment> groupBookings = new java.util.ArrayList<>();
             for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
                 strbuf = new StringBuffer(e.nextElement().toString());
                 if (strbuf.toString().indexOf("one") == -1 && strbuf.toString().indexOf("two") == -1)
@@ -181,6 +186,7 @@
                 // (claimed by the gate, see AppointmentGroupSubmission) is spent even if a later one fails.
                 AppointmentGroupSubmission.storageStarted(request);
                 appointmentDao.persist(a);
+                groupBookings.add(a);
                 rowsAffected = 1;
                 // Booked: audited under the appointment and its patient, like the Add Appointment popup.
                 io.github.carlos_emr.carlos.log.LogAction.addLog(
@@ -212,6 +218,9 @@
                     OtherIdManager.saveIdAppointment(apptNo, "appt_mc_number", mcNumber);
                 }
             }
+            // One reminder for the group: the patient is booked with several providers at the same time.
+            AppointmentReminderChoice.recordForGroup(request, LoggedInInfo.getLoggedInInfoFromSession(request),
+                    groupBookings, curProvider_no);
             if (rowsAffected == 1) bSucc = true;
         }
 
@@ -242,6 +251,14 @@
             StringBuffer strbuf = null;
             String createdDateTime = UtilDateUtilities.DateToString(new java.util.Date(), "yyyy-MM-dd HH:mm:ss");
             String userName = (String) session.getAttribute("userlastname") + ", " + (String) session.getAttribute("userfirstname");
+            // #5887: Group Update books each appointment again under a new number. Its reminder goes with it,
+            // and the Edit form's Email Reminder box applies to the appointment it was opened for.
+            LoggedInInfo groupUser = LoggedInInfo.getLoggedInInfoFromSession(request);
+            int editedNo = org.apache.commons.lang3.math.NumberUtils.toInt(request.getParameter("appointment_no"), 0);
+            Appointment editedBooking = null;
+            // The reminder steps wait until this transaction has committed: inside it, a reminder that cannot be
+            // stored would roll back every booking of the group (GroupUpdateReminders).
+            GroupUpdateReminders groupReminders = new GroupUpdateReminders(request, groupUser);
 
             for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
                 strbuf = new StringBuffer(e.nextElement().toString());
@@ -280,11 +297,13 @@
                 }
 
                 if (request.getParameter("groupappt").equals("Group Update")) {
+                    Integer replacedNo = null;
                     if (request.getParameter("appointment_no" + datano) != null) {
                         Appointment appt = appointmentDao.find(Integer.parseInt(request.getParameter("appointment_no" + datano)));
                         if (appt != null) {
                             appointmentArchiveDao.archiveAppointment(appt);
                             appointmentDao.remove(appt.getId());
+                            replacedNo = appt.getId();
                             rowsAffected = 1;
                             groupAudit.add(new String[]{io.github.carlos_emr.carlos.log.LogConst.DELETE, String.valueOf(appt.getId()),
                                     appt.getDemographicNo() > 0 ? String.valueOf(appt.getDemographicNo()) : null, null});
@@ -343,6 +362,10 @@
 
                     appointmentDao.persist(a);
                     rowsAffected = 1;
+                    groupReminders.moveReminders(replacedNo, a);
+                    if (replacedNo != null && replacedNo == editedNo) {
+                        editedBooking = a;
+                    }
                     groupAudit.add(new String[]{io.github.carlos_emr.carlos.log.LogConst.ADD, String.valueOf(a.getId()),
                             a.getDemographicNo() > 0 ? String.valueOf(a.getDemographicNo()) : null, null});
 
@@ -368,6 +391,12 @@
                 }
                 if (rowsAffected != 1) break;
             }
+            if (request.getParameter("groupappt").equals("Group Update")) {
+                // The box belongs to the appointment Edit was opened for: rebooked here, or left as it was.
+                Appointment edited = editedBooking != null ? editedBooking
+                        : editedNo > 0 ? appointmentDao.find(editedNo) : null;
+                groupReminders.recordAfterGroupUpdate(edited);
+            }
             if (rowsAffected == 1) bSucc = true;
             // The token's claim learns whether these writes commit or roll back; a press that wrote
             // nothing leaves this rendering free to be submitted again.
@@ -379,6 +408,9 @@
                         io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request),
                         entry[0], io.github.carlos_emr.carlos.log.LogConst.CON_APPT, entry[1], entry[2], entry[3]);
             }
+            // Committed: the bookings are saved. A reminder step that fails now is logged and shown below;
+            // it never undoes a booking.
+            groupReminders.runAfterCommit();
             } finally {
                 // An exception part-way through leaves nothing half-applied. A commit that failed has
                 // already completed the transaction; rolling it back again would replace its cause.
@@ -389,6 +421,18 @@
         if (bSucc) {
             // The writes are durable: a repeat of this rendering ends on this result page without writing.
             AppointmentGroupSubmission.saved(request);
+        }
+        if (bSucc && AppointmentReminderChoice.notRecorded(request)) {
+            // #5887: the bookings are saved but a reminder was not: say so, and leave the window open to read it.
+%>
+<h1><fmt:message key="appointment.appointmentgrouprecords.msgAddSuccess"/></h1>
+<p role="alert" id="reminderNotRecorded"><fmt:message key="appointment.reminder.notRecorded"/></p>
+<button type="button" onclick="self.close()"><fmt:message key="global.btnClose"/></button>
+<script LANGUAGE="JavaScript">
+    self.opener.refresh();
+</script>
+<%
+        } else if (bSucc) {
 %>
 <h1><fmt:message key="appointment.appointmentgrouprecords.msgAddSuccess"/></h1>
 <script LANGUAGE="JavaScript">

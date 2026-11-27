@@ -31,8 +31,14 @@
         <table class="email-info-table table table-borderless">
             <tr>
                 <th><fmt:message key="admin.manageEmails.card.subject"/></th>
-                <td>${carlos:forHtml(emailStatusResult.subject)}</td>                      
+                <td>${carlos:forHtml(emailStatusResult.subject)}</td>
             </tr>
+            <c:if test="${emailStatusResult.appointmentReminder}">
+            <tr>
+                <th><fmt:message key="admin.manageEmails.type"/></th>
+                <td><fmt:message key="admin.manageEmails.type.appointmentReminder"/></td>
+            </tr>
+            </c:if>
             <tr>
                 <th><fmt:message key="admin.manageEmails.card.from"/></th>
                 <td>${carlos:forHtml(emailStatusResult.senderFullName)} &lt;${carlos:forHtml(emailStatusResult.senderEmail)}&gt;</td>

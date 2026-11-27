@@ -319,7 +319,8 @@
      * set with textContent only, so autocomplete data can never become markup.
      * AC (active) and RO (rostered) are the expected defaults and show no status
      * banner. The roster label comes from the banner's data-roster-label, which
-     * the page renders from its message bundle.
+     * the page renders from its message bundle. NR is expanded to its
+     * localized roster label for readers; the stored/API status remains NR.
      */
     function showPatientBanners(doc, item) {
         var alertBanner = doc.getElementById('patientAlertBanner');
@@ -340,7 +341,9 @@
         var rawStatus = text(item.status);
         var rawRoster = text(item.rosterStatus);
         var displayStatus = rawStatus === 'AC' ? '' : rawStatus;
-        var displayRoster = rawRoster === 'RO' ? '' : rawRoster;
+        var normalizedRoster = rawRoster.trim().toUpperCase();
+        var displayRoster = normalizedRoster === 'RO' ? '' :
+            (normalizedRoster === 'NR' ? (statusBanner.getAttribute('data-roster-not-rostered') || rawRoster) : rawRoster);
         if (displayStatus || displayRoster) {
             var parts = [];
             if (displayStatus) {
