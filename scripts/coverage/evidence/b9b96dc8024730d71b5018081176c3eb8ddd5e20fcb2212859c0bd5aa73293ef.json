@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "c1a8482ed738e0f427f373737099161c1a51c921",
+  "comparisonSha256": "dd5c3096d1d66a3059423515a74b8712ae9ba666d9890ad3522c61a2ec3fd462",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/PMmodule/web/ClientSearchAction22Action.java": {
+      "lines": 100.0,
+      "instructions": 99.38650306748467,
+      "branches": 88.88888888888889,
+      "sourceBlob": "81e8b00e004f569ac4ac982b3262f5f56538b64f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/pageUtil/SupServiceCodeAssoc2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "801cf58304f7322bcddb634c6df50b440a6ff89e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/ConsultationRequestDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "8057084997a7d5380fb3d131b1d7391bbc3bbeaa"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/DemographicDaoImpl.java": {
+      "lines": 86.77248677248677,
+      "instructions": 86.61016949152543,
+      "branches": 72.52747252747253,
+      "sourceBlob": "e83ab6c1a2eaf65599d14d2624ae4dd3f6759fe1"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/ProfessionalSpecialistDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "6b89fc68385a10996c0c7685918425e24d5192e7"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/oscarConsultationRequest/pageUtil/ConsultationHrmDetach2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 87.5,
+      "sourceBlob": "a92cad570a47fc852fd30eee0668dc26488f8a93"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/status/action/SessionHeartbeat2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "697fb3caca2b4aba1ac7045610180d1f552556b5"
+    }
+  },
+  "baselineCommit": "6aaa07cceba687dfba8eba7abc78f631fe2c7fe7",
+  "baselineSourceTree": "c1a8482ed738e0f427f373737099161c1a51c921",
+  "baselineReportSha256": "370c41d37a0e4adea93f8ef17efde2591f8a494a01908364833df71f102ec633",
+  "baselineLane": "Focused JDK 25 Maven Surefire run with JaCoCo 0.8.16. H2 application integration and unit tests ran alongside CDS export selection tests on disposable MariaDB 11.8.9 with the 94 shipped Ontario Flyway migrations.",
+  "baselineTestCounts": {
+    "tests": 299,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "0f28533d43d8b13fcc3560e72980c46a9685f58ed9feed519a0e7ed0865488a7",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.PMmodule.web.ClientSearchAttachNoteUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SupServiceCodeAssoc2ActionUnitTest",
+    "io.github.carlos_emr.carlos.commn.dao.ConsultationListCorrectionsIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.ConsultationListProjectionIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDaoConsultantFilterIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDaoDateFilterIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.DayScheduleNamesDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.DemographicDaoImplAfterCommitUnitTest",
+    "io.github.carlos_emr.carlos.commn.dao.DemographicDaoImplFluReportUnitTest",
+    "io.github.carlos_emr.carlos.commn.dao.DemographicDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.ServerTablePagingIntegrationTest",
+    "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportSelectionIntegrationTest",
+    "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationHrmAttachmentPersisterIntegrationTest",
+    "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationHrmAttachmentPersisterUnitTest",
+    "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationHrmDetach2ActionUnitTest",
+    "io.github.carlos_emr.carlos.managers.DemographicUpdateDaoTransactionIntegrationTest",
+    "io.github.carlos_emr.carlos.status.action.SessionHeartbeat2ActionUnitTest",
+    "io.github.carlos_emr.carlos.test.examples.DemographicDaoModernTest",
+    "io.github.carlos_emr.carlos.webserv.rest.DemographicIdentifierPreservationTransactionIntegrationTest"
+  ]
+}

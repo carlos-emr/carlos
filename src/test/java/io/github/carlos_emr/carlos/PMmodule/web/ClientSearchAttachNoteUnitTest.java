@@ -72,6 +72,7 @@ class ClientSearchAttachNoteUnitTest extends CarlosUnitTestBase {
     private final MockHttpSession session = new MockHttpSession();
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockHttpServletRequest request;
+    private final MockHttpServletResponse response = new MockHttpServletResponse();
     private ClientManager clients;
 
     @BeforeEach
@@ -90,12 +91,37 @@ class ClientSearchAttachNoteUnitTest extends CarlosUnitTestBase {
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenAnswer(invocation -> request);
-        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
     }
 
     @AfterEach
     void tearDown() {
         servletActionContextMock.close();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"-1", "8", "invalid"})
+    void shouldRefuseInvalidSort_beforeQueryingPatients(String sort) {
+        newRequest().setParameter("tableSortChange", sort);
+        var search = new ClientSearchAction22Action();
+        search.setCriteria(new ClientSearchFormBean());
+
+        assertThat(search.attachSearch()).isEqualTo("none");
+        assertThat(response.getStatus()).isEqualTo(400);
+        verify(clients, org.mockito.Mockito.never()).searchClientPage(any(), anyInt(), anyInt(), anyBoolean());
+    }
+
+    @Test
+    void shouldReverseDefaultColumn_whenItsHeaderIsSelected() {
+        newRequest().setParameter("tableSort", "0");
+        request.setParameter("tableSortChange", "1");
+        var search = new ClientSearchAction22Action();
+        search.setCriteria(new ClientSearchFormBean());
+
+        search.attachSearch();
+
+        verify(clients).searchClientPage(any(), eq(0), eq(1), eq(true));
+        assertThat(request.getAttribute("serverTableDescending")).isEqualTo(true);
     }
 
     @Test

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/encounter/oscarConsultationRequest/pageUtil/ConsultationHrmDetach2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 87.5,
+    "sourceBlob": "64a3f33fb49e9f5e7096a5ef3779b5903e9930a5"
+  },
+  "evidenceSha256": "ff7b9cedefcba63b5f692a4eb54dea44d870a0e18f45c1d16920d5a92608aec7"
+}

@@ -24,8 +24,10 @@ function fixture({globalId = '123', query = '?demographicNo=123', hidden = ['123
     },
     loadDiv(panel, url, limit) { actions.push(['refresh', panel, url, limit]); },
   };
-  const popup = {opener, close() { actions.push(['close']); }};
-  return {popup, opener, editor, otherEditor, actions};
+  const recovery = {hidden: true};
+  const reference = {value: ''};
+  const popup = {opener, document: {getElementById: id => id === 'encounterFormRecovery' ? recovery : reference}, close() { actions.push(['close']); }};
+  return {popup, opener, editor, otherEditor, actions, reference, recovery};
 }
 
 test('completion appends literal text to the modern editor and dispatches dirty events before refresh and close', () => {
@@ -76,7 +78,8 @@ for (const [name, options] of [
     const f = fixture(options);
     completeEncounterForm(f.popup, '123', 'Do not append');
     assert.equal(f.editor.value, 'Existing draft');
-    assert.deepEqual(f.actions, [['close']]);
+    assert.deepEqual(f.actions, []);
+    assert.equal(f.recovery.hidden, false);
   });
 }
 
@@ -85,7 +88,9 @@ test('an opener without any explicit identity cannot receive completion text', (
   delete f.opener.demographicNo;
   completeEncounterForm(f.popup, '123', 'Do not append');
   assert.equal(f.editor.value, 'Existing draft');
-  assert.deepEqual(f.actions, [['close']]);
+  assert.deepEqual(f.actions, []);
+  assert.equal(f.recovery.hidden, false);
+  assert.equal(f.reference.value, 'Do not append');
 });
 
 test('matching canonical IDs are accepted across aliases, numeric globals and leading zeroes', () => {
@@ -100,11 +105,12 @@ test('invalid completion patient IDs never mutate a chart', () => {
     const f = fixture();
     completeEncounterForm(f.popup, id, 'Do not append');
     assert.equal(f.editor.value, 'Existing draft');
-    assert.deepEqual(f.actions, [['close']]);
+    assert.deepEqual(f.actions, []);
+    assert.equal(f.recovery.hidden, false);
   }
 });
 
-test('missing, closed and cross-origin openers close safely without reading or writing a draft', () => {
+test('missing, closed and cross-origin openers preserve the reference without writing a draft', () => {
   for (const state of ['missing', 'closed', 'inaccessible']) {
     const f = fixture();
     if (state === 'missing') f.popup.opener = null;
@@ -112,18 +118,21 @@ test('missing, closed and cross-origin openers close safely without reading or w
     if (state === 'inaccessible') Object.defineProperty(f.opener, 'location', {get() { throw new Error('SecurityError'); }});
     assert.doesNotThrow(() => completeEncounterForm(f.popup, '123', 'Do not append'));
     assert.equal(f.editor.value, 'Existing draft');
-    assert.deepEqual(f.actions, [['close']]);
+    assert.deepEqual(f.actions, []);
+    assert.equal(f.recovery.hidden, false);
   }
 });
 
-test('missing and readonly editors still allow supported own-patient panel refreshes and closing', () => {
+test('missing, readonly and busy editors preserve the saved reference for manual insertion', () => {
   for (const state of ['missing', 'readOnly', 'disabled']) {
     const f = fixture();
     if (state === 'missing') f.opener.document.querySelector = () => null;
     else f.editor[state] = true;
     completeEncounterForm(f.popup, '123', 'Saved');
     assert.equal(f.editor.value, 'Existing draft');
-    assert.deepEqual(f.actions.map(action => action[0]), ['refresh', 'refresh', 'close']);
+    assert.equal(f.reference.value, 'Saved');
+    assert.equal(f.recovery.hidden, false);
+    assert.deepEqual(f.actions.map(action => action[0]), ['refresh', 'refresh']);
   }
 });
 
@@ -197,4 +206,71 @@ test('the generic Save and Exit page supplies either legacy or BC-AR patient par
   assert.match(page, /completeEncounterForm\(window,/);
   assert.match(page, /not empty param\.demographic_no \? param\.demographic_no : param\.demographicNo/);
   assert.doesNotMatch(page, /window\.opener\.location\.reload\(/);
+});
+
+/**
+ * The eChart's production hold and paste (newCaseManagementView.js.jsp) installed on the opener,
+ * so completion is checked against what the chart itself does while Sign & Save checks the
+ * sign-in: the note's controls are disabled and insertions are held for review.
+ */
+function withChartPaste(f) {
+  const vm = require('node:vm');
+  const source = fs.readFileSync(path.join(__dirname, '../src/main/webapp/js/newCaseManagementView.js.jsp'), 'utf8');
+  const start = source.indexOf('    // Text a template or a measurement window adds');
+  const end = source.indexOf('    function writeToEncounterNote(', start);
+  assert.ok(start > 0 && end > start, 'the production hold and paste are present');
+  f.editor.id = 'caseNote_note7';
+  const chart = {
+    caseNote: 'caseNote_note7', adjustCaseNote() {}, setCaretPosition() {}, console,
+    document: {getElementById: id => (id === 'caseNote_note7' ? f.editor : null)},
+  };
+  vm.createContext(chart);
+  vm.runInContext(source.slice(start, end), chart);
+  f.opener.pasteToEncounterNote = (...args) => chart.pasteToEncounterNote(...args);
+  return chart;
+}
+
+test('a form completed while Sign & Save checks the sign-in is held, then added to the note for review', () => {
+  const f = fixture();
+  const chart = withChartPaste(f);
+  // As beginNoteSwitchSave leaves it during the check.
+  require('node:vm').runInContext('noteSignPreflightPending = true;', chart);
+  f.editor.disabled = true;
+  completeEncounterForm(f.popup, '123', 'FAKE completed form text');
+  assert.equal(f.editor.value, 'Existing draft', 'nothing reaches the note during the check');
+  assert.equal(f.recovery.hidden, false);
+  assert.equal(f.reference.value, 'FAKE completed form text');
+  assert.deepEqual(f.actions.map(action => action[0]), ['refresh', 'refresh'], 'the saved reference remains available until insertion');
+  f.editor.disabled = false;
+  assert.equal(chart.releaseHeldNoteInsertions(), 1, 'the completion text was held, not dropped');
+  assert.equal(f.editor.value, 'Existing draft\nFAKE completed form text');
+  assert.deepEqual(f.actions.slice(2).map(action => action[0]), ['event', 'event', 'close']);
+});
+
+test('a form completed outside the check goes through the chart paste and marks the note changed', () => {
+  const f = fixture();
+  withChartPaste(f);
+  completeEncounterForm(f.popup, '123', 'FAKE completed form text');
+  assert.equal(f.editor.value, 'Existing draft\nFAKE completed form text');
+  assert.deepEqual(f.actions.slice(0, 2), ['input', 'change'].map(type => ['event', type, true, f.editor.value]));
+  assert.deepEqual(f.actions.at(-1), ['close']);
+});
+
+test('a read-only note receives nothing even when the chart paste is available', () => {
+  const f = fixture();
+  withChartPaste(f);
+  f.editor.readOnly = true;
+  completeEncounterForm(f.popup, '123', 'FAKE completed form text');
+  assert.equal(f.editor.value, 'Existing draft');
+});
+
+test('ordinary AJAX save keeps its serialized editor intact and leaves the saved form reference available', () => {
+  const f = fixture();
+  withChartPaste(f);
+  f.editor.disabled = true;
+  completeEncounterForm(f.popup, '123', 'Reference to saved form');
+  assert.equal(f.editor.value, 'Existing draft');
+  assert.equal(f.reference.value, 'Reference to saved form');
+  assert.equal(f.recovery.hidden, false);
+  assert.deepEqual(f.actions.map(action => action[0]), ['refresh', 'refresh']);
 });
