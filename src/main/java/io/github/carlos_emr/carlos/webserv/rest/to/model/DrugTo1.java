@@ -32,6 +32,8 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import jakarta.xml.bind.annotation.XmlRootElement;
+import jakarta.xml.bind.annotation.XmlElement;
+import jakarta.xml.bind.annotation.XmlTransient;
 import java.io.Serializable;
 import java.util.Date;
 
@@ -65,9 +67,11 @@ public class DrugTo1 implements Serializable {
 
     private String providerNo;
 
-    private Float takeMin;
+    @XmlTransient
+    private float takeMin;
 
-    private Float takeMax;
+    @XmlTransient
+    private float takeMax;
 
     private Date rxDate;
 
@@ -91,9 +95,15 @@ public class DrugTo1 implements Serializable {
 
     private Integer repeats;
 
-    @jakarta.xml.bind.annotation.XmlTransient
+    @XmlTransient
     private Integer quantity;
-    private transient boolean quantitySubmitted;
+    // Older Java-serialized DTOs have no presence flags and retain their complete-replacement semantics.
+    @XmlTransient
+    private Boolean quantitySubmitted = false;
+    @XmlTransient
+    private Boolean minimumSubmitted = false;
+    @XmlTransient
+    private Boolean maximumSubmitted = false;
 
     private String instructions;
 
@@ -209,28 +219,32 @@ public class DrugTo1 implements Serializable {
         this.providerNo = providerNo;
     }
 
+    @XmlElement
     public float getTakeMin() {
-        return takeMin == null ? 0f : takeMin;
+        return takeMin;
     }
 
     public boolean hasSubmittedTakeMin() {
-        return takeMin != null;
+        return !Boolean.FALSE.equals(minimumSubmitted);
     }
 
     public void setTakeMin(float takeMin) {
         this.takeMin = takeMin;
+        minimumSubmitted = true;
     }
 
+    @XmlElement
     public float getTakeMax() {
-        return takeMax == null ? 0f : takeMax;
+        return takeMax;
     }
 
     public boolean hasSubmittedTakeMax() {
-        return takeMax != null;
+        return !Boolean.FALSE.equals(maximumSubmitted);
     }
 
     public void setTakeMax(float takeMax) {
         this.takeMax = takeMax;
+        maximumSubmitted = true;
     }
 
     public Date getRxDate() {
@@ -361,7 +375,7 @@ public class DrugTo1 implements Serializable {
         this.strengthUnit = strengthUnit;
     }
 
-    @jakarta.xml.bind.annotation.XmlElement(name = "quantity")
+    @XmlElement
     public Integer getQuantity() {
         return quantity;
     }
@@ -372,7 +386,7 @@ public class DrugTo1 implements Serializable {
     }
 
     public boolean hasSubmittedQuantity() {
-        return quantitySubmitted;
+        return !Boolean.FALSE.equals(quantitySubmitted);
     }
 
     public Date getWrittenDate() {
