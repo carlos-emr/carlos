@@ -3,10 +3,10 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/commn/model/Favorites.java",
   "kind": "floor",
   "floor": {
-    "lines": 75.0,
-    "instructions": 47.5,
-    "branches": 16.666666666666668,
+    "lines": 100.0,
+    "instructions": 90.0,
+    "branches": 66.66666666666667,
     "sourceBlob": "8eb40a4dbc55f2962563b59501ef5d2d96f02412"
   },
-  "evidenceSha256": "ab0f6534764cf8c29da4960f031a422556b23d27be0ce1aff16d699c63744fba"
+  "evidenceSha256": "d8be6f02aa0298f6d7ff4b9837c20602fea8efd120b243c0c9e1ead902f0265b"
 }
