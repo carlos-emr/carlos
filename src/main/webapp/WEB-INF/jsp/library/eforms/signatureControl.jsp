@@ -14,9 +14,21 @@
 
 --%>
     <%@ page import="io.github.carlos_emr.CarlosProperties" contentType="text/javascript; charset=UTF-8" pageEncoding="UTF-8"%>
+    <%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
+    <%@ taglib uri="jakarta.tags.fmt" prefix="fmt"%>
+    <%@ taglib uri="carlos" prefix="carlos"%>
+    <%-- Served as text/javascript, but still a JSP: the note below resolves from the user's locale
+         and is written through carlos:forJavaScript, because it lands inside a JS string literal. --%>
+    <fmt:setLocale value="<%= LocaleUtils.resolveBundleLocale(request) %>"/>
+    <fmt:setBundle basename="oscarResources"/>
+    <fmt:message key="tabletSignature.msgSavedSignatureNotShown" var="signatureNotShownNote"/>
+    <fmt:message key="tabletSignature.msgNewSignatureNotAdded" var="signatureNotAddedNote"/>
 
     <%
     CarlosProperties props = CarlosProperties.getInstance();
+    // The deployed context path, for the signature address check below (read through EL, and encoded
+    // for the JavaScript string it lands in).
+    request.setAttribute("signatureContextPath", request.getContextPath());
     if (props.isEFormSignatureEnabled()) {
     %>
 
@@ -26,18 +38,57 @@
 
     var signaturePadIFrameStart = "Signature:<br/><iframe style=\"width:500px; height:132px;\"id=\"signatureFrame\" src=\"";
     var signaturePadIFrameEnd = "\" ></iframe>";
+    // The stored-signature address CARLOS gives a signature (tabletSignature.jsp, EForm.setSignatureCode),
+    // with the refresh number the pad adds: this deployment's own context path (exactly as the server
+    // reports it, so a context such as /clinic+east is accepted) followed by /imageRenderingServlet, the
+    // stored source and a numeric id. A saved value of any other shape, including one under another
+    // context path, is not shown.
+    var signatureContextPath = "${carlos:forJavaScript(signatureContextPath)}";
+    // The text of this context path as a regular expression, every special character taken literally.
+    function signatureRegExpText(text) {
+        return text.replace(/[.*+?^()|[\]\\{}$]/g, "\\$&");
+    }
+    var storedSignatureAddress = new RegExp("^" + signatureRegExpText(signatureContextPath)
+        + "/imageRenderingServlet\\?source=signature_stored&digitalSignatureId=[0-9]+(?:&r=[0-9]+)?$");
+    // Older eForms saved the same address HTML-escaped ("&amp;" for each "&"), which the old page
+    // decoded by writing it into markup; the PDF path reads that form too
+    // (EFormSignatureViewForPdfGenerationServlet). Only this exact shape is accepted, and only its
+    // "&amp;" separators are turned back into "&" before the check above; nothing else is decoded.
+    var escapedStoredSignatureAddress = new RegExp("^(" + signatureRegExpText(signatureContextPath)
+        + "/imageRenderingServlet\\?source=signature_stored)&amp;(digitalSignatureId=[0-9]+)(?:&amp;(r=[0-9]+))?$");
+    var signatureNotShownNote = "${carlos:forJavaScript(signatureNotShownNote)}";
+    var signatureNotAddedNote = "${carlos:forJavaScript(signatureNotAddedNote)}";
+    // The stored-signature address a saved value stands for, or null when it is not one.
+    function storedSignatureAddressOf(value) {
+        if (typeof value !== "string") {
+            return null;
+        }
+        if (storedSignatureAddress.test(value)) {
+            return value;
+        }
+        var escaped = escapedStoredSignatureAddress.exec(value);
+        if (escaped == null) {
+            return null;
+        }
+        var address = escaped[1] + "&" + escaped[2] + (escaped[3] ? "&" + escaped[3] : "");
+        // The pieces can only rebuild a canonical address; checked again so this never depends on that.
+        return storedSignatureAddress.test(address) ? address : null;
+    }
+    // An image size option: a whole number of pixels, or a percentage.
+    var signatureImageSize = /^[0-9]+%?$/;
     var signatureControl = {
         initialize: function (options) {
             var element = this;
             // Generating an eform configuration.
             if (typeof options == "undefined" || options == null || options.eform) {
                 options = typeof options == "undefined" ? {} : options;
-                element.sigHTML = "<%= request.getContextPath() %>/signature_pad/tabletSignature?inWindow=true&saveToDB=true&demographicNo=";
+                element.sigHTML = "${carlos:forJavaScript(signatureContextPath)}/signature_pad/tabletSignature?inWindow=true&saveToDB=true&demographicNo=";
                 element.signatureDisplay = "#signatureDisplay";
                 element.signatureInput = "#signatureInput";
                 element.signatureValue = "#signatureValue"
                 element.demographicNo = 0; //TODO: Keep on trucking
-                element.imgAttributes = "";
+                element.imgWidth = null;
+                element.imgHeight = null;
 
                 var placeholder = jQuery(element.signatureInput);
                 if (!placeholder) {
@@ -66,25 +117,51 @@
                     jQuery(element.signatureDisplay).css("position", "absolute");
                     jQuery(element.signatureDisplay).css("bottom", options.bottom);
                 }
-                if (options.width != null) {
-                    element.imgAttributes += options.width != null ? " width='" + options.width + "' " : "";
+                if (options.width != null && signatureImageSize.test(String(options.width))) {
+                    element.imgWidth = String(options.width);
                 }
-                if (options.height != null) {
-                    element.imgAttributes += options.height != null ? " height='" + options.height + "' " : "";
+                if (options.height != null && signatureImageSize.test(String(options.height))) {
+                    element.imgHeight = String(options.height);
                 }
 
-                if (jQuery(element.signatureValue) && "" != jQuery(element.signatureValue).val()) {
-                    jQuery(element.signatureDisplay).html("<img " + element.imgAttributes + " src='" + jQuery(element.signatureValue).val() + "' alt='signature' />");
+                // Shows the signature at a stored-signature address as an image, its address set as the
+                // image source only. Any other value shows a short note instead, so a value that cannot
+                // be shown is not mistaken for an unsigned form. Returns the address shown, or null.
+                element.showSignature = function (value) {
+                    var display = jQuery(element.signatureDisplay);
+                    display.empty();
+                    var address = storedSignatureAddressOf(value);
+                    if (address == null) {
+                        display.append(jQuery("<span>").text(signatureNotShownNote));
+                        return null;
+                    }
+                    var image = jQuery("<img>").attr({src: address, alt: "signature"});
+                    if (element.imgWidth != null) {
+                        image.attr("width", element.imgWidth);
+                    }
+                    if (element.imgHeight != null) {
+                        image.attr("height", element.imgHeight);
+                    }
+                    display.append(image);
+                    return address;
+                };
+
+                var savedSignature = jQuery(element.signatureValue).val();
+                if (savedSignature != null && "" != savedSignature) {
+                    element.showSignature(savedSignature);
                 }
 
                 element.refreshImage =
                     function (e) {
-                        if (jQuery(element.signatureDisplay)) {
-                            jQuery(element.signatureDisplay).html("<img " + element.imgAttributes + " src='" + e.storedImageUrl + "&r=" + Math.floor(Math.random() * 1001) + "' alt='signature' />");
+                        // The form keeps only an address the check accepts. Otherwise the form's value
+                        // and its image stay as they were, and a note says the new signature was not added.
+                        var address = storedSignatureAddressOf(e.storedImageUrl + "&r=" + Math.floor(Math.random() * 1001));
+                        if (address == null) {
+                            jQuery(element.signatureDisplay).append(jQuery("<span>").text(signatureNotAddedNote));
+                            return;
                         }
-                        if (jQuery(element.signatureValue)) {
-                            jQuery(element.signatureValue).val(e.storedImageUrl + "&r=" + Math.floor(Math.random() * 1001));
-                        }
+                        element.showSignature(address);
+                        jQuery(element.signatureValue).val(address);
                     };
 
             }
