@@ -17,12 +17,19 @@ import java.util.regex.Pattern;
 public record DrugStrength(Float amount, String unit) {
 
     private static final DrugStrength UNKNOWN = new DrugStrength(null, null);
+    private static final int UNIT_FLAGS = Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CHARACTER_CLASS;
     private static final Pattern UNIT_AFTER_NUMBER =
-            Pattern.compile("\\s*+([\\p{L}%]\\S*+)", Pattern.UNICODE_CHARACTER_CLASS);
+            Pattern.compile("\\s*+(international\\s++units?\\b|[\\p{L}%]++)\\S*+", UNIT_FLAGS);
+    // A volume denominator can contain spaces on either side of the slash or its amount.
+    // A second ingredient such as "5 mg / 20 mg" still ends the first ingredient's unit.
+    private static final Pattern PER_VOLUME = Pattern.compile("\\s*+(?:/|per\\b)\\s*+", UNIT_FLAGS);
+    private static final Pattern VOLUME_UNIT =
+            Pattern.compile("\\s*+(?:[mµμun]?l|(?:milli|micro)?lit(?:er|re)s?)\\b\\S*+", UNIT_FLAGS);
+    private static final Pattern ZERO_AMOUNT = Pattern.compile("[0.]++(?:[eE][+-]?[0-9]++)?+");
 
     /**
      * Reads the leading strength from stored dosage text. For a combination it returns the first
-     * component, and for a concentration it keeps a compact unit such as {@code mg/5mL} intact.
+     * component, and for a concentration it keeps a unit such as {@code mg/5 mL} intact.
      * A leading number followed by another number before the unit is ambiguous, for example
      * {@code 1,000 mg}, {@code 1½ mg}, or {@code 5-10 mg}. A unit with no amount is kept whole
      * when it starts the text, as in {@code mg/5mL}.
@@ -39,15 +46,22 @@ public record DrugStrength(Float amount, String unit) {
         if (anotherNumberFollows(text, end)) {
             return UNKNOWN;
         }
-        float strength = Float.parseFloat(text.substring(0, end));
-        if (!Float.isFinite(strength)) {
+        String number = text.substring(0, end);
+        float strength = Float.parseFloat(number);
+        if (!Float.isFinite(strength) || (strength == 0f && !ZERO_AMOUNT.matcher(number).matches())) {
             return UNKNOWN;
         }
         Matcher unitMatch = UNIT_AFTER_NUMBER.matcher(text).region(end, text.length());
         if (!unitMatch.lookingAt()) {
             return new DrugStrength(strength, null);
         }
-        int unitEnd = unitMatch.end(1);
+        int unitEnd = unitMatch.end();
+        Matcher separator = PER_VOLUME.matcher(text).region(unitMatch.end(1), text.length());
+        if (separator.lookingAt()) {
+            int amountEnd = DoseText.numberEnd(text, separator.end());
+            Matcher volume = VOLUME_UNIT.matcher(text).region(amountEnd, text.length());
+            if (volume.lookingAt()) unitEnd = Math.max(unitEnd, volume.end());
+        }
         // A separator before a later ingredient can be attached to the first unit.
         while ("/,;".indexOf(text.charAt(unitEnd - 1)) >= 0) {
             unitEnd--;

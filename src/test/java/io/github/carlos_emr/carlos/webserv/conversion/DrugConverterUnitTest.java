@@ -299,6 +299,14 @@ class DrugConverterUnitTest {
             "2.5 mg/mL, 2.5, mg/mL",
             "250mg/5ml, 250, mg/5ml",
             "250 mg/5mL, 250, mg/5mL",
+            "250 mg/5 mL, 250, mg/5 mL",
+            "250 mg / 5 mL, 250, mg / 5 mL",
+            "2.5 mg / .5 mL, 2.5, mg / .5 mL",
+            "2.5 mg / mL/hour, 2.5, mg / mL/hour",
+            "250 mg per 5 mL, 250, mg per 5 mL",
+            "100 international units, 100, international units",
+            "100 International Units / mL, 100, International Units / mL",
+            "0.0E7 IU, 0, IU",
             "'  5 mg', 5, mg",
             "10 %, 10, %",
             ".5 mg, 0.5, mg",
@@ -378,6 +386,11 @@ class DrugConverterUnitTest {
         @DisplayName("should report no strength when another number follows the first before any unit")
         void shouldReportNoStrength_whenAnotherNumberFollowsBeforeAnyUnit(String stored) {
             assertNoStrengthRead(stored);
+        }
+
+        @Test
+        void shouldLeaveStrengthUnknown_whenANonzeroAmountUnderflowsTheWireFloat() {
+            assertNoStrengthRead("1.0e-60 mg");
         }
 
         /**

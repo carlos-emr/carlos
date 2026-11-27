@@ -481,7 +481,7 @@ class RxManagerUnitTest extends RxManagerImpl {
         @ParameterizedTest
         @CsvSource(nullValues = "NULL", value = {
                 "5 mg / 20 mg, 5 mg",
-                "250 mg / 5 mL, 250 mg",
+                "250 mg / 5 mL, 250 mg / 5 mL",
                 "'1,000 mg', NULL",
                 "0.123456789 mg, 0.12345679 mg"
         })
@@ -503,6 +503,28 @@ class RxManagerUnitTest extends RxManagerImpl {
 
             assertThat(replacement.getDosage()).isEqualTo(dosage);
             assertThat(replacement.getUnit()).isEqualTo("stored unit");
+        }
+
+        @ParameterizedTest
+        @CsvSource({"mg/5 mL, 250.0 mg/5 mL", "mg, 250 mg"})
+        void shouldSaveTheSubmittedUnit_whenAConcentrationIsEchoedOrChanged(String submittedUnit, String expectedDosage) {
+            Drug source = new Drug();
+            source.setId(4);
+            source.setDemographicId(1);
+            source.setGenericName("Synthetic");
+            source.setDosage("250.0 mg/5 mL");
+            source.setUnit("mg/5 mL");
+            ((MockDrugDao) drugDao).seed(source);
+
+            var converter = new io.github.carlos_emr.carlos.webserv.rest.conversion.DrugConverterImpl();
+            var info = new LoggedInInfo();
+            var dto = converter.getAsTransferObject(info, source);
+            assertThat(dto.getStrengthUnit()).isEqualTo("mg/5 mL");
+            dto.setStrengthUnit(submittedUnit);
+            Drug replacement = updateDrug(info, converter.getAsDomainObject(info, dto));
+
+            assertThat(replacement.getDosage()).isEqualTo(expectedDosage);
+            assertThat(replacement.getUnit()).isEqualTo(submittedUnit);
         }
 
         @ParameterizedTest

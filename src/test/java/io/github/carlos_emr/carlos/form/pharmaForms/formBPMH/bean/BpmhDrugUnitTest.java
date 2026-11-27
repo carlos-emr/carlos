@@ -190,6 +190,22 @@ class BpmhDrugUnitTest {
     }
 
     @Test
+    void shouldExcludeMitteAndPharmacyText_whenReadingAdministrationDirections() {
+        drug.setGenericName("Synthetic");
+        drug.setSpecial("Synthetic\nSupply blister pack\nMitte:7 days Repeats:0");
+        drug.usePrescriptionDirections(null, "Supply blister pack", null);
+        assertThat(drug.getHow()).isEmpty();
+
+        drug.setSpecial("Synthetic\nTake one daily\nThen one every other day\nMitte:2 weeks Repeats:1");
+        drug.usePrescriptionDirections(null, null, null);
+        assertThat(drug.getHow()).isEqualTo("Take one daily\nThen one every other day");
+
+        drug.setSpecial("Mitte: confirm with the pharmacy");
+        drug.usePrescriptionDirections(null, null, null);
+        assertThat(drug.getHow()).isEqualTo("Mitte: confirm with the pharmacy");
+    }
+
+    @Test
     void shouldLeaveDirectionsMissing_whenOnlyDispensingInstructionsWereRecorded() {
         drug.setSpecial("Qty:30 Repeats:1");
         assertThat(drug.getHow()).isEmpty();

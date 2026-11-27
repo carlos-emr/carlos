@@ -130,7 +130,7 @@ public class BpmhDrug {
         String withoutTrailingSpace = text.stripTrailing();
         int lastBreak = withoutTrailingSpace.lastIndexOf('\n');
         String last = withoutTrailingSpace.substring(lastBreak + 1);
-        if (last.startsWith("Qty:") && last.contains(" Repeats:")) {
+        if ((last.startsWith("Qty:") || last.startsWith("Mitte:")) && last.contains(" Repeats:")) {
             text = lastBreak < 0 ? "" : text.substring(0, lastBreak);
         }
         if (hasHeading && StringUtils.isNotBlank(pharmacyInstruction)) {
