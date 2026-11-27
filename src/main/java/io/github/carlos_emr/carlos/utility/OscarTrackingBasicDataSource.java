@@ -129,7 +129,8 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
 
     public static final int MAX_CONNECTION_WARN_SIZE = 2;
     public static final Logger logger = MiscUtils.getLogger();
-    public static final Map<Connection, StackTraceElement[]> debugMap = Collections.synchronizedMap(new WeakHashMap<Connection, StackTraceElement[]>());
+    private static final Object DIAGNOSTICS_LOCK = new Object();
+    private static final Map<Connection, StackTraceElement[]> acquisitionTraces = new WeakHashMap<>();
     private static final ThreadLocal<OwnerState> connections = new ThreadLocal<>();
     private static final Set<OwnerState> trackedThreadConnectionSets = Collections.synchronizedSet(
             Collections.newSetFromMap(new IdentityHashMap<OwnerState, Boolean>()));
@@ -161,6 +162,37 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
         }
     }
 
+    /**
+     * Counts tracked JDBC leases across all instances of this data source.
+     *
+     * @return the current count, including leases detached from request cleanup
+     */
+    public static int trackedConnectionCount() {
+        synchronized (DIAGNOSTICS_LOCK) {
+            return acquisitionTraces.size();
+        }
+    }
+
+    /**
+     * Checks diagnostic membership at the time of the call.
+     *
+     * @param connection the JDBC connection to check
+     * @return whether the lease is currently tracked for diagnostics
+     */
+    public static boolean isConnectionTracked(Connection connection) {
+        if (!isPoolWrapper(connection)) {
+            return false;
+        }
+        synchronized (DIAGNOSTICS_LOCK) {
+            return acquisitionTraces.containsKey(connection);
+        }
+    }
+
+    // trackConnection creates this exact type. Keep callers' hashCode/equals outside the lock.
+    private static boolean isPoolWrapper(Connection connection) {
+        return connection != null && connection.getClass() == TrackingJdbcConnection.class;
+    }
+
     private static Connection trackConnection(Connection c) {
         OwnerState threadConnections = connections.get();
         if (threadConnections == null) {
@@ -170,7 +202,10 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
         }
 
         c = new TrackingJdbcConnection(c, threadConnections);
-        debugMap.put(c, Thread.currentThread().getStackTrace());
+        StackTraceElement[] acquisitionTrace = Thread.currentThread().getStackTrace();
+        synchronized (DIAGNOSTICS_LOCK) {
+            acquisitionTraces.put(c, acquisitionTrace);
+        }
         int count = threadConnections.add(c);
 
         if (count > MAX_CONNECTION_WARN_SIZE) {
@@ -237,12 +272,12 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
             trackedThreadConnectionSets.remove(threadConnections);
         }
 
-        HashMap<Connection, StackTraceElement[]> trackedConnections;
-        synchronized (debugMap) {
-            trackedConnections = new HashMap<Connection, StackTraceElement[]>(debugMap);
-            debugMap.clear();
+        Connection[] trackedConnections;
+        synchronized (DIAGNOSTICS_LOCK) {
+            trackedConnections = acquisitionTraces.keySet().toArray(Connection[]::new);
+            acquisitionTraces.clear();
         }
-        for (Connection c : trackedConnections.keySet()) {
+        for (Connection c : trackedConnections) {
             try {
                 if (!c.isClosed()) {
                     c.close();
@@ -256,9 +291,9 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
     public static void logDebugMapToError() {
         String divider = "------------------------------";
 
-        HashMap<Connection, StackTraceElement[]> connectionMap;
-        synchronized (debugMap) {
-            connectionMap = new HashMap<Connection, StackTraceElement[]>(debugMap);
+        Map<Connection, StackTraceElement[]> connectionMap;
+        synchronized (DIAGNOSTICS_LOCK) {
+            connectionMap = new HashMap<>(acquisitionTraces);
         }
         for (Map.Entry<Connection, StackTraceElement[]> entry : connectionMap.entrySet()) {
             String key = entry.getKey().hashCode() + ":" + entry.getKey().toString();
@@ -385,7 +420,11 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
 
         public void close() throws SQLException {
             try {
-                debugMap.remove(this);
+                if (isPoolWrapper(this)) {
+                    synchronized (DIAGNOSTICS_LOCK) {
+                        acquisitionTraces.remove(this);
+                    }
+                }
 
                 if (ownerConnections != null) {
                     ownerConnections.remove(this);

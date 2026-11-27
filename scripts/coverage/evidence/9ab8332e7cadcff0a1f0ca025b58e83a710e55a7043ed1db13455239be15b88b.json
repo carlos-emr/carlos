@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "3bf188472519b8d741f641ea1fa70f31ab1f9c0f",
+  "comparisonSha256": "6846f8472edee60c767c1794776ad5774a8e2370701d3c30a7229e7865d27304",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/service/CaseManagementPrint.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "f8c7b5c40a5ab35905cae3ce6ab3208b181f59c1"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/data/MeasurementTypes.java": {
+      "lines": 95.45454545454545,
+      "instructions": 96.61016949152543,
+      "branches": 83.33333333333333,
+      "sourceBlob": "dfb305815d56bf4fb17ea8f920d08595ed08e000"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/pageUtil/UnlinkDemographic2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "9eec98d01ddd42f57a1b4a6b311c0b7db7ad7994"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/gate/ViewLabValuesGraph2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "cddce0d75d272c2924e221c612feede1dfbe8c9c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/service/LabPatientUnlinkService.java": {
+      "lines": 100.0,
+      "instructions": 98.45758354755785,
+      "branches": 91.17647058823529,
+      "sourceBlob": "42fd97a1439ff664df20784f732f394e3240f4f2"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prevention/PreventionReadSafetyService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 85.71428571428571,
+      "sourceBlob": "9705febed88ffa26417b373e02a616f35fe26fc7"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prevention/SqlTableReferences.java": {
+      "lines": 100.0,
+      "instructions": 99.6268656716418,
+      "branches": 93.71069182389937,
+      "sourceBlob": "7ab9bd14a352fcf4045fe8793c01341a1914672f"
+    }
+  },
+  "exclusions": {},
+  "zeroCoverageWaivers": {},
+  "baselineCommit": "20391977742c0e80ce89eb597d02f1708b9d7859",
+  "baselineSourceTree": "3bf188472519b8d741f641ea1fa70f31ab1f9c0f",
+  "baselineReportSha256": "36d5e9e8e518f52507f0978d79d14784ec35fc24bf290c382c472c7c3497b3dc",
+  "baselineLane": "Release freshness repair carried by PR #6367, for 7 Java files that PR does not change: release/2026.08 at c9f259f877 had no record for their current bytes after #6324, #6340, #6325, #6352 and #6351 merged (CaseManagementPrint, MeasurementTypes, ViewLabValuesGraph2Action: record for earlier bytes; UnlinkDemographic2Action, LabPatientUnlinkService, PreventionReadSafetyService, SqlTableReferences: no record). Their bytes on PR #6367 commit 2039197774 are the release's. Same run as evidence 11bccc0a: complete Java suite (unit and H2 integration tests) with JaCoCo, run locally and not in CI, mvn -B -ntp clean test jacoco:report -Dtest.forkCount=2, OpenJDK 25 and Maven 3.9.11 on Ubuntu; Maven reported 44069 tests run, 0 failures, 0 errors, 503 skipped; baselineTestCounts is the total of the run's Surefire XML reports. Rows are measured from that run's jacoco.xml with the checker's own measure(). No Chromium smoke lane; no zero-floor waiver is added.",
+  "baselineTestCounts": {
+    "tests": 43922,
+    "skipped": 503,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "92a39c1d4c8972a1ebb7eb77222a2efaaae312eff1f7c9e6886a0b604e7a9e78",
+  "baselineTestReportsHashFormat": "SHA-256 of a sha256sum-style manifest of the run's Surefire TEST-*.xml report files: one '<sha256>  <file name>' line each, sorted by name",
+  "baselineTestRunCommit": "20391977742c0e80ce89eb597d02f1708b9d7859",
+  "baselineAdditionalTestRuns": []
+}

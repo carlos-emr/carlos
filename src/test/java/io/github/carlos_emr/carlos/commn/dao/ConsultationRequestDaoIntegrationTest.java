@@ -62,6 +62,9 @@ public class ConsultationRequestDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private ProfessionalSpecialistDao professionalSpecialistDao;
 
+    @Autowired
+    private ConsultationRequestDao consultationRequestDao;
+
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
 
@@ -166,6 +169,39 @@ public class ConsultationRequestDaoIntegrationTest extends CarlosTestBase {
         void shouldFindAllRequests_withPagination() {
             List<ConsultationRequest> results = consultRequestDao.findAll(0, 2);
             assertThat(results).hasSize(2);
+        }
+    }
+
+    @Nested
+    @DisplayName("Overdue referral counts")
+    class OverdueReferralCounts {
+
+        private static final String TEAM = "OverdueCountTeam";
+
+        private void createReferral(String status, String sendTo) {
+            ConsultationRequest req = createConsultRequest(DEMO_1, status, null);
+            req.setSendTo(sendTo);
+            req.setReferralDate(new Date(System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000));
+            consultRequestDao.merge(req);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("should count referrals with no status as not completed")
+        void shouldCountNullStatusReferrals_asNotCompleted() {
+            Date cutoff = new Date(System.currentTimeMillis() - 24L * 60 * 60 * 1000);
+            int before = consultationRequestDao.getCountReferralsAfterCutOffDateAndNotCompleted(cutoff);
+
+            createReferral(null, TEAM);
+            createReferral("1", TEAM);
+            createReferral("4", TEAM);
+            createReferral(null, "OtherTeam");
+            entityManager.flush();
+
+            assertThat(consultationRequestDao.getCountReferralsAfterCutOffDateAndNotCompleted(cutoff))
+                    .isEqualTo(before + 3);
+            assertThat(consultationRequestDao.getCountReferralsAfterCutOffDateAndNotCompleted(cutoff, TEAM))
+                    .isEqualTo(2);
         }
     }
 }

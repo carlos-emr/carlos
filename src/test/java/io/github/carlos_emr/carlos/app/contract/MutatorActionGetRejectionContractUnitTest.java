@@ -581,12 +581,28 @@ class MutatorActionGetRejectionContractUnitTest {
                         "io.github.carlos_emr.carlos.mds.pageUtil.PatientMatch2Action",
                         "_lab",
                         "w"),
+                // Clears a lab's patient routing and archives the readings it filed to the chart
+                // (#6214). Its only caller posts; the lab.ca.all.pageUtil package is not in
+                // IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly.
+                Arguments.of(
+                        "io.github.carlos_emr.carlos.lab.ca.all.pageUtil.UnlinkDemographic2Action",
+                        "_lab",
+                        "u"),
                 // Send to MRP: routes a document or lab into the patient's MRP's inbox. Every
                 // caller posts.
                 Arguments.of(
                         "io.github.carlos_emr.carlos.mds.pageUtil.SendMostResponProv2Action",
                         "_lab",
                         "w"),
+                // --- integration / shared outcomes dashboard ---
+                // Publishes provider indicator metrics to the shared outcomes dashboard: one
+                // outbound HTTP POST per metric set (#5335). The integration.dashboard package is
+                // not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly. Its only caller
+                // posts (sharedOutcomesDashboard.jsp).
+                Arguments.of(
+                        "io.github.carlos_emr.carlos.integration.dashboard.OutcomesDashboard2Action",
+                        "_dashboardDisplay",
+                        "r"),
                 // --- providers ---
                 // Preferences > View groups > Delete (#4515): removes the ticked group memberships.
                 // The providers package is not in IN_SCOPE_PACKAGE_PREFIXES, so it registers
@@ -1113,6 +1129,7 @@ class MutatorActionGetRejectionContractUnitTest {
                     "io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action",
                     "io.github.carlos_emr.carlos.admin.web.SaveProviderLinkingRules2Action",
                     "io.github.carlos_emr.carlos.mds.pageUtil.PatientMatch2Action",
+                    "io.github.carlos_emr.carlos.lab.ca.all.pageUtil.UnlinkDemographic2Action",
                     // BC billing administration is not in IN_SCOPE_PACKAGE_PREFIXES; the WCB
                     // correction registers explicitly.
                     "io.github.carlos_emr.carlos.billings.ca.bc.administration.TeleplanCorrectionActionWCB2Action",

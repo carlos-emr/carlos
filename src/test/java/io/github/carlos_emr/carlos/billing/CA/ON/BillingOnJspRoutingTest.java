@@ -94,6 +94,20 @@ class BillingOnJspRoutingTest {
     }
 
     @Test
+    void shouldSuppressTheSimulationAllOptionAndDisableSubmission_whenNoBillingProvidersAreAvailable() throws IOException {
+        String page = readJspContent(BILLING_ON_JSP_DIR.resolve("billingOHIPsimulation.jsp"));
+        String select = page.substring(page.indexOf("<select name=\"providers\">"), page.indexOf("</select>"));
+        String choices = select.substring(select.indexOf("<c:if test=\"${not empty simulationModel.providers}\">"),
+                select.indexOf("</c:if>"));
+        assertThat(choices).contains("<option value=\"all\">All Providers</option>",
+                "<option value=\"all\">Select Providers</option>");
+        assertThat(select.substring(select.indexOf("</c:if>"))).doesNotContain("value=\"all\"")
+                .contains("items=\"${simulationModel.providers}\"");
+        assertThat(page).containsPattern("(?s)<button[^>]*type=\"submit\"[^>]*<c:if test=\"\\$\\{empty simulationModel\\.providers}\""
+                + ">disabled</c:if>>Create Report");
+    }
+
+    @Test
     void shouldRenderPartialWarnings_forPaymentAndShortcutHistory() throws IOException {
         String billingOnPayment = readJspContent(BILLING_ON_JSP_DIR.resolve("billingONPayment.jsp"));
         assertThat(billingOnPayment).contains("paymentModel.paymentsPartial");

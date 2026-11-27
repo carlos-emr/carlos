@@ -917,6 +917,18 @@ Your conffiles are offered as three-way merges. Your credential files are left
 alone. Read /usr/share/carlos-emr/skel/ afterwards to see whether new settings
 are available that your files predate.
 
+Earlier packages copied a 15-second db_remove_abandoned_timeout into
+/etc/carlos-emr/carlos.properties. Configure warns if the effective timeout is
+15 seconds or the value cannot be checked. The check reads the installed
+defaults, the file selected by -Dcarlos_override_properties in CARLOS_JAVA_OPTS
+(or the managed file above), and any service-user home carlos.properties override
+in application startup order. Indirect JVM options such as @argument-files
+produce a warning to verify the effective setting manually.
+To adopt the 360-second default, remove the
+effective override or set it to 360, then run `sudo carlos-ctl restart`.
+Choose a site-specific value above the longest legitimate query or
+transaction.
+
 If a migration fails, the service will not start (the boot-time validate gate
 is doing its job). Fix the cause, run `carlos-ctl db-migrate`, then
 `systemctl start carlos-emr`.
@@ -1190,7 +1202,9 @@ nginx will not start: port 80 or 443 is already in use
 
   If accepted, each service stopped is disabled, or masked when it cannot be disabled,
   and a note names it; nothing is uninstalled, and the note gives the command
-  that brings it back once it has been moved to other ports. What was stopped,
+  that brings it back once it has been moved to other ports. Only the services
+  the question listed are stopped: one that took port 80 or 443 while the
+  question was open is left running and reported as "NOT stopped". What was stopped,
   or declined, is in the install output, /var/log/apt/term.log and the
   journal (journalctl -t carlos-emr). Non-interactive runs already decline by
   default on fresh installs. Older installs can retain true from the previous

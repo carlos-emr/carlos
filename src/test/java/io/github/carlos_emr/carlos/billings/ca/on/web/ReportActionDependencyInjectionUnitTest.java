@@ -24,8 +24,11 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.OnRaSettlementService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.OhipReportGenerationService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingFileWriteException;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+
+import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -36,6 +39,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -230,6 +235,28 @@ class ReportActionDependencyInjectionUnitTest {
                 .isEqualTo(ActionSupport.SUCCESS);
 
         verify(service).generateReport(request, OhipReportGenerationService.Mode.GROUP_REPORT);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldRetainSoloFailures_whenHybridGenerationContinuesThroughItsGroupPass(boolean groupAlsoFailed) throws Exception {
+        request.setParameter("monthCode", "A");
+        request.setParameter("providers", "all");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)).thenReturn(true);
+        var service = mock(OhipReportGenerationService.class);
+        var soloFailure = new OhipReportGenerationService.FailedProvider("803601", "123456", "BillingFileWriteException",
+                BillingFileWriteException.Reason.FILENAME_SEQUENCE_EXHAUSTED.publicMessage());
+        var groupFailure = new OhipReportGenerationService.FailedProvider("803602", "654321", "BillingFileWriteException",
+                "The billing file could not be written.");
+        when(service.isHybridBilling()).thenReturn(true);
+        when(service.generateReport(request, OhipReportGenerationService.Mode.SOLO_REPORT)).thenReturn(List.of(soloFailure));
+        when(service.generateReport(request, OhipReportGenerationService.Mode.GROUP_REPORT))
+                .thenReturn(groupAlsoFailed ? List.of(groupFailure) : List.of());
+
+        assertThat(new ViewGenReport2Action(securityInfoManager, service).execute()).isEqualTo("groupReport");
+        assertThat(new ViewGenGroupReport2Action(securityInfoManager, service).execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute("skippedProviders")).isEqualTo(groupAlsoFailed
+                ? List.of(soloFailure, groupFailure) : List.of(soloFailure));
     }
 
     @Test

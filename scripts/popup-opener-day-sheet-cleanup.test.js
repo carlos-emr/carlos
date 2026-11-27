@@ -6,7 +6,12 @@ const path = require('node:path');
 const vm = require('node:vm');
 const {createHash} = require('node:crypto');
 const {createRequire} = require('node:module');
-const {DatabaseSync} = require('node:sqlite');
+let DatabaseSync;
+try {
+  ({ DatabaseSync } = require('node:sqlite'));
+} catch (error) {
+  if (error.code !== 'ERR_UNKNOWN_BUILTIN_MODULE') throw error;
+}
 const {installOwnedDaySheetCleanup, nativeSlot} = require('./popup-opener-day-sheet-playwright-checks');
 const {cleanupOwnedWorkflow} = require('./lib/workflow-session');
 const MARKER = 'FAKE-PW0123456789abcdef';
@@ -74,7 +79,7 @@ function fixture(body, options = {}) {
   catch (error) { db.close(); throw error; }
 }
 
-test('real SQL removes every new exact slot/session/login-provider monitor and preserves foreign controls', () => fixture(async f => {
+test('real SQL removes every new exact slot/session/login-provider monitor and preserves foreign controls', { skip: !DatabaseSync }, () => fixture(async f => {
   const owned = f.begin(); await owned.rememberSlot(LINK);
   f.monitor(11); f.monitor(12); f.monitor(13,{session:'foreign'}); f.monitor(14,{provider:'888888'});
   f.monitor(15,{pageId:'999997|2026-10-21|09:15|09:29'}); f.monitor(16,{pageId:PAGE.replace('2026-10-21','2026-10-22')});
@@ -90,86 +95,86 @@ test('real SQL removes every new exact slot/session/login-provider monitor and p
   assert.match(firstDelete,/^DELETE FROM PageMonitor/);
 }));
 
-test('a pre-existing exact owned-session monitor refuses before popup writes and is retained unchanged', () => fixture(async f => {
+test('a pre-existing exact owned-session monitor refuses before popup writes and is retained unchanged', { skip: !DatabaseSync }, () => fixture(async f => {
   f.monitor(11); const owned = f.begin();
   await assert.rejects(owned.rememberSlot(LINK),/already has/);
   f.cleanup(); assert.deepEqual(f.ids(),[11]); assert.equal(f.state.queries.filter(q=>q.startsWith('DELETE FROM PageMonitor')).length,0);
 }));
 
-test('missing session refuses setup without consuming any monitor', () => fixture(async f => {
+test('missing session refuses setup without consuming any monitor', { skip: !DatabaseSync }, () => fixture(async f => {
   const owned=f.begin();f.state.noCookie=true;await assert.rejects(owned.rememberSlot(LINK),/fixture session/);
   f.monitor(11);f.cleanup();assert.deepEqual(f.ids(),[11]);
 }));
 
-for (const connected of [true, 'missing']) test(`unconfirmed browser closure (${connected}) refuses every cleanup write`, () => fixture(async f => {
+for (const connected of [true, 'missing']) test(`unconfirmed browser closure (${connected}) refuses every cleanup write`, { skip: !DatabaseSync }, () => fixture(async f => {
   const owned=f.begin();await owned.rememberSlot(LINK);f.monitor(11);f.admission();owned.admissionCreated('31');f.appointments();
   if(connected==='missing')f.s.context.browser=()=>null;else f.state.connected=true;
   assert.throws(()=>f.cleanup(),/browser closure/);assert.deepEqual(f.ids(),[11]);assert.equal(f.state.queries.filter(q=>q.startsWith('DELETE')).length,0);
 }));
 
-test('changed patient marker retains monitors and all appointment evidence', () => fixture(async f => {
+test('changed patient marker retains monitors and all appointment evidence', { skip: !DatabaseSync }, () => fixture(async f => {
   const owned=f.begin();await owned.rememberSlot(LINK);f.monitor(11);f.appointments();f.db.exec("UPDATE demographic SET last_name='FOREIGN' WHERE demographic_no=41");
   assert.throws(()=>f.cleanup(),/ownership changed/);assert.deepEqual(f.ids(),[11]);assert.equal(f.state.queries.filter(q=>q.startsWith('DELETE')).length,0);
 }));
 
-test('silent monitor DELETE failure retains appointments and the live marker parent through actual workflow cleanup', () => fixture(async f => {
+test('silent monitor DELETE failure retains appointments and the live marker parent through actual workflow cleanup', { skip: !DatabaseSync }, () => fixture(async f => {
   const owned=f.begin();await owned.rememberSlot(LINK);f.monitor(11);f.appointments();
   f.state.beforeWrite=query=>!query.startsWith('DELETE FROM PageMonitor');
   await assert.rejects(cleanupOwnedWorkflow({browser:f.browser,sql:f.sql,patient:'41',marker:MARKER,cleanups:f.state.callbacks}),/booking locks/);
   assert.equal(f.parent(),1);assert.deepEqual(f.ids(),[11]);assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM appointmentArchive').get().n,1);assert.equal(f.state.disposed,true);
 }));
 
-test('a monitor reassigned between selection and deletion is preserved and cannot permit parent cleanup', () => fixture(async f => {
+test('a monitor reassigned between selection and deletion is preserved and cannot permit parent cleanup', { skip: !DatabaseSync }, () => fixture(async f => {
   const owned=f.begin();await owned.rememberSlot(LINK);f.monitor(11);f.appointments();
   f.state.beforeWrite=query=>{if(query.startsWith('DELETE FROM PageMonitor'))f.db.exec("UPDATE PageMonitor SET providerNo='888888' WHERE id=11");};
   await assert.rejects(cleanupOwnedWorkflow({browser:f.browser,sql:f.sql,patient:'41',marker:MARKER,cleanups:f.state.callbacks}),/changed ownership/);
   assert.equal(f.parent(),1);assert.deepEqual(f.ids(),[11]);assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM appointmentArchive').get().n,1);
 }));
 
-test('atomic marker predicate preserves a monitor if the patient changes immediately before DELETE', () => fixture(async f => {
+test('atomic marker predicate preserves a monitor if the patient changes immediately before DELETE', { skip: !DatabaseSync }, () => fixture(async f => {
   const owned=f.begin();await owned.rememberSlot(LINK);f.monitor(11);f.appointments();
   f.state.beforeWrite=query=>{if(query.startsWith('DELETE FROM PageMonitor'))f.db.exec("UPDATE demographic SET last_name='FOREIGN' WHERE demographic_no=41");};
   assert.throws(()=>f.cleanup(),/monitor remains|ownership changed/);assert.deepEqual(f.ids(),[11]);
   assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM appointmentArchive').get().n,1);
 }));
 
-test('a foreign row attached to the same patient is preserved and retains the patient for review', () => fixture(async f => {
+test('a foreign row attached to the same patient is preserved and retains the patient for review', { skip: !DatabaseSync }, () => fixture(async f => {
   const owned=f.begin();await owned.rememberSlot(LINK);f.monitor(11);f.appointments();
   f.db.exec("INSERT INTO appointment VALUES(99,41,'999997','FOREIGN')");
   await assert.rejects(cleanupOwnedWorkflow({browser:f.browser,sql:f.sql,patient:'41',marker:MARKER,cleanups:f.state.callbacks}),/foreign or uncertain/);
   assert.equal(f.parent(),1);assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM appointment WHERE appointment_no=99').get().n,1);
 }));
 
-test('only the captured admission identity is removed; a concurrent admission is retained', () => fixture(async f => {
+test('only the captured admission identity is removed; a concurrent admission is retained', { skip: !DatabaseSync }, () => fixture(async f => {
   const owned=f.begin();f.admission(31);owned.admissionCreated('31');f.admission(32);
   assert.throws(()=>f.cleanup(),/foreign or uncertain/);assert.equal(f.db.prepare('SELECT am_id FROM admission').get().am_id,32);
 }));
 
-test('successful actual workflow cleanup removes its parent only after scoped monitor and child verification', () => fixture(async f => {
+test('successful actual workflow cleanup removes its parent only after scoped monitor and child verification', { skip: !DatabaseSync }, () => fixture(async f => {
   const owned=f.begin();await owned.rememberSlot(LINK);f.monitor(11);f.admission();owned.admissionCreated('31');f.appointments();
   await cleanupOwnedWorkflow({browser:f.browser,sql:f.sql,patient:'41',marker:MARKER,cleanups:f.state.callbacks});
   assert.equal(f.parent(),0);assert.deepEqual(f.ids(),[]);assert.equal(f.state.disposed,true);
 }));
 
-test('browser close failure reaches the local guard and leaves children and parent intact', () => fixture(async f => {
+test('browser close failure reaches the local guard and leaves children and parent intact', { skip: !DatabaseSync }, () => fixture(async f => {
   const owned=f.begin();await owned.rememberSlot(LINK);f.monitor(11);f.appointments();f.state.connected=true;f.state.closeError=true;
   await assert.rejects(cleanupOwnedWorkflow({browser:f.browser,sql:f.sql,patient:'41',marker:MARKER,cleanups:f.state.callbacks}),/browser close failed.*browser closure/);
   assert.equal(f.parent(),1);assert.deepEqual(f.ids(),[11]);assert.equal(f.state.queries.filter(q=>q.startsWith('DELETE')).length,0);
 }));
 
-test('pre-existing child baseline refuses before writes and retains the parent in actual cleanup', () => fixture(async f => {
+test('pre-existing child baseline refuses before writes and retains the parent in actual cleanup', { skip: !DatabaseSync }, () => fixture(async f => {
   f.admission();assert.throws(()=>f.begin(),/already has/);
   await assert.rejects(cleanupOwnedWorkflow({browser:f.browser,sql:f.sql,patient:'41',marker:MARKER,cleanups:f.state.callbacks}),/baseline is unconfirmed/);
   assert.equal(f.parent(),1);assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM admission').get().n,1);
 }));
 
-for(const id of [0,-1,2147483648])test(`invalid monitor identity ${id} refuses deletion`,()=>fixture(async f=>{
+for(const id of [0,-1,2147483648])test(`invalid monitor identity ${id} refuses deletion`,{ skip: !DatabaseSync }, ()=>fixture(async f=>{
   const owned=f.begin();await owned.rememberSlot(LINK);f.monitor(id);assert.throws(()=>f.cleanup(),/identity is invalid/);assert.deepEqual(f.ids(),[id]);
 }));
-test('maximum signed integer monitor identity is accepted',()=>fixture(async f=>{
+test('maximum signed integer monitor identity is accepted',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
   const owned=f.begin();await owned.rememberSlot(LINK);f.monitor(2147483647);f.cleanup();assert.deepEqual(f.ids(),[]);
 }));
-test('duplicate or malformed monitor evidence refuses before deleting',()=>fixture(async f=>{
+test('duplicate or malformed monitor evidence refuses before deleting',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
   const owned=f.begin();await owned.rememberSlot(LINK);f.monitor(11);
   f.state.alterRows=(query,rows)=>query.startsWith('SELECT id FROM PageMonitor')?[...rows,...rows]:rows;
   assert.throws(()=>f.cleanup(),/duplicated/);assert.deepEqual(f.ids(),[11]);
@@ -202,11 +207,11 @@ test('slot cleanup identity agrees with the actual JSP end-time function across 
 });
 for(const change of [link=>link.replace('provider_no=999997','provider_no=0'),link=>link.replace('month=10&day=21','month=2&day=30'),
   link=>link.replace('duration=15','duration=9999'),link=>link.replace('year=2026','year=2026&year=2027'),
-  link=>link.replace('/carlos/appointment','https://foreign.invalid/carlos/appointment')])test('invalid or foreign native slot refuses before monitor SQL',()=>fixture(async f=>{
+  link=>link.replace('/carlos/appointment','https://foreign.invalid/carlos/appointment')])test('invalid or foreign native slot refuses before monitor SQL',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
   const owned=f.begin();await assert.rejects(owned.rememberSlot(change(LINK)));assert.equal(f.state.queries.filter(q=>q.includes('PageMonitor')).length,0);
 }));
 
-test('real workflow registers cleanup and snapshots the exact session/slot before opening the first popup',()=>fixture(async f=>{
+test('real workflow registers cleanup and snapshots the exact session/slot before opening the first popup',{ skip: !DatabaseSync }, ()=>fixture(async f=>{
   const file=path.join(__dirname,'popup-opener-day-sheet-playwright-checks.js'),requireFrom=createRequire(file);
   const module={exports:{}};const source=fs.readFileSync(file,'utf8').replace(/^#![^\n]*\n/,'');
   const injected=name=>name==='./lib/playwright-ui'?{...requireFrom(name),typeAutocomplete:async()=> '41'}:requireFrom(name);

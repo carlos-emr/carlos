@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/pageUtil/SupServiceCodeAssoc2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "801cf58304f7322bcddb634c6df50b440a6ff89e"
+  },
+  "evidenceSha256": "b9b96dc8024730d71b5018081176c3eb8ddd5e20fcb2212859c0bd5aa73293ef"
+}

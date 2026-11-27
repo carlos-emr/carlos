@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "5558f2b8b7fba993b6a902b418a3b2046d1073b7",
+  "comparisonSha256": "a92575331e3a33f2f2f28f53063d0a4309f8d485d1c7e27e7d557adcf58bb4c4",
+  "baselineCommit": "34b7ab7c0acda38a05185172f7cf8e7fea6f9f23",
+  "baselineSourceTree": "5558f2b8b7fba993b6a902b418a3b2046d1073b7",
+  "baselineReportSha256": "eb4ccb1d48e860ec76d6f3e83d32fcd3763f8d7f010f1a735bf9ed915c36d1fc",
+  "baselineLane": "Ubuntu 26.04 JDK 25 MariaDB 11.8.9 Ontario Flyway; source 34b7ab7c0acd; scope, legacy NULL and duplicate OHIP claim, filenames and complete CDS public-provider projections",
+  "baselineTestCounts": {
+    "tests": 25,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnFileAccessServiceIntegrationTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnOutputFilenamesIntegrationTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnSiteVisibilityIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1DaoIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.SiteDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDemographicArchiveMariaDbIntegrationTest",
+    "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportSelectionIntegrationTest"
+  ],
+  "baselineTestReportsSha256": "9ee86588f65275080ec764a7fc83de369edaa8ff24962c53c810787c6fae06b2",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/PMmodule/dao/ProviderDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "4c374c2728b1b737665fe68f3bf51d25f4f660ba"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/BillingDaoImpl.java": {
+      "lines": 83.33333333333333,
+      "instructions": 74.07407407407408,
+      "branches": 50.0,
+      "sourceBlob": "989b277237adfe6a47d6c9c4be810a11bcc0f5c9"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/Billing.java": {
+      "lines": 100.0,
+      "instructions": 72.72727272727273,
+      "branches": 50.0,
+      "sourceBlob": "6f116b3118b0853415a54842cc38856e4f5bf31d"
+    }
+  },
+  "exclusions": {}
+}

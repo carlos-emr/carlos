@@ -2,7 +2,7 @@
  "format": 1,
  "kind": "o19map-props",
  "generator": "scripts/migration/o19/generate_manifests.py",
- "PROPS_MAP_VERSION": "o19map-8+47eba883",
+ "PROPS_MAP_VERSION": "o19map-8+e0de1e1e",
  "O19_DEFAULTS": {
   "ALLOW_UPDATE_DOCUMENT_CONTENT": "false",
   "ALT_DISCHARGE_REASON": "no",
@@ -1075,6 +1075,9 @@
    "d": "carry"
   },
   "mrp_model": {
+   "d": "carry"
+  },
+  "multisites": {
    "d": "carry"
   },
   "new_flowsheet_enabled": {

@@ -96,6 +96,15 @@ class DrugPriceLookupUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldEstimateBundledPrice_whenItStartsWithADecimalPoint() {
+        String unitPrice = DrugPriceLookup.getPriceInfoForDin("02477580");
+
+        assertThat(unitPrice).isEqualTo(".0817");
+        assertThat(DrugPriceEstimate.from(unitPrice, "30")).isEqualTo(new DrugPriceEstimate("$2.45", "30"));
+        assertThat(DrugPriceEstimate.from(unitPrice, "60")).isEqualTo(new DrugPriceEstimate("$4.90", "60"));
+    }
+
+    @Test
     void shouldKeepThePublishedPriceSnapshotComplete_whileReloadReadsItsReplacement() throws Exception {
         String oldPrice = DrugPriceLookup.getPriceInfoForDin("02536269");
         assertThat(oldPrice).isNotNull();

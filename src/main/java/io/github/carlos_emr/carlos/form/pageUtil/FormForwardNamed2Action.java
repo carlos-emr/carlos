@@ -21,6 +21,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.form.gate.FormViewRoutes;
+import io.github.carlos_emr.carlos.form.gate.FormViewVersionValidator;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -38,6 +39,7 @@ public class FormForwardNamed2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager =
             SpringUtils.getBean(SecurityInfoManager.class);
+    private final FormViewVersionValidator versions = new FormViewVersionValidator();
 
     @Override
     public String execute() throws ServletException, IOException {
@@ -85,6 +87,12 @@ public class FormForwardNamed2Action extends ActionSupport {
                     + "&demographic_no=" + demographicNo + "&formId=" + formId);
             request.getRequestDispatcher("/WEB-INF/jsp/form/formSaved.jsp").forward(request, response);
             return NONE;
+        }
+
+        // The post-save redisplay dispatches straight to the JSP. Check typed forms before rendering.
+        if (internalView.endsWith(".jsp")) {
+            String view = internalView.substring(internalView.lastIndexOf('/') + 1, internalView.lastIndexOf('.'));
+            versions.requireReadable(view, loggedInInfo, demographicNo, request.getParameter("formId"));
         }
         request.getRequestDispatcher(internalView + "?demographic_no=" + demographicNo)
                 .forward(request, response);

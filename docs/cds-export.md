@@ -957,7 +957,11 @@ carrying an exact `lab_no` extension, current or deleted, its extensions and the
 it uses to the LaboratoryResults path, which exports the complete report and applies the
 laboratory and sensitive-laboratory rights. A filed result whose `lab_no` names no HL7 report
 routed to the patient (a lab unlinked from the chart or moved to another patient; the chart's
-flowsheet still shows it, #6214) is carried by neither path. It is left out and never holds the
+flowsheet still shows it) is carried by neither path. Since #6214 unlink archives the readings
+of the report it unlinks, so a lab unlinked after that leaves none: such results are those an
+earlier unlink or patient move left behind, including on charts migrated from OSCAR 19. An
+archived reading is a deleted measurement, which is neither exported nor listed. Such a result
+is left out and never holds the
 patient (owner decision 2026-11-14; `CDS_EXPORT_NATIVE_CARE_LABORATORY_RESULT_UNROUTED` is gone).
 When LaboratoryResults is selected, the capture counts these readings inside the patient's
 snapshot by test name and observation date, reading no result value: the synthetic table

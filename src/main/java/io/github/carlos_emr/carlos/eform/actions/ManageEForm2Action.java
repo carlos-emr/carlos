@@ -35,7 +35,6 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -51,7 +50,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -106,7 +104,7 @@ public class ManageEForm2Action extends ActionSupport implements UploadedFilesAw
         }
 
         List<String> errors = Collections.emptyList();
-        try (InputStream zippedFormStream = Files.newInputStream(zippedForm.toPath())) {
+        try (InputStream zippedFormStream = PathValidationUtils.openValidatedUploadInputStream(zippedForm)) {
             EFormExportZip eFormExportZip = new EFormExportZip();
             errors = eFormExportZip.importForm(zippedFormStream);
         } catch (IOException e) {
@@ -142,7 +140,7 @@ public class ManageEForm2Action extends ActionSupport implements UploadedFilesAw
         return zippedForm;
     }
 
-    @StrutsParameter
+    // The multipart interceptor supplies the upload. This Java setter must not be request-bindable.
     public void setZippedForm(File zippedForm) {
         this.zippedForm = zippedForm;
     }

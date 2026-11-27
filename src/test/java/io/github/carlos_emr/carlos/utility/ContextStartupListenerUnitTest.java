@@ -41,6 +41,8 @@ import java.util.List;
 import org.apache.xml.security.utils.resolver.ResourceResolver;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
+import org.junit.jupiter.api.parallel.Resources;
 import org.springframework.mock.web.MockServletContext;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
 import org.springframework.transaction.support.DefaultTransactionStatus;
@@ -136,6 +138,43 @@ class ContextStartupListenerUnitTest {
             listener.contextDestroyed(new ServletContextEvent(context));
             assertThat(coordinator.state()).isEqualTo(ClinicalStartupCoordinator.State.CLOSED);
         } finally { MiscUtils.setShutdownSignaled(false); }
+    }
+
+    /**
+     * The CXF logger property is chosen by {@code OscarSpringContextLoader} (#6336); the listener
+     * runs after it and must not set it back to the Log4j2 adapter.
+     */
+    @Test
+    @ResourceLock(Resources.SYSTEM_PROPERTIES)
+    void shouldLeaveCxfLoggerProperty_whenContextInitializedRunsAfterTheLoader() {
+        String property = "org.apache.cxf.Logger";
+        String slf4j = "org.apache.cxf.common.logging.Slf4jLogger";
+        String previous = System.getProperty(property);
+        var maintenance = mock(CdsImportMaintenanceService.class);
+        var imports = mock(CdsImportService.class);
+        var exports = mock(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportService.class);
+        when(maintenance.isClinicalAccessBlocked()).thenReturn(true);
+        var context = new MockServletContext();
+        var listener = new ContextStartupListener();
+        try (var spring = mockStatic(SpringUtils.class);
+                var resolvers = mockStatic(ResourceResolver.class)) {
+            spring.when(() -> SpringUtils.getBean(CdsImportMaintenanceService.class)).thenReturn(maintenance);
+            spring.when(() -> SpringUtils.getBean(CdsImportService.class)).thenReturn(imports);
+            spring.when(() -> SpringUtils.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportService.class)).thenReturn(exports);
+            System.setProperty(property, slf4j);
+
+            listener.contextInitialized(new ServletContextEvent(context));
+
+            assertThat(System.getProperty(property)).isEqualTo(slf4j);
+            listener.contextDestroyed(new ServletContextEvent(context));
+        } finally {
+            MiscUtils.setShutdownSignaled(false);
+            if (previous == null) {
+                System.clearProperty(property);
+            } else {
+                System.setProperty(property, previous);
+            }
+        }
     }
 
     @Test void shouldNotStartImportDispatcher_whenClinicalStartupFails() {

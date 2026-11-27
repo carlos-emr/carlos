@@ -638,11 +638,9 @@
                             <c:if test="${statusModel.multisites}">
                                 <th>SITE</th>
                             </c:if>
-                            <th class="d-print-none">
-                                <a href="#" onClick="checkAll(document.invoiceForm.invoiceAction)">
-                                    <fmt:message key="billing.billingStatus.action"/>
-                                </a>
-                            </th>
+                            <%-- Export reads textContent. Keep JSP indentation out of cell text, including when a value is empty. --%>
+                            <th class="d-print-none"><a href="#"
+                                onClick="checkAll(document.invoiceForm.invoiceAction)"><fmt:message key="billing.billingStatus.action"/></a></th>
                         </tr>
                         </thead>
                         <tbody>
@@ -650,12 +648,8 @@
                             <tr class="${bill.rowClass}">
                                 <td style="text-align:center"><carlos:encode value='${bill.billingDate}' context='html'/></td>
                                 <td style="text-align:center"><carlos:encode value='${bill.demographicNo}' context='html'/></td>
-                                <td style="text-align:center" class="${statusModel.hideName ? 'd-print-none' : ''}">
-                                    <a href="#"
-                                       onclick="popupPage(800,740,'${pageContext.request.contextPath}/demographic/DemographicEdit?demographic_no=${carlos:forUriComponent(bill.demographicNo)}');return false;">
-                                        <carlos:encode value='${bill.demographicName}' context='html'/>
-                                    </a>
-                                </td>
+                                <td style="text-align:center" class="${statusModel.hideName ? 'd-print-none' : ''}"><a href="#"
+                                    onclick="popupPage(800,740,'${pageContext.request.contextPath}/demographic/DemographicEdit?demographic_no=${carlos:forUriComponent(bill.demographicNo)}');return false;"><carlos:encode value='${bill.demographicName}' context='html'/></a></td>
                                 <td style="text-align:center"><carlos:encode value='${bill.facilityNum}' context='html'/></td>
                                 <td style="text-align:center"><carlos:encode value='${bill.status}' context='html'/></td>
                                 <td style="text-align:center"><carlos:encode value='${bill.settleDate}' context='html'/></td>
@@ -665,17 +659,10 @@
                                 <td style="text-align:center"><carlos:encode value='${bill.adjustment}' context='html'/></td>
                                 <td style="text-align:center"><carlos:encode value='${bill.recId}' context='html'/></td>
                                 <td style="text-align:center"><carlos:encode value='${bill.payProgram}' context='html'/></td>
-                                <td style="text-align:center">
-                                    <a href="#"
-                                       onclick="popupPage(800,700,'${pageContext.request.contextPath}/billing/CA/ON/BillingONCorrection?billing_no=${carlos:forUriComponent(bill.invoiceNo)}');nav_colour_swap(this.id, ${fn:length(statusModel.billRows)});return false;">
-                                        <carlos:encode value='${bill.invoiceNo}' context='html'/>
-                                    </a>
-                                </td>
-                                <td class="highlightBox">
-                                    <a id="A${rowStat.index}" href="#"
-                                       onclick="popupPage(800,700,'${pageContext.request.contextPath}/billing/CA/ON/BillingONCorrection?billing_no=${carlos:forUriComponent(bill.invoiceNo)}');nav_colour_swap(this.id, ${fn:length(statusModel.billRows)});return false;">Edit</a>
-                                    <carlos:encode value='${bill.errorCode}' context='html'/>
-                                </td>
+                                <td style="text-align:center"><a href="#"
+                                    onclick="popupPage(800,700,'${pageContext.request.contextPath}/billing/CA/ON/BillingONCorrection?billing_no=${carlos:forUriComponent(bill.invoiceNo)}');nav_colour_swap(this.id, ${fn:length(statusModel.billRows)});return false;"><carlos:encode value='${bill.invoiceNo}' context='html'/></a></td>
+                                <td class="highlightBox"><a id="A${rowStat.index}" href="#"
+                                    onclick="popupPage(800,700,'${pageContext.request.contextPath}/billing/CA/ON/BillingONCorrection?billing_no=${carlos:forUriComponent(bill.invoiceNo)}');nav_colour_swap(this.id, ${fn:length(statusModel.billRows)});return false;">Edit</a> <carlos:encode value='${bill.errorCode}' context='html'/></td>
                                 <td style="text-align:center">$<carlos:encode value='${bill.cash}' context='html'/></td>
                                 <td style="text-align:center">$<carlos:encode value='${bill.debit}' context='html'/></td>
                                 <td style="text-align:center">${bill.qty}</td>
@@ -683,24 +670,17 @@
                                 <c:if test="${statusModel.multisites}">
                                     <c:choose>
                                         <c:when test="${not empty bill.clinicBgColor}">
-                                            <td style="background-color:<carlos:encode value='${bill.clinicBgColor}' context='cssString'/>;">
-                                                <carlos:encode value='${bill.clinicShortName}' context='html'/>
-                                            </td>
+                                            <td style="background-color:<carlos:encode value='${bill.clinicBgColor}' context='cssString'/>;"><carlos:encode value='${bill.clinicShortName}' context='html'/></td>
                                         </c:when>
                                         <c:otherwise>
-                                            <td>
-                                                <carlos:encode value='${bill.clinicShortName}' context='html'/>
-                                            </td>
+                                            <td><carlos:encode value='${bill.clinicShortName}' context='html'/></td>
                                         </c:otherwise>
                                     </c:choose>
                                 </c:if>
-                                <td style="text-align:center" class="d-print-none">
-                                    <c:if test="${bill.newInvoice and bill.thirdParty}">
-                                        <input type="checkbox" name="invoiceAction"
-                                               id="invoiceAction<carlos:encode value='${bill.invoiceNo}' context='htmlAttribute'/>"
-                                               value="<carlos:encode value='${bill.invoiceNo}' context='htmlAttribute'/>"/>
-                                    </c:if>
-                                </td>
+                                <td style="text-align:center" class="d-print-none"><c:if test="${bill.newInvoice and bill.thirdParty}"><input
+                                    type="checkbox" name="invoiceAction"
+                                    id="invoiceAction<carlos:encode value='${bill.invoiceNo}' context='htmlAttribute'/>"
+                                    value="<carlos:encode value='${bill.invoiceNo}' context='htmlAttribute'/>"/></c:if></td>
                             </tr>
                         </c:forEach>
                         </tbody>
