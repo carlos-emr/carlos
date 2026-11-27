@@ -1132,7 +1132,7 @@
         "scripts/login-mfa-playwright-checks.js",
         "scripts/account-lockout-address-playwright-checks.js",
         "scripts/oauth-rest-surfaces-playwright-checks.js",
-        "scripts/ai-scribe-oauth-api-live-check.js"
+        "scripts/oauth-clinical-api-playwright-checks.js"
       ],
       "implementation": "Retain Java security/MFA/token unit families and qualify session/OAuth authorization on installed default, no-PIN and address-lock profiles.",
       "cases": "MFA replay/expiry/reset, lockout/reset/session invalidation; missing/revoked/expired tokens; authorization after import; no principal or patient spoofing; 401/403 and unchanged state.",
@@ -1153,7 +1153,7 @@
         "packaged-profile-no-pin",
         "packaged-profile-private-consent",
         "manual-account-unlock-address-mode",
-        "manual-ai-scribe-oauth-api",
+        "manual-oauth-clinical-api",
         "java-native-release-services"
       ]
     },
@@ -6798,14 +6798,14 @@
       "requireLockedChromium": true
     },
     {
-      "id": "manual-ai-scribe-oauth-api",
+      "id": "manual-oauth-clinical-api",
       "kind": "browser",
       "profiles": [
         "ON"
       ],
       "repetitions": 1,
       "selection": [
-        "ai-scribe-oauth-api"
+        "oauth-clinical-api"
       ],
       "packaged": true,
       "requiresEnvironment": [
@@ -6814,7 +6814,7 @@
         "LAB_UPLOAD_DOCUMENT_STORE"
       ],
       "environment": {
-        "AI_SCRIBE_API_ONLY": "all"
+        "OAUTH_CLINICAL_API_ONLY": "all"
       },
       "runtimeConstraints": {
         "node": "22",
@@ -6826,7 +6826,7 @@
         "scripts/run-playwright-suite.js",
         "--strict-release",
         "--only",
-        "ai-scribe-oauth-api",
+        "oauth-clinical-api",
         "--province",
         "{profile}",
         "--residue-audit",
