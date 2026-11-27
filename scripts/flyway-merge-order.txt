@@ -112,3 +112,6 @@ common/V1.0.59.50__cds_preparation_payload_capacity.sql
 common/V1.0.59.50.1__index_historical_roster_provider_period.sql
 common/V1.0.59.50.2__ensure_historical_roster_lookup.sql
 on/V1.0.59.50.3__index_ohip_billing_file_owners.sql
+common/V1.0.59.51__preserve_medication_archive_history.sql
+common/V1.0.59.52__widen_bpmh_medication_history.sql
+common/V1.0.59.53__record_medication_components.sql
