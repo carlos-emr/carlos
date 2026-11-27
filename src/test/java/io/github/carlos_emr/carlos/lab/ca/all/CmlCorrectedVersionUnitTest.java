@@ -34,6 +34,8 @@ class CmlCorrectedVersionUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void prepareDaos() throws Exception {
+        // Hl7TextMessageDao is looked up through SpringUtils at call time, not held in a static field.
+        createAndRegisterMock(Hl7TextMessageDao.class);
         for (Field field : Hl7textResultsData.class.getDeclaredFields()) {
             if (Modifier.isStatic(field.getModifiers()) && field.getName().endsWith("Dao")) {
                 createAndRegisterMock(field.getType());
@@ -52,7 +54,8 @@ class CmlCorrectedVersionUnitTest extends CarlosUnitTestBase {
         var extensions = createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao.class);
         var chainLocks = createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoChainLockDao.class);
         var transactions = mock(org.springframework.transaction.PlatformTransactionManager.class);
-        when(transactions.getTransaction(any())).thenReturn(mock(org.springframework.transaction.TransactionStatus.class));
+        var status = mock(org.springframework.transaction.TransactionStatus.class);
+        when(transactions.getTransaction(any())).thenReturn(status);
         registerMock(LabMeasurementFilingService.class, new LabMeasurementFilingService(
                 transactions, chainLocks, measurements, extensions, deleted));
         when(chainLocks.lockByLabNumber(anyInt())).thenReturn(new Hl7TextInfo());

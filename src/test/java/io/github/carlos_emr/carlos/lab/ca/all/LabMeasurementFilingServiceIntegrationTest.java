@@ -81,7 +81,7 @@ public class LabMeasurementFilingServiceIntegrationTest extends CarlosTestBase {
             info.setAccessionNumber(accession);
             info.setFirstName("FAKE");
             info.setLastName("FAKE");
-            info.setObrDate(new Date().toString());
+            info.setObrDate("2026-11-27 12:00:00");
             info.setReportStatus("F");
             info.setFinalResultCount(0);
             hibernateTemplate.save(info);
@@ -91,9 +91,13 @@ public class LabMeasurementFilingServiceIntegrationTest extends CarlosTestBase {
     }
 
     private static FiledMeasurementDto result(int lab, String value, String extensionValue) {
+        return result(lab, PATIENT, value, extensionValue);
+    }
+
+    private static FiledMeasurementDto result(int lab, int patient, String value, String extensionValue) {
         Measurement m = new Measurement();
         m.setType("A1C");
-        m.setDemographicId(PATIENT);
+        m.setDemographicId(patient);
         m.setProviderNo("0");
         m.setDataField(value);
         m.setDateObserved(new Date());
@@ -177,9 +181,11 @@ public class LabMeasurementFilingServiceIntegrationTest extends CarlosTestBase {
     void shouldKeepNothingOfTheFiling_whenOneResultsExtensionFails() {
         int lab = storedReport("ACC-INT-ROLLBACK");
         var tooLong = "x".repeat(70_000);
+        var filingService = service(String.valueOf(lab));
+        var dto = filing(lab, "ACC-INT-ROLLBACK",
+                result(lab, "5.1", "3767"), result(lab, "5.2", tooLong), result(lab, "5.3", "3767"));
 
-        assertThatThrownBy(() -> service(String.valueOf(lab)).file(filing(lab, "ACC-INT-ROLLBACK",
-                result(lab, "5.1", "3767"), result(lab, "5.2", tooLong), result(lab, "5.3", "3767"))))
+        assertThatThrownBy(() -> filingService.file(dto))
                 .isInstanceOf(RuntimeException.class);
 
         // Not one of the three results, though the first was fully written before the second failed.
@@ -191,8 +197,9 @@ public class LabMeasurementFilingServiceIntegrationTest extends CarlosTestBase {
     void shouldLeaveOneCompleteSet_whenAFailedFilingIsRetried() {
         int lab = storedReport("ACC-INT-RETRY");
         var service = service(String.valueOf(lab));
-        assertThatThrownBy(() -> service.file(filing(lab, "ACC-INT-RETRY",
-                result(lab, "5.1", "3767"), result(lab, "5.2", "x".repeat(70_000)))))
+        var badDto = filing(lab, "ACC-INT-RETRY",
+                result(lab, "5.1", "3767"), result(lab, "5.2", "x".repeat(70_000)));
+        assertThatThrownBy(() -> service.file(badDto))
                 .isInstanceOf(RuntimeException.class);
 
         service.file(filing(lab, "ACC-INT-RETRY", result(lab, "5.1", "3767"), result(lab, "5.2", "3767")));
@@ -205,11 +212,36 @@ public class LabMeasurementFilingServiceIntegrationTest extends CarlosTestBase {
     void shouldFileOneRowPerResultAndArchiveTheFirstSet_whenTheSameReportIsFiledTwice() {
         int lab = storedReport("ACC-INT-TWICE");
         var service = service(String.valueOf(lab));
+        // Reusing the exact same DTO instance also proves the DTO is safely repeatable.
+        var dto = filing(lab, "ACC-INT-TWICE", result(lab, "5.1", "3767"), result(lab, "5.2", "3767"));
 
-        service.file(filing(lab, "ACC-INT-TWICE", result(lab, "5.1", "3767"), result(lab, "5.2", "3767")));
-        service.file(filing(lab, "ACC-INT-TWICE", result(lab, "5.1", "3767"), result(lab, "5.2", "3767")));
+        service.file(dto);
+        service.file(dto);
 
         assertThat(filed(lab)).hasSize(2);
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void shouldCommitOneCompleteSet_whenALockFailureHappensAfterPersistingMeasurements() {
+        int lab = storedReport("ACC-INT-LOCK-RETRY");
+        var extCalls = new java.util.concurrent.atomic.AtomicInteger();
+        MeasurementsExtDao flakyExtDao = org.mockito.Mockito.mock(MeasurementsExtDao.class, invocation -> {
+            if ("batchPersistAtomically".equals(invocation.getMethod().getName())
+                    && extCalls.incrementAndGet() == 1) {
+                throw new jakarta.persistence.LockTimeoutException("synthetic lock wait timeout on extensions");
+            }
+            return invocation.getMethod().invoke(measurementsExtDao, invocation.getArguments());
+        });
+        var flakyService = new LabMeasurementFilingService(transactions, locks, measurementDao, flakyExtDao,
+                measurementsDeletedDao, id -> String.valueOf(lab));
+
+        var outcome = flakyService.file(filing(lab, "ACC-INT-LOCK-RETRY",
+                result(lab, "5.1", "3767"), result(lab, "5.2", "3767")));
+
+        assertThat(outcome).isEqualTo(LabMeasurementFilingService.Result.FILED);
+        assertThat(extCalls.get()).isEqualTo(2);
+        assertThat(filed(lab)).extracting(Measurement::getDataField).containsExactlyInAnyOrder("5.1", "5.2");
     }
 
     @Test
@@ -246,8 +278,7 @@ public class LabMeasurementFilingServiceIntegrationTest extends CarlosTestBase {
         int theirs = storedReport("ACC-INT-RECYCLED");
         int mine = storedReport("ACC-INT-RECYCLED");
         String chain = theirs + "," + mine;
-        FiledMeasurementDto other = result(theirs, "4.4", "3767");
-        other.measurement().setDemographicId(PATIENT + 1);
+        FiledMeasurementDto other = result(theirs, PATIENT + 1, "4.4", "3767");
         // Their report was filed when it was the only one of the accession (later, mine joins its chain).
         service(String.valueOf(theirs)).file(new LabMeasurementFilingDto(String.valueOf(theirs), PATIENT + 1, false,
                 "ACC-INT-RECYCLED", null, List.of(other)));

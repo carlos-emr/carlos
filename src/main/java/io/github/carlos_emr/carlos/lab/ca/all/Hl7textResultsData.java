@@ -77,7 +77,6 @@ public class Hl7textResultsData {
     private static ConsultDocsDao consultDocsDao = SpringUtils.getBean(ConsultDocsDao.class);
     private static ConsultResponseDocDao consultResponseDocDao = SpringUtils.getBean(ConsultResponseDocDao.class);
     private static Hl7TextInfoDao hl7TxtInfoDao = SpringUtils.getBean(Hl7TextInfoDao.class);
-    private static Hl7TextMessageDao hl7TxtMsgDao = SpringUtils.getBean(Hl7TextMessageDao.class);
     private static PatientLabRoutingDao patientLabRoutingDao = SpringUtils.getBean(PatientLabRoutingDao.class);
     private static EFormDocsDao eformDocsDao = SpringUtils.getBean(EFormDocsDao.class);
 
@@ -140,14 +139,15 @@ public class Hl7textResultsData {
      *                               Nothing has been archived when it is thrown
      */
     public static void populateMeasurementsTable(String lab_no, String demographic_no) {
-        MessageHandler h = Factory.getHandler(lab_no);
+        String labNo = lab_no.trim();
+        MessageHandler h = Factory.getHandler(labNo);
         if (h == null) {
             // Refuse before the previous version's measurements are archived: with nothing
             // readable to file in their place, the chart would be left with neither.
             throw new IllegalStateException("Lab report could not be read; its measurements were not filed");
         }
         // The report's own row names the accession and filler order number that lock its chain.
-        Hl7TextInfo own = currentInfoDao().findLabId(Integer.parseInt(lab_no.trim()));
+        Hl7TextInfo own = currentInfoDao().findLabId(Integer.parseInt(labNo));
         if (own == null) {
             throw new IllegalStateException("Lab report is not stored; its measurements were not filed");
         }
@@ -156,12 +156,12 @@ public class Hl7textResultsData {
         // replaced versions' values and the filing itself run in LabMeasurementFilingService, under
         // the chain's row locks (#6391), after the upload that called this has committed.
         LabMeasurementFilingDto filing = new LabMeasurementFilingDto(
-                lab_no,
+                labNo,
                 patientNumber(demographic_no),
                 h instanceof io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler,
                 own.getAccessionNumber(),
                 own.getFillerOrderNum(),
-                buildFiledMeasurements(h, lab_no, demographic_no));
+                buildFiledMeasurements(h, labNo, demographic_no));
         // Looked up here, in the method, never held in a static field: a static field would resolve at
         // class load, before the Spring context exists in tests and with more than one context.
         SpringUtils.getBean(LabMeasurementFilingService.class).fileAfterCommit(filing);

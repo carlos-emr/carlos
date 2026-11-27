@@ -83,7 +83,8 @@ class LabMeasurementFilingServiceUnitTest extends CarlosUnitTestBase {
         createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao.class);
         createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.EFormDocsDao.class);
         transactions = mock(PlatformTransactionManager.class);
-        when(transactions.getTransaction(any())).thenReturn(mock(org.springframework.transaction.TransactionStatus.class));
+        var txStatus = mock(org.springframework.transaction.TransactionStatus.class);
+        when(transactions.getTransaction(any())).thenReturn(txStatus);
         locks = mock(Hl7TextInfoChainLockDao.class);
         measurementDao = mock(MeasurementDao.class);
         measurementsExtDao = mock(MeasurementsExtDao.class);
@@ -229,7 +230,9 @@ class LabMeasurementFilingServiceUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldThrowBeforeAnyWrite_whenTheReportIsAbsentFromItsChain() {
-        assertThatThrownBy(() -> service("100,102").file(filing("101", 7, false)))
+        var filingService = service("100,102");
+        var dto = filing("101", 7, false);
+        assertThatThrownBy(() -> filingService.file(dto))
                 .isInstanceOf(IllegalStateException.class);
 
         verifyNoInteractions(measurementDao, measurementsDeletedDao, measurementsExtDao);
@@ -281,8 +284,10 @@ class LabMeasurementFilingServiceUnitTest extends CarlosUnitTestBase {
         // Nothing here translates JPA exceptions to Spring's: a real deadlock arrives as Jakarta's own.
         when(locks.lockByAccession("ACC-1")).thenThrow(new jakarta.persistence.PersistenceException(
                 new jakarta.persistence.PessimisticLockException("deadlock")));
+        var filingService = service("101");
+        var dto = filing("101", 7, false);
 
-        assertThatThrownBy(() -> service("101").file(filing("101", 7, false)))
+        assertThatThrownBy(() -> filingService.file(dto))
                 .isInstanceOf(jakarta.persistence.PersistenceException.class);
 
         verify(transactions, times(LabMeasurementFilingService.MAX_ATTEMPTS)).getTransaction(any());
@@ -291,8 +296,10 @@ class LabMeasurementFilingServiceUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldRetryTheWholeTransactionUpToThreeTimes_whenSpringTranslatedTheLockFailure() {
         when(locks.lockByAccession("ACC-1")).thenThrow(new CannotAcquireLockException("deadlock"));
+        var filingService = service("101");
+        var dto = filing("101", 7, false);
 
-        assertThatThrownBy(() -> service("101").file(filing("101", 7, false)))
+        assertThatThrownBy(() -> filingService.file(dto))
                 .isInstanceOf(CannotAcquireLockException.class);
 
         verify(transactions, times(LabMeasurementFilingService.MAX_ATTEMPTS)).getTransaction(any());
@@ -301,11 +308,76 @@ class LabMeasurementFilingServiceUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldNotRetry_whenTheFailureIsNotALockFailure() {
         when(locks.lockByAccession("ACC-1")).thenThrow(new IllegalStateException("not a lock"));
+        var filingService = service("101");
+        var dto = filing("101", 7, false);
 
-        assertThatThrownBy(() -> service("101").file(filing("101", 7, false)))
+        assertThatThrownBy(() -> filingService.file(dto))
                 .isInstanceOf(IllegalStateException.class);
 
         verify(transactions, times(1)).getTransaction(any());
+    }
+
+    @Test
+    void shouldRetryWithFreshTransientMeasurements_whenLockFailureOccursAfterPersist() {
+        // Attempt 1 persists the measurement (assigning id=1) and then hits a lock failure when storing
+        // extensions; attempt 2 must persist a brand-new transient Measurement with id == null.
+        var persistedIdsBeforeInsert = new java.util.ArrayList<Integer>();
+        var ids = new java.util.concurrent.atomic.AtomicInteger();
+        org.mockito.Mockito.doAnswer(invocation -> {
+            Measurement stored = invocation.getArgument(0);
+            persistedIdsBeforeInsert.add(stored.getId());
+            org.springframework.test.util.ReflectionTestUtils.setField(stored, "id", ids.incrementAndGet());
+            return null;
+        }).when(measurementDao).persist(any(Measurement.class));
+        doThrow(new CannotAcquireLockException("lock wait on extensions"))
+                .doNothing()
+                .when(measurementsExtDao).batchPersistAtomically(anyList(), eq(50));
+
+        var result = service("101").file(filing(" 101 ", 7, false));
+
+        assertThat(result).isEqualTo(LabMeasurementFilingService.Result.FILED);
+        assertThat(persistedIdsBeforeInsert).containsExactly(null, null);
+        verify(transactions, times(2)).getTransaction(any());
+    }
+
+    @Test
+    void shouldCopyAllMeasurementFieldsDefensively_whenCreatingFiledMeasurementDto() {
+        Measurement source = new Measurement();
+        org.springframework.test.util.ReflectionTestUtils.setField(source, "id", 99);
+        source.setType("A1C");
+        source.setDemographicId(7);
+        source.setProviderNo("0");
+        source.setDataField("6.4");
+        source.setMeasuringInstruction("Lab");
+        source.setComments("comment");
+        source.setDateObserved(new java.util.Date(1_700_000_000_000L));
+        source.setAppointmentNo(12);
+        source.setCreateDate(new java.util.Date(1_700_000_010_000L));
+
+        FiledMeasurementDto dto = new FiledMeasurementDto(source, Map.of("lab_no", "101"));
+        source.setDataField("mutated");
+        source.getDateObserved().setTime(0L);
+        source.getCreateDate().setTime(0L);
+
+        Measurement copy = dto.newTransientMeasurement();
+        assertThat(copy.getId()).isNull();
+        assertThat(copy.getType()).isEqualTo("A1C");
+        assertThat(copy.getDemographicId()).isEqualTo(7);
+        assertThat(copy.getProviderNo()).isEqualTo("0");
+        assertThat(copy.getDataField()).isEqualTo("6.4");
+        assertThat(copy.getMeasuringInstruction()).isEqualTo("Lab");
+        assertThat(copy.getComments()).isEqualTo("comment");
+        assertThat(copy.getDateObserved()).isEqualTo(new java.util.Date(1_700_000_000_000L));
+        assertThat(copy.getAppointmentNo()).isEqualTo(12);
+        assertThat(copy.getCreateDate()).isEqualTo(new java.util.Date(1_700_000_010_000L));
+
+        // Null dates must also copy cleanly without NPE.
+        Measurement withNullDates = new Measurement();
+        withNullDates.setDateObserved(null);
+        withNullDates.setCreateDate(null);
+        Measurement nullDatesCopy = new FiledMeasurementDto(withNullDates, Map.of()).newTransientMeasurement();
+        assertThat(nullDatesCopy.getDateObserved()).isNull();
+        assertThat(nullDatesCopy.getCreateDate()).isNull();
     }
 
     @Test
@@ -342,9 +414,11 @@ class LabMeasurementFilingServiceUnitTest extends CarlosUnitTestBase {
     void shouldStopRetryingAndKeepTheInterrupt_whenTheBackoffIsInterrupted() {
         when(locks.lockByAccession("ACC-1")).thenThrow(new jakarta.persistence.PersistenceException(
                 new jakarta.persistence.PessimisticLockException("deadlock")));
+        var filingService = service("101");
+        var dto = filing("101", 7, false);
         Thread.currentThread().interrupt();
         try {
-            assertThatThrownBy(() -> service("101").file(filing("101", 7, false)))
+            assertThatThrownBy(() -> filingService.file(dto))
                     .isInstanceOf(jakarta.persistence.PersistenceException.class);
 
             assertThat(Thread.currentThread().isInterrupted()).isTrue();
@@ -381,8 +455,10 @@ class LabMeasurementFilingServiceUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldFileAtOnceAndThrow_whenNoTransactionIsActive() {
         doThrow(new IllegalStateException("broken")).when(measurementDao).persist(any(Measurement.class));
+        var filingService = service("101");
+        var dto = filing("101", 7, false);
 
-        assertThatThrownBy(() -> service("101").fileAfterCommit(filing("101", 7, false)))
+        assertThatThrownBy(() -> filingService.fileAfterCommit(dto))
                 .isInstanceOf(IllegalStateException.class);
     }
 
@@ -419,7 +495,12 @@ class LabMeasurementFilingServiceUnitTest extends CarlosUnitTestBase {
         inTransactionWithSynchronization();
         service("101").fileAfterCommit(filing("101", 7, false));
 
-        commit();
+        try (LogCapture log = LogCapture.forLogger(LabMeasurementFilingService.class)) {
+            org.assertj.core.api.Assertions.assertThatCode(LabMeasurementFilingServiceUnitTest::commit)
+                    .doesNotThrowAnyException();
+
+            assertThat(log.messages()).anySatisfy(message -> assertThat(message).contains("101"));
+        }
     }
 
     @Test
@@ -437,7 +518,12 @@ class LabMeasurementFilingServiceUnitTest extends CarlosUnitTestBase {
         inTransactionWithSynchronization();
         service("101").fileAfterCommit(filing("101", 7, false));
 
-        commit();
+        try (LogCapture log = LogCapture.forLogger(LabMeasurementFilingService.class)) {
+            org.assertj.core.api.Assertions.assertThatCode(LabMeasurementFilingServiceUnitTest::commit)
+                    .doesNotThrowAnyException();
+
+            assertThat(log.messages()).anySatisfy(message -> assertThat(message).contains("AssertionError"));
+        }
     }
 
     @Test
@@ -453,5 +539,23 @@ class LabMeasurementFilingServiceUnitTest extends CarlosUnitTestBase {
             assertThat(log.messages()).anySatisfy(message -> assertThat(message).contains("removed"));
         }
         verifyNoInteractions(measurementDao, measurementsExtDao);
+    }
+
+    @Test
+    void shouldTerminateLogging_whenAfterCommitFailureHasACyclicCauseChain() {
+        var first = new IllegalStateException("outer");
+        var second = new IllegalArgumentException("inner", first);
+        first.initCause(second);
+        doThrow(first).when(measurementDao).persist(any(Measurement.class));
+        inTransactionWithSynchronization();
+        service("101").fileAfterCommit(filing("101", 7, false));
+
+        try (LogCapture log = LogCapture.forLogger(LabMeasurementFilingService.class)) {
+            org.assertj.core.api.Assertions.assertThatCode(LabMeasurementFilingServiceUnitTest::commit)
+                    .doesNotThrowAnyException();
+
+            assertThat(log.messages()).anySatisfy(message -> assertThat(message)
+                    .contains("101").contains("IllegalStateException").contains("IllegalArgumentException"));
+        }
     }
 }

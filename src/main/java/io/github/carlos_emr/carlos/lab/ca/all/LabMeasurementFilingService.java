@@ -183,7 +183,7 @@ public class LabMeasurementFilingService {
             Result result = attempts(dto, TransactionDefinition.PROPAGATION_REQUIRES_NEW);
             if (result == Result.LAB_REMOVED) {
                 logger.info("Lab {} was removed before its measurements were filed; nothing was filed",
-                        LogSafe.sanitize(dto.labNo()));
+                        () -> LogSafe.sanitize(dto.labNo()));
             }
         } catch (Throwable failure) {
             if (failure instanceof VirtualMachineError error) {
@@ -198,20 +198,24 @@ public class LabMeasurementFilingService {
         // writing, which are a patient's results.
         try {
             Throwable root = failure;
-            while (root.getCause() != null && root.getCause() != root) {
+            Set<Throwable> seen = new HashSet<>();
+            seen.add(root);
+            while (root.getCause() != null && seen.add(root.getCause())) {
                 root = root.getCause();
             }
+            String failureClass = failure.getClass().getName();
+            String rootClass = root.getClass().getName();
             logger.error("Lab {} was committed but its measurements were not filed ({}, caused by {}); "
                             + "re-match the lab to file them",
-                    LogSafe.sanitize(dto.labNo()), failure.getClass().getName(), root.getClass().getName());
-        } catch (Throwable ignored) {
+                    () -> LogSafe.sanitize(dto.labNo()), () -> failureClass, () -> rootClass);
+        } catch (Throwable _) {
             // The failure path must not itself throw into the committing caller.
         }
         try {
             LogAction.addLog(Provider.SYSTEM_PROVIDER_NO, LogConst.UPDATE, LogConst.CON_HL7_LAB, dto.labNo(),
                     null, dto.patient() == null ? null : String.valueOf(dto.patient()),
                     "lab measurement filing failed");
-        } catch (Throwable ignored) {
+        } catch (Throwable _) {
             // The audit row is best effort here; the ERROR line above is the record that remains.
         }
     }
@@ -230,7 +234,7 @@ public class LabMeasurementFilingService {
                 }
                 try {
                     Thread.sleep(backoff);
-                } catch (InterruptedException interrupted) {
+                } catch (InterruptedException _) {
                     // Someone wants this thread to stop: keep the flag and give the failure up.
                     Thread.currentThread().interrupt();
                     throw lockFailure;
@@ -250,19 +254,18 @@ public class LabMeasurementFilingService {
     public static boolean isLockFailure(Throwable failure) {
         Set<Throwable> seen = new HashSet<>();
         for (Throwable cause = failure; cause != null && seen.add(cause); cause = cause.getCause()) {
+            // org.hibernate.PessimisticLockException is the superclass of both
+            // org.hibernate.exception.LockAcquisitionException and LockTimeoutException.
             if (cause instanceof PessimisticLockingFailureException
                     || cause instanceof jakarta.persistence.PessimisticLockException
                     || cause instanceof jakarta.persistence.LockTimeoutException
-                    || cause instanceof org.hibernate.PessimisticLockException
-                    || cause instanceof org.hibernate.exception.LockAcquisitionException
-                    || cause instanceof org.hibernate.exception.LockTimeoutException) {
+                    || cause instanceof org.hibernate.PessimisticLockException) {
                 return true;
             }
-            if (cause instanceof SQLException sql) {
-                // 40001: serialization failure / deadlock; MariaDB 1213 deadlock, 1205 lock wait timeout.
-                if ("40001".equals(sql.getSQLState()) || sql.getErrorCode() == 1213 || sql.getErrorCode() == 1205) {
-                    return true;
-                }
+            // 40001: serialization failure / deadlock; MariaDB 1213 deadlock, 1205 lock wait timeout.
+            if (cause instanceof SQLException sql
+                    && ("40001".equals(sql.getSQLState()) || sql.getErrorCode() == 1213 || sql.getErrorCode() == 1205)) {
+                return true;
             }
         }
         return false;
@@ -272,26 +275,27 @@ public class LabMeasurementFilingService {
      * The filing itself, in the caller's transaction. Locks first, then reads, then writes.
      */
     Result fileInTransaction(LabMeasurementFilingDto dto) {
+        String labNo = dto.labNo().trim();
         // Locks BEFORE any plain read: under REPEATABLE READ a locking read does not open the
         // consistent-read snapshot, so the reads that follow see what the thread that held these
         // rows committed. Always the same order: accession, filler order number, the report's own row.
         locks.lockByAccession(dto.accession());
         locks.lockByFillerOrderNumber(dto.fillerOrderNumber());
-        Hl7TextInfo own = locks.lockByLabNumber(Integer.parseInt(dto.labNo().trim()));
+        Hl7TextInfo own = locks.lockByLabNumber(Integer.parseInt(labNo));
         if (own == null) {
             return Result.LAB_REMOVED;
         }
 
-        String[] chain = matchingLabs.apply(dto.labNo()).split(",");
-        if (!Arrays.asList(chain).contains(dto.labNo())) {
+        String[] chain = matchingLabs.apply(labNo).split(",");
+        if (!Arrays.asList(chain).contains(labNo)) {
             throw new IllegalStateException("The incoming lab is absent from its resolved version chain");
         }
         // A late historical delivery must not replace the current version's measurements.
-        if (!dto.labNo().equals(Hl7textResultsData.currentVersion(chain, dto.revisionOrdered()))) {
+        if (!labNo.equals(Hl7textResultsData.currentVersion(chain, dto.revisionOrdered()))) {
             return Result.NOT_CURRENT;
         }
 
-        archive(dto, new LinkedHashSet<>(Arrays.asList(chain)));
+        archive(labNo, dto.patient(), new LinkedHashSet<>(Arrays.asList(chain)));
         store(dto.measurements());
         return Result.FILED;
     }
@@ -302,26 +306,20 @@ public class LabMeasurementFilingService {
      * Only this patient's values: the chain is resolved by accession number alone, so a recycled
      * accession can put another patient's report in it.
      */
-    private void archive(LabMeasurementFilingDto dto, Set<String> versions) {
-        Integer patient = dto.patient();
+    private void archive(String labNo, Integer patient, Set<String> versions) {
         List<MeasurementsDeleted> deleted = new ArrayList<>();
         List<Measurement> removed = new ArrayList<>();
         for (String version : versions) {
-            boolean own = version.equals(dto.labNo());
+            boolean own = version.equals(labNo);
             for (Measurement m : measurementDao.findByValue("lab_no", version)) {
                 Integer owner = m.getDemographicId();
-                if (patient == null) {
-                    // No patient to compare with: only the report's own values are replaced.
-                    if (!own) {
-                        continue;
-                    }
-                } else if (owner != null ? !patient.equals(owner) : !own) {
-                    // Another patient's values are never touched; nor are values with no patient,
-                    // other than the report's own.
-                    continue;
+                // With no patient to compare against, replace only this report's own rows.
+                // Otherwise never touch another patient's rows, nor unowned rows of another version.
+                boolean replace = patient == null ? own : (owner != null ? patient.equals(owner) : own);
+                if (replace) {
+                    deleted.add(new MeasurementsDeleted(m));
+                    removed.add(m);
                 }
-                deleted.add(new MeasurementsDeleted(m));
-                removed.add(m);
             }
         }
         measurementsDeletedDao.batchPersistAtomically(deleted);
@@ -331,8 +329,11 @@ public class LabMeasurementFilingService {
     private void store(List<FiledMeasurementDto> results) {
         List<MeasurementsExt> extensions = new ArrayList<>();
         for (FiledMeasurementDto result : results) {
-            measurementDao.persist(result.measurement());
-            int measurementId = result.measurement().getId();
+            // Fresh transient entity per attempt: a rolled-back attempt's persist() may have already
+            // assigned a database id in memory, which would fail a retry as a detached entity.
+            Measurement measurement = result.newTransientMeasurement();
+            measurementDao.persist(measurement);
+            int measurementId = measurement.getId();
             for (Map.Entry<String, String> extension : result.extensions().entrySet()) {
                 MeasurementsExt me = new MeasurementsExt();
                 me.setMeasurementId(measurementId);

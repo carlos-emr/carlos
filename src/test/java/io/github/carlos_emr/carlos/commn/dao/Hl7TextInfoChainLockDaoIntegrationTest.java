@@ -19,7 +19,6 @@ package io.github.carlos_emr.carlos.commn.dao;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import java.util.Date;
 import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
@@ -63,7 +62,7 @@ public class Hl7TextInfoChainLockDaoIntegrationTest extends CarlosTestBase {
         info.setFillerOrderNum(filler);
         info.setFirstName("FAKE");
         info.setLastName("FAKE");
-        info.setObrDate(new Date().toString());
+        info.setObrDate("2026-11-27 12:00:00");
         info.setReportStatus("F");
         info.setFinalResultCount(0);
         hibernateTemplate.save(info);

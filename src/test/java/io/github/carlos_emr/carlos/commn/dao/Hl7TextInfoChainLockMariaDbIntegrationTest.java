@@ -169,7 +169,7 @@ class Hl7TextInfoChainLockMariaDbIntegrationTest extends Hl7TextInfoChainLockDao
                         holding.countDown();
                         try {
                             release.await(60, TimeUnit.SECONDS);
-                        } catch (InterruptedException interrupted) {
+                        } catch (InterruptedException _) {
                             Thread.currentThread().interrupt();
                         }
                     }));
@@ -199,7 +199,7 @@ class Hl7TextInfoChainLockMariaDbIntegrationTest extends Hl7TextInfoChainLockDao
                 // The holder's row locks are released when its transaction ends; a delete before that
                 // would wait for them (up to the server's lock wait timeout).
                 holder.awaitTermination(30, TimeUnit.SECONDS);
-            } catch (InterruptedException interrupted) {
+            } catch (InterruptedException _) {
                 Thread.currentThread().interrupt();
             }
             try {
@@ -215,7 +215,7 @@ class Hl7TextInfoChainLockMariaDbIntegrationTest extends Hl7TextInfoChainLockDao
         try {
             entityManager.createNativeQuery("SET SESSION innodb_lock_wait_timeout = @carlos_previous_lock_wait")
                     .executeUpdate();
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException _) {
             // The connection goes back to the pool with the test's own transaction; a failure here is
             // not what is being tested.
         }

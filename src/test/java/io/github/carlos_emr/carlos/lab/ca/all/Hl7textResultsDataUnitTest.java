@@ -74,8 +74,9 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUpDaos() throws Exception {
-        // The measurement mapping is looked up when a result is filed, not held in a static field.
+        // Measurement mapping and stored HL7 messages are looked up through SpringUtils at call time.
         createAndRegisterMock(MeasurementMapDao.class);
+        createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao.class);
         // Register all beans before the class initializes, then replace any cached by earlier tests.
         for (Field field : Hl7textResultsData.class.getDeclaredFields()) {
             if (Modifier.isStatic(field.getModifiers()) && field.getName().endsWith("Dao")) {
@@ -97,7 +98,8 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         var extensions = createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao.class);
         var deleted = createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.MeasurementsDeletedDao.class);
         var transactions = mock(org.springframework.transaction.PlatformTransactionManager.class);
-        when(transactions.getTransaction(any())).thenReturn(mock(org.springframework.transaction.TransactionStatus.class));
+        var status = mock(org.springframework.transaction.TransactionStatus.class);
+        when(transactions.getTransaction(any())).thenReturn(status);
         registerMock(LabMeasurementFilingService.class, new LabMeasurementFilingService(
                 transactions, chainLocks, measurementDao, extensions, deleted));
         when(chainLocks.lockByLabNumber(anyInt())).thenReturn(new io.github.carlos_emr.carlos.commn.model.Hl7TextInfo());
@@ -265,8 +267,9 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         var infos = (io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao) mockedBeans.get(
                 io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao.class);
         when(infos.findLabId(4616)).thenReturn(null);
+        MessageHandler handler = mock(MessageHandler.class);
         try (MockedStatic<Factory> factory = mockStatic(Factory.class)) {
-            factory.when(() -> Factory.getHandler("4616")).thenReturn(mock(MessageHandler.class));
+            factory.when(() -> Factory.getHandler("4616")).thenReturn(handler);
 
             assertThatThrownBy(() -> Hl7textResultsData.populateMeasurementsTable("4616", "42"))
                     .isInstanceOf(IllegalStateException.class);
@@ -283,12 +286,13 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         cached.setAccessible(true);
         var stale = mock(io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao.class);
         cached.set(null, stale);
+        MessageHandler handler = mock(MessageHandler.class);
         try (MockedStatic<Factory> factory = mockStatic(Factory.class);
              var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
-            factory.when(() -> Factory.getHandler("4616")).thenReturn(mock(MessageHandler.class));
+            factory.when(() -> Factory.getHandler("4616")).thenReturn(handler);
             versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("4616");
 
-            Hl7textResultsData.populateMeasurementsTable("4616", "42");
+            Hl7textResultsData.populateMeasurementsTable(" 4616 ", "42");
         }
         // The stale DAO was never asked, and the report was filed (restoreDaos puts the original field back).
         verifyNoInteractions(stale);
@@ -356,12 +360,8 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
     void shouldReadTheChainFromTheCurrentContext_whenStaleDaosAreCached() throws Exception {
         Field infoField = Hl7textResultsData.class.getDeclaredField("hl7TxtInfoDao");
         infoField.setAccessible(true);
-        Field messageField = Hl7textResultsData.class.getDeclaredField("hl7TxtMsgDao");
-        messageField.setAccessible(true);
         var staleInfo = mock(io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao.class);
-        var staleMessage = mock(io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao.class);
         infoField.set(null, staleInfo);
-        messageField.set(null, staleMessage);
         var infos = (io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao) mockedBeans.get(
                 io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao.class);
         var messages = (io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao) mockedBeans.get(
@@ -373,13 +373,14 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
                 new Object[]{infoOf(20, "F1"), infoOf(20, "F1")}));
         when(infos.findByFillerOrderNumber("F1")).thenReturn(java.util.List.of(infoOf(20, "F1")));
 
-        // A CLS report is routed to the CLS reader after the stored message is read.
+        // A CLS report is routed to the CLS reader after the stored message is read from SpringUtils.
         String chain = Hl7textResultsData.getMatchingLabs("20");
         // What this test is about: the chain is exactly the report 20, read from the registered DAOs.
         assertThat(new java.util.TreeSet<>(java.util.Arrays.asList(chain.split(",")))).containsExactly("20");
         // KNOWN ISSUE (existing behaviour, not fixed here): the same repeat as in the CLS case above.
         assertThat(chain).isEqualTo("20,20");
-        verifyNoInteractions(staleInfo, staleMessage);
+        verifyNoInteractions(staleInfo);
+        verify(messages).find(20);
     }
 
     @Test
@@ -397,9 +398,10 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
     @ValueSource(strings = {"abc", "0", "-3", " "})
     @DisplayName("should replace only the report's own values, when the patient number is not usable")
     void shouldReplaceOnlyTheReportsOwnValues_whenThePatientNumberIsNotUsable(String patient) {
+        MessageHandler handler = mock(MessageHandler.class);
         try (MockedStatic<Factory> factory = mockStatic(Factory.class);
              var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
-            factory.when(() -> Factory.getHandler("4616")).thenReturn(mock(MessageHandler.class));
+            factory.when(() -> Factory.getHandler("4616")).thenReturn(handler);
             versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("4616");
 
             Hl7textResultsData.populateMeasurementsTable("4616", patient);

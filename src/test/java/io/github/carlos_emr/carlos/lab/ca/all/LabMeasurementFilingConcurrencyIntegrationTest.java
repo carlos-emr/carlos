@@ -122,7 +122,7 @@ public class LabMeasurementFilingConcurrencyIntegrationTest extends CarlosTestBa
             info.setAccessionNumber(accession);
             info.setFirstName("FAKE");
             info.setLastName("FAKE");
-            info.setObrDate(new Date().toString());
+            info.setObrDate("2026-11-27 12:00:00");
             info.setReportStatus("F");
             info.setFinalResultCount(0);
             hibernateTemplate.save(info);
@@ -160,7 +160,7 @@ public class LabMeasurementFilingConcurrencyIntegrationTest extends CarlosTestBa
             try {
                 two.get(750, TimeUnit.MILLISECONDS);
                 throw new AssertionError("the second filing ran while the first held the chain's rows");
-            } catch (TimeoutException waiting) {
+            } catch (TimeoutException _) {
                 // expected: it is waiting for the locks
             }
             parked.release.countDown();
@@ -227,7 +227,7 @@ public class LabMeasurementFilingConcurrencyIntegrationTest extends CarlosTestBa
                         info.setAccessionNumber(accession);
                         info.setFirstName("FAKE");
                         info.setLastName("FAKE");
-                        info.setObrDate(new Date().toString());
+                        info.setObrDate("2026-11-27 12:00:00");
                         info.setReportStatus("F");
                         info.setFinalResultCount(0);
                         hibernateTemplate.save(info);
@@ -236,7 +236,7 @@ public class LabMeasurementFilingConcurrencyIntegrationTest extends CarlosTestBa
                         bothStored.countDown();
                         try {
                             bothStored.await(30, TimeUnit.SECONDS);
-                        } catch (InterruptedException interrupted) {
+                        } catch (InterruptedException _) {
                             Thread.currentThread().interrupt();
                         }
                         // Both numbers are known once both rows are stored; the chain is both reports.
@@ -283,7 +283,7 @@ public class LabMeasurementFilingConcurrencyIntegrationTest extends CarlosTestBa
             try {
                 second.get(750, TimeUnit.MILLISECONDS);
                 throw new AssertionError("the correction filed while the first filing held the chain's rows");
-            } catch (TimeoutException waiting) {
+            } catch (TimeoutException _) {
                 // expected: it is waiting for the locks
             }
 
