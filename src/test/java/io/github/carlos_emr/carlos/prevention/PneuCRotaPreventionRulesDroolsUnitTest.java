@@ -443,6 +443,31 @@ class PneuCRotaPreventionRulesDroolsUnitTest {
                     rotaRecord("Rota-1", 40, false, null));
             assertThat(reminders(prev, NEEDS_SECOND_ROTA)).isZero();
         }
+
+        @Test
+        void shouldRemind_whenAPriorRefusalUnderAnotherNameHasAFutureNextDateAndTheGivenDoseHasNone() {
+            // Declined Rota with a future re-offer date, then accepted Rota-5 60 days ago with no next date:
+            // only the administered dose's next date controls the second-dose reminder.
+            Prevention prev = infantWithRotaRecords(5,
+                    rotaRecord("Rota", 90, true, 7), rotaRecord("Rota-5", 60, false, null));
+            assertThat(reminders(prev, NEEDS_SECOND_ROTA)).isEqualTo(1);
+        }
+
+        @Test
+        void shouldNotRemindEarly_whenAPriorRefusalUnderAnotherNameHasAPassedNextDateAndTheGivenDoseHasAFutureNextDate() {
+            // Declined Rota had an earlier next date that passed, then Rota-5 was given with a future next date:
+            // the expired refusal next date must not override the administered dose's scheduled next date.
+            Prevention prev = infantWithRotaRecords(5,
+                    rotaRecord("Rota", 90, true, -20), rotaRecord("Rota-5", 60, false, 14));
+            assertThat(reminders(prev, NEEDS_SECOND_ROTA)).isZero();
+        }
+
+        @Test
+        void shouldRemind_whenAPriorRefusalUnderAnotherNameHasAFutureNextDateAndTheGivenDoseNextDatePassed() {
+            Prevention prev = infantWithRotaRecords(5,
+                    rotaRecord("Rota", 90, true, 14), rotaRecord("Rota-5", 60, false, -3));
+            assertThat(reminders(prev, NEEDS_SECOND_ROTA)).isEqualTo(1);
+        }
     }
 
     /**

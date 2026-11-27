@@ -523,7 +523,7 @@ All five variants share the same DRL loading logic (delegated to `DroolsHelper.l
 | Rule | Bug | Impact |
 |------|-----|--------|
 | DTaP-IPV 4.1 | Conditions check `count==2` (should be `count==3` for 4th dose) | Duplicates DTaP-IPV 3.1 behavior |
-| DTaP-IPV 5, 6 | Warning says "Needs Third DTaP-IPV" | Incorrect message for 5th/6th doses |
+| DTaP-IPV 5 | Warning says "Needs Third DTaP-IPV" | Incorrect message for 5th dose (DTaP-IPV 6 removed, #5048) |
 | MenC-C 1 | Log says "Pneu-C 4" | Wrong debug log message |
 | Rot 1, 2 | Uses `System.out.println()` instead of `prev.log()` | Inconsistent logging |
 | Flu 1 | Hardcoded 2005-2006 date range | Effectively dead code |

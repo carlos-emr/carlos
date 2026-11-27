@@ -223,8 +223,9 @@ function boolean childhoodTetanusDosesTenYearsOld(Prevention prev) {
     return true;
 }
 
-// Only the most recent administered rotavirus dose's next date controls the third-dose reminder, including
-// mixed-product series. A next date retained on an older product does not override the second dose.
+// Only the most recent administered rotavirus dose's next date controls the second- and third-dose reminders,
+// including mixed-product series and prior refusals under another product name. A next date retained on an older
+// record or refusal does not override the latest administered dose.
 function java.util.Date latestRotaNextDate(Prevention prev) {
     String[] names = {"Rota", "Rota-1", "Rota-5"};
     PreventionItem latest = null;
@@ -459,7 +460,7 @@ rule "Rota 2"
         eval( !prev.isPreventionNever("Rota") && !prev.isPreventionNever("Rota-1") && !prev.isPreventionNever("Rota-5") )
         // Not declined since the dose: a refusal (1) or "ineligible" (2) dated on or after it stops the reminder.
         eval( !rotaDeclinedSinceLastDose(prev) )
-        eval( !prev.isNextDateSet("Rota") && !prev.isNextDateSet("Rota-1") && !prev.isNextDateSet("Rota-5") )
+        eval( latestRotaNextDate(prev) == null )
     then
         System.out.println("Rota 2");
         prev.addWarning("Rota", "Needs Second Rota vaccine");
@@ -474,9 +475,7 @@ rule "Rota 2.1"
         eval( !prev.isPreventionNever("Rota") && !prev.isPreventionNever("Rota-1") && !prev.isPreventionNever("Rota-5") )
         // Not declined since the dose: a refusal (1) or "ineligible" (2) dated on or after it stops the reminder.
         eval( !rotaDeclinedSinceLastDose(prev) )
-        eval( (prev.isNextDateSet("Rota") && prev.isPassedNextDate("Rota"))
-            || (prev.isNextDateSet("Rota-1") && prev.isPassedNextDate("Rota-1"))
-            || (prev.isNextDateSet("Rota-5") && prev.isPassedNextDate("Rota-5")) )
+        eval( latestRotaNextDatePassed(prev) )
         // Never before the 4-week minimum interval, whatever the next date says.
         eval( prev.getNumberOfPreventionType("Rota") == 0 || prev.getCalendarDaysSinceLast("Rota") >= 28 )
         eval( prev.getNumberOfPreventionType("Rota-1") == 0 || prev.getCalendarDaysSinceLast("Rota-1") >= 28 )
