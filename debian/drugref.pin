@@ -13,5 +13,7 @@
 # It descends from master 57c8642 and retains the earlier allergy safety,
 # recoverable DPD replacement, missing-DIN lookup, SQL-date XML-RPC, and
 # EntityManager lifecycle fixes. Do not move the pin behind those changes.
+# DIN monographs and generic product labels now resolve by DPD drug code,
+# independently of the database-generated product and search row IDs.
 # Build from this full commit SHA; branch names are not reproducible.
-ref=703e3f081587b0e3d764d2146c0c548e13cd8cdf
+ref=f94a6e67542e3929fff94e30814a4304fe5a82ad

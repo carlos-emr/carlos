@@ -95,7 +95,7 @@ class ReportAbortRequestCleanupUnitTest extends CarlosUnitTestBase {
                 assertThat(pool.aborted.await(5, TimeUnit.SECONDS)).isTrue();
                 read.countDown();
                 boolean healthy = next.get(5, TimeUnit.SECONDS);
-                await(() -> pool.getNumActive() == 0 && OscarTrackingBasicDataSource.debugMap.isEmpty());
+                await(() -> pool.getNumActive() == 0 && OscarTrackingBasicDataSource.trackedConnectionCount() == 0);
                 System.out.println("FAKE report cleanup " + scenario + ": idleBeforeAbort=" + idleBeforeAbortFinished
                         + ", borrowedBeforeAbort=" + borrowedBeforeAbortFinished + ", nextLeaseHealthy=" + healthy);
                 assertThat(idleBeforeAbortFinished).isZero();
@@ -124,7 +124,7 @@ class ReportAbortRequestCleanupUnitTest extends CarlosUnitTestBase {
                 assertThat(connection.getCatalog()).startsWith("FAKE-");
             }
             OscarTrackingBasicDataSource.releaseThreadConnections();
-            assertThat(OscarTrackingBasicDataSource.debugMap).isEmpty();
+            assertThat(OscarTrackingBasicDataSource.trackedConnectionCount()).isZero();
         }
     }
 

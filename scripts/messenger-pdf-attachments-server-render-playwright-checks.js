@@ -123,15 +123,15 @@ async function workflow(s) {
     await main.locator('form#attachForm').waitFor({ timeout: TIMEOUT });
   };
 
-  // Observes the Doc2PDF exchange without changing what the browser receives: a PDF
-  // navigation becomes a download in headless Chromium and has no readable body otherwise.
+  // Capture the PDF bytes while letting the browser handle the preview navigation.
   const capturePreview = async key => {
     let captured;
     const handler = async route => {
       const response = await route.fetch();
-      captured = { status: response.status(), type: response.headers()['content-type'] || '',
+      const preview = { status: response.status(), type: response.headers()['content-type'] || '',
         body: await response.body(), post: route.request().postData() || '' };
       await route.fulfill({ response });
+      captured = preview;
     };
     await s.context.route('**/messenger/Doc2PDF', handler);
     try {
@@ -198,9 +198,9 @@ async function workflow(s) {
     h.assert(unknown.status() === 400, `An unknown item key answered HTTP ${unknown.status()}, not 400`);
   });
 
-  await s.step('Attach renders both ticked items in one request and returns to compose', async () => {
+  const attachItems = async keys => {
     await openChooser();
-    for (const key of ['demographic', 'prescriptions']) {
+    for (const key of keys) {
       await main.locator(`input[name="item"][value="${key}"]`).check();
     }
     const posts = [];
@@ -227,8 +227,12 @@ async function workflow(s) {
     }
     h.assert(posts.length === 1, `Attach made ${posts.length} Doc2PDF requests instead of one`);
     const body = new URLSearchParams(posts[0]);
-    h.assert(JSON.stringify(body.getAll('item')) === JSON.stringify(['demographic', 'prescriptions'])
-      && body.get('isPreview') === 'false' && !body.has('srcText'), 'Attach did not post exactly the two ticked item keys');
+    h.assert(JSON.stringify(body.getAll('item')) === JSON.stringify(keys)
+      && body.get('isPreview') === 'false' && !body.has('srcText'), `Attach did not post the ticked items: ${keys.join(', ')}`);
+  };
+
+  await s.step('Attach renders both ticked items in one request and returns to compose', async () => {
+    await attachItems(['demographic', 'prescriptions']);
   });
 
   await s.step('with an encounter record, the encounter item is offered and previews as a PDF of that record', async () => {
@@ -332,22 +336,9 @@ async function workflow(s) {
     h.assert(compact(text).includes(compact(cppText)), 'The current-encounter PDF does not carry the Social History entry');
     h.assert(!text.includes('FAKE-PW encounter text'), 'The current encounter printed the frozen legacy record');
 
-    // Attach the three items together; the send step below checks what was stored.
-    for (const key of ['demographic', 'currentEncounter', 'prescriptions']) {
-      await main.locator(`input[name="item"][value="${key}"]`).check();
-    }
-    const since = s.recorder.requestFailures.length;
-    await Promise.all([
-      chooser.waitForEvent('close', { timeout: 60000 }),
-      main.locator('button[name="Attach"]').click(),
-    ]);
-    await compose.locator('#pdf-attachment-indicator').waitFor({ state: 'visible', timeout: TIMEOUT });
-    // As in the first Attach: the result page closes its own window, cancelling only its csrfguard load.
-    for (let i = s.recorder.requestFailures.length - 1; i >= since; i--) {
-      const entry = s.recorder.requestFailures[i];
-      if (entry.resourceType === 'script' && entry.errorText === 'net::ERR_ABORTED'
-        && new URL(entry.url).pathname.endsWith('/csrfguard')) s.recorder.requestFailures.splice(i, 1);
-    }
+    // Preview replaces the chooser form in its main frame. Reopen from the same compose window.
+    await chooser.close();
+    await attachItems(['demographic', 'currentEncounter', 'prescriptions']);
   });
 
   await s.step('sending stores one titled, rendered PDF per ticked item on the patient-linked message', async () => {

@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "ac0e7d43811546faae55456db41712f243251be1",
+  "comparisonSha256": "fc4fec9c539f3e27fedc8a80d2ca9ca7ae1abc501e96b37063499c66d4c8d8b0",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/web/BillingreferralEdit2Action.java": {
+      "lines": 85.48387096774194,
+      "instructions": 74.17721518987342,
+      "branches": 71.73913043478261,
+      "sourceBlob": "4cc3a21718d5cc1cab6ba2b2221448ca3035fd6d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/web/PrintReferralLabel2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "effb62425856d4f2542c6058dcf36e4f477f09ff"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/oscarConsultationRequest/pageUtil/ConsultationHrmDetach2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 87.5,
+      "sourceBlob": "64a3f33fb49e9f5e7096a5ef3779b5903e9930a5"
+    }
+  },
+  "baselineCommit": "194102c102fb7ee098e6a79d5f9a149a69314c53",
+  "baselineSourceTree": "ac0e7d43811546faae55456db41712f243251be1",
+  "baselineReportSha256": "20be3e45fb80b36f3071d85e2daa9a73647931e9a3afcc08ef4f68bbc7def79e",
+  "baselineLane": "Focused JDK 25 Maven Surefire run with JaCoCo 0.8.16. Includes the referral checklist actions, PDF generation, consultation authorization and common security interceptor, H2 integration, and CDS export tests on disposable MariaDB 11.8.9 with the complete Ontario Flyway schema.",
+  "baselineTestCounts": {
+    "tests": 335,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "b52d58a1acac92c34ae8f253df12a5bbe50dcbf80849c6b55c67a5fc055382b3",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.PMmodule.web.ClientSearchAttachNoteUnitTest",
+    "io.github.carlos_emr.carlos.app.CarlosExceptionMappingInterceptorUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SupServiceCodeAssoc2ActionUnitTest",
+    "io.github.carlos_emr.carlos.commn.dao.ConsultationListCorrectionsIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.ConsultationListProjectionIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDaoConsultantFilterIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDaoDateFilterIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.DayScheduleNamesDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.DemographicDaoImplAfterCommitUnitTest",
+    "io.github.carlos_emr.carlos.commn.dao.DemographicDaoImplFluReportUnitTest",
+    "io.github.carlos_emr.carlos.commn.dao.DemographicDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.ServerTablePagingIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.web.BillingreferralEdit2ActionUnitTest",
+    "io.github.carlos_emr.carlos.commn.web.ReferralLabelUnitTest",
+    "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportSelectionIntegrationTest",
+    "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationHrmAttachmentPersisterIntegrationTest",
+    "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationHrmAttachmentPersisterUnitTest",
+    "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationHrmDetach2ActionUnitTest",
+    "io.github.carlos_emr.carlos.managers.DemographicUpdateDaoTransactionIntegrationTest",
+    "io.github.carlos_emr.carlos.status.action.SessionHeartbeat2ActionUnitTest",
+    "io.github.carlos_emr.carlos.test.examples.DemographicDaoModernTest",
+    "io.github.carlos_emr.carlos.webserv.rest.DemographicIdentifierPreservationTransactionIntegrationTest"
+  ]
+}

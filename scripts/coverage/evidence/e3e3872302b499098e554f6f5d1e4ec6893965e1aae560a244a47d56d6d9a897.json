@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "e6fdd620dfbf80129178761a23a2b36e575aeed1",
+  "comparisonSha256": "bc7593e10d1ee9078a53e3fb8a42e57b20df07e4dd4f12ccc141e66f807f97a3",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/web/BillingreferralEdit2Action.java": {
+      "lines": 87.67123287671232,
+      "instructions": 76.83741648106904,
+      "branches": 73.07692307692308,
+      "sourceBlob": "90c792ddec57b822a0809bf47c246b44f329c62e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/web/PrintReferralLabel2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "232f98659b45f3e4d5cbe1cf46039d2996c8c42e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/web/ReferralLabelChecklist.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "f6238563f2947ed0d2d10f0ad7678a49cbf9fd77"
+    }
+  },
+  "baselineCommit": "79a692821db5c458042e17ea535e37d6b9325663",
+  "baselineSourceTree": "e6fdd620dfbf80129178761a23a2b36e575aeed1",
+  "baselineReportSha256": "0a2d1ff612ada82437ee1cbbce17985226b09261025abc8c05c1af743748a7b5",
+  "baselineLane": "Focused JDK 25 Maven Surefire run with JaCoCo 0.8.16. Includes stale-revision and concurrent print checklist regressions, H2 integration tests, and native CDS export tests on disposable MariaDB 11.8.9 with the complete Ontario Flyway schema.",
+  "baselineTestCounts": {
+    "tests": 336,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "faaf2c96e69960ec2c937b9fbf0616d19876ca103f6af46e3eebf80aa518e3cc",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.PMmodule.web.ClientSearchAttachNoteUnitTest",
+    "io.github.carlos_emr.carlos.app.CarlosExceptionMappingInterceptorUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SupServiceCodeAssoc2ActionUnitTest",
+    "io.github.carlos_emr.carlos.commn.dao.ConsultationListCorrectionsIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.ConsultationListProjectionIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDaoConsultantFilterIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDaoDateFilterIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.DayScheduleNamesDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.DemographicDaoImplAfterCommitUnitTest",
+    "io.github.carlos_emr.carlos.commn.dao.DemographicDaoImplFluReportUnitTest",
+    "io.github.carlos_emr.carlos.commn.dao.DemographicDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.ServerTablePagingIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.web.BillingreferralEdit2ActionUnitTest",
+    "io.github.carlos_emr.carlos.commn.web.ReferralLabelUnitTest",
+    "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportSelectionIntegrationTest",
+    "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationHrmAttachmentPersisterIntegrationTest",
+    "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationHrmAttachmentPersisterUnitTest",
+    "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationHrmDetach2ActionUnitTest",
+    "io.github.carlos_emr.carlos.managers.DemographicUpdateDaoTransactionIntegrationTest",
+    "io.github.carlos_emr.carlos.status.action.SessionHeartbeat2ActionUnitTest",
+    "io.github.carlos_emr.carlos.test.examples.DemographicDaoModernTest",
+    "io.github.carlos_emr.carlos.webserv.rest.DemographicIdentifierPreservationTransactionIntegrationTest"
+  ]
+}

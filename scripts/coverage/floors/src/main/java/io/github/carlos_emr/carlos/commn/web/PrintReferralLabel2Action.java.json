@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/web/PrintReferralLabel2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "232f98659b45f3e4d5cbe1cf46039d2996c8c42e"
+  },
+  "evidenceSha256": "e3e3872302b499098e554f6f5d1e4ec6893965e1aae560a244a47d56d6d9a897"
+}

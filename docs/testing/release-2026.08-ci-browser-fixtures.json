@@ -28,8 +28,8 @@
         "scripts/server-table-page-playwright-checks.js"
       ],
       "source": "scripts/server-table-page-playwright-checks.js",
-      "sourceSha256": "0e9044cb73540afafd5275a2f9e54fc6b39d4d89e7a7f2c7e2255003e7a92abb",
-      "minimumAssertions": 52
+      "sourceSha256": "c5a5b6535272a4ed5f19bdbbe78f0494434a256d086006a7de3c68e48c34767f",
+      "minimumAssertions": 64
     },
     {
       "id": "navigation-cancellation-browser-checks",
@@ -237,5 +237,5 @@
       ]
     }
   ],
-  "workflowSha256": "eae9205f49d3dde9f8f2fa1e56e16495087d3ef19c61779a570a2e4f00d46876"
+  "workflowSha256": "fb464d4f9cd7c6dbf1ccefdbedd236cdee1223d66a9e6b7cf631635757df8730"
 }
