@@ -4,6 +4,7 @@
  */
 package io.github.carlos_emr.carlos.config;
 
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Tag;
@@ -12,9 +13,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@Tag("unit")
 @Tag("read")
-class PackagedReportLeaseCheckUnitTest {
+class PackagedReportLeaseCheckUnitTest extends CarlosUnitTestBase {
     @TempDir
     Path directory;
 

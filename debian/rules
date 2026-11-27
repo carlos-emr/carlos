@@ -333,6 +333,7 @@ override_dh_auto_install:
 	install -m 0755 debian/assets/bin/carlos-emr-cert $(STAGE)/$(LIBDIR)/carlos-emr-cert
 	install -m 0755 debian/assets/bin/carlos-emr-tomcat $(STAGE)/$(LIBDIR)/carlos-emr-tomcat
 	install -m 0755 debian/assets/bin/carlos-emr-config-preflight $(STAGE)/$(LIBDIR)/
+	install -m 0755 debian/assets/bin/carlos-emr-report-lease-check $(STAGE)/$(LIBDIR)/
 	install -m 0644 $(BUILDDIR)/carlos-configuration-preflight.jar $(STAGE)/$(SHAREDIR)/lib/
 	# The OSCAR 19 import-in-progress predicate, consulted by the unit's
 	# ExecCondition= and by the postinst (see the file's header).
