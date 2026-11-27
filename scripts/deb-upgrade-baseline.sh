@@ -176,7 +176,8 @@ value=$(grep -E '^health_tracker=' "$CARLOS_ETC_DIR/carlos.properties" || true);
 OAUTH_ACCESS_MIGRATIONS=(oauth.scope.enforcement.enabled oauth.scope.legacy.access)
 # The postinst also rewrites the old stock HL7_LAB_MEASUREMENT_FILTER line to
 # the one the package's skeleton carries, once (.lab-measurement-filter-migrated,
-# #4613). The line is long and full of ';' and '%', so the snapshot carries
+# #4613), and then the #4613 stock line to it, once
+# (.lab-measurement-filter-words-migrated, #6121). The line is long and full of ';' and '%', so the snapshot carries
 # digests instead of the value: of the key's definition lines in the /etc file,
 # and of the skeleton's line (empty when there is no skeleton). A definition is
 # taken in java.util.Properties syntax (indented, or with a whitespace separator),
@@ -184,6 +185,111 @@ OAUTH_ACCESS_MIGRATIONS=(oauth.scope.enforcement.enabled oauth.scope.legacy.acce
 # unseen. Keep in step with LAB_FILTER_OLD_SHA in deb-upgrade-verify.sh.
 value=$({ grep -E '^[[:space:]]*HL7_LAB_MEASUREMENT_FILTER([[:space:]=:]|$)' "$CARLOS_ETC_DIR/carlos.properties" || true; } | sha256sum) || exit 1
 emit cfg.labFilter.sha "${value:0:16}"
+# How many LOGICAL definitions of the key the file has, as java.util.Properties reads it and as the
+# postinst's rewrite counts it: continuation lines are joined and the key's escapes are decoded
+# (HL7_LAB_MEASUREMENT\_FILTER and HL7_LAB_\u004dEASUREMENT_FILTER are the same key). The digest above
+# sees only the plain spelling, so on its own it can mistake the stock physical line for the
+# effective definition when a later, differently spelled one overrides it; the rewrite then rightly
+# leaves the file alone. The verifier expects the rewrite only when this is 1 (or absent: an older
+# snapshot). A test holds this parser to the postinst's (debian/assets/tests/test_lab_filter_logical_count.py).
+# cfg.labFilter.effective.sha is the digest of the physical span (its line or continued lines) of the LAST
+# definition, the one java.util.Properties keeps; with a single definition it is the span the rewrite compares
+# with the stock line, so a stock-looking line that is really part of another property's continued value is
+# not taken for the definition. A newline is added at the end of the file, as the stock digests carry one;
+# "none" when the key is not defined. cfg.labFilter.outside.sha digests the physical lines that would define the
+# key if they began a logical line but continue another property's value (Java reads them as part of that value):
+# the digest of nothing when there are none, so the verifier can check them apart from the definition.
+value=$(python3 - "$CARLOS_ETC_DIR/carlos.properties" <<'PY' || true
+import hashlib
+import re
+import sys
+
+configuration_key = "HL7_LAB_MEASUREMENT_FILTER"
+property_key = re.compile(rb"^((?:\\.|[^\\ \t\f=:])*)(?:[ \t\f=:]|$)")
+key_escape = re.compile(r"\\u([0-9a-fA-F]{4})|\\(.)")
+
+def decode_key_escape(match):
+    if match[1] is not None:
+        return chr(int(match[1], 16))
+    return {"t": "\t", "n": "\n", "r": "\r", "f": "\f"}.get(match[2], match[2])
+
+def is_filter_definition(logical):
+    key = property_key.match(logical)
+    return key is not None and key_escape.sub(
+        decode_key_escape, key[1].decode("latin-1")
+    ) == configuration_key
+
+def filter_definitions(content):
+    start = None
+    parts = []
+    for physical in re.finditer(rb"[^\r\n]*(?:\r\n|\r|\n|$)", content):
+        if not physical[0]:
+            break
+        line = physical[0].rstrip(b"\r\n").lstrip(b" \t\f")
+        if start is None:
+            if not line or line.startswith((b"#", b"!")):
+                continue
+            start = physical.start()
+        if (len(line) - len(line.rstrip(b"\\"))) % 2:
+            parts.append(line[:-1])
+            continue
+        logical = b"".join([*parts, line])
+        if is_filter_definition(logical):
+            yield start, physical.end(), logical
+        start = None
+        parts.clear()
+    if start is not None:
+        logical = b"".join(parts)
+        if is_filter_definition(logical):
+            yield start, len(content), logical
+
+def hidden_definitions(content):
+    """Physical lines that would define the key if they began a logical line, but continue another property's value."""
+    start = None
+    parts = []
+    hidden = []
+    for physical in re.finditer(rb"[^\r\n]*(?:\r\n|\r|\n|$)", content):
+        if not physical[0]:
+            break
+        line = physical[0].rstrip(b"\r\n").lstrip(b" \t\f")
+        continued = (len(line) - len(line.rstrip(b"\\"))) % 2
+        if start is None:
+            if not line or line.startswith((b"#", b"!")):
+                continue
+            start = physical.start()
+        elif is_filter_definition(line[:-1] if continued else line):
+            hidden.append(physical[0].rstrip(b"\r\n") + b"\n")
+        if continued:
+            parts.append(line[:-1])
+            continue
+        if not is_filter_definition(b"".join([*parts, line])):
+            yield from hidden
+        start = None
+        parts.clear()
+        hidden = []
+    if start is not None and not is_filter_definition(b"".join(parts)):
+        yield from hidden
+
+try:
+    with open(sys.argv[1], "rb") as handle:
+        content = handle.read()
+except OSError:
+    content = b""
+definitions = list(filter_definitions(content))
+effective = "none"
+if definitions:
+    start, end, _ = definitions[-1]
+    span = content[start:end]
+    effective = hashlib.sha256(span if span.endswith(b"\n") else span + b"\n").hexdigest()[:16]
+outside = hashlib.sha256(b"".join(hidden_definitions(content))).hexdigest()[:16]
+print(len(definitions), effective, outside)
+PY
+)
+lf_count=''; lf_effective=''; lf_outside=''
+read -r lf_count lf_effective lf_outside <<<"$value" || true
+emit cfg.labFilter.logical "${lf_count:-unknown}"
+emit cfg.labFilter.effective.sha "${lf_effective:-unknown}"
+emit cfg.labFilter.outside.sha "${lf_outside:-unknown}"
 value=''
 if [[ -r $CARLOS_SHARE_DIR/skel/carlos.properties ]]; then
     value=$({ grep -E '^HL7_LAB_MEASUREMENT_FILTER=' "$CARLOS_SHARE_DIR/skel/carlos.properties" || true; } | sha256sum) || exit 1
@@ -243,7 +349,7 @@ value=$(properties_without_cutover | sed -E -e 's/^[[:space:]]+//' -e 's/[[:spac
     | grep -vE "$migrated_keys_re" | { grep -vE "$reporting_keys_re" || true; } | LC_ALL=C sort | sha256sum) || exit 1
 emit cfg.carlos.properties.active.sha "${value:0:16}"
 emit cfg.initialAdminTxt "$([ -e "$CARLOS_ETC_DIR/initial-admin.txt" ] && echo present || echo absent)"
-for s in .consult-signature-default-migrated .health-tracker-default-migrated .oscar-feature-defaults-migrated .oauth-access-defaults-migrated .lab-measurement-filter-migrated .help-url-default-migrated .db-name-default-migrated .first-configure-pending .seed-credential-live; do
+for s in .consult-signature-default-migrated .health-tracker-default-migrated .oscar-feature-defaults-migrated .oauth-access-defaults-migrated .lab-measurement-filter-migrated .lab-measurement-filter-words-migrated .help-url-default-migrated .db-name-default-migrated .first-configure-pending .seed-credential-live; do
     emit "sentinel.$s" "$([ -e "$CARLOS_STATE_DIR/$s" ] && echo yes || echo no)"
 done
 emit docs.store ok

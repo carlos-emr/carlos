@@ -968,7 +968,7 @@ class TestShippedAndWired(unittest.TestCase):
         text = POSTINST.read_text()
         gate = text.index('        if [ "${PROVISION_LOCK_HELD}" = 1 ]; then\n'
                           '            free_front_door "${2:-}"\n')
-        self.assertLess(gate, text.index("carlos-ctl init-config ||"))
+        self.assertLess(gate, text.index("run_init_config_keeping_link ||"))
 
     def test_postinst_names_the_cause_when_mariadb_is_unreachable(self):
         text = POSTINST.read_text()

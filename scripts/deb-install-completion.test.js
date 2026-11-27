@@ -191,8 +191,11 @@ print("ok")
   // not merely before the provisioning verbs. Every mutating step is inside it.
   assert.ok(postinst.indexOf('acquire_provision_lock ||') <
     postinst.indexOf('DB_NAME_SENTINEL="${STATE}/.db-name-default-migrated"'));
+  // init-config is run through the postinst's wrapper (which keeps a managed properties link); the
+  // wrapper only defines it, the lock must come before its call.
+  assert.match(postinst, /run_init_config_keeping_link\(\) \{[\s\S]*?carlos-ctl init-config/);
   assert.ok(postinst.indexOf('acquire_provision_lock ||') <
-    postinst.indexOf('carlos-ctl init-config'));
+    postinst.indexOf('run_init_config_keeping_link ||'));
   assert.match(postinst,
     /if \[ "\$\{PROVISION_LOCK_HELD\}" = 1 \] && \[ ! -e "\$\{DB_NAME_SENTINEL\}" \]; then/);
   // init-config rewrites carlos.properties and reloads nginx: shared state.
@@ -407,11 +410,15 @@ echo rendered
         const block = (cleanup + '\n' + postinst.slice(start, end))
           .replaceAll('/etc/nginx/sites-available/default', target)
           .replaceAll('/etc/nginx/sites-enabled', root);
+        // The step calls the postinst's init-config wrapper, which keeps a managed properties link.
+        const keepLink = postinst.match(/\nrun_init_config_keeping_link\(\) \{[\s\S]*?\n\}\n/)[0];
         const result = spawnSync('sh', ['-c', `set -eu
 PROVISION_LOCK_HELD=${locked}
+PROPERTIES='${root}/carlos.properties'
 PATH='${root}':$PATH
 mark_incomplete() { echo incomplete; }
 free_front_door() { :; }
+${keepLink}
 ${block}
 `], { encoding: 'utf8' });
         assert.equal(result.status, 0, result.stdout + result.stderr);
@@ -723,9 +730,10 @@ test('an import holding the lock defers like the import gate: no marker, no migr
     /acquire_provision_lock \|\| provision_lock_rc=\$\?\n\s+if \[ "\$\{provision_lock_rc\}" != 0 \]; then\n\s+PROVISION_LOCK_HELD=0\n\s+fi\n\s+if \[ "\$\{provision_lock_rc\}" = 2 \]; then\n\s+O19_IMPORT_HOLDS_LOCK=1/);
   const branch = postinst.match(/if \[ "\$\{PROVISION_LOCK_HELD\}" = 0 \]; then\n\s+MIGRATION_OK=0\n[\s\S]*?\n\s+elif o19_import_in_progress; then/)[0];
   assert.match(branch, /if \[ "\$\{O19_IMPORT_HOLDS_LOCK\}" = 0 \]; then\n\s+mark_incomplete "another provisioning run held the provisioning lock"/);
-  // Initialised before use: dpkg passes the caller's environment through.
-  assert.ok(postinst.indexOf('O19_IMPORT_HOLDS_LOCK=0') < postinst.indexOf('acquire_provision_lock ||'));
-  assert.ok(postinst.indexOf('provision_lock_rc=0') < postinst.indexOf('acquire_provision_lock ||'));
+  // The main provisioning attempt initializes its status because dpkg passes
+  // through the caller's environment. An earlier recovery attempt uses a subshell.
+  assert.match(postinst,
+    /O19_IMPORT_HOLDS_LOCK=0\n\s+provision_lock_rc=0\n\s+acquire_provision_lock \|\| provision_lock_rc=\$\?/);
   // The DrugRef configure refuses with the import's instructions.
   const drugref = read('debian', 'carlos-emr-drugref.postinst');
   assert.match(drugref, /if \[ "\$\{provision_lock_rc\}" = 2 \]; then[\s\S]*?OSCAR 19 import is in progress[\s\S]*?exit 1/);
@@ -765,9 +773,12 @@ test('configure removes only the stock nginx symlink before its first configurat
         + 'printf "init-config\\n"\n'
         + '[ ! -e "$CARLOS_TEST_DEFAULT_SITE" ] || exit 1\n'
         + 'exit "$CARLOS_TEST_INIT_STATUS"\n', {mode: 0o755});
+      const keepLink = postinst.match(/\nrun_init_config_keeping_link\(\) \{[\s\S]*?\n\}\n/)[0];
       const script = 'set -e\nPROVISION_LOCK_HELD=' + (locked ? '1' : '0') + '\n'
+        + 'PROPERTIES=' + JSON.stringify(path.join(nginx, 'carlos.properties')) + '\n'
         + 'free_front_door() { :; }\n'
         + 'mark_incomplete() { printf "incomplete\\n"; }\n'
+        + keepLink + '\n'
         + block;
       const result = spawnSync('sh', ['-c', script], {
         encoding: 'utf8',

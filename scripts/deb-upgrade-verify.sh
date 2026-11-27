@@ -187,6 +187,11 @@ OAUTH_ACCESS_DEFAULTS=(
 # old stock line plus its newline: the LAB_FILTER_OLD of debian/carlos-emr.postinst,
 # and a contract test holds the two together.
 LAB_FILTER_OLD_SHA=8a16bd11665e3306
+# The #4613 stock line, which matched its words at the start of a result, is in
+# turn rewritten once to the skeleton's line (.lab-measurement-filter-words-migrated,
+# #6121): the 16-hex sha256 prefix of that line plus its newline, the
+# LAB_FILTER_WORDS_OLD of debian/carlos-emr.postinst.
+LAB_FILTER_WORDS_OLD_SHA=f799b7ced1fe272d
 # The digest of no definition at all (sha256 of empty input): a skeleton that
 # lacks the key, or an /etc file whose key was deleted, never sanctions a rewrite.
 LAB_FILTER_NONE_SHA=e3b0c44298fc1c14
@@ -230,13 +235,91 @@ done
 lf_pre=$(g "$PRE" cfg.labFilter.sha 2>/dev/null || true); lf_post=$(g "$POST" cfg.labFilter.sha 2>/dev/null || true)
 lf_skel=$(g "$POST" cfg.labFilter.skel.sha 2>/dev/null || true)
 lf_sentinel_pre=$(g "$PRE" sentinel..lab-measurement-filter-migrated 2>/dev/null || true)
+# The digests above see only the plain spelling of the key. The rewrites run only when the key has ONE logical
+# definition (java.util.Properties: continuations joined, key escapes decoded), so a stock physical line that a
+# later, differently spelled definition overrides is not a rewrite the upgrade owed. The baseline records the
+# count. A PRE snapshot from an older baseline has none: then the count this run recorded in POST stands in for
+# it, because a correct upgrade never changes it (the rewrite turns the one definition it owes into one, and
+# nothing else in an upgrade writes this key; a file it left alone is counted as it was). Without either count,
+# whether a rewrite was owed is unknown, and the checks below say so rather than report a missed rewrite.
+lf_logical=$(g "$PRE" cfg.labFilter.logical 2>/dev/null || true)
+[[ $lf_logical =~ ^[0-9]+$ ]] || lf_logical=$(g "$POST" cfg.labFilter.logical 2>/dev/null || true)
+lf_counted() { [[ $lf_logical =~ ^[0-9]+$ ]]; }
+lf_unique() { [ "$lf_logical" = 1 ]; }
+lf_uncounted_msg="HL7_LAB_MEASUREMENT_FILTER: neither snapshot counts the key's definitions (cfg.labFilter.logical), so whether the upgrade owed the rewrite could not be established"
+lf_around_msg="HL7_LAB_MEASUREMENT_FILTER was rewritten to the skeleton's line, but the lines that would define the key inside other values are not as PRE had them (or, with a PRE snapshot that predates cfg.labFilter.outside.sha, POST is not one plain single-line definition)"
+# How Java reads the key, from the parser the postinst shares. cfg.labFilter.effective.sha is the physical span of
+# its LAST definition, the one Java uses; with one definition it is what the rewrite compares with the stock line,
+# so a stock-looking line inside another property's continued value is no definition at all.
+# cfg.labFilter.outside.sha digests the lines that would define the key but sit inside another property's value.
+# The plain digest above covers both kinds of plain line, so what was owed and done is decided from the parse, and
+# the lines inside other values are checked apart.
+lf_logical_post=$(g "$POST" cfg.labFilter.logical 2>/dev/null || true)
+lf_def_pre=$(g "$PRE" cfg.labFilter.effective.sha 2>/dev/null || true)
+lf_def_post=$(g "$POST" cfg.labFilter.effective.sha 2>/dev/null || true)
+lf_out_pre=$(g "$PRE" cfg.labFilter.outside.sha 2>/dev/null || true)
+lf_out_post=$(g "$POST" cfg.labFilter.outside.sha 2>/dev/null || true)
+lf_is_def() { [[ $1 =~ ^([0-9a-f]{16}|none)$ ]]; }
+# An older PRE snapshot records no parse; it is judged only against an ordinary POST: the key's one definition is
+# its only plain line, on one physical line, and no line that would define the key sits inside another value.
+lf_plain_post() { [ "$lf_logical_post" = 1 ] && [ "$lf_def_post" = "$lf_post" ] && [ "$lf_out_post" = "$LAB_FILTER_NONE_SHA" ]; }
+lf_none_post() { [ "$lf_logical_post" = 0 ] && [ "$lf_post" = "$LAB_FILTER_NONE_SHA" ] && [ "$lf_out_post" = "$LAB_FILTER_NONE_SHA" ]; }
+if lf_is_def "$lf_def_pre"; then
+  lf_def=$lf_def_pre
+elif [ -n "$lf_pre" ] && [ "$lf_pre" = "$lf_post" ] && lf_is_def "$lf_def_post"; then
+  # Plain lines left alone: POST's parse is PRE's, unless something reordered the file (checked below).
+  lf_def=$lf_def_post
+else
+  # Only the plain line is known; an ordinary POST has to confirm it (lf_around_kept).
+  lf_def=$lf_pre
+fi
+# Owed: the key had one definition and its span was exactly that stock line. Done: POST has one definition and it
+# is the skeleton's line. Around: the lines that would define the key inside other values are as PRE had them; for
+# an older PRE snapshot, POST must be ordinary.
+lf_owed() { lf_unique && [ "$lf_def" = "$1" ]; }
+lf_done() { [ "$lf_logical_post" = 1 ] && [ "$lf_def_post" = "$lf_skel" ]; }
+lf_around_kept() {
+  if [[ $lf_out_pre =~ ^[0-9a-f]{16}$ ]]; then [ "$lf_out_pre" = "$lf_out_post" ]; else lf_plain_post; fi
+}
+lfw_sentinel_pre=$(g "$PRE" sentinel..lab-measurement-filter-words-migrated 2>/dev/null || true)
 # The skeleton's line counts only when it exists and is not the old line itself.
 lf_skel_fixed() { [ -n "$lf_skel" ] && [ "$lf_skel" != "$LAB_FILTER_OLD_SHA" ] && [ "$lf_skel" != "$LAB_FILTER_NONE_SHA" ]; }
+# ... and, for the #6121 move, is not the #4613 line either.
+lf_skel_words_fixed() { lf_skel_fixed && [ "$lf_skel" != "$LAB_FILTER_WORDS_OLD_SHA" ]; }
 lf_ok=0; lf_changed=no
 if [ -n "$lf_pre" ] && [ "$lf_pre" = "$lf_post" ]; then
   lf_ok=1
-elif [ "$lf_pre" = "$LAB_FILTER_OLD_SHA" ] && lf_skel_fixed && [ "$lf_post" = "$lf_skel" ] && [ "$lf_sentinel_pre" != yes ]; then
+elif lf_owed "$LAB_FILTER_OLD_SHA" && lf_skel_fixed && lf_done && lf_around_kept && [ "$lf_sentinel_pre" != yes ]; then
   lf_ok=1; lf_changed=yes
+elif lf_owed "$LAB_FILTER_WORDS_OLD_SHA" && lf_skel_words_fixed && lf_done && lf_around_kept && [ "$lfw_sentinel_pre" != yes ]; then
+  lf_ok=1; lf_changed=yes
+elif ! lf_is_def "$lf_def_pre" && [ -n "$lf_pre" ] && lf_done && ! lf_plain_post; then
+  # The skeleton's line is POST's only definition, but an older PRE snapshot cannot show what was there before.
+  bad "HL7_LAB_MEASUREMENT_FILTER: POST's only definition is the skeleton's line, but the PRE snapshot predates cfg.labFilter.effective.sha and POST is not one plain single-line definition, so whether the upgrade owed and made only the stock rewrite could not be established"
+fi
+# Unchanged plain lines do not show that Java still uses the same definition: the last one wins, whatever its
+# spelling, so two definitions that trade places, or an edit of one spelled another way, leave the plain digest
+# and the per-key digests as they were; so does swapping the continuation lines of a continued definition and
+# another value. Compare the effective definition with PRE's record. An older PRE snapshot has none: then accept
+# only an ordinary POST (or a key with no definition and no plain line), or a file left as it was apart from the
+# modern-chart cutover entry, and otherwise report that preservation could not be established.
+lf_file_kept() {
+  local pre post pre_kept post_kept
+  pre=$(g "$PRE" cfg.carlos.properties.sha 2>/dev/null || true); post=$(g "$POST" cfg.carlos.properties.sha 2>/dev/null || true)
+  pre_kept=$(g "$PRE" cfg.carlos.properties.withoutCutover.sha 2>/dev/null || true)
+  post_kept=$(g "$POST" cfg.carlos.properties.withoutCutover.sha 2>/dev/null || true)
+  [ -n "$pre" ] && { [ "$pre" = "$post" ] || { [ -n "$post_kept" ] && { [ "$pre" = "$post_kept" ] || [ "$pre_kept" = "$post_kept" ]; }; }; }
+}
+if [ "$lf_ok" = 1 ] && [ "$lf_changed" = no ]; then
+  if lf_is_def "$lf_def_pre"; then
+    if [ "$lf_def_pre" != "$lf_def_post" ]; then
+      lf_ok=0
+      bad "the HL7_LAB_MEASUREMENT_FILTER definition Java uses (the last of ${lf_logical:-?}) changed: '$lf_def_pre' -> '$lf_def_post'"
+    fi
+  elif ! lf_plain_post && ! lf_none_post && ! lf_file_kept; then
+    lf_ok=0
+    bad "HL7_LAB_MEASUREMENT_FILTER: the PRE snapshot predates cfg.labFilter.effective.sha, carlos.properties changed and the key is not one plain single-line definition (POST: ${lf_logical_post:-?} definitions), so whether the definition Java uses was preserved could not be established"
+  fi
 fi
 # The Help link either stayed put or, on the upgrade that first writes its
 # sentinel, moved from exactly the old stock line to exactly the new one.
@@ -321,11 +404,42 @@ if [ "$ht_pre" = health_tracker=false ] && [ "$ht_sentinel_pre" != yes ]; then
   [ "$ht_post" = health_tracker=true ] && ok "the old stock health_tracker=false was migrated to true" || bad "health_tracker was not migrated: '$ht_post'"
   [ "$(g "$POST" sentinel..health-tracker-default-migrated)" = yes ] && ok "health-tracker migration sentinel written" || bad "health-tracker migration sentinel missing after upgrade"
 fi
-# The lab filter rewrite is asserted when the PRE snapshot carries exactly the
-# old stock line and the migration has not run yet.
-if [ "$lf_pre" = "$LAB_FILTER_OLD_SHA" ] && [ "$lf_sentinel_pre" != yes ]; then
-  lf_skel_fixed && [ "$lf_post" = "$lf_skel" ] && ok "the old stock HL7_LAB_MEASUREMENT_FILTER was migrated to the skeleton's" || bad "HL7_LAB_MEASUREMENT_FILTER was not migrated: digest '$lf_post', skeleton '$lf_skel'"
+# The lab filter rewrite is asserted when the PRE snapshot carries exactly the old stock line, as its plain
+# line or as its parsed definition (a filter-looking line inside another value can hide it from the first),
+# and the migration has not run yet.
+# The sentinel is written whether or not the key has several logical definitions (the migration then
+# leaves the file alone but is done); only the digest check needs the rewrite to have been owed: one
+# definition, whose own span is the stock line (lf_owed), not a stock-looking line inside another value.
+if { [ "$lf_pre" = "$LAB_FILTER_OLD_SHA" ] || [ "$lf_def" = "$LAB_FILTER_OLD_SHA" ]; } && [ "$lf_sentinel_pre" != yes ]; then
+  if ! lf_counted; then
+    bad "$lf_uncounted_msg"
+  elif lf_owed "$LAB_FILTER_OLD_SHA"; then
+    if lf_skel_fixed && lf_done && lf_around_kept; then
+      ok "the old stock HL7_LAB_MEASUREMENT_FILTER was migrated to the skeleton's"
+    elif lf_skel_fixed && lf_done; then
+      bad "$lf_around_msg"
+    else
+      bad "HL7_LAB_MEASUREMENT_FILTER was not migrated: definition '$lf_def_post' (${lf_logical_post:-?} in POST), skeleton '$lf_skel'"
+    fi
+  fi
   [ "$(g "$POST" sentinel..lab-measurement-filter-migrated)" = yes ] && ok "lab-filter migration sentinel written" || bad "lab-filter migration sentinel missing after upgrade"
+fi
+# The whole-word rewrite (#6121) is asserted when the PRE snapshot carries exactly
+# the #4613 stock line, the skeleton has moved on from it and it has not run yet.
+if { [ "$lf_pre" = "$LAB_FILTER_WORDS_OLD_SHA" ] || [ "$lf_def" = "$LAB_FILTER_WORDS_OLD_SHA" ]; } \
+    && [ "$lfw_sentinel_pre" != yes ] && lf_skel_words_fixed; then
+  if ! lf_counted; then
+    bad "$lf_uncounted_msg"
+  elif lf_owed "$LAB_FILTER_WORDS_OLD_SHA"; then
+    if lf_done && lf_around_kept; then
+      ok "the #4613 stock HL7_LAB_MEASUREMENT_FILTER was migrated to the skeleton's whole-word line"
+    elif lf_done; then
+      bad "$lf_around_msg"
+    else
+      bad "HL7_LAB_MEASUREMENT_FILTER was not migrated from the #4613 line: definition '$lf_def_post' (${lf_logical_post:-?} in POST), skeleton '$lf_skel'"
+    fi
+  fi
+  [ "$(g "$POST" sentinel..lab-measurement-filter-words-migrated)" = yes ] && ok "lab-filter whole-word migration sentinel written" || bad "lab-filter whole-word migration sentinel missing after upgrade"
 fi
 # The Help link rewrite is asserted when the PRE snapshot carries exactly the old
 # stock line and the migration has not run yet.

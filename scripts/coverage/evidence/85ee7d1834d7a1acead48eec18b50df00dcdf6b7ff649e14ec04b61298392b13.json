@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "b04eb576551cca7ada660c4ffca3f995d3ff48fc",
+  "comparisonSha256": "460ee156becee31246635bc4d1b622a03d215485d4bf33108bdaed251a5b292b",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/Hl7textResultsData.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "5fd2397feb4fdc08e1a3d065e3f40ffe89a65c43"
+    }
+  },
+  "baselineCommit": "a4f2db3628e4199213f7df03d3a8f2ff3ceecc68",
+  "baselineSourceTree": "b04eb576551cca7ada660c4ffca3f995d3ff48fc",
+  "baselineReportSha256": "cdf2ca73f75663147b7dcbb60cf3df10ffb3c175447ca90acede0af7fafbced4",
+  "baselineLane": "PR #6171, successful Check Carlos EMR tests job 140754973960 in run 46067521771 attempt 1. Measured site/jacoco/jacoco.xml from artifact java-coverage-46067521771-1 against the reviewed release comparison. PR head and merge ref 1fdd832725af357776cb31f4e08ab0316cf5a306 have identical trees."
+}

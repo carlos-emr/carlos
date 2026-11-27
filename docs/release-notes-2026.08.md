@@ -624,6 +624,56 @@ See [Jasper/OpenPDF migration](jasperreports-openpdf3.md).
   when rendering is unavailable. Check that service in standalone deployments.
   Restored upstream Chart.js defaults also show gridlines on Dashboard, Growth
   Chart and Health Tracker charts.
+- The stock `HL7_LAB_MEASUREMENT_FILTER` files a listed word or a date only when it is the
+  whole lab result ([#6121](https://github.com/carlos-emr/carlos/issues/6121)): `No organisms seen`,
+  `N/A` and the blood group `A positive` are no longer filed as `No`, `N` and `A`, and
+  `Negative 2026-10-09` or `Collected 2026-10-09` no longer as the date. A result that starts
+  with a date in 19xx or 20xx and goes on (`2026-10-09 repeat`, `12/05/2026 see note`) is not
+  filed either, nor a date written with spaces or a month name that the stock date forms do not
+  take (`10 12 2026`, `09-Oct-2026`), which was filed as its first part.
+  - Other numbers (`6.5 2026-10-09` is still filed as `6.5`), and a whole date written with `-`,
+    `/` or `.`, are filed as before. The exception is a few date-shaped runs with more after them,
+    such as `1500 12 10^9/L`: it was filed as `1500 12 10` and is now filed as `1500`.
+  - Other date forms are filed as their leading run, as before, which can be a fragment: a
+    two-digit year (`10/09/26 repeat` as `10/09/26`, `09-Oct-26` as `09-`), `2026-Oct-09` (as
+    `2026-`), and `9 Sept. 2026` or `9 mai 2026` (as `9`).
+  - The package rewrites the exact previous stock line in `/etc/carlos-emr/carlos.properties`
+    once. It leaves an edited line alone, and warns when that line contains the `^\\b(` word
+    alternative of the earlier stock filter. The warning only asks you to inspect the setting: whether
+    your whole expression still matches a word at the start of a longer result depends on how it ends
+    (`^\\b(no)\\b$` does not, `^\\b(no)\\b` does).
+  - This rewrite and the one-time Help link rewrite (`resource_base_url`) change `carlos.properties`
+    in place, under its lock: a symlink to a managed file stays a symlink, and the file keeps its
+    inode, owner, mode, ACLs and extended attributes. `carlos-ctl` (1.3.5 and 1.3.6) does not: each
+    setting it writes replaces the file with a new one that keeps only its owner, group and mode, as in
+    earlier releases. That includes `carlos-ctl init-config` and `carlos-ctl db-users`, which the
+    configure runs after these rewrites (`db-users` whenever MariaDB answers) and
+    `carlos-emr-provision.service` runs at boot to finish an incomplete install, so a regular file
+    loses its named ACL entries and extended attributes there, and other hard links to it keep the old
+    settings. The configure puts back a symlink that `init-config` replaced (it writes the new settings
+    into the managed file in place, and says so if it cannot), but `db-users` then replaces it again.
+    So after a configure that reaches the database, the boot-time provisioner, a configure interrupted
+    after `init-config`, or another `carlos-ctl` command that changes a setting, `carlos.properties` is
+    a regular file holding the live settings: compare it with the managed file and restore the link by
+    hand. A dangling link is left
+    alone, not replaced by the stock file, and the configure stops until the target is back. If an upgrade is interrupted mid-rewrite, a private
+    record `/etc/carlos-emr/carlos.properties.lab-filter-recovery` is left beside the file and
+    CARLOS does not start until the next `dpkg --configure -a` (or, when an OSCAR 19 import held the
+    provisioning lock and the package shows as configured, `sudo dpkg-reconfigure carlos-emr` once the import has
+    finished) restores the file and removes it. `systemctl status carlos-emr` shows the start as skipped, and
+    `journalctl -u carlos-emr` says why and what to run. `carlos-emr-provision.service` is skipped the same way, so
+    the boot provisioner does not touch the file or the record either. `carlos-ctl start` and `restart`
+    (carlos-ctl 1.3.5) consult only the OSCAR 19 guard before they call systemd, so they can report success while
+    the start is skipped: after an interrupted upgrade, check `systemctl status carlos-emr` or
+    `journalctl -u carlos-emr` rather than relying on their exit status. While the recovery is deferred, no
+    other setting in the file is changed by that configure.
+    If that command refuses (you edited or restored `carlos.properties` meanwhile), check the
+    file, remove the record (it is a copy of the whole configuration, secrets included) and run
+    `sudo dpkg --configure -a` again.
+  - A blank value (`HL7_LAB_MEASUREMENT_FILTER=`) now files every result whole; it used to file
+    blank values. Commenting the line out in `/etc/carlos-emr/carlos.properties` brings back the
+    shipped filter.
+  - Measurements filed earlier keep their values.
 - Graphs use a third render browser of their own, so the packaged render-browser
   unit's memory ceiling rises by one browser's peak, 300 MiB (`MemoryHigh=1324M`,
   `MemoryMax=1836M`). Raise any local override of those limits to match.

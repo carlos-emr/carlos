@@ -1,0 +1,44 @@
+#!/bin/sh
+# carlos-emr-config-recovery-guard: may carlos-emr start on the current carlos.properties?
+#
+# Exit 0: no interrupted in-place rewrite of /etc/carlos-emr/carlos.properties is pending.
+# Exit 1: one is. The postinst rewrites that file in place (the lab-filter and Help link
+#         migrations) and leaves a private record beside it first; a kill or power loss
+#         mid-rewrite can leave the file neither version, and the next `dpkg --configure -a` (or
+#         `dpkg-reconfigure carlos-emr`, when the package shows as configured because an OSCAR 19
+#         import held provisioning) restores it and removes the record. Until then the application
+#         must not start on it.
+#
+# Exit 1 (not 255) on purpose: systemd then skips the start cleanly, while 255 would mark the unit failed
+# and let any restart policy retry it. carlos-emr.service and carlos-emr-provision.service consult it as
+# ExecCondition=, so the refusal is a clean "condition failed" skip, and the reason below lands in the
+# journal (journalctl -u carlos-emr). carlos-ctl 1.3.5's start and restart do NOT relay it: they
+# consult only the OSCAR 19 guard before they call systemctl, so with a recovery pending systemd skips
+# the start and the command can still return success without printing this remedy. The operator
+# checks `systemctl status carlos-emr` or the journal; having the CLI report a skipped start is a change
+# in the carlos-ctl repository, not in this package.
+# Deliberately separate from carlos-emr-o19-guard, which other callers (the postinst, the
+# DrugRef packaging) read as "an OSCAR 19 import is in progress".
+#
+# Usage: carlos-emr-config-recovery-guard [RECORD]   (RECORD defaults to the real path; the
+# argument exists for the tests.) Keep this file `dash -n`-clean: the unit runs it via /bin/sh.
+
+RECORD="${1:-/etc/carlos-emr/carlos.properties.lab-filter-recovery}"
+
+# -L too: a dangling link is still something that was left there.
+if [ ! -e "$RECORD" ] && [ ! -L "$RECORD" ]; then
+    exit 0
+fi
+
+# The remedy depends on how the interrupted configure ended: a failed one leaves the package unconfigured
+# (dpkg --configure -a), a deferred one (an OSCAR 19 import held provisioning) leaves it configured
+# (dpkg-reconfigure). Both run the recovery.
+printf '%s\n' \
+    "carlos-emr: NOT starting: an upgrade was interrupted while it rewrote ${RECORD%.lab-filter-recovery}," \
+    "carlos-emr: and that file may be half written (record: $RECORD)." \
+    "carlos-emr: Run: sudo dpkg --configure -a   (the package shows as unconfigured), or, when it shows as" \
+    "carlos-emr: configured, sudo dpkg-reconfigure carlos-emr. Either restores the file and removes the record." \
+    "carlos-emr: If that refuses because you edited or restored the file, check it, remove the" \
+    "carlos-emr: record (a private copy of the whole configuration, secrets included), run the" \
+    "carlos-emr: command again, then start carlos-emr." >&2
+exit 1
