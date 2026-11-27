@@ -46,11 +46,13 @@ def read_settings(path):
 
 # The service wrapper and the Java launcher can consume these before the
 # application's configuration is read. Keep manager-supplied values private.
-STARTUP_ENV = {
+UNVERIFIED_STARTUP_ENV = {
     "BASH_ENV", "ENV", "LD_PRELOAD", "LD_AUDIT", "JDK_JAVA_OPTIONS",
-    "JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS", "JAVA_OPTS", "CARLOS_JAVA_OPTS",
-    "CARLOS_JAVA_XMS", "CARLOS_JAVA_XMX", "JAVA_HOME", "JRE_HOME",
+    "JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS", "JAVA_HOME", "JRE_HOME", "_RUNJAVA",
+    # catalina.sh passes these directly to Java, including alternate -Duser.home values.
+    "JSSE_OPTS", "CATALINA_LOGGING_CONFIG", "LOGGING_MANAGER",
 }
+MANAGER_STARTUP_ENV = UNVERIFIED_STARTUP_ENV | {"JAVA_OPTS", "CARLOS_JAVA_OPTS", "CARLOS_JAVA_XMS", "CARLOS_JAVA_XMX"}
 
 
 def systemctl(*args):
@@ -91,7 +93,7 @@ def service_environment_is_known(unit="carlos-emr.service"):
     inherited = systemctl("show-environment").splitlines()
     for setting in (*declared, *inherited):
         name, _, value = setting.partition("=")
-        if name in STARTUP_ENV and value not in ("", "''", '""'):
+        if name in MANAGER_STARTUP_ENV and value not in ("", "''", '""'):
             return False
     return True
 
@@ -108,9 +110,7 @@ def main(env_file, java, classpath, classes, managed):
     if not service_environment_is_known():
         return 1
     settings = read_settings(env_file)
-    if any(settings.get(key) for key in (
-            "BASH_ENV", "ENV", "LD_PRELOAD", "LD_AUDIT", "JRE_HOME",
-            "JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS")):
+    if any(settings.get(key) for key in UNVERIFIED_STARTUP_ENV):
         return 1
     for key in ("CARLOS_JAVA_XMS", "CARLOS_JAVA_XMX"):
         if settings.get(key) and not re.fullmatch(r"[0-9]+[kKmMgGtT]?", settings[key]):

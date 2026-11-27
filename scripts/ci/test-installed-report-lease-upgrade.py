@@ -153,6 +153,17 @@ class TestReportLeaseUpgrade(unittest.TestCase):
                 self.assertIn("could not verify", warning)
                 self.assertNotIn("private-marker", warning)
 
+    def test_warns_when_tomcat_can_select_another_java_home_or_launcher(self):
+        for key, value in (("JSSE_OPTS", "-Duser.home=/private-marker"),
+                           ("CATALINA_LOGGING_CONFIG", "-Duser.home=/private-marker"),
+                           ("LOGGING_MANAGER", "-Duser.home=/private-marker"),
+                           ("_RUNJAVA", "/private-marker/bin/java"),
+                           ("JAVA_HOME", "/private-marker")):
+            with self.subTest(key=key):
+                warning = self.warning_for(b"db_remove_abandoned_timeout=360\n", env_text=f"{key}={value}\n")
+                self.assertIn("could not verify", warning)
+                self.assertNotIn("private-marker", warning)
+
     def test_detects_jvm_options_in_a_real_systemd_drop_in(self):
         # Use a private, never-started unit on the disposable package test host.
         check = runpy.run_path("/usr/lib/carlos-emr/carlos-emr-report-lease-check")["service_environment_is_known"]
