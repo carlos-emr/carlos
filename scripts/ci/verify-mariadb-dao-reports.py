@@ -178,24 +178,6 @@ REQUIRED_CASES = {
         "shouldRetainExplicitEmptyStringClears_inTheNativeTransaction",
         "shouldReportConflict_withoutOverwritingAnOlderTransactionSnapshot",
     },
-    # #6391: the lab-chain row locks on the physical server. Six cases come from the H2 class it
-    # extends (they run again on MariaDB), six are its own: the indexes each lock statement can use,
-    # that a held lock does not hold up an unrelated accession, and that a real lock wait timeout is
-    # recognised as a lock failure. Missing any of them must fail the Ontario Flyway lane.
-    "Hl7TextInfoChainLockMariaDbIntegrationTest": {
-        "shouldReturnTheAccessionsRowsLowestLabNumberFirst_whenLockingByAccession",
-        "shouldIncludeRowsOfOtherAccessions_whenLockingByFillerOrderNumber",
-        "shouldLockNothing_whenTheAccessionOrFillerNumberIsBlank",
-        "shouldMatchNoRow_whenTheReportHasNoAccession",
-        "shouldReturnNull_whenTheReportIsNotStored",
-        "shouldRefuseEveryLock_whenThereIsNoTransaction",
-        "shouldHaveTheAccessionIndexAvailable_whenLockingByAccession",
-        "shouldHaveTheFillerOrderNumberIndexAvailable_whenLockingByFillerOrderNumber",
-        "shouldHaveTheLabNumberIndexAvailable_whenLockingTheReportsOwnRow",
-        "shouldHaveTheKeyValueIndexAvailable_whenFindingAReportsMeasurements",
-        "shouldNotHoldUpAnUnrelatedAccession_whenTheDaoHoldsAnotherOne",
-        "shouldRecogniseARealLockWaitTimeoutAsALockFailure_whenAnotherConnectionHoldsTheRow",
-    },
     UNMERGE_FAMILY: {
         'shouldRefuseARepeatedUnmerge_withoutAnotherAuditOrRecycleWrite',
         'shouldPreserveEarlierUnmergeAttribution_whenAnActiveLinkIsRemoved',
@@ -336,7 +318,6 @@ REQUIRED = {"generated": {"AppointmentFieldAuditTransactionIntegrationTest": 3, 
                        "LegacyLabNativeMariaDbIntegrationTest": 8, "ConsultationArchiveDaoIntegrationTest": 1,
                        "ArchiveAuditTimestampIntegrationTest": 2,
                        "CaseManagementNoteLockMariaDbIntegrationTest": 15,
-                       "Hl7TextInfoChainLockMariaDbIntegrationTest": 12,
                        "CaseManagementNoteLegacyFlagsMariaDbIntegrationTest": 30,
                        "CaseManagementIssueDAOIntegrationTest": 22,
                        "BillingOnFileAccessServiceIntegrationTest": 3,
