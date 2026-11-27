@@ -18,17 +18,20 @@ KEY = "db_remove_abandoned_timeout"
 
 
 class TestReportLeaseUpgrade(unittest.TestCase):
-    def configure(self, properties, *, previous="1.0", locked=True):
+    def configure(self, properties, *, previous="1.0", locked=True, extra_env=None):
         block = re.search(
             r"^        # BEGIN REPORT_LEASE_UPGRADE\n.*?^        # END REPORT_LEASE_UPGRADE$",
             POSTINST.read_text(encoding="utf-8"),
-            re.M | re.S,
+            re.MULTILINE | re.DOTALL,
         )
         self.assertIsNotNone(block, "the report lease migration is missing from postinst")
+        env = dict(os.environ, SHARE=str(SHARE), STATE=str(properties.parent),
+                   PROPERTIES=str(properties), PROVISION_LOCK_HELD=str(int(locked)))
+        if extra_env:
+            env.update(extra_env)
         return subprocess.run(
-            ["sh", "-ec", block.group(0), "postinst", "configure", previous],
-            env=dict(os.environ, SHARE=str(SHARE), STATE=str(properties.parent),
-                     PROPERTIES=str(properties), PROVISION_LOCK_HELD=str(int(locked))),
+            ["/bin/sh", "-ec", block.group(0), "postinst", "configure", previous],
+            env=env,
             capture_output=True, text=True, check=True,
         )
 
@@ -126,6 +129,93 @@ class TestReportLeaseUpgrade(unittest.TestCase):
                 warning = self.warning_for(b"db_remove_abandoned_timeout=" + value + b"\n")
                 self.assertIn("could not verify", warning)
                 self.assertNotIn("private-marker", warning)
+
+    def test_checks_env_selected_and_jvm_overridden_site_properties_without_marking_migrated(self):
+        old = b"db_remove_abandoned_timeout = 15\n"
+        for mode in ("env-properties", "jvm-override"):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                root.chmod(0o755)
+                managed = root / "carlos.properties"
+                site = root / "site.properties"
+                env_file = root / "carlos-emr.env"
+                marker = root / ".report-lease-default-migrated"
+                managed.write_bytes(old)
+                site.write_bytes(old)
+                managed.chmod(0o644)
+                site.chmod(0o644)
+                if mode == "env-properties":
+                    env_file.write_text(f'PROPERTIES="{site}"\n', encoding="utf-8")
+                else:
+                    env_file.write_text(
+                        f'CARLOS_JAVA_OPTS="-Dcarlos_override_properties={site}"\n', encoding="utf-8"
+                    )
+                env_file.chmod(0o644)
+
+                first = self.configure(managed, extra_env={"ENV_FILE": str(env_file)})
+                self.assertIn("resolves to 15 seconds", first.stderr)
+                self.assertNotIn("migrated the old 15-second", first.stdout)
+                self.assertEqual(managed.read_bytes(), old)
+                self.assertEqual(site.read_bytes(), old)
+                self.assertFalse(marker.exists())
+
+                second = self.configure(managed, extra_env={"ENV_FILE": str(env_file)})
+                self.assertIn("resolves to 15 seconds", second.stderr)
+                self.assertFalse(marker.exists())
+
+                site.write_bytes(b"db_remove_abandoned_timeout = 420\n")
+                safe = self.configure(managed, extra_env={"ENV_FILE": str(env_file)})
+                self.assertEqual(safe.stderr, "")
+                self.assertEqual(managed.read_bytes(), old)
+                self.assertFalse(marker.exists())
+
+    def test_warns_and_leaves_marker_unset_when_launch_selection_is_unverifiable(self):
+        old = b"db_remove_abandoned_timeout = 15\n"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            root.chmod(0o755)
+            managed = root / "carlos.properties"
+            env_file = root / "carlos-emr.env"
+            marker = root / ".report-lease-default-migrated"
+            managed.write_bytes(old)
+            managed.chmod(0o644)
+
+            # Unverifiable shell command substitution in carlos-emr.env.
+            env_file.write_text("PROPERTIES=$(echo /etc/carlos-emr/site.properties)\n", encoding="utf-8")
+            env_file.chmod(0o644)
+            res = self.configure(managed, extra_env={"ENV_FILE": str(env_file)})
+            self.assertIn("could not verify", res.stderr)
+            self.assertEqual(managed.read_bytes(), old)
+            self.assertFalse(marker.exists())
+
+            # Unverifiable Tomcat setenv.sh.
+            env_file.write_text('CARLOS_JAVA_OPTS=""\n', encoding="utf-8")
+            catalina_base = root / "catalina"
+            (catalina_base / "bin").mkdir(parents=True)
+            (catalina_base / "bin" / "setenv.sh").write_text("export CATALINA_OPTS=''\n", encoding="utf-8")
+            res = self.configure(managed, extra_env={
+                "ENV_FILE": str(env_file),
+                "CARLOS_CATALINA_BASE": str(catalina_base),
+            })
+            self.assertIn("could not verify", res.stderr)
+            self.assertEqual(managed.read_bytes(), old)
+            self.assertFalse(marker.exists())
+
+            # Unverifiable systemd drop-in overriding CARLOS_JAVA_OPTS.
+            systemd_dir = root / "systemd"
+            drop_in_dir = systemd_dir / "carlos-emr.service.d"
+            drop_in_dir.mkdir(parents=True)
+            (drop_in_dir / "override.conf").write_text(
+                '[Service]\nEnvironment="CARLOS_JAVA_OPTS=-Dcarlos_override_properties=/tmp/x"\n',
+                encoding="utf-8",
+            )
+            res = self.configure(managed, extra_env={
+                "ENV_FILE": str(env_file),
+                "CARLOS_SYSTEMD_UNIT_DIRS": str(systemd_dir),
+            })
+            self.assertIn("could not verify", res.stderr)
+            self.assertEqual(managed.read_bytes(), old)
+            self.assertFalse(marker.exists())
 
 
 if __name__ == "__main__":

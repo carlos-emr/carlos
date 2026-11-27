@@ -126,6 +126,14 @@ class EDocUtilDocumentInfoHtmlUnitTest extends CarlosUnitTestBase {
                     .doesNotContainIgnoringCase("null")
                     .isEqualTo(": Not Acknowledged since  <br>");
         }
+
+        @Test
+        @DisplayName("should render a filed acknowledgement status with its localized label")
+        void shouldRenderFiledStatus_whenAcknowledgementStatusIsF() {
+            String html = render(report("Dr Smith", "F", "2026-11-26", "filed"));
+
+            assertThat(html).isEqualTo("Dr Smith: Filed but not Acknowledged on 2026-11-26 filed<br>");
+        }
     }
 
     @Nested

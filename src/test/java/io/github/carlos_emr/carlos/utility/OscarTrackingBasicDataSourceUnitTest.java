@@ -23,11 +23,16 @@ package io.github.carlos_emr.carlos.utility;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.sql.DataSource;
 
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -37,9 +42,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -223,6 +231,121 @@ class OscarTrackingBasicDataSourceUnitTest extends CarlosUnitTestBase {
         }
 
         verify(delegate).close();
+        assertThat(OscarTrackingBasicDataSource.trackedConnectionCount()).isZero();
+    }
+
+    @Test
+    void shouldKeepLeaseDiscoverableOutsideDiagnosticsLock_whileDelegateCloseRuns() throws Exception {
+        Connection delegate = mock(Connection.class);
+        Connection tracked = track(delegate);
+
+        try (var observer = Executors.newSingleThreadExecutor()) {
+            doAnswer(call -> {
+                assertThat(observer.submit(() -> OscarTrackingBasicDataSource.isConnectionTracked(tracked))
+                        .get(5, TimeUnit.SECONDS)).isTrue();
+                assertThat(observer.submit(OscarTrackingBasicDataSource::trackedConnectionCount)
+                        .get(5, TimeUnit.SECONDS)).isOne();
+                return null;
+            }).when(delegate).close();
+            tracked.close();
+        }
+
+        verify(delegate).close();
+        assertThat(OscarTrackingBasicDataSource.isConnectionTracked(tracked)).isFalse();
+        assertThat(OscarTrackingBasicDataSource.trackedConnectionCount()).isZero();
+    }
+
+    @Test
+    void shouldRetainDetachedLeaseAndRetryAtShutdown_whenCloseFailsWithOpenDelegate() throws Exception {
+        AtomicInteger closeAttempts = new AtomicInteger();
+        try (var pool = new OscarTrackingBasicDataSource() {
+            @Override
+            protected synchronized DataSource createDataSource() throws SQLException {
+                DataSource underlying = super.createDataSource();
+                return (DataSource) Proxy.newProxyInstance(
+                        DataSource.class.getClassLoader(),
+                        new Class<?>[] {DataSource.class},
+                        (proxy, method, args) -> {
+                            Object result = method.invoke(underlying, args);
+                            if ("getConnection".equals(method.getName()) && result instanceof Connection pooled) {
+                                return Proxy.newProxyInstance(
+                                        Connection.class.getClassLoader(),
+                                        new Class<?>[] {Connection.class},
+                                        (connProxy, connMethod, connArgs) -> {
+                                            if ("close".equals(connMethod.getName())
+                                                    && closeAttempts.incrementAndGet() == 1) {
+                                                throw new SQLException("simulated rollback failure on close");
+                                            }
+                                            return connMethod.invoke(pooled, connArgs);
+                                        });
+                            }
+                            return result;
+                        });
+            }
+        }) {
+            pool.setDriverClassName("org.h2.Driver");
+            pool.setUrl("jdbc:h2:mem:tracking_close_" + UUID.randomUUID().toString().replace("-", "") + ";DB_CLOSE_DELAY=-1");
+            pool.setUsername("sa");
+            pool.setPassword("");
+            pool.setMaxTotal(2);
+
+            Connection lease = pool.getConnection();
+            OscarTrackingBasicDataSource.detachFromRequestCleanup(lease);
+            OscarTrackingBasicDataSource.releaseThreadConnections();
+
+            assertThatThrownBy(lease::close)
+                    .isInstanceOf(SQLException.class)
+                    .hasMessageContaining("rollback failure");
+            assertThat(closeAttempts.get()).isOne();
+            assertThat(lease.isClosed()).isFalse();
+            assertThat(pool.getNumActive()).isOne();
+            assertThat(OscarTrackingBasicDataSource.isConnectionTracked(lease)).isTrue();
+            assertThat(OscarTrackingBasicDataSource.trackedConnectionCount()).isOne();
+
+            OscarTrackingBasicDataSource.clearTrackingState();
+
+            assertThat(closeAttempts.get()).isEqualTo(2);
+            assertThat(lease.isClosed()).isTrue();
+            assertThat(pool.getNumActive()).isZero();
+            assertThat(OscarTrackingBasicDataSource.isConnectionTracked(lease)).isFalse();
+            assertThat(OscarTrackingBasicDataSource.trackedConnectionCount()).isZero();
+        }
+    }
+
+    @Test
+    void shouldUntrackLease_whenCloseFailsAfterDelegateCloses() throws Exception {
+        Connection delegate = mock(Connection.class);
+        doThrow(new SQLException("cleanup warning")).when(delegate).close();
+        when(delegate.isClosed()).thenReturn(true);
+        Connection tracked = track(delegate);
+
+        assertThatThrownBy(tracked::close)
+                .isInstanceOf(SQLException.class)
+                .hasMessageContaining("cleanup warning");
+        assertThat(OscarTrackingBasicDataSource.isConnectionTracked(tracked)).isFalse();
+        assertThat(OscarTrackingBasicDataSource.trackedConnectionCount()).isZero();
+    }
+
+    @Test
+    void shouldRetainLeaseAndSuppressStatusError_whenCloseAndIsClosedBothFail() throws Exception {
+        Connection delegate = mock(Connection.class);
+        SQLException closeError = new SQLException("close failed");
+        SQLException statusError = new SQLException("isClosed failed");
+        doThrow(closeError).doNothing().when(delegate).close();
+        when(delegate.isClosed()).thenThrow(statusError).thenReturn(false);
+        Connection tracked = track(delegate);
+        OscarTrackingBasicDataSource.detachFromRequestCleanup(tracked);
+        OscarTrackingBasicDataSource.releaseThreadConnections();
+
+        assertThatThrownBy(tracked::close)
+                .isSameAs(closeError)
+                .hasSuppressedException(statusError);
+        assertThat(OscarTrackingBasicDataSource.isConnectionTracked(tracked)).isTrue();
+        assertThat(OscarTrackingBasicDataSource.trackedConnectionCount()).isOne();
+
+        OscarTrackingBasicDataSource.clearTrackingState();
+
+        verify(delegate, times(2)).close();
         assertThat(OscarTrackingBasicDataSource.trackedConnectionCount()).isZero();
     }
 

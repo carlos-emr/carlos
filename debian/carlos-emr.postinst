@@ -1046,10 +1046,11 @@ except ValueError:
 
         # BEGIN REPORT_LEASE_UPGRADE
         # Drop the old packaged override once, under the same lock as init-config.
-        # The read-only service-user check validates the proposed file against
-        # Java Properties and the effective Spring configuration before publication.
+        # The read-only service-user check resolves the launcher's selected file
+        # and validates it against Java Properties and Spring before publication.
         (
             marker="${STATE}/.report-lease-default-migrated"
+            env_file="${ENV_FILE-${CONF_DIR:-/etc/carlos-emr}/carlos-emr.env}"
             candidate=''
             stock='^[[:blank:]]*db_remove_abandoned_timeout([[:blank:]]*[=:][[:blank:]]*|[[:blank:]]+)15[[:space:]]*$'
             if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${marker}" ] && [ -n "${2:-}" ] \
@@ -1068,17 +1069,22 @@ except ValueError:
             for jar in "${REPORT_WEB_INF}"/lib/spring-core-*.jar "${REPORT_WEB_INF}"/lib/commons-logging-*.jar; do
                 REPORT_CLASSPATH="${REPORT_CLASSPATH}:${jar}"
             done
+            unset JAVA_TOOL_OPTIONS _JAVA_OPTIONS JDK_JAVA_OPTIONS CLASSPATH
             status=0
             runuser -u carlos -- "/usr/lib/jvm/java-25-openjdk-$(dpkg --print-architecture)/bin/java" \
+                -Dcarlos.reportLeaseCheck.envFile="${env_file}" \
+                ${CARLOS_CATALINA_BASE:+"-Dcarlos.reportLeaseCheck.catalinaBase=${CARLOS_CATALINA_BASE}"} \
+                ${CARLOS_CATALINA_HOME:+"-Dcarlos.reportLeaseCheck.catalinaHome=${CARLOS_CATALINA_HOME}"} \
+                ${CARLOS_SYSTEMD_UNIT_DIRS:+"-Dcarlos.reportLeaseCheck.systemdDirs=${CARLOS_SYSTEMD_UNIT_DIRS}"} \
                 -cp "${REPORT_CLASSPATH}" io.github.carlos_emr.carlos.config.PackagedReportLeaseCheck \
                 "${REPORT_WEB_INF}/classes" "${PROPERTIES}" ${candidate:+"${candidate}"} || status=$?
             case "${status}" in
-                0) ;;
+                0|20) ;;
                 10)
                     mv -fT -- "${candidate}" "${PROPERTIES}"
                     echo "carlos-emr: migrated the old 15-second db_remove_abandoned_timeout to the packaged 360-second default."
                     ;;
-                15) echo "carlos-emr: WARNING: db_remove_abandoned_timeout resolves to 15 seconds. Abandoned lease cleanup can end a running report early." >&2 ;;
+                15|25) echo "carlos-emr: WARNING: db_remove_abandoned_timeout resolves to 15 seconds. Abandoned lease cleanup can end a running report early." >&2 ;;
                 *)  echo "carlos-emr: WARNING: could not verify db_remove_abandoned_timeout. Check the effective timeout before running long reports." >&2 ;;
             esac
             case "${status}" in
@@ -1087,8 +1093,8 @@ except ValueError:
                         : > "${marker}"
                     fi ;;
             esac
-            if [ "${status}" != 0 ] && [ "${status}" != 10 ]; then
-                echo "carlos-emr: Check ${PROPERTIES} and any service-user home carlos.properties override. To adopt the 360-second default, remove the override or set it to 360, then run sudo carlos-ctl restart." >&2
+            if [ "${status}" != 0 ] && [ "${status}" != 10 ] && [ "${status}" != 20 ]; then
+                echo "carlos-emr: Check ${PROPERTIES}, ${env_file}, any service unit override, and any service-user home carlos.properties override. To adopt the 360-second default, remove the override or set it to 360, then run sudo carlos-ctl restart." >&2
             fi
         )
         # END REPORT_LEASE_UPGRADE

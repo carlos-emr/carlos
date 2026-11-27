@@ -127,12 +127,12 @@ public final class ConsultationHealthCareTeamViewModel {
 
     /** @return the members the consultant list offers, in team order */
     public List<DemographicContact> getConsultants() {
-        return consultants;
+        return Collections.unmodifiableList(consultants);
     }
 
     /** @return the consultation services the offered members' roles map to */
     public Set<ConsultationServices> getServices() {
-        return services;
+        return Collections.unmodifiableSet(services);
     }
 
     /**
@@ -140,7 +140,7 @@ public final class ConsultationHealthCareTeamViewModel {
      *         billing number on file; their referral letter prints without one
      */
     public Set<Integer> getWithoutReferralNumber() {
-        return withoutReferralNumber;
+        return Collections.unmodifiableSet(withoutReferralNumber);
     }
 
     /**

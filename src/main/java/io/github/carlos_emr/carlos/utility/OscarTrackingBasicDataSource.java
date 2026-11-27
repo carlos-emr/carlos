@@ -420,17 +420,34 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
 
         public void close() throws SQLException {
             try {
-                if (isPoolWrapper(this)) {
-                    synchronized (DIAGNOSTICS_LOCK) {
-                        acquisitionTraces.remove(this);
-                    }
-                }
-
-                if (ownerConnections != null) {
-                    ownerConnections.remove(this);
-                }
-            } finally {
                 connection.close();
+            } catch (SQLException | RuntimeException | Error failure) {
+                if (isDelegateClosedAfterFailure(failure)) {
+                    untrackAfterClose();
+                }
+                throw failure;
+            }
+            untrackAfterClose();
+        }
+
+        private boolean isDelegateClosedAfterFailure(Throwable failure) {
+            try {
+                return connection.isClosed();
+            } catch (SQLException | RuntimeException statusFailure) {
+                failure.addSuppressed(statusFailure);
+                return false;
+            }
+        }
+
+        private void untrackAfterClose() {
+            if (isPoolWrapper(this)) {
+                synchronized (DIAGNOSTICS_LOCK) {
+                    acquisitionTraces.remove(this);
+                }
+            }
+
+            if (ownerConnections != null) {
+                ownerConnections.remove(this);
             }
         }
 

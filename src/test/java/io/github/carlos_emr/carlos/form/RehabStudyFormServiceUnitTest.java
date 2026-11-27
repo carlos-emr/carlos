@@ -21,19 +21,31 @@ import io.github.carlos_emr.carlos.form.model.rehab.FormSF36;
 import io.github.carlos_emr.carlos.form.model.rehab.RehabStudyAssessment;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.util.JDBCUtil;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.Table;
+import jakarta.persistence.metamodel.Metamodel;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.xml.parsers.ParserConfigurationException;
+import org.hibernate.Session;
+import org.hibernate.jdbc.ReturningWork;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.MockedStatic;
 import org.springframework.test.util.ReflectionTestUtils;
+import static org.mockito.Mockito.mockStatic;
 
 /**
  * Access checks, new-form prefill and trusted identifiers of the rehabilitation-study service.
@@ -270,5 +282,53 @@ class RehabStudyFormServiceUnitTest {
         assertThatThrownBy(() -> service.saveVersion(actor, type("SF36"), PATIENT, 0, values))
                 .isInstanceOf(NumberFormatException.class);
         verify(forms, never()).persist(any());
+    }
+
+    private static final class UnannotatedAssessment extends RehabStudyAssessment { }
+
+    @Table(name = "invalid_table")
+    private static final class InvalidTableAssessment extends RehabStudyAssessment { }
+
+    @Test
+    void shouldRejectUnannotatedOrNonFormTables_whenResolvingDaoTableName() {
+        RehabStudyFormDao dao = new RehabStudyFormDao();
+        EntityManager entityManager = mock(EntityManager.class);
+        Metamodel metamodel = mock(Metamodel.class);
+        ReflectionTestUtils.setField(dao, "entityManager", entityManager);
+        when(entityManager.getMetamodel()).thenReturn(metamodel);
+
+        assertThatThrownBy(() -> dao.tableOf(UnannotatedAssessment.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Not a rehabilitation study questionnaire entity");
+        assertThatThrownBy(() -> dao.tableOf(InvalidTableAssessment.class))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Not a rehabilitation study questionnaire entity");
+    }
+
+    @Test
+    void shouldWrapParserConfigurationFailure_whenReadingRehabArchive() throws Exception {
+        RehabStudyFormDao dao = new RehabStudyFormDao();
+        EntityManager entityManager = mock(EntityManager.class);
+        Metamodel metamodel = mock(Metamodel.class);
+        Session session = mock(Session.class);
+        Connection connection = mock(Connection.class);
+        PreparedStatement statement = mock(PreparedStatement.class);
+        ResultSet rows = mock(ResultSet.class);
+        ReflectionTestUtils.setField(dao, "entityManager", entityManager);
+        when(entityManager.getMetamodel()).thenReturn(metamodel);
+        when(entityManager.unwrap(Session.class)).thenReturn(session);
+        when(connection.prepareStatement(anyString())).thenReturn(statement);
+        when(statement.executeQuery()).thenReturn(rows);
+        when(session.doReturningWork(any())).thenAnswer(invocation ->
+                invocation.<ReturningWork<?>>getArgument(0).execute(connection));
+
+        try (MockedStatic<JDBCUtil> jdbcUtil = mockStatic(JDBCUtil.class)) {
+            jdbcUtil.when(() -> JDBCUtil.toDocument(rows))
+                    .thenThrow(new ParserConfigurationException("simulated parser failure"));
+            assertThatThrownBy(() -> dao.readArchive(FormSF36.class, PATIENT, 7))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("Unable to create rehabilitation study form XML")
+                    .hasCauseInstanceOf(ParserConfigurationException.class);
+        }
     }
 }

@@ -5,14 +5,22 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.util.JDBCUtil;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
+import java.io.IOException;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Date;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import javax.xml.transform.TransformerException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -126,6 +134,97 @@ class FormXmlArchiveUnitTest {
         Date edited = nextEditTime();
         assertThat(edited).isEqualTo(new Date(SECOND + 62_000L));
         assertThat(FormXmlArchive.write("formSF36", 42, edited, document(9))).exists();
+    }
+
+    @Test
+    void shouldHideFinalArchiveUntilSerializationCompletes_whenWriterIsPaused() throws Exception {
+        Path expected = archive.resolve("formSF36_42_" + stamp(SECOND) + ".xml");
+        CountDownLatch entered = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        Document doc = document(11);
+
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            Future<Path> write = executor.submit(() -> FormXmlArchive.write("formSF36", 42, new Date(NOW), doc,
+                    (document, target) -> {
+                        entered.countDown();
+                        try {
+                            assertThat(release.await(5, TimeUnit.SECONDS)).isTrue();
+                        } catch (InterruptedException interrupted) {
+                            Thread.currentThread().interrupt();
+                            throw new IOException("interrupted", interrupted);
+                        }
+                        JDBCUtil.saveAsXML(document, target.toString());
+                    }));
+
+            assertThat(entered.await(5, TimeUnit.SECONDS)).isTrue();
+            assertThat(expected).doesNotExist();
+            release.countDown();
+
+            Path published = write.get(5, TimeUnit.SECONDS);
+            assertThat(published).isEqualTo(expected);
+            assertThat(Files.readString(published)).contains("<Results>", "<Row>", "<ID>11</ID>");
+        }
+        try (var entries = Files.list(archive)) {
+            assertThat(entries.toList()).containsExactly(expected);
+        }
+    }
+
+    @Test
+    void shouldRefuseOverwriteAndCleanStagedFile_whenFinalArchiveAppearsDuringSerialization() throws Exception {
+        Path expected = archive.resolve("formSF36_42_" + stamp(SECOND) + ".xml");
+        CountDownLatch entered = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        Document doc = document(12);
+
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            Future<Path> write = executor.submit(() -> FormXmlArchive.write("formSF36", 42, new Date(NOW), doc,
+                    (document, target) -> {
+                        JDBCUtil.saveAsXML(document, target.toString());
+                        entered.countDown();
+                        try {
+                            assertThat(release.await(5, TimeUnit.SECONDS)).isTrue();
+                        } catch (InterruptedException interrupted) {
+                            Thread.currentThread().interrupt();
+                            throw new IOException("interrupted", interrupted);
+                        }
+                    }));
+
+            assertThat(entered.await(5, TimeUnit.SECONDS)).isTrue();
+            assertThat(expected).doesNotExist();
+            Files.writeString(expected, "concurrent winner");
+            release.countDown();
+
+            assertThatThrownBy(() -> write.get(5, TimeUnit.SECONDS))
+                    .isInstanceOf(ExecutionException.class)
+                    .hasCauseInstanceOf(FileAlreadyExistsException.class);
+        }
+        assertThat(Files.readString(expected)).isEqualTo("concurrent winner");
+        try (var entries = Files.list(archive)) {
+            assertThat(entries.toList()).containsExactly(expected);
+        }
+    }
+
+    @Test
+    void shouldLeaveNoFinalOrTempFile_whenSerializationFails() throws Exception {
+        Path expected = archive.resolve("formSF36_42_" + stamp(SECOND) + ".xml");
+
+        assertThatThrownBy(() -> FormXmlArchive.write("formSF36", 42, new Date(NOW), document(13),
+                (document, target) -> {
+                    Files.writeString(target, "<partial");
+                    throw new TransformerException("simulated serialization failure");
+                }))
+                .isInstanceOf(TransformerException.class);
+
+        assertThat(expected).doesNotExist();
+        try (var entries = Files.list(archive)) {
+            assertThat(entries.toList()).isEmpty();
+        }
+    }
+
+    @Test
+    void shouldIgnoreUnusableArchivePath_whenChoosingNextEditTime() {
+        assertThat(FormXmlArchive.nextEditTime(".hidden", 42, new Date(SECOND), List.of()))
+                .isEqualTo(new Date(SECOND));
     }
 
     private static Date nextEditTime(Date... existing) {
