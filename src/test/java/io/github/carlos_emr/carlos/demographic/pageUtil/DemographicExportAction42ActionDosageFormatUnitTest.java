@@ -61,7 +61,8 @@ class DemographicExportAction42ActionDosageFormatUnitTest {
         prescription.setDosage("250 mg");
         prescription.setTakeMin(.5f);
         prescription.setTakeMax(.5f);
-        var record = (cds.MedicationsAndTreatmentsDocument) cds.MedicationsAndTreatmentsDocument.Factory.newInstance();
+        var record = io.github.carlos_emr.carlos.utility.LegacyXmlBeans.newInstance(
+                cds.MedicationsAndTreatmentsDocument.class, cds.MedicationsAndTreatmentsDocument.type);
         DemographicExportAction42Action.writeMedicationDose(record.addNewMedicationsAndTreatments(), prescription);
         var factory = javax.xml.parsers.DocumentBuilderFactory.newInstance();
         factory.setNamespaceAware(true);

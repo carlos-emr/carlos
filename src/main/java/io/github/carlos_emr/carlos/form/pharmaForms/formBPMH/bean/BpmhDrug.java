@@ -179,7 +179,17 @@ public class BpmhDrug {
         if (!getTakeMax().isBlank() && !"0".equals(getTakeMax()) && !getTakeMax().equals(amount)) {
             amount += " to " + getTakeMax();
         }
-        how = String.join(" ", java.util.stream.Stream.of(getMethod(), amount, doseUnit, getFreqCode(), getRoute())
+        setStructuredDirections(amount + " " + doseUnit);
+    }
+
+    public void useRecordedDoseText(String dose, String doseUnit) {
+        String recorded = StringUtils.isNotBlank(doseUnit) && dose.codePoints().noneMatch(Character::isLetter)
+                ? dose + " " + doseUnit : dose;
+        setStructuredDirections(recorded);
+    }
+
+    private void setStructuredDirections(String amount) {
+        how = String.join(" ", java.util.stream.Stream.of(getMethod(), amount, getFreqCode(), getRoute())
                 .filter(StringUtils::isNotBlank).toList());
     }
 

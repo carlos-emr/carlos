@@ -367,7 +367,9 @@ public class PDFController {
             boolean templateRow = i < TEMPLATE_MEDICATION_ROWS;
             checkField(fields, font, prefix + "what", drug.getWhat(), continuedFields, templateRow);
             checkField(fields, font, prefix + "how", drug.getHow(), continuedFields, templateRow);
-            checkField(fields, font, prefix + "why", drug.getWhy(), continuedFields, templateRow);
+            // The shipped template has no reason field on medication row 9.
+            // Its reason goes on a continuation page with the same row number.
+            checkField(fields, font, prefix + "why", drug.getWhy(), continuedFields, templateRow && i != 8);
             checkField(fields, font, key, drug.getInstruction(), continuedFields, templateRow);
             if (StringUtils.isNotBlank(drug.getPatientReportedUse()) || StringUtils.isNotBlank(drug.getReportedMedication())) {
                 notes.put(key, drug);

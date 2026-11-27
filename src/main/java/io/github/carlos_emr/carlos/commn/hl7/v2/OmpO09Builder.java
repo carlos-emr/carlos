@@ -151,7 +151,7 @@ public final class OmpO09Builder {
             drugTypeSb.append(')');
         }
         drugType.getText().setValue(drugTypeSb.toString());
-        if (StringUtils.isNotBlank(drug.getRegionalIdentifier())) {
+        if (drug.getRegionalIdentifier() != null && drug.getRegionalIdentifier().matches("[0-9]{8}")) {
             drugType.getIdentifier().setValue(drug.getRegionalIdentifier());
             drugType.getNameOfCodingSystem().setValue("DIN");
         }

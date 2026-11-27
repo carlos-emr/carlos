@@ -459,28 +459,12 @@
                                 addWarning("Could not find place to put " + getDurationUnit());
                             }
 
-                            //Replace Qty
-                            var f = firstDigitRegExp.exec(afterSecondDigit);
-
-                            if (f) {
-                                //regexDebug(f)
-                                var betweenSecondDigitandQuantity = afterSecondDigit.substring(0, f.index);
-                                var afterQuantity = afterSecondDigit.substring(f.index + f[0].length);
-                                var g = firstDigitRegExp.exec(afterQuantity);
-                                if (g) {
-                                    //regexDebug(g);
-                                    var betweenQtyandRepeat = afterQuantity.substring(0, g.index);
-                                    var afterRepeat = afterQuantity.substring(g.index + g[0].length);
-                                    var b4final = drugName + beforeFirstDigit + getTakeValue() + betweenFirstAndSecondDigit + getDurationValue() + betweenSecondDigitandQuantity + frm.quantity.value + betweenQtyandRepeat + frm.txtRepeat.value + afterRepeat;
-                                    var newStr = drugName + beforeFirstDigit + getTakeValue() + betweenFirstAndSecondDigit + getPRN(b4final) + getDurationValue() + betweenSecondDigitandQuantity + frm.quantity.value + " " + frm.unitName.value + "\n" + "Repeats:" + frm.txtRepeat.value + getNoSubs(b4final) + afterRepeat;
-                                    //alert (betweenFirstAndSecondDigit);
-                                    frm.special.value = newStr;
-                                    //alert(newStr);
-                                } else {
-                                    addWarning("Could not find value to replace Repeat Value");
-                                }
+                            const updatedTail = replaceQuantityAndRepeats(afterSecondDigit);
+                            if (updatedTail === null) {
+                                addWarning("Could not identify the quantity and repeats lines");
                             } else {
-                                addWarning("Could not find value to replace Qty Value");
+                                frm.special.value = drugName + beforeFirstDigit + getTakeValue()
+                                    + betweenFirstAndSecondDigit + getPRN(origMinusName) + getDurationValue() + updatedTail;
                             }
                         } else {
                             addWarning("Could not find value to replace Duration Value");
@@ -492,6 +476,27 @@
                     addWarning("Name of Drug could not be found");
                 }
                 fillWarnings();
+            }
+
+            function replaceQuantityAndRepeats(tail) {
+                // Replace the labeled lines. A package description can contain further numbers,
+                // none of which are the repeat count.
+                const lines = tail.split('\n');
+                const quantityLabels = ['Qty', 'Mitte', 'Qty/Mitte', frm.dataset?.qtyLabel];
+                const repeatLabels = ['Repeats', frm.dataset?.repeatsLabel];
+                const label = line => line.split(':', 1)[0].trim();
+                const quantityIndex = lines.findIndex(line => line.includes(':') && quantityLabels.includes(label(line)));
+                const repeatsIndex = lines.findIndex(line => line.includes(':') && repeatLabels.includes(label(line)));
+                if (quantityIndex < 0 || repeatsIndex <= quantityIndex) return null;
+                const oldRepeats = lines[repeatsIndex];
+                const repeatPrefix = oldRepeats.slice(0, oldRepeats.indexOf(':') + 1);
+                const repeatDetails = /^[ \t]*\d+/.exec(oldRepeats.slice(repeatPrefix.length));
+                if (!repeatDetails) return null;
+                const quantityText = [frm.quantity.value, frm.unitName.value].filter(Boolean).join(' ');
+                lines[quantityIndex] = lines[quantityIndex].slice(0, lines[quantityIndex].indexOf(':') + 1) + quantityText;
+                lines[repeatsIndex] = repeatPrefix + frm.txtRepeat.value + getNoSubs(tail)
+                    + oldRepeats.slice(repeatPrefix.length + repeatDetails[0].length);
+                return lines.join('\n');
             }
 
             function removePRNifNeeded(str) {
@@ -879,7 +884,7 @@
     <% for (RxPrescriptionData.Prescription pendingCard : bean.getStash()) { if (pendingCard.getPendingSubmission() != null) { %>
     <p role="alert"><fmt:message key="oscarRx.pendingSubmission"/></p>
     <% break; } } %>
-    <form action="${pageContext.request.contextPath}/rx/writeScript" method="post" id="frm" name="frm">
+    <form action="${pageContext.request.contextPath}/rx/writeScript" method="post" id="frm" name="frm" data-qty-label="${carlos:forHtmlAttribute(msgQtyMitte)}" data-repeats-label="${carlos:forHtmlAttribute(msgRepeats)}">
 
     <input type="hidden" name="action" id="action"/>
 

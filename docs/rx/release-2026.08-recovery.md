@@ -93,6 +93,21 @@ The existing requested-patient gate tests cover the retained patient-scoped wrap
 
 ## Validation surfaces
 
+The published `2026.08.0-beta8` medication and favourite REST readers throw
+when they encounter a stored fractional dispense amount. Its whole-number
+controls pass. Qualify a rollback package on an isolated clinic using a
+fractional order, a renewed or discontinued imported order, and a chart
+change made after the upgrade. Compare the patient profile and both REST
+lists with the database after each package transition. Preserve the live
+database through the rehearsal so the later clinical write stays available.
+
+When CARLOS changes an archive flag, date, or reason, MariaDB captures the
+previous values in the medication's `archived_before_lifecycle`,
+`archived_date_before_lifecycle` and `archived_reason_before_lifecycle`
+columns. Those fields record the first transition observed after the
+migration. The operational archive fields still control whether the
+prescription is actionable.
+
 Meaningful regressions cover physical MariaDB COMMIT-then-throw recovery; strict audit rollback/retry; REST late-write rollback; concurrent detached entity edits; original form/note conflicts; provider isolation and atomic favourite copying. Both Ontario and BC physical schema contracts are generated from fresh complete Flyway installations. OSCAR19 target metadata is regenerated from pinned source `a7900d569d3faf741993e5e1da8c14021bbefede`.
 
 Browser checks include `rx-save-failure-retry-only-lost`, `rx-save-failure-retry-print-lost`, `rx-favorite-groups`, `rx-original-version`, `rx-preview-loading-notes`, `rx-renal-waf-privacy`, the renal input matrix, inactive-drug status and existing print/fax/renewal workflows. New browser checks run through the actual installed front door; WAF evidence reports only Boolean results, never audit payloads. Installed qualification must use the actual packaged artifact and retain failure/residue checks. Passing source/unit checks alone does not establish installed acceptance.

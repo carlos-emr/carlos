@@ -207,3 +207,13 @@ test('legacy dispense calculation rounds an exact decimal course once', () => {
   assert.equal(context.ceilDispenseQuantity('.5', 1 / 7, 28, 'Q1Week'), 2);
   assert.equal(context.ceilDispenseQuantity('1/2', 3, 10, 'TID'), undefined);
 });
+
+test('legacy redraw keeps the package description and reads repeats from its own line', () => {
+  const frm = {quantity: {value: '1'}, unitName: {value: 'bottle (120 mL)'}, txtRepeat: {value: '2'},
+    dataset: {qtyLabel: 'Qté/Mitte', repeatsLabel: 'Répétitions'}};
+  const context = {frm, getNoSubs: () => ''};
+  vm.runInNewContext(functionSource('replaceQuantityAndRepeats', 'function removePRNifNeeded('), context);
+  const old = ' Days\nQté/Mitte:1 bottle (120 mL)\nRépétitions:0\nSupplementary text';
+  assert.equal(context.replaceQuantityAndRepeats(old),
+    ' Days\nQté/Mitte:1 bottle (120 mL)\nRépétitions:2\nSupplementary text');
+});

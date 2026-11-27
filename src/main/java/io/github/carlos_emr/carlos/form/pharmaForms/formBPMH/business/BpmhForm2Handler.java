@@ -511,7 +511,7 @@ public class BpmhForm2Handler {
                     bpmhDrug.usePrescriptionDirections(drug.getBrandName(), drug.getSpecialInstruction(),
                             StringUtils.isBlank(drug.getCdsDoseText()) ? doseUnit : null);
                     if (StringUtils.isBlank(bpmhDrug.getHow()) && StringUtils.isNotBlank(drug.getCdsDoseText())) {
-                        bpmhDrug.setHow(drug.getCdsDoseText() + (doseUnit == null ? "" : " " + doseUnit));
+                        bpmhDrug.useRecordedDoseText(drug.getCdsDoseText(), doseUnit);
                     }
                     bpmhDrug.setWhy(getDrugReason(drug.getId()));
                     String version = reviewVersion(drugId, drug.getRowVersion(), bpmhDrug);

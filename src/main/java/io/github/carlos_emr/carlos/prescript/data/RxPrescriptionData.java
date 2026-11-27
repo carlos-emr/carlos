@@ -1908,8 +1908,8 @@ public class RxPrescriptionData {
             drug.setBrandName(getBrandName());
             drug.setGcnSeqNo(getGCN_SEQNO());
             drug.setCustomName(getCustomName());
-            drug.setTakeMin(getTakeMin());
-            drug.setTakeMax(getTakeMax());
+            if (Float.compare(drug.getTakeMin(), getTakeMin()) != 0) drug.setTakeMin(getTakeMin());
+            if (Float.compare(drug.getTakeMax(), getTakeMax()) != 0) drug.setTakeMax(getTakeMax());
             drug.setFreqCode(getFrequencyCode());
             drug.setDuration(getDuration());
             drug.setDurUnit(getDurationUnit());
@@ -2466,13 +2466,13 @@ public class RxPrescriptionData {
             f.setBn(this.getBN());
             f.setGcnSeqno(this.getGCN_SEQNO());
             f.setCustomName(this.getCustomName());
-            f.setTakeMin(this.getTakeMin());
-            f.setTakeMax(this.getTakeMax());
+            if (Float.compare(f.getTakeMin(), getTakeMin()) != 0) f.setTakeMin(getTakeMin());
+            if (Float.compare(f.getTakeMax(), getTakeMax()) != 0) f.setTakeMax(getTakeMax());
             f.setFrequencyCode(this.getFrequencyCode());
             f.setDuration(this.getDuration());
             f.setDurationUnit(this.getDurationUnit());
             f.setQuantity(this.getQuantity());
-            f.setRepeat(this.getRepeat());
+            if (f.getRepeat() != getRepeat()) f.setRepeat(getRepeat());
             f.setNosubs(this.getNosubsInt() != 0);
             f.setPrn(this.getPrnInt() != 0);
             // A newly staged custom drug may have no instructions yet. The favorites

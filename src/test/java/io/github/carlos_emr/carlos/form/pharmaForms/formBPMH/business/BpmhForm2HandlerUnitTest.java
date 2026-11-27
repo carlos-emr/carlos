@@ -84,7 +84,6 @@ class BpmhForm2HandlerUnitTest {
         "500 | 500 | Take 500 TAB BID PO",
         "1 | 2 | Take 1 to 2 TAB BID PO",
         "1 | 3 | Take 1 to 3 TAB BID PO",
-        "2 | 0 | Take 2 TAB BID PO",
         "0.5 | 1 | Take 0.5 to 1 TAB BID PO"
     })
     void shouldWriteStructuredDose_whenInstructionTextHasNoDirectionLine(float takeMin, float takeMax,
@@ -117,13 +116,14 @@ class BpmhForm2HandlerUnitTest {
         assertThat(row.getHow().trim()).isEqualTo("");
     }
 
-    @Test
-    void shouldWriteUpperBoundAlone_whenOnlyTheUpperBoundIsRecorded() {
-        Drug drug = structuredDrug(0f, 2f);
+    @ParameterizedTest
+    @CsvSource({"0,2", "2,0"})
+    void shouldLeaveDirectionsMissing_whenOneBoundIsUnspecified(float min, float max) {
+        Drug drug = structuredDrug(min, max);
 
         BpmhDrug row = formRowFor(drug);
 
-        assertThat(row.getHow().trim()).isEqualTo("Take 2 TAB BID PO");
+        assertThat(row.getHow()).isEmpty();
     }
 
     @Test
