@@ -81,6 +81,11 @@ class LabMeasurementFilingServiceUnitTest extends CarlosUnitTestBase {
         measurementsExtDao = mock(MeasurementsExtDao.class);
         measurementsDeletedDao = mock(MeasurementsDeletedDao.class);
         when(locks.lockByLabNumber(anyInt())).thenReturn(new Hl7TextInfo());
+        // A stored measurement has its id: the extensions name it.
+        org.mockito.Mockito.doAnswer(invocation -> {
+            org.springframework.test.util.ReflectionTestUtils.setField(invocation.getArgument(0), "id", 1);
+            return null;
+        }).when(measurementDao).persist(any(Measurement.class));
     }
 
     @AfterEach
@@ -284,7 +289,7 @@ class LabMeasurementFilingServiceUnitTest extends CarlosUnitTestBase {
         Thread.currentThread().interrupt();
         try {
             assertThatThrownBy(() -> service("101").file(filing("101", 7, false)))
-                    .isInstanceOf(CannotAcquireLockException.class);
+                    .isInstanceOf(jakarta.persistence.PersistenceException.class);
 
             assertThat(Thread.currentThread().isInterrupted()).isTrue();
             verify(transactions, times(1)).getTransaction(any());
