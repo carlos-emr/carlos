@@ -60,9 +60,12 @@ vm.runInNewContext(
     await page.route('http://tickler.test/**', async route => {
       const url = new URL(route.request().url());
       if (url.pathname === '/') {
-        await route.fulfill({contentType: 'text/html', body: '<!doctype html>'
-          + '<button id="save">Save edit</button><table id="ticklerResults">'
-          + '<thead><tr><th>Message</th></tr></thead><tbody></tbody></table>'});
+        await route.fulfill({
+          contentType: 'text/html',
+          headers: {'Permissions-Policy': 'unload=()'},
+          body: '<!doctype html><button id="save">Save edit</button><table id="ticklerResults">'
+            + '<thead><tr><th>Message</th></tr></thead><tbody></tbody></table>',
+        });
         return;
       }
       if (url.pathname === '/favicon.ico') {
@@ -97,7 +100,9 @@ vm.runInNewContext(
         sender.postMessage({action: 'refresh'});
         sender.close();
       });
-      window.addEventListener('unload', () => listener.close());
+      window.addEventListener('pagehide', event => {
+        if (!event.persisted) listener.close();
+      });
     });
     await helpers.ready(page);
     holdReset = true;

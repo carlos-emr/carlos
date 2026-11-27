@@ -754,8 +754,8 @@
             } catch (e) {
                 console.warn('[ticklerMain] BroadcastChannel not available:', e);
             }
-            window.addEventListener('unload', function() {
-                if (ticklerChannel) { ticklerChannel.close(); }
+            window.addEventListener('pagehide', function(event) {
+                if (!event.persisted && ticklerChannel) { ticklerChannel.close(); }
             });
 
         </script>
