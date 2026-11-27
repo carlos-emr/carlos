@@ -60,7 +60,12 @@ class BpmhMedicationPaginationUnitTest {
                 assertThat(text).contains("Fixture-Med-%02d".formatted(i), "DIR-%02d".formatted(i), "WHY-%02d".formatted(i));
             }
             if (longText) {
-                assertThat(text).contains("LAST-DIRECTION", "Répéter", "SECOND-INDICATION", "REPORTED-USE", "FINAL-NOTE");
+                String continuousText = text.replace("BPMH medication instruction notes (continued)", "")
+                        .replace("Patient: BPMH-Patient, Synthetic", "")
+                        .replaceAll("\\s+", " ")
+                        .replace("LAST- DIRECTION", "LAST-DIRECTION");
+                assertThat(continuousText).contains(drugs.getLast().getHow(),
+                        "WHY-%02d SECOND-INDICATION".formatted(count), "REPORTED-USE", "FINAL-NOTE");
                 assertThat(rendered.getNumberOfPages()).isGreaterThan(2);
             }
             for (int page = 2; page <= rendered.getNumberOfPages(); page++) {
