@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "d7f53b6c155fdad6278301a88eb89ac9438a6923",
+  "comparisonSha256": "fed0703c1134ba129bc99521913f67e1b2bb47a2c3fba85483e8009699b48e14",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/form/pharmaForms/formBPMH/web/BpmhFormRetrieve2Action.java": {
+      "lines": 84.42622950819673,
+      "instructions": 80.85470085470085,
+      "branches": 65.71428571428571,
+      "sourceBlob": "9bab431c22f9b4d9f7c52a0b0544d93f6b0ff049"
+    }
+  },
+  "baselineCommit": "14c38026a5fcede9bf6b127175a70f8df39ed1a0",
+  "baselineSourceTree": "d7f53b6c155fdad6278301a88eb89ac9438a6923",
+  "baselineReportSha256": "5df8825f897bef32e3ca44562aa6198f1323399fcef015b7adae51f69e3adac3",
+  "baselineLane": "Focused Java 25 JaCoCo run for BpmhFormRetrieve2Action (21 test cases, 0 failures, 0 errors, 0 skipped).",
+  "baselineTestCounts": {
+    "tests": 21,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "91fece1b81ab0fad044a44494b81777ab242c897bee68c3e85f18db6a66ba090",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.web.BpmhFormRetrieve2ActionUnitTest"
+  ]
+}
