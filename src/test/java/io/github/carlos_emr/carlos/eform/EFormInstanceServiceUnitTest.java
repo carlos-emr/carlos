@@ -29,8 +29,10 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -91,6 +93,7 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
     private static final int SAVED_FDID = 77;
     /** The context path the REST layer passes, for the links chart writes put in notes. */
     private static final String CONTEXT = "/carlos";
+    private static final Map<String, String> NO_VALUES = Map.of();
     private static final String TEMPLATE_HTML = "<html><body><form>"
             + "<input type=\"text\" name=\"bp\" value=\"\">"
             + "<textarea name=\"note\">template default</textarea>"
@@ -238,7 +241,7 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
         void shouldRefuse_whenTemplateRetired() {
             when(eFormDao.findById(FID)).thenReturn(template(false, null));
 
-            assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, Map.of(), CONTEXT))
+            assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, NO_VALUES, CONTEXT))
                     .isInstanceOf(EFormInstanceException.class)
                     .extracting(e -> ((EFormInstanceException) e).getReason())
                     .isEqualTo(Reason.TEMPLATE_UNAVAILABLE);
@@ -250,7 +253,7 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
         void shouldRefuse_whenPatientMissing() {
             when(demographicDao.getDemographicById(DEMOGRAPHIC_NO)).thenReturn(null);
 
-            assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, Map.of(), CONTEXT))
+            assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, NO_VALUES, CONTEXT))
                     .isInstanceOf(EFormInstanceException.class)
                     .extracting(e -> ((EFormInstanceException) e).getReason())
                     .isEqualTo(Reason.PATIENT_NOT_FOUND);
@@ -262,7 +265,7 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
         void shouldReportPatientNotFound_whenPatientScopedWriteDenied() {
             denyPatientScoped(SecurityInfoManager.WRITE);
 
-            assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, Map.of(), CONTEXT))
+            assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, NO_VALUES, CONTEXT))
                     .isInstanceOf(EFormInstanceException.class)
                     .extracting(e -> ((EFormInstanceException) e).getReason())
                     .isEqualTo(Reason.PATIENT_NOT_FOUND);
@@ -277,7 +280,7 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
             when(securityInfoManager.hasPrivilege(any(), eq("_eform.doctor"), anyString(), nullable(String.class)))
                     .thenReturn(false);
 
-            assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, Map.of(), CONTEXT))
+            assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, NO_VALUES, CONTEXT))
                     .isInstanceOf(SecurityException.class)
                     .hasMessage("missing required sec object (_eform.doctor)");
             verify(eformDataManager, never()).saveEformData(any(), any());
@@ -286,7 +289,8 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should refuse when a field name is blank")
         void shouldRefuse_whenFieldNameBlank() {
-            assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, Map.of(" ", "x"), CONTEXT))
+            Map<String, String> values = Map.of(" ", "x");
+            assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, values, CONTEXT))
                     .isInstanceOf(EFormInstanceException.class)
                     .extracting(e -> ((EFormInstanceException) e).getReason())
                     .isEqualTo(Reason.INVALID_FIELD_NAME);
@@ -297,7 +301,8 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
         @DisplayName("should refuse without saving when a value names a field the renderer cannot fill")
         void shouldRefuseWithoutSaving_whenFieldUnsupported() {
             for (String name : List.of("absent", "count", "script")) {
-                assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, Map.of(name, "7"), CONTEXT))
+                Map<String, String> values = Map.of(name, "7");
+                assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, values, CONTEXT))
                         .as(name)
                         .isInstanceOf(EFormInstanceException.class)
                         .extracting(e -> ((EFormInstanceException) e).getReason())
@@ -309,11 +314,54 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should refuse without saving when a radio or select value matches no choice")
         void shouldRefuseWithoutSaving_whenChoiceUnknown() {
-            assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, Map.of("side", "X"), CONTEXT))
+            Map<String, String> badRadio = Map.of("side", "X");
+            Map<String, String> badSelect = Map.of("route", "im");
+            Map<String, String> blankSingleSelectWithoutEmptyOption = Map.of("route", "");
+            assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, badRadio, CONTEXT))
                     .isInstanceOf(EFormInstanceException.class);
-            assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, Map.of("route", "im"), CONTEXT))
+            assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, badSelect, CONTEXT))
                     .isInstanceOf(EFormInstanceException.class);
+            // route has only PO and IV; clearing a single select with no empty option would silently show PO.
+            assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null,
+                    blankSingleSelectWithoutEmptyOption, CONTEXT))
+                    .isInstanceOf(EFormInstanceException.class)
+                    .extracting(e -> ((EFormInstanceException) e).getReason())
+                    .isEqualTo(Reason.UNSUPPORTED_FIELD);
             verify(eformDataManager, never()).saveEformData(any(), any());
+        }
+
+        @Test
+        @DisplayName("should refuse whitespace on a single select even when it has an empty option")
+        void shouldRefuseWhitespace_whenSingleSelectHasEmptyOption() {
+            String templateHtml = "<html><body><form><select name=\"dose\">"
+                    + "<option value=\"\">Choose</option><option value=\"5\" selected>5 mg</option>"
+                    + "</select></form></body></html>";
+            EForm template = template(true, null);
+            template.setFormHtml(templateHtml);
+            when(eFormDao.findById(FID)).thenReturn(template);
+            Map<String, String> whitespace = Map.of("dose", "   ");
+
+            assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, whitespace, CONTEXT))
+                    .isInstanceOf(EFormInstanceException.class)
+                    .extracting(e -> ((EFormInstanceException) e).getReason())
+                    .isEqualTo(Reason.UNSUPPORTED_FIELD);
+            verify(eformDataManager, never()).saveEformData(any(), any());
+        }
+
+        @Test
+        @DisplayName("should accept an empty string to clear every selection of a multiple select")
+        void shouldClearSelections_whenMultipleSelectClearedWithEmptyString() {
+            String templateHtml = "<html><body><form><select name=\"tags\" multiple>"
+                    + "<option value=\"a\" selected>A</option><option value=\"b\" selected>B</option>"
+                    + "</select></form></body></html>";
+            EForm template = template(true, null);
+            template.setFormHtml(templateHtml);
+            when(eFormDao.findById(FID)).thenReturn(template);
+
+            EFormData cleared = service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, Map.of("tags", ""), CONTEXT);
+
+            assertThat(Jsoup.parse(cleared.getFormData()).select("select[name=tags] option[selected]")).isEmpty();
+            assertThat(persistedValues()).isEmpty();
         }
 
         @Test
@@ -352,7 +400,7 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
         void shouldReportPatientNotFound_whenPatientRecordRestricted() {
             when(securityInfoManager.isAllowedAccessToPatientRecord(any(), eq(DEMOGRAPHIC_NO))).thenReturn(false);
 
-            assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, Map.of(), CONTEXT))
+            assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, NO_VALUES, CONTEXT))
                     .isInstanceOf(EFormInstanceException.class)
                     .extracting(e -> ((EFormInstanceException) e).getReason())
                     .isEqualTo(Reason.PATIENT_NOT_FOUND);
@@ -390,7 +438,7 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
         void shouldRefuse_whenTemplateMissing() {
             when(eFormDao.findById(FID)).thenReturn(null);
 
-            assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, Map.of(), CONTEXT))
+            assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, NO_VALUES, CONTEXT))
                     .isInstanceOf(EFormInstanceException.class)
                     .extracting(e -> ((EFormInstanceException) e).getReason())
                     .isEqualTo(Reason.TEMPLATE_UNAVAILABLE);
@@ -403,7 +451,7 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
             when(securityInfoManager.hasPrivilege(any(), eq("_eform"), eq(SecurityInfoManager.WRITE), nullable(String.class)))
                     .thenReturn(false);
 
-            assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, Map.of(), CONTEXT))
+            assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, NO_VALUES, CONTEXT))
                     .isInstanceOf(SecurityException.class);
             verifyNoInteractions(eFormDao, demographicDao, eformDataManager);
         }
@@ -413,15 +461,15 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
         void shouldFail_whenSavedRowCannotBeReadBack() {
             when(eFormDataDao.find(SAVED_FDID)).thenReturn(null);
 
-            assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, Map.of(), CONTEXT))
+            assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, NO_VALUES, CONTEXT))
                     .isInstanceOf(IllegalStateException.class);
         }
         @Test
         @DisplayName("should refuse before any lookup when a field name is longer than eform_values.var_name")
         void shouldRefuseBeforeLookup_whenFieldNameTooLong() {
-            String name = "f".repeat(EFormInstanceService.FIELD_NAME_MAX_LENGTH + 1);
+            Map<String, String> values = Map.of("f".repeat(EFormInstanceService.FIELD_NAME_MAX_LENGTH + 1), "x");
 
-            assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, Map.of(name, "x"), CONTEXT))
+            assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, values, CONTEXT))
                     .isInstanceOf(EFormInstanceException.class)
                     .extracting(e -> ((EFormInstanceException) e).getReason())
                     .isEqualTo(Reason.INVALID_FIELD_NAME);
@@ -432,15 +480,16 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
         @DisplayName("should refuse a subject longer than eform_data.subject and accept one that fits")
         void shouldRefuseSubject_whenLongerThanColumn() {
             String tooLong = "s".repeat(EFormInstanceService.SUBJECT_MAX_LENGTH + 1);
+            Map<String, String> empty = Map.of();
 
-            assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, tooLong, Map.of(), CONTEXT))
+            assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, tooLong, empty, CONTEXT))
                     .isInstanceOf(EFormInstanceException.class)
                     .extracting(e -> ((EFormInstanceException) e).getReason())
                     .isEqualTo(Reason.INVALID_SUBJECT);
             verify(eformDataManager, never()).saveEformData(any(), any());
 
             String fits = "s".repeat(EFormInstanceService.SUBJECT_MAX_LENGTH);
-            assertThat(service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, fits, Map.of(), CONTEXT).getSubject()).isEqualTo(fits);
+            assertThat(service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, fits, empty, CONTEXT).getSubject()).isEqualTo(fits);
         }
 
         @Test
@@ -490,7 +539,7 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
                 ArgumentCaptor<ArrayList<String>> values = ArgumentCaptor.forClass(ArrayList.class);
                 util.verify(() -> EFormUtil.writeEformTemplate(eq(loggedInInfo), names.capture(), values.capture(),
                         any(io.github.carlos_emr.carlos.eform.data.EForm.class), eq(String.valueOf(SAVED_FDID)),
-                        eq("10016"), eq(CONTEXT)), org.mockito.Mockito.times(1));
+                        eq("10016"), eq(CONTEXT)), times(1));
                 // The same nonblank values the browser save passes: the cleared note is not among them.
                 assertThat(names.getValue()).containsExactly("bp");
                 assertThat(values.getValue()).containsExactly("120/80");
@@ -500,6 +549,7 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should let a chart-write failure propagate out of create")
         void shouldPropagateFailure_whenChartWritesFail() {
+            Map<String, String> values = Map.of("bp", "1");
             try (org.mockito.MockedStatic<EFormUtil> util = org.mockito.Mockito.mockStatic(EFormUtil.class,
                     org.mockito.Mockito.CALLS_REAL_METHODS)) {
                 util.when(() -> EFormUtil.writeEformTemplate(any(), any(), any(), any(), any(), any(), any()))
@@ -507,7 +557,7 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
 
                 // Only propagation is shown here: the service is built directly and persistence is
                 // mocked. The rollback itself is @Transactional's, on the Spring-managed bean.
-                assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, Map.of("bp", "1"), CONTEXT))
+                assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, values, CONTEXT))
                         .isInstanceOf(IllegalStateException.class);
             }
         }
@@ -539,8 +589,9 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
         @DisplayName("should refuse without saving when the instance was already retired")
         void shouldRefuseWithoutSaving_whenInstanceRetired() {
             when(eFormDataDao.lockForAttachmentSync(5)).thenReturn(instance(5, false));
+            Map<String, String> values = Map.of("bp", "1");
 
-            assertThatThrownBy(() -> service.revise(loggedInInfo, 5, null, Map.of("bp", "1"), CONTEXT))
+            assertThatThrownBy(() -> service.revise(loggedInInfo, 5, null, values, CONTEXT))
                     .isInstanceOf(EFormInstanceException.class)
                     .extracting(e -> ((EFormInstanceException) e).getReason())
                     .isEqualTo(Reason.RETIRED);
@@ -553,7 +604,7 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
         void shouldReportNotFound_whenInstanceMissing() {
             when(eFormDataDao.lockForAttachmentSync(5)).thenReturn(null);
 
-            assertThatThrownBy(() -> service.revise(loggedInInfo, 5, null, Map.of(), CONTEXT))
+            assertThatThrownBy(() -> service.revise(loggedInInfo, 5, null, NO_VALUES, CONTEXT))
                     .isInstanceOf(EFormInstanceException.class)
                     .extracting(e -> ((EFormInstanceException) e).getReason())
                     .isEqualTo(Reason.NOT_FOUND);
@@ -566,7 +617,7 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
             when(eFormDataDao.lockForAttachmentSync(5)).thenReturn(previous);
             denyPatientScoped(SecurityInfoManager.WRITE);
 
-            assertThatThrownBy(() -> service.revise(loggedInInfo, 5, null, Map.of(), CONTEXT))
+            assertThatThrownBy(() -> service.revise(loggedInInfo, 5, null, NO_VALUES, CONTEXT))
                     .isInstanceOf(InstanceAccessDeniedException.class);
             assertThat(previous.isCurrent()).isTrue();
             verify(eformDataManager, never()).saveEformData(any(), any());
@@ -579,7 +630,7 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
             when(eFormDataDao.lockForAttachmentSync(5)).thenReturn(previous);
             when(securityInfoManager.isAllowedAccessToPatientRecord(any(), eq(DEMOGRAPHIC_NO))).thenReturn(false);
 
-            assertThatThrownBy(() -> service.revise(loggedInInfo, 5, null, Map.of(), CONTEXT))
+            assertThatThrownBy(() -> service.revise(loggedInInfo, 5, null, NO_VALUES, CONTEXT))
                     .isInstanceOf(EFormInstanceService.InstanceAccessDeniedException.class);
             assertThat(previous.isCurrent()).isTrue();
             verify(eformDataManager, never()).saveEformData(any(), any());
@@ -612,7 +663,8 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
             EFormData previous = instance(5, true);
             when(eFormDataDao.lockForAttachmentSync(5)).thenReturn(previous);
 
-            assertThatThrownBy(() -> service.revise(loggedInInfo, 5, null, Map.of("count", "8"), CONTEXT))
+            Map<String, String> changed = Map.of("count", "8");
+            assertThatThrownBy(() -> service.revise(loggedInInfo, 5, null, changed, CONTEXT))
                     .isInstanceOf(EFormInstanceException.class)
                     .extracting(e -> ((EFormInstanceException) e).getReason())
                     .isEqualTo(Reason.UNSUPPORTED_FIELD);
@@ -658,7 +710,8 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
             when(eFormDataDao.lockForAttachmentSync(5)).thenReturn(previous);
             when(eFormDao.findById(FID)).thenReturn(null);
 
-            assertThatThrownBy(() -> service.revise(loggedInInfo, 5, null, Map.of(), CONTEXT))
+            Map<String, String> empty = Map.of();
+            assertThatThrownBy(() -> service.revise(loggedInInfo, 5, null, empty, CONTEXT))
                     .isInstanceOf(EFormInstanceException.class)
                     .extracting(e -> ((EFormInstanceException) e).getReason())
                     .isEqualTo(Reason.TEMPLATE_UNAVAILABLE);
@@ -676,7 +729,8 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
             when(securityInfoManager.hasPrivilege(any(), eq("_eform.doctor"), anyString(), nullable(String.class)))
                     .thenReturn(false);
 
-            assertThatThrownBy(() -> service.revise(loggedInInfo, 5, null, Map.of(), CONTEXT))
+            Map<String, String> empty = Map.of();
+            assertThatThrownBy(() -> service.revise(loggedInInfo, 5, null, empty, CONTEXT))
                     .isInstanceOf(InstanceAccessDeniedException.class)
                     .hasMessage("missing required sec object (_eform.doctor)");
             assertThat(previous.isCurrent()).isTrue();
@@ -686,7 +740,8 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
         @Test
         @DisplayName("should refuse before locking the row when a field name is blank")
         void shouldRefuseBeforeLocking_whenFieldNameBlank() {
-            assertThatThrownBy(() -> service.revise(loggedInInfo, 5, null, Map.of("", "x"), CONTEXT))
+            Map<String, String> blankName = Map.of("", "x");
+            assertThatThrownBy(() -> service.revise(loggedInInfo, 5, null, blankName, CONTEXT))
                     .isInstanceOf(EFormInstanceException.class)
                     .extracting(e -> ((EFormInstanceException) e).getReason())
                     .isEqualTo(Reason.INVALID_FIELD_NAME);
@@ -699,7 +754,8 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
             when(securityInfoManager.hasPrivilege(any(), eq("_eform"), eq(SecurityInfoManager.WRITE), nullable(String.class)))
                     .thenReturn(false);
 
-            assertThatThrownBy(() -> service.revise(loggedInInfo, 5, null, Map.of(), CONTEXT))
+            Map<String, String> empty = Map.of();
+            assertThatThrownBy(() -> service.revise(loggedInInfo, 5, null, empty, CONTEXT))
                     .isInstanceOf(SecurityException.class);
             verify(eFormDataDao, never()).lockForAttachmentSync(anyInt());
         }
@@ -738,7 +794,26 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
             when(eFormDataDao.findByDemographicIdAndFormId(DEMOGRAPHIC_NO, FID))
                     .thenReturn(List.of(instance(9, true), previous));
 
-            assertThatThrownBy(() -> service.revise(loggedInInfo, 5, null, Map.of("bp", "1"), CONTEXT))
+            Map<String, String> values = Map.of("bp", "1");
+            assertThatThrownBy(() -> service.revise(loggedInInfo, 5, null, values, CONTEXT))
+                    .isInstanceOf(EFormInstanceException.class)
+                    .extracting(e -> ((EFormInstanceException) e).getReason())
+                    .isEqualTo(Reason.SUPERSEDED);
+            assertThat(previous.isCurrent()).isTrue();
+            verify(eformDataManager, never()).saveEformData(any(), any());
+        }
+
+        @Test
+        @DisplayName("should refuse a revision when the saved row itself is latest-only and a newer form exists")
+        void shouldRefuseAsSuperseded_whenPreviousRowLatestOnlyHasNewerCurrentRow() {
+            EFormData previous = instance(5, true);
+            previous.setShowLatestFormOnly(true);
+            when(eFormDataDao.lockForAttachmentSync(5)).thenReturn(previous);
+            when(eFormDataDao.findByDemographicIdAndFormId(DEMOGRAPHIC_NO, FID))
+                    .thenReturn(List.of(instance(9, true), previous));
+
+            Map<String, String> values = Map.of("bp", "1");
+            assertThatThrownBy(() -> service.revise(loggedInInfo, 5, null, values, CONTEXT))
                     .isInstanceOf(EFormInstanceException.class)
                     .extracting(e -> ((EFormInstanceException) e).getReason())
                     .isEqualTo(Reason.SUPERSEDED);
@@ -803,27 +878,21 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should carry a lab link to the revision as the old row has it, without re-checking its routing")
-        void shouldCarryLabLink_whenLabNoLongerRoutedToPatient() {
-            // The revision copies the old row's links; it adds none the caller chose. A lab re-matched
-            // to another patient after the form was saved therefore keeps the link the old row
-            // already has, and the revision is allowed. The service has no lab-routing lookup.
+        @DisplayName("should refuse cleanly with attachment unavailable when EFormDocsDao rejects an unrouted lab copy")
+        void shouldRefuseWithAttachmentUnavailable_whenLabLinkRejectedByDao() {
             when(eFormDataDao.lockForAttachmentSync(5)).thenReturn(instance(5, true));
             io.github.carlos_emr.carlos.commn.model.EFormDocs unroutedLab =
                     new io.github.carlos_emr.carlos.commn.model.EFormDocs(5, 301, "L", "111");
             unroutedLab.setLabType("MDS");
             when(eFormDocsDao.findByFdid(5)).thenReturn(List.of(unroutedLab));
+            doThrow(new IllegalArgumentException("Lab attachment does not belong to this patient"))
+                    .when(eFormDocsDao).persist(any(io.github.carlos_emr.carlos.commn.model.EFormDocs.class));
 
-            EFormData revision = service.revise(loggedInInfo, 5, null, Map.of("bp", "1"), CONTEXT);
-
-            assertThat(revision.getId()).isEqualTo(SAVED_FDID);
-            ArgumentCaptor<io.github.carlos_emr.carlos.commn.model.EFormDocs> copy =
-                    ArgumentCaptor.forClass(io.github.carlos_emr.carlos.commn.model.EFormDocs.class);
-            verify(eFormDocsDao).persist(copy.capture());
-            assertThat(copy.getValue().getFdid()).isEqualTo(SAVED_FDID);
-            assertThat(copy.getValue().getDocumentNo()).isEqualTo(301);
-            assertThat(copy.getValue().getLabType()).isEqualTo("MDS");
-            assertThat(unroutedLab.getFdid()).isEqualTo(5);
+            Map<String, String> values = Map.of("bp", "1");
+            assertThatThrownBy(() -> service.revise(loggedInInfo, 5, null, values, CONTEXT))
+                    .isInstanceOf(EFormInstanceException.class)
+                    .extracting(e -> ((EFormInstanceException) e).getReason())
+                    .isEqualTo(Reason.ATTACHMENT_UNAVAILABLE);
         }
 
         @Test
@@ -833,7 +902,8 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
             when(eFormDataDao.lockForAttachmentSync(5)).thenReturn(previous);
             denyPatientScoped(SecurityInfoManager.WRITE);
 
-            assertThatThrownBy(() -> service.revise(loggedInInfo, 5, null, Map.of(), CONTEXT))
+            Map<String, String> empty = Map.of();
+            assertThatThrownBy(() -> service.revise(loggedInInfo, 5, null, empty, CONTEXT))
                     .isInstanceOf(InstanceAccessDeniedException.class);
             verify(eFormDataDao, never()).merge(any());
             verify(eformDataManager, never()).saveEformData(any(), any());
@@ -850,7 +920,8 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
 
             // The row passed its own checks, so the caller can GET and DELETE it: hiding it as
             // not found on PUT alone would be inconsistent.
-            assertThatThrownBy(() -> service.revise(loggedInInfo, 5, null, Map.of(), CONTEXT))
+            Map<String, String> empty = Map.of();
+            assertThatThrownBy(() -> service.revise(loggedInInfo, 5, null, empty, CONTEXT))
                     .isInstanceOf(SecurityException.class)
                     .isNotInstanceOf(InstanceAccessDeniedException.class)
                     .hasMessage("missing required sec object (_eform.doctor)");
@@ -884,6 +955,36 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
             EFormData changed = service.revise(loggedInInfo, 5, null, Map.of("sites", "b"), CONTEXT);
             assertThat(Jsoup.parse(changed.getFormData()).select("select[name=sites] option[selected]"))
                     .extracting(option -> option.attr("value")).containsExactly("b");
+        }
+
+        @Test
+        @DisplayName("should keep remaining multiple select choices when the first stored choice was removed from the template")
+        void shouldKeepRemainingMultipleChoices_whenFirstChoiceRemovedFromTemplate() {
+            String oldHtml = "<html><body><form><select name=\"sites\" multiple>"
+                    + "<option value=\"a\" selected>A</option><option value=\"b\">B</option><option value=\"c\" selected>C</option>"
+                    + "</select></form></body></html>";
+            String currentTemplateHtml = "<html><body><form><select name=\"sites\" multiple>"
+                    + "<option value=\"b\">B</option><option value=\"c\">C</option>"
+                    + "</select></form></body></html>";
+            EForm template = template(true, null);
+            template.setFormHtml(currentTemplateHtml);
+            when(eFormDao.findById(FID)).thenReturn(template);
+            when(eFormDataDao.lockForAttachmentSync(5)).thenAnswer(call -> {
+                EFormData data = instance(5, true);
+                data.setFormData(oldHtml);
+                return data;
+            });
+            EFormValue stored = new EFormValue();
+            stored.setVarName("sites");
+            stored.setVarValue("a");
+            when(eFormValueDao.findByFormDataId(5)).thenReturn(List.of(stored));
+
+            EFormData revision = service.revise(loggedInInfo, 5, null, Map.of("sites", "a"), CONTEXT);
+
+            assertThat(Jsoup.parse(revision.getFormData()).select("select[name=sites] option[selected]"))
+                    .extracting(option -> option.attr("value")).containsExactly("c");
+            assertThat(persistedValues()).extracting(EFormValue::getVarName, EFormValue::getVarValue)
+                    .containsExactly(org.assertj.core.groups.Tuple.tuple("sites", "a"));
         }
 
         @Test
@@ -1180,7 +1281,7 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
             when(eFormDataDao.find(5)).thenReturn(instance(5, true));
             denyPatientScoped(SecurityInfoManager.READ);
 
-            assertThatThrownBy(() -> service.get(loggedInInfo, 5)).isInstanceOf(SecurityException.class);
+            assertThatThrownBy(() -> service.get(loggedInInfo, 5)).isInstanceOf(InstanceAccessDeniedException.class);
             verify(eFormValueDao, never()).findByFormDataId(5);
         }
 
@@ -1266,6 +1367,91 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
             assertThat(read).containsExactly(Map.entry("side", ""));
             assertThat(Jsoup.parse(revision.getFormData()).select("input[name=side][checked]"))
                     .extracting(radio -> radio.attr("value")).containsExactly("");
+        }
+
+        @Test
+        @DisplayName("should keep an implicit first-option single select cleared to empty when read is revised")
+        void shouldKeepImplicitSelectCleared_whenReadIsSentBackAsRevision() {
+            String templateHtml = "<html><body><form><select name=\"status\">"
+                    + "<option>Normal</option><option value=\"\">Not assessed</option>"
+                    + "</select></form></body></html>";
+            EForm template = template(true, null);
+            template.setFormHtml(templateHtml);
+            when(eFormDao.findById(FID)).thenReturn(template);
+            EFormData data = instance(5, true);
+            data.setFormData(templateHtml.replace("value=\"\">", "value=\"\" selected>"));
+            when(eFormDataDao.find(5)).thenReturn(data);
+            when(eFormDataDao.lockForAttachmentSync(5)).thenReturn(data);
+            when(eFormValueDao.findByFormDataId(5)).thenReturn(List.of());
+
+            Map<String, String> read = service.get(loggedInInfo, 5).values();
+            EFormData revision = service.revise(loggedInInfo, 5, null, read, CONTEXT);
+
+            assertThat(read).containsExactly(Map.entry("status", ""));
+            assertThat(Jsoup.parse(revision.getFormData()).select("select[name=status] option[selected]"))
+                    .extracting(option -> option.attr("value"))
+                    .containsExactly("");
+            assertThat(persistedValues()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should skip disabled leading options and disabled optgroups when checking implicit select default")
+        void shouldSkipDisabledLeadingOptions_whenDetectingClearedImplicitSelect() {
+            String templateHtml = "<html><body><form><select name=\"status\">"
+                    + "<option value=\"\" disabled>Choose</option>"
+                    + "<optgroup label=\"Old\" disabled><option value=\"\">Legacy</option></optgroup>"
+                    + "<option value=\"Normal\">Normal</option>"
+                    + "<option value=\"\">Not assessed</option>"
+                    + "</select></form></body></html>";
+            EForm template = template(true, null);
+            template.setFormHtml(templateHtml);
+            when(eFormDao.findById(FID)).thenReturn(template);
+            EFormData data = instance(5, true);
+            data.setFormData(templateHtml.replace("<option value=\"\">Not assessed", "<option value=\"\" selected>Not assessed"));
+            when(eFormDataDao.find(5)).thenReturn(data);
+            when(eFormValueDao.findByFormDataId(5)).thenReturn(List.of());
+
+            assertThat(service.get(loggedInInfo, 5).values()).containsExactly(Map.entry("status", ""));
+        }
+
+        @Test
+        @DisplayName("should not report an untouched single select as cleared when its implicit leading option is empty")
+        void shouldOmitEmptySelect_whenLeadingOptionIsAlreadyEmpty() {
+            String templateHtml = "<html><body><form><select name=\"status\">"
+                    + "<option value=\"\">Choose</option><option value=\"Normal\">Normal</option>"
+                    + "</select></form></body></html>";
+            EForm template = template(true, null);
+            template.setFormHtml(templateHtml);
+            when(eFormDao.findById(FID)).thenReturn(template);
+            EFormData data = instance(5, true);
+            data.setFormData(templateHtml);
+            when(eFormDataDao.find(5)).thenReturn(data);
+            when(eFormValueDao.findByFormDataId(5)).thenReturn(List.of());
+
+            assertThat(service.get(loggedInInfo, 5).values()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should keep a cleared multiple select empty when a read is sent back as a revision")
+        void shouldKeepClearedMultipleSelect_whenReadIsSentBackAsRevision() {
+            String templateHtml = "<html><body><form><select name=\"sites\" multiple>"
+                    + "<option value=\"a\" selected>A</option><option value=\"b\">B</option>"
+                    + "</select></form></body></html>";
+            EForm template = template(true, null);
+            template.setFormHtml(templateHtml);
+            when(eFormDao.findById(FID)).thenReturn(template);
+            EFormData data = instance(5, true);
+            data.setFormData(templateHtml.replace(" selected", ""));
+            when(eFormDataDao.find(5)).thenReturn(data);
+            when(eFormDataDao.lockForAttachmentSync(5)).thenReturn(data);
+            when(eFormValueDao.findByFormDataId(5)).thenReturn(List.of());
+
+            Map<String, String> read = service.get(loggedInInfo, 5).values();
+            EFormData revision = service.revise(loggedInInfo, 5, null, read, CONTEXT);
+
+            assertThat(read).containsExactly(Map.entry("sites", ""));
+            assertThat(Jsoup.parse(revision.getFormData()).select("select[name=sites] option[selected]")).isEmpty();
+            assertThat(persistedValues()).isEmpty();
         }
     }
 }

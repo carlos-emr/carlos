@@ -29,7 +29,9 @@ width of `eform_values.var_name`) and the subject at most 255; longer ones are r
 cut, since a cut name could not be read back or sent back.
 
 Each name must be a text, hidden or date input, a checkbox, a radio group, a textarea or a select
-on the template, and a radio or select value must be one of its choices. A checkbox takes the
+on the template, and a radio or select value must be one of its choices. A single `<select>` accepts
+`""` only when it has an empty-valued `<option>`, since HTML always displays an option when none is
+selected; a `<select multiple>` accepts `""` to clear all selections. A checkbox takes the
 value a browser submits for it when checked: its `value` attribute, or `"on"` when it has none.
 `""` unchecks it. A name shared by several checkboxes is refused, because the form can only check
 the first of them. Any other value (a name not on the template, `type="number"`, a control the form
@@ -42,7 +44,8 @@ its first choice as its value; a PUT that sends that value back unchanged keeps 
 revised instance had, and a PUT that changes it selects that one choice.
 
 A GET returns each stored value, and `""` for each field the instance cleared from a nonblank
-template default (a radio group whose checked choice has a blank value included), so sending the
+template default (a radio group whose checked choice has a blank value and a single `<select>` whose
+implicit first enabled option is nonblank included), so sending the
 `values` back keeps those fields as they were. A GET response can always be sent back as a PUT: a
 stored value the current template cannot show (a browser save also stores values such as a
 `type="number"` field) is carried forward to the new revision unchanged, whether it is sent back or
@@ -71,10 +74,12 @@ A save through the API does what the browser save does, apart from the handoffs 
   attachments (documents, labs, forms, eForms, HRM reports) are copied to the revision, and the
   consultation packets and other eForms that attached the old row attach the revision instead. The
   old row keeps its own attachments as history. Without this, a consultation packet would list the
-  retired eForm as unavailable and leave it out. The links are copied as the old row has them and
-  are not checked again: a lab re-matched to another patient after the form was saved keeps the
-  link the old row already has, and the revision is allowed. A browser re-save checks each
-  attachment it submits and refuses one that no longer belongs to the patient.
+  retired eForm as unavailable and leave it out. Lab attachments are validated by `EFormDocsDao`
+  against `patientLabRouting` for the owning patient, matching the browser save: if a lab attached
+  to the old row was re-matched to another patient or has an unresolved/ambiguous source, the
+  revision is refused with `ATTACHMENT_UNAVAILABLE` and rolled back so the form can be revised in
+  the chart instead of carrying an invalid lab link. Non-lab attachment links are copied as the old
+  row has them.
 - Not part of this API: new attachments, fax, e-mail, PDF and eDoc handoffs.
 
 ## A saved instance is never rewritten
@@ -138,7 +143,7 @@ Only these are HTTP errors:
 Every other refusal is HTTP **200** with `"status": "ERROR"` and a message, this service's usual
 convention: `"Access Denied"`, a missing `fid` or `demographicNo` on POST, and the reasons
 `TEMPLATE_UNAVAILABLE`, `PATIENT_NOT_FOUND`, `INVALID_FIELD_NAME`, `INVALID_SUBJECT`,
-`UNSUPPORTED_FIELD` and `VALUES_REQUIRED` (their messages are in
+`UNSUPPORTED_FIELD`, `VALUES_REQUIRED` and `ATTACHMENT_UNAVAILABLE` (their messages are in
 `EFormInstanceService.EFormInstanceException.Reason`). Check `status`, not only the HTTP status.
 
 ## Authorization
@@ -168,9 +173,10 @@ content, with the patient).
 
 ## Tests
 
-`EFormInstanceServiceUnitTest`, `EFormServiceEndpointTest`, `OAuthScopesUnitTest`,
-`RestPrivilegeGuardContractUnitTest`, `RestTransferObjectDateShapeContractUnitTest`,
-`JaxbImplementationCompatibilityUnitTest`. Against a deployed, scoped-OAuth server,
+`EFormInstanceServiceUnitTest`, `EFormInstanceServiceIntegrationTest`, `EFormServiceEndpointTest`,
+`OAuthScopesUnitTest`, `RestPrivilegeGuardContractUnitTest`,
+`RestTransferObjectDateShapeContractUnitTest`, `JaxbImplementationCompatibilityUnitTest`. Against a
+deployed, scoped-OAuth server,
 `OAUTH_CLINICAL_API_ONLY=eforms.instances node scripts/oauth-clinical-api-playwright-checks.js` (manifest entry
 `oauth-clinical-api`) checks the endpoints end to end and how their results look to a provider in
 the browser (see `docs/ui-tests/oauth-clinical-api.md`).

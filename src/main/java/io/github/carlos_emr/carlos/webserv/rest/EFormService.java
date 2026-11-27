@@ -408,9 +408,9 @@ public class EFormService extends AbstractServiceImpl {
 			transferObj.setValues(new LinkedHashMap<>(instance.values()));
 			transferObj.setFormHtml(instance.data().getFormData());
 			return RestResponse.successResponse(transferObj);
-		} catch (EFormInstanceService.InstanceAccessDeniedException e) {
+		} catch (EFormInstanceService.InstanceAccessDeniedException _) {
 			return instanceHiddenResponse();
-		} catch (SecurityException e) {
+		} catch (SecurityException _) {
 			return RestResponse.errorResponse("Access Denied");
 		} catch (EFormInstanceException e) {
 			return instanceErrorResponse(e);
@@ -444,7 +444,7 @@ public class EFormService extends AbstractServiceImpl {
 			EFormData saved = eFormInstanceService.create(getLoggedInInfo(), request.getFid(),
 					request.getDemographicNo(), request.getSubject(), request.getValues(), contextPath());
 			return RestResponse.successResponse(toSavedInstanceTransferObject(saved, request));
-		} catch (SecurityException e) {
+		} catch (SecurityException _) {
 			return RestResponse.errorResponse("Access Denied");
 		} catch (EFormInstanceException e) {
 			return instanceErrorResponse(e);
@@ -490,9 +490,9 @@ public class EFormService extends AbstractServiceImpl {
 			EFormData saved = eFormInstanceService.revise(getLoggedInInfo(), fdid, request.getSubject(),
 					request.getValues(), contextPath());
 			return RestResponse.successResponse(toSavedInstanceTransferObject(saved, request));
-		} catch (EFormInstanceService.InstanceAccessDeniedException e) {
+		} catch (EFormInstanceService.InstanceAccessDeniedException _) {
 			return instanceHiddenResponse();
-		} catch (SecurityException e) {
+		} catch (SecurityException _) {
 			return RestResponse.errorResponse("Access Denied");
 		} catch (EFormInstanceException e) {
 			return instanceErrorResponse(e);
@@ -523,9 +523,9 @@ public class EFormService extends AbstractServiceImpl {
 		try {
 			eFormInstanceService.delete(getLoggedInInfo(), fdid);
 			return RestResponse.successResponse(fdid);
-		} catch (EFormInstanceService.InstanceAccessDeniedException e) {
+		} catch (EFormInstanceService.InstanceAccessDeniedException _) {
 			return instanceHiddenResponse();
-		} catch (SecurityException e) {
+		} catch (SecurityException _) {
 			return RestResponse.errorResponse("Access Denied");
 		} catch (EFormInstanceException e) {
 			return instanceErrorResponse(e);

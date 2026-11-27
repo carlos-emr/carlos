@@ -50,6 +50,7 @@ import org.springframework.stereotype.Repository;
 @SuppressWarnings("unchecked")
 public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements ConsultDocsDao {
     private static final String DEMOGRAPHIC_MODULE = "demographic";
+    private static final String PARAM_DOC_TYPE = "docType";
 
     private static final String EFORM_OR_DOCUMENT_UNAVAILABLE_CONDITION =
             "(cd.docType = :eformType AND ("
@@ -160,7 +161,7 @@ public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements 
     public List<Object[]> findLabs(Integer consultationId) {
         Query q = entityManager.createQuery("SELECT cd, plr FROM ConsultDocs cd, PatientLabRouting plr WHERE plr.labNo = cd.documentNo AND plr.labType = cd.labType AND EXISTS (select owner.id from ConsultationRequest owner where owner.id = cd.requestId and owner.demographicId = plr.demographicNo) AND cd.requestId = :consultationId AND cd.docType = :docType AND cd.deleted IS NULL ORDER BY cd.documentNo");
         q.setParameter("consultationId", consultationId);
-        q.setParameter("docType", ConsultDocs.DOCTYPE_LAB);
+        q.setParameter(PARAM_DOC_TYPE, ConsultDocs.DOCTYPE_LAB);
         return q.getResultList();
     }
 
@@ -183,7 +184,7 @@ public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements 
     @Override
     public List<ConsultDocs> findByRequestIdDocTypeForUpdate(Integer id, String docType) {
         return entityManager.createQuery("select x from ConsultDocs x where x.requestId = :id and x.docType = :docType and x.deleted is null", ConsultDocs.class)
-                .setParameter("id", id).setParameter("docType", docType)
+                .setParameter("id", id).setParameter(PARAM_DOC_TYPE, docType)
                 .setLockMode(LockModeType.PESSIMISTIC_WRITE).getResultList();
     }
 
@@ -192,7 +193,7 @@ public class ConsultDocsDaoImpl extends AbstractDaoImpl<ConsultDocs> implements 
         // Ordered by id, so concurrent callers lock the rows in the same order.
         return entityManager.createQuery("select x from ConsultDocs x where x.docType = :docType"
                         + " and x.documentNo = :documentNo and x.deleted is null order by x.id", ConsultDocs.class)
-                .setParameter("docType", docType).setParameter("documentNo", documentNo)
+                .setParameter(PARAM_DOC_TYPE, docType).setParameter("documentNo", documentNo)
                 .setLockMode(LockModeType.PESSIMISTIC_WRITE).getResultList();
     }
 }

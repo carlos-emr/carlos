@@ -547,6 +547,22 @@ class EFormServiceEndpointTest extends CarlosRestTestBase {
         }
 
         @Test
+        @DisplayName("PUT should report the attachment refusal reason when a lab link can no longer be carried")
+        void shouldReportReason_whenLabAttachmentUnavailable() {
+            when(mockInstanceService.revise(any(), eq(5), any(), any(), any()))
+                .thenThrow(new EFormInstanceException(EFormInstanceException.Reason.ATTACHMENT_UNAVAILABLE));
+
+            Response response = request().path("/eform/instance/5")
+                .put(jakarta.ws.rs.client.Entity.json("{\"values\":{}}"));
+
+            var wireJson = responseJson(response);
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(wireJson.at("/status").textValue()).isEqualTo("ERROR");
+            assertThat(wireJson.at("/error/message").textValue())
+                .isEqualTo(EFormInstanceException.Reason.ATTACHMENT_UNAVAILABLE.message());
+        }
+
+        @Test
         @DisplayName("DELETE should return 409 when the instance was already deleted or revised")
         void shouldReturn409_whenDeletingRetiredInstance() {
             doThrow(new EFormInstanceException(EFormInstanceException.Reason.RETIRED))

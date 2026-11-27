@@ -88,6 +88,7 @@ public class EForm extends EFormBase {
     private static final String INPUT_TAG = "input";
     private static final String HIDDEN_INPUT_TYPE = "hidden";
     private static final String VALUE_ATTRIBUTE = "value";
+    private static final String CHECKED_ATTRIBUTE = "checked";
     private static final String SCRIPT_TAG = "script";
     private static final String LEGACY_JQUERY_SOURCE = "jquery-1.12.0.min.js";
     private static final String LEGACY_JQUERY_DISPLAY_PATH = "/eform/jquery-1.12.0.min.js";
@@ -386,7 +387,7 @@ public class EForm extends EFormBase {
         Document document = getDocument();
         if (document == null) return;
         for (Element box : checkboxesNamed(document, fieldName)) {
-            box.removeAttr("checked");
+            box.removeAttr(CHECKED_ATTRIBUTE);
         }
         // Flush the edited DOM to formHtml now: the later string-level steps (setAction,
         // setNowDateTime) read the field directly and would otherwise be overwritten by it.
@@ -409,9 +410,9 @@ public class EForm extends EFormBase {
         for (Element box : checkboxesNamed(document, fieldName)) {
             String submitted = box.hasAttr(VALUE_ATTRIBUTE) ? box.attr(VALUE_ATTRIBUTE) : "on";
             if (submitted.equals(value)) {
-                box.attr("checked", "checked");
+                box.attr(CHECKED_ATTRIBUTE, CHECKED_ATTRIBUTE);
             } else {
-                box.removeAttr("checked");
+                box.removeAttr(CHECKED_ATTRIBUTE);
             }
         }
         getFormHtml();
