@@ -46,7 +46,10 @@ template default (a radio group whose checked choice has a blank value included)
 `values` back keeps those fields as they were. A GET response can always be sent back as a PUT: a
 stored value the current template cannot show (a browser save also stores values such as a
 `type="number"` field) is carried forward to the new revision unchanged, whether it is sent back or
-left out. It cannot be changed through the API; a different value for such a field is refused.
+left out. It cannot be changed through the API; a different value for such a field is refused. When
+the field's control is still on the template, the revision shows the carried value the way a browser
+re-save of the same instance shows it: a radio value that is no longer one of the choices (the
+template was edited) leaves every choice unchecked, and a checkbox group's value checks the box.
 
 ## What a save does
 
@@ -144,7 +147,8 @@ patient (or, on POST, the requested one). A template or instance with a `roleTyp
 `_eform.<roleType>`. A caller without the `_eform` right itself gets the service's usual `200` with
 `"Access Denied"`. On GET, PUT and DELETE, an instance the caller may not see (its patient, patient
 record or role) gets **404**, exactly as a missing instance does, so a caller cannot learn which
-`fdid`s exist. An instance already retired gets **409**, but only after those checks pass. On
+`fdid`s exist. The one exception is a PUT whose template has since been given a `roleType` the caller
+lacks: the instance itself is visible to that caller, so the PUT gets `"Access Denied"` instead. An instance already retired gets **409**, but only after those checks pass. On
 POST, a patient the caller may not write to is answered exactly as a patient that does not exist,
 and those checks run before the patient is looked up. Every operation writes an audit row (`eform`
 content, with the patient).

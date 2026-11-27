@@ -263,7 +263,8 @@ public class EFormInstanceService {
      * @param values the complete field values of the revision; required
      * @param contextPath the application's context path, for the links the chart writes put in notes
      * @return the new {@code eform_data} row; its id is the instance's new fdid
-     * @throws SecurityException when the caller lacks {@code _eform} write access
+     * @throws SecurityException when the caller lacks {@code _eform} write access, or the role the
+     *         instance's template now requires
      * @throws InstanceAccessDeniedException when the caller may not revise this instance
      * @throws EFormInstanceException when the values are missing, the instance is missing, already
      *         retired or superseded by a newer form, its template is gone, the subject or a field
@@ -296,11 +297,11 @@ public class EFormInstanceService {
         if (template == null) {
             throw new EFormInstanceException(EFormInstanceException.Reason.TEMPLATE_UNAVAILABLE);
         }
-        try {
-            requireRoleTypeAccess(loggedInInfo, template.getRoleType());
-        } catch (SecurityException denied) {
-            throw new InstanceAccessDeniedException(denied.getMessage());
-        }
+        // The template's role as it is now, which an administrator may have added since this row was
+        // saved. The row itself already passed requireInstanceAccess, so its existence is no secret
+        // to this caller: refuse plainly ("Access Denied") rather than answer "not found" to a caller
+        // who can GET and DELETE the same fdid.
+        requireRoleTypeAccess(loggedInInfo, template.getRoleType());
         if (template.isShowLatestFormOnly() && hasNewerCurrentForm(previous)) {
             throw new EFormInstanceException(EFormInstanceException.Reason.SUPERSEDED);
         }
@@ -440,8 +441,8 @@ public class EFormInstanceService {
                 if (checkboxClears.contains(entry.getKey())) {
                     continue; // setValues would check the box for any value; cleared below
                 }
-                if (plan.carried().containsKey(entry.getKey())) {
-                    continue; // the template cannot show it; stored as a value row below
+                if (plan.carried().containsKey(entry.getKey()) && !plan.rendered().contains(entry.getKey())) {
+                    continue; // the template has no control for it; stored as a value row below
                 }
                 names.add(entry.getKey());
                 fieldValues.add(entry.getValue());
@@ -470,6 +471,9 @@ public class EFormInstanceService {
             }
         }
         for (Map.Entry<String, String> carried : plan.carried().entrySet()) {
+            if (plan.rendered().contains(carried.getKey())) {
+                continue; // already submitted to setValues and given its value row above
+            }
             if (!carried.getValue().trim().isEmpty()) {
                 names.add(carried.getKey());
                 fieldValues.add(carried.getValue());
@@ -603,10 +607,16 @@ public class EFormInstanceService {
      * How the submitted values are saved.
      *
      * @param checkboxClears checkboxes a blank value explicitly unchecks
-     * @param carried values the template cannot show, kept as value rows only, because they are
-     *                exactly what the revised row stored
+     * @param carried values the template cannot show as sent, kept because they are exactly what
+     *                the revised row stored
+     * @param rendered the carried names that still have a settable control. They are passed to
+     *                 {@link EForm#setValues} like any value, so the revision shows what a browser
+     *                 re-save of the same row shows: a radio value that is no longer one of its
+     *                 choices unchecks every choice instead of leaving the template default checked,
+     *                 and a checkbox group's value checks the box as the browser save did. The rest
+     *                 are kept as value rows only.
      */
-    private record ValuePlan(Set<String> checkboxClears, Map<String, String> carried) {
+    private record ValuePlan(Set<String> checkboxClears, Map<String, String> carried, Set<String> rendered) {
     }
 
     /**
@@ -616,15 +626,17 @@ public class EFormInstanceService {
      * select value that matches none of its choices, and a checkbox value other than the box's
      * own. Null values are not submitted and pass. A refused value that equals the revised row's
      * stored value is carried instead, and so is such a stored value when it is not sent back, so
-     * a revision never loses what a browser save stored.
+     * a revision never loses what a browser save stored. A carried value whose control is still on
+     * the template is rendered as a browser re-save renders it.
      */
     private static ValuePlan planValues(String templateHtml, Map<String, String> values,
                                         Map<String, String> previousValues) {
         Set<String> checkboxClears = new LinkedHashSet<>();
         Map<String, String> carried = new LinkedHashMap<>();
+        Set<String> rendered = new LinkedHashSet<>();
         boolean submitted = values != null && values.values().stream().anyMatch(java.util.Objects::nonNull);
         if (!submitted && previousValues.isEmpty()) {
-            return new ValuePlan(checkboxClears, carried);
+            return new ValuePlan(checkboxClears, carried, rendered);
         }
         Document template = parse(templateHtml);
         if (values != null) {
@@ -640,6 +652,9 @@ public class EFormInstanceService {
                 }
                 if (value.equals(previousValues.get(name))) {
                     carried.put(name, value);
+                    if (type != null) {
+                        rendered.add(name);
+                    }
                     continue;
                 }
                 throw new EFormInstanceException(EFormInstanceException.Reason.UNSUPPORTED_FIELD);
@@ -652,7 +667,7 @@ public class EFormInstanceService {
                 carried.put(name, stored.getValue());
             }
         }
-        return new ValuePlan(checkboxClears, carried);
+        return new ValuePlan(checkboxClears, carried, rendered);
     }
 
     /** Whether {@link EForm#setValues} shows this value in the named control of this type. */

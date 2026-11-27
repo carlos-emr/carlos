@@ -815,16 +815,19 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should refuse as an instance-level denial when the template, not the row, is role restricted")
-        void shouldRefuseAsInstanceDenial_whenTemplateRoleTypeDenied() {
+        @DisplayName("should refuse plainly, not as not-found, when the template but not the row is role restricted")
+        void shouldRefuseAsAccessDenied_whenOnlyTemplateRoleTypeDenied() {
             when(eFormDao.findById(FID)).thenReturn(template(true, "doctor"));
             EFormData previous = instance(5, true);
             when(eFormDataDao.lockForAttachmentSync(5)).thenReturn(previous);
             when(securityInfoManager.hasPrivilege(any(), eq("_eform.doctor"), anyString(), nullable(String.class)))
                     .thenReturn(false);
 
+            // The row passed its own checks, so the caller can GET and DELETE it: hiding it as
+            // not found on PUT alone would be inconsistent.
             assertThatThrownBy(() -> service.revise(loggedInInfo, 5, null, Map.of(), CONTEXT))
-                    .isInstanceOf(InstanceAccessDeniedException.class)
+                    .isInstanceOf(SecurityException.class)
+                    .isNotInstanceOf(InstanceAccessDeniedException.class)
                     .hasMessage("missing required sec object (_eform.doctor)");
             assertThat(previous.isCurrent()).isTrue();
             verify(eformDataManager, never()).saveEformData(any(), any());
@@ -856,6 +859,54 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
             EFormData changed = service.revise(loggedInInfo, 5, null, Map.of("sites", "b"), CONTEXT);
             assertThat(Jsoup.parse(changed.getFormData()).select("select[name=sites] option[selected]"))
                     .extracting(option -> option.attr("value")).containsExactly("b");
+        }
+
+        @Test
+        @DisplayName("should uncheck every radio, as a browser re-save does, when a carried value is no longer a choice")
+        void shouldUncheckEveryRadio_whenCarriedValueIsNoLongerAChoice() {
+            // The template was edited from Y/N to Yes/No (No checked) after the row stored allergy=Y.
+            String templateHtml = "<html><body><form>"
+                    + "<input type=\"radio\" name=\"allergy\" value=\"Yes\">"
+                    + "<input type=\"radio\" name=\"allergy\" value=\"No\" checked>"
+                    + "</form></body></html>";
+            EForm template = template(true, null);
+            template.setFormHtml(templateHtml);
+            when(eFormDao.findById(FID)).thenReturn(template);
+            when(eFormDataDao.lockForAttachmentSync(5)).thenAnswer(call -> instance(5, true));
+            EFormValue stored = new EFormValue();
+            stored.setVarName("allergy");
+            stored.setVarValue("Y");
+            when(eFormValueDao.findByFormDataId(5)).thenReturn(List.of(stored));
+
+            EFormData revision = service.revise(loggedInInfo, 5, null, Map.of("allergy", "Y"), CONTEXT);
+
+            assertThat(Jsoup.parse(revision.getFormData()).select("input[name=allergy][checked]")).isEmpty();
+            assertThat(persistedValues()).extracting(EFormValue::getVarName, EFormValue::getVarValue)
+                    .containsExactly(org.assertj.core.groups.Tuple.tuple("allergy", "Y"));
+        }
+
+        @Test
+        @DisplayName("should check the box a browser save checked when a carried checkbox group value is sent back")
+        void shouldCheckBox_whenCarriedCheckboxGroupValueSentBack() {
+            String templateHtml = "<html><body><form>"
+                    + "<input type=\"checkbox\" name=\"symptoms\" value=\"cough\">"
+                    + "<input type=\"checkbox\" name=\"symptoms\" value=\"fever\">"
+                    + "</form></body></html>";
+            EForm template = template(true, null);
+            template.setFormHtml(templateHtml);
+            when(eFormDao.findById(FID)).thenReturn(template);
+            when(eFormDataDao.lockForAttachmentSync(5)).thenAnswer(call -> instance(5, true));
+            EFormValue stored = new EFormValue();
+            stored.setVarName("symptoms");
+            stored.setVarValue("cough");
+            when(eFormValueDao.findByFormDataId(5)).thenReturn(List.of(stored));
+
+            EFormData revision = service.revise(loggedInInfo, 5, null, Map.of("symptoms", "cough"), CONTEXT);
+
+            assertThat(Jsoup.parse(revision.getFormData()).select("input[name=symptoms][checked]"))
+                    .extracting(box -> box.attr("value")).contains("cough");
+            assertThat(persistedValues()).extracting(EFormValue::getVarName, EFormValue::getVarValue)
+                    .containsExactly(org.assertj.core.groups.Tuple.tuple("symptoms", "cough"));
         }
     }
 
