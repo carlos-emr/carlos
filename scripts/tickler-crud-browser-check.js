@@ -60,12 +60,13 @@ vm.runInNewContext(
     await page.route('http://tickler.test/**', async route => {
       const url = new URL(route.request().url());
       if (url.pathname === '/') {
-        await route.fulfill({
-          contentType: 'text/html',
-          headers: {'Permissions-Policy': 'unload=()'},
-          body: '<!doctype html><button id="save">Save edit</button><table id="ticklerResults">'
-            + '<thead><tr><th>Message</th></tr></thead><tbody></tbody></table>',
-        });
+        // Chromium refuses unload listeners (on a share of page loads from 146, on all of them
+        // from 155) and logs a console error for each one (#6346). Refuse them here as well, so a
+        // fixture that registers one fails on every Chromium rather than on some page loads.
+        await route.fulfill({contentType: 'text/html', headers: {'Permissions-Policy': 'unload=()'},
+          body: '<!doctype html>'
+          + '<button id="save">Save edit</button><table id="ticklerResults">'
+          + '<thead><tr><th>Message</th></tr></thead><tbody></tbody></table>'});
         return;
       }
       if (url.pathname === '/favicon.ico') {
@@ -89,7 +90,7 @@ vm.runInNewContext(
     const library = path.join(__dirname, '../src/main/webapp/library');
     await page.addScriptTag({path: path.join(library, 'jquery/jquery-3.7.1.min.js')});
     await page.addScriptTag({path: path.join(library, 'DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js')});
-    await page.evaluate(() => {
+    const refreshListener = await page.evaluateHandle(() => {
       const table = window.jQuery('#ticklerResults').DataTable({
         serverSide: true, processing: true, ajax: '/tickler/ListTicklers', columns: [{data: 'message'}],
       });
@@ -100,9 +101,7 @@ vm.runInNewContext(
         sender.postMessage({action: 'refresh'});
         sender.close();
       });
-      window.addEventListener('pagehide', event => {
-        if (!event.persisted) listener.close();
-      });
+      return listener;
     });
     await helpers.ready(page);
     holdReset = true;
@@ -123,6 +122,9 @@ vm.runInNewContext(
     await helpers.refresh(page, () => page.locator('#save').click());
     assert.equal(searches.length, beforeRefresh + 1, 'An edit must refresh the list exactly once');
     assert.equal(await page.locator('#ticklerResults tbody').innerText(), 'edited tickler');
+    // Explicit teardown replaces the refused unload cleanup; the checks below still see its errors.
+    await refreshListener.evaluate(listener => listener.close());
+    await refreshListener.dispose();
     assert.deepEqual(failures, []);
     assert.deepEqual(errors, []);
     console.log('PASS tickler CRUD synchronization: native DataTables searches, held reset, and broadcast refresh');
