@@ -278,6 +278,37 @@ class CarlosEncodeTagUnitTest {
             assertThat(captured.toString()).isEqualTo(Encode.forCDATA("section data]]>"));
         }
 
+        /**
+         * The multi-label switch cases (#5477) must keep every documented alias on the same
+         * encoder as its primary name, in any letter case.
+         */
+        @Test
+        void shouldMapEveryDocumentedAlias_toTheSameEncoderAsItsPrimaryName() throws JspException {
+            String input = "O'Brien & <b>\"x\" \\ /";
+            String[][] aliases = {
+                    {"htmlContent", "html"}, {"HTMLCONTENT", "html"}, {"hTmLcOnTeNt", "html"},
+                    {"javaScript", "js"}, {"JAVASCRIPT", "js"}, {"JS", "javaScript"},
+                    {"cssString", "css"}, {"CSSSTRING", "css"}, {"CSS", "cssString"}
+            };
+            for (String[] pair : aliases) {
+                assertThat(render(pair[0], input)).as("%s vs %s", pair[0], pair[1])
+                        .isEqualTo(render(pair[1], input));
+            }
+            assertThat(render("htmlContent", input)).isEqualTo(Encode.forHtmlContent(input));
+            assertThat(render("javaScript", input)).isEqualTo(Encode.forJavaScript(input));
+            assertThat(render("cssString", input)).isEqualTo(Encode.forCssString(input));
+        }
+
+        private String render(String context, String value) throws JspException {
+            CarlosEncodeTag t = new CarlosEncodeTag();
+            StringWriter sw = new StringWriter();
+            t.setPageContext(new CapturingPageContext(new CapturingJspWriter(sw)));
+            t.setContext(context);
+            t.setValue(value);
+            t.doStartTag();
+            return sw.toString();
+        }
+
         @Test
         void shouldBeCaseInsensitive_forContextNames() throws JspException {
             // HTML / Html / hTmL all route to forHtmlContent

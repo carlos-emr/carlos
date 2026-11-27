@@ -29,6 +29,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -45,6 +46,7 @@ import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
+import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToProviderDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToDemographic;
@@ -145,6 +147,25 @@ class HRMDisplayReport2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(new HRMDisplayReport2Action().execute()).isEqualTo("display");
         verify(security, never()).isAllowedAccessToPatientRecord(any(LoggedInInfo.class), anyInt());
+    }
+
+    /**
+     * The 404 for a report id that names no report is the viewer page's (displayHRMReport.jsp reads
+     * the row with HRMDocumentDao.find), not this gate's: with no row there are no patient links,
+     * so the gate forwards without reading the report (#6135; HrmReportViewerJspIntegrationTest
+     * renders the 404, #6336).
+     */
+    @Test
+    @DisplayName("should leave a report id that names no report to the viewer page")
+    void shouldForwardToViewerWithoutReadingTheReport_whenNoReportHasTheId() {
+        HRMDocumentDao documents = mock(HRMDocumentDao.class);
+        registerMock(HRMDocumentDao.class, documents);
+        request.setParameter("id", "987");
+        when(links.findByHrmDocumentId(987)).thenReturn(List.of());
+
+        assertThat(new HRMDisplayReport2Action().execute()).isEqualTo("display");
+        assertThat(request.getAttribute("criteria")).isNotNull();
+        verifyNoInteractions(documents);
     }
 
     @Test

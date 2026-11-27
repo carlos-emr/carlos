@@ -10,8 +10,8 @@
  * Asserts: the CSV parses (RFC 4180) to the report's own header row and one row per listed claim; each owned
  * row's SERVICE DATE, PATIENT, CODE, BILLED, PAID, ADJ, TYPE and INVOICE # equal what the claim was billed and
  * the RA paid (money to the cent); a patient name carrying an accent, a quote and a comma survives the file
- * round trip; the Excel file is a table of the same rows; and (LAST, fails today) a negative adjustment is
- * exported as a number, not as a tab-prefixed text cell, and the CSV declares its UTF-8 encoding (BOM) so a
+ * round trip; a genuine leading tab is guarded and a blank name stays blank; the Excel file is a table of the
+ * same rows; a negative adjustment is exported as a number; and the CSV declares its UTF-8 encoding (BOM) so a
  * spreadsheet shows the accent instead of mojibake.
  * Fixtures: createBillingFixture (owned provider and HIN), three submitted claims, two owned raheader/radetail
  * rows (one paying MORE than billed so the adjustment is negative); cleanup removes them and asserts it.
@@ -44,7 +44,11 @@ async function workflow(s) {
   const two = owned.addClaim({ tag: 'TWO', date, status: 'B', items: [{ code: 'A001A', fee: feeB }] });
   const three = owned.addClaim({ tag: 'THREE', date, status: 'B', items: [{ code: 'K030A', fee: feeK }] });
   // The report prints the name stored on the claim header when it was billed.
-  sql.execute(`UPDATE billing_on_cheader1 SET demographic_name=${q(`${marker},${FIRST}`)} WHERE id IN (${one.id},${two.id},${three.id})`);
+  const dbName = `${marker},${FIRST}`;
+  sql.execute(`UPDATE billing_on_cheader1 SET demographic_name=${q(dbName)} WHERE id=${one.id};
+    UPDATE billing_on_cheader1 SET demographic_name=${q(`\t${dbName}`)} WHERE id=${two.id};
+    UPDATE billing_on_cheader1 SET demographic_name='' WHERE id=${three.id}`);
+  const guardedName = `\t\t${dbName}`;
   const payOne = '30.00';
   const payTwo = '150.00'; // more than billed: the adjustment is negative
   const ownedRa = `SELECT raheader_no FROM raheader WHERE payable=${q(marker)}`;
@@ -90,11 +94,12 @@ async function workflow(s) {
     }));
     const col = table.head.findIndex(title => title === 'INVOICE #');
     h.assert(col >= 0, 'The report has no INVOICE # column');
-    table.mine = table.rows.filter(r => ids.includes(r[col]));
-    h.assert(table.mine.length === 3, `The report lists ${table.mine.length} of the three owned claims`);
+    const mine = table.rows.filter(r => ids.includes(r[col]));
+    h.assert(mine.length === ids.length && ids.every(id => mine.some(r => r[col] === id)),
+      'The report must list each of the three owned claims once');
     const adj = table.head.indexOf('ADJ');
     const paid = table.head.indexOf('PAID');
-    const byId = Object.fromEntries(table.mine.map(r => [r[col], r]));
+    const byId = Object.fromEntries(mine.map(r => [r[col], r]));
     h.assert(Number(byId[two.id][paid].replace(/[^\d.-]/g, '')) === Number(payTwo)
       && Number(byId[two.id][adj]) === Number(money(Number(feeB) - Number(payTwo))),
     'The overpaid claim does not show its RA payment and negative adjustment on screen');
@@ -112,33 +117,37 @@ async function workflow(s) {
     h.assert(file.name === 'carlos_invoices.csv', 'The CSV download is not named carlos_invoices.csv');
     csv = x.parseCsv(file.bytes.toString('utf8').replace(/^﻿/, ''));
     h.assert(JSON.stringify(csv[0]) === JSON.stringify(table.head.map(flat)), 'The CSV header row is not the report header row');
-    const body = csv.slice(1).filter(r => r.some(c => c !== ''));
+    const body = csv.slice(1);
     h.assert(body.length === table.rows.length, `The CSV has ${body.length} data rows, the report lists ${table.rows.length}`);
-    const mine = body.filter(r => ids.includes(r[col('INVOICE #')]));
-    h.assert(mine.length === 3, 'The CSV does not carry the three owned claims');
-    for (const row of mine) {
-      const shown = table.mine.find(r => r[col('INVOICE #')] === row[col('INVOICE #')]);
-      table.head.forEach((title, i) => {
-        // Negative numbers are checked in the last step; here every other cell must equal the report cell.
-        if (/^[\t]?-\d/.test(row[i]) && shown[i] === row[i].replace(/^\t/, '')) return;
-        h.assert(row[i] === shown[i], `The CSV cell for ${title} of invoice ${row[col('INVOICE #')]} differs from the report cell`);
+    const invoiceCol = col('INVOICE #');
+    const nameCol = col('PATIENT NAME');
+    body.forEach((row, rowIndex) => {
+      const shown = table.rows[rowIndex];
+      h.assert(row.length === shown.length, `CSV row ${rowIndex + 1} has ${row.length} cells, the report has ${shown.length}`);
+      shown.forEach((cell, i) => {
+        // The screen trims the fixture's leading tab; the CSV keeps it and adds the guard tab.
+        const expected = i === nameCol && shown[invoiceCol] === two.id ? `\t\t${cell}` : cell;
+        h.assert(row[i] === expected, `CSV row ${rowIndex + 1}, column ${table.head[i]} differs from the report`);
       });
-    }
+    });
   });
 
   await s.step('the CSV cells equal the billed fee, RA payment, code, date and the patient name as stored', async () => {
     const body = csv.slice(1).filter(r => ids.includes(r[col('INVOICE #')]));
-    const expected = { [one.id]: ['A007A', feeA, payOne], [two.id]: ['A001A', feeB, payTwo], [three.id]: ['K030A', feeK, null] };
-    const dbName = `${marker},${FIRST}`;
+    const expected = {
+      [one.id]: ['A007A', feeA, payOne, dbName],
+      [two.id]: ['A001A', feeB, payTwo, guardedName],
+      [three.id]: ['K030A', feeK, null, ''],
+    };
     for (const row of body) {
-      const [code, fee, pay] = expected[row[col('INVOICE #')]];
+      const [code, fee, pay, name] = expected[row[col('INVOICE #')]];
       h.assert(row[col('CODE')] === code, 'A CSV row has the wrong service code');
       h.assert(row[col('SERVICE DATE')] === date, `A CSV row has service date "${row[col('SERVICE DATE')]}" instead of "${date}"`);
       h.assert(row[col('PATIENT')] === String(patient), 'A CSV row has the wrong patient number');
       h.assert(Number(row[col('BILLED')].replace(/[^\d.-]/g, '')) === Number(fee), 'A CSV row has the wrong billed amount');
       if (pay !== null) h.assert(Number(row[col('PAID')].replace(/[^\d.-]/g, '')) === Number(pay), 'A CSV row has the wrong paid amount');
-      h.assert(x.squash(row[col('PATIENT NAME')]) === x.squash(dbName),
-        'A CSV row does not carry the patient name as stored (accent, quote, comma)');
+      h.assert(row[col('PATIENT NAME')] === name,
+        'A CSV row has the wrong patient name (accent, quote, comma, leading tab, or blank name)');
     }
   });
 

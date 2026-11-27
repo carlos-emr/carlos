@@ -107,7 +107,8 @@ hold_as_configure() {
 }
 
 hold_as_import() {
-    python3 - "${LOCK}" "${WORKSPACE}" "${READY}" <<'PY' &
+    (
+        exec python3 - "${LOCK}" "${WORKSPACE}" "${READY}" <<'PY'
 import sys, time
 sys.path.insert(0, "/usr/lib/carlos-ctl")
 from carlos_ctl import o19import
@@ -115,6 +116,7 @@ o19import.take_db_ownership_lock(sys.argv[1], sys.argv[2])
 open(sys.argv[3], "x").close()
 time.sleep(600)
 PY
+    ) &
     HOLDER=$!
     wait_held
 }

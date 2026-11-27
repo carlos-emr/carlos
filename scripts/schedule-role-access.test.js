@@ -23,7 +23,12 @@
 'use strict';
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { DatabaseSync } = require('node:sqlite');
+let DatabaseSync;
+try {
+  ({ DatabaseSync } = require('node:sqlite'));
+} catch (error) {
+  if (error.code !== 'ERR_UNKNOWN_BUILTIN_MODULE') throw error;
+}
 const { schedulelessRole } = require('./schedule-role-access-playwright-checks');
 
 test('the complete random marker and role suffix fit the actual30-character privilege key', () => {
@@ -33,7 +38,7 @@ test('the complete random marker and role suffix fit the actual30-character priv
   }
   assert.notEqual(schedulelessRole('FAKE-PW871f5a24ebe3648a'),schedulelessRole('FAKE-PW871f5a24ebe3648b'));
 });
-test('actual SQL exact cleanup removes the new role without truncation and preserves a foreign prefix control', () => {
+test('actual SQL exact cleanup removes the new role without truncation and preserves a foreign prefix control', { skip: !DatabaseSync }, () => {
   const db=new DatabaseSync(':memory:');
   try {
     db.exec('CREATE TABLE secObjPrivilege(roleUserGroup TEXT PRIMARY KEY CHECK(length(roleUserGroup)<=30),objectName TEXT)');

@@ -311,6 +311,7 @@ test('an assignment without text changes is saved before changing the editor', (
 test('cancelling Exit after an assignment-only edit keeps the chart open', () => {
   const h = harness(); let closed = false; let stopped = false;
   vm.runInContext(block('    var closeWithoutSaveMsg;', '    // Bind each newly rendered editor'), h.context);
+  h.context.heldNoteInsertions = [];
   h.context.lostNoteLock = false; h.context.origCaseNote = 'same'; h.context.$F = () => 'same';
   h.context.caseNote = 'editor'; h.context.origObservationDate = 'same date';
   h.fields.observationDate = { value: 'same date' }; h.context.noteIssuesChanged = true;

@@ -23,8 +23,10 @@ class SpecialistContactEditPersisterUnitTest {
         var persister = new SpecialistContactEditPersister(security);
         ReflectionTestUtils.setField(persister, "entityManager", em);
         when(security.hasPrivilege(info, "_demographic", "w", (String) null)).thenReturn(true);
-        ProfessionalContact submitted = new ProfessionalContact(); submitted.setId(12);
-        ProfessionalSpecialist current = new ProfessionalSpecialist(); current.setStreetAddress("Original");
+        ProfessionalContact submitted = new ProfessionalContact();
+        submitted.setId(12);
+        ProfessionalSpecialist current = new ProfessionalSpecialist();
+        current.setStreetAddress("Original");
         String oldVersion = SpecialistContactEditVersion.of(current);
         current.setStreetAddress("Newer saved address");
         when(em.find(ProfessionalSpecialist.class, 12, LockModeType.PESSIMISTIC_WRITE)).thenReturn(current);

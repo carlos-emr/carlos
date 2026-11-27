@@ -17,7 +17,9 @@ class ConsultationListCorrectionsIntegrationTest extends CarlosTestBase {
 
     private ConsultationRequest save(String team, String status, String site) {
         var request = new ConsultationRequest();
-        request.setSendTo(team); request.setStatus(status); request.setSiteName(site);
+        request.setSendTo(team);
+        request.setStatus(status);
+        request.setSiteName(site);
         dao.persist(request);
         return request;
     }
@@ -40,7 +42,9 @@ class ConsultationListCorrectionsIntegrationTest extends CarlosTestBase {
     @Test
     void shouldKeepSiteOrderAndStableTies_acrossPageBoundaries() {
         String team = "sort" + Long.toString(System.nanoTime(), 36);
-        var z = save(team, "1", "Z"); var a = save(team, "1", "A"); var a2 = save(team, "1", "A");
+        var z = save(team, "1", "Z");
+        var a = save(team, "1", "A");
+        var a2 = save(team, "1", "A");
         assertThat(dao.getConsultationListRows(filter(team, true, "0", 0, 2)))
                 .extracting(ConsultationListRow::id).containsExactly(a.getId(), a2.getId());
         assertThat(dao.getConsultationListRows(filter(team, true, "0", 2, 2)))
