@@ -22,8 +22,10 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.test.builders.ProviderTestBuilder;
 import io.github.carlos_emr.carlos.commn.model.Favorite;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -50,6 +52,12 @@ public class FavoriteDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private FavoriteDao dao;
+
+    @BeforeEach
+    void persistFavoriteOwner() {
+        hibernateTemplate.save(ProviderTestBuilder.aProvider().withProviderNo("FAVFIX").build());
+        hibernateTemplate.flush();
+    }
 
     /**
      * Helper to create a Favorite with specific provider number and name.
@@ -163,6 +171,39 @@ public class FavoriteDaoIntegrationTest extends CarlosTestBase {
 
         assertThat(repeated.getFavoriteId()).isEqualTo(original.getFavoriteId());
         assertThat(dao.findByProviderNo("FAVFIX")).hasSize(1);
+    }
+
+    @Test
+    void reusesEquivalentStrengthSpellingAndKeepsRecordedComponents() {
+        var original = favoriteForSave("Combination");
+        original.setGN("Synthetic 250.0mg");
+        original.setDosage("250.0mg");
+        assertThat(original.Save()).isTrue();
+
+        var equivalent = favoriteForSave("Combination");
+        equivalent.setGN("Synthetic 250mg");
+        equivalent.setDosage("250mg");
+        assertThat(equivalent.Save()).isTrue();
+        assertThat(equivalent.getFavoriteId()).isEqualTo(original.getFavoriteId());
+
+        String components = "[{\"name\":\"Synthetic\",\"strength\":\"250\",\"unit\":\"mg\"}]";
+        var documented = favoriteForSave("Combination");
+        documented.setGN("Synthetic 250mg");
+        documented.setDosage("250mg");
+        documented.setMedicationComponents(components);
+        assertThat(documented.Save()).isTrue();
+        assertThat(documented.getFavoriteId()).isNotEqualTo(original.getFavoriteId());
+        assertThat(dao.find(documented.getFavoriteId()).getMedicationComponents()).isEqualTo(components);
+        assertThat(dao.find(original.getFavoriteId()).getMedicationComponents()).isNull();
+        assertThat(dao.find(original.getFavoriteId()).getDosage()).isEqualTo("250.0mg");
+
+        var repeated = favoriteForSave("Combination");
+        repeated.setGN("Synthetic 250mg");
+        repeated.setDosage("250mg");
+        repeated.setMedicationComponents(components);
+        assertThat(repeated.Save()).isTrue();
+        assertThat(repeated.getFavoriteId()).isEqualTo(documented.getFavoriteId());
+        assertThat(dao.findByProviderNo("FAVFIX")).hasSize(2);
     }
 
     private void setClinicalField(io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.Favorite favorite, String field) {

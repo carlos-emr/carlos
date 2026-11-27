@@ -39,6 +39,7 @@ import org.springframework.stereotype.Repository;
 import jakarta.persistence.Query;
 import jakarta.persistence.LockModeType;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Data Access Object implementation for managing Favorite prescription entries.
@@ -178,10 +179,11 @@ public class FavoriteDaoImpl extends AbstractDaoImpl<Favorite> implements Favori
             if (value != null) query.setParameter(field, value);
         });
         for (Favorite existing : query.getResultList()) {
-            if (DrugStrength.sameIdentityText(existing.getGn(), candidate.getGn())
+            if (Objects.equals(existing.getSpecial(), candidate.getSpecial())
+                    && DrugStrength.sameIdentityText(existing.getGn(), candidate.getGn())
                     && DrugStrength.sameIdentityText(existing.getDosage(), candidate.getDosage())
-                    && (existing.getMedicationComponents() == null || candidate.getMedicationComponents() == null
-                        || existing.getMedicationComponents().equals(candidate.getMedicationComponents()))) {
+                    && (candidate.getMedicationComponents() == null
+                        || Objects.equals(existing.getMedicationComponents(), candidate.getMedicationComponents()))) {
                 return existing;
             }
         }
