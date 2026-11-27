@@ -345,6 +345,7 @@ class RxManagerUnitTest extends RxManagerImpl {
             stored.setId(4);
             stored.setDemographicId(1);
             stored.setGenericName("ASA");
+            stored.setRegionalIdentifier("111");
             stored.setGcnSeqNo("001234");
             stored.setQuantity("30.0");
             stored.setUnitName("mL");
@@ -352,7 +353,7 @@ class RxManagerUnitTest extends RxManagerImpl {
             stored.setTakeMax(3f);
             ((MockDrugDao) drugDao).seed(stored);
 
-            String name = "differentProduct".equals(change) ? "Other" : "ASA";
+            String product = "differentProduct".equals(change) ? "222" : "111";
             var type = io.github.carlos_emr.carlos.webserv.rest.to.model.DrugTo1.class;
             io.github.carlos_emr.carlos.webserv.rest.to.model.DrugTo1 dto;
             if ("json".equals(format)) {
@@ -362,11 +363,11 @@ class RxManagerUnitTest extends RxManagerImpl {
                     default -> "";
                 };
                 dto = new com.fasterxml.jackson.databind.ObjectMapper().readValue(
-                        "{\"drugId\":4,\"demographicNo\":1,\"archived\":false,\"prn\":false,\"providerNo\":\"999001\",\"genericName\":\"" + name + "\"" + changes + "}", type);
+                        "{\"drugId\":4,\"demographicNo\":1,\"archived\":false,\"prn\":false,\"providerNo\":\"999001\",\"genericName\":\"ASA\",\"regionalIdentifier\":\"" + product + "\"" + changes + "}", type);
             } else {
                 String changes = "zero".equals(change) ? "<takeMin>0</takeMin><quantity>5</quantity>" : "";
                 String xml = "<drug><drugId>4</drugId><demographicNo>1</demographicNo><archived>false</archived><prn>false</prn><providerNo>999001</providerNo>"
-                        + "<genericName>" + name + "</genericName>" + changes + "</drug>";
+                        + "<genericName>ASA</genericName><regionalIdentifier>" + product + "</regionalIdentifier>" + changes + "</drug>";
                 dto = type.cast(jakarta.xml.bind.JAXBContext.newInstance(type).createUnmarshaller()
                         .unmarshal(new java.io.StringReader(xml)));
             }
