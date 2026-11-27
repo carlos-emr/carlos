@@ -1830,7 +1830,7 @@ public class RxPrescriptionData {
                 DrugDao drugDao = (DrugDao) SpringUtils.getBean(DrugDao.class);
                 Drug drug = drugDao.find(getDrugId());
                 if (drug != null) {
-                    drug.setArchived(true);
+                    drug.archive();
                     drugDao.merge(drug);
                 }
             } catch (Exception e) {

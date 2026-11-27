@@ -115,6 +115,13 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     @Column(name = "archived_date")
     @Temporal(TemporalType.TIMESTAMP)
     private Date archivedDate;
+    @Column(name = "archived_before_lifecycle")
+    private Boolean archivedBeforeLifecycle;
+    @Column(name = "archived_date_before_lifecycle")
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date archivedDateBeforeLifecycle;
+    @Column(name = "archived_reason_before_lifecycle")
+    private String archivedReasonBeforeLifecycle;
     @Column(name = "GN")
     private String genericName = null;
     @Column(name = "ATC")
@@ -691,6 +698,34 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
 
     public void setArchived(boolean archived) {
         this.archived = archived;
+    }
+
+    /** Archive the stored medication and retain its state before the first lifecycle change. */
+    public void archive(String reason, Date date) {
+        String normalizedReason = StringUtils.trimToNull(reason);
+        if (!archived || !java.util.Objects.equals(archivedReason, normalizedReason)
+                || !java.util.Objects.equals(archivedDate, date)) {
+            rememberArchiveState();
+        }
+        archived = true;
+        archivedReason = normalizedReason;
+        archivedDate = date;
+    }
+
+    /** The legacy flag-only archive leaves the recorded date and reason in place. */
+    public void archive() {
+        if (!archived) {
+            rememberArchiveState();
+            archived = true;
+        }
+    }
+
+    private void rememberArchiveState() {
+        if (archivedBeforeLifecycle == null) {
+            archivedBeforeLifecycle = archived;
+            archivedDateBeforeLifecycle = archivedDate;
+            archivedReasonBeforeLifecycle = archivedReason;
+        }
     }
 
     public String getGenericName() {

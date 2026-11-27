@@ -101,8 +101,8 @@ change made after the upgrade. Compare the patient profile and both REST
 lists with the database after each package transition. Preserve the live
 database through the rehearsal so the later clinical write stays available.
 
-When CARLOS changes an archive flag, date, or reason, MariaDB captures the
-previous values in the medication's `archived_before_lifecycle`,
+When CARLOS archives a medication, the same transaction records the previous
+values in the medication's `archived_before_lifecycle`,
 `archived_date_before_lifecycle` and `archived_reason_before_lifecycle`
 columns. Those fields record the first transition observed after the
 migration. The operational archive fields still control whether the

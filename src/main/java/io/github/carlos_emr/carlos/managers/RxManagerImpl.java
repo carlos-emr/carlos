@@ -62,6 +62,11 @@ import java.util.*;
 public class RxManagerImpl implements RxManager {
 
     private static Logger logger = MiscUtils.getLogger();
+    private static final Set<String> DISCONTINUATION_REASONS = Set.of(Drug.ADVERSE_REACTION, Drug.ALLERGY,
+            Drug.DISCONTINUED_BY_ANOTHER_PHYSICIAN, Drug.DRUG_INTERACTION, Drug.COST, Drug.DELETED,
+            Drug.INCREASED_RISK_BENEFIT_RATIO, Drug.NEW_SCIENTIFIC_EVIDENCE, Drug.INEFFECTIVE_TREATMENT,
+            Drug.NO_LONGER_NECESSARY, Drug.SIMPLIFYING_TREATMENT, Drug.PATIENT_REQUEST, Drug.PRESCRIBING_ERROR,
+            Drug.UNKNOWN, Drug.OTHER);
 
     @Autowired
     protected SecurityInfoManager securityInfoManager;
@@ -300,16 +305,8 @@ public class RxManagerImpl implements RxManager {
             return null;
         }
 
-        // Update fields in old drug.
-        old.setArchived(true);
-        old.setArchivedDate(new Date());
-
-        // Have to use the Drug.REPRESCRIBED identifier
-        //  for archived_reason so that the database
-        //  is remains in a state that is usable
-        //  by the legacy (Rx2) UI.
-        // TODO: Rework legacy Rx UI to use a new field called "updated"
-        old.setArchivedReason(Drug.REPRESCRIBED);
+        // The legacy Rx UI uses this reason to identify a replaced prescription.
+        old.archive(Drug.REPRESCRIBED, new Date());
 
         // Push changes on old drug into database.
         this.drugDao.merge(old);
@@ -362,78 +359,11 @@ public class RxManagerImpl implements RxManager {
 
         } else {
 
-            // TODO: Refactor Drug to use an Enum to keep track of reasons for discontinuing a drug.
-
-            // set the reason for discontinuation.
-
-            if (reason.equals(Drug.ADVERSE_REACTION)) {
-
-                d.setArchivedReason(Drug.ADVERSE_REACTION);
-
-            } else if (reason.equals(Drug.ALLERGY)) {
-
-                d.setArchivedReason(Drug.ALLERGY);
-
-            } else if (reason.equals(Drug.DISCONTINUED_BY_ANOTHER_PHYSICIAN)) {
-
-                d.setArchivedReason(Drug.DISCONTINUED_BY_ANOTHER_PHYSICIAN);
-
-            } else if (reason.equals(Drug.DRUG_INTERACTION)) {
-
-                d.setArchivedReason(Drug.DRUG_INTERACTION);
-
-            } else if (reason.equals(Drug.COST)) {
-
-                d.setArchivedReason(Drug.COST);
-
-            } else if (reason.equals(Drug.DELETED)) {
-
-                d.setArchivedReason(Drug.DELETED);
-
-            } else if (reason.equals(Drug.INCREASED_RISK_BENEFIT_RATIO)) {
-
-                d.setArchivedReason(Drug.INCREASED_RISK_BENEFIT_RATIO);
-
-            } else if (reason.equals(Drug.NEW_SCIENTIFIC_EVIDENCE)) {
-
-                d.setArchivedReason(Drug.NEW_SCIENTIFIC_EVIDENCE);
-
-            } else if (reason.equals(Drug.INEFFECTIVE_TREATMENT)) {
-
-                d.setArchivedReason(Drug.INEFFECTIVE_TREATMENT);
-
-            } else if (reason.equals(Drug.NO_LONGER_NECESSARY)) {
-
-                d.setArchivedReason(Drug.NO_LONGER_NECESSARY);
-
-            } else if (reason.equals(Drug.SIMPLIFYING_TREATMENT)) {
-
-                d.setArchivedReason(Drug.SIMPLIFYING_TREATMENT);
-
-            } else if (reason.equals(Drug.PATIENT_REQUEST)) {
-
-                d.setArchivedReason(Drug.PATIENT_REQUEST);
-
-            } else if (reason.equals(Drug.PRESCRIBING_ERROR)) {
-
-                d.setArchivedReason(Drug.PRESCRIBING_ERROR);
-
-            } else if (reason.equals(Drug.UNKNOWN)) {
-
-                d.setArchivedReason(Drug.UNKNOWN);
-
-            } else if (reason.equals(Drug.OTHER)) {
-
-                d.setArchivedReason(Drug.OTHER);
-
-            } else {
-
+            if (reason == null || !DISCONTINUATION_REASONS.contains(reason)) {
                 throw new UnsupportedOperationException("Unsupported discontinue reason: " + reason);
-
             }
 
-            d.setArchived(true);
-            d.setArchivedDate(new Date());
+            d.archive(reason, new Date());
 
             // persist the change to the database.
             this.drugDao.merge(d);
@@ -687,9 +617,7 @@ public class RxManagerImpl implements RxManager {
             return false;
         }
 
-        drug.setArchived(true);
-        drug.setArchivedReason(reason);
-        drug.setArchivedDate(new Date());
+        drug.archive(reason, new Date());
 
         // persist the change to the database.
         this.drugDao.merge(drug);
