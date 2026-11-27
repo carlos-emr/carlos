@@ -26,6 +26,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -95,9 +96,6 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
     @Mock
     private DemographicDao mockDemographicDao;
 
-    @Mock
-    private io.github.carlos_emr.carlos.commn.dao.MeasurementDao mockMeasurementDao;
-
     @Test
     void shouldReturnConflictInsteadOfEmptySubset_whenStructuredCareCannotBeProjected() {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class),eq("_measurement"),eq("r"),eq("123"))).thenReturn(true);
@@ -112,8 +110,13 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
 
     @Override
     protected Object getServiceBean() {
-        MeasurementService service = new MeasurementService(mockSecurityInfoManager, mockMeasurementManager,
-                mockDemographicDao, mockMeasurementTypeDao, mockValidationsDao, mockMeasurementDao, projections);
+        MeasurementService service = new MeasurementService();
+        service.setSecurityInfoManager(mockSecurityInfoManager);
+        service.setMeasurementManager(mockMeasurementManager);
+        service.setDemographicDao(mockDemographicDao);
+        service.setMeasurementTypeDao(mockMeasurementTypeDao);
+        service.setValidationsDao(mockValidationsDao);
+        service.setCdsLegacyProjectionService(projections);
         return service;
     }
 
@@ -286,7 +289,7 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
             allowMeasurementWrite();
             when(mockDemographicDao.getDemographicById(123)).thenReturn(new Demographic());
             allowConfiguredBloodPressure();
-            when(mockMeasurementManager.addMeasurement(any(LoggedInInfo.class), any(Measurement.class)))
+            when(mockMeasurementManager.addMeasurementUnlessStored(any(LoggedInInfo.class), any(Measurement.class)))
                 .thenAnswer(invocation -> invocation.getArgument(1));
 
             Response response = request().path("/measurements/123/new")
@@ -302,7 +305,7 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
             assertThat(wireJson.at("/comments").textValue()).isEqualTo("New reading");
             assertThat(wireJson.at("/measuringInstruction").textValue()).isEqualTo("sitting position");
             assertThat(wireJson.at("/dateObserved").longValue()).isEqualTo(1770000000000L);
-            verify(mockMeasurementManager).addMeasurement(any(LoggedInInfo.class), argThat(measurement ->
+            verify(mockMeasurementManager).addMeasurementUnlessStored(any(LoggedInInfo.class), argThat(measurement ->
                 measurement.getDemographicId().equals(123)
                     && measurement.getType().equals("BP")
                     && measurement.getDataField().equals("122/80")
@@ -557,14 +560,14 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
             long dateObserved = -30610224000000L;
             allowWriteToExistingPatient();
             allowConfiguredBloodPressure();
-            when(mockMeasurementManager.addMeasurement(any(LoggedInInfo.class), any(Measurement.class)))
+            when(mockMeasurementManager.addMeasurementUnlessStored(any(LoggedInInfo.class), any(Measurement.class)))
                 .thenAnswer(invocation -> invocation.getArgument(1));
 
             Response response = postNew("{\"type\":\"BP\",\"dataField\":\"122/80\","
                 + "\"measuringInstruction\":\"sitting position\",\"dateObserved\":" + dateObserved + "}");
 
             assertThat(response.getStatus()).isEqualTo(200);
-            verify(mockMeasurementManager).addMeasurement(any(LoggedInInfo.class), argThat(measurement ->
+            verify(mockMeasurementManager).addMeasurementUnlessStored(any(LoggedInInfo.class), argThat(measurement ->
                 measurement.getDateObserved().getTime() == dateObserved));
         }
 
@@ -593,14 +596,14 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
             long dateObserved = System.currentTimeMillis() + 60_000L;
             allowWriteToExistingPatient();
             allowConfiguredBloodPressure();
-            when(mockMeasurementManager.addMeasurement(any(LoggedInInfo.class), any(Measurement.class)))
+            when(mockMeasurementManager.addMeasurementUnlessStored(any(LoggedInInfo.class), any(Measurement.class)))
                 .thenAnswer(invocation -> invocation.getArgument(1));
 
             Response response = postNew("{\"type\":\"BP\",\"dataField\":\"122/80\","
                 + "\"measuringInstruction\":\"sitting position\",\"dateObserved\":" + dateObserved + "}");
 
             assertThat(response.getStatus()).isEqualTo(200);
-            verify(mockMeasurementManager).addMeasurement(any(LoggedInInfo.class), any(Measurement.class));
+            verify(mockMeasurementManager).addMeasurementUnlessStored(any(LoggedInInfo.class), any(Measurement.class));
         }
 
         @ParameterizedTest(name = "\"{0}\"")
@@ -660,7 +663,7 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
                     && measurement.getDateObserved().getTime() >= before
                     && measurement.getDateObserved().getTime() <= after));
             // A null dateObserved is a new reading at "now", not a retry of a stored one.
-            verifyNoInteractions(mockMeasurementDao);
+            verify(mockMeasurementManager, never()).addMeasurementUnlessStored(any(), any());
         }
 
         @Test
@@ -684,7 +687,7 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
                     && measurement.getDateObserved().getTime() >= before
                     && measurement.getDateObserved().getTime() <= after
                     && measurement.getDateObserved().getTime() % 1000 == 0));
-            verifyNoInteractions(mockMeasurementDao);
+            verify(mockMeasurementManager, never()).addMeasurementUnlessStored(any(), any());
         }
 
         @Test
@@ -920,23 +923,24 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
             stored.setMeasuringInstruction("sitting position");
             stored.setComments("");
             stored.setDateObserved(new java.util.Date(1770000000000L));
-            when(mockMeasurementDao.find(any(io.github.carlos_emr.carlos.commn.dao.MeasurementDaoImpl.SearchCriteria.class)))
-                .thenReturn(List.of(stored));
+            when(mockMeasurementManager.addMeasurementUnlessStored(any(LoggedInInfo.class), any(Measurement.class)))
+                .thenReturn(stored);
 
             Response response = postNew("{\"type\":\"BP\",\"dataField\":\"122/80\","
                 + "\"measuringInstruction\":\"sitting position\",\"dateObserved\":1770000000456}");
 
             assertThat(response.getStatus()).isEqualTo(200);
             assertThat(responseJson(response).at("/dataField").textValue()).isEqualTo("122/80");
-            verify(mockMeasurementDao).find(argThat(criteria ->
-                Integer.valueOf(123).equals(criteria.getDemographicNo())
-                    && "BP".equals(criteria.getType())
-                    && "122/80".equals(criteria.getDataField())
-                    && "sitting position".equals(criteria.getMeasuringInstrc())
-                    && "".equals(criteria.getComments())
-                    // Stored to the second, as the DATETIME column keeps it.
-                    && criteria.getDateObserved().getTime() == 1770000000000L));
-            verifyNoInteractions(mockMeasurementManager);
+            // A dated request goes to the manager's locked check-and-insert, with the identity it
+            // matches on; the date is cut to the second, as the DATETIME column keeps it.
+            verify(mockMeasurementManager).addMeasurementUnlessStored(any(LoggedInInfo.class), argThat(candidate ->
+                Integer.valueOf(123).equals(candidate.getDemographicId())
+                    && "BP".equals(candidate.getType())
+                    && "122/80".equals(candidate.getDataField())
+                    && "sitting position".equals(candidate.getMeasuringInstruction())
+                    && "".equals(candidate.getComments())
+                    && candidate.getDateObserved().getTime() == 1770000000000L));
+            verify(mockMeasurementManager, never()).addMeasurement(any(), any());
         }
 
         @Test

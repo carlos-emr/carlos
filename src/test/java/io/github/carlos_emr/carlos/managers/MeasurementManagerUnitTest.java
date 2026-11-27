@@ -92,6 +92,9 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
     @Mock
     private MeasurementGroupStyleDao mockMeasurementGroupStyleDao;
 
+    @Mock
+    private io.github.carlos_emr.carlos.commn.dao.DemographicDao mockDemographicDao;
+
     /** The MeasurementManagerImpl instance under test. */
     private MeasurementManagerImpl measurementManager;
 
@@ -120,6 +123,7 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
         injectDependency(measurementManager, "measurementDao", mockMeasurementDao);
         injectDependency(measurementManager, "measurementMapDao", mockMeasurementMapDao);
         injectDependency(measurementManager, "patientConsentManager", mockPatientConsentManager);
+        injectDependency(measurementManager, "demographicDao", mockDemographicDao);
     }
 
     /**
@@ -592,6 +596,61 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
 
             // Then
             verify(mockMeasurementMapDao).getAllMaps();
+        }
+    }
+
+    /**
+     * Tests for {@link MeasurementManagerImpl#addMeasurementUnlessStored}: the REST retry path.
+     */
+    @Nested
+    @DisplayName("addMeasurementUnlessStored")
+    @Tag("create")
+    class AddMeasurementUnlessStored {
+
+        @Test
+        @DisplayName("should lock the patient row before looking for an identical reading, then insert")
+        void shouldLockPatientBeforeLookup_whenNoIdenticalReadingStored() {
+            Measurement measurement = createTestMeasurement();
+            measurement.setDemographicId(4321);
+            when(mockDemographicDao.findForUpdate(4321)).thenReturn(new io.github.carlos_emr.carlos.commn.model.Demographic());
+            when(mockMeasurementDao.find(any(io.github.carlos_emr.carlos.commn.dao.MeasurementDaoImpl.SearchCriteria.class)))
+                    .thenReturn(List.of());
+
+            Measurement result = measurementManager.addMeasurementUnlessStored(mockLoggedInInfo, measurement);
+
+            // The lock serializes overlapping identical requests; a lookup before it could not.
+            var order = inOrder(mockDemographicDao, mockMeasurementDao);
+            order.verify(mockDemographicDao).findForUpdate(4321);
+            order.verify(mockMeasurementDao).find(any(io.github.carlos_emr.carlos.commn.dao.MeasurementDaoImpl.SearchCriteria.class));
+            order.verify(mockMeasurementDao).persist(measurement);
+            assertThat(result).isSameAs(measurement);
+        }
+
+        @Test
+        @DisplayName("should return the identical stored reading and insert nothing")
+        void shouldReturnStoredReading_whenIdenticalReadingStored() {
+            Measurement measurement = createTestMeasurement();
+            measurement.setDemographicId(4321);
+            Measurement stored = createTestMeasurementWithId(TEST_MEASUREMENT_ID);
+            when(mockDemographicDao.findForUpdate(4321)).thenReturn(new io.github.carlos_emr.carlos.commn.model.Demographic());
+            when(mockMeasurementDao.find(any(io.github.carlos_emr.carlos.commn.dao.MeasurementDaoImpl.SearchCriteria.class)))
+                    .thenReturn(List.of(stored));
+
+            Measurement result = measurementManager.addMeasurementUnlessStored(mockLoggedInInfo, measurement);
+
+            assertThat(result).isSameAs(stored);
+            verify(mockMeasurementDao, never()).persist(any());
+        }
+
+        @Test
+        @DisplayName("should refuse without a lookup or insert when the patient does not exist")
+        void shouldRefuse_whenPatientMissing() {
+            Measurement measurement = createTestMeasurement();
+            measurement.setDemographicId(4321);
+
+            assertThatThrownBy(() -> measurementManager.addMeasurementUnlessStored(mockLoggedInInfo, measurement))
+                    .isInstanceOf(IllegalArgumentException.class);
+            verifyNoInteractions(mockMeasurementDao);
         }
     }
 

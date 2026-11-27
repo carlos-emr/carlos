@@ -108,16 +108,22 @@ class MeasurementServiceWriteReadIntegrationTest extends CarlosTestBase {
         when(security.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(patient))).thenReturn(true);
         MeasurementManagerImpl manager = new MeasurementManagerImpl();
         ReflectionTestUtils.setField(manager, "measurementDao", measurementDao);
+        ReflectionTestUtils.setField(manager, "demographicDao", demographicDao);
         LoggedInInfo caller = mock(LoggedInInfo.class);
         when(caller.getLoggedInProviderNo()).thenReturn(PROVIDER_NO);
 
-        service = new MeasurementService(security, manager, demographicDao, measurementTypeDao, validationsDao,
-                measurementDao, mock(CdsLegacyProjectionService.class)) {
+        service = new MeasurementService() {
             @Override
             protected LoggedInInfo getLoggedInInfo() {
                 return caller;
             }
         };
+        service.setSecurityInfoManager(security);
+        service.setMeasurementManager(manager);
+        service.setDemographicDao(demographicDao);
+        service.setMeasurementTypeDao(measurementTypeDao);
+        service.setValidationsDao(validationsDao);
+        service.setCdsLegacyProjectionService(mock(CdsLegacyProjectionService.class));
     }
 
     @Test

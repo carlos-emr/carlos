@@ -1897,7 +1897,7 @@
 						"new"
 					]
 				},
-				"description": "Creates a new reading; existing readings are never changed. measuringInstruction is required when the type is configured with several (for example BP: \"sitting position\"). dateObserved (epoch ms) defaults to now; repeating a request with the same dateObserved returns the stored reading. Refusals are 400 with {\"code\",\"message\"}. Tokens that already held measurement.write can call this without re-consent."
+				"description": "Creates a new reading; existing readings are never changed. measuringInstruction is required when the type is configured with several (for example BP: \"sitting position\"). dateObserved (epoch ms) defaults to now; repeating a request with the same dateObserved returns the stored reading. A validation refusal is 400 with {\"code\",\"message\"}; other refusals use the server's standard error response: 403 for missing measurement write, patient-record access or provider identity, 404 for a missing patient, 409 (plain text) when the patient's structured care cannot be projected, and 500 for an invalid validation configuration. Tokens that already held measurement.write can call this without re-consent."
 			},
 			"response": []
 		},

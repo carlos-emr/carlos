@@ -423,14 +423,17 @@ function createAuthorizer({
 }) {
   return async function authorize(scopes) {
     if (state.throwIfCancelled) state.throwIfCancelled();
+    // Cooperative cancellation: checked before each step, so a step already sent finishes and the
+    // next one is not started once SIGINT/SIGTERM is recorded.
+    const checkCancelled = () => { if (state.throwIfCancelled) state.throwIfCancelled(); };
     const initiateUrl = app(`/ws/oauth/initiate?scope=${pct(scopes)}`);
-    let response = await anon.post(initiateUrl, {
+    let response = await handshakeStep('OAuth request-token initiation', () => anon.post(initiateUrl, {
       headers: {
         Authorization: oauthHeader({
           method: 'POST', url: initiateUrl, consumerKey, consumerSecret, extra: { oauth_callback: 'oob' },
         }),
       },
-    });
+    }));
     await expectStatus(response, 200, 'OAuth request-token initiation');
     const requestToken = formFields(await response.text());
     assert(requestToken.oauth_token && requestToken.oauth_token_secret
@@ -438,10 +441,11 @@ function createAuthorizer({
     'OAuth initiation did not return a confirmed out-of-band request token');
     recordEndpoint('POST', '/ws/oauth/initiate', response, `request token issued (${scopes})`);
 
+    checkCancelled();
     const consent = await sessionContext.newPage();
     wireStrictPage(consent, 'ai-scribe-oauth-consent', recorder);
-    const pageResponse = await consent.goto(
-      app(`/ws/oauth/authorize?oauth_token=${pct(requestToken.oauth_token)}`), { waitUntil: 'load' });
+    const pageResponse = await handshakeStep('OAuth consent page', () => consent.goto(
+      app(`/ws/oauth/authorize?oauth_token=${pct(requestToken.oauth_token)}`), { waitUntil: 'load' }));
     assert(pageResponse && pageResponse.status() === 200, 'The OAuth consent page did not load successfully');
     await assertNotErrorPage(consent, 'AI-Scribe OAuth consent page');
     recordEndpoint('GET', '/ws/oauth/authorize', pageResponse, `consent page loaded (${scopes})`);
@@ -451,19 +455,21 @@ function createAuthorizer({
     }
     assert(await consent.locator('#legacyRestrictedWarning, #fullAccessWarning').count() === 0,
       'The test server is not using OAuth scoped mode; use a separate disposable scoped installation');
-    const [approval] = await Promise.all([
+    checkCancelled();
+    const [approval] = await handshakeStep('OAuth consent approval', () => Promise.all([
       consent.waitForResponse((item) => item.request().method() === 'POST'
         && new URL(item.url()).pathname.endsWith('/ws/oauth/authorize'), { timeout: 30000 }),
       consent.locator('#scopeForm button[type="submit"]').click(),
-    ]);
+    ]));
     await expectStatus(approval, 200, 'OAuth consent approval');
     const verifier = formFields(await approval.text()).oauth_verifier;
     assert(verifier, 'OAuth consent did not issue a verifier');
     recordEndpoint('POST', '/ws/oauth/authorize', approval, `consent approved (${scopes})`);
     await consent.close();
 
+    checkCancelled();
     const tokenUrl = app('/ws/oauth/token');
-    response = await anon.post(tokenUrl, {
+    response = await handshakeStep('OAuth access-token exchange', () => anon.post(tokenUrl, {
       headers: {
         Authorization: oauthHeader({
           method: 'POST', url: tokenUrl, consumerKey, consumerSecret,
@@ -471,7 +477,7 @@ function createAuthorizer({
           extra: { oauth_verifier: verifier },
         }),
       },
-    });
+    }));
     await expectStatus(response, 200, 'OAuth access-token exchange');
     const accessToken = formFields(await response.text());
     assert(accessToken.oauth_token && accessToken.oauth_token_secret,
@@ -479,6 +485,31 @@ function createAuthorizer({
     recordEndpoint('POST', '/ws/oauth/token', response, `access token issued (${scopes})`);
     return accessToken;
   };
+}
+
+/**
+ * A bounded description of a failed request. Playwright's request errors carry a call log that can
+ * include the request's headers, among them the signed OAuth Authorization header, and handshake URLs
+ * carrying tokens or verifiers. Only a category and the caller's own label leave this function, so
+ * none of that reaches the results table, stdout or RESULT_JSON.
+ */
+function requestFailure(label, error) {
+  const text = String((error && error.message) || '');
+  let category = 'request failed';
+  if (/timeout/i.test(text)) category = 'timed out';
+  else if (/ERR_CERT_|ERR_SSL_|SELF[_ ]SIGNED|certificate/i.test(text)) category = 'TLS certificate verification failed';
+  else if (/ECONNREFUSED|ECONNRESET|EHOSTUNREACH|ENOTFOUND|EAI_AGAIN|socket hang up/i.test(text)) category = 'connection failed';
+  else if (/has been closed|Target (page|context|browser).*closed/i.test(text)) category = 'browser closed';
+  return new Error(`${label}: ${category}`);
+}
+
+/** Runs one network step of the OAuth handshake, replacing a raw failure with requestFailure's. */
+async function handshakeStep(label, operation) {
+  try {
+    return await operation();
+  } catch (error) {
+    throw requestFailure(label, error);
+  }
 }
 
 /** Returns signedRequest(method, path, token, body), which records a row for every request it sends. */
@@ -516,10 +547,12 @@ function createSignedRequest({
       endpointRecords.set(response, result);
       return response;
     } catch (error) {
+      // Not the raw error: its call log may carry the signed Authorization header.
+      const failure = requestFailure(`${method} ${result.path}`, error);
       result.outcome = 'FAIL';
-      result.verification = `request failed: ${error.message}`;
-      if (error && typeof error === 'object') error.endpointRecord = result;
-      throw error;
+      result.verification = failure.message;
+      failure.endpointRecord = result;
+      throw failure;
     }
   };
 }
@@ -682,19 +715,34 @@ async function checkDemographics(ctx) {
     'Paginated demographic list did not return a result page');
   recordEndpoint('GET', '/ws/services/demographics/', allDemographicsResponse,
     'paginated patient-list response returned');
-  const searchOffset = Number(sql.value(`SELECT COUNT(*) FROM demographic
+  // The list holds only the patients this provider may read (DemographicManager.getActiveDemographics).
+  // So the synthetic patient's place in it is at most the number of active patients with a lower id,
+  // and lower when some of those are restricted. Scan pages back from that bound until it appears.
+  const offsetBound = Number(sql.value(`SELECT COUNT(*) FROM demographic
     WHERE demographic_no < ? AND patient_status = 'AC'`, [patientNo]));
-  const patientPageResponse = await signedRequest(
-    'GET', `/ws/services/demographics/?offset=${searchOffset}&limit=1`, fullToken,
-  );
-  await expectStatus(patientPageResponse, 200, 'OAuth demographic page containing the synthetic patient');
-  const patientPage = await patientPageResponse.json();
-  const patientItems = patientPage.Item || patientPage.content || [];
-  assert(Array.isArray(patientItems)
-    && patientItems.some((item) => String(item.demographicNo) === patientNo),
-  'Paginated demographic list did not include the synthetic patient at its calculated offset');
+  const pageSize = 50;
+  let pageEnd = offsetBound;
+  let patientPageResponse;
+  let found = false;
+  while (!found && pageEnd >= 0) {
+    const pageStart = Math.max(0, pageEnd - pageSize + 1);
+    patientPageResponse = await signedRequest(
+      'GET', `/ws/services/demographics/?offset=${pageStart}&limit=${pageSize}`, fullToken,
+    );
+    await expectStatus(patientPageResponse, 200, 'OAuth demographic page scan for the synthetic patient');
+    const patientPage = await patientPageResponse.json();
+    const patientItems = patientPage.Item || patientPage.content || [];
+    assert(Array.isArray(patientItems), 'Paginated demographic list did not return a result page');
+    found = patientItems.some((item) => String(item.demographicNo) === patientNo);
+    if (!found) {
+      recordEndpoint('GET', '/ws/services/demographics/', patientPageResponse,
+        `readable page from offset ${pageStart} scanned; synthetic patient not on it`);
+    }
+    pageEnd = pageStart - 1;
+  }
+  assert(found, 'Paginated demographic list did not include the synthetic patient at or below its calculated offset');
   recordEndpoint('GET', '/ws/services/demographics/', patientPageResponse,
-    'synthetic patient returned at the matching pagination offset');
+    'synthetic patient returned on a readable page at or below its calculated offset');
 
   const demographicResponse = await signedRequest('GET', demographicPath, fullToken);
   await expectStatus(demographicResponse, 200, 'OAuth demographic fetch');
@@ -907,13 +955,18 @@ async function checkLabs(ctx) {
     state.documentStore = fs.realpathSync(documentStore);
     assert(fs.statSync(state.documentStore).isDirectory(),
       'LAB_UPLOAD_DOCUMENT_STORE must point to the running server document directory');
-    state.labRunMarker = runMarker;
-    state.labAccession = `PWAI-${runMarker}`;
-    state.labFilePrefix = `LabUpload.ai-scribe-${runMarker}.xml.`;
+    // Local until the preflight passes: cleanup deletes by state.labAccession, so recording an
+    // accession that already existed would hand it lab rows this run does not own.
+    const labAccession = `PWAI-${runMarker}`;
     assert(
-      sql.value('SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=?', [state.labAccession]) === '0',
+      sql.value('SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=?', [labAccession]) === '0',
       'The synthetic lab accession already exists',
     );
+    // Recorded before the upload, so cleanup still removes the rows if the write succeeds but its
+    // response is lost.
+    state.labRunMarker = runMarker;
+    state.labAccession = labAccession;
+    state.labFilePrefix = `LabUpload.ai-scribe-${runMarker}.xml.`;
     // Database time before the upload: cleanup removes only providerLabRoutingLock rows created
     // from here on (the lock key is a bare lab_no shared with other lab types' ids).
     state.labLockFloor = sql.value('SELECT NOW()');
@@ -940,6 +993,14 @@ async function checkLabs(ctx) {
     await expectStatus(uploadLabResponse, 200, 'OAuth synthetic HL7 lab upload');
     const uploadedLab = await uploadLabResponse.json();
     assert(uploadedLab && uploadedLab.fileName, 'HL7 lab upload did not return its saved file name');
+    const savedLabFile = String(uploadedLab.fileName);
+    // Cleanup removes files by this run's prefix; a name outside it, or a file not on the configured
+    // mount, would leave the archived upload behind.
+    assert(path.basename(savedLabFile) === savedLabFile && savedLabFile.startsWith(state.labFilePrefix)
+      && /^LabUpload\.ai-scribe-[A-Fa-f0-9]+\.xml\.\d+$/.test(savedLabFile),
+    'HL7 lab upload returned a saved file name outside this run\'s owned prefix');
+    assert(fs.existsSync(path.join(state.documentStore, savedLabFile)),
+      'The uploaded lab file is not in LAB_UPLOAD_DOCUMENT_STORE; point it at the server document directory');
     const labNo = sqlId(
       sql.value('SELECT lab_no FROM hl7TextInfo WHERE accessionNum=?', [state.labAccession]),
       'stored synthetic HL7 lab id',
@@ -1345,7 +1406,8 @@ if (require.main === module) {
         return await main(state);
       } catch (error) {
         state.failureMessage = error.message || 'check failed';
-        if (!(state.endpointResults || []).some((row) =>
+        // A skip (missing opt-in or provider) is reported by runCheck as a skip, not as a FAIL row.
+        if (!(error instanceof SkipCheck) && !(state.endpointResults || []).some((row) =>
           row.outcome === 'PENDING' || row.outcome === 'FAIL')) {
           state.endpointResults = state.endpointResults || [];
           state.endpointResults.push({

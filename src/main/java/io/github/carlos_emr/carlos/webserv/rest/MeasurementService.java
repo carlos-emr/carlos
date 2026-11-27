@@ -36,14 +36,13 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
-import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
-import io.github.carlos_emr.carlos.commn.dao.MeasurementDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDao;
 import io.github.carlos_emr.carlos.commn.dao.ValidationsDao;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
@@ -119,14 +118,13 @@ import jakarta.ws.rs.core.MediaType;
 @Consumes(MediaType.APPLICATION_JSON)
 public class MeasurementService extends AbstractServiceImpl {
     /** Security manager for measurement and patient-record authorization. */
-    private final SecurityInfoManager securityInfoManager;
+    private SecurityInfoManager securityInfoManager;
     /** Business logic manager for measurement operations. */
-    private final MeasurementManager measurementManager;
-    private final DemographicDao demographicDao;
-    private final MeasurementTypeDao measurementTypeDao;
-    private final ValidationsDao validationsDao;
-    private final MeasurementDao measurementDao;
-    private final CdsLegacyProjectionService projections;
+    private MeasurementManager measurementManager;
+    private DemographicDao demographicDao;
+    private MeasurementTypeDao measurementTypeDao;
+    private ValidationsDao validationsDao;
+    private CdsLegacyProjectionService projections;
     private final EctValidation ectValidation = new EctValidation();
 
     private static final long MIN_DATETIME_MILLIS = -30610224000000L;
@@ -156,18 +154,42 @@ public class MeasurementService extends AbstractServiceImpl {
     private static final String INVALID_DATE_OBSERVED = "INVALID_DATE_OBSERVED";
 
     /**
-     * Spring wires this endpoint from {@code applicationContextREST.xml}; the single constructor is
-     * autowired as for {@link PreventionService}. Every collaborator is required.
+     * The REST and SOAP endpoints that carry the CDS projection guard keep a public no-argument
+     * constructor (CdsEndpointProjectionInjectionUnitTest pins it), so collaborators arrive through
+     * the required setters below rather than through a constructor.
      */
-    public MeasurementService(SecurityInfoManager securityInfoManager, MeasurementManager measurementManager,
-            DemographicDao demographicDao, MeasurementTypeDao measurementTypeDao, ValidationsDao validationsDao,
-            MeasurementDao measurementDao, CdsLegacyProjectionService projections) {
+    public MeasurementService() {
+        // Collaborators are set by Spring through the @Autowired setters.
+    }
+
+    @Autowired
+    public void setSecurityInfoManager(SecurityInfoManager securityInfoManager) {
         this.securityInfoManager = Objects.requireNonNull(securityInfoManager);
+    }
+
+    @Autowired
+    public void setMeasurementManager(MeasurementManager measurementManager) {
         this.measurementManager = Objects.requireNonNull(measurementManager);
+    }
+
+    @Autowired
+    public void setDemographicDao(DemographicDao demographicDao) {
         this.demographicDao = Objects.requireNonNull(demographicDao);
+    }
+
+    @Autowired
+    public void setMeasurementTypeDao(MeasurementTypeDao measurementTypeDao) {
         this.measurementTypeDao = Objects.requireNonNull(measurementTypeDao);
+    }
+
+    @Autowired
+    public void setValidationsDao(ValidationsDao validationsDao) {
         this.validationsDao = Objects.requireNonNull(validationsDao);
-        this.measurementDao = Objects.requireNonNull(measurementDao);
+    }
+
+    /** Required: every patient-scoped read and write passes the CDS projection guard. */
+    @Autowired
+    public void setCdsLegacyProjectionService(CdsLegacyProjectionService projections) {
         this.projections = Objects.requireNonNull(projections);
     }
 
@@ -298,17 +320,16 @@ public class MeasurementService extends AbstractServiceImpl {
         measurement.setMeasuringInstruction(configured.getMeasuringInstruction() == null
                 ? "" : configured.getMeasuringInstruction());
         // measurements.dateObserved is DATETIME, which keeps whole seconds. Truncating here makes the
-        // stored value, the echoed value and the retry lookup below all agree.
+        // stored value, the echoed value and the manager's retry lookup all agree.
         measurement.setDateObserved(new Date(truncateToSecond(
                 observedAt == null ? System.currentTimeMillis() : observedAt)));
-        if (observedAt != null) {
-            Measurement stored = findStoredRetry(measurement);
-            if (stored != null) {
-                return EmbeddedRecordSnapshots.measurement(loggedInInfo, stored);
-            }
-        }
-        return EmbeddedRecordSnapshots.measurement(loggedInInfo,
-                measurementManager.addMeasurement(loggedInInfo, measurement));
+        // A retry of a request whose response was lost repeats its dateObserved, so only a dated
+        // request can be a repeat. The manager checks and inserts under the patient's row lock, so two
+        // overlapping identical requests still store one reading.
+        Measurement saved = observedAt == null
+                ? measurementManager.addMeasurement(loggedInInfo, measurement)
+                : measurementManager.addMeasurementUnlessStored(loggedInInfo, measurement);
+        return EmbeddedRecordSnapshots.measurement(loggedInInfo, saved);
     }
 
     /** Refuses a bad patient id, a non-object body, an unknown field, or a missing type or value. */
@@ -374,24 +395,6 @@ public class MeasurementService extends AbstractServiceImpl {
             throw new ForbiddenException("A provider identity is required to record a measurement");
         }
         return providerNo;
-    }
-
-    /**
-     * A retry of a request whose response was lost repeats its dateObserved. The encounter form skips
-     * an identical reading the same way (EctMeasurements2Action).
-     *
-     * @return the identical stored reading, or {@code null} if there is none
-     */
-    private Measurement findStoredRetry(Measurement candidate) {
-        MeasurementDaoImpl.SearchCriteria criteria = new MeasurementDaoImpl.SearchCriteria();
-        criteria.setDemographicNo(candidate.getDemographicId());
-        criteria.setType(candidate.getType());
-        criteria.setDataField(candidate.getDataField());
-        criteria.setMeasuringInstrc(candidate.getMeasuringInstruction());
-        criteria.setComments(candidate.getComments());
-        criteria.setDateObserved(candidate.getDateObserved());
-        List<Measurement> stored = measurementDao.find(criteria);
-        return stored == null || stored.isEmpty() ? null : stored.get(0);
     }
 
     private static long truncateToSecond(long millis) {
