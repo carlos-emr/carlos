@@ -9,7 +9,12 @@
  */
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { DatabaseSync } = require('node:sqlite');
+let DatabaseSync;
+try {
+  ({ DatabaseSync } = require('node:sqlite'));
+} catch (error) {
+  if (error.code !== 'ERR_UNKNOWN_BUILTIN_MODULE') throw error;
+}
 const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -62,7 +67,7 @@ function fixture({ rows = [], loseInsertReply = false, dropUpdates = false } = {
   return { db, s, callbacks, preference, others, cleanup: () => callbacks.forEach(fn => fn()) };
 }
 
-test('shouldRestoreTheOriginalAbsence_whenTheInsertCommitsButItsReplyIsLost', () => {
+test('shouldRestoreTheOriginalAbsence_whenTheInsertCommitsButItsReplyIsLost', { skip: !DatabaseSync }, () => {
   const f = fixture({ loseInsertReply: true });
   const before = f.others();
 
@@ -74,7 +79,7 @@ test('shouldRestoreTheOriginalAbsence_whenTheInsertCommitsButItsReplyIsLost', ()
   assert.deepEqual(f.others(), before, 'cleanup touched another preference');
 });
 
-test('shouldDeleteTheInsertedRow_whenThePreferenceWasAbsent', () => {
+test('shouldDeleteTheInsertedRow_whenThePreferenceWasAbsent', { skip: !DatabaseSync }, () => {
   const f = fixture();
   const setPreference = guardDatePreference(f.s);
   setPreference('receivedCreated');
@@ -85,7 +90,7 @@ test('shouldDeleteTheInsertedRow_whenThePreferenceWasAbsent', () => {
   assert.deepEqual(f.preference(), []);
 });
 
-test('shouldRestoreEveryOriginalValueIncludingNull_andRemoveRowsAddedDuringTheRun', () => {
+test('shouldRestoreEveryOriginalValueIncludingNull_andRemoveRowsAddedDuringTheRun', { skip: !DatabaseSync }, () => {
   const f = fixture({ rows: [[PREFERENCE, 'receivedCreated'], [PREFERENCE, null], [PREFERENCE, '']] });
   const before = f.preference();
   const setPreference = guardDatePreference(f.s);
@@ -98,7 +103,7 @@ test('shouldRestoreEveryOriginalValueIncludingNull_andRemoveRowsAddedDuringTheRu
   assert.deepEqual(before.map(([, , isNull]) => isNull), ['0', '1', '0']);
 });
 
-test('shouldFailCleanup_whenThePreferenceCannotBeRestored', () => {
+test('shouldFailCleanup_whenThePreferenceCannotBeRestored', { skip: !DatabaseSync }, () => {
   const f = fixture({ rows: [[PREFERENCE, 'receivedCreated']], dropUpdates: true });
   guardDatePreference(f.s);
   f.db.exec(`UPDATE SystemPreferences SET value='serviceObservation' WHERE name='${PREFERENCE}'`);

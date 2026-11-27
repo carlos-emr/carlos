@@ -169,7 +169,8 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         }
         var values = new java.util.LinkedHashMap<String, String>();
         for (int index = 0; index < columns.size(); index++) {
-            Object raw = row[index + 1]; String value = null;
+            Object raw = row[index + 1];
+            String value = null;
             if (raw != null) {
                 if (!(raw instanceof byte[] bytes) || bytes.length > 65_536) {
                     throw new IllegalStateException("CDS_EXPORT_DEMOGRAPHIC_CAPTURE_INVALID");
@@ -2339,7 +2340,9 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         long total;
         int page;
         ClientSearchWindow(int requested, int sort, boolean descending) {
-            this.requested = requested; this.sort = sort; this.descending = descending;
+            this.requested = requested;
+            this.sort = sort;
+            this.descending = descending;
         }
     }
 
@@ -2370,7 +2373,8 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             // in SQL, then hydrate only that window through HQL so every mapped field is valid.
             QueryPage<Integer> ids = QueryPage.load(session, query, queryText, window.requested, 10,
                     order, true, Integer.class);
-            window.total = ids.total(); window.page = ids.page();
+            window.total = ids.total();
+            window.page = ids.page();
             if (ids.rows().isEmpty()) return List.of();
             Map<Integer, Demographic> patients = session.createQuery(
                     "FROM Demographic d WHERE d.demographicNo IN :ids", Demographic.class)

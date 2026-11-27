@@ -38,49 +38,34 @@
 
     Parameters (request):
     - din      : Drug Identification Number used to look up the unit price
-    - qty      : Optional quantity multiplier; defaults to 1 if absent or zero
-    - randomId : Row identifier passed by the caller (not used in response)
+    - qty      : Optional positive decimal dispense quantity
 
     Response:
-    Renders a <span> containing the formatted Canadian-dollar cost as "{price}/{quantity}",
-    or nothing if the DIN is not found or the price/quantity values are invalid.
+    Renders a Canadian-dollar total for a known dispense quantity or a per-unit estimate.
+    An unpriced DIN produces an empty fragment.
 
     @since 2026-03-22
 --%>
 
-<%@page import="java.math.BigDecimal" %>
-<%@page import="java.util.*" %>
-<%@page import="java.text.*" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.util.DrugPriceEstimate" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.DrugPriceLookup" %>
 
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
-		    String din = request.getParameter("din");
-		    String randomId = request.getParameter("randomId");
-		    String quantity = request.getParameter("qty");
-		    String cost = DrugPriceLookup.getPriceInfoForDin(din);
-		    String moneyString = "";
-		    NumberFormat formatter = NumberFormat.getCurrencyInstance(Locale.CANADA);
-
-            if (cost != null && !cost.isEmpty() && cost.matches("\\d+(\\.\\d+)?")){
-				BigDecimal unitPrice = new BigDecimal(cost);
-				BigDecimal money = unitPrice;
-				if (quantity != null && !quantity.isEmpty() && quantity.matches("\\d+(\\.\\d+)?")) {
-					BigDecimal qty = new BigDecimal(quantity);
-					if (qty.compareTo(BigDecimal.ZERO) > 0) {
-						money = unitPrice.multiply(qty);
-						moneyString = formatter.format(money)+"/"+quantity;
-					} else {
-						moneyString = formatter.format(unitPrice)+"/1";
-					}
-				} else {
-				    //lets format it
-					moneyString = formatter.format(money)+"/1";
-                }
-         %>
-            <span style="margin-left:2px; margin-right: 2px;">
-			<carlos:encode value='<%= moneyString %>' context="html"/>
-            </span>
-            <%}%>
+    String unitPrice = DrugPriceLookup.getPriceInfoForDin(request.getParameter("din"));
+    DrugPriceEstimate estimate = DrugPriceEstimate.from(unitPrice, request.getParameter("qty"));
+    if (estimate != null) {
+%>
+    <span style="margin-left:2px; margin-right:2px;">
+    <% if (estimate.quantity() == null) { %>
+        <fmt:message key="WriteScript.msgDrugPricePerUnit" var="pricePerUnit">
+            <fmt:param value="<%= estimate.amount() %>"/>
+        </fmt:message>
+        <carlos:encode value="${pricePerUnit}" context="html"/>
+    <% } else { %>
+        <carlos:encode value='<%= estimate.amount() + "/" + estimate.quantity() %>' context="html"/>
+    <% } %>
+    </span>
+<% } %>

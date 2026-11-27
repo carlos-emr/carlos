@@ -24,7 +24,12 @@
 'use strict';
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const {DatabaseSync} = require('node:sqlite');
+let DatabaseSync;
+try {
+  ({ DatabaseSync } = require('node:sqlite'));
+} catch (error) {
+  if (error.code !== 'ERR_UNKNOWN_BUILTIN_MODULE') throw error;
+}
 const {createOwnedFixtureCleanup} = require('./lib/echart-new-patient-cleanup');
 const {PATIENT_KEYED_TABLES} = require('./lib/owned-patient');
 const marker='FAKE-PW0123456789abcdef';
@@ -59,7 +64,7 @@ function fixture(t,{wrongOwner=false,skipCustDelete=false,id='3009',sqlReady=tru
   return {db,events,state,options,foreign,sql,pairs};
 }
 
-test('all chart children including the three observed residues disappear before parent without touching foreign rows',async t=>{
+test('all chart children including the three observed residues disappear before parent without touching foreign rows',{ skip: !DatabaseSync }, async t=>{
   const f=fixture(t);const before=f.foreign();
   await createOwnedFixtureCleanup(f.options)();
   for(const table of ['demographicExt','demographicExtArchive','demographiccust'])assert.equal(f.db.prepare(`SELECT COUNT(*) AS count FROM ${table} WHERE demographic_no=3009`).get().count,0,`${table} owned child remains`);
@@ -67,45 +72,45 @@ test('all chart children including the three observed residues disappear before 
   assert.deepEqual(f.foreign(),before);
 });
 
-test('browser close finishes before any SQL and all children precede parent deletion',async t=>{
+test('browser close finishes before any SQL and all children precede parent deletion',{ skip: !DatabaseSync }, async t=>{
   const f=fixture(t);let release;f.options.closeBrowser=()=>new Promise(resolve=>{release=()=>{f.events.push('browser-closed');resolve();};});
   const cleanup=createOwnedFixtureCleanup(f.options);const pending=cleanup();await new Promise(r=>setImmediate(r));assert.deepEqual(f.events,[]);release();await pending;
   assert.equal(f.events[0],'browser-closed');const parent=f.events.findIndex(q=>/^DELETE FROM demographic WHERE/.test(q));
   assert(parent>0);assert(f.events.slice(0,parent).some(q=>q.includes('DELETE FROM demographicExtArchive')));assert(f.events.slice(0,parent).some(q=>q.includes('DELETE FROM demographiccust')));
 });
 
-test('browser-close refusal keeps every row and never runs SQL or retries',async t=>{
+test('browser-close refusal keeps every row and never runs SQL or retries',{ skip: !DatabaseSync }, async t=>{
   const failure=new Error('browser close failed');const f=fixture(t,{closeError:failure});const before=f.foreign();const cleanup=createOwnedFixtureCleanup(f.options);
   await assert.rejects(cleanup(),e=>e===failure);await assert.rejects(cleanup(),e=>e===failure);assert.deepEqual(f.events,['browser-close']);assert.deepEqual(f.foreign(),before);
   assert.equal(f.db.prepare('SELECT COUNT(*) AS count FROM demographic WHERE demographic_no=3009').get().count,1);
 });
 
-test('replaced parent refuses all child and parent deletes',async t=>{
+test('replaced parent refuses all child and parent deletes',{ skip: !DatabaseSync }, async t=>{
   const f=fixture(t,{wrongOwner:true});const before=f.foreign();await assert.rejects(createOwnedFixtureCleanup(f.options)(),/ownership changed/);
   assert(!f.events.some(q=>q.startsWith('DELETE')));assert.deepEqual(f.foreign(),before);assert.equal(f.db.prepare('SELECT COUNT(*) AS count FROM demographiccust WHERE demographic_no=3009').get().count,1);
 });
 
-test('partial child cleanup is a failure and retains the parent for recovery',async t=>{
+test('partial child cleanup is a failure and retains the parent for recovery',{ skip: !DatabaseSync }, async t=>{
   const f=fixture(t,{skipCustDelete:true});const before=f.foreign();await assert.rejects(createOwnedFixtureCleanup(f.options)(),/chart rows were not removed/);
   assert.equal(f.db.prepare('SELECT COUNT(*) AS count FROM demographic WHERE demographic_no=3009').get().count,1);assert.deepEqual(f.foreign(),before);
 });
 
-test('concurrent signal and finally share one cleanup',async t=>{
+test('concurrent signal and finally share one cleanup',{ skip: !DatabaseSync }, async t=>{
   const f=fixture(t);const cleanup=createOwnedFixtureCleanup(f.options);const first=cleanup(),second=cleanup();assert.equal(first,second);await Promise.all([first,second]);assert.equal(f.events.filter(q=>q==='browser-close').length,1);assert.equal(f.events.filter(q=>q.startsWith('DELETE FROM demographic WHERE')).length,1);
 });
 
-test('an invalid captured id cannot reach SQL deletion',async t=>{
+test('an invalid captured id cannot reach SQL deletion',{ skip: !DatabaseSync }, async t=>{
   const f=fixture(t,{id:'3009 OR 1=1'});await assert.rejects(createOwnedFixtureCleanup(f.options)(),/demographic_no/);assert(!f.events.some(q=>q.startsWith('DELETE')));
 });
 
-test('a lost captured id can be recovered by the unique marker and normal uppercase name',async t=>{
+test('a lost captured id can be recovered by the unique marker and normal uppercase name',{ skip: !DatabaseSync }, async t=>{
   const f=fixture(t);f.options.getPatientId=()=>f.sql(`SELECT demographic_no FROM demographic WHERE last_name='${marker}' AND first_name='NOTES'`);await createOwnedFixtureCleanup(f.options)();assert.equal(f.db.prepare('SELECT COUNT(*) AS count FROM demographic WHERE demographic_no=3009').get().count,0);
 });
 
-test('an already removed parent with children is not silently treated as clean',async t=>{
+test('an already removed parent with children is not silently treated as clean',{ skip: !DatabaseSync }, async t=>{
   const f=fixture(t);f.db.exec('DELETE FROM demographic WHERE demographic_no=3009');await assert.rejects(createOwnedFixtureCleanup(f.options)(),/ownership changed/);assert(!f.events.some(q=>q.startsWith('DELETE')));assert.equal(f.db.prepare('SELECT COUNT(*) AS count FROM demographicExt WHERE demographic_no=3009').get().count,1);
 });
 
-test('missing initialized SQL closes browser without touching credentials or rows',async t=>{
+test('missing initialized SQL closes browser without touching credentials or rows',{ skip: !DatabaseSync }, async t=>{
   const f=fixture(t,{sqlReady:false});await createOwnedFixtureCleanup(f.options)();assert.deepEqual(f.events,['browser-close']);
 });

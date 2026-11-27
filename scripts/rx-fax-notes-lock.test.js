@@ -641,7 +641,8 @@ for (const [label, response, retryable] of [
 
 test('local insertion acknowledges success even if layout fails; missing editor returns no-write', () => {
   const chart = fs.readFileSync(path.join(__dirname, '../src/main/webapp/js/newCaseManagementView.js.jsp'), 'utf8');
-  const source = chart.slice(chart.indexOf('function pasteToEncounterNote('), chart.indexOf('function writeToEncounterNote('));
+  // From the Sign & Save hold the paste consults, through the paste itself.
+  const source = chart.slice(chart.indexOf('var noteSignPreflightPending'), chart.indexOf('function writeToEncounterNote('));
   const editor = { value: '' };
   const messages = [];
   const context = vm.createContext({

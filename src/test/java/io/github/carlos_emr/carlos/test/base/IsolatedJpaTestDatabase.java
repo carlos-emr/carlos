@@ -6,7 +6,6 @@ import java.sql.DriverManager;
 import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
-import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
 import org.springframework.jdbc.datasource.AbstractDriverBasedDataSource;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
@@ -89,7 +88,7 @@ public final class IsolatedJpaTestDatabase implements AutoCloseable {
         }
     }
 
-    public DataSource dataSource() {
+    public AbstractDriverBasedDataSource dataSource() {
         return dataSource;
     }
 

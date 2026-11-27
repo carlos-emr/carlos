@@ -28,11 +28,17 @@ import java.io.PrintWriter;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.utility.SessionConstants;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Lightweight JSON endpoint for client-side session-validity polling.
- * Returns {@code {"valid": true|false}}. Intentionally unauthenticated (the
+ * Returns {@code {"valid": true|false}}, plus {@code "facilitySelectionPending": true}
+ * while a signed-in session still has to choose a facility (the same
+ * {@link SessionConstants#PENDING_FACILITY_SELECTION} flag on which LoginFilter redirects
+ * every other route to {@code /select_facility}); a client about to leave the page with a
+ * full form submission must not take such a session as able to save. Intentionally
+ * unauthenticated (the
  * endpoint is whitelisted in LoginFilter so stale tabs can discover an
  * expired session without being redirected to the login page).
  *
@@ -68,9 +74,14 @@ public final class SessionHeartbeat2Action extends ActionSupport {
 
         HttpSession session = request.getSession(false);
         boolean valid = session != null && session.getAttribute("user") != null;
+        // "valid" keeps meaning signed in, for the timeout and logout pollers; the pending
+        // facility choice is reported separately so only callers that will submit refuse it.
+        boolean facilitySelectionPending = valid
+                && Boolean.TRUE.equals(session.getAttribute(SessionConstants.PENDING_FACILITY_SELECTION));
 
         try (PrintWriter out = response.getWriter()) {
-            out.write("{\"valid\":" + valid + "}");
+            out.write("{\"valid\":" + valid
+                    + (facilitySelectionPending ? ",\"facilitySelectionPending\":true" : "") + "}");
         }
 
         return NONE;

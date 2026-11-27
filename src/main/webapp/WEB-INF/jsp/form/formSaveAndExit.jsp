@@ -45,6 +45,8 @@
 %>
 
 
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <html>
     <head>
@@ -53,6 +55,10 @@
         <title></title>
     </head>
     <body>
+        <div id="encounterFormRecovery" hidden>
+            <label for="encounterFormReference"><fmt:message key="encounter.formSaved.copyReference"/></label>
+            <textarea id="encounterFormReference" readonly></textarea>
+        </div>
         <script>
             completeEncounterForm(window, "${carlos:forJavaScript(requestScope.demographicNo)}",
                 "${carlos:forJavaScript(requestScope.diagnosisVT)}");

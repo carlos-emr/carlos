@@ -4,6 +4,8 @@
 // #5725: four native report instances in ONE context/login, including two
 // additional instances of the same template. Never intercept the clear beacon.
 // #5917: CSV guards stay intact while XLSX restores raw text and padded numeric cells.
+// #6236 (829c8033b91e): reportByTemplateLayout.css scrolls a wide result inside its region, wraps
+// template XML instead of widening the page, and hides the navigation bar when a template is printed.
 const fs=require('node:fs');
 const h=require('./lib/playwright-harness');
 const {runWorkflow}=require('./lib/workflow-session');
@@ -17,7 +19,7 @@ async function workflow(s) {
   s.cleanup(()=>fs.rmSync(scratch,{recursive:true,force:true}));
   let second;
   const secondName='O\'Neil, "A&B"';
-  const titles=[marker+' TAB A',marker+' TAB B'];
+  const titles=[marker+' TAB A',marker+' TAB B',marker+' TAB WIDE'];
   s.cleanup(()=>{
     sql.execute(`DELETE FROM reportTemplates WHERE templatetitle IN (${titles.map(q).join(',')})`);
     h.assert(sql.value(`SELECT COUNT(*) FROM reportTemplates WHERE templatetitle IN (${titles.map(q).join(',')})`)==='0','Owned tab templates remain');
@@ -51,22 +53,23 @@ async function workflow(s) {
   h.assert(library,'Report library frame did not open');
   await library.waitForURL(/\/reportByTemplate\/ViewHomePage/);
   const click=locator=>navigates(admin,library,locator);
+  async function upload(template) {
+    await click(library.getByRole('link',{name:'Add Template',exact:true}));
+    const escape=value=>value.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+    const parameter=template.parameterType==='text'
+      ? '<param\nid="pick"\ttype="text" description="Sex" meta:hint="optional"/><!-- <param id="commentedOut" type="text" description="Unused"/> -->'
+      : '<param id="pick" type="list" description="Sex"><choice id="F">Female</choice><choice id="M">Male</choice><choice id="X">No matching patient</choice></param>';
+    const root=template.parameterType==='text'?'r:report':'report';
+    const xml=`<${root} xmlns:r="urn:carlos:report" xmlns:meta="urn:carlos:regression-metadata" title="${template.title}" description="${marker} tab isolation" active="1"><query>${escape(template.query)}</query>${parameter}</${root}>`;
+    await library.locator('#uploadReportXml').setInputFiles({name:'owned-report-tabs.xml',mimeType:'text/xml',buffer:Buffer.from(xml)});
+    await click(library.locator('input[type="submit"][value^="Upload"]'));
+    await library.locator('.alert-success',{hasText:'Saved Successfully'}).waitFor();
+    template.id=sql.value(`SELECT GROUP_CONCAT(templateid) FROM reportTemplates WHERE templatetitle=${q(template.title)}`);
+    h.assert(/^[1-9]\d*$/.test(template.id),'Upload did not create exactly one owned template');
+    h.assert(sql.value(`SELECT templatesql FROM reportTemplates WHERE templateid=${template.id}`)===template.query,'Uploaded template SQL changed');
+  }
   await s.step('two distinguishable report templates upload through Administration',async()=>{
-    for(const template of templates) {
-      await click(library.getByRole('link',{name:'Add Template',exact:true}));
-      const escape=value=>value.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
-      const parameter=template.parameterType==='text'
-        ? '<param\nid="pick"\ttype="text" description="Sex" meta:hint="optional"/><!-- <param id="commentedOut" type="text" description="Unused"/> -->'
-        : '<param id="pick" type="list" description="Sex"><choice id="F">Female</choice><choice id="M">Male</choice><choice id="X">No matching patient</choice></param>';
-      const root=template.parameterType==='text'?'r:report':'report';
-      const xml=`<${root} xmlns:r="urn:carlos:report" xmlns:meta="urn:carlos:regression-metadata" title="${template.title}" description="${marker} tab isolation" active="1"><query>${escape(template.query)}</query>${parameter}</${root}>`;
-      await library.locator('#uploadReportXml').setInputFiles({name:'owned-report-tabs.xml',mimeType:'text/xml',buffer:Buffer.from(xml)});
-      await click(library.locator('input[type="submit"][value^="Upload"]'));
-      await library.locator('.alert-success',{hasText:'Saved Successfully'}).waitFor();
-      template.id=sql.value(`SELECT GROUP_CONCAT(templateid) FROM reportTemplates WHERE templatetitle=${q(template.title)}`);
-      h.assert(/^[1-9]\d*$/.test(template.id),'Upload did not create exactly one owned template');
-      h.assert(sql.value(`SELECT templatesql FROM reportTemplates WHERE templateid=${template.id}`)===template.query,'Uploaded template SQL changed');
-    }
+    for(const template of templates)await upload(template);
     await click(library.getByRole('link',{name:'Template Library',exact:true}));
     await library.locator('#userSearch').fill(marker);
   });
@@ -190,6 +193,75 @@ async function workflow(s) {
     await b.page.close();h.assert(b.page.isClosed(),'The report tab did not close');
     await exports(a);await exports(c);await exports(d);
     h.assert(clinical()===before,'Cross-tab lifecycle changed clinical data');
+  });
+  // reportByTemplateLayout.css (829c8033b91e), linked by resultReport.jsp:95 and viewTemplate.jsp:60, styles only
+  // body.rbt-page (resultReport.jsp:129, viewTemplate.jsp:73). One template with a long unbroken token serves both
+  // pages: the token is a 400-character line fragment in the template XML and a 400-character result cell.
+  const wideValue='W'.repeat(400);
+  const wide={title:titles[2],parameterType:'list',header:['patient_id','wide_value'],types:['number','text'],
+    query:`SELECT demographic_no AS patient_id,'${wideValue}' AS wide_value FROM demographic WHERE last_name='${marker}' AND sex='{pick}' ORDER BY demographic_no`,
+    row:sex=>[sex==='F'?patient:second,wideValue]};
+  // Computed layout of the result page's report region (resultReport.jsp:149) and of the page itself.
+  const resultLayout=page=>page.evaluate(()=>{
+    const region=document.querySelector('body.rbt-page > .reportBorderDiv');
+    const actions=document.querySelector('body.rbt-page .form-actions > .d-flex');
+    if(!region||!actions)return null;
+    const style=getComputedStyle(region);
+    return {overflowX:style.overflowX,marginLeft:style.marginLeft,marginRight:style.marginRight,
+      scrollWidth:region.scrollWidth,clientWidth:region.clientWidth,actionsWrap:getComputedStyle(actions).flexWrap,
+      pageScrollWidth:document.documentElement.scrollWidth,pageClientWidth:document.documentElement.clientWidth,
+      noprint:[...document.querySelectorAll('body.rbt-page .noprint')].map(node=>getComputedStyle(node).display)};
+  });
+  // Computed layout of View Template XML's template text (viewTemplate.jsp:86-87) and its bars.
+  const templateLayout=page=>page.evaluate(()=>{
+    const pre=document.querySelector('body.rbt-page .xmlBorderDiv pre');
+    if(!pre)return null;
+    const style=getComputedStyle(pre);
+    const rem=parseFloat(getComputedStyle(document.documentElement).fontSize);
+    return {text:pre.textContent,whiteSpace:style.whiteSpace,overflowWrap:style.overflowWrap,
+      scrollWidth:pre.scrollWidth,clientWidth:pre.clientWidth,
+      pageScrollWidth:document.documentElement.scrollWidth,pageClientWidth:document.documentElement.clientWidth,
+      gutter:[parseFloat(getComputedStyle(document.body).paddingLeft),parseFloat(getComputedStyle(document.body).paddingRight),rem],
+      noprint:[...document.querySelectorAll('body.rbt-page .noprint')].map(node=>getComputedStyle(node).display)};
+  });
+  await s.step('the layout stylesheet scrolls a wide result inside its region, wraps template XML and hides the bar in print',async()=>{
+    await upload(wide);
+    await click(library.getByRole('link',{name:'Template Library',exact:true}));
+    const report=await open(wide);
+    const {page}=report;
+    await run(report,'F');
+    const screen=await resultLayout(page);
+    h.assert(screen,'The result page has no .reportBorderDiv or action row in body.rbt-page');
+    h.assert(screen.overflowX==='auto'&&screen.marginLeft==='0px'&&screen.marginRight==='0px',
+      `The report region does not take the layout stylesheet's screen rules: ${JSON.stringify(screen)}`);
+    h.assert(screen.scrollWidth>screen.clientWidth,'The 400-character result cell does not overflow the report region');
+    h.assert(screen.pageScrollWidth<=screen.pageClientWidth,
+      `The wide result widens the page (${screen.pageScrollWidth}px > ${screen.pageClientWidth}px) instead of scrolling in its region`);
+    h.assert(screen.actionsWrap==='wrap','The result actions row does not wrap');
+    await page.emulateMedia({media:'print'});
+    let printed;
+    try{printed=await resultLayout(page);}finally{await page.emulateMedia({media:null});}
+    // The scroll rule is screen-only, so a printed report is not clipped to the region.
+    h.assert(printed.overflowX==='visible'&&printed.noprint.length>0&&printed.noprint.every(display=>display==='none'),
+      `The printed result clips the report or keeps a .noprint bar: ${JSON.stringify(printed)}`);
+    await leave(report,()=>Promise.all([page.waitForNavigation({waitUntil:'load'}),page.locator('input[type="button"][value="Back"]').click()]));
+    // reportConfiguration.jsp:243 links View Template XML.
+    await Promise.all([page.waitForNavigation({waitUntil:'load'}),page.getByRole('link',{name:'View Template XML',exact:true}).click()]);
+    const view=await templateLayout(page);
+    h.assert(view&&view.text.includes(wideValue),'View Template XML does not show the template with its long token');
+    h.assert(view.whiteSpace==='pre-wrap'&&view.overflowWrap==='anywhere',`The template XML does not wrap: ${view.whiteSpace}/${view.overflowWrap}`);
+    h.assert(view.scrollWidth<=view.clientWidth+1&&view.pageScrollWidth<=view.pageClientWidth,
+      `The long XML line widens its box (${view.scrollWidth}px > ${view.clientWidth}px) or the page instead of wrapping`);
+    h.assert(view.gutter[0]===view.gutter[2]&&view.gutter[1]===view.gutter[2],`The page has no 1rem screen gutter: ${JSON.stringify(view.gutter)}`);
+    h.assert(view.noprint.length>=2&&view.noprint.every(display=>display!=='none'),'The navigation bar or template actions are hidden on screen');
+    await page.emulateMedia({media:'print'});
+    let printedView;
+    try{printedView=await templateLayout(page);}finally{await page.emulateMedia({media:null});}
+    // viewTemplate.jsp has no print rule of its own: the stylesheet hides rbtTopNav.jspf's bar and the actions.
+    h.assert(printedView.noprint.length>=2&&printedView.noprint.every(display=>display==='none'),
+      `A printed template keeps the navigation bar or its actions: ${JSON.stringify(printedView.noprint)}`);
+    await page.close();
+    h.assert(clinical()===before,'The layout checks changed clinical data');
   });
 }
 if(require.main===module)runWorkflow('report-by-template-tabs',workflow,{openMaster:false});

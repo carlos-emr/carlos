@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/prescript/util/RxDrugRef.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 85.71428571428571,
+    "sourceBlob": "f5872b74db27a3d277d4f9ba94e4be9dd87a5584"
+  },
+  "evidenceSha256": "d41b08dd5b9846b6576db8674134c76ec3db5f21eb864ecec5260cde9266ac60"
+}
