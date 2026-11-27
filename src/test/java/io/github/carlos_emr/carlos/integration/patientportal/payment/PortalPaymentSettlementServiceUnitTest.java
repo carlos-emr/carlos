@@ -140,6 +140,10 @@ class PortalPaymentSettlementServiceUnitTest {
             assertThat(service.afterPaymentSaved(session, 55, 123)).isEqualTo(1);
             assertThat(service.afterPaymentSaved(session, 55, 123)).isEqualTo(1);
             assertThat(pool.getQueue()).hasSize(1);
+            release.countDown();
+            pool.shutdown();
+            assertThat(pool.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            verify(requests, org.mockito.Mockito.times(2)).reportPaid(same(staff), eq(55));
         } finally {
             release.countDown();
             pool.shutdownNow();
