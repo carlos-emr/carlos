@@ -274,6 +274,46 @@ public class DrugDaoIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    void shouldAcceptDeliberateChangesToAnImportedMedicationWithMissingValues() {
+        Drug source = createAndPersist(DEMO_NO, "Recorded product", "", false);
+        entityManager.createNativeQuery("UPDATE drugs SET takemin=NULL,takemax=NULL,custom_instructions=NULL,"
+                + "hide_cpp=NULL,start_date_unknown=NULL,hide_from_drug_profile=NULL WHERE drugid=:id")
+                .setParameter("id", source.getId()).executeUpdate();
+        entityManager.clear();
+        Drug stored = drugDao.find(source.getId());
+        Drug edited = new Drug();
+        edited.setBrandName(stored.getBrandName());
+        edited.setGenericName(stored.getGenericName());
+        edited.setCustomName(stored.getCustomName());
+        edited.setDrugForm(stored.getDrugForm());
+        edited.setRegionalIdentifier(stored.getRegionalIdentifier());
+        edited.setGcnSeqNo(stored.getGcnSeqNo());
+        edited.setTakeMin(0.5f);
+        edited.setTakeMax(2f);
+        edited.setCustomInstructions(true);
+        edited.setHideFromCpp(true);
+        edited.setStartDateUnknown(true);
+        edited.setSpecial("Updated directions");
+        edited.setSpecialInstruction("Updated pharmacy note");
+        edited.setRoute("PO");
+        edited.setFreqCode("BID");
+        edited.setMethod("Take");
+        edited.preserveUnchangedMedicationValues(stored);
+        assertThat(edited.getSpecial()).isEqualTo("Updated directions");
+        assertThat(edited.getSpecialInstruction()).isEqualTo("Updated pharmacy note");
+        assertThat(edited.getRoute()).isEqualTo("PO");
+        assertThat(edited.getFreqCode()).isEqualTo("BID");
+        assertThat(edited.getMethod()).isEqualTo("Take");
+        assertThat(edited.getTakeMin()).isEqualTo(0.5f);
+        assertThat(edited.getTakeMax()).isEqualTo(2f);
+        assertThat(edited.isCustomInstructions()).isTrue();
+        assertThat(edited.getHideFromCpp()).isTrue();
+        assertThat(edited.getStartDateUnknown()).isTrue();
+        assertThat(stored.isHideFromDrugProfile()).isFalse();
+        assertThat(stored.toString()).doesNotContain("Recorded product");
+    }
+
+    @Test
     void shouldCopyOriginalTextBytes_whenRestEchoesATrimmedProjection() throws Exception {
         Drug source = createAndPersist(DEMO_NO, "Synthetic medication", "", false);
         entityManager.createNativeQuery("UPDATE drugs SET quantity=' 30.0 ', unitName='mL ', "

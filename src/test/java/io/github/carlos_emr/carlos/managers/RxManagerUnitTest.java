@@ -321,6 +321,36 @@ class RxManagerUnitTest extends RxManagerImpl {
             assertThat(replacement.getUnitName()).isNull();
         }
 
+        @ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(strings = {"brand", "generic", "custom", "form"})
+        void shouldKeepNewClinicalValues_whenAProductDescriptorChanges(String descriptor) {
+            Drug source = new Drug();
+            source.setQuantity("30.0");
+            Drug edited = new Drug();
+            edited.recordRestFieldPresence(false, false, false);
+            switch (descriptor) {
+                case "brand" -> edited.setBrandName("new brand");
+                case "generic" -> edited.setGenericName("new generic");
+                case "custom" -> edited.setCustomName("new custom drug");
+                case "form" -> edited.setDrugForm("new form");
+                default -> throw new AssertionError(descriptor);
+            }
+            edited.preserveUnchangedMedicationValues(source);
+            assertThat(edited.getQuantity()).isNull();
+        }
+
+        @Test
+        void shouldKeepRecordedBoundsAndQuantity_whenConvertingTheStagedPrescription() {
+            var staged = new io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.Prescription(44, "999001", 1);
+            staged.setTakeMin(0.33333334f);
+            staged.setTakeMax(1f);
+            staged.setQuantity("30.0");
+            Drug drug = new Drug(staged);
+            assertThat(drug.getTakeMin()).isEqualTo(0.33333334f);
+            assertThat(drug.getTakeMax()).isEqualTo(1f);
+            assertThat(drug.getQuantity()).isEqualTo("30.0");
+        }
+
         @Test
         void shouldKeepNewCatalogId_whenNativeCallerSelectsADifferentProductWithTheSameName() {
             Drug source = new Drug();
