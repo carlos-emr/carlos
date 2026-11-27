@@ -3,10 +3,10 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/commn/dao/FavoriteDaoImpl.java",
   "kind": "floor",
   "floor": {
-    "lines": 94.44444444444444,
-    "instructions": 94.18604651162791,
-    "branches": 80.0,
-    "sourceBlob": "7cc933a7f18b2af595ce4e6afea4937888aa7d83"
+    "lines": 96.66666666666667,
+    "instructions": 96.64429530201342,
+    "branches": 83.33333333333333,
+    "sourceBlob": "2b4acbab828e96f5a73cf105510d3f760b5556d3"
   },
-  "evidenceSha256": "ec8227f9bed2c496b687648bfbdefb2a7cdcab2c9049b430711fe98fbd74c615"
+  "evidenceSha256": "da6518e230df5f4cc1b0e8f3d1dee04c37a992272bb1f5f57da34e104237be68"
 }
