@@ -659,6 +659,33 @@ class RxManagerUnitTest extends RxManagerImpl {
         }
 
         @Test
+        void shouldReadTheRetainedMedicationForItsOwningPatient() {
+            Drug stored = createTestDrug();
+            stored.setId(44);
+            ((MockDrugDao) drugDao).seed(stored);
+            assertThat(getDrug(new LoggedInInfo(), 44)).isSameAs(stored);
+        }
+
+        @Test
+        void shouldLeaveMedicationUnwritten_whenThePrescriptionHeaderCannotBeCreated() {
+            var info = new LoggedInInfo();
+            var drugs = java.util.List.of(createTestDrug());
+            assertThat(prescribe(info, drugs, null)).isNull();
+            prescriptionManager = org.mockito.Mockito.mock(PrescriptionManager.class);
+            assertThatThrownBy(() -> prescribe(info, drugs, 1)).isInstanceOf(PrescriptionWriteException.class);
+            assertThat(addNewDrugCallCount).isZero();
+        }
+
+        @Test
+        void shouldAcceptLegacyZeroIdForANewPrescription() {
+            Drug drug = createTestDrug();
+            drug.setId(0);
+            var result = prescribe(new LoggedInInfo(), java.util.List.of(drug), 1);
+            assertThat(result.drugs).hasSize(1);
+            assertThat(result.drugs.getFirst().getId()).isPositive();
+        }
+
+        @Test
         void shouldRejectMixedPatients_beforeCreatingTheHeaderOrAnyDrug() {
             var prescriptions = org.mockito.Mockito.mock(PrescriptionManager.class);
             prescriptionManager = prescriptions;
