@@ -168,6 +168,13 @@ public class SmsTransaction extends AbstractModel<Long> {
     @Column(name = "next_attempt_at")
     private Date nextAttemptAt;
 
+    /**
+     * The moment after which this text must not be sent at all (#884): an appointment reminder never arrives after
+     * its appointment. A text still waiting then is failed by the queue instead. {@code null}: no limit.
+     */
+    @Column(name = "expires_at")
+    private Date expiresAt;
+
     @Temporal(TemporalType.TIMESTAMP)
     @Column(name = "last_attempt_at")
     private Date lastAttemptAt;
@@ -221,6 +228,7 @@ public class SmsTransaction extends AbstractModel<Long> {
         transaction.recipientPhoneType = command.recipientPhoneType();
         transaction.messageBody = command.body();
         transaction.nextAttemptAt = new Date();
+        transaction.expiresAt = command.expiresAt() == null ? null : Date.from(command.expiresAt());
         transaction.refreshBodyAudit();
         return transaction;
     }
@@ -254,6 +262,8 @@ public class SmsTransaction extends AbstractModel<Long> {
         copy.consentId = consentId;
         copy.consentLastUpdateDate = copyOf(consentLastUpdateDate);
         copy.nextAttemptAt = new Date();
+        // A moved text keeps its limit: changing provider never lets a reminder arrive late.
+        copy.expiresAt = copyOf(expiresAt);
         copy.refreshBodyAudit();
         return copy;
     }
@@ -626,8 +636,18 @@ public class SmsTransaction extends AbstractModel<Long> {
                 messagePurpose,
                 requestedByHealthcareProviderNo,
                 requestedBySecurityNo,
-                appointmentNo
+                appointmentNo,
+                expiresAt == null ? null : expiresAt.toInstant()
         );
+    }
+
+    /** Whether this text may no longer be sent at {@code now}, because its limit has been reached. */
+    public boolean expiredBy(Date now) {
+        return expiresAt != null && !now.before(expiresAt);
+    }
+
+    public Date getExpiresAt() {
+        return copyOf(expiresAt);
     }
 
     @Override

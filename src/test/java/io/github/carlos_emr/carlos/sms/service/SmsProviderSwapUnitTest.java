@@ -710,8 +710,9 @@ class SmsProviderSwapUnitTest {
         /** The row a moved row's message names. */
         private SmsTransaction rowNamedBy(SmsTransaction movedRow) {
             assertThat(movedRow.getErrorMessage()).matches("Moved to [A-Z]+ as text \\d+\\.");
-            long id = Long.parseLong(movedRow.getErrorMessage().replaceAll("\\D", ""));
-            return rows.stream().filter(row -> row.getId() == id).findFirst().orElseThrow();
+            Long id = SmsProviderRetirementService.movedToTransactionId(movedRow);
+            assertThat(id).isNotNull();
+            return rows.stream().filter(row -> row.getId().equals(id)).findFirst().orElseThrow();
         }
 
         private void durableSave(SmsConfigUpdateDto update) {

@@ -301,4 +301,23 @@ class SmsTransactionPersistenceIntegrationTest extends CarlosTestBase {
                 .getSingleResult();
         assertThat(count).isEqualTo(1L);
     }
+
+    @Test
+    @DisplayName("should keep distinct reminder attempts and their time limits for a reused appointment number")
+    void shouldKeepDistinctAttempts_whenAnAppointmentNumberIsReused() {
+        SmsConsentDecisionDto consented = SmsConsentDecisionDto.permitted(SmsConsentStatus.OPT_IN, 4321,
+                Instant.parse("2026-09-01T14:30:00Z"));
+        Instant limit = Instant.parse("2026-11-18T15:30:00Z");
+        SmsTransaction first = recorder.recordOutboundAttempt(SmsSendCommand.appointmentReminder(123, "416-555-1212",
+                "FAKE first reminder", "999998", 88501, limit), SmsProviderType.STUB, consented);
+        SmsTransaction newer = recorder.recordOutboundAttempt(SmsSendCommand.appointmentReminder(123, "416-555-1212",
+                "FAKE newer reminder", "999998", 88501, limit.plusSeconds(60)), SmsProviderType.STUB, consented);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(smsTransactionDao.find(first.getId()).getExpiresAt()).isEqualTo(java.util.Date.from(limit));
+        assertThat(smsTransactionDao.find(newer.getId()).getExpiresAt())
+                .isEqualTo(java.util.Date.from(limit.plusSeconds(60)));
+    }
+
 }

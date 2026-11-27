@@ -5,6 +5,7 @@ import io.github.carlos_emr.carlos.sms.SmsStatus;
 import io.github.carlos_emr.carlos.sms.command.SmsSendCommand;
 import io.github.carlos_emr.carlos.sms.dto.SmsConsentDecisionDto;
 import io.github.carlos_emr.carlos.sms.dto.SmsSendResultDto;
+import io.github.carlos_emr.carlos.sms.model.SmsTransaction;
 import io.github.carlos_emr.carlos.sms.validator.SmsSendValidator;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 
@@ -70,6 +72,9 @@ public class SmsQueueService {
         if (!validation.valid()) {
             return SmsSendResultDto.validationFailed(validation.messages());
         }
+        if (command.expiredAt(Instant.now())) {
+            return SmsSendResultDto.validationFailed(List.of(SmsSendService.SMS_EXPIRED_MESSAGE));
+        }
 
         SmsProviderType providerType = providerSelector.configuredDefault();
         if (configService != null && !configService.providerReady(providerType)) {
@@ -80,16 +85,19 @@ public class SmsQueueService {
         }
         SmsConsentDecisionDto consentDecision = Objects.requireNonNull(
                 consentService.evaluate(command), "SMS consent decision is required");
+        SmsTransaction recorded;
         try {
-            transactionRecorder.recordOutboundAttempt(command, providerType, consentDecision);
+            recorded = transactionRecorder.recordOutboundAttempt(command, providerType, consentDecision);
         } catch (SmsProviderSelectionChangedException e) {
             return SmsSendResultDto.validationFailed(List.of(e.getMessage()));
         }
+        // The stored row's id lets a caller follow its text (#884: the appointment reminder records it).
+        Long transactionId = recorded == null ? null : recorded.getId();
         if (!consentDecision.allowed()) {
-            return SmsSendResultDto.consentBlocked(consentDecision);
+            return SmsSendResultDto.consentBlocked(consentDecision, transactionId);
         }
 
-        return SmsSendResultDto.queued();
+        return SmsSendResultDto.queued(transactionId);
     }
 
     public SmsSendResultDto enqueueAndProcessNow(SmsSendCommand command) {
