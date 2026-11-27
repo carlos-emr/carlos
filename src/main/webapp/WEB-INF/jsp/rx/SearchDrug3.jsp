@@ -1472,7 +1472,7 @@ function renderRxStage() {
              el.carlosPropertyVersion = version;
              // A Min/Max that is not a number is refused here, on the field, and the card keeps
              // its staged dose; the server refuses it too (400, never the old HTTP 500) (#5003).
-             if (/^(minimum|maximum)_/.test(elementId) && !RxInputValidation.isDoseAmount(value)) {
+             if (/^(minimum|maximum)_/.test(elementId) && !RxInputValidation.isDoseAmount(value, el.dataset.storedDose)) {
                  reportInvalidProperty(el, RxInputValidation.format(jsMsg.doseInvalid, value));
                  return;
              }
@@ -1482,7 +1482,10 @@ function renderRxStage() {
              CarlosAjax.request(url, {method: 'post',parameters:data,synchronous:true,
                  onSuccess: function () {
                      // A corrected value was accepted: the field is no longer invalid.
-                     if (el.carlosPropertyVersion === version) el.removeAttribute('aria-invalid');
+                     if (el.carlosPropertyVersion === version) {
+                         el.removeAttribute('aria-invalid');
+                         if (el.hasAttribute('data-stored-dose') && value.trim()) el.dataset.storedDose = value.trim();
+                     }
                  },
                  onFailure: function (transport) {
                      var error = transport && transport.responseJSON ? transport.responseJSON.error : null;

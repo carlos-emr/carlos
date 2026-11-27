@@ -54,6 +54,13 @@ test('inline doses accept plain decimals and the card display of a computed dose
   for (const dose of ['1', '0.5', '.25', '2.', '0.33333334', ' 1.5 ', '']) assert.equal(v.isDoseAmount(dose), true, dose);
 });
 
+test('a plain decimal outside the new-entry limit must match this stored bound', () => {
+  const stored = '0.0000000001';
+  assert.equal(v.isDoseAmount(stored, stored), true);
+  assert.equal(v.isDoseAmount(stored, '1'), false);
+  assert.equal(v.isDoseAmount('1e-10', '1e-10'), false);
+});
+
 test('inline doses refuse text, signs, exponents and non-finite values', () => {
   for (const dose of ['abc', 'one', '1/2', '-1', '+1', '1e3', 'NaN', 'Infinity', '1,5', '1 tab']) {
     assert.equal(v.isDoseAmount(dose), false, dose);

@@ -24,10 +24,11 @@ const mgAmounts = text => [...text.matchAll(/(?:^|[^\d.])(\d+(?:\.\d+)?)mg/gi)].
 
 async function workflow(s) {
   const {sql, patient, provider, marker, config, context} = s, q = h.sqlString, f = await prepareRx(s);
-  // A sixteenth and five sixteenths are exact in the float columns and finer than the three
-  // decimal places the dose text was rounded to. The directions state no dose, so nothing but
-  // the two stored numbers can supply one.
-  const fine = f.seed('fine', {takemin: '0.0625', takemax: '0.3125', special: 'Apply as directed'});
+  // The minimum needs ten decimal places in plain notation; the maximum is exactly five sixteenths.
+  const low = '0.0000000001', high = '0.3125';
+  const fine = f.seed('fine', {takemin: low, takemax: high, special: 'Apply as directed'});
+  const bounds = id => sql.rows(`SELECT CAST(takemin AS DOUBLE), CAST(takemax AS DOUBLE) FROM drugs WHERE drugid=${id}`)[0];
+  const storedBounds = bounds(fine);
   const favorite = h.insertId(sql, `INSERT INTO favorites(provider_no,favoritename,customName,GCN_SEQNO,takemin,takemax,
       freqcode,duration,durunit,quantity,\`repeat\`,nosubs,prn,special,dispenseInternal)
     VALUES(${q(provider)},${q(marker + ' favourite')},${q(marker + ' medication')},0,1,2,'OD','30','D','30',0,0,0,
@@ -41,7 +42,7 @@ async function workflow(s) {
     await h.gotoApp(record, config.baseUrl, `/rx/ViewDisplayRxRecord?id=${fine}`);
     const dose = (await record.locator('td.label', {hasText: /^\s*Dosage:\s*$/})
       .locator('xpath=following-sibling::td[1]').innerText()).trim();
-    h.assert(dose === '0.0625-0.3125', `The Rx record rounded or reformatted the stored dose: ${JSON.stringify(dose)}`);
+    h.assert(dose === `${low}-${high}`, `The Rx record rounded or reformatted the stored dose: ${JSON.stringify(dose)}`);
     await record.close();
   });
 
@@ -49,9 +50,9 @@ async function workflow(s) {
     const key = await stageExisting(rx, fine);
     await rx.waitForLoadState('networkidle');
     const shown = async field => (await rx.locator(`#${field}_${key}`).textContent()).trim();
-    h.assert(await shown('minimum') === '0.0625' && await shown('maximum') === '0.3125',
+    h.assert(await shown('minimum') === low && await shown('maximum') === high,
       `The staging card rounded the stored dose: ${await shown('minimum')} to ${await shown('maximum')}`);
-    for (const [field, expected] of [['minimum', '0.0625'], ['maximum', '0.3125']]) {
+    for (const [field, expected] of [['minimum', low], ['maximum', high]]) {
       // Leaving the field posts its text back as the dose, changed or not.
       const property = response => isPost(response, '/rx/WriteScript')
         && new URL(response.url()).searchParams.get('parameterValue') === 'updateProperty'
@@ -66,11 +67,10 @@ async function workflow(s) {
     await saveOnly(rx);
     await expectValue(sql, `SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}`, '2',
       'Re-prescribing did not save exactly one new medication');
-    const saved = sql.rows(`SELECT takemin,takemax FROM drugs WHERE demographic_no=${patient} AND drugid<>${fine}`)[0];
-    h.assert(JSON.stringify(saved) === JSON.stringify(['0.0625', '0.3125']),
-      `The saved dose is not the stored dose: ${JSON.stringify(saved)}`);
-    h.assert(JSON.stringify(sql.rows(`SELECT takemin,takemax FROM drugs WHERE drugid=${fine}`)[0])
-      === JSON.stringify(['0.0625', '0.3125']), 'Re-prescribing changed the original medication');
+    const successor = sql.value(`SELECT drugid FROM drugs WHERE demographic_no=${patient} AND drugid<>${fine}`);
+    h.assert(/^[1-9]\d*$/.test(successor), 'No successor medication was saved');
+    h.assert(JSON.stringify(bounds(successor)) === JSON.stringify(storedBounds), 'Re-prescribing changed the stored dose');
+    h.assert(JSON.stringify(bounds(fine)) === JSON.stringify(storedBounds), 'Re-prescribing changed the original medication');
   });
 
   await s.step('a quantity typed with a decimal amount and a unit is saved whole', async () => {

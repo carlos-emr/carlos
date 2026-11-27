@@ -211,7 +211,7 @@ async function workflow(s) {
   for (let position = 2; position <= 18; position++) {
     const name = position === 18 ? lastMedication : `FAKE row ${position} ${tag}`;
     sql.execute(`INSERT INTO drugs (provider_no,demographic_no,rx_date,end_date,written_date,customName,special,
-        archived,archived_reason,create_date,position,lastUpdateDate,dispenseInternal,quantity,takemin,takemax,unit,unitName,drugForm,method,freqcode)
+        archived,archived_reason,create_date,position,lastUpdateDate,dispenseInternal,quantity,takemin,takemax,unit,unitName,drug_form,method,freqcode)
       VALUES (${q(provider)},${patient},CURDATE(),DATE_ADD(CURDATE(),INTERVAL 30 DAY),CURDATE(),${q(name)},${q(name)},
         0,'',NOW(),${position},NOW(),0,'.50',1,3,'mg','mL','TAB','Take','daily')`);
   }
