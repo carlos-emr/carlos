@@ -511,7 +511,7 @@ class RxManagerUnitTest extends RxManagerImpl {
             Drug source = new Drug();
             source.setId(4);
             source.setDemographicId(1);
-            source.setGenericName("Synthetic");
+            source.setGenericName("ASA");
             source.setDosage("250.0 mg/5 mL");
             source.setUnit("mg/5 mL");
             ((MockDrugDao) drugDao).seed(source);
