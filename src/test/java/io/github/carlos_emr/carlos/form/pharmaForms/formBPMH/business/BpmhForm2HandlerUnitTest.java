@@ -194,13 +194,18 @@ class BpmhForm2HandlerUnitTest {
         Icd9 entry = new Icd9();
         entry.setDescription("Dictionary description");
         when(dictionary.findByCode("002")).thenReturn(entry);
+        when(translations.findPatientFriendlyTranslationFor("003")).thenReturn(new Icd9Synonym());
+        when(dictionary.findByCode("003")).thenReturn(new Icd9());
         when(reasons.getReasonsForDrugID(56, true)).thenReturn(List.of(
                 reason("icd9", "001", "recorded detail"), reason("other", "001", "second detail"),
                 reason(null, null, " author's wording "), reason("ICD9", "002", null),
-                reason("ICD9", "unmapped", null), reason(null, "original", null), reason(null, null, null)));
+                reason("ICD9", "unmapped", null), reason(null, "original", null), reason(null, null, null),
+                reason("ICD9", "003", null)));
 
         assertThat(handler.getDrugReason(56)).isEqualTo("First indication recorded detail\nother 001 second detail"
-                + "\n author's wording \nDictionary description\nICD9 unmapped\noriginal");
+                + "\n author's wording \nDictionary description\nICD9 unmapped\noriginal\nICD9 003");
+        when(reasons.getReasonsForDrugID(78, true)).thenReturn(null);
+        assertThat(handler.getDrugReason(78)).isEmpty();
     }
 
     private static DrugReason reason(String system, String code, String comment) {
