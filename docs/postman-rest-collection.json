@@ -1885,7 +1885,7 @@
 					}
 				},
 				"url": {
-					"raw": "{{baseUrl}}/ws/services/measurements/1/new",
+					"raw": "{{baseUrl}}/ws/services/measurements/{{testPatientId}}/new",
 					"host": [
 						"{{baseUrl}}"
 					],
@@ -1893,11 +1893,11 @@
 						"ws",
 						"services",
 						"measurements",
-						"1",
+						"{{testPatientId}}",
 						"new"
 					]
 				},
-				"description": "Creates a new reading; existing readings are never changed. measuringInstruction is required when the type is configured with several (for example BP: \"sitting position\"). dateObserved (epoch ms) defaults to now; repeating a request with the same dateObserved returns the stored reading. A validation refusal is 400 with {\"code\",\"message\"}; other refusals use the server's standard error response: 403 for missing measurement write, patient-record access or provider identity, 404 for a missing patient, 409 (plain text) when the patient's structured care cannot be projected, and 500 for an invalid validation configuration. Tokens that already held measurement.write can call this without re-consent."
+				"description": "Creates a new reading; existing readings are never changed. Set testPatientId to a synthetic patient on a disposable deployment only. measuringInstruction is required when the type is configured with several (for example BP: \"sitting position\"). dateObserved (epoch ms, stored to whole seconds) defaults to now; repeating a request with the exact same measurement values (type, dataField, measuringInstruction, comments) and dateObserved (within the same second) returns the stored reading instead of inserting a duplicate. A validation refusal is 400 with {\"code\",\"message\"}; other refusals use the server's standard error response: 403 for missing measurement write, patient-record access or provider identity, 404 for a missing patient, 409 (plain text) when the patient's structured care cannot be projected, and 500 for an invalid validation configuration. Tokens that already held measurement.write can call this without re-consent."
 			},
 			"response": []
 		},
@@ -4165,6 +4165,12 @@
 				}
 			},
 			"response": []
+		}
+	],
+	"variable": [
+		{
+			"key": "testPatientId",
+			"value": ""
 		}
 	]
 }

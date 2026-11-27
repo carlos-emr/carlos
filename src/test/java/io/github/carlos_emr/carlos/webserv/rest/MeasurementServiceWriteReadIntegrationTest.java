@@ -176,6 +176,9 @@ class MeasurementServiceWriteReadIntegrationTest extends CarlosTestBase {
                 BadRequestException.class);
 
         assertThat(refused).isNotNull();
+        assertThat(refused.getResponse().getEntity())
+                .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.MAP)
+                .containsEntry("code", "VALUE_REJECTED");
         assertThat(measurementDao.findByType(patient, List.of("BP"))).isEmpty();
     }
 }

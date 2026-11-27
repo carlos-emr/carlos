@@ -643,6 +643,27 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
         }
 
         @Test
+        @DisplayName("should insert a new reading when the DAO returns a candidate differing only in letter case")
+        void shouldInsertNewReading_whenStoredCandidateDiffersOnlyInCase() {
+            Measurement measurement = createTestMeasurement();
+            measurement.setDemographicId(4321);
+            measurement.setDataField("A");
+            measurement.setComments("Upper");
+            Measurement stored = createTestMeasurementWithId(TEST_MEASUREMENT_ID);
+            stored.setDemographicId(4321);
+            stored.setDataField("a");
+            stored.setComments("upper");
+            when(mockDemographicDao.findForUpdate(4321)).thenReturn(new io.github.carlos_emr.carlos.commn.model.Demographic());
+            when(mockMeasurementDao.find(any(io.github.carlos_emr.carlos.commn.dao.MeasurementDaoImpl.SearchCriteria.class)))
+                    .thenReturn(List.of(stored));
+
+            Measurement result = measurementManager.addMeasurementUnlessStored(mockLoggedInInfo, measurement);
+
+            assertThat(result).isSameAs(measurement);
+            verify(mockMeasurementDao).persist(measurement);
+        }
+
+        @Test
         @DisplayName("should refuse without a lookup or insert when the patient does not exist")
         void shouldRefuse_whenPatientMissing() {
             Measurement measurement = createTestMeasurement();

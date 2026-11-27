@@ -36,6 +36,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
@@ -172,10 +173,26 @@ public class MeasurementManagerImpl implements MeasurementManager {
         criteria.setComments(measurement.getComments());
         criteria.setDateObserved(measurement.getDateObserved());
         List<Measurement> stored = measurementDao.find(criteria);
-        if (stored != null && !stored.isEmpty()) {
-            return stored.get(0);
+        if (stored != null) {
+            for (Measurement existing : stored) {
+                if (sameReadingText(existing, measurement)) {
+                    return existing;
+                }
+            }
         }
         return addMeasurement(loggedInInfo, measurement);
+    }
+
+    /**
+     * Exact comparison on the reading's text columns so case-insensitive or pad-space database
+     * collations (such as MariaDB {@code utf8mb4_general_ci}) do not treat readings differing
+     * only in case or trailing whitespace as retries of one another.
+     */
+    private static boolean sameReadingText(Measurement existing, Measurement candidate) {
+        return Objects.equals(existing.getType(), candidate.getType())
+                && Objects.equals(existing.getDataField(), candidate.getDataField())
+                && Objects.equals(existing.getMeasuringInstruction(), candidate.getMeasuringInstruction())
+                && Objects.equals(existing.getComments(), candidate.getComments());
     }
 
     /**
