@@ -123,7 +123,7 @@ class RxDrugDataAtcClassAllergyUnitTest {
         var warnings = new Hashtable<>(Map.of("warnings", new Vector<>(List.of("0")),
                 "missing", new Vector<>(List.of("1"))));
 
-        try (MockedConstruction<SimpleXmlRpcClient> ignored = mockConstruction(SimpleXmlRpcClient.class,
+        try (MockedConstruction<SimpleXmlRpcClient> _ = mockConstruction(SimpleXmlRpcClient.class,
                 (client, context) -> {
                     when(client.execute(eq("get_allergy_warnings"), any())).thenReturn(new Vector<>(List.of(warnings)));
                     when(client.execute(eq("get_drug_by_DIN"), any())).thenReturn(new Vector<>(List.of(unrelated)));

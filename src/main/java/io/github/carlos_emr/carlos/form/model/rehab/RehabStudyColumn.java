@@ -40,10 +40,10 @@ public sealed interface RehabStudyColumn<E extends RehabStudyAssessment>
     static <S extends RehabStudyAssessment, E extends S> List<RehabStudyColumn<E>> narrow(
             List<RehabStudyColumn<S>> columns) {
         return columns.stream().<RehabStudyColumn<E>>map(column -> switch (column) {
-            case Checkbox<S> checkbox -> new Checkbox<E>(checkbox.name(), checkbox.reader()::apply,
-                    checkbox.writer()::accept);
-            case Text<S> text -> new Text<E>(text.name(), text.reader()::apply, text.writer()::accept);
-            case Day<S> day -> new Day<E>(day.name(), day.reader()::apply, day.writer()::accept);
+            case Checkbox<S>(String name, var reader, var writer) -> new Checkbox<E>(name, reader::apply,
+                    writer::accept);
+            case Text<S>(String name, var reader, var writer) -> new Text<E>(name, reader::apply, writer::accept);
+            case Day<S>(String name, var reader, var writer) -> new Day<E>(name, reader::apply, writer::accept);
         }).toList();
     }
 
@@ -68,8 +68,8 @@ public sealed interface RehabStudyColumn<E extends RehabStudyAssessment>
      */
     record Text<E extends RehabStudyAssessment>(String name, Function<E, String> reader,
             BiConsumer<E, String> writer) implements RehabStudyColumn<E> {
-        /** Blank answers to nullable integer columns represent missing values. */
-        static <E extends RehabStudyAssessment> Text<E> forIntegerColumn(String name, Function<E, String> reader,
+        /** Blank answers to nullable numeric columns represent missing values. */
+        static <E extends RehabStudyAssessment> Text<E> forNumericColumn(String name, Function<E, String> reader,
                 BiConsumer<E, String> writer) {
             return new Text<>(name, reader, (form, value) -> writer.accept(form, StringUtils.defaultIfBlank(value, null)));
         }

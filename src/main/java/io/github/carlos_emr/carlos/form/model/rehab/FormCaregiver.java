@@ -69,8 +69,8 @@ public class FormCaregiver extends RehabStudyAssessment {
             new Checkbox<>("Q12N", form -> form.q12N, (form, value) -> form.q12N = value),
             new Checkbox<>("Q13Y", form -> form.q13Y, (form, value) -> form.q13Y = value),
             new Checkbox<>("Q13N", form -> form.q13N, (form, value) -> form.q13N = value),
-            Text.forIntegerColumn("score1", form -> form.score1, (form, value) -> form.score1 = value),
-            Text.forIntegerColumn("SRBScore", form -> form.sRBScore, (form, value) -> form.sRBScore = value));
+            Text.forNumericColumn("score1", form -> form.score1, (form, value) -> form.score1 = value),
+            Text.forNumericColumn("SRBScore", form -> form.sRBScore, (form, value) -> form.sRBScore = value));
 
     @Column(name = "sexM", columnDefinition = "tinyint(1)")
     private Byte sexM;

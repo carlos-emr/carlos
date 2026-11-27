@@ -193,7 +193,7 @@ class OutcomesDashboardUtilsUnitTest extends CarlosUnitTestBase {
                     .doesNotContain("TEST_CLINIC_5335", "999998", "Synthetic Metric Set", "synthetic destination reply");
         }
         assertThat(received).hasSize(1);
-        assertThat(received.get(0).get("version")).isEqualTo("1.1");
+        assertThat(received.get(0)).containsEntry("version", "1.1");
         JsonNode data = JSON.readTree(received.get(0).get("data"));
         assertThat(data.at("/clinic/identifier").asText()).isEqualTo("TEST_CLINIC_5335");
         assertThat(data.at("/metricOwner/username").asText()).isEqualTo("999998");
@@ -238,7 +238,7 @@ class OutcomesDashboardUtilsUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("propagates a transport failure so the caller can report it")
-    void shouldThrow_whenDestinationIsUnreachable() throws Exception {
+    void shouldThrow_whenDestinationIsUnreachable() throws IOException {
         configureDestination();
         destination.stop(0);
         producePanel("Local label", "7");

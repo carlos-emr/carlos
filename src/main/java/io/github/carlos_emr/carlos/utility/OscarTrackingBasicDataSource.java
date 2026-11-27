@@ -421,7 +421,7 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
         public void close() throws SQLException {
             try {
                 connection.close();
-            } catch (SQLException | RuntimeException | Error failure) {
+            } catch (SQLException | RuntimeException failure) {
                 if (isDelegateClosedAfterFailure(failure)) {
                     untrackAfterClose();
                 }

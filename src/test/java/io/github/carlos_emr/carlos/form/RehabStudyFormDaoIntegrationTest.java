@@ -194,6 +194,36 @@ class RehabStudyFormDaoIntegrationTest extends CarlosTestBase {
         assertThat(reopened).containsEntry("ex1", "").containsEntry("ex3", "0");
     }
 
+    @Test
+    void shouldStoreBlankDoubleAnswers_asNullWithoutLosingZeroDecimalOrBlankText() throws Exception {
+        RehabStudyFormType<?> cost = type("CostQuestionnaire");
+        Properties post = basePost(PATIENT);
+        for (RehabStudyColumn<?> column : cost.columns()) {
+            String physical = physicalType(cost, column.name());
+            if (physical.startsWith("int(") || physical.equals("double")) {
+                post.setProperty(column.name(), "");
+            }
+        }
+        post.setProperty("paidServiceCost2", "  ");
+        post.setProperty("itemCost1", "0");
+        post.setProperty("itemCost2", "20.5");
+        post.setProperty("paidService1", "");
+
+        int id = service.saveVersion(actor, cost, PATIENT, 0, post);
+
+        Map<String, String> stored = rawRow(cost.table(), PATIENT);
+        for (String blankDouble : List.of("paidservicecost1", "paidservicecost2", "paidservicecost3", "itemcost3")) {
+            assertThat(stored.get(blankDouble)).as(blankDouble).isNull();
+        }
+        assertThat(Double.parseDouble(stored.get("itemcost1"))).isZero();
+        assertThat(Double.parseDouble(stored.get("itemcost2"))).isEqualTo(20.5);
+        assertThat(stored).containsEntry("paidservice1", "");
+        Properties reopened = service.load(actor, cost, PATIENT, id);
+        assertThat(reopened).containsEntry("paidServiceCost1", "").containsEntry("paidServiceCost2", "");
+        assertThat(Double.parseDouble(reopened.getProperty("itemCost1"))).isZero();
+        assertThat(Double.parseDouble(reopened.getProperty("itemCost2"))).isEqualTo(20.5);
+    }
+
     @ParameterizedTest(name = "{0}")
     @MethodSource("questionnaires")
     void shouldStoreAndShowEveryColumn_exactlyAsTheRetiredRecordDid(RehabStudyFormType<?> type)
@@ -335,7 +365,9 @@ class RehabStudyFormDaoIntegrationTest extends CarlosTestBase {
         service.requireReadable(actor, sf36, PATIENT, id);
         service.requireReadable(actor, sf36, OTHER_PATIENT, 0);
         // A version of another questionnaire is not a source either, even for the same patient.
-        assertThatThrownBy(() -> service.saveVersion(actor, type("SF36Caregiver"), PATIENT, id, basePost(PATIENT)))
+        RehabStudyFormType<?> caregiver = type("SF36Caregiver");
+        Properties patientPost = basePost(PATIENT);
+        assertThatThrownBy(() -> service.saveVersion(actor, caregiver, PATIENT, id, patientPost))
                 .isInstanceOf(SecurityException.class);
         assertThat(forms.findForPatient(sf36.entity(), OTHER_PATIENT, id)).isNull();
         assertThat(independentCount("formSF36", PATIENT)).isEqualTo(1);
@@ -398,8 +430,9 @@ class RehabStudyFormDaoIntegrationTest extends CarlosTestBase {
         }).when(failing).flush();
         try {
             ReflectionTestUtils.setField(target, "forms", failing);
+            RehabStudyFormType<?> gripStrength = type("GripStrength");
             Properties post = basePost(PATIENT);
-            assertThatThrownBy(() -> service.saveVersion(actor, type("GripStrength"), PATIENT, 0, post))
+            assertThatThrownBy(() -> service.saveVersion(actor, gripStrength, PATIENT, 0, post))
                     .isInstanceOf(IllegalStateException.class);
             assertThat(independentCount("formGripStrength", PATIENT)).isZero();
         } finally {
@@ -409,9 +442,10 @@ class RehabStudyFormDaoIntegrationTest extends CarlosTestBase {
 
     @Test
     void shouldRefuseAndWriteNothing_whenThePostHasNoStudyId() throws Exception {
+        RehabStudyFormType<?> falls = type("Falls");
         Properties post = basePost(PATIENT);
         post.remove("studyID");
-        assertThatThrownBy(() -> service.saveVersion(actor, type("Falls"), PATIENT, 0, post))
+        assertThatThrownBy(() -> service.saveVersion(actor, falls, PATIENT, 0, post))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThat(independentCount("formFalls", PATIENT)).isZero();
     }
@@ -458,10 +492,11 @@ class RehabStudyFormDaoIntegrationTest extends CarlosTestBase {
             fresh.setProperty("demographic_no", Integer.toString(PATIENT));
             int id = service.saveVersion(actor, type("IntakeInfo"), PATIENT, 0, fresh);
             Map<String, String> stored = rawRow("formIntakeInfo", PATIENT);
-            assertThat(stored.get("sex")).isEqualTo("F");
-            assertThat(stored.get("dob")).isEqualTo("1950-02-28");
-            assertThat(stored.get("phone")).isEqualTo("555-0100");
-            assertThat(stored.get("studyid")).isEqualTo("9569377");
+            assertThat(stored)
+                    .containsEntry("sex", "F")
+                    .containsEntry("dob", "1950-02-28")
+                    .containsEntry("phone", "555-0100")
+                    .containsEntry("studyid", "9569377");
             assertThat(service.load(actor, type("IntakeInfo"), PATIENT, id).getProperty("dob")).isEqualTo("1950/02/28");
         } finally {
             ReflectionTestUtils.setField(target, "demographics", previous);
@@ -559,7 +594,8 @@ class RehabStudyFormDaoIntegrationTest extends CarlosTestBase {
     void shouldRefuseAFirstSave_whenThePatientDoesNotExist() throws Exception {
         RehabStudyFormType<?> type = type("SF36");
         int missingPatient = Integer.MAX_VALUE;
-        assertThatThrownBy(() -> service.saveVersion(actor, type, missingPatient, 0, basePost(missingPatient)))
+        Properties post = basePost(missingPatient);
+        assertThatThrownBy(() -> service.saveVersion(actor, type, missingPatient, 0, post))
                 .isInstanceOf(SecurityException.class).hasMessage("Patient record access denied");
         assertThat(independentCount(type.table(), missingPatient)).isZero();
     }
@@ -660,7 +696,7 @@ class RehabStudyFormDaoIntegrationTest extends CarlosTestBase {
                 Map<String, String> columns = xmlColumns(document);
                 assertThat(columns).isEqualTo(xmlColumns(forms.readArchive(type.entity(), PATIENT, id)));
                 assertThat(columns).hasSize(type.columns().size() + 6);
-                assertThat(columns.get(isH2() ? "id" : "ID")).isEqualTo(Integer.toString(id));
+                assertThat(columns).containsEntry(isH2() ? "id" : "ID", Integer.toString(id));
             }
         } finally {
             restore(configuration, "save_as_xml", previousEnabled);
@@ -753,9 +789,10 @@ class RehabStudyFormDaoIntegrationTest extends CarlosTestBase {
             for (Path file : archives.values()) {
                 Map<String, String> columns = caseInsensitive(xmlColumns(
                         XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().parse(file.toFile())));
-                assertThat(columns.get("id")).isEqualTo(Integer.toString(ids[index++]));
-                assertThat(columns.get("q1cmt")).isEqualTo(answers.get(JDBCUtil.parseImportFileName(
-                        file.getFileName().toString()).timeStamp()));
+                assertThat(columns)
+                        .containsEntry("id", Integer.toString(ids[index++]))
+                        .containsEntry("q1cmt", answers.get(JDBCUtil.parseImportFileName(
+                                file.getFileName().toString()).timeStamp()));
             }
 
             // Restore both from their copies alone.
@@ -775,8 +812,8 @@ class RehabStudyFormDaoIntegrationTest extends CarlosTestBase {
                     try (var input = Files.newInputStream(file)) {
                         var request = JDBCUtil.readImportRequest(input, file.getFileName().toString());
                         assertThat(request.target().demographicNo()).isEqualTo(Integer.toString(PATIENT));
-                        assertThat(caseInsensitive(request.values()).get("q1cmt"))
-                                .isEqualTo(answers.get(request.target().timeStamp()));
+                        assertThat(caseInsensitive(request.values()))
+                                .containsEntry("q1cmt", answers.get(request.target().timeStamp()));
                     }
                 }
             } else {
@@ -852,7 +889,7 @@ class RehabStudyFormDaoIntegrationTest extends CarlosTestBase {
             List<Path> saved = files.toList();
             assertThat(saved).hasSize(1);
             var document = XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().parse(saved.getFirst().toFile());
-            assertThat(xmlColumns(document).get(isH2() ? "id" : "ID")).isEqualTo(Integer.toString(id));
+            assertThat(xmlColumns(document)).containsEntry(isH2() ? "id" : "ID", Integer.toString(id));
         }
     }
 

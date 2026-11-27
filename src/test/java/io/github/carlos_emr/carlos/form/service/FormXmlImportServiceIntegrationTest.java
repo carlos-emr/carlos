@@ -55,7 +55,9 @@ class FormXmlImportServiceIntegrationTest extends CarlosTestBase {
         jdbc = new JdbcTemplate(dataSource);
         jdbc.execute("CREATE TABLE " + table + " (ID INT AUTO_INCREMENT PRIMARY KEY, demographic_no INT NOT NULL,"
                 + " formCreated DATE DEFAULT '2026-01-02', formEdited DATETIME(6), notes VARCHAR(255),"
-                + " rawHistory VARCHAR(255), blankScore INT, zeroScore INT)");
+                + " rawHistory VARCHAR(255), blankScore INT, zeroScore INT,"
+                + " blankCost DOUBLE, zeroCost DOUBLE, decimalCost DECIMAL(8,2),"
+                + " blankDate DATE, filledDate DATE)");
         registration = new EncounterForm();
         registration.setFormName(table);
         registration.setFormTable(table);
@@ -110,13 +112,20 @@ class FormXmlImportServiceIntegrationTest extends CarlosTestBase {
 
     @Test
     void shouldRestoreBlankIntegerAnswers_asNullWithoutLosingZeroOrBlankText() throws Exception {
-        String xml = "<Results><Row><blankScore/><zeroScore>0</zeroScore><notes/></Row></Results>";
+        String xml = "<Results><Row><blankScore/><zeroScore>0</zeroScore>"
+                + "<blankCost>  </blankCost><zeroCost>0</zeroCost><decimalCost>12.50</decimalCost>"
+                + "<blankDate/><filledDate>2026-03-15</filledDate><notes/></Row></Results>";
         Long id = service.importEntry(input(xml), name("2026-10-31T12:34:56"));
 
         var values = new io.github.carlos_emr.carlos.commn.dao.ClinicalDataRow(
                 forms.findPatientRecord(table, id.intValue(), 101));
         assertThat(values.raw("blankScore")).isNull();
         assertThat(values.raw("zeroScore")).isEqualTo("0");
+        assertThat(values.raw("blankCost")).isNull();
+        assertThat(Double.parseDouble(values.raw("zeroCost"))).isZero();
+        assertThat(values.raw("decimalCost")).isEqualTo("12.50");
+        assertThat(values.raw("blankDate")).isNull();
+        assertThat(values.raw("filledDate")).isEqualTo("2026-03-15");
         assertThat(values.raw("notes")).isEmpty();
     }
 

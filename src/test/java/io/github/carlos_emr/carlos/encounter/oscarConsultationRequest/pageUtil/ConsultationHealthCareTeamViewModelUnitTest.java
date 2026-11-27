@@ -192,7 +192,7 @@ class ConsultationHealthCareTeamViewModelUnitTest {
                         int target = Integer.parseInt(member.getContactId());
                         when(contacts.find((Object) target)).thenReturn((ProfessionalContact) member.getDetails());
                         when(specialists.find((Object) target)).thenReturn(new ProfessionalSpecialist());
-                    } catch (NumberFormatException ignored) {
+                    } catch (NumberFormatException _) {
                         // Non-numeric contact IDs are not target-stubbed in this test setup.
                     }
                 }

@@ -182,7 +182,7 @@ class CrossOriginOpenerPolicyFilterUnitTest {
     }
 
     @Test
-    void shouldKeepSameOrigin_whenContextPathIsUnknown() throws Exception {
+    void shouldKeepSameOrigin_whenContextPathIsUnknown() {
         assertThat(CrossOriginOpenerPolicyFilter.policyFor(new MockHttpServletRequest() {
             @Override public String getContextPath() { return null; }
             @Override public String getRequestURI() { return LAUNCHER; }

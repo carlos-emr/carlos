@@ -71,6 +71,7 @@ public class EctAddMeasurementType2Action extends ActionSupport {
      * columns of {@code measurementType}: VARCHAR(255) in the V1 baseline schema.
      */
     private static final int TEXT_COLUMN_MAX_LENGTH = 255;
+    private static final int VALIDATION_COLUMN_MAX_LENGTH = 100;
     private static final String ERRORS_INVALID = "errors.invalid";
     private static final String ERRORS_MAXLENGTH = "errors.maxlength";
     private static final String ERRORS_REQUIRED = "errors.required";
@@ -98,17 +99,17 @@ public class EctAddMeasurementType2Action extends ActionSupport {
             List<String> messages = new LinkedList<String>();
 
             String type = this.getType();
-            if (type == null || type.isEmpty()) {
+            if (StringUtils.isBlank(type)) {
                 addActionError(getText(ERRORS_INVALID, new String[]{"Measurement type is required"}));
                 request.setAttribute("actionErrors", new java.util.ArrayList<>(getActionErrors()));
                 return "failure";
             }
-            String typeUp = type.toUpperCase(Locale.ROOT);
+            String typeUp = type.trim().toUpperCase(Locale.ROOT);
             String typeDesc = this.getTypeDesc();
             String typeDisplayName = this.getTypeDisplayName();
             String measuringInstrc = this.getMeasuringInstrc();
             String validation = this.getValidation();
-            if (!allInputIsValid(type, typeUp, typeDesc, typeDisplayName, measuringInstrc)) {
+            if (!allInputIsValid(type, typeUp, typeDesc, typeDisplayName, measuringInstrc, validation)) {
                 request.setAttribute("actionErrors", new java.util.ArrayList<>(getActionErrors()));
                 return "failure";
             }
@@ -135,7 +136,8 @@ public class EctAddMeasurementType2Action extends ActionSupport {
 
     }
 
-    private boolean allInputIsValid(String type, String typeUp, String typeDesc, String typeDisplayName, String measuringInstrc) {
+    private boolean allInputIsValid(String type, String typeUp, String typeDesc, String typeDisplayName,
+            String measuringInstrc, String validation) {
 
         EctValidation validate = new EctValidation();
         String regExp = validate.getRegCharacterExp();
@@ -185,6 +187,18 @@ public class EctAddMeasurementType2Action extends ActionSupport {
             isValid = false;
         }
         if (!checkMaxLength(validate, errorField, measuringInstrc, TEXT_COLUMN_MAX_LENGTH)) {
+            isValid = false;
+        }
+
+        errorField = "The validation " + validation;
+        if (StringUtils.isBlank(validation)) {
+            addActionError(getText(ERRORS_REQUIRED, new String[]{"The validation"}));
+            isValid = false;
+        } else if (!validate.matchRegExp(regExp, validation)) {
+            addActionError(getText(ERRORS_INVALID, new String[]{SafeEncode.forHtmlContent(errorField)}));
+            isValid = false;
+        }
+        if (!checkMaxLength(validate, errorField, validation, VALIDATION_COLUMN_MAX_LENGTH)) {
             isValid = false;
         }
         return isValid;

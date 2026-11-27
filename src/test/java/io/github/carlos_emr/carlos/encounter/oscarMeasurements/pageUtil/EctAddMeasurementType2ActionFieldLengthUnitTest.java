@@ -109,7 +109,8 @@ class EctAddMeasurementType2ActionFieldLengthUnitTest extends CarlosUnitTestBase
         loginContext = mockStatic(LoggedInInfo.class);
         loginContext.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(login);
         catalog = mockStatic(MeasurementTypes.class);
-        catalog.when(MeasurementTypes::getInstance).thenReturn(mock(MeasurementTypes.class));
+        MeasurementTypes mockCatalog = mock(MeasurementTypes.class);
+        catalog.when(MeasurementTypes::getInstance).thenReturn(mockCatalog);
         when(security.hasPrivilege(login, "_admin", "w", null)).thenReturn(true);
 
         action = spy(new EctAddMeasurementType2Action());
@@ -214,6 +215,59 @@ class EctAddMeasurementType2ActionFieldLengthUnitTest extends CarlosUnitTestBase
         assertThat(request.getAttribute("actionErrors")).isEqualTo(List.of(
                 rendered("errors.required", new String[]{"The type description"}),
                 rendered("errors.required", new String[]{"The display name"})));
+        verifyNoWrite();
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" \t "})
+    void shouldRejectBlankTypeWithoutQueryingOrWriting_whenTypeIsMissingOrWhitespace(String value) throws Exception {
+        action.setType(value);
+
+        assertThat(action.execute()).isEqualTo("failure");
+
+        assertThat(request.getAttribute("actionErrors")).isEqualTo(List.of(
+                rendered("errors.invalid", new String[]{"Measurement type is required"})));
+        verifyNoInteractions(dao);
+    }
+
+    @Test
+    void shouldDetectDuplicateType_whenSubmittedCodeHasSurroundingWhitespace() throws Exception {
+        when(dao.findByType(CODE)).thenReturn(List.of(new MeasurementType()));
+        doAnswer(invocation -> invocation.getArgument(0)).when(action).getText("error.encounter.Measurements.duplicateTypeName");
+        action.setType("  syNlEn  ");
+
+        assertThat(action.execute()).isEqualTo("failure");
+
+        assertThat(request.getAttribute("actionErrors"))
+                .isEqualTo(List.of("error.encounter.Measurements.duplicateTypeName"));
+        verifyNoWrite();
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" \t "})
+    void shouldReportRequiredValidationWithoutWriting_whenValidationIsBlank(String value) throws Exception {
+        action.setValidation(value);
+
+        assertThat(action.execute()).isEqualTo("failure");
+
+        assertThat(request.getAttribute("actionErrors")).isEqualTo(List.of(
+                rendered("errors.required", new String[]{"The validation"})));
+        verifyNoWrite();
+    }
+
+    @Test
+    void shouldReportInvalidAndOverlongValidationWithoutWriting_whenValidationExceedsColumnWidth() throws Exception {
+        String overlong = "1".repeat(100) + "<";
+        action.setValidation(overlong);
+
+        assertThat(action.execute()).isEqualTo("failure");
+
+        String encoded = "The validation " + "1".repeat(100) + "&lt;";
+        assertThat(request.getAttribute("actionErrors")).isEqualTo(List.of(
+                rendered("errors.invalid", new String[]{encoded}),
+                rendered("errors.maxlength", new String[]{encoded, "100"})));
         verifyNoWrite();
     }
 

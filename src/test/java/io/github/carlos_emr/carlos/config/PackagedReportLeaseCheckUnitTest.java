@@ -215,8 +215,15 @@ class PackagedReportLeaseCheckUnitTest {
 
         // Packaged-style benign drop-in and masked symlink to /dev/null both remain verifiable.
         Path benign = dropInDir.resolve("10-eform-renderer.conf");
-        Files.writeString(benign, "[Unit]\nWants=other.service\n\n# comment\n[Service]\n"
-                + "Environment=EFORM_RENDER_SANDBOX=true\nMemoryMax=4G\n");
+        Files.writeString(benign, """
+                [Unit]
+                Wants=other.service
+
+                # comment
+                [Service]
+                Environment=EFORM_RENDER_SANDBOX=true
+                MemoryMax=4G
+                """);
         Files.writeString(dropInDir.resolve("README.txt"), "ignored non-conf file\n");
         Path mask = systemd.resolve("carlos-emr.service");
         Files.createSymbolicLink(mask, Path.of("/dev/null"));

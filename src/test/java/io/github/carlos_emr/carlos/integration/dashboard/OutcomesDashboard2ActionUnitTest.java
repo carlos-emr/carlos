@@ -13,7 +13,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -128,7 +128,7 @@ class OutcomesDashboard2ActionUnitTest extends CarlosUnitTestBase {
         return JSON.readTree(response.getContentAsString());
     }
 
-    private void verifyNothingPublished() throws Exception {
+    private void verifyNothingPublished() {
         publisher.verify(
                 () -> OutcomesDashboardUtils.sendProviderIndicatorData(any(), any(), any()), never());
     }
@@ -148,7 +148,7 @@ class OutcomesDashboard2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(body().get("published").asInt()).isEqualTo(2);
         publisher.verify(
                 () -> OutcomesDashboardUtils.sendProviderIndicatorData(login, provider, library),
-                org.mockito.Mockito.times(2));
+                times(2));
     }
 
     @Test
@@ -236,11 +236,12 @@ class OutcomesDashboard2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("throws SecurityException naming the missing right, and publishes nothing")
-    void shouldThrowSecurityException_whenDashboardRightIsMissing() throws Exception {
+    void shouldThrowSecurityException_whenDashboardRightIsMissing() {
         when(security.hasPrivilege(eq(login), anyString(), anyString(), any())).thenReturn(false);
         postQueries("Metric A");
+        OutcomesDashboard2Action target = action("Metric A");
 
-        assertThatThrownBy(() -> action("Metric A").execute())
+        assertThatThrownBy(target::execute)
                 .isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_dashboardDisplay)");
 

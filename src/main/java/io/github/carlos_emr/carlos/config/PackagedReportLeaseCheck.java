@@ -40,6 +40,10 @@ public final class PackagedReportLeaseCheck {
     static final int STATUS_SEPARATE_FIFTEEN = 25;
 
     private static final String KEY = "db_remove_abandoned_timeout";
+    private static final String PROPERTIES_FILE_NAME = "carlos.properties";
+    private static final String VAR_PROPERTIES = "PROPERTIES";
+    private static final String VAR_CATALINA_BASE = "CATALINA_BASE";
+    private static final String VAR_CATALINA_HOME = "CATALINA_HOME";
     private static final String ENV_FILE_PROPERTY = "carlos.reportLeaseCheck.envFile";
     private static final String CATALINA_BASE_PROPERTY = "carlos.reportLeaseCheck.catalinaBase";
     private static final String CATALINA_HOME_PROPERTY = "carlos.reportLeaseCheck.catalinaHome";
@@ -56,15 +60,15 @@ public final class PackagedReportLeaseCheck {
     private static final String OVERRIDE_FLAG = "-Dcarlos_override_properties";
     private static final String HOME_FLAG = "-Duser.home";
 
-    private static final Pattern IDENTIFIER = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*");
+    private static final Pattern IDENTIFIER = Pattern.compile("[A-Za-z_]\\w*");
     private static final Pattern SHELL_METACHARS = Pattern.compile("['\"\\\\`$;|&<>()*?\\[~!]");
     private static final Set<String> UNVERIFIABLE_SERVICE_KEYS = Set.of(
             "ExecStart", "ExecStartPre", "User", "EnvironmentFile",
             "PassEnvironment", "UnsetEnvironment", "WorkingDirectory",
             "RootDirectory", "RootImage", "BindPaths", "BindReadOnlyPaths");
     private static final Set<String> LAUNCH_ENV_VARS = Set.of(
-            "PROPERTIES", "CONF_DIR", "CARLOS_JAVA_OPTS", "JAVA_OPTS", "CATALINA_OPTS",
-            "CATALINA_BASE", "CATALINA_HOME", "JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS",
+            VAR_PROPERTIES, "CONF_DIR", "CARLOS_JAVA_OPTS", "JAVA_OPTS", "CATALINA_OPTS",
+            VAR_CATALINA_BASE, VAR_CATALINA_HOME, "JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS",
             "JDK_JAVA_OPTIONS", "HOME");
 
     /**
@@ -100,6 +104,8 @@ public final class PackagedReportLeaseCheck {
 
     private record LaunchSelection(Path properties, Path home) { }
 
+    private record ParsedToken(String token, int nextIndex) { }
+
     private PackagedReportLeaseCheck() {
     }
 
@@ -118,7 +124,7 @@ public final class PackagedReportLeaseCheck {
      * @param args String[] installed WEB-INF/classes directory, managed properties file, and optional candidate file
      */
     public static void main(String[] args) {
-        System.exit(status(args, Path.of(System.getProperty("user.home"), "carlos.properties"),
+        System.exit(status(args, Path.of(System.getProperty("user.home"), PROPERTIES_FILE_NAME),
                 LaunchConfig.fromSystemProperties()));
     }
 
@@ -136,7 +142,7 @@ public final class PackagedReportLeaseCheck {
             LaunchSelection selection = resolveLaunch(managed, home, launch);
             boolean selectsManaged = resolvesToManaged(managed, selection.properties());
             Properties defaults = PackagedConfigurationPreflight.readFile(classes.resolve("jdbc-defaults.properties"));
-            defaults.putAll(PackagedConfigurationPreflight.readFile(classes.resolve("carlos.properties")));
+            defaults.putAll(PackagedConfigurationPreflight.readFile(classes.resolve(PROPERTIES_FILE_NAME)));
             Properties installed = PackagedConfigurationPreflight.readFile(selection.properties());
             Properties overrides = new Properties();
             if (!Files.notExists(selection.home()) && !Files.isSameFile(selection.properties(), selection.home())) {
@@ -155,7 +161,7 @@ public final class PackagedReportLeaseCheck {
                 }
             }
             return selectsManaged ? STATUS_MANAGED_FIFTEEN : STATUS_SEPARATE_FIFTEEN;
-        } catch (IOException | RuntimeException failure) {
+        } catch (IOException | RuntimeException _) {
             // Spring diagnostics may contain the referenced property's value.
             return STATUS_UNVERIFIABLE;
         }
@@ -164,30 +170,10 @@ public final class PackagedReportLeaseCheck {
     private static LaunchSelection resolveLaunch(Path managed, Path defaultHome, LaunchConfig launch)
             throws IOException {
         verifySystemd(launch.systemdDirs());
-        Map<String, String> vars = new HashMap<>();
-        Path confDir = launch.envFile() != null && launch.envFile().getParent() != null
-                ? launch.envFile().getParent() : Path.of("/etc/carlos-emr");
-        vars.put("CONF_DIR", confDir.toString());
-        vars.put("PROPERTIES", managed.toString());
-        if (launch.catalinaBase() != null) {
-            vars.put("CATALINA_BASE", launch.catalinaBase().toString());
-        }
-        if (launch.catalinaHome() != null) {
-            vars.put("CATALINA_HOME", launch.catalinaHome().toString());
-        }
-        if (launch.envFile() != null && !Files.notExists(launch.envFile(), LinkOption.NOFOLLOW_LINKS)) {
-            parseEnvFile(launch.envFile(), vars);
-        }
-        requireNoSetenv(launch.catalinaBase());
-        requireNoSetenv(launch.catalinaHome());
-        if (vars.containsKey("CATALINA_BASE")) {
-            requireNoSetenv(requireAbsoluteNoWhitespace(vars.get("CATALINA_BASE")));
-        }
-        if (vars.containsKey("CATALINA_HOME")) {
-            requireNoSetenv(requireAbsoluteNoWhitespace(vars.get("CATALINA_HOME")));
-        }
+        Map<String, String> vars = buildLaunchVariables(managed, launch);
+        verifyNoTomcatSetenv(launch, vars);
 
-        Path envProperties = requireAbsoluteNoWhitespace(vars.get("PROPERTIES"));
+        Path envProperties = requireAbsoluteNoWhitespace(vars.get(VAR_PROPERTIES));
         Path selectedProperties = envProperties;
         Path selectedHome = defaultHome;
         // Exact precedence across HotSpot env vars, catalina.sh (JAVA_OPTS before CATALINA_OPTS),
@@ -207,39 +193,78 @@ public final class PackagedReportLeaseCheck {
         return new LaunchSelection(selectedProperties, selectedHome);
     }
 
+    private static Map<String, String> buildLaunchVariables(Path managed, LaunchConfig launch) throws IOException {
+        Map<String, String> vars = new HashMap<>();
+        Path confDir = launch.envFile() != null && launch.envFile().getParent() != null
+                ? launch.envFile().getParent() : Path.of("/etc/carlos-emr");
+        vars.put("CONF_DIR", confDir.toString());
+        vars.put(VAR_PROPERTIES, managed.toString());
+        if (launch.catalinaBase() != null) {
+            vars.put(VAR_CATALINA_BASE, launch.catalinaBase().toString());
+        }
+        if (launch.catalinaHome() != null) {
+            vars.put(VAR_CATALINA_HOME, launch.catalinaHome().toString());
+        }
+        if (launch.envFile() != null && !Files.notExists(launch.envFile(), LinkOption.NOFOLLOW_LINKS)) {
+            parseEnvFile(launch.envFile(), vars);
+        }
+        return vars;
+    }
+
+    private static void verifyNoTomcatSetenv(LaunchConfig launch, Map<String, String> vars) throws IOException {
+        requireNoSetenv(launch.catalinaBase());
+        requireNoSetenv(launch.catalinaHome());
+        if (vars.containsKey(VAR_CATALINA_BASE)) {
+            requireNoSetenv(requireAbsoluteNoWhitespace(vars.get(VAR_CATALINA_BASE)));
+        }
+        if (vars.containsKey(VAR_CATALINA_HOME)) {
+            requireNoSetenv(requireAbsoluteNoWhitespace(vars.get(VAR_CATALINA_HOME)));
+        }
+    }
+
     private static void verifySystemd(List<Path> systemdDirs) throws IOException {
         Map<String, Set<String>> seenDropIns = new HashMap<>();
         for (Path dir : systemdDirs) {
-            if (Files.notExists(dir, LinkOption.NOFOLLOW_LINKS)) {
-                continue;
+            if (!Files.notExists(dir, LinkOption.NOFOLLOW_LINKS)) {
+                verifyUnitOverride(dir);
+                verifyServiceDropInDirs(dir, seenDropIns);
             }
-            if (!isPackagedSystemdDir(dir)) {
-                Path unitOverride = dir.resolve(SERVICE_UNIT);
-                if (!Files.notExists(unitOverride, LinkOption.NOFOLLOW_LINKS) && !isMaskSymlink(unitOverride)) {
-                    throw new IOException("Custom systemd unit override cannot be verified");
-                }
+        }
+    }
+
+    private static void verifyUnitOverride(Path dir) throws IOException {
+        if (!isPackagedSystemdDir(dir)) {
+            Path unitOverride = dir.resolve(SERVICE_UNIT);
+            if (!Files.notExists(unitOverride, LinkOption.NOFOLLOW_LINKS) && !isMaskSymlink(unitOverride)) {
+                throw new IOException("Custom systemd unit override cannot be verified");
             }
-            for (String dropInName : SERVICE_DROPIN_DIRS) {
-                Path dropInDir = dir.resolve(dropInName);
-                if (Files.notExists(dropInDir, LinkOption.NOFOLLOW_LINKS)) {
-                    continue;
-                }
-                if (Files.isSymbolicLink(dropInDir) || !Files.isDirectory(dropInDir)) {
-                    throw new IOException("Unexpected systemd drop-in entry");
-                }
-                Set<String> seen = seenDropIns.computeIfAbsent(dropInName, _ -> new HashSet<>());
-                try (var entries = Files.list(dropInDir)) {
-                    for (Path entry : entries.toList()) {
-                        String fileName = entry.getFileName().toString();
-                        if (!fileName.endsWith(".conf") || !seen.add(fileName)) {
-                            continue;
-                        }
-                        if (!isMaskSymlink(entry)) {
-                            verifyDropIn(entry);
-                        }
-                    }
-                }
+        }
+    }
+
+    private static void verifyServiceDropInDirs(Path dir, Map<String, Set<String>> seenDropIns) throws IOException {
+        for (String dropInName : SERVICE_DROPIN_DIRS) {
+            Path dropInDir = dir.resolve(dropInName);
+            if (!Files.notExists(dropInDir, LinkOption.NOFOLLOW_LINKS)) {
+                verifyDropInDirectory(dropInDir, seenDropIns.computeIfAbsent(dropInName, _ -> new HashSet<>()));
             }
+        }
+    }
+
+    private static void verifyDropInDirectory(Path dropInDir, Set<String> seen) throws IOException {
+        if (Files.isSymbolicLink(dropInDir) || !Files.isDirectory(dropInDir)) {
+            throw new IOException("Unexpected systemd drop-in entry");
+        }
+        try (var entries = Files.list(dropInDir)) {
+            for (Path entry : entries.toList()) {
+                verifyDropInEntry(entry, seen);
+            }
+        }
+    }
+
+    private static void verifyDropInEntry(Path entry, Set<String> seen) throws IOException {
+        String fileName = entry.getFileName().toString();
+        if (fileName.endsWith(".conf") && seen.add(fileName) && !isMaskSymlink(entry)) {
+            verifyDropIn(entry);
         }
     }
 
@@ -253,46 +278,53 @@ public final class PackagedReportLeaseCheck {
     }
 
     private static void verifyDropIn(Path dropIn) throws IOException {
-        List<String> lines = Files.readAllLines(dropIn, StandardCharsets.UTF_8);
         String section = "";
-        StringBuilder continued = new StringBuilder();
-        for (String rawLine : lines) {
-            String line = rawLine.endsWith("\r") ? rawLine.substring(0, rawLine.length() - 1) : rawLine;
-            String trimmed = line.trim();
-            if (trimmed.startsWith("#") || trimmed.startsWith(";")) {
-                continue;
+        for (String full : logicalDropInLines(dropIn)) {
+            if (full.startsWith("[") && full.endsWith("]")) {
+                section = full;
+            } else if ("[Service]".equals(section)) {
+                verifyServiceDirective(full);
             }
-            if (continued.isEmpty() && trimmed.isEmpty()) {
+        }
+    }
+
+    private static List<String> logicalDropInLines(Path dropIn) throws IOException {
+        List<String> logical = new ArrayList<>();
+        StringBuilder continued = new StringBuilder();
+        for (String rawLine : Files.readAllLines(dropIn, StandardCharsets.UTF_8)) {
+            String line = stripCarriageReturn(rawLine);
+            String trimmed = line.trim();
+            if (isSystemdComment(trimmed) || (continued.isEmpty() && trimmed.isEmpty())) {
                 continue;
             }
             if (line.endsWith("\\")) {
                 continued.append(line, 0, line.length() - 1).append(' ');
-                continue;
-            }
-            String full = (continued.toString() + line).trim();
-            continued.setLength(0);
-            if (full.startsWith("[") && full.endsWith("]")) {
-                section = full;
-                continue;
-            }
-            if (!"[Service]".equals(section)) {
-                continue;
-            }
-            int eq = full.indexOf('=');
-            if (eq <= 0) {
-                throw new IOException("Malformed systemd drop-in directive");
-            }
-            String key = full.substring(0, eq).trim();
-            String value = full.substring(eq + 1).trim();
-            if (UNVERIFIABLE_SERVICE_KEYS.contains(key)) {
-                throw new IOException("Systemd drop-in alters service launch");
-            }
-            if ("Environment".equals(key)) {
-                verifySystemdEnvironment(value);
+            } else {
+                logical.add((continued.toString() + line).trim());
+                continued.setLength(0);
             }
         }
         if (!continued.isEmpty()) {
             throw new IOException("Unterminated systemd drop-in continuation");
+        }
+        return logical;
+    }
+
+    private static boolean isSystemdComment(String trimmed) {
+        return trimmed.startsWith("#") || trimmed.startsWith(";");
+    }
+
+    private static void verifyServiceDirective(String directive) throws IOException {
+        int eq = directive.indexOf('=');
+        if (eq <= 0) {
+            throw new IOException("Malformed systemd drop-in directive");
+        }
+        String key = directive.substring(0, eq).trim();
+        if (UNVERIFIABLE_SERVICE_KEYS.contains(key)) {
+            throw new IOException("Systemd drop-in alters service launch");
+        }
+        if ("Environment".equals(key)) {
+            verifySystemdEnvironment(directive.substring(eq + 1).trim());
         }
     }
 
@@ -300,43 +332,55 @@ public final class PackagedReportLeaseCheck {
         if (value.isEmpty()) {
             throw new IOException("Systemd drop-in resets Environment");
         }
-        int i = 0;
-        while (i < value.length()) {
-            while (i < value.length() && Character.isWhitespace(value.charAt(i))) {
-                i++;
+        int index = skipWhitespace(value, 0);
+        while (index < value.length()) {
+            ParsedToken parsed = readEnvironmentToken(value, index);
+            verifyEnvironmentAssignment(parsed.token());
+            index = skipWhitespace(value, parsed.nextIndex());
+        }
+    }
+
+    private static int skipWhitespace(String value, int start) {
+        int index = start;
+        while (index < value.length() && Character.isWhitespace(value.charAt(index))) {
+            index++;
+        }
+        return index;
+    }
+
+    private static ParsedToken readEnvironmentToken(String value, int start) throws IOException {
+        char first = value.charAt(start);
+        if (first == '"' || first == '\'') {
+            return readQuotedEnvironmentToken(value, start + 1, first);
+        }
+        int end = start;
+        while (end < value.length() && !Character.isWhitespace(value.charAt(end))) {
+            end++;
+        }
+        return new ParsedToken(value.substring(start, end), end);
+    }
+
+    private static ParsedToken readQuotedEnvironmentToken(String value, int start, char quote) throws IOException {
+        int index = start;
+        while (index < value.length() && value.charAt(index) != quote) {
+            if (value.charAt(index) == '\\') {
+                throw new IOException("Escaped systemd Environment entry cannot be verified");
             }
-            if (i >= value.length()) {
-                break;
-            }
-            String token;
-            if (value.charAt(i) == '"' || value.charAt(i) == '\'') {
-                char quote = value.charAt(i++);
-                int start = i;
-                while (i < value.length() && value.charAt(i) != quote) {
-                    if (value.charAt(i) == '\\') {
-                        throw new IOException("Escaped systemd Environment entry cannot be verified");
-                    }
-                    i++;
-                }
-                if (i >= value.length()) {
-                    throw new IOException("Unterminated systemd Environment quote");
-                }
-                token = value.substring(start, i++);
-            } else {
-                int start = i;
-                while (i < value.length() && !Character.isWhitespace(value.charAt(i))) {
-                    i++;
-                }
-                token = value.substring(start, i);
-            }
-            int eq = token.indexOf('=');
-            if (eq <= 0) {
-                throw new IOException("Malformed systemd Environment assignment");
-            }
-            String varName = token.substring(0, eq);
-            if (LAUNCH_ENV_VARS.contains(varName)) {
-                throw new IOException("Systemd drop-in overrides launch variable");
-            }
+            index++;
+        }
+        if (index >= value.length()) {
+            throw new IOException("Unterminated systemd Environment quote");
+        }
+        return new ParsedToken(value.substring(start, index), index + 1);
+    }
+
+    private static void verifyEnvironmentAssignment(String token) throws IOException {
+        int eq = token.indexOf('=');
+        if (eq <= 0) {
+            throw new IOException("Malformed systemd Environment assignment");
+        }
+        if (LAUNCH_ENV_VARS.contains(token.substring(0, eq))) {
+            throw new IOException("Systemd drop-in overrides launch variable");
         }
     }
 
@@ -353,8 +397,7 @@ public final class PackagedReportLeaseCheck {
             throw new IOException("Environment file is not a regular file");
         }
         for (String rawLine : Files.readAllLines(envFile, StandardCharsets.UTF_8)) {
-            String line = rawLine.endsWith("\r") ? rawLine.substring(0, rawLine.length() - 1) : rawLine;
-            String trimmed = line.trim();
+            String trimmed = stripCarriageReturn(rawLine).trim();
             if (trimmed.isEmpty() || trimmed.startsWith("#")) {
                 continue;
             }
@@ -373,6 +416,10 @@ public final class PackagedReportLeaseCheck {
         }
     }
 
+    private static String stripCarriageReturn(String line) {
+        return line.endsWith("\r") ? line.substring(0, line.length() - 1) : line;
+    }
+
     private static String parseShellValue(String raw, Map<String, String> vars) throws IOException {
         if (raw.isEmpty()) {
             return "";
@@ -388,19 +435,25 @@ public final class PackagedReportLeaseCheck {
         if (first == '"') {
             return parseDoubleQuoted(raw, vars);
         }
+        return parseUnquoted(raw, vars);
+    }
+
+    private static String parseUnquoted(String raw, Map<String, String> vars) throws IOException {
         // Unquoted value: disallow whitespace and shell metacharacters except simple $VAR/${VAR}.
         StringBuilder out = new StringBuilder();
-        for (int i = 0; i < raw.length(); i++) {
-            char ch = raw.charAt(i);
+        int index = 0;
+        while (index < raw.length()) {
+            char ch = raw.charAt(index);
             if (Character.isWhitespace(ch) || ch == '#') {
                 throw new IOException("Unverifiable unquoted value in carlos-emr.env");
             }
             if (ch == '$') {
-                i = expandVariable(raw, i, vars, out);
+                index = expandVariable(raw, index, vars, out) + 1;
             } else if (SHELL_METACHARS.matcher(String.valueOf(ch)).matches()) {
                 throw new IOException("Unverifiable shell syntax in carlos-emr.env");
             } else {
                 out.append(ch);
+                index++;
             }
         }
         return out.toString();
@@ -408,10 +461,11 @@ public final class PackagedReportLeaseCheck {
 
     private static String parseDoubleQuoted(String raw, Map<String, String> vars) throws IOException {
         StringBuilder out = new StringBuilder();
-        for (int i = 1; i < raw.length(); i++) {
-            char ch = raw.charAt(i);
+        int index = 1;
+        while (index < raw.length()) {
+            char ch = raw.charAt(index);
             if (ch == '"') {
-                if (!isEmptyOrComment(raw.substring(i + 1))) {
+                if (!isEmptyOrComment(raw.substring(index + 1))) {
                     throw new IOException("Unexpected trailing text after quoted value in carlos-emr.env");
                 }
                 return out.toString();
@@ -420,22 +474,27 @@ public final class PackagedReportLeaseCheck {
                 throw new IOException("Command substitution in carlos-emr.env cannot be verified");
             }
             if (ch == '\\') {
-                if (i + 1 >= raw.length()) {
-                    throw new IOException("Line continuation in carlos-emr.env cannot be verified");
-                }
-                char next = raw.charAt(++i);
-                if (next == '"' || next == '\\' || next == '$' || next == '`') {
-                    out.append(next);
-                } else {
-                    out.append('\\').append(next);
-                }
+                index = appendEscapedDoubleQuoted(raw, index, out);
             } else if (ch == '$') {
-                i = expandVariable(raw, i, vars, out);
+                index = expandVariable(raw, index, vars, out) + 1;
             } else {
                 out.append(ch);
+                index++;
             }
         }
         throw new IOException("Unterminated double-quoted value in carlos-emr.env");
+    }
+
+    private static int appendEscapedDoubleQuoted(String raw, int slashIndex, StringBuilder out) throws IOException {
+        if (slashIndex + 1 >= raw.length()) {
+            throw new IOException("Line continuation in carlos-emr.env cannot be verified");
+        }
+        char next = raw.charAt(slashIndex + 1);
+        switch (next) {
+            case '"', '\\', '$', '`' -> out.append(next);
+            default -> out.append('\\').append(next);
+        }
+        return slashIndex + 2;
     }
 
     private static int expandVariable(String raw, int dollarIndex, Map<String, String> vars, StringBuilder out)
@@ -493,26 +552,34 @@ public final class PackagedReportLeaseCheck {
         if (SHELL_METACHARS.matcher(options).find()) {
             throw new IOException("JVM options contain shell syntax that cannot be verified");
         }
-        Path properties = selectedProperties;
-        Path home = selectedHome;
+        LaunchSelection current = new LaunchSelection(selectedProperties, selectedHome);
         for (String token : options.trim().split("[ \\t]+")) {
-            if (token.startsWith("@") || token.startsWith("-XX:Flags=") || token.startsWith("-XX:VMOptionsFile=")) {
-                throw new IOException("Indirect JVM options file cannot be verified");
-            }
-            if (OVERRIDE_FLAG.equals(token) || HOME_FLAG.equals(token)) {
-                throw new IOException("Empty JVM property override cannot be verified");
-            }
-            if (token.startsWith(OVERRIDE_FLAG + "=")) {
-                Path candidate = requireAbsoluteNoWhitespace(token.substring(OVERRIDE_FLAG.length() + 1));
-                if (overridePropertiesAllowed) {
-                    properties = candidate;
-                }
-            } else if (token.startsWith(HOME_FLAG + "=")) {
-                Path homeDir = requireAbsoluteNoWhitespace(token.substring(HOME_FLAG.length() + 1));
-                home = homeDir.resolve("carlos.properties");
-            }
+            current = applyJvmToken(token, current, overridePropertiesAllowed);
         }
-        return new LaunchSelection(properties, home);
+        return current;
+    }
+
+    private static LaunchSelection applyJvmToken(
+            String token, LaunchSelection current, boolean overridePropertiesAllowed) throws IOException {
+        if (isIndirectOptionsToken(token)) {
+            throw new IOException("Indirect JVM options file cannot be verified");
+        }
+        if (OVERRIDE_FLAG.equals(token) || HOME_FLAG.equals(token)) {
+            throw new IOException("Empty JVM property override cannot be verified");
+        }
+        if (token.startsWith(OVERRIDE_FLAG + "=")) {
+            Path candidate = requireAbsoluteNoWhitespace(token.substring(OVERRIDE_FLAG.length() + 1));
+            return overridePropertiesAllowed ? new LaunchSelection(candidate, current.home()) : current;
+        }
+        if (token.startsWith(HOME_FLAG + "=")) {
+            Path homeDir = requireAbsoluteNoWhitespace(token.substring(HOME_FLAG.length() + 1));
+            return new LaunchSelection(current.properties(), homeDir.resolve(PROPERTIES_FILE_NAME));
+        }
+        return current;
+    }
+
+    private static boolean isIndirectOptionsToken(String token) {
+        return token.startsWith("@") || token.startsWith("-XX:Flags=") || token.startsWith("-XX:VMOptionsFile=");
     }
 
     private static Path requireAbsoluteNoWhitespace(String raw) throws IOException {

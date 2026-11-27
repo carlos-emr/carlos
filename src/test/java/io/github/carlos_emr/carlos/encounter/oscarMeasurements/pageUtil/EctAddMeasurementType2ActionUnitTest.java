@@ -55,6 +55,7 @@ class EctAddMeasurementType2ActionUnitTest extends CarlosUnitTestBase {
             action.setTypeDesc("Test");
             action.setTypeDisplayName("Test");
             action.setMeasuringInstrc("Test");
+            action.setValidation("1");
             if (duplicate) {
                 doReturn("Duplicate").when(action).getText("error.encounter.Measurements.duplicateTypeName");
                 assertThat(action.execute()).isEqualTo("failure");
@@ -92,6 +93,7 @@ class EctAddMeasurementType2ActionUnitTest extends CarlosUnitTestBase {
             action.setTypeDesc("Description!");
             action.setTypeDisplayName("Display name!");
             action.setMeasuringInstrc("Instruction!");
+            action.setValidation("1");
             doAnswer(invocation -> "Invalid: " + invocation.getArgument(1, String[].class)[0])
                     .when(action).getText(eq("errors.invalid"), any(String[].class));
             doReturn("Too long").when(action).getText(eq("errors.maxlength"), any(String[].class));

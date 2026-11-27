@@ -317,11 +317,15 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
         "'12.5 tabs', 12,",
         "'30 30 tabs', 30,",
         "12.5, 12.5, 12.5",
-        "0, 0,"
+        "0, 0,",
+        "'', 0,",
+        "'qs', 0,",
+        "'as directed', 0,"
     })
     void shouldQuoteTotal_whenDraftAcknowledgesDispenseCount(String entered, String acknowledged, String priceQuantity)
             throws Exception {
         card.setDrugForm("Tablet");
+        card.setQuantity("30");
         request.setParameter("action", "updateQty");
         request.setParameter("randomId", "1");
         request.setParameter("quantity", entered);

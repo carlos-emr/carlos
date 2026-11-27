@@ -51,7 +51,7 @@ class RehabStudyEntitySchemaContractUnitTest {
     private static final Path MIGRATIONS = Path.of("database/mysql/migration");
     private static final Pattern KEYS_TOGGLE =
             Pattern.compile("(?i)/\\*!40000 ALTER TABLE `[A-Za-z0-9_]+` (DISABLE|ENABLE) KEYS \\*/;");
-    private static final Pattern COLUMN = Pattern.compile("^\\s*`([^`]+)`\\s+(\\S+)(.*?),?\\s*$");
+    private static final Pattern COLUMN = Pattern.compile("^`([^`]++)`\\s++(\\S++)(.*)$");
     private static final Map<String, String> HEADER = Map.of(
             "ID", "int(10)", "demographic_no", "int(10)", "provider_no", "int(10)",
             "formCreated", "date", "formEdited", "timestamp", "studyID", "varchar(20)");
@@ -70,8 +70,12 @@ class RehabStudyEntitySchemaContractUnitTest {
         String body = baseline.substring(start + opening.length(), baseline.indexOf("\n)", start));
         List<PhysicalColumn> columns = new ArrayList<>();
         for (String line : body.split("\n")) {
-            Matcher matcher = COLUMN.matcher(line);
-            if (line.strip().startsWith("`") && matcher.matches()) {
+            String trimmed = line.strip();
+            if (trimmed.endsWith(",")) {
+                trimmed = trimmed.substring(0, trimmed.length() - 1).stripTrailing();
+            }
+            Matcher matcher = COLUMN.matcher(trimmed);
+            if (trimmed.startsWith("`") && matcher.matches()) {
                 columns.add(new PhysicalColumn(matcher.group(1), matcher.group(2).toLowerCase(Locale.ROOT),
                         matcher.group(3).strip()));
             }

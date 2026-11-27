@@ -1053,7 +1053,11 @@ except ValueError:
             env_file="${ENV_FILE-${CONF_DIR:-/etc/carlos-emr}/carlos-emr.env}"
             candidate=''
             stock='^[[:blank:]]*db_remove_abandoned_timeout([[:blank:]]*[=:][[:blank:]]*|[[:blank:]]+)15[[:space:]]*$'
-            if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${marker}" ] && [ -n "${2:-}" ] \
+            # Not gated on $2: postrm purge deletes the sentinel while keeping
+            # carlos.properties (which holds encryption.util.secret.key), so a
+            # purge-then-reinstall runs configure "" with the old stock 15s line
+            # still in place. A fresh install has the 360s skeleton (0 matches).
+            if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${marker}" ] \
                 && [ -f "${PROPERTIES}" ] && [ ! -L "${PROPERTIES}" ] \
                 && [ "$(stat -c %h "${PROPERTIES}")" = 1 ] \
                 && [ "$(LC_ALL=C grep -Ec "${stock}" "${PROPERTIES}" || true)" = 1 ]; then
@@ -1093,7 +1097,8 @@ except ValueError:
                         : > "${marker}"
                     fi ;;
                 20|25)
-                    if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${marker}" ] && [ -z "${2:-}" ]; then
+                    if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${marker}" ] && [ -z "${2:-}" ] \
+                        && [ "$(LC_ALL=C grep -Ec "${stock}" "${PROPERTIES}" 2>/dev/null || true)" = 0 ]; then
                         : > "${marker}"
                     fi ;;
             esac

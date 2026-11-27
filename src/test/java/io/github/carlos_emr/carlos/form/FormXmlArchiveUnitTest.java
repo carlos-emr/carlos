@@ -100,7 +100,7 @@ class FormXmlArchiveUnitTest {
     void shouldNameTheCopyForTheVersionsEditTime_withTheImportContract() throws Exception {
         Path written = FormXmlArchive.write("formSF36", 42, new Date(NOW), document(7));
 
-        assertThat(written.getParent()).isEqualTo(archive);
+        assertThat(written).hasParentRaw(archive);
         assertThat(written.getFileName()).hasToString("formSF36_42_" + stamp(SECOND) + ".xml");
         assertThat(Files.readString(written)).contains("<Results>", "<Row>", "<ID>7</ID>");
     }

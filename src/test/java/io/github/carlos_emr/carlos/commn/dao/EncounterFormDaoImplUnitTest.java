@@ -22,6 +22,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -89,7 +90,7 @@ class EncounterFormDaoImplUnitTest {
         assertThat(ungroupedRows).hasSize(1);
 
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
-        verify(entityManager, org.mockito.Mockito.times(3))
+        verify(entityManager, times(3))
                 .createNativeQuery(sqlCaptor.capture(), eq(Object[].class));
         assertThat(sqlCaptor.getAllValues()).containsExactly(
                 "SELECT form_no, demographic_no, CAST(form_date AS DATE), CAST(form_date AS DATE) FROM form WHERE demographic_no=?1 ORDER BY form_no DESC",
@@ -110,10 +111,31 @@ class EncounterFormDaoImplUnitTest {
         assertThat(dao.findLatestPatientFormId("formGrowth0_36", "101", null, false)).isEqualTo("99");
 
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
-        verify(entityManager, org.mockito.Mockito.times(3)).createNativeQuery(sqlCaptor.capture());
+        verify(entityManager, times(3)).createNativeQuery(sqlCaptor.capture());
         assertThat(sqlCaptor.getAllValues()).containsExactly(
                 "SELECT form_no FROM form WHERE demographic_no=?1 AND form_name=?2 ORDER BY form_no DESC",
                 "SELECT ID FROM formGrowth0_36 WHERE demographic_no=?1 ORDER BY formEdited DESC, ID DESC",
                 "SELECT ID FROM formGrowth0_36 WHERE demographic_no=?1 ORDER BY ID DESC");
+    }
+
+    @Test
+    void shouldTreatOnlyNullableNumericBooleanAndTemporalColumns_asBlankToNullOnXmlImport() {
+        for (int jdbcType : List.of(
+                java.sql.Types.BIT, java.sql.Types.BOOLEAN,
+                java.sql.Types.TINYINT, java.sql.Types.SMALLINT, java.sql.Types.INTEGER, java.sql.Types.BIGINT,
+                java.sql.Types.FLOAT, java.sql.Types.REAL, java.sql.Types.DOUBLE,
+                java.sql.Types.NUMERIC, java.sql.Types.DECIMAL,
+                java.sql.Types.DATE, java.sql.Types.TIME, java.sql.Types.TIMESTAMP,
+                java.sql.Types.TIME_WITH_TIMEZONE, java.sql.Types.TIMESTAMP_WITH_TIMEZONE)) {
+            assertThat(EncounterFormDaoImpl.isNullableNonCharacterColumn(
+                    jdbcType, java.sql.ResultSetMetaData.columnNullable)).isTrue();
+            assertThat(EncounterFormDaoImpl.isNullableNonCharacterColumn(
+                    jdbcType, java.sql.ResultSetMetaData.columnNoNulls)).isFalse();
+        }
+        for (int charType : List.of(java.sql.Types.VARCHAR, java.sql.Types.CHAR, java.sql.Types.LONGVARCHAR,
+                java.sql.Types.CLOB, java.sql.Types.NVARCHAR)) {
+            assertThat(EncounterFormDaoImpl.isNullableNonCharacterColumn(
+                    charType, java.sql.ResultSetMetaData.columnNullable)).isFalse();
+        }
     }
 }

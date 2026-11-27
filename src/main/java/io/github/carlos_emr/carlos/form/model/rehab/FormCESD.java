@@ -104,7 +104,7 @@ public class FormCESD extends RehabStudyAssessment {
             new Checkbox<>("Q20Some", form -> form.q20Some, (form, value) -> form.q20Some = value),
             new Checkbox<>("Q20Occ", form -> form.q20Occ, (form, value) -> form.q20Occ = value),
             new Checkbox<>("Q20Most", form -> form.q20Most, (form, value) -> form.q20Most = value),
-            Text.forIntegerColumn("score", form -> form.score, (form, value) -> form.score = value));
+            Text.forNumericColumn("score", form -> form.score, (form, value) -> form.score = value));
 
     @Column(name = "Q1Rare", columnDefinition = "tinyint(1)")
     private Byte q1Rare;

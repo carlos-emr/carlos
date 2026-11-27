@@ -84,7 +84,7 @@ def parse_tables(sql: str) -> dict[str, list[tuple[str, str, str]]]:
     """Returns each listed table's (column, type, remainder) definitions in physical order."""
     tables = {}
     for table in TABLES:
-        match = re.search(r"CREATE TABLE `" + re.escape(table) + r"` \((.*?)\n\)", sql, re.S)
+        match = re.search(r"CREATE TABLE `" + re.escape(table) + r"` \((.*?)\n\)", sql, re.DOTALL)
         if match is None:
             raise SystemExit(f"{table}: CREATE TABLE not found in {BASELINE.relative_to(ROOT)}")
         columns = []
@@ -178,7 +178,8 @@ def answer_members(owner: str, body) -> list[str]:
     lines = [f"    private static final List<RehabStudyColumn<{owner}>> COLUMNS = List.of("]
     entries = []
     for name, physical, kind, _, field in body:
-        constructor = "Text.forIntegerColumn" if physical.startswith("int(") else f"new {kind}<>"
+        is_numeric = physical.startswith("int(") or physical == "double"
+        constructor = "Text.forNumericColumn" if is_numeric else f"new {kind}<>"
         reader = f'            {constructor}("{name}", form -> form.{field},'
         writer = f"(form, value) -> form.{field} = value)"
         single = f"{reader} {writer}"

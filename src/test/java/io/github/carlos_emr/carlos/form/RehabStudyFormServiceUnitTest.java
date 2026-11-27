@@ -10,6 +10,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -170,24 +171,26 @@ class RehabStudyFormServiceUnitTest {
         when(forms.findForPatient(FormSF36.class, PATIENT, 44)).thenReturn(saved);
         when(demographics.getDemographic(actor, PATIENT)).thenReturn(patient());
 
-        assertThat(service.load(actor, type("SF36"), PATIENT, 0).getProperty("demographic_no")).isEqualTo("123");
-        assertThat(service.load(actor, type("SF36"), PATIENT, 44).getProperty("ID")).isEqualTo("44");
+        RehabStudyFormType<?> sf36 = type("SF36");
+        assertThat(service.load(actor, sf36, PATIENT, 0).getProperty("demographic_no")).isEqualTo("123");
+        assertThat(service.load(actor, sf36, PATIENT, 44).getProperty("ID")).isEqualTo("44");
 
-        verify(security, org.mockito.Mockito.times(2)).hasPrivilege(actor, "_form", "r", "123");
-        verify(security, org.mockito.Mockito.times(2)).hasPrivilege(actor, "_demographic", "r", "123");
+        verify(security, times(2)).hasPrivilege(actor, "_form", "r", "123");
+        verify(security, times(2)).hasPrivilege(actor, "_demographic", "r", "123");
         verify(security, never()).hasPrivilege(actor, "_form", "w", "123");
         Properties values = post();
-        assertThatThrownBy(() -> service.saveVersion(actor, type("SF36"), PATIENT, 0, values))
+        assertThatThrownBy(() -> service.saveVersion(actor, sf36, PATIENT, 0, values))
                 .isInstanceOf(SecurityException.class).hasMessage("missing required sec object (_form)");
         verify(forms, never()).persist(any());
     }
 
     @Test
     void shouldRefuse_whenTheVersionIsMissingOrAnotherPatients() {
+        RehabStudyFormType<?> sf36 = type("SF36");
         Properties values = post();
-        assertThatThrownBy(() -> service.load(actor, type("SF36"), PATIENT, 44)).isInstanceOf(SecurityException.class)
+        assertThatThrownBy(() -> service.load(actor, sf36, PATIENT, 44)).isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (_form)");
-        assertThatThrownBy(() -> service.saveVersion(actor, type("SF36"), PATIENT, 44, values))
+        assertThatThrownBy(() -> service.saveVersion(actor, sf36, PATIENT, 44, values))
                 .isInstanceOf(SecurityException.class);
         verify(forms, never()).persist(any());
     }
@@ -195,34 +198,37 @@ class RehabStudyFormServiceUnitTest {
     @ParameterizedTest
     @ValueSource(strings = {"_form", "_demographic"})
     void shouldRefuseBeforeReadingOrWriting_whenAPrivilegeIsDenied(String object) {
+        RehabStudyFormType<?> sf36 = type("SF36");
         Properties values = post();
         when(security.hasPrivilege(eq(actor), eq(object), anyString(), eq("123"))).thenReturn(false);
-        assertThatThrownBy(() -> service.load(actor, type("SF36"), PATIENT, 44)).isInstanceOf(SecurityException.class)
+        assertThatThrownBy(() -> service.load(actor, sf36, PATIENT, 44)).isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (" + object + ")");
-        assertThatThrownBy(() -> service.load(actor, type("SF36"), PATIENT, 0)).isInstanceOf(SecurityException.class);
-        assertThatThrownBy(() -> service.saveVersion(actor, type("SF36"), PATIENT, 44, values))
+        assertThatThrownBy(() -> service.load(actor, sf36, PATIENT, 0)).isInstanceOf(SecurityException.class);
+        assertThatThrownBy(() -> service.saveVersion(actor, sf36, PATIENT, 44, values))
                 .isInstanceOf(SecurityException.class);
         verifyNoInteractions(forms, demographics);
     }
 
     @Test
     void shouldRefuseBeforeReadingOrWriting_whenPatientAccessIsDenied() {
+        RehabStudyFormType<?> sf36 = type("SF36");
         Properties values = post();
         when(security.isAllowedAccessToPatientRecord(actor, PATIENT)).thenReturn(false);
-        assertThatThrownBy(() -> service.load(actor, type("SF36"), PATIENT, 0)).isInstanceOf(SecurityException.class);
-        assertThatThrownBy(() -> service.saveVersion(actor, type("SF36"), PATIENT, 0, values))
+        assertThatThrownBy(() -> service.load(actor, sf36, PATIENT, 0)).isInstanceOf(SecurityException.class);
+        assertThatThrownBy(() -> service.saveVersion(actor, sf36, PATIENT, 0, values))
                 .isInstanceOf(SecurityException.class);
         verifyNoInteractions(forms, demographics);
     }
 
     @Test
     void shouldRejectAbsentActorAndInvalidPatient_beforeAnyPersistence() {
+        RehabStudyFormType<?> sf36 = type("SF36");
         Properties values = post();
-        assertThatThrownBy(() -> service.load(null, type("SF36"), PATIENT, 0)).isInstanceOf(SecurityException.class);
-        assertThatThrownBy(() -> service.saveVersion(null, type("SF36"), PATIENT, 0, values))
+        assertThatThrownBy(() -> service.load(null, sf36, PATIENT, 0)).isInstanceOf(SecurityException.class);
+        assertThatThrownBy(() -> service.saveVersion(null, sf36, PATIENT, 0, values))
                 .isInstanceOf(SecurityException.class);
-        assertThatThrownBy(() -> service.load(actor, type("SF36"), 0, 0)).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> service.saveVersion(actor, type("SF36"), -1, 0, values))
+        assertThatThrownBy(() -> service.load(actor, sf36, 0, 0)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.saveVersion(actor, sf36, -1, 0, values))
                 .isInstanceOf(IllegalArgumentException.class);
         verifyNoInteractions(forms, demographics);
     }
@@ -268,18 +274,20 @@ class RehabStudyFormServiceUnitTest {
 
     @Test
     void shouldRefuseToSave_withoutAStudyId() {
+        RehabStudyFormType<?> sf36 = type("SF36");
         Properties values = post();
         values.remove("studyID");
-        assertThatThrownBy(() -> service.saveVersion(actor, type("SF36"), PATIENT, 0, values))
+        assertThatThrownBy(() -> service.saveVersion(actor, sf36, PATIENT, 0, values))
                 .isInstanceOf(IllegalArgumentException.class).hasMessage("A study identifier is required");
         verify(forms, never()).persist(any());
     }
 
     @Test
     void shouldRefuseToSave_whenTheProviderNumberIsNotNumeric() {
+        RehabStudyFormType<?> sf36 = type("SF36");
         when(actor.getLoggedInProviderNo()).thenReturn("abc");
         Properties values = post();
-        assertThatThrownBy(() -> service.saveVersion(actor, type("SF36"), PATIENT, 0, values))
+        assertThatThrownBy(() -> service.saveVersion(actor, sf36, PATIENT, 0, values))
                 .isInstanceOf(NumberFormatException.class);
         verify(forms, never()).persist(any());
     }

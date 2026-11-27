@@ -94,6 +94,28 @@ class TestReportLeaseUpgrade(unittest.TestCase):
             self.assertIn("resolves to 15 seconds", self.configure(properties).stderr)
             self.assertEqual(properties.read_bytes(), old)
 
+    def test_purge_then_reinstall_migrates_retained_stock_15_once(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            root.chmod(0o711)
+            properties = root / "carlos.properties"
+            marker = root / ".report-lease-default-migrated"
+            old = b"db_remove_abandoned_timeout = 15\nclinic.name=Retained\n"
+            properties.write_bytes(old)
+            properties.chmod(0o644)
+
+            reinstall = self.configure(properties, previous="")
+            self.assertEqual(reinstall.stderr, "")
+            self.assertIn("migrated the old 15-second", reinstall.stdout)
+            self.assertEqual(properties.read_bytes(), b"clinic.name=Retained\n")
+            self.assertTrue(marker.exists())
+
+            # A subsequent explicit opt-back to 15 is preserved.
+            properties.write_bytes(old)
+            later = self.configure(properties, previous="1.0")
+            self.assertIn("resolves to 15 seconds", later.stderr)
+            self.assertEqual(properties.read_bytes(), old)
+
     def test_preserves_a_site_specific_setting(self):
         self.assertEqual(self.warning_for(b"db_remove_abandoned_timeout = 17\n"), "")
 

@@ -154,9 +154,8 @@ public class EncounterFormDaoImpl extends AbstractDaoImpl<EncounterForm> impleme
                 var metadata = rows.getMetaData();
                 for (int i = 1; i <= metadata.getColumnCount(); i++) {
                     String name = metadata.getColumnName(i);
-                    boolean nullableInteger = metadata.getColumnType(i) == Types.INTEGER
-                            && metadata.isNullable(i) == ResultSetMetaData.columnNullable;
-                    result.put(name.toLowerCase(Locale.ROOT), new ImportColumn(name, nullableInteger));
+                    boolean blankAsNull = isNullableNonCharacterColumn(metadata.getColumnType(i), metadata.isNullable(i));
+                    result.put(name.toLowerCase(Locale.ROOT), new ImportColumn(name, blankAsNull));
                 }
                 return result;
             }
@@ -167,9 +166,9 @@ public class EncounterFormDaoImpl extends AbstractDaoImpl<EncounterForm> impleme
             if (Set.of("id", "demographic_no", "formedited").contains(key)) continue;
             ImportColumn column = columns.get(key);
             if (column == null) throw new IllegalArgumentException("Unknown form import column");
-            // Legacy XML writes SQL NULL as an empty element. Preserve that value for integer answers.
+            // Legacy XML writes SQL NULL as an empty element. Preserve NULL for nullable numeric and temporal columns.
             String value = entry.getValue();
-            supplied.put(key, column.nullableInteger() ? StringUtils.defaultIfBlank(value, null) : value);
+            supplied.put(key, column.blankAsNull() ? StringUtils.defaultIfBlank(value, null) : value);
         }
         supplied.put("demographic_no", demographicNo);
         supplied.put("formedited", edited);
@@ -190,7 +189,21 @@ public class EncounterFormDaoImpl extends AbstractDaoImpl<EncounterForm> impleme
         });
     }
 
-    private record ImportColumn(String name, boolean nullableInteger) { }
+    static boolean isNullableNonCharacterColumn(int jdbcType, int nullable) {
+        if (nullable != ResultSetMetaData.columnNullable) {
+            return false;
+        }
+        return switch (jdbcType) {
+            case Types.BIT, Types.BOOLEAN,
+                    Types.TINYINT, Types.SMALLINT, Types.INTEGER, Types.BIGINT,
+                    Types.FLOAT, Types.REAL, Types.DOUBLE, Types.NUMERIC, Types.DECIMAL,
+                    Types.DATE, Types.TIME, Types.TIMESTAMP,
+                    Types.TIME_WITH_TIMEZONE, Types.TIMESTAMP_WITH_TIMEZONE -> true;
+            default -> false;
+        };
+    }
+
+    private record ImportColumn(String name, boolean blankAsNull) { }
 
     // The form registry and ASCII identifier check restrict the table used by this private read.
     // Both the patient and record identifiers remain bound JDBC parameters.

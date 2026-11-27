@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -108,7 +109,7 @@ class RehabStudyFormsUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldLoadThroughTheService_withTheRoutedQuestionnaire() throws Exception {
+    void shouldLoadThroughTheService_withTheRoutedQuestionnaire() {
         RehabStudyFormType<?> type = RehabStudyForms.forFormClass("Falls").orElseThrow();
         Properties loaded = new Properties();
         when(service.load(actor, type, 5, 9)).thenReturn(loaded);
@@ -116,7 +117,7 @@ class RehabStudyFormsUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldSaveFromThePostedFormIdOrId_asTheSourceVersion() throws Exception {
+    void shouldSaveFromThePostedFormIdOrId_asTheSourceVersion() {
         RehabStudyFormType<?> type = RehabStudyForms.forFormClass("Falls").orElseThrow();
         RehabStudyForm form = new RehabStudyForm(type);
         Properties post = new Properties();
@@ -159,12 +160,12 @@ class RehabStudyFormsUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldKeepTheLegacyActionNavigation_forSaveAndExit() throws Exception {
+    void shouldKeepTheLegacyActionNavigation_forSaveAndExit() {
         RehabStudyForm form = new RehabStudyForm(RehabStudyForms.forFormClass("SF36").orElseThrow());
         assertThat(form.findActionValue("save")).isEqualTo("save");
         assertThat(form.findActionValue("exit")).isEqualTo("exit");
         assertThat(form.findActionValue("bogus")).isEqualTo("failure");
         assertThat(form.createActionURL("save", "save", "5", "9")).isEqualTo("save?demographic_no=5&formId=9");
-        verify(service, org.mockito.Mockito.never()).load(any(), any(), anyInt(), anyInt());
+        verify(service, never()).load(any(), any(), anyInt(), anyInt());
     }
 }
