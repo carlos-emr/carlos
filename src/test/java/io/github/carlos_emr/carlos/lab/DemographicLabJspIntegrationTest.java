@@ -135,7 +135,6 @@ class DemographicLabJspIntegrationTest {
                 .bean(CdsSourceFieldPresenceResolver.class, mock(CdsSourceFieldPresenceResolver.class))
                 .start();
         replaceStaticField(Hl7textResultsData.class, "hl7TxtInfoDao", HL7_REPORTS);
-        replaceStaticField(Hl7textResultsData.class, "hl7TxtMsgDao", HL7_MESSAGES);
         listHl7LabsOnly();
     }
 

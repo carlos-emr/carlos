@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "e1012c026f1a865310f9a60d3e8ca42d75f45b6b",
+  "comparisonSha256": "e794f501cd5452aa219ef94ca08aa0d62119e434c630663e2b0c42bfa6814298",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/Hl7textResultsData.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "32ec51fbd090743bba29c54206e91a91524a4783"
+    }
+  },
+  "baselineCommit": "4f7ed66872627a9b763f6652919f808e2b36b579",
+  "baselineSourceTree": "e1012c026f1a865310f9a60d3e8ca42d75f45b6b",
+  "baselineReportSha256": "a550ee91fbf24109d41d063d9218eb6b8c46dadd16db9bbfefa8175336b1a4ee",
+  "baselineLane": "PR #6391 FOCUSED run (Maven, JDK 25.0.5, JaCoCo 0.8.16, H2) of the lab filing, version filing, lab unlink, CML, chain-lock DAO, merged-patient routing and rematch unit and integration tests on this branch at its head. The row of Hl7textResultsData.java is measured with the checker's measure() from target/site/jacoco/jacoco.xml (the change that looks the report's row, the CML version read and the chain reader up through SpringUtils when they run); it is not a full-suite run and qualifies no other source. The MariaDB class does not run here.",
+  "baselineTestCounts": {
+    "tests": 313,
+    "skipped": 12,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "e4fd07d8a544fbae6195e2793c39f62e0b88fcce13a21ea2ae61b0d644d4939d",
+  "baselineTestReportsHashFormat": "SHA-256 of compact, key-sorted JSON mapping each Surefire XML filename to the SHA-256 of its unchanged bytes",
+  "exclusions": {},
+  "exclusionSourceBlobs": {},
+  "zeroCoverageWaivers": {}
+}
