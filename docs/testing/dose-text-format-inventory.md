@@ -2,8 +2,8 @@
 
 Issue [#6185](https://github.com/carlos-emr/carlos/issues/6185). Target: `release/2026.08`.
 
-ISMP Canada's *Do Not Use* list bans two numeric forms in medication text: a trailing zero
-("1.0 mg" is read as 10 mg) and a missing leading zero (".5 mg" is read as 5 mg). This inventory
+ISMP Canada advises against a trailing zero in a dose ("1.0 mg" can be read as 10 mg)
+and a missing leading zero (".5 mg" can be read as 5 mg). This inventory
 lists every place where CARLOS turns a dose, strength or quantity **number** into text that a
 person reads or another system receives, and what each one printed. A number that is changed on
 the way to text (rounded, split, truncated) is listed too, because the reader gets a different
@@ -104,7 +104,7 @@ change.
 
 ### Stored values
 
-Stored values are out of scope for #6185, and are not rewritten:
+This change includes no backfill of existing prescriptions.
 
 - A prescription saved before this change keeps "250.0mg" in its generic name and dosage.
 - A dose that a save had already rounded stays rounded.
@@ -129,6 +129,10 @@ The Java accessors still supply the defaults their callers expect. An earlier im
 have written zero where the source held `NULL`. Recovering that distinction requires the original
 source. The new manifest tokens identify the changed rules when resuming an import (#6416).
 
+Ontario physicians must keep the original information traceable when correcting a record.
+BPMH renders each saved indication separately, retaining the recorded code and comments when
+a dictionary entry cannot supply a description. [CPSO guidance on documenting patient encounters](https://www.cpso.on.ca/physicians-physician-assistants/professional-resources/professional-obligations/practice-management/Obligations-documenting-patient-encounters)
+
 The follow-up tickets for the inventory cover legacy editing and duration (#6398–#6400),
 REST and DrugRef (#6401–#6402, carlos-emr/drugref2026#21), discontinued warnings and favourites
 (#6403–#6404), data entry and measurements (#6405–#6406), legacy CDS (#6407) and DHIR (#3972).
@@ -138,8 +142,9 @@ source dose uncertainty (#6411), and export and rollback verification (#6412) tr
 ## Behaviour changes to expect
 
 - A dose finer than a thousandth is shown in full: 0.0625 where "0.062" was shown.
-- A dose with no finite decimal form is shown to the float's precision: a third of a tablet is
-  "0.33333334" where "0.333" was shown. The instruction text ("Take 1/3 tab") is unchanged.
+- A structured dose stored as the nearest float to one third displays as "0.33333334".
+  The float alone cannot establish that one third was intended. An authored direction such as
+  "Take 1/3 tab" remains available in its original wording and takes precedence on the BPMH.
 - New prescriptions stage and store "250mg" and "amoxicillin 250mg capsule" where "250.0mg" was
   stored. The instruction parser divides by either shape
   (`RxUtilInstrucParserUnitTest.shouldDivideByProductStrength_whenStrengthHasNoTrailingZero`).
