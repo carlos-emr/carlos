@@ -273,6 +273,7 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
+    @org.junit.jupiter.params.provider.NullSource
     @ValueSource(strings = {"abc", "0", "-3", " "})
     @DisplayName("should replace only the report's own values, when the patient number is not usable")
     void shouldReplaceOnlyTheReportsOwnValues_whenThePatientNumberIsNotUsable(String patient) {
