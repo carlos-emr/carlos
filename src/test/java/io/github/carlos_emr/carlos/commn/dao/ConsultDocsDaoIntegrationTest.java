@@ -480,17 +480,27 @@ public class ConsultDocsDaoIntegrationTest extends CarlosTestBase {
         }
 
         @Test
-        @DisplayName("should find every active eForm attachment of the document, across eForms, in id order")
+        @DisplayName("should find every active eForm attachment of the document owned by current eForms, excluding retired owners, in id order")
         void shouldFindActiveEFormAttachments_ofDocumentAcrossEForms() {
-            EFormDocs first = new EFormDocs(801, 5, EFormDocs.DOCTYPE_EFORM, PROVIDER_NO);
+            EFormData currentFirst = createEFormData(100, false);
+            EFormData currentSecond = createEFormData(100, false);
+            EFormData currentForDeleted = createEFormData(100, false);
+            EFormData currentForDoc = createEFormData(100, false);
+            EFormData currentForOther = createEFormData(100, false);
+            EFormData retiredOwner = createEFormData(100, false);
+            retiredOwner.setCurrent(false);
+            entityManager.merge(retiredOwner);
+
+            EFormDocs first = new EFormDocs(currentFirst.getId(), 5, EFormDocs.DOCTYPE_EFORM, PROVIDER_NO);
             eFormDocsDao.persist(first);
-            EFormDocs second = new EFormDocs(802, 5, EFormDocs.DOCTYPE_EFORM, PROVIDER_NO);
+            EFormDocs second = new EFormDocs(currentSecond.getId(), 5, EFormDocs.DOCTYPE_EFORM, PROVIDER_NO);
             eFormDocsDao.persist(second);
-            EFormDocs deleted = new EFormDocs(803, 5, EFormDocs.DOCTYPE_EFORM, PROVIDER_NO);
+            EFormDocs deleted = new EFormDocs(currentForDeleted.getId(), 5, EFormDocs.DOCTYPE_EFORM, PROVIDER_NO);
             deleted.setDeleted(EFormDocs.DELETED);
             eFormDocsDao.persist(deleted);
-            eFormDocsDao.persist(new EFormDocs(804, 5, EFormDocs.DOCTYPE_DOC, PROVIDER_NO));
-            eFormDocsDao.persist(new EFormDocs(805, 6, EFormDocs.DOCTYPE_EFORM, PROVIDER_NO));
+            eFormDocsDao.persist(new EFormDocs(currentForDoc.getId(), 5, EFormDocs.DOCTYPE_DOC, PROVIDER_NO));
+            eFormDocsDao.persist(new EFormDocs(currentForOther.getId(), 6, EFormDocs.DOCTYPE_EFORM, PROVIDER_NO));
+            eFormDocsDao.persist(new EFormDocs(retiredOwner.getId(), 5, EFormDocs.DOCTYPE_EFORM, PROVIDER_NO));
             entityManager.flush();
 
             List<EFormDocs> found = eFormDocsDao.findActiveByAttachedDocumentForUpdate(EFormDocs.DOCTYPE_EFORM, 5);

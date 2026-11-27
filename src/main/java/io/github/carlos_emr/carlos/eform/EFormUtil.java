@@ -875,8 +875,9 @@ public class EFormUtil {
         String text = eForm != null ? eForm.getTemplate() : null;
         if (StringUtils.isBlank(text)) return;
 
-        text = putTemplateValues(paramNames, paramValues, text);
-        text = putTemplateEformValues(eForm, fdid, context_path, text);
+        // Parse chart-write directives from the authored template BEFORE binding field values so
+        // untrusted instance values cannot inject or close directive tags (CWE-74).
+        TemplateBinder binder = new TemplateBinder(paramNames, paramValues, eForm, fdid, context_path);
         String[] template_echart = {"EncounterNote", "SocialHistory", "FamilyHistory", "MedicalHistory", "OngoingConcerns", "RiskFactors", "Reminders", "OtherMeds"};
         String[] code = {"", "SocHistory", "FamHistory", "MedHistory", "Concerns", "RiskFactors", "Reminders", "OMeds"};
         ArrayList<String> templates = new ArrayList<String>();
@@ -889,10 +890,10 @@ public class EFormUtil {
         for (int i = 0; i < template_echart.length; i++) {
             templates = getWithin(template_echart[i], text);
             for (String template : templates) {
-                if (StringUtils.isBlank(template)) continue;
+                String resolved = binder.bind(template, true);
+                if (StringUtils.isBlank(resolved)) continue;
 
-                template = putTemplateEformHtml(eForm.getFormHtml(), template);
-                saveCMNote(eForm, fdid, programNo, code[i], template);
+                saveCMNote(eForm, fdid, programNo, code[i], resolved);
             }
         }
 
@@ -910,10 +911,13 @@ public class EFormUtil {
             if (StringUtils.isBlank(template)) continue;
 
             String belong = getAttribute("belong", getBeginTag("document", template));
+            if (belong != null) {
+                belong = binder.bind(belong, false);
+            }
             if (!"patient".equalsIgnoreCase(belong)) belong = "providers";
             else belong = "demographic";
 
-            String docOwner = getContent("docowner", template, null);
+            String docOwner = binder.content("docowner", template, null);
             if (docOwner == null) {
                 if (belong.equals("demographic")) docOwner = eForm.getDemographicNo();
                 else docOwner = eForm.getProviderNo();
@@ -922,9 +926,8 @@ public class EFormUtil {
             // The template's <docdesc>, field values filled in, is not bounded by anything the eForm
             // author controls, and the eForm is already saved: shortened to document.docdesc rather
             // than cut by the database without a word.
-            String docDesc = DocumentDescription.fit(getContent("docdesc", template, eForm.getFormName()));
-            String docText = getContent("content", template, "");
-            docText = putTemplateEformHtml(eForm.getFormHtml(), docText);
+            String docDesc = DocumentDescription.fit(binder.content("docdesc", template, eForm.getFormName()));
+            String docText = binder.content("content", template, "", true);
 
             if (NumberUtils.isDigits(docOwner)) {
                 EDoc edoc = new EDoc(docDesc, "forms", "html", docText, docOwner, eForm.getProviderNo(), "", 'H', eForm.getFormDate().toString(), "", null, belong, docOwner);
@@ -956,15 +959,15 @@ public class EFormUtil {
         for (String template : templates) {
             if (StringUtils.isBlank(template)) continue;
 
-            String preventionType = getEqualIgnoreCase(preventionManager().getPreventionTypeList(), getContent("type", template, null));
+            String preventionType = getEqualIgnoreCase(preventionManager().getPreventionTypeList(), binder.content("type", template, null));
             if (preventionType == null) continue;
 
             // <provider> is the tag eForm templates have always used; a 2025 package rename changed the
             // reader to <providers>. Read the old tag first and keep the new one working.
-            String preventionProvider = getContent("provider", template, null);
-            if (preventionProvider == null) preventionProvider = getContent("providers", template, eForm.getProviderNo());
-            String preventionDate = getContent("date", template, eForm.getFormDate());
-            String preventionStatus = getContent("status", template, "completed"); //completed(0)/refused(1)/ineligible(2)
+            String preventionProvider = binder.content("provider", template, null);
+            if (preventionProvider == null) preventionProvider = binder.content("providers", template, eForm.getProviderNo());
+            String preventionDate = binder.content("date", template, eForm.getFormDate());
+            String preventionStatus = binder.content("status", template, "completed"); //completed(0)/refused(1)/ineligible(2)
 
             Prevention prevention = new Prevention();
             prevention.setPreventionType(preventionType);
@@ -977,15 +980,15 @@ public class EFormUtil {
 
             HashMap<String, String> extHash = new HashMap<String, String>();
             String extData = null;
-            if ((extData = getContent("name", template, null)) != null) extHash.put("name", extData);
-            if ((extData = getContent("dose", template, null)) != null) extHash.put("dose", extData);
-            if ((extData = getContent("manufacture", template, null)) != null) extHash.put("manufacture", extData);
-            if ((extData = getContent("route", template, null)) != null) extHash.put("route", extData);
-            if ((extData = getContent("lot", template, null)) != null) extHash.put("lot", extData);
-            if ((extData = getContent("location", template, null)) != null) extHash.put("location", extData);
-            if ((extData = getContent("comments", template, null)) != null) extHash.put("comments", extData);
-            if ((extData = getContent("reason", template, null)) != null) extHash.put("reason", extData);
-            if ((extData = getContent("result", template, null)) != null) {
+            if ((extData = binder.content("name", template, null)) != null) extHash.put("name", extData);
+            if ((extData = binder.content("dose", template, null)) != null) extHash.put("dose", extData);
+            if ((extData = binder.content("manufacture", template, null)) != null) extHash.put("manufacture", extData);
+            if ((extData = binder.content("route", template, null)) != null) extHash.put("route", extData);
+            if ((extData = binder.content("lot", template, null)) != null) extHash.put("lot", extData);
+            if ((extData = binder.content("location", template, null)) != null) extHash.put("location", extData);
+            if ((extData = binder.content("comments", template, null)) != null) extHash.put("comments", extData);
+            if ((extData = binder.content("reason", template, null)) != null) extHash.put("reason", extData);
+            if ((extData = binder.content("result", template, null)) != null) {
                 extData = extData.toLowerCase();
                 if (extData.equals("pending") || extData.equals("normal") || extData.equals("abnormal") || extData.equals("other")) {
                     extHash.put("result", extData);
@@ -1007,12 +1010,11 @@ public class EFormUtil {
         for (String template : templates) {
             if (StringUtils.isBlank(template)) continue;
 
-            String subject = getContent("subject", template, eForm.getFormName());
-            String[] sentList = getSentList(template);
+            String subject = binder.content("subject", template, eForm.getFormName());
+            String[] sentList = binder.sentList(template);
             String userNo = eForm.getProviderNo();
             String userName = providerDao().getProviderName(eForm.getProviderNo());
-            String message = getContent("content", template, "");
-            message = putTemplateEformHtml(eForm.getFormHtml(), message);
+            String message = binder.content("content", template, "", true);
 
             MessagingManager messagingManager = SpringUtils.getBean(MessagingManager.class);
             MessengerSystemMessage systemMessage = new MessengerSystemMessage(sentList);
@@ -1037,11 +1039,11 @@ public class EFormUtil {
         for (String template : templates) {
             if (StringUtils.isBlank(template)) continue;
 
-            String taskAssignedTo = getContent("taskAssignedTo", template, null);
+            String taskAssignedTo = binder.content("taskAssignedTo", template, null);
             if (taskAssignedTo == null) continue; //no assignee
             if (providerDao().getProvider(taskAssignedTo.trim()) == null) continue; //assignee providers no not exists
 
-            String message = getContent("tickMsg", template, "");
+            String message = binder.content("tickMsg", template, "");
             Tickler tickler = new Tickler();
             tickler.setTaskAssignedTo(taskAssignedTo);
             tickler.setMessage(message);
@@ -1092,25 +1094,25 @@ public class EFormUtil {
         for (String template : templates) {
             if (StringUtils.isBlank(template)) continue;
 
-            String referredToService = getContent("referredToService", template, null);
-            String referredToSpecialist = getContent("referredToSpecialist", template, null);
-            String referredBy = getContent("referredBy", template, null);
+            String referredToService = binder.content("referredToService", template, null);
+            String referredToSpecialist = binder.content("referredToSpecialist", template, null);
+            String referredBy = binder.content("referredBy", template, null);
 
-            String urgency = getContent("urgency", template, null);
-            String referralDate = getContent("referralDate", template, null);
-            String reason = getContent("reason", template, "");
-            String clinicalInfo = getContent("clinicalInfo", template, "");
-            String currentMeds = getContent("currentMeds", template, "");
-            String allergies = getContent("allergies", template, "");
-            String concurrentProblems = getContent("concurrentProblems", template, "");
+            String urgency = binder.content("urgency", template, null);
+            String referralDate = binder.content("referralDate", template, null);
+            String reason = binder.content("reason", template, "");
+            String clinicalInfo = binder.content("clinicalInfo", template, "");
+            String currentMeds = binder.content("currentMeds", template, "");
+            String allergies = binder.content("allergies", template, "");
+            String concurrentProblems = binder.content("concurrentProblems", template, "");
 
-            String patientWillBook = getContent("patientWillBook", template, null);
-            String letterheadName = getContent("letterheadName", template, null);
-            String letterheadAddress = getContent("letterheadAddress", template, null);
-            String letterheadPhone = getContent("letterheadPhone", template, null);
-            String letterheadFax = getContent("letterheadFax", template, null);
-            String status = getContent("status", template, null);
-            String source = getContent("source", template, "");
+            String patientWillBook = binder.content("patientWillBook", template, null);
+            String letterheadName = binder.content("letterheadName", template, null);
+            String letterheadAddress = binder.content("letterheadAddress", template, null);
+            String letterheadPhone = binder.content("letterheadPhone", template, null);
+            String letterheadFax = binder.content("letterheadFax", template, null);
+            String status = binder.content("status", template, null);
+            String source = binder.content("source", template, "");
 
             ConsultationRequest consult = new ConsultationRequest();
 
@@ -1454,84 +1456,138 @@ public class EFormUtil {
         return attributeName.toLowerCase(Locale.ROOT);
     }
 
-    private static String putTemplateValues(ArrayList<String> paramNames, ArrayList<String> paramValues, String template) {
-        if (StringUtils.isBlank(template)) return template;
+    /**
+     * Single-pass binder for {@code $t{...}} and {@code $te{...}} placeholders inside already-parsed
+     * chart-write directive fields. Binding in one pass over each extracted authored slice ensures
+     * user-supplied field values containing directive tags or template tokens are never parsed as
+     * directives or re-expanded as placeholders.
+     */
+    private static final class TemplateBinder {
+        private final ArrayList<String> paramNames;
+        private final ArrayList<String> paramValues;
+        private final EForm eForm;
+        private final String fdid;
+        private final String contextPath;
+        private String sanitizedFormHtml;
 
-        String tag = "$t{";
-        String nwTemplate = "";
-        int pointer = 0;
-        ArrayList<Integer> fieldBeginList = getFieldIndices(tag, template);
-        for (int fieldBegin : fieldBeginList) {
-            nwTemplate += template.substring(pointer, fieldBegin);
-            int fieldEnd = template.indexOf("}", fieldBegin);
-            pointer = fieldEnd + 1;
-            String field = template.substring(fieldBegin + tag.length(), fieldEnd);
-            if (paramNames.contains(field)) {
-                nwTemplate += paramValues.get(paramNames.indexOf(field));
-            } else {
-                nwTemplate += "";
-                logger.debug("Cannot find input name {" + field + "} in eform");
-            }
+        private TemplateBinder(ArrayList<String> paramNames, ArrayList<String> paramValues, EForm eForm,
+                               String fdid, String contextPath) {
+            this.paramNames = paramNames;
+            this.paramValues = paramValues;
+            this.eForm = eForm;
+            this.fdid = fdid;
+            this.contextPath = contextPath;
         }
-        nwTemplate += template.substring(pointer, template.length());
-        return nwTemplate;
-    }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private static String putTemplateEformValues(EForm eForm, String fdid, String path, String template) {
-        if (eForm == null || StringUtils.isBlank(template)) return template;
-
-        // $te{eform.provider} is the field eForm templates have always used; a 2025 package rename changed it
-        // to $te{eform.providers}. Both give the submitting provider.
-        String[] efields = {"name", "subject", "patient", "provider", "providers", "link"};
-        String[] eValues = {eForm.getFormName(), eForm.getFormSubject(), eForm.getDemographicNo(), eForm.getProviderNo(), eForm.getProviderNo(), "<a href='" + path + "/eform/efmshowform_data?fdid=" + fdid + "' target='_blank'>" + eForm.getFormName() + "</a>"};
-
-        String tag = "$te{";
-        String nwTemplate = "";
-        int pointer = 0;
-        ArrayList<Integer> fieldBeginList = getFieldIndices(tag, template);
-        for (int fieldBegin : fieldBeginList) {
-            nwTemplate += template.substring(pointer, fieldBegin);
-            int fieldEnd = template.indexOf("}", fieldBegin);
-            pointer = fieldEnd + 1;
-            String field = template.substring(fieldBegin + tag.length(), fieldEnd);
-            if (field.equalsIgnoreCase("eform.html")) {
-                nwTemplate += "$te{eform.html}";
-                continue;
-            }
-            boolean match = false;
-            for (int i = 0; i < efields.length; i++) {
-                if (field.equalsIgnoreCase("eform." + efields[i])) {
-                    nwTemplate += eValues[i];
-                    match = true;
+        private String bind(String raw, boolean expandFormHtml) {
+            if (StringUtils.isBlank(raw)) return raw;
+            StringBuilder out = new StringBuilder(raw.length());
+            int cursor = 0;
+            while (cursor < raw.length()) {
+                int dollar = raw.indexOf('$', cursor);
+                if (dollar < 0) {
+                    out.append(raw, cursor, raw.length());
                     break;
                 }
+                int nextCursor = tryAppendPlaceholder(raw, cursor, dollar, expandFormHtml, out);
+                if (nextCursor >= 0) {
+                    cursor = nextCursor;
+                } else {
+                    out.append(raw, cursor, dollar + 1);
+                    cursor = dollar + 1;
+                }
             }
-            if (!match) {
-                nwTemplate += "";
-                logger.debug("Cannot find input name {" + field + "} in eform");
+            return out.toString();
+        }
+
+        private int tryAppendPlaceholder(String raw, int cursor, int dollar, boolean expandFormHtml,
+                                         StringBuilder out) {
+            if (matchesTag(raw, dollar, "$t{")) {
+                int end = raw.indexOf('}', dollar + 3);
+                if (end < 0) return -1;
+                out.append(raw, cursor, dollar);
+                out.append(resolveFormField(raw.substring(dollar + 3, end)));
+                return end + 1;
             }
+            if (matchesTag(raw, dollar, "$te{")) {
+                int end = raw.indexOf('}', dollar + 4);
+                if (end < 0) return -1;
+                out.append(raw, cursor, dollar);
+                out.append(resolveEformField(raw.substring(dollar + 4, end), expandFormHtml));
+                return end + 1;
+            }
+            return -1;
         }
-        nwTemplate += template.substring(pointer, template.length());
-        return nwTemplate;
-    }
 
-    private static String putTemplateEformHtml(String html, String template) {
-        if (StringUtils.isBlank(html) || StringUtils.isBlank(template)) return "";
-
-        html = removeAction(html);
-        String tag = "$te{eform.html}";
-        String nwTemplate = "";
-        int pointer = 0;
-        ArrayList<Integer> fieldBeginList = getFieldIndices(tag, template);
-        for (int fieldBegin : fieldBeginList) {
-            nwTemplate += template.substring(pointer, fieldBegin);
-            nwTemplate += html;
-            pointer = fieldBegin + tag.length();
+        private String resolveFormField(String field) {
+            int idx = paramNames == null ? -1 : paramNames.indexOf(field);
+            if (idx >= 0 && paramValues != null && idx < paramValues.size()) {
+                return StringUtils.defaultString(paramValues.get(idx));
+            }
+            logger.debug("Cannot find input name {} in eform", field);
+            return "";
         }
-        nwTemplate += template.substring(pointer, template.length());
-        return nwTemplate;
+
+        private static boolean matchesTag(String text, int index, String tag) {
+            return text.regionMatches(true, index, tag, 0, tag.length());
+        }
+
+        private String resolveEformField(String field, boolean expandFormHtml) {
+            if (eForm == null) return "";
+            if (field.equalsIgnoreCase("eform.html")) {
+                if (!expandFormHtml) return "$te{eform.html}";
+                if (sanitizedFormHtml == null) {
+                    String html = eForm.getFormHtml();
+                    sanitizedFormHtml = StringUtils.isBlank(html) ? "" : removeAction(html);
+                }
+                return sanitizedFormHtml;
+            }
+            // $te{eform.provider} is the field eForm templates have always used; a 2025 package rename changed it
+            // to $te{eform.providers}. Both give the submitting provider.
+            return switch (field.toLowerCase(Locale.ROOT)) {
+                case "eform.name" -> StringUtils.defaultString(eForm.getFormName());
+                case "eform.subject" -> StringUtils.defaultString(eForm.getFormSubject());
+                case "eform.patient" -> StringUtils.defaultString(eForm.getDemographicNo());
+                case "eform.provider", "eform.providers" -> StringUtils.defaultString(eForm.getProviderNo());
+                case "eform.link" -> "<a href='" + contextPath + "/eform/efmshowform_data?fdid=" + fdid + "' target='_blank'>" + eForm.getFormName() + "</a>";
+                default -> {
+                    logger.debug("Cannot find input name {} in eform", field);
+                    yield "";
+                }
+            };
+        }
+
+        private String content(String tag, String template, String dflt) {
+            return content(tag, template, dflt, false);
+        }
+
+        private String content(String tag, String template, String dflt, boolean expandFormHtml) {
+            ArrayList<String> contents = getWithin(tag, template);
+            if (contents.isEmpty()) return dflt;
+            return trimWhitespace(bind(contents.get(0), expandFormHtml));
+        }
+
+        private String[] sentList(String msgtxt) {
+            String sentListTxt = content("sendto", msgtxt, "");
+            String[] list = sentListTxt.split(",");
+            for (int i = 0; i < list.length; i++) {
+                list[i] = list[i].trim();
+            }
+            return list;
+        }
+
+        private static String trimWhitespace(String content) {
+            if (content == null) return null;
+            int start = 0;
+            int end = content.length();
+            while (start < end && Character.isWhitespace(content.charAt(start))) {
+                start++;
+            }
+            while (end > start && Character.isWhitespace(content.charAt(end - 1))) {
+                end--;
+            }
+            return content.substring(start, end);
+        }
     }
 
     private static String removeAction(String html) {
@@ -1607,42 +1663,6 @@ public class EFormUtil {
         return sCmIssu;
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private static ArrayList<Integer> getFieldIndices(String fieldtag, String s) {
-        ArrayList<Integer> fieldIndexList = new ArrayList<Integer>();
-        if (StringUtils.isBlank(fieldtag) || StringUtils.isBlank(s)) return fieldIndexList;
-
-        fieldtag = fieldtag.toLowerCase();
-        s = s.toLowerCase();
-
-        int from = 0;
-        int fieldAt = s.indexOf(fieldtag, from);
-        while (fieldAt >= 0) {
-            fieldIndexList.add(fieldAt);
-            from = fieldAt + 1;
-            fieldAt = s.indexOf(fieldtag, from);
-        }
-        return fieldIndexList;
-    }
-
-    private static String getContent(String tag, String template, String dflt) {
-        ArrayList<String> contents = getWithin(tag, template);
-        if (contents.isEmpty()) return dflt;
-
-        String content = contents.get(0).trim();
-
-        while (content.length() > 0 && Character.isWhitespace(content.charAt(0))) {
-            content = content.substring(1);
-            content = content.trim();
-        }
-        while (content.length() > 0 && Character.isWhitespace(content.charAt(content.length() - 1))) {
-            content = content.substring(0, content.length() - 1);
-            content = content.trim();
-        }
-        return content;
-    }
-
     private static ArrayList<String> getWithin(String tag, String s) {
         ArrayList<String> within = new ArrayList<String>();
         if (StringUtils.isBlank(tag) || StringUtils.isBlank(s)) return within;
@@ -1699,15 +1719,6 @@ public class EFormUtil {
         Pattern p = Pattern.compile("<" + tag + "[^<>]*>", Pattern.CASE_INSENSITIVE);
         Matcher m = p.matcher(template);
         return m.find() ? m.group() : "";
-    }
-
-    private static String[] getSentList(String msgtxt) {
-        String sentListTxt = getContent("sendto", msgtxt, "");
-        String[] sentList = sentListTxt.split(",");
-        for (int i = 0; i < sentList.length; i++) {
-            sentList[i] = sentList[i].trim();
-        }
-        return sentList;
     }
 
     private static void sortByProviderName(List<EFormData> allEformDatas) {

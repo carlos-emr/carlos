@@ -525,7 +525,7 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should run the template's chart writes once with the saved fdid, the provider's program and the context path")
+        @DisplayName("should run the template's chart writes once with effective nonblank values including untouched defaults")
         void shouldRunTemplateChartWrites_withSavedFdidAndProgram() {
             when(ectProgramManager.getProgramBeans("999998", null)).thenReturn(
                     List.of(new io.github.carlos_emr.carlos.util.LabelValueBean("Clinic", "10016")));
@@ -540,10 +540,72 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
                 util.verify(() -> EFormUtil.writeEformTemplate(eq(loggedInInfo), names.capture(), values.capture(),
                         any(io.github.carlos_emr.carlos.eform.data.EForm.class), eq(String.valueOf(SAVED_FDID)),
                         eq("10016"), eq(CONTEXT)), times(1));
-                // The same nonblank values the browser save passes: the cleared note is not among them.
-                assertThat(names.getValue()).containsExactly("bp");
-                assertThat(values.getValue()).containsExactly("120/80");
+                // Submitted values plus untouched nonblank template defaults reach chart writes,
+                // while the explicitly cleared note stays absent.
+                Map<String, String> chartMap = new LinkedHashMap<>();
+                for (int i = 0; i < names.getValue().size(); i++) {
+                    chartMap.put(names.getValue().get(i), values.getValue().get(i));
+                }
+                assertThat(chartMap)
+                        .containsEntry("bp", "120/80")
+                        .containsEntry("untouched", "kept")
+                        .containsEntry("smoker", "yes")
+                        .containsEntry("route", "po")
+                        .doesNotContainKey("note")
+                        .doesNotContainKey("flag")
+                        .doesNotContainKey("side");
+                // eform_values retains its existing nonblank submitted/prefilled-only contract.
+                assertThat(persistedValues()).extracting(EFormValue::getVarName, EFormValue::getVarValue)
+                        .containsExactly(org.assertj.core.groups.Tuple.tuple("bp", "120/80"));
             }
+        }
+
+        @Test
+        @DisplayName("should clear every selection of a multiple select even when it contains an empty-valued option")
+        void shouldClearMultipleSelectWithoutSelectingEmptyOption_whenBlankValueSubmitted() {
+            String templateHtml = "<html><body><form><select name=\"tags\" multiple>"
+                    + "<option value=\"\">None</option>"
+                    + "<option value=\"a\" selected>A</option>"
+                    + "<option value=\"b\" selected>B</option>"
+                    + "</select></form></body></html>";
+            EForm template = template(true, null);
+            template.setFormHtml(templateHtml);
+            when(eFormDao.findById(FID)).thenReturn(template);
+
+            EFormData saved = service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, Map.of("tags", ""), CONTEXT);
+
+            assertThat(Jsoup.parse(saved.getFormData()).select("select[name=tags] option[selected]")).isEmpty();
+            assertThat(persistedValues()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should update only the exact-case control when another control differs only in letter case")
+        void shouldUpdateOnlyExactCaseControl_whenFieldNamesDifferInCase() {
+            String templateHtml = "<html><body><form>"
+                    + "<input type=\"text\" name=\"Dose\" value=\"10mg\">"
+                    + "<input type=\"text\" name=\"dose\" value=\"1mg\">"
+                    + "<input type=\"radio\" name=\"Side\" value=\"L\" checked>"
+                    + "<input type=\"radio\" name=\"Side\" value=\"R\">"
+                    + "<input type=\"radio\" name=\"side\" value=\"L\" checked>"
+                    + "<input type=\"radio\" name=\"side\" value=\"R\">"
+                    + "</form></body></html>";
+            EForm template = template(true, null);
+            template.setFormHtml(templateHtml);
+            when(eFormDao.findById(FID)).thenReturn(template);
+
+            EFormData saved = service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null,
+                    Map.of("dose", "5mg", "side", "R"), CONTEXT);
+
+            Document html = Jsoup.parse(saved.getFormData());
+            assertThat(html.select("input[type=text]").stream()
+                    .filter(el -> el.attr("name").equals("Dose")).findFirst().orElseThrow().attr("value"))
+                    .isEqualTo("10mg");
+            assertThat(html.select("input[type=text]").stream()
+                    .filter(el -> el.attr("name").equals("dose")).findFirst().orElseThrow().attr("value"))
+                    .isEqualTo("5mg");
+            assertThat(html.select("input[type=radio][checked]").stream()
+                    .map(el -> el.attr("name") + "=" + el.attr("value")).toList())
+                    .containsExactly("Side=L", "side=R");
         }
 
         @Test
@@ -761,13 +823,13 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should audit the revision against the patient, naming the replaced row")
+        @DisplayName("should audit the revision against the patient in the service transaction, naming the replaced row")
         void shouldAuditRevision_withReplacedRow() {
             when(eFormDataDao.lockForAttachmentSync(5)).thenReturn(instance(5, true));
 
             service.revise(loggedInInfo, 5, null, Map.of(), CONTEXT);
 
-            logActionMock.verify(() -> LogAction.addLog(loggedInInfo, LogConst.UPDATE, EFormInstanceService.AUDIT_CONTENT,
+            logActionMock.verify(() -> LogAction.addLogStrict(loggedInInfo, LogConst.UPDATE, EFormInstanceService.AUDIT_CONTENT,
                     String.valueOf(SAVED_FDID), String.valueOf(DEMOGRAPHIC_NO), "Revision of eform data 5"));
         }
 
@@ -1081,6 +1143,133 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
             assertThat(html.select("input[checked]")).extracting(box -> box.attr("name")).containsExactly("Flag");
         }
 
+        @Test
+        @DisplayName("should keep a single surviving multiple select choice across two consecutive unchanged revisions")
+        void shouldKeepSurvivingMultipleSelectChoice_acrossTwoConsecutiveUnchangedRevisions() {
+            String oldHtml = "<html><body><form><select name=\"sites\" multiple>"
+                    + "<option value=\"a\" selected>A</option><option value=\"b\">B</option><option value=\"c\" selected>C</option>"
+                    + "</select></form></body></html>";
+            String currentTemplateHtml = "<html><body><form><select name=\"sites\" multiple>"
+                    + "<option value=\"b\">B</option><option value=\"c\">C</option>"
+                    + "</select></form></body></html>";
+            EForm template = template(true, null);
+            template.setFormHtml(currentTemplateHtml);
+            when(eFormDao.findById(FID)).thenReturn(template);
+            when(eFormDataDao.lockForAttachmentSync(5)).thenAnswer(call -> {
+                EFormData data = instance(5, true);
+                data.setFormData(oldHtml);
+                return data;
+            });
+            EFormValue stored = new EFormValue();
+            stored.setVarName("sites");
+            stored.setVarValue("a");
+            when(eFormValueDao.findByFormDataId(5)).thenReturn(List.of(stored));
+
+            EFormData rev1 = service.revise(loggedInInfo, 5, null, Map.of("sites", "a"), CONTEXT);
+            assertThat(Jsoup.parse(rev1.getFormData()).select("select[name=sites] option[selected]"))
+                    .extracting(option -> option.attr("value")).containsExactly("c");
+
+            // Feed rev1 back as the previous row for a second consecutive unchanged revision.
+            when(eFormDataDao.lockForAttachmentSync(6)).thenAnswer(call -> {
+                EFormData data = instance(6, true);
+                data.setFormData(rev1.getFormData());
+                return data;
+            });
+            when(eFormValueDao.findByFormDataId(6)).thenReturn(List.of(stored));
+
+            EFormData rev2 = service.revise(loggedInInfo, 6, null, Map.of("sites", "a"), CONTEXT);
+            assertThat(Jsoup.parse(rev2.getFormData()).select("select[name=sites] option[selected]"))
+                    .extracting(option -> option.attr("value")).containsExactly("c");
+        }
+
+        @Test
+        @DisplayName("should preserve only the previously checked box when carried checkboxes share both name and value")
+        void shouldPreserveCheckedIndex_whenCarriedDuplicateValueCheckboxesDisambiguated() {
+            String templateHtml = "<html><body><form>"
+                    + "<input type=\"checkbox\" name=\"consent\">"
+                    + "<input type=\"checkbox\" name=\"consent\">"
+                    + "</form></body></html>";
+            String previousHtml = "<html><body><form>"
+                    + "<input type=\"checkbox\" name=\"consent\">"
+                    + "<input type=\"checkbox\" name=\"consent\" checked=\"checked\">"
+                    + "</form></body></html>";
+            EForm template = template(true, null);
+            template.setFormHtml(templateHtml);
+            when(eFormDao.findById(FID)).thenReturn(template);
+            when(eFormDataDao.lockForAttachmentSync(5)).thenAnswer(call -> {
+                EFormData data = instance(5, true);
+                data.setFormData(previousHtml);
+                return data;
+            });
+            EFormValue stored = new EFormValue();
+            stored.setVarName("consent");
+            stored.setVarValue("on");
+            when(eFormValueDao.findByFormDataId(5)).thenReturn(List.of(stored));
+
+            EFormData revision = service.revise(loggedInInfo, 5, null, Map.of("consent", "on"), CONTEXT);
+
+            var boxes = Jsoup.parse(revision.getFormData()).select("input[type=checkbox][name=consent]");
+            assertThat(boxes).hasSize(2);
+            assertThat(boxes.get(0).hasAttr("checked")).isFalse();
+            assertThat(boxes.get(1).hasAttr("checked")).isTrue();
+        }
+
+        @Test
+        @DisplayName("should refuse carrying duplicate-value checkboxes when the previous HTML cannot disambiguate them")
+        void shouldRefuse_whenCarriedDuplicateValueCheckboxesCannotBeDisambiguated() {
+            String templateHtml = "<html><body><form>"
+                    + "<input type=\"checkbox\" name=\"consent\">"
+                    + "<input type=\"checkbox\" name=\"consent\">"
+                    + "<input type=\"checkbox\" name=\"consent\">"
+                    + "</form></body></html>";
+            String previousHtml = "<html><body><form>"
+                    + "<input type=\"checkbox\" name=\"consent\">"
+                    + "<input type=\"checkbox\" name=\"consent\" checked=\"checked\">"
+                    + "</form></body></html>";
+            EForm template = template(true, null);
+            template.setFormHtml(templateHtml);
+            when(eFormDao.findById(FID)).thenReturn(template);
+            when(eFormDataDao.lockForAttachmentSync(5)).thenAnswer(call -> {
+                EFormData data = instance(5, true);
+                data.setFormData(previousHtml);
+                return data;
+            });
+            EFormValue stored = new EFormValue();
+            stored.setVarName("consent");
+            stored.setVarValue("on");
+            when(eFormValueDao.findByFormDataId(5)).thenReturn(List.of(stored));
+
+            Map<String, String> values = Map.of("consent", "on");
+            assertThatThrownBy(() -> service.revise(loggedInInfo, 5, null, values, CONTEXT))
+                    .isInstanceOf(EFormInstanceException.class)
+                    .extracting(e -> ((EFormInstanceException) e).getReason())
+                    .isEqualTo(Reason.UNSUPPORTED_FIELD);
+        }
+
+        @Test
+        @DisplayName("should restore template default when a checkbox group whose stored choice still exists is omitted")
+        void shouldRestoreTemplateDefault_whenCheckboxGroupOmittedFromRevision() {
+            String templateHtml = "<html><body><form>"
+                    + "<input type=\"text\" name=\"bp\" value=\"\">"
+                    + "<input type=\"checkbox\" name=\"symptoms\" value=\"cough\">"
+                    + "<input type=\"checkbox\" name=\"symptoms\" value=\"fever\">"
+                    + "</form></body></html>";
+            EForm template = template(true, null);
+            template.setFormHtml(templateHtml);
+            when(eFormDao.findById(FID)).thenReturn(template);
+            when(eFormDataDao.lockForAttachmentSync(5)).thenAnswer(call -> instance(5, true));
+            EFormValue stored = new EFormValue();
+            stored.setVarName("symptoms");
+            stored.setVarValue("fever");
+            when(eFormValueDao.findByFormDataId(5)).thenReturn(List.of(stored));
+
+            EFormData revision = service.revise(loggedInInfo, 5, null, Map.of("bp", "120/80"), CONTEXT);
+
+            assertThat(Jsoup.parse(revision.getFormData()).select("input[name=symptoms][checked]")).isEmpty();
+            assertThat(persistedValues()).extracting(EFormValue::getVarName, EFormValue::getVarValue)
+                    .containsExactly(org.assertj.core.groups.Tuple.tuple("bp", "120/80"));
+        }
+
     }
 
     @Nested
@@ -1168,13 +1357,13 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should audit the deletion against the patient")
+        @DisplayName("should audit the deletion against the patient in the service transaction")
         void shouldAuditDeletion_againstPatient() {
             when(eFormDataDao.lockForAttachmentSync(5)).thenReturn(instance(5, true));
 
             service.delete(loggedInInfo, 5);
 
-            logActionMock.verify(() -> LogAction.addLog(loggedInInfo, LogConst.DELETE, EFormInstanceService.AUDIT_CONTENT,
+            logActionMock.verify(() -> LogAction.addLogStrict(loggedInInfo, LogConst.DELETE, EFormInstanceService.AUDIT_CONTENT,
                     "5", String.valueOf(DEMOGRAPHIC_NO), null));
         }
 
@@ -1452,6 +1641,34 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
             assertThat(read).containsExactly(Map.entry("sites", ""));
             assertThat(Jsoup.parse(revision.getFormData()).select("select[name=sites] option[selected]")).isEmpty();
             assertThat(persistedValues()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should not emit an empty clear for a single select whose current template removed its empty option")
+        void shouldNotEmitEmptyClear_whenTemplateRemovedEmptyOptionFromSingleSelect() {
+            String savedHtml = "<html><body><form><select name=\"status\">"
+                    + "<option value=\"Normal\">Normal</option>"
+                    + "<option value=\"\" selected>None</option>"
+                    + "</select></form></body></html>";
+            String currentTemplateHtml = "<html><body><form><select name=\"status\">"
+                    + "<option value=\"Normal\">Normal</option>"
+                    + "<option value=\"Abnormal\">Abnormal</option>"
+                    + "</select></form></body></html>";
+            EForm template = template(true, null);
+            template.setFormHtml(currentTemplateHtml);
+            when(eFormDao.findById(FID)).thenReturn(template);
+            EFormData data = instance(5, true);
+            data.setFormData(savedHtml);
+            when(eFormDataDao.find(5)).thenReturn(data);
+            when(eFormDataDao.lockForAttachmentSync(5)).thenReturn(data);
+            when(eFormValueDao.findByFormDataId(5)).thenReturn(List.of());
+
+            Map<String, String> read = service.get(loggedInInfo, 5).values();
+            assertThat(read).doesNotContainKey("status");
+
+            // Echoing GET back to PUT succeeds instead of failing with UNSUPPORTED_FIELD.
+            EFormData revision = service.revise(loggedInInfo, 5, null, read, CONTEXT);
+            assertThat(revision.getId()).isEqualTo(SAVED_FDID);
         }
     }
 }

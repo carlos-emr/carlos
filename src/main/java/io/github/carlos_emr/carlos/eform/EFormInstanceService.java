@@ -240,7 +240,7 @@ public class EFormInstanceService {
 
         String effectiveSubject = subject != null ? subject : template.getSubject();
         return saveFromTemplate(loggedInInfo, template, demographicNo, effectiveSubject,
-                new SaveInputs(values, Map.of(), Map.of(), true, contextPath));
+                new SaveInputs(values, Map.of(), null, Map.of(), true, contextPath));
     }
 
     /**
@@ -256,19 +256,19 @@ public class EFormInstanceService {
      * the same fdid, the second finds it retired and is refused rather than forking the history.</p>
      *
      * <p>The revision takes over the old row's place: its attachments are copied to the revision,
-     * and consultation packets and eForms that attached the old row attach the revision instead.
-     * The template's chart writes run, as they do on every browser save.</p>
+     * and consultation packets and other current eForms that attached the old row attach the
+     * revision instead. The template's chart writes run, as they do on every browser save.</p>
      *
      * <p>For a template that shows only its latest form ({@code showLatestFormOnly}), a revision of
      * a row that is no longer the newest one for the patient is refused: the chart would then show
      * the revision and hide the newer form a clinician saved in the browser.</p>
      *
-     * @param loggedInInfo the caller, recorded as the revision's provider
-     * @param fdid the instance to replace; it must still be current
-     * @param subject the revision's subject; {@code null} keeps the old row's subject
-     * @param values the complete field values of the revision; required
-     * @param contextPath the application's context path, for the links the chart writes put in notes
-     * @return the new {@code eform_data} row; its id is the instance's new fdid
+     * @param loggedInInfo LoggedInInfo the caller, recorded as the revision's provider
+     * @param fdid int the instance to replace; it must still be current
+     * @param subject String the revision's subject; {@code null} keeps the old row's subject
+     * @param values Map&lt;String, String&gt; the complete field values of the revision; required
+     * @param contextPath String the application's context path, for the links the chart writes put in notes
+     * @return EFormData the new {@code eform_data} row; its id is the instance's new fdid
      * @throws SecurityException when the caller lacks {@code _eform} write access, or the role the
      *         instance's template now requires
      * @throws InstanceAccessDeniedException when the caller may not revise this instance
@@ -316,13 +316,14 @@ public class EFormInstanceService {
         String effectiveSubject = subject != null ? subject : previous.getSubject();
         Map<String, String> previousValues = storedValues(fdid);
         EFormData revision = saveFromTemplate(loggedInInfo, template, previous.getDemographicId(), effectiveSubject,
-                new SaveInputs(values, previousValues, multipleSelections(previous.getFormData()), false, contextPath));
+                new SaveInputs(values, previousValues, previous.getFormData(),
+                        multipleSelections(previous.getFormData()), false, contextPath));
 
         previous.setCurrent(false);
         eFormDataDao.merge(previous);
         moveAttachments(fdid, revision.getId());
 
-        LogAction.addLog(loggedInInfo, LogConst.UPDATE, AUDIT_CONTENT, String.valueOf(revision.getId()),
+        LogAction.addLogStrict(loggedInInfo, LogConst.UPDATE, AUDIT_CONTENT, String.valueOf(revision.getId()),
                 String.valueOf(previous.getDemographicId()), "Revision of eform data " + fdid);
         return revision;
     }
@@ -402,7 +403,7 @@ public class EFormInstanceService {
 
         data.setCurrent(false);
         eFormDataDao.merge(data);
-        LogAction.addLog(loggedInInfo, LogConst.DELETE, AUDIT_CONTENT, String.valueOf(fdid),
+        LogAction.addLogStrict(loggedInInfo, LogConst.DELETE, AUDIT_CONTENT, String.valueOf(fdid),
                 String.valueOf(data.getDemographicId()), null);
     }
 
@@ -411,6 +412,7 @@ public class EFormInstanceService {
      *
      * @param values the caller's values, or {@code null}
      * @param previousValues the stored values of the row a revision replaces; empty on create
+     * @param previousHtml the saved HTML of the row a revision replaces; {@code null} on create
      * @param multipleSelections every selected choice of each {@code <select multiple>} in the row a
      *                           revision replaces; empty on create
      * @param prefill whether fields the caller leaves out get the template's {@code oscarDB=} values,
@@ -418,7 +420,8 @@ public class EFormInstanceService {
      * @param contextPath the application's context path, for the chart writes' links
      */
     private record SaveInputs(Map<String, String> values, Map<String, String> previousValues,
-                              Map<String, List<String>> multipleSelections, boolean prefill, String contextPath) {
+                              String previousHtml, Map<String, List<String>> multipleSelections,
+                              boolean prefill, String contextPath) {
     }
 
     /**
@@ -431,7 +434,8 @@ public class EFormInstanceService {
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         EForm form = buildEForm(template, demographicNo, providerNo, subject);
 
-        ValuePlan plan = planValues(template.getFormHtml(), inputs.values(), inputs.previousValues());
+        ValuePlan plan = planValues(template.getFormHtml(), inputs.values(), inputs.previousValues(),
+                inputs.previousHtml());
         ArrayList<String> names = new ArrayList<>();
         ArrayList<String> fieldValues = new ArrayList<>();
         Map<String, List<String>> submittedSelections = new LinkedHashMap<>();
@@ -453,9 +457,12 @@ public class EFormInstanceService {
         Integer savedId = eformDataManager.saveEformData(loggedInInfo, form);
         persistValues(template.getId(), savedId, demographicNo, names, fieldValues);
 
-        // The template's chart writes, with the same nonblank values the browser save passes. In this
-        // transaction, so a failure stores neither the form nor half of its chart entries.
-        EFormUtil.writeEformTemplate(loggedInInfo, names, fieldValues, form, String.valueOf(savedId),
+        // The template's chart writes, with the effective nonblank form values (including untouched
+        // template defaults while keeping explicit clears excluded), as a browser save submits them.
+        // Runs in this transaction, so a failure stores neither the form nor half of its chart entries.
+        Map<String, String> chartWriteValues = collectChartWriteValues(form.getFormHtml(), names, fieldValues);
+        EFormUtil.writeEformTemplate(loggedInInfo, new ArrayList<>(chartWriteValues.keySet()),
+                new ArrayList<>(chartWriteValues.values()), form, String.valueOf(savedId),
                 EctProgram.programFor(ectProgramManager, providerNo),
                 inputs.contextPath() == null ? "" : inputs.contextPath());
 
@@ -499,7 +506,11 @@ public class EFormInstanceService {
                 if (value != null && !plan.checkboxClears().contains(name) && !plan.carried().containsKey(name)) {
                     names.add(name);
                     fieldValues.add(value);
-                    recordMultipleSelection(name, value, inputs, submittedSelections);
+                    if (plan.multipleSelectClears().contains(name)) {
+                        submittedSelections.put(name, List.of());
+                    } else {
+                        recordMultipleSelection(name, value, inputs, submittedSelections);
+                    }
                 }
             }
         }
@@ -529,6 +540,78 @@ public class EFormInstanceService {
         for (Map.Entry<String, String> box : plan.checkboxSelections().entrySet()) {
             form.checkCheckboxWithValue(box.getKey(), box.getValue());
         }
+        for (Map.Entry<String, Set<Integer>> indexed : plan.checkboxIndexSelections().entrySet()) {
+            form.checkCheckboxesAtIndices(indexed.getKey(), indexed.getValue());
+        }
+    }
+
+    /**
+     * Collects the effective nonblank values for chart writes from the persisted values plus any
+     * untouched nonblank template defaults still shown in the rendered HTML. Controls explicitly
+     * cleared by the caller are empty in the rendered HTML and remain absent.
+     */
+    private static Map<String, String> collectChartWriteValues(String renderedHtml, List<String> names,
+                                                               List<String> fieldValues) {
+        Map<String, String> effective = new LinkedHashMap<>();
+        for (int i = 0; i < names.size(); i++) {
+            effective.putIfAbsent(names.get(i), fieldValues.get(i));
+        }
+        Document rendered = parse(renderedHtml);
+        if (rendered == null) {
+            return effective;
+        }
+        for (Element control : rendered.select("input[name], textarea[name], select[name]")) {
+            String name = control.attr("name");
+            if (StringUtils.isBlank(name) || effective.containsKey(name) || isDisabledControl(control)) {
+                continue;
+            }
+            String value = effectiveControlValue(control);
+            if (StringUtils.isNotBlank(value)) {
+                effective.put(name, value);
+            }
+        }
+        return effective;
+    }
+
+    private static boolean isDisabledControl(Element control) {
+        if (control.hasAttr("disabled")) {
+            return true;
+        }
+        for (Element ancestor : control.parents()) {
+            if ("fieldset".equals(ancestor.normalName()) && ancestor.hasAttr("disabled")) {
+                Element firstLegend = ancestor.selectFirst("> legend");
+                if (firstLegend == null || !control.parents().contains(firstLegend)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static String effectiveControlValue(Element control) {
+        return switch (control.normalName()) {
+            case CONTROL_TEXTAREA -> control.wholeText();
+            case CONTROL_SELECT -> {
+                var selected = control.select(SELECTED_OPTION_SELECTOR).stream()
+                        .filter(option -> !isDisabledOption(option))
+                        .toList();
+                if (control.hasAttr("multiple")) {
+                    yield selected.isEmpty() ? "" : optionValue(selected.get(0));
+                }
+                Element chosen = selected.isEmpty() ? firstEnabledOption(control) : selected.get(selected.size() - 1);
+                yield chosen == null ? "" : optionValue(chosen);
+            }
+            case "input" -> {
+                String type = control.hasAttr("type") ? Ascii.toLowerCase(control.attr("type")) : "text";
+                yield switch (type) {
+                    case "button", "submit", "reset", "image", "file", "onclick" -> "";
+                    case CONTROL_CHECKBOX -> control.hasAttr("checked") ? checkboxValue(control) : "";
+                    case CONTROL_RADIO -> control.hasAttr("checked") ? control.attr(VALUE_ATTRIBUTE) : "";
+                    default -> control.attr(VALUE_ATTRIBUTE);
+                };
+            }
+            default -> "";
+        };
     }
 
     private static void removeBlankValues(List<String> names, List<String> fieldValues) {
@@ -602,7 +685,11 @@ public class EFormInstanceService {
         return prefilled;
     }
 
-    /** Every selected choice of each {@code <select multiple>} that has more than one, by name. */
+    /**
+     * Every selected choice of each {@code <select multiple>} that has at least one selection, by name.
+     * Recording single surviving choices as well as multi-choice sets preserves a surviving option across
+     * repeated unchanged revisions after the template removes an earlier stored choice.
+     */
     private static Map<String, List<String>> multipleSelections(String instanceHtml) {
         Map<String, List<String>> selections = new LinkedHashMap<>();
         Document instance = parse(instanceHtml);
@@ -612,7 +699,7 @@ public class EFormInstanceService {
         for (Element select : instance.select("select[multiple][name]")) {
             List<String> chosen = select.select(SELECTED_OPTION_SELECTOR).stream()
                     .map(EFormInstanceService::optionValue).toList();
-            if (chosen.size() > 1) {
+            if (!chosen.isEmpty()) {
                 selections.putIfAbsent(select.attr("name"), chosen);
             }
         }
@@ -665,19 +752,25 @@ public class EFormInstanceService {
      * How the submitted values are saved.
      *
      * @param checkboxClears checkboxes a blank value explicitly unchecks
+     * @param multipleSelectClears {@code <select multiple>} controls a blank value explicitly clears
      * @param carried values the template cannot show as sent, kept because they are exactly what
      *                the revised row stored
      * @param rendered the carried names, other than checkboxes, that still have a settable control.
      *                 They are passed to {@link EForm#setValues} like any value, so a radio value that
      *                 is no longer one of its choices unchecks every choice instead of leaving the
      *                 template default checked, as a browser re-save does.
-     * @param checkboxSelections carried checkbox values: the box whose own value matches is checked
-     *                           and the other boxes of the name unchecked ({@link EForm#setValues}
-     *                           would check only a group's first box). The rest of the carried
-     *                           values are kept as value rows only.
+     * @param checkboxSelections carried checkbox values with a unique (or absent) matching box on the
+     *                           template: the box whose own value matches is checked and the other
+     *                           boxes of the name unchecked ({@link EForm#setValues} would check only
+     *                           a group's first box).
+     * @param checkboxIndexSelections carried checkbox values where multiple template boxes share the
+     *                                same submitted value, disambiguated to exact indices from the
+     *                                revised row's HTML.
      */
-    private record ValuePlan(Set<String> checkboxClears, Map<String, String> carried, Set<String> rendered,
-                             Map<String, String> checkboxSelections) {
+    private record ValuePlan(Set<String> checkboxClears, Set<String> multipleSelectClears,
+                             Map<String, String> carried, Set<String> rendered,
+                             Map<String, String> checkboxSelections,
+                             Map<String, Set<Integer>> checkboxIndexSelections) {
     }
 
     /**
@@ -693,20 +786,21 @@ public class EFormInstanceService {
      * default, as documented. A carried value whose control is still on the template is rendered.
      */
     private static ValuePlan planValues(String templateHtml, Map<String, String> values,
-                                        Map<String, String> previousValues) {
-        ValuePlan plan = new ValuePlan(new LinkedHashSet<>(), new LinkedHashMap<>(),
-                new LinkedHashSet<>(), new LinkedHashMap<>());
+                                        Map<String, String> previousValues, String previousHtml) {
+        ValuePlan plan = new ValuePlan(new LinkedHashSet<>(), new LinkedHashSet<>(),
+                new LinkedHashMap<>(), new LinkedHashSet<>(), new LinkedHashMap<>(), new LinkedHashMap<>());
         boolean submitted = values != null && values.values().stream().anyMatch(java.util.Objects::nonNull);
         if (!submitted && previousValues.isEmpty()) {
             return plan;
         }
         Document template = parse(templateHtml);
-        planSubmittedValues(template, values, previousValues, plan);
-        planOmittedStoredValues(template, values, previousValues, plan);
+        Document previousDoc = previousValues.isEmpty() ? null : parse(previousHtml);
+        planSubmittedValues(template, previousDoc, values, previousValues, plan);
+        planOmittedStoredValues(template, previousDoc, values, previousValues, plan);
         return plan;
     }
 
-    private static void planSubmittedValues(Document template, Map<String, String> values,
+    private static void planSubmittedValues(Document template, Document previousDoc, Map<String, String> values,
                                             Map<String, String> previousValues, ValuePlan plan) {
         if (values == null) {
             return;
@@ -718,17 +812,17 @@ public class EFormInstanceService {
             }
             String name = entry.getKey();
             String type = template == null ? null : settableType(template, name);
-            if (type != null && applies(template, name, type, value, plan.checkboxClears())) {
+            if (type != null && applies(template, name, type, value, plan.checkboxClears(), plan.multipleSelectClears())) {
                 // Directly settable on the current template.
             } else if (value.equals(previousValues.get(name))) {
-                carry(name, value, type, plan);
+                carry(template, previousDoc, name, value, type, plan);
             } else {
                 throw new EFormInstanceException(EFormInstanceException.Reason.UNSUPPORTED_FIELD);
             }
         }
     }
 
-    private static void planOmittedStoredValues(Document template, Map<String, String> values,
+    private static void planOmittedStoredValues(Document template, Document previousDoc, Map<String, String> values,
                                                 Map<String, String> previousValues, ValuePlan plan) {
         for (Map.Entry<String, String> stored : previousValues.entrySet()) {
             String name = stored.getKey();
@@ -737,31 +831,89 @@ public class EFormInstanceService {
                 continue;
             }
             String type = template == null ? null : settableType(template, name);
-            // Stored values are nonblank, so applies() records no checkbox clear here.
-            if (type == null || !applies(template, name, type, stored.getValue(), new LinkedHashSet<>())) {
-                carry(name, stored.getValue(), type, plan);
+            if (type == null || !isRepresentedOnTemplate(template, name, type, stored.getValue())) {
+                carry(template, previousDoc, name, stored.getValue(), type, plan);
             }
         }
     }
 
-    /** Records a carried value and how the revision shows it: see {@link ValuePlan}. */
-    private static void carry(String name, String value, String type, ValuePlan plan) {
-        plan.carried().put(name, value);
-        if (CONTROL_CHECKBOX.equals(type)) {
-            plan.checkboxSelections().put(name, value);
-        } else if (type != null) {
-            plan.rendered().add(name);
+    /**
+     * Whether the current template can represent this stored value: either directly settable via
+     * {@link #applies}, or a checkbox group that still has a box with this value (omitting such a
+     * group restores the template default rather than carrying the previous choice, while echoing
+     * the previous choice explicitly still carries it).
+     */
+    private static boolean isRepresentedOnTemplate(Document template, String name, String type, String value) {
+        if (applies(template, name, type, value, null, null)) {
+            return true;
         }
+        return CONTROL_CHECKBOX.equals(type) && namedControls(template, name).stream()
+                .anyMatch(box -> value.equals(checkboxValue(box)));
+    }
+
+    /** Records a carried value and how the revision shows it: see {@link ValuePlan}. */
+    private static void carry(Document template, Document previousDoc, String name, String value,
+                              String type, ValuePlan plan) {
+        if (CONTROL_CHECKBOX.equals(type)) {
+            var templateBoxes = template == null ? new org.jsoup.select.Elements() : namedControls(template, name);
+            long matchCount = templateBoxes.stream().filter(box -> value.equals(checkboxValue(box))).count();
+            if (matchCount > 1) {
+                Set<Integer> previousChecked = resolveCheckedCheckboxIndices(previousDoc, name, templateBoxes);
+                if (previousChecked == null) {
+                    throw new EFormInstanceException(EFormInstanceException.Reason.UNSUPPORTED_FIELD);
+                }
+                plan.carried().put(name, value);
+                plan.checkboxIndexSelections().put(name, previousChecked);
+            } else {
+                plan.carried().put(name, value);
+                plan.checkboxSelections().put(name, value);
+            }
+        } else {
+            plan.carried().put(name, value);
+            if (type != null) {
+                plan.rendered().add(name);
+            }
+        }
+    }
+
+    /**
+     * Resolves the exact checked box indices from {@code previousDoc} when multiple template boxes
+     * share both name and submitted value. Returns {@code null} when the previous HTML is absent or
+     * its checkbox structure for {@code name} no longer matches the current template position-for-position.
+     */
+    private static Set<Integer> resolveCheckedCheckboxIndices(Document previousDoc, String name,
+                                                              org.jsoup.select.Elements templateBoxes) {
+        if (previousDoc == null) {
+            return null;
+        }
+        List<Element> prevBoxes = previousDoc.select("input[type=checkbox][name]").stream()
+                .filter(box -> box.attr("name").equals(name))
+                .toList();
+        if (prevBoxes.size() != templateBoxes.size()) {
+            return null;
+        }
+        Set<Integer> checked = new LinkedHashSet<>();
+        for (int i = 0; i < prevBoxes.size(); i++) {
+            if (!checkboxValue(prevBoxes.get(i)).equals(checkboxValue(templateBoxes.get(i)))) {
+                return null;
+            }
+            if (prevBoxes.get(i).hasAttr("checked")) {
+                checked.add(i);
+            }
+        }
+        return checked;
     }
 
     /** Whether {@link EForm#setValues} shows this value in the named control of this type. */
     private static boolean applies(Document template, String name, String type, String value,
-                                   Set<String> checkboxClears) {
+                                   Set<String> checkboxClears, Set<String> multipleSelectClears) {
         boolean blank = value.trim().isEmpty();
         return switch (type) {
             case CONTROL_CHECKBOX -> {
                 if (blank) {
-                    checkboxClears.add(name);
+                    if (checkboxClears != null) {
+                        checkboxClears.add(name);
+                    }
                     yield true;
                 }
                 // The renderer checks only the first box of a name, so a value for a group of
@@ -771,7 +923,8 @@ public class EFormInstanceService {
             }
             case CONTROL_RADIO -> value.isEmpty() || namedControls(template, name).stream()
                     .anyMatch(radio -> value.equals(radio.attr(VALUE_ATTRIBUTE)));
-            case CONTROL_SELECT -> selectAcceptsValue(namedControls(template, name).first(), value, blank);
+            case CONTROL_SELECT -> selectAcceptsValue(namedControls(template, name).first(), name, value, blank,
+                    multipleSelectClears);
             default -> true;
         };
     }
@@ -781,8 +934,12 @@ public class EFormInstanceService {
      * when the select has an empty-valued option; a {@code <select multiple>} can legitimately have
      * zero selections and therefore accepts a blank value to clear all choices.
      */
-    private static boolean selectAcceptsValue(Element select, String value, boolean blank) {
+    private static boolean selectAcceptsValue(Element select, String name, String value, boolean blank,
+                                              Set<String> multipleSelectClears) {
         if (select.hasAttr("multiple") && blank) {
+            if (multipleSelectClears != null) {
+                multipleSelectClears.add(name);
+            }
             return true;
         }
         return select.select("option").stream().anyMatch(option -> value.equals(optionValue(option)));
@@ -804,7 +961,9 @@ public class EFormInstanceService {
     /**
      * Adds {@code ""} for each field whose template default is nonblank but whose control in the
      * saved form is empty, and that has no stored value: the instance cleared it. A control missing
-     * from the saved form (the template has changed since) is not reported as a clear.
+     * from the saved form (the template has changed since), or whose current template no longer
+     * accepts {@code ""} (for example, a single select whose empty option was removed), is not
+     * reported as a clear so GET output always round-trips cleanly through PUT.
      */
     private static void addClearedDefaults(String templateHtml, String instanceHtml, Map<String, String> values) {
         Document template = parse(templateHtml);
@@ -822,7 +981,8 @@ public class EFormInstanceService {
             }
             String type = settableType(template, name);
             if (type != null && type.equals(settableType(instance, name))
-                    && hasValue(template, name, type) && !hasValue(instance, name, type)) {
+                    && hasValue(template, name, type) && !hasValue(instance, name, type)
+                    && applies(template, name, type, "", null, null)) {
                 values.put(name, "");
             }
         }

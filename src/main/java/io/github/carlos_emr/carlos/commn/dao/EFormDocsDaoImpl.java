@@ -119,8 +119,11 @@ public class EFormDocsDaoImpl extends AbstractDaoImpl<EFormDocs> implements EFor
     @Override
     public List<EFormDocs> findActiveByAttachedDocumentForUpdate(String docType, Integer documentNo) {
         // Ordered by id, so concurrent callers lock the rows in the same order.
+        // Only current owning eForms follow a revision; retired eForms stay pinned to historical rows.
         return entityManager.createQuery("select x from EFormDocs x where x.docType = :docType"
-                        + " and x.documentNo = :documentNo and x.deleted is null order by x.id", EFormDocs.class)
+                        + " and x.documentNo = :documentNo and x.deleted is null"
+                        + " and exists (select owner.id from EFormData owner where owner.id = x.fdid and owner.current = true)"
+                        + " order by x.id", EFormDocs.class)
                 .setParameter("docType", docType).setParameter("documentNo", documentNo)
                 .setLockMode(LockModeType.PESSIMISTIC_WRITE).getResultList();
     }

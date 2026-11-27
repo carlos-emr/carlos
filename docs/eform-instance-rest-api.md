@@ -72,8 +72,9 @@ A save through the API does what the browser save does, apart from the handoffs 
   the application's context path.
 - **Attachments (PUT).** The revision takes the old row's place in the chart: the old row's
   attachments (documents, labs, forms, eForms, HRM reports) are copied to the revision, and the
-  consultation packets and other eForms that attached the old row attach the revision instead. The
-  old row keeps its own attachments as history. Without this, a consultation packet would list the
+  consultation packets and other current eForms that attached the old row attach the revision
+  instead (retired eForms keep their historical links unchanged). The old row keeps its own
+  attachments as history. Without this, a consultation packet would list the
   retired eForm as unavailable and leave it out. Lab attachments are validated by `EFormDocsDao`
   against `patientLabRouting` for the owning patient, matching the browser save: if a lab attached
   to the old row was re-matched to another patient or has an unresolved/ambiguous source, the
@@ -106,9 +107,11 @@ that rule:
   form, so both stay visible; re-read the patient's chart before revising a form a clinician may
   also be editing.
 - The revision is rebuilt from the template **as it is now** plus the submitted `values`, the same
-  way a browser re-save works. PUT replaces all values: a field left out gets the template default,
-  not its earlier value. To change one field, GET the instance and send back all of its `values`
-  with the change. `fid` and `demographicNo` cannot be changed; server-set fields in the body are
+  way a browser re-save works. PUT replaces all values the current template can show: leaving such a
+  field out gives it the template default, not its earlier value (stored values the current template
+  cannot show — such as a removed option or a `type="number"` field — are carried forward unchanged
+  even when left out). To change one field, GET the instance and send back all of its `values` with
+  the change. `fid` and `demographicNo` cannot be changed; server-set fields in the body are
   ignored, so a GET response can be sent back as is.
 - **DELETE only retires the row**, the same as the eForm list's delete button. It can be restored
   from the deleted-eForms list. A row retired by a PUT also appears in that list (see
