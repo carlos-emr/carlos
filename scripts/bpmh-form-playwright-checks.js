@@ -215,6 +215,9 @@ async function workflow(s) {
       VALUES (${q(provider)},${patient},CURDATE(),DATE_ADD(CURDATE(),INTERVAL 30 DAY),CURDATE(),${q(name)},${q(name)},
         0,'',NOW(),${position},NOW(),0,'.50',1,3,'mg','mL','TAB','Take','daily')`);
   }
+  sql.execute(`INSERT INTO drugReason (drugId,codingSystem,code,comments,primaryReasonFlag,archivedFlag,demographicNo,providerNo,dateCoded)
+    SELECT drugid,'icd9',${q(code)},${q(`FAKE ${tag}`)},1,0,${patient},${q(provider)},CURDATE()
+    FROM drugs WHERE demographic_no=${patient} AND drugid<>${drug}`);
   const sourceRows = () => medicationSnapshot(statement => sql.rows(statement), patient);
   const originalRows = sourceRows();
 
@@ -321,6 +324,27 @@ async function workflow(s) {
     }
     // A GET carrying print is not probed here: method contract pending.
   });
+  await s.step('missing directions stay missing on a new BPMH with an otherwise documented medication', async () => {
+    const name = `FAKE unspecified dose ${tag}`;
+    const missing = sql.value(`INSERT INTO drugs (provider_no,demographic_no,rx_date,end_date,written_date,customName,special,
+        archived,archived_reason,create_date,position,lastUpdateDate,dispenseInternal,quantity,takemin,takemax,unit,drug_form)
+      VALUES (${q(provider)},${patient},CURDATE(),DATE_ADD(CURDATE(),INTERVAL 30 DAY),CURDATE(),${q(name)},${q(name)},
+        0,'',NOW(),19,NOW(),0,'30.0',NULL,NULL,'mg','TAB'); SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(missing), 'The missing-dose fixture was not created');
+    sql.execute(`INSERT INTO drugReason (drugId,codingSystem,code,comments,primaryReasonFlag,archivedFlag,demographicNo,providerNo,dateCoded)
+      VALUES (${missing},'icd9',${q(code)},${q(name)},1,0,${patient},${q(provider)},CURDATE())`);
+    const before = sourceRows();
+    const page = await context.newPage();
+    try {
+      await h.gotoApp(page, s.config.baseUrl, `/formBPMH?demographic_no=${patient}&formId=0`);
+      const row = page.locator('tr').filter({has: page.locator(`input[name$="].id"][value="${missing}"]`)});
+      h.assert(await row.count() === 1 && !(await row.locator('td').nth(1).innerText()).trim(),
+        'A missing dose acquired directions');
+      h.assert(await page.locator('button[name="method"][value="save"]').count() === 0, 'An incomplete BPMH offered Save');
+      h.assert(sourceRows() === before, 'Reading a missing dose changed the source row');
+    } finally { await page.close(); }
+  });
+
 }
 
 if (require.main === module) runWorkflow('bpmh-form', workflow);
