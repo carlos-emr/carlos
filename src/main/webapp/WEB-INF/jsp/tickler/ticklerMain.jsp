@@ -757,6 +757,14 @@
             window.addEventListener('pagehide', function(event) {
                 if (!event.persisted && ticklerChannel) { ticklerChannel.close(); }
             });
+            // A page kept in the back/forward cache keeps its channel open but receives nothing while
+            // cached, so a popup's save in that time is missed. When the page is shown again from the
+            // cache, reload the list once, keeping the current page (reload(null, false)).
+            window.addEventListener('pageshow', function(event) {
+                if (event.persisted && typeof ticklerResultsTable !== 'undefined' && ticklerResultsTable) {
+                    ticklerResultsTable.ajax.reload(null, false);
+                }
+            });
 
         </script>
         <script>

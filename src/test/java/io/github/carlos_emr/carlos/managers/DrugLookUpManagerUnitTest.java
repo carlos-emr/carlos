@@ -19,7 +19,7 @@ import static org.mockito.Mockito.when;
 @Tag("unit")
 @Tag("rx")
 @DisplayName("DrugLookUpManager")
-class DrugLookUpManagerUnitTest {
+class DrugLookUpManagerUnitTest extends io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase {
 
     @Test
     @DisplayName("should return component strengths when DrugRef supplies decimal text or numeric values")
