@@ -416,7 +416,7 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
             factory.when(() -> Factory.getHandler("4616")).thenReturn(handler);
             versions.when(() -> Hl7textResultsData.getMatchingLabs("4616", null)).thenReturn("4616");
 
-            Hl7textResultsData.populateMeasurementsTable("4616", patient);
+            Hl7textResultsData.populateCurrentVersionMeasurements("4616", patient);
         }
         verify(measurementDao).findByValue("lab_no", "4616");
     }
@@ -725,6 +725,24 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         verify(measurementDao).findByValue("lab_no", "2222");
         // The report's own values are looked up too, so that a repeat does not double them (#6391).
         verify(measurementDao).findByValue("lab_no", "4616");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "-7", "invalid"})
+    void shouldKeepAnotherPatientsLaterLabUntouched_whenTheLateMatchHasNoUsablePatient(String patient) {
+        accessionShared(5000);
+        routedTo(5000, 4711);
+        MessageHandler handler = mock(MessageHandler.class);
+        try (var factory = mockStatic(Factory.class)) {
+            factory.when(() -> Factory.getHandler("4616")).thenReturn(handler);
+            factory.when(() -> Factory.getHandler("5000")).thenReturn(handler);
+
+            Hl7textResultsData.populateCurrentVersionMeasurements("4616", patient);
+
+            factory.verify(() -> Factory.getHandler("5000"), org.mockito.Mockito.never());
+        }
+        // The named lab is historical. Neither lab's measurements should be archived or replaced.
+        verifyNoInteractions(measurementDao, mockedBeans.get(MeasurementsDeletedDao.class));
     }
 
     @Test

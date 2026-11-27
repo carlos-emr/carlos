@@ -226,13 +226,17 @@ public class Hl7textResultsData {
      * @throws IllegalStateException if the report cannot be read; nothing has been archived
      */
     public static void populateCurrentVersionMeasurements(String lab_no, String demographic_no) {
+        Integer patient = patientNumber(demographic_no);
+        if (patient == null) {
+            // A shared accession alone cannot identify another version as this patient's. Keep the named
+            // lab as the filing target. The locked filing service still checks whether it is current.
+            populateMeasurementsTable(lab_no, demographic_no);
+            return;
+        }
         MessageHandler named = Factory.getHandler(lab_no);
         if (named == null) {
             throw new IllegalStateException("Lab report could not be read; its measurements were not filed");
         }
-        // A patient number that is not a positive integer reads as no patient (null): the chain is then the
-        // display chain, as before, and the filing service, not this method, decides what that patient may file.
-        Integer patient = patientNumber(demographic_no);
         String[] matchingLabs = getMatchingLabs(lab_no, patient).split(",");
         populateMeasurementsTable(
                 currentVersion(matchingLabs, named instanceof io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler),
