@@ -63,6 +63,8 @@ import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnThirdPartyP
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings;
+import io.github.carlos_emr.carlos.integration.patientportal.payment.PortalPaymentSettlementService;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 /**
@@ -566,9 +568,27 @@ public class BillingOnPayments2Action extends ActionSupport {
             logger.warn("savePayment rejected: {}", e.getMessage());
             return writeRejectionJson(e.getMessage());
         }
+        settlePortalPaymentRequests(billNo);
 
         ret.put("ret", 0);
         return writeJsonResponse(ret, "savePayment success JSON response");
+    }
+
+    /**
+     * Closes the invoice's patient-portal payment requests once the payment is committed. Runs after
+     * the transaction and never fails the save: the payment is recorded whatever the portal does.
+     */
+    private void settlePortalPaymentRequests(int billNo) {
+        if (!PatientPortalSettings.isConfigured()) {
+            return;
+        }
+        try {
+            SpringUtils.getBean(PortalPaymentSettlementService.class)
+                    .afterPaymentSaved(LoggedInInfo.getLoggedInInfoFromSession(request), billNo);
+        } catch (RuntimeException failed) {
+            logger.warn("Portal payment requests were not settled after a payment; exceptionClass={}",
+                    failed.getClass().getSimpleName());
+        }
     }
 
     // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.

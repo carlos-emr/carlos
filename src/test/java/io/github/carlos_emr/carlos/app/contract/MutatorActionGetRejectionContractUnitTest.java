@@ -263,6 +263,7 @@ class MutatorActionGetRejectionContractUnitTest {
             Arguments.of("io.github.carlos_emr.carlos.messenger.pageUtil.MsgCreateMessage2Action", "_msg", "w"),
             Arguments.of("io.github.carlos_emr.carlos.integration.patientportal.web.PortalInvite2Action", "_portal.invite", "w"),
             Arguments.of("io.github.carlos_emr.carlos.integration.patientportal.web.PortalBookingPrompt2Action", "_portal.booking_prompt", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.integration.patientportal.web.PortalPaymentRequest2Action", "_portal.payment_request", "w"),
             Arguments.of("io.github.carlos_emr.carlos.integration.patientportal.web.PortalAccount2Action", "_portal.account", "w"),
             Arguments.of("io.github.carlos_emr.carlos.login.Logout2Action", "", ""),
             Arguments.of("io.github.carlos_emr.carlos.demographic.cdsimport.web.CdsUpload2Action", "_demographic", "w"),

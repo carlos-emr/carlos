@@ -53,6 +53,7 @@ import java.util.TreeSet;
  *   <li>{@code _portal.contact.review} → {@code portal.contact.review}
  *   <li>{@code _admin} → {@code portal.email.audit.read}
  *   <li>{@code _portal.booking_prompt} → {@code portal.booking_prompt.manage}
+ *   <li>{@code _portal.payment_request} → {@code portal.payment.manage}
  * </ul>
  *
  * <p><b>The portal's permissions are resource-scoped, not level-scoped.</b> One permission gates
@@ -80,6 +81,8 @@ public class PortalStaffContextResolver {
     /** Clinic-wide email history is an administrator READ operation. */
     public static final String OBJECT_EMAIL_AUDIT = "_admin";
     public static final String OBJECT_BOOKING_PROMPT = "_portal.booking_prompt";
+    /** Asking a patient to pay through the portal; the action also needs {@code _billing} write. */
+    public static final String OBJECT_PAYMENT_REQUEST = "_portal.payment_request";
 
     private static final Map<String, String> PERMISSION_BY_OBJECT =
             Map.of(
@@ -96,7 +99,9 @@ public class PortalStaffContextResolver {
                     OBJECT_EMAIL_AUDIT,
                     PatientPortalStaffContext.PERMISSION_EMAIL_AUDIT_READ,
                     OBJECT_BOOKING_PROMPT,
-                    PatientPortalStaffContext.PERMISSION_BOOKING_PROMPT_MANAGE);
+                    PatientPortalStaffContext.PERMISSION_BOOKING_PROMPT_MANAGE,
+                    OBJECT_PAYMENT_REQUEST,
+                    PatientPortalStaffContext.PERMISSION_PAYMENT_MANAGE);
 
     private static final String NO_PRIVILEGE = "missing required sec object (%s r)";
     private static final String OR_READ = " r or ";

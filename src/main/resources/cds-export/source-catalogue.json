@@ -419,6 +419,7 @@
     "pharmacyInfo": "MAPPED_SOURCE",
     "pmm_log": "LISTED",
     "portal_booking_offer": "REQUIRE_EMPTY",
+    "portal_payment_request": "REQUIRE_EMPTY",
     "prescribe": "LISTED",
     "prescription": "MAPPED_SOURCE",
     "preventions": "MAPPED_SOURCE",
@@ -1137,6 +1138,9 @@
     "portal_booking_offer": [
       "demographic_no"
     ],
+    "portal_payment_request": [
+      "demographic_no"
+    ],
     "prescribe": [
       "demographic_no"
     ],
@@ -1462,6 +1466,7 @@
     "patient_portal_invite_delivery": "Portal invitation transport and activation lifecycle metadata; the patient message remains in emailLog. Invitation identifiers and access workflow state are not clinical content.",
     "pmm_log": "Removed feature: populated patient rows are listed by table and row count in the encrypted ReadMe and never exported or held. Retired audit log; OPERATIONAL would also be acceptable.",
     "portal_booking_offer": "Develop adds this patient-linked source after the release export coverage was qualified. Hold exports containing these records until faithful clinical capture is qualified; never silently omit the source or call it operational.",
+    "portal_payment_request": "Develop adds this patient-linked source after the release export coverage was qualified. Hold exports containing these records until faithful clinical capture is qualified; never silently omit the source or call it operational.",
     "prescribe": "Removed feature: populated patient rows are listed by table and row count in the encrypted ReadMe and never exported or held. Pre-Rx legacy prescription text; list if populated.",
     "prescription": "Patient-owned printed script history, comments and display text are captured through PrescriptionDao. Every parent is independently inventoried as supporting NewCategory; exclusion requires review. Every nonzero drug script relation must resolve to a captured parent with the same patient. Source digital signature identifiers are retained only as non-executable context; selected signature payloads remain separately gated.",
     "professionalSpecialists": "Referral service/specialist directory, not a patient referral, consultation or clinical author record. Selected clinical relationships retain their own capture/refusal. See docs/cds-export-source-rulings.md.",

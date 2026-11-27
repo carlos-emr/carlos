@@ -298,4 +298,32 @@ class PortalStaffContextResolverUnitTest {
                 Set.of(PortalStaffContextResolver.OBJECT_BOOKING_PROMPT, PortalStaffContextResolver.OBJECT_ACCOUNT), 123);
         assertThat(staff.permissions()).containsExactly(PatientPortalStaffContext.PERMISSION_BOOKING_PROMPT_MANAGE);
     }
+
+    @Test
+    @DisplayName("should grant only the payment permission when only the payment object is allowed for this patient")
+    void shouldGrantPaymentOnly_whenPatientScopedPaymentReadIsAllowed() {
+        when(securityInfoManager.hasPrivilege(any(), any(), any(), eq("123"))).thenReturn(false);
+        when(securityInfoManager.hasPrivilege(any(), eq(PortalStaffContextResolver.OBJECT_PAYMENT_REQUEST),
+                eq(SecurityInfoManager.READ), eq("123"))).thenReturn(true);
+
+        PatientPortalStaffContext staff = resolver.resolveForPatient(loggedInInfo,
+                Set.of(PortalStaffContextResolver.OBJECT_PAYMENT_REQUEST,
+                        PortalStaffContextResolver.OBJECT_BOOKING_PROMPT), 123);
+
+        assertThat(staff.permissions()).containsExactly(PatientPortalStaffContext.PERMISSION_PAYMENT_MANAGE);
+        assertThat(PortalStaffContextResolver.OBJECT_PAYMENT_REQUEST).isEqualTo("_portal.payment_request");
+    }
+
+    @Test
+    @DisplayName("should refuse the payment scope for a provider who holds only the booking object")
+    void shouldRefusePaymentScope_whenOnlyBookingIsHeld() {
+        when(securityInfoManager.hasPrivilege(any(), any(), any(), eq("123"))).thenReturn(false);
+        when(securityInfoManager.hasPrivilege(any(), eq(PortalStaffContextResolver.OBJECT_BOOKING_PROMPT),
+                eq(SecurityInfoManager.READ), eq("123"))).thenReturn(true);
+
+        assertThatThrownBy(() -> resolver.resolveForPatient(loggedInInfo,
+                Set.of(PortalStaffContextResolver.OBJECT_PAYMENT_REQUEST), 123))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_portal.payment_request r)");
+    }
 }

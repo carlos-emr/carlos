@@ -282,6 +282,12 @@
 </c:if>
 </security:oscarSec>
 
+<%-- Asking the patient to pay through the portal: renders nothing unless the portal is configured
+     and the user holds the portal payment object for this invoice's patient. --%>
+<jsp:include page="/WEB-INF/jsp/billing/CA/ON/billingONPortalPaymentRequest.jsp">
+    <jsp:param name="portalPaymentBillingNo" value="${paymentsViewModel.billingNo}"/>
+</jsp:include>
+
 <table border=0 cellspacing=0 cellpadding=0 width="100%">
     <tr bgcolor="#CCCCFF">
         <th><font face="Helvetica">PAYMENTS LIST</font></th>
