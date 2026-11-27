@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "ae3fc60a5091316756d9b270fd4995629ccfb368",
+  "comparisonSha256": "f9620ba66da5f4340cb2ed224fc2a35ef19498ac19cd1d8ee771d32f5f4d2bde",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/Hl7textResultsData.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "001e0360fd87d6b6772530a316257e2a7b71277d"
+    }
+  },
+  "baselineCommit": "45d6c87f8f436453c48c415346faa262c255e977",
+  "baselineSourceTree": "ae3fc60a5091316756d9b270fd4995629ccfb368",
+  "baselineReportSha256": "460f97ee682f5d57d4508fd812537607967f9395518260ab83c8a24d8e6e7811",
+  "baselineLane": "Focused JDK 25 JUnit: Hl7textResultsData, CmlCorrectedVersion and EctMeasurementsDataBeanHandler unit suites (242 tests), CmlVersionFiling and GenericLabVersionFiling integration suites (23 tests). All 265 passed without skips. JaCoCo 0.8.16 merged both executions on identical freshly compiled handler classes using the repository-pinned CLI."
+}
