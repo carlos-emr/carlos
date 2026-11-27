@@ -38,9 +38,6 @@ import java.util.GregorianCalendar;
 import java.util.Locale;
 
 import jakarta.persistence.Column;
-import jakarta.persistence.Convert;
-import io.github.carlos_emr.carlos.commn.model.converter.LegacyFalseFlagConverter;
-import io.github.carlos_emr.carlos.commn.model.converter.LegacyZeroFloatConverter;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -94,11 +91,9 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
 	private String gcnSeqNo = "0";
     private String customName = null;
     @Column(name = "takemin")
-    @Convert(converter = LegacyZeroFloatConverter.class)
-    private float takeMin = 0;
+    private Float takeMin = 0f;
     @Column(name = "takemax")
-    @Convert(converter = LegacyZeroFloatConverter.class)
-    private float takeMax = 0;
+    private Float takeMax = 0f;
     @Column(name = "freqcode")
     private String freqCode = null;
     private String duration = null;
@@ -139,8 +134,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     private Date createDate = new Date();
     private String dosage = null;
     @Column(name = "custom_instructions")
-    @Convert(converter = LegacyFalseFlagConverter.class)
-    private boolean customInstructions;
+    private Boolean customInstructions = false;
     private String unitName = null;
     @Column(name = "long_term")
     private Boolean longTerm = null;
@@ -179,9 +173,8 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     @Column(name = "cds_projection_incomplete")
     private Boolean cdsProjectionIncomplete;
     @Column(name = "hide_cpp")
-    @Convert(converter = LegacyFalseFlagConverter.class)
     @org.hibernate.annotations.OptimisticLock(excluded = true)
-    private boolean hideFromCpp;
+    private Boolean hideFromCpp = false;
     @Column(name = "refill_duration")
     private Integer refillDuration;
     @Column(name = "refill_quantity")
@@ -192,8 +185,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     @org.hibernate.annotations.OptimisticLock(excluded = true)
     private Integer position;
     @Column(name = "start_date_unknown")
-    @Convert(converter = LegacyFalseFlagConverter.class)
-    private boolean startDateUnknown;
+    private Boolean startDateUnknown = false;
     private String comment;
 
     @Temporal(TemporalType.TIMESTAMP)
@@ -328,8 +320,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public Boolean isHideFromDrugProfile() {
-        if (hideFromDrugProfile == null) hideFromDrugProfile = false;
-        return hideFromDrugProfile;
+        return Boolean.TRUE.equals(hideFromDrugProfile);
     }
 
     public void setHideFromDrugProfile(Boolean c) {
@@ -496,7 +487,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public boolean getHideFromCpp() {
-        return hideFromCpp;
+        return Boolean.TRUE.equals(hideFromCpp);
     }
 
     public void setHideFromCpp(boolean hideFromCpp) {
@@ -544,8 +535,17 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
         this.customName = StringUtils.trimToNull(customName);
     }
 
+    /** A whole-object REST edit echoes primitive defaults for schema-legal NULL fields. */
+    public void preserveUnchangedNullableValues(Drug source) {
+        if (source.takeMin == null && getTakeMin() == 0f) takeMin = null;
+        if (source.takeMax == null && getTakeMax() == 0f) takeMax = null;
+        if (source.customInstructions == null && !isCustomInstructions()) customInstructions = null;
+        if (source.hideFromCpp == null && !getHideFromCpp()) hideFromCpp = null;
+        if (source.startDateUnknown == null && !getStartDateUnknown()) startDateUnknown = null;
+    }
+
     public float getTakeMin() {
-        return takeMin;
+        return takeMin == null ? 0f : takeMin;
     }
 
     public void setTakeMin(float takeMin) {
@@ -553,7 +553,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public float getTakeMax() {
-        return takeMax;
+        return takeMax == null ? 0f : takeMax;
     }
 
     public void setTakeMax(float takeMax) {
@@ -734,7 +734,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public boolean isCustomInstructions() {
-        return customInstructions;
+        return Boolean.TRUE.equals(customInstructions);
     }
 
     public void setCustomInstructions(boolean customInstructions) {
@@ -767,8 +767,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public Boolean getShortTerm() {
-        if (shortTerm == null) shortTerm = false;
-        return shortTerm;
+        return Boolean.TRUE.equals(shortTerm);
     }
 
     public void setShortTerm(Boolean shortTerm) {
@@ -776,8 +775,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public Boolean isCustomNote() {
-        if (customNote == null) customNote = false;
-        return customNote;
+        return Boolean.TRUE.equals(customNote);
     }
 
     public void setCustomNote(Boolean c) {
@@ -970,7 +968,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public boolean getStartDateUnknown() {
-        return startDateUnknown;
+        return Boolean.TRUE.equals(startDateUnknown);
     }
 
     public void setStartDateUnknown(boolean startDateUnknown) {

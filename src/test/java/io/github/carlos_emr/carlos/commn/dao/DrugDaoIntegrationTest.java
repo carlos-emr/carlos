@@ -273,6 +273,29 @@ public class DrugDaoIntegrationTest extends CarlosTestBase {
         assertThat(drugDao.findDrugsAndPrescriptionsByScriptNumber(script.getId(), DEMO_NO_2)).isEmpty();
     }
 
+    @Test
+    void shouldKeepSqlNullsDistinctFromZero_whenReadingAndUpdatingAnUnrelatedMedicationField() {
+        Drug source = createAndPersist(DEMO_NO, "Synthetic medication", "", false);
+        int id = source.getId();
+        entityManager.createNativeQuery("UPDATE drugs SET takemin=NULL, takemax=NULL, "
+                + "custom_instructions=NULL, hide_cpp=NULL, start_date_unknown=NULL WHERE drugid=:id")
+                .setParameter("id", id).executeUpdate();
+        entityManager.clear();
+        Drug loaded = drugDao.find(id);
+        assertThat(loaded.getTakeMin()).isZero();
+        assertThat(loaded.isCustomInstructions()).isFalse();
+        loaded.setComment("Updated note");
+        Drug copy = createDrug(DEMO_NO, "Synthetic medication", "", false);
+        copy.preserveUnchangedNullableValues(loaded);
+        entityManager.persist(copy);
+        entityManager.flush();
+        assertThat(((Number) entityManager.createNativeQuery("SELECT COUNT(*) FROM drugs "
+                + "WHERE drugid IN (:source,:successor) AND takemin IS NULL AND takemax IS NULL "
+                + "AND custom_instructions IS NULL AND hide_cpp IS NULL AND start_date_unknown IS NULL")
+                .setParameter("source", id).setParameter("successor", copy.getId()).getSingleResult()).intValue())
+                .isEqualTo(2);
+    }
+
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {
             "UPDATE drugs SET takemin=NULL WHERE drugid=:id",

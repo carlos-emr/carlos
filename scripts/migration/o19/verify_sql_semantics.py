@@ -450,7 +450,7 @@ def _charset_repair_on(client: Client, db: str, charset: str) -> List[str]:
     # a latin1 staging column
     checks = o19etl.overlength_precheck_sql(
         "t", {"cols": ["v"]}, db,
-        {"v": {"type": "text", "octet_len": 65535, "char_len": 65535}},
+        {"v": {"type": "text", "octet_len": 65535, "char_len": 65535, "nullable": True}},
         {"v": {"type": "varchar", "char_len": 255}}, repaired={"v"})
     if len(checks) != 1:
         failures.append("the overlength pre-check builder returned {0} "
@@ -494,7 +494,8 @@ def check_exact_special_repair(client: Client, src: str, dst: str,
             return []
         return ["the selected carlos-ctl lacks the scoped drugs.special repair; "
                 "use the fixed CLI release (or its reviewed checkout)"]
-    entry = {"class": "copy", "cols": ["drugid", "special", "comment"],
+    entry = {"class": "copy", "cols": ["drugid", "special", "comment", "quantity",
+                                        "unitName", "dosage", "unit", "drugForm", "takemin", "takemax"],
              "charset_scan": ["special"]}
 
     def query(sql):
@@ -533,6 +534,10 @@ def check_exact_special_repair(client: Client, src: str, dst: str,
             # successful path independently after proving the hard refusal.
             client.setup("DELETE d FROM drugs d JOIN expected_drug_special e "
                          "USING(drugid) WHERE e.must_block", src)
+            fields = ("SELECT drugid, HEX(quantity), HEX(unitName), HEX(dosage), HEX(unit), "
+                      "HEX(drugForm), CAST(takemin AS DOUBLE), CAST(takemax AS DOUBLE) "
+                      "FROM drugs ORDER BY drugid")
+            amounts_before = client.rows(fields, src)
             before = client.rows("SELECT drugid, HEX(special), HEX(comment) "
                                  "FROM drugs ORDER BY drugid", src)
             audit: dict = {}
@@ -547,6 +552,8 @@ def check_exact_special_repair(client: Client, src: str, dst: str,
                 + "; SHOW COUNT(*) WARNINGS", dst)
             if copied != [["0"]]:
                 failures.append("copy emitted a conversion/truncation warning")
+            if client.rows(fields, dst) != amounts_before or client.rows(fields, src) != amounts_before:
+                failures.append("the copy changed a stored dose, quantity, strength, form or unit")
             def expected_mismatches() -> int:
                 # Prefixes are validated identifiers; expected rows drive the
                 # join so even a missing target whose value was NULL counts.
@@ -583,6 +590,10 @@ def check_exact_special_repair(client: Client, src: str, dst: str,
                     + ";", dst)
                 if expected_mismatches():
                     failures.append("recopy did not restore the fixture rows and bytes")
+            client.setup("UPDATE drugs SET quantity='30' WHERE drugid=112", dst)
+            if query(p7_sql) != [["1"]]:
+                failures.append("P7 missed a changed quantity spelling")
+            client.setup("UPDATE drugs SET quantity='30.0' WHERE drugid=112", dst)
             client.setup("UPDATE drugs SET special='altered' WHERE drugid=101", dst)
             if not o19etl.copy_content_parity(query, src, dst, sinfo, dinfo, repairs=repairs)[1]:
                 failures.append("P7 missed an altered repaired instruction")

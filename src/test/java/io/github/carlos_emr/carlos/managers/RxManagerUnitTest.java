@@ -284,19 +284,21 @@ class RxManagerUnitTest extends RxManagerImpl {
         }
 
         @ParameterizedTest
-        @CsvSource({"ASA,tab", "Other,mL"})
-        void shouldKeepSubmittedQuantity_whenUnitOrProductChanges(String name, String unit) {
+        @CsvSource({"111,tab", "222,mL"})
+        void shouldKeepSubmittedQuantity_whenUnitOrProductChanges(String productId, String unit) {
             Drug source = new Drug();
             source.setId(4);
             source.setDemographicId(1);
             source.setGenericName("ASA");
+            source.setRegionalIdentifier("111");
             source.setQuantity("30.0");
             source.setUnitName("mL");
             ((MockDrugDao) drugDao).seed(source);
             Drug changed = new Drug();
             changed.setId(4);
             changed.setDemographicId(1);
-            changed.setGenericName(name);
+            changed.setGenericName("ASA");
+            changed.setRegionalIdentifier(productId);
             changed.setQuantity("30");
             changed.setUnitName(unit);
             Drug replacement = updateDrug(new LoggedInInfo(), changed);

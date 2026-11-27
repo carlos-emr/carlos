@@ -123,6 +123,12 @@ information. [ISMP Canada dose designations](https://ismpcanada.ca/resource/do-n
 [BPMH interview guide](https://ismpcanada.ca/wp-content/uploads/BPMH-Interview-Guide.pdf),
 [Ontario College of Pharmacists documentation guideline](https://ocpinfo.com/pharmacy-professionals/rules-and-standards-of-the-profession/practice-policies-guidelines/documentation-guidelines/).
 
+The ON and BC import manifests now leave nullable medication and favourite dose bounds as SQL
+`NULL`. The persisted model also retains nullable medication flags and favourite repeat counts.
+The Java accessors still supply the defaults their callers expect. An earlier import may already
+have written zero where the source held `NULL`. Recovering that distinction requires the original
+source. The new manifest tokens identify the changed rules when resuming an import (#6416).
+
 The follow-up tickets for the inventory cover legacy editing and duration (#6398–#6400),
 REST and DrugRef (#6401–#6402, carlos-emr/drugref2026#21), discontinued warnings and favourites
 (#6403–#6404), data entry and measurements (#6405–#6406), legacy CDS (#6407) and DHIR (#3972).

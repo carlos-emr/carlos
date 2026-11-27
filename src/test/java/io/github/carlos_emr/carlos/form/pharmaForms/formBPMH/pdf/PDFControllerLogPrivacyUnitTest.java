@@ -206,6 +206,7 @@ class PDFControllerLogPrivacyUnitTest {
         controller.setContinueInstructions(true);
         AcroFields fields = spy(controller.getReader().getAcroFields());
         doReturn(Map.of("note", fields.getAllFields().get("note"))).when(fields).getAllFields();
+        doReturn(null).when(fields).getFieldPositions(anyString());
         if (failure.equals("refused")) doReturn(false).when(fields).setField(eq("note"), anyString());
         if (failure.equals("exception")) doThrow(new IOException(PRIVATE)).when(fields).setField(eq("note"), anyString());
         try (var stampers = mockConstruction(PdfStamper.class, (stamper, context) -> {

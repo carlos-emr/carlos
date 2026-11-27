@@ -293,8 +293,10 @@ public class RxManagerImpl implements RxManager {
 
         // The integer-only DTO cannot echo the original spelling or its dispense unit.
         // Keep both when an edit to the same product returns its published projection.
+        boolean sameProduct = sameMedicationProduct(old, d);
+        if (sameProduct) d.preserveUnchangedNullableValues(old);
         Integer publishedQuantity = Drug.wholeQuantity(old.getQuantity());
-        if (sameMedicationProduct(old, d) && old.getQuantity() != null
+        if (sameProduct && old.getQuantity() != null
                 && (d.getUnitName() == null || Objects.equals(d.getUnitName(), old.getUnitName()))
                 && Objects.equals(Objects.toString(publishedQuantity, null), d.getQuantity())) {
             d.setQuantity(old.getQuantity());
@@ -303,7 +305,7 @@ public class RxManagerImpl implements RxManager {
 
         // The REST DTO can expose only one strength. An edit to the same product that omits
         // the strength or echoes the amount and unit it was shown must keep the complete dosage.
-        if (old.getDosage() != null && sameMedicationProduct(old, d)
+        if (old.getDosage() != null && sameProduct
                 && (d.getDosage() == null || DrugStrength.fromDosage(old.getDosage()).dosageText().equals(d.getDosage()))) {
             d.setDosage(old.getDosage());
             d.setUnit(old.getUnit());

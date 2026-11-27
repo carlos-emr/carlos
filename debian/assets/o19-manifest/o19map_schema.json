@@ -2,7 +2,7 @@
  "format": 3,
  "kind": "o19map-schema",
  "generator": "scripts/migration/o19/generate_manifests.py",
- "SCHEMA_MAP_VERSION": "o19map-8+99e99907",
+ "SCHEMA_MAP_VERSION": "o19map-8+5019cdc9",
  "O19_PROFILE": "on",
  "O19_SOURCE_COMMIT": "a7900d569d3faf741993e5e1da8c14021bbefede",
  "TABLES": {
@@ -23426,12 +23426,7 @@
   ],
   "drugs": [
    "archived",
-   "custom_instructions",
-   "hide_cpp",
-   "prn",
-   "start_date_unknown",
-   "takemax",
-   "takemin"
+   "prn"
   ],
   "dsGuidelines": [
    "status"
@@ -23470,13 +23465,9 @@
   ],
   "favorites": [
    "GCN_SEQNO",
-   "custom_instructions",
    "dispenseInternal",
    "nosubs",
-   "prn",
-   "repeat",
-   "takemax",
-   "takemin"
+   "prn"
   ],
   "favoritesprivilege": [
    "opentopublic",
@@ -24776,7 +24767,7 @@
  },
  "PROFILES": {
   "bc": {
-   "SCHEMA_MAP_VERSION": "o19map-8+721abab3",
+   "SCHEMA_MAP_VERSION": "o19map-8+090516b6",
    "O19_PROFILE": "bc",
    "TABLES": {
     "AppDefinition": {
@@ -57652,12 +57643,7 @@
     ],
     "drugs": [
      "archived",
-     "custom_instructions",
-     "hide_cpp",
-     "prn",
-     "start_date_unknown",
-     "takemax",
-     "takemin"
+     "prn"
     ],
     "dsGuidelines": [
      "status"
@@ -57696,13 +57682,9 @@
     ],
     "favorites": [
      "GCN_SEQNO",
-     "custom_instructions",
      "dispenseInternal",
      "nosubs",
-     "prn",
-     "repeat",
-     "takemax",
-     "takemin"
+     "prn"
     ],
     "favoritesprivilege": [
      "opentopublic",

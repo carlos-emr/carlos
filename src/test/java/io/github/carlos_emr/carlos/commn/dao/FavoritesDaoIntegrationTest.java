@@ -63,6 +63,32 @@ public class FavoritesDaoIntegrationTest extends CarlosTestBase {
     // production defect: a strict sql_mode refuses the same insert (issue #3151). Favorites now maps the column,
     // so no schema workaround belongs here; the first test below fails again if the mapping is removed.
 
+    @Test
+    void shouldPreserveNullableFields_whenEitherFavoriteMappingReadsAnImportedRow() throws Exception {
+        Favorites entity = new Favorites();
+        EntityDataGenerator.generateTestDataForModelClass(entity);
+        favoritesDao.persist(entity);
+        entityManager.flush();
+        int id = entity.getId();
+        entityManager.createNativeQuery("UPDATE favorites SET takemin=NULL,takemax=NULL,`repeat`=NULL,"
+                + "custom_instructions=NULL WHERE favoriteid=:id").setParameter("id", id).executeUpdate();
+        entityManager.clear();
+        var favorite = entityManager.find(io.github.carlos_emr.carlos.commn.model.Favorite.class, id);
+        assertThat(favorite.getTakeMin()).isZero();
+        assertThat(favorite.getRepeat()).isZero();
+        favorite.setName("Renamed");
+        entityManager.flush();
+        entityManager.clear();
+        Favorites otherMapping = favoritesDao.find(id);
+        assertThat(otherMapping.getTakeMax()).isZero();
+        assertThat(otherMapping.isCustomInstructions()).isFalse();
+        otherMapping.setFavoriteName("Renamed again");
+        entityManager.flush();
+        assertThat(((Number) entityManager.createNativeQuery("SELECT COUNT(*) FROM favorites WHERE "
+                + "favoriteid=:id AND takemin IS NULL AND takemax IS NULL AND `repeat` IS NULL AND custom_instructions IS NULL")
+                .setParameter("id", id).getSingleResult()).intValue()).isOne();
+    }
+
     @Nested
     @DisplayName("CRUD operations")
     class CrudOperations {

@@ -4149,6 +4149,7 @@
     }
   },
   "reviewNotes": [
+    "PR #6367 reviewed the Drug entity's nullable backing columns. Legacy accessors retain their prior zero and false defaults, and a same-product REST echo retains an underlying missing value. The export path and wire schema are unchanged.",
     "Reader review for #5995: CaseManagementNote adds only explicit JPA converters on archived and position. Legacy SQL NULL now hydrates the existing primitive defaults false/0; non-null values, primitive getter/setter APIs, note text, provider identity and observation-date bodies are unchanged. CdsHistoryPersister still writes its explicit archived state. The retained 102 H2 cases, 30 physical BC schema cases and installed note endpoint/CPP workflow cover this hydration repair. Refresh only this complete reader-file hash and regenerate the crosswalk; schema pins, all field/choice dispositions, original retention, error/transaction policies and synthetic structural fixtures remain unchanged.",
     "Review for #5999: Demographic.java adds six database-width constants and six calls in validateFieldLengths for title, official/spoken language, country of origin, newsletter and anonymous. Only demographic web add/update and REST create/update call this validator. Getters, setters, JPA/native mappings, CDS import/export readers and field/choice dispositions are unchanged. Limits follow the baseline schema and the existing V1.0.59.27 newsletter widening to 32; valid Unicode code-point boundaries and NULL/empty values retain the existing policy. Refreshed only this model source fingerprint; schema pins, all 407 field dispositions, 130 choice arms and synthetic fixture bytes remain unchanged.",
     "The exact-path review exposed the guide3.1 legal-middle-name native mapping omission. Signed implementation60ef650da1 adds bounded ordered GIV projection, diagnostic/fallback and prepared capacity guard; crosswalk keeps PartQualifier and other name-purpose data source-only.",
@@ -4200,7 +4201,7 @@
     "src/main/java/io/github/carlos_emr/carlos/commn/model/Contact.java": "d99fcad3390fc32ccc49a5bd6b834ef68ab22ee87c2b2dc665fc340aa18cc1ad",
     "src/main/java/io/github/carlos_emr/carlos/commn/model/Demographic.java": "51e9d8e4027521c18575b5f76e2a452b63ad2fbbd94e045fd2665de4ffc8a399",
     "src/main/java/io/github/carlos_emr/carlos/commn/model/Document.java": "d5f4136f10342873ab4a36513e67c22d10e2e449d4c4ab68bc2d0fea69bf26d5",
-    "src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java": "09cee60158a6e6a69fe47bd7929b380f713b24b4fed07d972e8492bc7bc4638b",
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java": "7d6833b18a3f58d2eec16e74889fd8f306b307ba7ab1c84dfdc3df964f3de827",
     "src/main/java/io/github/carlos_emr/carlos/commn/model/PharmacyInfo.java": "de6f091818d30531a93ec6d08e97c84dab5860619c45c10d6986db9440f16bc5",
     "src/main/java/io/github/carlos_emr/carlos/commn/model/ProfessionalContact.java": "f20b8173073ba12f3da1b9dc2bc63708d5a2a9c2d45adf71c04396b85de8c5f1",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsAppointmentSourceContract.java": "ae72ee89e45114234a1ac7e5ee7a71f9af745b7eba75692794fef0f73c84c1ae",
