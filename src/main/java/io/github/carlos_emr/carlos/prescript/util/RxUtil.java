@@ -329,7 +329,8 @@ public class RxUtil {
         if (org.apache.commons.lang3.StringUtils.isBlank(unit) || "null".equalsIgnoreCase(unit.strip())) return null;
         if (org.apache.commons.lang3.StringUtils.isNotBlank(explicitDose)
                 || org.apache.commons.lang3.StringUtils.isBlank(strength)
-                || unit.equalsIgnoreCase(form)) return unit;
+                || unit.equalsIgnoreCase(form)
+                || (org.apache.commons.lang3.StringUtils.isBlank(form) && isCountedForm(unit.strip()))) return unit;
         return null;
     }
 

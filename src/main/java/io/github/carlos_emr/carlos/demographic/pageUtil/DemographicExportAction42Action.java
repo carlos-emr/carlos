@@ -4534,7 +4534,11 @@ public class DemographicExportAction42Action extends ActionSupport {
         } else {
             float min = prescription.getTakeMin();
             float max = prescription.getTakeMax();
-            if (unit == null || !Float.isFinite(min) || !Float.isFinite(max) || min <= 0 || max < min) return;
+            if (unit == null || !Float.isFinite(min) || !Float.isFinite(max)) return;
+            // Retain the legacy CDS 4 whole dose recorded in takemin when takemax
+            // holds the zero default and the unit is known.
+            if (max == 0 && min == Math.rint(min)) max = min;
+            if (min <= 0 || max < min) return;
             medication.setDosage(min == max ? plainDosage(min) : plainDosage(min) + "-" + plainDosage(max));
         }
         if (unit != null) medication.setDosageUnitOfMeasure(unit);
