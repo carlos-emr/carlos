@@ -638,8 +638,10 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             atEvening.processDue(10);
 
             assertThat(handed).hasSize(minutes > 5 ? 0 : 1);
+            // The sibling still has time to retry. This booking waits, eligible to be claimed again.
+            assertThat(reminder.getClaimToken()).isNull();
             assertThat(reminder.getLastStatus()).isEqualTo(minutes > 5
-                    ? AppointmentReminderStatus.DUPLICATE : AppointmentReminderStatus.SENT);
+                    ? null : AppointmentReminderStatus.SENT);
         }
 
         @Test
@@ -818,7 +820,7 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
 
             service.processDue(10);
 
-            assertThat(handed).containsExactly(new ClaimedReminder(7L, APPOINTMENT, PATIENT, start));
+            assertThat(handed).containsExactly(new ClaimedReminder(7L, APPOINTMENT, PATIENT, start, "999998"));
             assertThat(reminder.getSentForDemographicNo()).isEqualTo(PATIENT);
             assertThat(reminder.getAttempts()).as("attempts count per patient").isEqualTo(1);
         }
