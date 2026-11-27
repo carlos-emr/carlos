@@ -105,13 +105,23 @@ that rule:
 - **DELETE only retires the row**, the same as the eForm list's delete button. It can be restored
   from the deleted-eForms list. A row retired by a PUT also appears in that list (see
   `docs/ui-tests/oauth-clinical-api.md`); restoring it there makes it current next to its newer
-  revision, because nothing stored marks it as replaced.
+  revision, because nothing stored marks it as replaced, and a PUT on the restored row is then
+  accepted and starts a second line of revisions. This is a known limit: refusing it needs a schema
+  change that records which row replaced which. Until then, do not restore a row a PUT replaced.
 
 ## Content and safety
 
 Callers send values, never HTML. The server fills the stored template with the same `EForm.setValues`
 path the browser save uses. Values are escaped, so they cannot add markup to the chart. Only
 nonblank values get `eform_values` rows, the contract that measurement and chart readers rely on.
+
+**Signed forms and Rich Text Letters** are a known limit. GET returns a signature pad's image as the
+data URI the browser save stored, and a letter's body as HTML. The packaged ModSecurity rules exempt
+those values only on the browser save (`carlos-data-uri` and `Letter` on `/eform/addEForm`), so on a
+packaged install a PUT that sends them back is likely refused with **403** by the WAF before it
+reaches CARLOS (from the shipped rules; not checked against a live WAF). A PUT that leaves such a
+field out gives it the template default, like any other field, so the revision is unsigned and the
+signed row is retired. Revise signed forms and letters in the browser.
 
 ## Status codes
 
