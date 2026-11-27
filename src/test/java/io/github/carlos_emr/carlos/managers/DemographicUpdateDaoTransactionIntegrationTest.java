@@ -770,6 +770,28 @@ class DemographicUpdateDaoTransactionIntegrationTest {
     }
 
     @Test
+    @DisplayName("should save and archive full-length four-byte character alerts whole through REST updates")
+    void shouldSaveAndArchiveFullLengthFourByteAlertsWhole_whenUpdatedThroughRest() {
+        String firstAlert = "\uD83D\uDE00".repeat(DemographicCust.ALERT_MAX_LENGTH);
+        String secondAlert = "\uD83C\uDFE5".repeat(DemographicCust.ALERT_MAX_LENGTH);
+        DemographicTo1 first = restPayload("First");
+        first.setWaitingListID(0);
+        first.setAlert(firstAlert);
+        put(first);
+
+        assertThat(customFieldAlert()).isEqualTo(firstAlert);
+        assertThat(archivedCustomFieldAlerts()).containsExactly("Original alert");
+
+        DemographicTo1 second = restPayload("Second");
+        second.setWaitingListID(0);
+        second.setAlert(secondAlert);
+        put(second);
+
+        assertThat(customFieldAlert()).isEqualTo(secondAlert);
+        assertThat(archivedCustomFieldAlerts()).containsExactly("Original alert", firstAlert);
+    }
+
+    @Test
     @DisplayName("should refuse the REST update before either chart changes when a stored extension is another patient's")
     void shouldRefuseBeforeEitherChartChanges_whenAStoredExtensionIsAnotherPatients() {
         long auditsBefore = audits(UPDATE_AUDIT);

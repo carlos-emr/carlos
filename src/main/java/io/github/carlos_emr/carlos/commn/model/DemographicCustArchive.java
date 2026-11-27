@@ -54,7 +54,11 @@ public class DemographicCustArchive extends AbstractModel<Integer> {
     @Column(name = "cust2")
     private String resident;
 
-    @Column(name = "cust3")
+    /**
+     * The archived patient alert, TEXT like demographiccust.cust3 (V1.0.59.54). The length only
+     * shapes schemas Hibernate generates for tests ({@link DemographicCust#ALERT_COLUMN_CAPACITY}).
+     */
+    @Column(name = "cust3", length = DemographicCust.ALERT_COLUMN_CAPACITY)
     private String alert;
 
     @Column(name = "cust4")

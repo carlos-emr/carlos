@@ -49,10 +49,18 @@ public class DemographicCust extends AbstractModel<Integer> {
     /**
      * cust3 (the patient alert) is TEXT (D244), so a long safety alert is kept whole. TEXT holds
      * 65,535 bytes and a utf8mb4 character takes at most 4, so 16,383 characters always fit,
-     * whatever the characters. Needs the migration that widens demographiccust.cust3 and
-     * demographiccustArchive.cust3: on a VARCHAR(255) column a longer alert would be cut again.
+     * whatever the characters. Migration V1.0.59.54 widens demographiccust.cust3 and
+     * demographiccustArchive.cust3 from VARCHAR(255) to TEXT.
      */
     public static final int ALERT_MAX_LENGTH = 16383;
+    /**
+     * The capacity of the TEXT alert columns in bytes (65,535), used as the mapped length of cust3
+     * here and in {@link DemographicCustArchive}. It only shapes schemas Hibernate generates for
+     * tests: from it Hibernate generates TEXT on MariaDB, like production, and a VARCHAR on H2.
+     * {@link #ALERT_MAX_LENGTH} would instead generate VARCHAR(16383), a row MariaDB refuses.
+     * Production uses the Flyway columns.
+     */
+    public static final int ALERT_COLUMN_CAPACITY = 65535;
     /** cust4 (midwife) is VARCHAR(255). */
     public static final int MIDWIFE_MAX_LENGTH = 255;
 
@@ -66,7 +74,7 @@ public class DemographicCust extends AbstractModel<Integer> {
     @Column(name = "cust2")
     private String resident;
 
-    @Column(name = "cust3")
+    @Column(name = "cust3", length = ALERT_COLUMN_CAPACITY)
     private String alert;
 
     @Column(name = "cust4")

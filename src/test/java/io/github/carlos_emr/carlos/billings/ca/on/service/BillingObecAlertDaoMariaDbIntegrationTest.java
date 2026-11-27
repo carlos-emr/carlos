@@ -57,11 +57,13 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 /**
  * #6140 on a real database: applying an OBEC output file never cuts the patient alert and never fails
- * the batch on it. {@code demographiccust.cust3} is VARCHAR(255). Under a strict {@code sql_mode} a
- * longer alert failed the merge, and with it the whole batch; under the packaged empty
- * {@code sql_mode} the column cut it, losing the newest eligibility message. Each mode is checked:
- * first that the column really does refuse or cut a longer alert, then that the apply leaves the stored
- * alert whole and says so, and that an alert at the limit is written whole.
+ * the batch on it. {@code demographiccust.cust3} is TEXT (V1.0.59.54, #6264) and the forms cap the
+ * alert at {@link DemographicCust#ALERT_MAX_LENGTH} characters. Under a strict {@code sql_mode} a
+ * value longer than the column fails the write, and with it the whole batch; under the packaged empty
+ * {@code sql_mode} the column cuts it, losing the newest eligibility message. Each mode is checked:
+ * first that the column really does refuse or cut a value past its 65,535 bytes and holds a full-length
+ * alert of four-byte characters whole, then that the apply leaves an alert it would take past the limit
+ * whole and says so, and that an alert reaching the limit is written whole.
  *
  * <p>Runs on MariaDB when {@code CARLOS_TEST_MARIADB_URL} names a server (the MariaDB DAO CI job), on
  * H2 in MySQL mode otherwise (strict only: H2 always refuses a longer value).</p>
@@ -101,7 +103,8 @@ class BillingObecAlertDaoMariaDbIntegrationTest {
         if (server != null) {
             try (var connection = DriverManager.getConnection(server, credentials); var statement = connection.createStatement()) {
                 assertThat(connection.getMetaData().getDatabaseProductVersion()).contains("MariaDB");
-                statement.executeUpdate("CREATE DATABASE " + database);
+                statement.executeUpdate(
+                        "CREATE DATABASE " + database + " CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci");
             }
             url = server + database + ("strict".equals(mode)
                     ? "?sessionVariables=sql_mode='STRICT_ALL_TABLES'"
@@ -123,9 +126,10 @@ class BillingObecAlertDaoMariaDbIntegrationTest {
         configuration.getProperties().putAll(vendor.getJpaPropertyMap());
         factory = configuration.buildSessionFactory();
         if (server != null) {
-            // The production column, whatever Hibernate's default for a String.
+            // The production column as V1.0.59.54 leaves it, whatever Hibernate's default.
             try (var connection = DriverManager.getConnection(server + database, credentials); var statement = connection.createStatement()) {
-                statement.executeUpdate("ALTER TABLE demographiccust MODIFY cust3 VARCHAR(255) NULL");
+                statement.executeUpdate(
+                        "ALTER TABLE demographiccust MODIFY cust3 TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL");
             }
         }
         var transactions = new JpaTransactionManager(factory);
@@ -188,14 +192,14 @@ class BillingObecAlertDaoMariaDbIntegrationTest {
     @ValueSource(strings = {"strict", "packaged"})
     void shouldLeaveTheStoredAlertWhole_whenTheMessageWouldMakeItTooLong(String mode) throws Exception {
         open(mode);
-        // The column itself, on another patient's row: a longer alert is refused (strict) or cut (packaged).
+        // The column itself, on another patient's row: a value past 65,535 bytes is refused (strict) or cut (packaged).
         int other = PATIENT + 1;
-        String longer = "B".repeat(DemographicCust.ALERT_MAX_LENGTH + 1);
+        String longer = "B".repeat(DemographicCust.ALERT_COLUMN_CAPACITY + 1);
         if ("strict".equals(mode)) {
             assertThatThrownBy(() -> storeAlert(other, longer)).isInstanceOf(RuntimeException.class);
         } else {
             storeAlert(other, longer);
-            assertThat(storedAlert(other)).hasSize(DemographicCust.ALERT_MAX_LENGTH);
+            assertThat(storedAlert(other)).hasSize(DemographicCust.ALERT_COLUMN_CAPACITY);
         }
 
         String existing = "A".repeat(DemographicCust.ALERT_MAX_LENGTH - formLength("") + 1);
@@ -207,6 +211,28 @@ class BillingObecAlertDaoMariaDbIntegrationTest {
         assertThat(storedAlert(PATIENT)).isEqualTo(existing);
         assertThat(result.appliedCount()).isEqualTo(1);
         assertThat(result.reasons()).singleElement().asString().startsWith("Alert not updated for row 1:");
+    }
+
+    @ParameterizedTest(name = "sql_mode {0}")
+    @ValueSource(strings = {"strict", "packaged"})
+    void shouldStoreAFullLengthAlertOfFourByteCharactersWhole_forEachSqlMode(String mode) throws Exception {
+        open(mode);
+        String full = "😀".repeat(DemographicCust.ALERT_MAX_LENGTH);
+        storeAlert(PATIENT, full);
+
+        assertThat(storedAlert(PATIENT)).isEqualTo(full);
+        if (server != null) {
+            try (var connection = DriverManager.getConnection(server + database, credentials);
+                    var statement = connection.prepareStatement(
+                            "SELECT CHAR_LENGTH(cust3), OCTET_LENGTH(cust3) FROM demographiccust WHERE demographic_no = ?")) {
+                statement.setInt(1, PATIENT);
+                try (var rs = statement.executeQuery()) {
+                    assertThat(rs.next()).isTrue();
+                    assertThat(rs.getInt(1)).isEqualTo(DemographicCust.ALERT_MAX_LENGTH);
+                    assertThat(rs.getInt(2)).isEqualTo(DemographicCust.ALERT_MAX_LENGTH * 4);
+                }
+            }
+        }
     }
 
     @ParameterizedTest(name = "sql_mode {0}")
