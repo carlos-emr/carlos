@@ -137,6 +137,7 @@ class Case:
     text: str = ""
     response_status: int = 200
     response_budget_seconds: float | None = None
+    request_content_type: str = "application/x-www-form-urlencoded"
 
 
 def request_case(name, issue, route, field, value, method="POST", extra=(), **kw):
@@ -483,6 +484,62 @@ def build_cases(phrases, corpus, repo=ROOT):
         cases.append(request_case(f"data-uri-carrier-{family}-still-inspected", 3552, LETTER, "carlos-data-uri",
                                   value, expect="inbound", signatures=signatures))
 
+    # Exclusions 1070 and 1076: eForm JSON template saves (/ws/(rs|services)/eform[/<fid>]/json)
+    # and instance revisions (PUT /ws/(rs|services)/eform/instance/<fdid>) where callers echo GET's
+    # read-only `formHtml` field back. Only `ARGS:json.formHtml` is exempt on those routes/methods;
+    # every other JSON field (formName, subject, values.*), POST /instance, wrong routes, and RFI
+    # stay inspected.
+    html_doc = (
+        '<html><head><title>Fixture</title></head><body>'
+        '<form method="post" action="../eform/addEForm?efmfid=1">'
+        '<input type="text" name="bp" value="120/80"></form></body></html>'
+    )
+    json_ct = "application/json"
+    html_sigs = ("921130", "941140", "941160")
+    for mount in ("rs", "services"):
+        for name, method, route in (
+            (f"eform-json-{mount}-create", "POST", f"/carlos/ws/{mount}/eform/json"),
+            (f"eform-json-{mount}-update", "PUT", f"/carlos/ws/{mount}/eform/12/json"),
+        ):
+            cases.append(Case(name, 6334, method, route,
+                              json.dumps({"formName": "Template", "formHtml": html_doc}),
+                              request_content_type=json_ct))
+        cases.append(Case(f"eform-json-{mount}-formname-xss-inspected", 6334, "POST",
+                          f"/carlos/ws/{mount}/eform/json",
+                          json.dumps({"formName": XSS, "formHtml": html_doc}),
+                          expect="inbound", signatures=("941100", "941110"),
+                          request_content_type=json_ct))
+        cases.append(Case(f"eform-json-{mount}-rfi-inspected", 6334, "POST",
+                          f"/carlos/ws/{mount}/eform/json",
+                          json.dumps({"formName": "Template", "formHtml": RFI}),
+                          expect="inbound", signatures=("931100",),
+                          request_content_type=json_ct))
+        cases.append(Case(f"eform-instance-{mount}-put-echoed-html", 6334, "PUT",
+                          f"/carlos/ws/{mount}/eform/instance/12",
+                          json.dumps({"fdid": 12, "subject": "Follow-up", "formHtml": html_doc,
+                                      "values": {"bp": "120/80"}}),
+                          request_content_type=json_ct))
+        cases.append(Case(f"eform-instance-{mount}-put-subject-xss-inspected", 6334, "PUT",
+                          f"/carlos/ws/{mount}/eform/instance/12",
+                          json.dumps({"subject": XSS, "formHtml": html_doc, "values": {"bp": "120/80"}}),
+                          expect="inbound", signatures=("941100", "941110"),
+                          request_content_type=json_ct))
+        cases.append(Case(f"eform-instance-{mount}-put-values-xss-inspected", 6334, "PUT",
+                          f"/carlos/ws/{mount}/eform/instance/12",
+                          json.dumps({"subject": "Follow-up", "formHtml": html_doc, "values": {"bp": XSS}}),
+                          expect="inbound", signatures=("941100", "941110"),
+                          request_content_type=json_ct))
+        cases.append(Case(f"eform-instance-{mount}-post-html-inspected", 6334, "POST",
+                          f"/carlos/ws/{mount}/eform/instance",
+                          json.dumps({"fid": 1, "demographicNo": 1, "formHtml": html_doc, "values": {"bp": "120/80"}}),
+                          expect="inbound", signatures=html_sigs,
+                          request_content_type=json_ct))
+        cases.append(Case(f"eform-instance-{mount}-put-wrong-route", 6334, "PUT",
+                          f"/carlos/ws/{mount}/eform/instance/12Evil",
+                          json.dumps({"subject": "Follow-up", "formHtml": html_doc, "values": {"bp": "120/80"}}),
+                          expect="inbound", signatures=html_sigs,
+                          request_content_type=json_ct))
+
     if len({case.name for case in cases}) != len(cases):
         raise ValueError("duplicate case names")
     return cases
@@ -806,8 +863,9 @@ def perform_request(port, case, token, timeout):
                "Accept": "application/json", "Connection": "close"}
     payload = None
     if case.method != "GET":
-        headers["Content-Type"] = "application/x-www-form-urlencoded"
-        payload = case.body.encode("ascii")
+        headers["Content-Type"] = case.request_content_type
+        encoding = "utf-8" if case.request_content_type.startswith("application/json") else "ascii"
+        payload = case.body.encode(encoding)
     try:
         # http.client preserves literal /../ and percent escapes in the target.
         conn.request(case.method, case.target, payload, headers)

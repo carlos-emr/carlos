@@ -1409,6 +1409,7 @@ async function createInstanceTemplate({ sql, signedRequest, fullToken, recordEnd
     + '<label>Summary <input type="text" name="ais_summary" value="template summary"></label>'
     + '<label>Plan <textarea name="ais_plan">template plan</textarea></label>'
     + '<label>Kept <input type="text" name="ais_kept" value="template kept"></label>'
+    + '<label>Status <select name="ais_status"><option>Normal</option><option value="">Not assessed</option></select></label>'
     + '</form></body></html>';
   const instanceTemplateResponse = await signedRequest('POST', '/ws/services/eform/json', fullToken, {
     formName: instanceFormName,
@@ -1421,7 +1422,7 @@ async function createInstanceTemplate({ sql, signedRequest, fullToken, recordEnd
   assert(sql.value('SELECT status FROM eform WHERE fid=?', [instanceFid]) === '1',
     'The instance template was not stored as an active template');
   recordEndpoint('POST', '/ws/services/eform/json', instanceTemplateResponse,
-    'active template with text, textarea and default-only fields created for instances');
+    'active template with text, textarea, select and default-only fields created for instances');
   return { instanceFid, instanceFormName };
 }
 
@@ -1507,7 +1508,7 @@ async function checkInstanceCreate(run) {
     fid: Number(instanceFid),
     demographicNo: Number(patientNo),
     subject: instanceSubject,
-    values: { ais_summary: summary, ais_plan: plan, ais_kept: null },
+    values: { ais_summary: summary, ais_plan: plan, ais_kept: null, ais_status: '' },
   });
   const createdInstance = await expectSuccessJson(createInstanceResponse, 'OAuth eForm instance create');
   const firstFdid = sqlId(createdInstance.fdid, 'created eForm instance fdid');
@@ -1523,22 +1524,23 @@ async function checkInstanceCreate(run) {
   'The created eForm instance was not stored as a current row for the patient and the token\'s provider');
   const createdValues = instanceValueRows(firstFdid);
   assert(JSON.stringify(createdValues) === JSON.stringify({ ais_plan: plan, ais_summary: summary }),
-    'eform_values for the created instance do not hold exactly the two submitted values');
+    'eform_values for the created instance do not hold exactly the two nonblank submitted values');
   recordEndpoint('POST', '/ws/services/eform/instance', createInstanceResponse,
-    'instance stored as current eform_data row with only the submitted eform_values');
+    'instance stored as current eform_data row with only the nonblank submitted eform_values');
 
   const readInstanceResponse = await signedRequest('GET', `/ws/services/eform/instance/${firstFdid}`, fullToken);
   const readInstance = await expectSuccessJson(readInstanceResponse, 'OAuth eForm instance read');
   assert(String(readInstance.fdid) === firstFdid && readInstance.current === true
     && readInstance.values?.ais_summary === summary && readInstance.values?.ais_plan === plan
+    && readInstance.values?.ais_status === ''
     && !('ais_kept' in (readInstance.values || {})),
-  'OAuth eForm instance read did not return the stored values');
+  'OAuth eForm instance read did not return the stored values and cleared implicit select default');
   assert(typeof readInstance.formHtml === 'string' && readInstance.formHtml.includes(runMarker)
     && !readInstance.formHtml.includes('<b id="ais-inject-1">')
     && !readInstance.formHtml.includes('<i id="ais-inject-2">'),
   'The stored eForm HTML is missing the values or carries submitted markup unescaped');
   recordEndpoint('GET', '/ws/services/eform/instance/{fdid}', readInstanceResponse,
-    'instance read returns stored values and escaped HTML');
+    'instance read returns stored values, cleared implicit select, and escaped HTML');
 
   {
     const { page, response } = await openProviderPage('oauth-clinical-api-eform-list-created', listPath);
@@ -1556,8 +1558,8 @@ async function checkInstanceCreate(run) {
     }
   }
   await checkFormInBrowser('oauth-clinical-api-eform-show-created', firstFdid,
-    { ais_summary: summary, ais_plan: plan, ais_kept: 'template kept' },
-    'saved form opens with API values, kept default, and no injected elements');
+    { ais_summary: summary, ais_plan: plan, ais_kept: 'template kept', ais_status: '' },
+    'saved form opens with API values, cleared implicit select, kept default, and no injected elements');
   return { summary, firstFdid, createdValues, readInstance };
 }
 
@@ -1573,7 +1575,7 @@ async function checkInstanceRevise(run, { summary, firstFdid, createdValues, rea
   const reviseResponse = await signedRequest('PUT', `/ws/services/eform/instance/${firstFdid}`, fullToken, {
     ...readInstance,
     subject: revisedSubject,
-    values: { ais_summary: revisedSummary, ais_plan: '' },
+    values: { ...readInstance.values, ais_summary: revisedSummary, ais_plan: '' },
   });
   const revised = await expectSuccessJson(reviseResponse, 'OAuth eForm instance revise');
   const revisedFdid = sqlId(revised.fdid, 'revised eForm instance fdid');
@@ -1618,8 +1620,8 @@ async function checkInstanceRevise(run, { summary, firstFdid, createdValues, rea
     }
   }
   await checkFormInBrowser('oauth-clinical-api-eform-show-revised', revisedFdid,
-    { ais_summary: revisedSummary, ais_plan: '', ais_kept: 'template kept' },
-    'revision opens with new value, cleared field, and template default for the omitted field');
+    { ais_summary: revisedSummary, ais_plan: '', ais_kept: 'template kept', ais_status: '' },
+    'revision opens with new value, cleared textarea and select, and template default for the omitted field');
   return { revisedFdid, revisedSummary };
 }
 
