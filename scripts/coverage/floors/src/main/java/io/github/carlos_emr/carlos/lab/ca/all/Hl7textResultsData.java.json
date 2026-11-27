@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/Hl7textResultsData.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "5bdd72d6438eabdeee389decf597f42b19637e3c"
+  },
+  "evidenceSha256": "94570e336d61aab69b38149daf434409389b0b00393030fa74b6f60e284e6402"
+}

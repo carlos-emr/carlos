@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/LabMeasurementFilingService.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 99.13793103448276,
+    "instructions": 99.7971602434077,
+    "branches": 95.58823529411765,
+    "sourceBlob": "8512302b412353092dea03ca03c3b9d29e88463b"
+  },
+  "evidenceSha256": "94570e336d61aab69b38149daf434409389b0b00393030fa74b6f60e284e6402"
+}
