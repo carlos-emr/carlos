@@ -121,7 +121,8 @@ class Hl7TextInfoChainLockMariaDbIntegrationTest extends Hl7TextInfoChainLockDao
      * Enough rows for the optimizer to prefer the accession index to a scan (on two rows it may
      * scan, and then every lock would touch every row whatever the statement is), committed so
      * that the statistics see them. Accessions and filler numbers share one prefix, so they can be
-     * deleted by it.
+     * deleted by it. Their lab numbers are 8,000,001 to 8,002,000, well above the ones the other
+     * tests of this class use.
      */
     private void commitFillerRows(String prefix) {
         new TransactionTemplate(transactions).executeWithoutResult(status -> {
@@ -194,8 +195,18 @@ class Hl7TextInfoChainLockMariaDbIntegrationTest extends Hl7TextInfoChainLockDao
         } finally {
             release.countDown();
             holder.shutdownNow();
-            deleteFillerRows(fillers);
-            deleteCommitted(held, other);
+            try {
+                // The holder's row locks are released when its transaction ends; a delete before that
+                // would wait for them (up to the server's lock wait timeout).
+                holder.awaitTermination(30, TimeUnit.SECONDS);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+            try {
+                deleteFillerRows(fillers);
+            } finally {
+                deleteCommitted(held, other);
+            }
         }
     }
 
