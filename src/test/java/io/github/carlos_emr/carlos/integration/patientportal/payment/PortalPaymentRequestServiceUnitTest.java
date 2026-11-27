@@ -148,6 +148,52 @@ class PortalPaymentRequestServiceUnitTest {
     }
 
     @Test
+    void shouldWithdrawAfterALateConfirmation_whenFirstWithdrawalFoundNoPortalId() {
+        when(portal.createPaymentRequest(eq(123), any(), same(STAFF))).thenAnswer(call -> {
+            assertThatThrownBy(() -> service.withdraw(STAFF, 123, 55, 1L))
+                    .isInstanceOfSatisfying(PortalPaymentRequestException.class,
+                            ex -> assertThat(ex.reason()).isEqualTo(PortalPaymentRequestException.Reason.REQUEST_UNCONFIRMED));
+            return confirmed(9, true);
+        });
+        service.send(STAFF, "999998", 123, 55, "uninsured_service", DUE);
+        service.withdraw(STAFF, 123, 55, 1L);
+        verify(portal).withdrawPaymentRequest(123, 9L, STAFF);
+        assertThat(persisted.getStatus()).isEqualTo(PortalPaymentRequest.WITHDRAWN);
+    }
+
+    @Test
+    void shouldReportPaymentAfterLateConfirmation_whenTheInvoiceWasSettledDuringSend() {
+        when(portal.createPaymentRequest(eq(123), any(), same(STAFF))).thenAnswer(call -> {
+            when(dao.findUnsettledForUpdate(55)).thenReturn(List.of(persisted));
+            when(totals.calculateBalanceOwing(55)).thenReturn(BigDecimal.ZERO);
+            assertThat(service.settleLocally(55)).isEqualTo(1);
+            when(dao.findPaidNotSynced(55)).thenReturn(List.of(persisted));
+            assertThat(service.reportPaid(STAFF, 55)).isZero();
+            assertThat(persisted.isPortalSynced()).isFalse();
+            return confirmed(9, true);
+        });
+        service.send(STAFF, "999998", 123, 55, "uninsured_service", DUE);
+        assertThat(service.reportPaid(STAFF, 55)).isEqualTo(1);
+        verify(portal).markPaymentRequestPaid(123, 9L, STAFF);
+        assertThat(persisted.getStatus()).isEqualTo(PortalPaymentRequest.PAID);
+        assertThat(persisted.isPortalSynced()).isTrue();
+    }
+
+    @Test
+    void shouldReuseAPendingRequestAfterMidnight_whenItsDueDateHasPassed() {
+        PortalPaymentRequest pending = stored("pending");
+        LocalDate yesterday = LocalDate.now(CLOCK).minusDays(1);
+        pending.setDueOn(yesterday);
+        when(dao.findUnsettledForUpdate(55)).thenReturn(List.of(pending));
+        when(dao.findForUpdate(2L)).thenReturn(pending);
+        when(dao.find(2L)).thenReturn(pending);
+        when(portal.createPaymentRequest(eq(123), any(), same(STAFF))).thenReturn(confirmed(9, false));
+        assertThat(service.send(STAFF, "999998", 123, 55, "uninsured_service", yesterday).request())
+                .isSameAs(pending);
+        assertThat(pending.getPortalRequestId()).isEqualTo(9L);
+    }
+
+    @Test
     void shouldSendANewReferenceAndOperation_whenResendingAfterAWithdrawal() {
         when(portal.createPaymentRequest(eq(123), any(), same(STAFF))).thenReturn(confirmed(9, true));
         service.send(STAFF, "999998", 123, 55, "uninsured_service", DUE);

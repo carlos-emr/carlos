@@ -126,6 +126,7 @@
             open_request_differs: 'A different request is already open for this invoice. Withdraw it first.',
             due_date_invalid: 'The due date must be from today to one year ahead.',
             request_paid: 'This payment request has been paid and cannot be changed.',
+            request_unconfirmed: 'The portal has not confirmed this request. Retry sending it before withdrawing it.',
             invoice_not_found: 'The invoice was not found for this patient.'
         };
 
@@ -134,18 +135,23 @@
             var whole = Math.floor(Math.abs(cents) / 100), part = ('0' + (Math.abs(cents) % 100)).slice(-2);
             return '$' + whole + '.' + part;
         }
-        function token() {
-            var input = document.querySelector('input[name="CSRF-TOKEN"]');
-            return input ? input.value : '';
+        async function token() {
+            if (window.csrfTokenReady) {
+                try { await window.csrfTokenReady; } catch (unavailable) { /* Try an existing form token. */ }
+            }
+            for (var input of document.querySelectorAll('input[name="CSRF-TOKEN"]')) {
+                if (input.value) { return input.value; }
+            }
+            throw new Error('No request token is available.');
         }
-        function post(fields) {
+        async function post(fields) {
             var body = new URLSearchParams();
             body.set('demographicNo', patient);
             body.set('billingNo', billing);
             Object.keys(fields).forEach(function (key) { body.set(key, fields[key]); });
             return fetch(endpoint, {
                 method: 'POST', credentials: 'same-origin',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': token(), 'X-Requested-With': 'XMLHttpRequest'},
+                headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': await token(), 'X-Requested-With': 'XMLHttpRequest'},
                 body: body.toString()
             }).then(function (response) {
                 return response.json().then(function (json) { return {status: response.status, json: json}; });
@@ -211,7 +217,10 @@
                 }).catch(function () { say('The request may not have been sent. Check the list below, then try again.'); send.disabled = false; });
             });
         }
-        refresh();
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', refresh, {once: true});
+        } else {
+            refresh();
+        }
     }());
 </script>
-            request_unconfirmed: 'The portal has not confirmed this request. Retry sending it before withdrawing it.',

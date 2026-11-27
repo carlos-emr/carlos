@@ -38,6 +38,8 @@ public class PortalPaymentRequestException extends RuntimeException {
         OPEN_REQUEST_DIFFERS("open_request_differs",
                 "A different request is already open for this invoice. Withdraw it first."),
         REQUEST_NOT_FOUND("request_not_found", "The payment request was not found for this invoice."),
+        REQUEST_UNCONFIRMED("request_unconfirmed",
+                "The portal has not confirmed this request. Retry sending it before withdrawing it."),
         REQUEST_PAID("request_paid", "This payment request has been paid and cannot be changed.");
 
         private final String code;
@@ -63,5 +65,3 @@ public class PortalPaymentRequestException extends RuntimeException {
         return reason;
     }
 }
-        REQUEST_UNCONFIRMED("request_unconfirmed",
-                "The portal has not confirmed this request. Retry sending it before withdrawing it."),
