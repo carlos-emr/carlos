@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/dao/forms/FormVersionEdits.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "8558e97fd722ee9c2180b4566ddc9982b342ff60"
+  },
+  "evidenceSha256": "f578ee6af3bbc891a9af4330a87ecacf5dda30af0da947ee6e572be7e67b1bf4"
+}
