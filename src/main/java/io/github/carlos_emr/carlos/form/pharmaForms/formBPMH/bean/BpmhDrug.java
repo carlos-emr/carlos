@@ -29,6 +29,7 @@
 
 package io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.commons.lang3.StringUtils;
 
 /*
@@ -100,6 +101,7 @@ public class BpmhDrug {
     /*
      * Prescription details. Take once per day with food
      */
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Compares recorded form and unit labels for display only. The displayed unit retains its source spelling.")
     public String getHow() {
         if (how == null) {
             usePrescriptionDirections(null, getSpecial_instruction(),
@@ -145,6 +147,7 @@ public class BpmhDrug {
                 .filter(StringUtils::isNotBlank).toList());
     }
 
+    @SuppressFBWarnings(value = "REDOS", justification = "Possessive digit runs, a single optional space and a fixed unit vocabulary bound the match to linear time.")
     private boolean isMedicationHeading(String first, String name) {
         if (StringUtils.isBlank(name)) return false;
         String heading = first.strip();
