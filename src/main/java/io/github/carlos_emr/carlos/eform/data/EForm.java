@@ -385,12 +385,47 @@ public class EForm extends EFormBase {
     public void uncheckCheckboxes(String fieldName) {
         Document document = getDocument();
         if (document == null) return;
-        for (Element box : document.select("input[type=checkbox][name=\"" + TokenQueue.escapeCssIdentifier(fieldName) + "\"]")) {
+        for (Element box : checkboxesNamed(document, fieldName)) {
             box.removeAttr("checked");
         }
         // Flush the edited DOM to formHtml now: the later string-level steps (setAction,
         // setNowDateTime) read the field directly and would otherwise be overwritten by it.
         getFormHtml();
+    }
+
+    /**
+     * Checks exactly the checkbox of this name whose submitted value is {@code value} (its
+     * {@code value} attribute, or {@code "on"} without one, as a browser submits it) and unchecks the
+     * other boxes of that name. For the REST API, which carries a stored value into a revision:
+     * {@link #setValues} checks only the first box of a name, which is wrong for any other box of a
+     * group. A value that names no box leaves every box of the name unchecked.
+     *
+     * @param fieldName the checkbox name
+     * @param value the value of the box to check
+     */
+    public void checkCheckboxWithValue(String fieldName, String value) {
+        Document document = getDocument();
+        if (document == null) return;
+        for (Element box : checkboxesNamed(document, fieldName)) {
+            String submitted = box.hasAttr(VALUE_ATTRIBUTE) ? box.attr(VALUE_ATTRIBUTE) : "on";
+            if (submitted.equals(value)) {
+                box.attr("checked", "checked");
+            } else {
+                box.removeAttr("checked");
+            }
+        }
+        getFormHtml();
+    }
+
+    /**
+     * The checkboxes named exactly {@code fieldName}. Not a {@code [name="..."]} selector: jsoup
+     * compares attribute values ignoring case and surrounding space, so it would also take boxes of a
+     * differently cased name, which a browser submits as a different field.
+     */
+    private static List<Element> checkboxesNamed(Document document, String fieldName) {
+        return document.select("input[type=checkbox][name]").stream()
+                .filter(box -> box.attr("name").equals(fieldName))
+                .toList();
     }
 
     // ------------------Saving the Form (inserting fdid$value= statements)---------------------

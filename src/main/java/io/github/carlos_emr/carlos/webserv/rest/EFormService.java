@@ -60,10 +60,13 @@ import java.util.LinkedHashMap;
  * REST service for managing individual eForms in CARLOS EMR.
  *
  * <p>Provides endpoints to load, create, and update eForm templates, and to read, create,
- * revise and delete saved eForm instances ({@code /eform/instance}). All endpoints require
- * valid OAuth authentication and {@code _eform} privilege via {@link SecurityInfoManager};
- * instance endpoints also check that privilege for the instance's patient. eForm HTML content
- * may be large; callers should handle responses accordingly.</p>
+ * revise and delete saved eForm instances ({@code /eform/instance}). The service is published
+ * twice: under {@code /ws/services}, which requires a signed OAuth 1.0a access token with the
+ * {@code eform.read} or {@code eform.write} scope, and under {@code /ws/rs}, which requires a
+ * signed-in browser session. On both, every endpoint requires the applicable {@code _eform}
+ * privilege via {@link SecurityInfoManager}; instance endpoints also check that privilege for the
+ * instance's patient. eForm HTML content may be large; callers should handle responses
+ * accordingly.</p>
  *
  * <p>Instance endpoints keep the web UI's rule that a saved instance is never rewritten: a
  * revision stores a new row and retires the old one, and a delete only retires the row. See
@@ -454,8 +457,10 @@ public class EFormService extends AbstractServiceImpl {
 	 * old id stays readable as history but can no longer be revised or deleted.
 	 *
 	 * <p>The values replace the old ones completely: a field left out gets the template default.
-	 * {@code values} is required, so a body without it cannot reset the form; send {@code {}} to save
-	 * the template defaults on purpose. {@code fid} and {@code demographicNo} cannot be changed and
+	 * {@code values} is required, so a body without it cannot reset the form. Send {@code {}} to
+	 * restore the template defaults on purpose; that resets the fields the template can show, and
+	 * keeps a stored value the current template cannot show (one with no control, or no longer one
+	 * of its control's choices), as every revision does. {@code fid} and {@code demographicNo} cannot be changed and
 	 * are ignored in the body. For a template that shows only its latest form, a revision of a row
 	 * that a newer form of the same template has replaced in the chart is refused with HTTP 409.</p>
 	 *

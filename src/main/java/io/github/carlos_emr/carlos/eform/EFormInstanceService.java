@@ -33,7 +33,6 @@ import com.google.common.base.Ascii;
 import org.apache.commons.lang3.StringUtils;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
-import org.jsoup.parser.TokenQueue;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -441,8 +440,8 @@ public class EFormInstanceService {
                 if (checkboxClears.contains(entry.getKey())) {
                     continue; // setValues would check the box for any value; cleared below
                 }
-                if (plan.carried().containsKey(entry.getKey()) && !plan.rendered().contains(entry.getKey())) {
-                    continue; // the template has no control for it; stored as a value row below
+                if (plan.carried().containsKey(entry.getKey())) {
+                    continue; // the template cannot show it as sent; rendered and stored below
                 }
                 names.add(entry.getKey());
                 fieldValues.add(entry.getValue());
@@ -455,6 +454,12 @@ public class EFormInstanceService {
             }
         }
 
+        // Carried values that still have a control, sent back or left out, are rendered like any value.
+        for (String name : plan.rendered()) {
+            names.add(name);
+            fieldValues.add(plan.carried().get(name));
+        }
+
         // The new-form page fills oscarDB= fields before the clinician submits, so the browser save
         // stores them like any other submitted value. setValues then overwrites the ones the caller sent.
         Map<String, String> prefilled = inputs.prefill() ? applyDatabasePrefill(form, values) : Map.of();
@@ -464,6 +469,9 @@ public class EFormInstanceService {
         for (String name : checkboxClears) {
             form.uncheckCheckboxes(name);
         }
+        for (Map.Entry<String, String> box : plan.checkboxSelections().entrySet()) {
+            form.checkCheckboxWithValue(box.getKey(), box.getValue());
+        }
         for (int i = fieldValues.size() - 1; i >= 0; i--) {
             if (fieldValues.get(i).trim().isEmpty()) {
                 names.remove(i);
@@ -472,7 +480,7 @@ public class EFormInstanceService {
         }
         for (Map.Entry<String, String> carried : plan.carried().entrySet()) {
             if (plan.rendered().contains(carried.getKey())) {
-                continue; // already submitted to setValues and given its value row above
+                continue; // already passed to setValues and given its value row above
             }
             if (!carried.getValue().trim().isEmpty()) {
                 names.add(carried.getKey());
@@ -609,14 +617,17 @@ public class EFormInstanceService {
      * @param checkboxClears checkboxes a blank value explicitly unchecks
      * @param carried values the template cannot show as sent, kept because they are exactly what
      *                the revised row stored
-     * @param rendered the carried names that still have a settable control. They are passed to
-     *                 {@link EForm#setValues} like any value, so the revision shows what a browser
-     *                 re-save of the same row shows: a radio value that is no longer one of its
-     *                 choices unchecks every choice instead of leaving the template default checked,
-     *                 and a checkbox group's value checks the box as the browser save did. The rest
-     *                 are kept as value rows only.
+     * @param rendered the carried names, other than checkboxes, that still have a settable control.
+     *                 They are passed to {@link EForm#setValues} like any value, so a radio value that
+     *                 is no longer one of its choices unchecks every choice instead of leaving the
+     *                 template default checked, as a browser re-save does.
+     * @param checkboxSelections carried checkbox values: the box whose own value matches is checked
+     *                           and the other boxes of the name unchecked ({@link EForm#setValues}
+     *                           would check only a group's first box). The rest of the carried
+     *                           values are kept as value rows only.
      */
-    private record ValuePlan(Set<String> checkboxClears, Map<String, String> carried, Set<String> rendered) {
+    private record ValuePlan(Set<String> checkboxClears, Map<String, String> carried, Set<String> rendered,
+                             Map<String, String> checkboxSelections) {
     }
 
     /**
@@ -626,17 +637,20 @@ public class EFormInstanceService {
      * select value that matches none of its choices, and a checkbox value other than the box's
      * own. Null values are not submitted and pass. A refused value that equals the revised row's
      * stored value is carried instead, and so is such a stored value when it is not sent back, so
-     * a revision never loses what a browser save stored. A carried value whose control is still on
-     * the template is rendered as a browser re-save renders it.
+     * a revision never loses what a browser save stored. A stored value left out of the request is
+     * carried the same way when the template cannot show it: it has no control, or its value is no
+     * longer one of the control's choices. A left-out value the template can show gets the template
+     * default, as documented. A carried value whose control is still on the template is rendered.
      */
     private static ValuePlan planValues(String templateHtml, Map<String, String> values,
                                         Map<String, String> previousValues) {
         Set<String> checkboxClears = new LinkedHashSet<>();
         Map<String, String> carried = new LinkedHashMap<>();
         Set<String> rendered = new LinkedHashSet<>();
+        Map<String, String> checkboxSelections = new LinkedHashMap<>();
         boolean submitted = values != null && values.values().stream().anyMatch(java.util.Objects::nonNull);
         if (!submitted && previousValues.isEmpty()) {
-            return new ValuePlan(checkboxClears, carried, rendered);
+            return new ValuePlan(checkboxClears, carried, rendered, checkboxSelections);
         }
         Document template = parse(templateHtml);
         if (values != null) {
@@ -651,10 +665,7 @@ public class EFormInstanceService {
                     continue;
                 }
                 if (value.equals(previousValues.get(name))) {
-                    carried.put(name, value);
-                    if (type != null) {
-                        rendered.add(name);
-                    }
+                    carry(name, value, type, carried, rendered, checkboxSelections);
                     continue;
                 }
                 throw new EFormInstanceException(EFormInstanceException.Reason.UNSUPPORTED_FIELD);
@@ -663,11 +674,27 @@ public class EFormInstanceService {
         for (Map.Entry<String, String> stored : previousValues.entrySet()) {
             String name = stored.getKey();
             boolean omitted = values == null || values.get(name) == null;
-            if (omitted && (template == null || settableType(template, name) == null)) {
-                carried.put(name, stored.getValue());
+            if (!omitted) {
+                continue;
+            }
+            String type = template == null ? null : settableType(template, name);
+            // Stored values are nonblank, so applies() records no checkbox clear here.
+            if (type == null || !applies(template, name, type, stored.getValue(), new LinkedHashSet<>())) {
+                carry(name, stored.getValue(), type, carried, rendered, checkboxSelections);
             }
         }
-        return new ValuePlan(checkboxClears, carried, rendered);
+        return new ValuePlan(checkboxClears, carried, rendered, checkboxSelections);
+    }
+
+    /** Records a carried value and how the revision shows it: see {@link ValuePlan}. */
+    private static void carry(String name, String value, String type, Map<String, String> carried,
+                              Set<String> rendered, Map<String, String> checkboxSelections) {
+        carried.put(name, value);
+        if ("checkbox".equals(type)) {
+            checkboxSelections.put(name, value);
+        } else if (type != null) {
+            rendered.add(name);
+        }
     }
 
     /** Whether {@link EForm#setValues} shows this value in the named control of this type. */
@@ -771,8 +798,15 @@ public class EFormInstanceService {
         return found;
     }
 
+    /**
+     * The controls named exactly {@code name}. Not a {@code [name="..."]} selector: jsoup compares
+     * attribute values ignoring case and surrounding space, so it would also return the controls of a
+     * differently cased name, which a browser submits as a different field.
+     */
     private static org.jsoup.select.Elements namedControls(Document document, String name) {
-        return document.select("[name=\"" + TokenQueue.escapeCssIdentifier(name) + "\"]");
+        return new org.jsoup.select.Elements(document.select("[name]").stream()
+                .filter(control -> control.attr("name").equals(name))
+                .toList());
     }
 
     /** The value a browser submits for an option, as {@link EForm} matches it. */

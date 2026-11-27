@@ -498,14 +498,15 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should store nothing when the template's chart writes fail, as one transaction")
+        @DisplayName("should let a chart-write failure propagate out of create")
         void shouldPropagateFailure_whenChartWritesFail() {
             try (org.mockito.MockedStatic<EFormUtil> util = org.mockito.Mockito.mockStatic(EFormUtil.class,
                     org.mockito.Mockito.CALLS_REAL_METHODS)) {
                 util.when(() -> EFormUtil.writeEformTemplate(any(), any(), any(), any(), any(), any(), any()))
                         .thenThrow(new IllegalStateException("note save failed"));
 
-                // The exception leaves create(), so its @Transactional boundary rolls the save back.
+                // Only propagation is shown here: the service is built directly and persistence is
+                // mocked. The rollback itself is @Transactional's, on the Spring-managed bean.
                 assertThatThrownBy(() -> service.create(loggedInInfo, FID, DEMOGRAPHIC_NO, null, Map.of("bp", "1"), CONTEXT))
                         .isInstanceOf(IllegalStateException.class);
             }
@@ -802,6 +803,30 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should carry a lab link to the revision as the old row has it, without re-checking its routing")
+        void shouldCarryLabLink_whenLabNoLongerRoutedToPatient() {
+            // The revision copies the old row's links; it adds none the caller chose. A lab re-matched
+            // to another patient after the form was saved therefore keeps the link the old row
+            // already has, and the revision is allowed. The service has no lab-routing lookup.
+            when(eFormDataDao.lockForAttachmentSync(5)).thenReturn(instance(5, true));
+            io.github.carlos_emr.carlos.commn.model.EFormDocs unroutedLab =
+                    new io.github.carlos_emr.carlos.commn.model.EFormDocs(5, 301, "L", "111");
+            unroutedLab.setLabType("MDS");
+            when(eFormDocsDao.findByFdid(5)).thenReturn(List.of(unroutedLab));
+
+            EFormData revision = service.revise(loggedInInfo, 5, null, Map.of("bp", "1"), CONTEXT);
+
+            assertThat(revision.getId()).isEqualTo(SAVED_FDID);
+            ArgumentCaptor<io.github.carlos_emr.carlos.commn.model.EFormDocs> copy =
+                    ArgumentCaptor.forClass(io.github.carlos_emr.carlos.commn.model.EFormDocs.class);
+            verify(eFormDocsDao).persist(copy.capture());
+            assertThat(copy.getValue().getFdid()).isEqualTo(SAVED_FDID);
+            assertThat(copy.getValue().getDocumentNo()).isEqualTo(301);
+            assertThat(copy.getValue().getLabType()).isEqualTo("MDS");
+            assertThat(unroutedLab.getFdid()).isEqualTo(5);
+        }
+
+        @Test
         @DisplayName("should refuse as an instance-level denial, not a 409, when a retired row's patient is closed to the caller")
         void shouldRefuseAsInstanceDenial_whenRetiredRowDenied() {
             EFormData previous = instance(5, false);
@@ -898,16 +923,63 @@ class EFormInstanceServiceUnitTest extends CarlosUnitTestBase {
             when(eFormDataDao.lockForAttachmentSync(5)).thenAnswer(call -> instance(5, true));
             EFormValue stored = new EFormValue();
             stored.setVarName("symptoms");
-            stored.setVarValue("cough");
+            stored.setVarValue("fever");
             when(eFormValueDao.findByFormDataId(5)).thenReturn(List.of(stored));
 
-            EFormData revision = service.revise(loggedInInfo, 5, null, Map.of("symptoms", "cough"), CONTEXT);
+            // fever is the group's second box; setValues would check only the first (cough).
+            EFormData revision = service.revise(loggedInInfo, 5, null, Map.of("symptoms", "fever"), CONTEXT);
 
             assertThat(Jsoup.parse(revision.getFormData()).select("input[name=symptoms][checked]"))
-                    .extracting(box -> box.attr("value")).contains("cough");
+                    .extracting(box -> box.attr("value")).containsExactly("fever");
             assertThat(persistedValues()).extracting(EFormValue::getVarName, EFormValue::getVarValue)
-                    .containsExactly(org.assertj.core.groups.Tuple.tuple("symptoms", "cough"));
+                    .containsExactly(org.assertj.core.groups.Tuple.tuple("symptoms", "fever"));
         }
+
+        @Test
+        @DisplayName("should carry a left-out stored value that is no longer one of its control's choices")
+        void shouldCarryOmittedValue_whenNoLongerAChoice() {
+            // The template was edited from Y/N to Yes/No (No checked) after the row stored allergy=Y.
+            String templateHtml = "<html><body><form>"
+                    + "<input type=\"radio\" name=\"allergy\" value=\"Yes\">"
+                    + "<input type=\"radio\" name=\"allergy\" value=\"No\" checked>"
+                    + "<input type=\"text\" name=\"bp\" value=\"\">"
+                    + "</form></body></html>";
+            EForm template = template(true, null);
+            template.setFormHtml(templateHtml);
+            when(eFormDao.findById(FID)).thenReturn(template);
+            when(eFormDataDao.lockForAttachmentSync(5)).thenAnswer(call -> instance(5, true));
+            EFormValue stored = new EFormValue();
+            stored.setVarName("allergy");
+            stored.setVarValue("Y");
+            when(eFormValueDao.findByFormDataId(5)).thenReturn(List.of(stored));
+
+            EFormData revision = service.revise(loggedInInfo, 5, null, Map.of("bp", "120/80"), CONTEXT);
+
+            // Shown as a browser re-save shows it (no choice checked), and its value row kept.
+            assertThat(Jsoup.parse(revision.getFormData()).select("input[name=allergy][checked]")).isEmpty();
+            assertThat(persistedValues()).extracting(EFormValue::getVarName, EFormValue::getVarValue)
+                    .containsExactly(org.assertj.core.groups.Tuple.tuple("bp", "120/80"),
+                            org.assertj.core.groups.Tuple.tuple("allergy", "Y"));
+        }
+
+        @Test
+        @DisplayName("should clear only the checkbox named exactly as sent, not a differently cased one")
+        void shouldClearOnlyExactName_whenCheckboxNamesDifferInCase() {
+            String templateHtml = "<html><body><form>"
+                    + "<input type=\"checkbox\" name=\"flag\" checked>"
+                    + "<input type=\"checkbox\" name=\"Flag\" checked>"
+                    + "</form></body></html>";
+            EForm template = template(true, null);
+            template.setFormHtml(templateHtml);
+            when(eFormDao.findById(FID)).thenReturn(template);
+            when(eFormDataDao.lockForAttachmentSync(5)).thenAnswer(call -> instance(5, true));
+
+            EFormData revision = service.revise(loggedInInfo, 5, null, Map.of("flag", ""), CONTEXT);
+
+            var html = Jsoup.parse(revision.getFormData());
+            assertThat(html.select("input[checked]")).extracting(box -> box.attr("name")).containsExactly("Flag");
+        }
+
     }
 
     @Nested

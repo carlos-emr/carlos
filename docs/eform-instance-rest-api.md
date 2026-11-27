@@ -71,7 +71,10 @@ A save through the API does what the browser save does, apart from the handoffs 
   attachments (documents, labs, forms, eForms, HRM reports) are copied to the revision, and the
   consultation packets and other eForms that attached the old row attach the revision instead. The
   old row keeps its own attachments as history. Without this, a consultation packet would list the
-  retired eForm as unavailable and leave it out.
+  retired eForm as unavailable and leave it out. The links are copied as the old row has them and
+  are not checked again: a lab re-matched to another patient after the form was saved keeps the
+  link the old row already has, and the revision is allowed. A browser re-save checks each
+  attachment it submits and refuses one that no longer belongs to the patient.
 - Not part of this API: new attachments, fax, e-mail, PDF and eDoc handoffs.
 
 ## A saved instance is never rewritten

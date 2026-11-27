@@ -298,8 +298,8 @@ class EFormServiceEndpointTest extends CarlosRestTestBase {
         void shouldReturnNewRevision_whenInstanceCurrent() {
             when(mockInstanceService.revise(any(), eq(5), isNull(), anyMap(), any())).thenReturn(instanceRow(78, true));
 
-            // A GET response sent straight back: server-set fields, including fdid, are ignored.
-            String json = "{\"fdid\":5,\"fid\":3,\"demographicNo\":42,\"current\":true,\"formHtml\":\"x\",\"values\":{\"bp\":\"130/85\"}}";
+            // A GET response sent back with a different body fdid: the URL's fdid is the one revised.
+            String json = "{\"fdid\":9,\"fid\":3,\"demographicNo\":42,\"current\":true,\"formHtml\":\"x\",\"values\":{\"bp\":\"130/85\"}}";
             Response response = request().path("/eform/instance/5").put(jakarta.ws.rs.client.Entity.json(json));
 
             assertThat(response.getStatus()).isEqualTo(200);
@@ -455,7 +455,10 @@ class EFormServiceEndpointTest extends CarlosRestTestBase {
             Response response = request().path("/eform/instance/5").get();
 
             assertThat(response.getStatus()).isEqualTo(200);
-            assertThat(responseJson(response).at("/body/current").booleanValue()).isFalse();
+            var current = responseJson(response).at("/body/current");
+            // Explicitly present as a boolean, not missing (booleanValue() of a missing node is false too).
+            assertThat(current.isBoolean()).isTrue();
+            assertThat(current.booleanValue()).isFalse();
         }
 
         @Test
