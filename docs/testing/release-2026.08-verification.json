@@ -5232,6 +5232,59 @@
               "container": ""
             }
           ]
+        },
+        "io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoChainLockMariaDbIntegrationTest": {
+          "check": "java-native-flyway",
+          "cases": [
+            {
+              "name": "shouldReturnTheAccessionsRowsLowestLabNumberFirst_whenLockingByAccession",
+              "container": ""
+            },
+            {
+              "name": "shouldIncludeRowsOfOtherAccessions_whenLockingByFillerOrderNumber",
+              "container": ""
+            },
+            {
+              "name": "shouldLockNothing_whenTheAccessionOrFillerNumberIsBlank",
+              "container": ""
+            },
+            {
+              "name": "shouldMatchNoRow_whenTheReportHasNoAccession",
+              "container": ""
+            },
+            {
+              "name": "shouldReturnNull_whenTheReportIsNotStored",
+              "container": ""
+            },
+            {
+              "name": "shouldRefuseEveryLock_whenThereIsNoTransaction",
+              "container": ""
+            },
+            {
+              "name": "shouldHaveTheAccessionIndexAvailable_whenLockingByAccession",
+              "container": ""
+            },
+            {
+              "name": "shouldHaveTheFillerOrderNumberIndexAvailable_whenLockingByFillerOrderNumber",
+              "container": ""
+            },
+            {
+              "name": "shouldHaveTheLabNumberIndexAvailable_whenLockingTheReportsOwnRow",
+              "container": ""
+            },
+            {
+              "name": "shouldHaveTheKeyValueIndexAvailable_whenFindingAReportsMeasurements",
+              "container": ""
+            },
+            {
+              "name": "shouldNotHoldUpAnUnrelatedAccession_whenTheDaoHoldsAnotherOne",
+              "container": ""
+            },
+            {
+              "name": "shouldRecogniseARealLockWaitTimeoutAsALockFailure_whenAnotherConnectionHoldsTheRow",
+              "container": ""
+            }
+          ]
         }
       },
       "runtimeConstraints": {
@@ -5369,7 +5422,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicWebUnmergeIntegrationTest,SiteRenameClockMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,Growth0To36FormPersistenceIntegrationTest,RehabStudyFormDaoIntegrationTest,EncounterFormDaoGroupedHistoryIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest,CaseManagementNoteLegacyFlagsMariaDbIntegrationTest,DemographicUpdateDaoTransactionIntegrationTest,IncomingDocumentQueuePreferenceIntegrationTest,ScheduleDateOverrideServiceIntegrationTest,BillingOnSiteVisibilityIntegrationTest,BillingOnFileAccessServiceIntegrationTest,BillingOnOutputFilenamesIntegrationTest",
+        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicWebUnmergeIntegrationTest,SiteRenameClockMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,Hl7TextInfoChainLockMariaDbIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,Growth0To36FormPersistenceIntegrationTest,RehabStudyFormDaoIntegrationTest,EncounterFormDaoGroupedHistoryIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest,CaseManagementNoteLegacyFlagsMariaDbIntegrationTest,DemographicUpdateDaoTransactionIntegrationTest,IncomingDocumentQueuePreferenceIntegrationTest,ScheduleDateOverrideServiceIntegrationTest,BillingOnSiteVisibilityIntegrationTest,BillingOnFileAccessServiceIntegrationTest,BillingOnOutputFilenamesIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -5378,7 +5431,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 284,
+      "minimumCases": 296,
       "requiredFamilies": {
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
@@ -5394,6 +5447,7 @@
         "BillingONCHeader1DaoIntegrationTest": 1,
         "LegacyLabUploadDaoIntegrationTest": 8,
         "LabRoutingLookupDaoIntegrationTest": 6,
+        "Hl7TextInfoChainLockMariaDbIntegrationTest": 12,
         "LegacyLabNativeMariaDbIntegrationTest": 8,
         "ArchiveAuditTimestampIntegrationTest": 3,
         "Growth0To36FormPersistenceIntegrationTest": 20,
@@ -9491,16 +9545,96 @@
       ]
     },
     "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/Hl7textResultsData.java": {
-      "reason": "CML source-derived completeness/date/correction ordering, historical-delivery measurement isolation, accepted literal spelling and Unicode extraction refusal; existing source/filter, clinical-state and cleanup acceptance remains required. Display-only incomplete-chain recovery is separate from strict mutation resolution.",
+      "reason": "CML source-derived completeness/date/correction ordering, historical-delivery measurement isolation, accepted literal spelling, Unicode extraction refusal, and atomic serialized after-commit measurement filing (#6391); existing source/filter, clinical-state and cleanup acceptance remains required. Display-only incomplete-chain recovery is separate from strict mutation resolution.",
       "tests": [
         "src/test/java/io/github/carlos_emr/carlos/lab/ca/all/CmlCorrectedVersionUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/lab/ca/all/Hl7textResultsDataUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/all/LabMeasurementFilingServiceIntegrationTest.java",
         "scripts/lab-version-ingestion-playwright-checks.js",
-        "scripts/lab-qualified-results-playwright-checks.js"
+        "scripts/lab-qualified-results-playwright-checks.js",
+        "scripts/lab-measurement-filing-playwright-checks.js"
       ],
       "checks": [
         "java-all",
+        "java-native-flyway",
         "packaged-full"
+      ],
+      "workstreams": [
+        "T14",
+        "T28"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/LabMeasurementFilingService.java": {
+      "reason": "Atomic, chain-serialized, repeatable lab measurement filing (#6391): locks accession, filler order number, and lab row before checking current version, archives superseded/own measurements for the patient, persists measurements and extensions atomically, retries lock failures with fresh transient entities, and runs after commit without undoing uploads.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/all/LabMeasurementFilingServiceUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/all/LabMeasurementFilingServiceIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/all/LabMeasurementFilingConcurrencyIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/commn/dao/Hl7TextInfoChainLockMariaDbIntegrationTest.java",
+        "scripts/lab-measurement-filing-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T14",
+        "T28"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/LabMeasurementFilingDto.java": {
+      "reason": "Immutable filing input carrying report identity, patient match, chain lock keys, and parsed measurements across the after-commit boundary (#6391).",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/all/LabMeasurementFilingServiceUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/all/Hl7textResultsDataUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T14",
+        "T28"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/FiledMeasurementDto.java": {
+      "reason": "Immutable measurement/extension filing record providing fresh transient Measurement copies per retry attempt so rollbacks after persist never leave detached entities (#6391).",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/all/LabMeasurementFilingServiceUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/all/LabMeasurementFilingServiceIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T14",
+        "T28"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/Hl7TextInfoChainLockDao.java": {
+      "reason": "Mandatory-transaction pessimistic row locking contract for serializing HL7 lab version chains by accession, filler order number, and lab number (#6391).",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/commn/dao/Hl7TextInfoChainLockDaoIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/commn/dao/Hl7TextInfoChainLockMariaDbIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway"
+      ],
+      "workstreams": [
+        "T14",
+        "T28"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/Hl7TextInfoChainLockDaoImpl.java": {
+      "reason": "JPA PESSIMISTIC_WRITE row locks ordered deterministically by lab number and id, verified on physical InnoDB Flyway indexes and lock-wait timeout handling (#6391).",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/commn/dao/Hl7TextInfoChainLockDaoIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/commn/dao/Hl7TextInfoChainLockMariaDbIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-flyway"
       ],
       "workstreams": [
         "T14",
