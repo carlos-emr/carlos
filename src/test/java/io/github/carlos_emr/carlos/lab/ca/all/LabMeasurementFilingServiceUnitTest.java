@@ -81,9 +81,11 @@ class LabMeasurementFilingServiceUnitTest extends CarlosUnitTestBase {
         measurementsExtDao = mock(MeasurementsExtDao.class);
         measurementsDeletedDao = mock(MeasurementsDeletedDao.class);
         when(locks.lockByLabNumber(anyInt())).thenReturn(new Hl7TextInfo());
-        // A stored measurement has its id: the extensions name it.
+        // A stored measurement has its own id: the extensions name it, and one attached to the wrong
+        // measurement would show.
+        var ids = new java.util.concurrent.atomic.AtomicInteger();
         org.mockito.Mockito.doAnswer(invocation -> {
-            org.springframework.test.util.ReflectionTestUtils.setField(invocation.getArgument(0), "id", 1);
+            org.springframework.test.util.ReflectionTestUtils.setField(invocation.getArgument(0), "id", ids.incrementAndGet());
             return null;
         }).when(measurementDao).persist(any(Measurement.class));
     }
