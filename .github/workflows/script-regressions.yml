@@ -97,8 +97,12 @@ jobs:
       - name: Install Poppler for PDF text regressions
         run: |
           if ! command -v pdftotext >/dev/null; then
-            sudo apt-get update
-            sudo apt-get install -y --no-install-recommends poppler-utils
+            # Poppler comes from Ubuntu. Other preinstalled runner feeds may be unavailable.
+            ubuntu_sources=/etc/apt/sources.list.d/ubuntu.sources
+            if [ ! -s "$ubuntu_sources" ]; then ubuntu_sources=/etc/apt/sources.list; fi
+            apt_sources=(-o "Dir::Etc::sourcelist=$ubuntu_sources" -o Dir::Etc::sourceparts=-)
+            sudo apt-get "${apt_sources[@]}" update
+            sudo apt-get "${apt_sources[@]}" install -y --no-install-recommends poppler-utils
           fi
       - name: Run all script regressions
         run: node scripts/run-node-release-tests.js --output target/node-ci-results.json
