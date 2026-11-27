@@ -115,7 +115,7 @@ public class RecurringAppointmentService {
         String renderedVersion = values.get(APPOINTMENT_VERSION);
         if (anchor != null && renderedVersion != null && !renderedVersion.isBlank()
                 && !renderedVersion.trim().equals(anchor.getEditVersion())
-                && !alreadyStored(operation, anchor, template)) {
+                && !alreadyStored(operation, anchor, template, values)) {
             throw new AppointmentUpdateException(AppointmentUpdateException.Reason.STALE_VERSION);
         }
         if (anchor != null && !Objects.equals(anchor.getAppointmentDate(), template.getAppointmentDate())) {
@@ -294,15 +294,29 @@ public class RecurringAppointmentService {
      * and moved the version on, the second still names the version the page was rendered from.
      * Writing the same values again cannot undo anyone's change, so it is not a conflict, and
      * answering it as one would tell the user their saved change was refused. Any other
-     * difference between the form and the stored appointment remains a conflict.</p>
+     * difference between the form and the stored appointment remains a conflict, the Email
+     * Reminder box included.</p>
      */
-    private static boolean alreadyStored(String operation, Appointment anchor, Appointment template) {
+    private boolean alreadyStored(String operation, Appointment anchor, Appointment template,
+                                  Map<String, String> values) {
         return switch (operation) {
             case "Group Update" -> Objects.equals(anchor.getAppointmentDate(), template.getAppointmentDate())
-                    && sameDetails(anchor, template);
+                    && sameDetails(anchor, template) && sameReminderChoice(anchor, values);
             case "Group Cancel" -> "C".equals(anchor.getStatus());
             default -> false;
         };
+    }
+
+    /**
+     * The Email Reminder box is stored apart from the appointment (#5887), so matching fields cannot show that a
+     * stale form is a repeat of this save: a colleague may have ticked or unticked the box since, and the
+     * replay would write the old choice over the series. A form that carries the box is a repeat only when its
+     * choice is the one saved for the appointment now. A form without the box changes no choice.
+     */
+    private boolean sameReminderChoice(Appointment anchor, Map<String, String> values) {
+        return !AppointmentReminderChoice.isOnCopiedForm(values)
+                || reminders.isRequested(anchor.getId(), ReminderChannel.EMAIL)
+                == AppointmentReminderChoice.isTickedOnCopiedForm(values);
     }
 
     private static boolean sameDetails(Appointment a, Appointment b) {

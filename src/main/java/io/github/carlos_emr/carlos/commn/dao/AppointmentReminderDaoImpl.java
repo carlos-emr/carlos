@@ -50,6 +50,8 @@ import java.util.Optional;
 public class AppointmentReminderDaoImpl extends AbstractDaoImpl<AppointmentReminder> implements AppointmentReminderDao {
 
     static final int MAX_LIMIT = 500;
+    /** The query parameter for the time before which a claim counts as abandoned. */
+    private static final String STALE_BEFORE = "staleBefore";
 
     public AppointmentReminderDaoImpl() {
         super(AppointmentReminder.class);
@@ -67,8 +69,9 @@ public class AppointmentReminderDaoImpl extends AbstractDaoImpl<AppointmentRemin
 
     @Override
     public List<ReminderCandidate> findDue(ReminderChannel channel, LocalDateTime earliestStart,
-                                           LocalDateTime latestStart, int maxAttempts, int limit) {
-        if (channel == null || earliestStart == null || latestStart == null || latestStart.isBefore(earliestStart)) {
+                                           LocalDateTime latestStart, int maxAttempts, Date staleBefore, int limit) {
+        if (channel == null || earliestStart == null || latestStart == null || staleBefore == null
+                || latestStart.isBefore(earliestStart)) {
             return List.of();
         }
         // A theta join: the reminder holds the appointment number, not a mapped association, so neither the
@@ -79,6 +82,9 @@ public class AppointmentReminderDaoImpl extends AbstractDaoImpl<AppointmentRemin
         // and cannot fill the limit. Same rule as AppointmentReminderService.isCancelledOrNoShow: a status
         // (at most two characters) containing "C" or starting with "N". Compared by character code, so the
         // match is case-sensitive under any collation: a clinic's custom status "c" is not cancelled.
+        // A row another run holds a live claim on is left out too, as claim() would skip it: the caller counts its
+        // batch from these rows. An attempt for another patient (the booking was given to this one since) is no
+        // attempt for this one; an attempt that recorded no patient counts as theirs, as in the service.
         TypedQuery<Object[]> query = entityManager.createQuery(
                 "SELECT r, a FROM AppointmentReminder r, Appointment a "
                         + "WHERE a.id = r.appointmentNo AND r.channel = :channel AND r.requested = true "
@@ -88,13 +94,16 @@ public class AppointmentReminderDaoImpl extends AbstractDaoImpl<AppointmentRemin
                         + "AND a.appointmentDate BETWEEN :firstDate AND :lastDate "
                         + "AND (a.appointmentDate > :firstDate OR a.startTime >= :firstTime) "
                         + "AND (a.appointmentDate < :lastDate OR a.startTime <= :lastTime) "
+                        + "AND (r.claimToken IS NULL OR r.claimedAt < :staleBefore) "
                         + "AND (r.sentFor IS NULL "
                         + "OR extract(date from r.sentFor) <> a.appointmentDate "
                         + "OR extract(time from r.sentFor) <> a.startTime "
+                        + "OR r.sentForDemographicNo <> a.demographicNo "
                         + "OR (r.lastStatus = :failed AND r.attempts < :maxAttempts)) "
                         + "ORDER BY a.appointmentDate, a.startTime, r.id",
                 Object[].class);
         query.setParameter("channel", channel);
+        query.setParameter(STALE_BEFORE, staleBefore);
         query.setParameter("firstDate", java.sql.Date.valueOf(earliestStart.toLocalDate()));
         query.setParameter("lastDate", java.sql.Date.valueOf(latestStart.toLocalDate()));
         query.setParameter("firstTime", java.sql.Time.valueOf(earliestStart.toLocalTime().withNano(0)));
@@ -129,13 +138,15 @@ public class AppointmentReminderDaoImpl extends AbstractDaoImpl<AppointmentRemin
         booked.setParameter("time", java.sql.Time.valueOf(start.toLocalTime().withNano(0)));
         addCandidates(found, booked.getResultList());
         if (handedOver != null && !handedOver.isEmpty()) {
-            // Handed over for this start, matched on the start it went for: the booking may be unticked,
-            // cancelled or moved since, and still covers the visit.
+            // Handed over for this start, matched on the start and the patient it went to: the booking may be
+            // unticked, cancelled, moved, given to another patient or deleted since, and still covers this patient's
+            // visit. Its booking is joined only to show what it is now (null once deleted), never to find the row.
+            // An attempt that recorded no patient counts as its booking's patient's, as in the service.
             TypedQuery<Object[]> reminded = entityManager.createQuery(
-                    "SELECT r, a FROM AppointmentReminder r, Appointment a "
-                            + "WHERE a.id = r.appointmentNo AND r.channel = :channel AND r.id <> :excluded "
-                            + "AND a.demographicNo = :demographicNo AND r.sentFor = :start "
-                            + "AND r.lastStatus IN (:handedOver) ORDER BY r.id",
+                    "SELECT r, a FROM AppointmentReminder r LEFT JOIN Appointment a ON a.id = r.appointmentNo "
+                            + "WHERE r.channel = :channel AND r.id <> :excluded "
+                            + "AND coalesce(r.sentForDemographicNo, a.demographicNo) = :demographicNo "
+                            + "AND r.sentFor = :start AND r.lastStatus IN (:handedOver) ORDER BY r.id",
                     Object[].class);
             reminded.setParameter("channel", channel);
             reminded.setParameter("excluded", excludeReminderId);
@@ -183,7 +194,7 @@ public class AppointmentReminderDaoImpl extends AbstractDaoImpl<AppointmentRemin
                         + "AND (r.claimToken IS NULL OR r.claimedAt < :staleBefore) ORDER BY r.id",
                 AppointmentReminder.class);
         query.setParameter("ids", ids);
-        query.setParameter("staleBefore", staleBefore);
+        query.setParameter(STALE_BEFORE, staleBefore);
         query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
         query.setHint(SpecHints.HINT_SPEC_LOCK_TIMEOUT, Timeouts.SKIP_LOCKED_MILLI);
         List<AppointmentReminder> claimed = query.getResultList();
@@ -207,7 +218,7 @@ public class AppointmentReminderDaoImpl extends AbstractDaoImpl<AppointmentRemin
                 AppointmentReminder.class);
         query.setParameter("channel", channel);
         query.setParameter("sending", AppointmentReminderStatus.SENDING);
-        query.setParameter("staleBefore", staleBefore);
+        query.setParameter(STALE_BEFORE, staleBefore);
         query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
         query.setHint(SpecHints.HINT_SPEC_LOCK_TIMEOUT, Timeouts.SKIP_LOCKED_MILLI);
         query.setMaxResults(MAX_LIMIT);

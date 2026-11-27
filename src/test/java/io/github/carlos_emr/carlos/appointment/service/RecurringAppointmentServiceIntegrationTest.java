@@ -193,7 +193,7 @@ class RecurringAppointmentServiceIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    void shouldRecordAnUntickedBox_andLeaveChoicesAlone_whenTheFormHadNoBox() {
+    void shouldRecordAnUntickedBoxAndLeaveChoicesAlone_whenTheFormHadNoBox() {
         values.put(AppointmentReminderChoice.SHOWN_PARAMETER, "1");
         assertThat(service.apply(user, values, 10016)).isEqualTo(3);
         verify(reminders, times(3)).recordRequest(eq(user), anyInt(), eq(1), eq(ReminderChannel.EMAIL), eq(false));
@@ -234,7 +234,7 @@ class RecurringAppointmentServiceIntegrationTest extends CarlosTestBase {
 
     /** A series Group Update applies the box to every member; Cancel and Delete leave the choices alone. */
     @Test
-    void shouldApplyTheBox_toEverySeriesMemberOnGroupUpdate_butNotOnCancelOrDelete() {
+    void shouldApplyTheBoxToEverySeriesMember_onGroupUpdateButNotOnCancelOrDelete() {
         service.apply(user, values, 10016);
         verifyNoInteractions(reminders);
         values.put("appointment_no", rows().getFirst().getId().toString());

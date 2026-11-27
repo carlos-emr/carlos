@@ -63,6 +63,10 @@ public class AppointmentReminderScheduler {
         this.reminders = Objects.requireNonNull(reminders, "reminders");
     }
 
+    /**
+     * Starts the five-minute run, only when the clinic has turned on {@value #ENABLED_PROPERTY}; otherwise, or when
+     * already started, does nothing.
+     */
     @PostConstruct
     public synchronized void start() {
         // Either channel's switch starts the job; each channel then sends only while its own is on (#884).
@@ -79,6 +83,11 @@ public class AppointmentReminderScheduler {
         logger.info("Appointment reminders run every {} seconds", INTERVAL_SECONDS);
     }
 
+    /**
+     * Stops the schedule and interrupts a run, which stops between reminders. Waits up to
+     * {@value #STOP_WAIT_SECONDS} seconds for it, then stops without it (its stranded reminder is recovered as
+     * unconfirmed later). If the waiting thread is interrupted, its interrupt status is kept.
+     */
     @PreDestroy
     public synchronized void stop() {
         if (executor != null) {

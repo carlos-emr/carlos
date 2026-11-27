@@ -998,38 +998,66 @@
             if (element) element.textContent = div + " Error: " + request.status;
             updateNavbarLoadState(state);
         }
-        try {
-            var xhr = CarlosAjax.request(url, {
-                method: 'post', postBody: params, evalScripts: true,
-                onSuccess: function (request) {
-                    if (!current()) return;
-                    try {
-                        // Preferences may have intentionally removed the module.
-                        var element = $(div);
-                        if (element) element.update(request.responseText);
-                        module.status = "loaded";
-                        updateNavbarLoadState(state);
-                    } catch (error) {
-                        failed(request);
-                        throw error;
+        // Every encounter/display* navbar action renders a read-only fragment, even though it uses POST.
+        var displayPrefix = ctx + "/encounter/";
+        var path = typeof url === "string" ? url.split(/[?#]/)[0] : "";
+        var canRetry = path.indexOf(displayPrefix) === 0
+            && /^display(?:FamilyDoctor|ReferringDoctor|Prevention|Tickler|Messages|Documents|Labs|HRM|Measurements|Consultation|Econsultation|Forms|EForms|Disease|Allergy|Rx|Issues|ResolvedIssues|DecisionSupportAlerts|Episodes|Pregnancies|Contacts)$/
+                .test(path.slice(displayPrefix.length));
+        var retryTimeoutMs = 15000;
+
+        function send(retry) {
+            try {
+                var xhr = CarlosAjax.request(url, {
+                    method: 'post', postBody: params, evalScripts: true,
+                    onSuccess: function (request) {
+                        if (!current()) return;
+                        try {
+                            // Preferences may have intentionally removed the module.
+                            var element = $(div);
+                            if (element) element.update(request.responseText);
+                            module.status = "loaded";
+                            module.recovered = retry;
+                            updateNavbarLoadState(state);
+                        } catch (error) {
+                            failed(request);
+                            throw error;
+                        }
+                    },
+                    onComplete: function (request) {
+                        if (!current() || module.status !== "loading") return;
+                        if (request.networkError && canRetry && !retry) {
+                            // Let the browser retire the failed connection before trying again.
+                            setTimeout(function () {
+                                if (current() && module.status === "loading") send(true);
+                            }, 0);
+                        } else {
+                            failed(request);
+                        }
                     }
-                },
-                onFailure: failed,
-                onComplete: function (request) {
-                    // Keep failures/aborted callback paths from leaving a busy column.
-                    if (current() && module.status === "loading") failed(request);
+                });
+                if (xhr) {
+                    // Bound the replacement attempt so a stalled retry surfaces an error instead of
+                    // leaving module.status === "loading" and its column busy indefinitely.
+                    if (retry) xhr.timeout = retryTimeoutMs;
+                    if (typeof xhr.addEventListener === "function") {
+                        xhr.addEventListener("abort", function () {
+                            if (module.status === "loading") failed({status: 0});
+                        });
+                        xhr.addEventListener("timeout", function () {
+                            if (module.status === "loading") failed({status: 0});
+                        });
+                    }
                 }
-            });
-            if (xhr && typeof xhr.addEventListener === "function") {
-                xhr.addEventListener("abort", function () { failed({status: 0}); });
-                xhr.addEventListener("timeout", function () { failed({status: 0}); });
+                return xhr;
+            } catch (error) {
+                failed({status: 0});
+                // Continue scheduling the remaining modules after a synchronous send failure.
+                console.error("Navbar request failed:", error);
             }
-            return xhr;
-        } catch (error) {
-            failed({status: 0});
-            // Continue scheduling the remaining modules after a synchronous send failure.
-            console.error("Navbar request failed:", error);
         }
+
+        return send(false);
     }
 
     function navBarLoader() {
@@ -1508,30 +1536,85 @@ function updateCPPNote() {
 
     function loadDiv(div, url, limit, complete) {
         var refreshed = false;
+        var completed = false;
+        var navKey = typeof div === 'string' ? div : (div && div.id);
+        var navState = typeof window !== 'undefined' ? window.carlosNavbarLoadState : null;
+        var navModule = null;
+        // Share navbar module ownership with requestNavbarColumn so a newer loadDiv
+        // refresh (such as onIssueUpdate) supersedes queued or in-flight navbar retries.
+        if (navKey && navState && navState.modules && Object.prototype.hasOwnProperty.call(navState.modules, navKey)) {
+            navModule = {column: navState.modules[navKey].column, status: 'loading'};
+            navState.modules[navKey] = navModule;
+            if (typeof updateNavbarLoadState === 'function') updateNavbarLoadState(navState);
+        }
+        function navCurrent() {
+            return !navModule || (typeof window !== 'undefined'
+                && window.carlosNavbarLoadState === navState
+                && navState.modules[navKey] === navModule);
+        }
+        function settleNav(status) {
+            if (!navModule || !navCurrent()) return;
+            navModule.status = status;
+            if (typeof updateNavbarLoadState === 'function') updateNavbarLoadState(navState);
+        }
+        function finish(ok) {
+            if (completed) return;
+            completed = true;
+            if (complete) complete(ok);
+        }
 
-        CarlosAjax.request(
-            url,
-            {
-                method: 'post',
-                // ChartNotes.jsp's standalone route loads this script without the chart layout's
-                // appointmentNo global; an undeclared name must mean "no appointment", not a ReferenceError.
-                postBody: 'demographicNo=' + encodeURIComponent(demographicNo)
-                    + '&appointmentNo=' + encodeURIComponent(typeof appointmentNo === 'undefined' || appointmentNo == null ? '0' : appointmentNo)
-                    + (chartContext ? '&chartContext=' + encodeURIComponent(chartContext) : ''),
-                evalScripts: true,
-                onSuccess: function (request) {
-                    $(div).update(request.responseText);
-                    if (typeof notifyDivLoaded === 'function') notifyDivLoaded($(div).id);
-                    refreshed = true;
-                },
-                onFailure: function (request) {
-                    showChartLoadError(div, request.status);
-                },
-                onComplete: function (request) {
-                    if (complete) complete(refreshed && request.status >= 200 && request.status < 300);
+        var xhr;
+        try {
+            xhr = CarlosAjax.request(
+                url,
+                {
+                    method: 'post',
+                    // ChartNotes.jsp's standalone route loads this script without the chart layout's
+                    // appointmentNo global; an undeclared name must mean "no appointment", not a ReferenceError.
+                    postBody: 'demographicNo=' + encodeURIComponent(demographicNo)
+                        + '&appointmentNo=' + encodeURIComponent(typeof appointmentNo === 'undefined' || appointmentNo == null ? '0' : appointmentNo)
+                        + (chartContext ? '&chartContext=' + encodeURIComponent(chartContext) : ''),
+                    evalScripts: true,
+                    onSuccess: function (request) {
+                        if (!navCurrent()) return;
+                        try {
+                            $(div).update(request.responseText);
+                            if (typeof notifyDivLoaded === 'function') notifyDivLoaded($(div).id);
+                            refreshed = true;
+                            settleNav('loaded');
+                        } catch (error) {
+                            settleNav('error');
+                            throw error;
+                        }
+                    },
+                    onFailure: function (request) {
+                        if (!navCurrent()) return;
+                        showChartLoadError(div, request.status);
+                        settleNav('error');
+                    },
+                    onComplete: function (request) {
+                        if (navModule && navCurrent() && navModule.status === 'loading') {
+                            settleNav('error');
+                        }
+                        finish(!navCurrent() || (refreshed && request.status >= 200 && request.status < 300));
+                    }
                 }
-            }
-        );
+            );
+        } catch (error) {
+            settleNav('error');
+            finish(false);
+            throw error;
+        }
+        if ((navModule || complete) && xhr && typeof xhr.addEventListener === 'function') {
+            xhr.addEventListener('abort', function () {
+                if (navModule && navModule.status === 'loading') settleNav('error');
+                finish(!navCurrent());
+            });
+            xhr.addEventListener('timeout', function () {
+                if (navModule && navModule.status === 'loading') settleNav('error');
+                finish(!navCurrent());
+            });
+        }
         return false;
 
     }
@@ -3274,7 +3357,10 @@ function updateCPPNote() {
     }
 
     var changeIssueMsg;
+    // issueId is the row's patient issue (casemgmt_issue id), captured at this click and
+    // resolved by the server; it is never the row's list position (#6090).
     function changeDiagnosis(issueId) {
+        if (!CASE_ISSUE_ID_PATTERN.test(String(issueId)) || noteIssueMutationRefused()) return false;
         document.forms['caseManagementEntryForm'].change_diagnosis_id.value = issueId;
         var button = document.getElementById('asgnIssues');
         if (button) {
@@ -3518,6 +3604,104 @@ function updateCPPNote() {
     function setNoteIssueControlsBusy(busy) {
         if ($("issueAutocomplete")) $("issueAutocomplete").disabled = busy;
         if ($("asgnIssues")) $("asgnIssues").disabled = busy;
+        setNoteIssueRowsBusy(busy);
+    }
+
+    // Issue-row mutations (#6090). Every Change, Delete and status radio names its patient issue
+    // (data-case-issue-id), and the request carries that id and the clicked value, captured at the
+    // click. The server resolves the id, so a refresh that rebuilds or reorders the checklist cannot
+    // turn the click into a change to another issue. While any issue update or refresh is in flight
+    // the row controls are disabled and further clicks are refused rather than queued: the next
+    // fragment shows the stored state, and the clinician makes the next change from what it shows.
+    var NOTE_ISSUE_FIELDS = ['acute', 'certain', 'major', 'resolved'];
+    var CASE_ISSUE_ID_PATTERN = /^[1-9]\d{0,18}$/;
+
+    function setNoteIssueRowsBusy(busy) {
+        var issues = $("noteIssues");
+        if (!issues || typeof issues.querySelectorAll !== 'function') return;
+        issues.querySelectorAll('input[type="radio"][data-issue-field], a[data-issue-action]').forEach(function (control) {
+            if (control.tagName === 'A') {
+                if (busy) control.setAttribute('aria-disabled', 'true');
+                else control.removeAttribute('aria-disabled');
+            } else if (busy && !control.disabled) {
+                // Remember which radios this busy state disabled; read-only rows stay disabled.
+                control.disabled = true;
+                control.setAttribute('data-issue-busy', 'true');
+            } else if (!busy && control.getAttribute('data-issue-busy') === 'true') {
+                control.disabled = false;
+                control.removeAttribute('data-issue-busy');
+            }
+        });
+    }
+
+    function noteIssueMutationRefused() {
+        if (noteSwitchSavePending) {
+            alert(noteSavingMessage);
+            return true;
+        }
+        return issueUpdatesPending > 0;
+    }
+
+    function restoreRenderedIssueChoice(control, uncertain) {
+        var form = control.form;
+        if (!form) return;
+        Array.from(form.elements).forEach(function (other) {
+            if (other.type !== 'radio' || other.name !== control.name) return;
+            other.checked = !uncertain && other.defaultChecked;
+            if (uncertain) {
+                // No selected radio represents the unknown state until a fresh fragment arrives.
+                other.disabled = true;
+                other.removeAttribute('data-issue-busy');
+            }
+        });
+    }
+
+    function changeNoteIssue(control) {
+        var id = control.getAttribute('data-case-issue-id');
+        var field = control.getAttribute('data-issue-field');
+        var value = control.value;
+        if (!CASE_ISSUE_ID_PATTERN.test(id || '') || NOTE_ISSUE_FIELDS.indexOf(field) < 0
+                || (value !== 'true' && value !== 'false')) {
+            restoreRenderedIssueChoice(control);
+            alert(updateIssueError);
+            return false;
+        }
+        if (noteIssueMutationRefused()) {
+            restoreRenderedIssueChoice(control);
+            return false;
+        }
+        return requestIssueMutation('issueChange', {caseIssueId: id, issueField: field, issueValue: value},
+            function () { restoreRenderedIssueChoice(control); },
+            function () { restoreRenderedIssueChoice(control, true); });
+    }
+
+    function deleteNoteIssue(link, detailsId) {
+        var id = link.getAttribute('data-case-issue-id');
+        if (!CASE_ISSUE_ID_PATTERN.test(id || '')) {
+            alert(updateIssueError);
+            return false;
+        }
+        if (noteIssueMutationRefused()) return false;
+        removeIssue(detailsId);
+        return requestIssueMutation('issueDelete', {caseIssueId: id});
+    }
+
+    function requestIssueMutation(method, params, onRejected, onUncertain) {
+        var issues = $("noteIssues");
+        var container = issues ? issues.parentNode : null;
+        if (!container || !container.id) {
+            if (onRejected) onRejected();
+            alert(updateIssueError);
+            return false;
+        }
+        return ajaxUpdateIssues(method, container.id, method !== 'issueDelete', null, null, {
+            params: params,
+            onRejected: onRejected,
+            reconcile: onUncertain && function () {
+                onUncertain();
+                ajaxUpdateIssues('edit', container.id, true);
+            }
+        });
     }
 
     function finishIssueUpdate(succeeded) {
@@ -3552,12 +3736,13 @@ function updateCPPNote() {
         issueRefreshQueue.shift()();
     }
 
-    function ajaxUpdateIssues(method, div, preserveSelections, complete, failureMessage) {
+    function ajaxUpdateIssues(method, div, preserveSelections, complete, failureMessage, mutation) {
         // Mutations refresh the current editor; opening a different note must not
         // inherit the previous note's selections. Explicit edit refreshes opt in.
         if (preserveSelections == null) preserveSelections = method !== 'edit';
         failureMessage = failureMessage || updateIssueError;
         if (noteSwitchSavePending) {
+            if (mutation && mutation.onRejected) mutation.onRejected();
             if (complete) complete(false);
             alert(noteSavingMessage);
             return false;
@@ -3574,6 +3759,12 @@ function updateCPPNote() {
                 try { complete(succeeded); }
                 finally { runNextIssueRefresh(); }
             }
+            function refused(status) {
+                var confirmed = [400, 401, 403, 404, 405, 409, 422].indexOf(status) >= 0;
+                if (mutation && confirmed && mutation.onRejected) mutation.onRejected();
+                refreshed(false);
+                if (mutation && !confirmed && mutation.reconcile) mutation.reconcile();
+            }
             try {
                 var frm = document.forms["caseManagementEntryForm"];
                 frm.method.value = method;
@@ -3581,6 +3772,7 @@ function updateCPPNote() {
 
                 var url = chartActionUrl("/CaseManagementEntry");
                 var p = Form.serialize(frm);
+                if (mutation) p += "&" + new URLSearchParams(mutation.params).toString();
                 var assignedIssue = (method === 'makeIssue' || method === 'issueAdd') && frm.elements && frm.elements.newIssueId
                     ? String(frm.elements.newIssueId.value) : '';
                 if (preserveSelections && method === 'edit') p += '&preserveIssueEditor=true&forceNote=true';
@@ -3642,13 +3834,14 @@ function updateCPPNote() {
                                     origObservationDate = originalDate;
                                     noteIssuesChanged = issuesChanged;
                                 }
+                                setNoteIssueControlsBusy(true);
                                 onIssueUpdate(refreshed);
                             } else {
                                 if (captured && response.status >= 200 && response.status < 300) alert(failureMessage);
-                                refreshed(false);
+                                refused(response.status);
                             }
                         } catch (e) {
-                            refreshed(false);
+                            refused(response.status);
                             alert(failureMessage);
                         }
                     },
@@ -3657,7 +3850,7 @@ function updateCPPNote() {
                     }
                 });
             } catch (e) {
-                refreshed(false);
+                refused(0);
                 alert(failureMessage);
             }
         });

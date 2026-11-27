@@ -51,6 +51,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.ResourceBundle;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 /**
@@ -65,9 +66,11 @@ import java.util.function.Supplier;
  * returned without sending and without an email log row.
  *
  * <p>What this class returns is what it knows: a refusal or a failure before {@link EmailManager} could hand
- * the email to the mail server is recorded as not sent, with the exception's class as the reason. Only an
- * exception {@code EmailManager} raises once it may have started the send is left to the service, which
- * records it as unconfirmed and never sends that start again.
+ * the email to the mail server is recorded as not sent, with the exception's class as the reason. Whether
+ * {@code EmailManager} reached the transport is told by its {@link EmailManager.DispatchGate}, which runs just
+ * before it: an exception thrown before the gate ran (writing the outbox row, archiving) sent nothing and gets
+ * the retry. Only an exception raised once the gate has run, when the send may have started, is left to the
+ * service, which records it as unconfirmed and never sends that start again.
  *
  * @since 2026-11-12
  */
@@ -169,14 +172,32 @@ public class EmailReminderChannel implements AppointmentReminderChannel {
             // Before the email reached EmailManager's send: nothing was sent, so it is a definite failure.
             return ReminderOutcome.because(AppointmentReminderStatus.FAILED, e);
         }
+        return sendThroughEmailManager(system, email);
+    }
+
+    /**
+     * Hands the reminder to {@link EmailManager}. What it refuses or fails before its dispatch gate runs was not
+     * sent; an exception once the gate has run is rethrown, for the service to record as unconfirmed.
+     */
+    private ReminderOutcome sendThroughEmailManager(LoggedInInfo system, EmailData email) {
+        // Set by EmailManager immediately before it asks the transport to send: until then nothing has left.
+        AtomicBoolean dispatching = new AtomicBoolean();
         try {
-            return outcome(emails.sendEmailWithResult(system, email));
+            return outcome(emails.sendEmailWithResult(system, email, emailLog -> dispatching.set(true)));
         } catch (SecurityException | PatientDirectiveException e) {
             // EmailManager's checks of the sender and the patient, before its outbox row and the transport.
             return ReminderOutcome.because(AppointmentReminderStatus.NOT_PERMITTED, e);
         } catch (EmailFieldLengthException e) {
             // Thrown by EmailManager's field check, before its outbox row and the transport.
             return ReminderOutcome.because(AppointmentReminderStatus.FAILED, e);
+        } catch (RuntimeException e) {
+            if (!dispatching.get()) {
+                // Failed before the transport was reached (the outbox row could not be written, say): nothing was
+                // sent, so it is a definite failure and gets its retry.
+                return ReminderOutcome.because(AppointmentReminderStatus.FAILED, e);
+            }
+            // The send may have started: unknown, so the service records it as unconfirmed, never sent again.
+            throw e;
         }
     }
 

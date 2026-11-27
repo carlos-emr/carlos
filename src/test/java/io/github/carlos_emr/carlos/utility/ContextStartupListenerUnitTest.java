@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.utility;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
+import io.github.carlos_emr.carlos.commn.dao.EmailLogDao;
 import io.github.carlos_emr.carlos.commn.dao.FacilityDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao;
 import io.github.carlos_emr.carlos.commn.dao.SiteDao;
@@ -36,12 +37,23 @@ import io.github.carlos_emr.carlos.commn.jobs.OscarJobUtils;
 import io.github.carlos_emr.carlos.fax.core.FaxSchedulerJob;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMFixMissingReportHelper;
 import io.github.carlos_emr.carlos.integration.mcedt.mailbox.CidPrefixResourceResolver;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteCodeSweeper;
 import jakarta.servlet.ServletContextEvent;
+import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.xml.security.utils.resolver.ResourceResolver;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockServletContext;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
 import org.springframework.transaction.support.DefaultTransactionStatus;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -88,6 +100,111 @@ class ContextStartupListenerUnitTest {
         }
     }
 
+    @Test void shouldScheduleThePortalInviteSweepOnce_evenWhenInitializationRunsTwice_andCancelItOnShutdown() {
+        var maintenance = mock(CdsImportMaintenanceService.class);
+        var emailLogs = mock(EmailLogDao.class);
+        var scheduler = mock(TaskScheduler.class);
+        var future = mock(ScheduledFuture.class);
+        var transactionManager = mock(PlatformTransactionManager.class);
+        doReturn(future).when(scheduler).scheduleWithFixedDelay(any(Runnable.class), any(Instant.class), any(java.time.Duration.class));
+        var listener = spy(new ContextStartupListener());
+        doNothing().when(listener).initializeDefaultData(transactionManager);
+        doNothing().when(listener).loadCaches();
+        ReflectionTestUtils.setField(listener, "maintenance", maintenance);
+        ReflectionTestUtils.setField(listener, "clinicalStartup", mock(ClinicalStartupCoordinator.class));
+        try (var spring = mockStatic(SpringUtils.class);
+                var jobs = mockStatic(OscarJobUtils.class);
+                var hrm = mockConstruction(HRMFixMissingReportHelper.class)) {
+            spring.when(() -> SpringUtils.getBean(PlatformTransactionManager.class)).thenReturn(transactionManager);
+            spring.when(() -> SpringUtils.getBean(FaxSchedulerJob.class)).thenReturn(mock(FaxSchedulerJob.class));
+            spring.when(() -> SpringUtils.getBean(EmailLogDao.class)).thenReturn(emailLogs);
+            spring.when(() -> SpringUtils.getBean(TaskScheduler.class)).thenReturn(scheduler);
+
+            ReflectionTestUtils.invokeMethod(listener, "initializeClinicalProcesses");
+            // The coordinator re-runs the whole initialization after maintenance returns or a gate read fails.
+            ReflectionTestUtils.invokeMethod(listener, "initializeClinicalProcesses");
+
+            // The sweep that clears invitation codes from saved emails is scheduled once, with its own interval.
+            verify(scheduler, times(1)).scheduleWithFixedDelay(any(PortalInviteCodeSweeper.class), any(Instant.class),
+                    eq(PortalInviteCodeSweeper.INTERVAL));
+            listener.contextDestroyed(new ServletContextEvent(new MockServletContext()));
+            verify(future).cancel(false);
+        } finally { MiscUtils.setShutdownSignaled(false); }
+    }
+
+    // A phase guard rather than a regression test for the restored call: it also passes without the call, and fails
+    // if the call is ever moved ahead of the maintenance gate.
+    @Test void shouldHoldThePortalInviteSweepBack_whileClinicalStartupIsDeferred() {
+        var maintenance = mock(CdsImportMaintenanceService.class);
+        when(maintenance.isClinicalAccessBlocked()).thenReturn(true);
+        var scheduler = mock(TaskScheduler.class);
+        var listener = spy(new ContextStartupListener());
+        ReflectionTestUtils.setField(listener, "maintenance", maintenance);
+        ReflectionTestUtils.setField(listener, "clinicalStartup", mock(ClinicalStartupCoordinator.class));
+        try (var spring = mockStatic(SpringUtils.class)) {
+            spring.when(() -> SpringUtils.getBean(TaskScheduler.class)).thenReturn(scheduler);
+
+            assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(listener, "initializeClinicalProcesses"))
+                    .isInstanceOf(IllegalStateException.class).hasMessage("Clinical startup deferred");
+
+            verifyNoInteractions(scheduler);
+        }
+    }
+
+    @Test void shouldRetryPortalInviteSweepRegistration_afterTheSchedulerRejectsIt() {
+        var maintenance = mock(CdsImportMaintenanceService.class);
+        var scheduler = mock(TaskScheduler.class);
+        var future = mock(ScheduledFuture.class);
+        var retryWorker = mock(ScheduledExecutorService.class);
+        var listener = new ContextStartupListener();
+        ReflectionTestUtils.setField(listener, "maintenance", maintenance);
+        doThrow(new RejectedExecutionException("temporarily unavailable")).doReturn(future).when(scheduler)
+                .scheduleWithFixedDelay(any(Runnable.class), any(Instant.class), eq(PortalInviteCodeSweeper.INTERVAL));
+
+        try (var spring = mockStatic(SpringUtils.class); var executors = mockStatic(Executors.class)) {
+            spring.when(() -> SpringUtils.getBean(EmailLogDao.class)).thenReturn(mock(EmailLogDao.class));
+            spring.when(() -> SpringUtils.getBean(TaskScheduler.class)).thenReturn(scheduler);
+            executors.when(() -> Executors.newSingleThreadScheduledExecutor(any(ThreadFactory.class))).thenReturn(retryWorker);
+            ReflectionTestUtils.invokeMethod(listener, "forgetLeftoverPortalInviteCodes");
+
+            var retry = ArgumentCaptor.forClass(Runnable.class);
+            verify(retryWorker).scheduleWithFixedDelay(retry.capture(), anyLong(), anyLong(), eq(TimeUnit.SECONDS));
+            when(maintenance.isClinicalAccessBlocked()).thenReturn(true, false);
+            retry.getValue().run();
+            verify(scheduler).scheduleWithFixedDelay(any(Runnable.class), any(Instant.class), eq(PortalInviteCodeSweeper.INTERVAL));
+            retry.getValue().run();
+            verify(scheduler, times(2)).scheduleWithFixedDelay(any(Runnable.class), any(Instant.class), eq(PortalInviteCodeSweeper.INTERVAL));
+            verify(retryWorker).shutdown();
+            listener.contextDestroyed(new ServletContextEvent(new MockServletContext()));
+            verify(future).cancel(false);
+        } finally { MiscUtils.setShutdownSignaled(false); }
+    }
+
+    @Test void shouldNotScheduleThePortalInviteSweep_afterTheContextWasDestroyed() {
+        var maintenance = mock(CdsImportMaintenanceService.class);
+        var scheduler = mock(TaskScheduler.class);
+        var transactionManager = mock(PlatformTransactionManager.class);
+        var listener = spy(new ContextStartupListener());
+        doNothing().when(listener).initializeDefaultData(transactionManager);
+        doNothing().when(listener).loadCaches();
+        ReflectionTestUtils.setField(listener, "maintenance", maintenance);
+        ReflectionTestUtils.setField(listener, "clinicalStartup", mock(ClinicalStartupCoordinator.class));
+        try (var spring = mockStatic(SpringUtils.class);
+                var jobs = mockStatic(OscarJobUtils.class);
+                var hrm = mockConstruction(HRMFixMissingReportHelper.class)) {
+            spring.when(() -> SpringUtils.getBean(PlatformTransactionManager.class)).thenReturn(transactionManager);
+            spring.when(() -> SpringUtils.getBean(FaxSchedulerJob.class)).thenReturn(mock(FaxSchedulerJob.class));
+            spring.when(() -> SpringUtils.getBean(EmailLogDao.class)).thenReturn(mock(EmailLogDao.class));
+            spring.when(() -> SpringUtils.getBean(TaskScheduler.class)).thenReturn(scheduler);
+            listener.contextDestroyed(new ServletContextEvent(new MockServletContext()));
+
+            // A startup that was still running on the clinical thread when shutdown began must not start a timer.
+            ReflectionTestUtils.invokeMethod(listener, "initializeClinicalProcesses");
+
+            verifyNoInteractions(scheduler);
+        } finally { MiscUtils.setShutdownSignaled(false); }
+    }
+
     @Test void shouldNotStartFax_whenMaintenanceReentersAtTheFinalStartupBoundary() {
         var maintenance = mock(CdsImportMaintenanceService.class);
         when(maintenance.isClinicalAccessBlocked()).thenReturn(false, false, false, false, true);
@@ -108,6 +225,35 @@ class ContextStartupListenerUnitTest {
             verify(hrm.constructed().getFirst()).fixIt();
         }
     }
+
+    @Test void shouldDeferPortalInviteSweep_whenFaxInitializationReturnsDuringMaintenance() {
+        var maintenance = mock(CdsImportMaintenanceService.class);
+        var blocked = new AtomicBoolean();
+        when(maintenance.isClinicalAccessBlocked()).thenAnswer(call -> blocked.get());
+        var fax = mock(FaxSchedulerJob.class);
+        doAnswer(call -> {
+            blocked.set(true);
+            return null;
+        }).when(fax).retryDeferredInitialization();
+        var transactionManager = mock(PlatformTransactionManager.class);
+        var listener = spy(new ContextStartupListener());
+        doNothing().when(listener).initializeDefaultData(transactionManager);
+        doNothing().when(listener).loadCaches();
+        ReflectionTestUtils.setField(listener, "maintenance", maintenance);
+        ReflectionTestUtils.setField(listener, "clinicalStartup", mock(ClinicalStartupCoordinator.class));
+        try (var spring = mockStatic(SpringUtils.class);
+                var jobs = mockStatic(OscarJobUtils.class);
+                var hrm = mockConstruction(HRMFixMissingReportHelper.class)) {
+            spring.when(() -> SpringUtils.getBean(PlatformTransactionManager.class)).thenReturn(transactionManager);
+            spring.when(() -> SpringUtils.getBean(FaxSchedulerJob.class)).thenReturn(fax);
+
+            assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(listener, "initializeClinicalProcesses"))
+                    .isInstanceOf(IllegalStateException.class).hasMessage("Clinical startup deferred");
+            spring.verify(() -> SpringUtils.getBean(EmailLogDao.class), never());
+            spring.verify(() -> SpringUtils.getBean(TaskScheduler.class), never());
+        }
+    }
+
     @Test void shouldBootRecoveryContextWithoutClinicalQueries_whenMaintenanceIsRetained() {
         var maintenance = mock(CdsImportMaintenanceService.class);
         var imports = mock(CdsImportService.class);

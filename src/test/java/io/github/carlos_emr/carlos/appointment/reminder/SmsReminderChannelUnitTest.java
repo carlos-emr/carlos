@@ -356,7 +356,7 @@ class SmsReminderChannelUnitTest {
     @DisplayName("should read where a queued text got to, for the status line")
     void shouldReadWhereAQueuedTextGotTo_forTheStatusLine() {
         AppointmentReminder reminder = AppointmentReminder.requested(101, ReminderChannel.SMS, "999998", new Date());
-        reminder.startSending(new Date(), new Date());
+        reminder.startSending(new Date(), PATIENT, new Date());
         reminder.finish(AppointmentReminderStatus.QUEUED, null, 55L, new Date());
 
         assertThat(statusFor(reminder, null)).isEqualTo(AppointmentReminderStatus.QUEUED);
@@ -377,7 +377,7 @@ class SmsReminderChannelUnitTest {
     @DisplayName("should follow the text it handed over, after Group Update moved the reminder to a new number")
     void shouldFollowTheHandedOverText_afterGroupUpdateMovedTheReminder() {
         AppointmentReminder reminder = AppointmentReminder.requested(101, ReminderChannel.SMS, "999998", new Date());
-        reminder.startSending(new Date(), new Date());
+        reminder.startSending(new Date(), PATIENT, new Date());
         reminder.finish(AppointmentReminderStatus.QUEUED, null, 55L, new Date());
         reminder.moveTo(201, "999998", new Date());
         SmsTransaction handedOver = text(SmsStatus.QUEUED, null);

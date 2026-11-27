@@ -14,6 +14,21 @@ async function main() {
     let acceptedRunId = null;
     let formAction = null;
     try {
+        // Chromium can discard a streamed no-store body before CDP retrieves it.
+        // Observe a clone in the page while the application reads its own stream.
+        await page.addInitScript(() => {
+            const originalFetch = globalThis.fetch;
+            globalThis.fetch = async function (...args) {
+                const response = await originalFetch.apply(this, args);
+                const method = args[1]?.method || (args[0] instanceof Request ? args[0].method : 'GET');
+                if (method.toUpperCase() === 'POST' && response.url
+                        && new URL(response.url).pathname.endsWith('/form/cdsExportSubmit')) {
+                    globalThis.__cdsExportSubmitJson = response.clone().json()
+                        .then(data => ({ok: true, data}), () => ({ok: false}));
+                }
+                return response;
+            };
+        });
         await page.goto(options.base + '/index', {waitUntil: 'domcontentloaded'});
         await page.locator('#username').fill(options.username);
         await page.locator('#password').fill(options.password);
@@ -61,14 +76,8 @@ async function main() {
         await page.locator('#auditPlanId').fill('native');
         formAction = 'SUBMISSION_KEY';
         const key = await page.locator('#submissionKey').inputValue();
-        // Capture the body as soon as the response arrives. Waiting until click() finishes
-        // can leave Chromium's response body unavailable while the page processes acceptance.
-        // Settle failures here so an early body-read error cannot become an unhandled rejection.
         const responsePromise = page.waitForResponse(response =>
             response.url().includes('/form/cdsExportSubmit') && response.request().method() === 'POST')
-            .then(async response => ({
-                status: response.status(), headers: response.headers(), accepted: await response.json()
-            }))
             .then(value => ({value}), failure => ({failure}));
         formAction = 'SUBMIT';
         await page.locator('#submitExport').click();
@@ -76,9 +85,12 @@ async function main() {
         const captured = await responsePromise;
         if (captured.failure) throw captured.failure;
         const response = captured.value;
-        assert.equal(response.status, 202);
-        assert.equal(response.headers['x-carlos-cds-export-api-version'], '1');
-        const accepted = response.accepted;
+        assert.equal(response.status(), 202);
+        assert.equal(response.headers()['x-carlos-cds-export-api-version'], '1');
+        await page.waitForFunction(() => globalThis.__cdsExportSubmitJson !== undefined);
+        const observed = await page.evaluate(() => globalThis.__cdsExportSubmitJson);
+        assert.equal(observed?.ok, true);
+        const accepted = observed.data;
         assert.equal(accepted.ok, true);
         assert.equal(accepted.submissionKey, key);
         assert.equal(accepted.job.state, 'ACCEPTED');

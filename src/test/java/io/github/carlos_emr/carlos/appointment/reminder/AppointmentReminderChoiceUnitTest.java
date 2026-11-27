@@ -183,8 +183,8 @@ class AppointmentReminderChoiceUnitTest extends CarlosUnitTestBase {
     /**
      * On the group page each booking is already saved when its reminder is recorded (Group Update's steps run
      * after its transaction commits). A reminder that cannot be stored must not stop the page halfway or show an
-     * error page that invites a second submit (and a duplicate booking); Edit then shows the box unticked, so
-     * staff can tick it again.
+     * error page that invites a second submit (and a duplicate booking); staff then reopen the appointment and
+     * save the choice they intended.
      */
     @Test
     void shouldNotStopTheGroupPage_whenTheReminderCannotBeStored() {
@@ -201,6 +201,22 @@ class AppointmentReminderChoiceUnitTest extends CarlosUnitTestBase {
                 .doesNotThrowAnyException();
 
         verify(reminders).recordRequest(user, 202, 42, ReminderChannel.EMAIL, true);
+    }
+
+    /**
+     * Group Update writes the Edit form's choice for a rebooked appointment only once its reminders have moved
+     * (#5887 review), so the move says whether it completed.
+     */
+    @Test
+    void shouldSayWhetherTheMoveCompleted_onTheGroupPage() {
+        AppointmentReminderService reminders = createAndRegisterMock(AppointmentReminderService.class);
+
+        assertThat(AppointmentReminderChoice.moveReminders(form(true, true), user, 101, appointment(201))).isTrue();
+        assertThat(AppointmentReminderChoice.moveReminders(form(false, true), user, 101, appointment(201)))
+                .as("nothing to move without the box").isTrue();
+
+        when(reminders.moveReminders(any(), anyInt(), anyInt())).thenThrow(new IllegalStateException("FAKE"));
+        assertThat(AppointmentReminderChoice.moveReminders(form(true, true), user, 101, appointment(201))).isFalse();
     }
 
     /** The failure is not silent: the group page's result says the reminder was not recorded. */

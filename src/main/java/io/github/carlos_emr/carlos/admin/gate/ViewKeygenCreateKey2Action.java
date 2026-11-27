@@ -172,23 +172,18 @@ public final class ViewKeygenCreateKey2Action extends ActionSupport {
             return showError(request, "Failed: Key pair has already been created for the service '" + name + "'");
         }
 
-        // The file is useless without the server's public key. Look it up before storing the
-        // service pair: storing first left a pair nobody received, and its name could then not
-        // be used again ("already created").
-        String serverPublicKey = KeyPairGen.getPublic();
-        if (serverPublicKey == null) {
+        KeyPairGen.ClientKeys keys = KeyPairGen.createClientKeys(name, type);
+        if (keys.status() == KeyPairGen.ClientKeyStatus.CARLOS_KEY_MISSING) {
             return showError(request, "Failed: The CARLOS key pair has not been created yet. "
-                    + "Create it first by entering the service name 'oscar'.");
+                    + "Create it first by entering the service name 'oscar', then retry '" + name + "'.");
         }
-
-        String clientPrivateKey = KeyPairGen.createKeys(name, type);
-        if (clientPrivateKey == null) {
-            return showError(request, "Failed: Could not create key pair");
+        if (keys.status() != KeyPairGen.ClientKeyStatus.CREATED) {
+            return showError(request, "Failed: Could not create key pair. The server log records the cause");
         }
 
         byte[] keyFile = ("-------- Service Name --------\n" + name + "\n------------------------------\n"
-                + "----- Client Private Key -----\n" + clientPrivateKey + "\n------------------------------\n"
-                + "------ Oscar Public Key ------\n" + serverPublicKey + "\n------------------------------")
+                + "----- Client Private Key -----\n" + keys.clientPrivateKey() + "\n------------------------------\n"
+                + "------ Oscar Public Key ------\n" + keys.carlosPublicKey() + "\n------------------------------")
                 .getBytes(StandardCharsets.UTF_8);
 
         response.setContentType("text/plain;charset=UTF-8");

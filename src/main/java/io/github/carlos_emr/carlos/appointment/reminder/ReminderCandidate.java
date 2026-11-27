@@ -25,7 +25,9 @@ import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.AppointmentReminder;
 
 /**
- * A requested reminder and its appointment, read without locks to find what may be due (#5887).
+ * A requested reminder and its appointment, read without locks to find what may be due (#5887). In the
+ * same-visit check, a reminder already handed over whose booking has since been deleted has no appointment
+ * ({@code null}).
  *
  * @since 2026-11-12
  */

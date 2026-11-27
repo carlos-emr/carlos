@@ -70,6 +70,7 @@ import io.github.carlos_emr.carlos.email.core.EmailFooterLogoService;
 import io.github.carlos_emr.carlos.email.core.EmailInlineImage;
 import io.github.carlos_emr.carlos.email.core.EmailSender;
 import io.github.carlos_emr.carlos.email.core.EmailSenderFactory;
+import io.github.carlos_emr.carlos.email.core.PdfAttachmentSigningService;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.test.util.EncryptionKeyTestSupport;
@@ -478,7 +479,8 @@ class EmailManagerUnitTest extends CarlosUnitTestBase {
     }
 
     private void initializeEmailManager(EmailConsentResolver resolver) {
-        emailManager = new EmailManager(resolver, emailSenderFactory, securityInfoManager, mock(OutboundEmailArchiveService.class));
+        emailManager = new EmailManager(resolver, emailSenderFactory, securityInfoManager, mock(OutboundEmailArchiveService.class),
+                mock(PdfAttachmentSigningService.class));
         injectDependency(emailManager, "clinicFooterService", io.github.carlos_emr.carlos.email.core.ConfiguredClinicFooterFixture.service(footerLogoService));
         injectDependency(emailManager, "emailConfigDao", emailConfigDao);
         injectDependency(emailManager, "emailLogDao", emailLogDao);

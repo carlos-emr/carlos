@@ -22,13 +22,13 @@ async function prepareEditor(editor, { noteId, text, chartContext, description }
   'Legacy full-form editor did not render its own note and chart identity');
   await editor.waitForFunction(() => !window.legacyAutosavePending);
   await editor.evaluate(() => clearTimeout(legacyAutosaveTimer));
-  const fields = await editor.locator('input[type="checkbox"][name^="issueCheckList["]').evaluateAll((inputs, caption) =>
+  const fields = await editor.locator('input[type="checkbox"][name="selectedCaseIssueId"]').evaluateAll((inputs, caption) =>
     inputs.filter(input => input.closest('tr')?.cells[1]?.textContent.trim() === caption.trim())
-      .map(input => ({ name: input.name, disabled: input.disabled })), description);
+      .map(input => ({ value: input.value, disabled: input.disabled })), description);
   h.assert(fields.length === 1 && !fields[0].disabled
-    && /^issueCheckList\[\d+\]\.checked$/.test(fields[0].name),
+    && /^[1-9]\d*$/.test(fields[0].value),
   'Legacy full-form editor has no unique enabled checkbox for its owned issue');
-  await editor.locator(`input[name="${fields[0].name}"]`).check();
+  await editor.locator(`input[name="selectedCaseIssueId"][value="${fields[0].value}"]`).check();
   await editor.locator('select[name="caseNote.encounter_type"]').selectOption('face to face encounter with client');
   await editor.locator('input[name="sign"]').uncheck();
   await editor.locator('input[name="includeIssue"]').uncheck();

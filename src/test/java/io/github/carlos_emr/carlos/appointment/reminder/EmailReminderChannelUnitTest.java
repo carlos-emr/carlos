@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.email.core.EmailSendResult;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
+import io.github.carlos_emr.carlos.managers.EmailManager.DispatchGate;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.junit.jupiter.api.BeforeEach;
@@ -127,20 +128,20 @@ class EmailReminderChannelUnitTest {
 
     private EmailData sent() {
         ArgumentCaptor<EmailData> email = ArgumentCaptor.forClass(EmailData.class);
-        verify(emails).sendEmailWithResult(any(LoggedInInfo.class), email.capture());
+        verify(emails).sendEmailWithResult(any(LoggedInInfo.class), email.capture(), any(DispatchGate.class));
         return email.getValue();
     }
 
     @Test
     void shouldSendAsTheSystemProvider_toTheFirstValidAddressWithoutAChartNote() {
-        when(emails.sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class)))
+        when(emails.sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class), any(DispatchGate.class)))
                 .thenReturn(EmailSendResult.accepted(log(900, EmailLog.EmailStatus.SUCCESS), true));
 
         ReminderOutcome outcome = channel.send(REMINDER);
 
         assertThat(outcome).isEqualTo(new ReminderOutcome(AppointmentReminderStatus.SENT, 900));
         ArgumentCaptor<LoggedInInfo> user = ArgumentCaptor.forClass(LoggedInInfo.class);
-        verify(emails).sendEmailWithResult(user.capture(), any(EmailData.class));
+        verify(emails).sendEmailWithResult(user.capture(), any(EmailData.class), any(DispatchGate.class));
         assertThat(user.getValue().getLoggedInProviderNo()).isEqualTo(Provider.SYSTEM_PROVIDER_NO);
         EmailData email = sent();
         assertThat(email.getRecipients()).containsExactly(ADDRESS);
@@ -155,7 +156,7 @@ class EmailReminderChannelUnitTest {
     /** The fixed wording (#5887), with only the clinic, the date and time, and the clinic phone filled in. */
     @Test
     void shouldWriteBensWording_withOnlyTheClinicDateTimeAndPhone() {
-        when(emails.sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class)))
+        when(emails.sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class), any(DispatchGate.class)))
                 .thenReturn(EmailSendResult.accepted(log(900, EmailLog.EmailStatus.SUCCESS), true));
         String date = DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG).withLocale(Locale.ENGLISH).format(START);
         String time = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(Locale.ENGLISH).format(START);
@@ -173,7 +174,7 @@ class EmailReminderChannelUnitTest {
     @Test
     void shouldWriteInFrench_forAFrenchSpeakingPatient() {
         patient.setOfficialLanguage("French");
-        when(emails.sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class)))
+        when(emails.sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class), any(DispatchGate.class)))
                 .thenReturn(EmailSendResult.accepted(log(900, EmailLog.EmailStatus.SUCCESS), true));
 
         channel.send(REMINDER);
@@ -187,7 +188,7 @@ class EmailReminderChannelUnitTest {
     @Test
     void shouldSayContactTheClinic_whenTheClinicHasNoPhone() {
         clinic.setClinicPhone("  ");
-        when(emails.sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class)))
+        when(emails.sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class), any(DispatchGate.class)))
                 .thenReturn(EmailSendResult.accepted(log(900, EmailLog.EmailStatus.SUCCESS), true));
 
         channel.send(REMINDER);
@@ -197,7 +198,7 @@ class EmailReminderChannelUnitTest {
 
     @ParameterizedTest(name = "{0}")
     @ValueSource(strings = {"en", "fr", "es", "pl", "pt_BR"})
-    void shouldHaveTheReminderTextInEveryBundle(String language) {
+    void shouldHaveTheReminderText_inEveryBundle(String language) {
         Locale locale = Locale.forLanguageTag(language.replace('_', '-'));
         ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", locale);
 
@@ -220,7 +221,7 @@ class EmailReminderChannelUnitTest {
         configuredSender = "fake-inactive@clinic.example.invalid";
         assertThat(channel.send(REMINDER).status()).isEqualTo(AppointmentReminderStatus.NO_SENDER);
 
-        verify(emails, never()).sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class));
+        verify(emails, never()).sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class), any(DispatchGate.class));
     }
 
     @Test
@@ -228,7 +229,7 @@ class EmailReminderChannelUnitTest {
         when(emails.clinicFooterMissing()).thenReturn(true);
 
         assertThat(channel.send(REMINDER).status()).isEqualTo(AppointmentReminderStatus.NO_FOOTER);
-        verify(emails, never()).sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class));
+        verify(emails, never()).sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class), any(DispatchGate.class));
     }
 
     @Test
@@ -241,7 +242,7 @@ class EmailReminderChannelUnitTest {
                 .thenReturn(new List<?>[]{List.of(), List.of("not-an-address")});
         assertThat(channel.send(REMINDER).status()).isEqualTo(AppointmentReminderStatus.INVALID_ADDRESS);
 
-        verify(emails, never()).sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class));
+        verify(emails, never()).sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class), any(DispatchGate.class));
     }
 
     /** Explicit email opt-in only (#5887). The check runs before anything is logged or sent. */
@@ -250,7 +251,7 @@ class EmailReminderChannelUnitTest {
         when(emails.consentBlockMessage(any(LoggedInInfo.class), any(EmailData.class))).thenReturn("FAKE not opted in");
 
         assertThat(channel.send(REMINDER).status()).isEqualTo(AppointmentReminderStatus.BLOCKED_CONSENT);
-        verify(emails, never()).sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class));
+        verify(emails, never()).sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class), any(DispatchGate.class));
     }
 
     @Test
@@ -265,7 +266,7 @@ class EmailReminderChannelUnitTest {
         assertThat(channel.send(REMINDER)).isEqualTo(
                 ReminderOutcome.because(AppointmentReminderStatus.NOT_PERMITTED, "noPatientAccess"));
         verify(demographics, never()).getDemographic(any(LoggedInInfo.class), anyInt());
-        verify(emails, never()).sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class));
+        verify(emails, never()).sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class), any(DispatchGate.class));
     }
 
     @Test
@@ -273,12 +274,12 @@ class EmailReminderChannelUnitTest {
         when(providers.getProvider(anyString())).thenReturn(null);
 
         assertThat(channel.send(REMINDER).status()).isEqualTo(AppointmentReminderStatus.NOT_PERMITTED);
-        verify(emails, never()).sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class));
+        verify(emails, never()).sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class), any(DispatchGate.class));
     }
 
     @Test
     void shouldMapEachSendResult_toTheReminderStatus() {
-        when(emails.sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class)))
+        when(emails.sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class), any(DispatchGate.class)))
                 .thenReturn(EmailSendResult.unconfirmed(log(901, EmailLog.EmailStatus.PENDING)))
                 .thenReturn(EmailSendResult.failed(log(902, EmailLog.EmailStatus.BLOCKED), true))
                 .thenReturn(EmailSendResult.failed(log(903, EmailLog.EmailStatus.FAILED), true));
@@ -294,7 +295,7 @@ class EmailReminderChannelUnitTest {
                 .thenReturn(false);
 
         assertThat(channel.send(REMINDER).status()).isEqualTo(AppointmentReminderStatus.NOT_PERMITTED);
-        verify(emails, never()).sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class));
+        verify(emails, never()).sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class), any(DispatchGate.class));
     }
 
     @Test
@@ -304,7 +305,7 @@ class EmailReminderChannelUnitTest {
 
         assertThat(channel.send(REMINDER)).isEqualTo(
                 new ReminderOutcome(AppointmentReminderStatus.NOT_PERMITTED, null, "PatientDirectiveException"));
-        verify(emails, never()).sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class));
+        verify(emails, never()).sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class), any(DispatchGate.class));
     }
 
     @Test
@@ -314,12 +315,12 @@ class EmailReminderChannelUnitTest {
 
         assertThat(channel.send(REMINDER)).isEqualTo(
                 new ReminderOutcome(AppointmentReminderStatus.FAILED, null, "IllegalStateException"));
-        verify(emails, never()).sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class));
+        verify(emails, never()).sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class), any(DispatchGate.class));
     }
 
     @Test
     void shouldRecordWhatEmailManagerRefusesBeforeItsOutbox_asNotSent() {
-        when(emails.sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class)))
+        when(emails.sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class), any(DispatchGate.class)))
                 .thenThrow(new EmailFieldLengthException(List.of()))
                 .thenThrow(new PatientDirectiveException("FAKE directive"));
 
@@ -330,11 +331,29 @@ class EmailReminderChannelUnitTest {
     }
 
     @Test
-    void shouldLeaveAnyOtherSendFailure_toTheServiceAsUnknown() {
-        // Thrown once EmailManager may have started the send: the channel cannot say it was not sent.
-        when(emails.sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class)))
-                .thenThrow(new IllegalStateException("FAKE transport fault"));
+    void shouldLeaveAFailureOnceTheTransportWasReached_toTheServiceAsUnknown() {
+        // Thrown after EmailManager's dispatch gate ran, just before the transport: the send may have started, so
+        // the channel cannot say it was not sent.
+        when(emails.sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class), any(DispatchGate.class)))
+                .thenAnswer(call -> {
+                    DispatchGate gate = call.getArgument(2);
+                    gate.beforeDispatch(log(904, EmailLog.EmailStatus.PENDING));
+                    throw new IllegalStateException("FAKE transport fault");
+                });
 
         assertThatThrownBy(() -> channel.send(REMINDER)).isInstanceOf(IllegalStateException.class);
+    }
+
+    /**
+     * #5887 (review): EmailManager failed before it reached the transport (here, writing its pending outbox row), so
+     * its dispatch gate never ran. Nothing was sent: a definite failure, which gets the retry, not an unconfirmed send.
+     */
+    @Test
+    void shouldRecordAFailureWithItsRetry_whenEmailManagerFailsBeforeTheTransport() {
+        when(emails.sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class), any(DispatchGate.class)))
+                .thenThrow(new jakarta.persistence.PersistenceException("FAKE outbox write failure"));
+
+        assertThat(channel.send(REMINDER)).isEqualTo(
+                new ReminderOutcome(AppointmentReminderStatus.FAILED, null, "PersistenceException"));
     }
 }
