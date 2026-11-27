@@ -5,6 +5,7 @@
 import grp
 import os
 import re
+import runpy
 import shlex
 import stat
 import subprocess
@@ -26,7 +27,7 @@ class TestReportLeaseUpgrade(unittest.TestCase):
             re.M | re.S,
         )
         self.assertIsNotNone(block, "the report lease warning is missing from postinst")
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(dir="/var/lib/carlos-emr") as directory:
             Path(directory).chmod(0o711)
             properties = Path(directory) / "carlos.properties"
             properties.write_bytes(installed)
@@ -53,20 +54,24 @@ class TestReportLeaseUpgrade(unittest.TestCase):
             os.chown(probe, 0, grp.getgrnam("carlos").gr_gid)
             probe.chmod(0o660)
             extra = env_text.replace("{probe}", shlex.quote(str(probe))).replace("{literal}", str(literal_file))
+            base = Path(directory) / "catalina"
+            (base / "bin").mkdir(parents=True)
+            base.chmod(0o755)
+            (base / "bin").chmod(0o755)
+            tomcat_home = Path(directory) / "tomcat"
+            tomcat_home.mkdir()
+            tomcat_home.chmod(0o755)
             if setenv:
-                base = Path(directory) / "catalina"
-                (base / "bin").mkdir(parents=True)
-                base.chmod(0o755)
-                (base / "bin").chmod(0o755)
                 hook = base / "bin" / "setenv.sh"
                 hook.write_text(f'CATALINA_OPTS="$CATALINA_OPTS -Dcarlos_override_properties={shlex.quote(str(site_file))}"\n')
                 hook.chmod(0o644)
-                extra += "CATALINA_BASE=" + shlex.quote(str(base)) + "\n"
-            env_file.write_text("CARLOS_JAVA_OPTS=" + shlex.quote(flags) + "\n" + extra)
+            env_file.write_text(f"CATALINA_HOME={tomcat_home}\nCATALINA_BASE={base}\n"
+                                + "CARLOS_JAVA_OPTS=" + shlex.quote(flags) + "\n" + extra)
             env_file.chmod(0o644)
             result = subprocess.run(
                 ["sh", "-c", "set -e\n" + block.group(0)],
-                env=dict(os.environ, SHARE=str(SHARE), PROPERTIES=str(properties), ENV_FILE=str(env_file)),
+                env={"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "SHARE": str(SHARE),
+                     "PROPERTIES": str(properties), "ENV_FILE": str(env_file)},
                 capture_output=True, text=True, check=True,
             )
             self.assertEqual(probe.read_bytes(), b"", "configure executed a site environment command")
@@ -94,7 +99,7 @@ class TestReportLeaseUpgrade(unittest.TestCase):
         self.assertEqual(self.warning_for(b"db_remove_abandoned_timeout = 17\n"), "")
 
     def test_uses_the_last_selected_file_instead_of_the_managed_file(self):
-        flags = "-javaagent:/missing-agent.jar -Dcarlos_override_properties=/missing -Dcarlos_override_properties={site}"
+        flags = "-Dcarlos_override_properties=/missing -Dcarlos_override_properties={site}"
         unsafe = b"db_remove_abandoned_timeout=15\n"
         safe = b"db_remove_abandoned_timeout=420\n"
         self.assertIn("resolves to 15 seconds", self.warning_for(safe, options=flags, override=unsafe))
@@ -129,6 +134,52 @@ class TestReportLeaseUpgrade(unittest.TestCase):
                                    env_text='CARLOS_JAVA_OPTS="$(printf private-marker > {probe})"\n')
         self.assertIn("could not verify", warning)
         self.assertNotIn("private-marker", warning)
+
+    def test_warns_when_a_path_would_be_hidden_in_the_service_mount_namespace(self):
+        warning = self.warning_for(b"db_remove_abandoned_timeout=420\n", options="-Duser.home=/tmp")
+        self.assertIn("could not verify", warning)
+
+    def test_rejects_site_agents_that_can_change_system_properties(self):
+        for option in ("-javaagent:/private-marker.jar", "-agentlib:private-marker", "-agentpath:/private-marker"):
+            with self.subTest(option=option):
+                warning = self.warning_for(b"db_remove_abandoned_timeout=360\n", options=option)
+                self.assertIn("could not verify", warning)
+                self.assertNotIn("private-marker", warning)
+
+    def test_rejects_shell_startup_files_and_relative_wrapper_paths(self):
+        for setting in ("BASH_ENV=/private-marker", "PROPERTIES=relative.properties"):
+            with self.subTest(setting=setting):
+                warning = self.warning_for(b"db_remove_abandoned_timeout=360\n", env_text=setting + "\n")
+                self.assertIn("could not verify", warning)
+                self.assertNotIn("private-marker", warning)
+
+    def test_detects_jvm_options_in_a_real_systemd_drop_in(self):
+        # Use a private, never-started unit on the disposable package test host.
+        check = runpy.run_path("/usr/lib/carlos-emr/carlos-emr-report-lease-check")["service_environment_is_known"]
+        reload_manager = ["/usr/bin/systemctl", "daemon-reload"]
+        try:
+            with tempfile.NamedTemporaryFile(mode="w", dir="/run/systemd/system", prefix="carlos-lease-test-",
+                                             suffix=".service") as unit:
+                unit.write("[Service]\nUser=carlos\nGroup=carlos\n"
+                           "EnvironmentFile=-/etc/carlos-emr/carlos-emr.env\n"
+                           "ExecStart=/usr/lib/carlos-emr/carlos-emr-tomcat run\n")
+                unit.flush()
+                unit_path = Path(unit.name)
+                unit_path.chmod(0o644)
+                subprocess.run(reload_manager, check=True)
+                self.assertTrue(check(unit_path.name))
+                dropin = Path(unit.name + ".d")
+                dropin.mkdir()
+                conf = dropin / "site.conf"
+                try:
+                    conf.write_text('[Service]\nEnvironment="JAVA_TOOL_OPTIONS=-Duser.home=/private-marker"\n')
+                    subprocess.run(reload_manager, check=True)
+                    self.assertFalse(check(unit_path.name))
+                finally:
+                    conf.unlink(missing_ok=True)
+                    dropin.rmdir()
+        finally:
+            subprocess.run(reload_manager, check=True)
 
     def test_last_definition_wins(self):
         old = b"  db_remove_abandoned_timeout : 15  \r\n"

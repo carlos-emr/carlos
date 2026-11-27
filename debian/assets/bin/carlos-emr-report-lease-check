@@ -4,8 +4,10 @@
 """Run the read-only configure check with the packaged service's configuration paths."""
 
 import os
+import pwd
 import re
 import shlex
+import subprocess
 import sys
 from pathlib import Path
 
@@ -42,23 +44,91 @@ def read_settings(path):
     return settings
 
 
+# The service wrapper and the Java launcher can consume these before the
+# application's configuration is read. Keep manager-supplied values private.
+STARTUP_ENV = {
+    "BASH_ENV", "ENV", "LD_PRELOAD", "LD_AUDIT", "JDK_JAVA_OPTIONS",
+    "JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS", "JAVA_OPTS", "CARLOS_JAVA_OPTS",
+    "CARLOS_JAVA_XMS", "CARLOS_JAVA_XMX", "JAVA_HOME", "JRE_HOME",
+}
+
+
+def systemctl(*args):
+    return subprocess.run(
+        ["/usr/bin/systemctl", *args], check=True, timeout=10, text=True,
+        env={"PATH": "/usr/bin:/bin", "LC_ALL": "C"},
+        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+    ).stdout
+
+
+# These systemd settings can present different files to the service and runuser.
+UNIT_FILE_OVERRIDES = ("RootDirectory", "RootImage", "BindPaths", "BindReadOnlyPaths",
+                       "InaccessiblePaths", "TemporaryFileSystem", "MountImages",
+                       "ExtensionImages", "ExtensionDirectories", "PAMName")
+
+
+def service_environment_is_known(unit="carlos-emr.service"):
+    # Ask the manager for its effective configuration, including drop-ins.
+    # An offline/unknown manager or another EnvironmentFile is unverifiable.
+    properties = dict(line.split("=", 1) for line in systemctl(
+        "show", "--all", "--property=LoadState,NeedDaemonReload,User,Group,Environment,EnvironmentFiles,"
+        "PassEnvironment,UnsetEnvironment,ExecStartEx," + ",".join(UNIT_FILE_OVERRIDES), unit).splitlines())
+    expected = {"LoadState": "loaded", "NeedDaemonReload": "no", "User": "carlos", "Group": "carlos",
+                "EnvironmentFiles": "/etc/carlos-emr/carlos-emr.env (ignore_errors=yes)",
+                "PassEnvironment": "", "UnsetEnvironment": ""}
+    expected.update(dict.fromkeys(UNIT_FILE_OVERRIDES, ""))
+    if any(properties.get(key) != value for key, value in expected.items()):
+        return False
+    wrapper = "/usr/lib/carlos-emr/carlos-emr-tomcat"
+    start = properties.get("ExecStartEx", "")
+    if (re.findall(r"\bpath=([^ ;]+)", start) != [wrapper]
+            or re.findall(r"argv\[\]=([^;]+?)\s*;", start) != [wrapper + " run"]
+            or re.findall(r"\bflags=(.*?)\s*;", start) != [""]):
+        return False
+    if "Environment" not in properties:
+        return False
+    declared = shlex.split(properties["Environment"])
+    inherited = systemctl("show-environment").splitlines()
+    for setting in (*declared, *inherited):
+        name, _, value = setting.partition("=")
+        if name in STARTUP_ENV and value not in ("", "''", '""'):
+            return False
+    return True
+
+
+def visible_in_service(path):
+    # The packaged unit has ProtectHome=yes and PrivateTmp=yes. Check both the
+    # requested path and the target of any symlink before inspecting it here.
+    hidden = ("/tmp", "/var/tmp", "/home", "/root", "/run/user")
+    return path.is_absolute() and not any(
+        item.is_relative_to(directory) for item in (path, path.resolve()) for directory in hidden)
+
+
 def main(env_file, java, classpath, classes, managed):
-    settings = read_settings(env_file)
-    if any(settings.get(key) for key in ("JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS")):
+    if not service_environment_is_known():
         return 1
+    settings = read_settings(env_file)
+    if any(settings.get(key) for key in (
+            "BASH_ENV", "ENV", "LD_PRELOAD", "LD_AUDIT", "JRE_HOME",
+            "JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS")):
+        return 1
+    for key in ("CARLOS_JAVA_XMS", "CARLOS_JAVA_XMX"):
+        if settings.get(key) and not re.fullmatch(r"[0-9]+[kKmMgGtT]?", settings[key]):
+            return 1
     base = Path(settings.get("CATALINA_BASE", "/var/lib/carlos-emr/catalina"))
     tomcat = Path(settings.get("CATALINA_HOME", "/usr/share/tomcat11"))
+    if not visible_in_service(base) or not visible_in_service(tomcat):
+        return 1
     # catalina.sh sources the first readable hook after the wrapper assembles
     # the JVM flags. A hook may replace both paths or run other site commands.
     if any(os.access(directory / "bin/setenv.sh", os.R_OK) for directory in (base, tomcat)):
         return 1
-    if not base.is_absolute() or not tomcat.is_absolute():
-        return 1
     os.chdir(base)
     managed = settings.get("PROPERTIES", managed)
-    if not managed or any(ch.isspace() or ch in "\\\"'" for ch in managed):
+    if not Path(managed).is_absolute() or any(ch.isspace() or ch in "\\\"'" for ch in managed):
         return 1  # The wrapper inserts this particular path into CATALINA_OPTS without quoting it.
     selected = managed
+    home = Path(pwd.getpwuid(os.getuid()).pw_dir)
     home_args = []
     # Catalina puts JAVA_OPTS first, then the packaged override, then site flags.
     for options in (settings.get("JAVA_OPTS", ""), "-Dcarlos_override_properties=" + managed,
@@ -66,15 +136,21 @@ def main(env_file, java, classpath, classes, managed):
         if any(char in options for char in "$`*?[]{}~#;&|<>()\n"):
             return 1  # Shell expansion cannot be inspected as a literal argument.
         for option in shlex.split(options):
-            if option.startswith(("@", "-XX:VMOptionsFile=", "-XX:Flags=")):
+            if option.startswith(("@", "-XX:VMOptionsFile=", "-XX:Flags=", "-javaagent:", "-agentlib:",
+                                  "-agentpath:", "-Xrun", "-Xbootclasspath")):
                 return 1
             name, _, value = option.partition("=")
-            if name == "-Duser.dir":
+            if name in ("-Duser.dir", "-Djava.system.class.loader"):
                 return 1  # Java can resolve relative configuration paths against a different base.
+            if name in ("-Dcarlos_override_properties", "-Duser.home") and not Path(value).is_absolute():
+                return 1
             if name == "-Dcarlos_override_properties":
                 selected = value
             elif name == "-Duser.home":
+                home = Path(value)
                 home_args = ["-Duser.home=" + value]
+    if not visible_in_service(Path(selected)) or not visible_in_service(home / "carlos.properties"):
+        return 1
     environment = {"HOME": os.environ["HOME"], "PATH": "/usr/bin:/bin"}
     os.execve(java, [java, *home_args, "-cp", classpath,
                      "io.github.carlos_emr.carlos.config.PackagedReportLeaseCheck", classes, selected],
@@ -84,6 +160,6 @@ def main(env_file, java, classpath, classes, managed):
 if __name__ == "__main__":
     try:
         sys.exit(main(*sys.argv[1:]))
-    except (OSError, ValueError):
+    except (KeyError, OSError, ValueError, subprocess.SubprocessError):
         # The package prints one actionable warning. Never print site option values.
         sys.exit(1)

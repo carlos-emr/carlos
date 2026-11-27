@@ -736,7 +736,7 @@ case "$1" in
             "${REPORT_CLASSPATH}" "${REPORT_WEB_INF}/classes" "${PROPERTIES}" || {
             case "$?" in
                 15) echo "carlos-emr: WARNING: db_remove_abandoned_timeout resolves to 15 seconds. Abandoned lease cleanup can end a running report early." >&2 ;;
-                *)  echo "carlos-emr: WARNING: could not verify db_remove_abandoned_timeout. Check service JVM options and any Tomcat bin/setenv.sh before running long reports." >&2 ;;
+                *)  echo "carlos-emr: WARNING: could not verify db_remove_abandoned_timeout. Check systemd service settings, JVM options and any Tomcat bin/setenv.sh before running long reports." >&2 ;;
             esac
             echo "carlos-emr: Check ${PROPERTIES} or the file selected by -Dcarlos_override_properties in ${ENV_FILE}, then any service-user home carlos.properties override. To adopt the 360-second default, remove the override or set it to 360, then run sudo carlos-ctl restart." >&2
         }
