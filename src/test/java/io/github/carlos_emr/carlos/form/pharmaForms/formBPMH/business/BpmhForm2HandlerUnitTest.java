@@ -16,7 +16,12 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.dao.DrugDao;
 import io.github.carlos_emr.carlos.commn.dao.DrugReasonDao;
+import io.github.carlos_emr.carlos.commn.dao.Icd9Dao;
+import io.github.carlos_emr.carlos.commn.dao.Icd9SynonymDao;
 import io.github.carlos_emr.carlos.commn.model.Drug;
+import io.github.carlos_emr.carlos.commn.model.DrugReason;
+import io.github.carlos_emr.carlos.commn.model.Icd9;
+import io.github.carlos_emr.carlos.commn.model.Icd9Synonym;
 import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean.BpmhDrug;
 import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean.BpmhForm2Bean;
 import org.junit.jupiter.api.DisplayName;
@@ -79,6 +84,7 @@ class BpmhForm2HandlerUnitTest {
         "500 | 500 | Take 500 TAB BID PO",
         "1 | 2 | Take 1 to 2 TAB BID PO",
         "1 | 3 | Take 1 to 3 TAB BID PO",
+        "2 | 0 | Take 2 TAB BID PO",
         "0.5 | 1 | Take 0.5 to 1 TAB BID PO"
     })
     void shouldWriteStructuredDose_whenInstructionTextHasNoDirectionLine(float takeMin, float takeMax,
@@ -150,6 +156,59 @@ class BpmhForm2HandlerUnitTest {
         drug.setSpecial("FAKE metoprolol\r\nTake 1 tablet for 2 days\r\nThen take half a tablet"
                 + "\r\nSupply blister pack\r\nQty:30.0 TAB Repeats:0");
         assertThat(formRowFor(drug).getHow()).isEqualTo("Take 1 tablet for 2 days\nThen take half a tablet");
+    }
+
+    @Test
+    void shouldUseTheRecordedCdsUnit_whenProductFormAndStrengthDiffer() {
+        Drug drug = structuredDrug(5, 5);
+        drug.setDosage("10 mg");
+        drug.setUnit("mL");
+        drug.setCdsDoseText("5 mL");
+        assertThat(formRowFor(drug).getHow()).isEqualTo("Take 5 mL BID PO");
+    }
+
+    @Test
+    void shouldBuildAnEmptyMedicationList_whenTheDaoReturnsNull() {
+        DrugDao drugDao = mock(DrugDao.class);
+        when(drugDao.findByDemographicId(1001, false)).thenReturn(null);
+        BpmhForm2Handler handler = new BpmhForm2Handler();
+        handler.setBpmhFormBean(new BpmhForm2Bean());
+        handler.setDrugDao(drugDao);
+        handler.setDemographicNo(1001);
+        handler.setFormBeanDrugList(null);
+        assertThat(handler.getBpmhFormBean().getDrugs()).isEmpty();
+    }
+
+    @Test
+    void shouldKeepReasonsIndependent_whenCodesAreMixedMissingOrUnmapped() {
+        DrugReasonDao reasons = mock(DrugReasonDao.class);
+        Icd9SynonymDao translations = mock(Icd9SynonymDao.class);
+        Icd9Dao dictionary = mock(Icd9Dao.class);
+        BpmhForm2Handler handler = new BpmhForm2Handler();
+        handler.setDrugReasonDao(reasons);
+        handler.setIcd9Dao(dictionary);
+        handler.setDxCodeTranslationsDao(translations);
+        Icd9Synonym translation = new Icd9Synonym();
+        translation.setPatientFriendly("First indication");
+        when(translations.findPatientFriendlyTranslationFor("001")).thenReturn(translation);
+        Icd9 entry = new Icd9();
+        entry.setDescription("Dictionary description");
+        when(dictionary.findByCode("002")).thenReturn(entry);
+        when(reasons.getReasonsForDrugID(56, true)).thenReturn(List.of(
+                reason("icd9", "001", "recorded detail"), reason("other", "001", "second detail"),
+                reason(null, null, " author's wording "), reason("ICD9", "002", null),
+                reason("ICD9", "unmapped", null), reason(null, "original", null), reason(null, null, null)));
+
+        assertThat(handler.getDrugReason(56)).isEqualTo("First indication recorded detail\nother 001 second detail"
+                + "\n author's wording \nDictionary description\nICD9 unmapped\noriginal");
+    }
+
+    private static DrugReason reason(String system, String code, String comment) {
+        DrugReason reason = new DrugReason();
+        reason.setCodingSystem(system);
+        reason.setCode(code);
+        reason.setComments(comment);
+        return reason;
     }
 
     private static Drug structuredDrug(float takeMin, float takeMax) {

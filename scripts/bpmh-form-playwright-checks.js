@@ -157,7 +157,8 @@ async function workflow(s) {
   const direction = `Take 1 tablet by mouth daily ${tag}`;
   const secondStep = `Then take half a tablet daily ${tag}`;
   const lastMedication = `FAKE overflow ${tag}`;
-  const medicationText = [direction, secondStep, lastMedication, 'Take 1 to 3 mg daily'];
+  const additionalReason = 'LOCAL Z99 recorded indication';
+  const medicationText = [direction, secondStep, lastMedication, 'Take 1 to 3 mg daily', additionalReason];
   const instruction = `${marker} continue at discharge`;
   const note = `${marker} reconciled with the patient`;
 
@@ -218,6 +219,9 @@ async function workflow(s) {
   sql.execute(`INSERT INTO drugReason (drugId,codingSystem,code,comments,primaryReasonFlag,archivedFlag,demographicNo,providerNo,dateCoded)
     SELECT drugid,'icd9',${q(code)},${q(`FAKE ${tag}`)},1,0,${patient},${q(provider)},CURDATE()
     FROM drugs WHERE demographic_no=${patient} AND drugid<>${drug}`);
+  sql.execute(`INSERT INTO drugReason (drugId,codingSystem,code,comments,primaryReasonFlag,archivedFlag,demographicNo,providerNo,dateCoded)
+    SELECT drugid,'LOCAL','Z99','recorded indication',0,0,${patient},${q(provider)},CURDATE()
+    FROM drugs WHERE demographic_no=${patient} AND position=18`);
   const sourceRows = () => medicationSnapshot(statement => sql.rows(statement), patient);
   const originalRows = sourceRows();
 

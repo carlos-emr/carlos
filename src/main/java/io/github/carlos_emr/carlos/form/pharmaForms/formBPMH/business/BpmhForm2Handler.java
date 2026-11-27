@@ -506,44 +506,34 @@ public class BpmhForm2Handler {
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String getDrugReason(Integer drugId) {
 
-        Icd9 icd9 = null;
-        String patientFriendlyDx = "";
-        String drugReasonCode = null;
-        Icd9Synonym dxCodeTranslations = null;
-        StringBuilder stringBuilder = new StringBuilder("");
-        List<DrugReason> drugReasonList = getDrugReasonDao().getReasonsForDrugID(drugId, true);
-
-        if ((drugReasonList != null) && (drugReasonList.size() > 0)) {
-
-            for (DrugReason drugReason : drugReasonList) {
-
-                if (drugReason.getCodingSystem().equalsIgnoreCase("icd9")) {
-
-                    drugReasonCode = drugReason.getCode();
-                }
-
-                if (drugReasonCode != null) {
-                    dxCodeTranslations = getDxCodeTranslationsDao().findPatientFriendlyTranslationFor(drugReasonCode);
-                }
-
-                if (dxCodeTranslations != null) {
-
-                    patientFriendlyDx = dxCodeTranslations.getPatientFriendly();
-
-                } else {
-
-                    icd9 = getIcd9Dao().findByCode(drugReasonCode);
-                    patientFriendlyDx = icd9.getDescription();
-
-                }
-
-                stringBuilder.append(patientFriendlyDx + " ");
-                stringBuilder.append(drugReason.getComments());
+        List<DrugReason> reasons = getDrugReasonDao().getReasonsForDrugID(drugId, true);
+        if (reasons == null) return "";
+        List<String> descriptions = new ArrayList<>();
+        for (DrugReason reason : reasons) {
+            String description = describeReason(reason);
+            String comment = reason.getComments();
+            if (StringUtils.isNotBlank(comment)) {
+                descriptions.add(description.isEmpty() ? comment : description + " " + comment);
+            } else if (!description.isEmpty()) {
+                descriptions.add(description);
             }
-
         }
+        return String.join("\n", descriptions);
+    }
 
-        return stringBuilder.toString();
+    private String describeReason(DrugReason reason) {
+        String code = reason.getCode();
+        if (StringUtils.isBlank(code)) return "";
+        String system = reason.getCodingSystem();
+        if ("icd9".equalsIgnoreCase(system)) {
+            Icd9Synonym translation = getDxCodeTranslationsDao().findPatientFriendlyTranslationFor(code);
+            if (translation != null && StringUtils.isNotBlank(translation.getPatientFriendly())) {
+                return translation.getPatientFriendly();
+            }
+            Icd9 entry = getIcd9Dao().findByCode(code);
+            if (entry != null && StringUtils.isNotBlank(entry.getDescription())) return entry.getDescription();
+        }
+        return StringUtils.isBlank(system) ? code : system + " " + code;
     }
 
     public void setFormBeanAllergyList(List<Allergy> allergyList) {
