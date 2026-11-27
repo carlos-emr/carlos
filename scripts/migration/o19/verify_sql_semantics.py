@@ -483,6 +483,32 @@ def _charset_repair_on(client: Client, db: str, charset: str) -> List[str]:
     return failures
 
 
+def check_medication_dump(client: Client, src: str, dst: str, fields: str) -> List[str]:
+    """Restore the actual vendor dump and its source-generated precision supplement."""
+    dump = shutil.which("mariadb-dump") or shutil.which("mysqldump")
+    if not dump:
+        return ["the OSCAR19 medication transfer check requires mariadb-dump or mysqldump"]
+    for schema in (src, dst):
+        client.setup("ALTER TABLE drugs ADD recorded TIMESTAMP DEFAULT '2001-01-01 00:00:00' "
+                     "ON UPDATE CURRENT_TIMESTAMP", schema)
+    fields = fields.replace(" FROM drugs", ", recorded FROM drugs")
+    args = [dump] + client.args + ["--single-transaction", "--no-create-info",
+                                   "--skip-triggers", "--default-character-set=utf8mb4", src, "drugs"]
+    stock = subprocess.run(args, check=True, stdout=subprocess.PIPE).stdout
+    exporter = Path(__file__).with_name("export-medication-floats.py")
+    supplement = subprocess.run([sys.executable, str(exporter), "--db", src, "--mysql-cmd", client.cmd]
+                               + ["--mysql-arg=" + option for option in client.args],
+                               check=True, stdout=subprocess.PIPE).stdout
+    expected = client.rows(fields, src)
+    restore = [client.cmd] + client.args + ["--default-character-set=utf8mb4", dst]
+    subprocess.run(restore, input=stock + b"\n" + supplement, check=True, stdout=subprocess.DEVNULL)
+    matches = client.rows(fields, dst) == expected and client.rows(fields, src) == expected
+    client.setup("DELETE FROM drugs", dst)
+    for schema in (src, dst):
+        client.setup("ALTER TABLE drugs DROP COLUMN recorded", schema)
+    return [] if matches else ["the vendor dump and supplement changed a stored medication field"]
+
+
 def check_exact_special_repair(client: Client, src: str, dst: str,
                                required: bool = True) -> List[str]:
     """The reported C1 instructions through the shipped copy/P7 builders."""
@@ -538,6 +564,7 @@ def check_exact_special_repair(client: Client, src: str, dst: str,
                       "HEX(drugForm), CAST(takemin AS DOUBLE), CAST(takemax AS DOUBLE) "
                       "FROM drugs ORDER BY drugid")
             amounts_before = client.rows(fields, src)
+            failures.extend(check_medication_dump(client, src, dst, fields))
             before = client.rows("SELECT drugid, HEX(special), HEX(comment) "
                                  "FROM drugs ORDER BY drugid", src)
             audit: dict = {}

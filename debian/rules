@@ -346,6 +346,7 @@ override_dh_auto_install:
 	# never needs a CLI release.
 	install -d $(STAGE)/$(SHAREDIR)/o19-manifest
 	install -m 0644 debian/assets/o19-manifest/*.json $(STAGE)/$(SHAREDIR)/o19-manifest/
+	install -m 0644 scripts/migration/o19/export-medication-floats.py $(STAGE)/$(SHAREDIR)/o19-manifest/
 	install -d $(STAGE)/$(SHAREDIR)/o19-stock-assets
 	install -m 0644 src/main/webapp/WEB-INF/eform-assets/blank.rtl src/main/webapp/WEB-INF/eform-assets/editControl2.js src/main/webapp/WEB-INF/eform-assets/editor_help.html $(STAGE)/$(SHAREDIR)/o19-stock-assets/
 	# Config skeletons the maintainer scripts instantiate (never conffiles:

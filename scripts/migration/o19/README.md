@@ -251,6 +251,38 @@ bytes through the real plan/ALTER/copy path, asserts byte-identity and P7's
 agreement, and re-runs the copy with the clause stripped to show the
 truncation it guards against.
 
+## Preserve medication doses during source export
+
+MariaDB can print only six significant digits when dumping an OSCAR19 `FLOAT`. A dose
+stored as the nearest float to one third can therefore restore as a different number.
+Once only the rounded dump remains, the original dose cannot be recovered by formatting it.
+
+Use a quiescent source and the same database identity for the dump, the precision supplement
+and the source digests. The supplement reads the original `drugs`, `favorites` and
+`DrugDispensingMapping` rows. Its SQL belongs inside the dump for the throwaway staging
+restore. Keep the database and report files private. The source-side tool ships in
+`/usr/share/carlos-emr/o19-manifest/export-medication-floats.py` and runs with Python 3.4 or later.
+
+The following example uses the local socket and an OSCAR19 database named `oscar`.
+Retain any view exclusion or version-specific flags identified by the source assessment.
+Stop all source writers before running the commands and keep them stopped until the format 4
+digests have been generated.
+
+```bash
+set -euo pipefail
+umask 077
+{
+  mysqldump --single-transaction --quick --skip-triggers oscar &&
+  python3 export-medication-floats.py --db oscar
+} | gzip > o19.sql.gz.partial
+mv o19.sql.gz.partial o19.sql.gz
+```
+
+Use the matching standalone carlos-ctl preflight to generate `--digests` and pass the
+result with the dump to `import-o19`. A legacy format 3 report can match even after this
+kind of dose rounding. Re-export from the original source when the receiving verifier
+reports a medication-table difference. [carlos-ctl transfer verification](https://github.com/carlos-emr/carlos-ctl/pull/32)
+
 ## Building the rehearsal fixture
 
 ```bash

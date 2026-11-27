@@ -133,6 +133,12 @@ Ontario physicians must keep the original information traceable when correcting 
 BPMH renders each saved indication separately, retaining the recorded code and comments when
 a dictionary entry cannot supply a description. [CPSO guidance on documenting patient encounters](https://www.cpso.on.ca/physicians-physician-assistants/professional-resources/professional-obligations/practice-management/Obligations-documenting-patient-encounters)
 
+A stock MariaDB dump can round a stored `FLOAT` before CARLOS receives it. The exact
+medication export reads the quiescent source and includes its stored floats in the staging
+restore. Source and destination need the updated transfer verifier to detect the rounding.
+Existing imports require original source evidence to establish what was stored.
+[OSCAR19 source export instructions](../../scripts/migration/o19/README.md#preserve-medication-doses-during-source-export)
+
 The follow-up tickets for the inventory cover legacy editing and duration (#6398–#6400),
 REST and DrugRef (#6401–#6402, carlos-emr/drugref2026#21), discontinued warnings and favourites
 (#6403–#6404), data entry and measurements (#6405–#6406), legacy CDS (#6407) and DHIR (#3972).

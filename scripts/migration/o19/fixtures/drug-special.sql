@@ -54,6 +54,8 @@ INSERT INTO expected_drug_special VALUES
 -- The form, administered unit, dispense unit and product strength are independent.
 INSERT INTO drugs (drugid, special, quantity, unitName, dosage, unit, drugForm, takemin, takemax)
 VALUES (112, CONCAT('Fixture', CHAR(13,10), 'Take 1/3 tablet', CHAR(13,10), 'Then hold'), '30.0', 'mL', '250.0 mg / 5 mL', 'mg', 'TAB', 1/3, 1/3);
+UPDATE drugs SET takemin=-1, takemax=0 WHERE drugid=104;
+UPDATE drugs SET takemin=1e-10, takemax=0.3333333730697632 WHERE drugid=105;
 UPDATE drugs SET quantity='.50', unitName='', takemin=0.0625, takemax=0.3125 WHERE drugid=103;
 INSERT INTO expected_drug_special VALUES
   (112, '466978747572650D0A54616B6520312F33207461626C65740D0A5468656E20686F6C64', 0);
