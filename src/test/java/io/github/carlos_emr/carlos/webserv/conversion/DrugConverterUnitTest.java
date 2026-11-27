@@ -272,6 +272,8 @@ class DrugConverterUnitTest {
             "5 mg, 5, mg",
             "5mg, 5, mg",
             "1 mg, 1, mg",
+            "0.00 mg, 0, mg",
+            ".00e-70 mg, 0, mg",
             "500 mg, 500, mg",
             "0.5 mg, 0.5, mg",
             "12.5 mg, 12.5, mg",
@@ -388,9 +390,10 @@ class DrugConverterUnitTest {
             assertNoStrengthRead(stored);
         }
 
-        @Test
-        void shouldLeaveStrengthUnknown_whenANonzeroAmountUnderflowsTheWireFloat() {
-            assertNoStrengthRead("1.0e-60 mg");
+        @ParameterizedTest
+        @ValueSource(strings = {"1.0e-60 mg", ".0003E-70 mg"})
+        void shouldLeaveStrengthUnknown_whenANonzeroAmountUnderflowsTheWireFloat(String stored) {
+            assertNoStrengthRead(stored);
         }
 
         /**

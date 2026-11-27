@@ -25,7 +25,6 @@ public record DrugStrength(Float amount, String unit) {
     private static final Pattern PER_VOLUME = Pattern.compile("\\s*+(?:/|per\\b)\\s*+", UNIT_FLAGS);
     private static final Pattern VOLUME_UNIT =
             Pattern.compile("\\s*+(?:[mµμun]?l|(?:milli|micro)?lit(?:er|re)s?)\\b\\S*+", UNIT_FLAGS);
-    private static final Pattern ZERO_AMOUNT = Pattern.compile("[0.]++(?:[eE][+-]?[0-9]++)?+");
 
     /**
      * Reads the leading strength from stored dosage text. For a combination it returns the first
@@ -48,7 +47,7 @@ public record DrugStrength(Float amount, String unit) {
         }
         String number = text.substring(0, end);
         float strength = Float.parseFloat(number);
-        if (!Float.isFinite(strength) || (strength == 0f && !ZERO_AMOUNT.matcher(number).matches())) {
+        if (!Float.isFinite(strength) || (strength == 0f && hasNonzeroSignificand(number))) {
             return UNKNOWN;
         }
         Matcher unitMatch = UNIT_AFTER_NUMBER.matcher(text).region(end, text.length());
@@ -67,6 +66,20 @@ public record DrugStrength(Float amount, String unit) {
             unitEnd--;
         }
         return new DrugStrength(strength, text.substring(unitMatch.start(1), unitEnd));
+    }
+
+    /** Distinguishes underflow from a written zero in a number already recognized by DoseText. */
+    private static boolean hasNonzeroSignificand(String number) {
+        for (int index = 0; index < number.length(); index++) {
+            char digit = number.charAt(index);
+            if (digit == 'e' || digit == 'E') {
+                return false;
+            }
+            if (digit != '0' && digit != '.') {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean anotherNumberFollows(String text, int end) {
