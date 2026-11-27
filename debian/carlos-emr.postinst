@@ -722,25 +722,6 @@ case "$1" in
         install_once "${SHARE}/skel/carlos.properties" "${PROPERTIES}" 0640 root:carlos
         install_once "${SHARE}/skel/backup.env" "${BACKUP_ENV}" 0640 root:carlos-backup
 
-        # Earlier packages copied the 15-second default into this override.
-        # Resolve it read-only with the packaged Spring libraries as the service user.
-        REPORT_WEB_INF="${SHARE}/webapp/carlos/WEB-INF"
-        # Load only Spring's resolver and its logging facade. The webapp's logging
-        # appenders need a running Tomcat and must not start during dpkg configure.
-        REPORT_CLASSPATH="${REPORT_WEB_INF}/classes"
-        for jar in "${REPORT_WEB_INF}"/lib/spring-core-*.jar "${REPORT_WEB_INF}"/lib/commons-logging-*.jar; do
-            REPORT_CLASSPATH="${REPORT_CLASSPATH}:${jar}"
-        done
-        runuser -u carlos -- "/usr/lib/jvm/java-25-openjdk-$(dpkg --print-architecture)/bin/java" \
-            -cp "${REPORT_CLASSPATH}" \
-            io.github.carlos_emr.carlos.config.PackagedReportLeaseCheck "${REPORT_WEB_INF}/classes" "${PROPERTIES}" || {
-            case "$?" in
-                15) echo "carlos-emr: WARNING: db_remove_abandoned_timeout resolves to 15 seconds. Abandoned lease cleanup can end a running report early." >&2 ;;
-                *)  echo "carlos-emr: WARNING: could not verify db_remove_abandoned_timeout. Check the effective timeout before running long reports." >&2 ;;
-            esac
-            echo "carlos-emr: Check ${PROPERTIES} and any service-user home carlos.properties override. To adopt the 360-second default, remove the override or set it to 360, then run sudo carlos-ctl restart." >&2
-        }
-
         # One-time migration (2026.08): earlier packages shipped
         # consultation_signature_enabled=false. install_once copied that into the
         # persistent /etc override, and carlos-emr-tomcat loads that file as the
@@ -1062,6 +1043,55 @@ except ValueError:
         if [ "${provision_lock_rc}" = 2 ]; then
             O19_IMPORT_HOLDS_LOCK=1
         fi
+
+        # BEGIN REPORT_LEASE_UPGRADE
+        # Drop the old packaged override once, under the same lock as init-config.
+        # The read-only service-user check validates the proposed file against
+        # Java Properties and the effective Spring configuration before publication.
+        (
+            marker="${STATE}/.report-lease-default-migrated"
+            candidate=''
+            stock='^[[:blank:]]*db_remove_abandoned_timeout([[:blank:]]*[=:][[:blank:]]*|[[:blank:]]+)15[[:space:]]*$'
+            if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${marker}" ] && [ -n "${2:-}" ] \
+                && [ -f "${PROPERTIES}" ] && [ ! -L "${PROPERTIES}" ] \
+                && [ "$(stat -c %h "${PROPERTIES}")" = 1 ] \
+                && [ "$(LC_ALL=C grep -Ec "${stock}" "${PROPERTIES}" || true)" = 1 ]; then
+                candidate="$(mktemp "${PROPERTIES}.XXXXXX")"
+                trap 'rm -f -- "${candidate}"' EXIT
+                trap 'exit 1' HUP INT TERM
+                LC_ALL=C sed -E "/${stock}/d" "${PROPERTIES}" > "${candidate}"
+                cp --attributes-only --preserve=mode,ownership,xattr "${PROPERTIES}" "${candidate}"
+            fi
+
+            REPORT_WEB_INF="${SHARE}/webapp/carlos/WEB-INF"
+            REPORT_CLASSPATH="${REPORT_WEB_INF}/classes"
+            for jar in "${REPORT_WEB_INF}"/lib/spring-core-*.jar "${REPORT_WEB_INF}"/lib/commons-logging-*.jar; do
+                REPORT_CLASSPATH="${REPORT_CLASSPATH}:${jar}"
+            done
+            status=0
+            runuser -u carlos -- "/usr/lib/jvm/java-25-openjdk-$(dpkg --print-architecture)/bin/java" \
+                -cp "${REPORT_CLASSPATH}" io.github.carlos_emr.carlos.config.PackagedReportLeaseCheck \
+                "${REPORT_WEB_INF}/classes" "${PROPERTIES}" ${candidate:+"${candidate}"} || status=$?
+            case "${status}" in
+                0) ;;
+                10)
+                    mv -fT -- "${candidate}" "${PROPERTIES}"
+                    echo "carlos-emr: migrated the old 15-second db_remove_abandoned_timeout to the packaged 360-second default."
+                    ;;
+                15) echo "carlos-emr: WARNING: db_remove_abandoned_timeout resolves to 15 seconds. Abandoned lease cleanup can end a running report early." >&2 ;;
+                *)  echo "carlos-emr: WARNING: could not verify db_remove_abandoned_timeout. Check the effective timeout before running long reports." >&2 ;;
+            esac
+            case "${status}" in
+                0|10|15)
+                    if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${marker}" ]; then
+                        : > "${marker}"
+                    fi ;;
+            esac
+            if [ "${status}" != 0 ] && [ "${status}" != 10 ]; then
+                echo "carlos-emr: Check ${PROPERTIES} and any service-user home carlos.properties override. To adopt the 360-second default, remove the override or set it to 360, then run sudo carlos-ctl restart." >&2
+            fi
+        )
+        # END REPORT_LEASE_UPGRADE
 
         # One-time migration (2026.08): the stock carlos.properties shipped the
         # OSCAR pre-installer template values for these clinic features (off),

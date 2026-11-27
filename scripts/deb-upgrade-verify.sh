@@ -265,6 +265,8 @@ elif { [ -z "$rp_user_pre" ] || [ "$rp_user_pre" = db_reporting_username= ]; } \
 fi
 cutover_normalized_pre=$(g "$PRE" cfg.carlos.properties.withoutCutover.sha 2>/dev/null || true)
 cutover_normalized_post=$(g "$POST" cfg.carlos.properties.withoutCutover.sha 2>/dev/null || true)
+lease_migrated_hash=$(g "$PRE" cfg.carlos.properties.afterLeaseMigration.sha 2>/dev/null || true)
+active_post=$(g "$POST" cfg.carlos.properties.active.sha 2>/dev/null || true)
 if [ "$(g "$PRE" cfg.carlos.properties.sha)" = "$(g "$POST" cfg.carlos.properties.sha)" ]; then
   ok "cfg.carlos.properties.sha preserved"
 elif [ -n "$cutover_normalized_post" ] && {
@@ -285,6 +287,10 @@ elif [ -n "$(g "$PRE" cfg.carlos.properties.active.sha 2>/dev/null || true)" ] \
   # a key was commented out and re-appended with its old value (see
   # deb-upgrade-baseline.sh).
   ok "cfg.carlos.properties layout changed but every active setting is preserved (health_tracker: '$ht_pre' -> '$ht_post'; OSCAR defaults:${od_changed:- none}; lab filter: $lf_changed; Help link: $hu_changed; reporting account: $rp_changed)"
+elif [ -n "$lease_migrated_hash" ] && [ "$lease_migrated_hash" = "$active_post" ] \
+    && [ "$(g "$POST" sentinel..report-lease-default-migrated)" = yes ] \
+    && [ "$ht_ok" = 1 ] && [ "$od_ok" = 1 ] && [ "$oa_ok" = 1 ] && [ "$lf_ok" = 1 ] && [ "$hu_ok" = 1 ] && [ "$rp_ok" = 1 ]; then
+  ok "cfg.carlos.properties adopted the packaged report lease timeout and preserved other active settings apart from sanctioned migrations"
 else
   bad "cfg.carlos.properties.sha changed: $(g "$PRE" cfg.carlos.properties.sha) -> $(g "$POST" cfg.carlos.properties.sha) (health_tracker: '$ht_pre' -> '$ht_post'; OSCAR defaults changed:${od_changed:- none}; OAuth access changed:${oa_changed:- none}; lab filter: '$lf_pre' -> '$lf_post', sanctioned=$lf_ok; Help link: '$hu_pre' -> '$hu_post', sanctioned=$hu_ok; reporting account: '$rp_user_pre' -> '$rp_user_post', password digest $([ "$rp_pw_pre" = "$rp_pw_post" ] && echo kept || echo changed), sanctioned=$rp_ok)"
 fi

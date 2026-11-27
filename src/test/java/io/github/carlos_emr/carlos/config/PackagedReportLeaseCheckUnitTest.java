@@ -38,6 +38,33 @@ class PackagedReportLeaseCheckUnitTest {
     }
 
     @Test
+    void shouldApproveOnlyRemovalOfTheManagedOverride_whenItRestoresTheDefault() throws Exception {
+        Path managed = directory.resolve("managed.properties");
+        Path home = directory.resolve("home.properties");
+        Path candidate = directory.resolve("candidate.properties");
+        String[] args = {directory.toString(), managed.toString(), candidate.toString()};
+        Files.writeString(directory.resolve("jdbc-defaults.properties"), "");
+        Files.writeString(directory.resolve("carlos.properties"), "db_remove_abandoned_timeout=360\n");
+        Files.writeString(managed, "site.setting=keep\ndb_remove_abandoned_timeout = 15\n");
+        Files.writeString(candidate, "site.setting=keep\n");
+        assertEquals(10, PackagedReportLeaseCheck.status(args, home));
+
+        Files.writeString(home, "db_remove_abandoned_timeout=15\n");
+        assertEquals(15, PackagedReportLeaseCheck.status(args, home));
+        Files.writeString(home, "db_remove_abandoned_timeout=420\n");
+        assertEquals(0, PackagedReportLeaseCheck.status(args, home));
+        Files.delete(home);
+        Files.createSymbolicLink(home, managed);
+        assertEquals(10, PackagedReportLeaseCheck.status(args, home));
+
+        Files.writeString(candidate, "site.setting=changed\n");
+        assertEquals(15, PackagedReportLeaseCheck.status(args, home));
+        Files.writeString(candidate, "site.setting=keep\n");
+        Files.writeString(directory.resolve("carlos.properties"), "db_remove_abandoned_timeout=60\n");
+        assertEquals(15, PackagedReportLeaseCheck.status(args, home));
+    }
+
+    @Test
     void shouldReportAnInspectionFailure_whenArgumentsOrFilesAreMissing() {
         Path home = directory.resolve("home.properties");
         assertEquals(1, PackagedReportLeaseCheck.status(new String[0], home));

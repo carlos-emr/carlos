@@ -238,12 +238,23 @@ emit cfg.carlos.properties.otherKeys.sha "${value:0:16}"
 # and deb-upgrade-verify.sh must not mistake that for a changed setting. The
 # sanctioned one-time migrations are left out here too; the verifier checks
 # those keys one by one.
-value=$(properties_without_cutover | sed -E -e 's/^[[:space:]]+//' -e 's/[[:space:]]+$//' \
-    | grep -vE '^([#!]|$)' | sed -E 's/^([^=:[:space:]]+)[[:space:]]*[=:][[:space:]]*/\1=/' \
-    | grep -vE "$migrated_keys_re" | { grep -vE "$reporting_keys_re" || true; } | LC_ALL=C sort | sha256sum) || exit 1
+active_properties_hash() {
+    sed -E -e 's/^[[:space:]]+//' -e 's/[[:space:]]+$//' -e '/^([#!]|$)/d' \
+        -e 's/^([^=:[:space:]]+)[[:space:]]*[=:][[:space:]]*/\1=/' \
+        -e "/$migrated_keys_re/d" -e "/$reporting_keys_re/d" | LC_ALL=C sort | sha256sum
+}
+value=$(properties_without_cutover | active_properties_hash) || exit 1
 emit cfg.carlos.properties.active.sha "${value:0:16}"
+# Also fingerprint the exact edit the one-time report lease migration may make.
+# Custom values stay in the ordinary preservation hashes.
+stock_lease='^[[:blank:]]*db_remove_abandoned_timeout([[:blank:]]*[=:][[:blank:]]*|[[:blank:]]+)15[[:space:]]*$'
+if [[ ! -e $CARLOS_STATE_DIR/.report-lease-default-migrated ]] \
+    && [[ $(LC_ALL=C grep -Ec "$stock_lease" "$CARLOS_ETC_DIR/carlos.properties" || true) == 1 ]]; then
+    value=$(properties_without_cutover | LC_ALL=C sed -E "/$stock_lease/d" | active_properties_hash) || exit 1
+    emit cfg.carlos.properties.afterLeaseMigration.sha "${value:0:16}"
+fi
 emit cfg.initialAdminTxt "$([ -e "$CARLOS_ETC_DIR/initial-admin.txt" ] && echo present || echo absent)"
-for s in .consult-signature-default-migrated .health-tracker-default-migrated .oscar-feature-defaults-migrated .oauth-access-defaults-migrated .lab-measurement-filter-migrated .help-url-default-migrated .db-name-default-migrated .first-configure-pending .seed-credential-live; do
+for s in .report-lease-default-migrated .consult-signature-default-migrated .health-tracker-default-migrated .oscar-feature-defaults-migrated .oauth-access-defaults-migrated .lab-measurement-filter-migrated .help-url-default-migrated .db-name-default-migrated .first-configure-pending .seed-credential-live; do
     emit "sentinel.$s" "$([ -e "$CARLOS_STATE_DIR/$s" ] && echo yes || echo no)"
 done
 emit docs.store ok

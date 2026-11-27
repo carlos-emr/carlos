@@ -12,10 +12,10 @@ Choose an override above the longest legitimate query or transaction lifetime.
 Earlier Debian packages copied the 15-second default to
 `/etc/carlos-emr/carlos.properties`. Configure reads the installed defaults,
 the managed file and any service-user home override using Java Properties and
-Spring resolution. It warns for an effective timeout of 15 seconds and reports
-an unreadable, unresolved or invalid setting without logging its value. Remove
-the effective override or set it to 360, then run `sudo carlos-ctl restart` to
-adopt the new default.
+Spring resolution. On upgrade it removes a single literal 15-second override
+from the managed file once, after verifying that this restores the packaged
+360-second default and preserves every other property. It warns if a custom
+override still resolves to 15 or the setting cannot be checked.
 This trades slower recovery of genuinely leaked leases for allowing bounded
 legitimate work to finish. It does not extend the report query deadline.
 Historical O19 defaults and migration fixtures remain historical records.

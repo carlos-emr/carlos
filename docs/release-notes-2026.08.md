@@ -565,7 +565,9 @@ and [modern chart cutover and rollback](modern-chart-cutover.md).
 ### JDBC and packaged installation
 
 The public `OscarTrackingBasicDataSource.debugMap` field has been removed.
-Rebuild local Java or JSP extensions that reference it. Use `isConnectionTracked(connection)`
+The packaged application has no extension that needs rebuilding for this change.
+Sites that added Java code or a JSP that accesses the field directly must update
+and rebuild that customization. Use `isConnectionTracked(connection)`
 for membership, `trackedConnectionCount()` for the current count, and
 `logDebugMapToError()` to log a snapshot of acquisition traces. Code that used
 `synchronized (debugMap)` for its own shared state must use its own lock.

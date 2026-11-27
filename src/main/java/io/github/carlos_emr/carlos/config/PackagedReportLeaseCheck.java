@@ -20,35 +20,55 @@ public final class PackagedReportLeaseCheck {
     }
 
     /**
-     * Returns exit status 15 for the former default, zero for another timeout, or one
-     * if the value cannot be checked. Property values must never reach package logs.
+     * Returns 10 if publishing the candidate safely restores the default, 15 for a
+     * retained 15-second setting, zero for another timeout, or one on inspection failure.
+     * Property values must never reach package logs.
      *
-     * @param args installed WEB-INF/classes directory and managed properties file
+     * @param args installed WEB-INF/classes directory, managed properties file, and optional candidate file
      */
     public static void main(String[] args) {
         System.exit(status(args, Path.of(System.getProperty("user.home"), "carlos.properties")));
     }
 
     static int status(String[] args, Path home) {
-        if (args.length != 2) {
+        if (args.length != 2 && args.length != 3) {
             return 1;
         }
         try {
-            return configuredTimeout(Path.of(args[0]), Path.of(args[1]), home) == 15 ? 15 : 0;
+            Path classes = Path.of(args[0]);
+            Path managed = Path.of(args[1]);
+            Properties defaults = PackagedConfigurationPreflight.readFile(classes.resolve("jdbc-defaults.properties"));
+            defaults.putAll(PackagedConfigurationPreflight.readFile(classes.resolve("carlos.properties")));
+            Properties installed = PackagedConfigurationPreflight.readFile(managed);
+            Properties overrides = new Properties();
+            if (!Files.notExists(home) && !Files.isSameFile(managed, home)) {
+                overrides = PackagedConfigurationPreflight.readFile(home);
+            }
+            if (configuredTimeout(defaults, installed, overrides) != 15) {
+                return 0;
+            }
+            if (args.length == 3 && !overrides.containsKey(KEY)) {
+                // Removing the physical line must remove exactly this logical property.
+                // Reject duplicate/escaped keys and lines belonging to a continued value.
+                Properties candidate = PackagedConfigurationPreflight.readFile(Path.of(args[2]));
+                if (installed.remove(KEY) != null && installed.equals(candidate)
+                        && configuredTimeout(defaults, candidate, overrides) == 360) {
+                    return 10;
+                }
+            }
+            return 15;
         } catch (IOException | RuntimeException failure) {
             // Spring diagnostics may contain the referenced property's value.
             return 1;
         }
     }
 
-    private static int configuredTimeout(Path classes, Path managed, Path home) throws IOException {
+    private static int configuredTimeout(Properties defaults, Properties managed, Properties home) {
         // Same order as applicationContext.xml, CarlosProperties and the Startup listener.
-        Properties values = PackagedConfigurationPreflight.readFile(classes.resolve("jdbc-defaults.properties"));
-        values.putAll(PackagedConfigurationPreflight.readFile(classes.resolve("carlos.properties")));
-        values.putAll(PackagedConfigurationPreflight.readFile(managed));
-        if (!Files.notExists(home) && !Files.isSameFile(managed, home)) {
-            values.putAll(PackagedConfigurationPreflight.readFile(home));
-        }
+        Properties values = new Properties();
+        values.putAll(defaults);
+        values.putAll(managed);
+        values.putAll(home);
         var sources = new MutablePropertySources();
         sources.addLast(new PropertiesPropertySource("carlos", values));
         return new PropertySourcesPropertyResolver(sources).getRequiredProperty(KEY, Integer.class);
