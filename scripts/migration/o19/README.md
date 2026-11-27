@@ -108,15 +108,14 @@ those so a baseline-skipped key cannot flip behaviour silently), and
 A declared bundle prefix that matches no O19 key, or that still resolves in the
 CARLOS bundle, fails generation.
 
-The exact `drugs.special` regression in `verify_sql_semantics.py` uses the
-isolated synthetic `fixtures/drug-special.sql` oracle. It requires the fixed
-CLI from [carlos-ctl #18](https://github.com/carlos-emr/carlos-ctl/pull/18);
-until that package is published, select the reviewed checkout through
-`CARLOS_CTL_SRC`. Capable CLIs run this check automatically; the pinned 1.2.1
-CLI prints an explicit skip while the existing checks still run. Add
-`--require-exact-special-repair` to make a missing capability fail, including
-when validating the fixed CLI for release. The fixture is
-loaded only into the verifier's disposable schemas, never a clinic database.
+The `drugs.special` regression in `verify_sql_semantics.py` loads the synthetic
+`fixtures/drug-special.sql` into disposable schemas. Use `CARLOS_CTL_SRC` to
+select the CLI checkout being tested. The rehearsal exercises both the charset
+repair and an exact medication dump. A CLI that implements the charset repair
+but lacks digest format 4 fails the medication transfer check. For older CLIs
+that lack the charset repair itself, `--require-exact-special-repair` makes
+the missing capability a failure. [Charset repair](https://github.com/carlos-emr/carlos-ctl/pull/18),
+[exact transfer qualification](https://github.com/carlos-emr/carlos/issues/6420)
 
 ## Verifying the DDL parse
 
