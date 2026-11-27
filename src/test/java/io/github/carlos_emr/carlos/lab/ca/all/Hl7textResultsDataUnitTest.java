@@ -272,6 +272,27 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(measurementDao);
     }
 
+    @Test
+    @DisplayName("should ask the current context's DAO for the report's row, not one cached when the class loaded")
+    void shouldAskTheCurrentContextsDao_whenAStaleOneIsCachedInTheStaticField() throws Exception {
+        // What another test class leaves behind when it loaded Hl7textResultsData first (a mocked or
+        // another context's DAO): it knows no report. The report's row is read from the registered bean.
+        Field cached = Hl7textResultsData.class.getDeclaredField("hl7TxtInfoDao");
+        cached.setAccessible(true);
+        var stale = mock(io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao.class);
+        cached.set(null, stale);
+        try (MockedStatic<Factory> factory = mockStatic(Factory.class);
+             var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
+            factory.when(() -> Factory.getHandler("4616")).thenReturn(mock(MessageHandler.class));
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("4616");
+
+            Hl7textResultsData.populateMeasurementsTable("4616", "42");
+        }
+        // The stale DAO was never asked, and the report was filed (restoreDaos puts the original field back).
+        verifyNoInteractions(stale);
+        verify(measurementDao).findByValue("lab_no", "4616");
+    }
+
     @ParameterizedTest
     @org.junit.jupiter.params.provider.NullSource
     @ValueSource(strings = {"abc", "0", "-3", " "})
