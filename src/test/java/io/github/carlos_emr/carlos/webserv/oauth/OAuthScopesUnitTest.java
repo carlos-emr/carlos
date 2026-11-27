@@ -253,6 +253,8 @@ class OAuthScopesUnitTest {
         void shouldRequireWrite_whenNonPostMethodOnMeasurementReadPath() {
             assertThat(OAuthScopes.requiredScope("DELETE", "/services/measurements/123"))
                     .isEqualTo("measurement.write");
+            assertThat(OAuthScopes.requiredScope("PUT", "/services/measurements/123"))
+                    .isEqualTo("measurement.write");
             assertThat(OAuthScopes.requiredScope(null, "/services/measurements/123"))
                     .isEqualTo("measurement.write");
             assertThat(OAuthScopes.requiredScope("   ", "/services/measurements/123"))

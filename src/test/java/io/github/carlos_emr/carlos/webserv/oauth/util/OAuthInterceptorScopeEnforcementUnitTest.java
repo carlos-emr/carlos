@@ -319,7 +319,8 @@ class OAuthInterceptorScopeEnforcementUnitTest {
         OAuthInterceptor interceptor = interceptorWith(authenticatedTokenGranting(scope));
         MockHttpServletRequest request = servletRequest(method, pathInfo);
 
-        Fault fault = catchThrowableOfType(() -> interceptor.handleMessage(messageWith(request)), Fault.class);
+        Message message = messageWith(request);
+        Fault fault = catchThrowableOfType(() -> interceptor.handleMessage(message), Fault.class);
 
         if (allowed) {
             assertThat(fault).isNull();
@@ -337,7 +338,8 @@ class OAuthInterceptorScopeEnforcementUnitTest {
         OAuthInterceptor interceptor = interceptorWith(authenticatedTokenGranting("measurement.write"));
         MockHttpServletRequest request = servletRequest("POST", "/services/measurements/123/new");
 
-        Fault fault = catchThrowableOfType(() -> interceptor.handleMessage(messageWith(request)), Fault.class);
+        Message message = messageWith(request);
+        Fault fault = catchThrowableOfType(() -> interceptor.handleMessage(message), Fault.class);
 
         assertThat(fault).isNotNull();
         assertThat(fault.getStatusCode()).isEqualTo(403);

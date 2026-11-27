@@ -25,6 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -49,6 +50,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 
@@ -100,7 +102,7 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
     void shouldReturnConflictInsteadOfEmptySubset_whenStructuredCareCannotBeProjected() {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class),eq("_measurement"),eq("r"),eq("123"))).thenReturn(true);
         when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class),eq(123))).thenReturn(true);
-        org.mockito.Mockito.doThrow(new jakarta.ws.rs.WebApplicationException(Response.status(409)
+        doThrow(new jakarta.ws.rs.WebApplicationException(Response.status(409)
                 .type("text/plain").entity("Structured projection requires review").build()))
                 .when(projections).requireRestSupported(123,java.util.Set.of("CareElements"));
         Response response=request().path("/measurements/123").post(Entity.json("{\"types\":[\"BP\"]}"));
@@ -110,14 +112,8 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
 
     @Override
     protected Object getServiceBean() {
-        MeasurementService service = new MeasurementService();
-        injectDependency(service,"projections",projections);
-        injectDependency(service, "securityInfoManager", mockSecurityInfoManager);
-        injectDependency(service, "measurementManager", mockMeasurementManager);
-        injectDependency(service, "measurementTypeDao", mockMeasurementTypeDao);
-        injectDependency(service, "validationsDao", mockValidationsDao);
-        injectDependency(service, "demographicDao", mockDemographicDao);
-        injectDependency(service, "measurementDao", mockMeasurementDao);
+        MeasurementService service = new MeasurementService(mockSecurityInfoManager, mockMeasurementManager,
+                mockDemographicDao, mockMeasurementTypeDao, mockValidationsDao, mockMeasurementDao, projections);
         return service;
     }
 
@@ -279,9 +275,9 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
             when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("123456");
         }
 
-        /** BP as the ON and BC seeds configure it, without its validation rule. */
+        /** BP as the ON and BC seeds configure it: sitting position, validation rule 6. */
         private void allowConfiguredBloodPressure() {
-            configureType("BP", "sitting position", null);
+            configureSeededBloodPressureRule();
         }
 
         @Test
@@ -313,6 +309,8 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
                     && measurement.getProviderNo().equals("123456")
                     && measurement.getComments().equals("New reading")
                     && measurement.getMeasuringInstruction().equals("sitting position")));
+            verify(projections).requireRestSupported(123, java.util.Set.of("CareElements"));
+            verify(mockValidationsDao).find(6);
         }
 
         @Test
@@ -335,15 +333,22 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
             verifyNoInteractions(mockSecurityInfoManager, mockMeasurementManager);
         }
 
-        @Test
-        @DisplayName("should reject timestamps outside the epoch-millisecond range")
-        void shouldReturn400_whenObservedTimestampExceedsLongRange() {
-            Response response = request().path("/measurements/123/new")
-                .post(Entity.json("{\"type\":\"BP\",\"dataField\":\"122/80\","
-                    + "\"dateObserved\":9223372036854775808}"));
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {
+            "-30610224000001",       // one millisecond below the DATETIME minimum
+            "253402300799001",       // one millisecond above the DATETIME maximum
+            "9223372036854775808",   // Long.MAX_VALUE + 1
+            "18446745843709551616",  // wraps to 1770000000000, a valid past date: only canConvertToLong refuses it
+            "1770000000000.5",
+            "\"1770000000000\""})
+        @DisplayName("should refuse a dateObserved that is not a storable epoch before any access check or lookup")
+        void shouldReturn400_whenDateObservedIsNotAStorableEpoch(String raw) {
+            Response response = postNew("{\"type\":\"BP\",\"dataField\":\"122/80\",\"dateObserved\":" + raw + "}");
 
             assertThat(response.getStatus()).isEqualTo(400);
-            verifyNoInteractions(mockSecurityInfoManager, mockMeasurementManager);
+            assertThat(responseJson(response).at("/code").textValue()).isEqualTo("INVALID_DATE_OBSERVED");
+            verifyNoInteractions(mockSecurityInfoManager, mockDemographicDao, mockMeasurementTypeDao,
+                mockValidationsDao, mockMeasurementManager);
         }
 
         @Test
@@ -418,17 +423,13 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
             allowMeasurementWrite();
             when(mockDemographicDao.getDemographicById(123)).thenReturn(new Demographic());
 
-            configureType("WT", "", "1");
-
-            Validations rule = new Validations();
-            rule.setNumeric(true);
-            when(mockValidationsDao.find(1)).thenReturn(rule);
+            configureSeededWeight();
 
             Response response = request().path("/measurements/123/new")
                 .post(Entity.json("{\"type\":\"WT\",\"dataField\":\"not-a-number\"}"));
 
             assertThat(response.getStatus()).isEqualTo(400);
-            verify(mockValidationsDao).find(1);
+            verify(mockValidationsDao).find(5);
             verifyNoInteractions(mockMeasurementManager);
         }
 
@@ -437,12 +438,9 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
         @DisplayName("should reject a value that is not a plain finite decimal when the type requires numeric input")
         void shouldReturn400_whenNumericValueIsNotFinite(String value) {
             allowWriteToExistingPatient();
-            configureType("WT", "", "1");
-            Validations rule = new Validations();
-            rule.setNumeric(true);
-            when(mockValidationsDao.find(1)).thenReturn(rule);
+            configureSeededAlkalinePhosphatase();
 
-            Response response = postNew("{\"type\":\"WT\",\"dataField\":\"" + value + "\"}");
+            Response response = postNew("{\"type\":\"ALP\",\"dataField\":\"" + value + "\"}");
 
             assertThat(response.getStatus()).isEqualTo(400);
             verifyNoInteractions(mockMeasurementManager);
@@ -453,12 +451,9 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
         @DisplayName("should reject a value that is not a yyyy-MM-dd date when the rule is date-only")
         void shouldReturn400_whenDateRuleValueIsNotADate(String value) {
             allowWriteToExistingPatient();
-            configureType("DT", "", "2");
-            Validations rule = new Validations();
-            rule.setDate(true);
-            when(mockValidationsDao.find(2)).thenReturn(rule);
+            configureSeededExpectedDeliveryDate();
 
-            Response response = postNew("{\"type\":\"DT\",\"dataField\":\"" + value + "\"}");
+            Response response = postNew("{\"type\":\"EDC\",\"dataField\":\"" + value + "\"}");
 
             assertThat(response.getStatus()).isEqualTo(400);
             verifyNoInteractions(mockMeasurementManager);
@@ -468,31 +463,13 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
         @DisplayName("should accept a yyyy-MM-dd value when the rule is date-only")
         void shouldRecordMeasurement_whenDateRuleValueIsADate() {
             allowWriteToExistingPatient();
-            configureType("DT", "", "2");
-            Validations rule = new Validations();
-            rule.setDate(true);
-            when(mockValidationsDao.find(2)).thenReturn(rule);
+            configureSeededExpectedDeliveryDate();
             when(mockMeasurementManager.addMeasurement(any(), any())).thenAnswer(call -> call.getArgument(1));
 
-            Response response = postNew("{\"type\":\"DT\",\"dataField\":\"2026-01-31\"}");
+            Response response = postNew("{\"type\":\"EDC\",\"dataField\":\"2026-01-31\"}");
 
             assertThat(response.getStatus()).isEqualTo(200);
             verify(mockMeasurementManager).addMeasurement(any(), any());
-        }
-
-        @Test
-        @DisplayName("should reject dateObserved outside the database DATETIME range")
-        void shouldReturn400_whenDateObservedIsOutsideDatabaseRange() {
-            allowWriteToExistingPatient();
-            allowConfiguredBloodPressure();
-
-            Response response = postNew("{\"type\":\"BP\",\"dataField\":\"122/80\","
-                    + "\"measuringInstruction\":\"sitting position\",\"dateObserved\":253402300800000}");
-
-            // Refused by the range check itself, before the type lookup that would accept this body.
-            assertThat(response.getStatus()).isEqualTo(400);
-            assertThat(responseJson(response).at("/code").textValue()).isEqualTo("INVALID_DATE_OBSERVED");
-            verifyNoInteractions(mockSecurityInfoManager, mockMeasurementTypeDao, mockMeasurementManager);
         }
 
         private MeasurementType configureType(String typeCode, String instruction, String validationId) {
@@ -745,17 +722,94 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
         @DisplayName("should reject a value outside the configured numeric range")
         void shouldReturn400_whenValueIsOutsideConfiguredRange(String value) {
             allowWriteToExistingPatient();
-            configureType("WT", "", "5");
-            Validations rule = new Validations();
-            rule.setMinValue(0.0);
-            rule.setMaxValue(300.0);
-            rule.setNumeric(true);
-            when(mockValidationsDao.find(5)).thenReturn(rule);
+            configureSeededWeight();
 
             Response response = postNew("{\"type\":\"WT\",\"dataField\":\"" + value + "\"}");
 
             assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(responseJson(response).at("/code").textValue()).isEqualTo("VALUE_REJECTED");
             verifyNoInteractions(mockMeasurementManager);
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"0", "300", "82.5"})
+        @DisplayName("should accept a value at either end of the seeded 0 to 300 rule")
+        void shouldRecordMeasurement_whenValueIsWithinConfiguredRange(String value) {
+            allowWriteToExistingPatient();
+            configureSeededWeight();
+            when(mockMeasurementManager.addMeasurement(any(LoggedInInfo.class), any(Measurement.class)))
+                .thenAnswer(invocation -> invocation.getArgument(1));
+
+            Response response = postNew("{\"type\":\"WT\",\"dataField\":\"" + value + "\"}");
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            verify(mockMeasurementManager).addMeasurement(any(LoggedInInfo.class),
+                argThat(measurement -> value.equals(measurement.getDataField())
+                    && "in kg".equals(measurement.getMeasuringInstruction())));
+        }
+
+        @Test
+        @DisplayName("should accept a plain number on the seeded numeric rule that has no range")
+        void shouldRecordMeasurement_whenValueSatisfiesUnboundedNumericRule() {
+            allowWriteToExistingPatient();
+            configureSeededAlkalinePhosphatase();
+            when(mockMeasurementManager.addMeasurement(any(LoggedInInfo.class), any(Measurement.class)))
+                .thenAnswer(invocation -> invocation.getArgument(1));
+
+            Response response = postNew("{\"type\":\"ALP\",\"dataField\":\"1250\"}");
+
+            assertThat(response.getStatus()).isEqualTo(200);
+        }
+
+        @Test
+        @DisplayName("should reject text on the seeded numeric rule that has no range")
+        void shouldReturn400_whenValueIsNotNumericForUnboundedNumericRule() {
+            allowWriteToExistingPatient();
+            configureSeededAlkalinePhosphatase();
+
+            Response response = postNew("{\"type\":\"ALP\",\"dataField\":\"abc\"}");
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            verifyNoInteractions(mockMeasurementManager);
+        }
+
+        /** Seeded rule 5, "Numeric Value: 0 to 300", which WT (in kg) and HT (in cm) use. */
+        private static Validations seededWeightRule() {
+            Validations rule = new Validations();
+            rule.setMaxValue(300.0);
+            rule.setMinValue(0.0);
+            rule.setNumeric(true);
+            return rule;
+        }
+
+        private void configureSeededWeight() {
+            configureType("WT", "in kg", "5");
+            when(mockValidationsDao.find(5)).thenReturn(seededWeightRule());
+        }
+
+        /** Seeded rule 14, "Numeric Value greater than or equal to 0": numeric, 0/0 range, so no range applies. */
+        private void configureSeededAlkalinePhosphatase() {
+            configureType("ALP", "U/L Range 50-300", "14");
+            Validations rule = new Validations();
+            rule.setMaxValue(0.0);
+            rule.setMinValue(0.0);
+            rule.setMaxLength(0);
+            rule.setMinLength(0);
+            rule.setNumeric(true);
+            rule.setDate(false);
+            when(mockValidationsDao.find(14)).thenReturn(rule);
+        }
+
+        /** Seeded rule 13, "Date", which EDC, LMP and DOLE use. */
+        private static Validations seededDateRule() {
+            Validations rule = new Validations();
+            rule.setDate(true);
+            return rule;
+        }
+
+        private void configureSeededExpectedDeliveryDate() {
+            configureType("EDC", "yyyy-mm-dd", "13");
+            when(mockValidationsDao.find(13)).thenReturn(seededDateRule());
         }
 
         private static MeasurementType typeRow(String code, String instruction, String validation) {
@@ -785,10 +839,11 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
         @DisplayName("should ask for the instruction when the type is configured with several and none is sent")
         void shouldReturn400_whenInstructionOmittedForMultiInstructionType() {
             allowWriteToExistingPatient();
-            when(mockMeasurementTypeDao.findByType("BP")).thenReturn(List.of(
-                typeRow("BP", "sitting position", "6"), typeRow("BP", "standing position", "6")));
+            // FEET is seeded with five instructions (pulses, reflexes, ...) sharing rule 7.
+            when(mockMeasurementTypeDao.findByType("FEET")).thenReturn(List.of(
+                typeRow("FEET", "pulses (Yes/No)", "7"), typeRow("FEET", "reflexes (Yes/No)", "7")));
 
-            Response response = postNew("{\"type\":\"BP\",\"dataField\":\"122/80\"}");
+            Response response = postNew("{\"type\":\"FEET\",\"dataField\":\"Yes\"}");
 
             assertThat(response.getStatus()).isEqualTo(400);
             var body = responseJson(response);
@@ -801,7 +856,8 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
         @DisplayName("should use the type's only configured instruction when none is sent")
         void shouldUseConfiguredInstruction_whenTypeHasOnlyOne() {
             allowWriteToExistingPatient();
-            when(mockMeasurementTypeDao.findByType("WT")).thenReturn(List.of(typeRow("WT", "in kg", null)));
+            when(mockMeasurementTypeDao.findByType("WT")).thenReturn(List.of(typeRow("WT", "in kg", "5")));
+            when(mockValidationsDao.find(5)).thenReturn(seededWeightRule());
             when(mockMeasurementManager.addMeasurement(any(LoggedInInfo.class), any(Measurement.class)))
                 .thenAnswer(invocation -> invocation.getArgument(1));
 
@@ -819,7 +875,8 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
             allowWriteToExistingPatient();
             // LMP is seeded twice (ids 218 and 342) with the same instruction and rule.
             when(mockMeasurementTypeDao.findByType("LMP")).thenReturn(List.of(
-                typeRow("LMP", "date", null), typeRow("LMP", "date", null)));
+                typeRow("LMP", "date", "13"), typeRow("LMP", "date", "13")));
+            when(mockValidationsDao.find(13)).thenReturn(seededDateRule());
             when(mockMeasurementManager.addMeasurement(any(LoggedInInfo.class), any(Measurement.class)))
                 .thenAnswer(invocation -> invocation.getArgument(1));
 
@@ -835,7 +892,10 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
             allowWriteToExistingPatient();
             // The lookup collation is case-insensitive, so "bp" finds the BP row.
             when(mockMeasurementTypeDao.findByTypeAndMeasuringInstruction("bp", "SITTING POSITION"))
-                .thenReturn(List.of(typeRow("BP", "sitting position", null)));
+                .thenReturn(List.of(typeRow("BP", "sitting position", "6")));
+            Validations bloodPressure = new Validations();
+            bloodPressure.setRegularExp("[0-9]{2,3}/{1}[0-9]{2,3}");
+            when(mockValidationsDao.find(6)).thenReturn(bloodPressure);
             when(mockMeasurementManager.addMeasurement(any(LoggedInInfo.class), any(Measurement.class)))
                 .thenAnswer(invocation -> invocation.getArgument(1));
 
@@ -883,7 +943,7 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
         @DisplayName("should fail without saving when the type names a non-numeric validation id")
         void shouldReturn500WithoutSaving_whenValidationIdIsNotNumeric() {
             allowWriteToExistingPatient();
-            configureType("BP", "", "six");
+            configureType("BP", "sitting position", "six");
 
             Response response = postNew("{\"type\":\"BP\",\"dataField\":\"122/80\"}");
 
@@ -895,7 +955,7 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
         @DisplayName("should fail without saving when the type's validation rule does not exist")
         void shouldReturn500WithoutSaving_whenValidationRuleIsMissing() {
             allowWriteToExistingPatient();
-            configureType("BP", "", "99");
+            configureType("BP", "sitting position", "99");
 
             Response response = postNew("{\"type\":\"BP\",\"dataField\":\"122/80\"}");
 
@@ -908,7 +968,7 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
         @DisplayName("should fail without saving when the validation rule's pattern is not a valid regex")
         void shouldReturn500WithoutSaving_whenValidationPatternIsInvalid() {
             allowWriteToExistingPatient();
-            configureType("BP", "", "6");
+            configureType("BP", "sitting position", "6");
             Validations rule = new Validations();
             rule.setRegularExp("[0-9");
             when(mockValidationsDao.find(6)).thenReturn(rule);
@@ -919,11 +979,13 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
             verifyNoInteractions(mockMeasurementManager);
         }
 
-        @Test
+        @ParameterizedTest(name = "\"{0}\"")
+        @NullAndEmptySource
+        @ValueSource(strings = {"   "})
         @DisplayName("should refuse a write when the session carries no provider identity")
-        void shouldReturn403_whenProviderIdentityIsMissing() {
+        void shouldReturn403_whenProviderIdentityIsMissing(String providerNo) {
             allowWriteToExistingPatient();
-            when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(null);
+            when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(providerNo);
 
             Response response = postNew("{\"type\":\"BP\",\"dataField\":\"122/80\"}");
 
@@ -935,7 +997,7 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
         @DisplayName("should answer 409 without saving when structured care cannot be projected")
         void shouldReturn409WithoutSaving_whenStructuredCareCannotBeProjected() {
             allowWriteToExistingPatient();
-            org.mockito.Mockito.doThrow(new jakarta.ws.rs.WebApplicationException(Response.status(409)
+            doThrow(new jakarta.ws.rs.WebApplicationException(Response.status(409)
                     .type("text/plain").entity("Structured projection requires review").build()))
                 .when(projections).requireRestSupported(123, java.util.Set.of("CareElements"));
 
