@@ -285,6 +285,7 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <fmt:message key="SearchDrug.js.requestRefused"            var="msg_requestRefused"/>
         <fmt:message key="SearchDrug.js.limitedUseLookupFailed"    var="msg_limitedUseLookupFailed"/>
         <fmt:message key="SearchDrug.js.costLookupFailed"          var="msg_costLookupFailed"/>
+        <fmt:message key="SearchDrug.js.quantityUpdateFailed"      var="msg_quantityUpdateFailed"/>
         <fmt:message key="SearchDrug.js.deleteRefused"             var="msg_deleteRefused"/>
         <fmt:message key="SearchDrug.js.previewUnavailable"        var="msg_previewUnavailable"/>
         <fmt:message key="SearchDrug.js.dateNotOnCalendar"         var="msg_dateNotOnCalendar"/>
@@ -340,6 +341,7 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
                 requestRefused: '${carlos:forJavaScript(msg_requestRefused)}',
                 limitedUseLookupFailed: '${carlos:forJavaScript(msg_limitedUseLookupFailed)}',
                 costLookupFailed: '${carlos:forJavaScript(msg_costLookupFailed)}',
+                quantityUpdateFailed: '${carlos:forJavaScript(msg_quantityUpdateFailed)}',
                 deleteRefused: '${carlos:forJavaScript(msg_deleteRefused)}',
                 previewUnavailable: '${carlos:forJavaScript(msg_previewUnavailable)}',
                 dateNotOnCalendar: '${carlos:forJavaScript(msg_dateNotOnCalendar)}',
@@ -2772,14 +2774,37 @@ function updateQty(element){
        var unitNameStr="unitName_"+rand;
        var prnStr="prn_"+rand;
        var prnVal="prnVal_"+rand;
+        function isCurrentCalculation() {
+            return document.getElementById('set_' + rand) === card && card._rxCalculation === calculation;
+        }
+
+        function showQuantityFailure(status) {
+            if (!isCurrentCalculation() || element.value !== submittedQuantity) return;
+            var panel = clearDrugPrice('cost_' + rand);
+            if (panel) showRxLookupError(panel, jsMsg.quantityUpdateFailed, status);
+        }
+
         CarlosAjax.request(url, {method: 'POST',parameters:data,
           requestHeaders: { 'Accept': 'application/json' },
+          onFailure:function(transport){
+                showQuantityFailure(transport.status);
+          },
           onSuccess:function(transport){
                 // Staging starts an async quantity calculation. Its old answer must not erase
                 // directions parsed since then, or update a discarded/replaced card (#5183).
-                if (document.getElementById('set_' + rand) !== card || card._rxCalculation !== calculation) return;
-                var json = null;
-                try { json = JSON.parse(transport.responseText); } catch(e) { return; }
+                if (!isCurrentCalculation()) return;
+                var json;
+                try {
+                    json = JSON.parse(transport.responseText);
+                } catch (invalidJson) {
+                    showQuantityFailure();
+                    return;
+                }
+                if (!json || typeof json.calQuantity !== 'string'
+                        || (json.priceQuantity !== null && typeof json.priceQuantity !== 'string')) {
+                    showQuantityFailure();
+                    return;
+                }
                 document.getElementById(methodStr).textContent=json.method;
                 document.getElementById(routeStr).textContent=json.route;
                 document.getElementById(frequencyStr).textContent=json.frequency;
@@ -2945,8 +2970,11 @@ function updateQty(element){
 
          function refreshDrugPrice(randomId, quantity) {
             var panel = document.getElementById('cost_' + randomId);
-            if (panel && /^[0-9]{8}$/.test(panel.dataset.din)) {
+            if (!panel) return;
+            if (/^[0-9]{8}$/.test(panel.dataset.din)) {
                 getCost(panel.id, randomId, panel.dataset.din, quantity == null ? '' : quantity);
+            } else {
+                clearDrugPrice(panel.id);
             }
          }
 

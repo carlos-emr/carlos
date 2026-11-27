@@ -171,13 +171,14 @@ class ReportConnectionLeaseIntegrationTest {
                 try (var statement = report.createStatement()) {
                     statement.setQueryTimeout(ReportResultBudget.TIMEOUT_SECONDS);
                     try (var rows = statement.executeQuery(mariaDb
-                            ? "SELECT SLEEP(20) AS report_delay" : "CALL QUALIFICATION_SLEEP(20000)")) {
+                            ? "SELECT SLEEP(25) AS report_delay" : "CALL QUALIFICATION_SLEEP(25000)")) {
                         return rows.next();
                     }
                 }
             });
             awaitExecuting(executor, session, query);
-            // Apply pressure after the former 15-second expiry and while the report is executing.
+            // Even with the five-second observation budget, this applies pressure during the
+            // 25-second query and after the former 15-second expiry.
             var pressure = executor.schedule(() -> {
                 assertFalse(query.isDone(), "Near-capacity pressure must occur during the report query");
                 return borrowAndCountActive(pool);

@@ -31,6 +31,8 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.sql.ResultSetMetaData;
+import java.sql.Types;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -43,6 +45,7 @@ import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.util.NativeQueryValues;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -144,30 +147,36 @@ public class EncounterFormDaoImpl extends AbstractDaoImpl<EncounterForm> impleme
         String trusted = requireTable(table);
         // Read the real schema: form tables have different optional columns and defaults.
         // Values stay strings so MariaDB, as with updateString(), owns date/number conversion.
-        List<String> columns = entityManager.unwrap(org.hibernate.Session.class).doReturningWork(connection -> {
+        Map<String, ImportColumn> columns = entityManager.unwrap(org.hibernate.Session.class).doReturningWork(connection -> {
             try (var statement = prepareFormSchemaSelect(connection, trusted);
                  var rows = statement.executeQuery()) {
-                List<String> result = new ArrayList<>();
+                Map<String, ImportColumn> result = new LinkedHashMap<>();
                 var metadata = rows.getMetaData();
-                for (int i = 1; i <= metadata.getColumnCount(); i++) result.add(metadata.getColumnName(i));
+                for (int i = 1; i <= metadata.getColumnCount(); i++) {
+                    String name = metadata.getColumnName(i);
+                    boolean nullableInteger = metadata.getColumnType(i) == Types.INTEGER
+                            && metadata.isNullable(i) == ResultSetMetaData.columnNullable;
+                    result.put(name.toLowerCase(Locale.ROOT), new ImportColumn(name, nullableInteger));
+                }
                 return result;
             }
         });
-        Map<String, String> names = new LinkedHashMap<>();
-        columns.forEach(column -> names.put(column.toLowerCase(Locale.ROOT), column));
         Map<String, String> supplied = new LinkedHashMap<>();
         for (var entry : values.entrySet()) {
             String key = entry.getKey().toLowerCase(Locale.ROOT);
             if (Set.of("id", "demographic_no", "formedited").contains(key)) continue;
-            if (!names.containsKey(key)) throw new IllegalArgumentException("Unknown form import column");
-            supplied.put(key, entry.getValue());
+            ImportColumn column = columns.get(key);
+            if (column == null) throw new IllegalArgumentException("Unknown form import column");
+            // Legacy XML writes SQL NULL as an empty element. Preserve that value for integer answers.
+            String value = entry.getValue();
+            supplied.put(key, column.nullableInteger() ? StringUtils.defaultIfBlank(value, null) : value);
         }
         supplied.put("demographic_no", demographicNo);
         supplied.put("formedited", edited);
-        if (!names.keySet().containsAll(supplied.keySet())) throw new IllegalArgumentException("Invalid form import schema");
+        if (!columns.keySet().containsAll(supplied.keySet())) throw new IllegalArgumentException("Invalid form import schema");
         List<String> keys = new ArrayList<>(supplied.keySet());
         // Every identifier comes from the physical metadata of the allowlisted table.
-        String fields = String.join(",", keys.stream().map(key -> "`" + names.get(key).replace("`", "``") + "`").toList());
+        String fields = String.join(",", keys.stream().map(key -> "`" + columns.get(key).name().replace("`", "``") + "`").toList());
         String binds = String.join(",", java.util.Collections.nCopies(keys.size(), "?"));
         return entityManager.unwrap(org.hibernate.Session.class).doReturningWork(connection -> {
             try (var insert = prepareImportedInsert(connection, trusted, fields, binds)) {
@@ -180,6 +189,8 @@ public class EncounterFormDaoImpl extends AbstractDaoImpl<EncounterForm> impleme
             }
         });
     }
+
+    private record ImportColumn(String name, boolean nullableInteger) { }
 
     // The form registry and ASCII identifier check restrict the table used by this private read.
     // Both the patient and record identifiers remain bound JDBC parameters.

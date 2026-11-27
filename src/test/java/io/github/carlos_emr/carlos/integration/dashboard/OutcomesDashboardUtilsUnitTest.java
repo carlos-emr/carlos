@@ -30,7 +30,6 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -80,7 +79,7 @@ class OutcomesDashboardUtilsUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void startDestinationAndWireTheHelper() throws Exception {
-        destination = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        destination = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         destination.createContext(
                 "/send",
                 exchange -> {

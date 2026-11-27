@@ -5,15 +5,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Date;
+import java.util.List;
 import java.util.Properties;
-import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -38,45 +37,55 @@ class FormXmlArchiveUnitTest {
 
     @TempDir Path archive;
     private String previousPath;
+    private String previousEnabled;
 
     @BeforeEach
     void useTemporaryArchive() {
         Properties configuration = CarlosProperties.getInstance();
         previousPath = configuration.getProperty("form_record_path");
+        previousEnabled = configuration.getProperty("save_as_xml");
         configuration.setProperty("form_record_path", archive.toString());
+        configuration.setProperty("save_as_xml", "true");
     }
 
     @AfterEach
     void restoreArchivePath() {
-        Properties configuration = CarlosProperties.getInstance();
-        if (previousPath == null) {
-            configuration.remove("form_record_path");
+        restore("form_record_path", previousPath);
+        restore("save_as_xml", previousEnabled);
+    }
+
+    private static void restore(String key, String value) {
+        if (value == null) {
+            CarlosProperties.getInstance().remove(key);
         } else {
-            configuration.setProperty("form_record_path", previousPath);
+            CarlosProperties.getInstance().setProperty(key, value);
         }
     }
 
     @Test
     void shouldUseTheCurrentWholeSecond_whenNoVersionIsAtOrAfterIt() {
-        assertThat(FormXmlArchive.nextEditTime(null, NOW)).isEqualTo(new Date(SECOND));
-        assertThat(FormXmlArchive.nextEditTime(new Date(SECOND - 1), NOW)).isEqualTo(new Date(SECOND));
-        assertThat(FormXmlArchive.nextEditTime(null).getTime() % 1000L).isZero();
+        assertThat(nextEditTime()).isEqualTo(new Date(SECOND));
+        assertThat(nextEditTime(new Date(SECOND - 1))).isEqualTo(new Date(SECOND));
+        assertThat(FormXmlArchive.currentSecond().getTime() % 1000L).isZero();
     }
 
     @Test
     void shouldFollowTheLatestVersion_whenItHasTheCurrentSecondOrALaterOne() {
         // Two saves in one second, or in one transaction.
-        assertThat(FormXmlArchive.nextEditTime(new Date(SECOND + 999), NOW)).isEqualTo(new Date(SECOND + 1000));
+        assertThat(nextEditTime(new Date(SECOND + 999))).isEqualTo(new Date(SECOND + 1000));
         // A version a few seconds ahead (several saves in one second, or the clock stepped back).
-        assertThat(FormXmlArchive.nextEditTime(new Date(SECOND + 30_000), NOW)).isEqualTo(new Date(SECOND + 31_000));
-        assertThat(FormXmlArchive.nextEditTime(new Date(SECOND + FormXmlArchive.MAX_AHEAD_MILLIS), NOW))
+        assertThat(nextEditTime(new Date(SECOND + 30_000))).isEqualTo(new Date(SECOND + 31_000));
+        assertThat(nextEditTime(new Date(SECOND + FormXmlArchive.MAX_AHEAD_MILLIS)))
                 .isEqualTo(new Date(SECOND + FormXmlArchive.MAX_AHEAD_MILLIS + 1000));
     }
 
     @Test
     void shouldIgnoreALatestVersion_moreThanAMinuteAheadOfTheClock() {
-        assertThat(FormXmlArchive.nextEditTime(new Date(SECOND + FormXmlArchive.MAX_AHEAD_MILLIS + 1000), NOW))
-                .isEqualTo(new Date(SECOND));
+        Date outlier = new Date(SECOND + FormXmlArchive.MAX_AHEAD_MILLIS + 1000);
+        assertThat(nextEditTime(outlier)).isEqualTo(new Date(SECOND));
+        assertThat(nextEditTime(outlier, new Date(SECOND))).isEqualTo(new Date(SECOND + 1000));
+        assertThat(nextEditTime(outlier, new Date(SECOND + FormXmlArchive.MAX_AHEAD_MILLIS)))
+                .isEqualTo(new Date(outlier.getTime() + 1000));
     }
 
     @Test
@@ -92,33 +101,24 @@ class FormXmlArchiveUnitTest {
     void shouldNeverReplaceAnotherVersionsCopy_whenItsNameIsTaken() throws Exception {
         Path taken = Files.writeString(archive.resolve("formSF36_42_" + stamp(SECOND) + ".xml"), "the other version");
 
-        Path written;
-        try (LogCapture logs = LogCapture.forLogger(FormXmlArchive.class.getName())) {
-            written = FormXmlArchive.write("formSF36", 42, new Date(NOW), document(8));
-            assertThat(logs.events()).singleElement().satisfies(event -> {
-                assertThat(event.getLevel()).isEqualTo(Level.WARN);
-                assertThat(event.getMessage().getFormattedMessage())
-                        .contains("1 second(s) after its edit time").doesNotContain("42", "formSF36");
-            });
-        }
-
+        assertThatThrownBy(() -> FormXmlArchive.write("formSF36", 42, new Date(NOW), document(8)))
+                .isInstanceOf(FileAlreadyExistsException.class);
         assertThat(Files.readString(taken)).isEqualTo("the other version");
-        assertThat(written.getFileName()).hasToString("formSF36_42_" + stamp(SECOND + 1000) + ".xml");
-        assertThat(Files.readString(written)).contains("<ID>8</ID>");
     }
 
     @Test
-    void shouldRefuseAndWriteNothing_whenEveryLaterNameIsTaken() throws Exception {
-        for (int later = 0; later <= FormXmlArchive.MAX_LATER_SECONDS; later++) {
-            Files.writeString(archive.resolve("formSF36_42_" + stamp(SECOND + later * 1000L) + ".xml"), "taken");
-        }
+    void shouldChooseAnUnusedEditTime_whenAnOlderArchiveExistsWithoutItsRow() throws Exception {
+        FormXmlArchive.write("formSF36", 42, new Date(SECOND), document(7));
 
-        assertThatThrownBy(() -> FormXmlArchive.write("formSF36", 42, new Date(NOW), document(9)))
-                .isInstanceOf(FileAlreadyExistsException.class);
-        try (var files = Files.list(archive)) {
-            assertThat(files).hasSize(FormXmlArchive.MAX_LATER_SECONDS + 1)
-                    .allSatisfy(file -> assertThat(Files.readString(file)).isEqualTo("taken"));
-        }
+        Date edited = nextEditTime();
+        assertThat(edited).isEqualTo(new Date(SECOND + 1000));
+        Path written = FormXmlArchive.write("formSF36", 42, edited, document(8));
+        assertThat(written.getFileName()).hasToString("formSF36_42_" + stamp(edited.getTime()) + ".xml");
+        assertThat(Files.readString(written)).contains("<ID>8</ID>");
+    }
+
+    private static Date nextEditTime(Date... existing) {
+        return FormXmlArchive.nextEditTime("formSF36", 42, new Date(SECOND), List.of(existing));
     }
 
     private static String stamp(long millis) {

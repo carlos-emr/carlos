@@ -75,7 +75,7 @@ HEADER = {
 HEADER_ALTERNATIVES = {"demographic_no": {"int(10) NOT NULL DEFAULT 0"}}
 
 # Physical type -> (column kind, Java type). Integer and floating-point answers stay text:
-# the legacy form bound them as strings and the packaged server's empty sql_mode converts them.
+# the legacy form bound them as strings and the server converts nonblank values.
 TEXT_TYPE = re.compile(r"^(?:varchar|char)\(\d+\)$|^int\(\d+\)$|^double$")
 COLUMN_LINE = re.compile(r"^\s*`([^`]+)`\s+(\S+)(.*?),?\s*$")
 
@@ -177,8 +177,9 @@ def answer_members(owner: str, body) -> list[str]:
     """The column table and the mapped answer fields of the class that declares them."""
     lines = [f"    private static final List<RehabStudyColumn<{owner}>> COLUMNS = List.of("]
     entries = []
-    for name, _, kind, _, field in body:
-        reader = f'            new {kind}<>("{name}", form -> form.{field},'
+    for name, physical, kind, _, field in body:
+        constructor = "Text.forIntegerColumn" if physical.startswith("int(") else f"new {kind}<>"
+        reader = f'            {constructor}("{name}", form -> form.{field},'
         writer = f"(form, value) -> form.{field} = value)"
         single = f"{reader} {writer}"
         entries.append(single if len(single) <= 120 else f"{reader}\n                    {writer}")

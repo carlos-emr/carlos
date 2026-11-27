@@ -93,9 +93,11 @@ test('a subsequent quantity price replaces the previous amount on the same card'
 test('card pricing uses its DIN and omits the dispense count when it is unknown', () => {
   const s = setup();
   s.elements.get('cost_7').dataset.din = '02477580';
+  s.elements.get('cost_8').textContent = 'Could not update the quantity. Try again.';
   s.context.refreshDrugPrice('7', null);
   s.context.refreshDrugPrice('8', '30');
   assert.equal(s.requests.length, 1, 'a custom drug has no price lookup');
+  assert.equal(s.elements.get('cost_8').innerHTML, '', 'a successful calculation clears the previous error');
   const url = new URL(s.requests[0].url, 'https://carlos.invalid');
   assert.equal(url.searchParams.get('din'), '02477580');
   assert.equal(url.searchParams.get('qty'), '');

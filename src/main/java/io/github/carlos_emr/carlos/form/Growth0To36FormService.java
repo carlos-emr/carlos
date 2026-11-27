@@ -1,7 +1,6 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 package io.github.carlos_emr.carlos.form;
 
-import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.forms.FormGrowth0To36Dao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.form.model.FormGrowth0To36;
@@ -15,6 +14,7 @@ import java.util.Date;
 import java.util.Properties;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -102,14 +102,14 @@ public class Growth0To36FormService {
      * @throws SecurityException if the actor lacks access, or a positive source ID is missing or foreign
      * @throws IllegalArgumentException if the patient number is not positive or the provider number is invalid
      */
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(isolation = Isolation.READ_COMMITTED, rollbackFor = Exception.class)
     public int saveVersion(LoggedInInfo actor, int patient, int sourceId, Properties values) {
         require(actor, patient, "w");
         if (sourceId > 0) requireVersion(patient, sourceId);
         FormGrowth0To36 form = Growth0To36FormValues.fromProperties(values);
-        // Never the same second as the patient's latest Growth version (even one saved earlier in
-        // this transaction): the edit time is the version's XML archive identity.
-        Date edited = FormXmlArchive.nextEditTime(forms.findLatestEdited(patient));
+        Date now = FormXmlArchive.currentSecond();
+        Date edited = FormXmlArchive.nextEditTime("formGrowth0_36", patient, now,
+                forms.lockAndFindEditsSince(patient, now));
         form.setFormEdited(edited);
         form.setDemographicNo(patient);
         form.setProviderNo(Integer.valueOf(actor.getLoggedInProviderNo()));
@@ -133,7 +133,7 @@ public class Growth0To36FormService {
     }
 
     private void archiveAfterCommit(int patient, int id, Date edited) {
-        if (!Boolean.parseBoolean(CarlosProperties.getInstance().getProperty("save_as_xml", "false"))) return;
+        if (!FormXmlArchive.isEnabled()) return;
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {

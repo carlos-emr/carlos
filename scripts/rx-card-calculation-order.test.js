@@ -12,7 +12,7 @@ function fixture() {
   const elements = new Map();
   for (const id of ['saveButton', 'saveOnlyButton']) elements.set(id, { disabled: false });
   for (const card of ['11', '22']) {
-    for (const prefix of ['set', 'instructions', 'quantity', 'method', 'route', 'frequency',
+    for (const prefix of ['set', 'instructions', 'quantity', 'cost', 'method', 'route', 'frequency',
       'minimum', 'maximum', 'duration', 'durationUnit', 'quantityStr', 'unitName', 'prn', 'prnVal']) {
       const id = `${prefix}_${card}`;
       // The page clears a refused dose's aria-invalid flag when the server recalculates it.
@@ -26,9 +26,17 @@ function fixture() {
   }
   const requests = [];
   const quotes = [];
+  const failures = [];
   const context = {
     ctx: '/carlos', encodeURIComponent, alert() {},
+    jsMsg: { quantityUpdateFailed: 'Could not update the quantity. Try again.' },
     refreshDrugPrice(card, quantity) { quotes.push({ card, quantity }); },
+    clearDrugPrice(id) {
+      const panel = elements.get(id);
+      panel.textContent = '';
+      return panel;
+    },
+    showRxLookupError(panel, message, status) { failures.push({ id: panel.id, message, status }); },
     document: { getElementById: id => elements.get(id) },
     CarlosAjax: { request(url, options) { requests.push({ url, options }); } },
   };
@@ -37,7 +45,8 @@ function fixture() {
     method: 'tab', route: 'PO', takeMin: 1, takeMax: 1, frequency: 'BID', duration: '14',
     durationUnit: 'D', calQuantity: '28', priceQuantity: '28', unitName: null, prn: false, ...values,
   }) });
-  return { context, elements, requests, quotes, reply, field: (prefix, card = '11') => elements.get(`${prefix}_${card}`) };
+  return { context, elements, requests, quotes, failures, reply,
+    field: (prefix, card = '11') => elements.get(`${prefix}_${card}`) };
 }
 
 test('a delayed staging quantity response cannot erase newer parsed directions (#5183)', () => {
@@ -81,6 +90,35 @@ test('a quantity calculation completed during a subsequent edit cannot quote the
   f.context.updateQty(f.field('quantity'));
   f.reply(f.requests[1], { calQuantity: '30', priceQuantity: null, unitName: 'days' });
   assert.deepEqual(f.quotes, [{ card: '11', quantity: null }]);
+});
+
+test('a failed or malformed quantity update reports an error on its card without quoting a price', () => {
+  const f = fixture();
+  f.context.updateQty(f.field('quantity'));
+  f.requests[0].options.onFailure({ status: 500 });
+  for (const responseText of ['<html>', 'null', '{}', '{"calQuantity":"30"}']) {
+    f.context.updateQty(f.field('quantity', '22'));
+    f.requests.at(-1).options.onSuccess({ responseText });
+  }
+  const message = f.context.jsMsg.quantityUpdateFailed;
+  assert.deepEqual(f.failures, [
+    { id: 'cost_11', message, status: 500 },
+    ...Array.from({ length: 4 }, () => ({ id: 'cost_22', message, status: undefined })),
+  ]);
+  assert.deepEqual(f.quotes, []);
+});
+
+test('a failed update is ignored after a newer request, edit, or card replacement', () => {
+  const f = fixture();
+  f.context.updateQty(f.field('quantity'));
+  f.context.updateQty(f.field('quantity'));
+  f.requests[0].options.onFailure({ status: 500 });
+  f.field('quantity').value = '30 days';
+  f.requests[1].options.onFailure({ status: 500 });
+  f.context.updateQty(f.field('quantity'));
+  f.elements.set('set_11', {});
+  f.requests[2].options.onFailure({ status: 500 });
+  assert.deepEqual(f.failures, []);
 });
 
 test('a response for a discarded card cannot change a replacement with the same id', () => {

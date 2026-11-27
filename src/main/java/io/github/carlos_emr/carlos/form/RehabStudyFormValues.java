@@ -20,8 +20,9 @@ import org.apache.commons.lang3.StringUtils;
  * {@code <input>}, any other value is empty; text is trimmed, a missing value empty; dates are
  * {@code yyyy/MM/dd}; the edit timestamp is {@code yyyy-MM-dd HH:mm:ss}. Writing: a checkbox
  * posted as {@code on} or {@code checked='checked'} (any case) is 1, anything else, including no
- * post, is 0; text is stored as posted, absent text as NULL; a date with a slash is read as
- * {@code yyyy/MM/dd}, otherwise as {@code yyyy-MM-dd}, and an unreadable one is NULL.</p>
+ * post, is 0; text is stored as posted, with absent text and blank integer answers stored as NULL;
+ * a date with a slash is read as {@code yyyy/MM/dd}, otherwise as {@code yyyy-MM-dd}, and an
+ * unreadable one is NULL.</p>
  *
  * @since 2026-11-26
  */

@@ -5,6 +5,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * One answer column of a rehabilitation-study questionnaire table, bound to its entity field.
@@ -58,7 +59,7 @@ public sealed interface RehabStudyColumn<E extends RehabStudyAssessment>
             BiConsumer<E, Byte> writer) implements RehabStudyColumn<E> { }
 
     /**
-     * A {@code varchar}, {@code char}, {@code int} or {@code double} answer kept as posted text.
+     * A {@code varchar}, {@code char}, {@code int} or {@code double} answer read as text.
      *
      * @param name the column and form field name
      * @param reader reads the stored value
@@ -66,7 +67,13 @@ public sealed interface RehabStudyColumn<E extends RehabStudyAssessment>
      * @param <E> the owning entity
      */
     record Text<E extends RehabStudyAssessment>(String name, Function<E, String> reader,
-            BiConsumer<E, String> writer) implements RehabStudyColumn<E> { }
+            BiConsumer<E, String> writer) implements RehabStudyColumn<E> {
+        /** Blank answers to nullable integer columns represent missing values. */
+        static <E extends RehabStudyAssessment> Text<E> forIntegerColumn(String name, Function<E, String> reader,
+                BiConsumer<E, String> writer) {
+            return new Text<>(name, reader, (form, value) -> writer.accept(form, StringUtils.defaultIfBlank(value, null)));
+        }
+    }
 
     /**
      * A {@code date} answer.

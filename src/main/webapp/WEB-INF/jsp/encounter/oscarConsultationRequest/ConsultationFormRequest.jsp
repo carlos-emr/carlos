@@ -533,13 +533,13 @@
         <script type="text/javascript">
             var healthCareTeam = [];
         </script>
+        <%-- Every value is JavaScript-string encoded: these are free-text contact fields, and
+             before #6202 they were spliced raw into template literals, so a backtick or
+             "${" in a note ran as script. A blank number stays "" (never "null"). --%>
         <c:forEach items="${ healthCareTeam }" var="demographicContact" varStatus="loop">
             <script type="text/javascript">
                 //<!--
                 var contact = {};
-                <%-- Every value is JavaScript-string encoded: these are free-text contact fields, and
-                     before #6202 they were spliced raw into template literals, so a backtick or
-                     "${" in a note ran as script. A blank number stays "" (never "null"). --%>
                 contact.contactId = "${ carlos:forJavaScript(demographicContact.details.id) }";
                 contact.specNbr = "${ carlos:forJavaScript(demographicContact.details.cpso) }";
                 contact.phoneNum = "${ carlos:forJavaScript(demographicContact.details.workPhone) }";

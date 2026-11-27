@@ -37,17 +37,15 @@ public class FormGrowth0To36Dao extends AbstractDaoImpl<FormGrowth0To36> {
     }
 
     /**
-     * The latest edit time of the patient's Growth versions, including versions the caller's
-     * transaction has saved but not committed (the query flushes them first). A new version's edit
-     * time is taken after it, so each version keeps its own XML archive identity.
+     * Serializes version allocation for the patient until the caller's transaction completes.
      *
      * @param patient the patient's demographic number
-     * @return the latest {@code formEdited}, or {@code null} when the patient has no version
+     * @param from the earliest whole second considered for the new version
+     * @return stored edit times at or after {@code from}, including the caller's pending saves
      */
-    @Transactional(readOnly = true)
-    public Date findLatestEdited(int patient) {
-        return entityManager.createQuery("SELECT MAX(f.formEdited) FROM FormGrowth0To36 f WHERE f.demographicNo = :patient",
-                Date.class).setParameter(PATIENT_PARAMETER, patient).getSingleResult();
+    @Transactional(propagation = Propagation.MANDATORY)
+    public List<Date> lockAndFindEditsSince(int patient, Date from) {
+        return FormVersionEdits.lockAndFindEditsSince(entityManager, FormGrowth0To36.class, patient, from);
     }
 
     /** Metadata consumed by encounter shortcuts, Rourke graphs and eForm growth overlays. */

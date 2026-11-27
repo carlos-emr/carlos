@@ -54,7 +54,8 @@ class FormXmlImportServiceIntegrationTest extends CarlosTestBase {
     void createOwnedTable() {
         jdbc = new JdbcTemplate(dataSource);
         jdbc.execute("CREATE TABLE " + table + " (ID INT AUTO_INCREMENT PRIMARY KEY, demographic_no INT NOT NULL,"
-                + " formCreated DATE DEFAULT '2026-01-02', formEdited DATETIME(6), notes VARCHAR(255), rawHistory VARCHAR(255))");
+                + " formCreated DATE DEFAULT '2026-01-02', formEdited DATETIME(6), notes VARCHAR(255),"
+                + " rawHistory VARCHAR(255), blankScore INT, zeroScore INT)");
         registration = new EncounterForm();
         registration.setFormName(table);
         registration.setFormTable(table);
@@ -105,6 +106,18 @@ class FormXmlImportServiceIntegrationTest extends CarlosTestBase {
         assertThat(forms.findPatientRecord(table, id.intValue(), 202)).isNull();
         assertThat(service.importEntry(input(body("replacement")), name("2026-10-31T12:34:56"))).isNull();
         assertThat(count()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldRestoreBlankIntegerAnswers_asNullWithoutLosingZeroOrBlankText() throws Exception {
+        String xml = "<Results><Row><blankScore/><zeroScore>0</zeroScore><notes/></Row></Results>";
+        Long id = service.importEntry(input(xml), name("2026-10-31T12:34:56"));
+
+        var values = new io.github.carlos_emr.carlos.commn.dao.ClinicalDataRow(
+                forms.findPatientRecord(table, id.intValue(), 101));
+        assertThat(values.raw("blankScore")).isNull();
+        assertThat(values.raw("zeroScore")).isEqualTo("0");
+        assertThat(values.raw("notes")).isEmpty();
     }
 
     @ParameterizedTest

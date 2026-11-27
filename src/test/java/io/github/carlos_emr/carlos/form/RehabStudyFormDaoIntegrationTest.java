@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.managers.DemographicManagerImpl;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
+import io.github.carlos_emr.carlos.test.support.IntegrationTestSeedService;
 import io.github.carlos_emr.carlos.util.JDBCUtil;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -42,12 +43,16 @@ import jakarta.persistence.PersistenceContext;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.SQLException;
+import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 import java.util.TreeMap;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 import javax.sql.DataSource;
@@ -56,6 +61,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -71,6 +77,7 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.util.AopTestUtils;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -116,7 +123,7 @@ class RehabStudyFormDaoIntegrationTest extends CarlosTestBase {
     private LoggedInInfo actor;
 
     static Stream<Arguments> questionnaires() {
-        return RehabStudyForms.all().stream().map(type -> Arguments.of(type.formClass(), type));
+        return RehabStudyForms.all().stream().map(type -> Arguments.of(Named.of(type.formClass(), type)));
     }
 
     private static RehabStudyFormType<?> type(String formClass) {
@@ -151,9 +158,35 @@ class RehabStudyFormDaoIntegrationTest extends CarlosTestBase {
     // Every column, against the retired writer and reader
     // ------------------------------------------------------------------------------------------
 
+    @Test
+    void shouldStoreBlankIntegerAnswers_asNullWithoutLosingZeroOrBlankText() throws Exception {
+        RehabStudyFormType<?> selfManagement = type("SelfManagement");
+        Properties post = basePost(PATIENT);
+        for (RehabStudyColumn<?> column : selfManagement.columns()) {
+            if (physicalType(selfManagement, column.name()).startsWith("int(")) {
+                post.setProperty(column.name(), "");
+            }
+        }
+        post.setProperty("ex2", "  ");
+        post.setProperty("ex3", "0");
+        post.setProperty("ex6Spec", "");
+
+        int id = service.saveVersion(actor, selfManagement, PATIENT, 0, post);
+
+        Map<String, String> stored = rawRow(selfManagement.table(), PATIENT);
+        for (RehabStudyColumn<?> column : selfManagement.columns()) {
+            if (physicalType(selfManagement, column.name()).startsWith("int(") && !column.name().equals("ex3")) {
+                assertThat(stored.get(column.name().toLowerCase(Locale.ROOT))).as(column.name()).isNull();
+            }
+        }
+        assertThat(stored).containsEntry("ex3", "0").containsEntry("ex6spec", "");
+        Properties reopened = service.load(actor, selfManagement, PATIENT, id);
+        assertThat(reopened).containsEntry("ex1", "").containsEntry("ex3", "0");
+    }
+
     @ParameterizedTest(name = "{0}")
     @MethodSource("questionnaires")
-    void shouldStoreAndShowEveryColumn_exactlyAsTheRetiredRecordDid(String formClass, RehabStudyFormType<?> type)
+    void shouldStoreAndShowEveryColumn_exactlyAsTheRetiredRecordDid(RehabStudyFormType<?> type)
             throws Exception {
         assertThat(AopUtils.isAopProxy(service)).isTrue();
         Properties post = syntheticPost(type, PATIENT);
@@ -228,11 +261,11 @@ class RehabStudyFormDaoIntegrationTest extends CarlosTestBase {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("questionnaires")
-    void shouldKeepTicks_whenTheReopenedPageIsSavedAgain(String formClass, RehabStudyFormType<?> type)
+    void shouldKeepTicks_whenTheReopenedPageIsSavedAgain(RehabStudyFormType<?> type)
             throws Exception {
         List<String> boxes = type.columns().stream().filter(RehabStudyColumn.Checkbox.class::isInstance)
                 .map(RehabStudyColumn::name).toList();
-        FrmRecord routed = new FrmRecordFactory().factory(formClass);
+        FrmRecord routed = new FrmRecordFactory().factory(type.formClass());
         assertThat(routed).isInstanceOf(RehabStudyForm.class);
         Properties first = basePost(PATIENT);
         boxes.stream().limit(1).forEach(box -> first.setProperty(box, "on"));
@@ -482,7 +515,7 @@ class RehabStudyFormDaoIntegrationTest extends CarlosTestBase {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("questionnaires")
-    void shouldPresentThePublishedColumnTypes_toTheLegacyReaders(String formClass, RehabStudyFormType<?> type)
+    void shouldPresentThePublishedColumnTypes_toTheLegacyReaders(RehabStudyFormType<?> type)
             throws Exception {
         try (var connection = source.getConnection();
              var query = connection.prepareStatement("SELECT * FROM " + type.table() + " WHERE 1 = 0");
@@ -511,6 +544,62 @@ class RehabStudyFormDaoIntegrationTest extends CarlosTestBase {
     // ------------------------------------------------------------------------------------------
     // Optional XML archive
     // ------------------------------------------------------------------------------------------
+
+    @Test
+    void shouldArchiveAtTheStoredEditTimes_whenConcurrentSavesSeeTheSamePreviousVersion() throws Exception {
+        RehabStudyFormType<?> type = type("SF36");
+        var transaction = new TransactionTemplate(transactions);
+        int previousId = transaction.execute(status -> {
+            IntegrationTestSeedService.ensureDemographicExists(entityManager, PATIENT);
+            Date previousEdited = new Date(FormXmlArchive.currentSecond().getTime() + 30_000L);
+            var previous = RehabStudyFormValues.fromProperties(type, basePost(PATIENT), previousEdited);
+            previous.setDemographicNo(PATIENT);
+            forms.persist(previous);
+            forms.flush();
+            return previous.getId();
+        });
+
+        Properties configuration = CarlosProperties.getInstance();
+        String previousEnabled = configuration.getProperty("save_as_xml");
+        String previousPath = configuration.getProperty("form_record_path");
+        configuration.setProperty("save_as_xml", "true");
+        configuration.setProperty("form_record_path", archive.toString());
+        var firstInserted = new CompletableFuture<Void>();
+        var snapshotRead = new CompletableFuture<Void>();
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            var first = executor.submit(() -> transaction.execute(status -> {
+                int id = service.saveVersion(actor, type, PATIENT, previousId, basePost(PATIENT));
+                firstInserted.complete(null);
+                // Keep this save uncommitted until the second transaction reads the previous version.
+                snapshotRead.orTimeout(10, TimeUnit.SECONDS).join();
+                return id;
+            }));
+            firstInserted.get(10, TimeUnit.SECONDS);
+            var repeatableRead = new TransactionTemplate(transactions);
+            repeatableRead.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
+            int secondId = repeatableRead.execute(status -> {
+                assertThat(forms.findForPatient(type.entity(), PATIENT, previousId)).isNotNull();
+                snapshotRead.complete(null);
+                return service.saveVersion(actor, type, PATIENT, previousId, basePost(PATIENT));
+            });
+            int firstId = first.get(10, TimeUnit.SECONDS);
+
+            Date firstEdited = forms.findForPatient(type.entity(), PATIENT, firstId).getFormEdited();
+            Date secondEdited = forms.findForPatient(type.entity(), PATIENT, secondId).getFormEdited();
+            assertThat(secondEdited).isAfter(firstEdited);
+            for (int id : List.of(firstId, secondId)) {
+                Date edited = forms.findForPatient(type.entity(), PATIENT, id).getFormEdited();
+                Path file = archive.resolve(type.table() + "_" + PATIENT + "_" + stamp(edited) + ".xml");
+                var document = XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().parse(file.toFile());
+                assertThat(caseInsensitive(xmlColumns(document))).containsEntry("id", Integer.toString(id));
+            }
+        } finally {
+            restore(configuration, "save_as_xml", previousEnabled);
+            restore(configuration, "form_record_path", previousPath);
+            transaction.executeWithoutResult(status -> entityManager.createNativeQuery(
+                    "DELETE FROM demographic WHERE demographic_no = ?1").setParameter(1, PATIENT).executeUpdate());
+        }
+    }
 
     @ParameterizedTest
     @ValueSource(strings = {"2MinWalk", "SF36Caregiver"})
@@ -762,9 +851,9 @@ class RehabStudyFormDaoIntegrationTest extends CarlosTestBase {
         for (RehabStudyColumn<?> column : type.columns()) {
             String physical = physicalType(type, column.name());
             String value = switch (column) {
-                case RehabStudyColumn.Checkbox<?> c -> CHECKBOX_POSTS[index % CHECKBOX_POSTS.length];
-                case RehabStudyColumn.Day<?> d -> DATE_POSTS[index % DATE_POSTS.length];
-                case RehabStudyColumn.Text<?> t -> textPost(physical, index);
+                case RehabStudyColumn.Checkbox<?> _ -> CHECKBOX_POSTS[index % CHECKBOX_POSTS.length];
+                case RehabStudyColumn.Day<?> _ -> DATE_POSTS[index % DATE_POSTS.length];
+                case RehabStudyColumn.Text<?> _ -> textPost(physical, index);
             };
             if (value != null) post.setProperty(column.name(), value);
             index++;

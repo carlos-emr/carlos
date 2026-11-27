@@ -1,7 +1,6 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 package io.github.carlos_emr.carlos.form;
 
-import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.forms.RehabStudyFormDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.form.RehabStudyFormType.Prefill;
@@ -16,6 +15,7 @@ import java.util.Date;
 import java.util.Properties;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -125,7 +125,7 @@ public class RehabStudyFormService {
      * @throws IllegalArgumentException if the patient number is not positive, the post has no study ID,
      *         or the provider number is not numeric
      */
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(isolation = Isolation.READ_COMMITTED, rollbackFor = Exception.class)
     public int saveVersion(LoggedInInfo actor, RehabStudyFormType<?> type, int patient, int sourceId,
             Properties values) {
         require(actor, patient, "w");
@@ -137,9 +137,9 @@ public class RehabStudyFormService {
         if (sourceId > 0) requireVersion(type, patient, sourceId);
         // Every page posts its studyID; the column is NOT NULL and the retired records failed without it.
         if (values.getProperty("studyID") == null) throw new IllegalArgumentException("A study identifier is required");
-        // Never the same second as the patient's latest version of this questionnaire (even one
-        // saved earlier in this transaction): the edit time is the version's XML archive identity.
-        Date edited = FormXmlArchive.nextEditTime(forms.findLatestEdited(type.entity(), patient));
+        Date now = FormXmlArchive.currentSecond();
+        Date edited = FormXmlArchive.nextEditTime(type.table(), patient, now,
+                forms.lockAndFindEditsSince(type.entity(), patient, now));
         E form = RehabStudyFormValues.fromProperties(type, values, edited);
         form.setDemographicNo(patient);
         form.setProviderNo(Integer.valueOf(actor.getLoggedInProviderNo()));
@@ -167,7 +167,7 @@ public class RehabStudyFormService {
     }
 
     private void archiveAfterCommit(RehabStudyFormType<?> type, int patient, int id, Date edited) {
-        if (!Boolean.parseBoolean(CarlosProperties.getInstance().getProperty("save_as_xml", "false"))) return;
+        if (!FormXmlArchive.isEnabled()) return;
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {

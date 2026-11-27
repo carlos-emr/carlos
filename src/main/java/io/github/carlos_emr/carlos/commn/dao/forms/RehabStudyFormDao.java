@@ -12,6 +12,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Date;
+import java.util.List;
 import java.util.Optional;
 import javax.xml.parsers.ParserConfigurationException;
 import org.hibernate.Session;
@@ -51,22 +52,16 @@ public class RehabStudyFormDao {
     }
 
     /**
-     * The latest edit time of the patient's versions of a questionnaire, including versions the
-     * caller's transaction has saved but not committed (the query flushes them first). A new
-     * version's edit time is taken after it, so each version keeps its own XML archive identity.
+     * Serializes version allocation for the patient until the caller's transaction completes.
      *
      * @param type the questionnaire entity
      * @param patient the patient's demographic number
-     * @return the latest {@code formEdited}, or {@code null} when the patient has no version
+     * @param from the earliest whole second considered for the new version
+     * @return stored edit times at or after {@code from}, including the caller's pending saves
      */
-    @Transactional(readOnly = true)
-    public Date findLatestEdited(Class<? extends RehabStudyAssessment> type, int patient) {
-        var builder = entityManager.getCriteriaBuilder();
-        var query = builder.createQuery(Date.class);
-        var form = query.from(type);
-        query.select(builder.greatest(form.<Date>get("formEdited")))
-                .where(builder.equal(form.get("demographicNo"), patient));
-        return entityManager.createQuery(query).getSingleResult();
+    @Transactional(propagation = Propagation.MANDATORY)
+    public List<Date> lockAndFindEditsSince(Class<? extends RehabStudyAssessment> type, int patient, Date from) {
+        return FormVersionEdits.lockAndFindEditsSince(entityManager, type, patient, from);
     }
 
     /**
