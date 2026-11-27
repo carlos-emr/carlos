@@ -9,6 +9,10 @@ ALTER TABLE hl7TextMessage MODIFY COLUMN message LONGTEXT;
 -- Failed lab cleanup archives complete row XML; the production baseline uses TEXT.
 ALTER TABLE recyclebin MODIFY COLUMN table_content TEXT;
 
+-- eForm templates and saved instances store full HTML documents; the production V1 baseline uses MEDIUMTEXT.
+ALTER TABLE eform MODIFY COLUMN form_html MEDIUMTEXT;
+ALTER TABLE eform_data MODIFY COLUMN form_data MEDIUMTEXT;
+
 -- ichppccode table: hbm2ddl cannot auto-create because @GeneratedValue(IDENTITY)
 -- is incompatible with String-typed PK in H2
 CREATE TABLE IF NOT EXISTS ichppccode (

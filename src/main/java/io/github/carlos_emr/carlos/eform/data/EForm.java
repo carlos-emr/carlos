@@ -41,9 +41,10 @@ import com.google.common.base.Ascii;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.jsoup.Jsoup;
+import org.jsoup.nodes.Comment;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
-import org.jsoup.parser.TokenQueue;
+import org.jsoup.nodes.Node;
 import org.jsoup.select.Elements;
 import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.commn.OtherIdManager;
@@ -88,6 +89,7 @@ public class EForm extends EFormBase {
     private static final String INPUT_TAG = "input";
     private static final String HIDDEN_INPUT_TYPE = "hidden";
     private static final String VALUE_ATTRIBUTE = "value";
+    private static final String CHECKED_ATTRIBUTE = "checked";
     private static final String SCRIPT_TAG = "script";
     private static final String LEGACY_JQUERY_SOURCE = "jquery-1.12.0.min.js";
     private static final String LEGACY_JQUERY_DISPLAY_PATH = "/eform/jquery-1.12.0.min.js";
@@ -343,11 +345,12 @@ public class EForm extends EFormBase {
      * <p>{@code values} carries one value per name, which is all a text input, textarea, radio
      * group or single select can hold. A {@code <select multiple>} submits one value per chosen
      * option under the same name, so the caller may also pass every value it received in
-     * {@code submittedValues}; a name missing from that map falls back to its single value.</p>
+     * {@code submittedValues}; a name missing from that map falls back to its single value, while
+     * an empty list explicitly clears every option.</p>
      *
-     * @param names submitted field names
-     * @param values the value of each name, in the same order
-     * @param submittedValues every submitted value by field name, for {@code <select multiple>}
+     * @param names ArrayList&lt;String&gt; submitted field names
+     * @param values ArrayList&lt;String&gt; the value of each name, in the same order
+     * @param submittedValues Map&lt;String, List&lt;String&gt;&gt; every submitted value by field name, for {@code <select multiple>}
      */
     public void setValues(ArrayList<String> names, ArrayList<String> values, Map<String, List<String>> submittedValues) {
         if (names.size() != values.size()) return;
@@ -373,6 +376,103 @@ public class EForm extends EFormBase {
         } finally {
             this.submittedSelectValues = Map.of();
         }
+    }
+
+    /**
+     * Unchecks every checkbox with this name. For callers that send an explicit clear, such as
+     * the REST API: {@link #setValues} checks a box for any submitted value, because a browser
+     * leaves an unchecked box out of its submission and so never needs to clear one.
+     *
+     * @param fieldName String the checkbox name
+     */
+    public void uncheckCheckboxes(String fieldName) {
+        Document document = getDocument();
+        if (document == null) return;
+        for (Element box : checkboxesNamed(document, fieldName)) {
+            box.removeAttr(CHECKED_ATTRIBUTE);
+        }
+        // Flush the edited DOM to formHtml now: the later string-level steps (setAction,
+        // setNowDateTime) read the field directly and would otherwise be overwritten by it.
+        getFormHtml();
+    }
+
+    /**
+     * Checks exactly the checkbox of this name whose submitted value is {@code value} (its
+     * {@code value} attribute, or {@code "on"} without one, as a browser submits it) and unchecks the
+     * other boxes of that name. For the REST API, which carries a stored value into a revision:
+     * {@link #setValues} checks only the first box of a name, which is wrong for any other box of a
+     * group. A value that names no box leaves every box of the name unchecked.
+     *
+     * @param fieldName String the checkbox name
+     * @param value String the value of the box to check
+     */
+    public void checkCheckboxWithValue(String fieldName, String value) {
+        Document document = getDocument();
+        if (document == null) return;
+        for (Element box : checkboxesNamed(document, fieldName)) {
+            String submitted = box.hasAttr(VALUE_ATTRIBUTE) ? box.attr(VALUE_ATTRIBUTE) : "on";
+            if (submitted.equals(value)) {
+                box.attr(CHECKED_ATTRIBUTE, CHECKED_ATTRIBUTE);
+            } else {
+                box.removeAttr(CHECKED_ATTRIBUTE);
+            }
+        }
+        getFormHtml();
+    }
+
+    /**
+     * Checks only the checkboxes of this name at the given zero-based document-order indices and
+     * unchecks every other box of that name. Used when multiple checkboxes share both a name and a
+     * submitted value (for example, value-less boxes that all submit {@code "on"}) so a revision
+     * preserves only the boxes the revised row had checked.
+     *
+     * @param fieldName String the checkbox name
+     * @param checkedIndices Set&lt;Integer&gt; zero-based indices of boxes to check
+     */
+    public void checkCheckboxesAtIndices(String fieldName, Set<Integer> checkedIndices) {
+        Document document = getDocument();
+        if (document == null) return;
+        List<Element> boxes = checkboxesNamed(document, fieldName);
+        for (int i = 0; i < boxes.size(); i++) {
+            if (checkedIndices.contains(i)) {
+                boxes.get(i).attr(CHECKED_ATTRIBUTE, CHECKED_ATTRIBUTE);
+            } else {
+                boxes.get(i).removeAttr(CHECKED_ATTRIBUTE);
+            }
+        }
+        getFormHtml();
+    }
+
+    /**
+     * The checkboxes named exactly {@code fieldName}. Not a {@code [name="..."]} selector: jsoup
+     * compares attribute values ignoring case and surrounding space, so it would also take boxes of a
+     * differently cased name, which a browser submits as a different field.
+     */
+    private static List<Element> checkboxesNamed(Document document, String fieldName) {
+        return elementsNamed(document, "input[type=checkbox][name]", fieldName);
+    }
+
+    /**
+     * The first element in {@code document} whose {@code name} attribute equals {@code fieldName}
+     * exactly (case- and whitespace-sensitively).
+     */
+    private static Element firstElementNamed(Document document, String fieldName) {
+        for (Element element : document.select("[name]")) {
+            if (element.attr("name").equals(fieldName)) {
+                return element;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Elements matching {@code cssQuery} whose {@code name} attribute equals {@code fieldName}
+     * exactly (case- and whitespace-sensitively).
+     */
+    private static List<Element> elementsNamed(Document document, String cssQuery, String fieldName) {
+        return document.select(cssQuery).stream()
+                .filter(element -> element.attr("name").equals(fieldName))
+                .toList();
     }
 
     // ------------------Saving the Form (inserting fdid$value= statements)---------------------
@@ -933,28 +1033,38 @@ public class EForm extends EFormBase {
     }
 
     public String getTemplate() {
-        // Get content between "<!-- <template>" & "</template> -->"
+        // Extract <template>...</template> blocks from actual HTML comment nodes only, never from
+        // attribute values or textarea text populated with submitted field values.
         if (StringUtils.isBlank(formHtml)) return "";
 
-        String sTemplateBegin = "<template>";
-        String sTemplateEnd = "</template>";
-        String sCommentBegin = "<!--", sCommentEnd = "-->";
-        String text = "";
+        Document parsed = ConvertToEdoc.parseDocument(formHtml);
+        if (parsed == null) return "";
 
-        int templateBegin = -1, templateEnd = -1;
-        boolean searching = true;
-        while (searching) {
-            templateBegin = EFormUtil.findIgnoreCase(sTemplateBegin, formHtml, templateBegin + 1);
-            templateEnd = EFormUtil.findIgnoreCase(sTemplateEnd, formHtml, templateBegin);
-            int commentBegin = formHtml.lastIndexOf(sCommentBegin, templateBegin);
-            int commentEnd = formHtml.indexOf(sCommentEnd, commentBegin);
-            if (templateBegin == -1 || templateEnd == -1 || commentBegin == -1 || commentEnd == -1) {
-                searching = false;
-            } else if (commentEnd > templateEnd) {
-                text += formHtml.substring(templateBegin + sTemplateBegin.length(), templateEnd);
+        StringBuilder text = new StringBuilder();
+        collectCommentTemplates(parsed, text);
+        return text.toString();
+    }
+
+    private static void collectCommentTemplates(Node node, StringBuilder out) {
+        if (node instanceof Comment comment) {
+            String data = comment.getData();
+            String sTemplateBegin = "<template>";
+            String sTemplateEnd = "</template>";
+            int from = 0;
+            while (true) {
+                int templateBegin = EFormUtil.findIgnoreCase(sTemplateBegin, data, from);
+                if (templateBegin == -1) break;
+                int contentStart = templateBegin + sTemplateBegin.length();
+                int templateEnd = EFormUtil.findIgnoreCase(sTemplateEnd, data, contentStart);
+                if (templateEnd == -1) break;
+                out.append(data, contentStart, templateEnd);
+                from = templateEnd + sTemplateEnd.length();
             }
+            return;
         }
-        return text;
+        for (Node child : node.childNodes()) {
+            collectCommentTemplates(child, out);
+        }
     }
 
     // ----------------------------------private
@@ -1085,7 +1195,7 @@ public class EForm extends EFormBase {
     }
 
     private StringBuilder putValueUsingDocument(String fieldName, String type, String value) {
-        Element field = getDocument().selectFirst("[name=\"" + TokenQueue.escapeCssIdentifier(fieldName) + "\"]");
+        Element field = firstElementNamed(getDocument(), fieldName);
         if (field == null) return new StringBuilder(getFormHtml());
         switch (type) {
             case "text":
@@ -1102,8 +1212,8 @@ public class EForm extends EFormBase {
                 field.attr("checked", "checked");
                 break;
             case "radio":
-                // For radio buttons, find all radios with the same name and check the correct one based on value
-                for (Element radio : getDocument().select("input[type=radio][name=\"" + TokenQueue.escapeCssIdentifier(fieldName) + "\"]")) {
+                // For radio buttons, find all radios with the exact same name and check the correct one based on value
+                for (Element radio : elementsNamed(getDocument(), "input[type=radio][name]", fieldName)) {
                     if (value.equals(radio.attr(VALUE_ATTRIBUTE))) {
                         radio.attr("checked", "checked");
                     } else {
@@ -1113,7 +1223,7 @@ public class EForm extends EFormBase {
                 break;
             case "select":
                 List<String> submitted = submittedSelectValues.get(fieldName);
-                selectSubmittedOptions(field, submitted == null || submitted.isEmpty() ? List.of(value) : submitted);
+                selectSubmittedOptions(field, submitted == null ? List.of(value) : submitted);
                 break;
             default:
                 // Do nothing for unknown types
@@ -1134,7 +1244,9 @@ public class EForm extends EFormBase {
      */
     private static void selectSubmittedOptions(Element select, List<String> submittedValues) {
         List<Element> options = select.select("option");
-        List<String> wanted = select.hasAttr("multiple") ? submittedValues : submittedValues.subList(0, 1);
+        List<String> wanted = select.hasAttr("multiple")
+                ? submittedValues
+                : (submittedValues.isEmpty() ? List.of() : submittedValues.subList(0, 1));
         Set<Element> chosen = Collections.newSetFromMap(new IdentityHashMap<>());
         for (String value : wanted) {
             Element match = firstUnclaimedOption(options, value, chosen, true);

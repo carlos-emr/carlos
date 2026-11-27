@@ -36,8 +36,11 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
+import io.github.carlos_emr.carlos.commn.dao.MeasurementDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementGroupStyleDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementMapDao;
 import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
@@ -50,6 +53,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
 
@@ -63,6 +67,9 @@ public class MeasurementManagerImpl implements MeasurementManager {
 
     @Autowired
     private MeasurementMapDao measurementMapDao;
+
+    @Autowired
+    private DemographicDao demographicDao;
 
     @Autowired
     private PatientConsentManager patientConsentManager;
@@ -143,8 +150,49 @@ public class MeasurementManagerImpl implements MeasurementManager {
     @Override
     public Measurement addMeasurement(LoggedInInfo loggedInInfo, Measurement measurement) {
         measurementDao.persist(measurement);
-        LogAction.addLogSynchronous(loggedInInfo, "MeasurementManager.addMeasurement", "id=" + measurement.getId());
+        // Filed under the patient, so the write appears in that patient's access audit.
+        LogAction.addLogSynchronous(loggedInInfo, "MeasurementManager.addMeasurement", "measurement",
+                String.valueOf(measurement.getId()), measurement.getDemographicId(), "id=" + measurement.getId());
         return (measurement);
+    }
+
+    @Override
+    @Transactional
+    public Measurement addMeasurementUnlessStored(LoggedInInfo loggedInInfo, Measurement measurement) {
+        // The patient row is the lock: two identical requests serialize here, and the second finds the
+        // first one's reading below instead of inserting its own. No unique key is needed, so readings
+        // the encounter form or an import stored twice in the past are left as they are.
+        if (demographicDao.findForUpdate(measurement.getDemographicId()) == null) {
+            throw new IllegalArgumentException("The measurement's patient does not exist");
+        }
+        MeasurementDaoImpl.SearchCriteria criteria = new MeasurementDaoImpl.SearchCriteria();
+        criteria.setDemographicNo(measurement.getDemographicId());
+        criteria.setType(measurement.getType());
+        criteria.setDataField(measurement.getDataField());
+        criteria.setMeasuringInstrc(measurement.getMeasuringInstruction());
+        criteria.setComments(measurement.getComments());
+        criteria.setDateObserved(measurement.getDateObserved());
+        List<Measurement> stored = measurementDao.find(criteria);
+        if (stored != null) {
+            for (Measurement existing : stored) {
+                if (sameReadingText(existing, measurement)) {
+                    return existing;
+                }
+            }
+        }
+        return addMeasurement(loggedInInfo, measurement);
+    }
+
+    /**
+     * Exact comparison on the reading's text columns so case-insensitive or pad-space database
+     * collations (such as MariaDB {@code utf8mb4_general_ci}) do not treat readings differing
+     * only in case or trailing whitespace as retries of one another.
+     */
+    private static boolean sameReadingText(Measurement existing, Measurement candidate) {
+        return Objects.equals(existing.getType(), candidate.getType())
+                && Objects.equals(existing.getDataField(), candidate.getDataField())
+                && Objects.equals(existing.getMeasuringInstruction(), candidate.getMeasuringInstruction())
+                && Objects.equals(existing.getComments(), candidate.getComments());
     }
 
     /**

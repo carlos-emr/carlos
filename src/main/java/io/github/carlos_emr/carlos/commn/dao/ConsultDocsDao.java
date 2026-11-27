@@ -64,4 +64,15 @@ public interface ConsultDocsDao extends AbstractDao<ConsultDocs> {
     List<ConsultDocs> findUnavailableActiveConsultAttachments(Integer requestId);
 
     List<ConsultDocs> findByRequestIdDocTypeForUpdate(Integer id, String docType);
+
+    /**
+     * Active consultation attachments that point at this document, locked for update. Used when an
+     * eForm instance is replaced by a revision, so the consultation packets that carry it follow the
+     * revision instead of listing a retired eForm as unavailable.
+     *
+     * @param docType the attached document's type, such as {@link io.github.carlos_emr.carlos.commn.model.ConsultDocs#DOCTYPE_EFORM}
+     * @param documentNo the attached document's id
+     * @return the active (not deleted) attachment rows naming it
+     */
+    List<ConsultDocs> findActiveByAttachedDocumentForUpdate(String docType, Integer documentNo);
 }

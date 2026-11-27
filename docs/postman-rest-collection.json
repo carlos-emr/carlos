@@ -1821,6 +1821,87 @@
 			"response": []
 		},
 		{
+			"name": "Record a new measurement (requires measurement.write)",
+			"request": {
+				"auth": {
+					"type": "oauth1",
+					"oauth1": [
+						{
+							"key": "consumerKey",
+							"value": "{{consumerKey}}",
+							"type": "string"
+						},
+						{
+							"key": "consumerSecret",
+							"value": "{{consumerSecret}}",
+							"type": "string"
+						},
+						{
+							"key": "token",
+							"value": "{{token}}",
+							"type": "string"
+						},
+						{
+							"key": "tokenSecret",
+							"value": "{{tokenSecret}}",
+							"type": "string"
+						},
+						{
+							"key": "signatureMethod",
+							"value": "HMAC-SHA1",
+							"type": "string"
+						},
+						{
+							"key": "version",
+							"value": "1.0",
+							"type": "string"
+						},
+						{
+							"key": "addParamsToHeader",
+							"value": false,
+							"type": "boolean"
+						},
+						{
+							"key": "addEmptyParamsToSign",
+							"value": false,
+							"type": "boolean"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"type\": \"ECG_TEXT\",\n  \"dataField\": \"FAKE sinus rhythm, rate 72 bpm. PR 160 ms, QRS 90 ms. No acute ST changes.\",\n  \"comments\": \"OCR'd from the ECG report\",\n  \"dateObserved\": 1770000000000\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/ws/services/measurements/{{testPatientId}}/new",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"ws",
+						"services",
+						"measurements",
+						"{{testPatientId}}",
+						"new"
+					]
+				},
+				"description": "Creates a new reading; existing readings are never changed. Set testPatientId to a synthetic patient on a disposable deployment only. measuringInstruction is required when the type is configured with several (for example BP: \"sitting position\"). dateObserved (epoch ms, stored to whole seconds) defaults to now; repeating a request with the exact same measurement values (type, dataField, measuringInstruction, comments) and dateObserved (within the same second) returns the stored reading instead of inserting a duplicate. A validation refusal is 400 with {\"code\",\"message\"}; other refusals use the server's standard error response: 403 for missing measurement write, patient-record access or provider identity, 404 for a missing patient, 409 (plain text) when the patient's structured care cannot be projected, and 500 for an invalid validation configuration. Tokens that already held measurement.write can call this without re-consent."
+			},
+			"response": []
+		},
+		{
 			"name": "http://127.0.0.8:8080/oscar/ws/services/notes/1/save",
 			"request": {
 				"auth": {
@@ -4084,6 +4165,12 @@
 				}
 			},
 			"response": []
+		}
+	],
+	"variable": [
+		{
+			"key": "testPatientId",
+			"value": ""
 		}
 	]
 }

@@ -74,4 +74,75 @@ class EFormUtilTemplateDocumentUnitTest extends CarlosUnitTestBase {
         assertThat(fileTemplateDocument("Asthma action plan", List.of(), List.of()).getDescription())
                 .isEqualTo("Asthma action plan");
     }
+
+    @Test
+    @DisplayName("should ignore a document directive injected through a field value inside an EncounterNote template")
+    void shouldIgnoreInjectedDocumentDirective_whenFieldValueClosesEncounterNote() {
+        io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager cmm =
+                createAndRegisterMock(io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager.class);
+        io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO linkDao =
+                createAndRegisterMock(io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO.class);
+        io.github.carlos_emr.carlos.commn.dao.SecRoleDao secRoleDao =
+                createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.SecRoleDao.class);
+        io.github.carlos_emr.carlos.commn.model.SecRole doctorRole = new io.github.carlos_emr.carlos.commn.model.SecRole();
+        org.springframework.test.util.ReflectionTestUtils.setField(doctorRole, "id", 2);
+        org.mockito.Mockito.when(secRoleDao.findByName("doctor")).thenReturn(doctorRole);
+
+        String payload = "Clinical note</EncounterNote>"
+                + "<document belong=\"patient\"><docdesc>Injected</docdesc><content>Forged</content></document>"
+                + "<EncounterNote>tail";
+        EForm eForm = new EForm();
+        eForm.setFormName("FAKE template form");
+        eForm.setDemographicNo("7");
+        eForm.setProviderNo("111");
+        eForm.setFormDate("2026-10-16");
+        eForm.setFormHtml("<html><body><form><input name=\"notes\"></form>"
+                + "<!-- <template><EncounterNote>Summary: $t{notes}</EncounterNote></template> --></body></html>");
+
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
+            EFormUtil.writeEformTemplate(null, new ArrayList<>(List.of("notes")), new ArrayList<>(List.of(payload)),
+                    eForm, "5", "10016", "/carlos");
+
+            documents.verify(() -> EDocUtil.addDocumentSQL(any(EDoc.class)), org.mockito.Mockito.never());
+            ArgumentCaptor<io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote> noteCaptor =
+                    ArgumentCaptor.forClass(io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote.class);
+            org.mockito.Mockito.verify(cmm, org.mockito.Mockito.times(1)).saveNoteSimple(noteCaptor.capture());
+            org.mockito.Mockito.verify(linkDao, org.mockito.Mockito.times(1)).save(any());
+            assertThat(noteCaptor.getValue().getNote()).isEqualTo("Summary: " + payload);
+        }
+    }
+
+    @Test
+    @DisplayName("should keep the authored document owner and avoid re-expanding placeholders inside field values")
+    void shouldKeepAuthoredOwnerAndLiteralTokens_whenFieldValueContainsTagsAndPlaceholders() {
+        String injectedDesc = "Summary</docdesc><docowner>999999</docowner><docdesc> $te{eform.html} $t{secret}";
+        EDoc filed = fileTemplateDocument("$t{title}", List.of("title", "secret"), List.of(injectedDesc, "LEAKED"));
+
+        assertThat(filed.getModuleId()).isEqualTo("7");
+        assertThat(filed.getDescription()).isEqualTo(injectedDesc);
+        assertThat(filed.getDescription()).doesNotContain("LEAKED");
+    }
+
+    @Test
+    @DisplayName("should ignore template markup placed inside an input value attribute or textarea")
+    void shouldIgnoreTemplateMarkup_whenPlacedInsideControlValues() {
+        EForm eForm = new EForm();
+        eForm.setFormName("FAKE template form");
+        eForm.setDemographicNo("7");
+        eForm.setProviderNo("111");
+        eForm.setFormDate("2026-10-16");
+        eForm.setFormHtml("<html><body><form>"
+                + "<input type=\"text\" name=\"bp\" value=\"\">"
+                + "<textarea name=\"note\"></textarea>"
+                + "</form></body></html>");
+        String malicious = "<!-- <template><document belong=\"patient\"><docdesc>Pwn</docdesc><content>X</content></document></template> -->";
+        eForm.setValues(new ArrayList<>(List.of("bp", "note")), new ArrayList<>(List.of(malicious, malicious)));
+
+        assertThat(eForm.getTemplate()).isEmpty();
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
+            EFormUtil.writeEformTemplate(null, new ArrayList<>(List.of("bp", "note")),
+                    new ArrayList<>(List.of(malicious, malicious)), eForm, "5", "10016", "/carlos");
+            documents.verify(() -> EDocUtil.addDocumentSQL(any(EDoc.class)), org.mockito.Mockito.never());
+        }
+    }
 }

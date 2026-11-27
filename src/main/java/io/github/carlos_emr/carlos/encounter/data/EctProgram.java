@@ -47,7 +47,20 @@ public class EctProgram {
     }
 
     public String getProgram(String providerNo) {
-        EctProgramManager manager = getEctProgramManager();
+        return programFor(getEctProgramManager(), providerNo);
+    }
+
+    /**
+     * The program a provider's chart notes are filed under: the provider's default program when it
+     * is one of their programs, otherwise their first program, or {@code "0"} when they have none.
+     * Needs no session, so callers without one (such as the REST eForm instance API) file notes the
+     * same way the encounter does.
+     *
+     * @param manager the program manager
+     * @param providerNo the provider
+     * @return the program number, as a string
+     */
+    public static String programFor(EctProgramManager manager, String providerNo) {
         List<LabelValueBean> programBeans = manager.getProgramBeans(providerNo, null);
 
         // If no programs available, return 0

@@ -1,0 +1,1178 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+
+package io.github.carlos_emr.carlos.eform;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import com.google.common.base.Ascii;
+import org.apache.commons.lang3.StringUtils;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
+import io.github.carlos_emr.carlos.commn.dao.EFormDao;
+import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
+import io.github.carlos_emr.carlos.commn.dao.EFormDocsDao;
+import io.github.carlos_emr.carlos.commn.dao.EFormValueDao;
+import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
+import io.github.carlos_emr.carlos.commn.model.EFormData;
+import io.github.carlos_emr.carlos.commn.model.EFormDocs;
+import io.github.carlos_emr.carlos.commn.model.EFormValue;
+import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
+import io.github.carlos_emr.carlos.eform.data.EForm;
+import io.github.carlos_emr.carlos.encounter.data.EctProgram;
+import io.github.carlos_emr.carlos.encounter.data.EctProgramManager;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.managers.EformDataManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+
+/**
+ * Creates, reads, revises and retires saved eForm instances ({@code eform_data} rows) for callers
+ * that are not the browser save form, such as the REST API.
+ *
+ * <p><b>Saved instances are never rewritten.</b> The web UI never updates a saved row's content:
+ * re-saving an opened eForm stores a new row. This service keeps that rule. A revision stores a
+ * new row built from the template and the submitted values, and retires the row it replaces
+ * ({@code status = 0}). Both happen in one transaction, so a revision either fully replaces the
+ * old row or changes nothing. A delete also only retires the row, the same way
+ * {@code RemEForm2Action} does. The prior content stays in the chart history and can be restored
+ * from the deleted-eForms list.</p>
+ *
+ * <p><b>Content comes from values, not markup.</b> Callers send field values. The HTML is built
+ * the same way {@code AddEForm2Action} builds it ({@link EForm#setValues}, {@link EForm#setAction()},
+ * {@link EForm#setNowDateTime()}). Values are written through jsoup attribute and text setters, so
+ * caller text is escaped and cannot add markup to the stored record. Only values the renderer
+ * actually writes are accepted: each name must be a text, hidden, date, checkbox or radio input,
+ * a textarea or a select on the template, a radio or select value must match one of its choices,
+ * and a checkbox value must be the box's own {@code value} ({@code "on"} when it has none), as a
+ * browser submits it. Anything else (an unknown name, {@code type="number"}, a control the
+ * renderer would fill by inserting text into its markup) is refused rather than stored as a value
+ * the form never shows. The one exception is a revision: a value the template cannot show that is
+ * exactly what the revised row stored (a browser save keeps such values too) is carried forward as
+ * a value row, sent back or omitted, so a read can always be sent back. A blank value clears the template default in the rendered form (a checkbox included) but
+ * gets no {@code eform_values} row. That is the same nonblank-only contract the browser save keeps
+ * for downstream readers; a read reports such a clear as {@code ""} so it survives a round trip.</p>
+ *
+ * <p><b>What a save does, as the browser save does it.</b> A new instance gets the template's
+ * {@code oscarDB=} prefill (patient and provider fields) for every field the caller does not send,
+ * as the new-form page shows it before the clinician submits. Every save then runs the template's
+ * chart writes ({@link EFormUtil#writeEformTemplate}: encounter and CPP notes, documents,
+ * preventions, messages, ticklers, consultation requests), exactly once, in the same transaction.
+ * A revision also takes over the instance's place in the chart: its attachments are copied to the
+ * new row, and the consultation packets and eForms that attached the old row now attach the
+ * revision. Fax, e-mail, PDF and eDoc handoffs are not part of this API.</p>
+ *
+ * <p><b>Authorization.</b> Each operation first needs the {@code _eform} right with no patient
+ * attached, so a caller with no eForm rights cannot probe which fdids exist. It then checks the
+ * same right for the patient the row belongs to, and the patient-record restrictions
+ * ({@link SecurityInfoManager#isAllowedAccessToPatientRecord}). A template with a {@code roleType}
+ * also needs {@code _eform.<roleType>}, the rule the patient eForm list uses to hide such forms.
+ * Creating and revising need {@code w}, as the browser save does. A refusal for an existing
+ * instance is an {@link InstanceAccessDeniedException}, which the REST layer answers exactly as it
+ * answers a missing one; a refusal for the patient named in a create is answered exactly as a
+ * patient that does not exist.</p>
+ *
+ * @since 2026-11-17
+ */
+@Service
+public class EFormInstanceService {
+
+    /** Audit content type the browser save writes for eForm data rows. */
+    static final String AUDIT_CONTENT = "eform";
+
+    /** Width of {@code eform_values.var_name}; a longer name fails on a strict server and is cut on others. */
+    static final int FIELD_NAME_MAX_LENGTH = 30;
+
+    /** Width of {@code eform_data.subject}. */
+    static final int SUBJECT_MAX_LENGTH = 255;
+
+    private static final String CONTROL_TEXTAREA = "textarea";
+    private static final String CONTROL_SELECT = "select";
+    private static final String CONTROL_CHECKBOX = "checkbox";
+    private static final String CONTROL_RADIO = "radio";
+    private static final String VALUE_ATTRIBUTE = "value";
+    private static final String SELECTED_OPTION_SELECTOR = "option[selected]";
+
+    private final SecurityInfoManager securityInfoManager;
+    private final EformDataManager eformDataManager;
+    private final EFormDao eFormDao;
+    private final EFormDataDao eFormDataDao;
+    private final EFormValueDao eFormValueDao;
+    private final DemographicDao demographicDao;
+    private final EFormDocsDao eFormDocsDao;
+    private final ConsultDocsDao consultDocsDao;
+    private final EctProgramManager ectProgramManager;
+
+    @Autowired
+    public EFormInstanceService(SecurityInfoManager securityInfoManager, EformDataManager eformDataManager,
+                                EFormDao eFormDao, EFormDataDao eFormDataDao, EFormValueDao eFormValueDao,
+                                DemographicDao demographicDao, EFormDocsDao eFormDocsDao,
+                                ConsultDocsDao consultDocsDao, EctProgramManager ectProgramManager) {
+        this.securityInfoManager = securityInfoManager;
+        this.eformDataManager = eformDataManager;
+        this.eFormDao = eFormDao;
+        this.eFormDataDao = eFormDataDao;
+        this.eFormValueDao = eFormValueDao;
+        this.demographicDao = demographicDao;
+        this.eFormDocsDao = eFormDocsDao;
+        this.consultDocsDao = consultDocsDao;
+        this.ectProgramManager = ectProgramManager;
+    }
+
+    /**
+     * A saved instance together with its field values.
+     *
+     * @param data the {@code eform_data} row
+     * @param values the instance's {@code eform_values}, keyed by field name, in storage order,
+     *               followed by {@code ""} for each field the instance cleared from a nonblank
+     *               template default (those have no {@code eform_values} row)
+     */
+    public record Instance(EFormData data, Map<String, String> values) {
+    }
+
+    /**
+     * Reads one saved instance, including retired ones, so a caller can inspect the history.
+     *
+     * @param loggedInInfo the caller
+     * @param fdid the instance id
+     * @return the instance and its stored values
+     * @throws SecurityException when the caller lacks {@code _eform} read access; an
+     *         {@link InstanceAccessDeniedException} when the refusal is for this instance's patient or role
+     * @throws EFormInstanceException {@link EFormInstanceException.Reason#NOT_FOUND} when no row exists
+     */
+    @Transactional(readOnly = true)
+    public Instance get(LoggedInInfo loggedInInfo, int fdid) {
+        requireEFormPrivilege(loggedInInfo, SecurityInfoManager.READ, null);
+        EFormData data = eFormDataDao.find(fdid);
+        if (data == null) {
+            throw new EFormInstanceException(EFormInstanceException.Reason.NOT_FOUND);
+        }
+        requireInstanceAccess(loggedInInfo, SecurityInfoManager.READ, data);
+
+        Map<String, String> values = storedValues(fdid);
+        // A revision is rebuilt from the template as it is now, so a clear only round-trips if the
+        // caller sends it back; report the clears against that same template.
+        io.github.carlos_emr.carlos.commn.model.EForm template = eFormDao.findById(data.getFormId());
+        if (template != null) {
+            addClearedDefaults(template.getFormHtml(), data.getFormData(), values);
+        }
+        // In a transaction of its own: addLog falls back to writing in the caller's transaction when
+        // its executor is saturated, and this one is read-only, so that row would be lost.
+        LogAction.addLogSynchronousInNewTransaction(loggedInInfo, LogConst.READ, AUDIT_CONTENT, String.valueOf(fdid),
+                String.valueOf(data.getDemographicId()), null);
+        return new Instance(data, values);
+    }
+
+    /**
+     * Saves a new instance of an active template for a patient.
+     *
+     * <p>Fields the caller leaves out get the template's {@code oscarDB=} prefill, as the new-form
+     * page shows them, or else the template default. The template's chart writes then run.</p>
+     *
+     * @param loggedInInfo the caller, recorded as the instance's provider
+     * @param fid the template id; the template must exist and be active
+     * @param demographicNo the patient; the patient must exist
+     * @param subject the instance subject; {@code null} uses the template's subject
+     * @param values field values keyed by field name; {@code null} saves the prefill and template defaults
+     * @param contextPath the application's context path, for the links the chart writes put in notes
+     * @return the new {@code eform_data} row
+     * @throws SecurityException when the caller lacks {@code _eform} write access or the template's role
+     * @throws EFormInstanceException when the template cannot be used, the patient does not exist or
+     *         may not be written to by this caller (one answer for both), the subject or a field name
+     *         is too long, or a field name is blank or names no control the template can show it in
+     */
+    @Transactional
+    public EFormData create(LoggedInInfo loggedInInfo, int fid, int demographicNo, String subject,
+                            Map<String, String> values, String contextPath) {
+        requireEFormPrivilege(loggedInInfo, SecurityInfoManager.WRITE, null);
+        requireValidFieldNames(values);
+        requireValidSubject(subject);
+
+        io.github.carlos_emr.carlos.commn.model.EForm template = eFormDao.findById(fid);
+        // A retired template cannot start new instances; the web form list hides it for the same reason.
+        if (template == null || !template.isCurrent()) {
+            throw new EFormInstanceException(EFormInstanceException.Reason.TEMPLATE_UNAVAILABLE);
+        }
+        // The patient checks come first and are refused exactly as a missing patient is, so a caller
+        // cannot learn which demographic numbers exist or which charts are closed to it. Neither
+        // check needs the row to exist.
+        try {
+            requireEFormPrivilege(loggedInInfo, SecurityInfoManager.WRITE, String.valueOf(demographicNo));
+            requirePatientRecordAccess(loggedInInfo, demographicNo);
+        } catch (SecurityException _) {
+            throw new EFormInstanceException(EFormInstanceException.Reason.PATIENT_NOT_FOUND);
+        }
+        if (demographicDao.getDemographicById(demographicNo) == null) {
+            throw new EFormInstanceException(EFormInstanceException.Reason.PATIENT_NOT_FOUND);
+        }
+        requireRoleTypeAccess(loggedInInfo, template.getRoleType());
+
+        String effectiveSubject = subject != null ? subject : template.getSubject();
+        return saveFromTemplate(loggedInInfo, template, demographicNo, effectiveSubject,
+                new SaveInputs(values, Map.of(), null, Map.of(), true, contextPath));
+    }
+
+    /**
+     * Replaces an instance with a new revision and retires the old row, in one transaction.
+     *
+     * <p>Like a browser re-save, the revision is built from the instance's template as it is now,
+     * not from the old row's HTML. The values therefore fully replace the old ones (PUT
+     * semantics): a field left out gets the template default. {@code values} itself is required,
+     * so a body that names no fields cannot silently reset the form. A stored value of a field the
+     * template cannot show is carried forward unchanged, whether sent back or left out; it cannot
+     * be changed through the API. A {@code <select multiple>} keeps every choice it had while its
+     * value is sent back unchanged. The old row is locked first, so of two concurrent revisions of
+     * the same fdid, the second finds it retired and is refused rather than forking the history.</p>
+     *
+     * <p>The revision takes over the old row's place: its attachments are copied to the revision,
+     * and consultation packets and other current eForms that attached the old row attach the
+     * revision instead. The template's chart writes run, as they do on every browser save.</p>
+     *
+     * <p>For a template that shows only its latest form ({@code showLatestFormOnly}), a revision of
+     * a row that is no longer the newest one for the patient is refused: the chart would then show
+     * the revision and hide the newer form a clinician saved in the browser.</p>
+     *
+     * @param loggedInInfo LoggedInInfo the caller, recorded as the revision's provider
+     * @param fdid int the instance to replace; it must still be current
+     * @param subject String the revision's subject; {@code null} keeps the old row's subject
+     * @param values Map&lt;String, String&gt; the complete field values of the revision; required
+     * @param contextPath String the application's context path, for the links the chart writes put in notes
+     * @return EFormData the new {@code eform_data} row; its id is the instance's new fdid
+     * @throws SecurityException when the caller lacks {@code _eform} write access, or the role the
+     *         instance's template now requires
+     * @throws InstanceAccessDeniedException when the caller may not revise this instance
+     * @throws EFormInstanceException when the values are missing, the instance is missing, already
+     *         retired or superseded by a newer form, its template is gone, an existing lab attachment
+     *         can no longer be carried to the revision, the subject or a field name is too long, or
+     *         a field name is blank or names no control the template can show it in
+     */
+    @Transactional
+    public EFormData revise(LoggedInInfo loggedInInfo, int fdid, String subject, Map<String, String> values,
+                            String contextPath) {
+        // WRITE, as the browser re-save (AddEForm2Action) needs; an UPDATE-only role cannot re-save
+        // an eForm in the browser either.
+        requireEFormPrivilege(loggedInInfo, SecurityInfoManager.WRITE, null);
+        if (values == null) {
+            throw new EFormInstanceException(EFormInstanceException.Reason.VALUES_REQUIRED);
+        }
+        requireValidFieldNames(values);
+        requireValidSubject(subject);
+
+        EFormData previous = eFormDataDao.lockForAttachmentSync(fdid);
+        if (previous == null) {
+            throw new EFormInstanceException(EFormInstanceException.Reason.NOT_FOUND);
+        }
+        requireInstanceAccess(loggedInInfo, SecurityInfoManager.WRITE, previous);
+        if (!previous.isCurrent()) {
+            throw new EFormInstanceException(EFormInstanceException.Reason.RETIRED);
+        }
+
+        // A retired template may still revise existing instances: the browser re-save of an opened
+        // form loads the template by fid without checking its status either.
+        io.github.carlos_emr.carlos.commn.model.EForm template = eFormDao.findById(previous.getFormId());
+        if (template == null) {
+            throw new EFormInstanceException(EFormInstanceException.Reason.TEMPLATE_UNAVAILABLE);
+        }
+        // The template's role as it is now, which an administrator may have added since this row was
+        // saved. The row itself already passed requireInstanceAccess, so its existence is no secret
+        // to this caller: refuse plainly ("Access Denied") rather than answer "not found" to a caller
+        // who can GET and DELETE the same fdid.
+        requireRoleTypeAccess(loggedInInfo, template.getRoleType());
+        if ((template.isShowLatestFormOnly() || previous.isShowLatestFormOnly()) && hasNewerCurrentForm(previous)) {
+            throw new EFormInstanceException(EFormInstanceException.Reason.SUPERSEDED);
+        }
+
+        String effectiveSubject = subject != null ? subject : previous.getSubject();
+        Map<String, String> previousValues = storedValues(fdid);
+        EFormData revision = saveFromTemplate(loggedInInfo, template, previous.getDemographicId(), effectiveSubject,
+                new SaveInputs(values, previousValues, previous.getFormData(),
+                        multipleSelections(previous.getFormData()), false, contextPath));
+
+        previous.setCurrent(false);
+        eFormDataDao.merge(previous);
+        moveAttachments(fdid, revision.getId());
+
+        LogAction.addLogStrict(loggedInInfo, LogConst.UPDATE, AUDIT_CONTENT, String.valueOf(revision.getId()),
+                String.valueOf(previous.getDemographicId()), "Revision of eform data " + fdid);
+        return revision;
+    }
+
+    /**
+     * Whether the patient has a current form of the same template saved after this one. A browser
+     * re-save stores a new row and leaves the opened one current, so this is the only sign of it.
+     */
+    private boolean hasNewerCurrentForm(EFormData previous) {
+        List<EFormData> current = eFormDataDao.findByDemographicIdAndFormId(previous.getDemographicId(),
+                previous.getFormId());
+        return current != null && current.stream()
+                .anyMatch(row -> row.getId() != null && row.getId() > previous.getId());
+    }
+
+    /**
+     * Gives the revision the old row's place in the chart: the old row's attachments are copied to
+     * the revision (the old row keeps its own, so its history still shows what it carried), and
+     * the consultation packets and other eForms that attached the old row attach the revision. A
+     * retired eForm is otherwise listed as unavailable in a consultation packet and left out of it.
+     *
+     * <p>{@link EFormDocsDao#persist} validates lab attachments against {@code PatientLabRouting}
+     * for the owning patient; if a previously attached lab was re-matched to another patient or has
+     * an unresolved source, the revision is refused cleanly with
+     * {@link EFormInstanceException.Reason#ATTACHMENT_UNAVAILABLE} and rolled back.</p>
+     */
+    private void moveAttachments(int oldFdid, int newFdid) {
+        for (EFormDocs attached : eFormDocsDao.findByFdid(oldFdid)) {
+            EFormDocs copy = new EFormDocs(newFdid, attached.getDocumentNo(), attached.getDocType(),
+                    attached.getProviderNo());
+            copy.setLabType(attached.getLabType());
+            copy.setAttachDate(attached.getAttachDate());
+            try {
+                eFormDocsDao.persist(copy);
+            } catch (IllegalArgumentException e) {
+                if (EFormDocs.DOCTYPE_LAB.equals(attached.getDocType())) {
+                    throw new EFormInstanceException(EFormInstanceException.Reason.ATTACHMENT_UNAVAILABLE);
+                }
+                throw e;
+            }
+        }
+        for (ConsultDocs packet : consultDocsDao.findActiveByAttachedDocumentForUpdate(ConsultDocs.DOCTYPE_EFORM, oldFdid)) {
+            packet.setDocumentNo(newFdid);
+            consultDocsDao.merge(packet);
+        }
+        for (EFormDocs attaching : eFormDocsDao.findActiveByAttachedDocumentForUpdate(EFormDocs.DOCTYPE_EFORM, oldFdid)) {
+            attaching.setDocumentNo(newFdid);
+            eFormDocsDao.merge(attaching);
+        }
+    }
+
+    /**
+     * Retires an instance, the way the eForm list's delete button does. The row and its values are
+     * kept and can be restored from the deleted-eForms list.
+     *
+     * @param loggedInInfo the caller
+     * @param fdid the instance to retire; it must still be current
+     * @throws SecurityException when the caller lacks {@code _eform} write access; an
+     *         {@link InstanceAccessDeniedException} when the refusal is for this instance's patient or role
+     * @throws EFormInstanceException when the instance is missing or already retired
+     */
+    @Transactional
+    public void delete(LoggedInInfo loggedInInfo, int fdid) {
+        // WRITE, not DELETE: retiring is reversible, and the eForm list's delete button
+        // (RemEForm2Action) needs only _eform w. The seeded doctor role holds w and not d, and a REST
+        // delete must not be stricter than the same action in the browser.
+        requireEFormPrivilege(loggedInInfo, SecurityInfoManager.WRITE, null);
+
+        EFormData data = eFormDataDao.lockForAttachmentSync(fdid);
+        if (data == null) {
+            throw new EFormInstanceException(EFormInstanceException.Reason.NOT_FOUND);
+        }
+        requireInstanceAccess(loggedInInfo, SecurityInfoManager.WRITE, data);
+        if (!data.isCurrent()) {
+            throw new EFormInstanceException(EFormInstanceException.Reason.RETIRED);
+        }
+
+        data.setCurrent(false);
+        eFormDataDao.merge(data);
+        LogAction.addLogStrict(loggedInInfo, LogConst.DELETE, AUDIT_CONTENT, String.valueOf(fdid),
+                String.valueOf(data.getDemographicId()), null);
+    }
+
+    /**
+     * What one save is built from.
+     *
+     * @param values the caller's values, or {@code null}
+     * @param previousValues the stored values of the row a revision replaces; empty on create
+     * @param previousHtml the saved HTML of the row a revision replaces; {@code null} on create
+     * @param multipleSelections every selected choice of each {@code <select multiple>} in the row a
+     *                           revision replaces; empty on create
+     * @param prefill whether fields the caller leaves out get the template's {@code oscarDB=} values,
+     *                as on the new-form page (create only: a browser re-save does not refresh them)
+     * @param contextPath the application's context path, for the chart writes' links
+     */
+    private record SaveInputs(Map<String, String> values, Map<String, String> previousValues,
+                              String previousHtml, Map<String, List<String>> multipleSelections,
+                              boolean prefill, String contextPath) {
+    }
+
+    /**
+     * Fills the template with the values and stores the result as a new current row plus its
+     * nonblank {@code eform_values}, then runs the template's chart writes, mirroring
+     * {@code AddEForm2Action.executeSubmission}.
+     */
+    private EFormData saveFromTemplate(LoggedInInfo loggedInInfo, io.github.carlos_emr.carlos.commn.model.EForm template,
+                                       int demographicNo, String subject, SaveInputs inputs) {
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
+        EForm form = buildEForm(template, demographicNo, providerNo, subject);
+
+        ValuePlan plan = planValues(template.getFormHtml(), inputs.values(), inputs.previousValues(),
+                inputs.previousHtml());
+        ArrayList<String> names = new ArrayList<>();
+        ArrayList<String> fieldValues = new ArrayList<>();
+        Map<String, List<String>> submittedSelections = new LinkedHashMap<>();
+        collectSubmittedValues(inputs, plan, names, fieldValues, submittedSelections);
+
+        // The new-form page fills oscarDB= fields before the clinician submits, so the browser save
+        // stores them like any other submitted value. setValues then overwrites the ones the caller sent.
+        Map<String, String> prefilled = inputs.prefill() ? applyDatabasePrefill(form, inputs.values()) : Map.of();
+
+        // Rendering sees explicit clears; value rows keep the browser save's nonblank-only contract.
+        form.setValues(names, fieldValues, submittedSelections);
+        applyCheckboxOverrides(form, plan);
+        removeBlankValues(names, fieldValues);
+        appendUnrenderedCarriedAndPrefilled(plan, prefilled, names, fieldValues);
+        form.setAction();
+        form.setNowDateTime();
+
+        // The manager re-checks _eform and writes the same ADD audit row the browser save writes.
+        Integer savedId = eformDataManager.saveEformData(loggedInInfo, form);
+        persistValues(template.getId(), savedId, demographicNo, names, fieldValues);
+
+        // The template's chart writes, with the effective nonblank form values (including untouched
+        // template defaults while keeping explicit clears excluded), as a browser save submits them.
+        // Runs in this transaction, so a failure stores neither the form nor half of its chart entries.
+        Map<String, String> chartWriteValues = collectChartWriteValues(form.getFormHtml(), names, fieldValues);
+        EFormUtil.writeEformTemplate(loggedInInfo, new ArrayList<>(chartWriteValues.keySet()),
+                new ArrayList<>(chartWriteValues.values()), form, String.valueOf(savedId),
+                EctProgram.programFor(ectProgramManager, providerNo),
+                inputs.contextPath() == null ? "" : inputs.contextPath());
+
+        EFormData saved = eFormDataDao.find(savedId.intValue());
+        if (saved == null) {
+            throw new IllegalStateException("Saved eForm data row could not be read back");
+        }
+        return saved;
+    }
+
+    /**
+     * Built from the entity already loaded instead of {@code EForm(fid, demographicNo, providerNo)},
+     * which reloads the template through static SpringUtils lookups.
+     */
+    private static EForm buildEForm(io.github.carlos_emr.carlos.commn.model.EForm template,
+                                    int demographicNo, String providerNo, String subject) {
+        EForm form = new EForm();
+        form.setFid(String.valueOf(template.getId()));
+        form.setFormName(template.getFormName());
+        form.setFormFileName(template.getFileName());
+        form.setFormCreator(template.getCreator());
+        form.setFormHtml(template.getFormHtml());
+        form.setShowLatestFormOnly(template.isShowLatestFormOnly());
+        form.setPatientIndependent(template.isPatientIndependent());
+        form.setRoleType(template.getRoleType());
+        form.setDemographicNo(String.valueOf(demographicNo));
+        form.setProviderNo(providerNo);
+        form.setFormSubject(subject == null ? "" : subject);
+        return form;
+    }
+
+    private static void collectSubmittedValues(SaveInputs inputs, ValuePlan plan,
+                                               List<String> names, List<String> fieldValues,
+                                               Map<String, List<String>> submittedSelections) {
+        Map<String, String> values = inputs.values();
+        if (values != null) {
+            for (Map.Entry<String, String> entry : values.entrySet()) {
+                String name = entry.getKey();
+                String value = entry.getValue();
+                // JSON null keeps the template default; checkbox clears and carried values apply via ValuePlan.
+                if (value != null && !plan.checkboxClears().contains(name) && !plan.carried().containsKey(name)) {
+                    names.add(name);
+                    fieldValues.add(value);
+                    if (plan.multipleSelectClears().contains(name)) {
+                        submittedSelections.put(name, List.of());
+                    } else {
+                        recordMultipleSelection(name, value, inputs, submittedSelections);
+                    }
+                }
+            }
+        }
+        // Carried values that still have a control, sent back or left out, are rendered like any value.
+        for (String name : plan.rendered()) {
+            String value = plan.carried().get(name);
+            names.add(name);
+            fieldValues.add(value);
+            recordMultipleSelection(name, value, inputs, submittedSelections);
+        }
+    }
+
+    private static void recordMultipleSelection(String name, String value, SaveInputs inputs,
+                                                Map<String, List<String>> submittedSelections) {
+        // A multiple select's value row holds only its first choice. Sent back unchanged, it keeps
+        // every choice the revised row had, as a browser re-save submits them all.
+        List<String> selections = inputs.multipleSelections().get(name);
+        if (selections != null && value.equals(inputs.previousValues().get(name))) {
+            submittedSelections.put(name, selections);
+        }
+    }
+
+    private static void applyCheckboxOverrides(EForm form, ValuePlan plan) {
+        for (String name : plan.checkboxClears()) {
+            form.uncheckCheckboxes(name);
+        }
+        for (Map.Entry<String, String> box : plan.checkboxSelections().entrySet()) {
+            form.checkCheckboxWithValue(box.getKey(), box.getValue());
+        }
+        for (Map.Entry<String, Set<Integer>> indexed : plan.checkboxIndexSelections().entrySet()) {
+            form.checkCheckboxesAtIndices(indexed.getKey(), indexed.getValue());
+        }
+    }
+
+    /**
+     * Collects the effective nonblank values for chart writes from the persisted values plus any
+     * untouched nonblank template defaults still shown in the rendered HTML. Controls explicitly
+     * cleared by the caller are empty in the rendered HTML and remain absent.
+     */
+    private static Map<String, String> collectChartWriteValues(String renderedHtml, List<String> names,
+                                                               List<String> fieldValues) {
+        Map<String, String> effective = new LinkedHashMap<>();
+        for (int i = 0; i < names.size(); i++) {
+            effective.putIfAbsent(names.get(i), fieldValues.get(i));
+        }
+        Document rendered = parse(renderedHtml);
+        if (rendered == null) {
+            return effective;
+        }
+        for (Element control : rendered.select("input[name], textarea[name], select[name]")) {
+            String name = control.attr("name");
+            if (StringUtils.isBlank(name) || effective.containsKey(name) || isDisabledControl(control)) {
+                continue;
+            }
+            String value = effectiveControlValue(control);
+            if (StringUtils.isNotBlank(value)) {
+                effective.put(name, value);
+            }
+        }
+        return effective;
+    }
+
+    private static boolean isDisabledControl(Element control) {
+        if (control.hasAttr("disabled")) {
+            return true;
+        }
+        for (Element ancestor : control.parents()) {
+            if ("fieldset".equals(ancestor.normalName()) && ancestor.hasAttr("disabled")) {
+                Element firstLegend = ancestor.selectFirst("> legend");
+                if (firstLegend == null || !control.parents().contains(firstLegend)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static String effectiveControlValue(Element control) {
+        return switch (control.normalName()) {
+            case CONTROL_TEXTAREA -> control.wholeText();
+            case CONTROL_SELECT -> {
+                var selected = control.select(SELECTED_OPTION_SELECTOR).stream()
+                        .filter(option -> !isDisabledOption(option))
+                        .toList();
+                if (control.hasAttr("multiple")) {
+                    yield selected.isEmpty() ? "" : optionValue(selected.get(0));
+                }
+                Element chosen = selected.isEmpty() ? firstEnabledOption(control) : selected.get(selected.size() - 1);
+                yield chosen == null ? "" : optionValue(chosen);
+            }
+            case "input" -> {
+                String type = control.hasAttr("type") ? Ascii.toLowerCase(control.attr("type")) : "text";
+                yield switch (type) {
+                    case "button", "submit", "reset", "image", "file", "onclick" -> "";
+                    case CONTROL_CHECKBOX -> control.hasAttr("checked") ? checkboxValue(control) : "";
+                    case CONTROL_RADIO -> control.hasAttr("checked") ? control.attr(VALUE_ATTRIBUTE) : "";
+                    default -> control.attr(VALUE_ATTRIBUTE);
+                };
+            }
+            default -> "";
+        };
+    }
+
+    private static void removeBlankValues(List<String> names, List<String> fieldValues) {
+        for (int i = fieldValues.size() - 1; i >= 0; i--) {
+            if (fieldValues.get(i).trim().isEmpty()) {
+                names.remove(i);
+                fieldValues.remove(i);
+            }
+        }
+    }
+
+    private static void appendUnrenderedCarriedAndPrefilled(ValuePlan plan, Map<String, String> prefilled,
+                                                            List<String> names, List<String> fieldValues) {
+        for (Map.Entry<String, String> carried : plan.carried().entrySet()) {
+            if (!plan.rendered().contains(carried.getKey()) && !carried.getValue().trim().isEmpty()) {
+                names.add(carried.getKey());
+                fieldValues.add(carried.getValue());
+            }
+        }
+        for (Map.Entry<String, String> filled : prefilled.entrySet()) {
+            names.add(filled.getKey());
+            fieldValues.add(filled.getValue());
+        }
+    }
+
+    private void persistValues(Integer formId, Integer savedId, int demographicNo,
+                               List<String> names, List<String> fieldValues) {
+        for (int i = 0; i < names.size(); i++) {
+            EFormValue value = new EFormValue();
+            value.setFormId(formId);
+            value.setFormDataId(savedId);
+            value.setDemographicId(demographicNo);
+            value.setVarName(names.get(i));
+            value.setVarValue(fieldValues.get(i));
+            eFormValueDao.persist(value);
+        }
+    }
+
+    /**
+     * Fills the form's {@code oscarDB=} fields the way the new-form page does, and returns the
+     * values it filled into fields the caller did not send, for their value rows. A name longer than
+     * a value row can hold is rendered but gets no row, as it could not be read back by name.
+     */
+    private static Map<String, String> applyDatabasePrefill(EForm form, Map<String, String> values) {
+        String before = form.getFormHtml();
+        form.setDatabaseAPs();
+        Document filled = parse(form.getFormHtml());
+        Map<String, String> prefilled = new LinkedHashMap<>();
+        if (filled == null || before == null || before.equals(form.getFormHtml())) {
+            return prefilled;
+        }
+        String marker = Ascii.toLowerCase(StringUtils.removeEnd(EFormLoader.getMarker(), "="));
+        for (Element control : filled.select("[" + marker + "][name]")) {
+            String name = control.attr("name");
+            boolean sent = values != null && values.get(name) != null;
+            if (sent || StringUtils.isBlank(name) || name.length() > FIELD_NAME_MAX_LENGTH || prefilled.containsKey(name)) {
+                continue;
+            }
+            String value = switch (control.normalName()) {
+                case CONTROL_TEXTAREA -> control.wholeText();
+                case CONTROL_SELECT -> {
+                    Element option = control.selectFirst(SELECTED_OPTION_SELECTOR);
+                    yield option == null ? "" : optionValue(option);
+                }
+                default -> control.attr(VALUE_ATTRIBUTE);
+            };
+            if (StringUtils.isNotBlank(value)) {
+                prefilled.put(name, value);
+            }
+        }
+        return prefilled;
+    }
+
+    /**
+     * Every selected choice of each {@code <select multiple>} that has at least one selection, by name.
+     * Recording single surviving choices as well as multi-choice sets preserves a surviving option across
+     * repeated unchanged revisions after the template removes an earlier stored choice.
+     */
+    private static Map<String, List<String>> multipleSelections(String instanceHtml) {
+        Map<String, List<String>> selections = new LinkedHashMap<>();
+        Document instance = parse(instanceHtml);
+        if (instance == null) {
+            return selections;
+        }
+        for (Element select : instance.select("select[multiple][name]")) {
+            List<String> chosen = select.select(SELECTED_OPTION_SELECTOR).stream()
+                    .map(EFormInstanceService::optionValue).toList();
+            if (!chosen.isEmpty()) {
+                selections.putIfAbsent(select.attr("name"), chosen);
+            }
+        }
+        return selections;
+    }
+
+    private void requireEFormPrivilege(LoggedInInfo loggedInInfo, String privilege, String demographicNo) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", privilege, demographicNo)) {
+            throw new SecurityException("missing required sec object (_eform)");
+        }
+    }
+
+    /**
+     * The checks for one existing row. Their refusal is an {@link InstanceAccessDeniedException}
+     * so the REST layer can answer it as it answers a missing row: a caller who passes the global
+     * gate must not learn that an fdid exists for a patient or role it cannot see.
+     */
+    private void requireInstanceAccess(LoggedInInfo loggedInInfo, String privilege, EFormData data) {
+        try {
+            requireEFormPrivilege(loggedInInfo, privilege, String.valueOf(data.getDemographicId()));
+            requirePatientRecordAccess(loggedInInfo, data.getDemographicId());
+            requireRoleTypeAccess(loggedInInfo, data.getRoleType());
+        } catch (SecurityException denied) {
+            throw new InstanceAccessDeniedException(denied.getMessage());
+        }
+    }
+
+    private void requirePatientRecordAccess(LoggedInInfo loggedInInfo, Integer demographicNo) {
+        if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
+            throw new SecurityException("Access to this patient record is restricted");
+        }
+    }
+
+    private void requireRoleTypeAccess(LoggedInInfo loggedInInfo, String roleType) {
+        String role = StringUtils.trimToNull(roleType);
+        if (role == null) {
+            return;
+        }
+        String objectName = "_eform." + role;
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, objectName, SecurityInfoManager.READ, null)) {
+            throw new SecurityException("missing required sec object (" + objectName + ")");
+        }
+    }
+
+    /** The input types {@link EForm#setValues} writes a value into (its jsoup setter cases). */
+    private static final Set<String> SETTABLE_INPUT_TYPES =
+            Set.of("text", "hidden", "date", CONTROL_CHECKBOX, CONTROL_RADIO);
+
+    /**
+     * How the submitted values are saved.
+     *
+     * @param checkboxClears checkboxes a blank value explicitly unchecks
+     * @param multipleSelectClears {@code <select multiple>} controls a blank value explicitly clears
+     * @param carried values the template cannot show as sent, kept because they are exactly what
+     *                the revised row stored
+     * @param rendered the carried names, other than checkboxes, that still have a settable control.
+     *                 They are passed to {@link EForm#setValues} like any value, so a radio value that
+     *                 is no longer one of its choices unchecks every choice instead of leaving the
+     *                 template default checked, as a browser re-save does.
+     * @param checkboxSelections carried checkbox values with a unique (or absent) matching box on the
+     *                           template: the box whose own value matches is checked and the other
+     *                           boxes of the name unchecked ({@link EForm#setValues} would check only
+     *                           a group's first box).
+     * @param checkboxIndexSelections carried checkbox values where multiple template boxes share the
+     *                                same submitted value, disambiguated to exact indices from the
+     *                                revised row's HTML.
+     */
+    private record ValuePlan(Set<String> checkboxClears, Set<String> multipleSelectClears,
+                             Map<String, String> carried, Set<String> rendered,
+                             Map<String, String> checkboxSelections,
+                             Map<String, Set<Integer>> checkboxIndexSelections) {
+    }
+
+    /**
+     * Refuses any submitted value the renderer would not show: a name with no control on the
+     * template, a control type {@link EForm#setValues} skips (such as {@code type="number"}) or
+     * fills by inserting text into its markup, controls of mixed types under one name, a radio or
+     * select value that matches none of its choices, and a checkbox value other than the box's
+     * own. Null values are not submitted and pass. A refused value that equals the revised row's
+     * stored value is carried instead, and so is such a stored value when it is not sent back, so
+     * a revision never loses what a browser save stored. A stored value left out of the request is
+     * carried the same way when the template cannot show it: it has no control, or its value is no
+     * longer one of the control's choices. A left-out value the template can show gets the template
+     * default, as documented. A carried value whose control is still on the template is rendered.
+     */
+    private static ValuePlan planValues(String templateHtml, Map<String, String> values,
+                                        Map<String, String> previousValues, String previousHtml) {
+        ValuePlan plan = new ValuePlan(new LinkedHashSet<>(), new LinkedHashSet<>(),
+                new LinkedHashMap<>(), new LinkedHashSet<>(), new LinkedHashMap<>(), new LinkedHashMap<>());
+        boolean submitted = values != null && values.values().stream().anyMatch(java.util.Objects::nonNull);
+        if (!submitted && previousValues.isEmpty()) {
+            return plan;
+        }
+        Document template = parse(templateHtml);
+        Document previousDoc = previousValues.isEmpty() ? null : parse(previousHtml);
+        planSubmittedValues(template, previousDoc, values, previousValues, plan);
+        planOmittedStoredValues(template, previousDoc, values, previousValues, plan);
+        return plan;
+    }
+
+    private static void planSubmittedValues(Document template, Document previousDoc, Map<String, String> values,
+                                            Map<String, String> previousValues, ValuePlan plan) {
+        if (values == null) {
+            return;
+        }
+        for (Map.Entry<String, String> entry : values.entrySet()) {
+            String value = entry.getValue();
+            if (value == null) {
+                continue;
+            }
+            String name = entry.getKey();
+            String type = template == null ? null : settableType(template, name);
+            if (type != null && applies(template, name, type, value, plan.checkboxClears(), plan.multipleSelectClears())) {
+                // Directly settable on the current template.
+            } else if (value.equals(previousValues.get(name))) {
+                carry(template, previousDoc, name, value, type, plan);
+            } else {
+                throw new EFormInstanceException(EFormInstanceException.Reason.UNSUPPORTED_FIELD);
+            }
+        }
+    }
+
+    private static void planOmittedStoredValues(Document template, Document previousDoc, Map<String, String> values,
+                                                Map<String, String> previousValues, ValuePlan plan) {
+        for (Map.Entry<String, String> stored : previousValues.entrySet()) {
+            String name = stored.getKey();
+            boolean omitted = values == null || values.get(name) == null;
+            if (!omitted) {
+                continue;
+            }
+            String type = template == null ? null : settableType(template, name);
+            if (type == null || !isRepresentedOnTemplate(template, name, type, stored.getValue())) {
+                carry(template, previousDoc, name, stored.getValue(), type, plan);
+            }
+        }
+    }
+
+    /**
+     * Whether the current template can represent this stored value: either directly settable via
+     * {@link #applies}, or a checkbox group that still has a box with this value (omitting such a
+     * group restores the template default rather than carrying the previous choice, while echoing
+     * the previous choice explicitly still carries it).
+     */
+    private static boolean isRepresentedOnTemplate(Document template, String name, String type, String value) {
+        if (applies(template, name, type, value, null, null)) {
+            return true;
+        }
+        return CONTROL_CHECKBOX.equals(type) && namedControls(template, name).stream()
+                .anyMatch(box -> value.equals(checkboxValue(box)));
+    }
+
+    /** Records a carried value and how the revision shows it: see {@link ValuePlan}. */
+    private static void carry(Document template, Document previousDoc, String name, String value,
+                              String type, ValuePlan plan) {
+        if (CONTROL_CHECKBOX.equals(type)) {
+            var templateBoxes = template == null ? new org.jsoup.select.Elements() : namedControls(template, name);
+            long matchCount = templateBoxes.stream().filter(box -> value.equals(checkboxValue(box))).count();
+            if (matchCount > 1) {
+                Set<Integer> previousChecked = resolveCheckedCheckboxIndices(previousDoc, name, templateBoxes);
+                if (previousChecked == null) {
+                    throw new EFormInstanceException(EFormInstanceException.Reason.UNSUPPORTED_FIELD);
+                }
+                plan.carried().put(name, value);
+                plan.checkboxIndexSelections().put(name, previousChecked);
+            } else {
+                plan.carried().put(name, value);
+                plan.checkboxSelections().put(name, value);
+            }
+        } else {
+            plan.carried().put(name, value);
+            if (type != null) {
+                plan.rendered().add(name);
+            }
+        }
+    }
+
+    /**
+     * Resolves the exact checked box indices from {@code previousDoc} when multiple template boxes
+     * share both name and submitted value. Returns {@code null} when the previous HTML is absent or
+     * its checkbox structure for {@code name} no longer matches the current template position-for-position.
+     */
+    private static Set<Integer> resolveCheckedCheckboxIndices(Document previousDoc, String name,
+                                                              org.jsoup.select.Elements templateBoxes) {
+        if (previousDoc == null) {
+            return null;
+        }
+        List<Element> prevBoxes = previousDoc.select("input[type=checkbox][name]").stream()
+                .filter(box -> box.attr("name").equals(name))
+                .toList();
+        if (prevBoxes.size() != templateBoxes.size()) {
+            return null;
+        }
+        Set<Integer> checked = new LinkedHashSet<>();
+        for (int i = 0; i < prevBoxes.size(); i++) {
+            if (!checkboxValue(prevBoxes.get(i)).equals(checkboxValue(templateBoxes.get(i)))) {
+                return null;
+            }
+            if (prevBoxes.get(i).hasAttr("checked")) {
+                checked.add(i);
+            }
+        }
+        return checked;
+    }
+
+    /** Whether {@link EForm#setValues} shows this value in the named control of this type. */
+    private static boolean applies(Document template, String name, String type, String value,
+                                   Set<String> checkboxClears, Set<String> multipleSelectClears) {
+        boolean blank = value.trim().isEmpty();
+        return switch (type) {
+            case CONTROL_CHECKBOX -> {
+                if (blank) {
+                    if (checkboxClears != null) {
+                        checkboxClears.add(name);
+                    }
+                    yield true;
+                }
+                // The renderer checks only the first box of a name, so a value for a group of
+                // boxes cannot say which one it means.
+                var boxes = namedControls(template, name);
+                yield boxes.size() == 1 && value.equals(checkboxValue(boxes.first()));
+            }
+            case CONTROL_RADIO -> value.isEmpty() || namedControls(template, name).stream()
+                    .anyMatch(radio -> value.equals(radio.attr(VALUE_ATTRIBUTE)));
+            case CONTROL_SELECT -> selectAcceptsValue(namedControls(template, name).first(), name, value, blank,
+                    multipleSelectClears);
+            default -> true;
+        };
+    }
+
+    /**
+     * A single {@code <select>} in HTML always displays an option, so {@code ""} is accepted only
+     * when the select has an empty-valued option; a {@code <select multiple>} can legitimately have
+     * zero selections and therefore accepts a blank value to clear all choices.
+     */
+    private static boolean selectAcceptsValue(Element select, String name, String value, boolean blank,
+                                              Set<String> multipleSelectClears) {
+        if (select.hasAttr("multiple") && blank) {
+            if (multipleSelectClears != null) {
+                multipleSelectClears.add(name);
+            }
+            return true;
+        }
+        return select.select("option").stream().anyMatch(option -> value.equals(optionValue(option)));
+    }
+
+    /** The value a browser submits for a checked box: its {@code value}, or {@code "on"} without one. */
+    private static String checkboxValue(Element box) {
+        return box.hasAttr(VALUE_ATTRIBUTE) ? box.attr(VALUE_ATTRIBUTE) : "on";
+    }
+
+    private Map<String, String> storedValues(int fdid) {
+        Map<String, String> values = new LinkedHashMap<>();
+        for (EFormValue value : eFormValueDao.findByFormDataId(fdid)) {
+            values.put(value.getVarName(), value.getVarValue());
+        }
+        return values;
+    }
+
+    /**
+     * Adds {@code ""} for each field whose template default is nonblank but whose control in the
+     * saved form is empty, and that has no stored value: the instance cleared it. A control missing
+     * from the saved form (the template has changed since), or whose current template no longer
+     * accepts {@code ""} (for example, a single select whose empty option was removed), is not
+     * reported as a clear so GET output always round-trips cleanly through PUT.
+     */
+    private static void addClearedDefaults(String templateHtml, String instanceHtml, Map<String, String> values) {
+        Document template = parse(templateHtml);
+        Document instance = parse(instanceHtml);
+        if (template == null || instance == null) {
+            return;
+        }
+        Set<String> names = new LinkedHashSet<>();
+        for (Element control : template.select("input[name], textarea[name], select[name]")) {
+            names.add(control.attr("name"));
+        }
+        for (String name : names) {
+            if (StringUtils.isBlank(name) || values.containsKey(name)) {
+                continue;
+            }
+            String type = settableType(template, name);
+            if (type != null && type.equals(settableType(instance, name))
+                    && hasValue(template, name, type) && !hasValue(instance, name, type)
+                    && applies(template, name, type, "", null, null)) {
+                values.put(name, "");
+            }
+        }
+    }
+
+    /** Whether the named control shows a value, read the way {@link EForm#setValues} writes it. */
+    private static boolean hasValue(Document document, String name, String type) {
+        var controls = namedControls(document, name);
+        return switch (type) {
+            case CONTROL_CHECKBOX -> controls.stream().anyMatch(control -> control.hasAttr("checked"));
+            // A checked choice whose value is blank shows no value, like a select's placeholder: it is
+            // reported as "" so a revision checks that choice again instead of the template default.
+            case CONTROL_RADIO -> controls.stream()
+                    .anyMatch(control -> control.hasAttr("checked") && StringUtils.isNotBlank(control.attr(VALUE_ATTRIBUTE)));
+            case CONTROL_SELECT -> selectHasValue(controls.first());
+            case CONTROL_TEXTAREA -> StringUtils.isNotBlank(controls.first().wholeText());
+            default -> StringUtils.isNotBlank(controls.first().attr(VALUE_ATTRIBUTE));
+        };
+    }
+
+    /**
+     * Whether a select shows a nonblank choice, matching HTML's effective-selection rule. A
+     * {@code multiple} select shows only explicitly selected options. A single select shows its
+     * selected option (last if more than one is marked), or else its first enabled option when none
+     * is marked.
+     */
+    private static boolean selectHasValue(Element select) {
+        var selected = select.select(SELECTED_OPTION_SELECTOR);
+        if (select.hasAttr("multiple")) {
+            return selected.stream().anyMatch(option -> StringUtils.isNotBlank(optionValue(option)));
+        }
+        Element effective = selected.isEmpty() ? firstEnabledOption(select) : selected.last();
+        return effective != null && StringUtils.isNotBlank(optionValue(effective));
+    }
+
+    private static Element firstEnabledOption(Element select) {
+        for (Element option : select.select("option")) {
+            if (!isDisabledOption(option)) {
+                return option;
+            }
+        }
+        return null;
+    }
+
+    private static boolean isDisabledOption(Element option) {
+        if (option.hasAttr("disabled")) {
+            return true;
+        }
+        Element parent = option.parent();
+        return parent != null && "optgroup".equals(parent.normalName()) && parent.hasAttr("disabled");
+    }
+
+    /** The one settable control type every element with this name has, or null if there is none. */
+    private static String settableType(Document document, String name) {
+        String found = null;
+        for (Element control : namedControls(document, name)) {
+            String type = switch (control.normalName()) {
+                case CONTROL_TEXTAREA, CONTROL_SELECT -> control.normalName();
+                // A missing type is a text input, as EForm reads it; a present one is used verbatim.
+                case "input" -> control.hasAttr("type") ? control.attr("type") : "text";
+                default -> null;
+            };
+            if (type == null || !(type.equals(CONTROL_TEXTAREA) || type.equals(CONTROL_SELECT)
+                    || SETTABLE_INPUT_TYPES.contains(type))
+                    || (found != null && !found.equals(type))) {
+                return null;
+            }
+            found = type;
+        }
+        return found;
+    }
+
+    /**
+     * The controls named exactly {@code name}. Not a {@code [name="..."]} selector: jsoup compares
+     * attribute values ignoring case and surrounding space, so it would also return the controls of a
+     * differently cased name, which a browser submits as a different field.
+     */
+    private static org.jsoup.select.Elements namedControls(Document document, String name) {
+        return new org.jsoup.select.Elements(document.select("[name]").stream()
+                .filter(control -> control.attr("name").equals(name))
+                .toList());
+    }
+
+    /** The value a browser submits for an option, as {@link EForm} matches it. */
+    private static String optionValue(Element option) {
+        return option.hasAttr(VALUE_ATTRIBUTE) ? option.attr(VALUE_ATTRIBUTE) : option.text();
+    }
+
+    private static Document parse(String html) {
+        return StringUtils.isBlank(html) ? null : ConvertToEdoc.parseDocument(html);
+    }
+
+    /**
+     * Field names must fit {@code eform_values.var_name}: a longer one fails the save on a strict
+     * server, and is cut on others, so its value could not be read back by name or sent back.
+     */
+    private static void requireValidFieldNames(Map<String, String> values) {
+        if (values == null) {
+            return;
+        }
+        for (String name : values.keySet()) {
+            if (StringUtils.isBlank(name) || name.length() > FIELD_NAME_MAX_LENGTH) {
+                throw new EFormInstanceException(EFormInstanceException.Reason.INVALID_FIELD_NAME);
+            }
+        }
+    }
+
+    /** The subject must fit {@code eform_data.subject}, for the same reason. */
+    private static void requireValidSubject(String subject) {
+        if (subject != null && subject.length() > SUBJECT_MAX_LENGTH) {
+            throw new EFormInstanceException(EFormInstanceException.Reason.INVALID_SUBJECT);
+        }
+    }
+
+    /**
+     * A refusal for one existing instance (its patient, patient record or role), as opposed to the
+     * caller lacking the {@code _eform} right altogether. Callers answer it as they answer
+     * {@link EFormInstanceException.Reason#NOT_FOUND}, so an fdid the caller cannot see is
+     * indistinguishable from one that does not exist.
+     */
+    public static class InstanceAccessDeniedException extends SecurityException {
+
+        private static final long serialVersionUID = 1L;
+
+        public InstanceAccessDeniedException(String message) {
+            super(message);
+        }
+    }
+
+    /**
+     * A request that names no usable instance, template or patient. The reason is safe to show to
+     * an authorized caller: it never carries patient data.
+     */
+    public static class EFormInstanceException extends RuntimeException {
+
+        private static final long serialVersionUID = 1L;
+
+        /** Why the operation was refused. */
+        public enum Reason {
+            /** No {@code eform_data} row has this fdid. */
+            NOT_FOUND("EForm instance not found"),
+            /** The instance was already deleted or replaced by a newer revision. */
+            RETIRED("EForm instance is no longer current"),
+            /**
+             * The instance is current, but its template shows only the latest form and the patient
+             * has a newer one, such as a clinician's re-save in the browser. Revising this row would
+             * hide that newer form from the chart.
+             */
+            SUPERSEDED("A newer form of this template exists for the patient; read and revise that one"),
+            /** The template does not exist, or is retired and cannot start new instances. */
+            TEMPLATE_UNAVAILABLE("EForm template not found or not active"),
+            /** The patient does not exist, or the caller may not write to the patient's chart. */
+            PATIENT_NOT_FOUND("Patient not found"),
+            /** A field name in the values was blank or longer than 30 characters. */
+            INVALID_FIELD_NAME("EForm field names must not be blank or longer than 30 characters"),
+            /** The subject was longer than 255 characters. */
+            INVALID_SUBJECT("EForm subject must not be longer than 255 characters"),
+            /** A revision named no values; it replaces every field, so they are required. */
+            VALUES_REQUIRED("values is required: a revision replaces every field of the form"),
+            /**
+             * A value names no control on the template, a control the API cannot fill (such as
+             * {@code type="number"}), or a radio or select choice that does not exist.
+             */
+            UNSUPPORTED_FIELD("EForm field is not on the template or cannot be set through the API"),
+            /**
+             * An existing lab attachment on the revised row no longer belongs to the patient or has
+             * an unresolved/ambiguous lab source, so {@link EFormDocsDao#persist} refuses to copy it.
+             */
+            ATTACHMENT_UNAVAILABLE("An existing lab attachment can no longer be carried to the revision; revise this form in the chart");
+
+            private final String message;
+
+            Reason(String message) {
+                this.message = message;
+            }
+
+            public String message() {
+                return message;
+            }
+        }
+
+        private final Reason reason;
+
+        public EFormInstanceException(Reason reason) {
+            super(reason.message());
+            this.reason = reason;
+        }
+
+        public Reason getReason() {
+            return reason;
+        }
+    }
+}
