@@ -1166,6 +1166,9 @@ public final class RxWriteScript2Action extends ActionSupport {
                 if (!calculated.isCustomNote() && "0".equals(reportedQuantity) && !previousQuantity.isEmpty()) {
                     calculated.setQuantity(previousQuantity);
                     calculated.setUnitName(previousUnit);
+                    if (!calculated.isDurationSpecifiedByUser()) {
+                        deriveDurationFromQuantity(calculated, previousQuantity, previousUnit);
+                    }
                 }
             } else {
                 calculateStagedQuantity(calculated, input);
@@ -1199,25 +1202,38 @@ public final class RxWriteScript2Action extends ActionSupport {
     }
 
     void calculateStagedQuantity(RxPrescriptionData.Prescription rx, String submittedQuantity) {
-        String quantity = org.apache.commons.lang3.Strings.CI.equals("null", submittedQuantity) ? "" : submittedQuantity;
-        rx.setQuantity(RxUtil.getQuantityFromQuantityText(quantity));
-        rx.setUnitName(RxUtil.getUnitNameFromQuantityText(quantity));
-        if (RxUtil.isMitte(quantity)) {
-            rx.setDuration(RxUtil.getDurationFromQuantityText(quantity));
-            rx.setDurationUnit(RxUtil.getDurationUnitFromQuantityText(quantity));
+        String normalizedQuantity = org.apache.commons.lang3.Strings.CI.equals("null", submittedQuantity) ? "" : submittedQuantity;
+        rx.setQuantity(RxUtil.getQuantityFromQuantityText(normalizedQuantity));
+        rx.setUnitName(RxUtil.getUnitNameFromQuantityText(normalizedQuantity));
+        if (RxUtil.isMitte(normalizedQuantity)) {
+            rx.setDuration(RxUtil.getDurationFromQuantityText(normalizedQuantity));
+            rx.setDurationUnit(RxUtil.getDurationUnitFromQuantityText(normalizedQuantity));
             rx.setDurationSpecifiedByUser(true);
             return;
         }
         if (!rx.isDurationSpecifiedByUser()) {
-            String durationUnit = rx.getDurationUnit();
-            if (durationUnit == null || durationUnit.isBlank()) {
-                durationUnit = "D";
-            }
-            String duration = rx.getPrn() ? null
-                    : RxUtil.wholeDurationUnits(quantity, rx.getTakeMax(), rx.getFrequencyCode(), durationUnit);
-            rx.setDuration(duration);
-            rx.setDurationUnit(duration == null ? null : durationUnit);
+            deriveDurationFromQuantity(rx, rx.getQuantity(), rx.getUnitName());
         }
+    }
+
+    private static void deriveDurationFromQuantity(RxPrescriptionData.Prescription rx, String quantityAmount, String unitName) {
+        boolean hasUnit = unitName != null && !unitName.isBlank()
+                && !org.apache.commons.lang3.Strings.CI.equals("null", unitName.strip());
+        if (hasUnit && rx.isMitte()) {
+            String mitteText = quantityAmount + " " + unitName;
+            rx.setDuration(RxUtil.getDurationFromQuantityText(mitteText));
+            rx.setDurationUnit(RxUtil.getDurationUnitFromQuantityText(mitteText));
+            rx.setDurationSpecifiedByUser(true);
+            return;
+        }
+        String resolvedDurationUnit = rx.getDurationUnit();
+        if (resolvedDurationUnit == null || resolvedDurationUnit.isBlank()) {
+            resolvedDurationUnit = "D";
+        }
+        String derivedDuration = rx.getPrn() || hasUnit ? null
+                : RxUtil.wholeDurationUnits(quantityAmount, rx.getTakeMax(), rx.getFrequencyCode(), resolvedDurationUnit);
+        rx.setDuration(derivedDuration);
+        rx.setDurationUnit(derivedDuration == null ? null : resolvedDurationUnit);
     }
 
     private Map<String, Object> calculationResult(RxPrescriptionData.Prescription rx, String calQuantity, int sequence) {

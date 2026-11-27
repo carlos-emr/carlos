@@ -633,6 +633,26 @@ class RxManagerUnitTest extends RxManagerImpl {
             assertThat(archiveDrug(info, 20, 1, Drug.REPRESCRIBED)).isFalse();
             assertThat(mergedDrug).isNull();
         }
+
+        @Test
+        @DisplayName("should archive matching drug with lifecycle snapshot and delegate addFavorite")
+        void shouldArchiveMatchingDrugAndDelegateAddFavorite_whenAuthorized() {
+            LoggedInInfo info = new LoggedInInfo();
+            try (var logAction = org.mockito.Mockito.mockStatic(io.github.carlos_emr.carlos.log.LogAction.class)) {
+                assertThat(archiveDrug(info, 2, 1, Drug.REPRESCRIBED)).isTrue();
+            }
+            assertThat(mergedDrug).isNotNull();
+            assertThat(mergedDrug.isArchived()).isTrue();
+            assertThat(mergedDrug.getArchivedReason()).isEqualTo(Drug.REPRESCRIBED);
+            assertThat(org.springframework.test.util.ReflectionTestUtils.getField(
+                    mergedDrug, "archivedBeforeLifecycle")).isEqualTo(false);
+
+            favoriteDao = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.FavoriteDao.class);
+            assertThat(addFavorite(null)).isFalse();
+            var favorite = new io.github.carlos_emr.carlos.commn.model.Favorite();
+            assertThat(addFavorite(favorite)).isTrue();
+            org.mockito.Mockito.verify(favoriteDao).createOrFind(favorite);
+        }
     }
 
     // =========== HELPER METHODS =================

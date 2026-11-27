@@ -248,6 +248,43 @@ public class FavoriteDaoIntegrationTest extends CarlosTestBase {
         assertThat(repeated.Save()).isTrue();
         assertThat(repeated.getFavoriteId()).isEqualTo(documented.getFavoriteId());
         assertThat(dao.findByProviderNo("FAVFIX")).hasSize(2);
+
+        Favorite legacyNulls = new Favorite();
+        legacyNulls.setProviderNo("FAVFIX");
+        legacyNulls.setName("LegacyNullBounds");
+        legacyNulls.setBn("Synthetic brand");
+        legacyNulls.setGcnSeqno("0");
+        legacyNulls.setCustomName("Synthetic drug");
+        org.springframework.test.util.ReflectionTestUtils.setField(legacyNulls, "takeMin", null);
+        org.springframework.test.util.ReflectionTestUtils.setField(legacyNulls, "takeMax", null);
+        legacyNulls.setFrequencyCode("OD");
+        legacyNulls.setDuration("7");
+        legacyNulls.setDurationUnit("D");
+        legacyNulls.setQuantity("7");
+        org.springframework.test.util.ReflectionTestUtils.setField(legacyNulls, "repeat", null);
+        legacyNulls.setNosubs(false);
+        legacyNulls.setPrn(false);
+        legacyNulls.setSpecial("Legacy PRN text");
+        legacyNulls.setGn("Synthetic generic");
+        legacyNulls.setAtc("ORIGINAL");
+        legacyNulls.setRegionalIdentifier("");
+        legacyNulls.setUnit("");
+        legacyNulls.setUnitName("tablet");
+        legacyNulls.setMethod("");
+        legacyNulls.setRoute("");
+        legacyNulls.setDrugForm("");
+        org.springframework.test.util.ReflectionTestUtils.setField(legacyNulls, "customInstructions", null);
+        legacyNulls.setDosage("");
+        dao.persist(legacyNulls);
+        hibernateTemplate.flush();
+        hibernateTemplate.clear();
+
+        var resavedLegacy = new io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.Favorite(
+                0, "FAVFIX", "LegacyNullBounds", "Synthetic brand", "0", "Synthetic drug", 0, 0, "OD", "7", "D",
+                "7", 0, false, false, "Legacy PRN text", "Synthetic generic", "ORIGINAL",
+                "", "", "tablet", "", "", "", false, "");
+        assertThat(resavedLegacy.Save()).isTrue();
+        assertThat(resavedLegacy.getFavoriteId()).isEqualTo(legacyNulls.getId());
     }
 
     private void setClinicalField(io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.Favorite favorite, String field) {

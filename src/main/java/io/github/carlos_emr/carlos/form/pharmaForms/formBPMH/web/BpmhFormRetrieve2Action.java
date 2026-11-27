@@ -77,6 +77,9 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", "r", null)) {
+            throw new SecurityException("missing required sec object (_form)");
+        }
 
         String method = request.getParameter("method");
         // Save and print both store the form (print saves a new one, formId 0, before streaming it), so they

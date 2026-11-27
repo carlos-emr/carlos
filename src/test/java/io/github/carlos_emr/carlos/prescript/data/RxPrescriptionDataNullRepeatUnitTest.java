@@ -155,4 +155,34 @@ class RxPrescriptionDataNullRepeatUnitTest extends CarlosUnitTestBase {
         verify(dao).createOrFind(any(Favorite.class));
         assertThat(drug.getRepeat()).isEqualTo(repeats);
     }
+
+    @org.junit.jupiter.api.Test
+    @DisplayName("should archive once on Delete and preserve current calculation sequence on 3-arg restoreSavedIdentity")
+    void shouldArchiveOnDeleteAndPreserveSequence_whenRestoringThreeArgSavedIdentity() {
+        Drug active = new Drug();
+        active.setId(55);
+        active.setArchived(false);
+        DrugDao dao = mock(DrugDao.class);
+        when(dao.find(55)).thenReturn(active);
+        registerMock(DrugDao.class, dao);
+
+        var prescription = new RxPrescriptionData().newPrescription("999998", 1001);
+        var copy = prescription.copyForCalculation();
+        prescription.applyCalculation(copy, 7);
+        prescription.restoreSavedIdentity(55, "900", "rev-original");
+        assertThat(prescription.getDrugId()).isEqualTo(55);
+        assertThat(prescription.getScript_no()).isEqualTo("900");
+        assertThat(prescription.getDraftRevision()).isEqualTo("rev-original");
+        assertThat(prescription.getCalculationSequence()).isEqualTo(7);
+
+        prescription.Delete();
+        assertThat(active.isArchived()).isTrue();
+        assertThat(org.springframework.test.util.ReflectionTestUtils.getField(
+                active, "archivedBeforeLifecycle")).isEqualTo(false);
+        verify(dao).merge(active);
+
+        active.archive();
+        assertThat(org.springframework.test.util.ReflectionTestUtils.getField(
+                active, "archivedBeforeLifecycle")).isEqualTo(false);
+    }
 }

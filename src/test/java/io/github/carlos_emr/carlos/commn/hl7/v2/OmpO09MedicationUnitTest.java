@@ -50,4 +50,43 @@ class OmpO09MedicationUnitTest {
         assertThat(segment.getProviderSPharmacyTreatmentInstructions(1).getText().getValue())
                 .isEqualTo("Quantity as recorded: 1/2 bottle");
     }
+
+    @Test
+    void shouldIncludeSeparateUnitOnRecordedQuantityRangeDoseAndNormalizedTq1Duration() throws Exception {
+        Drug rangeDrug = new Drug();
+        rangeDrug.setUnit("tab");
+        rangeDrug.setDrugForm("tab");
+        rangeDrug.setTakeMin(0.5f);
+        rangeDrug.setTakeMax(1.5f);
+        rangeDrug.setQuantity("1/2");
+        rangeDrug.setUnitName("bottle");
+        rangeDrug.setDuration("7.0");
+        rangeDrug.setDurUnit("D");
+        rangeDrug.setFreqCode("BID");
+
+        OMP_O09 message = new OMP_O09();
+        message.initQuickstart("OMP", "O09", "P");
+        OmpO09Builder.fillRxo(message.getORDER().getRXO(), rangeDrug);
+        OmpO09Builder.fillTq1(message.getORDER(), rangeDrug);
+
+        var rxo = message.getORDER().getRXO();
+        assertThat(rxo.getRequestedGiveAmountMinimum().getValue()).isEqualTo("0.5");
+        assertThat(rxo.getRequestedGiveAmountMaximum().getValue()).isEqualTo("1.5");
+        assertThat(rxo.getProviderSPharmacyTreatmentInstructions(1).getText().getValue())
+                .isEqualTo("Quantity as recorded: 1/2 bottle");
+        assertThat(message.getORDER().getTIMING(0).getTQ1().getServiceDuration().getQuantity().getValue())
+                .isEqualTo("7");
+        assertThat(message.getORDER().getTIMING(0).getTQ1().getServiceDuration().getUnits().getText().getValue())
+                .isEqualTo("D");
+
+        Drug cdsDoseDrug = new Drug();
+        cdsDoseDrug.setUnit("tablet");
+        cdsDoseDrug.setDrugForm("Tablet");
+        cdsDoseDrug.setCdsDoseText(" 2.50 ");
+        var cdsRxo = new OMP_O09().getORDER().getRXO();
+        OmpO09Builder.fillRxo(cdsRxo, cdsDoseDrug);
+        assertThat(cdsRxo.getRequestedGiveAmountMinimum().getValue()).isEqualTo("2.5");
+        assertThat(cdsRxo.getProviderSPharmacyTreatmentInstructions(1).getText().getValue())
+                .isEqualTo("Dose as recorded:  2.50 ");
+    }
 }

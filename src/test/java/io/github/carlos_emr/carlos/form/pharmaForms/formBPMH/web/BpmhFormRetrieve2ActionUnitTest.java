@@ -87,6 +87,7 @@ class BpmhFormRetrieve2ActionUnitTest extends CarlosUnitTestBase {
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class))).thenReturn(loggedInInfo);
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_demographic"), eq("r"), isNull())).thenReturn(true);
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_demographic"), eq("r"), anyInt())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_form"), eq("r"), isNull())).thenReturn(true);
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_form"), eq("w"), isNull())).thenReturn(true);
         when(handler.getBpmhFormBean()).thenReturn(filled);
 
@@ -436,5 +437,28 @@ class BpmhFormRetrieve2ActionUnitTest extends CarlosUnitTestBase {
         verify(handler).saveFormHistory();
         assertThat(written.toByteArray()).isEqualTo(pdfBytes);
         assertThat(java.nio.file.Files.exists(generatedPdf)).isFalse();
+    }
+
+    @Test
+    void shouldDenyAccess_whenFormReadPrivilegeMissingOnFetchOrSavedPrint() {
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_form"), eq("r"), isNull())).thenReturn(false);
+        when(request.getParameter("demographic_no")).thenReturn("1001");
+        when(request.getParameter("formId")).thenReturn("0");
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_form)");
+
+        when(request.getMethod()).thenReturn("POST");
+        when(request.getParameter("method")).thenReturn("print");
+        BpmhForm2Bean savedHistory = new BpmhForm2Bean();
+        savedHistory.setDemographicNo("1001");
+        savedHistory.setFormId("9");
+        action.setForm(savedHistory);
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_form)");
+        org.mockito.Mockito.verifyNoInteractions(handler);
     }
 }

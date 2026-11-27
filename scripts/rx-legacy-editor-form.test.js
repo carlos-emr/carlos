@@ -223,12 +223,53 @@ test('legacy dispense calculation rounds an exact decimal course once', () => {
   assert.equal(context.ceilDispenseQuantity('1/2', 3, 10, 'TID'), undefined);
 });
 
-test('legacy redraw keeps the package description and reads repeats from its own line', () => {
+test('legacy redraw keeps the package description and reads repeats from its own line or single-line trailer', () => {
   const frm = {quantity: {value: '1'}, unitName: {value: 'bottle (120 mL)'}, txtRepeat: {value: '2'},
     dataset: {qtyLabel: 'Qté/Mitte', repeatsLabel: 'Répétitions'}};
   const context = {frm, getNoSubs: () => ''};
-  vm.runInNewContext(functionSource('replaceQuantityAndRepeats', 'function removePRNifNeeded('), context);
-  const old = ' Days\nQté/Mitte:1 bottle (120 mL)\nRépétitions:0\nSupplementary text';
-  assert.equal(context.replaceQuantityAndRepeats(old),
+  vm.runInNewContext(functionSource('findInlineRepeatClause', 'function removePRNifNeeded('), context);
+  const multiLine = ' Days\nQté/Mitte:1 bottle (120 mL)\nRépétitions:0\nSupplementary text';
+  assert.equal(context.replaceQuantityAndRepeats(multiLine),
     ' Days\nQté/Mitte:1 bottle (120 mL)\nRépétitions:2\nSupplementary text');
+
+  frm.quantity.value = '2';
+  frm.txtRepeat.value = '3';
+  const singleLine = ' Days\nQty:1 bottle (120 mL) Repeats:0';
+  assert.equal(context.replaceQuantityAndRepeats(singleLine),
+    ' Days\nQty:2 bottle (120 mL) Repeats:3');
+
+  const localizedSingleLine = ' Days\nQté/Mitte:1 bottle (120 mL) Répétitions:0\nSupplementary text';
+  assert.equal(context.replaceQuantityAndRepeats(localizedSingleLine),
+    ' Days\nQté/Mitte:2 bottle (120 mL) Répétitions:3\nSupplementary text');
+});
+
+test('submitForm preserves unchanged stored non-decimal quantities and alerts on invalid edits', () => {
+  const actionField = {value: ''};
+  let submitted = null;
+  const alerts = [];
+  const frm = {
+    action: '/carlos/rx/writeScript',
+    elements: {action: actionField},
+    quantity: {value: '1/2 bottle', defaultValue: '1/2 bottle'},
+    repeat: {value: '1'},
+    submit() { submitted = actionField.value; },
+  };
+  const context = {frm, oscarLog() {}, alert(msg) { alerts.push(msg); }};
+  vm.runInNewContext(functionSource('submitForm', 'function changeDuration('), context);
+
+  context.submitForm('update');
+  assert.equal(submitted, 'update');
+  assert.deepEqual(alerts, []);
+
+  submitted = null;
+  frm.quantity.value = 'invalid edit';
+  context.submitForm('update');
+  assert.equal(submitted, null);
+  assert.equal(alerts.length, 1);
+
+  submitted = null;
+  frm.quantity = {value: '   ', defaultValue: '   '};
+  context.submitForm('update');
+  assert.equal(submitted, null);
+  assert.equal(alerts.length, 2);
 });

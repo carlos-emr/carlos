@@ -84,11 +84,15 @@ public class FavoritesDaoIntegrationTest extends CarlosTestBase {
             Favorites entity = new Favorites();
             EntityDataGenerator.generateTestDataForModelClass(entity);
             entity.setDispenseInternal(true);
+            entity.setMedicationComponents("[{\"name\":\"Amoxicillin\",\"strength\":\"250\",\"unit\":\"mg/5 mL\"}]");
             favoritesDao.persist(entity);
             entityManager.flush();
             entityManager.clear();
 
-            assertThat(favoritesDao.find(entity.getId()).isDispenseInternal()).isTrue();
+            Favorites found = favoritesDao.find(entity.getId());
+            assertThat(found.isDispenseInternal()).isTrue();
+            assertThat(found.getMedicationComponents())
+                    .isEqualTo("[{\"name\":\"Amoxicillin\",\"strength\":\"250\",\"unit\":\"mg/5 mL\"}]");
         }
 
         @Test

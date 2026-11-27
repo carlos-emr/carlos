@@ -272,5 +272,40 @@ class BpmhDrugUnitTest {
             assertThat(drug.getRepeat()).isEqualTo("3");
             assertThat(drug.getAtc()).isEqualTo("J01CA04");
         }
+
+        @Test
+        @DisplayName("should prefer reportedMedication in getWhat, honor 2-arg useRecordedDoseText, and serialize inside BpmhForm2Bean")
+        void shouldSupportReportedMedicationRecordedDoseAndBeanSerialization() throws Exception {
+            drug.setReportedMedication("OTC Ibuprofen 200 mg");
+            drug.setMethod("Take");
+            drug.setFreqCode("TID");
+            drug.setRoute("PO");
+            drug.setPrn("true");
+            drug.useRecordedDoseText("1-2", "tabs");
+
+            assertThat(drug.getWhat()).isEqualTo("OTC Ibuprofen 200 mg");
+            assertThat(drug.getHow()).isEqualTo("Take 1-2 tabs TID PO PRN");
+
+            BpmhForm2Bean bean = new BpmhForm2Bean();
+            bean.setFormId("0");
+            bean.setDemographicNo("1001");
+            bean.setReviewToken("tok-1");
+            bean.setDrugs(java.util.List.of(drug));
+            bean.setRemovedReviewRows(java.util.List.of(drug));
+
+            var bytes = new java.io.ByteArrayOutputStream();
+            try (var out = new java.io.ObjectOutputStream(bytes)) {
+                out.writeObject(bean);
+            }
+            BpmhForm2Bean roundTripped;
+            try (var in = new java.io.ObjectInputStream(new java.io.ByteArrayInputStream(bytes.toByteArray()))) {
+                roundTripped = (BpmhForm2Bean) in.readObject();
+            }
+
+            assertThat(roundTripped.getReviewToken()).isEqualTo("tok-1");
+            assertThat(roundTripped.getDrugs()).hasSize(1);
+            assertThat(roundTripped.getDrugs().get(0).getWhat()).isEqualTo("OTC Ibuprofen 200 mg");
+            assertThat(roundTripped.getRemovedReviewRows()).hasSize(1);
+        }
     }
 }

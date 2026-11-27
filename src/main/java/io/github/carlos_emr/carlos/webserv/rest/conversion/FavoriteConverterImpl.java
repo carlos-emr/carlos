@@ -73,13 +73,9 @@ public class FavoriteConverterImpl extends AbstractConverter<Favorite, FavoriteT
 
         try {
 
-            if (f.getProviderNo() != null) {
-                f.setProviderNo(t.getProviderNo().toString());
-            } else {
-                f.setProviderNo(loggedInInfo.getLoggedInProviderNo());
-            }
+            f.setProviderNo(loggedInInfo.getLoggedInProviderNo());
 
-            f.setName(t.getFavoriteName());
+            f.setName(java.util.Objects.toString(t.getFavoriteName(), ""));
             f.setBn(t.getBrandName());
             f.setGcnSeqno("0");
             f.setGn(t.getGenericName());
@@ -93,7 +89,7 @@ public class FavoriteConverterImpl extends AbstractConverter<Favorite, FavoriteT
             f.setTakeMin(t.getTakeMin());
             f.setRoute(t.getRoute());
             f.setFrequencyCode(t.getFrequency());
-            f.setPrn(t.getPrn());
+            f.setPrn(Boolean.TRUE.equals(t.getPrn()));
 
             f.setDuration(java.util.Objects.toString(t.getDuration(), null));
             f.setDurationUnit(t.getDurationUnit());

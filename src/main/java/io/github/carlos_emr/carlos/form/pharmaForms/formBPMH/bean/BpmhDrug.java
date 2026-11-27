@@ -45,7 +45,9 @@ import org.apache.commons.lang3.StringUtils;
  *  SPECIAL INSTRUCTIONS : additional instructions
  *
  */
-public class BpmhDrug {
+public class BpmhDrug implements java.io.Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     private String id;
     private String demographicId;

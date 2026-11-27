@@ -123,6 +123,27 @@ class MedicationDetailsUnitTest {
         var back = converter.getAsTransferObject(loggedInInfo, convertedOptIn);
         assertThat(back.getDuration()).isEqualTo(10);
         assertThat(back.getQuantity()).isNull();
+
+        var omittedPrnAndName = new FavoriteTo1();
+        omittedPrnAndName.setProviderNo(12345);
+        omittedPrnAndName.setTakeMin(1f);
+        omittedPrnAndName.setTakeMax(1f);
+        var convertedSparse = converter.getAsDomainObject(loggedInInfo, omittedPrnAndName);
+        assertThat(convertedSparse.getProviderNo()).isEqualTo("999998");
+        assertThat(convertedSparse.getName()).isEmpty();
+        assertThat(convertedSparse.isPrn()).isFalse();
+
+        var originalDrug = new io.github.carlos_emr.carlos.commn.model.Drug();
+        originalDrug.setGenericName("Amoxicillin");
+        originalDrug.setBrandName("Amoxil");
+        originalDrug.setDosage("250 mg/5 mL");
+        originalDrug.setUnit("mg");
+        var updatedExact = new io.github.carlos_emr.carlos.commn.model.Drug();
+        updatedExact.setGenericName("Amoxicillin");
+        updatedExact.setBrandName("Amoxil");
+        updatedExact.setExactMedicationDetails("7.5", "mL", "250 mg/5 mL", null);
+        updatedExact.preserveUnchangedMedicationValues(originalDrug);
+        assertThat(updatedExact.getUnit()).isEqualTo("mg");
     }
 
     private static ObjectMapper restMapper() {

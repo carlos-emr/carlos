@@ -2,7 +2,10 @@
 
 ## Exact medication details
 
-Add `includeMedicationDetails=true` to medication and favourite reads to receive
+Add `includeMedicationDetails=true` (case-insensitive `true` or `false`; any other
+non-null value returns HTTP `400` before writes) to medication and favourite reads
+(`/rx/drugs*`, `/rx/history`, `/rx/favorites`) or drug-returning writes
+(`/rx/new`, `/rx/update`, `/rx/drug/{drugId}`, `/rx/prescribe`) to receive
 `medicationDetails` in the endpoint's existing format. Drug lists return JSON.
 `/rx/history` and `/rx/favorites` also support XML. The record carries `quantityText`,
 `dispenseUnit`, `dosageText` and the ordered `components` with each component's

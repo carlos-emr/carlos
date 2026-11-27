@@ -189,7 +189,42 @@ class EctMeasurements2ActionUnitTest extends CarlosUnitTestBase {
         logActionMock.verifyNoInteractions();
     }
 
+    @Test
+    @DisplayName("should format out-of-range validation bounds without trailing .0 or scientific notation (#6406)")
+    void shouldFormatRangeBoundsCleanly_whenReadingIsOutOfRange() throws Exception {
+        MeasurementTypeDao measurementTypeDao = mock(MeasurementTypeDao.class);
+        io.github.carlos_emr.carlos.commn.dao.ValidationsDao validationsDao =
+                mock(io.github.carlos_emr.carlos.commn.dao.ValidationsDao.class);
+        registerMock(MeasurementTypeDao.class, measurementTypeDao);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.ValidationsDao.class, validationsDao);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.MeasurementDao.class,
+                mock(io.github.carlos_emr.carlos.commn.dao.MeasurementDao.class));
+
+        io.github.carlos_emr.carlos.commn.model.MeasurementType measurementType =
+                new io.github.carlos_emr.carlos.commn.model.MeasurementType();
+        measurementType.setValidation("10");
+        when(measurementTypeDao.findByTypeAndMeasuringInstruction("INR", "NA"))
+                .thenReturn(List.of(measurementType));
+
+        io.github.carlos_emr.carlos.commn.model.Validations rangeRule =
+                new io.github.carlos_emr.carlos.commn.model.Validations();
+        rangeRule.setMinValue(0.25d);
+        rangeRule.setMaxValue(20.0d);
+        rangeRule.setNumeric(true);
+        when(validationsDao.find((Object) 10)).thenReturn(rangeRule);
+
+        TestableEctMeasurements2Action rangeAction = new TestableEctMeasurements2Action();
+        request.setParameter("demographicNo", "123");
+        request.setParameter("numType", "1");
+        request.setParameter("ajax", "true");
+        postReading(0, "INR", "25", "");
+
+        assertThat(rangeAction.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(rangeAction.lastRangeArgs).containsExactly("INR", "0.25", "20");
+    }
+
     private static final class TestableEctMeasurements2Action extends EctMeasurements2Action {
+        String[] lastRangeArgs;
 
         @Override
         public String getText(String key) {
@@ -198,6 +233,9 @@ class EctMeasurements2ActionUnitTest extends CarlosUnitTestBase {
 
         @Override
         public String getText(String key, String[] args) {
+            if ("errors.range".equals(key)) {
+                lastRangeArgs = args;
+            }
             return key;
         }
     }

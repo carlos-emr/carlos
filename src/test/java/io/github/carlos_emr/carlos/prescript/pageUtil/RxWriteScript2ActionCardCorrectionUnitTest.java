@@ -432,6 +432,46 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
         assertThat(card.getCalculationSequence()).isEqualTo(4);
     }
 
+    @Test
+    void shouldDeriveDurationFromRetainedQuantity_whenInstructionsOmitDuration() throws Exception {
+        card.setQuantity("7.5");
+        card.setUnitName(null);
+        request.setParameter("action", "parseInstructions");
+        request.setParameter("randomId", "1");
+        request.setParameter("instruction", "Take 0.5 tab po tid");
+        request.setParameter("draftRevision", card.getDraftRevision());
+        request.setParameter("calculationSequence", "1");
+
+        assertThat(action.updateDrug()).isNull();
+        assertThat(response.getStatus()).isEqualTo(200);
+        var json = new ObjectMapper().readTree(response.getContentAsString());
+        assertThat(json.path("calQuantity").asText()).isEqualTo("0");
+        assertThat(json.path("duration").asText()).isEqualTo("5");
+        assertThat(json.path("durationUnit").asText()).isEqualTo("D");
+        assertThat(card.getQuantity()).isEqualTo("7.5");
+        assertThat(card.getDuration()).isEqualTo("5");
+
+        response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        card.setQuantity("7.5");
+        card.setUnitName("mL");
+        request.setParameter("calculationSequence", "2");
+        assertThat(new RxWriteScript2Action(mockSignatureStampService).updateDrug()).isNull();
+        var unitJson = new ObjectMapper().readTree(response.getContentAsString());
+        assertThat(unitJson.path("duration").isNull()).isTrue();
+        assertThat(card.getDuration()).isNull();
+
+        response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        card.setQuantity("2");
+        card.setUnitName("weeks");
+        request.setParameter("calculationSequence", "3");
+        assertThat(new RxWriteScript2Action(mockSignatureStampService).updateDrug()).isNull();
+        var mitteJson = new ObjectMapper().readTree(response.getContentAsString());
+        assertThat(mitteJson.path("duration").asText()).isEqualTo("2");
+        assertThat(mitteJson.path("durationUnit").asText()).isEqualTo("W");
+    }
+
     @Nested
     @DisplayName("inline Min/Max and repeats (#5003)")
     class InlineProperty {

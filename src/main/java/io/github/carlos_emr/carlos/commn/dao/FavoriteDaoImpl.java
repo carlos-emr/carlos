@@ -138,9 +138,17 @@ public class FavoriteDaoImpl extends AbstractDaoImpl<Favorite> implements Favori
 
         return getSingleResultOrNull(query);
     }
+    private static final java.util.Map<String, Object> NULLABLE_DEFAULTS = java.util.Map.of(
+            "takeMin", 0f,
+            "takeMax", 0f,
+            "repeat", 0,
+            "customInstructions", Boolean.FALSE
+    );
+
     /**
      * Creation deduplication must include routing, dosing and dispensing metadata,
-     * not merely the visible favorite label/instructions. Null values match nulls;
+     * not merely the visible favorite label/instructions. Null values match nulls,
+     * and zero/false defaults on nullable legacy columns also match SQL NULL rows;
      * all values are bound parameters and property names are a closed list.
      */
     @Override
@@ -171,8 +179,16 @@ public class FavoriteDaoImpl extends AbstractDaoImpl<Favorite> implements Favori
         fields.put("customInstructions", candidate.isCustomInstructions());
         fields.put("dispenseInternal", candidate.isDispenseInternal());
         StringBuilder hql = new StringBuilder("FROM Favorite f WHERE 1=1");
-        fields.forEach((field, value) -> hql.append(" AND f.").append(field)
-                .append(value == null ? " IS NULL" : " = :" + field));
+        fields.forEach((field, value) -> {
+            if (value == null) {
+                hql.append(" AND f.").append(field).append(" IS NULL");
+            } else if (value.equals(NULLABLE_DEFAULTS.get(field))) {
+                hql.append(" AND (f.").append(field).append(" = :").append(field)
+                        .append(" OR f.").append(field).append(" IS NULL)");
+            } else {
+                hql.append(" AND f.").append(field).append(" = :").append(field);
+            }
+        });
         hql.append(" ORDER BY f.id");
         var query = entityManager.createQuery(hql.toString(), Favorite.class);
         fields.forEach((field, value) -> {

@@ -3207,37 +3207,52 @@ public class RxUtil {
         int lastActiveId = 0;
         for (Drug drug : dao.findByDemographicId(rx.getDemographicNo())) {
             if (!sameMedicationProduct(rx, drug)) continue;
+            int drugId = drug.getId() != null ? drug.getId() : 0;
             if (!drug.isArchived() && (drug.getCdsCurrentness() == null || drug.isCurrent())) {
-                lastActiveId = Math.max(lastActiveId, drug.getId());
+                lastActiveId = Math.max(lastActiveId, drugId);
             } else if (drug.isDiscontinued() && !Drug.REPRESCRIBED.equals(drug.getArchivedReason())
-                    && (lastDiscontinued == null || lastDiscontinued.getId() < drug.getId())) {
+                    && (lastDiscontinued == null || (lastDiscontinued.getId() != null ? lastDiscontinued.getId() : 0) < drugId)) {
                 lastDiscontinued = drug;
             }
         }
-        boolean show = lastDiscontinued != null && lastDiscontinued.getId() > lastActiveId;
+        boolean show = lastDiscontinued != null
+                && (lastDiscontinued.getId() != null ? lastDiscontinued.getId() : 0) > lastActiveId;
         rx.setLastArchDate(show ? DateToString(lastDiscontinued.getArchivedDate()) : null);
         rx.setLastArchReason(show ? lastDiscontinued.getArchivedReason() : null);
         return show;
     }
 
     static boolean sameMedicationProduct(RxPrescriptionData.Prescription rx, Drug drug) {
-        String requestedDin = org.apache.commons.lang3.StringUtils.trimToNull(rx.getRegionalIdentifier());
-        String storedDin = org.apache.commons.lang3.StringUtils.trimToNull(drug.getRegionalIdentifier());
-        if (requestedDin != null || storedDin != null) {
-            return requestedDin != null && requestedDin.equals(storedDin);
+        String requestedDin = cleanIdentityValue(rx.getRegionalIdentifier());
+        String storedDin = cleanIdentityValue(drug.getRegionalIdentifier());
+        if (requestedDin != null && storedDin != null) {
+            return requestedDin.equals(storedDin);
         }
-        if (rx.isCustom()) {
-            return org.apache.commons.lang3.StringUtils.isNotBlank(rx.getCustomName())
-                    && DrugStrength.sameIdentityText(rx.getCustomName(), drug.getCustomName())
-                    && DrugStrength.sameIdentityText(rx.getDosage(), drug.getDosage())
-                    && DrugStrength.sameIdentityText(rx.getDrugForm(), drug.getDrugForm());
+        String rxCustomName = cleanIdentityValue(rx.getCustomName());
+        String drugCustomName = cleanIdentityValue(drug.getCustomName());
+        boolean rxCustom = rxCustomName != null;
+        boolean drugCustom = drugCustomName != null;
+        if (rxCustom != drugCustom) {
+            return false;
         }
-        return (org.apache.commons.lang3.StringUtils.isNotBlank(rx.getGenericName())
-                        || org.apache.commons.lang3.StringUtils.isNotBlank(rx.getBrandName()))
-                && DrugStrength.sameIdentityText(rx.getGenericName(), drug.getGenericName())
-                && DrugStrength.sameIdentityText(rx.getBrandName(), drug.getBrandName())
-                && DrugStrength.sameIdentityText(rx.getDosage(), drug.getDosage())
-                && DrugStrength.sameIdentityText(rx.getDrugForm(), drug.getDrugForm());
+        if (rxCustom) {
+            return DrugStrength.sameIdentityText(rxCustomName, drugCustomName)
+                    && DrugStrength.sameIdentityText(cleanIdentityValue(rx.getDosage()), cleanIdentityValue(drug.getDosage()))
+                    && DrugStrength.sameIdentityText(cleanIdentityValue(rx.getDrugForm()), cleanIdentityValue(drug.getDrugForm()));
+        }
+        String rxGeneric = cleanIdentityValue(rx.getGenericName());
+        String rxBrand = cleanIdentityValue(rx.getBrandName());
+        return (rxGeneric != null || rxBrand != null)
+                && DrugStrength.sameIdentityText(rxGeneric, cleanIdentityValue(drug.getGenericName()))
+                && DrugStrength.sameIdentityText(rxBrand, cleanIdentityValue(drug.getBrandName()))
+                && DrugStrength.sameIdentityText(cleanIdentityValue(rx.getDosage()), cleanIdentityValue(drug.getDosage()))
+                && DrugStrength.sameIdentityText(cleanIdentityValue(rx.getDrugForm()), cleanIdentityValue(drug.getDrugForm()));
+    }
+
+    private static String cleanIdentityValue(String value) {
+        if (value == null) return null;
+        String trimmed = value.strip();
+        return trimmed.isEmpty() || org.apache.commons.lang3.Strings.CI.equals("null", trimmed) ? null : trimmed;
     }
 
     //check to see if a represcription of a med is clicked twice.

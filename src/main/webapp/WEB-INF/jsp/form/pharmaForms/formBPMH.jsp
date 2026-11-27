@@ -427,7 +427,7 @@ ${carlos:forHtml(drugs.patientReportedUse)}</div>
             <table>
                 <tr>
                     <td>
-                        <input type="checkbox" name="form.confirm" id="confirm" value="true" ${bpmh.confirm ? 'checked' : ''}/>
+                        <input type="checkbox" name="form.confirm" id="confirm" value="true" ${bpmh.confirm ? 'checked' : ''} ${bpmh.formId != 0 ? 'disabled' : ''}/>
                         <label for="confirm"><fmt:message key="colcamex.formBPMH.confirm"/></label>
                     </td>
                 </tr>

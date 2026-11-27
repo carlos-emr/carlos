@@ -196,8 +196,15 @@
                     frm.repeat.value = 0;
                 }
 
-                if (!/^(?:\d+(?:\.\d+)?|\.\d+)$/.test(frm.quantity.value.trim())) {
+                var quantityText = frm.quantity.value.trim();
+                var preservedStoredQuantity = typeof frm.quantity.defaultValue === 'string'
+                    && frm.quantity.defaultValue.trim().length > 0
+                    && frm.quantity.value === frm.quantity.defaultValue;
+                if (!/^(?:\d+(?:\.\d+)?|\.\d+)$/.test(quantityText) && !preservedStoredQuantity) {
                     oscarLog('<fmt:message key="WriteScript.msgQuantity"/>');
+                    if (typeof alert === 'function') {
+                        alert('<fmt:message key="WriteScript.msgQuantity"/>');
+                    }
                 } else {
                     oscarLog("else");
                     frm.elements["action"].value = action;
@@ -478,21 +485,54 @@
                 fillWarnings();
             }
 
+            function findInlineRepeatClause(rest, repeatLabels) {
+                let best = null;
+                for (const rLabel of repeatLabels.filter(Boolean)) {
+                    const token = rLabel + ':';
+                    const idx = rest.lastIndexOf(token);
+                    if (idx <= 0 || (rest[idx - 1] !== ' ' && rest[idx - 1] !== '\t')) continue;
+                    let sepStart = idx - 1;
+                    while (sepStart > 0 && (rest[sepStart - 1] === ' ' || rest[sepStart - 1] === '\t')) {
+                        sepStart--;
+                    }
+                    const digitsMatch = /^[ \t]*\d+/.exec(rest.slice(idx + token.length));
+                    if (digitsMatch && (!best || sepStart > best.sepStart)) {
+                        best = {
+                            sepStart,
+                            marker: rest.slice(sepStart, idx + token.length),
+                            digitsLen: digitsMatch[0].length
+                        };
+                    }
+                }
+                return best;
+            }
+
             function replaceQuantityAndRepeats(tail) {
-                // Replace the labeled lines. A package description can contain further numbers,
-                // none of which are the repeat count.
+                // Replace the labeled lines or single-line trailer. A package description can contain
+                // further numbers, none of which are the repeat count.
                 const lines = tail.split('\n');
                 const quantityLabels = ['Qty', 'Mitte', 'Qty/Mitte', frm.dataset?.qtyLabel];
                 const repeatLabels = ['Repeats', frm.dataset?.repeatsLabel];
                 const label = line => line.split(':', 1)[0].trim();
                 const quantityIndex = lines.findIndex(line => line.includes(':') && quantityLabels.includes(label(line)));
                 const repeatsIndex = lines.findIndex(line => line.includes(':') && repeatLabels.includes(label(line)));
-                if (quantityIndex < 0 || repeatsIndex <= quantityIndex) return null;
+                if (quantityIndex < 0 || (repeatsIndex >= 0 && repeatsIndex <= quantityIndex)) return null;
+                const quantityText = [frm.quantity.value, frm.unitName.value].filter(Boolean).join(' ');
+                if (repeatsIndex < 0) {
+                    const qtyLine = lines[quantityIndex];
+                    const qtyPrefix = qtyLine.slice(0, qtyLine.indexOf(':') + 1);
+                    const rest = qtyLine.slice(qtyPrefix.length);
+                    const inlineRepeat = findInlineRepeatClause(rest, repeatLabels);
+                    if (!inlineRepeat) return null;
+                    const suffix = rest.slice(inlineRepeat.sepStart + inlineRepeat.marker.length + inlineRepeat.digitsLen);
+                    lines[quantityIndex] = qtyPrefix + quantityText + inlineRepeat.marker
+                        + frm.txtRepeat.value + getNoSubs(tail) + suffix;
+                    return lines.join('\n');
+                }
                 const oldRepeats = lines[repeatsIndex];
                 const repeatPrefix = oldRepeats.slice(0, oldRepeats.indexOf(':') + 1);
                 const repeatDetails = /^[ \t]*\d+/.exec(oldRepeats.slice(repeatPrefix.length));
                 if (!repeatDetails) return null;
-                const quantityText = [frm.quantity.value, frm.unitName.value].filter(Boolean).join(' ');
                 lines[quantityIndex] = lines[quantityIndex].slice(0, lines[quantityIndex].indexOf(':') + 1) + quantityText;
                 lines[repeatsIndex] = repeatPrefix + frm.txtRepeat.value + getNoSubs(tail)
                     + oldRepeats.slice(repeatPrefix.length + repeatDetails[0].length);

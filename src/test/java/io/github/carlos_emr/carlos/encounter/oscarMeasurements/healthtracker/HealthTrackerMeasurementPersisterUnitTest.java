@@ -146,6 +146,10 @@ class HealthTrackerMeasurementPersisterUnitTest {
     @Test
     @DisplayName("should reject the entry and persist nothing when the value is out of range")
     void shouldRejectEntry_whenValueOutOfRange() {
+        Validations bounds = new Validations();
+        bounds.setMinValue(0.25d);
+        bounds.setMaxValue(10000000.0d);
+        when(validation.getValidationType(anyString(), anyString())).thenReturn(List.of(bounds));
         when(validation.isInRange(any(), any(), anyString())).thenReturn(false);
 
         EntryOutcome outcome = persister.persist(entry("999", "", "2026-09-01"), 111, "999998", 0);
@@ -154,6 +158,9 @@ class HealthTrackerMeasurementPersisterUnitTest {
         assertThat(outcome.persisted()).isFalse();
         assertThat(outcome.failures()).extracting(
                 HealthTrackerMeasurementPersister.ValidationFailure::messageKey).contains("errors.range");
+        HealthTrackerMeasurementPersister.ValidationFailure rangeFailure = outcome.failures().stream()
+                .filter(f -> "errors.range".equals(f.messageKey())).findFirst().orElseThrow();
+        assertThat(rangeFailure.arguments()).containsExactly("Weight (kg)", "0.25", "10000000");
         verify(measurementDao, never()).persist(any(Measurement.class));
     }
 

@@ -135,17 +135,26 @@ public class RxWebService extends AbstractServiceImpl {
     }
 
     private static boolean validateVersionPreference(String value) {
-        if (value != null && !value.matches("(?i:true|false)")) {
-            throw new jakarta.ws.rs.BadRequestException("includeRowVersion must be true or false");
-        }
-        return Boolean.parseBoolean(value);
+        validateCurrentMessageMedicationDetails();
+        return validateBooleanPreference("includeRowVersion", value);
     }
 
     private boolean includeMedicationDetails() {
+        return validateCurrentMessageMedicationDetails();
+    }
+
+    private static boolean validateCurrentMessageMedicationDetails() {
         var message = org.apache.cxf.phase.PhaseInterceptorChain.getCurrentMessage();
         if (message == null) return false;
         String value = new org.apache.cxf.jaxrs.impl.UriInfoImpl(message)
                 .getQueryParameters().getFirst("includeMedicationDetails");
+        return validateBooleanPreference("includeMedicationDetails", value);
+    }
+
+    private static boolean validateBooleanPreference(String parameter, String value) {
+        if (value != null && !value.matches("(?i:true|false)")) {
+            throw new jakarta.ws.rs.BadRequestException(parameter + " must be true or false");
+        }
         return Boolean.parseBoolean(value);
     }
 
@@ -706,6 +715,8 @@ public class RxWebService extends AbstractServiceImpl {
         // No access control check required, we are not accessing a patient record.
         // TODO: Revise access control policies and re-evalute this to see if it requires access control check.
 
+        boolean includeDetails = includeMedicationDetails();
+
         LoggedInInfo info = getLoggedInInfo();
 
         FavoriteResponse resp = new FavoriteResponse();
@@ -713,7 +724,7 @@ public class RxWebService extends AbstractServiceImpl {
         List<Favorite> favs = this.rxManager.getFavorites(info.getLoggedInProviderNo());
 
         var transfers = this.favoriteConverter.getAllAsTransferObjects(info, favs);
-        if (includeMedicationDetails()) {
+        if (includeDetails) {
             for (int index = 0; index < favs.size(); index++) {
                 Favorite favorite = favs.get(index);
                 transfers.get(index).setMedicationDetails(MedicationDetails.read(favorite.getQuantity(),

@@ -357,6 +357,28 @@ class DrugConverterUnitTest {
 
             assertThat(converter.populateTo1Strength(t, d)).isFalse();
         }
+
+        @Test
+        @DisplayName("should populate strength and unit from stored dosage without overwriting existing transfer fields")
+        void shouldPopulateStrengthFromDosage_whenTransferStrengthIsUnset() {
+            Drug d = new Drug();
+            d.setId(9);
+            d.setDemographicId(1);
+            d.setProviderNo("1");
+            d.setDosage("500 mg");
+
+            DrugTo1 transferred = converter.getAsTransferObject(info, d);
+            assertThat(transferred.getStrength()).isEqualTo(500.0f);
+            assertThat(transferred.getStrengthUnit()).isEqualTo("mg");
+
+            DrugTo1 presetStrength = new DrugTo1();
+            presetStrength.setStrength(250.0f);
+            assertThat(converter.populateStrengthFromDosage(d, presetStrength)).isFalse();
+
+            DrugTo1 presetUnit = new DrugTo1();
+            presetUnit.setStrengthUnit("mcg");
+            assertThat(converter.populateStrengthFromDosage(d, presetUnit)).isFalse();
+        }
     }
 
     /**
@@ -380,6 +402,11 @@ class DrugConverterUnitTest {
         @Override
         public boolean populateDrugStrength(Drug d, DrugTo1 t) {
             return super.populateDrugStrength(d, t);
+        }
+
+        @Override
+        public Boolean populateStrengthFromDosage(Drug d, DrugTo1 t) {
+            return super.populateStrengthFromDosage(d, t);
         }
 
         @Override

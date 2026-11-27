@@ -115,6 +115,9 @@ public class Favorites extends AbstractModel<Integer> {
 
     private String dosage;
 
+    @Column(name = "medication_components")
+    private String medicationComponents;
+
     @Column(name = "custom_instructions")
     private Boolean customInstructions = false;
 
@@ -312,6 +315,14 @@ public class Favorites extends AbstractModel<Integer> {
 
     public void setDosage(String dosage) {
         this.dosage = dosage;
+    }
+
+    public String getMedicationComponents() {
+        return medicationComponents;
+    }
+
+    public void setMedicationComponents(String medicationComponents) {
+        this.medicationComponents = medicationComponents;
     }
 
     public boolean isCustomInstructions() {

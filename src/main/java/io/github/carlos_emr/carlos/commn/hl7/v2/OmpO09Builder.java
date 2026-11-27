@@ -159,7 +159,7 @@ public final class OmpO09Builder {
         if (doseUnit != null) {
             String doseText = drug.getCdsDoseText();
             if (RxUtil.isStringToNumber(doseText)) {
-                rxo.getRequestedGiveAmountMinimum().setValue(DoseText.of(new java.math.BigDecimal(doseText.strip())));
+                rxo.getRequestedGiveAmountMinimum().setValue(DoseText.of(new java.math.BigDecimal(doseText.trim())));
                 rxo.getRequestedGiveUnits().getText().setValue(doseUnit);
             } else if (StringUtils.isBlank(doseText) && Float.isFinite(drug.getTakeMin())
                     && Float.isFinite(drug.getTakeMax()) && drug.getTakeMin() > 0 && drug.getTakeMax() >= drug.getTakeMin()) {
@@ -172,7 +172,7 @@ public final class OmpO09Builder {
         }
         boolean structuredQuantity = RxUtil.isStringToNumber(drug.getQuantity());
         if (structuredQuantity) {
-            rxo.getRequestedDispenseAmount().setValue(DoseText.of(new java.math.BigDecimal(drug.getQuantity().strip())));
+            rxo.getRequestedDispenseAmount().setValue(DoseText.of(new java.math.BigDecimal(drug.getQuantity().trim())));
             rxo.getRequestedDispenseUnits().getText().setValue(drug.getUnitName());
         }
 
@@ -187,8 +187,14 @@ public final class OmpO09Builder {
                     .setValue("Dose as recorded: " + drug.getCdsDoseText());
         }
         if (!structuredQuantity && StringUtils.isNotBlank(drug.getQuantity())) {
+            String recordedQuantity = drug.getQuantity().trim();
+            String unitName = drug.getUnitName() == null ? "" : drug.getUnitName().trim();
+            if (!unitName.isEmpty() && !org.apache.commons.lang3.Strings.CI.equals("null", unitName)
+                    && !recordedQuantity.endsWith(unitName)) {
+                recordedQuantity = recordedQuantity + " " + unitName;
+            }
             rxo.getProviderSPharmacyTreatmentInstructions(instruction++).getText()
-                    .setValue("Quantity as recorded: " + drug.getQuantity());
+                    .setValue("Quantity as recorded: " + recordedQuantity);
         }
         if (StringUtils.isNotBlank(drug.getDosage())) {
             rxo.getProviderSPharmacyTreatmentInstructions(instruction).getText()
@@ -207,7 +213,7 @@ public final class OmpO09Builder {
         rxo.getAllowSubstitutions().setValue(String.valueOf(!drug.isNoSubs()));
     }
 
-    private static void fillTq1(OMP_O09_ORDER order, Drug drug) throws HL7Exception {
+    static void fillTq1(OMP_O09_ORDER order, Drug drug) throws HL7Exception {
         OMP_O09_TIMING timing = order.getTIMING(0);
         TQ1 tq1 = timing.getTQ1();
 
@@ -216,7 +222,7 @@ public final class OmpO09Builder {
 
         CQ serviceDuration = tq1.getServiceDuration();
         if (RxUtil.isStringToNumber(drug.getDuration())) {
-            serviceDuration.getQuantity().setValue(drug.getDuration().strip());
+            serviceDuration.getQuantity().setValue(DoseText.of(new java.math.BigDecimal(drug.getDuration().trim())));
             serviceDuration.getUnits().getText().setValue(drug.getDurUnit());
         }
 
@@ -249,6 +255,7 @@ public final class OmpO09Builder {
     // ---- HL7 segment helpers (extracted from DataTypeUtils) ----
 
     private static String getAsHl7FormattedString(Date date) {
+        if (date == null) return null;
         synchronized (dateTimeFormatter) {
             return (dateTimeFormatter.format(date));
         }

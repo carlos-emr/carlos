@@ -390,5 +390,17 @@ class RxWebServiceEndpointTest extends CarlosRestTestBase {
             assertThat(wireJson.at("/0").textValue()).isEqualTo("ALL");
             assertThat(wireJson.at("/1").textValue()).isEqualTo("CURRENT");
         }
+
+        @Test
+        @DisplayName("should return 400 when includeMedicationDetails is not true or false")
+        void shouldReturn400_whenIncludeMedicationDetailsIsNotBoolean() {
+            Response response = request()
+                    .path("/rx/drugs")
+                    .query("demographicNo", 1)
+                    .query("includeMedicationDetails", "invalid")
+                    .get();
+
+            assertThat(response.getStatus()).isEqualTo(400);
+        }
     }
 }

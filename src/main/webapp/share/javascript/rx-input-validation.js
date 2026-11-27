@@ -71,9 +71,20 @@ var RxInputValidation = (function () {
 
     function showDoseNotation(field, statusId) {
         var status = document.getElementById(statusId);
-        if (!status) return;
+        if (!status || !field) return;
+        var active = status._ambiguousFields;
+        if (!active) {
+            active = new Set();
+            status._ambiguousFields = active;
+        }
+        var key = field.id || field.name || field;
         var value = typeof field.value === 'string' ? field.value : field.textContent;
-        status.textContent = usesAmbiguousDoseNotation(value) ? status.dataset.message : '';
+        if (usesAmbiguousDoseNotation(value)) {
+            active.add(key);
+        } else {
+            active.delete(key);
+        }
+        status.textContent = active.size > 0 ? status.dataset.message : '';
     }
 
     /** Fills {0} in a translated message with the prescriber's own input. */
