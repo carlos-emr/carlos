@@ -19916,6 +19916,26 @@
       ],
       "fixtures": "Owned patient, PDF documents, invalid document and routing rows. Deliberately renames HRMDocument briefly and restores it before cleanup; requires a disposable installation and must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Every owned row/file is removed.",
       "notes": "Visible incomplete-list notice with later valid rows, no fake clinical row, and a real HRM count SQL failure returning HTTP 500 without totals. Verifies recovery after restoring the table. Requires explicit CARLOS_DISPOSABLE_VM=true and EXCLUSIVE=1; never runs from a tier."
+    },
+    {
+      "name": "lab-measurement-filing",
+      "script": "scripts/lab-measurement-filing-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ],
+      "mutates": [
+        "providerLabRoutingLock"
+      ],
+      "fixtures": "Owned FAKE- patient and two per-run multi-OBX CML accessions uploaded through the native HL7 uploader (original, correction, late older delivery, and an unmatched lab matched concurrently via PatientMatch). Cleanup removes all owned lab, routing, unshared providerLabRoutingLock, active/archived measurement, measurementsExt, fileUploadCheck, and archived upload files and asserts zero residue. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#6391: end-to-end verification of atomic after-commit measurement filing, correction archival to measurementsDeleted without stale active rows, late older delivery protection, and serialized duplicate-free concurrent/repeated PatientMatch filing."
     }
   ]
 }

@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
+import org.springframework.test.util.ReflectionTestUtils;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -21,10 +22,11 @@ class PatientMatchMeasurementsUnitTest extends CarlosUnitTestBase {
     private MeasurementDao measurements;
     private MockedConstruction<CommonLabResultData> versions;
     private MockedStatic<CommonLabResultData> common;
+    private Object previousPatientRoutingDao;
 
     @BeforeEach
     void setUp() {
-        createAndRegisterMock(PatientLabRoutingDao.class);
+        PatientLabRoutingDao patientRouting = createAndRegisterMock(PatientLabRoutingDao.class);
         createAndRegisterMock(ProviderLabRoutingDao.class);
         createAndRegisterMock(QueueDocumentLinkDao.class);
         createAndRegisterMock(SecurityInfoManager.class);
@@ -34,10 +36,13 @@ class PatientMatchMeasurementsUnitTest extends CarlosUnitTestBase {
         common = mockStatic(CommonLabResultData.class, CALLS_REAL_METHODS);
         common.when(() -> CommonLabResultData.populateMeasurementsTable(anyString(), anyString(), anyString()))
                 .thenAnswer(call -> null);
+        previousPatientRoutingDao = ReflectionTestUtils.getField(CommonLabResultData.class, "patientLabRoutingDao");
+        ReflectionTestUtils.setField(CommonLabResultData.class, "patientLabRoutingDao", patientRouting);
     }
 
     @AfterEach
     void tearDown() {
+        ReflectionTestUtils.setField(CommonLabResultData.class, "patientLabRoutingDao", previousPatientRoutingDao);
         common.close();
         versions.close();
     }
