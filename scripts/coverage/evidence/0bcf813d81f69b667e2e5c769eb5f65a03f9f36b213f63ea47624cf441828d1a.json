@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "4ad7246dc235115e631922f1b59561bcabd1c6c0",
+  "comparisonSha256": "8187f975669c7a19cd37aadb26ae148a4ce3c9dda3d3b1669a84f964ca1c393b",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/prevention/Prevention.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "3c6b4c62bba1bf99ef1a43d2e2b46800b02deeaa"
+    }
+  },
+  "baselineCommit": "02e37ff044b25ce528102f90c5699d081582509e",
+  "baselineSourceTree": "4ad7246dc235115e631922f1b59561bcabd1c6c0",
+  "baselineReportSha256": "e7bdfde920e8e3828ff01ca322710799db1dca0941cfaa0a503361ffda341fa1",
+  "baselineLane": "Focused prevention Drools, calendar-day/month, print and H2 persistence integration tests (OpenJDK 25)",
+  "baselineTestCounts": {
+    "tests": 381,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "36622aa13953de3c33f37bf5529e8a5f84c1bbc721dda466a5e40e4bbf361962",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

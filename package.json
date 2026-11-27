@@ -740,6 +740,7 @@
     "test:gap-records-health-care-team-panel-playwright": "node scripts/gap-records-health-care-team-panel-playwright-checks.js",
     "test:demographic-health-care-team-edit-playwright": "node scripts/demographic-health-care-team-edit-playwright-checks.js",
     "test:prevention-reminders-playwright": "node scripts/prevention-reminders-playwright-checks.js",
+    "test:prevention-cig-reminders-playwright": "node scripts/prevention-cig-reminders-playwright-checks.js",
     "test:prevention-screening-reminder-controls-playwright": "node scripts/prevention-screening-reminder-controls-playwright-checks.js",
     "test:prevention-completed-externally-playwright": "node scripts/prevention-completed-externally-playwright-checks.js",
     "test:prevention-h1n1-chronic-condition-playwright": "node scripts/prevention-h1n1-chronic-condition-playwright-checks.js",

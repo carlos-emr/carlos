@@ -32,7 +32,7 @@
       DTaP-HB-IPV-Hib  DTaP-HepB-IPV-Hib (eg Infanrix Hexa)
       DTaP-Hib         DTaP-Hib
       DTaP-IPV         DTaP-IPV (eg Infanrix IPV, Pediarix)
-      DTaP-IPV-Hib     DTaP-IPV-Hib (eg Pediacel)
+      DTaP-IPV-Hib     DTaP-IPV-Hib (eg Pentacel; Pediacel, discontinued in Canada)
       DTaP-IPV-HB      DTaP-IPV-HepB
       DTaP-IPV-Hib-HB  DTaP-IPV-Hib-HepB (eg Infanrix Hexa)
       EV-A71    Enterovirus A71
@@ -214,7 +214,7 @@
 
 	<item
 			resultDesc="DTaP-IPV-Hib=Diphtheria, Tetanus, Pertussis, Polio, Hib"
-			desc="DTaP-IPV-Hib=Diphtheria, Tetanus, Acellular Pertussis, Inactivated Polio, Haemophilus Influenzae type b for children 6weeks to 4 years of age. Given at 2mth,4mth,6mth and 18mths, eg Pediacel"
+			desc="DTaP-IPV-Hib=Diphtheria, Tetanus, Acellular Pertussis, Inactivated Polio, Haemophilus Influenzae type b for children 6weeks to 4 years of age. Given at 2mth,4mth,6mth and 18mths, eg Pentacel (Pediacel, discontinued in Canada)"
 			name="DTaP-IPV-Hib"
 			headingName="Immunizations"
 			healthCanadaType="DTaP-IPV-Hib"
