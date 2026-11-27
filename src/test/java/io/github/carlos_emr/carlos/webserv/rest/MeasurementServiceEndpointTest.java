@@ -1010,5 +1010,38 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
             assertThat(response.getStatus()).isEqualTo(409);
             verifyNoInteractions(mockMeasurementTypeDao, mockMeasurementManager);
         }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"0x1p1", "3d", "1e0", "NaN", "Infinity"})
+        @DisplayName("should reject non-plain decimals when a range rule has no isNumeric flag")
+        void shouldReturn400_whenRangedRuleReceivesNonPlainDecimal(String value) {
+            allowWriteToExistingPatient();
+            configureType("SC", "scale 1-5", "8");
+            Validations rule = new Validations();
+            rule.setMinValue(1.0);
+            rule.setMaxValue(5.0);
+            rule.setNumeric(null);
+            when(mockValidationsDao.find(8)).thenReturn(rule);
+
+            Response response = postNew("{\"type\":\"SC\",\"dataField\":\"" + value + "\"}");
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(responseJson(response).at("/code").textValue()).isEqualTo("VALUE_REJECTED");
+            verifyNoInteractions(mockMeasurementManager);
+        }
+
+        @Test
+        @DisplayName("should answer 404 when the patient disappears before the locked retry insert")
+        void shouldReturn404_whenPatientDisappearsBeforeLockedInsert() {
+            allowWriteToExistingPatient();
+            allowConfiguredBloodPressure();
+            when(mockMeasurementManager.addMeasurementUnlessStored(any(LoggedInInfo.class), any(Measurement.class)))
+                .thenThrow(new IllegalArgumentException("The measurement's patient does not exist"));
+
+            Response response = postNew("{\"type\":\"BP\",\"dataField\":\"122/80\","
+                + "\"measuringInstruction\":\"sitting position\",\"dateObserved\":1770000000000}");
+
+            assertThat(response.getStatus()).isEqualTo(404);
+        }
     }
 }

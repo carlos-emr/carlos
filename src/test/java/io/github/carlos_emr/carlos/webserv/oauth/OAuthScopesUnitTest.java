@@ -266,6 +266,8 @@ class OAuthScopesUnitTest {
         void shouldRequireWrite_whenMeasurementSegmentIsNotNumeric() {
             assertThat(OAuthScopes.requiredScope("POST", "/services/measurements/update"))
                     .isEqualTo("measurement.write");
+            assertThat(OAuthScopes.requiredScope("POST", "/services/measurements/new"))
+                    .isEqualTo("measurement.write");
         }
 
         @Test
@@ -275,6 +277,10 @@ class OAuthScopesUnitTest {
                     .isEqualTo("measurement.write");
             assertThat(OAuthScopes.requiredScope("POST", "/services/measurements/123"))
                     .isEqualTo("measurement.read");
+            assertThat(OAuthScopes.requiredScope("POST", "/services/measurements/123.json", false))
+                    .isEqualTo("measurement.read");
+            assertThat(OAuthScopes.requiredScope("POST", "/services/measurements/123.json", true))
+                    .isEqualTo("measurement.write");
             assertThat(OAuthScopes.requiredScope(null, "/services/measurements/123/new"))
                     .isEqualTo("measurement.write");
             assertThat(OAuthScopes.requiredScope("   ", "/services/measurements/123/new"))

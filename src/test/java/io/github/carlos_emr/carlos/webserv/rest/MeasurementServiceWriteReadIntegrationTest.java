@@ -10,6 +10,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -108,7 +109,7 @@ class MeasurementServiceWriteReadIntegrationTest extends CarlosTestBase {
         when(security.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(patient))).thenReturn(true);
         MeasurementManagerImpl manager = new MeasurementManagerImpl();
         ReflectionTestUtils.setField(manager, "measurementDao", measurementDao);
-        ReflectionTestUtils.setField(manager, "demographicDao", demographicDao);
+        manager.setDemographicDao(demographicDao);
         LoggedInInfo caller = mock(LoggedInInfo.class);
         when(caller.getLoggedInProviderNo()).thenReturn(PROVIDER_NO);
 
@@ -154,6 +155,70 @@ class MeasurementServiceWriteReadIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    @DisplayName("should resolve and store the single configured instruction when measuringInstruction is omitted")
+    void shouldStoreConfiguredInstruction_whenInstructionOmittedForSingleInstructionType() throws Exception {
+        EmbeddedMeasurementTo1 written = service.addMeasurement((ObjectNode) mapper.readTree(
+                "{\"type\":\"BP\",\"dataField\":\"120/78\",\"comments\":\"FAKE omitted instruction\"}"), patient);
+
+        assertThat(written.getId()).isNotNull();
+        assertThat(written.getMeasuringInstruction()).isEqualTo("sitting position");
+        assertThat(written.getDateObserved()).isNotNull();
+        entityManager.flush();
+        entityManager.clear();
+
+        List<Measurement> stored = measurementDao.findByType(patient, List.of("BP"));
+        assertThat(stored).singleElement().satisfies(reading -> {
+            assertThat(reading.getId()).isEqualTo(written.getId());
+            assertThat(reading.getMeasuringInstruction()).isEqualTo("sitting position");
+            assertThat(reading.getDataField()).isEqualTo("120/78");
+            assertThat(reading.getDateObserved()).isNotNull();
+        });
+    }
+
+    @Test
+    @DisplayName("should require measuringInstruction for a multi-instruction type and accept an explicit one")
+    void shouldRequireInstructionThenPersist_whenTypeHasMultipleInstructions() throws Exception {
+        Validations yesNo = new Validations();
+        yesNo.setName("Yes/No/NA");
+        yesNo.setRegularExp("YES|yes|Yes|Y|NO|no|No|N|NotApplicable|NA");
+        validationsDao.persist(yesNo);
+
+        for (MeasurementType existing : measurementTypeDao.findByType("FEET")) {
+            measurementTypeDao.remove(existing.getId());
+        }
+        for (String instr : List.of("pulses (Yes/No)", "reflexes (Yes/No)")) {
+            MeasurementType feet = new MeasurementType();
+            feet.setType("FEET");
+            feet.setTypeDisplayName("FEET");
+            feet.setTypeDescription("Feet Exam");
+            feet.setMeasuringInstruction(instr);
+            feet.setValidation(String.valueOf(yesNo.getId()));
+            measurementTypeDao.persist(feet);
+        }
+        entityManager.flush();
+
+        ObjectNode omitted = (ObjectNode) mapper.readTree("{\"type\":\"FEET\",\"dataField\":\"Yes\"}");
+        BadRequestException refused = catchThrowableOfType(() -> service.addMeasurement(omitted, patient),
+                BadRequestException.class);
+        assertThat(refused).isNotNull();
+        assertThat(refused.getResponse().getEntity())
+                .isInstanceOfSatisfying(Map.class, error -> assertThat(error.get("code"))
+                        .isEqualTo("INSTRUCTION_REQUIRED"));
+        assertThat(measurementDao.findByType(patient, List.of("FEET"))).isEmpty();
+
+        EmbeddedMeasurementTo1 written = service.addMeasurement((ObjectNode) mapper.readTree(
+                "{\"type\":\"FEET\",\"dataField\":\"Yes\",\"measuringInstruction\":\"pulses (Yes/No)\"}"), patient);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(measurementDao.findByType(patient, List.of("FEET"))).singleElement().satisfies(reading -> {
+            assertThat(reading.getId()).isEqualTo(written.getId());
+            assertThat(reading.getMeasuringInstruction()).isEqualTo("pulses (Yes/No)");
+            assertThat(reading.getDataField()).isEqualTo("Yes");
+        });
+    }
+
+    @Test
     @DisplayName("should store a retried dated reading once")
     void shouldStoreOnce_whenDatedRequestIsRepeated() throws Exception {
         String body = "{\"type\":\"BP\",\"dataField\":\"118/76\",\"measuringInstruction\":\"sitting position\","
@@ -176,6 +241,9 @@ class MeasurementServiceWriteReadIntegrationTest extends CarlosTestBase {
                 BadRequestException.class);
 
         assertThat(refused).isNotNull();
+        assertThat(refused.getResponse().getEntity())
+                .isInstanceOfSatisfying(Map.class, error -> assertThat(error.get("code"))
+                        .isEqualTo("VALUE_REJECTED"));
         assertThat(measurementDao.findByType(patient, List.of("BP"))).isEmpty();
     }
 }

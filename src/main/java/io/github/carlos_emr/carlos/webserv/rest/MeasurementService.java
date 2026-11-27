@@ -29,6 +29,7 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -65,6 +66,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 
 /**
@@ -93,7 +95,7 @@ import jakarta.ws.rs.core.MediaType;
  * <p>Data formats:</p>
  * <ul>
  *   <li>Input: JSON with measurement type arrays for reads, or measurement data for writes</li>
- *   <li>Output: {@link MeasurementResponse} objects with measurement collections</li>
+ *   <li>Output: {@link MeasurementResponse} objects with measurement collections for reads, or detached {@link EmbeddedMeasurementTo1} snapshots for writes</li>
  *   <li>All responses include metadata and status information</li>
  * </ul>
  * 
@@ -105,11 +107,23 @@ import jakarta.ws.rs.core.MediaType;
  * {
  *   "types": ["BP", "WT", "HT"]
  * }
+ *
+ * POST /ws/services/measurements/{demographicNo}/new
+ * Content-Type: application/json
+ *
+ * {
+ *   "type": "BP",
+ *   "dataField": "122/80",
+ *   "measuringInstruction": "sitting position",
+ *   "comments": "Seated clinic reading",
+ *   "dateObserved": 1770000000000
+ * }
  * }</pre>
  * 
  * @since 2006
  * @see Measurement
  * @see MeasurementResponse
+ * @see EmbeddedMeasurementTo1
  * @see MeasurementManager
  * @see AbstractServiceImpl
  */
@@ -290,8 +304,11 @@ public class MeasurementService extends AbstractServiceImpl {
      *             {@code dateObserved}
      * @param demoId patient identifier
      * @return a detached snapshot of the recorded (or already stored) measurement
-     * @throws BadRequestException if identifiers or measurement fields are invalid
-     * @throws ForbiddenException if the caller lacks measurement write or patient access
+     * @throws BadRequestException (HTTP 400) if identifiers, request fields, type, or value are invalid
+     * @throws ForbiddenException (HTTP 403) if the caller lacks measurement write privilege, patient access, or a provider identity
+     * @throws NotFoundException (HTTP 404) if the patient does not exist
+     * @throws WebApplicationException (HTTP 409) if the patient's structured care cannot be projected
+     * @throws InternalServerErrorException (HTTP 500) if the type's validation configuration is invalid
      */
     @POST
     @Path("/{demographicNo}/new")
@@ -319,16 +336,23 @@ public class MeasurementService extends AbstractServiceImpl {
         measurement.setComments(comments == null ? "" : comments);
         measurement.setMeasuringInstruction(configured.getMeasuringInstruction() == null
                 ? "" : configured.getMeasuringInstruction());
-        // measurements.dateObserved is DATETIME, which keeps whole seconds. Truncating here makes the
-        // stored value, the echoed value and the manager's retry lookup all agree.
-        measurement.setDateObserved(new Date(truncateToSecond(
-                observedAt == null ? System.currentTimeMillis() : observedAt)));
+        // measurements.dateObserved is DATETIME, which keeps whole seconds. Truncating via Instant
+        // makes the stored value, the echoed value and the manager's retry lookup all agree.
+        long observedMillis = observedAt == null ? System.currentTimeMillis() : observedAt;
+        measurement.setDateObserved(Date.from(Instant.ofEpochSecond(Math.floorDiv(observedMillis, 1000L))));
         // A retry of a request whose response was lost repeats its dateObserved, so only a dated
         // request can be a repeat. The manager checks and inserts under the patient's row lock, so two
         // overlapping identical requests still store one reading.
-        Measurement saved = observedAt == null
-                ? measurementManager.addMeasurement(loggedInInfo, measurement)
-                : measurementManager.addMeasurementUnlessStored(loggedInInfo, measurement);
+        Measurement saved;
+        if (observedAt == null) {
+            saved = measurementManager.addMeasurement(loggedInInfo, measurement);
+        } else {
+            try {
+                saved = measurementManager.addMeasurementUnlessStored(loggedInInfo, measurement);
+            } catch (IllegalArgumentException _) {
+                throw new NotFoundException("Patient not found");
+            }
+        }
         return EmbeddedRecordSnapshots.measurement(loggedInInfo, saved);
     }
 
@@ -395,10 +419,6 @@ public class MeasurementService extends AbstractServiceImpl {
             throw new ForbiddenException("A provider identity is required to record a measurement");
         }
         return providerNo;
-    }
-
-    private static long truncateToSecond(long millis) {
-        return millis - Math.floorMod(millis, 1000L);
     }
 
     /** A 400 whose JSON body names the refusal, so a client can tell its causes apart. */
@@ -471,6 +491,7 @@ public class MeasurementService extends AbstractServiceImpl {
         Integer minLength = rule.getMinLength() == null ? 0 : rule.getMinLength();
         String regex = rule.getRegularExp();
         Boolean numeric = rule.isNumeric();
+        boolean requiresNumeric = Boolean.TRUE.equals(numeric) || maxValue != 0.0 || minValue != 0.0;
         boolean dateOnly = Boolean.TRUE.equals(rule.isDate());
 
         try {
@@ -480,9 +501,9 @@ public class MeasurementService extends AbstractServiceImpl {
                     || !ectValidation.matchRegExp(regex, value)
                     || !ectValidation.isValidBloodPressure(regex, value)
                     || !ectValidation.isNumeric(numeric, value)
-                    // isNumeric is Double.valueOf, which also takes NaN, Infinity, hex ("0x1p3") and
-                    // type suffixes ("5d"). An API value must be a plain decimal number.
-                    || (Boolean.TRUE.equals(numeric) && !isPlainDecimal(value))
+                    // isNumeric and isInRange use Double.valueOf, which also takes NaN, Infinity,
+                    // hex ("0x1p3") and type suffixes ("5d"). An API value must be a plain decimal number.
+                    || (requiresNumeric && !isPlainDecimal(value))
                     // SimpleDateFormat.parse stops at the first unparsed character, so the shape is
                     // checked too: "2026-01-01x" must not pass as a date.
                     || (dateOnly && !(DATE_ONLY.matcher(value).matches() && ectValidation.isDate(value)))) {

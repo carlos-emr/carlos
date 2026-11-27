@@ -55,8 +55,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
+import java.util.Objects;
 
 import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementFlowSheet;
 
 @Service
@@ -67,11 +69,15 @@ public class MeasurementManagerImpl implements MeasurementManager {
     @Autowired
     private MeasurementMapDao measurementMapDao;
 
-    @Autowired
     private DemographicDao demographicDao;
 
     @Autowired
     private PatientConsentManager patientConsentManager;
+
+    @Autowired
+    public void setDemographicDao(DemographicDao demographicDao) {
+        this.demographicDao = Objects.requireNonNull(demographicDao);
+    }
 
     @Override
     public List<Measurement> getCreatedAfterDate(LoggedInInfo loggedInInfo, Date updatedAfterThisDateExclusive,
@@ -150,7 +156,7 @@ public class MeasurementManagerImpl implements MeasurementManager {
     public Measurement addMeasurement(LoggedInInfo loggedInInfo, Measurement measurement) {
         measurementDao.persist(measurement);
         // Filed under the patient, so the write appears in that patient's access audit.
-        LogAction.addLogSynchronous(loggedInInfo, "MeasurementManager.addMeasurement", "measurement",
+        LogAction.addLogSynchronous(loggedInInfo, "MeasurementManager.addMeasurement", LogConst.CON_MEASUREMENT,
                 String.valueOf(measurement.getId()), measurement.getDemographicId(), "id=" + measurement.getId());
         return (measurement);
     }
@@ -158,6 +164,7 @@ public class MeasurementManagerImpl implements MeasurementManager {
     @Override
     @Transactional
     public Measurement addMeasurementUnlessStored(LoggedInInfo loggedInInfo, Measurement measurement) {
+        Objects.requireNonNull(measurement, "measurement must not be null");
         // The patient row is the lock: two identical requests serialize here, and the second finds the
         // first one's reading below instead of inserting its own. No unique key is needed, so readings
         // the encounter form or an import stored twice in the past are left as they are.

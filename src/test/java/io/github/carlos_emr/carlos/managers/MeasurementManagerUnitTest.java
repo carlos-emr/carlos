@@ -119,11 +119,11 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
         // Create manager instance
         measurementManager = new MeasurementManagerImpl();
 
-        // Inject @Autowired dependencies via reflection
+        // Inject @Autowired dependencies
         injectDependency(measurementManager, "measurementDao", mockMeasurementDao);
         injectDependency(measurementManager, "measurementMapDao", mockMeasurementMapDao);
         injectDependency(measurementManager, "patientConsentManager", mockPatientConsentManager);
-        injectDependency(measurementManager, "demographicDao", mockDemographicDao);
+        measurementManager.setDemographicDao(mockDemographicDao);
     }
 
     /**
@@ -652,6 +652,14 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
                     .isInstanceOf(IllegalArgumentException.class);
             verifyNoInteractions(mockMeasurementDao);
         }
+
+        @Test
+        @DisplayName("should reject a null measurement before locking or looking up")
+        void shouldThrowNullPointerException_whenMeasurementIsNull() {
+            assertThatThrownBy(() -> measurementManager.addMeasurementUnlessStored(mockLoggedInInfo, null))
+                    .isInstanceOf(NullPointerException.class);
+            verifyNoInteractions(mockDemographicDao, mockMeasurementDao);
+        }
     }
 
     /**
@@ -688,7 +696,7 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
             logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogSynchronous(
                     org.mockito.ArgumentMatchers.eq(mockLoggedInInfo),
                     org.mockito.ArgumentMatchers.eq("MeasurementManager.addMeasurement"),
-                    org.mockito.ArgumentMatchers.eq("measurement"),
+                    org.mockito.ArgumentMatchers.eq(io.github.carlos_emr.carlos.log.LogConst.CON_MEASUREMENT),
                     org.mockito.ArgumentMatchers.anyString(),
                     org.mockito.ArgumentMatchers.eq(Integer.valueOf(4321)),
                     org.mockito.ArgumentMatchers.anyString()));
