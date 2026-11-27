@@ -45,7 +45,10 @@
     <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:message key="encounter.sessionEndedNotSaved.msg" var="sessionEndedNotSavedText"/>
+<fmt:message key="encounter.facilitySelectionPendingNotSaved.msg" var="facilitySelectionPendingNotSavedText"/>
 <fmt:message var="noteSavingLabel" key="web.record.details.saving"/>
+<fmt:message var="noteChangedDuringSignLabel" key="oscarEncounter.signSave.noteChangedDuringCheck"/>
 <fmt:message var="noteEditorLabel" key="encounter.noteBrowser.encounterNote"/>
 <fmt:message var="invalidObservationDateLabel" key="encounter.observationDateInvalid.msg"/>
 <fmt:message var="draftSavingLabel" key="encounter.draftSaving.msg"/>
@@ -197,8 +200,6 @@
     function measurementLoaded(name) {
         registerMeasurementWindow(openWindows[name]);
     }
-
-    var okToClose = false;
 
     function onClosing() {
         for (var idx = 0; idx < measurementWindows.length; ++idx) {
@@ -1738,25 +1739,44 @@ function updateCPPNote() {
 
     }
 
-    function pasteToEncounterNote(txt) {
-        let caseNoteElement = document.getElementById(caseNote);
-        if (caseNoteElement) {
-            caseNoteElement.value += "\n" + txt;
-            try {
-                adjustCaseNote();
-                setCaretPosition(caseNoteElement, caseNoteElement.value.length);
-            } catch (error) {
-                // Text is already inserted. Layout/focus failure is not a failed paste.
-                console.error('Encounter text inserted; could not update layout');
-            }
-            return true;
-        } else {
-            console.error('Element with ID caseNote element not found.');
-            return false;
+    // Text a template or a measurement window adds to the note while Sign & Save waits for the
+    // sign-in check. It is held back so the submission signs only what the user saw when they
+    // chose Sign & Save; it is put into the note once that save is refused, or before the user is
+    // asked to look again (see the Sign & Save preflight below).
+    var noteSignPreflightPending = false;
+    var heldNoteInsertions = [];
+    function holdNoteInsertion(apply) {
+        if (!noteSignPreflightPending) return false;
+        heldNoteInsertions.push(apply);
+        return true;
+    }
+    function releaseHeldNoteInsertions() {
+        noteSignPreflightPending = false;
+        var held = heldNoteInsertions;
+        heldNoteInsertions = [];
+        held.forEach(function (apply) { apply(); });
+        return held.length;
+    }
+
+    function pasteToEncounterNote(txt, expectedEditor, onInserted) {
+        var caseNoteElement = document.getElementById(caseNote);
+        if (!caseNoteElement || (expectedEditor && expectedEditor !== caseNoteElement) || caseNoteElement.readOnly) return false;
+        if (holdNoteInsertion(function () { pasteToEncounterNote(txt, caseNoteElement, onInserted); })) return true;
+        if (caseNoteElement.disabled) return false;
+        caseNoteElement.value += "\n" + txt;
+        try {
+            adjustCaseNote();
+            setCaretPosition(caseNoteElement, caseNoteElement.value.length);
+        } catch (error) {
+            // Text is already inserted. Layout/focus failure is not a failed paste.
+            console.error('Encounter text inserted; could not update layout');
         }
+        if (onInserted) onInserted(caseNoteElement);
+        return true;
     }
 
     function writeToEncounterNote(request) {
+        if (holdNoteInsertion(function () { writeToEncounterNote(request); })) return;
 
         //$("templatejs").update(request.responseText);
         var text = request.responseText;
@@ -2561,6 +2581,8 @@ function updateCPPNote() {
 
         Element.remove(txtId);
         caseNote = "caseNote_note" + nId;
+        // Lock loss belongs to the prior editor; this selected note has its own lock.
+        lostNoteLock = false;
 
         var input = createNoteTextarea(caseNote, payload, true);
         $(txt).insertBefore(input, $(txt).firstChild);
@@ -2815,6 +2837,10 @@ function updateCPPNote() {
                 evalScripts: true,
                 onSuccess: function (request) {
                     $("notCPP").update(request.responseText);
+                    var replacementEditor = document.forms["caseManagementEntryForm"];
+                    if (replacementEditor && replacementEditor !== caseMgtEntryfrm) {
+                        lostNoteLock = false;
+                    }
                     // The response replaces the form with unchecked controls. Restore the
                     // applied state before the deferred initial note load, including an empty Reset.
                     var refreshedForm = document.forms["caseManagementViewForm"];
@@ -2988,7 +3014,15 @@ function updateCPPNote() {
         // parameters) and a "+" arrived as a space. This is the save that runs when
         // the clinician opens another note or the new-note icon with unsaved text.
         var params = "nId=" + noteId + issueParams + "&demographicNo=" + demographicNo + "&providerNo=" + providerNo + "&numIssues=" + idx + "&obsDate=" + $F("observationDate") + "&encType=" + encodeURIComponent($F(encType)) + "&noteTxt=" + encodeURIComponent(noteTxt);
-        params += "&" + Form.serialize(caseMgtEntryfrm);
+        var formParams = new URLSearchParams(Form.serialize(caseMgtEntryfrm));
+        var issueList = document.getElementById("noteIssues");
+        if (issueList) {
+            formParams.delete("renderedIssueIdentity");
+            issueList.querySelectorAll('input[name="renderedIssueIdentity"]').forEach(function (identity) {
+                formParams.append("renderedIssueIdentity", identity.value);
+            });
+        }
+        params += "&" + formParams.toString();
         // A chart refresh may still fail after this save succeeds. Keep the
         // acknowledged revision editable until its replacement chart arrives.
         if (preserveEditor) params += "&preserveEditor=true";
@@ -3016,13 +3050,13 @@ function updateCPPNote() {
                     restoreControls();
                     var succeeded = request.status >= 200 && request.status < 300 && saveConfirmed;
                     if (!succeeded) {
-                        setTimer();
+                        if (!lostNoteLock) setTimer();
                         if (request.status >= 200 && request.status < 300) alert(savingNoteError);
                     }
                     if (complete) complete(succeeded);
                 },
                 onFailure: function (request) {
-                    if (request.status == 409) {
+                    if (request.status == 409 && request.getResponseHeader?.("X-Carlos-Note-Lock-Lost") === "true") {
                         lostNoteLock = true;
                         alert(noteLockLostError);
                     } else if (request.status == 400) {
@@ -3040,6 +3074,10 @@ function updateCPPNote() {
     }
 
     function saveNoteAjax(method, chain) {
+        if (lostNoteLock) {
+            alert(noteLockLostError);
+            return false;
+        }
         // Opening/editing a note refreshes its issue fields asynchronously. Save only
         // after both fragments finish, so the form and its issue selection stay intact.
         if (deferNoteSaveUntilIssues(function () { saveNoteAjax(method, chain); })) return false;
@@ -3120,6 +3158,7 @@ function updateCPPNote() {
         var url = chartActionUrl("/CaseManagementEntry");
 
         var restoreControls = beginNoteSwitchSave();
+        var noteLockConflict = false;
 
         CarlosAjax.request(
             url,
@@ -3144,30 +3183,43 @@ function updateCPPNote() {
                     }
                 },
                 onFailure: function (request) {
-                    // In particular, a stale-revision 409 must leave the clinician's
-                    // text and selected issues available to copy or recover.
-                    if (request.status == 401) alertSessionEndedNotSaved();
-                    else alert(request.status == 400 ? invalidObservationDateError : savingNoteError + " " + request.status);
-                    setTimer();
+                    // Keep the draft on any refusal. Stop autosave only when the action confirms loss of the lock.
+                    if (request.status == 409 && request.getResponseHeader?.("X-Carlos-Note-Lock-Lost") === "true") {
+                        noteLockConflict = true;
+                        lostNoteLock = true;
+                        alert(noteLockLostError);
+                    } else {
+                        if (request.status == 401) alertSessionEndedNotSaved();
+                        else alert(request.status == 400 ? invalidObservationDateError : savingNoteError + " " + request.status);
+                        setTimer();
+                    }
                 },
-                onComplete: function () { restoreControls(); }
+                onComplete: function () {
+                    restoreControls();
+                    if (noteLockConflict) showAutosaveStatus("conflict", draftSaveConflictMessage);
+                }
             }
         );
         return false;
     }
-    function savePage(method, chain) {
+    function savePage(method, chain, click) {
+        // Keep Sign, Verify and Bill with this particular click. Validation can reject
+        // it, or a plain Save can replace it while the note's issues are refreshing.
+        var form = document.forms["caseManagementEntryForm"];
+        var editor = document.getElementById(caseNote);
+        if (!click && editor) click = {editor: editor, text: editor.value, intent: noteSignIntent(form)};
+        resetNoteSignIntent(form);
+        if (lostNoteLock) {
+            alert(noteLockLostError);
+            return false;
+        }
         // Opening/editing a note refreshes its issue fields asynchronously. Save only
         // after both fragments finish, so the form and its issue selection stay intact.
-        if (deferNoteSaveUntilIssues(function () { savePage(method, chain); })) return false;
-
-        var noteStr;
-        noteStr = $F(caseNote);
-        /*
-    if( noteStr.replace(/^\s+|\s+$/g,"").length == 0 ) {
-        alert("Please enter a note before saving");
-        return false;
-    }
-    */
+        if (!click || click.editor !== editor || click.text !== editor.value) {
+            alert(noteChangedDuringSignMessage);
+            return false;
+        }
+        if (deferNoteSaveUntilIssues(function () { savePage(method, chain, click); })) return false;
 
         if ($("observationDate") != undefined && $("observationDate").value.length > 0 && !validDate()) {
             alert(pastObservationDateError);
@@ -3216,21 +3268,31 @@ function updateCPPNote() {
         // (the saving status shows, and Save, Sign and Bill wait), so the submission carries
         // the note as it was when Sign & Save was chosen and no other save starts meanwhile.
         clearAutoSaveTimer();
-        var signIntent = noteSignIntent(document.forms["caseManagementEntryForm"]);
         var restoreControls = beginNoteSwitchSave();
+        noteSignPreflightPending = true;
         whenStillSignedIn(function () {
             // A disabled control is left out of a form submission: restore them first. A key
             // press during the check (Ctrl+B) may have changed Sign, Verify or Bill; submit the
             // choices made when Sign & Save was chosen.
             restoreControls();
-            applyNoteSignIntent(document.forms["caseManagementEntryForm"], signIntent);
+            if (releaseHeldNoteInsertions() > 0 || document.getElementById(caseNote) !== click.editor || click.editor.value !== click.text) {
+                // Text arrived during the check and is in the note now. The user has not seen
+                // it, so nothing is signed: they review the note and choose Sign & Save again.
+                resetNoteSignIntent(form);
+                setTimer();
+                alert(noteChangedDuringSignMessage);
+                return;
+            }
+            applyNoteSignIntent(form, click.intent);
             submitNotePage(method, chain);
-        }, function () {
+        }, function (reason) {
             restoreControls();
+            releaseHeldNoteInsertions();
             // A later plain Save must not sign, verify or bill the note.
-            resetNoteSignIntent(document.forms["caseManagementEntryForm"]);
+            resetNoteSignIntent(form);
             setTimer();
-            alertSessionEndedNotSaved();
+            if (reason === FACILITY_SELECTION_PENDING) alertFacilitySelectionPendingNotSaved();
+            else alertSessionEndedNotSaved();
         });
         return false;
     }
@@ -3295,7 +3357,7 @@ function updateCPPNote() {
 
     var changeIssueMsg;
     function changeDiagnosis(issueId) {
-        document.forms['caseManagementEntryForm'].change_diagnosis_id.value = issueId;
+        document.forms['caseManagementEntryForm'].elements.changeDiagnosisIssueId.value = issueId;
         var button = document.getElementById('asgnIssues');
         if (button) {
             button.value = changeIssueMsg;
@@ -3316,7 +3378,16 @@ function updateCPPNote() {
     var closeWithoutSaveMsg;
     function closeEnc(e) {
         Event.stop(e);
-        if (!lostNoteLock && (origCaseNote != $F(caseNote) || origObservationDate != $("observationDate").value || noteIssuesChanged)) {
+        // The editor cannot display the queued text until the signing check settles.
+        if (heldNoteInsertions.length) {
+            alert(noteSavingMessage);
+            return false;
+        }
+        var editor = $(caseNote);
+        var observationDate = $("observationDate");
+        // Losing write authority never makes unsaved note changes safe to discard.
+        if ((editor && origCaseNote != editor.value)
+                || (observationDate && origObservationDate != observationDate.value) || noteIssuesChanged) {
             if (confirm(closeWithoutSaveMsg)) {
                 clearAutoSaveTimer();
                 window.close();
@@ -3483,10 +3554,13 @@ function updateCPPNote() {
     var issueUpdateFailed = false;
     var issueRefreshQueue = [];
     var issueRefreshPending = false;
+    var pendingIssueDeletes = new Set();
     var queuedNoteSave = null;
     var noteSwitchSavePending = false;
     var noteSavingMessage = "${carlos:forJavaScriptBlock(noteSavingLabel)}";
-    var sessionEndedNotSavedError;
+    var noteChangedDuringSignMessage = "${carlos:forJavaScriptBlock(noteChangedDuringSignLabel)}";
+    var sessionEndedNotSavedError = "${carlos:forJavaScriptBlock(sessionEndedNotSavedText)}";
+    var facilitySelectionPendingNotSavedError = "${carlos:forJavaScriptBlock(facilitySelectionPendingNotSavedText)}";
 
     // A save counts only when the save action itself answered (#5868). Once the sign-in
     // has ended (the inactivity limit, or a facility still to be chosen), the login filter
@@ -3509,26 +3583,38 @@ function updateCPPNote() {
         alert(sessionEndedNotSavedError || savingNoteError);
     }
 
+    // The sign-in is live but still has to choose a facility: say that, not that it expired.
+    function alertFacilitySelectionPendingNotSaved() {
+        alert(facilitySelectionPendingNotSavedError || sessionEndedNotSavedError || savingNoteError);
+    }
+
     // Sign and Save leaves the chart with a full form submission, so a sign-in page in
     // its place would discard the note before any script could notice. Ask the session
-    // heartbeat first without following a redirect: a redirect, a 401/403 or
-    // {"valid":false} means the sign-in has ended (the inactivity limit), and the note
-    // stays on screen. Any other outcome, including no answer within the time limit,
-    // submits as before, so an unreachable heartbeat never blocks a save. autoRefresh
+    // heartbeat first without following a redirect: a redirect, a 401/403,
+    // {"valid":false} (the inactivity limit ended the sign-in) or
+    // {"facilitySelectionPending":true} (a sign-in still choosing its facility) means the
+    // submission would not be saved, and the note stays on screen. Any other outcome,
+    // including no answer within the time limit, submits as before, so an unreachable
+    // heartbeat never blocks a save. autoRefresh
     // keeps this check from counting as activity; the submission itself does. If the
     // limit passes in the moment between this answer and the submission, the submission
     // is redirected as before and only the autosave draft keeps the text.
     var SIGN_IN_CHECK_TIMEOUT_MS = 8000;
+    var FACILITY_SELECTION_PENDING = "facilitySelectionPending";
     function whenStillSignedIn(proceed, refuse) {
         var settled = false;
         var timer = null;
         // Exactly one of proceed or refuse runs, whichever way the check ends; both
         // release the held controls and autosave.
+        // signedIn is true to submit; otherwise refuse is told why ("facilitySelectionPending"
+        // for a live sign-in still choosing a facility, "signedOut" for anything else), so the
+        // message does not tell a signed-in user that their session has expired.
         function settle(signedIn) {
             if (settled) return;
             settled = true;
             if (timer) clearTimeout(timer);
-            if (signedIn) proceed(); else refuse();
+            if (signedIn === true) proceed();
+            else refuse(signedIn === FACILITY_SELECTION_PENDING ? FACILITY_SELECTION_PENDING : "signedOut");
         }
         if (typeof fetch !== "function") {
             settle(true);
@@ -3553,7 +3639,11 @@ function updateCPPNote() {
                 if (response.type === "opaqueredirect" || response.status === 401 || response.status === 403) return false;
                 if (!response.ok) return true;
                 return response.json().then(function (state) {
-                    return !(state && state.valid === false);
+                    if (state && state.valid === false) return false;
+                    // A signed-in session still choosing a facility is redirected on every
+                    // route but this one, so the submission would be lost as well.
+                    if (state && state.facilitySelectionPending === true) return FACILITY_SELECTION_PENDING;
+                    return true;
                 }, function () {
                     return true;
                 });
@@ -3654,7 +3744,23 @@ function updateCPPNote() {
         issueRefreshQueue.shift()();
     }
 
-    function ajaxUpdateIssues(method, div, preserveSelections, complete, failureMessage) {
+    function queueIssueMutation(method, control) {
+        var row = control.closest('td');
+        var checkbox = row.querySelector('input[type="checkbox"][data-issue-id]');
+        var id = checkbox.getAttribute('data-issue-id');
+        if (pendingIssueDeletes.has(id)) return false;
+
+        var mutation = new URLSearchParams({caseIssueId: id});
+        if (method === 'issueChange') {
+            var flag = control.name.slice(control.name.lastIndexOf('.') + 1);
+            mutation.set('issue' + flag.charAt(0).toUpperCase() + flag.slice(1), control.value);
+        } else {
+            removeIssue(row.querySelector('[id^="noteIssueDetails"]').id);
+        }
+        return ajaxUpdateIssues(method, control.closest('.sig').id, null, null, null, mutation);
+    }
+
+    function ajaxUpdateIssues(method, div, preserveSelections, complete, failureMessage, mutation) {
         // Mutations refresh the current editor; opening a different note must not
         // inherit the previous note's selections. Explicit edit refreshes opt in.
         if (preserveSelections == null) preserveSelections = method !== 'edit';
@@ -3665,6 +3771,10 @@ function updateCPPNote() {
             return false;
         }
         complete = complete || beginIssueUpdate();
+        // Status changes run in click order. Once deletion is queued, further
+        // status or delete clicks for that issue cannot affect its final state.
+        var deletedId = method === 'issueDelete' && mutation ? mutation.get('caseIssueId') : null;
+        if (deletedId) pendingIssueDeletes.add(deletedId);
         // Serialize whole refresh pairs. An older editor-load response must not
         // replace the CPP-created issue fields after this refresh has installed them.
         issueRefreshQueue.push(function () {
@@ -3673,6 +3783,7 @@ function updateCPPNote() {
                 if (finished) return;
                 finished = true;
                 issueRefreshPending = false;
+                if (deletedId) pendingIssueDeletes.delete(deletedId);
                 try { complete(succeeded); }
                 finally { runNextIssueRefresh(); }
             }
@@ -3683,6 +3794,9 @@ function updateCPPNote() {
 
                 var url = chartActionUrl("/CaseManagementEntry");
                 var p = Form.serialize(frm);
+                // Read editor fields from the refreshed form, but submit the
+                // issue identity and status the clinician chose before it changed.
+                if (mutation) p += '&' + mutation.toString();
                 var assignedIssue = (method === 'makeIssue' || method === 'issueAdd') && frm.elements && frm.elements.newIssueId
                     ? String(frm.elements.newIssueId.value) : '';
                 if (preserveSelections && method === 'edit') p += '&preserveIssueEditor=true&forceNote=true';
@@ -3900,6 +4014,8 @@ function updateCPPNote() {
         if (changeToView(caseNote, function () { newNote(null); })) {
 
             caseNote = "caseNote_note" + safeNoteIdSuffix;
+            // Clear stale editor state only after the previous editor can be left.
+            lostNoteLock = false;
             document.forms["caseManagementEntryForm"].note_edit.value = "new";
             document.forms["caseManagementEntryForm"].noteId.value = "0";
             document.forms["caseManagementEntryForm"].newNoteIdx.value = newNoteIdx;
@@ -4010,7 +4126,8 @@ function autoSave() {
     }
     function autosaveFailed(req, unexpectedResponse) {
         if (!currentEditor()) return;
-        if (req.status == 409 && !unexpectedResponse) {
+        if (req.status == 409 && !unexpectedResponse
+                && req.getResponseHeader?.("X-Carlos-Note-Lock-Lost") === "true") {
             lostNoteLock = true;
             showAutosaveStatus("conflict", draftSaveConflictMessage);
             return;
@@ -4639,12 +4756,10 @@ function autoSave() {
         }
     }
 
-    function copyCppToCurrentNote() {
-        var currentNoteId = jQuery("input[name='noteId']").val();
-        var currentNoteText = jQuery("#caseNote_note" + currentNoteId).val();
-        currentNoteText += "\n";
-        currentNoteText += jQuery("#noteEditTxt").val();
-        jQuery("#caseNote_note" + currentNoteId).val(currentNoteText);
+    function copyCppToCurrentNote(cppText) {
+        // Read the CPP text now: the editor may be closed before a held copy is applied.
+        var copied = cppText !== undefined ? cppText : jQuery("#noteEditTxt").val();
+        return pasteToEncounterNote(copied);
     }
 
     function selectGroup(programId, demographicNo) {
@@ -4658,140 +4773,45 @@ function autoSave() {
 
 
     function assign(programId, demographicNo) {
-        if (origCaseNote != $F(caseNote) || origObservationDate != $("observationDate").value) {
-            var summaryId = "summary";
-            var summary;
-            var saving = false;
-            var parent = $(caseNote).parentNode.id;
-            var nId = parent.substr(1);
-            var tmp = $(caseNote).value;
-            var sig = 'sig' + nId;
-            saving = true;
-            ajaxSaveNote(sig, nId, tmp);
-            //cancel updating of issues
-            //IE destroys innerHTML of sig div when calling ajax update
-            //so we have to restore it here if the ajax call is aborted
-            //this is buggy don't use
-            /*if( ajaxRequest != undefined  && callInProgress(ajaxRequest.transport) ) {
-                    ajaxRequest.transport.abort();
-                    var siblings = $(caseNote).siblings();
-                    var pos;
+        var form = document.forms["caseManagementEntryForm"];
+        var editor = $(caseNote);
 
-                    for( var idx = 0; idx < siblings.length; ++idx ) {
-                        if( (pos = siblings[idx].id.indexOf("sig")) != -1 ) {
-                            nId = siblings[idx].id.substr(pos+3);
-                            summaryId += nId;
-                            if( $(summaryId) == null ) {
-                                siblings[idx].innerHTML = sigCache;
-                            }
-                            break;
-                        }
-                    }
-                } */
+        function openAttachmentChooser() {
+            var url = ctx + '/PMmodule/ClientSearch2?programId=' + programId
+                + '&noteId=' + form.noteId.value + '&method=attachForm&demographicNo=' + demographicNo;
+            if (chartContext) url += '&sourceChartContext=' + encodeURIComponent(chartContext);
+            popupPage(600, 700, 'group', url);
+        }
 
-            //clear auto save
-            clearTimeout(autoSaveTimer);
+        if (origCaseNote === editor.value && origObservationDate === $("observationDate").value) {
+            openAttachmentChooser();
+            return;
+        }
+
+        var noteId = editor.parentNode.id.substr(1);
+        ajaxSaveNote('sig' + noteId, noteId, editor.value, function (saved) {
+            if (!saved || $(caseNote) !== editor || document.forms["caseManagementEntryForm"] !== form) {
+                return;
+            }
+            clearAutoSaveTimer();
             deleteAutoSave();
 
-                jQuery('#' + caseNote).off('keyup', monitorCaseNote);
-                jQuery('#' + caseNote).off('paste');
+            jQuery('#' + caseNote).off('keyup', monitorCaseNote).off('paste');
             Element.stopObserving(caseNote, 'click', getActiveText);
-
             Element.remove(caseNote);
-
-            //remove observation date input text box but preserve date if there is one
-            if (!saving && $("observationDate") != null) {
-                var observationDate = $("observationDate").value;
-
-                document.getElementById("observationDate").insertAdjacentHTML('afterend', " <span id='obs" + nId + "'>" + observationDate + "</span>");
-                Element.remove("observationDate");
-                Element.remove("observationDate_cal");
-
-                var observationId = "observation" + nId;
-
-                var html = $(observationId).innerHTML;
-
-                html = html.substr(0, html.indexOf(":") + 1) + " <span id='obs" + nId + "'>" + observationDate + "<\/span>" + html.substr(html.indexOf(":") + 1);
-
-                $(observationId).update(html);
-
-            }
-
-            if ($("autosaveTime") != null)
-                Element.remove("autosaveTime");
-
+            ["autosaveTime", "noteIssues", "noteIssues-resolved", "noteIssues-unresolved"].forEach(function (id) {
+                if ($(id) != null) Element.remove(id);
+            });
             destroyNoteIssueAutocomplete();
-            if ($("noteIssues") != null)
-                Element.remove("noteIssues");
 
-            if ($("noteIssues-resolved") != null)
-                Element.remove("noteIssues-resolved");
-
-            if ($("noteIssues-unresolved") != null)
-                Element.remove("noteIssues-unresolved");
-
-            var selectEnc = "encTypeSelect" + nId;
-
-            if ($(selectEnc) != null) {
-                var encTypeId = "encType" + nId;
-                var content = $F(selectEnc);
-                var encType;
-                if (content.length > 0)
-                    encType = "&quot;" + content + "&quot;";
-                else
-                    encType = "";
-                Element.remove(selectEnc);
-                $(encTypeId).update(encType);
-
+            var encounterTypeSelector = "encTypeSelect" + noteId;
+            if ($(encounterTypeSelector) != null) {
+                var selected = $F(encounterTypeSelector);
+                Element.remove(encounterTypeSelector);
+                $("encType" + noteId).update(selected ? "&quot;" + selected + "&quot;" : "");
             }
-            if (tmp.length == 0)
-                tmp = "&nbsp;";
-
-            tmp = tmp.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            tmp = tmp.replace(/\n/g, "<br>");
-
-            if (!saving) {
-                if (largeNote(tmp)) {
-                    var btmImg = "<img title='Minimize Display' id='bottomQuitImg" + nId + "' alt='Minimize Display' onclick='minView(event)' style='float:right; margin-right:5px; margin-bottom:3px; ' src='" + ctx + "/encounter/graphics/triangle_up.gif'>";
-                    $(sig).insertAdjacentHTML('beforebegin', btmImg);
-                }
-                var printImg = "print" + nId;
-                var img = "<img title='Minimize Display' id='quitImg" + nId + "' onclick='minView(event)' style='float:right; margin-right:5px; margin-top: 2px;' src='" + ctx + "/encounter/graphics/triangle_up.gif'>";
-                var printimg = notePrintButton(nId);
-                var input = "<div id='txt" + nId + "'>" + tmp + "<\/div>";
-
-                var func;
-                var editWarn = "editWarn" + nId;
-                if ($F(editWarn) == "true") {
-                    func = "noPrivs(event);";
-                } else {
-                    func = "editNote(event);";
-                }
-
-                var editAnchor = "<a title='Edit' id='edit" + nId + "' href='#' onclick='" + func + " return false;' style='float: right; margin-right: 5px;'>" + editLabel + "</a>";
-                var editId = "edit" + nId;
-
-                $(parent).insertAdjacentHTML('afterbegin', editAnchor);
-                $(editId).insertAdjacentHTML('afterend', input);
-
-
-                if (nId.substr(0, 1) != "0") {
-                    Element.remove(printImg);
-                    $(editId).insertAdjacentHTML('beforebegin', printimg);
-                    $(parent).insertAdjacentHTML('afterbegin', img);
-                }
-
-                $(parent).insertAdjacentHTML('afterbegin', img);
-
-                $(parent).style.height = "auto";
-
-            }
-        }//else{
-        var noteId = document.forms["caseManagementEntryForm"].noteId.value;
-        var url = '<%=request.getContextPath()%>/PMmodule/ClientSearch2?programId=' + programId + '&noteId=' + noteId + '&method=attachForm&demographicNo=' + demographicNo;
-        if (chartContext) url += '&sourceChartContext=' + encodeURIComponent(chartContext);
-        popupPage(600, 700, 'group', url);
-        //}
+            openAttachmentChooser();
+        }, true);
     }
 
     function setIssueCheckbox(val) {
@@ -4822,20 +4842,32 @@ function autoSave() {
 
 
     function doInformedConsent(demographicNo) {
-        var checked = jQuery("#informedConsentCheck").attr("checked");
-        if (checked) {
+        var checkbox = jQuery("#informedConsentCheck");
+        var checked = checkbox.is(':checked');
+        if (checked && !checkbox.prop("disabled")) {
             var forSure = window.confirm("Are you sure you would like to indicate that Informed Consent has been collected?");
             if (forSure) {
+                // Keep further saves disabled until the chart reloads after an unconfirmed write.
+                checkbox.prop("checked", false).prop("disabled", true);
+                var unconfirmed = function () {
+                    checkbox.prop("checked", false);
+                    window.alert("Informed consent save could not be confirmed. Reopen the chart and retry only if consent is still absent.");
+                };
                 jQuery.post(ctx + "/DemographicExtService",
                     {method: "saveNewValue", demographicNo: demographicNo, key: "informedConsent", value: "yes"},
                     function (data, textStatus) {
-                        if (data != undefined && parseInt(data.value) > 0) {
+                        var id = data && data.value;
+                        var saved = (typeof id === "number" && Number.isSafeInteger(id) && id > 0)
+                            || (typeof id === "string" && /^[1-9]\d*$/.test(id) && Number.isSafeInteger(Number(id)));
+                        if (saved) {
                             jQuery("#informedConsentDiv").remove();
+                        } else {
+                            unconfirmed();
                         }
-                    }, 'json');
+                    }, 'json').fail(unconfirmed);
 
             } else {
-                jQuery("#informedConsentCheck").attr("checked", false);
+                checkbox.prop("checked", false);
             }
         }
     }
@@ -4881,7 +4913,14 @@ function autoSave() {
 
     }
 
-    window.addEventListener("beforeunload", function () {
+    window.addEventListener("beforeunload", function (event) {
+        if (heldNoteInsertions.length) {
+            event.preventDefault();
+            event.returnValue = true;
+        }
+    });
+
+    window.addEventListener("pagehide", function () {
         for (var x = 0; x < activeCCWindows.length; x++) {
             activeCCWindows[x].close();
         }

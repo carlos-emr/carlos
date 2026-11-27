@@ -29,24 +29,87 @@ const {chromium} = require('playwright');
 const {getLaunchOptions} = require('./lib/playwright-harness');
 
 const source = fs.readFileSync(path.join(__dirname, 'tickler-crud-playwright-checks.js'), 'utf8');
-function section(start, end) {
-  const from = source.indexOf(start);
-  const to = source.indexOf(end, from);
-  assert(from >= 0 && to > from, 'Tickler synchronization helpers are missing');
-  return source.slice(from, to);
+function section(text, start, end) {
+  const from = text.indexOf(start);
+  const to = text.indexOf(end, from);
+  assert(from >= 0 && to > from, `Missing tickler function ${start}`);
+  return text.slice(from, to);
 }
 const helpers = {assert, URL};
 vm.runInNewContext(
-  section('async function waitForTicklerDraw(', 'async function setTicklerListStatus(')
-  + section('async function searchTicklerList(', 'async function openDemoTicklerList(')
+  section(source, 'async function waitForTicklerDraw(', 'async function setTicklerListStatus(')
+  + section(source, 'async function searchTicklerList(', 'async function openDemoTicklerList(')
   + '\nthis.ready = waitForTicklerListReady; this.probe = probeTicklerSearch; this.refresh = refreshTicklerListAfter;',
   helpers);
+
+async function checkAddFormFocus(browser) {
+  const jsp = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/tickler/ticklerAdd.jsp'), 'utf8');
+  const startup = section(jsp, 'function addQuickPick()', 'function selectprovider(')
+    + section(jsp, 'function initTicklerAdd()', 'function enableSubmitButtons()');
+  const body = jsp.match(/<body onload="[^"]+">/i);
+  assert(body, 'Missing native Tickler Add load handler');
+  const html = `<!doctype html><html><head><script>const i18nQuickPickTooltip = 'Quick pick';
+    window.focusRequests = 0;
+    const focusWindow = window.focus.bind(window);
+    window.focus = () => { window.focusRequests++; focusWindow(); };
+    ${startup}</script></head>${body[0]}
+    <form name="ADDAPPT"><input name="keyword" value="patient"><input name="taskTo" disabled></form>
+    <form name="serviceform"><textarea id="ticklerMessage" name="ticklerMessage">reminder</textarea>
+      <select name="task_assigned_to"><option></option><option value="1">One</option></select>
+      <input name="xml_appointment_date"><div id="quickPickDateOptions"></div></form>
+    <img src="/slow-image" alt=""></body></html>`;
+
+  for (const [edit, focus, keyword, reminder] of [
+    [null, 'keyword', 'X', 'reminder'],
+    ['ticklerMessage', 'ticklerMessage', 'patient', 'rXinder'],
+    ['keyword', 'keyword', 'pXient', 'reminder'],
+  ]) {
+    const page = await browser.newPage();
+    let releaseImage;
+    const pendingImage = new Promise(resolve => { releaseImage = resolve; });
+    try {
+      const errors = [];
+      page.on('pageerror', error => errors.push(error.message));
+      await page.route('http://tickler-focus.test/**', async route => {
+        if (new URL(route.request().url()).pathname === '/') {
+          return route.fulfill({contentType: 'text/html', body: html});
+        }
+        await pendingImage;
+        return route.fulfill({contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg"/>'});
+      });
+      await page.goto('http://tickler-focus.test/', {waitUntil: 'domcontentloaded'});
+      if (edit) {
+        const input = page.locator(`[name="${edit}"]`);
+        await input.focus();
+        await input.evaluate(element => element.setSelectionRange(1, 3));
+      }
+      // A pending image lets a clinician begin editing before the native window load event.
+      releaseImage();
+      await page.waitForLoadState('load');
+      assert.equal(await page.evaluate(() => window.focusRequests), edit ? 0 : 1);
+      assert.equal(await page.evaluate(() => document.activeElement.name), focus);
+      await page.keyboard.insertText('X');
+      assert.equal(await page.locator('[name="keyword"]').inputValue(), keyword);
+      assert.equal(await page.locator('#ticklerMessage').inputValue(), reminder);
+      assert.deepEqual(errors, []);
+      assert(await page.locator('#quickPickDateOptions button').count() > 0);
+      await page.locator('[name="task_assigned_to"]').selectOption('1');
+      assert.equal(await page.locator('[name="taskTo"]').inputValue(), '1');
+      assert.deepEqual(errors, []);
+    } finally {
+      releaseImage();
+      await page.close();
+    }
+  }
+  console.log('PASS tickler add initial focus, early reminder edits, and patient search selection');
+}
 
 (async () => {
   const chromePath = process.env.CHROME_BIN || process.env.CHROME_PATH || process.env.CARLOS_SMOKE_CHROMIUM;
   const browser = await chromium.launch(getLaunchOptions(chromePath));
   let releaseReset = () => {};
   try {
+    await checkAddFormFocus(browser);
     const page = await browser.newPage();
     const failures = [], errors = [], searches = [];
     page.on('requestfailed', request => failures.push(request.failure()?.errorText));
@@ -60,7 +123,11 @@ vm.runInNewContext(
     await page.route('http://tickler.test/**', async route => {
       const url = new URL(route.request().url());
       if (url.pathname === '/') {
-        await route.fulfill({contentType: 'text/html', body: '<!doctype html>'
+        // Chromium refuses unload listeners (on a share of page loads from 146, on all of them
+        // from 155) and logs a console error for each one (#6346). Refuse them here as well, so a
+        // fixture that registers one fails on every Chromium rather than on some page loads.
+        await route.fulfill({contentType: 'text/html', headers: {'Permissions-Policy': 'unload=()'},
+          body: '<!doctype html>'
           + '<button id="save">Save edit</button><table id="ticklerResults">'
           + '<thead><tr><th>Message</th></tr></thead><tbody></tbody></table>'});
         return;
@@ -86,7 +153,7 @@ vm.runInNewContext(
     const library = path.join(__dirname, '../src/main/webapp/library');
     await page.addScriptTag({path: path.join(library, 'jquery/jquery-3.7.1.min.js')});
     await page.addScriptTag({path: path.join(library, 'DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js')});
-    await page.evaluate(() => {
+    const refreshListener = await page.evaluateHandle(() => {
       const table = window.jQuery('#ticklerResults').DataTable({
         serverSide: true, processing: true, ajax: '/tickler/ListTicklers', columns: [{data: 'message'}],
       });
@@ -97,7 +164,7 @@ vm.runInNewContext(
         sender.postMessage({action: 'refresh'});
         sender.close();
       });
-      window.addEventListener('unload', () => listener.close());
+      return listener;
     });
     await helpers.ready(page);
     holdReset = true;
@@ -118,6 +185,9 @@ vm.runInNewContext(
     await helpers.refresh(page, () => page.locator('#save').click());
     assert.equal(searches.length, beforeRefresh + 1, 'An edit must refresh the list exactly once');
     assert.equal(await page.locator('#ticklerResults tbody').innerText(), 'edited tickler');
+    // Explicit teardown replaces the refused unload cleanup; the checks below still see its errors.
+    await refreshListener.evaluate(listener => listener.close());
+    await refreshListener.dispose();
     assert.deepEqual(failures, []);
     assert.deepEqual(errors, []);
     console.log('PASS tickler CRUD synchronization: native DataTables searches, held reset, and broadcast refresh');

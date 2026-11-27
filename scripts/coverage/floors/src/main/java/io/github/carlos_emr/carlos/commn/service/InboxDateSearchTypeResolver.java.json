@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/service/InboxDateSearchTypeResolver.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "76a0515fd25712baf8cf6d8863c9fcf576760be3"
+  },
+  "evidenceSha256": "83a004f8911c3fa8bc625254327e8df4fe9d6cbc0f6d904341b11a3dbc3de0e0"
+}

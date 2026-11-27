@@ -35,6 +35,7 @@ import java.util.Collection;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import org.apache.commons.csv.CSVFormat;
 import io.github.carlos_emr.carlos.utility.SpreadsheetCsv;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -61,8 +62,19 @@ public class ReportEvaluator {
 
     private ArrayList<Hashtable<String, Object>> reportResultList = null;
 
+    // Names this run report in the session's Clinical Reports list. "Del" posts it, so a repeated or stale
+    // post cannot remove whichever report has since moved into a position.
+    private final String key = UUID.randomUUID().toString();
+
 
     public ReportEvaluator() {
+    }
+
+    /**
+     * @return a random key, fixed for this run report, that the Clinical Reports page posts to remove it
+     */
+    public String getKey() {
+        return key;
     }
 
     public void evaluate(LoggedInInfo loggedInInfo, Denominator deno, Numerator numer) {

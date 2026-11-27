@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/encounter/oscarConsultationRequest/pageUtil/ConsultationPDFCreator.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 85.92233009708738,
+    "instructions": 87.46312684365782,
+    "branches": 100.0,
+    "sourceBlob": "c504efd3e31bae895d8ffc3752d2b15aa6deaf09"
+  },
+  "evidenceSha256": "7988d00e87b1ae847fb06b1b4e86f6bb65d2bc2e408d1a34e53c55c1b8889c44"
+}

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "d39251d7fa406fc44864fb605a74ccb914d00616",
+  "comparisonSha256": "e4017cf9b32486afb7e2020633b1ce9979986d48aa20d7f22e8d9c2f5c877af6",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/PMmodule/web/admin/ProgramManager2Action.java": {
+      "sourceBlob": "83d5ef4d6edef5381e2eef4657e9be3fa03d7c14",
+      "lines": 87.5,
+      "instructions": 70.83333333333333,
+      "branches": 50.0
+    }
+  },
+  "baselineCommit": "3b7ad4f0740d157cff13fd80a55a9729183f5a94",
+  "baselineSourceTree": "d39251d7fa406fc44864fb605a74ccb914d00616",
+  "baselineReportSha256": "22f3e0628745f6984c7819b72fcd299948a8d0eecac0419d4a01674ef99bfa68",
+  "baselineLane": "Focused JDK 25 Program Manager action-routing and actual Jasper result regression tests. The Staff selection uses the action\u2019s request-scoped ProgramProvider alongside the distinct signed-in session Provider. All instructions on the added Staff model line executed. The source comparison covers 7 of 8 changed executable lines, 34 of 48 changed instructions, and 3 of 6 changed branches.",
+  "baselineTestCounts": {
+    "tests": 40,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "7fd1440ce03bc81ad055ecebbd3375f792dd6b11ccd3159c8940f9c6c97a5ed5",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

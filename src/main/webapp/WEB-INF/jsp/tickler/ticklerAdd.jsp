@@ -447,9 +447,13 @@
         }
 
         function initTicklerAdd() {
-            this.focus();
-            document.ADDAPPT.keyword.focus();
-            document.ADDAPPT.keyword.select();
+            // A clinician can start typing before the popup's assets finish loading.
+            const active = document.activeElement;
+            if (!active || active === document.body || active === document.documentElement) {
+                window.focus();
+                document.ADDAPPT.keyword.focus();
+                document.ADDAPPT.keyword.select();
+            }
             addQuickPick();
             document.serviceform.addEventListener('change', function(event) {
                 if (event.target.name === 'task_assigned_to') {

@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "dedaded0fe96ac040a8134c3ec8eca134323a8a8",
+  "comparisonSha256": "8e938b06081fa552360e0e39033c6ca573bf5073b94b0013e04acb235c7f1f3c",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/waitinglist/util/WLWaitingListUtil.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "fb2b461832c1a7c58777f8415f29739eaea77a44"
+    }
+  },
+  "baselineCommit": "1f1e36157c1f73c149bdf993d99de55cf5cdc1ea",
+  "baselineSourceTree": "dedaded0fe96ac040a8134c3ec8eca134323a8a8",
+  "baselineReportSha256": "a8a6c45000b42ce166efbd8ad2c4ee7bed128100bf3d5463d617d99278fea9b3",
+  "baselineLane": "Fresh JDK25 compilation at the measured commit, clean tree. Focused H2 evidence for the waiting-list helper on its merged source, after release/2026.08 (#6139) was merged into the demographic update transaction branch (#5298): 121 cases (the helper's result, note-length and concurrency unit tests, the waiting-list page's mutation and note-length action tests, the twenty-three update-transaction cases, the patient edit form's stale-form tests and the waiting-list availability integration test). All 121 executed JUnit cases pass with zero failures, errors or skips. Existing higher floors retained; not full release qualification.",
+  "baselineTestCounts": {
+    "tests": 121,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "83362f8273aff4cd555436bb61c7057512823d3f285df8bd9fa725eb4dfbd546",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineReportHeaderCollisions": 1
+}

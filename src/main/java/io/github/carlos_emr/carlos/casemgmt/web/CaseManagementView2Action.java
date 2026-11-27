@@ -103,6 +103,12 @@ public class CaseManagementView2Action extends ActionSupport {
     private static final Integer MAX_INVOICES = 20;
     private static Logger logger = MiscUtils.getLogger();
 
+    private static final Map<String, String> CPP_SECTION_PRIVILEGES = Map.of(
+            "omeds", "_newCasemgmt.otherMeds",
+            "riskfactors", "_newCasemgmt.riskFactors",
+            "famhistory", "_newCasemgmt.familyHistory",
+            "medhistory", "_newCasemgmt.medicalHistory");
+
     /** Valid tab names for whitelist validation (CWE-501). */
     private static final Set<String> VALID_TABS = Set.of(CaseManagementViewFormBean.tabs);
 
@@ -1157,36 +1163,21 @@ public class CaseManagementView2Action extends ActionSupport {
         String appointmentNo = request.getParameter("appointment_no");
 
         String[] codes = request.getParameterValues("issue_code");
-        SecurityManager securityManager = new SecurityManager();
-        //these are the ones on the right nav bar. - generic implementation of view access
-        if (codes != null && codes.length > 0) {
-            if (!securityManager.hasReadAccess("_" + codes[0], request.getSession().getAttribute("userrole") + "," + request.getSession().getAttribute("user"))) {
-                return null;
-            }
+        if (codes == null || codes.length == 0) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
         }
-
         String roleName = (String) request.getSession().getAttribute("userrole") + "," + (String) request.getSession().getAttribute("user");
-
-        boolean a = true;
-        if (codes[0].equalsIgnoreCase("OMeds")) {
-            a = hasPrivilege("_newCasemgmt.otherMeds", roleName);
-            if (!a) {
-                return SUCCESS; // The link of Other Meds won't show up on new CME screen.
+        SecurityManager securityManager = new SecurityManager();
+        Set<String> checkedCodes = new HashSet<>();
+        for (String code : codes) {
+            if (StringUtils.isBlank(code)) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
             }
-        } else if (codes[0].equalsIgnoreCase("RiskFactors")) {
-            a = hasPrivilege("_newCasemgmt.riskFactors", roleName);
-            if (!a) {
-                return SUCCESS; // The link of Risk Factors won't show up on new CME screen.
-            }
-        } else if (codes[0].equalsIgnoreCase("FamHistory")) {
-            a = hasPrivilege("_newCasemgmt.familyHistory", roleName);
-            if (!a) {
-                return SUCCESS; // The link of Family History won't show up on new CME screen.
-            }
-        } else if (codes[0].equalsIgnoreCase("MedHistory")) {
-            a = hasPrivilege("_newCasemgmt.medicalHistory", roleName);
-            if (!a) {
-                return SUCCESS; // The link of Medical History won't show up on new CME screen.
+            if (checkedCodes.add(code) && !canReadIssueCode(code, roleName, securityManager)) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return NONE;
             }
         }
 
@@ -1201,6 +1192,13 @@ public class CaseManagementView2Action extends ActionSupport {
         String[] issueIds = new String[issues.size()];
         int idx = 0;
         for (Issue issue : issues) {
+            // The issue lookup uses the database collation. Authorize the stored code as well
+            // when its spelling differs from the request before using its ID to read any notes.
+            String code = issue.getCode();
+            if (checkedCodes.add(code) && !canReadIssueCode(code, roleName, securityManager)) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return NONE;
+            }
             checked_issues.append("&issue_id=" + String.valueOf(issue.getId()));
             if (idx > 0) {
                 cppIssues.append(";");
@@ -1275,8 +1273,7 @@ public class CaseManagementView2Action extends ActionSupport {
         // only maps the Struts filter for REQUEST+FORWARD (not INCLUDE), so an action target
         // on RequestDispatcher.include() would not route through Struts.
         // The viewNotes.jsp render just outputs the notes this method already filtered —
-        // listNotes() applies the per-issue-code hasReadAccess("_" + codes[0], ...)
-        // check above before populating the request attributes the JSP reads, so the
+        // listNotes() checks each requested and resolved issue code before reading notes, so the
         // include does not widen authorization.
         // RequestNegotiation.isAjax, not an exact header match: CSRFGuard's client script
         // appends its own marker to X-Requested-With, so a jQuery $.ajax call arrives as
@@ -1288,6 +1285,12 @@ public class CaseManagementView2Action extends ActionSupport {
         }
 
         return "listNotes";
+    }
+
+    private boolean canReadIssueCode(String code, String roleName, SecurityManager securityManager) {
+        String sectionPrivilege = CPP_SECTION_PRIVILEGES.get(code.toLowerCase(Locale.ROOT));
+        return securityManager.hasReadAccess("_" + code, roleName)
+                && (sectionPrivilege == null || hasPrivilege(sectionPrivilege, roleName));
     }
 
     public String search() throws Exception {
@@ -1845,7 +1848,8 @@ public class CaseManagementView2Action extends ActionSupport {
         return imageFile;
     }
 
-    @StrutsParameter
+    // Not a @StrutsParameter: Struts 7 never binds an uploaded file from request parameters, so the
+    // annotation bound nothing, and a request value must never name a server-side file (#2212).
     public void setImageFile(File imageFile) {
         this.imageFile = imageFile;
     }

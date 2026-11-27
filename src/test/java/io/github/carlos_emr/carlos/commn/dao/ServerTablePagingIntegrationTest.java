@@ -35,8 +35,11 @@ class ServerTablePagingIntegrationTest extends CarlosTestBase {
         Set<Integer> expected = new HashSet<>();
         for (int i = 0; i < 37; i++) {
             var specialist = new ProfessionalSpecialist();
-            specialist.setFirstName("Same"); specialist.setLastName(prefix); specialist.setDeleted(false);
-            specialists.persist(specialist); expected.add(specialist.getId());
+            specialist.setFirstName("Same");
+            specialist.setLastName(prefix);
+            specialist.setDeleted(false);
+            specialists.persist(specialist);
+            expected.add(specialist.getId());
         }
         Set<Integer> actual = new HashSet<>();
         for (int i = 0; i < 3; i++) {
@@ -52,18 +55,52 @@ class ServerTablePagingIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    void shouldApplyDirectoryFiltersAndVisibility_whenSelectingReferralLabels() {
+        String marker = "Lab" + Long.toString(System.nanoTime(), 36);
+        var specialist = new ProfessionalSpecialist();
+        specialist.setLastName(marker);
+        specialist.setFirstName("Label");
+        specialist.setReferralNo("5317");
+        specialist.setSpecialtyType("Cardiology");
+        specialist.setStreetAddress("123 Clinic Street");
+        specialist.setDeleted(false);
+        specialists.persist(specialist);
+        entityManager.flush();
+
+        assertThat(specialists.findDirectoryPage("5317", marker, "Lab", "Cardio", "Clinic", false, 0).rows())
+                .extracting(ProfessionalSpecialist::getId).containsExactly(specialist.getId());
+        assertThat(specialists.findDirectoryPage("5318", marker, "Lab", "Cardio", "Clinic", false, 0).rows()).isEmpty();
+        assertThat(specialists.findDirectoryPage("5317", marker + "X", "Lab", "Cardio", "Clinic", false, 0).rows()).isEmpty();
+        assertThat(specialists.findDirectoryPage("5317", marker, "Other", "Cardio", "Clinic", false, 0).rows()).isEmpty();
+        assertThat(specialists.findDirectoryPage("5317", marker, "Lab", "Neurology", "Clinic", false, 0).rows()).isEmpty();
+        assertThat(specialists.findDirectoryPage("5317", marker, "Lab", "Cardio", "Other Street", false, 0).rows()).isEmpty();
+        assertThat(specialists.findDirectoryPage(" ", null, null, "", "", false, 0).rows()).isEmpty();
+        specialist.setHideFromView(true);
+        entityManager.flush();
+        assertThat(specialists.findDirectoryPage(null, marker, null, null, null, false, 0).rows()).isEmpty();
+        assertThat(specialists.findDirectoryPage(null, marker, null, null, null, true, 0).rows())
+                .extracting(ProfessionalSpecialist::getId).containsExactly(specialist.getId());
+    }
+
+    @Test
     void shouldKeepFiltersAndAllSortColumns_whenPagingClientSearch() {
         String prefix = "Fake" + Long.toString(System.nanoTime(), 36);
         Set<Integer> expected = new HashSet<>();
         for (int i = 0; i < 23; i++) {
             Demographic patient = new Demographic();
-            patient.setFirstName(prefix); patient.setLastName("Same"); patient.setSex("M");
+            patient.setFirstName(prefix);
+            patient.setLastName("Same");
+            patient.setSex("M");
             patient.setPrefName("");
-            patient.setYearOfBirth("1990"); patient.setMonthOfBirth("01"); patient.setDateOfBirth("01");
-            entityManager.persist(patient); expected.add(patient.getDemographicNo());
+            patient.setYearOfBirth("1990");
+            patient.setMonthOfBirth("01");
+            patient.setDateOfBirth("01");
+            entityManager.persist(patient);
+            expected.add(patient.getDemographicNo());
         }
         ClientSearchFormBean criteria = new ClientSearchFormBean();
-        criteria.setFirstName(prefix); criteria.setSearchOutsideDomain(true);
+        criteria.setFirstName(prefix);
+        criteria.setSearchOutsideDomain(true);
         Set<Integer> actual = new HashSet<>();
         for (int i = 0; i < 3; i++) {
             var page = demographics.searchClientPage(criteria, i, 1, false);
@@ -82,15 +119,25 @@ class ServerTablePagingIntegrationTest extends CarlosTestBase {
         Set<Integer> expected = new HashSet<>();
         for (int i = 0; i < 23; i++) {
             Demographic patient = new Demographic();
-            patient.setFirstName("Robert"); patient.setLastName("Synthetic"); patient.setSex("M");
-            patient.setPrefName(""); patient.setChartNo(chart);
-            patient.setYearOfBirth("1990"); patient.setMonthOfBirth("01"); patient.setDateOfBirth("01");
-            entityManager.persist(patient); expected.add(patient.getDemographicNo());
+            patient.setFirstName("Robert");
+            patient.setLastName("Synthetic");
+            patient.setSex("M");
+            patient.setPrefName("");
+            patient.setChartNo(chart);
+            patient.setYearOfBirth("1990");
+            patient.setMonthOfBirth("01");
+            patient.setDateOfBirth("01");
+            entityManager.persist(patient);
+            expected.add(patient.getDemographicNo());
         }
         entityManager.flush();
         ClientSearchFormBean criteria = new ClientSearchFormBean();
-        criteria.setFirstName("Rupert"); criteria.setChartNo(chart); criteria.setSearchUsingSoundex(true);
-        criteria.setSearchOutsideDomain(true); criteria.setActive("0"); criteria.setGender("M");
+        criteria.setFirstName("Rupert");
+        criteria.setChartNo(chart);
+        criteria.setSearchUsingSoundex(true);
+        criteria.setSearchOutsideDomain(true);
+        criteria.setActive("0");
+        criteria.setGender("M");
         Set<Integer> actual = new HashSet<>();
         for (int i = 0; i < 3; i++) {
             var page = demographics.searchClientPage(criteria, i, 2, false);
@@ -101,18 +148,57 @@ class ServerTablePagingIntegrationTest extends CarlosTestBase {
         assertThat(actual).isEqualTo(expected);
         criteria.setGender("F");
         assertThat(demographics.searchClientPage(criteria, 0, 1, false).total()).isZero();
-        criteria.setGender("M"); criteria.setSearchOutsideDomain(false);
+        criteria.setGender("M");
+        criteria.setSearchOutsideDomain(false);
         assertThat(demographics.searchClientPage(criteria, 0, 1, false).total()).isZero();
     }
 
     @Test
     void shouldKeepSearchValuesBound_whenCriteriaContainSqlSyntax() {
-        String literal = "no_match_' OR 1=1 --";
+        // Own fixtures, found first by ordinary searches, so the zero results below are the bound
+        // literal at work rather than whatever the database happens to hold.
+        String prefix = "Sql" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        ProfessionalSpecialist specialist = new ProfessionalSpecialist();
+        specialist.setFirstName("Same");
+        specialist.setLastName(prefix);
+        specialist.setDeleted(false);
+        specialists.persist(specialist);
+        Demographic patient = new Demographic();
+        patient.setFirstName("Robert");
+        patient.setLastName(prefix);
+        patient.setSex("M");
+        patient.setPrefName("");
+        patient.setChartNo(prefix);
+        patient.setYearOfBirth("1990");
+        patient.setMonthOfBirth("01");
+        patient.setDateOfBirth("01");
+        entityManager.persist(patient);
+        entityManager.flush();
+
+        assertThat(specialists.findDirectoryPage(null, prefix, "", null, null, true, 0).rows())
+                .extracting(ProfessionalSpecialist::getId).containsExactly(specialist.getId());
+        ClientSearchFormBean control = new ClientSearchFormBean();
+        control.setChartNo(prefix);
+        control.setSearchOutsideDomain(true);
+        control.setActive("");
+        assertThat(demographics.searchClientPage(control, 0, 2, false).rows())
+                .extracting(Demographic::getDemographicNo).containsExactly(patient.getDemographicNo());
+        control.setFirstName("Rupert");
+        control.setSearchUsingSoundex(true);
+        assertThat(demographics.searchClientPage(control, 0, 2, false).rows())
+                .extracting(Demographic::getDemographicNo).containsExactly(patient.getDemographicNo());
+
+        // Each literal would match the fixture (or everything) if it were spliced into the SQL.
+        String literal = prefix + "' OR 1=1 --";
         assertThat(specialists.findDirectoryPage(null, literal, "", null, null, true, 0).total()).isZero();
         ClientSearchFormBean criteria = new ClientSearchFormBean();
-        criteria.setFirstName(literal); criteria.setSearchOutsideDomain(true);
+        criteria.setFirstName(literal);
+        criteria.setSearchOutsideDomain(true);
+        criteria.setActive("");
         assertThat(demographics.searchClientPage(criteria, 0, 2, false).total()).isZero();
-        criteria.setFirstName("Robert"); criteria.setChartNo(literal); criteria.setSearchUsingSoundex(true);
+        criteria.setFirstName("Rupert");
+        criteria.setChartNo(literal);
+        criteria.setSearchUsingSoundex(true);
         assertThat(demographics.searchClientPage(criteria, 0, 2, false).total()).isZero();
     }
 
@@ -124,7 +210,9 @@ class ServerTablePagingIntegrationTest extends CarlosTestBase {
     void shouldOrderEveryColumnAndDirection_withIdTiesAcrossPages(boolean soundex) {
         String prefix = "S" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 8);
         Program service = new Program();
-        service.setName(prefix); service.setType("Service"); service.setFacilityId(1);
+        service.setName(prefix);
+        service.setType("Service");
+        service.setFacilityId(1);
         entityManager.persist(service);
         Map<String, String> descriptions = new java.util.HashMap<>();
         for (String code : List.of("M", "F")) {
@@ -137,17 +225,21 @@ class ServerTablePagingIntegrationTest extends CarlosTestBase {
             Demographic patient = new Demographic();
             patient.setFirstName((soundex ? "" : prefix) + (i % 2 == 0 ? "Robert" : "Rupert"));
             patient.setLastName(List.of("Zulu", "Alpha", "Mike").get(i % 3));
-            patient.setSex(i % 2 == 0 ? "M" : "F"); patient.setPrefName("");
+            patient.setSex(i % 2 == 0 ? "M" : "F");
+            patient.setPrefName("");
             patient.setYearOfBirth(Integer.toString(1990 + i % 3));
-            patient.setMonthOfBirth("01"); patient.setDateOfBirth("01");
+            patient.setMonthOfBirth("01");
+            patient.setDateOfBirth("01");
             patient.setChartNo(prefix + i % 6);
             entityManager.persist(patient);
             boolean admitted = i % 3 != 0;
             boolean alert = i % 4 != 0;
             if (admitted) {
                 Admission admission = new Admission();
-                admission.setClientId(patient.getDemographicNo()); admission.setProgramId(service.getId());
-                admission.setProviderNo("999998"); admission.setAdmissionStatus("current");
+                admission.setClientId(patient.getDemographicNo());
+                admission.setProgramId(service.getId());
+                admission.setProviderNo("999998");
+                admission.setAdmissionStatus("current");
                 entityManager.persist(admission);
             }
             if (alert) {
@@ -158,10 +250,16 @@ class ServerTablePagingIntegrationTest extends CarlosTestBase {
                     patient.getFirstName().toLowerCase(Locale.ROOT), patient.getYearOfBirth() + "/01/01",
                     descriptions.get(patient.getSex()), patient.getChartNo(), admitted, alert));
         }
-        entityManager.flush(); entityManager.clear();
+        entityManager.flush();
+        entityManager.clear();
         ClientSearchFormBean criteria = new ClientSearchFormBean();
-        criteria.setChartNo(prefix); criteria.setSearchOutsideDomain(true); criteria.setActive("");
-        if (soundex) { criteria.setFirstName("Rupert"); criteria.setSearchUsingSoundex(true); }
+        criteria.setChartNo(prefix);
+        criteria.setSearchOutsideDomain(true);
+        criteria.setActive("");
+        if (soundex) {
+            criteria.setFirstName("Rupert");
+            criteria.setSearchUsingSoundex(true);
+        }
         for (int sort = 0; sort <= 7; sort++) {
             Comparator<SortFixture> primary = switch (sort) {
                 case 2 -> Comparator.comparing(SortFixture::last).thenComparing(SortFixture::first);

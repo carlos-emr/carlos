@@ -3,7 +3,9 @@
 // Stored-markup walk of the eForm lists, groups and managers.
 // User path: Administration > Manage eForms (list, Edit), eForm Groups (group view, Delete group
 // confirmation modal), Patient-independent eForm; Master Record > eForms (current list, Add eForm,
-// Deleted eForms).
+// Deleted eForms); the eForm version list (efmpatientformlistsingle: every current instance of one eForm
+// for the patient, issue #3057). No page links to the version list on 2026.08 (it is the return page of a
+// delete made from it), so the check opens its route by URL, as a bookmark or an older link would.
 // Fixtures: an owned FAKE patient, an eForm template and a patient-independent template with inert markup
 // in the name, subject and file name, a group, and current/deleted/independent instances (INSERTed,
 // bypassing the WAF). Cleanup removes exactly those rows by key and asserts they are gone.
@@ -30,10 +32,11 @@ async function workflow(s) {
   const seed = new Seeder(s.sql, s.cleanup, s.marker);
   const hex = s.marker.slice(-8);
   const chartNo = `XF${hex}`;
-  let groupField; let templateId;
+  let groupField; let templateId; let patientNo; let currentInstanceId;
   await s.step('seed the poisoned patient, eForm templates, group and instances', async () => {
     const demo = seedPatient(seed, P, '999998', chartNo);
     const d = Number(demo);
+    patientNo = d;
     const tpl = (independent) => seed.insert('eform', { form_name: P(independent ? 'independent eform name' : 'eform name'), file_name: P(independent ? 'independent eform file' : 'eform file'),
       subject: P(independent ? 'independent eform subject' : 'eform subject'), form_date: { raw: 'CURDATE()' }, form_time: { raw: 'CURTIME()' }, form_creator: '999998', status: 1,
       form_html: HTML, showLatestFormOnly: 0, patient_independent: independent ? 1 : 0, roleType: '', restrictToProgram: 0, stable: 1 }, { key: 'fid' });
@@ -44,8 +47,9 @@ async function workflow(s) {
     groupField = n + 1;
     seed.insert('eform_groups', { fid: Number(fid), group_name: P('eform group name', 20) }, { key: 'id' });
     for (const status of [1, 0]) {
-      seed.insert('eform_data', { fid: Number(fid), form_name: P(`eform instance name (${status ? 'current' : 'deleted'})`), subject: P(`eform instance subject (${status ? 'current' : 'deleted'})`),
+      const fdid = seed.insert('eform_data', { fid: Number(fid), form_name: P(`eform instance name (${status ? 'current' : 'deleted'})`), subject: P(`eform instance subject (${status ? 'current' : 'deleted'})`),
         demographic_no: d, status, form_date: { raw: 'CURDATE()' }, form_time: { raw: 'CURTIME()' }, form_provider: '999998', form_data: HTML, showLatestFormOnly: 0, patient_independent: 0 }, { key: 'fdid' });
+      if (status) currentInstanceId = Number(fdid);
     }
     for (const status of [1, 0]) {
       seed.insert('eform_data', { fid: Number(independentFid), form_name: P(`independent instance name (${status ? 'current' : 'deleted'})`), subject: P(`independent instance subject (${status ? 'current' : 'deleted'})`),
@@ -124,6 +128,18 @@ async function workflow(s) {
       await inspect(f, surface, master, fields, since, { expect });
     }
     await releaseChartLocks(s.context, s.config.baseUrl, [master]);
+  });
+  await step('the eForm version list shows stored names and subjects as text', async () => {
+    // Issue #3057 (#2231): this list printed the instance name and the subject raw.
+    h.assert(Number.isInteger(currentInstanceId) && currentInstanceId > 0, 'the current eForm instance was not seeded');
+    const page = await s.context.newPage();
+    await page.goto(h.appUrl(s.config.baseUrl, `/eform/efmpatientformlistsingle?fdid=${currentInstanceId}&demographic_no=${patientNo}`),
+      { waitUntil: 'load', timeout: 30000 });
+    await page.waitForLoadState('networkidle').catch(() => {});
+    const since = f.mark();
+    await inspect(f, 'patient eForm version list', page, fields, since,
+      { expect: E('eform instance name (current)', 'eform instance subject (current)') });
+    await page.close();
   });
   await step('the walk found no output-encoding defect', async () => { f.assertNone('eForm walk'); });
 }

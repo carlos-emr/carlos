@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/utility/BoundedSessionAttributes.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "0594f40fb24a987a295957e16ca06ec853e95c96"
+  },
+  "evidenceSha256": "630232882d27295a85197453af3fe5958ad7cadec3ae5c9740a0efe30e44dd81"
+}

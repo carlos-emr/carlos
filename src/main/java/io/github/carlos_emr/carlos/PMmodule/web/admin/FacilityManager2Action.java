@@ -69,13 +69,13 @@ public class FacilityManager2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
-    private AdmissionDao admissionDao;
-    private DemographicDao demographicDao;
-    private ProgramManager programManager;
-    private LookupManager lookupManager;
+    private AdmissionDao admissionDao = SpringUtils.getBean(AdmissionDao.class);
+    private DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
+    private ProgramManager programManager = SpringUtils.getBean(ProgramManager.class);
+    private LookupManager lookupManager = SpringUtils.getBean(LookupManager.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
-    private FacilityDao facilityDao;
+    private FacilityDao facilityDao = SpringUtils.getBean(FacilityDao.class);
     private EFormDao eFormDao = (EFormDao) SpringUtils.getBean(EFormDao.class);
 
     public void setFacilityDao(FacilityDao facilityDao) {
@@ -100,6 +100,12 @@ public class FacilityManager2Action extends ActionSupport {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", privilege, null)) {
             throw new SecurityException("missing required sec object (_admin)");
+        }
+
+        if (mutatingMethod && !"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
         }
 
         if ("view".equals(method)) {

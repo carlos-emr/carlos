@@ -46,14 +46,23 @@ concatenation, collection/string formatting, and JSP/scriptlet/EL uses.
   Removed the related NotesService request JSON/note-body dumps and RxWebService
   drug-list dump and RxDsMessageTo1 constructor's interaction-map dump. HRM logs
   only the result count.
-- Explicit affected-object `toString()` callers were diagnostics/audit text,
-  including `CheckBoxBean`, prescription auditing and FHIR retrieval auditing.
-  No affected reflective representation was found being parsed, compared, used
-  as a map key, persisted as functional application data, or rendered as clinical
-  content. REST/SOAP and dashboard/form exports use getters, serializers and
-  dedicated formatting methods. `FormTransportContainer` captures HTML through
-  its separate response wrapper's `toString()`, which is unchanged. Numeric/date,
-  SQL-builder, JSON and XML formatting calls are unchanged.
+- Persisted audit text is an operational record, so the demographic-extension,
+  consent-type, appointment and disease-registry write paths use explicit identifiers
+  rather than diagnostic `toString()` output. Extension events retain the saved row id
+  and sanitized field key, never the field value; new extensions are audited after
+  saving. Consent-type creation records the assigned id after persistence succeeds.
+  Appointment creation records appointment, demographic and provider identifiers;
+  disease-registry creation records the entry id and sanitized coding-system name,
+  without the diagnosis code. Historical rows that lost these fields are unchanged.
+- Prescription events already retain their content/demographic columns, and FHIR
+  retrieval events retain explicit lookup identifiers or persisted demographic ids;
+  removing their reflective clinical details remains intentional. This change does
+  not restore those field dumps. No affected representation is parsed, compared,
+  used as a map key or rendered as clinical content. REST/SOAP and dashboard/form
+  exports use getters, serializers and dedicated formatting methods.
+  `FormTransportContainer` captures HTML through its separate response wrapper's
+  `toString()`, which is unchanged. Numeric/date, SQL-builder, JSON and XML formatting
+  calls are unchanged.
 
 This audit concerns object diagnostics. It does not claim that every existing
 explicit clinical-field log or audit event in the application has been remediated;
@@ -81,6 +90,42 @@ through the existing JpaId value type, excluding mutable lookup values.
 This replaces accidental all-field equality, including formatter/blob/content
 state, with model identity. `CtlDocumentPK` explicitly compares all three key
 parts with null safety. No entity-wide reflective equals/hashCode remains.
+
+## AbstractModel equality and hash (issue #5303)
+
+`AbstractModel` is the base of about 390 entity classes, so its contract is deliberately
+small:
+
+- `equals` never throws. An instance equals itself; `null`, another persistent type
+  and a different identifier are never equal; an instance with no identifier yet
+  equals only itself. Equality is symmetric because both sides apply the same rule.
+- `hashCode` is the hash of the persistent type, not of the identifier. A new entity
+  can therefore be added to a `HashSet`/`HashMap` (typically a cascading collection)
+  and still be found after the database assigns its ID. The old identifier hash moved
+  it to another bucket on save. Equal entities always share a type, so the hash stays
+  consistent with `equals`. The cost is that same-type keys share one bucket, which is
+  acceptable for the small child collections this base class serves; an entity that is
+  held in large hashed collections overrides both methods with a business key
+  (`Demographic`, `Provider`, `Program`, `Site` and `Drug` already do).
+- The argument of `equals` may be a Hibernate proxy: its persistent class and ID come
+  from the proxy's metadata, so an uninitialized or detached proxy is never loaded and
+  never raises `LazyInitializationException`. A proxy *receiver* is initialized by
+  Hibernate before `equals`/`hashCode` run, exactly as for any entity that overrides
+  them; this base class does not use the `final` forwarding methods that `BaseObject`
+  uses, because 28 subclasses override equality or hashing themselves.
+- A subclass that overrides one of the two methods must override the other. The audit
+  for #5303 found four that did not: `ProviderData` and `DSGuidelineProviderMapping`
+  (equality without a hash) and `CdsClientForm` and `GroupNoteLink` (hash without equality).
+  All four stay consistent under the type hash because their equality never relates
+  distinct types. `DSGuidelineProviderMapping.equals` also used to cast and dereference
+  its argument and now answers `false` for `null`, foreign types and missing keys.
+
+`AbstractModelEqualityUnitTest` pins the contract on synthetic entities;
+`AbstractModelProxyIntegrationTest` runs it through a real Hibernate session factory with
+managed, detached and attached/detached uninitialized proxies, including zero extra SQL
+when a proxy is the argument. The earlier `release/2026.08` (`9004536d`) observation of
+`equals(null)` and unsaved-receiver failures was a source-level review finding; the fix
+for it shipped in #6326 and is covered by the same unit test.
 
 ## Regression gates
 

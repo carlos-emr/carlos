@@ -233,27 +233,36 @@ class LegacyLabUploadDaoIntegrationTest extends CarlosTestBase {
     private FileUploadCheck.StoreOutcome uploadMatchedHl7(boolean fail) throws Exception {
         String message = matchedHl7();
         byte[] bytes = message.getBytes(StandardCharsets.UTF_8);
-        return FileUploadCheck.storeIfNew(filename + "-hl7", () -> new ByteArrayInputStream(bytes), "999998", checksum -> {
+        FileUploadCheck.StoreOutcome outcome = FileUploadCheck.storeIfNew(filename + "-hl7", () -> new ByteArrayInputStream(bytes), "999998", checksum -> {
             RouteReportResults result = new RouteReportResults();
             assertThat(MessageUploader.routeReport(null, "synthetic", "GDML", message, checksum, result)).isEmpty();
             hl7Segment = result.segmentId;
             em.flush();
             assertThat(em.createNativeQuery("SELECT demographic_no FROM patientLabRouting WHERE lab_type='HL7' AND lab_no=?1")
                     .setParameter(1, hl7Segment).getSingleResult()).isEqualTo(matchedPatient);
-            Measurement measurement = em.createQuery("SELECT m FROM Measurement m WHERE m.demographicId=?1", Measurement.class)
-                    .setParameter(1, matchedPatient).getSingleResult();
-            matchedMeasurement = measurement.getId();
-            assertThat(measurement.getDataField()).isEqualTo("10.25");
-            assertThat(measurement.getDateObserved()).isEqualTo(Timestamp.valueOf("2026-11-05 12:34:56"));
-            var extensions = em.createQuery("SELECT e.keyVal,e.val FROM MeasurementsExt e WHERE e.measurementId=?1", Object[].class)
-                    .setParameter(1, matchedMeasurement).getResultList();
-            assertThat(extensions).contains(new Object[]{"lab_no", Integer.toString(hl7Segment)},
-                    new Object[]{"unit", "mmol/L"}, new Object[]{"datetime", "2026-11-05 12:34:56"},
-                    new Object[]{"abnormal", "A"});
-            matchedExtensionCount = extensions.size();
+            // #6391 defers measurement filing until after the upload transaction commits so concurrent
+            // uploads cannot deadlock on uncommitted report rows.
+            assertThat(em.createQuery("SELECT m FROM Measurement m WHERE m.demographicId=?1", Measurement.class)
+                    .setParameter(1, matchedPatient).getResultList()).isEmpty();
             if (fail) throw new IllegalStateException("synthetic failure after matched patient and measurement writes");
             return true;
         });
+        if (outcome == FileUploadCheck.StoreOutcome.STORED) {
+            new TransactionTemplate(transactions).executeWithoutResult(status -> {
+                Measurement measurement = em.createQuery("SELECT m FROM Measurement m WHERE m.demographicId=?1", Measurement.class)
+                        .setParameter(1, matchedPatient).getSingleResult();
+                matchedMeasurement = measurement.getId();
+                assertThat(measurement.getDataField()).isEqualTo("10.25");
+                assertThat(measurement.getDateObserved()).isEqualTo(Timestamp.valueOf("2026-11-05 12:34:56"));
+                var extensions = em.createQuery("SELECT e.keyVal,e.val FROM MeasurementsExt e WHERE e.measurementId=?1", Object[].class)
+                        .setParameter(1, matchedMeasurement).getResultList();
+                assertThat(extensions).contains(new Object[]{"lab_no", Integer.toString(hl7Segment)},
+                        new Object[]{"unit", "mmol/L"}, new Object[]{"datetime", "2026-11-05 12:34:56"},
+                        new Object[]{"abnormal", "A"});
+                matchedExtensionCount = extensions.size();
+            });
+        }
+        return outcome;
     }
 
     @Test
@@ -278,15 +287,18 @@ class LegacyLabUploadDaoIntegrationTest extends CarlosTestBase {
     private void assertMatchedHl7Rows(int expected) throws Exception {
         assertHl7Rows(expected);
         assertThat(matchedPatient).isPositive();
-        assertThat(matchedMeasurement).isPositive();
-        assertThat(matchedExtensionCount).isPositive();
         assertThat(independentCount("SELECT COUNT(*) FROM patientLabRouting WHERE lab_type='HL7' AND demographic_no=?",
                 Integer.toString(matchedPatient))).isEqualTo(expected);
         assertThat(independentCount("SELECT COUNT(*) FROM measurements WHERE demographicNo=?",
                 Integer.toString(matchedPatient))).isEqualTo(expected);
-        assertThat(independentCount("SELECT COUNT(*) FROM measurementsExt WHERE measurement_id=?",
-                Integer.toString(matchedMeasurement))).isEqualTo(expected == 0 ? 0 : matchedExtensionCount);
-        if (expected > 0) {
+        if (expected == 0) {
+            assertThat(independentCount("SELECT COUNT(*) FROM measurementsExt WHERE keyval='lab_no' AND val=?",
+                    Integer.toString(hl7Segment))).isZero();
+        } else {
+            assertThat(matchedMeasurement).isPositive();
+            assertThat(matchedExtensionCount).isPositive();
+            assertThat(independentCount("SELECT COUNT(*) FROM measurementsExt WHERE measurement_id=?",
+                    Integer.toString(matchedMeasurement))).isEqualTo(matchedExtensionCount);
             try (var connection = dataSource.getConnection();
                  var statement = connection.prepareStatement("SELECT dataField,dateObserved FROM measurements WHERE id=?")) {
                 statement.setInt(1, matchedMeasurement);

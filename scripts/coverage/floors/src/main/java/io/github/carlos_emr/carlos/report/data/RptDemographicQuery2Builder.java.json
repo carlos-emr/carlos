@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/report/data/RptDemographicQuery2Builder.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 97.5,
+    "instructions": 98.14814814814815,
+    "branches": 80.55555555555556,
+    "sourceBlob": "24d3bc8602cbb8acacc2f2fdd9bc341520653823"
+  },
+  "evidenceSha256": "37d93fc289060e2d2e8a19dbcd971185a48d1c4b7dc51d9578db4afd05238960"
+}

@@ -194,7 +194,15 @@ jobs:
           # Check each container (name, output_name, context_path, extra_context)
           check_container "tomcat-dev" "tomcat" ".devcontainer/development" ""
           check_container "mariadb-dev" "mariadb" ".devcontainer/db" "database .devcontainer/development/config/shared/my.cnf"
-          check_container "drugref-dev" "drugref" ".devcontainer/drugref" ""
+          # DrugRef's hash also covers its deployment check and what that check reads: the Compose
+          # service it reproduces (and the env file Compose renders into the database settings),
+          # the database image and the drugref2 schema. A change to any of them rebuilds the image
+          # and runs the check again.
+          drugref_inputs=".devcontainer/development/config/shared/volumes/drugref2.properties"
+          drugref_inputs+=" scripts/ci/check-drugref-deployment.sh .devcontainer/docker-compose.yml"
+          drugref_inputs+=" .devcontainer/development/config/shared/local.env .devcontainer/db/Dockerfile"
+          drugref_inputs+=" database/mysql/development-drugref.sql database/mysql/drugref"
+          check_container "drugref-dev" "drugref" ".devcontainer/drugref" "$drugref_inputs"
 
   # ===========================================================================
   # Build and push tomcat-dev container
@@ -492,45 +500,21 @@ jobs:
 
       - name: Test drugref container
         run: |
-          echo "Testing container starts correctly..."
-          docker run -d --name test-drugref -p 8081:8080 carlos-drugref-dev:test
-
-          echo "Waiting for Tomcat to start..."
-          ready=false
-          for i in {1..30}; do
-            # Check if Tomcat is responding (any response including 404 means Tomcat is up)
-            # DrugRef deploys to /drugref2/, so root may 404 but that's fine
-            http_code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8081/ 2>/dev/null || echo "000")
-            if [ "$http_code" != "000" ]; then
-              echo "Tomcat is responding! (HTTP $http_code)"
-              ready=true
-              break
-            fi
-            # Check if container is still running
-            if ! docker ps | grep -q test-drugref; then
-              echo "Container stopped unexpectedly. Logs:"
-              docker logs test-drugref
-              exit 1
-            fi
-            echo "Waiting... ($i/30)"
-            sleep 2
-          done
-
-          if [ "$ready" != "true" ]; then
-            echo "ERROR: Tomcat failed to respond within timeout"
-            docker logs test-drugref
-            docker stop test-drugref && docker rm test-drugref
-            exit 1
-          fi
+          echo "Checking the mounted devcontainer settings against the image's actual JDBC driver..."
+          docker run --rm --network none --entrypoint bash \
+            -v "$PWD/.devcontainer/drugref:/driver-check:ro" \
+            -v "$PWD/.devcontainer/development/config/shared/volumes/drugref2.properties:/drugref2.properties:ro" \
+            carlos-drugref-dev:test /driver-check/check-driver-config.sh
 
           echo "Verifying Java version..."
-          docker exec test-drugref java --version
+          docker run --rm --network none --entrypoint java carlos-drugref-dev:test --version
 
-          echo "Verifying WAR deployment..."
-          docker exec test-drugref ls -la /usr/local/tomcat/webapps/
-
-          echo "All tests passed!"
-          docker stop test-drugref && docker rm test-drugref
+      # An answer from Tomcat proves nothing: Tomcat answers whether or not drugref2 deployed
+      # (#6343). The check runs the image as .devcontainer/docker-compose.yml deploys it,
+      # against the drugref2 schema, and requires the DrugRef servlet to answer. It first
+      # proves it rejects the bare image and the deployment without its database.
+      - name: Verify DrugRef deploys as CARLOS runs it
+        run: bash scripts/ci/check-drugref-deployment.sh carlos-drugref-dev:test
 
       - name: Save tested drugref image
         run: |

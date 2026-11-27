@@ -116,6 +116,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationHealthCareTeamViewModel" %>
 
 
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationFormPatientResolver" %>
@@ -344,6 +345,10 @@
             }
 
 
+            pageContext.setAttribute("unavailableHrmSelection", SpringUtils.getBean(
+                io.github.carlos_emr.carlos.documentManager.UnavailableHrmAttachmentService.class)
+                .prepare(loggedInInfo, Integer.parseInt(requestId), request.getSession()));
+
             Collections.sort(attachedLabs);
             List<LabResultData> attachedLabsSortedByVersions = new ArrayList<>();
             for (LabResultData attachedLab1 : attachedLabs) {
@@ -408,8 +413,6 @@
 
             ContactSpecialtyDao contactSpecialtyDao = SpringUtils.getBean(ContactSpecialtyDao.class);
             List<DemographicContact> demographicContacts = demographicManager.getHealthCareTeam(loggedInInfo, Integer.parseInt(demo));
-            HashSet<ConsultationServices> consultationServices = new HashSet<ConsultationServices>();
-            List<DemographicContact> healthCareTeam = new ArrayList<DemographicContact>();
             DemographicContactDao demographicContactDao = SpringUtils.getBean(DemographicContactDao.class);
 
             // incoming professionalSpecialists can be added to the patient health care team.
@@ -465,10 +468,16 @@
                 consultUtil.setSpecialist(demographicContact.getId() + "");
             }
 
-            setHealthCareTeam(demographicContacts, healthCareTeam, consultationServices, consultationServiceDao);
+            // Which team members can be chosen, and why others cannot, is decided by
+            // ConsultationHealthCareTeamViewModel so it stays aligned with what the save accepts
+            // (ConsultationConsultantSelection). A missing CPSO/MSP/college number no longer hides
+            // a member (issue #6202); the form marks it instead.
+            ConsultationHealthCareTeamViewModel healthCareTeamChoices =
+                    ConsultationHealthCareTeamViewModel.from(demographicContacts, consultationServiceDao::findByDescription);
 
-            pageContext.setAttribute("consultationServices", consultationServices);
-            pageContext.setAttribute("healthCareTeam", healthCareTeam);
+            pageContext.setAttribute("consultationServices", healthCareTeamChoices.getServices());
+            pageContext.setAttribute("healthCareTeam", healthCareTeamChoices.getConsultants());
+            pageContext.setAttribute("healthCareTeamChoices", healthCareTeamChoices);
         }
 
         pageContext.setAttribute("consultUtil", consultUtil);
@@ -497,49 +506,19 @@
         }
     %>
 
-    <%!
-        private static void setHealthCareTeam(List<DemographicContact> demographicContacts,
-                                              List<DemographicContact> healthCareTeam, HashSet<ConsultationServices> consultationServices,
-                                              ConsultationServiceDao consultationServiceDao) {
-
-            for (DemographicContact demographicContact : demographicContacts) {
-                // ensure consent has been given to contact this specialist.
-                // ensure that this specialist has a cpso (specialist, msp, or college id)
-                if (!demographicContact.isDeleted() && demographicContact.isActive()
-                        && demographicContact.isConsentToContact()
-                        && demographicContact.getDetails() instanceof ProfessionalContact
-                        && !demographicContact.getDetails().isDeleted() &&
-                        (((ProfessionalContact) demographicContact.getDetails()).getCpso() != null) &&
-                        (!((ProfessionalContact) demographicContact.getDetails()).getCpso().isEmpty())
-                ) {
-                    healthCareTeam.add(demographicContact);
-
-                    // Get the specialty list for this group of specialist.
-                    // This is a hack. Do not expand on it. There are several specialty look up tables in Oscar
-                    // The health care team uses the ContactSpecialty table and this Consultation feature uses the consultatationServices
-                    ConsultationServices consultService = consultationServiceDao.findByDescription(demographicContact.getRole());
-                    if (consultService != null) {
-                        consultationServices.add(consultService);
-                    }
-                }
-            }
-
-        }
-
-    %>
     <%--
 	// Read the Health Care Team from the pageScope into a Javascript globalScope;
  --%>
+    <script type="text/javascript">
+        var consultationServices = [];
+    </script>
     <c:if test="${ not empty consultationServices }">
-        <script type="text/javascript">
-            var consultationServices = [];
-        </script>
         <c:forEach items="${ consultationServices }" var="consultationService" varStatus="loop">
             <script type="text/javascript">
                 //<!--
                 var service = {};
-                service.id = `${ consultationService.serviceId }`;
-                service.description = `${ consultationService.serviceDesc }`;
+                service.id = "${ carlos:forJavaScript(consultationService.serviceId) }";
+                service.description = "${ carlos:forJavaScript(consultationService.serviceDesc) }";
                 if (service) {
                     consultationServices.push(service);
                 }
@@ -558,19 +537,22 @@
             <script type="text/javascript">
                 //<!--
                 var contact = {};
-                contact.contactId = `${ demographicContact.details.id }`;
-                contact.specNbr = `${ demographicContact.details.cpso }`;
-                contact.phoneNum = `${ demographicContact.details.workPhone }`;
-                contact.specName = `${ demographicContact.details.formattedName }`;
-                contact.service = `${ demographicContact.role }`;
-                contact.specFax = `${ demographicContact.details.fax }`;
-                contact.specAddress = `${ demographicContact.details.address }`;
-                contact.specAddress2 = `${ demographicContact.details.address2 }`;
-                contact.city = `${ demographicContact.details.city }`;
-                contact.province = `${ demographicContact.details.province }`;
-                contact.postal = `${ demographicContact.details.postal }`;
-                contact.note = `${ demographicContact.details.note }`;
-                healthCareTeam[`${ demographicContact.id }`] = contact;
+                <%-- Every value is JavaScript-string encoded: these are free-text contact fields, and
+                     before #6202 they were spliced raw into template literals, so a backtick or
+                     "${" in a note ran as script. A blank number stays "" (never "null"). --%>
+                contact.contactId = "${ carlos:forJavaScript(demographicContact.details.id) }";
+                contact.specNbr = "${ carlos:forJavaScript(demographicContact.details.cpso) }";
+                contact.phoneNum = "${ carlos:forJavaScript(demographicContact.details.workPhone) }";
+                contact.specName = "${ carlos:forJavaScript(demographicContact.details.formattedName) }";
+                contact.service = "${ carlos:forJavaScript(demographicContact.role) }";
+                contact.specFax = "${ carlos:forJavaScript(demographicContact.details.fax) }";
+                contact.specAddress = "${ carlos:forJavaScript(demographicContact.details.address) }";
+                contact.specAddress2 = "${ carlos:forJavaScript(demographicContact.details.address2) }";
+                contact.city = "${ carlos:forJavaScript(demographicContact.details.city) }";
+                contact.province = "${ carlos:forJavaScript(demographicContact.details.province) }";
+                contact.postal = "${ carlos:forJavaScript(demographicContact.details.postal) }";
+                contact.note = "${ carlos:forJavaScript(demographicContact.details.note) }";
+                healthCareTeam["${ carlos:forJavaScript(demographicContact.id) }"] = contact;
                 //-->
             </script>
         </c:forEach>
@@ -602,12 +584,10 @@
 
                 var service = healthCareTeam[specialistIndex].service;
 
-                if (!service) {
-
-                    form.service.value = '57';
-
-                } else {
-                    form.service.value = "";
+                // This variant has no service picker and posts 0 until a role maps
+                // to a service, matching the rendered hctService field's default.
+                form.service.value = "0";
+                if (service) {
                     for (var i = 0; i < consultationServices.length; i++) {
                         var specialistService = consultationServices[i];
                         if (specialistService.description === service) {
@@ -1814,7 +1794,11 @@
 
                 var msg = "Please select a Consultant. Or add a Consultant using edit Health Care Team.";
                 var specialistElement = document.EctConsultationFormRequest2Form.specialist.options;
-                if (!specialistElement || specialistElement.selectedIndex < 0) {
+                // The empty-team placeholder (#6202) is a disabled, pre-selected option with no
+                // value: selectedIndex is 0, yet nothing would be posted. Treat it as no choice.
+                var selectedSpecialist = specialistElement && specialistElement.selectedIndex >= 0
+                    ? specialistElement[specialistElement.selectedIndex] : null;
+                if (!selectedSpecialist || selectedSpecialist.disabled || !/^[1-9][0-9]*$/.test(selectedSpecialist.value)) {
                     document.EctConsultationFormRequest2Form.specialist.focus();
                     alert(msg);
                     return false;
@@ -1850,11 +1834,13 @@
         var consultDateMessage = '${carlos:forJavaScript(consultInvalidDateMessage)}';
 
         function checkForm(submissionVal, formName) {
-            // A typed name is not a directory selection. Validate the posted id on both pickers.
+            // A typed name is not a directory selection. The team picker has its own validation.
             var consultant = document.getElementById('specialist');
-            if (/^(Submit|Update)/.test(submissionVal) && consultant && !/^[1-9][0-9]*$/.test(consultant.value)) {
+            var consultantInput = document.getElementById('specialistInput');
+            if (/^(Submit|Update)/.test(submissionVal) && consultantInput && consultant
+                    && !/^[1-9][0-9]*$/.test(consultant.value)) {
                 alert('Please select an active consultant from the consultant directory before saving.');
-                (document.getElementById('specialistInput') || consultant).focus();
+                consultantInput.focus();
                 return false;
             }
             // A date the browser cannot read (an impossible day such as 30 February) posts as an
@@ -2746,6 +2732,11 @@ if (userAgent != null) {
 
                                     <tr>
                                         <td>
+                                            <c:if test="${not empty unavailableHrmSelection}">
+                                                <button type="button" id="removeUnavailableHrm" data-selection="${carlos:forHtmlAttribute(unavailableHrmSelection)}"
+                                                    onclick="removeUnavailableHrmAttachments(this)"><fmt:message key="consult.removeUnavailable"/></button>
+                                                <output id="removeUnavailableHrmStatus" aria-live="polite"></output>
+                                            </c:if>
                                             <table id="attachedHRMDocumentsTable">
                                                 <tr>
                                                     <td><h3><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.sectionHRM"/></h3></td>
@@ -2992,13 +2983,34 @@ if (userAgent != null) {
 
                                             <% } else if (CarlosProperties.getInstance().getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true")) { %>
 
-                                            <select name="specialist" id="specialist" class="form-select form-select-sm">
+                                            <%-- Issue #6202: a member without a college, MSP or billing number is
+                                                 listed and marked, not dropped; members left out for want of
+                                                 consent to contact are counted, so an empty or short list is
+                                                 never unexplained. ConsultationHealthCareTeamViewModel decides. --%>
+                                            <%-- Each consultant control carries its own label: the row heading above
+                                                 is shared by three variants (an eReferral has no control). --%>
+                                            <label for="specialist" class="visually-hidden"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formCons"/></label>
+                                            <select name="specialist" id="specialist" class="form-select form-select-sm"
+                                                    aria-describedby="hctConsultantHints">
+                                                <c:if test="${ empty healthCareTeam }">
+                                                    <option value="" disabled selected><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.hctEmpty"/></option>
+                                                </c:if>
                                                 <c:forEach items="${ healthCareTeam }" var="contact" varStatus="loop">
-                                                    <option value="${ contact.id }" ${ specialist eq contact.id ? 'selected' : ''} >
-                                                            ${ contact.details.formattedName } ( ${ contact.role } )
+                                                    <c:set var="hctNoNumber" value="${ healthCareTeamChoices.withoutReferralNumber.contains(contact.id) }"/>
+                                                    <option value="${ carlos:forHtmlAttribute(contact.id) }" ${ specialist eq contact.id ? 'selected' : ''}
+                                                            data-referral-number="${ hctNoNumber ? 'missing' : 'present' }">
+                                                            <carlos:encode value="${ contact.details.formattedName }"/> ( <carlos:encode value="${ contact.role }"/> )<c:if test="${ hctNoNumber }"> &#8211; <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.hctNoNumberMarker"/></c:if>
                                                     </option>
                                                 </c:forEach>
                                             </select>
+                                            <div id="hctConsultantHints" class="form-text">
+                                                <c:if test="${ not empty healthCareTeamChoices.withoutReferralNumber }">
+                                                    <div id="hctNoNumberHint"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.hctNoNumberHint"/></div>
+                                                </c:if>
+                                                <c:if test="${ healthCareTeamChoices.withoutConsentCount gt 0 }">
+                                                    <div id="hctNoConsentHint"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.hctNoConsentHint"><fmt:param value="${ healthCareTeamChoices.withoutConsentCount }"/></fmt:message></div>
+                                                </c:if>
+                                            </div>
 
                                             <% } else { %>
 
@@ -3006,6 +3018,7 @@ if (userAgent != null) {
                                                   class="consult-disclaimer-indicator"
                                                   title="When consult was saved this was the saved consultant but is no longer on this specialist list.">*</span>
                                             <input type="hidden" id="specialist" name="specialist" value=""/>
+                                            <label for="specialistInput" class="visually-hidden"><fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.formCons"/></label>
                                             <input type="text" id="specialistInput" class="form-control form-control-sm"
                                                    autocomplete="off"
                                                    placeholder="<fmt:message key='consultationList.header.consultant'/>"/>
@@ -3643,7 +3656,15 @@ if (userAgent != null) {
                                 const specialist = "${carlos:forJavaScript(empty consultationSubmittedValues ? consultUtil.specialist : EctConsultationFormRequest2Form.specialist)}";
                                 const servicevalue = "${carlos:forJavaScript(EctConsultationFormRequest2Form.service)}";
 
-                                document.EctConsultationFormRequest2Form.specialist.value = specialist;
+                                // Keep the empty-team placeholder (#6202) when the saved consultant is
+                                // no longer offered; otherwise a stale id still clears the selection,
+                                // so the user must choose again rather than silently get another member.
+                                var hctSelect = document.EctConsultationFormRequest2Form.specialist;
+                                var hctOnlyPlaceholder = hctSelect && hctSelect.options && hctSelect.options.length === 1
+                                    && hctSelect.options[0].disabled && hctSelect.options[0].value === "";
+                                if (hctSelect && !hctOnlyPlaceholder) {
+                                    hctSelect.value = specialist;
+                                }
                                 document.EctConsultationFormRequest2Form.service.value = servicevalue;
 
                                 if (typeof healthCareTeam !== 'undefined' && healthCareTeam !== null && healthCareTeam[specialist]) {
@@ -3706,7 +3727,30 @@ if (userAgent != null) {
     </script>
     <% } %>
     </form>
-    </body>
+    <fmt:message key="consult.removeUnavailableConfirm" var="removeHrmConfirm"/>
+<fmt:message key="consult.removeUnavailableDone" var="removeHrmDone"/>
+<fmt:message key="consult.removeUnavailableFailed" var="removeHrmFailed"/>
+<script>
+function removeUnavailableHrmAttachments(button) {
+    var csrf = document.querySelector('input[name="CSRF-TOKEN"]');
+    if (!csrf || !csrf.value) { window.alert('<carlos:encode value="${removeHrmFailed}" context="javaScript"/>'); return; }
+    if (!window.confirm('<carlos:encode value="${removeHrmConfirm}" context="javaScript"/>')) { return; }
+    button.disabled = true;
+    var data = new URLSearchParams({selection: button.dataset.selection, 'CSRF-TOKEN': csrf.value});
+    fetch('${carlos:forJavaScript(pageContext.request.contextPath)}/documentManager/removeUnavailableHrm', {
+        method:'POST', body:data, credentials:'same-origin', headers:{'CSRF-TOKEN':csrf.value}
+    })
+        .then(function(response) { if (!response.ok) throw new Error('unconfirmed'); return response.json(); })
+        .then(function(result) {
+            if (!result.success) throw new Error('unconfirmed');
+            button.hidden = true;
+            document.getElementById('removeUnavailableHrmStatus').textContent = '<carlos:encode value="${removeHrmDone}" context="javaScript"/>';
+        }).catch(function() {
+            document.getElementById('removeUnavailableHrmStatus').textContent = '<carlos:encode value="${removeHrmFailed}" context="javaScript"/>';
+        });
+}
+</script>
+</body>
 
     <fmt:message var="saveAndCloseText" key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnSaveAndClose"/>
     <script type="text/javascript">

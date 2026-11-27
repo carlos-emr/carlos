@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/webserv/rest/PharmacyService.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "f518c9fecb789b86ffedd881d3aef1aa716b2234"
+  },
+  "evidenceSha256": "f48ea570b781c238ed2520ea87e760ab4860abf8e8b06991839bbd3616ada2b6"
+}

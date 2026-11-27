@@ -81,7 +81,7 @@ patients or the availability of clinical systems.
 
 CARLOS enforces several security controls across the codebase:
 
-- **Output encoding**: OWASP Encoder for all user-provided data — `encoder-jsp` EL functions (`${e:forHtml()}`) in JSPs, `Encode.*` static methods in Java
+- **Output encoding**: OWASP Encoder for all user-provided data, through the null-safe CARLOS wrappers — `<carlos:encode>` / `${carlos:forXxx()}` in JSPs, `SafeEncode.*` in Java
 - **Parameterized queries**: No SQL string concatenation
 - **Authorization checks**: `SecurityInfoManager.hasPrivilege()` on all actions
 - **Path validation**: `PathValidationUtils` for all file operations

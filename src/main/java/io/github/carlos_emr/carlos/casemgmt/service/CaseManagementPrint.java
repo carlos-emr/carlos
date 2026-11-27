@@ -115,6 +115,62 @@ public class CaseManagementPrint {
 
     private AllergyDao allergyDao = SpringUtils.getBean(AllergyDao.class);
 
+    /** Locked notes are left out of the notes body ({@link #leaveOutLockedNotes()}). */
+    private boolean leaveOutLockedNotes;
+
+    /**
+     * Archived notes, and CPP entries the CPP sections leave out, are left out of the notes body
+     * ({@link #leaveOutArchivedAndHiddenNotes()}).
+     */
+    private boolean leaveOutArchivedAndHiddenNotes;
+
+    /**
+     * The most bytes the finished PDF may have ({@link #limitCompletePdfBytes}); no limit unless a caller
+     * sets one, so the chart's own Print is unchanged.
+     */
+    private long completePdfMaxBytes = Long.MAX_VALUE;
+
+    /**
+     * Refuses a finished print longer than {@code maxBytes} with {@link CompletePdfTooLargeException}
+     * before any of it reaches the output stream (Messenger's chart notes, #6161 review). The print is
+     * still rendered and merged on disk first, as it always is.
+     *
+     * @param maxBytes the most bytes the caller can use
+     */
+    public void limitCompletePdfBytes(long maxBytes) {
+        this.completePdfMaxBytes = maxBytes;
+    }
+
+    /** The finished print is longer than {@link #limitCompletePdfBytes} allows; nothing was written. */
+    public static final class CompletePdfTooLargeException extends IOException {
+        private static final long serialVersionUID = 1L;
+
+        public CompletePdfTooLargeException(long maxBytes) {
+            // Sizes only: never the patient or any of the print.
+            super("The finished chart print is larger than " + maxBytes + " bytes");
+        }
+    }
+
+    /**
+     * Leaves locked notes out of the notes body. The Messenger attachment of a patient's chart notes uses
+     * this (#5856).
+     */
+    public void leaveOutLockedNotes() {
+        this.leaveOutLockedNotes = true;
+    }
+
+    /**
+     * Leaves out of the notes body what the chart does not show as a current note: archived notes, and
+     * every CPP entry the CPP sections leave out (archived, locked, or hidden with "Hide Cpp"). Without
+     * it such an entry is not in its CPP section, so it falls through into the notes body, as the
+     * chart's own Print All has always printed it. The Messenger attachment of a patient's chart notes,
+     * sent to a third party as "current" notes, uses this (#5856); it asks for the CPP, which is
+     * where those entries are recognised, and a print with this switch but without the CPP is refused.
+     */
+    public void leaveOutArchivedAndHiddenNotes() {
+        this.leaveOutArchivedAndHiddenNotes = true;
+    }
+
     /**
      * Generates a comprehensive PDF printout of patient medical records.
      *
@@ -166,6 +222,10 @@ public class CaseManagementPrint {
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path validated for directory containment via PathValidationUtils before use")
     public void doPrint(LoggedInInfo loggedInInfo, Integer demographicNo, boolean printAllNotes, String[] noteIds, boolean printCPP, boolean printRx, boolean printLabs, boolean printPreventions, boolean printAllergies, boolean useDateRange, Calendar startDate, Calendar endDate, HttpServletRequest request, OutputStream os) throws IOException, DocumentException {
+        if (leaveOutArchivedAndHiddenNotes && !printCPP) {
+            // Hidden CPP entries are recognised in the CPP step; without it they would reach the notes body.
+            throw new IllegalStateException("Leaving out hidden CPP entries needs the CPP printed");
+        }
 
         // Extensions read servlet parameters rather than this method's patient argument. Bind every
         // parameter view to the authorized patient so a query string cannot select a second chart.
@@ -224,6 +284,12 @@ public class CaseManagementPrint {
             throw new NoteAccessDeniedException();
         }
         notes = readableNotes;
+        if (leaveOutLockedNotes) {
+            notes = notes.stream().filter(note -> !note.isLocked()).collect(Collectors.toList());
+        }
+        if (leaveOutArchivedAndHiddenNotes) {
+            notes = notes.stream().filter(note -> !note.isArchived()).collect(Collectors.toList());
+        }
 
         // we're not guaranteed any ordering of notes given to us, so sort by observation date
         CarlosProperties p = CarlosProperties.getInstance();
@@ -245,11 +311,24 @@ public class CaseManagementPrint {
         HashMap<String, List<CaseManagementNote>> cpp = null;
         if (printCPP) {
             cpp = new HashMap<>();
+            // Every CPP entry of the patient, printed in its section or left out of it, including those the
+            // program filter keeps from this reader. They are used only to take rows out of the notes body.
+            Set<Long> allCppIds = new HashSet<>();
+            List<CaseManagementNote> allCppEntries = new ArrayList<>();
             String[] issueCodes = {"OMeds", "SocHistory", "MedHistory", "Concerns", "Reminders", "FamHistory", "RiskFactors"};
             for (String issueCode : issueCodes) {
                 List<Issue> issues = caseManagementMgr.getIssueInfoByCode(providerNo, issueCode);
                 String[] issueIds = getIssueIds(issues);
-                tmpNotes = readableNotes(loggedInInfo, caseManagementMgr.getNotes(demono, issueIds), program);
+                List<CaseManagementNote> patientCppEntries = caseManagementMgr.getNotes(demono, issueIds);
+                // Recognise the entries before the program filter. filterNotes reads each revision row by the
+                // role that saved it, and an edit records the editing provider's role, so the body can hold a
+                // readable older revision of an entry whose latest row this reader may not read (#6324 review).
+                for (CaseManagementNote entry : patientCppEntries) {
+                    allCppIds.add(entry.getId());
+                    allCppEntries.add(entry);
+                }
+                // The CPP sections print only what the program filter lets this reader read.
+                tmpNotes = readableNotes(loggedInInfo, patientCppEntries, program);
                 issueNotes = new ArrayList<>();
                 for (CaseManagementNote tmpNote : tmpNotes) {
                     if (!tmpNote.isLocked() && !tmpNote.isArchived()) {
@@ -272,7 +351,24 @@ public class CaseManagementPrint {
             // CPP notes already rendered in their sections must not repeat in the notes body.
             Set<Long> printedCppIds = cpp.values().stream().flatMap(Collection::stream)
                     .map(CaseManagementNote::getId).collect(Collectors.toSet());
-            notes.removeIf(note -> printedCppIds.contains(note.getId()));
+            // A CPP entry left out of its section (archived, locked, "Hide Cpp") stays in the body of the
+            // chart's own print; the Messenger attachment leaves it out too.
+            Set<Long> notInBody = leaveOutArchivedAndHiddenNotes ? allCppIds : printedCppIds;
+            // The ids are revision rows: the body was collected first, and the CPP query keeps only the
+            // latest row of each note UUID. A CPP entry edited while this print runs can reach the body
+            // as an older revision whose id the CPP query never returns, so a hidden entry's text would
+            // survive (#6324 review). Classify the body's rows by note UUID as well as by row id.
+            // A row with no UUID (legacy data from before notes carried one) can only be classified by its row id,
+            // so such an older revision of a hidden entry is not recognised here; every current note has one.
+            Set<String> uuidsNotInBody = new HashSet<>();
+            for (List<CaseManagementNote> section : cpp.values()) {
+                section.forEach(entry -> addUuid(uuidsNotInBody, entry));
+            }
+            if (leaveOutArchivedAndHiddenNotes) {
+                allCppEntries.forEach(entry -> addUuid(uuidsNotInBody, entry));
+            }
+            notes.removeIf(note -> notInBody.contains(note.getId())
+                    || (note.getUuid() != null && uuidsNotInBody.contains(note.getUuid())));
         }
         String demoNo = null;
         List<CaseManagementNote> othermeds = null;
@@ -414,7 +510,11 @@ public class CaseManagementPrint {
                 }
 
             }
-            mergeCompletePdf(pdfDocs, os);
+            mergeCompletePdf(pdfDocs, os, completePdfMaxBytes);
+        } catch (CompletePdfTooLargeException tooLarge) {
+            // A size refusal the caller asked for, not a failure: passed on as it is, so the caller can
+            // answer it (Messenger: 413) instead of the generic print failure below.
+            throw tooLarge;
         } catch (IOException | RuntimeException e) {
             // Missing inputs fail before the response stream is written. Propagate assembly failures
             // instead of returning a successful incomplete PDF. The Struts direct-response caller
@@ -640,10 +740,24 @@ public class CaseManagementPrint {
 
     /** Assemble completely before committing either HTTP endpoint's response. */
     static void mergeCompletePdf(List<Object> inputs, OutputStream response) throws IOException {
+        mergeCompletePdf(inputs, response, Long.MAX_VALUE);
+    }
+
+    /**
+     * {@link #mergeCompletePdf(List, OutputStream)} that refuses a finished PDF longer than
+     * {@code maxBytes} before copying a byte of it to {@code response}.
+     *
+     * @throws CompletePdfTooLargeException if the finished PDF is longer than {@code maxBytes}
+     */
+    static void mergeCompletePdf(List<Object> inputs, OutputStream response, long maxBytes) throws IOException {
         File complete = PathValidationUtils.createSecureTempFile("chart-print-complete-", ".pdf");
         try {
             try (OutputStream staged = Files.newOutputStream(complete.toPath())) {
                 ConcatPDF.concatRequired(inputs, staged);
+            }
+            // The finished PDF is on disk: refuse one its caller cannot use before any of it is copied.
+            if (Files.size(complete.toPath()) > maxBytes) {
+                throw new CompletePdfTooLargeException(maxBytes);
             }
             Files.copy(complete.toPath(), response);
         } finally {
@@ -668,6 +782,12 @@ public class CaseManagementPrint {
         } catch (IOException | RuntimeException ex) {
             logger.warn("Failed to delete {}; leaving it for the OS temp sweep ({})", description, ex.getClass().getSimpleName());
             return false;
+        }
+    }
+
+    private static void addUuid(Set<String> uuids, CaseManagementNote note) {
+        if (note.getUuid() != null) {
+            uuids.add(note.getUuid());
         }
     }
 }

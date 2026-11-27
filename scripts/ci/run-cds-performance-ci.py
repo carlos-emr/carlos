@@ -14,6 +14,7 @@ whitelisted hashes/counts/resource evidence are copied to the public artifact.
 
 from __future__ import annotations
 import argparse
+from functools import partial
 import hashlib
 import importlib.util
 import json
@@ -22,9 +23,10 @@ from pathlib import Path
 import secrets
 import shutil
 import subprocess
-import time
 import uuid
 import zipfile
+
+from cds_database_readiness import database_client, run_logged, wait_for_database
 
 _MANIFEST_SPEC = importlib.util.spec_from_file_location(
     "cds_war_manifest", Path(__file__).with_name("cds_war_manifest.py")
@@ -147,14 +149,7 @@ def main() -> int:
     try:
         with log_path.open("w") as log:
 
-            def execute(command, *, capture=False, check=True):
-                return subprocess.run(
-                    command,
-                    text=True,
-                    stdout=subprocess.PIPE if capture else log,
-                    stderr=log,
-                    check=check,
-                )
+            execute = partial(run_logged, log=log)
 
             def build(command, **kw):
                 return execute(
@@ -294,17 +289,8 @@ def main() -> int:
                 ]
             )
             created_database = True
-            mysql = docker + [
-                "exec",
-                database,
-                "mariadb",
-                "--defaults-extra-file=/run/cds-test/client.cnf",
-            ]
-            deadline = time.monotonic() + 90
-            while execute(mysql + ["-e", "SELECT 1"], check=False).returncode:
-                if time.monotonic() > deadline:
-                    raise RuntimeError("owned database did not become ready")
-                time.sleep(1)
+            mysql = database_client(docker, database, "/run/cds-test/client.cnf")
+            wait_for_database(mysql, execute)
             execute(
                 mysql
                 + [

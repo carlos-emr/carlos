@@ -32,6 +32,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.Set;
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -49,7 +51,8 @@ import io.github.carlos_emr.carlos.commn.dao.ProviderBillCenterDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderBillCenter;
-import io.github.carlos_emr.carlos.commn.model.ProviderData;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnFileAccessService;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnProviderScope;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
@@ -92,6 +95,7 @@ public class BillingOnMriViewModelAssembler {
     private final SecurityInfoManager securityInfoManager;
     private final BillingReviewLoader reviewLoader;
     private final BillingOnLookupService lookupService;
+    private final BillingOnFileAccessService fileAccess;
 
     public BillingOnMriViewModelAssembler(ProviderDao providerDao,
                               BillActivityDao billActivityDao,
@@ -99,7 +103,7 @@ public class BillingOnMriViewModelAssembler {
                               ProviderBillCenterDao providerBillCenterDao,
                               SecurityInfoManager securityInfoManager,
                               BillingReviewLoader reviewLoader,
-                              BillingOnLookupService lookupService) {
+                              BillingOnLookupService lookupService, BillingOnFileAccessService fileAccess) {
         this.providerDao = providerDao;
         this.billActivityDao = billActivityDao;
         this.providerDataDao = providerDataDao;
@@ -107,6 +111,7 @@ public class BillingOnMriViewModelAssembler {
         this.securityInfoManager = securityInfoManager;
         this.reviewLoader = reviewLoader;
         this.lookupService = lookupService;
+        this.fileAccess = fileAccess;
     }
 
     /**
@@ -124,9 +129,7 @@ public class BillingOnMriViewModelAssembler {
         String userProviderNo = loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null
                 ? "" : loggedInInfo.getLoggedInProviderNo();
 
-        boolean isTeamBillingOnly = hasPrivilege(loggedInInfo, "_team_billing_only");
-        boolean isSiteAccessPrivacy = hasPrivilege(loggedInInfo, "_site_access_privacy");
-        boolean isTeamAccessPrivacy = hasPrivilege(loggedInInfo, "_team_access_privacy");
+        BillingOnProviderScope scope = BillingOnProviderScope.forLogin(securityInfoManager, loggedInInfo);
 
         GregorianCalendar now = new GregorianCalendar();
         int curYear = now.get(Calendar.YEAR);
@@ -156,22 +159,10 @@ public class BillingOnMriViewModelAssembler {
 
         String monthCode = BillingOnConstants.propMonthCode.getProperty(String.valueOf(curMonth));
 
-        // Provider-set used for multisite filtering of the MRI rows.
-        // Mirrors the legacy `providerMap.get(pro_no) == null` skip.
-        // Team before site: OSCAR 19 evaluated the site list first and then let the
-        // team list replace it, so a user holding both saw the team's providers. The
-        // simulation page applies the same precedence.
-        Set<String> visibleProviderSet = new HashSet<>();
-        if (isTeamAccessPrivacy) {
-            for (ProviderData pd : providerDataDao.findByProviderTeam(userProviderNo)) {
-                visibleProviderSet.add(pd.getId());
-            }
-        } else if (isSiteAccessPrivacy) {
-            for (ProviderData pd : providerDataDao.findByProviderSite(userProviderNo)) {
-                visibleProviderSet.add(pd.getId());
-            }
-        }
-        boolean filterByVisibleProviders = isSiteAccessPrivacy || isTeamAccessPrivacy;
+        Optional<Set<String>> visibleProviders = scope.historyProviderNumbers(providerDataDao, userProviderNo);
+        List<BillingOnMriViewModel.ProviderEntry> options = scope.selectableProviders(reviewLoader, userProviderNo).stream()
+                .map(row -> new BillingOnMriViewModel.ProviderEntry(row.providerNo(), row.lastName(), row.firstName()))
+                .toList();
 
         BillingOnMriViewModel.Builder b = BillingOnMriViewModel.builder()
                 .selectedYear(selectedYear)
@@ -187,47 +178,17 @@ public class BillingOnMriViewModelAssembler {
                 .useProviderMOHChecked("true".equals(request.getParameter("useProviderMOH"))
                         || "on".equals(request.getParameter("useProviderMOH")));
 
-        b.providerOptions(loadProviderOptions(userProviderNo, isTeamBillingOnly, isSiteAccessPrivacy, isTeamAccessPrivacy));
+        b.providerOptions(options);
         b.billCenterOptions(loadBillCenterOptions());
-        b.providerBillCenterMap(loadProviderBillCenterMap());
-        b.mriRows(loadMriRows(selectedYear, currentYearColor, visibleProviderSet, filterByVisibleProviders));
-        b.billActivityRows(loadBillActivityRows(selectedYear, currentYearColor));
+        b.providerBillCenterMap(loadProviderBillCenterMap(scope.restricted()
+                ? Optional.of(options.stream().map(BillingOnMriViewModel.ProviderEntry::providerNo).collect(Collectors.toSet()))
+                : Optional.empty()));
+        if (visibleProviders.isEmpty() || !visibleProviders.get().isEmpty()) {
+            b.mriRows(loadMriRows(selectedYear, currentYearColor, visibleProviders));
+            b.billActivityRows(loadBillActivityRows(selectedYear, currentYearColor, visibleProviders));
+        }
 
         return b.build();
-    }
-
-    private boolean hasPrivilege(LoggedInInfo loggedInInfo, String objectName) {
-        return loggedInInfo != null && securityInfoManager.hasPrivilege(loggedInInfo, objectName, "r", null);
-    }
-
-    /**
-     * Load the provider dropdown options. Three modes mirror the legacy
-     * scriptlet: team-billing-only / site-access-privacy each restrict
-     * to the user's team or site; otherwise show all billable providers.
-     * The returned list is in {@code BillingReviewLoader}'s pipe-delimited
-     * "no|last|first" format — split here into structured records.
-     */
-    private List<BillingOnMriViewModel.ProviderEntry> loadProviderOptions(String userProviderNo,
-                                                                           boolean isTeamBillingOnly,
-                                                                           boolean isSiteAccessPrivacy,
-                                                                           boolean isTeamAccessPrivacy) {
-        List<io.github.carlos_emr.carlos.billings.ca.on.dto.ProviderDropdownEntry> providerStrs;
-        if (isTeamBillingOnly || isTeamAccessPrivacy) {
-            providerStrs = reviewLoader.getTeamProviderBillingStr(userProviderNo);
-        } else if (isSiteAccessPrivacy) {
-            providerStrs = reviewLoader.getSiteProviderBillingStr(userProviderNo);
-        } else {
-            providerStrs = reviewLoader.getProviderBillingStr();
-        }
-        List<BillingOnMriViewModel.ProviderEntry> options = new ArrayList<>();
-        if (providerStrs == null) {
-            return options;
-        }
-        for (io.github.carlos_emr.carlos.billings.ca.on.dto.ProviderDropdownEntry row : providerStrs) {
-            options.add(new BillingOnMriViewModel.ProviderEntry(
-                    row.providerNo(), row.lastName(), row.firstName()));
-        }
-        return options;
     }
 
     private List<BillingOnMriViewModel.BillCenterEntry> loadBillCenterOptions() {
@@ -242,10 +203,11 @@ public class BillingOnMriViewModelAssembler {
         return out;
     }
 
-    private Map<String, String> loadProviderBillCenterMap() {
+    private Map<String, String> loadProviderBillCenterMap(Optional<Set<String>> selectable) {
         Map<String, String> map = new HashMap<>();
         for (Provider p : providerDao.getBillableProviders()) {
             String providerNo = p.getProviderNo();
+            if (selectable.isPresent() && !selectable.get().contains(providerNo)) continue;
             ProviderBillCenter pbc = providerBillCenterDao.find(providerNo);
             if (pbc != null) {
                 String billCenterCode = pbc.getBillCenterCode();
@@ -266,12 +228,10 @@ public class BillingOnMriViewModelAssembler {
      * flatten into one row per (disk, provider) pair, applying the
      * site/team multisite filter.
      */
-    @SuppressWarnings("rawtypes")
     private List<BillingOnMriViewModel.MriRow> loadMriRows(String selectedYear,
                                                             String currentYearColor,
-                                                            Set<String> visibleProviderSet,
-                                                            boolean filterByVisibleProviders) {
-        List mriList = reviewLoader.getMRIList(selectedYear + "-01-01 00:00:01",
+                                                            Optional<Set<String>> visibleProviders) {
+        List<BillingDiskNameDto> mriList = reviewLoader.getMRIList(selectedYear + "-01-01 00:00:01",
                 selectedYear + "-12-31 23:59:59", "U");
         Properties proName = lookupService.getPropProviderName();
 
@@ -279,22 +239,36 @@ public class BillingOnMriViewModelAssembler {
         if (mriList == null) {
             return rows;
         }
+        Optional<Map<String, Boolean>> permittedFiles = visibleProviders.map(providers -> {
+            Set<String> filenames = new HashSet<>();
+            for (BillingDiskNameDto disk : mriList) {
+                if (disk.getFilenames() == null) continue;
+                for (DiskFilenameRow row : disk.getFilenames()) {
+                    if (providers.contains(row.providerNo())) {
+                        filenames.add(disk.getOhipfilename());
+                        filenames.add(row.htmlFilename());
+                    }
+                }
+            }
+            return filenames.isEmpty() ? Map.of() : fileAccess.filePermissions(filenames, providers);
+        });
         int count = 0;
-        for (Object obj : mriList) {
-            BillingDiskNameDto data = (BillingDiskNameDto) obj;
+        for (BillingDiskNameDto data : mriList) {
             String oFile = data.getOhipfilename();
             String updateDate = data.getUpdatedatetime();
             String createDate = data.getCreatedatetime();
             List<DiskFilenameRow> filenameRows = data.getFilenames();
 
             int providerCount = filenameRows == null ? 0 : filenameRows.size();
+            boolean mayRegenerate = permittedFiles.isEmpty() || (!permittedFilename(oFile, permittedFiles).isEmpty()
+                    && providerCount > 0 && filenameRows.stream().allMatch(row -> !permittedFilename(row.htmlFilename(), permittedFiles).isEmpty()));
             for (int j = 0; j < providerCount; j++) {
                 DiskFilenameRow row = filenameRows.get(j);
-                count++;
                 String proNo = row.providerNo();
-                if (filterByVisibleProviders && !visibleProviderSet.contains(proNo)) {
+                if (visibleProviders.isPresent() && !visibleProviders.get().contains(proNo)) {
                     continue;
                 }
+                count++;
                 String cr = row.claimRecord();
                 String hFile = row.htmlFilename();
                 String total = row.total();
@@ -319,9 +293,9 @@ public class BillingOnMriViewModelAssembler {
                         trimmedDate,
                         nullToEmpty(cr),
                         nullToEmpty(total),
-                        nullToEmpty(oFile),
-                        nullToEmpty(hFile),
-                        bgColor));
+                        permittedFilename(oFile, permittedFiles),
+                        permittedFilename(hFile, permittedFiles),
+                        bgColor, mayRegenerate));
             }
         }
         return rows;
@@ -334,7 +308,7 @@ public class BillingOnMriViewModelAssembler {
      * null update timestamps sort last instead of failing the whole page.
      */
     private List<BillingOnMriViewModel.BillActivityRow> loadBillActivityRows(String selectedYear,
-                                                                              String currentYearColor) {
+                                                                              String currentYearColor, Optional<Set<String>> visibleProviders) {
         Properties ohipNameMap = new Properties();
         for (Provider p : providerDao.getActiveProviders()) {
             if (p.getOhipNo() != null && !p.getOhipNo().isEmpty()) {
@@ -345,13 +319,31 @@ public class BillingOnMriViewModelAssembler {
         java.util.Date startDate = ConversionUtils.fromTimestampString(selectedYear + "-01-01 00:00:00");
         java.util.Date endDate = ConversionUtils.fromTimestampString(selectedYear + "-12-31 23:59:59");
         List<BillActivity> bas = billActivityDao.findCurrentByDateRange(startDate, endDate);
-        if (bas == null) {
+        if (bas == null || bas.isEmpty()) {
             return Collections.emptyList();
         }
         bas = new ArrayList<>(bas);
         // Use a null-safe comparator — updateDateTime can be null for in-progress claims.
         bas.sort(Comparator.comparing(BillActivity::getUpdateDateTime, Comparator.nullsLast(Comparator.reverseOrder())));
 
+        Map<String, String> legacyOwners = visibleProviders.isPresent()
+                ? fileAccess.uniqueLegacyOwners(bas.stream().map(BillActivity::getProviderOhipNo).toList()) : Map.of();
+        if (visibleProviders.isPresent()) {
+            bas.removeIf(activity -> {
+                String ohip = activity.getProviderOhipNo();
+                String owner = ohip == null ? null : legacyOwners.get(ohip);
+                return owner == null || owner.isBlank() || !visibleProviders.get().contains(owner);
+            });
+        }
+        if (bas.isEmpty()) return List.of();
+        Set<String> filenames = new HashSet<>();
+        if (visibleProviders.isPresent()) {
+            for (BillActivity activity : bas) {
+                filenames.add(activity.getHtmlFilename());
+                filenames.add(activity.getOhipFilename());
+            }
+        }
+        Optional<Map<String, Boolean>> permittedFiles = visibleProviders.map(providers -> fileAccess.filePermissions(filenames, providers));
         List<BillingOnMriViewModel.BillActivityRow> rows = new ArrayList<>();
         int count = 0;
         for (BillActivity ba : bas) {
@@ -368,11 +360,16 @@ public class BillingOnMriViewModelAssembler {
                     updateDate,
                     nullToEmpty(ba.getClaimRecord()),
                     formattedTotal,
-                    nullToEmpty(ba.getOhipFilename()),
-                    nullToEmpty(ba.getHtmlFilename()),
+                    permittedFilename(ba.getOhipFilename(), permittedFiles),
+                    permittedFilename(ba.getHtmlFilename(), permittedFiles),
                     bgColor));
         }
         return rows;
+    }
+
+    private static String permittedFilename(String filename, Optional<Map<String, Boolean>> permissions) {
+        if (filename == null || filename.isBlank()) return "";
+        return permissions.isEmpty() || Boolean.TRUE.equals(permissions.get().get(filename)) ? filename : "";
     }
 
     private static String formatTotal(String total) {

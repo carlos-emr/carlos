@@ -1,5 +1,6 @@
 
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>

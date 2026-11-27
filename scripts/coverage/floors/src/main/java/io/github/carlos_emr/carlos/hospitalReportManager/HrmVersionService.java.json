@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/hospitalReportManager/HrmVersionService.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 94.93087557603687,
+    "branches": 81.25,
+    "sourceBlob": "7fd233da7d6f055c45cae88ada518dd14c9524b1"
+  },
+  "evidenceSha256": "ef2ee34bc21cdb205f004c59d3f3902a768ea674f89b605acc52e3ea2ce1a0e5"
+}

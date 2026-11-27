@@ -62,7 +62,7 @@ public class Billing extends AbstractModel<Integer> {
     private String providerNo;
 
     @Column(name = "appointment_no")
-    private int appointmentNo;
+    private Integer appointmentNo = 0;
 
     @Column(name = "organization_spec_code")
     private String organizationSpecCode;
@@ -152,8 +152,9 @@ public class Billing extends AbstractModel<Integer> {
         this.providerNo = providerNo;
     }
 
+    /** Older claims can have no appointment; callers historically use zero for that case. */
     public int getAppointmentNo() {
-        return appointmentNo;
+        return appointmentNo == null ? 0 : appointmentNo;
     }
 
     public void setAppointmentNo(int appointmentNo) {

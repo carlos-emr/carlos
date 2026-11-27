@@ -98,43 +98,6 @@
                 popupOscarRx(625, 1024, '<%=request.getContextPath()%>/encounter/EditSpecialists?specId=' + specId);
             }
 
-            function checkUncheck(referralId) {
-                // Exact name: every page of the list is in the document, so a prefix match on
-                // checked_5 would also find checked_50 (hidden, disabled, unchecked) on another page.
-                var checked = $("input[name='checked_" + referralId + "']").prop("checked");
-
-                $.post("<%= request.getContextPath() %>/admin/ManageBillingReferral",
-                    { method: "modifyBatch", id: referralId, checked: checked },
-                    function (data, textStatus) {
-                        updateCheckedList(data);
-                    }, "json");
-            }
-
-            function clearCheckedLabels(referralId) {
-                $.post("<%= request.getContextPath() %>/admin/ManageBillingReferral",
-                    { method: "modifyBatch", clear: true },
-                    function (data, textStatus) {
-                        updateCheckedList(data);
-                    }, "json");
-            }
-
-            function printAllCheckedLabels() {
-                $("#checked_items_tbl tbody tr").remove();
-                $("#checked_items_tbl tbody").append("<tr><td>Processing. Refresh to get updated list</td></tr>");
-                location.href = '<%=request.getContextPath() %>/printReferralLabelAction?useCheckList=true';
-            }
-
-            function updateCheckedList(data) {
-                $("#checked_items_tbl tbody tr").remove();
-
-                if (data == null || data.length == 0) {
-                    $("#checked_items_tbl tbody").append("<tr><td>-None-</td></tr>");
-                }
-                for (var x = 0; x < data.length; x++) {
-                    $("#checked_items_tbl tbody").append("<tr><td>" + data[x].formattedName + "</td></tr>");
-                }
-            }
-
             function clearMe() {
                 document.getElementById('nameQuery').value = '';
                 document.getElementById('specialtyQuery').value = '';
@@ -165,7 +128,7 @@
             <td class="MainTableRightColumn" valign="top">
 
 
-                <form action="<%= request.getContextPath() %>/admin/ManageBillingReferral">
+                <form id="referralSearch" action="<%= request.getContextPath() %>/admin/ManageBillingReferral">
                     <input type="hidden" name="method" value="advancedSearch"/>
                     <input type="text" name="nameQuery" id="nameQuery" placeholder="<fmt:message key='admin.billingreferralAdmin.placeholder.nameOrReferralId'/>"
                            value="<carlos:encode value='<%= name != null ? name : "" %>' context="htmlAttribute"/>">
@@ -215,7 +178,7 @@
                     <td><input type="checkbox" id="referral-select-${carlos:forHtmlAttribute(referral.id)}"
                                name="checked_${carlos:forHtmlAttribute(referral.id)}"
                                ${selectedReferralIds.contains(referral.id) ? 'checked' : ''}
-                               onChange="checkUncheck('${carlos:forJavaScriptAttribute(referral.id)}')"/>
+                               data-referral-id="${carlos:forHtmlAttribute(referral.id)}"/>
                         <label class="table-selection-label" for="referral-select-${carlos:forHtmlAttribute(referral.id)}"><fmt:message key="dms.incomingDocs.select"/> ${carlos:forHtml(referral.firstName)} ${carlos:forHtml(referral.lastName)}</label></td>
                     <td><a href="javascript:void(0)" <%-- NOSONAR Web:S6844 - the link markup displaytag rendered for this row action, kept as it looked --%>
                                        onclick="openEditSpecialist('${carlos:forJavaScriptAttribute(referral.id)}')"><carlos:encode value='<%= linkName %>'/>
@@ -238,14 +201,16 @@
         <tr>
             <td class="MainTableBottomRowLeftColumn">&nbsp;</td>
             <td class="MainTableBottomRowRightColumn">
-                <div id="checked_items">
+                <fmt:message key="admin.billingreferralAdmin.msgNone" var="emptyLabelList"/>
+                <div id="checked_items" data-empty="${carlos:forHtmlAttribute(emptyLabelList)}" data-revision="${carlos:forHtmlAttribute(labelChecklistRevision)}"
+                     data-print-url="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/printReferralLabelAction?useCheckList=true">
                     <br/>
                     <h3><fmt:message key="admin.billingreferralAdmin.heading.selectedSpecialists"/></h3>
                     <br/>
                     <table id="checked_items_tbl">
                         <tbody>
                         <%
-                            List<ProfessionalSpecialist> checkedSpecs = (List<ProfessionalSpecialist>) session.getAttribute("billingReferralAdminCheckList");
+                            List<ProfessionalSpecialist> checkedSpecs = (List<ProfessionalSpecialist>) request.getAttribute("labelChecklist");
                             if (checkedSpecs != null && checkedSpecs.size() > 0) {
                                 for (ProfessionalSpecialist ps : checkedSpecs) {
                         %>
@@ -265,9 +230,13 @@
                     </table>
                 </div>
                 <br/>
+                <div id="labelUpdateError" role="alert" hidden>
+                    <fmt:message key="admin.billingreferralAdmin.updateFailed"/>
+                    <button type="button" id="retryLabelUpdate"><fmt:message key="admin.billingreferralAdmin.retryUpdate"/></button>
+                </div>
                 <p><fmt:message key="admin.billingreferralAdmin.batchLimit"><fmt:param value="<%= PrintReferralLabel2Action.MAX_LABELS_PER_BATCH %>"/></fmt:message></p>
-                <input type="button" value="<fmt:message key='admin.billingreferralAdmin.btnGenerateLabels'/>" onClick="printAllCheckedLabels()"/>
-                <input type="button" value="<fmt:message key='admin.billingreferralAdmin.btnClearList'/>" onClick="clearCheckedLabels()"/>
+                <input type="button" value="<fmt:message key='admin.billingreferralAdmin.btnGenerateLabels'/>" id="printReferralLabels"/>
+                <input type="button" value="<fmt:message key='admin.billingreferralAdmin.btnClearList'/>" id="clearReferralLabels"/>
 
             </td>
         </tr>
@@ -277,4 +246,6 @@
             <td class="MainTableBottomRowRightColumn">&nbsp;</td>
         </tr>
     </table>
+    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/referral-label-checklist.js"></script>
+    </body>
 </html>

@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "4b7675216559a74022c6685612323bf719405195",
+  "comparisonSha256": "fa19d794c839aed1660806eca49b261c71681c49f624fa9f8a904b87c1753007",
+  "baselineCommit": "1fd236bd78f8a15318a0bfda1733c0f39e5de999",
+  "baselineSourceTree": "4b7675216559a74022c6685612323bf719405195",
+  "baselineReportSha256": "ffb9acb198d3b11ce08354e853424727bc99eb88a4ca6033e6131e1f83f509df",
+  "baselineLane": "Focused JDK 25 Maven appointment and schedule tests against the merged release and PR sources",
+  "baselineTestCounts": {
+    "tests": 676,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 1
+  },
+  "baselineTestReportsSha256": "3a59d43f43af11d4cd5881beb84537e04ea29d10f9f9ebcfd7d605bc49daa4c5",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/ScheduleService.java": {
+      "lines": 91.39784946236558,
+      "instructions": 90.09708737864078,
+      "branches": 82.53968253968254,
+      "sourceBlob": "78dc8684810919f755cb74c4dacd0766559c1420"
+    }
+  },
+  "exclusions": {}
+}

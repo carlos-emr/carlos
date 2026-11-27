@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "5531bfb553badba2d81787cddeff0170cada7c86",
+  "comparisonSha256": "18819519ddb7911095944f9ca04d496bbb514d57fbb1131e9c127beb46948175",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/forms/FormGrowth0To36Dao.java": {
+      "lines": 92.0,
+      "instructions": 95.51282051282051,
+      "branches": 100.0,
+      "sourceBlob": "6f50b2e432083b24056394d06aede7453b23f30c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/forms/RehabStudyFormDao.java": {
+      "lines": 91.42857142857143,
+      "instructions": 93.90862944162437,
+      "branches": 66.66666666666667,
+      "sourceBlob": "37eee7821978ab894982f23e89f9250137c08195"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/FormXmlArchive.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "feead306c68b42a32d76b2650883526a5c39b517"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/Growth0To36FormService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "cabbdba58fa1ae18709ceddf8d763d545b76d0ba"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/RehabStudyFormService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "bc8b25ec620867d192c27a2561d1b2ec091ed578"
+    }
+  },
+  "exclusions": {},
+  "zeroCoverageWaivers": {},
+  "baselineCommit": "480bdf0f912fea629a6e38e86f42595fbaff2bcf",
+  "baselineSourceTree": "5531bfb553badba2d81787cddeff0170cada7c86",
+  "baselineReportSha256": "8509c006dff49f485a8686feec63da50fe1bc2513059994fc93f0212b968c8d7",
+  "baselineLane": "PR #6364 review follow-up (issue #5693; XML copy identity for the rehabilitation-study and Growth 0-36 services): focused JaCoCo lane, not a complete release lane. Run locally on commit 480bdf0f91 (OpenJDK 25, Maven 3.9, Ubuntu) with mvn -B -ntp -o clean test jacoco:report -Dtest.forkCount=2 and -Dtest naming 93 test classes: every test class under src/test/java/io/github/carlos_emr/carlos/form and commn/dao/forms, plus every other test class that names one of the changed sources (RehabStudy*, FormXmlArchive, FormViewVersionValidator, ViewForm2Action, FrmRecordFactory, Growth0To36FormService, FormGrowth0To36Dao, the rehabilitation entities and SF36Answers). H2 only; the physical MariaDB lanes of RehabStudyFormDaoIntegrationTest and Growth0To36FormPersistenceIntegrationTest (89 cases on each of the generated, Ontario Flyway and BC Flyway schemas) passed separately on the same Java sources and are not in this report. Rows cover only the five Java sources this follow-up changes (FormXmlArchive, RehabStudyFormService, Growth0To36FormService, RehabStudyFormDao, FormGrowth0To36Dao), measured from that run's jacoco.xml with check-coverage-floors.measure() against the reviewed base; the importer keeps any higher existing floor. No zero-floor waiver is added.",
+  "baselineTestCounts": {
+    "tests": 1246,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "9e0fddea295625e799ad3e66057a504cb9030619d5cd5f9d7dea044782c4ec90",
+  "baselineTestReportsHashFormat": "SHA-256 of a sha256sum-style manifest of the run's Surefire TEST-*.xml report files: one '<sha256>  <file name>' line each, sorted by name",
+  "exclusionSourceBlobs": {},
+  "baselineTestRunCommit": "480bdf0f912fea629a6e38e86f42595fbaff2bcf",
+  "baselineAdditionalTestRuns": []
+}

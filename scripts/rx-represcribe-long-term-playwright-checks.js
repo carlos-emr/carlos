@@ -36,21 +36,25 @@ async function workflow(s) {
       + (SELECT COUNT(*) FROM DigitalSignature WHERE demographicId=${patient})`) === '0', 'Owned Rx rows were not removed');
   });
 
-  /** Inserts one marker-named custom drug, started 20 days ago, for the owned patient; returns its id and fields. */
-  function insertDrug(suffix, longTerm, archivedReason) {
+  /** Inserts a medication started 20 days ago for the owned patient and returns its id and fields. */
+  function insertDrug(suffix, longTerm, archivedReason, product = {}) {
     const name = `${marker}-${suffix}`;
     const special = `${name} one tablet daily`;
     const id = sql.value(`INSERT INTO drugs(provider_no,demographic_no,rx_date,end_date,written_date,
-      BN,GCN_SEQNO,customName,takemin,takemax,freqcode,duration,durunit,quantity,\`repeat\`,
+      BN,GCN_SEQNO,regional_identifier,customName,takemin,takemax,freqcode,duration,durunit,quantity,\`repeat\`,
       special,archived,archived_reason,archived_date,position,dispenseInternal,create_date,lastUpdateDate,long_term)
       VALUES(${q(provider)},${patient},DATE_SUB(CURDATE(),INTERVAL 20 DAY),DATE_ADD(CURDATE(),INTERVAL 10 DAY),
-      DATE_SUB(CURDATE(),INTERVAL 20 DAY),${q(name)},0,${q(name)},1,1,'OD','30','D','30',0,${q(special)},
+      DATE_SUB(CURDATE(),INTERVAL 20 DAY),${q(name)},${q(product.id ?? '0')},${q(product.din ?? '')},
+      ${q(name)},1,1,'OD','30','D','30',0,${q(special)},
       ${archivedReason ? 1 : 0},${q(archivedReason || '')},${archivedReason ? 'NOW()' : 'NULL'},0,0,NOW(),NOW(),${longTerm});
       SELECT LAST_INSERT_ID()`);
     h.assert(/^[1-9]\d*$/.test(id), `The ${suffix} fixture drug was not inserted`);
     return { id, name, special };
   }
-  const longTerm = [insertDrug('LT1', 1), insertDrug('LT2', 1)];
+  const longTerm = [
+    insertDrug('LT1', 1, '', { id: '10376', din: '02477580' }),
+    insertDrug('LT2', 1),
+  ];
   const acute = insertDrug('ACUTE', 0);
   const stopped = insertDrug('LTSTOPPED', 1, 'noLongerNecessary');
 
@@ -77,6 +81,8 @@ async function workflow(s) {
     const names = (await stagedNames()).sort();
     h.assert(JSON.stringify(names) === JSON.stringify(longTerm.map(drug => drug.name).sort()),
       `The link staged ${JSON.stringify(names)}, not the two current long-term drugs`);
+    await rx.waitForFunction(() =>
+      document.querySelector('#rxText [id^="cost_"][data-din="02477580"]')?.textContent.trim() === '$2.45/30');
   });
 
   await s.step('Save Only stores a dated long-term copy of each and archives each original as re-prescribed', async () => {

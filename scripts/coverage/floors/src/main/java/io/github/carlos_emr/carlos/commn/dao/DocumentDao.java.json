@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/dao/DocumentDao.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "fe06f078e5f3ede06b44335d33d3077b0a12b092"
+  },
+  "evidenceSha256": "8cab3d16435b80a0bb690170532922c0d1cb8891b55f9604eb693d325682cef5"
+}

@@ -1,0 +1,232 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "5529a8a18d30122876bccea944c6435e9d15352a",
+  "comparisonSha256": "4461c3889d163c8b0b93d30117ff0d22f949c541d4b5e891cce4350684b0e422",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/forms/FormGrowth0To36Dao.java": {
+      "lines": 91.30434782608695,
+      "instructions": 95.13888888888889,
+      "branches": 100.0,
+      "sourceBlob": "01d224ff649e80ef75a05ab4f5cad46891e0c53f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/forms/RehabStudyFormDao.java": {
+      "lines": 89.65517241379311,
+      "instructions": 92.5925925925926,
+      "branches": 66.66666666666667,
+      "sourceBlob": "00b3b445dd51ccb8263a4281c763d6ebb0983aca"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/FrmRecordFactory.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "b379358d6d09bc5662a3423bbc84001b6af8a681"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/Growth0To36FormService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "0a5841b442bacd6ba90d1dc10936bf9fe8b163b7"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/RehabStudyForm.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "0de4bdbbef080c5753e9797ec5553431d09fcf1d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/RehabStudyFormService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "bd220af733860229dbc1c7d051a744e65de66333"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/RehabStudyFormType.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "3a0136889a9a9c3a84e840bd8e9e462e70ee70fc"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/RehabStudyFormValues.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "5131cf8784f42e2464aeee3fc5b812853a3718d6"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/RehabStudyForms.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "f401133c86085757f4f94292776c21a497a31302"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/gate/FormViewVersionValidator.java": {
+      "lines": 100.0,
+      "instructions": 95.34883720930233,
+      "branches": 100.0,
+      "sourceBlob": "0b0bee045c40e759da8009a9815be1c8a115d1e7"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/gate/ViewForm2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "885f6a4fa24a66a977472ff45c48bdd298e1cceb"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/Form2MinWalk.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "759bcfad181f4c84c609b27639e828f86435d8b7"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/FormCESD.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "2a21110f52c53c0fc5b01d63d7e29de4c292c224"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/FormCaregiver.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "9e2e7ed7f363f0f4daa194e0acafa9ee81b88728"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/FormCostQuestionnaire.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "6ed048d6e9a98ff0df31004674bb3f0386c7265e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/FormFalls.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "eae81f55cbebfbac849777830376186024bff266"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/FormGripStrength.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "6dbd787cd2b35cd2fc8b78a6f6c008ecf1fdb112"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/FormHomeFalls.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "1eb8ee03808edf1762eb165aa5ab9655556f29b3"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/FormIntakeInfo.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "5038814f764ffa5c5c0b362b5d8a7de0b428fec1"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/FormInternetAccess.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "6cb44b1b356787de0f8a6de9bbab591808a88e5b"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/FormLateLifeFDIDisability.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "1c78ca9d9ebd611d1b7abcf53e762fb8b987e672"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/FormLateLifeFDIFunction.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "873bfcced1bc1857aa80908bc4b933c0329b0858"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/FormSF36.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "0fe874a5c1c36817d114389b937613addbb25e3c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/FormSF36Caregiver.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "aedcfea53465ffc5d681d33b9fe2bba2331a797f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/FormSatisfactionScale.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "5d86a1f9b3b64daaee49ed898af2f85cd36865ce"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/FormSelfAdministered.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "394617f30835d0e981a3d439a1c619d3c8ce4bf1"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/FormSelfEfficacy.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "06f89f47c02fbf667b952dd86cd89dbe005d083e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/FormSelfManagement.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "6fb46f5f8d756a0559fc01d1d85f8f316b1d2569"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/FormTreatmentPref.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "d9358bf932d009f69ef34c63157024e1e7ed89a9"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/RehabStudyAssessment.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "4f078daf77eb477f61d57f3e9e5f0e856a37cd7e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/RehabStudyColumn.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "5811b8ea13ef3ade3383cc12d4ac515b7469a5f2"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/RehabStudyEnrolment.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "163e351c993dd796e07bd2edb67b9e5a56eb8918"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/SF36Answers.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "c668bf2a26a630d9b66c76285086e1cddd48bfbf"
+    }
+  },
+  "exclusions": {
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/package-info.java": {
+      "reason": "Package-level documentation only; a package-info.java with no annotations has no executable Java bytecode.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/form/model/rehab/RehabStudyEntitySchemaContractUnitTest.java"
+      ]
+    }
+  },
+  "zeroCoverageWaivers": {},
+  "baselineCommit": "304c20ec99b0c218ec7e94e0a0ef0855638fa031",
+  "baselineSourceTree": "5529a8a18d30122876bccea944c6435e9d15352a",
+  "baselineReportSha256": "941ac2368231d859aa80e9ad09c047df4fae8b1fd7c6fafe461d757171b1b5ef",
+  "baselineLane": "PR #6364 (issue #5693, rehabilitation-study questionnaire slice): focused JaCoCo lane, not a complete release lane. Run locally on commit 304c20ec99 (OpenJDK 25, Maven 3.9, Ubuntu) with mvn -B -ntp -o clean test jacoco:report -Dtest.forkCount=2 and -Dtest naming 92 test classes: every test class under src/test/java/io/github/carlos_emr/carlos/form and commn/dao/forms, plus every other test class that names one of the changed sources (RehabStudy*, FormViewVersionValidator, ViewForm2Action, FrmRecordFactory, Growth0To36FormService, FormGrowth0To36Dao, the rehabilitation entities and SF36Answers). H2 only; the physical MariaDB lanes of RehabStudyFormDaoIntegrationTest and Growth0To36FormPersistenceIntegrationTest (88 cases on each of the generated, Ontario Flyway and BC Flyway schemas) passed separately on the same commit and are not in this report. Rows cover only this PR's 33 executable Java sources, measured from that run's jacoco.xml with check-coverage-floors.measure() against the reviewed base; the importer keeps any higher existing floor. The package-info.java of form/model/rehab has no executable bytecode and is recorded as an exclusion. No zero-floor waiver is added.",
+  "baselineTestCounts": {
+    "tests": 1239,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "874306e3b57738f9788151e6225b555e26df5468b83549428e4dfecda011eeaf",
+  "baselineTestReportsHashFormat": "SHA-256 of a sha256sum-style manifest of the run's Surefire TEST-*.xml report files: one '<sha256>  <file name>' line each, sorted by name",
+  "exclusionSourceBlobs": {
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/package-info.java": "7960b6f5e8fd3a077ed9cffe974d736d7c7e2c6b"
+  },
+  "baselineTestRunCommit": "304c20ec99b0c218ec7e94e0a0ef0855638fa031",
+  "baselineAdditionalTestRuns": []
+}

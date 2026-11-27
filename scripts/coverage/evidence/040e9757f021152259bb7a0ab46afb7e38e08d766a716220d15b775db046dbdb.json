@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "1c4d9257aeec396bbe0b8173889cef24db7b68cb",
+  "comparisonSha256": "33acadc73b82db4ce614e2661019bce44771d6a2cfe827eaac5dd741e1ff3d10",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/app/HttpMethodGuardFilter.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "9034e267877103a0635d2b653995754a436c3260"
+    }
+  },
+  "baselineCommit": "6d3d60cbb336770099095d58e8c14d492e2ea39b",
+  "baselineSourceTree": "1c4d9257aeec396bbe0b8173889cef24db7b68cb",
+  "baselineReportSha256": "36d29e696d335145093499f7596a4c4c351d3ac592fdeca3b008966c706d185c",
+  "baselineLane": "JDK 25 focused Surefire for the combined HTTP method guard and mutator contracts",
+  "baselineTestCounts": {
+    "tests": 297,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "0bd5d26b6c3bb756b2b7b69a766f638dc1613abcf099f2a87848d7ec33547564",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.app.HttpMethodGuardFilterUnitTest",
+    "io.github.carlos_emr.carlos.app.contract.MutatorActionGetRejectionContractUnitTest"
+  ]
+}

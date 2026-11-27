@@ -51,28 +51,31 @@ public class RoleCache {
             Map<String, Integer> accessTypes,
             Map<Long, Set<Long>> defaultAccess) {}
 
+    private static final Object UPDATE_LOCK = new Object();
     private static final AtomicReference<Snapshot> snapshot = new AtomicReference<>();
 
     /** A failed or held reload must preserve the previous complete policy, never publish partial maps. */
-    public static synchronized void reload() {
-        SecroleDao secroleDao = SpringUtils.getBean(SecroleDao.class);
-        DefaultRoleAccessDAO defaultRoleAccessDAO = SpringUtils.getBean(DefaultRoleAccessDAO.class);
-        CaisiAccessTypeDao accessTypeDao = SpringUtils.getBean(CaisiAccessTypeDao.class);
-        Map<String, Integer> accessTypes = new HashMap<>();
-        for (CaisiAccessType at : accessTypeDao.findAll())
-            accessTypes.put(at.getName(), at.getId());
-        Map<Long, Secrole> roles = new HashMap<>();
-        for (Secrole role : secroleDao.getRoles()) roles.put(role.getId(), role);
-        Map<Long, Set<Long>> defaults = new HashMap<>();
-        for (DefaultRoleAccess access : defaultRoleAccessDAO.findAll()) {
-            defaults.computeIfAbsent(access.getAccessTypeId(), ignored -> new HashSet<>())
-                    .add(access.getRoleId());
+    public static void reload() {
+        synchronized (UPDATE_LOCK) {
+            SecroleDao secroleDao = SpringUtils.getBean(SecroleDao.class);
+            DefaultRoleAccessDAO defaultRoleAccessDAO = SpringUtils.getBean(DefaultRoleAccessDAO.class);
+            CaisiAccessTypeDao accessTypeDao = SpringUtils.getBean(CaisiAccessTypeDao.class);
+            Map<String, Integer> accessTypes = new HashMap<>();
+            for (CaisiAccessType at : accessTypeDao.findAll())
+                accessTypes.put(at.getName(), at.getId());
+            Map<Long, Secrole> roles = new HashMap<>();
+            for (Secrole role : secroleDao.getRoles()) roles.put(role.getId(), role);
+            Map<Long, Set<Long>> defaults = new HashMap<>();
+            for (DefaultRoleAccess access : defaultRoleAccessDAO.findAll()) {
+                defaults.computeIfAbsent(access.getAccessTypeId(), ignored -> new HashSet<>())
+                        .add(access.getRoleId());
+            }
+            Map<Long, Set<Long>> frozenDefaults = new HashMap<>();
+            defaults.forEach((type, selected) -> frozenDefaults.put(type, Set.copyOf(selected)));
+            snapshot.set(
+                    new Snapshot(
+                            Map.copyOf(roles), Map.copyOf(accessTypes), Map.copyOf(frozenDefaults)));
         }
-        Map<Long, Set<Long>> frozenDefaults = new HashMap<>();
-        defaults.forEach((type, selected) -> frozenDefaults.put(type, Set.copyOf(selected)));
-        snapshot.set(
-                new Snapshot(
-                        Map.copyOf(roles), Map.copyOf(accessTypes), Map.copyOf(frozenDefaults)));
     }
 
     public static boolean hasAccess(String accessTypeName, long roleId) {
@@ -90,12 +93,14 @@ public class RoleCache {
         return requiredSnapshot().roles().get(id);
     }
 
-    public static synchronized void setRole(Long roleId, Secrole role) {
-        Snapshot current = requiredSnapshot();
-        Map<Long, Secrole> roles = new HashMap<>(current.roles());
-        roles.put(roleId, role);
-        snapshot.set(
-                new Snapshot(Map.copyOf(roles), current.accessTypes(), current.defaultAccess()));
+    public static void setRole(Long roleId, Secrole role) {
+        synchronized (UPDATE_LOCK) {
+            Snapshot current = requiredSnapshot();
+            Map<Long, Secrole> roles = new HashMap<>(current.roles());
+            roles.put(roleId, role);
+            snapshot.set(
+                    new Snapshot(Map.copyOf(roles), current.accessTypes(), current.defaultAccess()));
+        }
     }
 
     private static Snapshot requiredSnapshot() {

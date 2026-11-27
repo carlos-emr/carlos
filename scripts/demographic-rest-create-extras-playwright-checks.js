@@ -132,7 +132,10 @@ async function workflow(s) {
     const response = await s.context.request.post(endpoint, {
       data: body(lastName, [extra('demo_cell', `${s.marker}-dupA`, null), extra('demo_cell', `${s.marker}-dupB`, null)]),
     });
-    h.assert(response.status() >= 400, `a duplicate-key create expected an error status, received ${response.status()}`);
+    h.assert(response.status() === 409, `a duplicate-key create expected HTTP 409, received ${response.status()}`);
+    const failure = await response.json().catch(() => null);
+    h.assert(failure?.code === 'DUPLICATE_DEMOGRAPHIC_EXTENSION_KEY',
+      'the response did not identify the duplicate demographic extension key');
     await response.dispose();
     const kept = s.sql.rows('SELECT demographic_no FROM demographic WHERE last_name=?', [lastName]);
     h.assert(kept.length === 0, `The failed create left the patient behind: ${JSON.stringify(kept)}`);

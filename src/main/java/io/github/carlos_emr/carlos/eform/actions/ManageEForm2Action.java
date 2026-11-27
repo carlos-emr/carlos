@@ -35,11 +35,11 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
-import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.eform.EFormExportZip;
 import io.github.carlos_emr.carlos.eform.data.EForm;
@@ -48,14 +48,16 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 public class ManageEForm2Action extends ActionSupport implements UploadedFilesAware {
+    private static final String IMPORT_ERRORS = "importErrors";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -94,20 +96,24 @@ public class ManageEForm2Action extends ActionSupport implements UploadedFilesAw
             throw new SecurityException("missing required sec object (_eform)");
         }
 
+        request.setAttribute("input", "import");
         if (zippedForm == null) {
             MiscUtils.getLogger().error("importEForm() called with no uploaded file; returning fail.");
-            request.setAttribute("importErrors", Collections.singletonList("No file was uploaded."));
+            request.setAttribute(IMPORT_ERRORS, Collections.singletonList("No file was uploaded."));
             return "fail";
         }
 
         List<String> errors = Collections.emptyList();
-        try (InputStream zippedFormStream = Files.newInputStream(zippedForm.toPath())) {
-            request.setAttribute("input", "import");
+        try (InputStream zippedFormStream = PathValidationUtils.openValidatedUploadInputStream(zippedForm)) {
             EFormExportZip eFormExportZip = new EFormExportZip();
             errors = eFormExportZip.importForm(zippedFormStream);
+        } catch (IOException e) {
+            MiscUtils.getLogger().warn("eForm ZIP import could not be read: {}", LogSafe.exceptionTrace(e));
+            request.setAttribute(IMPORT_ERRORS, Collections.singletonList(getText("eform.importReadFailed")));
+            return "fail";
         }
         if (!errors.isEmpty()) {
-            request.setAttribute("importErrors", errors);
+            request.setAttribute(IMPORT_ERRORS, errors);
             return "fail";
         } else {
             request.setAttribute("status", "success");
@@ -134,7 +140,7 @@ public class ManageEForm2Action extends ActionSupport implements UploadedFilesAw
         return zippedForm;
     }
 
-    @StrutsParameter
+    // The multipart interceptor supplies the upload. This Java setter must not be request-bindable.
     public void setZippedForm(File zippedForm) {
         this.zippedForm = zippedForm;
     }

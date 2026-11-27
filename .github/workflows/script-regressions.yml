@@ -6,6 +6,7 @@ name: Script Regressions
 on:
   pull_request:
   push:
+    tags: ['20*']
     branches:
       - main
       - develop
@@ -33,39 +34,20 @@ jobs:
         with:
           node-version: '22'
           cache: npm
+      - name: Set up Java Properties fixture runtime
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v4.7.1
+        with:
+          distribution: temurin
+          java-version: '25'
       - name: Install supported npm
         run: npm install --global npm@10.9.9 --ignore-scripts --no-audit --no-fund
       - name: Install locked dependencies without lifecycle scripts
         run: npm ci --ignore-scripts --no-audit --no-fund
       # Several script tests read carlos-ctl, which is its own repository
-      # since the split; the checkout is the release debian/carlos-ctl.pin
-      # names, so they run against the CLI a release ships. A pin whose tag
-      # is not published yet (the CLI release lands before the CARLOS one)
-      # falls back to the pin's fallback commit with a warning. If neither
-      # is available, fail rather than silently skipping CLI-dependent tests.
+      # since the split. Verify the source against debian/carlos-ctl.pin
+      # before any tests read it.
       - name: Check out the pinned carlos-ctl release
-        run: |
-          set -euo pipefail
-          tag="$(sed -n 's/^tag=//p' debian/carlos-ctl.pin)"
-          if [ -z "$tag" ]; then
-            echo "::error::debian/carlos-ctl.pin names no tag"
-            exit 1
-          fi
-          if git clone --quiet --depth 1 --branch "$tag" \
-              https://github.com/carlos-emr/carlos-ctl.git "$CARLOS_CTL_SRC"; then
-            echo "carlos-ctl $tag at $(git -C "$CARLOS_CTL_SRC" rev-parse HEAD)"
-          else
-            # the pin's pre-release fallback commit (see debian/carlos-ctl.pin)
-            fallback="$(sed -n 's/^fallback=//p' debian/carlos-ctl.pin)"
-            if [ -n "$fallback" ]; then
-              git clone --quiet https://github.com/carlos-emr/carlos-ctl.git "$CARLOS_CTL_SRC"
-              git -C "$CARLOS_CTL_SRC" checkout --quiet "$fallback"
-              echo "::warning::carlos-ctl tag $tag is not published yet; testing against the pin's fallback commit $fallback"
-            else
-              echo "::error::carlos-ctl tag $tag is not published and debian/carlos-ctl.pin names no fallback commit"
-              exit 1
-            fi
-          fi
+        run: python3 scripts/ci/carlos_ctl_pin.py "$CARLOS_CTL_SRC"
       # Keep the full signed dependency install; avoid the repeatedly stalling Azure mirror.
       - name: Use the official Ubuntu HTTPS archive for runner packages
         run: |
@@ -127,6 +109,8 @@ jobs:
           retention-days: 14
       - name: Check migrated table interactions in Chromium
         run: node scripts/dependency-tables-playwright-checks.js
+      - name: Check server-paged table navigation and retry in Chromium
+        run: node scripts/server-table-page-playwright-checks.js
       - name: Check CARLOS navigation cancellation diagnostics in Chromium
         run: node --test scripts/navigation-cancellation-browser-checks.js
       - name: Check measurement calculation DOM events in Chromium
@@ -165,5 +149,9 @@ jobs:
         run: node scripts/tickler-crud-browser-check.js
       - name: Check nested scroll chaining and tickler quick picks in Chromium
         run: node scripts/ui-scroll-quick-pick-browser-check.js
+      - name: Check facility Disable form parsing and submission in Chromium
+        run: node --test scripts/facility-disable-browser-checks.js
       - name: Check job type table refresh and save lifecycle in Chromium
         run: node scripts/job-types-datatable-browser-check.js
+      - name: Check job and schedule save acknowledgements in Chromium
+        run: node --test scripts/admin-jobs-save-browser-checks.js

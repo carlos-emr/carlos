@@ -30,6 +30,7 @@ import java.util.Vector;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.MyDateFormat;
+import io.github.carlos_emr.carlos.commn.SiteChoice;
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderDataDao;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
@@ -100,8 +101,7 @@ public class LogReport2Action extends ActionSupport {
         String curUser_no = (String) request.getSession().getAttribute("user");
 
         // Determine whether the current user is constrained to their own site's providers.
-        boolean isSiteAccessPrivacy = securityInfoManager.hasPrivilege(
-                loggedInInfo, "_site_access_privacy", "r", null);
+        boolean isSiteAccessPrivacy = SiteChoice.isSiteAccessRestricted(securityInfoManager, loggedInInfo);
 
         Properties propName = new Properties();
         Vector<Properties> vecProvider = new Vector<>();
@@ -115,8 +115,8 @@ public class LogReport2Action extends ActionSupport {
             }
 
             providers.sort(Comparator
-                    .comparing(ProviderData::getFirstName, Comparator.nullsFirst(Comparator.naturalOrder()))
-                    .thenComparing(ProviderData::getLastName, Comparator.nullsFirst(Comparator.naturalOrder())));
+                    .comparing(ProviderData::getFirstName, Comparator.nullsFirst(String.CASE_INSENSITIVE_ORDER))
+                    .thenComparing(ProviderData::getLastName, Comparator.nullsFirst(String.CASE_INSENSITIVE_ORDER)));
 
             for (ProviderData provider : providers) {
                 String pNo = StringUtils.defaultString(provider.getId());

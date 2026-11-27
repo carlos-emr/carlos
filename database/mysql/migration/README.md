@@ -111,8 +111,8 @@ migration/
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The highest migration in this branch is `common/V1.0.59.49`.
-`V1.0.48`–`V1.0.51` are claimed by open pull requests. `develop` already uses
+`V1.0.3` onward is a forward delta. The highest migration in this branch is `common/V1.0.59.50.1`.
+PR #6291 reserves `V1.0.59.51`. `develop` already uses
 `V1.0.60` and above, so this release line stays below its floor (`scripts/flyway-released-migrations.txt`):
 `common/V1.0.59.2` is #5089's, the two BC migrations of #5062 and #5051 are `V1.0.59.3` and `V1.0.59.4`,
 #5067's appointment-name migration follows them at `common/V1.0.59.5`,
@@ -120,8 +120,9 @@ and the collation/index corrections occupy `common/V1.0.59.6` and `common/V1.0.5
 The Messenger's PDF attachment column widening (#5444) is `common/V1.0.59.8`.
 The CDS import migrations occupy `V1.0.59.8.1` and `V1.0.59.9`–`V1.0.59.26`.
 OSCAR 19 text capacities are preserved by common `V1.0.59.27`, Ontario `V1.0.59.28`, and BC `V1.0.59.29` plus `V1.0.59.31` for the BCAR 2007 urine-culture field; common `V1.0.59.30` enforces the audited Consent history rule, and common `V1.0.59.32` keeps native archive text capacities and update timestamps aligned with the live fields (issue #5503).
-The CDS export migrations occupy `common/V1.0.59.40`–`V1.0.59.49`.
-The next unallocated number for ANY location — shared or province — is `V1.0.59.50`.
+The CDS export migrations occupy `common/V1.0.59.40`–`V1.0.59.50`.
+Historical roster queries use the provider and roster-date index in `common/V1.0.59.50.1` (#5877).
+The next unallocated release version after the reserved migration is `V1.0.59.52`.
 `V1.0.59.1` is an intentional gap: #5067's migration was renumbered as release migrations merged first.
 PR #3996's unpublished attachment migrations were renumbered from V1.0.37/V1.0.38 to
 V1.0.42/V1.0.43 so databases already running release migrations through V1.0.41 apply them.
@@ -291,7 +292,7 @@ changed any BC antenatal row in Select Forms. Full linked-patient appointment na
 the `V1.0.60` floor. The collation and index corrections follow at `V1.0.59.6` and `V1.0.59.7`, and the
 widening of `messagetbl.pdfattachment` to `MEDIUMBLOB` (#5444) at `V1.0.59.8`.
 The CDS import migrations follow at `V1.0.59.8.1` and `V1.0.59.9`–`V1.0.59.26`.
-The next unallocated version is `V1.0.59.50`. Apply/merge these forward migrations in version order; if their merge
+Apply and merge these forward migrations in version order. If their merge
 order changes after a release, renumber the still-unreleased migration before
 shipping it. The coordination table contains no clinical data and does not
 rewrite legacy memberships. All application instances must run the serialized

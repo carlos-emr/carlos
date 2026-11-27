@@ -23,10 +23,13 @@ package io.github.carlos_emr.carlos.webserv.rest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
@@ -35,6 +38,8 @@ import java.util.List;
 
 import jakarta.ws.rs.core.Response;
 
+import org.hibernate.exception.ConstraintViolationException;
+import org.hibernate.exception.JDBCConnectionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -64,6 +69,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService;
 import io.github.carlos_emr.carlos.test.base.CarlosRestTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.GeneralExceptionMapper;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchResult;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicTo1;
 import io.github.carlos_emr.carlos.webserv.rest.util.SecurityExceptionMapper;
@@ -146,7 +152,7 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
 
     @Override
     protected List<Object> additionalServerProviders() {
-        return List.of(new SecurityExceptionMapper(),
+        return List.of(new SecurityExceptionMapper(), new GeneralExceptionMapper(),
                 new io.github.carlos_emr.carlos.webserv.rest.util.DemographicWriteProfileResponseFilter());
     }
 
@@ -198,9 +204,25 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
         }
 
         @ParameterizedTest
-        @CsvSource({"POST,pronoun,A", "POST,gender,A", "PUT,pronoun,A", "PUT,gender,A",
-                "POST,pronoun,😀", "POST,gender,😀", "PUT,pronoun,😀", "PUT,gender,😀"})
-        void shouldRejectOverlongFields_beforeAnyWrite(String method, String field, String character) {
+        @CsvSource({
+                "POST,pronoun,A,application/json",
+                "POST,pronoun,A,application/xml",
+                "POST,gender,A,application/json",
+                "POST,gender,A,application/xml",
+                "PUT,pronoun,A,application/json",
+                "PUT,pronoun,A,application/xml",
+                "PUT,gender,A,application/json",
+                "PUT,gender,A,application/xml",
+                "POST,pronoun,😀,application/json",
+                "POST,pronoun,😀,application/xml",
+                "POST,gender,😀,application/json",
+                "POST,gender,😀,application/xml",
+                "PUT,pronoun,😀,application/json",
+                "PUT,pronoun,😀,application/xml",
+                "PUT,gender,😀,application/json",
+                "PUT,gender,😀,application/xml"
+        })
+        void shouldRejectOverlongFields_beforeAnyWrite(String method, String field, String character, String accept) {
             DemographicTo1 data = payload(method);
             String invalid = character.repeat(26);
             if ("pronoun".equals(field)) data.setPronoun(invalid);
@@ -209,8 +231,10 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
             data.setNotes("FAKE-NOTES");
             data.setWaitingListID(7);
 
-            try (Response response = request().path("/demographics").invoke(method, data)) {
+            try (Response response = request().path("/demographics")
+                    .replaceHeader("Accept", accept).invoke(method, data)) {
                 assertThat(response.getStatus()).isEqualTo(400);
+                assertThat(response.getMediaType().toString()).startsWith("text/plain");
                 assertThat(response.readEntity(String.class))
                         .contains("exceeds maximum length of 25 characters.")
                         .doesNotContain(invalid, "FAKE-NOTES");
@@ -240,6 +264,143 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
             }
             assertThat(saved.getValue().getPronoun()).isEqualTo(exact);
             assertThat(saved.getValue().getGender()).isEqualTo(exact);
+        }
+
+        @ParameterizedTest
+        @CsvSource({
+                "POST,uk_demo_ext_single_value,409",
+                "PUT,demographicExt.uk_demo_ext_single_value,409",
+                "PUT,different_unique_key,500",
+                "PUT,,500"
+        })
+        void shouldIdentifyOnlyTheDuplicateExtensionConflict_amongWriteFailures(
+                String method, String constraint, int status) {
+            DemographicTo1 data = payload(method);
+            String privateValue = "FAKE-PRIVATE-EXTENSION-DIAGNOSTIC";
+            RuntimeException failure = constraint == null
+                    ? new JDBCConnectionException(privateValue, new SQLException(privateValue, "08006"))
+                    : new ConstraintViolationException(privateValue,
+                            new SQLException(privateValue, "23000", 1062), constraint);
+            RuntimeException wrapped = new IllegalStateException(privateValue, failure);
+            if ("POST".equals(method)) {
+                doThrow(wrapped).when(mockDemographicManager).createDemographic(any(), any(), eq(null));
+            } else {
+                doThrow(wrapped).when(mockDemographicManager).updateDemographic(any(), any());
+            }
+
+            try (Response response = request().path("/demographics").invoke(method, data)) {
+                assertThat(response.getStatus()).isEqualTo(status);
+                String body = response.readEntity(String.class);
+                assertThat(body).doesNotContain(privateValue);
+                if (status == 409) {
+                    assertThat(body).contains("DUPLICATE_DEMOGRAPHIC_EXTENSION_KEY");
+                } else {
+                    assertThat(body).doesNotContain("DUPLICATE_DEMOGRAPHIC_EXTENSION_KEY");
+                }
+            }
+        }
+
+        @ParameterizedTest
+        @CsvSource({"alert,Alert,A", "nurse,Nurse,A", "resident,Resident,A", "midwife,Midwife,A",
+                "alert,Alert,😀", "waitingListNote,Waiting list note,A", "waitingListNote,Waiting list note,😀"})
+        void shouldRejectOverlongCustomFieldsAndNote_beforeAnyWrite(String field, String label, String character) {
+            // Issue #5869: these VARCHAR(255) fields were cut silently under an empty sql_mode.
+            // WLWaitingListUtil reaches the DAO through SpringUtils, so register it there too: the
+            // no-interaction check below then covers the waiting-list write, not only the service field.
+            registerMock(WaitingListDao.class, mockWaitingListDao);
+            DemographicTo1 data = payload("PUT");
+            String invalid = character.repeat(256);
+            switch (field) {
+                case "alert" -> data.setAlert(invalid);
+                case "nurse" -> data.setNurse(invalid);
+                case "resident" -> data.setResident(invalid);
+                case "midwife" -> data.setMidwife(invalid);
+                default -> data.setWaitingListNote(invalid);
+            }
+            data.setWaitingListID(7);
+
+            try (Response response = request().path("/demographics").invoke("PUT", data)) {
+                assertThat(response.getStatus()).isEqualTo(400);
+                assertThat(response.readEntity(String.class))
+                        .isEqualTo(label + " exceeds maximum length of 255 characters.");
+            }
+            verifyNoInteractions(mockDemographicManager, mockWaitingListDao, updateRecords);
+        }
+
+        @ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(strings = {"A", "😀"})
+        void shouldKeepCustomFieldsAndNoteWhole_whenTheyAreAtTheLimit(String character) {
+            registerMock(WaitingListDao.class, mockWaitingListDao);
+            // The patient is on list 7, so the note is written and can be read back.
+            io.github.carlos_emr.carlos.commn.model.WaitingList onTheList = new io.github.carlos_emr.carlos.commn.model.WaitingList();
+            onTheList.setListId(7);
+            onTheList.setDemographicNo(42);
+            onTheList.setPosition(3);
+            when(mockWaitingListDao.findByWaitingListIdForUpdate(7)).thenReturn(List.of(onTheList), List.of());
+            DemographicTo1 data = payload("PUT");
+            String exact = character.repeat(255);
+            data.setAlert(exact);
+            data.setNurse(exact);
+            data.setResident(exact);
+            data.setMidwife(exact);
+            data.setWaitingListID(7);
+            data.setWaitingListNote(exact);
+
+            try (Response response = request().path("/demographics").invoke("PUT", data)) {
+                assertThat(response.getStatus()).isEqualTo(200);
+            }
+            ArgumentCaptor<io.github.carlos_emr.carlos.commn.model.DemographicCust> cust =
+                    ArgumentCaptor.forClass(io.github.carlos_emr.carlos.commn.model.DemographicCust.class);
+            verify(mockDemographicManager).createUpdateDemographicCust(any(LoggedInInfo.class), cust.capture());
+            assertThat(cust.getValue().getAlert()).isEqualTo(exact);
+            assertThat(cust.getValue().getNurse()).isEqualTo(exact);
+            assertThat(cust.getValue().getResident()).isEqualTo(exact);
+            assertThat(cust.getValue().getMidwife()).isEqualTo(exact);
+            ArgumentCaptor<io.github.carlos_emr.carlos.commn.model.WaitingList> note =
+                    ArgumentCaptor.forClass(io.github.carlos_emr.carlos.commn.model.WaitingList.class);
+            verify(mockWaitingListDao).saveEntity(note.capture());
+            assertThat(note.getValue().getNote()).isEqualTo(exact);
+            assertThat(note.getValue().getListId()).isEqualTo(7);
+        }
+
+        @ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+        void shouldReportOnlyWaitingListLockConflicts_asRetryable(boolean lockConflict) {
+            registerMock(WaitingListDao.class, mockWaitingListDao);
+            var data = payload("PUT");
+            data.setWaitingListID(7);
+            data.setWaitingListNote("Synthetic note");
+            String privateValue = "FAKE-PRIVATE-WAITING-LIST-DIAGNOSTIC";
+            RuntimeException failure = lockConflict
+                    ? new jakarta.persistence.PessimisticLockException(privateValue)
+                    : new IllegalStateException(privateValue);
+            when(mockWaitingListDao.findByWaitingListIdForUpdate(7)).thenThrow(failure);
+
+            try (Response response = request().path("/demographics").invoke("PUT", data)) {
+                assertThat(response.getStatus()).isEqualTo(lockConflict ? 409 : 500);
+                if (lockConflict) {
+                    assertThat(response.readEntity(String.class)).contains("WAITING_LIST_CHANGED", "reload before retrying")
+                            .doesNotContain(privateValue);
+                }
+            }
+            verify(mockDemographicManager, never()).updateDemographic(any(LoggedInInfo.class), any(Demographic.class));
+        }
+
+        @ParameterizedTest
+        @org.junit.jupiter.params.provider.NullSource
+        @org.junit.jupiter.params.provider.ValueSource(ints = 0)
+        void shouldNotCheckTheNote_whenNoWaitingListIsNamed(Integer noList) {
+            // The note is written only with a list, so without one a long note is not a reason to refuse.
+            registerMock(WaitingListDao.class, mockWaitingListDao);
+            DemographicTo1 data = payload("PUT");
+            data.setWaitingListID(noList);
+            data.setWaitingListNote("A".repeat(256));
+
+            try (Response response = request().path("/demographics").invoke("PUT", data)) {
+                assertThat(response.getStatus()).isEqualTo(200);
+            }
+            verify(mockDemographicManager).updateDemographic(any(LoggedInInfo.class), any(Demographic.class));
+            verifyNoInteractions(mockWaitingListDao);
         }
     }
 
@@ -300,7 +461,7 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
         try (Response response = request().path("/demographics").invoke("PUT", data)) {
             assertThat(response.getStatus()).isEqualTo(409);
             assertThat(response.readEntity(String.class)).contains("reload before retrying")
-                    .doesNotContain("FAKE-PRIVATE-SQL-VALUE", "SQLException");
+                    .doesNotContain("FAKE-PRIVATE-SQL-VALUE", "SQLException", "DUPLICATE_DEMOGRAPHIC_EXTENSION_KEY");
         }
         verifyNoInteractions(mockDemographicManager, mockWaitingListDao);
     }

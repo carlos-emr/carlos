@@ -194,8 +194,12 @@ holding 65535 characters at the clinic becomes a utf8mb4 `text` holding
 65535 bytes in CARLOS, and an identically-declared column has genuinely
 narrowed for any accented content — `casemgmt_note.note`, `eform_data`
 and document descriptions are where a 20-year clinic accumulates long
-pasted text. `--dry-run` on the CARLOS host does not close the gap
-either: it returns after P2 and never reaches P4.
+pasted text. On the CARLOS host, `--dry-run` checks target column widths
+against staging. When the column definitions establish that values fit,
+as with stock OSCAR 19 `log.data`, the importer can skip the scan. When
+measurement is needed on a large table with a declared, indexed, non-null
+integer chunk key, it checks successive ID ranges. P4 still checks values
+that depend on ID mappings created during the import.
 
 ## 2. Produce the three inputs on the OSCAR 19 server
 
@@ -426,8 +430,8 @@ restore runs under a schema-scoped account that needs `BINLOG ADMIN`, and
 the server must have no replicas attached: the import's binlog-off bulk copy
 is not replica-safe, and a server with replicas is refused.
 
-Every blocker is cleared by one explicit `--accept` class, recorded in the
-report as the clinic's sign-off. There are twelve:
+Findings that can proceed with the clinic's sign-off name an explicit
+`--accept` class. The importer records the sign-off in the report.
 
 | class | what it acknowledges |
 |---|---|
@@ -435,8 +439,11 @@ report as the clinic's sign-off. There are twelve:
 | `unknown-as-archive` | tables and columns the manifest does not know are preserved whole, not migrated |
 | `dropped-columns` | columns CARLOS has no home for held data (preserved as `import_archived_<column>`) |
 | `charset-repair` | double-encoded text is repaired row by row during the copy |
+| `keep-unrepairable-text` | preserve the complete original value where lossless repair leaves unresolved encoding |
+| `latest-billing-generation` | use the highest ID for a repeated exact filename within one generation table after the clinic confirms it owns the surviving file |
 | `olis-gone` | OLIS was in use; CARLOS has no OLIS module |
 | `no-documents` | import without the documents tree (with `--skip-documents`) |
+| `missing-source-documents` | attach source-unavailable PDF notices where chart files are absent from the source backup |
 | `no-pre-backup` | no pre-import snapshot, or the backup unit failed |
 | `unverified-bundle` | open a bundle whose SHA-256 was never conveyed |
 | `carry-credentials` | live OAuth secrets and signing keys are copied verbatim |
@@ -444,10 +451,10 @@ report as the clinic's sign-off. There are twelve:
 | `no-content-digests` | the transfer's content could not be fully verified (usually: no content digests were shipped) |
 | `content-migration` | a preserved copy, or a copied row's twin, holds the right number of rows but not the same values |
 
-The assessment can evaluate only six of them (`archived-forms`,
+The standalone assessment can evaluate only seven of them (`archived-forms`,
 `unknown-as-archive`, `olis-gone`, `dropped-columns`, `carry-credentials`,
-`charset-repair`) plus `unverified-bundle`; the rest belong to phases it
-never runs.
+`charset-repair`, `keep-unrepairable-text`). On the CARLOS host,
+`--dry-run` also checks staged document references against the source tar.
 
 Phases (state under `/var/lib/carlos-emr/o19-import/`): stock-deploy gate
 → pre-import backup → staged restore → preflight → data copy with
@@ -680,6 +687,28 @@ gate has no override.
    something *different* — consultation auto-include, lab display, the
    contacts UI. Each row names both values; restore any the clinic wants
    by adding the key to `/etc/carlos-emr/carlos.properties` yourself.
+
+   **Confirm the clinic’s site-access policy before clinical use.** An active
+   `multisites` entry in OSCAR’s `oscar.properties` appears in the reviewed
+   fragment for Ontario and BC. When OSCAR used `on`, `yes` or `true`
+   (case-insensitive), check that the effective `multisites` value in
+   `/etc/carlos-emr/carlos.properties` also enables the mode, unless the clinic
+   has approved a change. A commented or absent key leaves CARLOS’s configured
+   value in place. Older OSCAR Ontario billing screens could filter by site
+   even with multisite mode off. If the clinic relied on that behavior, confirm
+   its intended billing access with the clinic before opening CARLOS to staff.
+   After the restart, use a site-restricted account to verify that it can see
+   its assigned site and cannot see a different site.
+
+   **Previously completed imports.** Earlier properties reports listed an
+   explicit `multisites` entry as `unknown` and omitted it from the fragment.
+   `--resume` keeps a completed properties phase’s existing fragment. Compare
+   the original OSCAR setting with the deployed CARLOS setting, apply the
+   clinic-approved value and restart if it changed. This configuration
+   check can be completed on the existing import. CARLOS seeds the admin
+   `_site_access_privacy` grant in both provinces, and a single-site clinic
+   can also have site records.
+
 2. `carlos-ctl backup full` — the post-import snapshot.
 3. **Technical review before clinical use**: start at
    `/var/lib/carlos-emr/o19-import/import-report.txt` — the validation
@@ -868,7 +897,18 @@ report-runner templates, OLIS preferences. The preflight report enumerates
 exactly which of these hold rows for a given clinic — that list is the
 clinic's sign-off.
 
-## Historical Ontario billing filenames (beta7)
+## Historical Ontario billing filenames
+
+With **carlos-ctl 1.3.6** and **2026.08.0-beta10**, the live generation tables
+retain rows that can be matched to files in the backup. The archive retains
+the other source rows. Review a repeated name against the clinic's records
+before accepting `latest-billing-generation`. Names shared between the two
+generation tables and filenames that still collide under the target's
+comparison rules require reconciliation. The private
+`billing-files-details.txt` records the disposition of each affected row.
+
+The following describes the beta 7 filename mapping and the reconciliation
+of records already imported with it.
 
 Use **carlos-ctl 1.3.2** with **2026.08.0-beta7** or the coordinated later
 package pair. The schema manifest uses format 2 and the ETL uses contract 4;
@@ -1001,11 +1041,12 @@ the additive billing audit migration does not permit a partial-copy bypass.
   are in `documents-details.txt` (root-only), the console and the report
   carry counts. If a source file was present and its target copy is missing,
   restore that exact file under `/var/lib/carlos-emr/CarlosDocument/carlos/`
-  and use `--resume`. If the source tar never contained a referenced
-  document or clinic eForm asset, a target-side placeholder cannot clear
-  the refusal: recover the genuine source file, restore the pre-import
-  snapshot, rebuild the tar and start a new import. The phase records the
-  tar it restored and refuses a different one on resume.
+  and use `--resume`. For chart files absent from the source tar,
+  `--resume --accept missing-source-documents` attaches a PDF labeled
+  “Source document unavailable” to each eligible record. To supply a
+  missing HRM report or clinic eForm asset, recover the genuine source file,
+  restore the pre-import snapshot, rebuild the tar and start a new import.
+  The phase records the tar it restored and refuses a different one on resume.
   An eForm image reference that escapes `eform/images` is blocking too.
   Correct that eForm in the source, re-export the complete source set,
   restore the pre-import snapshot, and start a fresh import. Editing the
@@ -1075,25 +1116,19 @@ the additive billing audit migration does not permit a partial-copy bypass.
   without the flag, and it refuses at P4 — after the pre-import snapshot
   and the whole staging restore — so an assessment that called this
   advisory would cost the clinic a cutover window.
-- *B8: text that looks double-encoded but does not round-trip …* — thrice
-  encoded or otherwise unrepairable text. No flag overrides this; the rows
-  need manual investigation on the OSCAR 19 side. The clinic-side
-  assessment raises the same stop as `B8-charset-unrepairable`, so it
-  should be found before the bundle is built rather than at P4: it counts
-  the thrice-encoded rows everywhere, and the mixed-encoding rows on any
-  server whose regex engine understands `\x{NN}` escapes. On MySQL < 8 /
-  MariaDB < 10.0.5 the engine reads that escape as a literal bracket
-  expression, so the assessment does not ask and reports
-  `charset-b8-unmeasured` instead — a `go` there is silent about that one
-  class, never a clearance of it.
-  The scoped ISO-8859-1 `drugs.special` extension is implemented in
-  [carlos-ctl #18](https://github.com/carlos-emr/carlos-ctl/pull/18), pending a
-  published CLI release and the CARLOS dependency/pin update. With that fixed
-  version, the two reviewed en-dash / less-than-or-equal sequences use the
-  existing `--accept charset-repair`; remaining corruption still blocks.
-  `charset-exact-unmeasured` explicitly discloses source engines that cannot
-  evaluate the full guarded candidate. Preflight stays read-only. Regenerate
-  its standalone file after upgrading and rerun assessment before exporting.
+- *B8: text that looks double-encoded but does not round-trip …* — use
+  `--accept keep-unrepairable-text` after reviewing the affected columns to
+  retain each full original value that lossless repair cannot resolve.
+  Losslessly repairable text still uses `charset-repair`, including the
+  two reviewed ISO-8859-1 sequences in `drugs.special`. The standalone
+  assessment reports `charset-b8-unmeasured` or `charset-exact-unmeasured`
+  when the source engine cannot evaluate those checks. Regenerate the
+  standalone assessment after upgrading and run it before exporting.
+- *MariaDB error 1030 during a database width check, copy or verification*
+  — the private `/var/lib/carlos-emr/o19-import/import-debug.jsonl` records
+  the failing operation, identifiers, applicable key range and a UTC command
+  to look up the underlying server error. Add `--debug` for progress and
+  timing throughout those checks, including on a dry run or resume.
 - *the dump uses collation(s) unavailable on this server* — the OSCAR 19
   server had collations this MariaDB lacks. Re-take the dump on a server
   whose collations match, or install them.
@@ -1170,6 +1205,15 @@ the additive billing audit migration does not permit a partial-copy bypass.
   `--cleanup`, then upgrade again. *A finished ETL cannot be continued
   under a different manifest* — the upgrade landed mid-run; the same
   package reinstall, then `--resume`, `--cleanup`, then upgrade.
+  Beta 10 preserves a missing legacy billing appointment number as SQL NULL.
+  Earlier import rules stored zero for the same input. An upgrade cannot
+  distinguish those zeros from zeros already present in OSCAR. Use the
+  original OSCAR dump to identify affected claims. Restoring the pre-import
+  snapshot also replaces clinical work recorded after that backup.
+  A workspace that has only been staged can resume after the importer verifies
+  the untouched target. If a previous package has already copied rows, finish
+  and clean up with the matching package pair, or follow the rollback
+  procedure above and start a fresh import with the new pair.
 - *the archive schema o19_archive of a previous import exists* — a fresh
   run on a host that imported a clinic before; `--cleanup` that run (or
   drop the schema once the clinic holds its CSV export) first, or the old

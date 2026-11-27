@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "9fdcd8755c668dfebe7cef962542b2be4f18b843",
+  "comparisonSha256": "138a48912f247813d8263573f40a3821bf847cc2a2ba8114168e2be3f4021996",
+  "baselineCommit": "901365a8a127f09e53e6276ee720dbecfb36e89d",
+  "baselineSourceTree": "9fdcd8755c668dfebe7cef962542b2be4f18b843",
+  "baselineReportSha256": "406a2fd7d9b75c318a5ccac711bcacbcaec9655ab07ad129dddf4811fbb4c360",
+  "baselineLane": "Ubuntu 26.04 OpenJDK 25 targeted Ontario billing policy, DAO and admin tests",
+  "baselineTestCounts": {
+    "tests": 504,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.PMmodule.dao.ProviderDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.admin.gate.ViewAdminDisplayMyGroup2ActionTest",
+    "io.github.carlos_emr.carlos.admin.web.AdminGroupActionsTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOhipSimulationViewModelAssemblerUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOnCorrectionViewModelAssemblerUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOnMriViewModelAssemblerTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOnStatusViewModelAssemblerRoutingUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOnStatusViewModelAssemblerUnreadableCountUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.assembler.GstReportViewModelAssemblerUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskConcurrencyUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskLoaderUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskServiceGroupDiskUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskServiceUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnFileAccessServiceIntegrationTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.OhipClaimExtractServiceUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.service.OhipReportGenerationServiceDependencyInjectionUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.web.AddThirdPartyPayment2ActionUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.web.BillingCorrection2ActionUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.web.BillingReportViewActionsAuthorizedUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.web.MissingBillingActionPrivilegeUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.web.ReportActionDependencyInjectionUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.web.SiblingViewBillingOnActionPrivilegeUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.web.UntestedBillingActionPrivilegeUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.web.UpdateBillingOnCorrection2ActionUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingOnMri2ActionUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingOnStatus2ActionUnitTest",
+    "io.github.carlos_emr.carlos.billings.ca.on.web.ViewGenSimulation2ActionUnitTest",
+    "io.github.carlos_emr.carlos.commn.SiteChoiceUnitTest",
+    "io.github.carlos_emr.carlos.commn.dao.BillingDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.util.OscarDownloadUnitTest"
+  ],
+  "baselineTestReportsSha256": "6d3c8c047f9837c3289196be03bce254b47a86d435cf823796157a0f8e5cc19e",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOhipSimulationViewModelAssembler.java": {
+      "lines": 85.71428571428571,
+      "instructions": 82.41758241758242,
+      "branches": 58.333333333333336,
+      "sourceBlob": "8c9c0f22a6559b65918b92c35e9248d537432cd0"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOnCorrectionViewModelAssembler.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 80.0,
+      "sourceBlob": "f8ed7e495e7ef8963b0dc0ab0f97102fc2c6c381"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/BillingOnStatusViewModelAssembler.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "53d2de45da23feb656597f7001e1377ae9ba9dba"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/assembler/GstReportViewModelAssembler.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 85.0,
+      "sourceBlob": "10fc113d8a8f0a4e980aa0be25ba2ed4b01ea46f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/web/ViewBillingOhipSimulation2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "95961db9313aac6b155398a78666cf289116f6fa"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnProviderScope.java": {
+      "lines": 88.46153846153847,
+      "instructions": 87.27272727272727,
+      "branches": 76.19047619047619,
+      "sourceBlob": "790ff919be753ecdd6183a42bd39b7b7404e8691"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/BillingDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "8c1214d1c584c9b2d02b27dada78847c3b1a0e3b"
+    }
+  },
+  "exclusions": {}
+}

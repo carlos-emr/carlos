@@ -71,4 +71,32 @@ class ScheduleDateSaveJspRegressionTest {
         // A bare reload or a request without bFirstDisp=0 would regenerate the range again.
         assertThat(body).doesNotContain("reload(").doesNotContain("bFirstDisp=1");
     }
+
+    @Test
+    void shouldLoadAndReloadTheCalendarDays_throughTheOwnedCache() throws IOException {
+        String calendar = Files.readString(CALENDAR, StandardCharsets.UTF_8);
+
+        assertThat(calendar)
+                .contains("ScheduleCalendarCache.templateForApply(request, provider_no)",
+                        "ScheduleCalendarCache.readMonth(session, provider_no, scheduleDateDao)",
+                        "scheduleRscheduleBean = monthView.rule()", "scheduleDateBean = monthView.days()",
+                        "scheduleDateBean = ScheduleCalendarCache.openMonth(session, scheduleRscheduleBean, scheduleDateDao)")
+                .doesNotContain("<jsp:useBean id=\"scheduleRscheduleBean\"", "<jsp:useBean id=\"scheduleDateBean\"");
+        int refused = calendar.indexOf("\"error.refusal.scheduleTemplateChanged\"");
+        assertThat(refused).as("a stale calendar is refused before any database writes or page rendering")
+                .isPositive().isLessThan(calendar.indexOf("templates.apply(")).isLessThan(calendar.indexOf("<html>"));
+        assertThat(calendar).contains("if (scheduleRscheduleBean.getDateAvail(cal))", "ruleDays.add(sd)")
+                .contains("originalEnd = original.end().isEmpty() ? null : MyDateFormat.getSysDate(original.end())")
+                .doesNotContain("rScheduleDao.", "scheduleDateDao.merge(", "scheduleDateDao.persist(", "if (scheduleDateBean.get(",
+                        "request.getParameter(\"origeyear\")");
+        assertThat(calendar).contains("aHScheduleDate.hour != null ? aHScheduleDate.hour : \"\"");
+        assertThat(calendar.indexOf("boolean replaceSameStart = sdate.equals(original.start())"))
+                .isPositive().isLessThan(calendar.indexOf("scheduleRscheduleBean.setRscheduleBean("));
+        int replaceDays = calendar.indexOf("templates.apply(submittedRule, replaceSameStart,");
+        assertThat(calendar.indexOf("if (result.stalePeriod())")).isGreaterThan(replaceDays)
+                .isLessThan(calendar.indexOf("ScheduleCalendarCache.openMonth("));
+        assertThat(replaceDays).as("only publish the display cache after authoritative generation")
+                .isGreaterThan(calendar.indexOf("ruleDays.add(sd)"))
+                .isLessThan(calendar.indexOf("ScheduleCalendarCache.openMonth("));
+    }
 }

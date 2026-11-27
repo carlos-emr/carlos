@@ -658,7 +658,7 @@ promotion_ref=${PROMOTION_REF:?Set PROMOTION_REF to the reviewed promotion ref o
 git worktree add --detach ../carlos-package-validation "$promotion_ref"
 cd ../carlos-package-validation
 release_tag=2026.08.0-alpha12
-deb_version="${release_tag//-/~}"
+deb_version="$(printf '%s' "$release_tag" | sed 's/-/~/g')"
 printf 'carlos-emr (%s) resolute; urgency=medium\n\n  * Validation package of release %s.\n\n -- CARLOS Release CI <releases@carlos-emr.invalid>  %s\n' \
   "$deb_version" "$release_tag" "$(date -R)" > debian/changelog
 test "$(dpkg-parsechangelog -SVersion)" = "$deb_version"
@@ -1866,13 +1866,18 @@ each entry citing the check, the issue or the findings-log row behind it:
 - recorded defects (findings 137, 138, 139, 141, 142 and 144), so that a new
   error stands out from the ones already recorded.
 
-`FaxImporter.java:406` ("Fax provider error for account ...") is deliberately NOT in the
-baseline. `fax-configure` saves a fake SRFax account that the fax scheduler would poll
-every minute, so the check restores the `fax_config` row about a second after the save
-(`scripts/lib/fax-config-state.js`). One such line within seconds of that check is the
-narrow race with the scheduler's first cycle (3 s after the save that starts it); a line
-every minute means the restore did not take, and `--residue-audit` names the table. The
-underlying missing backoff is app-findings-log.md finding 180.
+The initial inbound fax outage ERROR from `FaxImporter.recordPollFailure` is deliberately
+absent from the baseline: it signals a real provider or client-setup failure. The
+`fax-configure` check restores its unreachable `fax_config` account about a second after
+the save (`scripts/lib/fax-config-state.js`). One initial-outage ERROR within seconds of
+that check can be the narrow race with the scheduler's first cycle (3 s after the save
+that starts it); verify its account and timing before explaining it. Repeated ERRORs
+mean distinct outage streaks or unexpected failures, not the normal retry cadence.
+Inbound polling backs off from one minute to one hour; after reaching the cap, failed
+hourly retries log WARN with the consecutive failure count. Use `--include-warn` when
+checking persistent outages. Recovery logs one WARN. `--residue-audit` checks whether the
+fixture account was restored. Finding 180 records the original missing-backoff defect;
+#6016 tracks the later outage-visibility regression.
 
 An entry that names neither a stack frame nor an exception is pinned to its exact
 source line, because one class can log many different failures by name alone.
@@ -2534,9 +2539,12 @@ passed on the same install. Changed-line coverage of the Java fix from the
 focused unit tests (`scripts/coverage/changed_line_audit.py`): 2/2 executable
 lines covered.
 
-Fixture providers must share a site with the operator (the demo `admin` role
-carries `_site_access_privacy`, and the diskette page lists only same-site
-providers). The historical run above worked around NULL optional claim fields;
+In multisite mode, fixture providers must share a site with an operator who
+holds `_site_access_privacy`, including the seeded administrator. In a
+single-site clinic, the OHIP Simulation and Generate OHIP File pages show
+eligible providers and their disk history even without site assignments.
+The `billing-on-single-site-visibility` check exercises that configuration.
+The historical run above worked around NULL optional claim fields;
 PR #3999 now fixes that exporter defect (#4032), and the fixture deliberately
 uses NULL for the optional referral, facility, laboratory, review, and location
 fields.

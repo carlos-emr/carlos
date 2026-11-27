@@ -16,12 +16,13 @@ Run (from the repository root):
     python3 -m unittest discover -s debian/assets/tests
 """
 
-import os
 import importlib.util
+import os
 import re
+import shutil
 import subprocess
+import sys
 import tempfile
-import textwrap
 import unittest
 from pathlib import Path
 
@@ -130,15 +131,13 @@ class TestSecretsAreNotBackedUp(unittest.TestCase):
 
 class TestTheCarlosCtlPin(unittest.TestCase):
 
-    """The release build reads the tag; CI reads the tag or exact fallback.
+    """The asset build reads the tag and source tests require its exact commit.
 
     The installed CDS resource gate always requires the fallback commit, so
     it remains mandatory even after the tag is published.
     """
 
     PIN = ROOT / "debian" / "carlos-ctl.pin"
-    WORKFLOWS = (ROOT / ".github" / "workflows" / "debian-python-tests.yml",
-                 ROOT / ".github" / "workflows" / "script-regressions.yml")
 
     def _fields(self):
         fields = {}
@@ -160,13 +159,7 @@ class TestTheCarlosCtlPin(unittest.TestCase):
         self.assertEqual(set(self._fields()) - {"tag", "fallback"}, set(),
                          "unknown key in debian/carlos-ctl.pin")
 
-    def test_the_jobs_read_the_tag_and_the_fallback_the_same_way(self):
-        for workflow in self.WORKFLOWS:
-            text = workflow.read_text(encoding="utf-8")
-            self.assertIn("sed -n 's/^tag=//p' debian/carlos-ctl.pin", text, workflow.name)
-            self.assertIn("sed -n 's/^fallback=//p' debian/carlos-ctl.pin", text, workflow.name)
-            self.assertIn('checkout --quiet "$fallback"', text, workflow.name)
-        # the release build never falls back: a missing release is a failure
+    def test_the_release_build_requires_the_published_asset(self):
         fetch = (ROOT / "debian" / "fetch-carlos-ctl.sh").read_text(encoding="utf-8")
         self.assertNotIn("fallback", fetch)
 
@@ -202,58 +195,239 @@ class TestTheDrugrefPin(unittest.TestCase):
 
 
 class TestPinnedCliWorkflowCheckout(unittest.TestCase):
-    """Run both workflow checkout steps without a network or GitHub runner."""
+    """Run both workflow checkout steps against a local Git repository."""
 
-    def run_checkout(self, workflow, published, fallback):
+    WORKFLOWS = (ROOT / ".github/workflows/debian-python-tests.yml",
+                 ROOT / ".github/workflows/script-regressions.yml")
+    TAG = "1.1.0"
+
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.mirror = self.root / "mirror"
+        self.mirror.mkdir()
+        self.git("init", "--quiet", "--initial-branch", "main")
+        self.git("config", "user.name", "CARLOS workflow fixture")
+        self.git("config", "user.email", "fixture@example.invalid")
+        self.git("config", "commit.gpgsign", "false")
+        (self.mirror / "version.txt").write_text("original fixture revision\n", encoding="utf-8")
+        self.git("add", "version.txt")
+        self.git("commit", "--quiet", "-m", "First fixture revision")
+        self.expected = self.git("rev-parse", "HEAD")
+        (self.mirror / "version.txt").write_text("other fixture revision\n", encoding="utf-8")
+        self.git("commit", "--quiet", "-am", "Other fixture revision")
+        self.other = self.git("rev-parse", "HEAD")
+        self.pin = self.root / "debian/carlos-ctl.pin"
+        self.pin.parent.mkdir()
+        self.pin.write_text(f"tag={self.TAG}\nfallback={self.expected}\n", encoding="utf-8")
+        scripts = self.root / "scripts/ci"
+        scripts.mkdir(parents=True)
+        for name in ("carlos_ctl_pin.py", "git_environment.py", "run-pinned-carlos-ctl-suite.py"):
+            shutil.copyfile(ROOT / "scripts/ci" / name, scripts / name)
+        self.config = self.root / "git-config"
+        self.use_mirror(self.mirror)
+
+    def git(self, *args, source=None):
+        return subprocess.check_output(["git", *args], cwd=source or self.mirror, text=True).strip()
+
+    def use_mirror(self, mirror):
+        self.config.write_text(
+            f'[url "{mirror.as_uri()}"]\n\tinsteadOf = https://github.com/carlos-emr/carlos-ctl.git\n',
+            encoding="utf-8")
+
+    def run_checkout(self, workflow):
         text = workflow.read_text(encoding="utf-8")
         match = re.search(
-            r"      - name: Check out the pinned carlos-ctl release\n"
-            r"        run: \|\n((?:          .*\n|\n)+)", text)
+            r"^      - name: Check out the pinned carlos-ctl release\n"
+            r"        run: (.+)$", text, re.M)
         self.assertIsNotNone(match, workflow.name)
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            (root / "debian").mkdir()
-            (root / "debian/carlos-ctl.pin").write_text(
-                "tag=1.1.0\n" + ("fallback=" + fallback + "\n" if fallback else ""))
-            stub = root / "git"
-            stub.write_text("""#!/bin/bash
-printf '%s\\n' "$*" >> "$GIT_CALLS"
-if [[ "$*" == *'--branch'* && "$PUBLISHED" != 1 ]]; then exit 1; fi
-if [[ "$*" == *'rev-parse HEAD'* ]]; then echo fixture-commit; fi
-""")
-            stub.chmod(0o755)
-            calls = root / "calls"
-            result = subprocess.run(
-                ["bash", "-c", textwrap.dedent(match.group(1))], cwd=root,
-                env={**os.environ, "PATH": str(root) + os.pathsep + os.environ["PATH"],
-                     "CARLOS_CTL_SRC": str(root / "ctl"), "GIT_CALLS": str(calls),
-                     "PUBLISHED": "1" if published else "0"},
-                capture_output=True, text=True)
-            return result, calls.read_text()
+        destination = self.root / workflow.stem
+        result = subprocess.run(
+            ["bash", "-e", "-c", match.group(1)], cwd=self.root,
+            env={**os.environ, "CARLOS_CTL_SRC": str(destination), "GIT_ALLOW_PROTOCOL": "file",
+                 "GIT_CONFIG_GLOBAL": str(self.config), "GIT_CONFIG_NOSYSTEM": "1"},
+            capture_output=True, text=True)
+        return result, destination
 
-    def test_published_tag_is_preferred_to_fallback(self):
-        for workflow in TestTheCarlosCtlPin.WORKFLOWS:
+    def test_published_annotated_tag_matches_the_pinned_commit(self):
+        self.git("tag", "-a", self.TAG, "-m", "Fixture release", self.expected)
+        for workflow in self.WORKFLOWS:
             with self.subTest(workflow=workflow.name):
-                result, calls = self.run_checkout(workflow, True, "a" * 40)
+                result, destination = self.run_checkout(workflow)
                 self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertIn("--branch 1.1.0", calls)
-                self.assertNotIn("checkout --quiet", calls)
+                self.assertEqual(self.git("rev-parse", "HEAD", source=destination), self.expected)
+                self.assertIn(f"verified at {self.expected}", result.stdout)
 
-    def test_missing_tag_uses_exact_fallback_and_warns(self):
-        for workflow in TestTheCarlosCtlPin.WORKFLOWS:
-            with self.subTest(workflow=workflow.name):
-                result, calls = self.run_checkout(workflow, False, "a" * 40)
-                self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertIn("checkout --quiet " + "a" * 40, calls)
-                self.assertIn("::warning::", result.stdout)
+    def test_published_prerelease_tag_matches_the_pinned_commit(self):
+        tag = f"{self.TAG}-rc1"
+        self.pin.write_text(f"tag={tag}\nfallback={self.expected}\n", encoding="utf-8")
+        self.git("tag", tag, self.expected)
+        result, destination = self.run_checkout(self.WORKFLOWS[0])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.git("rev-parse", "HEAD", source=destination), self.expected)
 
-    def test_missing_tag_and_fallback_fail_instead_of_skipping_tests(self):
-        for workflow in TestTheCarlosCtlPin.WORKFLOWS:
+    def test_moved_tag_is_rejected_even_when_the_pin_remains_fetchable(self):
+        self.git("tag", "-a", self.TAG, "-m", "Original fixture release", self.expected)
+        self.git("tag", "-f", "-a", self.TAG, "-m", "Moved fixture release", self.other)
+        for workflow in self.WORKFLOWS:
             with self.subTest(workflow=workflow.name):
-                result, calls = self.run_checkout(workflow, False, None)
+                result, destination = self.run_checkout(workflow)
                 self.assertNotEqual(result.returncode, 0)
-                self.assertIn("::error::", result.stdout)
-                self.assertNotIn("checkout --quiet", calls)
+                self.assertIn(f"is at {self.other}. carlos-ctl.pin requires {self.expected}", result.stderr)
+                self.assertFalse(destination.exists())
+
+    def test_missing_tag_uses_the_exact_commit_even_with_a_same_named_branch(self):
+        self.git("branch", self.TAG, self.other)
+        for workflow in self.WORKFLOWS:
+            with self.subTest(workflow=workflow.name):
+                result, destination = self.run_checkout(workflow)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(self.git("rev-parse", "HEAD", source=destination), self.expected)
+                self.assertIn(f"::warning::carlos-ctl tag {self.TAG} is unpublished", result.stdout)
+
+    def test_remote_failure_is_not_treated_as_an_unpublished_tag(self):
+        self.use_mirror(self.root / "missing-mirror")
+        for workflow in self.WORKFLOWS:
+            with self.subTest(workflow=workflow.name):
+                result, destination = self.run_checkout(workflow)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("ls-remote", result.stderr)
+                self.assertNotIn("::warning::", result.stdout)
+                self.assertFalse(destination.exists())
+
+    def test_pin_requires_one_full_commit_even_when_tag_exists(self):
+        self.git("tag", self.TAG, self.expected)
+        for fallback in ("", "fallback=1234567\n", f"fallback={self.expected}\nfallback={self.other}\n"):
+            self.pin.write_text(f"tag={self.TAG}\n{fallback}", encoding="utf-8")
+            with self.subTest(fallback=fallback):
+                result, destination = self.run_checkout(self.WORKFLOWS[0])
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("::error::", result.stderr)
+                self.assertFalse(destination.exists())
+
+    def test_unpublishable_release_tags_are_rejected_before_checkout(self):
+        for workflow, suffix in zip(self.WORKFLOWS, ("rc..1", "rc"), strict=True):
+            tag = f"{self.TAG}-{suffix}"
+            with self.subTest(tag=tag):
+                self.pin.write_text(f"tag={tag}\nfallback={self.expected}\n", encoding="utf-8")
+                result, destination = self.run_checkout(workflow)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("must name a carlos-ctl release tag", result.stderr)
+                self.assertFalse(destination.exists())
+
+    def test_pinned_suite_rejects_a_moved_local_tag_even_at_the_pinned_head(self):
+        self.git("tag", self.TAG, self.other)
+        self.git("checkout", "--quiet", "--detach", self.expected)
+        result = subprocess.run(
+            [sys.executable, "scripts/ci/run-pinned-carlos-ctl-suite.py", "--output", "out.json"],
+            cwd=self.root, env={**os.environ, "CARLOS_CTL_SRC": str(self.mirror)},
+            capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(f"is at {self.other}. carlos-ctl.pin requires {self.expected}", result.stderr)
+        self.assertFalse((self.root / "out.json").exists())
+
+
+class TestDebianPythonDependencyLock(unittest.TestCase):
+    def test_workflow_requires_wheel_hashes_for_bcrypt(self):
+        workflow = (ROOT / ".github/workflows/debian-python-tests.yml").read_text(encoding="utf-8")
+        lock = ROOT / "debian/assets/tests/requirements.txt"
+        self.assertIn(f"--require-hashes --only-binary=:all: -r {lock.relative_to(ROOT)}", workflow)
+        self.assertRegex(lock.read_text(encoding="utf-8"),
+                         r"(?m)^bcrypt==[0-9.]+ \\\n    --hash=sha256:[0-9a-f]{64}$")
+
+
+class TestPostinstLintianBashismOverrides(unittest.TestCase):
+    """#6336: each possible-bashism override names text the postinst still has.
+
+    checkbashisms misreads embedded Python method calls as shell function
+    declarations. A stale override (for code since removed) or a wildcard one
+    silently widens the suppression, and lintian only runs in the package
+    workflows, so the pairing is pinned here.
+    """
+
+    OVERRIDES = ROOT / "debian" / "carlos-emr.lintian-overrides"
+    POSTINST = ROOT / "debian" / "carlos-emr.postinst"
+    TAG = "possible-bashism-in-maintainer-script"
+    NGINX_PATTERNS = (
+        "link.lstat()", "link.unlink()", "query.stdout.splitlines()",
+        "usedforsecurity=False).hexdigest()",
+    )
+
+    def bashism_overrides(self):
+        found = []
+        for number, line in enumerate(self.OVERRIDES.read_text(encoding="utf-8").splitlines(), 1):
+            if line.lstrip().startswith("#") or self.TAG not in line:
+                continue
+            match = re.fullmatch(self.TAG + r" '([^']*)' \[([^\]]+)\]", line.strip())
+            self.assertIsNotNone(match, f"line {number} is not '<tag> '<pattern>' [<scope>]': {line!r}")
+            found.append((number, match.group(1), match.group(2)))
+        return found
+
+    def nginx_heredoc(self):
+        text = self.POSTINST.read_text(encoding="utf-8")
+        match = re.search(r"<<'NGINX_DEFAULT_SITE'\n(.*?)\nNGINX_DEFAULT_SITE\n", text, re.S)
+        self.assertIsNotNone(match, "quoted NGINX_DEFAULT_SITE heredoc is missing from the postinst")
+        return match.group(1)
+
+    def test_every_override_pattern_occurs_literally_in_the_postinst(self):
+        postinst = self.POSTINST.read_text(encoding="utf-8")
+        overrides = self.bashism_overrides()
+        self.assertTrue(overrides)
+        for number, pattern, _scope in overrides:
+            with self.subTest(line=number, pattern=pattern):
+                self.assertIn(pattern, postinst)
+
+    def test_overrides_are_scoped_to_the_postinst_and_never_bare_wildcards(self):
+        for number, pattern, scope in self.bashism_overrides():
+            with self.subTest(line=number, pattern=pattern):
+                self.assertEqual(scope, "postinst:*")
+                self.assertGreaterEqual(len(pattern.strip("*? ")), 8)
+                self.assertNotIn("*", pattern.replace("sys.stdin.read().strip()", ""))
+
+    def test_nginx_default_site_overrides_are_exactly_the_four_python_calls(self):
+        patterns = [pattern for _n, pattern, _s in self.bashism_overrides()]
+        heredoc = self.nginx_heredoc()
+        for pattern in self.NGINX_PATTERNS:
+            with self.subTest(pattern=pattern):
+                self.assertEqual(patterns.count(pattern), 1)
+                self.assertIn(pattern, heredoc)
+        self.assertNotIn("configuration.flush()", patterns)
+        self.assertEqual(sorted(patterns),
+                         sorted(list(self.NGINX_PATTERNS) + ["sys.stdin.read().strip()"]))
+
+
+class TestRulesShipTheConfigurationPreflight(unittest.TestCase):
+    """#6133 / #6336: debian/rules builds and installs both preflight artifacts.
+
+    The service unit runs the root wrapper before start and the JVM loads the
+    jar as an agent, so a package without either fails to start; only the
+    installed lifecycle lanes would otherwise notice a wrong rules line.
+    """
+
+    RULES = ROOT / "debian" / "rules"
+
+    def rules(self):
+        return self.RULES.read_text(encoding="utf-8")
+
+    def test_build_target_runs_the_preflight_jar_script_that_exists(self):
+        text = self.rules()
+        target = re.search(r"^override_dh_auto_build:.*?(?=^\S)", text, re.S | re.M)
+        self.assertIsNotNone(target)
+        self.assertIn("sh $(CURDIR)/debian/build-configuration-preflight.sh $(BUILDDIR)", target.group(0))
+        self.assertTrue((ROOT / "debian" / "build-configuration-preflight.sh").is_file())
+
+    def test_wrapper_is_installed_executable_from_a_source_that_exists(self):
+        self.assertIn("install -m 0755 debian/assets/bin/carlos-emr-config-preflight $(STAGE)/$(LIBDIR)/",
+                      self.rules())
+        self.assertTrue((ROOT / "debian" / "assets" / "bin" / "carlos-emr-config-preflight").is_file())
+
+    def test_jar_is_installed_non_executable_under_the_shared_lib_directory(self):
+        self.assertIn(
+            "install -m 0644 $(BUILDDIR)/carlos-configuration-preflight.jar $(STAGE)/$(SHAREDIR)/lib/",
+            self.rules())
+        script = (ROOT / "debian" / "build-configuration-preflight.sh").read_text(encoding="utf-8")
+        self.assertIn("carlos-configuration-preflight.jar", script)
 
 
 if __name__ == "__main__":

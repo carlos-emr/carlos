@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/dao/ScheduleDateDao.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "c36e29c90facd0d9f66ce1c86b2028e73cdcfe07"
+  },
+  "evidenceSha256": "7ad5bc2d90ba675879c4814d286e55ddf4c79cffd005fddd9a7dc8a13a103a3a"
+}

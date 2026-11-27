@@ -206,8 +206,11 @@
         <script>
             $(function () {
                 var docSubClassList = [
+                    <%-- Issue #3057 (#2656): sub-classes are stored text printed into a JavaScript
+                         string inside this script block; forJavaScript keeps a stored quote, backslash
+                         or closing script tag from ending the string or the element. --%>
                     <% for (int i=0; i<subClasses.size(); i++) { %>
-                    "<%=subClasses.get(i)%>"<%=(i<subClasses.size()-1)?",":""%>
+                    "<carlos:encode value='<%= subClasses.get(i) %>' context='javaScript'/>"<%=(i<subClasses.size()-1)?",":""%>
                     <% } %>
                 ];
                 $("#docSubClass").autocomplete({
@@ -497,7 +500,7 @@
         <fmt:message key="dms.documentReport.msgPublicDocuments" var="msgPublicDocs"/>
 
         <form action="${pageContext.request.contextPath}/documentManager/combinePDFs" method="post">
-            <input type="hidden" name="curUser" value="<%=curUser%>">
+            <input type="hidden" name="curUser" value="<carlos:encode value='<%= curUser %>' context="htmlAttribute"/>">
             <input type="hidden" name="demoId" value="<carlos:encode value='<%= moduleid %>' context="htmlAttribute"/>">
             <% if (showScheduleNav) { %>
             <%-- Combine-PDF submits leave the current request, so carry the schedule shell flag explicitly. --%>

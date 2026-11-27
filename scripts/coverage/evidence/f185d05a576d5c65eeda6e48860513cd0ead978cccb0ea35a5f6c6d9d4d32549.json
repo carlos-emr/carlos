@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "cab7b02c37f596b462921d692d17f147b7e9dee0",
+  "comparisonSha256": "99e769c310092401e1a60a3d3e87eb777b7cab9740d9cd9dec51c1225fa6fe7d",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementEntry2Action.java": {
+      "sourceBlob": "b697dea93d810183e4ed183a57c552c10a8fadb1",
+      "lines": 89.35185185185185,
+      "instructions": 87.09408825978352,
+      "branches": 86.63366336633663
+    }
+  },
+  "baselineCommit": "e5fc3de8460e9e65f3d552eb531d01d7f29b0098",
+  "baselineSourceTree": "cab7b02c37f596b462921d692d17f147b7e9dee0",
+  "baselineReportSha256": "d7466c160b059fb9c825649539cd0072997a446e92e3fac269ee748988691263",
+  "baselineLane": "Focused JDK 25 chart authorization, request isolation, encounter date, revision, autosave, and H2 transaction tests. Includes stale rendered identity checks for first full-form saves and compact revisions.",
+  "baselineTestCounts": {
+    "tests": 672,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "920c01167ec7c57477171e644e866d36a7dafbc757e8efc940280bb92c90cfc5",
+  "baselineTestReportsHashFormat": "SHA-256 of a sorted compact lane/name-to-SHA-256 JSON object with final LF"
+}

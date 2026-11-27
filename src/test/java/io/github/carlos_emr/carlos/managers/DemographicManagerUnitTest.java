@@ -176,6 +176,56 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
      * and restore original behavior. Failure to close can cause subsequent
      * tests to fail or behave unexpectedly.</p>
      */
+    @Test
+    void shouldIdentifyTheSavedExtensionKey_withoutRecordingItsValue() {
+        DemographicExt ext = createTestDemographicExt(TEST_DEMO_NO, "FAKE_KEY\r\nforged", "PRIVATE_EXTENSION_VALUE");
+        ext.setId(null);
+        org.mockito.Mockito.doAnswer(call -> { ext.setId(65); return null; }).when(mockDemographicExtDao).saveEntity(ext);
+        manager.createExtension(mockLoggedInInfo, ext);
+        var data = org.mockito.ArgumentCaptor.forClass(String.class);
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogSynchronous(
+                eq(mockLoggedInInfo), eq("DemographicManager.createExtension"), data.capture()));
+        assertThat(data.getValue()).contains("id=65", "key=FAKE_KEY").doesNotContain("PRIVATE_EXTENSION_VALUE", "\r", "\n");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"add", "update"})
+    void shouldIdentifyNewExtensionAudits_afterSavingTheDemographic(String operation) {
+        Demographic demographic = createTestDemographicWithId(TEST_DEMO_NO);
+        DemographicExt ext = createTestDemographicExt(TEST_DEMO_NO, "FAKE_KEY", "PRIVATE_EXTENSION_VALUE");
+        ext.setId(null);
+        demographic.setExtras(new DemographicExt[]{ext});
+        org.mockito.Mockito.doAnswer(call -> { ext.setId(65); return null; }).when(mockDemographicExtDao).saveEntity(ext);
+        if (operation.equals("update")) {
+            when(mockDemographicDao.getDemographicById(TEST_DEMO_NO)).thenReturn(createTestDemographicWithId(TEST_DEMO_NO));
+            manager.updateDemographic(mockLoggedInInfo, demographic);
+        } else {
+            manager.addDemographic(mockLoggedInInfo, demographic);
+        }
+        var data = org.mockito.ArgumentCaptor.forClass(String.class);
+        String action = "DemographicManager." + operation + "Demographic ext";
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogSynchronous(
+                eq(mockLoggedInInfo), eq(action), data.capture()));
+        assertThat(data.getValue()).contains("id=65", "key=FAKE_KEY").doesNotContain("PRIVATE_EXTENSION_VALUE", "null");
+    }
+
+    @Test
+    void shouldRetainTheRemovedExtensionKey_withoutRecordingItsValue() {
+        Demographic demographic = createTestDemographicWithId(TEST_DEMO_NO);
+        DemographicExt ext = createTestDemographicExt(TEST_DEMO_NO, "FAKE_REMOVED_KEY", "PRIVATE_EXTENSION_VALUE");
+        ext.setId(77);
+        when(mockDemographicExtDao.getDemographicExtByDemographicNo(TEST_DEMO_NO)).thenReturn(List.of(ext));
+        when(mockDemographicExtDao.find(ext.getId())).thenReturn(ext);
+        manager.deleteDemographic(mockLoggedInInfo, demographic);
+        var data = org.mockito.ArgumentCaptor.forClass(String.class);
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogSynchronous(
+                eq(mockLoggedInInfo), eq("DemographicManager.deleteDemographic ext"), data.capture()));
+        assertThat(data.getValue()).contains("id=77", "key=FAKE_REMOVED_KEY").doesNotContain("PRIVATE_EXTENSION_VALUE");
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogSynchronous(
+                eq(mockLoggedInInfo), eq("DemographicManager.removeDemographicExt"), data.capture()));
+        assertThat(data.getValue()).contains("id=77", "key=FAKE_REMOVED_KEY").doesNotContain("PRIVATE_EXTENSION_VALUE");
+    }
+
     @AfterEach
     void tearDown() {
         if (demographicContactCreatorMock != null) {
@@ -1150,6 +1200,94 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
             manager.updateDemographic(mockLoggedInInfo, updated);
 
             assertThat(updated.getLastUpdateUser()).isEqualTo(TEST_PROVIDER);
+        }
+
+        @Test
+        @DisplayName("should execute a changed stored extension before it saves the next one")
+        void shouldFlushEachStoredExtension_beforeSavingTheNext() {
+            Demographic updated = createTestDemographicWithId(TEST_DEMO_NO);
+            DemographicExt stored = createTestDemographicExt(TEST_DEMO_NO, "demo_cell", "555-0100");
+            stored.setId(65);
+            DemographicExt changed = createTestDemographicExt(TEST_DEMO_NO, "hPhoneExt", "555-0100");
+            changed.setId(65);
+            DemographicExt added = createTestDemographicExt(TEST_DEMO_NO, "demo_cell", "555-0111");
+            added.setId(null);
+            updated.setExtras(new DemographicExt[] {changed, added});
+            when(mockDemographicDao.getDemographicById(TEST_DEMO_NO)).thenReturn(createTestDemographicWithId(TEST_DEMO_NO));
+            // By the Integer id, as the manager reads it: find(int) is a different overload.
+            when(mockDemographicExtDao.find(changed.getId())).thenReturn(stored);
+
+            manager.updateDemographic(mockLoggedInInfo, updated);
+
+            // The database answers the stored row's UPDATE at the flush. It must run before the new
+            // row's INSERT, which takes the key the stored row gave up; one flush is enough for both.
+            var order = inOrder(mockDemographicExtDao);
+            order.verify(mockDemographicExtDao).saveEntity(changed);
+            order.verify(mockDemographicExtDao).flush();
+            order.verify(mockDemographicExtDao).saveEntity(added);
+            verify(mockDemographicExtDao, times(1)).flush();
+        }
+
+        @Test
+        @DisplayName("should leave pending writes to the transaction when no stored extension is changed")
+        void shouldNotFlush_whenNoStoredExtensionIsChanged() {
+            Demographic updated = createTestDemographicWithId(TEST_DEMO_NO);
+            DemographicExt added = createTestDemographicExt(TEST_DEMO_NO, "hPhoneExt", "42");
+            added.setId(null);
+            updated.setExtras(new DemographicExt[] {added});
+            when(mockDemographicDao.getDemographicById(TEST_DEMO_NO)).thenReturn(createTestDemographicWithId(TEST_DEMO_NO));
+
+            manager.updateDemographic(mockLoggedInInfo, updated);
+
+            // A new row is inserted as it is saved. Bulk callers (provider reassignment) update many
+            // patients in one transaction, and a flush per patient would re-check every row they hold.
+            verify(mockDemographicExtDao).saveEntity(added);
+            verify(mockDemographicExtDao, never()).flush();
+        }
+
+        @org.junit.jupiter.params.ParameterizedTest(name = "stored row belongs to {0}")
+        @org.junit.jupiter.params.provider.ValueSource(strings = {"another patient", "nobody: it is gone"})
+        @DisplayName("should refuse the update before any write when a stored extension is not the patient's")
+        void shouldRefuseBeforeAnyWrite_whenAStoredExtensionIsNotThePatients(String owner) {
+            Demographic updated = createTestDemographicWithId(TEST_DEMO_NO);
+            DemographicExt claimed = createTestDemographicExt(TEST_DEMO_NO, "demo_cell", "555-0199");
+            claimed.setId(65);
+            updated.setExtras(new DemographicExt[] {claimed});
+            when(mockDemographicDao.getDemographicById(TEST_DEMO_NO)).thenReturn(createTestDemographicWithId(TEST_DEMO_NO));
+            DemographicExt foreign = createTestDemographicExt(TEST_DEMO_NO + 1, "demo_cell", "555-0100");
+            foreign.setId(65);
+            when(mockDemographicExtDao.find(claimed.getId())).thenReturn(owner.startsWith("another") ? foreign : null);
+
+            // One refusal for both, so it cannot be used to learn which ids exist in other charts.
+            assertThatThrownBy(() -> manager.updateDemographic(mockLoggedInInfo, updated))
+                    .isExactlyInstanceOf(DemographicExtensionNotFoundException.class)
+                    .hasMessage("A submitted extension is not a stored extension of this patient.");
+
+            verifyNoInteractions(mockDemographicArchiveDao, mockDemographicExtArchiveDao);
+            verify(mockDemographicDao, never()).save(any(Demographic.class));
+            verify(mockDemographicExtDao, never()).saveEntity(any(DemographicExt.class));
+        }
+
+        @Test
+        @DisplayName("should save every extension under the patient being updated, whatever number it carries")
+        void shouldSaveExtensionsUnderThePatient_whateverNumberTheyCarry() {
+            Demographic updated = createTestDemographicWithId(TEST_DEMO_NO);
+            DemographicExt stored = createTestDemographicExt(TEST_DEMO_NO, "demo_cell", "555-0100");
+            stored.setId(65);
+            DemographicExt changed = createTestDemographicExt(TEST_DEMO_NO + 1, "demo_cell", "555-0199");
+            changed.setId(65);
+            DemographicExt added = createTestDemographicExt(TEST_DEMO_NO + 1, "hPhoneExt", "42");
+            added.setId(null);
+            updated.setExtras(new DemographicExt[] {changed, added});
+            when(mockDemographicDao.getDemographicById(TEST_DEMO_NO)).thenReturn(createTestDemographicWithId(TEST_DEMO_NO));
+            when(mockDemographicExtDao.find(changed.getId())).thenReturn(stored);
+
+            manager.updateDemographic(mockLoggedInInfo, updated);
+
+            assertThat(changed.getDemographicNo()).isEqualTo(TEST_DEMO_NO);
+            assertThat(added.getDemographicNo()).isEqualTo(TEST_DEMO_NO);
+            verify(mockDemographicExtDao).saveEntity(changed);
+            verify(mockDemographicExtDao).saveEntity(added);
         }
 
         @Test

@@ -18,6 +18,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.carlos.lab.service.LabPatientAccess;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PatientRecordAccess;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import org.apache.struts2.ActionSupport;
@@ -57,6 +58,26 @@ public final class ViewLabValuesGraph2Action extends ActionSupport {
             return NONE;
         }
 
+        // The page lists the patient's prescriptions (a picker) and can draw them on the graph. That
+        // takes the prescription read right on this patient, as the graph image action requires (#6322):
+        // a lab-only user still sees the lab graph, without the medication picker (#6325 review).
+        // Decide it for the patient the lab gate above accepted, by canonical number: a zero-padded
+        // demographic_no such as 00123 is patient 123 there and in the embedded graph, so here too.
+        Integer patient = LabPatientAccess.positiveIdentity(request.getParameter("demographic_no"));
+        boolean medicationsAllowed = false;
+        if (patient != null) {
+            try {
+                PatientRecordAccess.require(securityInfoManager, loggedInInfo, patient.toString(), "_rx", "r");
+                medicationsAllowed = true;
+            } catch (SecurityException noPrescriptionAccess) {
+                medicationsAllowed = false;
+            }
+        }
+        request.setAttribute(MEDICATIONS_ALLOWED, medicationsAllowed);
+
         return SUCCESS;
     }
+
+    /** Request attribute (Boolean) the page reads: may it list and draw this patient's medications. */
+    public static final String MEDICATIONS_ALLOWED = "labGraphMedicationsAllowed";
 }

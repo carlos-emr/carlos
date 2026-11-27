@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "82cb6b9c80207064d6dd90e07653e0c186a719da",
+  "comparisonSha256": "f88cb1755396e6ce331521a2f762f51c39c5598ea21f6e3221a8e2f614cc1c88",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/dashboard/admin/ExportResults2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "a1f6a4b06f9eecc5ce6fcd617c1da3bd859f487b"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/dashboard/display/DisplayDashboard2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "b93e1e7cea343f845b5c1e40b777df86eb0af2ed"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/dashboard/display/DisplayDrilldown2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "cd5f6a879a9f51a87d43d3bbe9e5550c5bd928cc"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/DashboardManager.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "6e63248ca0b7fcc9f20f666c05158c549704b6ba"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/DashboardManagerImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "d193e119c1dc33b2b39bfa617818d0abfddc445e"
+    }
+  },
+  "baselineCommit": "958798abef58d212fd903820fa90addf2374420d",
+  "baselineSourceTree": "82cb6b9c80207064d6dd90e07653e0c186a719da",
+  "baselineReportSha256": "1388b7a1879777e3625c94b055e2e48cd01d2826bdcf100a4b770ed85469caf7",
+  "baselineLane": "Java 25 dashboard focus",
+  "baselineTestCounts": {
+    "tests": 146,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "556fa69ffe162f347cd36a49a63fee2dfa0f079cce3f4ae4a716c7bfd8c1d96f",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF"
+}

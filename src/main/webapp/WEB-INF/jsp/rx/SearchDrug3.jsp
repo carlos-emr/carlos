@@ -283,6 +283,8 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <fmt:message key="SearchDrug.js.staleDraft"                var="msg_staleDraft"/>
         <fmt:message key="SearchDrug.js.removeRefused"             var="msg_removeRefused"/>
         <fmt:message key="SearchDrug.js.requestRefused"            var="msg_requestRefused"/>
+        <fmt:message key="SearchDrug.js.limitedUseLookupFailed"    var="msg_limitedUseLookupFailed"/>
+        <fmt:message key="SearchDrug.js.costLookupFailed"          var="msg_costLookupFailed"/>
         <fmt:message key="SearchDrug.js.deleteRefused"             var="msg_deleteRefused"/>
         <fmt:message key="SearchDrug.js.previewUnavailable"        var="msg_previewUnavailable"/>
         <fmt:message key="SearchDrug.js.dateNotOnCalendar"         var="msg_dateNotOnCalendar"/>
@@ -336,6 +338,8 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
                 staleDraft: '${carlos:forJavaScript(msg_staleDraft)}',
                 removeRefused: '${carlos:forJavaScript(msg_removeRefused)}',
                 requestRefused: '${carlos:forJavaScript(msg_requestRefused)}',
+                limitedUseLookupFailed: '${carlos:forJavaScript(msg_limitedUseLookupFailed)}',
+                costLookupFailed: '${carlos:forJavaScript(msg_costLookupFailed)}',
                 deleteRefused: '${carlos:forJavaScript(msg_deleteRefused)}',
                 previewUnavailable: '${carlos:forJavaScript(msg_previewUnavailable)}',
                 dateNotOnCalendar: '${carlos:forJavaScript(msg_dateNotOnCalendar)}',
@@ -1717,13 +1721,15 @@ function renderRxStage() {
         });
     }
 
-    function calculateRxData(randomId){
+    function calculateRxData(randomId, initialPriceQuantity){
 	    if(skipParseInstr){
+            refreshDrugPrice(randomId, initialPriceQuantity);
 		    return false;
 	    }
-        var dummie=parseIntr(document.getElementById('instructions_'+randomId));
-        if(dummie)
+        // The staging update will quote the acknowledged quantity after parsing the directions.
+        if (parseIntr(document.getElementById('instructions_'+randomId), true)) {
             updateQty(document.getElementById('quantity_'+randomId));
+        }
     }
    function Delete2(element){
 
@@ -1773,7 +1779,7 @@ function renderRxStage() {
         var target = document.getElementById('inactive_' + id);
         if (!target) return;
         target.setAttribute('role', 'status');
-        target.textContent = 'Checking drug status…';
+        target.textContent = 'Checking drug status\u2026';
         var unavailable = function() { target.textContent = 'Drug status could not be checked. Please verify before prescribing.'; };
         var data = 'method=inactiveDate&din=' + encodeURIComponent(dinNumber) + '&id=' + encodeURIComponent(id);
         CarlosAjax.request(ctx + '/rx/searchDrug', {method: 'post', postBody: data,
@@ -1879,9 +1885,23 @@ function renderRxStage() {
         var data="demoNo="+demoNo+"&showall=<%=showall%>&rand=" +  Math.floor(Math.random()*10001);
         var url= ctx + "/rx/rePrescribe2";
         data += "&method=repcbAllLongTerm";
-        CarlosAjax.updater({success: 'rxText'}, url, {onFailure: reportRefusedRequest, method:'post',parameters:data,insertion: 'bottom',onSuccess:function(transport){
-		        renderRxStage();
-					}
+        var pricePanels = '#rxText [id^="cost_"]';
+        var previouslyStaged;
+        CarlosAjax.updater({success: 'rxText'}, url, {
+            onFailure: reportRefusedRequest, method: 'post', parameters: data, insertion: 'bottom',
+            onSuccess: function () {
+                previouslyStaged = new Set(document.querySelectorAll(pricePanels));
+                renderRxStage();
+            },
+            onComplete: function (transport) {
+                // This path inserts the cards without running their inline calculation scripts.
+                if (!transport.updateSucceeded) return;
+                for (const panel of document.querySelectorAll(pricePanels)) {
+                    if (!previouslyStaged.has(panel)) {
+                        refreshDrugPrice(panel.id.slice('cost_'.length), panel.dataset.priceQuantity);
+                    }
+                }
+            }
 				});
         return false;
     }
@@ -2728,7 +2748,8 @@ function updateQty(element){
         if (!card) return false;
         var calculation = {};
         card._rxCalculation = calculation;
-        var data="parameterValue=updateDrug&randomId="+rand+"&action=updateQty&quantity="+encodeURIComponent(element.value);
+        var submittedQuantity = element.value;
+        var data="parameterValue=updateDrug&randomId="+rand+"&action=updateQty&quantity="+encodeURIComponent(submittedQuantity);
         var url= ctx + "/rx/WriteScript";
 
         var rxMethod="rxMethod_"+rand;
@@ -2784,11 +2805,11 @@ function updateQty(element){
                 } else{
                     document.getElementById(prnStr).textContent="";document.getElementById(prnVal).value=false;
                 }
-
+                if (element.value === submittedQuantity) refreshDrugPrice(rand, json.priceQuantity);
             }});
         return true;
 }
-    function parseIntr(element){
+    function parseIntr(element, deferPrice){
         var elemId=element.id;
         var ar=elemId.split("_");
         var rand=ar[1];
@@ -2856,7 +2877,7 @@ function updateQty(element){
                         document.getElementById(quantity).value=document.getElementById(quantityStr).textContent+" "+document.getElementById(unitNameStr).textContent;
                     else
                         document.getElementById(quantity).value=document.getElementById(quantityStr).textContent;
-                    
+                    if (!deferPrice) refreshDrugPrice(rand, json.priceQuantity);
                 }                
                 if(json.prn){
                     document.getElementById(prnStr).textContent="prn";document.getElementById(prnVal).value=true;
@@ -2905,29 +2926,86 @@ function updateQty(element){
                    }
                }});
          }
-         function getLUC(divId,randomId,din){
+         function getLUC(divId, randomId, din) {
+             var panel = document.getElementById(divId);
+             if (!panel) return;
              var url = ctx + "/rx/ViewLimitedUseCode";
-             var params="randomId="+randomId+"&din="+encodeURIComponent(din);
-             CarlosAjax.updater(divId,url,{method:'get',parameters:params,insertion: 'bottom'});
+             var params = "randomId=" + randomId + "&din=" + encodeURIComponent(din);
+             CarlosAjax.updater({success: panel}, url, {
+                 method: 'get',
+                 parameters: params,
+                 onSuccess: function (response) {
+                     checkRxLookupFragment(panel, jsMsg.limitedUseLookupFailed, url, response);
+                 },
+                 onFailure: function (response) {
+                     showRxLookupError(panel, jsMsg.limitedUseLookupFailed, response.status);
+                 }
+             });
+         }
+
+         function refreshDrugPrice(randomId, quantity) {
+            var panel = document.getElementById('cost_' + randomId);
+            if (panel && /^[0-9]{8}$/.test(panel.dataset.din)) {
+                getCost(panel.id, randomId, panel.dataset.din, quantity == null ? '' : quantity);
+            }
+         }
+
+         function clearDrugPrice(divId) {
+            var costElement = document.getElementById(divId);
+            if (!costElement) return null;
+            var previousRequest = costElement._priceRequest;
+            costElement._priceRequest = null;
+            if (previousRequest) previousRequest.abort();
+            costElement.textContent = '';
+            return costElement;
          }
 
          function getCost(divId, randomId, din, qty) {
-            var url = ctx + "/rx/ViewDrugPrice";
-            var params = "randomId=" + randomId + "&din=" +encodeURIComponent(din) + "&qty=" +encodeURIComponent(qty);
-            var costElement = document.getElementById(divId);
+            var costElement = clearDrugPrice(divId);
             if (!costElement) return;
-            // A slower response for the previous quantity must not overwrite this price.
-            if (costElement._priceRequest) costElement._priceRequest.abort();
-            costElement.innerHTML = '';
-            var request = CarlosAjax.updater(costElement, url, {
+            var url = ctx + "/rx/ViewDrugPrice";
+            var params = "randomId=" + randomId + "&din=" + encodeURIComponent(din) + "&qty=" + encodeURIComponent(qty);
+            var request = CarlosAjax.updater({success: costElement}, url, {
                 method: 'get',
                 parameters: params,
+                onSuccess: function (response) {
+                    if (costElement._priceRequest !== request) {
+                        response.responseText = null;
+                        return;
+                    }
+                    checkRxLookupFragment(costElement, jsMsg.costLookupFailed, url, response);
+                },
+                onFailure: function (response) {
+                    if (costElement._priceRequest === request) {
+                        showRxLookupError(costElement, jsMsg.costLookupFailed, response.status);
+                    }
+                },
                 onComplete: function () {
                     if (costElement._priceRequest === request) costElement._priceRequest = null;
                 }
             });
             costElement._priceRequest = request;
-        }  
+         }
+
+         function checkRxLookupFragment(panel, message, url, response) {
+             // An expired session can return an HTTP 200 sign-in page. The updater
+             // calls onSuccess before insertion, and skips a null response body.
+             try {
+                 var expected = new URL(url, window.location.href);
+                 var actual = new URL(response.responseURL, window.location.href);
+                 if (response.responseURL && actual.origin === expected.origin && actual.pathname === expected.pathname
+                         && !/<(?:!doctype\s+html|html)\b/i.test(response.responseText || '')) return;
+             } catch (invalidUrl) { /* An unrecognizable landing cannot confirm this lookup. */ }
+             response.responseText = null;
+             showRxLookupError(panel, message);
+         }
+
+         function showRxLookupError(panel, message, status) {
+             var notice = document.createElement('span');
+             notice.setAttribute('role', 'alert');
+             notice.textContent = status > 0 ? message + ' (HTTP ' + status + ')' : message;
+             panel.replaceChildren(notice);
+         }
 
          function validateRxDate() {
          	var x = true;

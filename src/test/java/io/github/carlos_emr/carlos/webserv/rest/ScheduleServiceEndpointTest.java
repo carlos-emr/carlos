@@ -248,8 +248,14 @@ class ScheduleServiceEndpointTest extends CarlosRestTestBase {
                 mock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class));
         registerMock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class,
                 mock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class));
-        when(mockScheduleManager.updateAppointment(any(), eq(42), eq("1000"), any()))
-                .thenThrow(new io.github.carlos_emr.carlos.managers.AppointmentUpdateException(reason));
+        if (path.endsWith("updateAppointment")) {
+            when(mockScheduleManager.updateAppointment(any(), eq(42), eq("1000"), any()))
+                    .thenThrow(new io.github.carlos_emr.carlos.managers.AppointmentUpdateException(reason));
+        } else {
+            when(mockScheduleManager.updateAppointment(any(), eq(42), eq("1000"),
+                    any(io.github.carlos_emr.carlos.managers.ScheduleManager.AppointmentUpdateAction.class), any()))
+                    .thenThrow(new io.github.carlos_emr.carlos.managers.AppointmentUpdateException(reason));
+        }
         try (Response response = request().path(path)
                 .post("{\"id\":42,\"editVersion\":\"1000\",\"reason\":\"FAKE-edit\"}")) {
             assertThat(response.getStatus()).isEqualTo(status);
@@ -522,6 +528,38 @@ class ScheduleServiceEndpointTest extends CarlosRestTestBase {
             assertThat(wire.toString()).doesNotContain("PRIVATE_BILLING_HIN");
             org.mockito.Mockito.verifyNoInteractions(mockBillingONCHeader1Dao);
         }
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"BC", "AB", ""})
+    @DisplayName("should return appointment history without reading Ontario billing outside Ontario (#3642)")
+    void shouldReturnHistoryWithoutOntarioBilling_whenBillingRegionIsNotOntario(String region) {
+        registerMock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class, mock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class));
+        registerMock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class, mock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class));
+        when(mockSecurityInfoManager.hasPrivilegeReadOnly(mockLoggedInInfo, "_billing", "r", (String) null)).thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilegeReadOnly(mockLoggedInInfo, "_billing", "r", "42")).thenReturn(true);
+        var appointment = new io.github.carlos_emr.carlos.commn.model.Appointment();
+        appointment.setId(23);
+        appointment.setDemographicNo(42);
+        when(mockAppointmentManager.getAppointmentHistoryWithoutDeleted(any(), eq(42), anyInt(), anyInt())).thenReturn(List.of(appointment));
+        var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        String previous = properties.getProperty("billregion");
+        properties.setProperty("billregion", region);
+        try {
+            var response = request().path("/schedule/42/appointmentHistory").post("{}");
+            assertThat(response.getStatus()).isEqualTo(200);
+            var wire = responseJson(response);
+            assertThat(wire.at("/appointments/0/id").intValue()).isEqualTo(23);
+            assertThat(wire.at("/appointments/0/billingDetail").isMissingNode()
+                    || wire.at("/appointments/0/billingDetail").isNull()).isTrue();
+        } finally {
+            if (previous == null) {
+                properties.remove("billregion");
+            } else {
+                properties.setProperty("billregion", previous);
+            }
+        }
+        org.mockito.Mockito.verifyNoInteractions(mockBillingONCHeader1Dao);
     }
 
     @Test

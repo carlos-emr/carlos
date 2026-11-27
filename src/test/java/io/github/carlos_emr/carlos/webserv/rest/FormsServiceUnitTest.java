@@ -149,17 +149,20 @@ class FormsServiceUnitTest extends CarlosUnitTestBase {
         verify(mockFormsManager, never()).findByStatus(any(), anyBoolean(), any());
     }
 
-    @Test
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"Completed", "Available"})
     @DisplayName("should deny forms-for-heading when caller lacks _eform read privilege")
     @Tag("read")
-    void shouldDenyFormsForHeading_whenCallerLacksEformReadPrivilege() {
+    void shouldDenyFormsForHeading_whenCallerLacksEformReadPrivilege(String heading) {
         when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(false);
 
-        assertThatThrownBy(() -> service.getFormsForHeading(1, "Completed"))
+        assertThatThrownBy(() -> service.getFormsForHeading(1, heading))
             .isInstanceOf(SecurityException.class)
             .hasMessage("missing required sec object (_eform)");
 
         verify(mockFormsManager, never()).findByDemographicId(any(), any());
+        verify(mockFormsManager, never()).findByStatus(any(), anyBoolean(), any());
     }
 
     // --- Encounter-form endpoints: _newCasemgmt.forms ---

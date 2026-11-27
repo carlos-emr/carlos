@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/utility/CrossOriginOpenerPolicyFilter.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 91.66666666666667,
+    "instructions": 97.01492537313433,
+    "branches": 83.33333333333333,
+    "sourceBlob": "8ecb3c4eb567ba973d8602e52ed22b52ce6a0bfa"
+  },
+  "evidenceSha256": "91cd3daee766f60c96f1e6cad5544999bca0b27c4c03b8ce3b071ebc9299c6a3"
+}

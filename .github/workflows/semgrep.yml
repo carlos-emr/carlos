@@ -23,6 +23,7 @@ name: Semgrep Security Scan
 
 on:
   push:
+    tags: ['20*']
     branches: [develop, main, "release/*"]
   pull_request:
     branches: [develop, main, "release/*"]
@@ -47,9 +48,9 @@ jobs:
   semgrep:
     name: Semgrep SAST Analysis
     runs-on: ubuntu-24.04
-    # Full Cloud scans can take 89 minutes, including on a large PR. Leave time
-    # for the custom rules and SARIF uploads rather than canceling those checks.
-    timeout-minutes: 120
+    # Full Cloud scans can take 90 minutes before allowances for slower Java
+    # taint rules. Bound the job while leaving time to verify and upload the SARIF.
+    timeout-minutes: 210
     container:
       image: semgrep/semgrep@sha256:cc1b68266f267878b39739373ea9985b9a78e5d64497dd875c8de100b22695ed # 1.184.0
     env:
@@ -70,7 +71,14 @@ jobs:
           # Keep findings non-blocking, as before; execution errors and absent
           # evidence must not silently become a successful security scan.
           set +e
-          semgrep ci --no-suppress-errors --timeout 30 --sarif --output semgrep.sarif
+          # PRs scan a diff. A full scan also needs time to match taint rules
+          # across files. Semgrep otherwise divides a default three-hour budget
+          # between interfile stages. The job deadline still bounds the scan.
+          set -- --timeout 30
+          if [ "$GITHUB_EVENT_NAME" != "pull_request" ]; then
+            set -- --timeout 0 --interfile-timeout 0
+          fi
+          semgrep ci --no-suppress-errors "$@" --sarif --output semgrep.sarif
           status=$?
           set -e
           if [ "$status" -gt 1 ]; then

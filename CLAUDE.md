@@ -134,6 +134,18 @@
   (the built WAR, run by `debian/rules`) enforce this from
   `scripts/fixtures/tomcat-container-packages.json`. The `jspc` profile compiles with Tomcat 11's
   Jasper (`${tomcat.version}`), not the plugin's default 10.1. See `docs/container-provided-apis.md`.
+
+## Dependency Convergence
+
+- The `require-converged-dependencies` enforcer execution fails `validate` when a library family
+  splits (`requireSameVersions`), when a resolved version is below one a dependency asks for
+  (`requireUpperBoundDeps`), or when two WAR jars define one class differently
+  (`banDuplicateClasses`) (#5711: `httpclient5-cache` 5.3.1 and `jackson-datatype-jsr310` 2.17.1
+  had shipped beside 5.6.5 and 2.22.4).
+- Jackson comes from `jackson-bom` at `${jackson.version}`: declare Jackson dependencies without a
+  version. Fix a failure by managing the artifact at its family's version, then `make lock`; a
+  deliberate downgrade needs a reasoned `requireUpperBoundDeps` exclude. See
+  `docs/dependency-convergence.md`.
 ## HAPI HL7 v2 Parsing
 
 - `ca.uhn.hapi` (HL7 v2, 2.6.0; not the `ca.uhn.hapi.fhir` line) reads lab and PHS/STAR messages
@@ -251,7 +263,7 @@ CARLOS provides null-safe wrappers around OWASP Encoder. **Use the CARLOS wrappe
 
 **Why the CARLOS wrapper?** `Encode.forHtmlContent(null)` returns the literal 4-character string `"null"` — `<e:forHtmlContent value='<%= x %>'/>` renders the word `null` in every cell where `x` is a nullable DB field. JSTL `<c:out>` rendered null as empty; the mass `<c:out>` → OWASP migration silently broke this. `<carlos:encode>`, `${carlos:forXxx(...)}`, and `SafeEncode.forXxx(...)` coalesce null to empty before delegating to OWASP.
 
-**CI enforces this.** `scripts/lint/check-encoder-null-safety.sh` runs on every PR and fails if new code uses `<e:forXxx>`, `${e:forXxx(...)}`, or `<%= Encode.forXxx(...) %>`.
+**CI enforces this.** `scripts/lint/check-encoder-null-safety.sh` runs on every PR and fails if new code uses `<e:forXxx>`, an `e:forXxx(...)` call anywhere inside `${...}`/`#{...}` (nested calls included), or `<%= Encode.forXxx(...) %>`. It also fails any JSP that declares the OWASP encoder taglib: `encoder-jakarta-jsp` is not shipped, so such a page cannot translate (#5477).
 
 **Taglib declaration** (once per JSP that uses the tag or EL functions):
 ```jsp
@@ -275,12 +287,12 @@ CARLOS provides null-safe wrappers around OWASP Encoder. **Use the CARLOS wrappe
 
 **When to use which:**
 - **JSP tag** (preferred): `<carlos:encode value="${v}"/>` — declarative, null-safe, XSS-safe, context-selectable.
-- **EL function** (inline in attribute strings, URL components, JSON): `href="?id=${carlos:forUriComponent(v)}"` — use where a tag element can't fit.
+- **EL function** (inline in attribute strings and URL components): `href="?id=${carlos:forUriComponent(v)}"` — use where a tag element can't fit.
+- **JSON values**: serialize with Jackson, not an HTML, URI or JavaScript encoder. When placing serialized JSON in an HTML data attribute, HTML-attribute encode the complete JSON string and read it back through the DOM.
 - **Java code / scriptlets**: `SafeEncode.forHtmlContent(v)` — drop-in replacement for `Encode.forHtmlContent(v)` with null-safety.
 
 **Legacy forms — DO NOT use in new code:**
-- `<e:forHtmlContent>` and friends (renders null as literal `"null"`; silently drops if the taglib isn't declared).
-- `${e:forXxx(...)}` EL functions (same null bug).
+- `<e:forHtmlContent>` and friends, and `${e:forXxx(...)}` EL functions: the OWASP encoder taglib they need is not in the WAR (#5477).
 - `Encode.forXxx(...)` static calls (same null bug).
 - `<c:out>` and `fn:escapeXml()` (only basic XML entity escaping; not context-aware).
 
@@ -810,7 +822,7 @@ public Example2Action(SomeManager someManager) {
 ### Security Libraries
 - **OWASP CSRFGuard 4.5 (Jakarta edition)**: CSRF protection with auto-injected tokens (see `docs/csrf-protection-architecture.md`)
 - **OWASP Encoder** (`encoder` 1.4.0): `Encode.*` static methods for Java code and JSP scriptlets
-- **OWASP Encoder JSP** (`encoder-jakarta-jsp` 1.4.0): underlying tag library behind the CARLOS null-safe wrapper (TLD URI `owasp.encoder.jakarta.advanced`). Do not reference `<e:forXxx>` / `${e:forXxx()}` directly in new code — use `<carlos:encode>` / `${carlos:forXxx()}`.
+- **OWASP Encoder JSP** (`encoder-jakarta-jsp`): removed (#5477). `<carlos:encode>` / `${carlos:forXxx()}` are CARLOS's own taglib (`carlos-tag.tld`) over `SafeEncode` and the `encoder` jar; a JSP that declares `owasp.encoder.jakarta[.advanced]` fails to translate and fails the encoder lint.
 - **BCrypt**: Password hashing for provider authentication
 - **Bouncy Castle**: Cryptographic functions for PHI protection
 

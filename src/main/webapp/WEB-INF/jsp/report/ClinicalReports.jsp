@@ -48,6 +48,7 @@
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@page import="io.github.carlos_emr.carlos.utility.SpreadsheetCsv" %>
 <%@page import="io.github.carlos_emr.carlos.report.data.DemographicSets, io.github.carlos_emr.carlos.demographic.data.*, java.util.*, io.github.carlos_emr.carlos.providers.data.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.report.ClinicalReports.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*" %>
 <%@page import="org.apache.commons.csv.CSVFormat,org.apache.commons.csv.CSVPrinter,java.io.*" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString" %>
@@ -97,10 +98,6 @@
         arrNumeratorId[x] = (String) request.getAttribute("numerator" + x + "Id");
     }
 
-
-    if (request.getParameter("clear") != null && request.getParameter("clear").equals("yes")) {
-        session.removeAttribute("ClinicalReports");
-    }
 
     EctMeasurementTypesBeanHandler hd = new EctMeasurementTypesBeanHandler();
     Vector<EctMeasurementTypesBean> vec = hd.getMeasurementTypeVector();
@@ -358,7 +355,11 @@
                     ArrayList<ReportEvaluator> arrList = (ArrayList) session.getAttribute("ClinicalReports");
                     if (arrList != null) {
                 %>
-                <a href="<%= request.getContextPath() %>/report/RemoveClinicalReport?clear=yes"><fmt:message key="report.ClinicalReports.msgClear"/></a>
+                <%-- A form, not a link: the remove route accepts only the form post. --%>
+                <form method="post" action="<%= request.getContextPath() %>/report/RemoveClinicalReport" style="display:inline;">
+                    <input type="hidden" name="clear" value="yes"/>
+                    <a href="javascript:void(0);" onclick="this.closest('form').submit();"><fmt:message key="report.ClinicalReports.msgClear"/></a>
+                </form>
                 <ul style="list-style-type:square; margin-left:1px;padding-left:4px;padding-top:2px;margin-top:2px;">
                     <% for (int i = 0; i < arrList.size(); i++) {
                         ReportEvaluator re = arrList.get(i);
@@ -366,7 +367,7 @@
                     <li title="<carlos:encode value='<%= re.getName() %>' context="htmlAttribute"/>"><%=re.getNumeratorCount()%> / <%=re.getDenominatorCount()%>&nbsp;
                         <a style="text-decoration:none;" target="_blank" href="<%= request.getContextPath() %>/report/ViewReportExport?id=<%=i%>"><fmt:message key="report.ClinicalReports.msgCSV"/></a>&nbsp;
                         <form method="post" action="<%= request.getContextPath() %>/report/RemoveClinicalReport" style="display:inline;">
-                            <input type="hidden" name="id" value="<%=i%>"/>
+                            <input type="hidden" name="key" value="<carlos:encode value='<%= re.getKey() %>' context="htmlAttribute"/>"/>
                             <a style="text-decoration:none;" href="javascript:void(0);" onclick="this.closest('form').submit();"><fmt:message key="report.ClinicalReports.msgDel"/></a>
                         </form>
                     </li>
@@ -378,6 +379,10 @@
             </td>
             <td valign="top" class="MainTableRightColumn">
                 <div>
+                    <%-- A numerator or denominator that is not in the list: a stale page, or a changed report file. --%>
+                    <% if (Boolean.TRUE.equals(request.getAttribute("clinicalReportUnknown"))) { %>
+                    <p class="clinical-report-unknown" role="alert"><fmt:message key="report.ClinicalReports.unknownReport"/></p>
+                    <% } %>
                     <fieldset>
                         <form action="${pageContext.request.contextPath}/RunClinicalReport" method="post">
                             <!--
@@ -655,6 +660,11 @@
                         DemographicNameAgeString deName = DemographicNameAgeString.getInstance();
                         DemographicData demoData = new DemographicData();
                         StringWriter swr = new StringWriter();
+                        // Every header and data cell goes through SpreadsheetCsv.sanitizeCell (issue #5846):
+                        // patient names, addresses and measurement text are free text, and a leading = + - @
+                        // would run as a formula when the CSV is opened in Excel or LibreOffice. A guarded
+                        // cell gains a leading tab; ClinicalExport.jsp removes it again for the XLSX copy,
+                        // where strings stay strings. The on-screen table is encoded separately, below.
                         CSVPrinter csvp = new CSVPrinter(swr, CSVFormat.DEFAULT);
                 %>
 
@@ -663,7 +673,7 @@
                     <tr>
                         <%
                             for (String heading : headings) {
-                                csvp.print(head(heading));
+                                csvp.print(SpreadsheetCsv.sanitizeCell(head(heading)));
                         %>
                         <th><carlos:encode value='<%= head(heading) %>'/>
                         </th>
@@ -671,7 +681,7 @@
 
                         <%
                             for (int i = 0; i < outputfields.length; i++) {
-                                csvp.print(replaceHeading(outputfields[i], forView, measurementTitles));
+                                csvp.print(SpreadsheetCsv.sanitizeCell(replaceHeading(outputfields[i], forView, measurementTitles)));
                         %>
                         <th><carlos:encode value='<%= replaceHeading(outputfields[i], forView, measurementTitles) %>'/>
                         </th>
@@ -694,14 +704,14 @@
                     <tr <%=colour%> >
 
                          <%for(String heading:headings){
-                             csvp.print(commonRow(heading,demoHash, demoObj));
+                             csvp.print(SpreadsheetCsv.sanitizeCell(commonRow(heading,demoHash, demoObj)));
                         %>
                            <td><carlos:encode value='<%= commonRow(heading,demoHash, demoObj) %>' context="html"/></td>
                         <%}%>
 
                         <%
                             for (String outputfield : outputfields) {
-                                csvp.print("" + display(h.get(outputfield)));
+                                csvp.print(SpreadsheetCsv.sanitizeCell("" + display(h.get(outputfield))));
                         %>
                         <td><carlos:encode value='<%= String.valueOf(display(h.get(outputfield))) %>'/>
                         </td>
