@@ -296,7 +296,7 @@
 						</span>
                     </td>
                 </tr>
-                <c:set value="missingDrugData" var="false"/>
+                <c:set var="missingDrugData" value="false"/>
                 <c:if test="${not empty bpmh.drugs}">
                     <c:forEach var="drugs" items="${bpmh.drugs}" varStatus="status">
                         <tr>
@@ -333,7 +333,7 @@
                                 <c:otherwise>
                                     <td>
                                         <!-- WHY -->
-                                        ${carlos:forHtml(drugs.why)}
+                                        <span style="white-space:pre-line;">${carlos:forHtml(drugs.why)}</span>
                                     </td>
                                 </c:otherwise>
                             </c:choose>

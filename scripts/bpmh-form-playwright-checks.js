@@ -241,6 +241,9 @@ async function workflow(s) {
     h.assert(text.includes(marker), 'The form does not name the owned patient');
     h.assert(text.includes(allergy), 'The form does not list the patient\'s allergy');
     for (const expected of medicationText) h.assert(text.includes(expected), `Missing BPMH text ${expected}`);
+    const reasonCell = form.locator('tr').filter({ hasText: lastMedication }).locator('td').nth(2);
+    h.assert((await reasonCell.innerText()).split('\n').map(line => line.trim()).includes(additionalReason),
+      'A recorded indication was combined with another diagnosis');
     h.assert(!text.includes('1 to 3 TAB'), 'The product form replaced the administered dose unit');
     h.assert(await form.locator('input[name^="form.drugs["][name$="].id"]').count() === 18, 'The form lost a medication');
     h.assert(await form.locator(`input[name="form.drugs[0].id"][value="${drug}"]`).count() === 1, 'The form does not carry the drug');
