@@ -41,17 +41,17 @@ history. `dataField` is limited to 255 characters, further limited by the
 type's configured validation rule; `comments` and `measuringInstruction` are
 also limited to 255.
 The type must be a configured measurement type. `measuringInstruction` may be
-left out only when the type is configured with one instruction; for a type such
-as BP or WT, configured per site with several, send the exact configured
-instruction (for example `sitting position`), or the request is refused with
-`INSTRUCTION_REQUIRED`. The reading is stored under the configured spelling of
-the type and instruction. `dateObserved` (epoch milliseconds) defaults to the
-time of the request and is stored to the second. A `dateObserved` more than five
-minutes ahead of the server clock is refused with `DATE_OBSERVED_IN_FUTURE`,
-because the latest reading is shown as the patient's current one. Repeating a request with the same `dateObserved` and
-values returns the reading already stored instead of saving a second one, so a
-client that sends `dateObserved` can retry safely. Refusals are HTTP 400 with a
-JSON body `{"code": ..., "message": ...}` (`UNKNOWN_TYPE`,
+left out only when the type is configured with one instruction; for a type
+configured with several (for example `FEET`: `pulses (Yes/No)`), send the exact
+configured instruction, or the request is refused with `INSTRUCTION_REQUIRED`.
+The reading is stored under the configured spelling of the type and instruction.
+`dateObserved` (epoch milliseconds) defaults to the time of the request and is
+stored to the second. A `dateObserved` more than five minutes ahead of the
+server clock is refused with `DATE_OBSERVED_IN_FUTURE`, because the latest
+reading is shown as the patient's current one. Repeating a request with the same
+`dateObserved` and values returns the reading already stored instead of saving a
+second one, so a client that sends `dateObserved` can retry safely. Refusals are
+HTTP 400 with a JSON body `{"code": ..., "message": ...}` (`UNKNOWN_TYPE`,
 `INSTRUCTION_REQUIRED`, `AMBIGUOUS_TYPE`, `VALUE_REJECTED`, `INVALID_*`,
 `DATE_OBSERVED_IN_FUTURE`, `UNSUPPORTED_FIELD`). A numeric rule accepts only plain decimals (no exponent,
 hex, `NaN` or `Infinity`), and a date rule only `yyyy-MM-dd`. The endpoint
@@ -70,8 +70,9 @@ with synthetic data. Enable `oauth.scope.enforcement.enabled=true` for that
 installation, restart it, and do not change the mode of a shared installation.
 The OAuth mode setting is server-wide; see
 [OAuth access mode validation](oauth-access-mode-validation.md) for the modes.
-The check skips unless `CARLOS_DISPOSABLE_HOST=true` is set, the same opt-in
-`scripts/run-playwright-suite.js` requires for every live run.
+The check skips unless both `CARLOS_DISPOSABLE_HOST=true` and `EXCLUSIVE=1` are
+set, because it creates clinic-wide eForm templates and an OAuth `ServiceClient`
+and must not run concurrently with other checks.
 
 Set `BASE_URL` if the installation is not at
 `http://127.0.0.1:8080/carlos`. A `BASE_URL` whose host is not loopback is
@@ -90,38 +91,43 @@ disposable database.
 From the repository root, run:
 
 ```sh
-CARLOS_DISPOSABLE_HOST=true EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
-# or: CARLOS_DISPOSABLE_HOST=true EXPECT_OAUTH_MODE=scoped npm run test:oauth-clinical-api-playwright
+EXCLUSIVE=1 CARLOS_DISPOSABLE_HOST=true EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
+# or: EXCLUSIVE=1 CARLOS_DISPOSABLE_HOST=true EXPECT_OAUTH_MODE=scoped npm run test:oauth-clinical-api-playwright
 ```
 
 SIGINT or SIGTERM stops the run before its next request, then the usual
 cleanup runs and the process exits 130 or 143.
 
 For focused runs, set `OAUTH_CLINICAL_API_ONLY` to one of (with
-`CARLOS_DISPOSABLE_HOST=true` also set):
+`EXCLUSIVE=1` and `CARLOS_DISPOSABLE_HOST=true` also set):
 
 ```sh
-OAUTH_CLINICAL_API_ONLY=demographics EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
-OAUTH_CLINICAL_API_ONLY=measurements EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
-OAUTH_CLINICAL_API_ONLY=measurements.read EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
-OAUTH_CLINICAL_API_ONLY=measurements.write EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
-OAUTH_CLINICAL_API_ONLY=labs EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
-OAUTH_CLINICAL_API_ONLY=rxlookup EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
-OAUTH_CLINICAL_API_ONLY=rx EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
-OAUTH_CLINICAL_API_ONLY=schedule EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
-OAUTH_CLINICAL_API_ONLY=eforms EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
-OAUTH_CLINICAL_API_ONLY=eforms.templates EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
+OAUTH_CLINICAL_API_ONLY=demographics EXCLUSIVE=1 CARLOS_DISPOSABLE_HOST=true EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
+OAUTH_CLINICAL_API_ONLY=measurements EXCLUSIVE=1 CARLOS_DISPOSABLE_HOST=true EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
+OAUTH_CLINICAL_API_ONLY=measurements.read EXCLUSIVE=1 CARLOS_DISPOSABLE_HOST=true EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
+OAUTH_CLINICAL_API_ONLY=measurements.write EXCLUSIVE=1 CARLOS_DISPOSABLE_HOST=true EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
+OAUTH_CLINICAL_API_ONLY=labs EXCLUSIVE=1 CARLOS_DISPOSABLE_HOST=true EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
+OAUTH_CLINICAL_API_ONLY=rxlookup EXCLUSIVE=1 CARLOS_DISPOSABLE_HOST=true EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
+OAUTH_CLINICAL_API_ONLY=rx EXCLUSIVE=1 CARLOS_DISPOSABLE_HOST=true EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
+OAUTH_CLINICAL_API_ONLY=schedule EXCLUSIVE=1 CARLOS_DISPOSABLE_HOST=true EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
+OAUTH_CLINICAL_API_ONLY=eforms EXCLUSIVE=1 CARLOS_DISPOSABLE_HOST=true EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
+OAUTH_CLINICAL_API_ONLY=eforms.templates EXCLUSIVE=1 CARLOS_DISPOSABLE_HOST=true EXPECT_OAUTH_MODE=scoped node scripts/oauth-clinical-api-playwright-checks.js
 ```
 
 `all` or an unset selector runs the full check. `measurements` runs both the
 read and new-measurement write checks. The `.read` and `.write` selectors run only
 that operation group; the write group also verifies that a token without
-`measurement.write` is refused and reads the saved result back to verify
-persistence. `eforms` and `eforms.templates` both run the eForm template
-checks. Every focused run still performs OAuth and creates the synthetic
-patient and measurement fixture used by the API workflows, then skips the
-other endpoint groups. Cleanup removes the temporary patient and its clinical
-rows.
+`measurement.write` is refused, reads the saved result back (including
+`measuringInstruction` and `dateObserved`), verifies dated-request retry
+idempotency, checks the patient-scoped audit entry, verifies invalid BP
+rejection (`400 VALUE_REJECTED`), and probes the unrouted `PUT` update endpoint.
+`eforms` and `eforms.templates` both run the eForm template checks (note: when
+running behind the packaged nginx/ModSecurity front door, raw HTML in JSON sent
+to `POST /ws/services/eform/json` is blocked by OWASP CRS; point `BASE_URL` at
+loopback Tomcat to exercise eForm template creation). Every focused run still
+performs OAuth and creates the synthetic patient and measurement fixture used by
+the API workflows, then skips the other endpoint groups. Cleanup removes the
+temporary patient and its clinical rows.
 
 `EXPECT_OAUTH_MODE` is an assertion, not a server configuration mechanism.
 The script refuses a non-scoped expectation, and the OAuth consent page must
@@ -137,7 +143,7 @@ The Rx lookup details check requires a DrugRef service that supports both
 `get_drug_2` and `get_generic_name`; a successful search alone does not verify
 that details can be loaded.
 
-The check creates one uniquely marked synthetic demographic, two BP
+The check creates one `FAKE-PW`-marked synthetic demographic, two BP
 measurements (a SQL fixture and, when the measurement-write group runs, the
 API reading), one synthetic medication/prescription, one eForm template, and
 one temporary OAuth client with issued tokens/nonces. When the `demographics`
@@ -151,3 +157,4 @@ and never against a shared or production database.
 ## API capability follow-up
 
 Measurement creation saves a new row and preserves previous readings.
+Measurement update (`PUT`) is not implemented; see #6136.

@@ -24,7 +24,7 @@
  * including when a request fails part-way through or the run is interrupted
  * (SIGINT/SIGTERM stop the run before its next request; runCheck then runs
  * cleanup). It requires
- * CARLOS_DISPOSABLE_HOST=true and EXPECT_OAUTH_MODE=scoped.
+ * CARLOS_DISPOSABLE_HOST=true, EXCLUSIVE=1, and EXPECT_OAUTH_MODE=scoped.
  *
  * Measurement rows are immutable. The REST write operation records a separate
  * new measurement for the patient and leaves previous readings unchanged.
@@ -39,8 +39,6 @@ const {
 } = require('./lib/playwright-harness');
 const { oauthHeader, pct } = require('./lib/oauth1-signing');
 
-const EXPECT_OAUTH_MODE = process.env.EXPECT_OAUTH_MODE || 'scoped';
-const API_ONLY = process.env.OAUTH_CLINICAL_API_ONLY?.trim().toLowerCase() || '';
 const API_TEST_GROUPS = new Set([
   'demographics', 'measurements', 'measurements.read', 'measurements.write',
   'labs', 'rxlookup', 'rx', 'schedule', 'eforms', 'eforms.templates',
@@ -52,8 +50,16 @@ const REQUIRED_SCOPES = [
 ].join(' ');
 const LIMITED_SCOPES = 'demographic.read measurement.read';
 
-function shouldRun(group) {
-  return !API_ONLY || API_ONLY === 'all' || API_ONLY === group;
+function getExpectedOAuthMode() {
+  return process.env.EXPECT_OAUTH_MODE || 'scoped';
+}
+
+function getApiOnly() {
+  return process.env.OAUTH_CLINICAL_API_ONLY?.trim().toLowerCase() || '';
+}
+
+function shouldRun(group, apiOnly = getApiOnly()) {
+  return !apiOnly || apiOnly === 'all' || apiOnly === group;
 }
 
 function formFields(body) {
@@ -121,13 +127,16 @@ function removeOwnedLabFile(state) {
 
 async function cleanup(state) {
   const { sql, consumerKey, marker, formName, providerNo } = state;
+  const cleanupErrors = [];
+  const recordCleanupError = (error) => {
+    cleanupErrors.push(error);
+  };
   // A browser that fails to close must not skip the database cleanup, and its error must still
   // reach the caller (a `return` inside `finally` used to swallow it when there was no SQL runner).
-  let browserCloseError = null;
   try {
     if (state.browser) await state.browser.close();
   } catch (error) {
-    browserCloseError = error;
+    recordCleanupError(error);
   }
   if (sql) {
     try {
@@ -148,9 +157,8 @@ async function cleanup(state) {
             ownedRows === '0' && anyRows !== '0'
               ? 'The synthetic demographic id now names a patient without this run\'s marker; cleanup stopped'
               : 'The synthetic demographic ownership check did not match the created patient or its deleted state');
-          // A lab-cleanup failure must not leave the patient's other clinical rows behind: it is
-          // held until the rest of the patient cleanup below has run, then rethrown.
-          let labCleanupError = null;
+          // A lab-cleanup failure must not leave the patient's other clinical rows behind: errors
+          // are collected and rethrown after every cleanup phase completes.
           try {
             if (state.labAccession) {
               const filePattern = state.labFilePrefix
@@ -161,8 +169,8 @@ async function cleanup(state) {
                     'SELECT id FROM fileUploadCheck WHERE filename LIKE ?',
                     [filePattern],
                   )
-                    .map(([id]) => id)
-                    .filter((id) => /^[1-9]\d*$/.test(id))
+                    .map(([uploadId]) => uploadId)
+                    .filter((uploadId) => /^[1-9]\d*$/.test(uploadId))
                 : [];
               const fileUploadIdPlaceholders = fileUploadIds.map(() => '?').join(',');
               const uploadedLabIds = fileUploadIds.length
@@ -215,18 +223,28 @@ async function cleanup(state) {
                     WHERE lab_type='HL7' AND lab_no IN (${labIdPlaceholders})`,
                   labIds,
                 );
-                // providerLabRoutingLock is keyed by a bare lab_no that other lab types (documents,
-                // other HL7 sources) share and that the row's upsert never re-stamps. Remove only a
-                // lock row this run created (stamped at or after the pre-upload floor) for an owned
-                // lab that no remaining routing row of any type still uses.
-                if (state.labLockFloor) {
-                  sql.execute(
-                    `DELETE FROM providerLabRoutingLock
-                      WHERE lab_no IN (${labIdPlaceholders}) AND lastUpdateDate >= ?
-                        AND NOT EXISTS (SELECT 1 FROM providerLabRouting r
-                          WHERE r.lab_no = providerLabRoutingLock.lab_no)`,
-                    [...labIds, state.labLockFloor],
-                  );
+                // providerLabRoutingLock is keyed by a bare lab_no shared across lab types.
+                // Remove only lock rows that did not exist in the pre-upload snapshot and that
+                // no remaining routing row of any type still uses.
+                if (state.initialLabLocks instanceof Set) {
+                  const introducedLocks = labIds.filter((labNo) => !state.initialLabLocks.has(String(labNo)));
+                  if (introducedLocks.length) {
+                    const lockPlaceholders = introducedLocks.map(() => '?').join(',');
+                    sql.execute(
+                      `DELETE FROM providerLabRoutingLock
+                        WHERE lab_no IN (${lockPlaceholders})
+                          AND NOT EXISTS (SELECT 1 FROM providerLabRouting r
+                            WHERE r.lab_no = providerLabRoutingLock.lab_no)`,
+                      introducedLocks,
+                    );
+                    assert(
+                      sql.value(
+                        `SELECT COUNT(*) FROM providerLabRoutingLock WHERE lab_no IN (${lockPlaceholders})`,
+                        introducedLocks,
+                      ) === '0',
+                      'The owned providerLabRoutingLock rows were not removed',
+                    );
+                  }
                 }
                 sql.execute(
                   `DELETE FROM patientLabRouting
@@ -278,7 +296,6 @@ async function cleanup(state) {
                     );
                   }
                 }
-                removeOwnedLabFile(state);
               }
 
               assert(
@@ -290,38 +307,43 @@ async function cleanup(state) {
               );
             }
           } catch (error) {
-            labCleanupError = error;
+            recordCleanupError(error);
           }
-          sql.execute('DELETE FROM drugReason WHERE demographicNo=?', [id]);
-          sql.execute('DELETE FROM drugs WHERE demographic_no=?', [id]);
-          sql.execute('DELETE FROM prescription WHERE demographic_no=?', [id]);
-          sql.execute(`DELETE FROM DigitalSignature
-            WHERE demographicId=? AND ModuleType='PRESCRIPTION'`, [id]);
-          sql.execute(`DELETE FROM measurementsExt WHERE measurement_id IN
-            (SELECT id FROM measurements WHERE demographicNo=?)`, [id]);
-          sql.execute('DELETE FROM measurements WHERE demographicNo=?', [id]);
-          sql.execute('DELETE FROM demographicExtArchive WHERE demographic_no=?', [id]);
-          sql.execute('DELETE FROM demographicExt WHERE demographic_no=?', [id]);
-          sql.execute('DELETE FROM demographicArchive WHERE demographic_no=?', [id]);
-          sql.execute('DELETE FROM demographiccustArchive WHERE demographic_no=?', [id]);
-          sql.execute('DELETE FROM demographiccust WHERE demographic_no=?', [id]);
-          sql.execute('DELETE FROM admission WHERE client_id=?', [id]);
-          sql.execute('DELETE FROM DemographicContact WHERE demographicNo=?', [id]);
-          sql.execute('DELETE FROM demographicPharmacy WHERE demographic_no=?', [id]);
-          sql.execute(`DELETE FROM demographic WHERE demographic_no=?
-            AND last_name=? AND first_name IN ('FAKE-OAuth','FAKE-OAuth Updated')
-            AND provider_no=?`, [id, marker, providerNo]);
+          try {
+            sql.execute('DELETE FROM drugReason WHERE demographicNo=?', [id]);
+            sql.execute('DELETE FROM drugs WHERE demographic_no=?', [id]);
+            sql.execute('DELETE FROM prescription WHERE demographic_no=?', [id]);
+            sql.execute(`DELETE FROM DigitalSignature
+              WHERE demographicId=? AND ModuleType='PRESCRIPTION'`, [id]);
+            sql.execute(`DELETE FROM measurementsExt WHERE measurement_id IN
+              (SELECT id FROM measurements WHERE demographicNo=?)`, [id]);
+            sql.execute('DELETE FROM measurements WHERE demographicNo=?', [id]);
+            sql.execute('DELETE FROM demographicExtArchive WHERE demographic_no=?', [id]);
+            sql.execute('DELETE FROM demographicExt WHERE demographic_no=?', [id]);
+            sql.execute('DELETE FROM demographicArchive WHERE demographic_no=?', [id]);
+            sql.execute('DELETE FROM demographiccustArchive WHERE demographic_no=?', [id]);
+            sql.execute('DELETE FROM demographiccust WHERE demographic_no=?', [id]);
+            sql.execute('DELETE FROM admission WHERE client_id=?', [id]);
+            sql.execute('DELETE FROM DemographicContact WHERE demographicNo=?', [id]);
+            sql.execute('DELETE FROM demographicPharmacy WHERE demographic_no=?', [id]);
+            sql.execute(`DELETE FROM demographic WHERE demographic_no=?
+              AND last_name=? AND first_name IN ('FAKE-OAuth','FAKE-OAuth Updated')
+              AND provider_no=?`, [id, marker, providerNo]);
 
-          assert(sql.value('SELECT COUNT(*) FROM demographic WHERE demographic_no=?', [id]) === '0',
-            'The owned synthetic demographic was not removed');
-          assert(sql.value(`SELECT (SELECT COUNT(*) FROM drugs WHERE demographic_no=?)
-              + (SELECT COUNT(*) FROM prescription WHERE demographic_no=?)
-              + (SELECT COUNT(*) FROM measurements WHERE demographicNo=?)`,
-          [id, id, id]) === '0',
-          'Owned clinical test rows remain after cleanup');
-          if (labCleanupError) throw labCleanupError;
+            assert(sql.value('SELECT COUNT(*) FROM demographic WHERE demographic_no=?', [id]) === '0',
+              'The owned synthetic demographic was not removed');
+            assert(sql.value(`SELECT (SELECT COUNT(*) FROM drugs WHERE demographic_no=?)
+                + (SELECT COUNT(*) FROM prescription WHERE demographic_no=?)
+                + (SELECT COUNT(*) FROM measurements WHERE demographicNo=?)`,
+            [id, id, id]) === '0',
+            'Owned clinical test rows remain after cleanup');
+          } catch (error) {
+            recordCleanupError(error);
+          }
         }
       }
+    } catch (error) {
+      recordCleanupError(error);
     } finally {
       try {
         if (formName && providerNo) {
@@ -337,13 +359,15 @@ async function cleanup(state) {
             'The owned synthetic eForm template was not removed',
           );
         }
+      } catch (error) {
+        recordCleanupError(error);
       } finally {
         try {
           if (consumerKey) {
             const clientIds = sql.rows(
               'SELECT id FROM ServiceClient WHERE clientKey=?',
               [consumerKey],
-            ).map(([id]) => id).filter((id) => /^[1-9]\d*$/.test(id));
+            ).map(([clientId]) => clientId).filter((clientId) => /^[1-9]\d*$/.test(clientId));
 
             if (clientIds.length) {
               const placeholders = clientIds.map(() => '?').join(',');
@@ -375,13 +399,28 @@ async function cleanup(state) {
               'The owned OAuth client or its nonces were not removed',
             );
           }
+        } catch (error) {
+          recordCleanupError(error);
         } finally {
           sql.dispose();
         }
       }
     }
   }
-  if (browserCloseError) throw browserCloseError;
+  // Remove the archived lab upload in its own try/catch after all DB deletes, so an EACCES/EROFS
+  // on the document store never skips synthetic patient, eForm or OAuth row cleanup.
+  try {
+    removeOwnedLabFile(state);
+  } catch (error) {
+    recordCleanupError(error);
+  }
+  if (cleanupErrors.length === 1) throw cleanupErrors[0];
+  if (cleanupErrors.length > 1) {
+    throw new AggregateError(
+      cleanupErrors,
+      `Multiple cleanup failures: ${cleanupErrors.map((e) => e.message).join('; ')}`,
+    );
+  }
 }
 
 /**
@@ -496,7 +535,7 @@ function createAuthorizer({
 function requestFailure(label, error) {
   const text = String((error && error.message) || '');
   let category = 'request failed';
-  if (/timeout/i.test(text)) category = 'timed out';
+  if (/timeout|timed out/i.test(text)) category = 'timed out';
   else if (/ERR_CERT_|ERR_SSL_|SELF[_ ]SIGNED|certificate/i.test(text)) category = 'TLS certificate verification failed';
   else if (/ECONNREFUSED|ECONNRESET|EHOSTUNREACH|ENOTFOUND|EAI_AGAIN|socket hang up/i.test(text)) category = 'connection failed';
   else if (/has been closed|Target (page|context|browser).*closed/i.test(text)) category = 'browser closed';
@@ -563,16 +602,19 @@ function createSignedRequest({
  * group checks share. Everything created is recorded on `state` for cleanup.
  */
 async function setUpRun(state) {
-  // The suite-wide opt-in for checks that write to the deployment (run-playwright-suite.js
-  // demands it of every live run). Required here too because this check is normally run directly.
-  if (process.env.CARLOS_DISPOSABLE_HOST !== 'true') {
-    throw new SkipCheck('Requires CARLOS_DISPOSABLE_HOST=true: this check creates and deletes '
-      + 'patient, clinical, eForm and OAuth rows on a separate disposable scoped installation');
+  // The suite-wide opt-ins for exclusive fixture-heavy checks (matches appointment-cut-recovery):
+  // writes clinic-wide eForm and OAuth ServiceClient rows, so refuse to run unless explicitly
+  // opted into a separate disposable exclusive host before touching config or the database.
+  if (process.env.CARLOS_DISPOSABLE_HOST !== 'true' || process.env.EXCLUSIVE !== '1') {
+    throw new SkipCheck('Requires CARLOS_DISPOSABLE_HOST=true and EXCLUSIVE=1: this check creates '
+      + 'and deletes patient, clinical, eForm and OAuth rows on a separate disposable scoped installation');
   }
-  assert(EXPECT_OAUTH_MODE === 'scoped',
+  const expectedOAuthMode = getExpectedOAuthMode();
+  const apiOnly = getApiOnly();
+  assert(expectedOAuthMode === 'scoped',
     'OAuth clinical API acceptance requires EXPECT_OAUTH_MODE=scoped on a separate disposable installation');
-  assert(!API_ONLY || API_ONLY === 'all' || API_TEST_GROUPS.has(API_ONLY),
-    `Unsupported OAUTH_CLINICAL_API_ONLY=${API_ONLY}; use all, demographics, measurements, `
+  assert(!apiOnly || apiOnly === 'all' || API_TEST_GROUPS.has(apiOnly),
+    `Unsupported OAUTH_CLINICAL_API_ONLY=${apiOnly}; use all, demographics, measurements, `
       + 'measurements.read, measurements.write, labs, rxlookup, rx, schedule, eforms, '
       + 'or eforms.templates');
   const config = readConfig();
@@ -580,13 +622,14 @@ async function setUpRun(state) {
   state.sql = sql;
   const app = (appPath) => `${config.baseUrl}${appPath}`;
   const runMarker = crypto.randomUUID().replace(/-/g, '');
-  const marker = `PWAI${runMarker.slice(0, 12)}`;
+  // Prefix with FAKE-PW so scripts/lib/residue-audit.js catches any leaked patient row by marker.
+  const marker = `FAKE-PW${runMarker.slice(0, 12)}`;
   const today = new Date();
   const isoDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
   const nextIsoDate = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
-  const formName = `PW OAuth clinical API ${runMarker}`;
+  const formName = `FAKE-PW OAuth clinical API ${runMarker}`;
   const consumerKey = crypto.randomBytes(12).toString('hex');
   const consumerSecret = crypto.randomBytes(24).toString('hex');
   const providerNo = sql.value(
@@ -607,7 +650,7 @@ async function setUpRun(state) {
     `INSERT INTO ServiceClient(name,clientKey,clientSecret,uri,lifetime)
       VALUES(?,?,?,'oob',3600)`,
     'OAuth clinical API client',
-    [`PW OAuth clinical API ${runMarker}`, consumerKey, consumerSecret],
+    [`FAKE-PW OAuth clinical API ${runMarker}`, consumerKey, consumerSecret],
   );
 
   const recorder = createRecorder();
@@ -855,16 +898,22 @@ async function checkMeasurementWrite({
   sql, signedRequest, fullToken, limitedToken, recordEndpoint, runMarker, patientNo,
   measurementComment, measurementId,
 }) {
+  const bpTypes = sql.rows(
+    'SELECT DISTINCT measuringInstruction FROM measurementType WHERE type = ?',
+    ['BP'],
+  );
+  assert(bpTypes.length === 1,
+    `Expected exactly one configured BP measurement instruction, got ${bpTypes.length}`);
+  const bpInstruction = bpTypes[0][0] ?? '';
+  const observedAt = Date.now();
+  const expectedObservedAt = Math.floor(observedAt / 1000) * 1000;
   const newMeasurementComment = `OAuth clinical API new measurement ${runMarker}`;
   const newMeasurementPayload = {
     type: 'BP',
     dataField: '122/80',
     comments: newMeasurementComment,
-    // Must match a configured measurementType row: the endpoint refuses a
-    // type/instruction pair it cannot resolve to exactly one type. The ON and
-    // BC seed data (V1.0.2__*_data.sql) configure BP as "sitting position".
-    measuringInstruction: 'sitting position',
-    dateObserved: Date.now(),
+    measuringInstruction: bpInstruction,
+    dateObserved: observedAt,
   };
   const limitedMeasurementCreate = await signedRequest(
     'POST', `/ws/services/measurements/${patientNo}/new`, limitedToken, newMeasurementPayload,
@@ -884,10 +933,34 @@ async function checkMeasurementWrite({
     && String(newMeasurement.demographicId) === patientNo
     && newMeasurement.type === newMeasurementPayload.type
     && newMeasurement.dataField === newMeasurementPayload.dataField
-    && newMeasurement.comments === newMeasurementComment,
-  'OAuth new measurement did not return the saved patient reading');
+    && newMeasurement.comments === newMeasurementComment
+    && newMeasurement.measuringInstruction === bpInstruction
+    && typeof newMeasurement.dateObserved === 'number'
+    && Math.abs(newMeasurement.dateObserved - expectedObservedAt) <= 1000,
+  'OAuth new measurement did not return the saved patient reading with instruction and dateObserved');
   recordEndpoint('POST', '/ws/services/measurements/{demographicNo}/new', newMeasurementResponse,
     'new BP measurement recorded for the patient');
+
+  // Repeating the same dated request must return the already-stored reading instead of inserting
+  // a duplicate row.
+  const retryMeasurementResponse = await signedRequest(
+    'POST', `/ws/services/measurements/${patientNo}/new`, fullToken, newMeasurementPayload,
+  );
+  await expectStatus(retryMeasurementResponse, 200, 'OAuth dated measurement retry');
+  const retriedMeasurement = await retryMeasurementResponse.json();
+  assert(String(retriedMeasurement.id) === newMeasurementId
+    && sql.value('SELECT COUNT(*) FROM measurements WHERE demographicNo=? AND type=?', [patientNo, 'BP']) === '2',
+  'Retrying the same dated measurement created a duplicate or returned a different reading');
+  recordEndpoint('POST', '/ws/services/measurements/{demographicNo}/new', retryMeasurementResponse,
+    'dated retry returned the stored reading without duplicating');
+
+  // Verify the write audit entry is filed under the patient so patient-filtered audits see it.
+  const auditCount = Number(sql.value(
+    `SELECT COUNT(*) FROM log
+      WHERE demographic_no=? AND content='measurement' AND contentId=?`,
+    [patientNo, newMeasurementId],
+  ));
+  assert(auditCount >= 1, 'Measurement create did not file an audit row under the patient');
 
   const newMeasurementReadResponse = await signedRequest(
     'POST', `/ws/services/measurements/${patientNo}`, fullToken, { types: ['BP'] },
@@ -897,16 +970,35 @@ async function checkMeasurementWrite({
   const bpRowsAfterCreate = newMeasurementRead.measurements && newMeasurementRead.measurements.BP;
   assert(Array.isArray(bpRowsAfterCreate)
     && bpRowsAfterCreate.some((row) => String(row.id) === newMeasurementId
-      && row.dataField === newMeasurementPayload.dataField && row.comments === newMeasurementComment)
+      && row.dataField === newMeasurementPayload.dataField
+      && row.comments === newMeasurementComment
+      && row.measuringInstruction === bpInstruction
+      && typeof row.dateObserved === 'number'
+      && Math.abs(row.dateObserved - expectedObservedAt) <= 1000)
     && bpRowsAfterCreate.some((row) => String(row.id) === measurementId
       && row.dataField === '121/79' && row.comments === measurementComment),
-  'OAuth new measurement was not persisted or an existing reading changed');
+  'OAuth new measurement was not persisted with instruction/dateObserved or an existing reading changed');
   recordEndpoint('POST', '/ws/services/measurements/{demographicNo}', newMeasurementReadResponse,
-    'new reading persisted and previous reading retained on read-after-write');
+    'new reading persisted (value, instruction, dateObserved) and previous reading retained');
 
-  // Correcting an existing measurement is not implemented (#6136): the service routes no PUT.
-  // Sent with the full token, which holds measurement.write, so a 404/405 is the missing route
-  // and not a scope refusal.
+  const invalidMeasurementResponse = await signedRequest(
+    'POST', `/ws/services/measurements/${patientNo}/new`, fullToken, {
+      type: 'BP',
+      dataField: 'high',
+      measuringInstruction: bpInstruction,
+    },
+  );
+  await expectStatus(invalidMeasurementResponse, 400, 'OAuth invalid BP measurement value');
+  const invalidMeasurementBody = await invalidMeasurementResponse.json();
+  assert(invalidMeasurementBody && invalidMeasurementBody.code === 'VALUE_REJECTED'
+    && sql.value('SELECT COUNT(*) FROM measurements WHERE demographicNo=? AND type=?', [patientNo, 'BP']) === '2',
+  `Invalid BP measurement did not fail with VALUE_REJECTED or changed stored rows: ${JSON.stringify(invalidMeasurementBody)}`);
+  recordEndpoint('POST', '/ws/services/measurements/{demographicNo}/new', invalidMeasurementResponse,
+    'invalid BP value refused with 400 VALUE_REJECTED and nothing stored');
+
+  // Correcting an existing measurement is not implemented (#6136): MeasurementService routes no PUT,
+  // so CXF answers 405 before PRE_INVOKE. Record the unrouted PUT as an explicit GAP and confirm
+  // the stored reading is unchanged.
   const measurementCorrectionResponse = await signedRequest(
     'PUT', `/ws/services/measurements/${patientNo}`, fullToken,
     { id: Number(newMeasurementId), dataField: '123/81' },
@@ -955,21 +1047,28 @@ async function checkLabs(ctx) {
     state.documentStore = fs.realpathSync(documentStore);
     assert(fs.statSync(state.documentStore).isDirectory(),
       'LAB_UPLOAD_DOCUMENT_STORE must point to the running server document directory');
+    // Verify write+traverse access before uploading so cleanup can remove the archived file.
+    fs.accessSync(state.documentStore, fs.constants.W_OK | fs.constants.X_OK);
     // Local until the preflight passes: cleanup deletes by state.labAccession, so recording an
-    // accession that already existed would hand it lab rows this run does not own.
-    const labAccession = `PWAI-${runMarker}`;
+    // accession that already existed would hand it lab rows this run does not own. Keep exactly
+    // one hyphen: PATHL7Handler.getAccessionNum() splits on '-' and preserves a 2-segment value
+    // verbatim (returning "" for 1 segment and only nums[0] for 3 segments).
+    const labAccession = `FAKEPW-${runMarker}`;
     assert(
       sql.value('SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=?', [labAccession]) === '0',
       'The synthetic lab accession already exists',
+    );
+    // Snapshot existing providerLabRoutingLock keys before upload so cleanup removes only lock
+    // rows introduced by this run (the lock key is a bare lab_no shared across lab types).
+    state.initialLabLocks = new Set(
+      sql.rows('SELECT lab_no FROM providerLabRoutingLock')
+        .map(([labNo]) => String(labNo)),
     );
     // Recorded before the upload, so cleanup still removes the rows if the write succeeds but its
     // response is lost.
     state.labRunMarker = runMarker;
     state.labAccession = labAccession;
     state.labFilePrefix = `LabUpload.oauth-clinical-${runMarker}.xml.`;
-    // Database time before the upload: cleanup removes only providerLabRoutingLock rows created
-    // from here on (the lock key is a bare lab_no shared with other lab types' ids).
-    state.labLockFloor = sql.value('SELECT NOW()');
 
     const hl7Timestamp = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
     const hl7Segments = [
@@ -1364,32 +1463,33 @@ function finishRun({ recorder, endpointResults }, summary) {
 }
 
 async function main(state = {}) {
+  const apiOnly = getApiOnly();
   const ctx = await setUpRun(state);
-  if (shouldRun('demographics')) await checkDemographics(ctx);
-  if (shouldRun('measurements') || shouldRun('measurements.read')) await checkMeasurementRead(ctx);
-  if (shouldRun('measurements') || shouldRun('measurements.write')) await checkMeasurementWrite(ctx);
-  if (API_ONLY.startsWith('measurements')) {
+  if (shouldRun('demographics', apiOnly)) await checkDemographics(ctx);
+  if (shouldRun('measurements', apiOnly) || shouldRun('measurements.read', apiOnly)) await checkMeasurementRead(ctx);
+  if (shouldRun('measurements', apiOnly) || shouldRun('measurements.write', apiOnly)) await checkMeasurementWrite(ctx);
+  if (apiOnly.startsWith('measurements')) {
     return finishRun(ctx, {
       oauthMode: 'scoped',
-      selected: API_ONLY,
-      checked: ['OAuth bootstrap', 'temporary demographic fixture setup', `${API_ONLY} API workflow`],
+      selected: apiOnly,
+      checked: ['OAuth bootstrap', 'temporary demographic fixture setup', `${apiOnly} API workflow`],
     });
   }
-  if (shouldRun('labs')) await checkLabs(ctx);
-  if (shouldRun('rxlookup')) await checkRxLookup(ctx);
-  if (shouldRun('rx')) {
+  if (shouldRun('labs', apiOnly)) await checkLabs(ctx);
+  if (shouldRun('rxlookup', apiOnly)) await checkRxLookup(ctx);
+  if (shouldRun('rx', apiOnly)) {
     await checkRxReads(ctx);
     await checkMedicationLifecycle(ctx);
   }
-  if (shouldRun('schedule')) await checkSchedule(ctx);
-  if (shouldRun('eforms') || shouldRun('eforms.templates')) await checkEformTemplates(ctx);
+  if (shouldRun('schedule', apiOnly)) await checkSchedule(ctx);
+  if (shouldRun('eforms', apiOnly) || shouldRun('eforms.templates', apiOnly)) await checkEformTemplates(ctx);
   // Last, so every other group runs against the patient before the API deletes it.
-  if (shouldRun('demographics')) await checkDemographicDelete(ctx);
+  if (shouldRun('demographics', apiOnly)) await checkDemographicDelete(ctx);
   return finishRun(ctx, {
     oauthMode: 'scoped',
-    selected: API_ONLY || 'all',
+    selected: apiOnly || 'all',
     checked: ['signed OAuth request-token and access-token flow',
-      `${API_ONLY && API_ONLY !== 'all' ? API_ONLY : 'all'} API workflow(s)`],
+      `${apiOnly && apiOnly !== 'all' ? apiOnly : 'all'} API workflow(s)`],
   });
 }
 
@@ -1451,4 +1551,6 @@ if (require.main === module) {
   });
 }
 
-module.exports = { main, cleanup };
+module.exports = {
+  main, cleanup, setUpRun, removeOwnedLabFile, requestFailure, shouldRun,
+};

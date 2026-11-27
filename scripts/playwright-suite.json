@@ -19649,6 +19649,35 @@
       "env": [],
       "fixtures": "Owned patient and one native-created task with its attachment/link/comment/history rows; removed by owned marker and exact identifiers. Freezes Date in each composer only; no shared clock, preferences or provider state changes.",
       "notes": "#6041 Add/Edit month-end and leap-year clamps, cumulative/negative/Clear/manual-base Add behavior, today-based Edit behavior and exact saved service dates."
+    },
+    {
+      "name": "oauth-clinical-api",
+      "script": "scripts/oauth-clinical-api-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "manual": true,
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 900,
+      "env": [
+        "OAUTH_CLINICAL_API_ONLY",
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE",
+        "EXPECT_OAUTH_MODE",
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ],
+      "envSet": {
+        "EXPECT_OAUTH_MODE": "scoped"
+      },
+      "mutates": [
+        "eform",
+        "ServiceClient"
+      ],
+      "fixtures": "Needs a separate, disposable Ontario install in scoped OAuth mode (CARLOS_DISPOSABLE_HOST=true). Owns one FAKE-PW-marked synthetic patient with its measurements, medication, prescription and optional HL7 lab, one uniquely named eForm template and one temporary ServiceClient with its tokens; all removed by run marker. Adds an eForm template and an OAuth client, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "OAuth REST acceptance for an external OAuth client such as an AI scribe: demographics, measurements (read and the measurement.write create), labs, Rx lookup and prescribing, schedule, and eForm templates, each with scope refusals and database read-after-write. Runbook: docs/ui-tests/oauth-clinical-api.md."
     }
   ]
 }
