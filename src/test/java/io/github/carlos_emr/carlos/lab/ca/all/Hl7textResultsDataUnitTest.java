@@ -74,6 +74,8 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUpDaos() throws Exception {
+        // The measurement mapping is looked up when a result is filed, not held in a static field.
+        createAndRegisterMock(MeasurementMapDao.class);
         // Register all beans before the class initializes, then replace any cached by earlier tests.
         for (Field field : Hl7textResultsData.class.getDeclaredFields()) {
             if (Modifier.isStatic(field.getModifiers()) && field.getName().endsWith("Dao")) {
@@ -291,6 +293,95 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         // The stale DAO was never asked, and the report was filed (restoreDaos puts the original field back).
         verifyNoInteractions(stale);
         verify(measurementDao).findByValue("lab_no", "4616");
+    }
+
+    private static io.github.carlos_emr.carlos.commn.model.Hl7TextInfo infoOf(int labNumber, String fillerOrderNumber) {
+        var info = new io.github.carlos_emr.carlos.commn.model.Hl7TextInfo();
+        info.setLabNumber(labNumber);
+        info.setFillerOrderNum(fillerOrderNumber);
+        return info;
+    }
+
+    @Test
+    @DisplayName("should list every version of a CLS report found by accession, in order, without the filler lookup")
+    void shouldListEveryVersionInOrder_whenAClsReportHasSeveralVersions() {
+        var infos = (io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao) mockedBeans.get(
+                io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao.class);
+        when(infos.findByLabIdViaMagic(any())).thenReturn(java.util.List.of(
+                new Object[]{infoOf(30, "F1"), infoOf(30, "F1")}, new Object[]{infoOf(20, "F1"), infoOf(20, "F1")}));
+
+        assertThat(Hl7textResultsData.getMatchingLabs_CLS("20")).isEqualTo("20,30");
+        verify(infos, never()).findByFillerOrderNumber(any());
+    }
+
+    @Test
+    @DisplayName("should add the reports sharing the filler order number, when only the CLS report itself is found")
+    void shouldAddTheFillerOrderSiblings_whenOnlyTheClsReportItselfIsFound() {
+        var infos = (io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao) mockedBeans.get(
+                io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao.class);
+        // singletonList: List.of(oneArray) would spread the array into the list's elements.
+        when(infos.findByLabIdViaMagic(any())).thenReturn(java.util.Collections.singletonList(
+                new Object[]{infoOf(20, "GTT-1"), infoOf(20, "GTT-1")}));
+        // The real query returns every row with that filler number, the report itself included.
+        when(infos.findByFillerOrderNumber("GTT-1")).thenReturn(
+                java.util.List.of(infoOf(20, "GTT-1"), infoOf(22, "GTT-1"), infoOf(21, "GTT-1")));
+
+        // The report is already in the list from the accession pass, so it shows twice: that duplicate is
+        // existing behaviour, pinned here and not changed by #6391.
+        assertThat(Hl7textResultsData.getMatchingLabs_CLS("20")).isEqualTo("20,20,21,22");
+    }
+
+    @Test
+    @DisplayName("should read the CLS chain from the current context's DAO, not one cached when the class loaded")
+    void shouldReadTheClsChainFromTheCurrentContext_whenAStaleDaoIsCached() throws Exception {
+        Field cached = Hl7textResultsData.class.getDeclaredField("hl7TxtInfoDao");
+        cached.setAccessible(true);
+        var stale = mock(io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao.class);
+        cached.set(null, stale);
+        var infos = (io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao) mockedBeans.get(
+                io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao.class);
+        when(infos.findByLabIdViaMagic(any())).thenReturn(java.util.List.of(
+                new Object[]{infoOf(30, "F1"), infoOf(30, "F1")}, new Object[]{infoOf(20, "F1"), infoOf(20, "F1")}));
+
+        assertThat(Hl7textResultsData.getMatchingLabs_CLS("20")).isEqualTo("20,30");
+        verifyNoInteractions(stale);
+    }
+
+    @Test
+    @DisplayName("should read the chain's stored message and rows from the current context, not a cached DAO")
+    void shouldReadTheChainFromTheCurrentContext_whenStaleDaosAreCached() throws Exception {
+        Field infoField = Hl7textResultsData.class.getDeclaredField("hl7TxtInfoDao");
+        infoField.setAccessible(true);
+        Field messageField = Hl7textResultsData.class.getDeclaredField("hl7TxtMsgDao");
+        messageField.setAccessible(true);
+        var staleInfo = mock(io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao.class);
+        var staleMessage = mock(io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao.class);
+        infoField.set(null, staleInfo);
+        messageField.set(null, staleMessage);
+        var infos = (io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao) mockedBeans.get(
+                io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao.class);
+        var messages = (io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao) mockedBeans.get(
+                io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao.class);
+        var clsMessage = new io.github.carlos_emr.carlos.commn.model.Hl7TextMessage();
+        clsMessage.setType("CLS");
+        when(messages.find(20)).thenReturn(clsMessage);
+        when(infos.findByLabIdViaMagic(any())).thenReturn(java.util.Collections.singletonList(
+                new Object[]{infoOf(20, "F1"), infoOf(20, "F1")}));
+        when(infos.findByFillerOrderNumber("F1")).thenReturn(java.util.List.of(infoOf(20, "F1")));
+
+        // A CLS report is routed to the CLS reader after the stored message is read.
+        assertThat(Hl7textResultsData.getMatchingLabs("20")).isEqualTo("20,20");
+        verifyNoInteractions(staleInfo, staleMessage);
+    }
+
+    @Test
+    @DisplayName("should return the CLS report itself, when nothing else is found for it")
+    void shouldReturnTheReportItself_whenNothingIsFoundForAClsReport() {
+        var infos = (io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao) mockedBeans.get(
+                io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao.class);
+        when(infos.findByLabIdViaMagic(any())).thenReturn(java.util.List.<Object[]>of());
+
+        assertThat(Hl7textResultsData.getMatchingLabs_CLS("20")).isEqualTo("20");
     }
 
     @ParameterizedTest

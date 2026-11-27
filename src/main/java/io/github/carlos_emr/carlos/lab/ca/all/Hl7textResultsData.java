@@ -74,7 +74,6 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 public class Hl7textResultsData {
 
     private static Logger logger = MiscUtils.getLogger();
-    private static MeasurementMapDao measurementMapDao = SpringUtils.getBean(MeasurementMapDao.class);
     private static ConsultDocsDao consultDocsDao = SpringUtils.getBean(ConsultDocsDao.class);
     private static ConsultResponseDocDao consultResponseDocDao = SpringUtils.getBean(ConsultResponseDocDao.class);
     private static Hl7TextInfoDao hl7TxtInfoDao = SpringUtils.getBean(Hl7TextInfoDao.class);
@@ -86,17 +85,23 @@ public class Hl7textResultsData {
         // no one should instantiate this
     }
 
-    // The two reads that decide what a report files (the report's own row, and the stored source of
-    // a CML version) look their DAO up here, when they run, and not in the static fields above: a
-    // static field is bound when this class loads, which in a test JVM may be in another class's
-    // mocked or different Spring context, and a DAO of another context cannot see the row the current
-    // transaction has just written (#6391: "Lab report is not stored" in an unrelated test class).
+    // The reads that decide what a report files look their DAO up here, when they run, and not in the
+    // static fields above: the report's own row, the chain reader (getMatchingLabs and its CLS twin,
+    // which the display code shares: same bean, same behaviour), the stored source of a CML version
+    // and the measurement mapping. A static field is bound when this class loads, which in a test JVM
+    // may be in another class's mocked or different Spring context, and a DAO of another context cannot
+    // see the row the current transaction has just written (#6391: "Lab report is not stored" in an
+    // unrelated test class). The display and list readers further down keep their static fields.
     private static Hl7TextInfoDao currentInfoDao() {
         return SpringUtils.getBean(Hl7TextInfoDao.class);
     }
 
     private static Hl7TextMessageDao currentMessageDao() {
         return SpringUtils.getBean(Hl7TextMessageDao.class);
+    }
+
+    private static MeasurementMapDao currentMeasurementMapDao() {
+        return SpringUtils.getBean(MeasurementMapDao.class);
     }
 
     /**
@@ -314,7 +319,7 @@ public class Hl7textResultsData {
                         searchName = name;
                     }
 
-                    List<Object[]> measurements = measurementMapDao.findMeasurements("FLOWSHEET", identifier, searchName);
+                    List<Object[]> measurements = currentMeasurementMapDao().findMeasurements("FLOWSHEET", identifier, searchName);
 
                     if (measurements.isEmpty()) {
                         logger.debug("CODE:" + identifier + " needs to be mapped");

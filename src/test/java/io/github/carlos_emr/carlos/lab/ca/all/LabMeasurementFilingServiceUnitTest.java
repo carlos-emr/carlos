@@ -74,6 +74,14 @@ class LabMeasurementFilingServiceUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() {
+        // Hl7textResultsData binds its display DAOs in static fields when it first loads; whichever test
+        // loads it first in a JVM must have them registered, or the class fails for every later user.
+        createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao.class);
+        createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.ConsultResponseDocDao.class);
+        createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao.class);
+        createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao.class);
+        createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao.class);
+        createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.EFormDocsDao.class);
         transactions = mock(PlatformTransactionManager.class);
         when(transactions.getTransaction(any())).thenReturn(mock(org.springframework.transaction.TransactionStatus.class));
         locks = mock(Hl7TextInfoChainLockDao.class);
