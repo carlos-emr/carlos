@@ -199,7 +199,10 @@ public class DrugDaoIntegrationTest extends CarlosTestBase {
         assertThat(stored.getArchivedReason()).isEqualTo("doseChange");
         assertThat(stored.getArchivedDate().getTime()).isEqualTo(today.getTime());
         assertThat(stored.getLastUpdateDate().getTime()).isEqualTo(today.getTime());
-        assertThat(archiveHistory(id)).containsExactly(false, sourceDate, "source history");
+        Object[] history = archiveHistory(id);
+        assertThat(history[0]).isEqualTo(false);
+        assertThat(((Date) history[1]).getTime()).isEqualTo(sourceDate.getTime());
+        assertThat(history[2]).isEqualTo("source history");
     }
 
     @Test
