@@ -33,18 +33,50 @@ const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 const { watchNavbarRecovery } = require('./patient-photo-upload-playwright-checks');
 
-/** Remove only deliberately injected fault entries for one endpoint from the strict recorder. */
-function consumeInjectedFault(recorder, since, pathSuffix) {
-  const matchesPath = (url) => {
-    try { return new URL(url).pathname.endsWith(pathSuffix); }
-    catch { return false; }
-  };
+/**
+ * Remove only failures whose exact Playwright Request identity was recorded by an
+ * injected route handler, and drop matching console errors only when unambiguously
+ * attributable to those removed failures.
+ */
+function consumeInjectedFault(recorder, since, injectedRequests) {
   const addedFailures = recorder.requestFailures.splice(since.failures);
-  recorder.requestFailures.push(...addedFailures.filter((entry) => !matchesPath(entry.url)));
+  const removedFailures = [];
+  const keptFailures = [];
+  for (const entry of addedFailures) {
+    const req = entry.requestRef?.deref();
+    if (req && injectedRequests.has(req)) {
+      removedFailures.push(entry);
+    } else {
+      keptFailures.push(entry);
+    }
+  }
+  recorder.requestFailures.push(...keptFailures);
+
+  const keyFor = (label, url) => `${label ?? ''}\0${url ?? ''}`;
+  const removedCounts = new Map();
+  for (const failure of removedFailures) {
+    const key = keyFor(failure.label, failure.url);
+    removedCounts.set(key, (removedCounts.get(key) || 0) + 1);
+  }
+  const keptKeys = new Set(keptFailures.map((failure) => keyFor(failure.label, failure.url)));
+
   const addedConsole = recorder.consoleIssues.splice(since.console);
-  recorder.consoleIssues.push(...addedConsole.filter((entry) => !(
-    matchesPath(entry.location?.url) && /^Failed to load resource: net::ERR_(FAILED|ABORTED|TIMED_OUT)/.test(entry.text)
-  )));
+  const consoleMatchesByKey = new Map();
+  for (const entry of addedConsole) {
+    if (!/^Failed to load resource: net::ERR_(FAILED|ABORTED|TIMED_OUT)/.test(entry.text)) continue;
+    const key = keyFor(entry.label, entry.location?.url);
+    if (!removedCounts.has(key) || keptKeys.has(key)) continue;
+    const bucket = consoleMatchesByKey.get(key) || [];
+    bucket.push(entry);
+    consoleMatchesByKey.set(key, bucket);
+  }
+  const removableConsole = new Set();
+  for (const [key, entries] of consoleMatchesByKey.entries()) {
+    if (entries.length <= removedCounts.get(key)) {
+      for (const entry of entries) removableConsole.add(entry);
+    }
+  }
+  recorder.consoleIssues.push(...addedConsole.filter((entry) => !removableConsole.has(entry)));
 }
 
 async function main() {
@@ -164,8 +196,10 @@ async function main() {
 
     // 2. Retry exhaustion: two network errors settle to error with no third attempt.
     let ticklerAttempts = 0;
+    const injectedTicklerRequests = new Set();
     const failAllTickler = async (route) => {
       ticklerAttempts += 1;
+      injectedTicklerRequests.add(route.request());
       await route.abort('failed');
     };
     const ticklerSince = { failures: recorder.requestFailures.length, console: recorder.consoleIssues.length };
@@ -187,13 +221,19 @@ async function main() {
       'Exhausted displayTickler retry did not display error text');
     assert(await chartPage.locator('#leftNavBar').getAttribute('aria-busy') === 'false',
       'Left navbar stayed busy after displayTickler retry exhaustion');
-    consumeInjectedFault(recorder, ticklerSince, '/encounter/displayTickler');
+    consumeInjectedFault(recorder, ticklerSince, injectedTicklerRequests);
     console.log('  PASS exhausted display retry fails cleanly after 2 attempts without infinite retry');
 
     // 3. Non-display CaseManagementView POST never retries on a network error.
     let cppAttempts = 0;
+    const injectedCppRequests = new Set();
     const failCpp = async (route) => {
+      if (!route.request().url().includes('issue_code=FamHistory')) {
+        await route.continue();
+        return;
+      }
       cppAttempts += 1;
+      injectedCppRequests.add(route.request());
       await route.abort('failed');
     };
     const cppSince = { failures: recorder.requestFailures.length, console: recorder.consoleIssues.length };
@@ -220,15 +260,17 @@ async function main() {
       'Failed CaseManagementView POST did not display error text');
     assert(await chartPage.locator('#rightNavBar').getAttribute('aria-busy') === 'false',
       'Right navbar stayed busy after failed CaseManagementView POST');
-    consumeInjectedFault(recorder, cppSince, '/CaseManagementView');
+    consumeInjectedFault(recorder, cppSince, injectedCppRequests);
     console.log('  PASS non-display CaseManagementView POST failed immediately with 1 attempt');
 
     // 4. Stalled retry expires via Chromium's native XHR timeout (15s) and clears busy state.
     let msgsAttempts = 0;
+    const injectedMsgsRequests = new Set();
     let releaseStall;
     const stallGate = new Promise((resolve) => { releaseStall = resolve; });
     const stallRetry = async (route) => {
       msgsAttempts += 1;
+      injectedMsgsRequests.add(route.request());
       if (msgsAttempts === 1) {
         await route.abort('failed');
         return;
@@ -312,7 +354,7 @@ async function main() {
       'Timed-out displayMessages retry did not display error text');
     assert(await chartPage.locator('#leftNavBar').getAttribute('aria-busy') === 'false',
       'Left navbar stayed busy after stalled retry timed out');
-    consumeInjectedFault(recorder, msgsSince, '/encounter/displayMessages');
+    consumeInjectedFault(recorder, msgsSince, injectedMsgsRequests);
     assertStrictPage(recorder, ['login', 'patient-search', 'master-record', 'echart']);
     console.log('  PASS stalled retry fired native 15s XHR timeout event and cleared column busy state');
 
@@ -326,4 +368,4 @@ if (require.main === module) {
   runCheck({ name: 'echart-navbar-retry', run: main });
 }
 
-module.exports = { main };
+module.exports = { main, consumeInjectedFault };

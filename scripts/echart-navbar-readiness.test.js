@@ -10,6 +10,7 @@ const source = fs.readFileSync(path.join(__dirname, '../src/main/webapp/js/newCa
 const chartHelper = chartActionUrlSource(source);
 const ajaxSource = fs.readFileSync(path.join(__dirname, '../src/main/webapp/share/javascript/carlos-ajax.js'), 'utf8');
 const { watchNavbarRecovery } = require('./patient-photo-upload-playwright-checks');
+const { consumeInjectedFault } = require('./echart-navbar-retry-playwright-checks');
 const start = source.indexOf('    function updateNavbarLoadState(');
 const end = source.indexOf('// display in place editor', start);
 assert.ok(start > 0 && end > start);
@@ -632,3 +633,58 @@ test('watchNavbarRecovery reconciles only confirmed recovered display failures a
   assert.deepEqual(recorder.requestFailures.map(f => f.url), [urlC, urlC]);
   assert.deepEqual(recorder.consoleIssues.map(c => c.location.url), [urlB, urlB, urlC]);
 });
+
+test('consumeInjectedFault removes only recorded injected request failures and unambiguous console errors', () => {
+  const urlFam = 'https://127.0.0.1/carlos/CaseManagementView?method=listNotes&issue_code=FamHistory';
+  const urlNotes = 'https://127.0.0.1/carlos/CaseManagementView?method=viewNotes';
+  const urlMsgs = 'https://127.0.0.1/carlos/encounter/displayMessages?hC=009999';
+  const reqInjectedFam = { id: 'injected-fam' };
+  const reqUnrelatedNotes = { id: 'unrelated-notes' };
+  const reqUnrelatedSameUrl = { id: 'unrelated-same-url' };
+  const reqInjectedMsgs = { id: 'injected-msgs' };
+  const makeFailure = (url, ref, label = 'echart') => {
+    const entry = { label, url, resourceType: 'xhr', errorText: 'net::ERR_FAILED' };
+    if (ref) Object.defineProperty(entry, 'requestRef', { enumerable: false, value: new WeakRef(ref) });
+    return entry;
+  };
+  const recorder = {
+    requestFailures: [
+      makeFailure(urlFam, { id: 'prior' }),
+      makeFailure(urlFam, reqInjectedFam),
+      makeFailure(urlNotes, reqUnrelatedNotes),
+      makeFailure(urlMsgs, reqInjectedMsgs),
+      makeFailure(urlMsgs, reqUnrelatedSameUrl),
+      makeFailure(urlFam, null),
+    ],
+    consoleIssues: [
+      { label: 'echart', location: { url: urlFam }, text: 'Failed to load resource: net::ERR_FAILED' },
+      { label: 'echart', location: { url: urlNotes }, text: 'Failed to load resource: net::ERR_FAILED' },
+      { label: 'echart', location: { url: urlMsgs }, text: 'Failed to load resource: net::ERR_FAILED' },
+      { label: 'echart', location: { url: urlMsgs }, text: 'Failed to load resource: net::ERR_FAILED' },
+    ],
+  };
+
+  // Both urlFam (missing requestRef kept) and urlMsgs (unrelated same-URL failure kept) must retain ambiguous console entries.
+  consumeInjectedFault(recorder, { failures: 1, console: 0 }, new Set([reqInjectedFam, reqInjectedMsgs]));
+  assert.deepEqual(
+    recorder.requestFailures.map(f => f.requestRef?.deref()?.id ?? 'missing'),
+    ['prior', 'unrelated-notes', 'unrelated-same-url', 'missing'],
+  );
+  assert.equal(recorder.consoleIssues.length, 4);
+
+  // When every failure for a (label, url) is an injected request and console count <= removed count, both are removed.
+  const reqCleanA = { id: 'clean-a' };
+  const reqCleanB = { id: 'clean-b' };
+  const cleanRecorder = {
+    requestFailures: [makeFailure(urlFam, reqCleanA), makeFailure(urlFam, reqCleanB), makeFailure(urlNotes, reqUnrelatedNotes)],
+    consoleIssues: [
+      { label: 'echart', location: { url: urlFam }, text: 'Failed to load resource: net::ERR_FAILED' },
+      { label: 'echart', location: { url: urlFam }, text: 'Failed to load resource: net::ERR_ABORTED' },
+      { label: 'echart', location: { url: urlNotes }, text: 'Failed to load resource: net::ERR_FAILED' },
+    ],
+  };
+  consumeInjectedFault(cleanRecorder, { failures: 0, console: 0 }, new Set([reqCleanA, reqCleanB]));
+  assert.deepEqual(cleanRecorder.requestFailures.map(f => f.url), [urlNotes]);
+  assert.deepEqual(cleanRecorder.consoleIssues.map(c => c.location.url), [urlNotes]);
+});
+
