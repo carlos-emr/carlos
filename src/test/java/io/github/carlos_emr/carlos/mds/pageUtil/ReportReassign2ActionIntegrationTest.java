@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingFavoritesDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingFavorite;
 import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
+import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -41,6 +42,7 @@ import org.mockito.MockedStatic;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Date;
 
@@ -84,9 +86,14 @@ class ReportReassign2ActionIntegrationTest extends CarlosTestBase {
     private final SecurityInfoManager security = mock(SecurityInfoManager.class);
     private MockedStatic<ServletActionContext> servlet;
     private MockedStatic<LoggedInInfo> sessions;
+    private Object previousRoutingDao;
 
     @BeforeEach
     void setUpForward() {
+        // Production caches this DAO when the class loads. A unit test in the
+        // same Surefire fork can initialize it under a mocked Spring context.
+        previousRoutingDao = ReflectionTestUtils.getField(CommonLabResultData.class, "providerLabRoutingDao");
+        ReflectionTestUtils.setField(CommonLabResultData.class, "providerLabRoutingDao", routes);
         em.createNativeQuery("CREATE TABLE IF NOT EXISTS providerLabRoutingLock (lab_no INT PRIMARY KEY)").executeUpdate();
         for (String providerNo : new String[]{SENDER, RECIPIENT, FAVORITE}) {
             Provider provider = new Provider(providerNo, "Synthetic", "doctor", "F", "", "Forward" + providerNo);
@@ -112,6 +119,7 @@ class ReportReassign2ActionIntegrationTest extends CarlosTestBase {
     void releaseStatics() {
         if (sessions != null) sessions.close();
         if (servlet != null) servlet.close();
+        ReflectionTestUtils.setField(CommonLabResultData.class, "providerLabRoutingDao", previousRoutingDao);
     }
 
     private String forward(String route, String files, String providers, String favorites) {
