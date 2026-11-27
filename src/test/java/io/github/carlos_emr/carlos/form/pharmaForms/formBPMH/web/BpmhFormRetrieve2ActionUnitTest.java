@@ -390,4 +390,51 @@ class BpmhFormRetrieve2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(handedToHandler.getDrugs().get(0).getInstruction()).isEqualTo("Clarify product name");
         verify(handler, never()).saveFormHistory();
     }
+
+    @Test
+    void shouldSetNoStoreCacheHeadersAndDeleteTempPdf_whenPrintSucceeds(@org.junit.jupiter.api.io.TempDir java.nio.file.Path tempDir) throws Exception {
+        java.nio.file.Path generatedPdf = tempDir.resolve("bpmh-test.pdf");
+        byte[] pdfBytes = "%PDF-1.4\n%%EOF\n".getBytes(java.nio.charset.StandardCharsets.ISO_8859_1);
+        java.nio.file.Files.write(generatedPdf, pdfBytes);
+
+        var servletContext = org.mockito.Mockito.mock(jakarta.servlet.ServletContext.class);
+        when(servletContext.getRealPath(any())).thenReturn(tempDir.resolve("template.pdf").toString());
+        servletActionContextMock.when(ServletActionContext::getServletContext).thenReturn(servletContext);
+
+        var written = new java.io.ByteArrayOutputStream();
+        when(response.getOutputStream()).thenReturn(new jakarta.servlet.ServletOutputStream() {
+            @Override public boolean isReady() { return true; }
+            @Override public void setWriteListener(jakarta.servlet.WriteListener writeListener) {}
+            @Override public void write(int b) { written.write(b); }
+        });
+
+        when(request.getMethod()).thenReturn("POST");
+        when(request.getParameter("method")).thenReturn("print");
+        when(handler.saveFormHistory()).thenReturn(42);
+        BpmhForm2Bean posted = new BpmhForm2Bean();
+        posted.setDemographicNo("1001");
+        posted.setFormId("0");
+        posted.setReviewToken("reviewed");
+        filled.setReviewToken("reviewed");
+        action.setForm(posted);
+
+        try (var controllers = org.mockito.Mockito.mockConstruction(
+                io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.pdf.PDFController.class,
+                (controller, ctx) -> {
+                    when(controller.getFileName()).thenReturn("bpmh-test.pdf");
+                    when(controller.getOutputPath()).thenReturn(generatedPdf.toString());
+                })) {
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(controllers.constructed()).hasSize(1);
+        }
+
+        verify(response).reset();
+        verify(response).setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+        verify(response).setHeader("Pragma", "no-cache");
+        verify(response).setContentType("application/pdf");
+        verify(response).setContentLength(pdfBytes.length);
+        verify(handler).saveFormHistory();
+        assertThat(written.toByteArray()).isEqualTo(pdfBytes);
+        assertThat(java.nio.file.Files.exists(generatedPdf)).isFalse();
+    }
 }

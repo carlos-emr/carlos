@@ -323,7 +323,23 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
         return transaction.execute(status -> action.get());
     }
 
-    private record PdfResult(String filename, byte[] content) {}
+    private static final class PdfResult {
+        private final String filename;
+        private final byte[] content;
+
+        private PdfResult(String filename, byte[] content) {
+            this.filename = filename;
+            this.content = content;
+        }
+
+        String filename() {
+            return filename;
+        }
+
+        byte[] content() {
+            return content;
+        }
+    }
 
     private static class ReviewChanged extends RuntimeException {}
 
