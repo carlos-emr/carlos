@@ -68,6 +68,7 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
     private final Map<Field, Object> originalDaos = new LinkedHashMap<>();
     private MeasurementDao measurementDao;
+    private final java.util.concurrent.atomic.AtomicInteger storedIds = new java.util.concurrent.atomic.AtomicInteger();
 
     @BeforeEach
     void setUpDaos() throws Exception {
@@ -102,7 +103,8 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         when(infos.findLabId(anyInt())).thenReturn(new io.github.carlos_emr.carlos.commn.model.Hl7TextInfo());
         doAnswer(invocation -> {
             Measurement measurement = invocation.getArgument(0);
-            ReflectionTestUtils.setField(measurement, "id", 1);
+            // A different id for each stored measurement: an extension attached to the wrong one is noticed.
+            ReflectionTestUtils.setField(measurement, "id", storedIds.incrementAndGet());
             return null;
         }).when(measurementDao).persist(any(Measurement.class));
 
@@ -369,6 +371,8 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         verify(measurementDao).findByValue("lab_no", "4616");
         verify(measurementDao, never()).findByValue("lab_no", "1111");
         verify(measurementDao).batchRemoveAtomically(java.util.List.of());
+        verify((MeasurementsDeletedDao) mockedBeans.get(MeasurementsDeletedDao.class))
+                .batchPersistAtomically(java.util.List.of());
     }
 
     @Test
@@ -539,6 +543,8 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         }
         // The rows are built before the chain is read under the lock, so the measurement map is read; nothing is
         // archived or filed.
+        verify((MeasurementMapDao) mockedBeans.get(MeasurementMapDao.class), org.mockito.Mockito.atLeastOnce())
+                .findMeasurements(any(), any(), any());
         org.mockito.Mockito.verifyNoInteractions(measurementDao,
                 mockedBeans.get(io.github.carlos_emr.carlos.commn.dao.MeasurementsDeletedDao.class),
                 mockedBeans.get(io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao.class));
