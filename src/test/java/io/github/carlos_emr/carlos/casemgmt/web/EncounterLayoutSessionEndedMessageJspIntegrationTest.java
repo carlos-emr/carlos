@@ -17,14 +17,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.ResourceBundle;
 import java.util.concurrent.TimeUnit;
 import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
@@ -34,15 +31,12 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Renders the modern chart layout ({@code newEncounterLayout.jsp}, the {@code setUpMainEncounterPage}
- * result of {@code CaseManagementEntry}) and reads the message it gives the note save handler.
- * 0ba9d149d105 (#6143) made the layout publish the localized {@code encounter.sessionEndedNotSaved.msg}
- * as the JavaScript variable {@code sessionEndedNotSavedError}: when a save is answered by the
- * sign-in page, {@code newCaseManagementView.js.jsp} keeps the typed text on screen and alerts that
- * message ({@code alert(sessionEndedNotSavedError || savingNoteError)}). The Node tests
- * ({@code echart-note-save-signed-out.test.js}, {@code echart-cpp-issue-refresh.test.js}) drive the
- * handler with the variable set on a fake window; before #6336 nothing rendered the line that sets
- * it. Each bundle that has the key is checked: the rendered assignment must execute after
- * the external script that declares the variable.
+ * result of {@code CaseManagementEntry}) and follows its reference to the note save script.
+ * The script now publishes the localized {@code encounter.sessionEndedNotSaved.msg} introduced
+ * in #6143. Executing the rendered script and invoking its alert helper verifies the message
+ * shown in each supported language. The Node tests ({@code echart-note-save-signed-out.test.js},
+ * {@code echart-cpp-issue-refresh.test.js}) exercise when a reply from the sign-in page triggers
+ * the warning and leaves typed text on screen.
  *
  * <p>The four chart panels the layout includes ({@code newEncounterHeader.jsp},
  * {@code rightColumn.jsp}, {@code newNavigation.jsp}, {@code newCaseManagementView.jsp}) each need
@@ -55,20 +49,25 @@ import org.junit.jupiter.params.provider.ValueSource;
 @Tag("casemgmt")
 class EncounterLayoutSessionEndedMessageJspIntegrationTest {
     private static final String PAGE = "/WEB-INF/jsp/casemgmt/newEncounterLayout.jsp";
+    private static final String NOTE_SCRIPT = "/js/newCaseManagementView.js.jsp";
     private static final String KEY = "encounter.sessionEndedNotSaved.msg";
     private static final String PATIENT = "1001";
     private static final String PROVIDER = "999998";
     private static final String EVALUATE_WARNING = """
             const fs = require('node:fs');
             const vm = require('node:vm');
+            const alerts = [];
             const chart = {
-              month: [],
-              window: {},
-              onClosing() {},
-              jQuery() { return { on() {} }; }
+              Image: class {},
+              addEventListener() {},
+              jQuery() {},
+              alert(message) { alerts.push(message); }
             };
-            vm.runInNewContext(fs.readFileSync(process.argv[1], 'utf8'), chart, { timeout: 1000 });
-            process.stdout.write(chart.sessionEndedNotSavedError ?? '');
+            chart.window = chart;
+            const script = fs.readFileSync(process.argv[1], 'utf8');
+            vm.runInNewContext(script + '\\nalertSessionEndedNotSaved();', chart, { timeout: 1000 });
+            if (alerts.length !== 1) throw new Error('Expected one signed-out alert');
+            process.stdout.write(alerts[0]);
             """;
 
     @TempDir
@@ -84,7 +83,7 @@ class EncounterLayoutSessionEndedMessageJspIntegrationTest {
                 .file("/WEB-INF/jsp/casemgmt/rightColumn.jsp", "<div id=\"stand-in-right-column\"></div>\n")
                 .file("/WEB-INF/jsp/casemgmt/newNavigation.jsp", "<div id=\"stand-in-navigation\"></div>\n")
                 .file("/WEB-INF/jsp/casemgmt/newCaseManagementView.jsp", "<div id=\"stand-in-notes\"></div>\n")
-                .jsp(PAGE)
+                .jsp(PAGE, NOTE_SCRIPT)
                 .bean(SecObjPrivilegeDao.class, JspRenderServer.privilegeDaoGranting("doctor", "x"))
                 .bean(UserPropertyDAO.class, userProperties)
                 .start();
@@ -102,22 +101,17 @@ class EncounterLayoutSessionEndedMessageJspIntegrationTest {
     void shouldPublishTheLocalizedSessionEndedMessage_forTheSignedOutSave(String language) throws Exception {
         String expected = ResourceBundle.getBundle("oscarResources", Locale.forLanguageTag(language)).getString(KEY);
 
-        Document html = openChart(language);
+        assertThat(openChart(language).select("script[src=\"%s%s\"]".formatted(JspRenderServer.CONTEXT_PATH, NOTE_SCRIPT)))
+                .singleElement()
+                .satisfies(handler -> assertThat(handler.attr("type")).isIn("", "text/javascript"));
 
-        Elements scripts = html.select("script");
-        List<Element> initializers = scripts.stream()
-                .filter(script -> !script.hasAttr("src") && script.data().contains("sessionEndedNotSavedError"))
-                .toList();
-        assertThat(initializers).hasSize(1);
-        Element initializer = initializers.getFirst();
-        assertThat(initializer.attr("type")).isIn("", "text/javascript");
-
-        // newCaseManagementView.js.jsp declares the variable and must load first.
-        Element handler = html.selectFirst("script[src$=/js/newCaseManagementView.js.jsp]");
-        assertThat(handler).isNotNull();
-        assertThat(scripts.indexOf(handler)).isLessThan(scripts.indexOf(initializer));
+        String script = server.request(NOTE_SCRIPT)
+                .header("Accept-Language", language)
+                .render(EncounterLayoutSessionEndedMessageJspIntegrationTest::signIn)
+                .assertOk()
+                .body();
         assertThat(expected).isNotBlank();
-        assertThat(evaluateWarning(initializer.data())).isEqualTo(expected);
+        assertThat(evaluateWarning(script)).isEqualTo(expected);
     }
 
     private static String evaluateWarning(String script) throws Exception {

@@ -56,6 +56,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.apache.catalina.Context;
 import org.apache.catalina.LifecycleException;
+import org.apache.catalina.Wrapper;
 import org.apache.catalina.startup.Tomcat;
 import org.apache.commons.text.WordUtils;
 import org.apache.jasper.servlet.JasperInitializer;
@@ -235,6 +236,8 @@ public final class JspRenderServer implements AutoCloseable {
             context.setJarScanner(scanner);
             context.addServletContainerInitializer(new JasperInitializer(), null);
             Tomcat.initWebappDefaults(context);
+            // Match production's compact Jasper output for large JSPs.
+            ((Wrapper) context.findChild("jsp")).addInitParameter("mappedfile", "false");
             // The production web.xml maps *.jspf to the JSP servlet too, so a
             // <jsp:include page="x.jspf"/> runs the fragment as a page there and here.
             context.addServletMapping("*.jspf", "jsp");

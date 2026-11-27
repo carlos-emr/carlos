@@ -10403,12 +10403,14 @@
       ]
     },
     "src/main/webapp/js/newCaseManagementView.js.jsp": {
-      "reason": "A failed or superseded signing action must leave the next ordinary encounter save unsigned. Successful deferred signing retains its own flags.",
+      "reason": "A failed or superseded signing action leaves the next ordinary encounter save unsigned. Successful deferred signing retains its own flags. The rendered script supplies the localized warning for a save interrupted by sign-in.",
       "tests": [
-        "scripts/echart-note-save-signed-out.test.js"
+        "scripts/echart-note-save-signed-out.test.js",
+        "src/test/java/io/github/carlos_emr/carlos/casemgmt/web/EncounterLayoutSessionEndedMessageJspIntegrationTest.java"
       ],
       "checks": [
-        "node-all"
+        "node-all",
+        "java-all"
       ],
       "workstreams": [
         "T13"
@@ -15382,7 +15384,7 @@
       ]
     },
     "src/main/webapp/WEB-INF/jsp/casemgmt/newEncounterLayout.jsp": {
-      "reason": "The modern chart layout assigns sessionEndedNotSavedError the session locale's encounter.sessionEndedNotSaved.msg (en, fr-CA, es, pt-BR, pl) once, as an escaped JavaScript string after newCaseManagementView.js.jsp, which a save answered by the sign-in page alerts while keeping the typed note.",
+      "reason": "The rendered modern chart layout loads newCaseManagementView.js.jsp, whose alert helper uses the localized encounter.sessionEndedNotSaved.msg in the rendered script (en, fr-CA, es, pt-BR, pl). The save tests verify the warning and text retention when the sign-in page answers a save.",
       "tests": [
         "src/test/java/io/github/carlos_emr/carlos/casemgmt/web/EncounterLayoutSessionEndedMessageJspIntegrationTest.java",
         "scripts/echart-note-save-signed-out.test.js",
