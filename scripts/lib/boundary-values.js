@@ -46,6 +46,28 @@ function columnLength(sql, table, column) {
   return Number(n);
 }
 
+/**
+ * The worst-case Unicode code-point capacity of a character column (information_schema):
+ * VARCHAR/CHAR columns count code points directly (CHARACTER_MAXIMUM_LENGTH); TEXT-family
+ * columns are bounded in bytes (CHARACTER_OCTET_LENGTH), so arbitrary code points in their
+ * character set fit up to floor(CHARACTER_OCTET_LENGTH / MAXLEN).
+ */
+function columnCodePointCapacity(sql, table, column) {
+  const rows = sql.rows(`SELECT c.DATA_TYPE, c.CHARACTER_MAXIMUM_LENGTH, c.CHARACTER_OCTET_LENGTH, cs.MAXLEN
+    FROM information_schema.columns c
+    LEFT JOIN information_schema.character_sets cs ON cs.CHARACTER_SET_NAME = c.CHARACTER_SET_NAME
+    WHERE c.table_schema=DATABASE() AND c.table_name=${h.sqlString(table)} AND c.column_name=${h.sqlString(column)}`);
+  h.assert(rows.length === 1, `Column ${table}.${column} not found in information_schema`);
+  const [dataType, charMax, octetMax, maxLen] = rows[0];
+  if (/text$/i.test(String(dataType || ''))) {
+    h.assert(/^\d+$/.test(octetMax) && /^\d+$/.test(maxLen) && Number(maxLen) > 0,
+      `Column ${table}.${column} (${dataType}) has no octet length or character-set width`);
+    return Math.floor(Number(octetMax) / Number(maxLen));
+  }
+  h.assert(/^\d+$/.test(charMax), `Column ${table}.${column} has no character length`);
+  return Number(charMax);
+}
+
 /** What the database holds for one column, as {hex, chars, text}. `where` is a trusted fragment. */
 function readStored(sql, table, column, where) {
   const rows = sql.rows(`SELECT HEX(\`${column}\`), CHAR_LENGTH(\`${column}\`), \`${column}\` FROM \`${table}\` WHERE ${where}`);
@@ -120,6 +142,6 @@ function lengthRefusal(text) {
 }
 
 module.exports = {
-  TOKENS, cpLength, hex, exactly, columnLength, readStored, explainMismatch, assertStored,
-  assertNotSilentlyTruncated, sameText, removeTaggedPatients, lengthRefusal,
+  TOKENS, cpLength, hex, exactly, columnLength, columnCodePointCapacity, readStored, explainMismatch,
+  assertStored, assertNotSilentlyTruncated, sameText, removeTaggedPatients, lengthRefusal,
 };

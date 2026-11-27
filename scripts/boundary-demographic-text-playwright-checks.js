@@ -7,9 +7,10 @@
  * Asserts: names with an apostrophe, accents, CJK, an emoji, a literal "&amp;", quotes, backslash,
  * "%41", "+" and ";" are stored byte for byte (utf8mb4, no "?" substitution, no double encoding); the
  * Master Record and the Edit form redisplay them identically; an unchanged Update leaves every column
- * as it was; every text box carries its column limit (Unicode code points for names); the patient alert and the
- * waiting-list note carry their VARCHAR(255) limit in code points (#5869), the alert counting each line break as the CR LF
- * the browser submits, so an alert at the limit is saved whole and redisplayed by the Edit form while one more character
+ * as it was; every text box carries its column limit (Unicode code points for names); the patient alert carries its
+ * TEXT worst-case four-byte code-point limit (16,383, #6264) and the waiting-list note its VARCHAR(255) limit in code
+ * points (#5869), the alert counting each line break as the CR LF the browser submits, so an alert at the limit (and a
+ * full-length alert of four-byte characters) is saved whole and redisplayed by the Edit form while one more character
  * is refused in both forms without being cut or sent; a surname of exactly the column
  * length is stored whole and one more character is visibly limited; and, last, a Name Used longer than
  * pref_name is stored whole in the alias (pref_name keeps its first 30 characters by design, #5128) and a
@@ -48,9 +49,9 @@ async function assertFormLimits(form, sql) {
   }
 }
 
-// The patient alert (cust3 on the Add form, alert on the Edit form) and the waiting-list note, which
-// demographic-field-length-limits.jspf counts in Unicode code points like the names (#5869): maxlength is twice the
-// column, data-max-codepoints the column itself.
+// The patient alert (cust3 on the Add form, alert on the Edit form; TEXT -> 16,383 four-byte code points, #6264) and
+// the waiting-list note (VARCHAR(255)), which demographic-field-length-limits.jspf counts in Unicode code points like
+// the names (#5869): maxlength is twice the column's code-point capacity, data-max-codepoints the capacity itself.
 const ALERT_AND_NOTE_COLUMNS = {
   add: [['cust3', 'demographiccust', 'cust3'], ['waiting_list_note', 'waitingList', 'note']],
   edit: [['alert', 'demographiccust', 'cust3'], ['waiting_list_note', 'waitingList', 'note']],
@@ -67,7 +68,7 @@ async function assertAlertAndNoteLimits(page, formId, sql, fields) {
     h.assert(await box.count() === 1, `Expected one ${input} control for ${formId}${input === 'waiting_list_note'
       ? ' (the Edit form draws it only while DEMOGRAPHIC_WAITING_LIST=true)' : ''}`);
     h.assert(await box.evaluate((field, id) => field.form?.id === id, formId), `${input} is detached from ${formId}`);
-    const declared = b.columnLength(sql, table, column);
+    const declared = b.columnCodePointCapacity(sql, table, column);
     h.assert(Number(await box.getAttribute('maxlength')) === declared * 2,
       `${input} maxlength disagrees with column ${table}.${column} (${declared} characters, two UTF-16 units each)`);
     h.assert(Number(await box.getAttribute('data-max-codepoints')) === declared,
@@ -223,11 +224,11 @@ async function workflow(s) {
     await add.close();
   });
 
-  // #5869: the alert is VARCHAR(255) counted in code points, and a textarea line break, one LF in the box, is
-  // submitted and stored as CR LF. At the limit: max - 2 letters and one break (max as submitted). Over it: max - 1
-  // letters and one break (max as LF, max + 1 as submitted, so only CR LF counting refuses it) and max - 1 letters
-  // and two breaks.
-  const alertMax = () => b.columnLength(sql, 'demographiccust', 'cust3');
+  // #5869 / #6264: the alert is TEXT (16,383 four-byte code points in utf8mb4, counted in code points), and a
+  // textarea line break, one LF in the box, is submitted and stored as CR LF. At the limit: max - 2 letters and one
+  // break (max as submitted). Over it: max - 1 letters and one break (max as LF, max + 1 as submitted, so only CR LF
+  // counting refuses it) and max - 1 letters and two breaks.
+  const alertMax = () => b.columnCodePointCapacity(sql, 'demographiccust', 'cust3');
   let alertPatient;
 
   await s.step('the add form counts an alert line break as CR LF: an alert at the limit is saved whole, one more is refused (#5869)', async () => {
@@ -270,6 +271,25 @@ async function workflow(s) {
     await assertNoRecordPost(add, UPDATE_RECORD, submitEdit, 'Update Record');
     b.assertStored(sql, 'demographiccust', 'cust3', `demographic_no=${alertPatient}`, submitted(atLimit), 'Refused Edit form alert');
     h.assert(await alertBox.inputValue() === over, 'The refused edit was cut');
+  });
+
+  await s.step('the Edit form saves a full-length alert of four-byte characters whole and redisplays it whole (#6264)', async () => {
+    const max = alertMax();
+    const fullEmoji = '😀'.repeat(max);
+    const alertBox = add.locator('textarea[name="alert"]');
+    await assertAlertAccepted(alertBox, fullEmoji, 'Edit form full-length four-byte alert');
+    await ui.clickAndAwaitReload(add, add.locator('#updateButton input[type="submit"]').first(),
+      { timeout: TIMEOUT, label: 'Update Record with full-length four-byte alert' });
+    b.assertStored(sql, 'demographiccust', 'cust3', `demographic_no=${alertPatient}`, fullEmoji,
+      'Edit form full-length four-byte alert');
+    const [chars, octets] = sql.rows(
+      `SELECT CHAR_LENGTH(cust3), OCTET_LENGTH(cust3) FROM demographiccust WHERE demographic_no=${alertPatient}`)[0];
+    h.assert(Number(chars) === max && Number(octets) === max * 4,
+      `Expected ${max} characters and ${max * 4} bytes for full-length four-byte alert, got ${chars} chars / ${octets} bytes`);
+    await add.locator('#editBtn').click();
+    await add.locator('#editDemographic').waitFor({ state: 'visible', timeout: TIMEOUT });
+    h.assert(await add.locator('textarea[name="alert"]').inputValue() === fullEmoji,
+      'The Edit form does not redisplay the full-length four-byte alert whole');
     await add.close();
   });
 
