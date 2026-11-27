@@ -549,13 +549,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
      * Assign the stored fields directly: the public setters also trim newly submitted text.
      */
     public void preserveUnchangedMedicationValues(Drug source) {
-        if (!sameStoredText(regionalIdentifier, source.regionalIdentifier)
-                || !sameStoredText(brandName, source.brandName) || !sameStoredText(genericName, source.genericName)
-                || !sameStoredText(customName, source.customName) || !sameStoredText(drugForm, source.drugForm)) {
-            return;
-        }
-        // REST has no GCN field. Other callers can submit a different catalog product.
-        if (restQuantitySubmitted == null && !Objects.equals(gcnSeqNo, source.gcnSeqNo)) return;
+        if (!sameMedicationProduct(source)) return;
         gcnSeqNo = source.gcnSeqNo;
         regionalIdentifier = source.regionalIdentifier;
         brandName = source.brandName;
@@ -590,6 +584,28 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
         restQuantitySubmitted = quantitySubmitted;
         restMinimumOmitted = !minimumSubmitted;
         restMaximumOmitted = !maximumSubmitted;
+    }
+
+    private boolean sameMedicationProduct(Drug source) {
+        return sameStoredText(regionalIdentifier, source.regionalIdentifier)
+                && sameStoredText(brandName, source.brandName) && sameStoredText(genericName, source.genericName)
+                && sameStoredText(customName, source.customName) && sameStoredText(drugForm, source.drugForm)
+                && (restQuantitySubmitted != null || Objects.equals(gcnSeqNo, source.gcnSeqNo));
+    }
+
+    /** Validate the combined replacement while retaining an untouched historical range and an unspecified maximum. */
+    public void requireValidRestDoseRange(Drug source) {
+        if (restQuantitySubmitted == null) return;
+        float minimum = getTakeMin();
+        float maximum = getTakeMax();
+        if (Float.isFinite(minimum) && Float.isFinite(maximum) && (maximum <= 0f || minimum <= maximum)) return;
+        if (source != null && sameMedicationProduct(source)
+                && Objects.equals(takeMin, source.takeMin) && Objects.equals(takeMax, source.takeMax)) return;
+        throw new InvalidDoseRangeException();
+    }
+
+    public static final class InvalidDoseRangeException extends IllegalArgumentException {
+        private static final long serialVersionUID = 1L;
     }
 
     private static boolean sameStoredText(String submitted, String stored) {

@@ -46,6 +46,15 @@ class IllegalArgumentExceptionMapperUnitTest {
     private final IllegalArgumentExceptionMapper mapper = new IllegalArgumentExceptionMapper();
 
     @Test
+    void shouldIdentifyARefusedMedicationRangeWithoutExposingClinicalValues() {
+        var response = new IllegalArgumentExceptionMapper().toResponse(
+                new io.github.carlos_emr.carlos.commn.model.Drug.InvalidDoseRangeException());
+        assertThat(response.getStatus()).isEqualTo(400);
+        var error = (io.github.carlos_emr.carlos.webserv.rest.response.ErrorResponse) response.getEntity();
+        assertThat(error.getCode()).isEqualTo("INVALID_RX_DOSE_RANGE");
+    }
+
+    @Test
     @DisplayName("should return HTTP 400")
     void shouldReturn400Status_forErrorContract() {
         Response response = mapper.toResponse(new IllegalArgumentException("Unknown drug status: active"));

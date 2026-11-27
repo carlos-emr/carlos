@@ -158,7 +158,8 @@ async function workflow(s) {
   const secondStep = `Then take half a tablet daily ${tag}`;
   const lastMedication = `FAKE overflow ${tag}`;
   const additionalReason = 'LOCAL Z99 recorded indication';
-  const medicationText = [direction, secondStep, lastMedication, 'Take 1 to 3 mg daily', additionalReason];
+  const asNeededDose = 'Take 1 to 3 mg daily as needed';
+  const medicationText = [direction, secondStep, lastMedication, asNeededDose, additionalReason];
   const instruction = `${marker} continue at discharge`;
   const note = `${marker} reconciled with the patient`;
 
@@ -212,9 +213,9 @@ async function workflow(s) {
   for (let position = 2; position <= 18; position++) {
     const name = position === 18 ? lastMedication : `FAKE row ${position} ${tag}`;
     sql.execute(`INSERT INTO drugs (provider_no,demographic_no,rx_date,end_date,written_date,customName,special,
-        archived,archived_reason,create_date,position,lastUpdateDate,dispenseInternal,quantity,takemin,takemax,unit,unitName,drug_form,method,freqcode)
+        archived,archived_reason,create_date,position,lastUpdateDate,dispenseInternal,quantity,takemin,takemax,unit,unitName,drug_form,method,freqcode,prn)
       VALUES (${q(provider)},${patient},CURDATE(),DATE_ADD(CURDATE(),INTERVAL 30 DAY),CURDATE(),${q(name)},${q(name)},
-        0,'',NOW(),${position},NOW(),0,'.50',1,3,'mg','mL','TAB','Take','daily')`);
+        0,'',NOW(),${position},NOW(),0,'.50',1,3,'mg','mL','TAB','Take','daily',${position === 18 ? 1 : 0})`);
   }
   sql.execute(`INSERT INTO drugReason (drugId,codingSystem,code,comments,primaryReasonFlag,archivedFlag,demographicNo,providerNo,dateCoded)
     SELECT drugid,'icd9',${q(code)},${q(`FAKE ${tag}`)},1,0,${patient},${q(provider)},CURDATE()
@@ -334,9 +335,9 @@ async function workflow(s) {
   await s.step('missing directions stay missing on a new BPMH with an otherwise documented medication', async () => {
     const name = `FAKE unspecified dose ${tag}`;
     const missing = sql.value(`INSERT INTO drugs (provider_no,demographic_no,rx_date,end_date,written_date,customName,special,special_instruction,
-        archived,archived_reason,create_date,position,lastUpdateDate,dispenseInternal,quantity,takemin,takemax,unit,drug_form)
-      VALUES (${q(provider)},${patient},CURDATE(),DATE_ADD(CURDATE(),INTERVAL 30 DAY),CURDATE(),${q(name)},${q(name + "\r\nSupply blister pack\r\n")},'Supply blister pack',
-        0,'',NOW(),19,NOW(),0,'30.0',NULL,NULL,'mg','TAB'); SELECT LAST_INSERT_ID()`);
+        archived,archived_reason,create_date,position,lastUpdateDate,dispenseInternal,quantity,takemin,takemax,unit,drug_form,dosage)
+      VALUES (${q(provider)},${patient},CURDATE(),DATE_ADD(CURDATE(),INTERVAL 30 DAY),CURDATE(),${q(name)},${q(name + " 10 units\r\nSupply blister pack\r\n")},'Supply blister pack',
+        0,'',NOW(),19,NOW(),0,'30.0',NULL,NULL,'units','TAB','10'); SELECT LAST_INSERT_ID()`);
     h.assert(/^[1-9]\d*$/.test(missing), 'The missing-dose fixture was not created');
     sql.execute(`INSERT INTO drugReason (drugId,codingSystem,code,comments,primaryReasonFlag,archivedFlag,demographicNo,providerNo,dateCoded)
       VALUES (${missing},'icd9',${q(code)},${q(name)},1,0,${patient},${q(provider)},CURDATE())`);

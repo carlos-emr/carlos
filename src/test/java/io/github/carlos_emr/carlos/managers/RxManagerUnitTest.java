@@ -351,6 +351,50 @@ class RxManagerUnitTest extends RxManagerImpl {
             assertThat(drug.getQuantity()).isEqualTo("30.0");
         }
 
+        @ParameterizedTest
+        @CsvSource(nullValues = "omitted", value = {
+                "1,3,5,omitted", "1,3,omitted,0.5", "5,3,5,2", "1,3,NaN,omitted", "1,3,omitted,Infinity"
+        })
+        void shouldRefuseInvalidCombinedDoseBeforeArchiving(float oldMin, float oldMax, Float minimum, Float maximum) {
+            Drug stored = new Drug();
+            stored.setId(4);
+            stored.setDemographicId(1);
+            stored.setGenericName("ASA");
+            stored.setTakeMin(oldMin);
+            stored.setTakeMax(oldMax);
+            ((MockDrugDao) drugDao).seed(stored);
+            Drug edited = new Drug();
+            edited.setId(4);
+            edited.setDemographicId(1);
+            edited.setGenericName("ASA");
+            edited.recordRestFieldPresence(false, minimum != null, maximum != null);
+            if (minimum != null) edited.setTakeMin(minimum);
+            if (maximum != null) edited.setTakeMax(maximum);
+            assertThatThrownBy(() -> updateDrug(new LoggedInInfo(), edited))
+                    .isInstanceOf(Drug.InvalidDoseRangeException.class);
+            assertThat(stored.isArchived()).isFalse();
+            assertThat(stored.getTakeMin()).isEqualTo(oldMin);
+            assertThat(stored.getTakeMax()).isEqualTo(oldMax);
+            assertThat(addNewDrugCallCount).isZero();
+        }
+
+        @Test
+        void shouldAllowAnUnchangedHistoricalRangeOnlyForTheSameProduct() {
+            Drug stored = new Drug();
+            stored.setTakeMin(5);
+            stored.setTakeMax(3);
+            Drug echo = new Drug();
+            echo.setDemographicId(1);
+            echo.recordRestFieldPresence(false, false, false);
+            echo.preserveUnchangedMedicationValues(stored);
+            echo.requireValidRestDoseRange(stored);
+            assertThat(echo.getTakeMin()).isEqualTo(5f);
+            assertThat(echo.getTakeMax()).isEqualTo(3f);
+            echo.setRegionalIdentifier("new DIN");
+            assertThatThrownBy(() -> echo.requireValidRestDoseRange(stored)).isInstanceOf(Drug.InvalidDoseRangeException.class);
+            assertThatThrownBy(() -> addDrug(new LoggedInInfo(), echo)).isInstanceOf(Drug.InvalidDoseRangeException.class);
+        }
+
         @Test
         void shouldKeepNewCatalogId_whenNativeCallerSelectsADifferentProductWithTheSameName() {
             Drug source = new Drug();

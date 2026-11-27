@@ -466,6 +466,7 @@ public class BpmhForm2Handler {
                     // Spring's copyProperties skips Integer -> String, so the id is set here: the form posts it back
                     // to match each typed instruction to its drug (#4731).
                     bpmhDrug.setId(drugId);
+                    bpmhDrug.setPrn(Boolean.toString(drug.isPrn()));
                     // The structured dose is a float on the drug and text on the form, so it is not
                     // copied either. Without it "How I take it" read "Take TAB BID" with no amount
                     // whenever the instruction text had no direction line (#6185).

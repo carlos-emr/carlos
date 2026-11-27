@@ -164,14 +164,17 @@ source dose uncertainty (#6411), and export and rollback verification (#6412) tr
   `Qty:0.5 mL`, "30.0 mL" as `Qty:30 mL` and "30.0" as `Qty:30`.
 - The generic name of a combination product names every ingredient's strength.
 - BPMH keeps authored direction lines together, including later taper steps. When directions are
-  missing, the form can show a recorded dose and administered unit, with a range as "1 to 3".
+  missing, the form can show a recorded dose and administered unit, with a range as "1 to 3"
+  and “as needed” when the prescription carries the PRN flag.
   A product strength or form on its own is insufficient to fill this field. Historical BPMH forms
   with stored directions retain those directions. Additional medications and text that exceed a
   printed row appear on continuation pages.
 - An unrelated same-product REST edit keeps the original dispense quantity and unit, including
   the spelling of a whole number such as `30.0 mL`. Omitting quantity or a dose bound retains
   the stored value. An explicit JSON null still clears a whole-number quantity. The catalog GCN
-  survives an update to the same product. Opening, saving and printing a BPMH form
+  survives an update to the same product. A new or changed reversed range is refused before
+  the original is archived. An unrelated edit to the same product retains an unchanged historic
+  range and its recorded bounds. Opening, saving and printing a BPMH form
   leave the source drug rows intact.
 - REST: a stored quantity that is not a whole number is omitted from `quantity` instead of
   failing the read, and is kept by an update that states no quantity. `strength` is reported for

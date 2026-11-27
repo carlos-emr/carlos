@@ -199,6 +199,10 @@ class BpmhDrugUnitTest {
         drug.setSpecial("Synthetic 10 units\r\nSupply blister pack\r\n  ");
         drug.usePrescriptionDirections(null, "Supply blister pack", null);
         assertThat(drug.getHow()).isEmpty();
+        drug.setDosage("10");
+        drug.setUnit("units");
+        drug.usePrescriptionDirections(null, "Supply blister pack", null);
+        assertThat(drug.getHow()).isEmpty();
         drug.setSpecial("Synthetic 10 units\nTake with food  \nSupply blister pack\n");
         drug.usePrescriptionDirections(null, "Supply blister pack", null);
         assertThat(drug.getHow()).isEqualTo("Take with food  ");

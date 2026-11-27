@@ -118,6 +118,15 @@ class BpmhForm2HandlerUnitTest {
     }
 
     @Test
+    void shouldKeepAsNeededInStructuredDirections_whenThePrescriptionIsPrn() {
+        Drug drug = structuredDrug(1f, 2f);
+        drug.setPrn(true);
+        assertThat(formRowFor(drug).getHow()).isEqualTo("Take 1 to 2 TAB BID PO as needed");
+        drug.setSpecial("Take only as directed by the clinic");
+        assertThat(formRowFor(drug).getHow()).isEqualTo("Take only as directed by the clinic");
+    }
+
+    @Test
     void shouldWriteUpperBoundAlone_whenOnlyTheUpperBoundIsRecorded() {
         Drug drug = structuredDrug(0f, 2f);
 

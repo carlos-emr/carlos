@@ -101,6 +101,7 @@ public class BpmhDrug {
     /*
      * Prescription details. Take once per day with food
      */
+    // Compares recorded form and unit labels for display only. The displayed unit retains its source spelling.
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Compares recorded form and unit labels for display only. The displayed unit retains its source spelling.")
     public String getHow() {
         if (how == null) {
@@ -110,7 +111,13 @@ public class BpmhDrug {
         return how;
     }
 
-    /** Keep the saved directions, including each taper step. Only remove recognized Rx envelope lines. */
+    /**
+     * Sets how to the saved administration directions or to a dose assembled from recorded fields.
+     *
+     * @param brandName String holding the recorded product name used to recognize its heading
+     * @param pharmacyInstruction String holding the recorded dispensing instruction
+     * @param doseUnit String identifying the administered dose unit, or null when only the product strength is known
+     */
     public void usePrescriptionDirections(String brandName, String pharmacyInstruction, String doseUnit) {
         String text = StringUtils.defaultString(getSpecial()).replace("\r\n", "\n").replace('\r', '\n');
         int lineBreak = text.indexOf('\n');
@@ -146,10 +153,12 @@ public class BpmhDrug {
         if (!getTakeMax().isBlank() && !"0".equals(getTakeMax()) && !getTakeMax().equals(amount)) {
             amount += " to " + getTakeMax();
         }
-        how = String.join(" ", java.util.stream.Stream.of(getMethod(), amount, doseUnit, getFreqCode(), getRoute())
+        how = String.join(" ", java.util.stream.Stream.of(getMethod(), amount, doseUnit, getFreqCode(), getRoute(),
+                        Boolean.parseBoolean(getPrn()) ? "as needed" : "")
                 .filter(StringUtils::isNotBlank).toList());
     }
 
+    // Possessive digit runs, a single optional space and a fixed unit vocabulary bound the match to linear time.
     @SuppressFBWarnings(value = "REDOS", justification = "Possessive digit runs, a single optional space and a fixed unit vocabulary bound the match to linear time.")
     private boolean isMedicationHeading(String first, String name) {
         if (StringUtils.isBlank(name)) return false;
@@ -157,7 +166,8 @@ public class BpmhDrug {
         if (heading.equals(name)) return true;
         if (!heading.startsWith(name + " ")) return false;
         String suffix = heading.substring(name.length() + 1);
-        return suffix.equals(getDosage()) || suffix.matches("[0-9]++(?:\\.[0-9]++)?+ ?(?:mg|mcg|g|mL|%)");
+        return suffix.equals(getDosage()) || suffix.equals(getDosage().strip() + " " + getUnit().strip())
+                || suffix.matches("[0-9]++(?:\\.[0-9]++)?+ ?(?:mg|mcg|g|mL|%)");
     }
 
     public void setHow(String how) {
