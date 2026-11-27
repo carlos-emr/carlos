@@ -385,6 +385,28 @@ class RxManagerUnitTest extends RxManagerImpl {
         }
 
         @Test
+        void shouldLeaveStrengthMissing_whenRestChangesProductAndOmitsStrength() throws Exception {
+            Drug source = new Drug();
+            source.setId(4);
+            source.setDemographicId(1);
+            source.setProviderNo("999001");
+            source.setGenericName("ASA");
+            source.setRegionalIdentifier("111");
+            source.setDosage("5 mg / 20 mg");
+            ((MockDrugDao) drugDao).seed(source);
+            var converter = new io.github.carlos_emr.carlos.webserv.rest.conversion.DrugConverterImpl();
+            var info = new LoggedInInfo();
+            var dto = converter.getAsTransferObject(info, source);
+            dto.setRegionalIdentifier("222");
+            dto.setStrength(null);
+            dto.setStrengthUnit(null);
+            Drug updated = updateDrug(info, converter.getAsDomainObject(info, dto));
+            assertThat(updated.getDosage()).isNull();
+            assertThat(updated.getUnit()).isNull();
+            assertThat(source.getDosage()).isEqualTo("5 mg / 20 mg");
+        }
+
+        @Test
         @DisplayName("should return null when add fails")
         void shouldReturnNull_whenAddFails() {
             LoggedInInfo info = new LoggedInInfo();

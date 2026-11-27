@@ -301,7 +301,7 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
             request.setParameter("randomId", "1");
             request.setParameter("quantity", typed);
 
-            assertThat(action.updateDrug()).isNull();
+            assertThat(action.updateDrug()).isEqualTo(RxWriteScript2Action.NONE);
 
             assertThat(response.getStatus()).isEqualTo(200);
             assertThat(card.getQuantity()).isEqualTo(quantity);
@@ -320,7 +320,7 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
             request.setParameter("quantity", "42");
             request.setParameter("instruction", "1 tab PO BID x 14 days");
 
-            assertThat(action.updateDrug()).isNull();
+            assertThat(action.updateDrug()).isEqualTo(RxWriteScript2Action.NONE);
             assertThat(response.getStatus()).isEqualTo(200);
             String expectedQuantity = "updateQty".equals(calculation) ? "42" : "28";
             assertThat(card.getQuantity()).isEqualTo(expectedQuantity);
@@ -355,7 +355,7 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
         request.setParameter("randomId", "1");
         request.setParameter("quantity", entered);
 
-        assertThat(action.updateDrug()).isNull();
+        assertThat(action.updateDrug()).isEqualTo(RxWriteScript2Action.NONE);
         assertThat(response.getStatus()).isEqualTo(200);
         var json = new ObjectMapper().readTree(response.getContentAsString());
         assertThat(card.getQuantity()).isEqualTo(acknowledged);
@@ -376,7 +376,7 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
         request.setParameter("randomId", "1");
         request.setParameter("quantity", "12.50");
 
-        assertThat(action.updateDrug()).isNull();
+        assertThat(action.updateDrug()).isEqualTo(RxWriteScript2Action.NONE);
         assertThat(response.getStatus()).isEqualTo(200);
         var json = new ObjectMapper().readTree(response.getContentAsString());
         assertThat(json.path("duration").asText()).isEqualTo("17");
@@ -432,15 +432,23 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
             assertThat(card.getRepeat()).isEqualTo(2);
         }
 
+        @ParameterizedTest
+        @ValueSource(floats = {0.0000000001f, Float.MIN_VALUE, Float.MAX_VALUE})
+        void shouldAcceptExactStoredBound_whenRenderedTextExceedsNewEntryLimits(float stored) {
+            String rendered = io.github.carlos_emr.carlos.utility.DoseText.of(stored);
+            assertThat(RxWriteScript2Action.parseDoseAmount(rendered, stored)).isEqualTo(stored);
+            assertThat(RxWriteScript2Action.parseDoseAmount(rendered, 1f)).isNull();
+        }
+
         @Test
         @DisplayName("should read only plain non-negative decimals as doses")
         void shouldParseDose_forPlainDecimals() {
-            assertThat(RxWriteScript2Action.parseDoseAmount("1")).isEqualTo(1f);
-            assertThat(RxWriteScript2Action.parseDoseAmount("0.5")).isEqualTo(0.5f);
-            assertThat(RxWriteScript2Action.parseDoseAmount(".25")).isEqualTo(0.25f);
-            assertThat(RxWriteScript2Action.parseDoseAmount("0.33333334")).isEqualTo(0.33333334f);
+            assertThat(RxWriteScript2Action.parseDoseAmount("1", 0f)).isEqualTo(1f);
+            assertThat(RxWriteScript2Action.parseDoseAmount("0.5", 0f)).isEqualTo(0.5f);
+            assertThat(RxWriteScript2Action.parseDoseAmount(".25", 0f)).isEqualTo(0.25f);
+            assertThat(RxWriteScript2Action.parseDoseAmount("0.33333334", 0f)).isEqualTo(0.33333334f);
             for (String value : new String[]{null, "", "abc", "-1", "+1", "1e3", "NaN", "Infinity", "1,5", "0x10"}) {
-                assertThat(RxWriteScript2Action.parseDoseAmount(value)).as(String.valueOf(value)).isNull();
+                assertThat(RxWriteScript2Action.parseDoseAmount(value, 0f)).as(String.valueOf(value)).isNull();
             }
         }
     }

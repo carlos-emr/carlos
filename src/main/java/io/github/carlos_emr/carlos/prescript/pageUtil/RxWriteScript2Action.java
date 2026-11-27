@@ -535,7 +535,7 @@ public final class RxWriteScript2Action extends ActionSupport {
      *
      * POST-only (405 + {@code Allow: POST} otherwise). Renames a staged custom drug card.
      *
-     * @return the operation's view result, {@code null} when no view is needed, or {@code NONE} after an error response
+     * @return {@code NONE} after responding, or {@code null} for an unrecognized operation
      * @throws SecurityException when the caller may not write Rx for the patient
      */
     public String saveCustomName() throws IOException {
@@ -1286,7 +1286,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             }
         }
 
-        return null;
+        return NONE;
 
     }
 
@@ -1421,13 +1421,13 @@ public final class RxWriteScript2Action extends ActionSupport {
                 if (!val.equals("") && !val.equalsIgnoreCase("null")) rx.setFrequencyCode(val);
             } else if (elem.equals("minimum_" + num)) {
                 if (!val.equals("") && !val.equalsIgnoreCase("null")) {
-                    Float dose = parseDoseAmount(val);
+                    Float dose = parseDoseAmount(val, rx.getTakeMin());
                     if (dose == null) return reportInvalidDose();
                     rx.setTakeMin(dose);
                 }
             } else if (elem.equals("maximum_" + num)) {
                 if (!val.equals("") && !val.equalsIgnoreCase("null")) {
-                    Float dose = parseDoseAmount(val);
+                    Float dose = parseDoseAmount(val, rx.getTakeMax());
                     if (dose == null) return reportInvalidDose();
                     rx.setTakeMax(dose);
                 }
@@ -2145,10 +2145,15 @@ public final class RxWriteScript2Action extends ActionSupport {
      * exponents, NaN and Infinity are refused; Float.parseFloat accepted some of these and threw
      * on the rest, which surfaced as an HTTP 500 (#5003).
      *
+     * A previously stored bound can have a longer plain-decimal representation. Its exact
+     * displayed text can round-trip without extending the permitted range of new entries.
+     *
      * @param value the trimmed property value
+     * @param stored the existing bound on this staged card
      * @return the dose, or {@code null} when the value is not a dose amount
      */
-    static Float parseDoseAmount(String value) {
+    static Float parseDoseAmount(String value, float stored) {
+        if (Float.isFinite(stored) && stored >= 0 && DoseText.of(stored).equals(value)) return stored;
         if (value == null || !value.matches("\\d{1,9}(\\.\\d{0,9})?|\\.\\d{1,9}")) {
             return null;
         }
