@@ -302,7 +302,7 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         try (MockedStatic<Factory> factory = mockStatic(Factory.class);
              var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
             factory.when(() -> Factory.getHandler("4616")).thenReturn(handler);
-            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("4616");
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616", 42)).thenReturn("4616");
 
             Hl7textResultsData.populateMeasurementsTable(" 4616 ", "42");
         }
@@ -414,7 +414,7 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         try (MockedStatic<Factory> factory = mockStatic(Factory.class);
              var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
             factory.when(() -> Factory.getHandler("4616")).thenReturn(handler);
-            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("4616");
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616", null)).thenReturn("4616");
 
             Hl7textResultsData.populateMeasurementsTable("4616", patient);
         }
@@ -585,19 +585,20 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {"0", "-42", "invalid", " 42 ", "2147483648"})
-    void shouldRejectInvalidPatientBeforeArchivingMeasurements(String demographicNo) {
+    void shouldPreserveOtherPatientsRows_whenReplacingOwnUnattributedRow(String demographicNo) {
         MessageHandler handler = mock(MessageHandler.class);
-        // Another version of the report is on file, so filing that went on would archive its measurements.
         accessionShared(2222);
+        Measurement previous = new Measurement();
+        previous.setDemographicId(4711);
+        Measurement own = new Measurement();
+        when(measurementDao.findByValue("lab_no", "2222")).thenReturn(List.of(previous));
+        when(measurementDao.findByValue("lab_no", "4616")).thenReturn(List.of(own));
         try (var factory = mockStatic(Factory.class)) {
             factory.when(() -> Factory.getHandler("4616")).thenReturn(handler);
-
-            assertThatThrownBy(() -> Hl7textResultsData.populateMeasurementsTable("4616", demographicNo))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("A positive patient number is required to file lab measurements");
+            Hl7textResultsData.populateMeasurementsTable("4616", demographicNo);
         }
-        verifyNoInteractions(measurementDao, mockedBeans.get(MeasurementsDeletedDao.class),
-                mockedBeans.get(MeasurementsExtDao.class));
+        verify(measurementDao).batchRemoveAtomically(org.mockito.ArgumentMatchers.argThat(
+                removed -> removed.size() == 1 && removed.get(0) == own));
     }
 
     @ParameterizedTest

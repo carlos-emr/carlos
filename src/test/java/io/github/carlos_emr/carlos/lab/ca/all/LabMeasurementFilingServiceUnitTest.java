@@ -110,7 +110,7 @@ class LabMeasurementFilingServiceUnitTest extends CarlosUnitTestBase {
 
     private LabMeasurementFilingService service(String chain) {
         return new LabMeasurementFilingService(transactions, locks, measurementDao, measurementsExtDao,
-                measurementsDeletedDao, lab -> chain);
+                measurementsDeletedDao, (lab, patient) -> chain);
     }
 
     private static LabMeasurementFilingDto filing(String lab, Integer patient, boolean revisionOrdered) {

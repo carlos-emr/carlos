@@ -24,7 +24,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.UnaryOperator;
+import java.util.function.BiFunction;
 
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -110,7 +110,7 @@ public class LabMeasurementFilingService {
     private final MeasurementDao measurementDao;
     private final MeasurementsExtDao measurementsExtDao;
     private final MeasurementsDeletedDao measurementsDeletedDao;
-    private final UnaryOperator<String> matchingLabs;
+    private final BiFunction<String, Integer, String> matchingLabs;
 
     // Two constructors: Spring is told which one builds the bean (without this it finds no default
     // constructor and the application does not start).
@@ -132,7 +132,7 @@ public class LabMeasurementFilingService {
             MeasurementDao measurementDao,
             MeasurementsExtDao measurementsExtDao,
             MeasurementsDeletedDao measurementsDeletedDao,
-            UnaryOperator<String> matchingLabs) {
+            BiFunction<String, Integer, String> matchingLabs) {
         this.transactions = transactions;
         this.locks = locks;
         this.measurementDao = measurementDao;
@@ -286,7 +286,7 @@ public class LabMeasurementFilingService {
             return Result.LAB_REMOVED;
         }
 
-        String[] chain = matchingLabs.apply(labNo).split(",");
+        String[] chain = matchingLabs.apply(labNo, dto.patient()).split(",");
         if (!Arrays.asList(chain).contains(labNo)) {
             throw new IllegalStateException("The incoming lab is absent from its resolved version chain");
         }

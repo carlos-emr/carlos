@@ -171,6 +171,16 @@ public class Hl7textResultsData {
         SpringUtils.getBean(LabMeasurementFilingService.class).fileAfterCommit(filing);
     }
 
+    /** The matched patient's number, or {@code null} when the caller supplied none that can be compared. */
+    private static Integer patientNumber(String demographicNo) {
+        try {
+            int number = Integer.parseInt(demographicNo == null ? "" : demographicNo.trim());
+            return number > 0 ? number : null;
+        } catch (NumberFormatException notANumber) {
+            return null;
+        }
+    }
+
     /**
      * The versions of a CLS report that belong to this patient (see {@link #getMatchingLabs(String, Integer)}).
      * A CLS chain is not ranked, its current version being the highest lab number, so another patient's
@@ -196,7 +206,8 @@ public class Hl7textResultsData {
         } catch (NumberFormatException notANumber) {
             return false;
         }
-        for (PatientLabRouting routing : patientLabRoutingDao.findByLabNoAndLabType(number, "HL7")) {
+        PatientLabRoutingDao routingDao = SpringUtils.getBean(PatientLabRoutingDao.class);
+        for (PatientLabRouting routing : routingDao.findByLabNoAndLabType(number, "HL7")) {
             Integer routed = routing.getDemographicNo();
             if (routed != null && routed > 0 && !routed.equals(patient)) {
                 return true;
@@ -212,7 +223,6 @@ public class Hl7textResultsData {
      *
      * @param lab_no any version of the report
      * @param demographic_no the patient the report was matched to
-     * @throws IllegalArgumentException if the patient identifier is not a positive integer
      * @throws IllegalStateException if the report cannot be read; nothing has been archived
      */
     public static void populateCurrentVersionMeasurements(String lab_no, String demographic_no) {
@@ -220,7 +230,9 @@ public class Hl7textResultsData {
         if (named == null) {
             throw new IllegalStateException("Lab report could not be read; its measurements were not filed");
         }
-        Integer patient = ConversionUtils.fromIntString(demographic_no);
+        // A patient number that is not a positive integer reads as no patient (null): the chain is then the
+        // display chain, as before, and the filing service, not this method, decides what that patient may file.
+        Integer patient = patientNumber(demographic_no);
         String[] matchingLabs = getMatchingLabs(lab_no, patient).split(",");
         populateMeasurementsTable(
                 currentVersion(matchingLabs, named instanceof io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler),
@@ -376,7 +388,7 @@ public class Hl7textResultsData {
                 if (value != null) {
                     Measurement m = new Measurement();
                     m.setType(measType);
-                    m.setDemographicId(patient);
+                    m.setDemographicId(Integer.parseInt(demographic_no));
                     m.setProviderNo("0");
                     m.setDataField(value);
                     m.setMeasuringInstruction(measInst);
@@ -687,7 +699,8 @@ public class Hl7textResultsData {
         String ret = "";
         int monthsBetween = 0;
 
-        Hl7TextMessage hl7Msg = currentMessageDao().find(Integer.parseInt(lab_no));
+        int incoming = Integer.parseInt(lab_no);
+        Hl7TextMessage hl7Msg = currentMessageDao().find(incoming);
         if (hl7Msg != null && "CLS".equals(hl7Msg.getType())) {
             String chain = getMatchingLabs_CLS(lab_no);
             return patient == null ? chain : String.join(",", ownVersions(chain.split(","), lab_no, patient));
