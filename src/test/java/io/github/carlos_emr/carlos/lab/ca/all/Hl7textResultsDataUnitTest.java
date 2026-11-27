@@ -69,6 +69,8 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
     private final Map<Field, Object> originalDaos = new LinkedHashMap<>();
     private MeasurementDao measurementDao;
     private final java.util.concurrent.atomic.AtomicInteger storedIds = new java.util.concurrent.atomic.AtomicInteger();
+    /** Whether the one result {@code fileResult} reads is a blocked test result. */
+    private boolean blockedResult;
 
     @BeforeEach
     void setUpDaos() throws Exception {
@@ -253,6 +255,52 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
                     .isInstanceOf(IllegalStateException.class);
         }
         verifyNoInteractions(measurementDao, mockedBeans.get(MeasurementsDeletedDao.class));
+    }
+
+    @Test
+    @DisplayName("should refuse a report that is not stored, before anything is filed")
+    void shouldRefuse_whenTheReportIsNotStored() {
+        var infos = (io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao) mockedBeans.get(
+                io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao.class);
+        when(infos.findLabId(4616)).thenReturn(null);
+        try (MockedStatic<Factory> factory = mockStatic(Factory.class)) {
+            factory.when(() -> Factory.getHandler("4616")).thenReturn(mock(MessageHandler.class));
+
+            assertThatThrownBy(() -> Hl7textResultsData.populateMeasurementsTable("4616", "42"))
+                    .isInstanceOf(IllegalStateException.class);
+        }
+        verifyNoInteractions(measurementDao);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"abc", "0", "-3", " "})
+    @DisplayName("should replace only the report's own values, when the patient number is not usable")
+    void shouldReplaceOnlyTheReportsOwnValues_whenThePatientNumberIsNotUsable(String patient) {
+        try (MockedStatic<Factory> factory = mockStatic(Factory.class);
+             var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
+            factory.when(() -> Factory.getHandler("4616")).thenReturn(mock(MessageHandler.class));
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("4616");
+
+            Hl7textResultsData.populateMeasurementsTable("4616", patient);
+        }
+        verify(measurementDao).findByValue("lab_no", "4616");
+    }
+
+    @Test
+    @DisplayName("should file the blocked marker with the result's other values")
+    void shouldFileTheBlockedMarker_whenTheResultIsBlocked() {
+        blockedResult = true;
+        assertThat(fileResult("6.1", ".*", "2026-03-10 12:00:00", LocalDateTime.parse("2026-03-10T14:00:00")))
+                .isNotNull();
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<java.util.List<io.github.carlos_emr.carlos.commn.model.MeasurementsExt>> filed =
+                ArgumentCaptor.forClass(java.util.List.class);
+        verify((io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao) mockedBeans.get(
+                io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao.class))
+                .batchPersistAtomically(filed.capture(), org.mockito.ArgumentMatchers.anyInt());
+        assertThat(filed.getValue()).extracting(io.github.carlos_emr.carlos.commn.model.MeasurementsExt::getKeyVal)
+                .contains("blocked");
     }
 
     private static Date inDefaultTimeZone(LocalDateTime timestamp) {
@@ -580,6 +628,7 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         when(handler.getOBXName(0, 0)).thenReturn("Hemoglobin A1C");
         when(handler.getOBXIdentifier(0, 0)).thenReturn("3767");
         when(handler.getOBXReferenceRange(0, 0)).thenReturn("");
+        when(handler.isTestResultBlocked(0, 0)).thenReturn(blockedResult);
         when(handler.getTimeStamp(0, 0)).thenReturn(observationTimestamp);
 
         CarlosProperties properties = mock(CarlosProperties.class);
