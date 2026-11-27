@@ -119,8 +119,9 @@ class PortalPaymentRequestServiceUnitTest {
     }
 
     private PatientPortalPaymentRequestDto.Creation confirmed(long portalId, boolean created) {
-        PatientPortalPaymentRequestDto dto = mock(PatientPortalPaymentRequestDto.class);
-        when(dto.id()).thenReturn(portalId);
+        PatientPortalPaymentRequestDto dto = new PatientPortalPaymentRequestDto(portalId, 123, "inv-ref",
+                "uninsured_service", "clinic_instructions", "CAD", 4500, 518, DUE, "sent", "FAKE staff",
+                CLOCK.instant(), CLOCK.instant(), null, null, null, null);
         return new PatientPortalPaymentRequestDto.Creation(dto, created);
     }
 
@@ -399,17 +400,19 @@ class PortalPaymentRequestServiceUnitTest {
     }
 
     @Test
-    void shouldWithdrawLocallyOnly_whenThePortalNeverSawTheRequest() {
+    void shouldKeepTheRequestPending_whenThePortalHasNotConfirmedTheSend() {
         PortalPaymentRequest pending = stored("pending");
         pending.setId(4L);
         when(dao.find(4L)).thenReturn(pending);
         when(dao.findForUpdate(4L)).thenReturn(pending);
         when(portal.listPaymentRequests(123, STAFF)).thenReturn(List.of());
 
-        service.withdraw(STAFF, 123, 55, 4);
+        assertThatThrownBy(() -> service.withdraw(STAFF, 123, 55, 4))
+                .isInstanceOfSatisfying(PortalPaymentRequestException.class,
+                        ex -> assertThat(ex.reason()).isEqualTo(PortalPaymentRequestException.Reason.REQUEST_UNCONFIRMED));
 
         verify(portal, never()).withdrawPaymentRequest(anyInt(), anyLong(), any());
-        assertThat(pending.getStatus()).isEqualTo(PortalPaymentRequest.WITHDRAWN);
+        assertThat(pending.getStatus()).isEqualTo(PortalPaymentRequest.PENDING);
     }
 
     @Test
@@ -500,17 +503,17 @@ class PortalPaymentRequestServiceUnitTest {
     }
 
     @Test
-    void shouldJustMarkItSynced_whenThePortalNeverStoredTheUnconfirmedRequest() {
+    void shouldKeepSettlementForRetry_whenThePortalMayStillBeProcessingTheSend() {
         PortalPaymentRequest paid = stored("paid");
         paid.setPortalRequestId(null);
         when(dao.findPaidNotSynced(55)).thenReturn(List.of(paid));
         when(dao.findForUpdate(2L)).thenReturn(paid);
         when(portal.listPaymentRequests(123, STAFF)).thenReturn(List.of());
 
-        assertThat(service.reportPaid(STAFF, 55)).isEqualTo(1);
+        assertThat(service.reportPaid(STAFF, 55)).isEqualTo(0);
 
         verify(portal, never()).markPaymentRequestPaid(anyInt(), anyLong(), any());
-        assertThat(paid.isPortalSynced()).isTrue();
+        assertThat(paid.isPortalSynced()).isFalse();
     }
 
     @Test

@@ -233,9 +233,10 @@ public class PortalPaymentRequestService {
             return row;
         }
         Long portalId = portalIdOf(staff, row);
-        if (portalId != null) {
-            portal.get().withdrawPaymentRequest(demographicNo, portalId, staff);
+        if (portalId == null) {
+            throw new PortalPaymentRequestException(PortalPaymentRequestException.Reason.REQUEST_UNCONFIRMED);
         }
+        portal.get().withdrawPaymentRequest(demographicNo, portalId, staff);
         transactions.executeWithoutResult(status -> {
             PortalPaymentRequest locked = requests.findForUpdate(requestId);
             if (PortalPaymentRequest.PAID.equals(locked.getStatus())) {
@@ -308,12 +309,12 @@ public class PortalPaymentRequestService {
         int reported = 0;
         for (PortalPaymentRequest row : waiting == null ? List.<PortalPaymentRequest>of() : waiting) {
             try {
-                // A request whose confirmation was lost has no portal id yet: find it by reference. If
-                // the portal never stored it there is nothing to close and the row is simply synced.
+                // A send may still be in flight. An empty list cannot confirm settlement.
                 Long portalId = portalIdOf(staff, row);
-                if (portalId != null) {
-                    portal.get().markPaymentRequestPaid(row.getDemographicNo(), portalId, staff);
+                if (portalId == null) {
+                    continue;
                 }
+                portal.get().markPaymentRequestPaid(row.getDemographicNo(), portalId, staff);
                 markSynced(row.getId());
                 reported++;
             } catch (PatientPortalException refused) {

@@ -63,3 +63,5 @@ public class PortalPaymentRequestException extends RuntimeException {
         return reason;
     }
 }
+        REQUEST_UNCONFIRMED("request_unconfirmed",
+                "The portal has not confirmed this request. Retry sending it before withdrawing it."),
