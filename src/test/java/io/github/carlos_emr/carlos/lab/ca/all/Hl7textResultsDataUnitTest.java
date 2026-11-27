@@ -326,9 +326,13 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         when(infos.findByFillerOrderNumber("GTT-1")).thenReturn(
                 java.util.List.of(infoOf(20, "GTT-1"), infoOf(22, "GTT-1"), infoOf(21, "GTT-1")));
 
-        // The report is already in the list from the accession pass, so it shows twice: that duplicate is
-        // existing behaviour, pinned here and not changed by #6391.
-        assertThat(Hl7textResultsData.getMatchingLabs_CLS("20")).isEqualTo("20,20,21,22");
+        String chain = Hl7textResultsData.getMatchingLabs_CLS("20");
+        // What this test is about: the chain is exactly the reports 20, 21 and 22, whatever the repeats.
+        assertThat(new java.util.TreeSet<>(java.util.Arrays.asList(chain.split(",")))).containsExactly("20", "21", "22");
+        // KNOWN ISSUE (existing behaviour, not fixed here): the report is already in the list from the
+        // accession pass and the filler-order query returns it again, so it shows twice. #6391 does not
+        // change that; when it is de-duplicated, only this labelled line changes.
+        assertThat(chain).isEqualTo("20,20,21,22");
     }
 
     @Test
@@ -370,7 +374,11 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         when(infos.findByFillerOrderNumber("F1")).thenReturn(java.util.List.of(infoOf(20, "F1")));
 
         // A CLS report is routed to the CLS reader after the stored message is read.
-        assertThat(Hl7textResultsData.getMatchingLabs("20")).isEqualTo("20,20");
+        String chain = Hl7textResultsData.getMatchingLabs("20");
+        // What this test is about: the chain is exactly the report 20, read from the registered DAOs.
+        assertThat(new java.util.TreeSet<>(java.util.Arrays.asList(chain.split(",")))).containsExactly("20");
+        // KNOWN ISSUE (existing behaviour, not fixed here): the same repeat as in the CLS case above.
+        assertThat(chain).isEqualTo("20,20");
         verifyNoInteractions(staleInfo, staleMessage);
     }
 
