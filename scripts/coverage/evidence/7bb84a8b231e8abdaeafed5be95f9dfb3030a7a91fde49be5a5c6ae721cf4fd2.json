@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "62e39931e21c127b4d467b6be8eeed149a191bdf",
+  "comparisonSha256": "14e84690d7ae1b1b4f929a61ab5355d04470a4bd3e84400b72f9f2290e6de856",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/EncounterFormDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 98.03220035778175,
+      "branches": 90.74074074074075,
+      "sourceBlob": "76cb502b740753388c48cd3ba29c37e6064ed7a3"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/config/PackagedReportLeaseCheck.java": {
+      "lines": 98.76543209876543,
+      "instructions": 98.03370786516854,
+      "branches": 91.60839160839161,
+      "sourceBlob": "9f18d5e4a9b3cdc8c7d49cba0e9f17fc8efecbaa"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/pageUtil/EctAddMeasurementType2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "c544d2b34c20812364d88bfadb65c8b3f88cd97f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/RehabStudyFormValues.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "165d87a76ee0b40c757477b39fdeff7732ab3aa4"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/FormCESD.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "d368aac9c5f07562dc49c340c2b0bb9c300f7ea2"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/FormCaregiver.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "0f59890d6485f3565c4b0c8a598d6eb021412af7"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/FormCostQuestionnaire.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "de845ee672eff0ed5e3aa5019c49d37ee696144e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/FormIntakeInfo.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "7d45e3318ab70dbe28f797f52b458d088abc7478"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/FormSelfManagement.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "bba405391fcc5b4d0348b92174a1b6d2eb2dca0d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/rehab/RehabStudyColumn.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "5eceec74706505e35406a98cc8068b1e544ffe5c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/OscarTrackingBasicDataSource.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "142843feaa9216cb33eeda239d2a36b449209f96"
+    }
+  },
+  "baselineCommit": "3e00dc4cfe6b781cc1c2f1d2eae0d0574bd76af2",
+  "baselineSourceTree": "62e39931e21c127b4d467b6be8eeed149a191bdf",
+  "baselineReportSha256": "a3daf652370acde0a4c154e8f870342d0492f60cd8eac9ec2c08afebb1e51f1f",
+  "baselineLane": "PR #6413 audit fixes and SonarCloud quality hardening JaCoCo 0.8.16 baseline (JDK 25)",
+  "baselineTestCounts": {
+    "tests": 287,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "cf18538db232e2e011dbc249ee8fef867da90c5f3e9a2e1d6e72ac45102e2e8b",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.commn.dao.EncounterFormDaoImplUnitTest",
+    "io.github.carlos_emr.carlos.commn.dao.EncounterFormDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.config.PackagedReportLeaseCheckUnitTest",
+    "io.github.carlos_emr.carlos.encounter.data.EctFormDataShortcutLatestIntegrationTest",
+    "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementType2ActionFieldLengthUnitTest",
+    "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementType2ActionUnitTest",
+    "io.github.carlos_emr.carlos.form.RehabStudyFormDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.form.RehabStudyFormServiceUnitTest",
+    "io.github.carlos_emr.carlos.form.RehabStudyFormValuesUnitTest",
+    "io.github.carlos_emr.carlos.form.RehabStudyFormsUnitTest",
+    "io.github.carlos_emr.carlos.form.data.FrmDataShortcutLatestIntegrationTest",
+    "io.github.carlos_emr.carlos.form.model.rehab.RehabStudyColumnUnitTest",
+    "io.github.carlos_emr.carlos.form.service.FormXmlImportServiceIntegrationTest",
+    "io.github.carlos_emr.carlos.utility.JdbcMetadataDefaultUnitTest",
+    "io.github.carlos_emr.carlos.utility.MariaDbJdbcCompatibilityUnitTest",
+    "io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSourceUnitTest"
+  ]
+}
