@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/form/pharmaForms/formBPMH/pdf/PDFController.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 88.67924528301887,
+    "instructions": 89.81132075471699,
+    "branches": 100.0,
+    "sourceBlob": "f7950e51f242ce8af3b2b8667eecb6d32a083da1"
+  },
+  "evidenceSha256": "ab0f6534764cf8c29da4960f031a422556b23d27be0ce1aff16d699c63744fba"
+}
