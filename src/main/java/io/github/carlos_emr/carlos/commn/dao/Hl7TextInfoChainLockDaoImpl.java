@@ -35,7 +35,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Repository
 public class Hl7TextInfoChainLockDaoImpl implements Hl7TextInfoChainLockDao {
 
-    @PersistenceContext
+    private static final String VALUE_PARAM = "value";
+
+    @PersistenceContext(unitName = "entityManagerFactory")
     protected EntityManager entityManager;
 
     @Override
@@ -47,7 +49,7 @@ public class Hl7TextInfoChainLockDaoImpl implements Hl7TextInfoChainLockDao {
         return entityManager.createQuery(
                         "SELECT h FROM Hl7TextInfo h WHERE h.accessionNumber = :value ORDER BY h.labNumber, h.id",
                         Hl7TextInfo.class)
-                .setParameter("value", accession)
+                .setParameter(VALUE_PARAM, accession)
                 .setLockMode(LockModeType.PESSIMISTIC_WRITE)
                 .getResultList();
     }
@@ -61,7 +63,7 @@ public class Hl7TextInfoChainLockDaoImpl implements Hl7TextInfoChainLockDao {
         return entityManager.createQuery(
                         "SELECT h FROM Hl7TextInfo h WHERE h.fillerOrderNum = :value ORDER BY h.labNumber, h.id",
                         Hl7TextInfo.class)
-                .setParameter("value", fillerOrderNumber)
+                .setParameter(VALUE_PARAM, fillerOrderNumber)
                 .setLockMode(LockModeType.PESSIMISTIC_WRITE)
                 .getResultList();
     }
@@ -71,7 +73,7 @@ public class Hl7TextInfoChainLockDaoImpl implements Hl7TextInfoChainLockDao {
     public Hl7TextInfo lockByLabNumber(int labNumber) {
         List<Hl7TextInfo> rows = entityManager.createQuery(
                         "SELECT h FROM Hl7TextInfo h WHERE h.labNumber = :value ORDER BY h.id", Hl7TextInfo.class)
-                .setParameter("value", labNumber)
+                .setParameter(VALUE_PARAM, labNumber)
                 .setLockMode(LockModeType.PESSIMISTIC_WRITE)
                 .getResultList();
         return rows.isEmpty() ? null : rows.get(0);
