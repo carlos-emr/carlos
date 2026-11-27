@@ -25,8 +25,8 @@ final class FormVersionEdits {
         query.select(edited).where(builder.equal(form.get("demographicNo"), patient),
                 builder.greaterThanOrEqualTo(edited, from));
         var edits = entityManager.createQuery(query);
-        // The ordinary save uses READ COMMITTED. A caller's enclosing transaction may use
-        // repeatable read, so use a locking read there to bypass any earlier snapshot.
+        // The ordinary save uses READ COMMITTED. A locking read in an enclosing transaction
+        // sees current rows or raises a snapshot conflict that rolls back the save.
         if (!Integer.valueOf(Isolation.READ_COMMITTED.value())
                 .equals(TransactionSynchronizationManager.getCurrentTransactionIsolationLevel())) {
             edits.setLockMode(LockModeType.PESSIMISTIC_WRITE);

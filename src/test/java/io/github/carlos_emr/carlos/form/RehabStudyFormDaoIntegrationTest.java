@@ -53,6 +53,7 @@ import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 import javax.sql.DataSource;
@@ -546,9 +547,10 @@ class RehabStudyFormDaoIntegrationTest extends CarlosTestBase {
     // ------------------------------------------------------------------------------------------
 
     @Test
-    void shouldArchiveAtTheStoredEditTimes_whenConcurrentSavesSeeTheSamePreviousVersion() throws Exception {
+    void shouldArchiveAtTheStoredEditTimes_whenTwoSavesOverlap() throws Exception {
         RehabStudyFormType<?> type = type("SF36");
         var transaction = new TransactionTemplate(transactions);
+        transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
         int previousId = transaction.execute(status -> {
             IntegrationTestSeedService.ensureDemographicExists(entityManager, PATIENT);
             Date previousEdited = new Date(FormXmlArchive.currentSecond().getTime() + 30_000L);
@@ -565,24 +567,32 @@ class RehabStudyFormDaoIntegrationTest extends CarlosTestBase {
         configuration.setProperty("save_as_xml", "true");
         configuration.setProperty("form_record_path", archive.toString());
         var firstInserted = new CompletableFuture<Void>();
-        var snapshotRead = new CompletableFuture<Void>();
-        try (var executor = Executors.newSingleThreadExecutor()) {
+        var allowCommit = new CompletableFuture<Void>();
+        var secondStarted = new CompletableFuture<Void>();
+        try (var executor = Executors.newFixedThreadPool(2)) {
             var first = executor.submit(() -> transaction.execute(status -> {
                 int id = service.saveVersion(actor, type, PATIENT, previousId, basePost(PATIENT));
                 firstInserted.complete(null);
-                // Keep this save uncommitted until the second transaction reads the previous version.
-                snapshotRead.orTimeout(10, TimeUnit.SECONDS).join();
+                allowCommit.orTimeout(10, TimeUnit.SECONDS).join();
                 return id;
             }));
-            firstInserted.get(10, TimeUnit.SECONDS);
-            var repeatableRead = new TransactionTemplate(transactions);
-            repeatableRead.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
-            int secondId = repeatableRead.execute(status -> {
-                assertThat(forms.findForPatient(type.entity(), PATIENT, previousId)).isNotNull();
-                snapshotRead.complete(null);
-                return service.saveVersion(actor, type, PATIENT, previousId, basePost(PATIENT));
+            var second = executor.submit(() -> {
+                firstInserted.get(10, TimeUnit.SECONDS);
+                return transaction.execute(status -> {
+                    secondStarted.complete(null);
+                    return service.saveVersion(actor, type, PATIENT, previousId, basePost(PATIENT));
+                });
             });
+            try {
+                secondStarted.get(10, TimeUnit.SECONDS);
+                assertThatThrownBy(() -> second.get(500, TimeUnit.MILLISECONDS))
+                        .as("the second save waits for the first commit")
+                        .isInstanceOf(TimeoutException.class);
+            } finally {
+                allowCommit.complete(null);
+            }
             int firstId = first.get(10, TimeUnit.SECONDS);
+            int secondId = second.get(10, TimeUnit.SECONDS);
 
             Date firstEdited = forms.findForPatient(type.entity(), PATIENT, firstId).getFormEdited();
             Date secondEdited = forms.findForPatient(type.entity(), PATIENT, secondId).getFormEdited();
