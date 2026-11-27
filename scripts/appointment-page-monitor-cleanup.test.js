@@ -23,7 +23,12 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { createHash } = require('node:crypto');
-const { DatabaseSync } = require('node:sqlite');
+let DatabaseSync;
+try {
+  ({ DatabaseSync } = require('node:sqlite'));
+} catch (error) {
+  if (error.code !== 'ERR_UNKNOWN_BUILTIN_MODULE') throw error;
+}
 const { appointmentMonitorCleanup, finishAppointmentCleanup } = require('./lib/appointment-page-monitor-cleanup');
 
 function fixture(fn) {
@@ -42,7 +47,7 @@ function fixture(fn) {
   catch(error) { db.close(); throw error; }
 }
 
-test('real SQL removes only added locks for the owned session/provider/date and preserves foreign controls', () => fixture(async f => {
+test('real SQL removes only added locks for the owned session/provider/date and preserves foreign controls', { skip: !DatabaseSync }, () => fixture(async f => {
   f.insert(1); await f.cleanup.remember(f.context);
   f.insert(2); f.insert(3,'another-session'); f.insert(4,undefined,'111111');
   f.insert(5,undefined,undefined,'2027-11-24'); f.insert(6,undefined,undefined,undefined,'editappointment');
@@ -50,20 +55,20 @@ test('real SQL removes only added locks for the owned session/provider/date and 
   assert.deepEqual(f.db.prepare('SELECT id FROM PageMonitor ORDER BY id').all().map(r=>r.id),[1,3,4,5,6]);
   assert.ok(f.queries.every(query=>!query.includes('owned-private-cookie')));
 }));
-test('remembering a context twice does not adopt the new lock into the preexisting baseline', () => fixture(async f => {
+test('remembering a context twice does not adopt the new lock into the preexisting baseline', { skip: !DatabaseSync }, () => fixture(async f => {
   await f.cleanup.remember(f.context);f.insert(1);await f.cleanup.remember(f.context);
   assert.equal(f.cleanup.cleanup(),1);assert.equal(f.cleanup.cleanup(),0);
 }));
-test('a missing browser session refuses setup before any lock is changed', () => fixture(async f => {
+test('a missing browser session refuses setup before any lock is changed', { skip: !DatabaseSync }, () => fixture(async f => {
   f.insert(1);await assert.rejects(()=>f.cleanup.remember({cookies:async()=>[]}),/fixture session/);
   assert.equal(f.cleanup.cleanup(),0);assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM PageMonitor').get().n,1);
 }));
-test('the app-context session takes precedence over an unrelated root-path cookie', () => fixture(async f => {
+test('the app-context session takes precedence over an unrelated root-path cookie', { skip: !DatabaseSync }, () => fixture(async f => {
   await f.cleanup.remember({cookies:async()=>[{name:'JSESSIONID',value:'root-session',path:'/'},{name:'JSESSIONID',value:'owned-private-cookie',path:'/carlos'}]});
   f.insert(1);f.insert(2,'root-session');assert.equal(f.cleanup.cleanup(),1);
   assert.deepEqual(f.db.prepare('SELECT id FROM PageMonitor').all().map(r=>r.id),[2]);
 }));
-test('a second owned session is tracked independently without consuming its preexisting lock', () => fixture(async f => {
+test('a second owned session is tracked independently without consuming its preexisting lock', { skip: !DatabaseSync }, () => fixture(async f => {
   await f.cleanup.remember(f.context);f.insert(1);f.insert(2,'second-session');
   await f.cleanup.remember({cookies:async()=>[{name:'JSESSIONID',value:'second-session',path:'/carlos'}]});f.insert(3,'second-session');
   assert.equal(f.cleanup.cleanup(),2);assert.deepEqual(f.db.prepare('SELECT id FROM PageMonitor').all().map(r=>r.id),[2]);

@@ -174,4 +174,20 @@ class RxSessionBeanRequestListenerUnitTest {
         assertThat(Files.readString(Path.of("src/main/webapp/WEB-INF/web.xml")))
                 .contains("<listener-class>" + RxSessionBeanRequestListener.class.getName() + "</listener-class>");
     }
+
+    /**
+     * #6135 (#6336 gap test): Spring's {@code HttpSessionMutexListener} must be registered exactly once, and
+     * before the Rx cleanup listener, so {@code WebUtils.getSessionMutex} returns a stable lock that is not the
+     * session object itself across request wrappers.
+     */
+    @Test
+    void shouldRegisterSessionMutexListener_beforeTheRxCleanupListener() throws Exception {
+        String descriptor = Files.readString(Path.of("src/main/webapp/WEB-INF/web.xml"));
+        String mutex = "<listener-class>" + org.springframework.web.util.HttpSessionMutexListener.class.getName()
+                + "</listener-class>";
+        String rx = "<listener-class>" + RxSessionBeanRequestListener.class.getName() + "</listener-class>";
+
+        assertThat(descriptor.split(java.util.regex.Pattern.quote(mutex), -1)).hasSize(2);
+        assertThat(descriptor.indexOf(mutex)).isNotNegative().isLessThan(descriptor.indexOf(rx));
+    }
 }
