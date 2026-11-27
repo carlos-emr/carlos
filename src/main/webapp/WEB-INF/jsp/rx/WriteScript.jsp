@@ -196,7 +196,7 @@
                     frm.repeat.value = 0;
                 }
 
-                if (frm.quantity.value.length < 1 || frm.quantity.value.match(/\D/)) {
+                if (!/^(?:\d+(?:\.\d+)?|\.\d+)$/.test(frm.quantity.value.trim())) {
                     oscarLog('<fmt:message key="WriteScript.msgQuantity"/>');
                 } else {
                     oscarLog("else");

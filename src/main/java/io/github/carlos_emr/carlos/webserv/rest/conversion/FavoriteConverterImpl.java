@@ -112,6 +112,7 @@ public class FavoriteConverterImpl extends AbstractConverter<Favorite, FavoriteT
                 f.setUnitName(details.getDispenseUnit());
                 f.setDosage(details.getDosageText());
                 f.setMedicationComponents(details.encodeComponents());
+                f.setExactMedicationDetails(true);
             } else if (t.getStrength() != null || t.getStrengthUnit() != null) {
                 f.setDosage(new DrugStrength(t.getStrength(), t.getStrengthUnit()).dosageText());
             }

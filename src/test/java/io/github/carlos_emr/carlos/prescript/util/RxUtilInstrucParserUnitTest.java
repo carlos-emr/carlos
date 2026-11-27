@@ -1351,5 +1351,21 @@ class RxUtilInstrucParserUnitTest extends CarlosUnitTestBase {
             assertThat(rx.getPrn()).isTrue();
             assertThat(rx.getQuantity()).isEqualTo("26");
         }
+
+        @Test
+        @DisplayName("should treat legacy null unitName as absent in findDuration while excluding real units")
+        void shouldTreatLegacyNullUnitAsAbsent_whenFindingDuration() {
+            RxPrescriptionData.Prescription withNullUnit = prescriptionWithSpecial("Take 1 tab BID");
+            withNullUnit.setQuantity("30");
+            withNullUnit.setUnitName("null");
+
+            assertThat(RxUtil.findDuration(withNullUnit)).isEqualTo("15");
+
+            RxPrescriptionData.Prescription withRealUnit = prescriptionWithSpecial("Take 1 tab BID");
+            withRealUnit.setQuantity("30");
+            withRealUnit.setUnitName("mL");
+
+            assertThat(RxUtil.findDuration(withRealUnit)).isNull();
+        }
     }
 }

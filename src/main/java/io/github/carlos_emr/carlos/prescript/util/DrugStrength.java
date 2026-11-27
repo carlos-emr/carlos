@@ -15,13 +15,26 @@ import java.util.regex.Pattern;
 /**
  * The single amount and unit that the legacy medication API can carry.
  *
+ * @param amount Float the leading numeric strength amount, or {@code null} when absent or unstructured
+ * @param unit String the strength unit text, or {@code null} when absent
  * @since 2026-11-26
  */
 public record DrugStrength(Float amount, String unit) {
     private static final List<String> STRENGTH_UNITS = List.of(
             "units", "unit", "mmol", "mcg", "meq", "mg", "kg", "µg", "μg", "ug", "ml", "iu", "g", "l", "%");
 
-    /** Comparison only. Never rewrite the stored medication name, directions or dosage. */
+    /**
+     * Normalizes strength tokens in {@code text} for comparison only; never rewrites stored medication names,
+     * directions, or dosages.
+     *
+     * <p>Trims leading/trailing whitespace, normalizes plain ASCII decimal strength amounts via
+     * {@link DoseText#ofNumericText(String)}, and removes horizontal whitespace between each matched number and
+     * strength unit (such as {@code 250.0 mg/5.0 ml} &rarr; {@code 250mg/5ml}) while leaving fractions, ranges,
+     * grouped numbers, ratios, and signed values untouched.</p>
+     *
+     * @param text String medication name, dosage, or strength text to normalize, or {@code null}
+     * @return String normalized comparison text, or {@code null} when {@code text} is {@code null}
+     */
     public static String identityText(String text) {
         if (text == null) return null;
         String value = text.strip();
@@ -116,6 +129,14 @@ public record DrugStrength(Float amount, String unit) {
         return ch >= '0' && ch <= '9';
     }
 
+    /**
+     * Compares two medication text values case-insensitively after normalizing plain ASCII decimal strength
+     * amounts and removing spaces between matched numbers and strength units via {@link #identityText(String)}.
+     *
+     * @param a String first medication text to compare, or {@code null}
+     * @param b String second medication text to compare, or {@code null}
+     * @return boolean {@code true} if both inputs are {@code null} or normalize to equal case-insensitive identity text
+     */
     public static boolean sameIdentityText(String a, String b) {
         return Strings.CI.equals(identityText(a), identityText(b));
     }
@@ -130,6 +151,9 @@ public record DrugStrength(Float amount, String unit) {
      * A leading number followed by another number before the unit is ambiguous, for example
      * {@code 1,000 mg}, {@code 1½ mg}, or {@code 5-10 mg}. A unit with no amount is kept whole
      * when it starts the text, as in {@code mg/5mL}.
+     *
+     * @param dosage String stored dosage or strength text, or {@code null}
+     * @return DrugStrength the extracted leading amount and unit, or a {@code (null, null)} instance when unstructured
      */
     public static DrugStrength fromDosage(String dosage) {
         if (dosage == null) {
@@ -175,7 +199,11 @@ public record DrugStrength(Float amount, String unit) {
         return false;
     }
 
-    /** Formats the supplied fields for storage, leaving out whichever field is missing. */
+    /**
+     * Formats the supplied fields for storage, omitting whichever field is missing or empty.
+     *
+     * @return String plain decimal amount and unit joined by a space, the present field alone, or {@code ""} if both are absent
+     */
     public String dosageText() {
         if (amount == null) {
             return unit == null ? "" : unit;

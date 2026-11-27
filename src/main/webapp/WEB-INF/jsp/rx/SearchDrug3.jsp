@@ -1470,6 +1470,12 @@ function renderRxStage() {
              // request must not clear or set it over a newer edit, including one refused here.
              var version = (el.carlosPropertyVersion || 0) + 1;
              el.carlosPropertyVersion = version;
+             var card = document.getElementById('set_' + randomId);
+             if (card) {
+                 card._rxPropertyVersions = card._rxPropertyVersions || {};
+                 var propName = elementId.split('_')[0];
+                 card._rxPropertyVersions[propName] = (card._rxPropertyVersions[propName] || 0) + 1;
+             }
              // A Min/Max that is not a number is refused here, on the field, and the card keeps
              // its staged dose; the server refuses it too (400, never the old HTTP 500) (#5003).
              if (/^(minimum|maximum)_/.test(elementId) && !RxInputValidation.isDoseAmount(value)) {
@@ -1483,6 +1489,15 @@ function renderRxStage() {
                  onSuccess: function () {
                      // A corrected value was accepted: the field is no longer invalid.
                      if (el.carlosPropertyVersion === version) el.removeAttribute('aria-invalid');
+                     // If an async calculation was already in flight, supersede it so its stale
+                     // response cannot overwrite this newer edit and dependent fields stay aligned.
+                     if (/^(method|route|frequency|minimum|maximum|duration|durationUnit|prnVal)_/.test(elementId)
+                             && typeof updateQty === 'function') {
+                         var qtyEl = document.getElementById('quantity_' + randomId);
+                         if (card && card._rxCalculationPending && qtyEl) {
+                             updateQty(qtyEl);
+                         }
+                     }
                  },
                  onFailure: function (transport) {
                      var error = transport && transport.responseJSON ? transport.responseJSON.error : null;
@@ -2756,6 +2771,29 @@ function parseIntr(element, deferPrice) {
     return requestRxCalculation(element, 'parseInstructions', deferPrice);
 }
 
+function formatPlainDose(value) {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return value == null ? '' : String(value);
+    const text = String(value);
+    const match = /^(-?)(\d+)(?:\.(\d+))?[eE]([+-]?\d+)$/.exec(text);
+    if (!match) return text;
+    const sign = match[1];
+    const digits = match[2] + (match[3] || '');
+    const pos = match[2].length + Number(match[4]);
+    if (pos <= 0) return sign + '0.' + '0'.repeat(-pos) + digits;
+    if (pos >= digits.length) return sign + digits + '0'.repeat(pos - digits.length);
+    return sign + digits.slice(0, pos) + '.' + digits.slice(pos);
+}
+
+function isStaleRxCalculationConflict(transport) {
+    if (!transport || Number(transport.status) !== 409) return false;
+    if (transport.responseJSON && transport.responseJSON.error === 'STALE_RX_STASH') return true;
+    try {
+        return JSON.parse(transport.responseText || '{}').error === 'STALE_RX_STASH';
+    } catch (error) {
+        return false;
+    }
+}
+
 function requestRxCalculation(element, action, deferPrice) {
     if (!element) return false;
     const rand = element.id.split('_')[1];
@@ -2767,16 +2805,23 @@ function requestRxCalculation(element, action, deferPrice) {
     const sequence = (card._rxSequence ?? Number(card.dataset?.calculationSequence || 0)) + 1;
     const submittedValue = element.value;
     const calculation = {};
+    const propertyVersions = Object.assign({}, card._rxPropertyVersions);
     card._rxSequence = sequence;
     card._rxCalculation = calculation;
     card._rxCalculationPending = true;
+    card._rxCalculationConflict = false;
     card._rxCalculationErrors ??= {};
     showRxCalculationState(card, rand);
     const current = () => document.getElementById('set_' + rand) === card && card._rxCalculation === calculation;
-    const fail = () => {
+    const fail = transport => {
         if (!current()) return;
         card._rxCalculationPending = false;
-        card._rxCalculationErrors[action] = element;
+        if (isStaleRxCalculationConflict(transport)) {
+            card._rxCalculationConflict = true;
+            delete card._rxCalculationErrors[action];
+        } else {
+            card._rxCalculationErrors[action] = element;
+        }
         showRxCalculationState(card, rand);
     };
     const data = 'parameterValue=updateDrug&randomId=' + rand + '&action=' + action
@@ -2796,19 +2841,23 @@ function requestRxCalculation(element, action, deferPrice) {
                 return;
             }
             card._rxCalculationPending = false;
+            card._rxCalculationConflict = false;
             delete card._rxCalculationErrors[action];
             const acknowledgement = document.getElementById('calculationAck_' + rand);
             if (acknowledgement) acknowledgement.value = sequence;
             card._rxPolicy = result.policyViolations;
             showRxCalculationState(card, rand);
             const field = name => document.getElementById(name + '_' + rand);
+            const isSuperseded = name => (card._rxPropertyVersions?.[name] || 0) !== (propertyVersions[name] || 0);
             const updateQuantity = !instructions || !['', '0'].includes(result.calQuantity);
             for (const [property, name] of Object.entries({
                 method: 'method', route: 'route', frequency: 'frequency', takeMin: 'minimum', takeMax: 'maximum',
                 duration: 'duration', durationUnit: 'durationUnit'
             })) {
+                if (isSuperseded(name)) continue;
                 const value = result[property];
-                field(name).textContent = value == null || String(value).toLowerCase() === 'null' ? '' : value;
+                const formatted = property === 'takeMin' || property === 'takeMax' ? formatPlainDose(value) : value;
+                field(name).textContent = formatted == null || String(formatted).toLowerCase() === 'null' ? '' : formatted;
             }
             if (updateQuantity) {
                 for (const [property, name] of Object.entries({calQuantity: 'quantityStr', unitName: 'unitName'})) {
@@ -2816,10 +2865,12 @@ function requestRxCalculation(element, action, deferPrice) {
                     field(name).textContent = value == null || String(value).toLowerCase() === 'null' ? '' : value;
                 }
             }
-            field('minimum').removeAttribute('aria-invalid');
-            field('maximum').removeAttribute('aria-invalid');
-            field('prn').textContent = result.prn ? 'prn' : '';
-            field('prnVal').value = result.prn;
+            if (!isSuperseded('minimum')) field('minimum').removeAttribute('aria-invalid');
+            if (!isSuperseded('maximum')) field('maximum').removeAttribute('aria-invalid');
+            if (!isSuperseded('prnVal')) {
+                field('prn').textContent = result.prn ? 'prn' : '';
+                field('prnVal').value = result.prn;
+            }
             if (instructions && updateQuantity) {
                 field('quantity').value = [result.calQuantity, field('unitName').textContent].filter(Boolean).join(' ');
             }
@@ -2843,13 +2894,20 @@ function validRxCalculation(result, sequence) {
 
 function showRxCalculationState(card, rand) {
     const errors = Object.keys(card._rxCalculationErrors);
-    const blocked = card._rxCalculationPending || errors.length > 0 || card._rxPolicy?.length;
+    const conflict = Boolean(card._rxCalculationConflict);
+    const blocked = card._rxCalculationPending || conflict || errors.length > 0 || card._rxPolicy?.length;
     if (blocked) card.setAttribute('data-calculation-blocked', 'true');
     else card.removeAttribute('data-calculation-blocked');
     const status = document.getElementById('rxCalculationStatus_' + rand);
-    status.textContent = errors.length ? status.dataset.failure
-        : (card._rxCalculationPending ? status.dataset.pending : (card._rxPolicy || []).join(' '));
-    document.getElementById('rxCalculationRetry_' + rand).hidden = !errors.length || card._rxCalculationPending;
+    status.textContent = conflict ? (status.dataset.conflict || status.dataset.failure)
+        : (errors.length ? status.dataset.failure
+            : (card._rxCalculationPending ? status.dataset.pending : (card._rxPolicy || []).join(' ')));
+    document.getElementById('rxCalculationRetry_' + rand).hidden = conflict || !errors.length || card._rxCalculationPending;
+    if (conflict || card._rxCalculationReopenShown) {
+        const reopen = document.getElementById('rxCalculationReopen_' + rand);
+        if (reopen) reopen.hidden = !conflict;
+        card._rxCalculationReopenShown = conflict;
+    }
 }
 
 function retryRxCalculation(button) {

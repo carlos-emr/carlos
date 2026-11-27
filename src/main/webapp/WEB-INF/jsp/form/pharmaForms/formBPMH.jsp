@@ -84,15 +84,18 @@
                 const add = document.getElementById('bpmhAddReportedMedication');
                 if (add) {
                     let index = rows.rows.length;
+                    rows.addEventListener('click', function (event) {
+                        const remove = event.target.closest('[data-remove-reported-medication]');
+                        if (remove) {
+                            remove.closest('tr').remove();
+                        }
+                    });
                     add.addEventListener('click', function () {
                         const row = document.getElementById('bpmhReportedMedicationTemplate').content.cloneNode(true);
                         for (const field of row.querySelectorAll('[data-medication-field]')) {
                             field.name = 'form.drugs[' + index + '].' + field.dataset.medicationField;
                         }
                         const name = row.querySelector('input');
-                        row.querySelector('button').addEventListener('click', function () {
-                            this.closest('tr').remove();
-                        });
                         rows.append(row);
                         ++index;
                         name.focus();
@@ -330,11 +333,15 @@
                     <tr>
                         <td id="drugWhat${status.index}">
                             <c:choose>
-                                <c:when test="${bpmh.formId == 0 and not empty drugs.reportedMedication}">
+                                <c:when test="${bpmh.formId == 0 and empty drugs.id}">
                                     <label><fmt:message key="colcamex.formBPMH.reported.medication"/>
                                         <input name="form.drugs[${status.index}].reportedMedication"
-                                               value="${carlos:forHtmlAttribute(drugs.reportedMedication)}" required/>
+                                               value="${carlos:forHtmlAttribute(drugs.reportedMedication)}"
+                                               required pattern=".*\S.*"/>
                                     </label>
+                                    <c:if test="${bpmhInvalidReportedMedication and empty drugs.what}">
+                                        <p class="text-danger" role="alert"><fmt:message key="colcamex.formBPMH.reported.nameRequired"/></p>
+                                    </c:if>
                                 </c:when>
                                 <c:otherwise>
                                     ${carlos:forHtml(drugs.what)}
@@ -357,7 +364,7 @@
                                 <c:when test="${not empty drugs.how}">
                                     <div style="white-space:pre-wrap">${carlos:forHtml(drugs.how)}</div>
                                 </c:when>
-                                <c:when test="${empty drugs.reportedMedication}">
+                                <c:when test="${empty drugs.reportedMedication and not empty drugs.id}">
                                     <fmt:message key="colcamex.formBPMH.review.unknown"/>
                                 </c:when>
                             </c:choose>
@@ -376,6 +383,9 @@ ${carlos:forHtml(drugs.patientReportedUse)}</div>
                         </td>
                         <td>
                             <c:choose>
+                                <c:when test="${bpmh.formId == 0 and empty drugs.id}">
+                                    <button type="button" data-remove-reported-medication><fmt:message key="colcamex.formBPMH.reported.remove"/></button>
+                                </c:when>
                                 <c:when test="${empty drugs.why and empty drugs.reportedMedication}">
                                     <fmt:message key="colcamex.formBPMH.review.unknown"/>
                                 </c:when>
@@ -400,12 +410,12 @@ ${carlos:forHtml(drugs.patientReportedUse)}</div>
                 <template id="bpmhReportedMedicationTemplate">
                     <tr>
                         <td><label><fmt:message key="colcamex.formBPMH.reported.medication"/>
-                            <input data-medication-field="reportedMedication" required/>
+                            <input data-medication-field="reportedMedication" required pattern=".*\S.*"/>
                         </label></td>
                         <td><label><fmt:message key="colcamex.formBPMH.reported.use"/>
                             <textarea data-medication-field="patientReportedUse" rows="2"></textarea>
                         </label></td>
-                        <td><button type="button"><fmt:message key="colcamex.formBPMH.reported.remove"/></button></td>
+                        <td><button type="button" data-remove-reported-medication><fmt:message key="colcamex.formBPMH.reported.remove"/></button></td>
                         <td><label><fmt:message key="colcamex.formBPMH.drugs.instructions"/>
                             <textarea data-medication-field="instruction" rows="2"></textarea>
                         </label></td>
@@ -433,12 +443,12 @@ ${carlos:forHtml(drugs.patientReportedUse)}</div>
                 <tr>
                     <td>
                         <c:choose>
-                            <c:when test="${not empty bpmh.note}">
-                                ${carlos:forHtml(bpmh.note)}&nbsp;
-                            </c:when>
-                            <c:otherwise>
+                            <c:when test="${bpmh.formId == 0}">
                                 <%-- "note" is the section's id. --%>
                                 <textarea name="form.note" id="bpmhNote" aria-labelledby="bpmhNoteLabel" rows="4">${carlos:forHtml(bpmh.note)}</textarea>
+                            </c:when>
+                            <c:otherwise>
+                                ${carlos:forHtml(bpmh.note)}&nbsp;
                             </c:otherwise>
                         </c:choose>
                     </td>

@@ -141,17 +141,50 @@ public class BpmhDrug {
     /*
      * Prescription details. Take once per day with food
      */
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Compares recorded form and unit labels for display only. The displayed unit retains its source spelling.")
     public String getHow() {
         if (how == null) {
             usePrescriptionDirections(null, getSpecial_instruction(),
-                    (!getCustomName().isBlank() && getDosage().isBlank()) || getUnit().equalsIgnoreCase(getDrugForm()) ? getUnit() : null);
+                    (!getCustomName().isBlank() && getDosage().isBlank())
+                            || org.apache.commons.lang3.Strings.CI.equals(getUnit(), getDrugForm()) ? getUnit() : null,
+                    isPrnFlagged());
         }
         return how;
     }
 
-    /** Keep the saved directions, including each taper step. Only remove recognized Rx envelope lines. */
+    /**
+     * Populates {@code how} from the recorded prescription directions, stripping only recognized Rx envelope lines
+     * (medication heading, generated numeric {@code Qty: ... Repeats: ...} trailer, and duplicate pharmacy instruction)
+     * so authored multi-line and taper steps stay intact.
+     *
+     * <p>When no authored direction line remains, falls back to structured dosing from {@code takeMin}, {@code takeMax},
+     * {@code method}, {@code freqCode}, and {@code route} only when both {@code takeMin} and {@code doseUnit} are
+     * non-blank; otherwise sets {@code how} to {@code ""} so the BPMH form displays its missing-information indicator
+     * (and callers with a recorded {@code cdsDoseText} may then invoke {@link #useRecordedDoseText(String, String, boolean)}).
+     * Always replaces {@code how}.</p>
+     *
+     * @param brandName String brand name used to recognize a generated heading line, or {@code null}
+     * @param pharmacyInstruction String separate pharmacy instruction that may be duplicated in {@code special}, or {@code null}
+     * @param doseUnit String verified administered dose unit to allow structured fallback, or {@code null} when callers
+     *     intend to defer to {@link #useRecordedDoseText(String, String, boolean)} or when no unambiguous dose unit is recorded
+     */
     public void usePrescriptionDirections(String brandName, String pharmacyInstruction, String doseUnit) {
+        usePrescriptionDirections(brandName, pharmacyInstruction, doseUnit, isPrnFlagged());
+    }
+
+    /**
+     * Populates {@code how} from recorded prescription directions or structured fallback dosing, appending {@code PRN}
+     * to structured fallback output when {@code prn} is {@code true} while leaving authored directions unchanged.
+     *
+     * <p>Callers should pass {@code doseUnit = null} when no unambiguous dose unit is known or when deferring empty
+     * authored directions to the CDS fallback {@link #useRecordedDoseText(String, String, boolean)}. Always replaces
+     * {@code how}.</p>
+     *
+     * @param brandName String brand name used to recognize a generated heading line, or {@code null}
+     * @param pharmacyInstruction String separate pharmacy instruction that may be duplicated in {@code special}, or {@code null}
+     * @param doseUnit String verified administered dose unit for structured fallback, or {@code null}
+     * @param prn boolean {@code true} if the source prescription is marked PRN (as needed)
+     */
+    public void usePrescriptionDirections(String brandName, String pharmacyInstruction, String doseUnit, boolean prn) {
         String text = StringUtils.defaultString(getSpecial()).replace("\r\n", "\n").replace('\r', '\n');
         int lineBreak = text.indexOf('\n');
         String first = lineBreak < 0 ? text : text.substring(0, lineBreak);
@@ -163,7 +196,7 @@ public class BpmhDrug {
         String withoutTrailingSpace = text.stripTrailing();
         int lastBreak = withoutTrailingSpace.lastIndexOf('\n');
         String last = withoutTrailingSpace.substring(lastBreak + 1);
-        if (last.startsWith("Qty:") && last.contains(" Repeats:")) {
+        if (isDispensingTrailer(last)) {
             text = lastBreak < 0 ? "" : text.substring(0, lastBreak);
         }
         if (hasHeading && StringUtils.isNotBlank(pharmacyInstruction)) {
@@ -183,20 +216,82 @@ public class BpmhDrug {
         if (!getTakeMax().isBlank() && !"0".equals(getTakeMax()) && !getTakeMax().equals(amount)) {
             amount += " to " + getTakeMax();
         }
-        setStructuredDirections(amount + " " + doseUnit);
+        setStructuredDirections(amount + " " + doseUnit, prn);
     }
 
+    /**
+     * Populates {@code how} from a CDS-recorded dose string when authored directions were blank.
+     *
+     * <p>Appends {@code doseUnit} only when {@code doseUnit} is non-blank and {@code dose} contains no letters
+     * (meaning it does not already carry its own unit). Always replaces {@code how}.</p>
+     *
+     * @param dose String recorded CDS dose text (must be non-null)
+     * @param doseUnit String verified administered dose unit to append when {@code dose} is unitless, or {@code null}
+     */
     public void useRecordedDoseText(String dose, String doseUnit) {
+        useRecordedDoseText(dose, doseUnit, isPrnFlagged());
+    }
+
+    /**
+     * Populates {@code how} from a CDS-recorded dose string when authored directions were blank, optionally appending
+     * {@code PRN} when the prescription is flagged as needed. Always replaces {@code how}.
+     *
+     * @param dose String recorded CDS dose text (must be non-null)
+     * @param doseUnit String verified administered dose unit to append when {@code dose} is unitless, or {@code null}
+     * @param prn boolean {@code true} if the source prescription is marked PRN (as needed)
+     */
+    public void useRecordedDoseText(String dose, String doseUnit, boolean prn) {
         String recorded = StringUtils.isNotBlank(doseUnit) && dose.codePoints().noneMatch(Character::isLetter)
                 ? dose + " " + doseUnit : dose;
-        setStructuredDirections(recorded);
+        setStructuredDirections(recorded, prn);
     }
 
-    private void setStructuredDirections(String amount) {
-        how = String.join(" ", java.util.stream.Stream.of(getMethod(), amount, getFreqCode(), getRoute())
+    private boolean isPrnFlagged() {
+        String value = StringUtils.trimToEmpty(getPrn());
+        return Boolean.parseBoolean(value) || org.apache.commons.lang3.Strings.CI.equals("PRN", value);
+    }
+
+    private void setStructuredDirections(String amount, boolean prn) {
+        boolean appendPrn = prn && !org.apache.commons.lang3.Strings.CI.equals("PRN", StringUtils.trimToEmpty(getFreqCode()));
+        how = String.join(" ", java.util.stream.Stream.of(getMethod(), amount, getFreqCode(), getRoute(),
+                        appendPrn ? "PRN" : null)
                 .filter(StringUtils::isNotBlank).toList());
     }
 
+    private static boolean isDispensingTrailer(String line) {
+        if (!line.startsWith("Qty:")) return false;
+        int repeatsIndex = line.lastIndexOf(" Repeats:");
+        if (repeatsIndex < 4) return false;
+        String qtyPart = line.substring(4, repeatsIndex).strip();
+        String repeatsPart = line.substring(repeatsIndex + " Repeats:".length()).strip();
+        return startsWithPlainDecimal(qtyPart) && isPlainDecimal(repeatsPart);
+    }
+
+    private static boolean startsWithPlainDecimal(String value) {
+        int end = plainDecimalEnd(value);
+        return end > 0 && (end == value.length() || Character.isWhitespace(value.charAt(end)));
+    }
+
+    private static boolean isPlainDecimal(String value) {
+        return !value.isEmpty() && plainDecimalEnd(value) == value.length();
+    }
+
+    private static int plainDecimalEnd(String value) {
+        int end = 0;
+        while (end < value.length() && value.charAt(end) >= '0' && value.charAt(end) <= '9') {
+            end++;
+        }
+        if (end < value.length() && value.charAt(end) == '.'
+                && end + 1 < value.length() && value.charAt(end + 1) >= '0' && value.charAt(end + 1) <= '9') {
+            end++;
+            while (end < value.length() && value.charAt(end) >= '0' && value.charAt(end) <= '9') {
+                end++;
+            }
+        }
+        return end;
+    }
+
+    // FindSecBugs REDOS: possessive digit runs, a single optional space, and a fixed unit vocabulary bound the heading match to linear time. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "REDOS", justification = "Possessive digit runs, a single optional space and a fixed unit vocabulary bound the match to linear time.")
     private boolean isMedicationHeading(String first, String name) {
         if (StringUtils.isBlank(name)) return false;

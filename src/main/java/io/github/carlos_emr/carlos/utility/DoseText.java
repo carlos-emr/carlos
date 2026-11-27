@@ -183,15 +183,21 @@ public final class DoseText {
     }
 
     /**
-     * The index after the decimal number that starts at {@code index}: digits, a fraction and an
-     * optional exponent ("250.0", "1.0E7"). It is {@code index} itself when no such number starts
-     * there: the character is not a digit, or the digits have no fraction ("250mg", "5.", "5.x"),
-     * and a whole number has no trailing zero to drop.
+     * The index after the decimal number that starts at {@code index}: optional integer digits,
+     * a fraction, and an optional exponent ("250.0", ".50", "1.0E7"). It is {@code index} itself
+     * when no such number starts there: no fraction follows ("250mg", "5.", "5.x"), or a leading
+     * dot immediately follows a letter, digit, or dot ("v.5", "1.2.5", "..5").
      */
     private static int decimalEnd(String text, int index) {
         int integerEnd = digitsEnd(text, index);
-        if (integerEnd == index || !isFractionAt(text, integerEnd)) {
+        if (!isFractionAt(text, integerEnd)) {
             return index;
+        }
+        if (integerEnd == index && index > 0) {
+            int previous = text.codePointBefore(index);
+            if (Character.isLetterOrDigit(previous) || previous == '.') {
+                return index;
+            }
         }
         return exponentEnd(text, digitsEnd(text, integerEnd + 1));
     }

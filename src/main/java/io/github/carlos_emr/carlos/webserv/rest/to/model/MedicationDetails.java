@@ -31,6 +31,19 @@ public class MedicationDetails implements Serializable {
     private List<Component> components;
     private boolean componentDataComplete;
 
+    /**
+     * Constructs a {@link MedicationDetails} transfer object from stored exact medication fields and optional JSON components.
+     *
+     * <p>{@code componentDataComplete} is {@code true} only when {@code stored} decodes to a non-empty list where
+     * every component is non-null with a non-blank name, positive numeric strength, and non-blank unit.</p>
+     *
+     * @param quantity String exact stored dispense quantity text, or {@code null}
+     * @param dispenseUnit String exact stored dispense unit text, or {@code null}
+     * @param dosage String exact stored dosage or strength text, or {@code null}
+     * @param stored String JSON-encoded component array from storage, or {@code null} when no components are stored
+     * @return MedicationDetails populated details object with {@code componentDataComplete} evaluated
+     * @throws IllegalStateException if {@code stored} is non-null but cannot be parsed as a JSON list of components
+     */
     public static MedicationDetails read(String quantity, String dispenseUnit, String dosage, String stored) {
         var details = new MedicationDetails();
         details.quantityText = quantity;
@@ -58,6 +71,13 @@ public class MedicationDetails implements Serializable {
         }
     }
 
+    /**
+     * Serializes {@code components} to JSON for persistence in a {@code MEDIUMTEXT} column (16,777,215 UTF-8 bytes max).
+     *
+     * @return String JSON representation of {@code components}, or {@code null} when {@code components} is {@code null}
+     * @throws IllegalArgumentException if {@code components} contains a {@code null} entry, exceeds 16,777,215 UTF-8 bytes,
+     *     or cannot be serialized to JSON
+     */
     public String encodeComponents() {
         if (components == null) return null;
         if (components.stream().anyMatch(Objects::isNull)) {
@@ -74,6 +94,13 @@ public class MedicationDetails implements Serializable {
         }
     }
 
+    /**
+     * Projects stored quantity text to a legacy exact {@link Integer} when representable without loss.
+     *
+     * @param quantity String stored dispense quantity text, or {@code null}
+     * @return Integer exact integer quantity, or {@code null} when {@code quantity} is {@code null}, fractional,
+     *     non-numeric, or outside the 32-bit signed integer range
+     */
     public static Integer wholeQuantity(String quantity) {
         if (quantity == null) return null;
         try {
@@ -83,12 +110,25 @@ public class MedicationDetails implements Serializable {
         }
     }
 
+    /**
+     * Verifies that an echoed legacy integer quantity does not contradict {@code quantityText}.
+     *
+     * @param legacyQuantity Integer legacy quantity echoed on the request, or {@code null} when omitted
+     * @throws IllegalArgumentException if {@code legacyQuantity} is non-null and disagrees with {@link #wholeQuantity(String)}
+     */
     public void validateQuantity(Integer legacyQuantity) {
         if (legacyQuantity != null && !legacyQuantity.equals(wholeQuantity(quantityText))) {
             throw new IllegalArgumentException("Legacy and exact medication quantities disagree");
         }
     }
 
+    /**
+     * Verifies that echoed legacy single-ingredient strength fields do not contradict {@code dosageText}.
+     *
+     * @param legacyStrength Float legacy numeric strength echoed on the request, or {@code null} when omitted
+     * @param legacyUnit String legacy strength unit echoed on the request, or {@code null} when omitted
+     * @throws IllegalArgumentException if either non-null legacy field disagrees with the leading strength projected from {@code dosageText}
+     */
     public void validateStrength(Float legacyStrength, String legacyUnit) {
         DrugStrength projected = DrugStrength.fromDosage(dosageText);
         if ((legacyStrength != null && !legacyStrength.equals(projected.amount()))
@@ -107,6 +147,10 @@ public class MedicationDetails implements Serializable {
     public void setComponents(List<Component> components) { this.components = components; }
     public boolean isComponentDataComplete() { return componentDataComplete; }
 
+    /**
+     * Single active ingredient entry in an opt-in {@link MedicationDetails} payload, preserving exact recorded
+     * ingredient name, strength text, and unit text.
+     */
     @XmlAccessorType(XmlAccessType.FIELD)
     public static class Component implements Serializable {
         private static final long serialVersionUID = 1L;
@@ -114,8 +158,16 @@ public class MedicationDetails implements Serializable {
         private String strength;
         private String unit;
 
+        /** Creates an empty component for JAXB/Jackson deserialization. */
         public Component() {}
 
+        /**
+         * Creates a component with the supplied ingredient name, strength text, and unit.
+         *
+         * @param name String ingredient name, or {@code null}
+         * @param strength String exact strength text, or {@code null}
+         * @param unit String strength unit text, or {@code null}
+         */
         public Component(String name, String strength, String unit) {
             this.name = name;
             this.strength = strength;

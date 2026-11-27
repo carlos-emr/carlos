@@ -286,4 +286,97 @@ class BpmhForm2HandlerUnitTest {
         assertThat(drugs.get(0).getWhat()).doesNotContain("does not take");
         assertThat(drugs.get(0).getHow()).isEqualTo("Take 1 tablet daily");
     }
+
+    @Test
+    void shouldRetainPrnQualifier_whenStructuredFallbackDirectionsAreGenerated() {
+        Drug drug = structuredDrug(1, 1);
+        drug.setMethod("Take");
+        drug.setUnit("TAB");
+        drug.setDrugForm("TAB");
+        drug.setFreqCode("BID");
+        drug.setRoute("PO");
+        drug.setPrn(true);
+        drug.setSpecial(null);
+
+        assertThat(formRowFor(drug).getHow()).isEqualTo("Take 1 TAB BID PO PRN");
+    }
+
+    @Test
+    void shouldAssembleDrugReasonsInDeterministicIdOrder_regardlessOfDaoReturnOrder() {
+        DrugReason first = new DrugReason();
+        first.setId(10);
+        first.setComments("Hypertension");
+        DrugReason second = new DrugReason();
+        second.setId(20);
+        second.setComments("Migraine prophylaxis");
+
+        DrugReasonDao forwardDao = mock(DrugReasonDao.class);
+        when(forwardDao.getReasonsForDrugID(55, true)).thenReturn(List.of(first, second));
+        BpmhForm2Handler forwardHandler = new BpmhForm2Handler();
+        forwardHandler.setDrugReasonDao(forwardDao);
+
+        DrugReasonDao reversedDao = mock(DrugReasonDao.class);
+        when(reversedDao.getReasonsForDrugID(55, true)).thenReturn(List.of(second, first));
+        BpmhForm2Handler reversedHandler = new BpmhForm2Handler();
+        reversedHandler.setDrugReasonDao(reversedDao);
+
+        assertThat(reversedHandler.getDrugReason(55)).isEqualTo("Hypertension\nMigraine prophylaxis")
+                .isEqualTo(forwardHandler.getDrugReason(55));
+    }
+
+    @Test
+    void shouldPersistAndRestoreOtcReviewedFlag_acrossFormHistorySnapshot() {
+        var captured = new java.util.concurrent.atomic.AtomicReference<io.github.carlos_emr.carlos.commn.model.FormBPMH>();
+        var formDao = mock(io.github.carlos_emr.carlos.commn.dao.FormBPMHDao.class);
+        org.mockito.Mockito.doAnswer(invocation -> {
+            var entity = invocation.getArgument(0, io.github.carlos_emr.carlos.commn.model.FormBPMH.class);
+            entity.setId(42);
+            captured.set(entity);
+            return null;
+        }).when(formDao).persist(org.mockito.ArgumentMatchers.any());
+
+        var provider = new io.github.carlos_emr.carlos.commn.model.Provider();
+        provider.setProviderNo("999998");
+        var bean = new BpmhForm2Bean();
+        bean.setDemographicNo("1001");
+        bean.setProvider(provider);
+        bean.setNote("Synthetic note");
+        bean.setConfirm(true);
+        bean.setFamilyDrName("Dr. Synthetic");
+        bean.setFamilyDrPhone("555-0100");
+        bean.setFamilyDrFax("555-0101");
+        bean.setDrugs(List.of());
+        bean.setAllergies(List.of());
+
+        BpmhForm2Handler saver = new BpmhForm2Handler();
+        saver.setFormBPMHDao(formDao);
+        assertThat(saver.saveFormHistory(bean)).isEqualTo(42);
+
+        var saved = captured.get();
+        assertThat(saved).isNotNull();
+        assertThat(saved.getOtcReviewed()).isTrue();
+        assertThat(saved.toString()).doesNotContain("Synthetic note");
+
+        when(formDao.find(Integer.valueOf(42))).thenReturn(saved);
+        var providerDao = mock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class);
+        when(providerDao.getProvider("999998")).thenReturn(provider);
+        var demographicDao = mock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class);
+        var demographic = new io.github.carlos_emr.carlos.commn.model.Demographic();
+        demographic.setDemographicNo(1001);
+        when(demographicDao.getDemographicById(1001)).thenReturn(demographic);
+        var demographicCustDao = mock(io.github.carlos_emr.carlos.commn.dao.DemographicCustDao.class);
+
+        BpmhForm2Handler loader = new BpmhForm2Handler();
+        loader.setBpmhFormBean(new BpmhForm2Bean());
+        loader.setFormBPMHDao(formDao);
+        loader.setProviderDao(providerDao);
+        loader.setDemographicDao(demographicDao);
+        loader.setDemographicCustDao(demographicCustDao);
+        loader.setDrugDao(mock(DrugDao.class));
+        loader.setAllergyDao(mock(io.github.carlos_emr.carlos.commn.dao.AllergyDao.class));
+        loader.setFormHistory(42);
+        loader.populateFormBean();
+
+        assertThat(loader.getBpmhFormBean().isConfirm()).isTrue();
+    }
 }

@@ -87,6 +87,7 @@ class BpmhFormRetrieve2ActionUnitTest extends CarlosUnitTestBase {
         loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class))).thenReturn(loggedInInfo);
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_demographic"), eq("r"), isNull())).thenReturn(true);
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_demographic"), eq("r"), anyInt())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_form"), eq("w"), isNull())).thenReturn(true);
         when(handler.getBpmhFormBean()).thenReturn(filled);
 
         action = new BpmhFormRetrieve2Action() {
@@ -306,6 +307,87 @@ class BpmhFormRetrieve2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
         verify(response).setStatus(409);
         verify(request).setAttribute("bpmhReviewChanged", true);
+        verify(handler, never()).saveFormHistory();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"save", "print"})
+    void shouldRequireFormWritePrivilege_whenCreatingNewSnapshot(String method) {
+        when(request.getMethod()).thenReturn("POST");
+        when(request.getParameter("method")).thenReturn(method);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_form", "w", null)).thenReturn(false);
+        BpmhForm2Bean posted = new BpmhForm2Bean();
+        posted.setDemographicNo("1001");
+        posted.setFormId("0");
+        posted.setReviewToken("reviewed");
+        filled.setReviewToken("reviewed");
+        action.setForm(posted);
+
+        assertThatThrownBy(() -> action.execute())
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_form)");
+
+        verify(handler, never()).populateFormBean();
+        verify(handler, never()).saveFormHistory();
+    }
+
+    @Test
+    void shouldAllowSavedHistoryPrint_withoutFormWritePrivilege() throws Exception {
+        when(request.getMethod()).thenReturn("POST");
+        when(request.getParameter("method")).thenReturn("print");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_form", "w", null)).thenReturn(false);
+        FormBPMH saved = new FormBPMH();
+        saved.setDemographicNo(1001);
+        when(handler.getFormHistory()).thenReturn(saved);
+        BpmhForm2Bean posted = new BpmhForm2Bean();
+        posted.setDemographicNo("1001");
+        posted.setFormId("7");
+        action.setForm(posted);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        verify(handler).setFormHistory(7);
+        verify(handler).populateFormBean();
+        verify(handler, never()).saveFormHistory();
+    }
+
+    @Test
+    void shouldRejectNegativeFormId_beforePreparingPrint() throws Exception {
+        when(request.getMethod()).thenReturn("POST");
+        when(request.getParameter("method")).thenReturn("print");
+        BpmhForm2Bean posted = new BpmhForm2Bean();
+        posted.setDemographicNo("1001");
+        posted.setFormId("-5");
+        action.setForm(posted);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        verify(response).sendError(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(handedToHandler).isNull();
+        verify(handler, never()).populateFormBean();
+    }
+
+    @Test
+    void shouldRejectWhitespaceReportedMedication_andPreserveRowText() {
+        when(request.getMethod()).thenReturn("POST");
+        when(request.getParameter("method")).thenReturn("save");
+        BpmhDrug reported = new BpmhDrug();
+        reported.setReportedMedication("   ");
+        reported.setPatientReportedUse("Takes at bedtime");
+        reported.setInstruction("Clarify product name");
+        BpmhForm2Bean posted = new BpmhForm2Bean();
+        posted.setDemographicNo("1001");
+        posted.setFormId("0");
+        posted.setReviewToken("reviewed");
+        posted.setDrugs(new java.util.ArrayList<>(java.util.List.of(reported)));
+        filled.setReviewToken("reviewed");
+        filled.setDrugs(new java.util.ArrayList<>(java.util.List.of(reported)));
+        action.setForm(posted);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(response).setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        verify(request).setAttribute("bpmhInvalidReportedMedication", true);
+        assertThat(handedToHandler.getDrugs()).hasSize(1);
+        assertThat(handedToHandler.getDrugs().get(0).getPatientReportedUse()).isEqualTo("Takes at bedtime");
+        assertThat(handedToHandler.getDrugs().get(0).getInstruction()).isEqualTo("Clarify product name");
         verify(handler, never()).saveFormHistory();
     }
 }

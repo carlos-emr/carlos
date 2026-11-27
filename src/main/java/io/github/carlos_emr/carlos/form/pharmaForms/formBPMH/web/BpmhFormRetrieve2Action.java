@@ -91,16 +91,25 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
             return NONE;
         }
         if ("save".equals(method) || "print".equals(method)) {
+            String[] stage = {"prepare"};
             try {
-                return "save".equals(method) ? save(loggedInInfo) : print(loggedInInfo);
+                return "save".equals(method) ? save(loggedInInfo, stage) : print(loggedInInfo, stage);
             } catch (ReviewChanged changed) {
                 response.setStatus(HttpServletResponse.SC_CONFLICT);
                 request.setAttribute("bpmhReviewChanged", true);
                 request.setAttribute("bpmh", bpmhFormHandler.getBpmhFormBean());
                 return SUCCESS;
+            } catch (InvalidReportedMedication invalid) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                request.setAttribute("bpmhInvalidReportedMedication", true);
+                request.setAttribute("bpmh", bpmhFormHandler.getBpmhFormBean());
+                return SUCCESS;
             } catch (IOException | RuntimeException error) {
                 if (error instanceof SecurityException denied) throw denied;
-                logger.error("BPMH operation failed ({})", error.getClass().getSimpleName());
+                Throwable cause = error instanceof UncheckedIOException wrapped && wrapped.getCause() != null
+                        ? wrapped.getCause() : error;
+                logger.error("BPMH {} failed at stage {} ({})",
+                        "save".equals(method) ? "save" : "print", stage[0], cause.getClass().getSimpleName());
                 try {
                     if (!response.isCommitted()) response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                 } catch (IOException failure) {
@@ -162,7 +171,9 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
                 if (StringUtils.isNotBlank(postedRow.getId())) {
                     row.setId(postedRow.getId());
                     row.setReviewedVersion(postedRow.getReviewedVersion());
-                } else if (StringUtils.isNotBlank(postedRow.getReportedMedication())) {
+                } else if (postedRow.getReportedMedication() != null
+                        || StringUtils.isNotBlank(postedRow.getPatientReportedUse())
+                        || StringUtils.isNotBlank(postedRow.getInstruction())) {
                     row.setReportedMedication(postedRow.getReportedMedication());
                 } else {
                     continue;
@@ -198,33 +209,58 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
     // and two integer ids; no request string reaches it.
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "same-application relative redirect; only integer ids are interpolated")
     public String save(LoggedInInfo loggedInInfo) throws IOException {
+        return save(loggedInInfo, new String[]{"prepare"});
+    }
+
+    // FindSecBugs UNVALIDATED_REDIRECT: the target is this application's own context path plus a literal
+    // and two integer ids; no request string reaches it.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "same-application relative redirect; only integer ids are interpolated")
+    private String save(LoggedInInfo loggedInInfo, String[] stage) throws IOException {
         int demographicNo = Integer.parseInt(form.getDemographicNo());
         Integer formId = inReviewTransaction(() -> {
+            stage[0] = "prepare";
             prepareForm(loggedInInfo, demographicNo, 0);
+            stage[0] = "save";
             return saveReviewedSnapshot();
         });
         if (formId == null) throw new IllegalStateException("BPMH history was not saved");
+        stage[0] = "redirect";
         response.sendRedirect(request.getContextPath() + "/formBPMH?method=fetch&demographic_no="
                 + demographicNo + "&formId=" + formId + "&provNo=");
         return NONE;
     }
 
     public String print(LoggedInInfo loggedInInfo) throws IOException {
+        return print(loggedInInfo, new String[]{"prepare"});
+    }
+
+    private String print(LoggedInInfo loggedInInfo, String[] stage) throws IOException {
         int demographicNo = Integer.parseInt(form.getDemographicNo());
         int formId = Integer.parseInt(form.getFormId());
+        if (formId < 0) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
         PdfResult pdf = inReviewTransaction(() -> {
+            stage[0] = "prepare";
             prepareForm(loggedInInfo, demographicNo, formId);
             try {
-                PdfResult result = renderReviewedForm();
-                if (formId == 0 && saveReviewedSnapshot() == null) {
-                    throw new IllegalStateException("BPMH history was not saved");
+                PdfResult result = renderReviewedForm(stage);
+                if (formId == 0) {
+                    stage[0] = "save";
+                    if (saveReviewedSnapshot() == null) {
+                        throw new IllegalStateException("BPMH history was not saved");
+                    }
                 }
                 return result;
             } catch (IOException error) {
                 throw new UncheckedIOException(error);
             }
         });
+        stage[0] = "write";
         response.reset();
+        response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+        response.setHeader("Pragma", "no-cache");
         response.setContentType("application/pdf");
         response.setContentLength(pdf.content().length);
         response.setHeader("Content-Disposition", "inline; filename=" + pdf.filename());
@@ -235,6 +271,9 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
     }
 
     private void prepareForm(LoggedInInfo loggedInInfo, int demographicNo, int formId) {
+        if (formId < 0) {
+            throw new IllegalArgumentException("BPMH formId must not be negative");
+        }
         bpmhFormHandler = newHandler(editableFields(form));
         if (formId > 0) {
             bpmhFormHandler.setFormHistory(formId);
@@ -243,6 +282,9 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
             bpmhFormHandler.setDemographicNo(demographicNo);
         }
         requirePatientRead(loggedInInfo, demographicNo);
+        if (formId == 0 && !securityInfoManager.hasPrivilege(loggedInInfo, "_form", "w", null)) {
+            throw new SecurityException("missing required sec object (_form)");
+        }
         bpmhFormHandler.populateFormBean();
         if (formId == 0) {
             var reviewed = bpmhFormHandler.getBpmhFormBean();
@@ -250,10 +292,23 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
             if (form.getReviewToken() == null || !Objects.equals(form.getReviewToken(), reviewed.getReviewToken())) {
                 throw new ReviewChanged();
             }
+            if (hasBlankReportedMedication(reviewed)) {
+                throw new InvalidReportedMedication();
+            }
             Date now = new Date();
             reviewed.setFormDate(now);
             reviewed.setEditDate(now);
         }
+    }
+
+    private static boolean hasBlankReportedMedication(BpmhForm2Bean bean) {
+        if (bean == null || bean.getDrugs() == null) return false;
+        for (BpmhDrug row : bean.getDrugs()) {
+            if (row != null && StringUtils.isBlank(row.getId()) && StringUtils.isBlank(row.getReportedMedication())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private Integer saveReviewedSnapshot() {
@@ -272,23 +327,39 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
 
     private static class ReviewChanged extends RuntimeException {}
 
+    private static class InvalidReportedMedication extends RuntimeException {}
+
+    // FindSecBugs PATH_TRAVERSAL_IN: Paths come from the configured DOCUMENT_DIR and the shipped PDF template. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
             justification = "Paths come from the configured directory and the shipped PDF template")
-    private PdfResult renderReviewedForm() throws IOException {
+    private PdfResult renderReviewedForm(String[] stage) throws IOException {
         var reviewed = bpmhFormHandler.getBpmhFormBean();
+        stage[0] = "render";
         PDFController controller = new PDFController(ServletActionContext.getServletContext().getRealPath(BPMH_PDF_TEMPLATE));
         controller.setContinueInstructions(true);
         controller.setOutputPath(CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"));
+        Throwable primaryFailure = null;
         try {
             controller.writeDataToPDF(reviewed, new String[]{"1"}, "history");
             if (controller.getFileName() == null) throw new IOException("BPMH PDF was not generated");
+            stage[0] = "read";
             var path = PathValidationUtils.resolveTrustedPath(new File(controller.getOutputPath())).toPath();
             byte[] pdf = Files.readAllBytes(path);
             if (pdf.length == 0) throw new IOException("BPMH PDF is empty");
             return new PdfResult(controller.getFileName(), pdf);
+        } catch (IOException | RuntimeException error) {
+            primaryFailure = error;
+            throw error;
         } finally {
             if (controller.getFileName() != null) {
-                Files.deleteIfExists(PathValidationUtils.resolveTrustedPath(new File(controller.getOutputPath())).toPath());
+                try {
+                    Files.deleteIfExists(PathValidationUtils.resolveTrustedPath(new File(controller.getOutputPath())).toPath());
+                } catch (IOException | RuntimeException cleanupError) {
+                    if (primaryFailure != null) {
+                        primaryFailure.addSuppressed(cleanupError);
+                    }
+                    logger.warn("BPMH temporary PDF cleanup failed ({})", cleanupError.getClass().getSimpleName());
+                }
             }
         }
     }

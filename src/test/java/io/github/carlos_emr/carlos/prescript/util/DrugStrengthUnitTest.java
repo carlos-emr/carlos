@@ -86,4 +86,18 @@ class DrugStrengthUnitTest {
         String spaced = " ".repeat(20_000) + "250.0mg";
         assertThat(DrugStrength.sameIdentityText(spaced, "250mg")).isTrue();
     }
+
+    @Test
+    @DisplayName("should normalize leading-dot decimals in DoseText.withPlainNumbers without mangling versions or words")
+    void shouldNormalizeLeadingDotDecimals_whenComparingPlainNumbers() {
+        assertThat(io.github.carlos_emr.carlos.utility.DoseText.withPlainNumbers(".50mg"))
+                .isEqualTo("0.5mg")
+                .isEqualTo(io.github.carlos_emr.carlos.utility.DoseText.withPlainNumbers("0.5mg"));
+        assertThat(io.github.carlos_emr.carlos.utility.DoseText.withPlainNumbers("digoxin .125mg"))
+                .isEqualTo("digoxin 0.125mg");
+        assertThat(io.github.carlos_emr.carlos.utility.DoseText.withPlainNumbers("250.0mg"))
+                .isEqualTo("250mg");
+        assertThat(io.github.carlos_emr.carlos.utility.DoseText.withPlainNumbers("v.5 1.2.5 ..5"))
+                .isEqualTo("v.5 1.2.5 ..5");
+    }
 }

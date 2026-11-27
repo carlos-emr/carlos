@@ -206,9 +206,10 @@ class PDFControllerLogPrivacyUnitTest {
         controller.setContinueInstructions(true);
         AcroFields fields = spy(controller.getReader().getAcroFields());
         doReturn(Map.of("note", fields.getAllFields().get("note"))).when(fields).getAllFields();
-        doReturn(null).when(fields).getFieldPositions(anyString());
+        doReturn(true).when(fields).setFieldProperty(anyString(), anyString(), any(), isNull());
         if (failure.equals("refused")) doReturn(false).when(fields).setField(eq("note"), anyString());
         if (failure.equals("exception")) doThrow(new IOException(PRIVATE)).when(fields).setField(eq("note"), anyString());
+        if (failure.equals("close")) doReturn(true).when(fields).setField(eq("note"), anyString());
         try (var stampers = mockConstruction(PdfStamper.class, (stamper, context) -> {
             when(stamper.getAcroFields()).thenReturn(fields);
             when(stamper.getWriter()).thenReturn(mock(PdfWriter.class));
@@ -216,6 +217,7 @@ class PDFControllerLogPrivacyUnitTest {
         })) {
             org.assertj.core.api.Assertions.assertThatThrownBy(() -> render(controller))
                     .isInstanceOf(IllegalStateException.class).hasMessageNotContaining(PRIVATE);
+            verify(fields).setField("note", PRIVATE);
             verify(stampers.constructed().getFirst()).close();
         } finally { controller.getReader().close(); }
     }

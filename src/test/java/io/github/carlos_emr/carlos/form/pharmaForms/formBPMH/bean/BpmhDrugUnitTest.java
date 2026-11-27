@@ -187,6 +187,33 @@ class BpmhDrugUnitTest {
         drug.setGenericName("Synthetic");
         drug.setSpecial("Synthetic substitute on Monday\nQty: verify with patient");
         assertThat(drug.getHow()).isEqualTo("Synthetic substitute on Monday\nQty: verify with patient");
+
+        drug.setHow(null);
+        drug.setSpecial("Synthetic\nQty: confirm remaining tablets before resuming Repeats: reassess at next visit");
+        assertThat(drug.getHow()).isEqualTo("Qty: confirm remaining tablets before resuming Repeats: reassess at next visit");
+    }
+
+    @Test
+    void shouldAppendPrnToStructuredFallbackDirections_withoutChangingAuthoredDirectionsOrScheduledDoses() {
+        drug.setMethod("Take");
+        drug.setTakeMin("1");
+        drug.setTakeMax("1");
+        drug.setFreqCode("BID");
+        drug.setRoute("PO");
+
+        drug.usePrescriptionDirections(null, null, "TAB", true);
+        assertThat(drug.getHow()).isEqualTo("Take 1 TAB BID PO PRN");
+
+        drug.usePrescriptionDirections(null, null, "TAB", false);
+        assertThat(drug.getHow()).isEqualTo("Take 1 TAB BID PO");
+
+        drug.setFreqCode("PRN");
+        drug.usePrescriptionDirections(null, null, "TAB", true);
+        assertThat(drug.getHow()).isEqualTo("Take 1 TAB PRN PO");
+
+        drug.setSpecial("Take 1 tablet for breakthrough pain");
+        drug.usePrescriptionDirections(null, null, "TAB", true);
+        assertThat(drug.getHow()).isEqualTo("Take 1 tablet for breakthrough pain");
     }
 
     @Test

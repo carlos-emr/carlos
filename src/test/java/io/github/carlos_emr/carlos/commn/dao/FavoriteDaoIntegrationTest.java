@@ -159,6 +159,50 @@ public class FavoriteDaoIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    @Tag("create")
+    @DisplayName("should create distinct favorite when opt-in medicationDetails explicitly clears components")
+    void shouldNotMatchFavoriteWithComponents_whenOptInDetailsExplicitlyClearsComponents() {
+        Favorite withComponents = new Favorite();
+        withComponents.setProviderNo("FAVFIX");
+        withComponents.setName("Combo");
+        withComponents.setBn("ComboBrand");
+        withComponents.setGn("ComboGeneric 500mg/125mg");
+        withComponents.setDosage("500mg/125mg");
+        withComponents.setSpecial("Take 1 tab BID");
+        withComponents.setMedicationComponents("[{\"name\":\"Amoxicillin\",\"strength\":\"500\",\"unit\":\"mg\"}]");
+        withComponents.setExactMedicationDetails(true);
+        Favorite persisted = dao.createOrFind(withComponents);
+
+        // Omitted medicationDetails (legacy client) still matches the existing favorite.
+        Favorite legacyCandidate = new Favorite();
+        legacyCandidate.setProviderNo("FAVFIX");
+        legacyCandidate.setName("Combo");
+        legacyCandidate.setBn("ComboBrand");
+        legacyCandidate.setGn("ComboGeneric 500mg/125mg");
+        legacyCandidate.setDosage("500mg/125mg");
+        legacyCandidate.setSpecial("Take 1 tab BID");
+        legacyCandidate.setMedicationComponents(null);
+        legacyCandidate.setExactMedicationDetails(false);
+        assertThat(dao.createOrFind(legacyCandidate).getId()).isEqualTo(persisted.getId());
+
+        // Explicit opt-in medicationDetails with cleared null components creates a distinct row.
+        Favorite clearedCandidate = new Favorite();
+        clearedCandidate.setProviderNo("FAVFIX");
+        clearedCandidate.setName("Combo");
+        clearedCandidate.setBn("ComboBrand");
+        clearedCandidate.setGn("ComboGeneric 500mg/125mg");
+        clearedCandidate.setDosage("500mg/125mg");
+        clearedCandidate.setSpecial("Take 1 tab BID");
+        clearedCandidate.setMedicationComponents(null);
+        clearedCandidate.setExactMedicationDetails(true);
+        Favorite cleared = dao.createOrFind(clearedCandidate);
+
+        assertThat(cleared.getId()).isNotEqualTo(persisted.getId());
+        assertThat(cleared.getMedicationComponents()).isNull();
+        assertThat(dao.findByProviderNo("FAVFIX")).hasSize(2);
+    }
+
+    @Test
     void shouldReuseFavorite_whenOptionalClinicalMetadataIsNull() {
         var original = favoriteForSave("Legacy null metadata");
         original.setRegionalIdentifier(null);

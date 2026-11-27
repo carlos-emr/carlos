@@ -277,6 +277,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
 <fmt:message key="WriteScript.doseNotation" var="doseNotation"/>
 <fmt:message key="WriteScript.calculationPending" var="calculationPending"/>
 <fmt:message key="WriteScript.calculationFailed" var="calculationFailed"/>
+<fmt:message key="SearchDrug.js.staleDraft" var="calculationConflict"/>
 <%-- data-drug-ref-id links a ReRx card to its source drug so unticking ReRx can find the card (#3872); 0 for a new drug. --%>
 <fieldset style="margin-top:2px;" id="<%=fieldSetId%>"
           data-drug-ref-id="<carlos:encode value='<%= String.valueOf(DrugReferenceId) %>' context="htmlAttribute"/>"
@@ -298,9 +299,12 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
         <span id="rxDoseNotation_<%=rand%>" data-message="${carlos:forHtmlAttribute(doseNotation)}" role="status"></span>
         <span id="rxCalculationStatus_<%=rand%>" data-calculation-status role="status"
               data-pending="${carlos:forHtmlAttribute(calculationPending)}"
-              data-failure="${carlos:forHtmlAttribute(calculationFailed)}"></span>
+              data-failure="${carlos:forHtmlAttribute(calculationFailed)}"
+              data-conflict="${carlos:forHtmlAttribute(calculationConflict)}"></span>
         <button type="button" class="btn btn-sm btn-outline-secondary" id="rxCalculationRetry_<%=rand%>"
                 hidden onclick="retryRxCalculation(this)"><fmt:message key="WriteScript.calculationRetry"/></button>
+        <button type="button" class="btn btn-sm btn-primary" id="rxCalculationReopen_<%=rand%>"
+                hidden onclick="reopenRxPage()"><fmt:message key="SearchDrug.recovery.btnReopen"/></button>
     </div>
 
 	<!-- Allergy Alert Table-->

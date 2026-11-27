@@ -834,6 +834,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                 customRx.setRoute("");
                 customRx.setDosage("");
                 customRx.setUnit("");
+                customRx.setMedicationComponents(null);
 				customRx.setGCN_SEQNO("0");
                 customRx.setRegionalIdentifier("");
                 customRx.setAtcCode("");
@@ -1112,7 +1113,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875).
         RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (bean == null) {
-            response.sendError(HttpServletResponse.SC_CONFLICT);
+            refuseStaleStash();
             return NONE;
         }
 
@@ -1132,7 +1133,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         String revision = request.getParameter("draftRevision");
         if (current == null || current.getPendingSubmission() != null
                 || (revision != null && !current.getDraftRevision().equals(revision))) {
-            response.sendError(HttpServletResponse.SC_CONFLICT);
+            refuseStaleStash();
             return NONE;
         }
         int sequence = current.getCalculationSequence();
@@ -1918,6 +1919,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             String key = name.substring("draftRevision_".length());
             RxPrescriptionData.Prescription card = stagedCard(bean, key);
             if (card == null || card.getDrugId() <= 0 || card.getPendingSubmission() != null
+                    || card.getCalculationSequence() != 0
                     || !String.valueOf(scriptId).equals(card.getScript_no())) {
                 return null;
             }
@@ -2309,15 +2311,17 @@ public final class RxWriteScript2Action extends ActionSupport {
 
     /** Every save, its reasons/dates and archival must commit together, including the staged identities. */
     private String persistStashTransaction(LoggedInInfo loggedInInfo, RxSessionBean bean) {
-        record PreviousIdentity(RxPrescriptionData.Prescription card, int drugId, String scriptNo, String revision, Long sourceVersion, String pendingSubmission) {
+        record PreviousIdentity(RxPrescriptionData.Prescription card, int drugId, String scriptNo, String revision,
+                int calculationSequence, Long sourceVersion, String pendingSubmission) {
             void restore() {
-                card.restoreSavedIdentity(drugId, scriptNo, revision);
+                card.restoreSavedIdentity(drugId, scriptNo, revision, calculationSequence);
                 card.setSourceRowVersion(sourceVersion);
                 card.setPendingSubmission(pendingSubmission);
             }
         }
         List<PreviousIdentity> previous = Arrays.stream(bean.getStash())
-                .map(card -> new PreviousIdentity(card, card.getDrugId(), card.getScript_no(), card.getDraftRevision(), card.getSourceRowVersion(), card.getPendingSubmission())).toList();
+                .map(card -> new PreviousIdentity(card, card.getDrugId(), card.getScript_no(), card.getDraftRevision(),
+                        card.getCalculationSequence(), card.getSourceRowVersion(), card.getPendingSubmission())).toList();
         if (previous.stream().anyMatch(old -> old.pendingSubmission() != null)) {
             request.setAttribute("RX_SAVE_OUTCOME_UNKNOWN", Boolean.TRUE);
             throw new IllegalStateException("Prescription submission requires reconciliation");

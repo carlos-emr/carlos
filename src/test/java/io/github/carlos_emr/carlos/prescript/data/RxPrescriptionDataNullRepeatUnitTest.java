@@ -138,6 +138,7 @@ class RxPrescriptionDataNullRepeatUnitTest extends CarlosUnitTestBase {
         drug.setRepeat(repeats);
         drug.setDispenseInternal(true);
         drug.setSpecial("Synthetic drug: one tablet daily");
+        drug.setMedicationComponents("[{\"name\":\"Amoxicillin\",\"strength\":\"500\",\"unit\":\"mg\"}]");
         FavoriteDao dao = mock(FavoriteDao.class);
         registerMock(FavoriteDao.class, dao);
         doAnswer(invocation -> {
@@ -145,6 +146,7 @@ class RxPrescriptionDataNullRepeatUnitTest extends CarlosUnitTestBase {
             assertThat(saved.getRepeat()).isEqualTo(expected);
             assertThat(saved.isDispenseInternal()).isTrue();
             assertThat(saved.getSpecial()).isEqualTo(drug.getSpecial());
+            assertThat(saved.getMedicationComponents()).isEqualTo(drug.getMedicationComponents());
             saved.setId(42);
             return saved;
         }).when(dao).createOrFind(any(Favorite.class));

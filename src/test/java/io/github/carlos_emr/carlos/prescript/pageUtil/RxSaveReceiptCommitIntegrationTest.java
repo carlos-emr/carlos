@@ -494,6 +494,19 @@ class RxSaveReceiptCommitIntegrationTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test void shouldNotAcknowledgeReplayedCard_whenAnotherWindowCalculatedAfterSave() throws Exception {
+        try (var saved = new SavedDraft()) {
+            var calculated = saved.card.copyForCalculation();
+            calculated.setQuantity("60");
+            saved.card.applyCalculation(calculated, 1);
+
+            var answer = saved.replay(saved.submission("1 tab PO OD"), saved.bean);
+
+            assertThat(answer.path("error").asText()).isEqualTo("RX_ALREADY_SAVED");
+            assertThat(answer.has("draftRevisions")).isFalse();
+        }
+    }
+
     @Test void shouldClearSavedCards_whenTheSaveOnlyReplayFindsThemStillStaged() throws Exception {
         try (var saved = new SavedDraft()) {
             var retry = saved.submission("1 tab PO OD"); retry.addParameter("clearSaved", "true");

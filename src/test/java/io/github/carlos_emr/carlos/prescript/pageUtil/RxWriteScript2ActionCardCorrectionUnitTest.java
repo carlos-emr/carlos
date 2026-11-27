@@ -354,7 +354,7 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest
     @ValueSource(strings = {"updateQty", "parseInstructions"})
-    void shouldKeepStagedCardWhenCalculationFailsAfterChangingItsCopy(String operation) throws Exception {
+    void shouldKeepStagedCard_whenCalculationFailsAfterChangingItsCopy(String operation) throws Exception {
         request.setParameter("action", operation);
         request.setParameter("randomId", "1");
         request.setParameter("instruction", "new directions");
@@ -379,8 +379,57 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
         assertThat(card.getQuantity()).isEqualTo("30");
         assertThat(card.getSpecial()).isEqualTo("1 tab PO OD");
         assertThat(card.getCalculationSequence()).isZero();
-        assertThat(action.updateDrug()).isNull();
+
+        response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        RxWriteScript2Action retryAction = new RxWriteScript2Action(mockSignatureStampService);
+        assertThat(retryAction.updateDrug()).isNull();
+        assertThat(response.getStatus()).isEqualTo(200);
+        var retryJson = new ObjectMapper().readTree(response.getContentAsString());
+        assertThat(retryJson.path("calculationSequence").asInt()).isEqualTo(2);
         assertThat(card.getCalculationSequence()).isEqualTo(2);
+    }
+
+    @Test
+    void shouldClearMedicationComponents_whenConvertingCatalogueDrugToCustom() throws Exception {
+        card.setMedicationComponents("[{\"name\":\"Amoxicillin\",\"strength\":\"500\",\"unit\":\"mg\"}]");
+        request.setParameter("randomId", "1");
+        request.setParameter("customDrugName", "Compounded suspension");
+
+        String result = action.normalDrugSetCustom();
+
+        assertThat(result).isEqualTo("newRx");
+        assertThat(card.getCustomName()).isEqualTo("Compounded suspension");
+        assertThat(card.getMedicationComponents()).isNull();
+    }
+
+    @Test
+    void shouldReturnStaleStashErrorBody_whenCalculationDraftRevisionIsStale() throws Exception {
+        request.setParameter("action", "updateQty");
+        request.setParameter("randomId", "1");
+        request.setParameter("quantity", "30");
+        request.setParameter("draftRevision", "stale-revision");
+        request.setParameter("calculationSequence", "1");
+
+        assertThat(action.updateDrug()).isEqualTo(RxWriteScript2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(409);
+        var json = new ObjectMapper().readTree(response.getContentAsString());
+        assertThat(json.path("error").asText()).isEqualTo("STALE_RX_STASH");
+    }
+
+    @Test
+    void shouldRestoreCalculationSequence_whenSavedIdentityIsRestoredAfterRollback() {
+        String originalRevision = card.getDraftRevision();
+        var calculated = card.copyForCalculation();
+        card.applyCalculation(calculated, 4);
+        assertThat(card.getCalculationSequence()).isEqualTo(4);
+
+        card.advanceDraftRevision();
+        assertThat(card.getCalculationSequence()).isZero();
+
+        card.restoreSavedIdentity(0, null, originalRevision, 4);
+        assertThat(card.getDraftRevision()).isEqualTo(originalRevision);
+        assertThat(card.getCalculationSequence()).isEqualTo(4);
     }
 
     @Nested

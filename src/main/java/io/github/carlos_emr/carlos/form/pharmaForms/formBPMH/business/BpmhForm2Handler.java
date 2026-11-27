@@ -471,7 +471,9 @@ public class BpmhForm2Handler {
                     if (posted == null) continue;
                     if (StringUtils.isNotBlank(posted.getId())) {
                         editedChartRows.putIfAbsent(posted.getId(), posted);
-                    } else if (StringUtils.isNotBlank(posted.getReportedMedication())) {
+                    } else if (posted.getReportedMedication() != null
+                            || StringUtils.isNotBlank(posted.getPatientReportedUse())
+                            || StringUtils.isNotBlank(posted.getInstruction())) {
                         reportedRows.add(posted);
                     }
                 }
@@ -509,9 +511,9 @@ public class BpmhForm2Handler {
                     String doseUnit = RxUtil.recordedDoseUnit(drug.getUnit(), drug.getDrugForm(),
                             drug.getDosage(), drug.getCdsDoseText());
                     bpmhDrug.usePrescriptionDirections(drug.getBrandName(), drug.getSpecialInstruction(),
-                            StringUtils.isBlank(drug.getCdsDoseText()) ? doseUnit : null);
+                            StringUtils.isBlank(drug.getCdsDoseText()) ? doseUnit : null, drug.isPrn());
                     if (StringUtils.isBlank(bpmhDrug.getHow()) && StringUtils.isNotBlank(drug.getCdsDoseText())) {
-                        bpmhDrug.useRecordedDoseText(drug.getCdsDoseText(), doseUnit);
+                        bpmhDrug.useRecordedDoseText(drug.getCdsDoseText(), doseUnit, drug.isPrn());
                     }
                     bpmhDrug.setWhy(getDrugReason(drug.getId()));
                     String version = reviewVersion(drugId, drug.getRowVersion(), bpmhDrug);
@@ -545,8 +547,10 @@ public class BpmhForm2Handler {
 
         List<DrugReason> reasons = getDrugReasonDao().getReasonsForDrugID(drugId, true);
         if (reasons == null) return "";
+        List<DrugReason> orderedReasons = new ArrayList<>(reasons);
+        orderedReasons.sort(Comparator.comparing(DrugReason::getId, Comparator.nullsLast(Comparator.naturalOrder())));
         List<String> descriptions = new ArrayList<>();
-        for (DrugReason reason : reasons) {
+        for (DrugReason reason : orderedReasons) {
             String description = describeReason(reason);
             String comment = reason.getComments();
             if (StringUtils.isNotBlank(comment)) {

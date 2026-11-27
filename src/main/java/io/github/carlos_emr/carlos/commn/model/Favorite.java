@@ -107,8 +107,37 @@ public class Favorite extends AbstractModel<Integer> {
 
     @Column(name = "medication_components")
     private String medicationComponents;
+
+    @jakarta.persistence.Transient
+    private boolean exactMedicationDetails;
+
+    /**
+     * Returns the JSON-encoded medication component list stored for this favorite, if any.
+     *
+     * @return String JSON-encoded medication components, or {@code null} when not recorded
+     */
     public String getMedicationComponents() { return medicationComponents; }
+
+    /**
+     * Sets the JSON-encoded medication component list for this favorite.
+     *
+     * @param medicationComponents String JSON-encoded medication components, or {@code null} when absent or cleared
+     */
     public void setMedicationComponents(String medicationComponents) { this.medicationComponents = medicationComponents; }
+
+    /**
+     * Indicates whether this favorite was populated from an explicit opt-in {@code medicationDetails} payload.
+     *
+     * @return boolean {@code true} when {@code medicationComponents} reflects an explicit opt-in state (including cleared {@code null})
+     */
+    public boolean isExactMedicationDetails() { return exactMedicationDetails; }
+
+    /**
+     * Marks whether this favorite was populated from an explicit opt-in {@code medicationDetails} payload.
+     *
+     * @param exactMedicationDetails boolean {@code true} when {@code medicationComponents} should be matched strictly during deduplication
+     */
+    public void setExactMedicationDetails(boolean exactMedicationDetails) { this.exactMedicationDetails = exactMedicationDetails; }
 
 
     @Column(name = "custom_instructions")

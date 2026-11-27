@@ -610,19 +610,25 @@ public class RxUtil {
         String typedUnit = rx.getUnitName();
         DispenseQuantity quantity = parseDispenseQuantity(typedQuantity);
         instrucParser(rx);
+        boolean hasTypedUnit = hasUnitName(typedUnit);
         if (quantity.text() != null && (calculatedNoQuantity(rx) || quantity.amount() == null
-                || quantity.unit() != null || (typedUnit != null && !typedUnit.isBlank()))) {
+                || quantity.unit() != null || hasTypedUnit)) {
             rx.setQuantity(typedQuantity);
             rx.setUnitName(typedUnit);
         }
         if (rx.isDurationSpecifiedByUser()) {
             return rx.getDuration();
         }
-        if (quantity.amount() == null || quantity.unit() != null
-                || (typedUnit != null && !typedUnit.isBlank()) || rx.getPrn()) {
+        if (quantity.amount() == null || quantity.unit() != null || hasTypedUnit || rx.getPrn()) {
             return null;
         }
         return wholeDurationUnits(quantity.amount(), rx.getTakeMax(), rx.getFrequencyCode(), rx.getDurationUnit());
+    }
+
+    /** True when the unit name is non-blank and not the legacy placeholder string {@code "null"}. */
+    private static boolean hasUnitName(String unitName) {
+        return unitName != null && !unitName.isBlank()
+                && !org.apache.commons.lang3.Strings.CI.equals("null", unitName.strip());
     }
 
     /** True when the parser left no calculated quantity behind: null, empty or "0". */

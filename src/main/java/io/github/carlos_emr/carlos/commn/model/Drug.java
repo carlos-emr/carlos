@@ -142,13 +142,33 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
 
     @Column(name = "medication_components")
     private String medicationComponents;
+
+    /**
+     * Returns the JSON-encoded medication component list stored for this prescription, if any.
+     *
+     * @return String JSON-encoded medication components, or {@code null} when not recorded
+     */
     public String getMedicationComponents() { return medicationComponents; }
+
+    /**
+     * Sets the JSON-encoded medication component list for this prescription.
+     *
+     * @param medicationComponents String JSON-encoded medication components, or {@code null} when absent or cleared
+     */
     public void setMedicationComponents(String medicationComponents) { this.medicationComponents = medicationComponents; }
 
     @Transient
     private boolean exactMedicationDetails;
 
-    /** The exact REST representation may contain significant spaces or an explicit NULL. */
+    /**
+     * Applies exact opt-in REST medication fields verbatim, preserving significant spaces and explicit {@code null} values,
+     * and marks this instance so subsequent unchanged-value preservation does not overwrite them with legacy projections.
+     *
+     * @param quantity String exact dispense quantity text, or {@code null}
+     * @param dispenseUnit String exact dispense unit text, or {@code null}
+     * @param dosage String exact dosage or strength text, or {@code null}
+     * @param components String JSON-encoded medication components, or {@code null}
+     */
     public void setExactMedicationDetails(String quantity, String dispenseUnit, String dosage, String components) {
         this.quantity = quantity;
         this.unitName = dispenseUnit;
@@ -158,8 +178,16 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     /**
-     * A legacy REST client cannot echo exact prescription and component fields.
-     * Carry them to an unchanged product, while leaving the source row untouched.
+     * Preserves exact stored clinical fields and SQL {@code NULL} markers from {@code original} when a legacy REST client
+     * submits an update for the same product.
+     *
+     * <p>When the product identity fields ({@code regionalIdentifier}, {@code brandName}, {@code genericName},
+     * {@code customName}, {@code drugForm}) all match after trimming, exact stored spellings, component data, and
+     * nullable flags/dose bounds are carried forward whenever the incoming update left them unchanged or only echoed
+     * a lossy legacy projection. If any product identity field changed, this method returns immediately without modifying
+     * this instance, and {@code original} is never mutated.</p>
+     *
+     * @param original Drug the existing persisted medication row being updated
      */
     public void preserveUnchangedMedicationValues(Drug original) {
         if (!java.util.Objects.equals(regionalIdentifier, StringUtils.trimToNull(original.regionalIdentifier))
@@ -702,7 +730,18 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
         this.archived = archived;
     }
 
-    /** Archive the stored medication and retain its state before the first lifecycle change. */
+    /**
+     * Archives this medication with the given reason and date, capturing the pre-lifecycle archive state once
+     * before the first observed lifecycle change.
+     *
+     * <p>Blank reasons are normalized to {@code null}. The {@code archivedBeforeLifecycle},
+     * {@code archivedDateBeforeLifecycle}, and {@code archivedReasonBeforeLifecycle} snapshot fields are written
+     * only if no prior lifecycle snapshot has been recorded and the call actually changes the archive status,
+     * reason, or date.</p>
+     *
+     * @param reason String archival reason text (blank values are normalized to {@code null})
+     * @param date Date archival timestamp, or {@code null}
+     */
     public void archive(String reason, Date date) {
         String normalizedReason = StringUtils.trimToNull(reason);
         if (!archived || !java.util.Objects.equals(archivedReason, normalizedReason)
@@ -714,7 +753,10 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
         archivedDate = date;
     }
 
-    /** The legacy flag-only archive leaves the recorded date and reason in place. */
+    /**
+     * Marks this medication as archived without modifying any recorded archive date or reason, capturing
+     * the pre-lifecycle archive state if this is the first observed transition from active to archived.
+     */
     public void archive() {
         if (!archived) {
             rememberArchiveState();

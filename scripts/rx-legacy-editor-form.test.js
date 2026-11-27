@@ -59,17 +59,32 @@ test('legacy editor and stash forms are balanced siblings with distinct action/p
 
 for (const action of ['update', 'updateAddAnother', 'updateAndPrint']) {
   test(`legacy ${action} sets its own action control before native form submission`, () => {
-    const actionField = {value: ''};
-    let submitted;
-    const frm = {
-      action: '/carlos/rx/writeScript', // Built-in form.action is not the action control.
-      elements: {action: actionField}, quantity: {value: '30'}, repeat: {value: ''},
-      submit() { submitted = {action: actionField.value, repeat: this.repeat.value}; },
-    };
-    const context = {frm, oscarLog() {}};
-    vm.runInNewContext(functionSource('submitForm', 'function changeDuration('), context);
-    context.submitForm(action);
-    assert.deepEqual(submitted, {action, repeat: 0});
+    for (const qty of ['30', '7.50', '0.5', '.5']) {
+      const actionField = {value: ''};
+      let submitted;
+      const frm = {
+        action: '/carlos/rx/writeScript', // Built-in form.action is not the action control.
+        elements: {action: actionField}, quantity: {value: qty}, repeat: {value: ''},
+        submit() { submitted = {action: actionField.value, repeat: this.repeat.value}; },
+      };
+      const context = {frm, oscarLog() {}};
+      vm.runInNewContext(functionSource('submitForm', 'function changeDuration('), context);
+      context.submitForm(action);
+      assert.deepEqual(submitted, {action, repeat: 0}, `expected quantity ${qty} to submit`);
+    }
+    for (const invalidQty of ['', '   ', 'abc', '.', '1.2.3', '-5']) {
+      const actionField = {value: ''};
+      let submitted = false;
+      const frm = {
+        action: '/carlos/rx/writeScript',
+        elements: {action: actionField}, quantity: {value: invalidQty}, repeat: {value: '0'},
+        submit() { submitted = true; },
+      };
+      const context = {frm, oscarLog() {}};
+      vm.runInNewContext(functionSource('submitForm', 'function changeDuration('), context);
+      context.submitForm(action);
+      assert.equal(submitted, false, `expected invalid quantity ${JSON.stringify(invalidQty)} to be refused`);
+    }
   });
 }
 

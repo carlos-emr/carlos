@@ -131,3 +131,37 @@ test('a parseIntr reply with calQuantity 0 keeps the displayed quantity and unit
   assert.equal(f.field('unitName').textContent, 'mL');
   assert.deepEqual(f.quotes, []);
 });
+
+test('calculated small takeMin/takeMax values format as plain decimals accepted by isDoseAmount', () => {
+  const f = fixture();
+  const RxInputValidation = require('../src/main/webapp/share/javascript/rx-input-validation.js');
+  f.context.updateQty(f.field('quantity'));
+  f.reply(f.requests[0], { takeMin: 0.0000001, takeMax: 0.00000025 });
+  assert.equal(f.field('minimum').textContent, '0.0000001');
+  assert.equal(f.field('maximum').textContent, '0.00000025');
+  assert.equal(RxInputValidation.isDoseAmount(f.field('minimum').textContent), true);
+  assert.equal(RxInputValidation.isDoseAmount(f.field('maximum').textContent), true);
+});
+
+test('a returning calculation does not overwrite an inline dose edited after the request started', () => {
+  const f = fixture();
+  f.context.updateQty(f.field('quantity'));
+  f.field('maximum').textContent = '2';
+  f.field('set')._rxPropertyVersions = { maximum: 1 };
+  f.field('maximum').setAttribute('aria-invalid', 'true');
+  f.reply(f.requests[0], { takeMax: 1, duration: '30' });
+  assert.equal(f.field('maximum').textContent, '2');
+  assert.equal(f.field('maximum').attributes.get('aria-invalid'), 'true');
+});
+
+test('a 409 STALE_RX_STASH calculation conflict offers Reopen instead of Retry', () => {
+  const f = fixture();
+  f.elements.get('rxCalculationStatus_11').dataset.conflict = 'Draft changed in another window';
+  f.elements.set('rxCalculationReopen_11', { hidden: true });
+  f.context.updateQty(f.field('quantity'));
+  f.requests[0].options.onFailure({ status: 409, responseText: JSON.stringify({ error: 'STALE_RX_STASH' }) });
+  assert.equal(f.field('set').attributes.get('data-calculation-blocked'), 'true');
+  assert.equal(f.elements.get('rxCalculationStatus_11').textContent, 'Draft changed in another window');
+  assert.equal(f.elements.get('rxCalculationRetry_11').hidden, true);
+  assert.equal(f.elements.get('rxCalculationReopen_11').hidden, false);
+});

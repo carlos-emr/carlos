@@ -59,6 +59,72 @@ class MedicationDetailsUnitTest {
         assertThat(MedicationDetails.read("1/2 bottle", null, "250 mg", null).isComponentDataComplete()).isFalse();
     }
 
+    @Test
+    void shouldConvertFavoriteWithExactDetailsAndLegacyStrength_viaFavoriteConverter() {
+        var converter = new io.github.carlos_emr.carlos.webserv.rest.conversion.FavoriteConverterImpl();
+        var loggedInInfo = new io.github.carlos_emr.carlos.utility.LoggedInInfo();
+        var provider = new io.github.carlos_emr.carlos.commn.model.Provider();
+        provider.setProviderNo("999998");
+        loggedInInfo.setLoggedInProvider(provider);
+
+        var optIn = new FavoriteTo1();
+        optIn.setFavoriteName("Opt-in Suspension");
+        optIn.setBrandName("Synthetic Suspension");
+        optIn.setGenericName("Synthetic Suspension");
+        optIn.setTakeMin(1f);
+        optIn.setTakeMax(1f);
+        optIn.setPrn(false);
+        var details = new MedicationDetails();
+        details.setQuantityText("7.5");
+        details.setDispenseUnit("mL");
+        details.setDosageText("250 mg/5 mL");
+        details.setComponents(List.of(new MedicationDetails.Component("Ingredient A", "250", "mg/5 mL")));
+        optIn.setMedicationDetails(details);
+
+        var convertedOptIn = converter.getAsDomainObject(loggedInInfo, optIn);
+        assertThat(convertedOptIn.isExactMedicationDetails()).isTrue();
+        assertThat(convertedOptIn.getQuantity()).isEqualTo("7.5");
+        assertThat(convertedOptIn.getUnitName()).isEqualTo("mL");
+        assertThat(convertedOptIn.getDosage()).isEqualTo("250 mg/5 mL");
+        assertThat(convertedOptIn.getMedicationComponents()).contains("Ingredient A");
+
+        var clearedComponents = new FavoriteTo1();
+        clearedComponents.setFavoriteName("Cleared Components");
+        clearedComponents.setTakeMin(1f);
+        clearedComponents.setTakeMax(1f);
+        clearedComponents.setPrn(false);
+        var emptyDetails = new MedicationDetails();
+        emptyDetails.setQuantityText("30");
+        emptyDetails.setDosageText("500 mg");
+        clearedComponents.setMedicationDetails(emptyDetails);
+
+        var convertedCleared = converter.getAsDomainObject(loggedInInfo, clearedComponents);
+        assertThat(convertedCleared.isExactMedicationDetails()).isTrue();
+        assertThat(convertedCleared.getMedicationComponents()).isNull();
+
+        var legacy = new FavoriteTo1();
+        legacy.setFavoriteName("Legacy Tablet");
+        legacy.setTakeMin(1f);
+        legacy.setTakeMax(1f);
+        legacy.setPrn(false);
+        legacy.setQuantity(30);
+        legacy.setStrength(500f);
+        legacy.setStrengthUnit("mg");
+        legacy.setRepeats(2);
+
+        var convertedLegacy = converter.getAsDomainObject(loggedInInfo, legacy);
+        assertThat(convertedLegacy.isExactMedicationDetails()).isFalse();
+        assertThat(convertedLegacy.getDosage()).isEqualTo("500 mg");
+        assertThat(convertedLegacy.getQuantity()).isEqualTo("30");
+        assertThat(convertedLegacy.getRepeat()).isEqualTo(2);
+
+        convertedOptIn.setId(42);
+        convertedOptIn.setDuration("10");
+        var back = converter.getAsTransferObject(loggedInInfo, convertedOptIn);
+        assertThat(back.getDuration()).isEqualTo(10);
+        assertThat(back.getQuantity()).isNull();
+    }
+
     private static ObjectMapper restMapper() {
         ObjectMapper mapper = new ObjectMapper();
         return mapper.setAnnotationIntrospector(new AnnotationIntrospectorPair(new JacksonAnnotationIntrospector(),

@@ -260,3 +260,16 @@ test('a refused inline field blocks Save until the server accepts its correction
   s.requests[0].options.onSuccess({status: 200});
   assert.equal(s.context.validateCardProperties(), true);
 });
+
+test('an accepted inline dose edit supersedes a pending quantity calculation', () => {
+  const s = cardFields();
+  const card = s.element('set_5', { _rxCalculationPending: true });
+  const qty = s.element('quantity_5', { value: '30' });
+  const max = s.element('maximum_5', { textContent: '2', removeAttribute() {} });
+  const recalculated = [];
+  s.context.updateQty = el => recalculated.push(el);
+  s.context.updateProperty(max.id);
+  assert.equal(card._rxPropertyVersions.maximum, 1);
+  s.requests[0].options.onSuccess({ status: 200 });
+  assert.deepEqual(recalculated, [qty]);
+});

@@ -1142,9 +1142,23 @@ public class RxPrescriptionData {
 
         /** Restores the last committed row after a correction-save transaction rolls back. */
         public void restoreSavedIdentity(int previousDrugId, String previousScriptNo, String previousDraftRevision) {
+            restoreSavedIdentity(previousDrugId, previousScriptNo, previousDraftRevision, this.calculationSequence);
+        }
+
+        /**
+         * Restores the last committed row and its pre-save calculation sequence after a save transaction rolls back.
+         *
+         * @param previousDrugId int previously persisted drug identifier
+         * @param previousScriptNo String previously persisted script number
+         * @param previousDraftRevision String pre-save draft revision token
+         * @param previousCalculationSequence int pre-save calculation sequence acknowledged by the browser
+         */
+        public void restoreSavedIdentity(int previousDrugId, String previousScriptNo, String previousDraftRevision,
+                int previousCalculationSequence) {
             this.drugId = previousDrugId;
             this.script_no = previousScriptNo;
             this.draftRevision = previousDraftRevision;
+            this.calculationSequence = previousCalculationSequence;
         }
 
         public String getProviderNo() {
@@ -2632,6 +2646,7 @@ public class RxPrescriptionData {
     public static boolean addToFavorites(String providerNo, String favoriteName, Drug drug) {
         Favorite fav = new Favorite(0, providerNo, favoriteName, drug.getBrandName(), drug.getGcnSeqNo(), drug.getCustomName(), drug.getTakeMin(), drug.getTakeMax(), drug.getFreqCode(), drug.getDuration(), drug.getDurUnit(), drug.getQuantity(), drug.getRepeat() == null ? 0 : drug.getRepeat(), drug.isNoSubs(), drug.isPrn(), drug.getSpecial(), drug.getGenericName(), drug.getAtc(), drug.getRegionalIdentifier(), drug.getUnit(), drug.getUnitName(), drug.getMethod(), drug.getRoute(), drug.getDrugForm(), drug.isCustomInstructions(),
                 drug.getDosage());
+        fav.setMedicationComponents(drug.getMedicationComponents());
         fav.setDispenseInternal(drug.getDispenseInternal());
         return fav.Save();
     }
