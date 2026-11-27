@@ -24,7 +24,7 @@ name: Semgrep Security Scan
 on:
   push:
     tags: ['20*']
-    branches: [develop, main, "release/*", "codex/verify-6425-full-scan"]
+    branches: [develop, main, "release/*", "codex/verify-6425-semgrep-187"]
   pull_request:
     branches: [develop, main, "release/*"]
   workflow_dispatch: {}
@@ -52,7 +52,7 @@ jobs:
     # taint rules. Bound the job while leaving time to verify and upload the SARIF.
     timeout-minutes: 210
     container:
-      image: semgrep/semgrep@sha256:cc1b68266f267878b39739373ea9985b9a78e5d64497dd875c8de100b22695ed # 1.184.0
+      image: semgrep/semgrep@sha256:0c8dfa7aa1ca8c50233ec9110e8cd88d139dedd603d56507493f74c6f4b3e062 # 1.187.0
     env:
       HAS_SEMGREP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN != '' }}
     if: github.actor != 'dependabot[bot]'
