@@ -113,6 +113,10 @@
 //   - Catch-up primary series for children 7 years and older. Of the guide's catch-up schedule for 7 to 17 (Part 1,
 //     Table 3), only "Tdap ... 10 years after last dose of Tdap-IPV" is modelled, through "Tdap 1".
 //   - Provincial schedules that differ from the national guide (a clinic rules file can change them).
+//   - The month count behind most 10-year and age thresholds (Prevention.getNumMonths) drifts after a short month: a
+//     dose or birth on the 29th to the 31st reaches a threshold up to three days early. Only the Tdap clock of "Td 1"
+//     and "Td 2" uses the calendar-correct Prevention.calendarMonthsBetween; changing the legacy count moves every
+//     existing reminder, so it is left for a separate decision.
 //
 // Converted from Drools 2.0 XML format to Drools 7.x DRL text format.
 // Original XML used <rule-set>, <parameter>, <java:condition>, <java:consequence>.
@@ -190,22 +194,19 @@ function java.util.Date lastDoseGiven(Prevention prev, String type) {
     return last;
 }
 
-// Whole months from the latest dose given of one type to now, counted as Prevention.getHowManyMonthsSinceLast
-// counts them, or -1 when there is none.
+// Whole calendar months from the latest dose given of one type to today, or -1 when there is none. Counted by
+// Prevention.calendarMonthsBetween, which does not drift after a short month: Prevention.getHowManyMonthsSinceLast
+// (the legacy count, which every other 10-year threshold here still uses) adds a month at a time to the same date,
+// so a dose on the 29th to the 31st reaches 120 months up to three days early. Changing that count would move every
+// existing reminder, so it is a separate follow-up.
 function int monthsSinceLastDoseGiven(Prevention prev, String type) {
     java.util.Date last = lastDoseGiven(prev, type);
     if (last == null) {
         return -1;
     }
-    java.util.Date now = java.util.Calendar.getInstance().getTime();
-    java.util.Calendar month = java.util.Calendar.getInstance();
-    month.setTime(last);
-    int months = 0;
-    while (!month.getTime().after(now)) {
-        month.add(java.util.Calendar.MONTH, 1);
-        months++;
-    }
-    return Math.max(months - 1, 0);
+    java.time.ZoneId zone = java.time.ZoneId.systemDefault();
+    return Prevention.calendarMonthsBetween(
+        java.time.Instant.ofEpochMilli(last.getTime()).atZone(zone).toLocalDate(), java.time.LocalDate.now(zone));
 }
 
 // These tetanus-containing products also postpone either Td reminder for ten years. The rules separately

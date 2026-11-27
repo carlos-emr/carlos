@@ -447,8 +447,49 @@ public class Prevention {
             return -1;
         }
         ZoneId zone = ZoneId.systemDefault();
-        LocalDate given = Instant.ofEpochMilli(last.getTime()).atZone(zone).toLocalDate();
-        return Math.toIntExact(ChronoUnit.DAYS.between(given, LocalDate.now(zone)));
+        return calendarDaysBetween(last, LocalDate.now(zone), zone);
+    }
+
+    /**
+     * Whole calendar days from the date {@code given} falls on in {@code zone} to {@code today}. It subtracts two
+     * calendar dates, so the time of day {@code given} carries and a daylight saving change in {@code zone}
+     * between the two dates cannot add or remove a day (a count of elapsed hours divided by 24 can). Public and
+     * static so that a test can fix both the dates and the zone (#5048).
+     *
+     * @param given Date the moment the record was dated with (may carry a time of day)
+     * @param today LocalDate the date to count to
+     * @param zone ZoneId the time zone whose calendar {@code given} is read in
+     * @return int the day count, negative when {@code given} falls after {@code today}
+     */
+    public static int calendarDaysBetween(Date given, LocalDate today, ZoneId zone) {
+        LocalDate day = Instant.ofEpochMilli(given.getTime()).atZone(zone).toLocalDate();
+        return Math.toIntExact(ChronoUnit.DAYS.between(day, today));
+    }
+
+    /**
+     * Whole calendar months from {@code from} to {@code to}, counted without drift: month {@code n} is reached on
+     * {@code from.plusMonths(n)}, which for a day the later month does not have (the 29th to the 31st) is that
+     * month's last day, so a dose given on 31 January is one month old on 28 or 29 February and exactly ten years
+     * old on 31 January ten years later; one given on 29 February is ten years old on 28 February. The legacy
+     * {@code getNumMonths} adds a month at a time to the same date, so after a short month the day stays at the
+     * 28th and a dose or birth on the 29th to the 31st reaches a threshold up to three days early; it is left as it
+     * is (it moves every existing reminder), and only the rules written for #5048 use this count.
+     *
+     * @param from LocalDate the start date (a dose date)
+     * @param to LocalDate the end date (today)
+     * @return int the whole months, never negative (0 when {@code to} is before {@code from})
+     */
+    public static int calendarMonthsBetween(LocalDate from, LocalDate to) {
+        if (to.isBefore(from)) {
+            return 0;
+        }
+        int months = (int) ChronoUnit.MONTHS.between(from, to);
+        // ChronoUnit.MONTHS counts a month complete only on the same day number; a month with fewer days
+        // completes on its last day.
+        while (!from.plusMonths(months + 1L).isAfter(to)) {
+            months++;
+        }
+        return months;
     }
 
     public int getNumberOfPreventionType(String preventionType) {

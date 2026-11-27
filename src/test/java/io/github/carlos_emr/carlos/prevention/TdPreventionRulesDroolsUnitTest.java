@@ -585,4 +585,52 @@ class TdPreventionRulesDroolsUnitTest {
         assertThat(fireRules(personWithDosesAtAgeInMonths(15, "DTaP-IPV", 2, 4, 6, 18)).getWarnings())
                 .containsOnlyOnce(NEEDS_TDAP).doesNotContain(THIRD_DTAP_IPV, SECOND_DTAP_IPV);
     }
+
+    /** A date the given whole calendar months before today (clamped to a month's last day), plus some days. */
+    private static Date monthsAgo(int months, int plusDays) {
+        return Date.from(java.time.LocalDate.now().minusMonths(months).plusDays(plusDays).atStartOfDay()
+                .atZone(java.time.ZoneId.systemDefault()).toInstant());
+    }
+
+    /** A 70-year-old with a plain Tdap given the given calendar months ago (plus days), and other vaccines in years. */
+    private static Prevention adultWithTdapMonthsOld(int months, int plusDays, Object... otherTypeAndYearsAgo) {
+        Prevention prev = adultWith(otherTypeAndYearsAgo);
+        prev.addPreventionItem(new PreventionItem("Tdap", monthsAgo(months, plusDays)));
+        return prev;
+    }
+
+    // The Tdap clock of both Td rules counts calendar months without the drift of the legacy count (#5048): the
+    // exact edge in months, for a plain Tdap (the adult Tdap was given at 60, so the 10-year Td rules decide).
+
+    @Test
+    void shouldAskForATd_whenThePlainTdapIsExactlyOneHundredTwentyMonthsOld() {
+        assertThat(fireRules(adultWithTdapMonthsOld(120, 0)).getWarnings())
+                .contains(NEEDS_TD).doesNotContain(ADULT_TDAP, REPEAT_TD);
+    }
+
+    @Test
+    void shouldNotAskForATd_whenThePlainTdapIsThreeDaysShortOfOneHundredTwentyMonths() {
+        // 119 months and a few days: no Td, and no adult Tdap either (it was given at 60).
+        assertThat(fireRules(adultWithTdapMonthsOld(120, 3)).getWarnings())
+                .doesNotContain(NEEDS_TD, REPEAT_TD, ADULT_TDAP);
+    }
+
+    @Test
+    void shouldNotAskForATd_whenThePlainTdapIsOneHundredNineteenMonthsOld() {
+        assertThat(fireRules(adultWithTdapMonthsOld(119, 0)).getWarnings())
+                .doesNotContain(NEEDS_TD, REPEAT_TD, ADULT_TDAP);
+    }
+
+    @Test
+    void shouldAskForARepeatTd_whenTheTdIsTwelveYearsOldAndThePlainTdapExactlyOneHundredTwentyMonthsOld() {
+        assertThat(fireRules(adultWithTdapMonthsOld(120, 0, "Td", 12)).getWarnings())
+                .contains(REPEAT_TD).doesNotContain(NEEDS_TD, ADULT_TDAP);
+    }
+
+    @Test
+    void shouldNotAskForARepeatTd_whenThePlainTdapIsThreeDaysShortOfOneHundredTwentyMonths() {
+        // The Td is old enough; the Tdap, under 120 months, holds the repeat Td back.
+        assertThat(fireRules(adultWithTdapMonthsOld(120, 3, "Td", 12)).getWarnings())
+                .doesNotContain(REPEAT_TD, NEEDS_TD, ADULT_TDAP);
+    }
 }
