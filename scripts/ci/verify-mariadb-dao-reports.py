@@ -274,7 +274,7 @@ REQUIRED_CASES = {
     # Issue #5693: every one of the eighteen rehabilitation-study tables must be compared with the
     # retired writer and reader on the physical server, and each rollback and archive case must run.
     "RehabStudyFormDaoIntegrationTest": {
-        f"shouldStoreAndShowEveryColumn_exactlyAsTheRetiredRecordDid(String, RehabStudyFormType)[{index}]"
+        f"shouldStoreAndShowEveryColumn_exactlyAsTheRetiredRecordDid(RehabStudyFormType)[{index}]"
         for index in range(1, 19)
     } | {
         f"shouldRetainTheCommittedFormAndLogSafely_whenTheArchiveReadOrWriteFails(boolean)[{index}]"

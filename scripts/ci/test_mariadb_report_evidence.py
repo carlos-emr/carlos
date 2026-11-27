@@ -30,7 +30,7 @@ GROWTH_REQUIRED_CASES = {
 # Issue #5693: one physical comparison per rehabilitation-study table, plus the rollback, audit
 # and archive-failure cases. Spelled out here, independently of the verifier.
 REHAB_REQUIRED_CASES = {
-    *(f"shouldStoreAndShowEveryColumn_exactlyAsTheRetiredRecordDid(String, RehabStudyFormType)[{index}]"
+    *(f"shouldStoreAndShowEveryColumn_exactlyAsTheRetiredRecordDid(RehabStudyFormType)[{index}]"
       for index in range(1, 19)),
     "shouldRetainTheCommittedFormAndLogSafely_whenTheArchiveReadOrWriteFails(boolean)[1]",
     "shouldRetainTheCommittedFormAndLogSafely_whenTheArchiveReadOrWriteFails(boolean)[2]",
