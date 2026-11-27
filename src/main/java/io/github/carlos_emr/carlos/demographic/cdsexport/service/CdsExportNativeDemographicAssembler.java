@@ -320,9 +320,10 @@ public final class CdsExportNativeDemographicAssembler {
     /**
      * The legacy patient alert ({@code demographiccust.cust3}, the Alert box of the demographic
      * forms) is exported as AlertsAndSpecialNeeds/AlertDescription when that category is selected
-     * (CdsExportPatientAlertMapper). No alert requires review: the 255-character column always
-     * fits the element, and a character XML cannot carry is U+FFFD there with the stored text
-     * exact in the occurrence's residual.
+     * (CdsExportPatientAlertMapper). No alert requires review. The column holds up to 16,383
+     * characters and the element 1,000, so an alert over 1,000 characters leaves AlertDescription
+     * out and travels whole in the occurrence's residual; a character XML cannot carry is U+FFFD
+     * in the element, with the stored text exact in the residual.
      */
     static CdsExportFieldAssessmentDto alert(String value) {
         var presence = CdsExportDemographicSupportingMapper.presence(value);
