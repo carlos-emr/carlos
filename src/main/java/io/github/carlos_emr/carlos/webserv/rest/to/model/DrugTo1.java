@@ -234,6 +234,7 @@ public class DrugTo1 implements Serializable {
         return takeMin;
     }
 
+    /** @return true when the minimum dose member was supplied or the DTO predates presence tracking */
     public boolean hasSubmittedTakeMin() {
         return !Boolean.FALSE.equals(minimumSubmitted);
     }
@@ -248,6 +249,7 @@ public class DrugTo1 implements Serializable {
         return takeMax;
     }
 
+    /** @return true when the maximum dose member was supplied or the DTO predates presence tracking */
     public boolean hasSubmittedTakeMax() {
         return !Boolean.FALSE.equals(maximumSubmitted);
     }
@@ -395,6 +397,7 @@ public class DrugTo1 implements Serializable {
         quantitySubmitted = true;
     }
 
+    /** @return true when the dispense quantity member was supplied or the DTO predates presence tracking */
     public boolean hasSubmittedQuantity() {
         return !Boolean.FALSE.equals(quantitySubmitted);
     }

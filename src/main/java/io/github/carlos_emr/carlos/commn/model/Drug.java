@@ -546,7 +546,9 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
 
     /**
      * Retain source values that the legacy REST medication cannot return on an unrelated edit.
-     * Assign the stored fields directly: the public setters also trim newly submitted text.
+     * Assign the stored fields directly because the public setters trim newly submitted text.
+     *
+     * @param source Drug holding the original prescription before replacement
      */
     public void preserveUnchangedMedicationValues(Drug source) {
         if (!sameMedicationProduct(source)) return;
@@ -579,7 +581,13 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
         if (source.startDateUnknown == null && !getStartDateUnknown()) startDateUnknown = null;
     }
 
-    /** Preserve fields absent from a same-product REST replacement, including its unrepresented GCN. */
+    /**
+     * Records which fields the legacy REST client supplied so a same-product edit can retain omitted values.
+     *
+     * @param quantitySubmitted boolean indicating that the integer quantity member was present
+     * @param minimumSubmitted boolean indicating that the minimum dose member was present
+     * @param maximumSubmitted boolean indicating that the maximum dose member was present
+     */
     public void recordRestFieldPresence(boolean quantitySubmitted, boolean minimumSubmitted, boolean maximumSubmitted) {
         restQuantitySubmitted = quantitySubmitted;
         restMinimumOmitted = !minimumSubmitted;
@@ -593,7 +601,15 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
                 && (restQuantitySubmitted != null || Objects.equals(gcnSeqNo, source.gcnSeqNo));
     }
 
-    /** Validate the combined replacement while retaining an untouched historical range and an unspecified maximum. */
+    /**
+     * Validates the final bounds of a REST medication after any omitted values have been restored.
+     * Native medication objects bypass this REST check. A nonpositive maximum records an unspecified upper
+     * bound. An edit may carry forward both original bounds verbatim on the same product, including a
+     * historical range that a new prescription could not use.
+     *
+     * @param source Drug holding the prescription being replaced, or null for a new medication
+     * @throws InvalidDoseRangeException if new or changed bounds are nonfinite or the minimum exceeds a positive maximum
+     */
     public void requireValidRestDoseRange(Drug source) {
         if (restQuantitySubmitted == null) return;
         float minimum = getTakeMin();
@@ -604,6 +620,12 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
         throw new InvalidDoseRangeException();
     }
 
+    /**
+     * Indicates that the submitted REST dose range cannot be saved. The REST exception mapper returns a
+     * field-specific validation error without exposing the prescribed amounts.
+     *
+     * @since 2026-11-26
+     */
     public static final class InvalidDoseRangeException extends IllegalArgumentException {
         private static final long serialVersionUID = 1L;
     }
