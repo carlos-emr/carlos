@@ -486,7 +486,7 @@ public class EForm extends EFormBase {
                 setAP2nd = true;
             } else {
                 fieldReadings.clear(); // no database tag reads them: a select is never parsed for its value
-                i = 2;
+                break;
             }
         }
     }
@@ -1547,11 +1547,6 @@ public class EForm extends EFormBase {
         } else {
             return "";
         }
-    }
-
-    private String getFieldHeader(String html, int fieldIndex) {
-        StringBuilder sb_html = new StringBuilder(html);
-        return getFieldHeader(sb_html, fieldIndex);
     }
 
     private String getFieldHeader(StringBuilder html, int fieldIndex) {

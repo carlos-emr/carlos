@@ -112,6 +112,27 @@
       "wanted": "B",
       "after": "<select name=\"a\" oscarDB=choice><option value=\"A\">a</option><option selected value=\"B\">b</option></select>",
       "submitted": "B"
+    },
+    {
+      "name": "an unquoted value before selected and a slash keeps the white space that ends the value",
+      "before": "<select name=\"a\" oscarDB=choice><option value=No selected/>n</option><option value=Yes>y</option></select>",
+      "wanted": "Yes",
+      "after": "<select name=\"a\" oscarDB=choice><option value=No />n</option><option selected value=Yes>y</option></select>",
+      "submitted": "Yes"
+    },
+    {
+      "name": "an unquoted value before selected and a slash before another attribute keeps the white space",
+      "before": "<select name=\"a\" oscarDB=choice><option value=No selected=\"\"/title=\"t\">n</option><option value=Yes>y</option></select>",
+      "wanted": "Yes",
+      "after": "<select name=\"a\" oscarDB=choice><option value=No /title=\"t\">n</option><option selected value=Yes>y</option></select>",
+      "submitted": "Yes"
+    },
+    {
+      "name": "a style element inside inert template content does not stop the edit",
+      "before": "<select name=\"a\" oscarDB=choice><option value=\"No\" selected>n</option><template><style><option value=\"X\"></style></template><option value=\"Yes\">y</option></select>",
+      "wanted": "Yes",
+      "after": "<select name=\"a\" oscarDB=choice><option value=\"No\">n</option><template><style><option value=\"X\"></style></template><option selected value=\"Yes\">y</option></select>",
+      "submitted": "Yes"
     }
   ],
   "reads": [
@@ -244,6 +265,21 @@
       "name": "a select in an enabled fieldset is submitted",
       "form": "<form><fieldset><select name=\"a\"><option>X</option></select></fieldset></form>",
       "submitted": "X"
+    },
+    {
+      "name": "a form inside inert template content does not shadow the real saved form",
+      "form": "<template><form id=\"t\"><select name=\"a\"><option>T</option></select></form></template><form id=\"f1\"><select name=\"a\"><option>Real</option></select></form>",
+      "submitted": "Real"
+    },
+    {
+      "name": "an element id inside inert template content does not shadow the saved form's id",
+      "form": "<template><div id=\"f1\"></div></template><form id=\"f1\"></form><select name=\"a\" form=\"f1\"><option>Yes</option></select>",
+      "submitted": "Yes"
+    },
+    {
+      "name": "a live non-form element sharing the saved form's id earlier in the document prevents form association",
+      "form": "<div id=\"f1\"></div><form id=\"f1\"></form><select name=\"a\" form=\"f1\"><option>Yes</option></select>",
+      "submitted": null
     }
   ]
 }

@@ -306,7 +306,7 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldPrefillTheRenderedSelect_throughTheDatabaseTagRun() throws Exception {
+    void shouldPrefillTheRenderedSelect_throughTheDatabaseTagRun() {
         assertThat(renderedSelection("Yes", "<option value=\"Yes, with help\">a</option><option value=\"Yes\">b</option>"))
                 .isEqualTo("Yes");
         assertThat(renderedSelection("Smith & Sons", "<option value=\"Other\">o</option>"
@@ -425,7 +425,13 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
                                 + "<option disabled selected=''value=\"C\">c</option>",
                         "Yes",
                         "<option selected value=\"Yes\">y</option><option value=No title=\"t\">n</option>"
-                                + "<option disabled value=\"C\">c</option>"));
+                                + "<option disabled value=\"C\">c</option>"),
+                Arguments.of("repeated selected attributes after an unquoted value before a slash keep a space",
+                        "<option value=\"Yes\">y</option><option value=No selected selected/>n</option>"
+                                + "<option value=Old selected=\"\"selected/>o</option>",
+                        "Yes",
+                        "<option selected value=\"Yes\">y</option><option value=No />n</option>"
+                                + "<option value=Old />o</option>"));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -455,7 +461,19 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldShowTheStoredValue_whenTheTemplateDefaultComesAfterIt() throws Exception {
+    void shouldLeaveRemovalsEmpty_whenAnOtherOptionEndsMidSelectedAttributeAtEof() {
+        String html = "<select name=\"f\" oscarDB=x><option value=\"Yes\">y</option><option value=\"No\" selected";
+        EFormSelectMarkup.SelectEdit edit = EFormSelectMarkup.edit(html, html.indexOf("oscarDB=x") + 9, "Yes");
+
+        assertThat(edit).isNotNull();
+        StringBuilder out = new StringBuilder(html);
+        edit.applyTo(out);
+        assertThat(out.toString()).isEqualTo(
+                "<select name=\"f\" oscarDB=x><option selected value=\"Yes\">y</option><option value=\"No\" selected");
+    }
+
+    @Test
+    void shouldShowTheStoredValue_whenTheTemplateDefaultComesAfterIt() {
         String options = "<option value=\"Yes\">a</option><option value=\"No\" selected>b</option>";
 
         assertThat(renderedSelectedValues("", "Yes", options)).containsExactly("Yes");
@@ -468,8 +486,7 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
     }
 
     /** The values of every selected option after the database tag run. */
-    private static java.util.List<String> renderedSelectedValues(String selectAttributes, String output, String options)
-            throws Exception {
+    private static java.util.List<String> renderedSelectedValues(String selectAttributes, String output, String options) {
         DatabaseAP ap = new DatabaseAP("choice", "", output);
         try (var loader = mockStatic(EFormLoader.class)) {
             loader.when(EFormLoader::getMarker).thenReturn("oscarDB");
@@ -485,7 +502,7 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
     }
 
     /** The value of the selected option after the database tag run, or null when none is selected. */
-    private static String renderedSelection(String output, String options) throws Exception {
+    private static String renderedSelection(String output, String options) {
         DatabaseAP ap = new DatabaseAP("choice", "", output);
         try (var loader = mockStatic(EFormLoader.class)) {
             loader.when(EFormLoader::getMarker).thenReturn("oscarDB");
@@ -496,7 +513,7 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
             form.setDatabaseAPs();
 
             Document page = Jsoup.parse(form.getFormHtml());
-            assertThat(page.select("option[selected]").size()).isLessThanOrEqualTo(1);
+            assertThat(page.select("option[selected]")).hasSizeLessThanOrEqualTo(1);
             return page.selectFirst("option[selected]") == null ? null : page.selectFirst("option[selected]").val();
         }
     }
@@ -504,7 +521,7 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
     // ---- Review of the select prefill: each case is the markup and the browser behaviour that was reported ----
 
     /** The whole form's markup after the database tag run, as a browser would load it. */
-    private static Document rendered(String formBody, String output) throws Exception {
+    private static Document rendered(String formBody, String output) {
         DatabaseAP ap = new DatabaseAP("choice", "", output);
         try (var loader = mockStatic(EFormLoader.class)) {
             loader.when(EFormLoader::getMarker).thenReturn("oscarDB");
@@ -533,7 +550,7 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldLimitTheEditToTheOwningSelect_whenItsEndTagHasASpaceOrACommentHoldsAnEndTag() throws Exception {
+    void shouldLimitTheEditToTheOwningSelect_whenItsEndTagHasASpaceOrACommentHoldsAnEndTag() {
         // `</select >` is a valid end tag; the second select's authored default must not be touched.
         String first = "<select name=\"a\" oscarDB=choice><option value=\"Yes\">y</option><option value=\"No\">n</option></select >";
         String second = "<select name=\"m\"><option value=\"Jan\">a</option><option value=\"Jun\" selected>b</option></select>";
@@ -549,7 +566,7 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldIgnoreOptionLookingTextInAnOptgroupLabelAndInertTemplateContent() throws Exception {
+    void shouldIgnoreOptionLookingText_inOptgroupLabelAndInertTemplateContent() {
         String label = "<select name=\"l\" oscarDB=choice><optgroup label=\"<option value=Yes>\">"
                 + "<option value=\"No\">n</option></optgroup><option value=\"Yes\">y</option></select>";
         String template = "<select name=\"t\" oscarDB=choice><template><option value=\"Yes\">t</option></template>"
@@ -559,12 +576,12 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
         Document page = rendered(template, "Yes");
         assertThat(submitted(page, "t")).isEqualTo("Yes");
         // The template's own content is intact: its option is still there and was not selected.
-        assertThat(page.select("template option[value=Yes]").size()).isEqualTo(1);
-        assertThat(page.select("template option[selected]").size()).isZero();
+        assertThat(page.select("template option[value=Yes]")).hasSize(1);
+        assertThat(page.select("template option[selected]")).isEmpty();
     }
 
     @Test
-    void shouldConsumeTheWholeScriptElement_beforeLookingForOptions() throws Exception {
+    void shouldConsumeTheWholeScriptElement_beforeLookingForOptions() {
         String inert = "<select name=\"s\" oscarDB=choice><script type=\"application/json\">"
                 + "{\"a\":\"</scripture>\",\"b\":\"<option value=Yes>\"}</script>"
                 + "<option value=\"No\">n</option><option value=\"Yes\">y</option></select>";
@@ -577,7 +594,7 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldCompareTheCompleteSubmittedText_whenAnOptionHasACommentInsideItsText() throws Exception {
+    void shouldCompareTheCompleteSubmittedText_whenAnOptionHasACommentInsideItsText() {
         String options = "<option>Yes<!-- annotation --> now</option><option value=\"Yes\">real</option>";
 
         // The first option submits "Yes now", not "Yes": the option whose value is Yes is the one chosen.
@@ -589,19 +606,19 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldReadABareValueAttributeAsAnExplicitEmptyString() throws Exception {
+    void shouldReadBareValueAttribute_asExplicitEmptyString() {
         String options = "<option value>Yes</option><option value=\"Yes\">real</option>";
 
         Document page = rendered("<select name=\"b\" oscarDB=choice>" + options + "</select>", "Yes");
 
         // `<option value>` submits "", so the later option whose value is Yes is the one selected.
         assertThat(submitted(page, "b")).isEqualTo("Yes");
-        assertThat(page.select("option[selected]").size()).isEqualTo(1);
+        assertThat(page.select("option[selected]")).hasSize(1);
         assertThat(page.selectFirst("option[selected]").text()).isEqualTo("real");
     }
 
     @Test
-    void shouldPreferAnExactSubmittedValue_beforeAnyCompatibilityMatch() throws Exception {
+    void shouldPreferAnExactSubmittedValue_beforeAnyCompatibilityMatch() {
         String ampersand = "<option value=\"Smith &amp;amp; Sons\">raw</option><option value=\"Smith &amp; Sons\">decoded</option>";
         // The stored text is the literal `Smith &amp; Sons`: the option that submits exactly that wins over the
         // one that only matches by its raw spelling.
@@ -710,7 +727,7 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldNotReadAnySelectValue_whenNoDatabaseTagNamesAField() throws Exception {
+    void shouldNotReadAnySelectValue_whenNoDatabaseTagNamesAField() {
         // The values are only for a database tag that names another field: without one, no select is parsed for its
         // value, however many there are (a large form such as the bundled Rourke Baby Record has none).
         StringBuilder body = new StringBuilder("<form><input type=\"hidden\" name=\"filled\" oscarDB=choice>");
@@ -773,7 +790,7 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest(name = "{0} database-tagged selects")
     @org.junit.jupiter.params.provider.ValueSource(ints = {1, 5, 150, 400})
-    void shouldParseTheFormOnce_howeverManyDatabaseTaggedSelectsItHas(int count) throws Exception {
+    void shouldParseTheFormOnce_howeverManyDatabaseTaggedSelectsItHas(int count) {
         // The work is counted, not timed: one parse for the whole pass, never one for each select (a 400-select
         // form took four seconds when every select parsed the whole form).
         DatabaseAP ap = new DatabaseAP("choice", "", "Yes");
@@ -795,10 +812,10 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
             Document page = Jsoup.parse(form.getFormHtml());
             // Every select shows Yes and only Yes (its template default came out), and every input got its value:
             // the edits landed in the right place although each one moved the text after it.
-            assertThat(page.select("select").size()).isEqualTo(count);
-            assertThat(page.select("select option[selected]").size()).isEqualTo(count);
-            assertThat(page.select("select option[selected][value=Yes]").size()).isEqualTo(count);
-            assertThat(page.select("input[name^=t][value=Yes]").size()).isEqualTo(count);
+            assertThat(page.select("select")).hasSize(count);
+            assertThat(page.select("select option[selected]")).hasSize(count);
+            assertThat(page.select("select option[selected][value=Yes]")).hasSize(count);
+            assertThat(page.select("input[name^=t][value=Yes]")).hasSize(count);
             assertThat(page.select("option[value=No][selected]")).isEmpty();
         }
     }
@@ -823,25 +840,19 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldPlaceEveryEdit_whenEarlierEditsGrowOrShrinkTheFormBetweenSelects() throws Exception {
+    void shouldPlaceEveryEdit_whenEarlierEditsGrowOrShrinkTheFormBetweenSelects() {
         // Each edit before a select moves it in the single parse: growth (no default marked, so only the insert),
         // shrinkage (selected="selected" and SELECTED come out), an unmatched select that changes nothing, a
         // textarea that grows the form between selects, and a multiple select that keeps its default.
-        String selects = "<form>"
-                + "<select name=\"grow\" oscarDB=choice><option value=\"No\">No</option><option value=\"Yes\">Yes</option></select>\r\n"
-                + "<textarea name=\"note\" oscarDB=choice></textarea>\r\n"
-                + "<select name=\"shrink\" oscarDB=choice><option value=\"No\" selected=\"selected\">No</option>"
-                + "<option value=\"Yes\">Yes</option></select>\r\n"
-                + "<select name=\"unmatched\" oscarDB=choice><option value=\"A\">a</option>"
-                + "<option value=\"B\" selected>b</option></select>\r\n"
-                + "<input type=\"text\" name=\"between\" oscarDB=choice>\r\n"
-                + "<select name=\"upper\" oscarDB=choice><option value=\"No\" SELECTED>No</option>"
-                + "<option value=\"Yes\">Yes</option></select>\r\n"
-                + "<select name=\"many\" multiple oscarDB=choice><option value=\"No\" selected>No</option>"
-                + "<option value=\"Yes\">Yes</option></select>\r\n"
-                + "<select name=\"last\" oscarDB=choice><option value=\"No\" selected>No</option>"
-                + "<option value=\"Yes\">Yes</option></select>"
-                + "</form>";
+        String selects = String.join("\r\n",
+                "<form><select name=\"grow\" oscarDB=choice><option value=\"No\">No</option><option value=\"Yes\">Yes</option></select>",
+                "<textarea name=\"note\" oscarDB=choice></textarea>",
+                "<select name=\"shrink\" oscarDB=choice><option value=\"No\" selected=\"selected\">No</option><option value=\"Yes\">Yes</option></select>",
+                "<select name=\"unmatched\" oscarDB=choice><option value=\"A\">a</option><option value=\"B\" selected>b</option></select>",
+                "<input type=\"text\" name=\"between\" oscarDB=choice>",
+                "<select name=\"upper\" oscarDB=choice><option value=\"No\" SELECTED>No</option><option value=\"Yes\">Yes</option></select>",
+                "<select name=\"many\" multiple oscarDB=choice><option value=\"No\" selected>No</option><option value=\"Yes\">Yes</option></select>",
+                "<select name=\"last\" oscarDB=choice><option value=\"No\" selected>No</option><option value=\"Yes\">Yes</option></select></form>");
         DatabaseAP ap = new DatabaseAP("choice", "", "Yes");
         try (var loader = mockStatic(EFormLoader.class)) {
             loader.when(EFormLoader::getMarker).thenReturn("oscarDB");
@@ -855,14 +866,14 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
             assertThat(form.selectParses()).isEqualTo(1);
             Document page = Jsoup.parse(form.getFormHtml());
             for (String name : List.of("grow", "shrink", "upper", "last")) {
-                assertThat(page.select("select[name=" + name + "] option[selected]").size()).as(name).isEqualTo(1);
+                assertThat(page.select("select[name=" + name + "] option[selected]")).as(name).hasSize(1);
                 assertThat(page.select("select[name=" + name + "] option[selected]").attr("value")).as(name).isEqualTo("Yes");
             }
             // No option matches: the template's own default stays.
             assertThat(page.select("select[name=unmatched] option[selected]").attr("value")).isEqualTo("B");
-            assertThat(page.select("select[name=unmatched] option[selected]").size()).isEqualTo(1);
+            assertThat(page.select("select[name=unmatched] option[selected]")).hasSize(1);
             // A multiple select keeps its default and gains the stored value.
-            assertThat(page.select("select[name=many] option[selected]").size()).isEqualTo(2);
+            assertThat(page.select("select[name=many] option[selected]")).hasSize(2);
             assertThat(page.select("textarea[name=note]").text()).isEqualTo("Yes");
             assertThat(page.select("input[name=between]").attr("value")).isEqualTo("Yes");
             // Nothing else of the template changed: the selected attributes are the only markup that differs.
@@ -872,7 +883,7 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldNotFit_whenTheShiftIsWrongByOneOption_evenWhereTheNextOptionLooksTheSame() {
+    void shouldNotFit_whenShiftIsWrongByOneOptionEvenWhereNextOptionLooksTheSame() {
         String html = "<select name=\"x\" oscarDB=x><option value=\"A\">a</option><option value=\"B\">b</option>"
                 + "<option value=\"C\" selected>c</option><option value=\"D\">d</option></select>";
         EFormSelectMarkup.SelectEdit edit = EFormSelectMarkup.edit(html, html.indexOf("oscarDB=x") + 9, "B");
@@ -895,7 +906,7 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldSelectTheRightOption_whenTextBeforeAndBetweenTheSelectsShiftsOffsets() throws Exception {
+    void shouldSelectTheRightOption_whenTextBeforeAndBetweenTheSelectsShiftsOffsets() {
         // Positions are read from the parser and used on the template's own text: non-ASCII letters, an emoji
         // (two UTF-16 units), CRLF line ends, and entities, before and between the selects, must not move them.
         String drift = "<p>Caf\u00e9 \u00fcber \u6f22\u5b57 \uD83D\uDE00 &amp; &lt;b&gt; &eacute;</p>\r\n\r\n";
@@ -910,14 +921,14 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
         assertThat(submitted(page, "first")).isEqualTo("B");
         assertThat(submitted(page, "second")).isEqualTo("B");
         // Only the intended options changed: one selected option in each select.
-        assertThat(page.select("select[name=first] option[selected]").size()).isEqualTo(1);
-        assertThat(page.select("select[name=second] option[selected]").size()).isEqualTo(1);
+        assertThat(page.select("select[name=first] option[selected]")).hasSize(1);
+        assertThat(page.select("select[name=second] option[selected]")).hasSize(1);
         // The text around them is byte for byte as the template had it.
         assertThat(page.body().html().replace("\n", "")).contains("Caf\u00e9 \u00fcber \u6f22\u5b57 \uD83D\uDE00");
     }
 
     @Test
-    void shouldLeaveEverySelectOfThePassAsTheTemplateHasIt_whenTheFormCannotBeParsed() throws Exception {
+    void shouldLeaveEverySelectOfThePassAsTheTemplateHasIt_whenTheFormCannotBeParsed() {
         // Only a failed PARSE ends the pass's selects: none of them is tried again, nothing throws, and the
         // input before them is still filled.
         String body = "<form><input type=\"text\" name=\"t\" oscarDB=choice>" + TEMPLATE_SELECT + TEMPLATE_SELECT + "</form>";
@@ -943,7 +954,7 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldFillTheSecondSelect_whenTheEditOfTheFirstThrows() throws Exception {
+    void shouldFillTheSecondSelect_whenTheEditOfTheFirstThrows() {
         // One select's failure skips only that select: it keeps the template's default, and the next one of the
         // same pass is still filled (the same parse serves it).
         String body = "<form>" + TEMPLATE_SELECT + TEMPLATE_SELECT + "</form>";
@@ -962,7 +973,7 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
             form.setDatabaseAPs(); // never throws
 
             Document page = Jsoup.parse(form.getFormHtml());
-            assertThat(page.select("select").size()).isEqualTo(2);
+            assertThat(page.select("select")).hasSize(2);
             assertThat(page.select("select").get(0).select("option[selected]").eachAttr("value"))
                     .containsExactly("No");
             assertThat(page.select("select").get(1).select("option[selected]").eachAttr("value"))
@@ -972,7 +983,7 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldLeaveASelectAsTheTemplateHasIt_whenItsEditDoesNotLandWhereItWasRead() throws Exception {
+    void shouldLeaveASelectAsTheTemplateHasIt_whenItsEditDoesNotLandWhereItWasRead() {
         // An edit read from another text (so its option is not where it says) is refused by its exact-text
         // guard: the select keeps its default and the pass goes on to the next one.
         String other = "<select oscarDB=x><option value=\"A\">a</option><option value=\"Yes\">y</option></select>";
@@ -996,24 +1007,24 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldLeaveTheTemplateAsItIs_whenItsMarkupIsPathological() throws Exception {
+    void shouldLeaveTheTemplateAsItIs_whenItsMarkupIsPathological() {
         // Very deep nesting, an unterminated select and a select inside a tag that never closes: the form
         // still opens, the select keeps the template's own default, and nothing throws.
         String deep = "<div>".repeat(5_000);
         String body = deep + "<select name=\"deep\" oscarDB=choice><option value=\"A\">a</option>"
                 + "<option value=\"B\" selected>b</option></select>";
         Document page = rendered(body, "A");
-        assertThat(page.select("select[name=deep]").size()).isEqualTo(1);
+        assertThat(page.select("select[name=deep]")).hasSize(1);
 
         String unterminated = "<select name=\"open\" oscarDB=choice><option value=\"A\">a<option value=\"B\" selected>b";
-        assertThat(rendered(unterminated, "A").select("select[name=open]").size()).isEqualTo(1);
+        assertThat(rendered(unterminated, "A").select("select[name=open]")).hasSize(1);
 
         String brokenTag = "<select name=\"cut\" oscarDB=choice><option value=\"A\" title=\"unclosed>a</option>";
-        assertThat(rendered(brokenTag, "A").select("select").size()).isEqualTo(1);
+        assertThat(rendered(brokenTag, "A").select("select")).hasSize(1);
     }
 
     @Test
-    void shouldFillManySelectsInALargeForm_withinAGenerousTime() throws Exception {
+    void shouldFillManySelectsInALargeForm_withinAGenerousTime() {
         // About 300 database-filled selects in about 300 KB: each is parsed once per fill, so the whole form
         // must still come up in seconds, not minutes.
         StringBuilder body = new StringBuilder();
@@ -1035,7 +1046,7 @@ class EFormSelectApPrefillUnitTest extends CarlosUnitTestBase {
             return result;
         });
 
-        assertThat(page.select("select option[selected]").size()).isEqualTo(300);
+        assertThat(page.select("select option[selected]")).hasSize(300);
         assertThat(took[0]).isLessThan(java.time.Duration.ofSeconds(60));
     }
 

@@ -67,6 +67,11 @@ final class EFormSelectMarkup {
     /** Length of {@code "<option"}. */
     private static final int OPTION_OPEN = 7;
     private static final String VALUE_ATTRIBUTE = "value";
+    private static final String MULTIPLE_ATTRIBUTE = "multiple";
+    private static final String SELECTED_ATTRIBUTE = "selected";
+    private static final String DISABLED_ATTRIBUTE = "disabled";
+    private static final String TEMPLATE_TAG = "template";
+    private static final String FORM_TAG = "form";
     /**
      * HTML's white space in a tag and in option text: tab, line feed, form feed, carriage return and space. A
      * no-break space or an em space is not white space to HTML: it is part of a name, a value or the text.
@@ -188,8 +193,6 @@ final class EFormSelectMarkup {
      * (a single select shows the last {@code selected} option, so a template default after the stored value's
      * option would hide it); a {@code multiple} select and an empty {@code wanted} keep the others as they are.</p>
      */
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an eForm option value with a database value; not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an eForm option value with a database value; not a security or authorization decision")
     static SelectEdit edit(CharSequence html, int pointer, String wanted) {
         return wanted == null ? null : edit(parseForm(html), pointer, wanted);
     }
@@ -198,8 +201,6 @@ final class EFormSelectMarkup {
      * As {@link #edit(CharSequence, int, String)}, read from a form parsed once: {@code pointer} and the edit's
      * positions are those of the parsed text. A form of any number of database-tagged selects costs this one parse.
      */
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an eForm option value with a database value; not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an eForm option value with a database value; not a security or authorization decision")
     static SelectEdit edit(ParsedForm form, int pointer, String wanted) {
         if (wanted == null) return null;
         String source = form.source;
@@ -209,25 +210,30 @@ final class EFormSelectMarkup {
         if (inside == null || holdsStyleElement(inside)) return null;
         List<Element> options = ownedOptions(select);
         Element chosen = chosenOption(options, source, wanted);
-        if (chosen == null) return null;
-        Integer start = tagStart(chosen);
+        Integer start = chosen == null ? null : tagStart(chosen);
         if (start == null) return null;
         SelectEdit edit = new SelectEdit(start + OPTION_OPEN);
         edit.optionWindow = source.substring(start, Math.min(source.length(), start + OPTION_OPEN + OPTION_WINDOW));
-        boolean collect = !wanted.isEmpty() && !select.hasAttr("multiple");
-        if (!collect) return edit;
+        if (!wanted.isEmpty() && !select.hasAttr(MULTIPLE_ATTRIBUTE)) {
+            collectOtherSelectedRemovals(options, chosen, source, edit);
+        }
+        return edit;
+    }
+
+    /** Collects the {@code selected} attribute ranges of every other option, or leaves none if a tag cannot be read. */
+    private static void collectOtherSelectedRemovals(List<Element> options, Element chosen, String source,
+            SelectEdit edit) {
         List<int[]> removals = new ArrayList<>();
         for (Element option : options) {
             if (option == chosen) continue;
             Integer otherStart = tagStart(option);
             TagAttributes tag = otherStart == null ? null : readTagAttributes(source, otherStart + OPTION_OPEN);
-            if (tag == null) return edit; // a tag that cannot be read: only the insert, never a guess
+            if (tag == null) return; // a tag that cannot be read: only the insert, never a guess
             removals.addAll(tag.selectedRanges);
         }
         removals.sort((a, b) -> Integer.compare(a[0], b[0]));
         edit.removals.addAll(removals);
         for (int[] range : removals) edit.removedText.add(source.substring(range[0], range[1]));
-        return edit;
     }
 
     /**
@@ -242,7 +248,7 @@ final class EFormSelectMarkup {
         if (selectStarts.isEmpty()) return submitted;
         String source = html.toString();
         Document document = parse(source);
-        Element savedForm = document.selectFirst("form");
+        Element savedForm = firstLiveForm(document);
         for (int start : selectStarts) {
             Element select = selectHolding(document, start + 1);
             String value = select == null ? null : valueSubmittedBy(select, source, document, savedForm);
@@ -262,23 +268,42 @@ final class EFormSelectMarkup {
         String inside = markupInside(select, source);
         if (inside == null || !submittedWith(select, document, savedForm)) return null;
         List<Element> options = holdsStyleElement(inside) ? optionsOutsideSelect(inside) : ownedOptions(select);
-        boolean multiple = select.hasAttr("multiple");
-        Element shown = null;
-        for (Element option : options) {
-            if (!option.hasAttr("selected")) continue;
-            if (multiple && !isDisabled(option, select)) return submittedValue(option);
-            if (!multiple) shown = option;
+        if (select.hasAttr(MULTIPLE_ATTRIBUTE)) {
+            return firstSelectedEnabledValue(options, select);
         }
-        if (shown == null && isDropDown(select)) {
-            for (Element option : options) {
-                if (!isDisabled(option, select)) return submittedValue(option);
-            }
+        Element shown = lastSelectedOption(options);
+        if (shown == null) {
+            shown = isDropDown(select) ? firstEnabledOption(options, select) : null;
         }
         return shown == null || isDisabled(shown, select) ? null : submittedValue(shown);
     }
 
+    private static String firstSelectedEnabledValue(List<Element> options, Element select) {
+        for (Element option : options) {
+            if (option.hasAttr(SELECTED_ATTRIBUTE) && !isDisabled(option, select)) {
+                return submittedValue(option);
+            }
+        }
+        return null;
+    }
+
+    private static Element lastSelectedOption(List<Element> options) {
+        Element shown = null;
+        for (Element option : options) {
+            if (option.hasAttr(SELECTED_ATTRIBUTE)) shown = option;
+        }
+        return shown;
+    }
+
+    private static Element firstEnabledOption(List<Element> options, Element select) {
+        for (Element option : options) {
+            if (!isDisabled(option, select)) return option;
+        }
+        return null;
+    }
+
     /**
-     * Whether a save submits {@code select} with {@code savedForm}, the page's first form (the one
+     * Whether a save submits {@code select} with {@code savedForm}, the page's first live form (the one
      * {@code EForm.setAction} makes the save form). Never a select in inert {@code template} content, nor a disabled
      * one (see {@link #isDisabledControl}), nor one whose {@code form} attribute names another element or nothing, nor
      * one inside another form. A select outside every form is read as before: a form written between
@@ -286,15 +311,34 @@ final class EFormSelectMarkup {
      * page that has no form, apart from template content.
      */
     private static boolean submittedWith(Element select, Document document, Element savedForm) {
-        if (ancestorNamed(select, "template", null) != null) return false;
+        if (ancestorNamed(select, TEMPLATE_TAG, null) != null) return false;
         if (savedForm == null) return true;
         if (isDisabledControl(select)) return false;
-        if (select.hasAttr("form")) {
-            String id = select.attr("form");
-            return !id.isEmpty() && document.getElementById(id) == savedForm;
+        if (select.hasAttr(FORM_TAG)) {
+            return targetsForm(document, select.attr(FORM_TAG), savedForm);
         }
-        Element form = ancestorNamed(select, "form", null);
+        Element form = ancestorNamed(select, FORM_TAG, null);
         return form == null || form == savedForm;
+    }
+
+    /** The first {@code <form>} outside inert {@code <template>} content, or null. */
+    private static Element firstLiveForm(Document document) {
+        for (Element form : document.getElementsByTag(FORM_TAG)) {
+            if (ancestorNamed(form, TEMPLATE_TAG, null) == null) return form;
+        }
+        return null;
+    }
+
+    /**
+     * Whether {@code id} resolves to {@code savedForm} in the live document (outside inert {@code <template>}
+     * content), matching HTML's {@code form} attribute lookup.
+     */
+    private static boolean targetsForm(Document document, String id, Element savedForm) {
+        if (id.isEmpty() || !id.equals(savedForm.id())) return false;
+        return document.getElementsByAttribute("id").stream()
+                .filter(element -> id.equals(element.id()) && ancestorNamed(element, TEMPLATE_TAG, null) == null)
+                .findFirst()
+                .orElse(null) == savedForm;
     }
 
     /** The nearest ancestor of {@code element} named {@code name} below {@code stop} (null: anywhere), or null. */
@@ -310,10 +354,11 @@ final class EFormSelectMarkup {
      * disabled fieldset around it, unless the control is inside that fieldset's first legend.
      */
     private static boolean isDisabledControl(Element control) {
-        if (control.hasAttr("disabled")) return true;
+        if (control.hasAttr(DISABLED_ATTRIBUTE)) return true;
         Element below = control;
         for (Element ancestor = control.parent(); ancestor != null; below = ancestor, ancestor = ancestor.parent()) {
-            if (ancestor.normalName().equals("fieldset") && ancestor.hasAttr("disabled") && below != firstLegend(ancestor)) {
+            if (ancestor.normalName().equals("fieldset") && ancestor.hasAttr(DISABLED_ATTRIBUTE)
+                    && below != firstLegend(ancestor)) {
                 return true;
             }
         }
@@ -331,7 +376,7 @@ final class EFormSelectMarkup {
     /** Whether a browser treats the option as disabled: its own {@code disabled}, or that of its option group. */
     private static boolean isDisabled(Element option, Element select) {
         Element group = ancestorNamed(option, "optgroup", select);
-        return option.hasAttr("disabled") || group != null && group.hasAttr("disabled");
+        return option.hasAttr(DISABLED_ATTRIBUTE) || group != null && group.hasAttr(DISABLED_ATTRIBUTE);
     }
 
     /**
@@ -340,10 +385,9 @@ final class EFormSelectMarkup {
      * (leading white space and a "+" skipped, then the digits up to the first other character), as Chromium does.
      */
     private static boolean isDropDown(Element select) {
-        if (select.hasAttr("multiple")) return false;
+        if (select.hasAttr(MULTIPLE_ATTRIBUTE)) return false;
         String size = select.attr("size");
-        int p = 0;
-        while (p < size.length() && isHtmlSpace(size.charAt(p))) p++;
+        int p = skipHtmlSpace(size, 0);
         if (p < size.length() && size.charAt(p) == '+') p++;
         int rows = 0;
         while (p < size.length() && size.charAt(p) >= '0' && size.charAt(p) <= '9') {
@@ -374,7 +418,7 @@ final class EFormSelectMarkup {
             public FilterResult head(Node node, int depth) {
                 if (node instanceof TextNode textNode) text.append(textNode.getWholeText());
                 return node instanceof Element element
-                        && (element.normalName().equals("script") || element.normalName().equals("template"))
+                        && (element.normalName().equals("script") || element.normalName().equals(TEMPLATE_TAG))
                         ? FilterResult.SKIP_ENTIRELY : FilterResult.CONTINUE;
             }
 
@@ -388,7 +432,7 @@ final class EFormSelectMarkup {
         for (int i = 0; i < text.length(); i++) {
             char c = text.charAt(i);
             if (isHtmlSpace(c)) {
-                space = collapsed.length() > 0;
+                space = !collapsed.isEmpty();
                 continue;
             }
             if (space) collapsed.append(' ');
@@ -428,17 +472,20 @@ final class EFormSelectMarkup {
     }
 
     /**
-     * Whether a select's own markup holds a style element. A style element inside a select is raw text to current
-     * browsers, but jsoup's parser (like older browsers) drops the start tag and reads the style's text as markup,
-     * so an option-looking string in it would be taken for an option: such a select is never edited (the template's
-     * own default stays), and its options are read outside a select ({@link #optionsOutsideSelect}). Text that only
-     * looks like a style tag (in a comment, in an attribute value such as an option group's label, in a script) is
-     * no style element: the markup is read again outside a select, where the parser keeps a style element as one,
-     * and only an element counts.
+     * Whether a select's own markup holds a live style element (outside inert {@code <template>} content). A live
+     * style element inside a select is raw text to current browsers, but jsoup's parser (like older browsers) drops
+     * the start tag and reads the style's text as markup, so an option-looking string in it would be taken for an
+     * option: such a select is never edited (the template's own default stays), and its options are read outside a
+     * select ({@link #optionsOutsideSelect}). Text that only looks like a style tag (in a comment, in an attribute
+     * value such as an option group's label, in a script) or a style inside inert template content is not a live
+     * style element of the select.
      */
     private static boolean holdsStyleElement(String markup) {
-        return Ascii.toLowerCase(markup).contains("<style")
-                && !Jsoup.parseBodyFragment(markup).getElementsByTag("style").isEmpty();
+        if (!Ascii.toLowerCase(markup).contains("<style")) return false;
+        for (Element style : Jsoup.parseBodyFragment(markup).getElementsByTag("style")) {
+            if (ancestorNamed(style, TEMPLATE_TAG, null) == null) return true;
+        }
+        return false;
     }
 
     /**
@@ -448,7 +495,7 @@ final class EFormSelectMarkup {
     private static List<Element> optionsOutsideSelect(String markup) {
         List<Element> options = new ArrayList<>();
         for (Element option : Jsoup.parseBodyFragment(markup).getElementsByTag("option")) {
-            if (ancestorNamed(option, "template", null) == null) options.add(option);
+            if (ancestorNamed(option, TEMPLATE_TAG, null) == null) options.add(option);
         }
         return options;
     }
@@ -457,34 +504,49 @@ final class EFormSelectMarkup {
     private static List<Element> ownedOptions(Element select) {
         List<Element> owned = new ArrayList<>();
         for (Element option : select.getElementsByTag("option")) {
-            boolean mine = true;
-            for (Element ancestor = option.parent(); ancestor != null && ancestor != select; ancestor = ancestor.parent()) {
-                String tag = ancestor.normalName();
-                if (tag.equals("select") || tag.equals("template")) {
-                    mine = false;
-                    break;
-                }
-            }
-            if (mine) owned.add(option);
+            if (isOwnedOption(option, select)) owned.add(option);
         }
         return owned;
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an eForm option value with a database value; not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an eForm option value with a database value; not a security or authorization decision")
+    private static boolean isOwnedOption(Element option, Element select) {
+        for (Element ancestor = option.parent(); ancestor != null && ancestor != select; ancestor = ancestor.parent()) {
+            String tag = ancestor.normalName();
+            if (tag.equals("select") || tag.equals(TEMPLATE_TAG)) return false;
+        }
+        return true;
+    }
+
     private static Element chosenOption(List<Element> options, String source, String wanted) {
         if (wanted.isEmpty()) {
-            for (Element option : options) {
-                if (option.hasAttr(VALUE_ATTRIBUTE)) return option;
-            }
-            return null;
+            return firstOptionWithValueAttr(options);
         }
+        Element match = firstOptionBySubmittedValue(options, wanted, false);
+        if (match != null) return match;
+        match = firstOptionBySubmittedValue(options, wanted, true);
+        return match != null ? match : firstOptionByRawValue(options, source, wanted);
+    }
+
+    private static Element firstOptionWithValueAttr(List<Element> options) {
         for (Element option : options) {
-            if (submittedValue(option).equals(wanted)) return option;
+            if (option.hasAttr(VALUE_ATTRIBUTE)) return option;
         }
+        return null;
+    }
+
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an eForm option value with a database value; not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an eForm option value with a database value; not a security or authorization decision")
+    private static Element firstOptionBySubmittedValue(List<Element> options, String wanted, boolean ignoreCase) {
         for (Element option : options) {
-            if (submittedValue(option).equalsIgnoreCase(wanted)) return option;
+            String value = submittedValue(option);
+            if (ignoreCase ? value.equalsIgnoreCase(wanted) : value.equals(wanted)) return option;
         }
+        return null;
+    }
+
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an eForm option value with a database value; not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an eForm option value with a database value; not a security or authorization decision")
+    private static Element firstOptionByRawValue(List<Element> options, String source, String wanted) {
         for (Element option : options) {
             if (!option.hasAttr(VALUE_ATTRIBUTE)) continue;
             Integer start = tagStart(option);
@@ -506,6 +568,10 @@ final class EFormSelectMarkup {
         final List<int[]> selectedRanges = new ArrayList<>();
     }
 
+    /** One parsed attribute value from {@link #readAttributeValue}, with its end offset and whether it was unquoted. */
+    private record ParsedAttrValue(String value, int end, boolean unquoted) {
+    }
+
     /**
      * Reads the attributes of the start tag whose name ends at {@code from}, up to its own {@code >}, splitting
      * them the way the HTML tokenizer does: only HTML white space separates attributes (a no-break or an em space
@@ -521,40 +587,72 @@ final class EFormSelectMarkup {
         int length = text.length();
         int p = from;
         TagAttributes tag = new TagAttributes();
+        boolean prevWasUnquotedValue = false;
         while (true) {
-            while (p < length && (isHtmlSpace(text.charAt(p)) || text.charAt(p) == '/')) p++;
+            p = skipSpaceAndSlash(text, p);
             if (p >= length) return null;
             if (text.charAt(p) == '>') return tag;
             int nameStart = p++; // the first character is the name's, even "="
             while (p < length && !isHtmlSpace(text.charAt(p)) && "=>/".indexOf(text.charAt(p)) < 0) p++;
             String name = text.substring(nameStart, p);
-            String value = "";
-            int q = p;
-            while (q < length && isHtmlSpace(text.charAt(q))) q++;
-            if (q < length && text.charAt(q) == '=') {
-                p = q + 1;
-                while (p < length && isHtmlSpace(text.charAt(p))) p++;
-                if (p < length && (text.charAt(p) == '"' || text.charAt(p) == '\'')) {
-                    int close = text.indexOf(text.charAt(p), p + 1);
-                    if (close < 0) return null;
-                    value = text.substring(p + 1, close);
-                    p = close + 1;
-                } else {
-                    int valueStart = p;
-                    while (p < length && !isHtmlSpace(text.charAt(p)) && text.charAt(p) != '>') p++;
-                    value = text.substring(valueStart, p);
-                }
+            ParsedAttrValue parsed = readAttributeValue(text, p);
+            if (parsed == null) return null;
+            p = parsed.end();
+            if (tag.value == null && Ascii.equalsIgnoreCase(name, VALUE_ATTRIBUTE)) {
+                tag.value = parsed.value();
             }
-            if (tag.value == null && Ascii.equalsIgnoreCase(name, VALUE_ATTRIBUTE)) tag.value = value;
-            if (Ascii.equalsIgnoreCase(name, "selected")) {
-                int spaceStart = nameStart;
-                // The white space before goes too, unless another attribute follows with none between: that white
-                // space then keeps the tag's parts apart (<option selected=""value="A"> must not become
-                // <optionvalue="A">, nor value=No selected=""title=t become value=Notitle=t).
-                boolean attributeFollows = p < length && !isHtmlSpace(text.charAt(p)) && "/>".indexOf(text.charAt(p)) < 0;
-                while (!attributeFollows && spaceStart > from && isHtmlSpace(text.charAt(spaceStart - 1))) spaceStart--;
-                tag.selectedRanges.add(new int[] {spaceStart, p});
+            if (Ascii.equalsIgnoreCase(name, SELECTED_ATTRIBUTE)) {
+                tag.selectedRanges.add(selectedRange(text, from, nameStart, p, prevWasUnquotedValue));
+            } else {
+                prevWasUnquotedValue = parsed.unquoted();
             }
         }
+    }
+
+    private static int skipHtmlSpace(String text, int p) {
+        int length = text.length();
+        while (p < length && isHtmlSpace(text.charAt(p))) p++;
+        return p;
+    }
+
+    private static int skipSpaceAndSlash(String text, int p) {
+        int length = text.length();
+        while (p < length && (isHtmlSpace(text.charAt(p)) || text.charAt(p) == '/')) p++;
+        return p;
+    }
+
+    /** Reads {@code =value} at {@code afterName}, or an empty bare value if absent; returns null on an unclosed quote. */
+    private static ParsedAttrValue readAttributeValue(String text, int afterName) {
+        int length = text.length();
+        int q = skipHtmlSpace(text, afterName);
+        if (q >= length || text.charAt(q) != '=') {
+            return new ParsedAttrValue("", afterName, false);
+        }
+        int p = skipHtmlSpace(text, q + 1);
+        if (p < length && (text.charAt(p) == '"' || text.charAt(p) == '\'')) {
+            int close = text.indexOf(text.charAt(p), p + 1);
+            if (close < 0) return null;
+            return new ParsedAttrValue(text.substring(p + 1, close), close + 1, false);
+        }
+        int valueStart = p;
+        while (p < length && !isHtmlSpace(text.charAt(p)) && text.charAt(p) != '>') p++;
+        return new ParsedAttrValue(text.substring(valueStart, p), p, p > valueStart);
+    }
+
+    /**
+     * Computes the {@code [start, end)} range to remove for a {@code selected} attribute. Preceding HTML white space
+     * is removed too unless it must stay to keep remaining tag parts apart: when another attribute immediately
+     * follows, or when {@code /} immediately follows after an unquoted attribute value (dropping the space there
+     * would fold {@code /} into the preceding unquoted value, changing what the browser submits for that option).
+     */
+    private static int[] selectedRange(String text, int from, int nameStart, int end, boolean prevWasUnquotedValue) {
+        int spaceStart = nameStart;
+        boolean keepSpace = false;
+        if (end < text.length()) {
+            char next = text.charAt(end);
+            keepSpace = !isHtmlSpace(next) && next != '>' && (next != '/' || prevWasUnquotedValue);
+        }
+        while (!keepSpace && spaceStart > from && isHtmlSpace(text.charAt(spaceStart - 1))) spaceStart--;
+        return new int[] {spaceStart, end};
     }
 }
