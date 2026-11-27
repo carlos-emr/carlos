@@ -533,9 +533,15 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         otherPatients.setDataField("7.7");
         otherPatients.setDemographicId(4711);
         when(measurementDao.findByValue("lab_no", "1111")).thenReturn(java.util.List.of(otherPatients));
+        // The report's own earlier row (a refile) is replaced, so "nothing removed" cannot pass by the
+        // archive doing nothing: exactly this row goes, and the other version's does not.
+        Measurement ownEarlierRow = new Measurement();
+        ownEarlierRow.setDataField("6.0");
+        when(measurementDao.findByValue("lab_no", "4616")).thenReturn(java.util.List.of(ownEarlierRow));
         fileForPatient(patientNumber);
 
-        verify(measurementDao).batchRemoveAtomically(org.mockito.ArgumentMatchers.argThat(java.util.List::isEmpty));
+        verify(measurementDao).batchRemoveAtomically(org.mockito.ArgumentMatchers.argThat(
+                removed -> removed.size() == 1 && removed.get(0) == ownEarlierRow));
     }
 
     @Test
@@ -549,9 +555,15 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         otherPatients.setDataField("5.1");
         otherPatients.setDemographicId(4711);
         when(measurementDao.findByValue("lab_no", "1111")).thenReturn(java.util.List.of(unattributed, otherPatients));
+        // The report's own earlier row, which names no patient either, is the one that is replaced:
+        // exactly it goes, so "nothing else removed" cannot pass by the archive doing nothing.
+        Measurement ownEarlierRow = new Measurement();
+        ownEarlierRow.setDataField("6.0");
+        when(measurementDao.findByValue("lab_no", "4616")).thenReturn(java.util.List.of(ownEarlierRow));
         fileForPatient("42");
 
-        verify(measurementDao).batchRemoveAtomically(org.mockito.ArgumentMatchers.argThat(java.util.List::isEmpty));
+        verify(measurementDao).batchRemoveAtomically(org.mockito.ArgumentMatchers.argThat(
+                removed -> removed.size() == 1 && removed.get(0) == ownEarlierRow));
     }
 
     @ParameterizedTest
