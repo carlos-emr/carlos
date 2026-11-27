@@ -202,12 +202,23 @@ class PDFControllerUnitTest {
         try (var pdf = Loader.loadPDF(bytes)) { assertThat(pdf.getNumberOfPages()).isEqualTo(1); }
     }
 
+    @Test
+    void shouldPrintEveryMedicationAndReason_whenRowsOverflowWithoutNotes(@TempDir Path output) throws Exception {
+        byte[] bytes = renderInstructions(output, java.util.Collections.nCopies(25, null), true);
+        String continued = continuationTextAndCheckGeometry(bytes);
+        for (int i = 18; i <= 25; i++) {
+            assertThat(continued).contains("FAKE medication " + i + " 20 mg", "Reason: reason " + i);
+        }
+        assertThat(continued).doesNotContain("null");
+    }
+
     private byte[] renderInstructions(Path output, List<String> instructions, boolean continueInstructions) throws IOException {
         List<BpmhDrug> drugs = new ArrayList<>();
         for (int i = 0; i < instructions.size(); i++) {
             BpmhDrug drug = new BpmhDrug();
             drug.setWhat("FAKE medication " + (i + 1) + " 20 mg");
             drug.setHow("Take 1 tablet by mouth daily");
+            drug.setWhy("reason " + (i + 1));
             drug.setInstruction(instructions.get(i));
             drugs.add(drug);
         }

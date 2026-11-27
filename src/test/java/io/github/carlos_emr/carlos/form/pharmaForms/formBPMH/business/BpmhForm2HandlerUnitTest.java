@@ -97,7 +97,7 @@ class BpmhForm2HandlerUnitTest {
 
         BpmhDrug row = formRowFor(drug);
 
-        assertThat(row.getHow().trim()).isEqualTo("Take TAB BID PO");
+        assertThat(row.getHow().trim()).isEqualTo("");
     }
 
     @ParameterizedTest(name = "take {0}-{1}")
@@ -108,7 +108,7 @@ class BpmhForm2HandlerUnitTest {
 
         BpmhDrug row = formRowFor(drug);
 
-        assertThat(row.getHow().trim()).isEqualTo("Take TAB BID PO");
+        assertThat(row.getHow().trim()).isEqualTo("");
     }
 
     @Test
@@ -118,6 +118,38 @@ class BpmhForm2HandlerUnitTest {
         BpmhDrug row = formRowFor(drug);
 
         assertThat(row.getHow().trim()).isEqualTo("Take 2 TAB BID PO");
+    }
+
+    @Test
+    void shouldUseRecordedDoseUnit_whenProductFormDiffers() {
+        Drug drug = structuredDrug(5, 5);
+        drug.setUnit("mg");
+        assertThat(formRowFor(drug).getHow()).isEqualTo("Take 5 mg BID PO");
+    }
+
+    @Test
+    void shouldLeaveDirectionsMissing_whenOnlyProductStrengthAndFormAreKnown() {
+        Drug drug = structuredDrug(5, 5);
+        drug.setBrandName(drug.getCustomName());
+        drug.setCustomName(null);
+        drug.setDosage("25 mg");
+        drug.setUnit("mg");
+        assertThat(formRowFor(drug).getHow()).isEmpty();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"3,1", "NaN,1", "1,Infinity"})
+    void shouldLeaveDirectionsMissing_whenBoundsAreInvalid(float min, float max) {
+        assertThat(formRowFor(structuredDrug(min, max)).getHow()).isEmpty();
+    }
+
+    @Test
+    void shouldKeepTaperSteps_whenRecordAlsoContainsPharmacyAndDispenseLines() {
+        Drug drug = structuredDrug(5, 5);
+        drug.setSpecialInstruction("Supply blister pack");
+        drug.setSpecial("FAKE metoprolol\r\nTake 1 tablet for 2 days\r\nThen take half a tablet"
+                + "\r\nSupply blister pack\r\nQty:30.0 TAB Repeats:0");
+        assertThat(formRowFor(drug).getHow()).isEqualTo("Take 1 tablet for 2 days\nThen take half a tablet");
     }
 
     private static Drug structuredDrug(float takeMin, float takeMax) {
@@ -130,6 +162,7 @@ class BpmhForm2HandlerUnitTest {
         drug.setTakeMin(takeMin);
         drug.setTakeMax(takeMax);
         drug.setDrugForm("TAB");
+        drug.setUnit("TAB");
         drug.setFreqCode("BID");
         drug.setRoute("PO");
         return drug;

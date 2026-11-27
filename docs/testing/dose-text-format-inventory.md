@@ -114,6 +114,12 @@ Stored values are out of scope for #6185, and are not rewritten:
   review have a `unitName` that starts with a full stop:
   `SELECT drugid, demographic_no, quantity, unitName FROM drugs WHERE unitName LIKE '.%';`
 
+The follow-up tickets for the inventory cover legacy editing and duration (#6398–#6400),
+REST and DrugRef (#6401–#6402, carlos-emr/drugref2026#21), discontinued warnings and favourites
+(#6403–#6404), data entry and measurements (#6405–#6406), legacy CDS (#6407) and DHIR (#3972).
+OSCAR19 lifecycle preservation (#6408), BPMH reconciliation and print completeness (#6409–#6410),
+source dose uncertainty (#6411), and export and rollback verification (#6412) track the wider work.
+
 ## Behaviour changes to expect
 
 - A dose finer than a thousandth is shown in full: 0.0625 where "0.062" was shown.
@@ -125,7 +131,14 @@ Stored values are out of scope for #6185, and are not rewritten:
 - A typed quantity is stored as a plain decimal, with or without a unit: ".5 mL" is saved as
   `Qty:0.5 mL`, "30.0 mL" as `Qty:30 mL` and "30.0" as `Qty:30`.
 - The generic name of a combination product names every ingredient's strength.
-- The BPMH form shows the structured dose, and a range as "1 to 3".
+- BPMH keeps authored direction lines together, including later taper steps. When directions are
+  missing, the form can show a recorded dose and administered unit, with a range as "1 to 3".
+  A product strength or form on its own is insufficient to fill this field. Historical BPMH forms
+  with stored directions retain those directions. Additional medications and text that exceed a
+  printed row appear on continuation pages.
+- An unrelated same-product REST edit keeps the original dispense quantity and unit, including
+  the spelling of a whole number such as `30.0 mL`. Opening, saving and printing a BPMH form
+  leave the source drug rows intact.
 - REST: a stored quantity that is not a whole number is omitted from `quantity` instead of
   failing the read, and is kept by an update that states no quantity. `strength` is reported for
   a one-digit strength and for a strength stored without a unit, and `strengthUnit` for a

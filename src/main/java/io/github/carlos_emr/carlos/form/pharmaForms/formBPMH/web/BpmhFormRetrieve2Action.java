@@ -245,7 +245,6 @@ public class BpmhFormRetrieve2Action extends ActionSupport {
             // The filled copy, not the posted form: the PDF needs the patient, provider and medication data.
             pdfController.writeDataToPDF(bpmhFormHandler.getBpmhFormBean(), new String[]{"1"}, demographicNo + "");
 
-            // writeDataToPDF logs and swallows its own failures, so a name alone does not prove a PDF exists.
             // Read it before the form is saved: a failed print must not leave a saved form behind.
             File generatedPdf = PathValidationUtils.resolveTrustedPath(new File(pdfController.getOutputPath()));
             if (pdfController.getFileName() == null || !generatedPdf.isFile()) {

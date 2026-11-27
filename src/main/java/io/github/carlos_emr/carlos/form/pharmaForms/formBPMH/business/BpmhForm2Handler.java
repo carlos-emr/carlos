@@ -41,11 +41,9 @@ import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean.BpmhDrug;
 import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean.BpmhForm2Bean;
 import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.util.CaseNoteParser;
 import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.util.JsonUtil;
-import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.util.SortDrugList;
-import io.github.carlos_emr.carlos.prescript.data.RxDrugData;
 
 import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.Comparator;
 import java.util.List;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -440,24 +438,13 @@ public class BpmhForm2Handler {
                     "known CARLOS types; no user-controlled property name reaches the sink")
     public void setFormBeanDrugList(List<BpmhDrug> bpmhDrugBeans) {
 
-        Iterator<Drug> drugListIterator = null;
-        List<Drug> drugList = null;
-        Drug drug;
-        String drugId = null;
-        String drugDIN = null;
-        RxDrugData drugFetch = null;
-
         if (bpmhDrugBeans != null) {
 
             getBpmhFormBean().setDrugs(bpmhDrugBeans);
 
         } else {
 
-            drugList = getDrugDao().findByDemographicId(this.demographicNo, false);
-
-            for (Drug drugItem : drugList) {
-                logger.debug("DRUG: " + drugItem.getGenericName());
-            }
+            List<Drug> drugList = getDrugDao().findByDemographicId(this.demographicNo, false);
 
             // Every row is built from the patient's current medications. A posted row supplies only its
             // instruction, matched by drug id; any other posted field, and any id that is not a current
@@ -466,30 +453,15 @@ public class BpmhForm2Handler {
             bpmhDrugBeans = new ArrayList<>();
             getBpmhFormBean().setDrugs(bpmhDrugBeans);
 
-            if ((drugList != null) && (drugList.size() > 0)) {
-
-                drugFetch = new RxDrugData();
-
-                drugListIterator = drugList.iterator();
-                while (drugListIterator.hasNext()) {
-
-                    drug = drugListIterator.next();
-                    drugId = drug.getId() + "";
-                    drugDIN = drug.getRegionalIdentifier();
+            if (drugList != null) {
+                // Use the numeric source position, retaining DAO order among equal positions.
+                List<Drug> ordered = new ArrayList<>(drugList);
+                ordered.sort(Comparator.comparing(Drug::getPosition, Comparator.nullsLast(Comparator.naturalOrder())));
+                for (Drug drug : ordered) {
+                    String drugId = drug.getId().toString();
                     BpmhDrug bpmhDrug = new BpmhDrug();
-                    RxDrugData.DrugMonograph drugData = null;
-                    StringBuilder stringBuilder = null;
-                    ArrayList<RxDrugData.DrugMonograph.DrugComponent> drugComponents = null;
-                    String drugName = "";
-                    String drugProduct = "";
-
+                    BeanUtils.copyProperties(drug, bpmhDrug);
                     bpmhDrugBeans.add(bpmhDrug);
-
-                    try {
-                        BeanUtils.copyProperties(drug, bpmhDrug);
-                    } catch (Exception e) {
-                        logger.fatal("Failed to copy bean properties", e);
-                    }
                     // Spring's copyProperties skips Integer -> String, so the id is set here: the form posts it back
                     // to match each typed instruction to its drug (#4731).
                     bpmhDrug.setId(drugId);
@@ -498,11 +470,20 @@ public class BpmhForm2Handler {
                     // whenever the instruction text had no direction line (#6185).
                     // Only a positive number is a dose: 0 is the column default for "no structured
                     // dose" and the legacy editor stores -1 for a dose it was not given.
-                    float takeMax = drug.getTakeMax() > 0f ? drug.getTakeMax() : 0f;
-                    // A legacy row can record only the upper bound; that bound is then the dose.
-                    float takeMin = drug.getTakeMin() > 0f ? drug.getTakeMin() : takeMax;
-                    bpmhDrug.setTakeMin(takeMin > 0f ? DoseText.of(takeMin) : "");
-                    bpmhDrug.setTakeMax(takeMax > 0f ? DoseText.of(takeMax) : "");
+                    float min = drug.getTakeMin();
+                    float max = drug.getTakeMax();
+                    if (Float.isFinite(min) && Float.isFinite(max) && !(min > 0 && max > 0 && max < min)) {
+                        float first = min > 0 ? min : max;
+                        bpmhDrug.setTakeMin(first > 0 ? DoseText.of(first) : "");
+                        bpmhDrug.setTakeMax(max > 0 ? DoseText.of(max) : "");
+                    }
+                    // A selected product's unit can be its strength unit. Its form alone
+                    // cannot establish an administered dose. A CDS import records the dose unit.
+                    boolean recordedDoseUnit = (drug.isCustom() && StringUtils.isBlank(drug.getDosage()))
+                            || StringUtils.isNotBlank(drug.getCdsDoseText())
+                            || StringUtils.equalsIgnoreCase(drug.getUnit(), drug.getDrugForm());
+                    bpmhDrug.usePrescriptionDirections(drug.getBrandName(), drug.getSpecialInstruction(),
+                            recordedDoseUnit ? drug.getUnit() : null);
                     if (postedRows != null) {
                         for (BpmhDrug postedRow : postedRows) {
                             if (postedRow != null && drugId.equals(postedRow.getId())) {
@@ -515,65 +496,7 @@ public class BpmhForm2Handler {
                     // sources.
                     bpmhDrug.setWhy(getDrugReason(drug.getId()));
 
-                    // Oscar's Drug table does not (or did not) hold accurate
-                    // drug ingredient information.
-                    // this block is added to ensure proper ingredient info is
-                    // retrieved from DrugRef.
-                    // using this uses wayyyy too many resources, but it is the only way to
-                    // ensure this form is extensible with other Oscar changes.
-                    //TODO: fix once othe parts merged in
-					/*
-					if( ! StringUtils.isBlank(drugDIN) ) {
-						
-						stringBuilder = new StringBuilder();
-						try {
-							drugData = drugFetch.getDrugByDIN(drugDIN);
-                        } catch (Exception e) {
-                        	logger.fatal("Failed to fetch Drug from DrugRef with DIN " + drugDIN, e); 
-                        } 
-
-						if( drugData != null ) {	
-							
-							drugName = drugData.getName();
-							drugProduct = drugData.getProduct();
-							drugComponents = drugData.getDrugComponentList();							
-						}
-						
-						if( drugComponents != null && drugComponents.size() > 0 ) {
-							
-							int count = 0;
-							for( RxDrugData.DrugMonograph.DrugComponent drugComponent : drugComponents ) {
-								
-								stringBuilder.append( drugComponent.getName() );
-								stringBuilder.append(" ");
-								stringBuilder.append( drugComponent.getStrength() );
-								stringBuilder.append( drugComponent.getUnit() );
-								
-								count++;
-								if( count > 0 && count != drugComponents.size() ) {
-									stringBuilder.append( " / " );
-								}
-							}
-							
-							stringBuilder.append(" " + drugData.getDrugForm());
-							
-							bpmhDrug.setWhat( stringBuilder.toString() );
-						
-						} else if( ! StringUtils.isBlank( drugName ) ) {
-							
-							bpmhDrug.setGenericName( drugName );
-							
-						} else if( ! StringUtils.isBlank( drugProduct ) ) {
-							
-							bpmhDrug.setGenericName( drugProduct );
-							
-						} else {
-							// do nothing
-						}												
-					}*/
                 }
-
-                SortDrugList.byPositionOrder(bpmhDrugBeans);
             }
         }
 

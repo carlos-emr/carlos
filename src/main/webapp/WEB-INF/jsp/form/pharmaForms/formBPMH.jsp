@@ -317,7 +317,7 @@
                                 <c:otherwise>
                                     <td>
                                         <!-- HOW -->
-                                        ${carlos:forHtml(drugs.how)}
+                                        <span style="white-space:pre-line;">${carlos:forHtml(drugs.how)}</span>
                                     </td>
                                 </c:otherwise>
                             </c:choose>

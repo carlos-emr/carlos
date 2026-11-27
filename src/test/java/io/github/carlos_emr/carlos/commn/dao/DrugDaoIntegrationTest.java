@@ -62,6 +62,9 @@ public class DrugDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private DrugDao drugDao;
 
+    @Autowired
+    private DrugReasonDao drugReasonDao;
+
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
 
@@ -129,6 +132,40 @@ public class DrugDaoIntegrationTest extends CarlosTestBase {
         entityManager.persist(drug);
         entityManager.flush();
         return drug;
+    }
+
+    @Test
+    void shouldReadStoredLegacyValuesWithoutChangingThem_whenBuildingBpmhForSeveralMedications() {
+        int patient = 821006;
+        Drug later = createDrug(patient, "Medication B", "", false);
+        later.setPosition(10);
+        later.setSpecial("Medication B\nFirst step\nSecond step\nQty:30.0 mL Repeats:0");
+        later.setQuantity("30.0");
+        later.setUnitName("mL");
+        Drug first = createDrug(patient, "Medication A", "", false);
+        first.setPosition(2);
+        entityManager.persist(later);
+        entityManager.persist(first);
+        entityManager.flush();
+        entityManager.clear();
+
+        var handler = new io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.business.BpmhForm2Handler();
+        handler.setBpmhFormBean(new io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean.BpmhForm2Bean());
+        handler.setDemographicNo(patient);
+        handler.setDrugDao(drugDao);
+        handler.setDrugReasonDao(drugReasonDao);
+        handler.setFormBeanDrugList(null);
+        var rows = handler.getBpmhFormBean().getDrugs();
+        assertThat(rows).hasSize(2);
+        assertThat(rows.get(0).getId()).isEqualTo(first.getId().toString());
+        assertThat(rows.get(1).getHow()).isEqualTo("First step\nSecond step");
+        entityManager.flush();
+        entityManager.clear();
+        Drug reloaded = drugDao.find(later.getId());
+        assertThat(reloaded.getSpecial()).isEqualTo(later.getSpecial());
+        assertThat(reloaded.getQuantity()).isEqualTo("30.0");
+        assertThat(reloaded.getUnitName()).isEqualTo("mL");
+        assertThat(reloaded.getRowVersion()).isEqualTo(later.getRowVersion());
     }
 
     @Test

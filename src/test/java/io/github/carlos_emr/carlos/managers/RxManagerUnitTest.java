@@ -261,6 +261,28 @@ class RxManagerUnitTest extends RxManagerImpl {
             assertThat(replacement.getUnitName()).isEqualTo(unitName);
         }
 
+        @ParameterizedTest
+        @CsvSource({"30.0", "30", "030", "2.5", "100 mL"})
+        void shouldPreserveQuantityAndUnit_whenRestEchoesPublishedMedication(String quantity) throws Exception {
+            Drug stored = new Drug();
+            stored.setId(4);
+            stored.setDemographicId(1);
+            stored.setGenericName("ASA");
+            stored.setProviderNo("999001");
+            stored.setQuantity(quantity);
+            stored.setUnitName("mL");
+            ((MockDrugDao) drugDao).seed(stored);
+            var converter = new io.github.carlos_emr.carlos.webserv.rest.conversion.DrugConverterImpl();
+            LoggedInInfo info = new LoggedInInfo();
+            var dto = converter.getAsTransferObject(info, stored);
+            dto.setExternalProvider("Changed provider");
+            Drug replacement = updateDrug(info, converter.getAsDomainObject(info, dto));
+            assertThat(replacement.getQuantity()).isEqualTo(quantity);
+            assertThat(replacement.getUnitName()).isEqualTo("mL");
+            assertThat(stored.getQuantity()).isEqualTo(quantity);
+            assertThat(stored.getUnitName()).isEqualTo("mL");
+        }
+
         @Test
         @DisplayName("should take the quantity the replacement states")
         void shouldTakeReplacementQuantity_whenReplacementStatesOne() {

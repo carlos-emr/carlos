@@ -146,13 +146,15 @@ class BpmhDrugUnitTest {
             drug.setSpecial("Take 1 tablet by mouth twice daily\nwith food");
 
             String how = drug.getHow();
-            assertThat(how).isNotEmpty();
+            assertThat(how).isEqualTo("Take 1 tablet by mouth twice daily\nwith food");
         }
 
         @Test
         @DisplayName("should compose instruction from method, take, and frequency")
         void shouldComposeInstruction_fromMethodTakeFreq() {
             drug.setMethod("Take");
+            drug.setCustomName("Synthetic");
+            drug.setUnit("mL");
             drug.setTakeMin("1");
             drug.setTakeMax("2");
             drug.setFreqCode("BID");
@@ -161,7 +163,7 @@ class BpmhDrugUnitTest {
             drug.setDurUnit("D");
 
             String how = drug.getHow();
-            assertThat(how).isNotEmpty();
+            assertThat(how).isEqualTo("Take 1 to 2 mL BID PO");
         }
     }
 

@@ -201,7 +201,7 @@ test('actual Print step accepts a native inline response and checks both saved P
   for (const bytes of [pdf(), pdf([note]), pdf([instruction])]) {
     const f = fixture({ bytes }), cleanups = [];
     const directory = x.scratchDir(); cleanups.push(() => fs.rmSync(directory, { recursive: true, force: true }));
-    const sandbox = { h, x, form: f.page, patient, saved, note, instruction, captureBpmhPrint, assertBpmhPdf, retainBpmhPdf, require,
+    const sandbox = { h, x, form: f.page, patient, saved, note, instruction, medicationText: [], captureBpmhPrint, assertBpmhPdf, retainBpmhPdf, require,
       process: { env: {} }, console: { log() {} },
       sql: { value: () => '1' }, s: { config: { screenshotDir: directory }, step: async (_, body) => body(), cleanup: cleanup => cleanups.push(cleanup) } };
     try {
@@ -222,7 +222,7 @@ test('artifact retention failure cannot replace the original missing-instruction
   const start = source.indexOf("  await s.step('Print answers a PDF of the saved form', async () => {");
   const end = source.indexOf("\n  await s.step('GET and HEAD carrying the save", start);
   const f = fixture({ bytes: pdf([note]) }), artifactFailure = new Error('renderer failed');
-  const sandbox = { h, x, form: f.page, patient, saved, note, instruction, captureBpmhPrint, assertBpmhPdf,
+  const sandbox = { h, x, form: f.page, patient, saved, note, instruction, medicationText: [], captureBpmhPrint, assertBpmhPdf,
     retainBpmhPdf: () => { throw artifactFailure; }, require, process: { env: {} },
     sql: { value: () => '1' }, s: { config: { screenshotDir: '/tmp' }, step: async (_, body) => body() } };
   const work = vm.runInNewContext(`(async () => { ${source.slice(start, end)} })()`, sandbox);
