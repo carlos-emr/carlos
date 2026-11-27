@@ -51,6 +51,29 @@ class DrugResponseUnitTest {
     }
 
     @Test
+    void shouldKeepQuantityAndDoseOnTheLegacyJsonAndXmlWire() throws Exception {
+        DrugTo1 drug = new DrugTo1();
+        drug.setQuantity(5);
+        drug.setTakeMin(0f);
+        drug.setTakeMax(3f);
+        JsonNode json = objectMapper.valueToTree(drug);
+        assertThat(json.path("quantity").intValue()).isEqualTo(5);
+        assertThat(json.has("quantitySubmitted")).isFalse();
+        assertThat(json.has("submittedTakeMin")).isFalse();
+
+        var jaxb = jakarta.xml.bind.JAXBContext.newInstance(DrugTo1.class);
+        var writer = new java.io.StringWriter();
+        jaxb.createMarshaller().marshal(drug, writer);
+        String xml = writer.toString();
+        assertThat(xml).containsOnlyOnce("<quantity>5</quantity>").doesNotContain("quantitySubmitted");
+        DrugTo1 read = (DrugTo1) jaxb.createUnmarshaller().unmarshal(new java.io.StringReader(xml));
+        assertThat(read.hasSubmittedQuantity()).isTrue();
+        assertThat(read.hasSubmittedTakeMin()).isTrue();
+        assertThat(read.getTakeMin()).isZero();
+        assertThat(read.getTakeMax()).isEqualTo(3f);
+    }
+
+    @Test
     @DisplayName("should serialize with drug field")
     void shouldSerialize_withDrugField() throws Exception {
         DrugTo1 drug = new DrugTo1();

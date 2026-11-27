@@ -321,6 +321,20 @@ class RxManagerUnitTest extends RxManagerImpl {
             assertThat(replacement.getUnitName()).isNull();
         }
 
+        @Test
+        void shouldKeepNewCatalogId_whenNativeCallerSelectsADifferentProductWithTheSameName() {
+            Drug source = new Drug();
+            source.setGcnSeqNo("01");
+            source.setGenericName("ASA");
+            source.setDosage("old catalog strength");
+            Drug changed = new Drug();
+            changed.setGcnSeqNo("02");
+            changed.setGenericName("ASA");
+            changed.preserveUnchangedMedicationValues(source);
+            assertThat(changed.getGcnSeqNo()).isEqualTo("02");
+            assertThat(changed.getDosage()).isNull();
+        }
+
         @ParameterizedTest
         @CsvSource({
                 "json, omitted", "xml, omitted", "json, clear", "json, zero", "xml, zero",
