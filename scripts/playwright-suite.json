@@ -1172,6 +1172,23 @@
       ]
     },
     {
+      "name": "echart-navbar-retry",
+      "script": "scripts/echart-navbar-retry-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "ECHART_NAV_SEARCH",
+        "ECHART_NAV_DEMOGRAPHIC_NO",
+        "ECHART_NAV_TIMEOUT_MS"
+      ]
+    },
+    {
       "name": "lab-results-table",
       "script": "scripts/lab-results-table-playwright-checks.js",
       "tiers": [
