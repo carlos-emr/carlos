@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.utility;
 
+import java.lang.ref.WeakReference;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
@@ -259,8 +260,8 @@ class OscarTrackingBasicDataSourceUnitTest extends CarlosUnitTestBase {
     void shouldRetainDetachedLeaseAcrossGcAndRetryAtShutdown_whenCallerDropsWrapperAfterFailedClose() throws Exception {
         AtomicInteger closeAttempts = new AtomicInteger();
         try (var pool = createFirstCloseFailingH2Pool(closeAttempts)) {
-            java.lang.ref.WeakReference<Connection> releasedWrapper = acquireDetachedAndFailFirstClose(pool);
-            awaitGarbageCollection();
+            WeakReference<Connection> releasedWrapper = acquireDetachedAndFailFirstClose(pool);
+            System.gc();
 
             assertThat(closeAttempts.get()).isOne();
             assertThat(releasedWrapper.get()).isNotNull();
@@ -272,7 +273,7 @@ class OscarTrackingBasicDataSourceUnitTest extends CarlosUnitTestBase {
             assertThat(closeAttempts.get()).isEqualTo(2);
             assertThat(pool.getNumActive()).isZero();
             assertThat(OscarTrackingBasicDataSource.trackedConnectionCount()).isZero();
-            awaitGarbageCollection();
+            awaitGarbageCollection(releasedWrapper);
             assertThat(releasedWrapper.get()).isNull();
         }
     }
@@ -281,8 +282,8 @@ class OscarTrackingBasicDataSourceUnitTest extends CarlosUnitTestBase {
     void shouldReleaseRecoveryReference_whenSubsequentCloseSucceedsBeforeShutdown() throws Exception {
         AtomicInteger closeAttempts = new AtomicInteger();
         try (var pool = createFirstCloseFailingH2Pool(closeAttempts)) {
-            java.lang.ref.WeakReference<Connection> releasedWrapper = acquireDetachedFailAndRetryClose(pool);
-            awaitGarbageCollection();
+            WeakReference<Connection> releasedWrapper = acquireDetachedFailAndRetryClose(pool);
+            awaitGarbageCollection(releasedWrapper);
 
             assertThat(closeAttempts.get()).isEqualTo(2);
             assertThat(pool.getNumActive()).isZero();
@@ -341,7 +342,7 @@ class OscarTrackingBasicDataSourceUnitTest extends CarlosUnitTestBase {
         return pool;
     }
 
-    private static java.lang.ref.WeakReference<Connection> acquireDetachedAndFailFirstClose(
+    private static WeakReference<Connection> acquireDetachedAndFailFirstClose(
             OscarTrackingBasicDataSource pool) throws SQLException {
         Connection lease = pool.getConnection();
         OscarTrackingBasicDataSource.detachFromRequestCleanup(lease);
@@ -351,10 +352,10 @@ class OscarTrackingBasicDataSourceUnitTest extends CarlosUnitTestBase {
                 .hasMessageContaining("rollback failure");
         assertThat(lease.isClosed()).isFalse();
         assertThat(OscarTrackingBasicDataSource.isConnectionTracked(lease)).isTrue();
-        return new java.lang.ref.WeakReference<>(lease);
+        return new WeakReference<>(lease);
     }
 
-    private static java.lang.ref.WeakReference<Connection> acquireDetachedFailAndRetryClose(
+    private static WeakReference<Connection> acquireDetachedFailAndRetryClose(
             OscarTrackingBasicDataSource pool) throws SQLException {
         Connection lease = pool.getConnection();
         OscarTrackingBasicDataSource.detachFromRequestCleanup(lease);
@@ -363,16 +364,14 @@ class OscarTrackingBasicDataSourceUnitTest extends CarlosUnitTestBase {
         lease.close();
         assertThat(lease.isClosed()).isTrue();
         assertThat(OscarTrackingBasicDataSource.isConnectionTracked(lease)).isFalse();
-        return new java.lang.ref.WeakReference<>(lease);
+        return new WeakReference<>(lease);
     }
 
-    private static void awaitGarbageCollection() throws InterruptedException {
-        var canary = new java.lang.ref.WeakReference<>(new Object());
-        for (int attempt = 0; attempt < 50 && canary.get() != null; attempt++) {
+    private static void awaitGarbageCollection(WeakReference<Connection> wrapper) throws InterruptedException {
+        for (int attempt = 0; attempt < 50 && !wrapper.refersTo(null); attempt++) {
             System.gc();
             Thread.sleep(10);
         }
-        assertThat(canary.get()).as("GC canary should be collected").isNull();
     }
 
     @Test

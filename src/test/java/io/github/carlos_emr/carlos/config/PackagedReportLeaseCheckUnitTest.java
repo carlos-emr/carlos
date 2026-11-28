@@ -7,9 +7,12 @@ package io.github.carlos_emr.carlos.config;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.List;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -24,7 +27,11 @@ class PackagedReportLeaseCheckUnitTest {
     Path directory;
 
     private Path writePackagedWebapp() throws Exception {
-        Path webapp = directory.resolve("packaged-webapp");
+        return writePackagedWebapp(directory);
+    }
+
+    private Path writePackagedWebapp(Path parent) throws Exception {
+        Path webapp = parent.resolve("packaged-webapp");
         Path classes = Files.createDirectories(webapp.resolve("WEB-INF/classes"));
         Files.writeString(classes.resolve("jdbc-defaults.properties"), "");
         Files.writeString(classes.resolve("carlos.properties"), "db_remove_abandoned_timeout=360\n");
@@ -405,13 +412,19 @@ class PackagedReportLeaseCheckUnitTest {
     }
 
     @Test
+    @EnabledOnOs(OS.LINUX)
     void shouldFailClosed_whenPathsResolveIntoIsolatedServiceMountNamespaces() throws Exception {
-        Path nonTmpDir = Files.createTempDirectory(Path.of("target").toAbsolutePath(), "ns-check-");
+        Path sharedRoot = Path.of("target").toRealPath();
+        if (sharedRoot.startsWith("/tmp") || sharedRoot.startsWith("/var/tmp")) {
+            sharedRoot = Path.of("/dev/shm").toRealPath();
+        }
+        assertFalse(sharedRoot.startsWith("/tmp") || sharedRoot.startsWith("/var/tmp"));
+        Path nonTmpDir = Files.createTempDirectory(sharedRoot, "ns-check-");
+        Path privateDir = null;
         try {
-            Path packagedWebapp = nonTmpDir.resolve("packaged-webapp");
-            Path packagedClasses = Files.createDirectories(packagedWebapp.resolve("WEB-INF/classes"));
-            Files.writeString(packagedClasses.resolve("jdbc-defaults.properties"), "");
-            Files.writeString(packagedClasses.resolve("carlos.properties"), "db_remove_abandoned_timeout=360\n");
+            privateDir = Files.createTempDirectory(Path.of("/tmp"), "ns-check-");
+            Path packagedClasses = writePackagedWebapp(nonTmpDir);
+            Path packagedWebapp = packagedClasses.getParent().getParent();
 
             Path catalinaBase = nonTmpDir.resolve("ns-base");
             writeContextXml(catalinaBase, packagedWebapp);
@@ -437,26 +450,36 @@ class PackagedReportLeaseCheckUnitTest {
             assertEquals(10, PackagedReportLeaseCheck.status(args, safeHome, launch));
 
             // Host-only /tmp carlos.properties with 360 must NOT mask managed 15 under PrivateTmp=yes.
-            Path tmpHomeDir = Files.createDirectories(directory.resolve("private-tmp-home"));
-            Path tmpHome = tmpHomeDir.resolve("carlos.properties");
+            Path tmpHome = privateDir.resolve("carlos.properties");
             Files.writeString(tmpHome, "db_remove_abandoned_timeout = 360\n");
             assertEquals(1, PackagedReportLeaseCheck.status(args, tmpHome, launch));
 
             // Symlink outside /tmp pointing into /tmp (both existing and missing child) fails closed.
             Path symlinkToTmpDir = nonTmpDir.resolve("symlink-home");
-            Files.createSymbolicLink(symlinkToTmpDir, tmpHomeDir);
+            Files.createSymbolicLink(symlinkToTmpDir, privateDir);
             assertEquals(1, PackagedReportLeaseCheck.status(args, symlinkToTmpDir.resolve("carlos.properties"), launch));
             assertEquals(1, PackagedReportLeaseCheck.status(args, symlinkToTmpDir.resolve("sub/carlos.properties"), launch));
 
             // Selected properties or docBase under /tmp when managed is outside /tmp also fails closed.
-            Path tmpSite = directory.resolve("tmp-site.properties");
+            Path tmpSite = privateDir.resolve("tmp-site.properties");
             Files.writeString(tmpSite, "db_remove_abandoned_timeout = 360\n");
             Files.writeString(env, "PROPERTIES=" + tmpSite + "\n");
             assertEquals(1, PackagedReportLeaseCheck.status(args, safeHome, launch));
+            Path privateAlias = Files.createSymbolicLink(privateDir.resolve("managed-alias.properties"), managed);
+            Files.writeString(env, "PROPERTIES=" + privateAlias + "\n");
+            assertEquals(1, PackagedReportLeaseCheck.status(args, safeHome, launch));
+
+            Path sharedAlias = Files.createSymbolicLink(nonTmpDir.resolve("managed-alias.properties"), managed);
+            Files.writeString(env, "PROPERTIES=" + sharedAlias + "\n");
+            assertEquals(10, PackagedReportLeaseCheck.status(args, sharedAlias, launch));
+            assertEquals(1, PackagedReportLeaseCheck.status(args, privateAlias, launch));
             Files.writeString(env, "CARLOS_JAVA_OPTS=\"\"\n");
 
-            Path tmpWebapp = writePackagedWebapp().getParent().getParent();
+            Path tmpWebapp = writePackagedWebapp(privateDir).getParent().getParent();
             writeContextXml(catalinaBase, tmpWebapp);
+            assertEquals(1, PackagedReportLeaseCheck.status(args, safeHome, launch));
+            Path webappAlias = Files.createSymbolicLink(privateDir.resolve("webapp-alias"), packagedWebapp);
+            writeContextXml(catalinaBase, webappAlias);
             assertEquals(1, PackagedReportLeaseCheck.status(args, safeHome, launch));
             writeContextXml(catalinaBase, packagedWebapp);
 
@@ -478,10 +501,20 @@ class PackagedReportLeaseCheckUnitTest {
                     """);
             assertEquals(0, PackagedReportLeaseCheck.status(args, tmpHome, launch));
         } finally {
-            try (var walk = Files.walk(nonTmpDir)) {
-                for (Path p : walk.sorted(java.util.Comparator.reverseOrder()).toList()) {
-                    Files.deleteIfExists(p);
+            try {
+                if (privateDir != null) {
+                    deleteFixtureTree(privateDir);
                 }
+            } finally {
+                deleteFixtureTree(nonTmpDir);
+            }
+        }
+    }
+
+    private static void deleteFixtureTree(Path root) throws Exception {
+        try (var walk = Files.walk(root)) {
+            for (Path path : walk.sorted(Comparator.reverseOrder()).toList()) {
+                Files.delete(path);
             }
         }
     }
@@ -506,8 +539,7 @@ class PackagedReportLeaseCheckUnitTest {
         Files.writeString(usrSystemd.resolve("system.conf"),
                 "[Manager]\nDefaultEnvironment=\"_JAVA_OPTIONS=-Dcarlos_override_properties=" + site + "\"\n");
         var confLaunch = new PackagedReportLeaseCheck.LaunchConfig(
-                null, catalinaBase, null, List.of(), null, false,
-                List.of(usrSystemd, etcSystemd), null, List.of());
+                null, catalinaBase, null, List.of(), null, false, List.of(usrSystemd, etcSystemd));
         assertEquals(25, PackagedReportLeaseCheck.status(args, home, confLaunch));
 
         // Empty DefaultEnvironment= in higher-priority /etc/systemd/system.conf resets earlier DefaultEnvironment.
@@ -521,29 +553,28 @@ class PackagedReportLeaseCheckUnitTest {
         Files.createSymbolicLink(etcSystemd.resolve("system.conf.d/10-java.conf"), Path.of("/dev/null"));
         assertEquals(0, PackagedReportLeaseCheck.status(args, home, confLaunch));
 
-        // 2. Live managerEnvFile (NUL-delimited) sets _JAVA_OPTIONS -> 25; managerEnvUnavailable -> 1.
+        // A live snapshot takes precedence over the on-disk defaults, including when a key is absent.
         Path managerEnv = directory.resolve("manager.env");
+        Files.writeString(etcSystemd.resolve("system.conf"),
+                "[Manager]\nDefaultEnvironment=\"_JAVA_OPTIONS=-Dcarlos_override_properties=" + managed + "\"\n");
         Files.write(managerEnv, ("PATH=/usr/bin\0_JAVA_OPTIONS=-Dcarlos_override_properties=" + site + "\0")
                 .getBytes(StandardCharsets.UTF_8));
         var liveLaunch = new PackagedReportLeaseCheck.LaunchConfig(
-                null, catalinaBase, null, List.of(), managerEnv, false, List.of(), null, List.of());
+                null, catalinaBase, null, List.of(), managerEnv, false, List.of(usrSystemd, etcSystemd));
         assertEquals(25, PackagedReportLeaseCheck.status(args, home, liveLaunch));
+        Files.writeString(etcSystemd.resolve("system.conf"),
+                "[Manager]\nDefaultEnvironment=\"_JAVA_OPTIONS=-Dcarlos_override_properties=" + site + "\"\n");
+        Files.writeString(managerEnv, "");
+        assertEquals(0, PackagedReportLeaseCheck.status(args, home, liveLaunch));
 
         var unavailableLaunch = new PackagedReportLeaseCheck.LaunchConfig(
-                null, catalinaBase, null, List.of(), null, true, List.of(), null, List.of());
+                null, catalinaBase, null, List.of(), null, true, List.of());
         assertEquals(1, PackagedReportLeaseCheck.status(args, home, unavailableLaunch));
-
-        // 3. /etc/environment and environment.d/*.conf assignments (with unrelated generator syntax ignored).
-        Path envDir = Files.createDirectory(directory.resolve("env.d"));
-        Path etcEnv = directory.resolve("etc-environment");
-        Files.writeString(envDir.resolve("10-os.conf"), "UNRELATED_GEN=${FOO:-bar}\n");
-        Files.writeString(etcEnv, "export _JAVA_OPTIONS=\"-Dcarlos_override_properties=" + site + "\"\n");
-        var etcEnvLaunch = new PackagedReportLeaseCheck.LaunchConfig(
-                null, catalinaBase, null, List.of(), null, false, List.of(), etcEnv, List.of(envDir));
-        assertEquals(25, PackagedReportLeaseCheck.status(args, home, etcEnvLaunch));
 
         // Malformed manager environment entry or DefaultEnvironment fails closed (1).
         Files.write(managerEnv, "MALFORMED_NO_EQUALS\0".getBytes(StandardCharsets.UTF_8));
+        assertEquals(1, PackagedReportLeaseCheck.status(args, home, liveLaunch));
+        Files.delete(managerEnv);
         assertEquals(1, PackagedReportLeaseCheck.status(args, home, liveLaunch));
         Files.writeString(etcSystemd.resolve("system.conf"), "[Manager]\nDefaultEnvironment=NO_EQUALS\n");
         assertEquals(1, PackagedReportLeaseCheck.status(args, home, confLaunch));

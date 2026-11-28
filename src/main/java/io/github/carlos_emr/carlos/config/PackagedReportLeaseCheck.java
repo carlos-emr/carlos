@@ -51,8 +51,6 @@ public final class PackagedReportLeaseCheck {
     private static final String MANAGER_ENV_FILE_PROPERTY = "carlos.reportLeaseCheck.managerEnvFile";
     private static final String MANAGER_ENV_UNAVAILABLE_PROPERTY = "carlos.reportLeaseCheck.managerEnvUnavailable";
     private static final String SYSTEMD_MANAGER_CONF_DIRS_PROPERTY = "carlos.reportLeaseCheck.systemdManagerConfDirs";
-    private static final String ETC_ENVIRONMENT_PROPERTY = "carlos.reportLeaseCheck.etcEnvironment";
-    private static final String ENVIRONMENT_DIRS_PROPERTY = "carlos.reportLeaseCheck.environmentDirs";
 
     private static final String DEFAULT_ENV_FILE = "/etc/carlos-emr/carlos-emr.env";
     private static final String DEFAULT_CATALINA_BASE = "/var/lib/carlos-emr/catalina";
@@ -61,9 +59,6 @@ public final class PackagedReportLeaseCheck {
             "/etc/systemd/system:/run/systemd/system:/usr/lib/systemd/system";
     private static final String DEFAULT_SYSTEMD_MANAGER_CONF_DIRS =
             "/usr/lib/systemd:/run/systemd:/etc/systemd";
-    private static final String DEFAULT_ETC_ENVIRONMENT = "/etc/environment";
-    private static final String DEFAULT_ENVIRONMENT_DIRS =
-            "/usr/lib/environment.d:/run/environment.d:/etc/environment.d";
     private static final String SERVICE_UNIT = "carlos-emr.service";
     private static final List<String> SERVICE_DROPIN_DIRS = List.of(
             SERVICE_UNIT + ".d", "carlos-.service.d", "service.d");
@@ -92,8 +87,6 @@ public final class PackagedReportLeaseCheck {
      * @param managerEnvFile Path optional NUL-delimited live systemd manager environment snapshot
      * @param managerEnvUnavailable boolean true when the live systemd manager environment could not be queried
      * @param systemdManagerConfDirs List of systemd config directories checked for {@code system.conf} and {@code system.conf.d}
-     * @param etcEnvironment Path optional {@code /etc/environment} file
-     * @param environmentDirs List of {@code environment.d} directories checked for generator assignments
      */
     record LaunchConfig(
             Path envFile,
@@ -102,16 +95,14 @@ public final class PackagedReportLeaseCheck {
             List<Path> systemdDirs,
             Path managerEnvFile,
             boolean managerEnvUnavailable,
-            List<Path> systemdManagerConfDirs,
-            Path etcEnvironment,
-            List<Path> environmentDirs) {
+            List<Path> systemdManagerConfDirs) {
 
         LaunchConfig(Path envFile, Path catalinaBase, Path catalinaHome, List<Path> systemdDirs) {
-            this(envFile, catalinaBase, catalinaHome, systemdDirs, null, false, List.of(), null, List.of());
+            this(envFile, catalinaBase, catalinaHome, systemdDirs, null, false, List.of());
         }
 
         static LaunchConfig none() {
-            return new LaunchConfig(null, null, null, List.of(), null, false, List.of(), null, List.of());
+            return new LaunchConfig(null, null, null, List.of());
         }
 
         static LaunchConfig fromSystemProperties() {
@@ -122,9 +113,7 @@ public final class PackagedReportLeaseCheck {
                     colonPaths(System.getProperty(SYSTEMD_DIRS_PROPERTY, DEFAULT_SYSTEMD_DIRS)),
                     optionalPath(System.getProperty(MANAGER_ENV_FILE_PROPERTY, "")),
                     Boolean.getBoolean(MANAGER_ENV_UNAVAILABLE_PROPERTY),
-                    colonPaths(System.getProperty(SYSTEMD_MANAGER_CONF_DIRS_PROPERTY, DEFAULT_SYSTEMD_MANAGER_CONF_DIRS)),
-                    optionalPath(System.getProperty(ETC_ENVIRONMENT_PROPERTY, DEFAULT_ETC_ENVIRONMENT)),
-                    colonPaths(System.getProperty(ENVIRONMENT_DIRS_PROPERTY, DEFAULT_ENVIRONMENT_DIRS)));
+                    colonPaths(System.getProperty(SYSTEMD_MANAGER_CONF_DIRS_PROPERTY, DEFAULT_SYSTEMD_MANAGER_CONF_DIRS)));
         }
 
         private static Path optionalPath(String raw) {
@@ -241,7 +230,7 @@ public final class PackagedReportLeaseCheck {
             throw new IOException("Wrapper PROPERTIES is unreadable");
         }
         PackagedReportLeaseContext.verifyServiceFilesystemView(
-                managed, packagedClasses, selectedProperties, selectedHome, deployedClasses, isolation);
+                selectedProperties, selectedHome, deployedClasses, isolation);
         return new LaunchResolution(deployedClasses, selectedProperties, selectedHome);
     }
 
@@ -441,14 +430,6 @@ public final class PackagedReportLeaseCheck {
         if (LAUNCH_ENV_VARS.contains(token.substring(0, eq))) {
             throw new IOException("Systemd drop-in overrides launch variable");
         }
-    }
-
-    static boolean isLaunchVariable(String key) {
-        return LAUNCH_ENV_VARS.contains(key);
-    }
-
-    static boolean isIdentifier(String key) {
-        return IDENTIFIER.matcher(key).matches();
     }
 
     private static void requireNoSetenv(Path catalinaDir) throws IOException {

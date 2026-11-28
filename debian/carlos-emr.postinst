@@ -1108,8 +1108,6 @@ sys.stdout.buffer.write(b"".join(item.encode("utf-8") + b"\0" for item in json.l
                 ${CARLOS_CATALINA_HOME:+"-Dcarlos.reportLeaseCheck.catalinaHome=${CARLOS_CATALINA_HOME}"} \
                 ${CARLOS_SYSTEMD_UNIT_DIRS:+"-Dcarlos.reportLeaseCheck.systemdDirs=${CARLOS_SYSTEMD_UNIT_DIRS}"} \
                 ${CARLOS_SYSTEMD_MANAGER_CONF_DIRS:+"-Dcarlos.reportLeaseCheck.systemdManagerConfDirs=${CARLOS_SYSTEMD_MANAGER_CONF_DIRS}"} \
-                ${CARLOS_ETC_ENVIRONMENT+"-Dcarlos.reportLeaseCheck.etcEnvironment=${CARLOS_ETC_ENVIRONMENT}"} \
-                ${CARLOS_ENVIRONMENT_CONF_DIRS:+"-Dcarlos.reportLeaseCheck.environmentDirs=${CARLOS_ENVIRONMENT_CONF_DIRS}"} \
                 -cp "${REPORT_CLASSPATH}" io.github.carlos_emr.carlos.config.PackagedReportLeaseCheck \
                 "${REPORT_WEB_INF}/classes" "${PROPERTIES}" ${candidate:+"${candidate}"} || status=$?
             case "${status}" in
@@ -1126,7 +1124,7 @@ sys.stdout.buffer.write(b"".join(item.encode("utf-8") + b"\0" for item in json.l
                     if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${marker}" ]; then
                         : > "${marker}"
                     fi ;;
-                20|25)
+                1|20|25)
                     if [ "${PROVISION_LOCK_HELD}" = 1 ] && [ ! -e "${marker}" ] && [ -z "${2:-}" ] \
                         && [ "$(LC_ALL=C grep -Ec "${stock}" "${PROPERTIES}" 2>/dev/null || true)" = 0 ]; then
                         : > "${marker}"

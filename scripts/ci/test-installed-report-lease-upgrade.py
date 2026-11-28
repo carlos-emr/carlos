@@ -56,8 +56,6 @@ class TestReportLeaseUpgrade(unittest.TestCase):
             env["CARLOS_SYSTEMD_UNIT_DIRS"] = f"{isolated / 'systemd'}:/usr/lib/systemd/system"
             env["CARLOS_MANAGER_ENV_FILE"] = str(manager_env)
             env["CARLOS_SYSTEMD_MANAGER_CONF_DIRS"] = str(isolated / "systemd-manager")
-            env["CARLOS_ETC_ENVIRONMENT"] = ""
-            env["CARLOS_ENVIRONMENT_CONF_DIRS"] = str(isolated / "env.d")
         else:
             for key in (
                 "ENV_FILE",
@@ -67,8 +65,6 @@ class TestReportLeaseUpgrade(unittest.TestCase):
                 "CARLOS_MANAGER_ENV_FILE",
                 "CARLOS_MANAGER_ENV_UNAVAILABLE",
                 "CARLOS_SYSTEMD_MANAGER_CONF_DIRS",
-                "CARLOS_ETC_ENVIRONMENT",
-                "CARLOS_ENVIRONMENT_CONF_DIRS",
             ):
                 env.pop(key, None)
         if extra_env:
@@ -129,6 +125,23 @@ class TestReportLeaseUpgrade(unittest.TestCase):
             self.assertIn("resolves to 15 seconds", self.configure(properties).stderr)
             self.assertEqual(properties.read_bytes(), old)
 
+    def test_fresh_install_records_marker_when_launch_discovery_is_unavailable(self):
+        with self.temp_dir() as directory:
+            root = Path(directory)
+            root.chmod(0o711)
+            properties = root / "carlos.properties"
+            properties.write_bytes(SHIPPED.read_bytes())
+            properties.chmod(0o644)
+            fresh = self.configure(properties, previous="",
+                                   extra_env={"CARLOS_MANAGER_ENV_UNAVAILABLE": "true"})
+            self.assertIn("could not verify", fresh.stderr)
+            self.assertTrue((root / ".report-lease-default-migrated").exists())
+
+            custom = b"db_remove_abandoned_timeout = 15\n"
+            properties.write_bytes(custom)
+            self.assertIn("resolves to 15 seconds", self.configure(properties).stderr)
+            self.assertEqual(properties.read_bytes(), custom)
+
     def test_purge_then_reinstall_migrates_retained_stock_15_once(self):
         with self.temp_dir() as directory:
             root = Path(directory)
@@ -138,6 +151,12 @@ class TestReportLeaseUpgrade(unittest.TestCase):
             old = b"db_remove_abandoned_timeout = 15\nclinic.name=Retained\n"
             properties.write_bytes(old)
             properties.chmod(0o644)
+
+            unavailable = self.configure(properties, previous="",
+                                         extra_env={"CARLOS_MANAGER_ENV_UNAVAILABLE": "true"})
+            self.assertIn("could not verify", unavailable.stderr)
+            self.assertEqual(properties.read_bytes(), old)
+            self.assertFalse(marker.exists())
 
             reinstall = self.configure(properties, previous="")
             self.assertEqual(reinstall.stderr, "")
@@ -375,7 +394,7 @@ class TestReportLeaseUpgrade(unittest.TestCase):
                 f'[Manager]\nDefaultEnvironment="_JAVA_OPTIONS=-Dcarlos_override_properties={site}"\n',
                 encoding="utf-8",
             )
-            res = self.configure(managed, extra_env={"CARLOS_SYSTEMD_MANAGER_CONF_DIRS": str(mgr_dir)})
+            res = self.configure(managed, extra_env={"CARLOS_MANAGER_ENV_FILE": ""})
             self.assertIn("resolves to 15 seconds", res.stderr)
             self.assertFalse(marker.exists())
 

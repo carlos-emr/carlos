@@ -101,8 +101,6 @@ final class PackagedReportLeaseContext {
     }
 
     static void verifyServiceFilesystemView(
-            Path managed,
-            Path packagedClasses,
             Path selectedProperties,
             Path selectedHome,
             Path deployedClasses,
@@ -110,19 +108,14 @@ final class PackagedReportLeaseContext {
         if (!isolation.privateTmp() && !isolation.protectHome()) {
             return;
         }
-        if (!PackagedReportLeaseCheck.resolvesToManaged(managed, selectedHome)
-                && isServiceIsolated(selectedHome, isolation)) {
+        if (isServiceIsolated(selectedHome, isolation)) {
             throw new IOException("Home configuration path is isolated in service mount namespace");
         }
-        if (!isServiceIsolated(managed, isolation)) {
-            if (!PackagedReportLeaseCheck.resolvesToManaged(managed, selectedProperties)
-                    && isServiceIsolated(selectedProperties, isolation)) {
-                throw new IOException("Selected properties path is isolated in service mount namespace");
-            }
-            if (!PackagedReportLeaseCheck.sameFile(packagedClasses, deployedClasses)
-                    && isServiceIsolated(deployedClasses, isolation)) {
-                throw new IOException("Deployed webapp path is isolated in service mount namespace");
-            }
+        if (isServiceIsolated(selectedProperties, isolation)) {
+            throw new IOException("Selected properties path is isolated in service mount namespace");
+        }
+        if (isServiceIsolated(deployedClasses, isolation)) {
+            throw new IOException("Deployed webapp path is isolated in service mount namespace");
         }
     }
 
@@ -172,11 +165,12 @@ final class PackagedReportLeaseContext {
         if (launch.managerEnvUnavailable()) {
             throw new IOException("Systemd manager environment could not be established");
         }
-        if (launch.managerEnvFile() != null && !Files.notExists(launch.managerEnvFile(), LinkOption.NOFOLLOW_LINKS)) {
+        // The live manager reports its loaded defaults together with runtime overrides.
+        if (launch.managerEnvFile() != null) {
             parseNullDelimitedEnvironment(launch.managerEnvFile(), vars);
+        } else {
+            loadSystemdManagerDefaults(launch.systemdManagerConfDirs(), vars);
         }
-        loadEnvironmentConfFiles(launch.environmentDirs(), launch.etcEnvironment(), vars);
-        loadSystemdManagerDefaults(launch.systemdManagerConfDirs(), vars);
     }
 
     private static void parseNullDelimitedEnvironment(Path file, Map<String, String> vars) throws IOException {
@@ -199,73 +193,6 @@ final class PackagedReportLeaseContext {
         }
     }
 
-    private static void loadEnvironmentConfFiles(
-            List<Path> environmentDirs, Path etcEnvironment, Map<String, String> vars) throws IOException {
-        for (Path confFile : collectShadowedConfFiles(environmentDirs, null)) {
-            parseEnvironmentConfFile(confFile, vars);
-        }
-        if (etcEnvironment != null && !Files.notExists(etcEnvironment, LinkOption.NOFOLLOW_LINKS)) {
-            parseEnvironmentConfFile(etcEnvironment, vars);
-        }
-    }
-
-    private static void parseEnvironmentConfFile(Path file, Map<String, String> vars) throws IOException {
-        if (PackagedReportLeaseCheck.isMaskSymlink(file)) {
-            return;
-        }
-        BasicFileAttributes attrs = Files.readAttributes(file, BasicFileAttributes.class);
-        if (!attrs.isRegularFile()) {
-            throw new IOException("Environment configuration is not a regular file");
-        }
-        for (String rawLine : Files.readAllLines(file, StandardCharsets.UTF_8)) {
-            String trimmed = PackagedReportLeaseCheck.stripCarriageReturn(rawLine).trim();
-            if (trimmed.isEmpty() || trimmed.startsWith("#")) {
-                continue;
-            }
-            parseEnvironmentConfAssignment(trimmed, vars);
-        }
-    }
-
-    private static void parseEnvironmentConfAssignment(String line, Map<String, String> vars) throws IOException {
-        String assignment = line;
-        if (assignment.startsWith("export ") || assignment.startsWith("export\t")) {
-            assignment = assignment.substring(6).trim();
-        }
-        int eq = assignment.indexOf('=');
-        if (eq <= 0) {
-            throw new IOException("Malformed assignment in environment configuration");
-        }
-        String key = assignment.substring(0, eq).trim();
-        String rawValue = assignment.substring(eq + 1).trim();
-        if (PackagedReportLeaseCheck.isLaunchVariable(key)) {
-            vars.put(key, parseSimpleEnvironmentValue(rawValue, vars));
-        } else if (PackagedReportLeaseCheck.isIdentifier(key)) {
-            storeNonLaunchEnvironmentValue(key, rawValue, vars);
-        }
-    }
-
-    private static void storeNonLaunchEnvironmentValue(String key, String rawValue, Map<String, String> vars) {
-        try {
-            vars.put(key, parseSimpleEnvironmentValue(rawValue, vars));
-        } catch (IOException _) {
-            // Unrelated OS variables with generator syntax do not affect service launch unless referenced.
-            vars.remove(key);
-        }
-    }
-
-    private static String parseSimpleEnvironmentValue(String raw, Map<String, String> vars) throws IOException {
-        if (raw.isEmpty()) {
-            return "";
-        }
-        char first = raw.charAt(0);
-        if ((first == '"' || first == '\'') && raw.length() >= 2 && raw.charAt(raw.length() - 1) == first
-                && raw.indexOf(first, 1) == raw.length() - 1 && !raw.contains("\\") && !raw.contains("$")
-                && !raw.contains("`")) {
-            return raw.substring(1, raw.length() - 1);
-        }
-        return PackagedReportLeaseCheck.parseShellValue(raw, vars);
-    }
-
     private static void loadSystemdManagerDefaults(List<Path> managerConfDirs, Map<String, String> vars)
             throws IOException {
         if (managerConfDirs.isEmpty()) {
@@ -276,7 +203,7 @@ final class PackagedReportLeaseContext {
         if (mainConf != null) {
             parseManagerConfFile(mainConf, defaultEnv);
         }
-        for (Path dropIn : collectShadowedConfFiles(managerConfDirs, SYSTEM_CONF_DROPIN_DIR)) {
+        for (Path dropIn : collectManagerConfDropIns(managerConfDirs)) {
             parseManagerConfFile(dropIn, defaultEnv);
         }
         vars.putAll(defaultEnv);
@@ -295,12 +222,12 @@ final class PackagedReportLeaseContext {
         return selected;
     }
 
-    private static List<Path> collectShadowedConfFiles(List<Path> baseDirs, String subDir) throws IOException {
+    private static List<Path> collectManagerConfDropIns(List<Path> baseDirs) throws IOException {
         // baseDirs is ordered lowest-to-highest priority (/usr/lib -> /run -> /etc); higher overrides same name.
         Map<String, Path> byName = new HashMap<>();
         Set<String> masked = new HashSet<>();
         for (Path baseDir : baseDirs) {
-            Path dir = subDir == null ? baseDir : baseDir.resolve(subDir);
+            Path dir = baseDir.resolve(SYSTEM_CONF_DROPIN_DIR);
             if (!Files.notExists(dir, LinkOption.NOFOLLOW_LINKS)) {
                 collectConfDirectoryEntries(dir, byName, masked);
             }
