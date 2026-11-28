@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "bc6aa2737cca9621c34348a6b12eb0569b4fbc8b",
+  "comparisonSha256": "efb486235e6d24b3332901b129cc8147a649d33449755e69659e13ca39421255",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/form/pharmaForms/formBPMH/bean/BpmhDrug.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "bd09ba7195332257c0b087e815db2becd36a5ff4"
+    }
+  },
+  "exclusions": {},
+  "zeroCoverageWaivers": {},
+  "baselineCommit": "25f2c513afa9192101df69824636fa6b773ccdda",
+  "baselineSourceTree": "bc6aa2737cca9621c34348a6b12eb0569b4fbc8b",
+  "baselineReportSha256": "42e135d64dcc4193ab4652d8e4247c2147a4c864209fe87715d7a36508c43dcb",
+  "baselineLane": "PR #6367 focused JDK 25 BPMH parser, handler, and PDF regression tests for the reviewed footer scanner.",
+  "baselineTestCounts": {
+    "tests": 65,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "acaa2779b49da10b78c843957f62c44c7e61cc3468f13f3f36ce4896e656705f",
+  "baselineTestReportsHashFormat": "SHA-256 of a sha256sum-style manifest of the final Surefire TEST-*.xml reports, with one '<sha256>  <file name>' line each, sorted by name",
+  "baselineTestRunCommit": "25f2c513afa9192101df69824636fa6b773ccdda",
+  "baselineAdditionalTestRuns": []
+}
