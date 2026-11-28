@@ -180,7 +180,7 @@ class PatientPortalPaymentRequestCallsUnitTest {
     }
 
     @Test
-    void settlementJobUsesTheSharedProtocolAndRefusesMismatchedReceipts() throws Exception {
+    void shouldAcceptOnlyMatchingReceipts_forTheSharedSettlementContract() throws Exception {
         var mapper = new ObjectMapper();
         var contract = mapper.readTree(getClass().getResource("/patientportal/payment-settlement-contract.json"));
         var request = contract.get("request");

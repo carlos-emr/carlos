@@ -108,7 +108,7 @@ class PortalPaymentRequestServiceUnitTest {
     }
 
     @Test
-    void restartedHourlyJobRetriesTheDurablePaidRowAfterDenialAndLostReply() {
+    void shouldRetryTheDurablePaidRow_afterDenialLostReplyAndRestart() {
         PortalPaymentRequest row = stored(PortalPaymentRequest.PAID);
         var job = mock(PortalJobAssertionSigner.class);
         when(dao.lastPaidRequestId()).thenReturn(2L);
@@ -137,7 +137,7 @@ class PortalPaymentRequestServiceUnitTest {
     }
 
     @Test
-    void aMissingRemoteOperationDoesNotAcknowledgeItOrBlockTheNextPaidRow() {
+    void shouldLeaveMissingOperationPending_whileReportingTheNextPaidRow() {
         PortalPaymentRequest missing = stored(PortalPaymentRequest.PAID);
         PortalPaymentRequest found = stored(PortalPaymentRequest.PAID);
         found.setId(3L);
@@ -157,7 +157,7 @@ class PortalPaymentRequestServiceUnitTest {
     }
 
     @Test
-    void aRepeatedServerFailureAndNewArrivalsCannotStarveTheRestOfThePassOrItsNextRetry() {
+    void shouldAdvanceToOtherRows_whenTheFirstReportKeepsFailing() {
         var reports = mock(PortalPaymentRequestService.class);
         var job = mock(PortalJobAssertionSigner.class);
         var worker = new PortalPaymentRetryJob(reports, () -> true, () -> false);
@@ -187,7 +187,7 @@ class PortalPaymentRequestServiceUnitTest {
     }
 
     @Test
-    void twoFullPagesReachTheirOriginalHighWaterBeforeRetryingTheMissingRowAmongNewArrivals() {
+    void shouldRetryMissingRowAfterTwoFullPages_whileNewRowsArrive() {
         var reports = mock(PortalPaymentRequestService.class);
         var job = mock(PortalJobAssertionSigner.class);
         var worker = new PortalPaymentRetryJob(reports, () -> true, () -> false);
@@ -217,7 +217,7 @@ class PortalPaymentRequestServiceUnitTest {
     }
 
     @Test
-    void failedLocalAcknowledgementLeavesTheRowForRetryAndLetsTheNextRowProceed() {
+    void shouldAdvanceThenRetry_whenLocalAcknowledgementFails() {
         var job = mock(PortalJobAssertionSigner.class);
         var worker = new PortalPaymentRetryJob(service, () -> true, () -> false);
         var first = stored(PortalPaymentRequest.PAID);
