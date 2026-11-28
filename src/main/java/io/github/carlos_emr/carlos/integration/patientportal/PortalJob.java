@@ -44,7 +44,17 @@ public enum PortalJob {
     BOOKING_SYNC("booking-sync", Set.of(PortalJob.PERMISSION_BOOKING_PROMPT_SYNC)),
 
     /** Publishes the clinic's complete document-signing public key inventory. */
-    KEY_PUBLISH("key-publish", Set.of(PortalJob.PERMISSION_CLINIC_KEYS_PUBLISH));
+    KEY_PUBLISH("key-publish", Set.of(PortalJob.PERMISSION_CLINIC_KEYS_PUBLISH)),
+
+    /** Collects device proofs and publishes locally authorized approval decisions. */
+    DEVICE_APPROVAL_SYNC("device-approval-sync", Set.of(
+            PortalJob.PERMISSION_APPROVAL_REQUESTS_READ, PortalJob.PERMISSION_APPROVAL_CHALLENGES_PUBLISH,
+            PortalJob.PERMISSION_APPROVAL_PROOFS_READ, PortalJob.PERMISSION_APPROVAL_DECISIONS_PUBLISH,
+            PortalJob.PERMISSION_APPROVAL_DEVICES_REMOVE)),
+
+    /** Uploads immutable sealed copies and collects terminal delivery evidence. */
+    DELIVERY_SYNC("delivery-sync", Set.of(PortalJob.PERMISSION_DELIVERY_UPLOAD,
+            PortalJob.PERMISSION_DELIVERY_EVENTS_READ, PortalJob.PERMISSION_DELIVERY_EVENTS_ACK));
 
     /**
      * List patients' picks of offered times and report whether they were booked. Only a job holds
@@ -54,6 +64,15 @@ public enum PortalJob {
 
     /** Publish public signing keys; staff callers never hold this job-only permission. */
     public static final String PERMISSION_CLINIC_KEYS_PUBLISH = "portal.mycarlos.clinic_keys.publish";
+
+    public static final String PERMISSION_APPROVAL_REQUESTS_READ = "portal.mycarlos.device_approval.requests.read";
+    public static final String PERMISSION_APPROVAL_CHALLENGES_PUBLISH = "portal.mycarlos.device_approval.challenges.publish";
+    public static final String PERMISSION_APPROVAL_PROOFS_READ = "portal.mycarlos.device_approval.approvals.read";
+    public static final String PERMISSION_APPROVAL_DECISIONS_PUBLISH = "portal.mycarlos.device_approval.decisions.publish";
+    public static final String PERMISSION_APPROVAL_DEVICES_REMOVE = "portal.mycarlos.device_approval.devices.remove";
+    public static final String PERMISSION_DELIVERY_UPLOAD = "portal.mycarlos.delivery.upload";
+    public static final String PERMISSION_DELIVERY_EVENTS_READ = "portal.mycarlos.delivery.events.read";
+    public static final String PERMISSION_DELIVERY_EVENTS_ACK = "portal.mycarlos.delivery.events.ack";
 
     private static final String PROPERTY_PREFIX = "patient_portal.job.";
 

@@ -73,7 +73,7 @@ class CdsTransferPermissionSeedMariaDbIntegrationTest {
             assertThat(rows.next()).isTrue();
             assertThat(rows.getInt(1))
                     .as("all fresh Ontario permission rows, including conditional reference seeds")
-                    .isEqualTo(555);
+                    .isEqualTo(557);
         }
         for (String object : List.of("_cds_import", "_cds_export")) {
             var privileges = new Properties();

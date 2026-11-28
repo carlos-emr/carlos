@@ -2,10 +2,10 @@
   "format": 1,
   "profiles": {
     "on": {
-      "physicalContractSha256": "84bd6e3dba3ee51d7394bdc557b5940912f67048f08df1e375e3773945ca71e5"
+      "physicalContractSha256": "605816c225ea96d6bafed7979c5763a7a12575c45399e045d60ae5214d6bf8af"
     },
     "bc": {
-      "physicalContractSha256": "2d898533ecc9c3e391052a46c6e31a85e6dc6c89ec22a236e5978aa3eb6ff2b5"
+      "physicalContractSha256": "066ec8f30bea0cc8447c6c364fb8b8d416c05294a96e33abadef0edc438d9767"
     }
   },
   "tables": {
@@ -403,6 +403,15 @@
     "messagetbl": "DOCUMENT",
     "messengerMembershipLock": "OPERATIONAL",
     "msgDemoMap": "DOCUMENT",
+    "mycarlos_accepted_device": "OPERATIONAL",
+    "mycarlos_delivery_checkpoint": "OPERATIONAL",
+    "mycarlos_delivery_event": "OPERATIONAL",
+    "mycarlos_delivery_event_page": "OPERATIONAL",
+    "mycarlos_delivery_original": "OPERATIONAL",
+    "mycarlos_delivery_outbox": "REQUIRE_EMPTY",
+    "mycarlos_device_approval_challenge": "OPERATIONAL",
+    "mycarlos_device_approval_outbox": "OPERATIONAL",
+    "mycarlos_patient_binding": "OPERATIONAL",
     "mygroup": "REFERENCE",
     "o19_imported_signature_owner": "OPERATIONAL",
     "oscarKeys": "OPERATIONAL",
@@ -1128,6 +1137,9 @@
     "msgDemoMap": [
       "demographic_no"
     ],
+    "mycarlos_delivery_outbox": [
+      "demographic_no"
+    ],
     "outboundEmailArchive": [
       "demographicNo"
     ],
@@ -1453,6 +1465,15 @@
     "messagetbl": "Exported as a CARLOS data-summary Report (message (data summary)): every column of each patient row is rendered with its exact value. Messages attached to the patient (msgDemoMap) go to the data summary with their attachments; provider-only mail is not patient data and is not exported. Needs an indirect scope via msgDemoMap (today any row blocks every patient).",
     "messengerMembershipLock": "Messenger membership serialization row or provider display/read preference, without message body or patient assignment. Messages, attachments and clinical correspondence remain separately gated. See docs/cds-export-source-rulings.md.",
     "msgDemoMap": "Exported as a CARLOS data-summary Report (message (data summary)): every column of each patient row is rendered with its exact value. The link that makes a message patient data.",
+    "mycarlos_accepted_device": "myCarlos device approval state: the approved device keys, the approval proofs and the staff approver. It names no patient (a row reaches a patient only through its binding) and holds no clinical content.",
+    "mycarlos_delivery_checkpoint": "myCarlos delivery feed cursor: counters and a single-writer lease for the clinic. No patient, no clinical content.",
+    "mycarlos_delivery_event": "myCarlos delivery feed events: sequence numbers and event kinds the portal reported. No patient identifier and no clinical content.",
+    "mycarlos_delivery_event_page": "myCarlos delivery feed pages as received, encrypted, with their hashes and failure codes. Transport data; no patient identifier and nothing readable.",
+    "mycarlos_delivery_original": "Ruled by Ben 20 Nov 2026: the encrypted copy of a chart document that was sent to myCarlos. It is a transport duplicate of a document the document tables already export, it names no patient itself, and the record that it was sent is held through mycarlos_delivery_outbox.",
+    "mycarlos_delivery_outbox": "Ruled by Ben 20 Nov 2026: the per-patient record of each document sent to myCarlos (state, encrypted snapshot and receipt). Held like the other patient-linked send records (outboundEmailArchive, sms_transaction): hold exports containing these records until faithful capture is qualified; never silently omit the source or call it operational.",
+    "mycarlos_device_approval_challenge": "myCarlos device approval challenges: candidate device keys, intent, expiry and consumption. Access workflow state for a patient, like the portal invitation lifecycle, not clinical content.",
+    "mycarlos_device_approval_outbox": "myCarlos device approval messages waiting to be sent to the portal: the exact body, its hash and retry state. Transport data, not clinical content.",
+    "mycarlos_patient_binding": "The link between a chart and its myCarlos recipient at the portal (identifiers, portal address, device key). Access workflow state; the patient message and documents stay in their own tables.",
     "o19_imported_signature_owner": "OSCAR 19 import provenance: which imported DigitalSignature rows the migration bound to which patient and module (V1.0.59.35). It holds no clinical value of its own; each signature row is exported with its parent under the DigitalSignature ruling.",
     "other_id": "PATIENT-LINKED (conditionally): interface routing key (e.g. PHS/STAR TMR id), not chart content and meaningless to a receiving EMR.",
     "outboundEmailArchive": "Develop adds this patient-linked source after the release export coverage was qualified. Hold exports containing these records until faithful clinical capture is qualified; never silently omit the source or call it operational.",

@@ -1,0 +1,30 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ */
+#mycarlos-devices pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.mycarlos-device-approval-form {
+    display: grid;
+    gap: 12px;
+    margin-top: 12px;
+}
+.mycarlos-device-fingerprint {
+    display: grid;
+    gap: 6px;
+}
+.mycarlos-device-fingerprint input {
+    box-sizing: border-box;
+    font-family: monospace;
+    width: 68ch;
+    max-width: 100%;
+}
+.mycarlos-device-confirmation {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+.mycarlos-device-approval-form button {
+    justify-self: start;
+}

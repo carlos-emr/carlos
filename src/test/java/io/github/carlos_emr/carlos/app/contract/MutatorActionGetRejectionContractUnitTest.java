@@ -286,6 +286,8 @@ class MutatorActionGetRejectionContractUnitTest {
      */
     private static final Set<String> CONDITIONAL_MUTATORS =
             Set.of(
+                    // Read is GET; refresh/approval mutation intent is POST-only. Focused unit covers both GET and HEAD.
+                    "io.github.carlos_emr.carlos.integration.patientportal.web.PortalDeviceApproval2Action",
                     "io.github.carlos_emr.carlos.admin.lookUpLists.LookupListManager2Action",
 "io.github.carlos_emr.carlos.prescript.pageUtil.RxFavoriteGroups2Action",
 "io.github.carlos_emr.carlos.report.pageUtil.RptDemographicReport2Action",
