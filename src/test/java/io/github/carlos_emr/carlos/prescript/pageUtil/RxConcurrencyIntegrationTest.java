@@ -27,10 +27,21 @@ class RxConcurrencyIntegrationTest extends CarlosUnitTestBase {
     @PersistenceContext private EntityManager em;
     private TransactionTemplate tx() { return new TransactionTemplate(transactions); }
 
+    private static Drug chartMedication() {
+        Drug drug = new Drug();
+        drug.setDemographicId(1001);
+        drug.setProviderNo("999998");
+        drug.setPosition(1);
+        return drug;
+    }
+
     @Test void shouldPreserveFirstEdit_whenTwoDetachedDrugSnapshotsAreMerged() {
         Drug saved = tx().execute(status -> {
-            var drug = new Drug(); drug.setDemographicId(1001); drug.setProviderNo("999998"); drug.setDrugForm("Tablet");
-            drug.setFreqCode("OD"); em.persist(drug); return drug;
+            Drug drug = chartMedication();
+            drug.setDrugForm("Tablet");
+            drug.setFreqCode("OD");
+            em.persist(drug);
+            return drug;
         });
         Drug first = tx().execute(status -> em.find(Drug.class, saved.getId()));
         Drug stale = tx().execute(status -> em.find(Drug.class, saved.getId()));
@@ -46,7 +57,9 @@ class RxConcurrencyIntegrationTest extends CarlosUnitTestBase {
 
     @Test void shouldRefuseChangedSourceAndStaleForm_beforeReplacingMedication() {
         Drug saved = tx().execute(status -> {
-            var drug = new Drug(); drug.setDemographicId(1001); drug.setProviderNo("999998"); em.persist(drug); return drug;
+            Drug drug = chartMedication();
+            em.persist(drug);
+            return drug;
         });
         long original = saved.getRowVersion();
         long current = concurrency.updateForm("999998", 1001, saved.getId(), original, "Tablet");
@@ -106,7 +119,9 @@ class RxConcurrencyIntegrationTest extends CarlosUnitTestBase {
     @Test
     void shouldKeepClinicalVersion_whenOnlyPresentationFieldsChange() {
         Drug saved = tx().execute(status -> {
-            var drug = new Drug(); drug.setDemographicId(1001); drug.setProviderNo("999998"); em.persist(drug); return drug;
+            Drug drug = chartMedication();
+            em.persist(drug);
+            return drug;
         });
         long version = saved.getRowVersion();
         tx().executeWithoutResult(status -> {
