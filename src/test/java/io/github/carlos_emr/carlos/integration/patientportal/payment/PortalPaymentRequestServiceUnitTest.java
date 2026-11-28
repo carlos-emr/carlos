@@ -111,7 +111,8 @@ class PortalPaymentRequestServiceUnitTest {
     void restartedHourlyJobRetriesTheDurablePaidRowAfterDenialAndLostReply() {
         PortalPaymentRequest row = stored(PortalPaymentRequest.PAID);
         var job = mock(PortalJobAssertionSigner.class);
-        when(dao.paidPageAfter(0, PortalPaymentRetryJob.PAGE_SIZE))
+        when(dao.lastPaidRequestId()).thenReturn(2L);
+        when(dao.paidPageAfter(0, 2, PortalPaymentRetryJob.PAGE_SIZE))
                 .thenAnswer(ignored -> row.isPortalSynced() ? List.of() : List.of(row));
         when(dao.findForUpdate(row.getId())).thenReturn(row);
         when(portal.reportPaidOperation(123, "op-ref", "inv-ref", null, job))
@@ -121,7 +122,7 @@ class PortalPaymentRequestServiceUnitTest {
 
         new PortalPaymentRetryJob(service, () -> false, () -> false).runSafely(job);
         new PortalPaymentRetryJob(service, () -> true, () -> true).runSafely(job);
-        verify(dao, never()).paidPageAfter(0, PortalPaymentRetryJob.PAGE_SIZE);
+        verify(dao, never()).lastPaidRequestId();
         var first = new PortalPaymentRetryJob(service, () -> true, () -> false);
         first.runSafely(job);
         first.runSafely(job);
@@ -143,7 +144,8 @@ class PortalPaymentRequestServiceUnitTest {
         found.setOperationId("second-op");
         found.setPortalRequestId(19L);
         var job = mock(PortalJobAssertionSigner.class);
-        when(dao.paidPageAfter(0, PortalPaymentRetryJob.PAGE_SIZE)).thenReturn(List.of(missing, found));
+        when(dao.lastPaidRequestId()).thenReturn(3L);
+        when(dao.paidPageAfter(0, 3, PortalPaymentRetryJob.PAGE_SIZE)).thenReturn(List.of(missing, found));
         when(dao.findForUpdate(3L)).thenReturn(found);
         when(portal.reportPaidOperation(123, "op-ref", "inv-ref", null, job))
                 .thenThrow(PatientPortalException.ofStatus(404, "/payment-settlements",
@@ -152,6 +154,92 @@ class PortalPaymentRequestServiceUnitTest {
         new PortalPaymentRetryJob(service, () -> true, () -> false).runSafely(job);
         assertThat(missing.isPortalSynced()).isFalse();
         assertThat(found.isPortalSynced()).isTrue();
+    }
+
+    @Test
+    void aRepeatedServerFailureAndNewArrivalsCannotStarveTheRestOfThePassOrItsNextRetry() {
+        var reports = mock(PortalPaymentRequestService.class);
+        var job = mock(PortalJobAssertionSigner.class);
+        var worker = new PortalPaymentRetryJob(reports, () -> true, () -> false);
+        long end = PortalPaymentRetryJob.PAGE_SIZE;
+        List<PortalPaymentRequest> initial = java.util.stream.LongStream.rangeClosed(1, end)
+                .mapToObj(id -> {
+                    var row = stored(PortalPaymentRequest.PAID);
+                    row.setId(id);
+                    return row;
+                }).toList();
+        when(reports.lastPaidRequestId()).thenReturn(end, end * 2);
+        when(reports.paidPageAfter(0, end, PortalPaymentRetryJob.PAGE_SIZE)).thenReturn(initial);
+        when(reports.paidPageAfter(1, end, PortalPaymentRetryJob.PAGE_SIZE))
+                .thenReturn(initial.subList(1, initial.size()));
+        when(reports.paidPageAfter(0, end * 2, PortalPaymentRetryJob.PAGE_SIZE))
+                .thenReturn(List.of(initial.getFirst()));
+        org.mockito.Mockito.doThrow(PatientPortalException.ofStatus(500, "/payment-settlements", "temporary"))
+                .when(reports).reportSettlement(initial.getFirst(), job);
+        worker.runSafely(job);
+        worker.runSafely(job);
+        worker.runSafely(job);
+        verify(reports, org.mockito.Mockito.times(2)).reportSettlement(initial.getFirst(), job);
+        verify(reports).reportSettlement(initial.get(1), job);
+        verify(reports).reportSettlement(initial.getLast(), job);
+        verify(reports).paidPageAfter(1, end, PortalPaymentRetryJob.PAGE_SIZE);
+        verify(reports).paidPageAfter(0, end * 2, PortalPaymentRetryJob.PAGE_SIZE);
+    }
+
+    @Test
+    void twoFullPagesReachTheirOriginalHighWaterBeforeRetryingTheMissingRowAmongNewArrivals() {
+        var reports = mock(PortalPaymentRequestService.class);
+        var job = mock(PortalJobAssertionSigner.class);
+        var worker = new PortalPaymentRetryJob(reports, () -> true, () -> false);
+        int size = PortalPaymentRetryJob.PAGE_SIZE;
+        var rows = java.util.stream.LongStream.rangeClosed(1, size * 3L)
+                .mapToObj(id -> {
+                    var row = stored(PortalPaymentRequest.PAID);
+                    row.setId(id);
+                    return row;
+                }).toList();
+        when(reports.lastPaidRequestId()).thenReturn(size * 2L, size * 3L);
+        when(reports.paidPageAfter(0, size * 2L, size)).thenReturn(rows.subList(0, size));
+        when(reports.paidPageAfter(size, size * 2L, size)).thenReturn(rows.subList(size, size * 2));
+        var withNewArrivals = new java.util.ArrayList<PortalPaymentRequest>();
+        withNewArrivals.add(rows.getFirst());
+        withNewArrivals.addAll(rows.subList(size * 2, size * 3 - 1));
+        when(reports.paidPageAfter(0, size * 3L, size)).thenReturn(withNewArrivals);
+        org.mockito.Mockito.doThrow(PatientPortalException.ofStatus(404, "/payment-settlements",
+                        PatientPortalService.PAYMENT_REQUEST_NOT_FOUND_DETAIL)).doNothing()
+                .when(reports).reportSettlement(rows.getFirst(), job);
+        worker.runSafely(job);
+        worker.runSafely(job);
+        worker.runSafely(job);
+        verify(reports, org.mockito.Mockito.times(2)).reportSettlement(rows.getFirst(), job);
+        verify(reports).reportSettlement(rows.get(size * 2 - 1), job);
+        verify(reports).reportSettlement(rows.get(size * 2), job);
+    }
+
+    @Test
+    void failedLocalAcknowledgementLeavesTheRowForRetryAndLetsTheNextRowProceed() {
+        var job = mock(PortalJobAssertionSigner.class);
+        var worker = new PortalPaymentRetryJob(service, () -> true, () -> false);
+        var first = stored(PortalPaymentRequest.PAID);
+        var second = stored(PortalPaymentRequest.PAID);
+        second.setId(3L);
+        second.setOperationId("second-op");
+        when(dao.lastPaidRequestId()).thenReturn(3L, 2L);
+        when(dao.paidPageAfter(0, 3, PortalPaymentRetryJob.PAGE_SIZE)).thenReturn(List.of(first, second));
+        when(dao.paidPageAfter(2, 3, PortalPaymentRetryJob.PAGE_SIZE)).thenReturn(List.of(second));
+        when(dao.paidPageAfter(0, 2, PortalPaymentRetryJob.PAGE_SIZE)).thenReturn(List.of(first));
+        when(portal.reportPaidOperation(123, "op-ref", "inv-ref", null, job)).thenReturn(17L);
+        when(portal.reportPaidOperation(123, "second-op", "inv-ref", null, job)).thenReturn(18L);
+        when(dao.findForUpdate(2L)).thenThrow(new IllegalStateException("FAKE unavailable")).thenReturn(first);
+        when(dao.findForUpdate(3L)).thenReturn(second);
+        worker.runSafely(job);
+        assertThat(first.isPortalSynced()).isFalse();
+        worker.runSafely(job);
+        assertThat(second.isPortalSynced()).isTrue();
+        worker.runSafely(job);
+        assertThat(first.isPortalSynced()).isTrue();
+        assertThat(first.getPortalRequestId()).isEqualTo(17L);
+        verify(portal, org.mockito.Mockito.times(2)).reportPaidOperation(123, "op-ref", "inv-ref", null, job);
     }
 
     private PortalPaymentRequest persisted;

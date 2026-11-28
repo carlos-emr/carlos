@@ -55,6 +55,7 @@ public class PortalPaymentRetryJob {
     private final BooleanSupplier maintenance;
     private ScheduledExecutorService executor;
     private long afterId;
+    private long throughId;
 
     @Autowired
     public PortalPaymentRetryJob(PortalPaymentRequestService requests, CdsImportMaintenanceService maintenance) {
@@ -102,11 +103,25 @@ public class PortalPaymentRetryJob {
             if (paused()) {
                 return;
             }
-            List<PortalPaymentRequest> page = requests.paidPageAfter(afterId, PAGE_SIZE);
+            if (afterId == 0) {
+                throughId = requests.lastPaidRequestId();
+            }
+            if (throughId == 0) {
+                return;
+            }
+            List<PortalPaymentRequest> page = requests.paidPageAfter(afterId, throughId, PAGE_SIZE);
+            if (page.isEmpty()) {
+                afterId = 0;
+                return;
+            }
+            long lastInPass = page.size() < PAGE_SIZE ? page.getLast().getId() : throughId;
             for (PortalPaymentRequest row : page) {
                 if (paused()) {
                     return;
                 }
+                // Move the in-memory scan before I/O. A row-specific outage or local ack failure
+                // must not monopolize the first slot on every tick. The durable row stays pending.
+                afterId = row.getId() == lastInPass ? 0 : row.getId();
                 try {
                     requests.reportSettlement(row, job);
                 } catch (PatientPortalException failure) {
@@ -121,10 +136,6 @@ public class PortalPaymentRetryJob {
                         return;
                     }
                 }
-                afterId = row.getId();
-            }
-            if (page.size() < PAGE_SIZE) {
-                afterId = 0;
             }
         } catch (RuntimeException failure) {
             // A thrown task cancels future fixed-delay runs. Durable rows must survive any outage.

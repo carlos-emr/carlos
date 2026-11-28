@@ -346,8 +346,12 @@ public class PortalPaymentRequestService {
         return reported;
     }
 
-    List<PortalPaymentRequest> paidPageAfter(long afterId, int limit) {
-        return transactions.execute(status -> requests.paidPageAfter(afterId, limit));
+    long lastPaidRequestId() {
+        return transactions.execute(status -> requests.lastPaidRequestId());
+    }
+
+    List<PortalPaymentRequest> paidPageAfter(long afterId, long throughId, int limit) {
+        return transactions.execute(status -> requests.paidPageAfter(afterId, throughId, limit));
     }
 
     /** Keep the durable row pending until the portal acknowledges the same paid or withdrawn request. */
@@ -357,6 +361,8 @@ public class PortalPaymentRequestService {
         transactions.executeWithoutResult(status -> {
             PortalPaymentRequest current = requests.findForUpdate(row.getId());
             if (current != null && PortalPaymentRequest.PAID.equals(current.getStatus())
+                    && row.getDemographicNo() == current.getDemographicNo()
+                    && row.getInvoiceRef().equals(current.getInvoiceRef())
                     && row.getOperationId().equals(current.getOperationId())
                     && (current.getPortalRequestId() == null || current.getPortalRequestId() == remoteId)) {
                 current.setPortalRequestId(remoteId);
