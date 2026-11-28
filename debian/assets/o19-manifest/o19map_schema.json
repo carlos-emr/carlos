@@ -2,7 +2,7 @@
  "format": 3,
  "kind": "o19map-schema",
  "generator": "scripts/migration/o19/generate_manifests.py",
- "SCHEMA_MAP_VERSION": "o19map-8+99e99907",
+ "SCHEMA_MAP_VERSION": "o19map-8+a44fb921",
  "O19_PROFILE": "on",
  "O19_SOURCE_COMMIT": "a7900d569d3faf741993e5e1da8c14021bbefede",
  "TABLES": {
@@ -24772,7 +24772,7 @@
  },
  "PROFILES": {
   "bc": {
-   "SCHEMA_MAP_VERSION": "o19map-8+721abab3",
+   "SCHEMA_MAP_VERSION": "o19map-8+4f54c3b1",
    "O19_PROFILE": "bc",
    "TABLES": {
     "AppDefinition": {
