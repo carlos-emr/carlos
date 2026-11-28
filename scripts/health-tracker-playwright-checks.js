@@ -21,7 +21,9 @@
 //     "Save All" from doubling an observation. Nothing else in the suite covers it.
 //
 // The unit tests pin all three against mocks. Only a browser proves the rendered
-// page, the Struts route and the database agree.
+// page, the Struts route and the database agree. The delete confirmation's
+// "entered by - Date: observed" line is also checked for its em dash, by code
+// point, since a raw one in the fragment's script reached the browser garbled (#6305).
 //
 // The tracker flowsheet ships deliberately EMPTY -- clinicians choose its
 // measurements through Edit Flowsheet, stored as flowsheet_customization rows --
@@ -274,6 +276,15 @@ async function workflow(s) {
     await modal.waitFor({ state: 'visible', timeout: 10000 });
     assert((await modal.innerText()).includes(GOOD_VALUE),
       'The delete confirmation does not show the value being deleted');
+    // #6305: HealthTrackerPage.jspf (a dynamic include, so Jasper reads it as ISO-8859-1) writes this line in
+    // script as entered-by + ' \u2014 Date: ' + observed; a raw em dash there reached the browser as mojibake.
+    // Matched by code point (U+2014), never by a pasted character.
+    const obsDate = await page.locator('#deleteObsDate').textContent();
+    const nonAscii = Array.from(obsDate).filter((ch) => ch.codePointAt(0) > 0x7e)
+      .map((ch) => `U+${ch.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}`);
+    assert(/\S \u2014 Date: \S/.test(obsDate) && !obsDate.includes('\uFFFD') && !obsDate.includes('\u00E2\u20AC\u201D'),
+      'The delete confirmation does not read "<entered by> \u2014 Date: <observed>" with an em dash (U+2014);'
+      + ` its non-ASCII characters are ${nonAscii.join(' ') || 'none'}`);
     await Promise.all([
       page.waitForURL(/ViewHealthTracker/, { timeout: 30000 }),
       page.locator('#deleteButton').click(),

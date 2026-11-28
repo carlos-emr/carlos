@@ -28,11 +28,14 @@ import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.util.ReflectionTestUtils;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -48,6 +51,20 @@ class PathnetImportIntegrationTest extends CarlosTestBase {
     @Autowired private DemographicDao demographics;
     @Autowired private PatientLabRoutingDao routing;
     @PersistenceContext private EntityManager em;
+    private Object previousPatientRoutingDao;
+
+    @BeforeEach
+    void bindCommonLabResultDataDao() {
+        // Production caches this DAO when the class loads. A unit test in the
+        // same Surefire fork can initialize it under a mocked Spring context.
+        previousPatientRoutingDao = ReflectionTestUtils.getField(CommonLabResultData.class, "patientLabRoutingDao");
+        ReflectionTestUtils.setField(CommonLabResultData.class, "patientLabRoutingDao", routing);
+    }
+
+    @AfterEach
+    void restoreCommonLabResultDataDao() {
+        ReflectionTestUtils.setField(CommonLabResultData.class, "patientLabRoutingDao", previousPatientRoutingDao);
+    }
 
     private Demographic patient(String phn, String status) {
         Demographic demo = new Demographic();

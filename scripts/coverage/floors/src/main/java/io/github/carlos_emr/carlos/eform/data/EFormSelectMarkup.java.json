@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/eform/data/EFormSelectMarkup.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 98.8135593220339,
+    "branches": 90.85365853658537,
+    "sourceBlob": "b35cd1d487b21626aacfa12ca47b44f15f5f301a"
+  },
+  "evidenceSha256": "54b72a6662148959fdd64950fdcebc437952eb0bc1d4e4ad96b55d0cd9b10463"
+}

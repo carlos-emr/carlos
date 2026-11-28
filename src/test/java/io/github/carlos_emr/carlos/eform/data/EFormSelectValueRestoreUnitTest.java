@@ -187,6 +187,52 @@ class EFormSelectValueRestoreUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should change nothing when the submitted names and values do not pair up")
+    void shouldLeaveTheFormAsItIs_whenNamesAndValuesDiffInNumber() {
+        EForm form = formOf(VALUELESS);
+        String before = form.getFormHtml();
+
+        form.setValues(list("s", "t"), list("Yes"), Map.of());
+
+        assertThat(form.getFormHtml()).isEqualTo(before);
+    }
+
+    @Test
+    @DisplayName("should use the single value when no per-name submission map is passed at all")
+    void shouldUseSingleValue_whenSubmittedValuesIsNull() {
+        EForm form = formOf(VALUELESS);
+
+        form.setValues(list("s"), list("No"), null);
+
+        assertThat(selectedTexts(Jsoup.parse(form.getFormHtml()), "s")).containsExactly("No");
+    }
+
+    @Test
+    @DisplayName("should use the single value when the submission map holds an empty list for the select")
+    void shouldUseSingleValue_whenSubmittedListForTheSelectIsEmpty() {
+        EForm form = formOf(VALUELESS);
+
+        form.setValues(list("s"), list("Yes"), Map.of("s", List.of()));
+
+        assertThat(selectedTexts(Jsoup.parse(form.getFormHtml()), "s")).containsExactly("Yes");
+    }
+
+    @Test
+    @DisplayName("should restore a text-only option whose text holds a no-break space, as the browser submitted it")
+    void shouldRestoreTextOnlyOption_whenItsTextHoldsANoBreakSpace() {
+        // A browser submits an option's text with only HTML white space collapsed: a no-break space stays.
+        String html = "<select name=\"s\"><option>Not done</option><option>Not&nbsp;done</option>"
+                + "<option value=\"Pending\">Later</option></select>";
+
+        assertThat(selectedPositions(save(html, "s", "Not\u00a0done"), "s")).containsExactly(1);
+        assertThat(selectedPositions(save(html, "s", "Not done"), "s")).containsExactly(0);
+        // An explicit value attribute still restores, and so does collapsed text.
+        assertThat(selectedPositions(save(html, "s", "Pending"), "s")).containsExactly(2);
+        assertThat(selectedPositions(save("<select name=\"s\"><option>\n  Not   sure </option></select>", "s", "Not sure"), "s"))
+                .containsExactly(0);
+    }
+
+    @Test
     @DisplayName("should still clear a text, textarea and radio default that was submitted empty")
     void shouldClearOtherDefaults_whenSubmittedEmpty() {
         String html = "<input type=\"text\" name=\"t\" value=\"default\">"
@@ -218,6 +264,16 @@ class EFormSelectValueRestoreUnitTest extends CarlosUnitTestBase {
 
     private static List<String> selectedTexts(Document saved, String name) {
         return saved.select("select[name=" + name + "] option[selected]").stream().map(Element::text).toList();
+    }
+
+    /** The positions, in document order, of the selected options of the select named {@code name}. */
+    private static List<Integer> selectedPositions(Document saved, String name) {
+        List<Element> options = saved.select("select[name=" + name + "] option");
+        List<Integer> positions = new ArrayList<>();
+        for (int i = 0; i < options.size(); i++) {
+            if (options.get(i).hasAttr("selected")) positions.add(i);
+        }
+        return positions;
     }
 
     private static ArrayList<String> list(String... values) {

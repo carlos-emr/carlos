@@ -337,5 +337,98 @@ class TestDebianPythonDependencyLock(unittest.TestCase):
                          r"(?m)^bcrypt==[0-9.]+ \\\n    --hash=sha256:[0-9a-f]{64}$")
 
 
+class TestPostinstLintianBashismOverrides(unittest.TestCase):
+    """#6336: each possible-bashism override names text the postinst still has.
+
+    checkbashisms misreads embedded Python method calls as shell function
+    declarations. A stale override (for code since removed) or a wildcard one
+    silently widens the suppression, and lintian only runs in the package
+    workflows, so the pairing is pinned here.
+    """
+
+    OVERRIDES = ROOT / "debian" / "carlos-emr.lintian-overrides"
+    POSTINST = ROOT / "debian" / "carlos-emr.postinst"
+    TAG = "possible-bashism-in-maintainer-script"
+    NGINX_PATTERNS = (
+        "link.lstat()", "link.unlink()", "query.stdout.splitlines()",
+        "usedforsecurity=False).hexdigest()",
+    )
+
+    def bashism_overrides(self):
+        found = []
+        for number, line in enumerate(self.OVERRIDES.read_text(encoding="utf-8").splitlines(), 1):
+            if line.lstrip().startswith("#") or self.TAG not in line:
+                continue
+            match = re.fullmatch(self.TAG + r" '([^']*)' \[([^\]]+)\]", line.strip())
+            self.assertIsNotNone(match, f"line {number} is not '<tag> '<pattern>' [<scope>]': {line!r}")
+            found.append((number, match.group(1), match.group(2)))
+        return found
+
+    def nginx_heredoc(self):
+        text = self.POSTINST.read_text(encoding="utf-8")
+        match = re.search(r"<<'NGINX_DEFAULT_SITE'\n(.*?)\nNGINX_DEFAULT_SITE\n", text, re.S)
+        self.assertIsNotNone(match, "quoted NGINX_DEFAULT_SITE heredoc is missing from the postinst")
+        return match.group(1)
+
+    def test_every_override_pattern_occurs_literally_in_the_postinst(self):
+        postinst = self.POSTINST.read_text(encoding="utf-8")
+        overrides = self.bashism_overrides()
+        self.assertTrue(overrides)
+        for number, pattern, _scope in overrides:
+            with self.subTest(line=number, pattern=pattern):
+                self.assertIn(pattern, postinst)
+
+    def test_overrides_are_scoped_to_the_postinst_and_never_bare_wildcards(self):
+        for number, pattern, scope in self.bashism_overrides():
+            with self.subTest(line=number, pattern=pattern):
+                self.assertEqual(scope, "postinst:*")
+                self.assertGreaterEqual(len(pattern.strip("*? ")), 8)
+                self.assertNotIn("*", pattern.replace("sys.stdin.read().strip()", ""))
+
+    def test_nginx_default_site_overrides_are_exactly_the_four_python_calls(self):
+        patterns = [pattern for _n, pattern, _s in self.bashism_overrides()]
+        heredoc = self.nginx_heredoc()
+        for pattern in self.NGINX_PATTERNS:
+            with self.subTest(pattern=pattern):
+                self.assertEqual(patterns.count(pattern), 1)
+                self.assertIn(pattern, heredoc)
+        self.assertNotIn("configuration.flush()", patterns)
+        self.assertEqual(sorted(patterns),
+                         sorted(list(self.NGINX_PATTERNS) + ["sys.stdin.read().strip()"]))
+
+
+class TestRulesShipTheConfigurationPreflight(unittest.TestCase):
+    """#6133 / #6336: debian/rules builds and installs both preflight artifacts.
+
+    The service unit runs the root wrapper before start and the JVM loads the
+    jar as an agent, so a package without either fails to start; only the
+    installed lifecycle lanes would otherwise notice a wrong rules line.
+    """
+
+    RULES = ROOT / "debian" / "rules"
+
+    def rules(self):
+        return self.RULES.read_text(encoding="utf-8")
+
+    def test_build_target_runs_the_preflight_jar_script_that_exists(self):
+        text = self.rules()
+        target = re.search(r"^override_dh_auto_build:.*?(?=^\S)", text, re.S | re.M)
+        self.assertIsNotNone(target)
+        self.assertIn("sh $(CURDIR)/debian/build-configuration-preflight.sh $(BUILDDIR)", target.group(0))
+        self.assertTrue((ROOT / "debian" / "build-configuration-preflight.sh").is_file())
+
+    def test_wrapper_is_installed_executable_from_a_source_that_exists(self):
+        self.assertIn("install -m 0755 debian/assets/bin/carlos-emr-config-preflight $(STAGE)/$(LIBDIR)/",
+                      self.rules())
+        self.assertTrue((ROOT / "debian" / "assets" / "bin" / "carlos-emr-config-preflight").is_file())
+
+    def test_jar_is_installed_non_executable_under_the_shared_lib_directory(self):
+        self.assertIn(
+            "install -m 0644 $(BUILDDIR)/carlos-configuration-preflight.jar $(STAGE)/$(SHAREDIR)/lib/",
+            self.rules())
+        script = (ROOT / "debian" / "build-configuration-preflight.sh").read_text(encoding="utf-8")
+        self.assertIn("carlos-configuration-preflight.jar", script)
+
+
 if __name__ == "__main__":
     unittest.main()
