@@ -998,38 +998,66 @@
             if (element) element.textContent = div + " Error: " + request.status;
             updateNavbarLoadState(state);
         }
-        try {
-            var xhr = CarlosAjax.request(url, {
-                method: 'post', postBody: params, evalScripts: true,
-                onSuccess: function (request) {
-                    if (!current()) return;
-                    try {
-                        // Preferences may have intentionally removed the module.
-                        var element = $(div);
-                        if (element) element.update(request.responseText);
-                        module.status = "loaded";
-                        updateNavbarLoadState(state);
-                    } catch (error) {
-                        failed(request);
-                        throw error;
+        // Every encounter/display* navbar action renders a read-only fragment, even though it uses POST.
+        var displayPrefix = ctx + "/encounter/";
+        var path = typeof url === "string" ? url.split(/[?#]/)[0] : "";
+        var canRetry = path.indexOf(displayPrefix) === 0
+            && /^display(?:FamilyDoctor|ReferringDoctor|Prevention|Tickler|Messages|Documents|Labs|HRM|Measurements|Consultation|Econsultation|Forms|EForms|Disease|Allergy|Rx|Issues|ResolvedIssues|DecisionSupportAlerts|Episodes|Pregnancies|Contacts)$/
+                .test(path.slice(displayPrefix.length));
+        var retryTimeoutMs = 15000;
+
+        function send(retry) {
+            try {
+                var xhr = CarlosAjax.request(url, {
+                    method: 'post', postBody: params, evalScripts: true,
+                    onSuccess: function (request) {
+                        if (!current()) return;
+                        try {
+                            // Preferences may have intentionally removed the module.
+                            var element = $(div);
+                            if (element) element.update(request.responseText);
+                            module.status = "loaded";
+                            module.recovered = retry;
+                            updateNavbarLoadState(state);
+                        } catch (error) {
+                            failed(request);
+                            throw error;
+                        }
+                    },
+                    onComplete: function (request) {
+                        if (!current() || module.status !== "loading") return;
+                        if (request.networkError && canRetry && !retry) {
+                            // Let the browser retire the failed connection before trying again.
+                            setTimeout(function () {
+                                if (current() && module.status === "loading") send(true);
+                            }, 0);
+                        } else {
+                            failed(request);
+                        }
                     }
-                },
-                onFailure: failed,
-                onComplete: function (request) {
-                    // Keep failures/aborted callback paths from leaving a busy column.
-                    if (current() && module.status === "loading") failed(request);
+                });
+                if (xhr) {
+                    // Bound the replacement attempt so a stalled retry surfaces an error instead of
+                    // leaving module.status === "loading" and its column busy indefinitely.
+                    if (retry) xhr.timeout = retryTimeoutMs;
+                    if (typeof xhr.addEventListener === "function") {
+                        xhr.addEventListener("abort", function () {
+                            if (module.status === "loading") failed({status: 0});
+                        });
+                        xhr.addEventListener("timeout", function () {
+                            if (module.status === "loading") failed({status: 0});
+                        });
+                    }
                 }
-            });
-            if (xhr && typeof xhr.addEventListener === "function") {
-                xhr.addEventListener("abort", function () { failed({status: 0}); });
-                xhr.addEventListener("timeout", function () { failed({status: 0}); });
+                return xhr;
+            } catch (error) {
+                failed({status: 0});
+                // Continue scheduling the remaining modules after a synchronous send failure.
+                console.error("Navbar request failed:", error);
             }
-            return xhr;
-        } catch (error) {
-            failed({status: 0});
-            // Continue scheduling the remaining modules after a synchronous send failure.
-            console.error("Navbar request failed:", error);
         }
+
+        return send(false);
     }
 
     function navBarLoader() {
@@ -1508,30 +1536,85 @@ function updateCPPNote() {
 
     function loadDiv(div, url, limit, complete) {
         var refreshed = false;
+        var completed = false;
+        var navKey = typeof div === 'string' ? div : (div && div.id);
+        var navState = typeof window !== 'undefined' ? window.carlosNavbarLoadState : null;
+        var navModule = null;
+        // Share navbar module ownership with requestNavbarColumn so a newer loadDiv
+        // refresh (such as onIssueUpdate) supersedes queued or in-flight navbar retries.
+        if (navKey && navState && navState.modules && Object.prototype.hasOwnProperty.call(navState.modules, navKey)) {
+            navModule = {column: navState.modules[navKey].column, status: 'loading'};
+            navState.modules[navKey] = navModule;
+            if (typeof updateNavbarLoadState === 'function') updateNavbarLoadState(navState);
+        }
+        function navCurrent() {
+            return !navModule || (typeof window !== 'undefined'
+                && window.carlosNavbarLoadState === navState
+                && navState.modules[navKey] === navModule);
+        }
+        function settleNav(status) {
+            if (!navModule || !navCurrent()) return;
+            navModule.status = status;
+            if (typeof updateNavbarLoadState === 'function') updateNavbarLoadState(navState);
+        }
+        function finish(ok) {
+            if (completed) return;
+            completed = true;
+            if (complete) complete(ok);
+        }
 
-        CarlosAjax.request(
-            url,
-            {
-                method: 'post',
-                // ChartNotes.jsp's standalone route loads this script without the chart layout's
-                // appointmentNo global; an undeclared name must mean "no appointment", not a ReferenceError.
-                postBody: 'demographicNo=' + encodeURIComponent(demographicNo)
-                    + '&appointmentNo=' + encodeURIComponent(typeof appointmentNo === 'undefined' || appointmentNo == null ? '0' : appointmentNo)
-                    + (chartContext ? '&chartContext=' + encodeURIComponent(chartContext) : ''),
-                evalScripts: true,
-                onSuccess: function (request) {
-                    $(div).update(request.responseText);
-                    if (typeof notifyDivLoaded === 'function') notifyDivLoaded($(div).id);
-                    refreshed = true;
-                },
-                onFailure: function (request) {
-                    showChartLoadError(div, request.status);
-                },
-                onComplete: function (request) {
-                    if (complete) complete(refreshed && request.status >= 200 && request.status < 300);
+        var xhr;
+        try {
+            xhr = CarlosAjax.request(
+                url,
+                {
+                    method: 'post',
+                    // ChartNotes.jsp's standalone route loads this script without the chart layout's
+                    // appointmentNo global; an undeclared name must mean "no appointment", not a ReferenceError.
+                    postBody: 'demographicNo=' + encodeURIComponent(demographicNo)
+                        + '&appointmentNo=' + encodeURIComponent(typeof appointmentNo === 'undefined' || appointmentNo == null ? '0' : appointmentNo)
+                        + (chartContext ? '&chartContext=' + encodeURIComponent(chartContext) : ''),
+                    evalScripts: true,
+                    onSuccess: function (request) {
+                        if (!navCurrent()) return;
+                        try {
+                            $(div).update(request.responseText);
+                            if (typeof notifyDivLoaded === 'function') notifyDivLoaded($(div).id);
+                            refreshed = true;
+                            settleNav('loaded');
+                        } catch (error) {
+                            settleNav('error');
+                            throw error;
+                        }
+                    },
+                    onFailure: function (request) {
+                        if (!navCurrent()) return;
+                        showChartLoadError(div, request.status);
+                        settleNav('error');
+                    },
+                    onComplete: function (request) {
+                        if (navModule && navCurrent() && navModule.status === 'loading') {
+                            settleNav('error');
+                        }
+                        finish(!navCurrent() || (refreshed && request.status >= 200 && request.status < 300));
+                    }
                 }
-            }
-        );
+            );
+        } catch (error) {
+            settleNav('error');
+            finish(false);
+            throw error;
+        }
+        if ((navModule || complete) && xhr && typeof xhr.addEventListener === 'function') {
+            xhr.addEventListener('abort', function () {
+                if (navModule && navModule.status === 'loading') settleNav('error');
+                finish(!navCurrent());
+            });
+            xhr.addEventListener('timeout', function () {
+                if (navModule && navModule.status === 'loading') settleNav('error');
+                finish(!navCurrent());
+            });
+        }
         return false;
 
     }
