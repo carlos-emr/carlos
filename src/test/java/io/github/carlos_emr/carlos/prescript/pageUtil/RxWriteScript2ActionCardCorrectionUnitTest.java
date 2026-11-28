@@ -535,6 +535,78 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldPreserveExactFraction_whenUnchangedMaxIsBlurredAndReplaceWhenChanged() throws Exception {
+        var session = request.getSession();
+        request.setParameter("action", "parseInstructions");
+        request.setParameter("randomId", "1");
+        request.setParameter("instruction", "1/3 tab PO OD");
+        request.setParameter("draftRevision", card.getDraftRevision());
+        request.setParameter("calculationSequence", "1");
+        assertThat(action.updateDrug()).isNull();
+        assertThat(card.getDuration()).isEqualTo("90");
+
+        // Blurring maximum_ with the unchanged displayed float preserves the exact 1/3 fraction.
+        request = new MockHttpServletRequest();
+        request.setMethod("POST");
+        request.setSession(session);
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("elementId", "maximum_1");
+        request.setParameter("propertyValue", "0.33333334");
+        request.setParameter("draftRevision", card.getDraftRevision());
+        request.setParameter("calculationAck", String.valueOf(card.getCalculationSequence()));
+        response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        assertThat(new RxWriteScript2Action(mockSignatureStampService).updateProperty()).isNull();
+        assertThat(card.getTakeMaxNumerator()).isNotNull();
+
+        request = new MockHttpServletRequest();
+        request.setMethod("POST");
+        request.setSession(session);
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("action", "updateQty");
+        request.setParameter("randomId", "1");
+        request.setParameter("quantity", "30");
+        request.setParameter("draftRevision", card.getDraftRevision());
+        request.setParameter("calculationSequence", String.valueOf(card.getCalculationSequence() + 1));
+        response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        assertThat(new RxWriteScript2Action(mockSignatureStampService).updateDrug()).isNull();
+        assertThat(card.getDuration()).isEqualTo("90");
+
+        // Changing maximum_ to 0.5 replaces the stored fraction and updates duration to 60 days.
+        request = new MockHttpServletRequest();
+        request.setMethod("POST");
+        request.setSession(session);
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("elementId", "maximum_1");
+        request.setParameter("propertyValue", "0.5");
+        request.setParameter("draftRevision", card.getDraftRevision());
+        request.setParameter("calculationAck", String.valueOf(card.getCalculationSequence()));
+        response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        assertThat(new RxWriteScript2Action(mockSignatureStampService).updateProperty()).isNull();
+        assertThat(card.getTakeMaxNumerator()).isNull();
+
+        request = new MockHttpServletRequest();
+        request.setMethod("POST");
+        request.setSession(session);
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+        request.setParameter("action", "updateQty");
+        request.setParameter("randomId", "1");
+        request.setParameter("quantity", "30");
+        request.setParameter("draftRevision", card.getDraftRevision());
+        request.setParameter("calculationSequence", String.valueOf(card.getCalculationSequence() + 1));
+        response = new MockHttpServletResponse();
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+        assertThat(new RxWriteScript2Action(mockSignatureStampService).updateDrug()).isNull();
+        assertThat(card.getDuration()).isEqualTo("60");
+    }
+
+    @Test
     void shouldMarkDurationSpecifiedByUser_whenDurationUpdatedInline() throws Exception {
         card.setDurationSpecifiedByUser(false);
         card.setDuration("30");

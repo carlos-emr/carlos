@@ -1492,6 +1492,10 @@ function renderRxStage() {
              // its staged dose; the server refuses it too (400, never the old HTTP 500) (#5003).
              if (/^(minimum|maximum)_/.test(elementId) && !RxInputValidation.isDoseAmount(value)) {
                  if (card && card._rxPendingPropertyEdits) delete card._rxPendingPropertyEdits[elementId];
+                 if (card) {
+                     card._rxFailedPropertyEdits = card._rxFailedPropertyEdits || {};
+                     card._rxFailedPropertyEdits[propName] = true;
+                 }
                  if (card && card._rxNeedsReconciliation && !hasPendingCalculationEdit()) {
                      card._rxNeedsReconciliation = false;
                      if (typeof showRxCalculationState === 'function' && card._rxCalculationErrors) {
@@ -1518,7 +1522,10 @@ function renderRxStage() {
              CarlosAjax.request(url, {method: 'post',parameters:data,synchronous:true,
                  onSuccess: function (transport) {
                      // A corrected value was accepted: the field is no longer invalid.
-                     if (el.carlosPropertyVersion === version) el.removeAttribute('aria-invalid');
+                     if (el.carlosPropertyVersion === version) {
+                         el.removeAttribute('aria-invalid');
+                         if (card && card._rxFailedPropertyEdits) delete card._rxFailedPropertyEdits[propName];
+                     }
                      var serverSequence = null;
                      if (transport && transport.responseJSON && Number.isInteger(transport.responseJSON.calculationSequence)) {
                          serverSequence = transport.responseJSON.calculationSequence;
@@ -1559,6 +1566,7 @@ function renderRxStage() {
                              card._rxCalculationPending = false;
                              card._rxNeedsReconciliation = false;
                              card._rxPendingPropertyEdits = {};
+                             card._rxFailedPropertyEdits = {};
                              card._rxCalculationConflict = true;
                              card._rxCalculationErrors = {};
                              showRxCalculationState(card, randomId);
@@ -1566,6 +1574,16 @@ function renderRxStage() {
                          return;
                      }
                      var error = transport && transport.responseJSON ? transport.responseJSON.error : null;
+                     if (el.carlosPropertyVersion === version) {
+                         if (card) {
+                             card._rxFailedPropertyEdits = card._rxFailedPropertyEdits || {};
+                             card._rxFailedPropertyEdits[propName] = true;
+                         }
+                         if (/^(minimum|maximum|repeats)_/.test(elementId)
+                                 && error !== 'INVALID_RX_DOSE' && error !== 'INVALID_RX_REPEATS') {
+                             el.setAttribute('aria-invalid', 'true');
+                         }
+                     }
                      if (affectsCalculation && card && card._rxNeedsReconciliation && !hasPendingCalculationEdit()) {
                          card._rxNeedsReconciliation = false;
                          if (error !== 'INVALID_RX_DOSE' && error !== 'INVALID_RX_REPEATS'
@@ -2900,6 +2918,7 @@ function requestRxCalculation(element, action, deferPrice) {
             card._rxCalculationConflict = true;
             card._rxNeedsReconciliation = false;
             card._rxPendingPropertyEdits = {};
+            card._rxFailedPropertyEdits = {};
             delete card._rxCalculationErrors[action];
         } else {
             card._rxCalculationErrors[action] = element;
@@ -2933,7 +2952,10 @@ function requestRxCalculation(element, action, deferPrice) {
             const hasPendingEdit = name => Boolean(card._rxPendingPropertyEdits
                 && (Object.prototype.hasOwnProperty.call(card._rxPendingPropertyEdits, name + '_' + rand)
                     || Object.prototype.hasOwnProperty.call(card._rxPendingPropertyEdits, name)));
+            const hasFailedEdit = name => Boolean(!instructions && card._rxFailedPropertyEdits
+                && Object.prototype.hasOwnProperty.call(card._rxFailedPropertyEdits, name));
             const isSuperseded = name => hasPendingEdit(name)
+                || hasFailedEdit(name)
                 || (card._rxPropertyVersions?.[name] || 0) !== (propertyVersions[name] || 0);
             const updateQuantity = !instructions || !['', '0'].includes(result.calQuantity);
             for (const [property, name] of Object.entries({
@@ -2941,6 +2963,7 @@ function requestRxCalculation(element, action, deferPrice) {
                 duration: 'duration', durationUnit: 'durationUnit'
             })) {
                 if (isSuperseded(name)) continue;
+                if (instructions && card._rxFailedPropertyEdits) delete card._rxFailedPropertyEdits[name];
                 const value = result[property];
                 const formatted = property === 'takeMin' || property === 'takeMax' ? formatPlainDose(value) : value;
                 field(name).textContent = formatted == null || String(formatted).toLowerCase() === 'null' ? '' : formatted;
@@ -2964,6 +2987,7 @@ function requestRxCalculation(element, action, deferPrice) {
                 }
             }
             if (!isSuperseded('prnVal')) {
+                if (instructions && card._rxFailedPropertyEdits) delete card._rxFailedPropertyEdits['prnVal'];
                 field('prn').textContent = result.prn ? 'prn' : '';
                 field('prnVal').value = result.prn;
             }

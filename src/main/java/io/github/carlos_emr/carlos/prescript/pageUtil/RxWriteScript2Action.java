@@ -1415,7 +1415,9 @@ public final class RxWriteScript2Action extends ActionSupport {
                 if (!val.equals("") && !val.equalsIgnoreCase("null")) {
                     Float dose = parseDoseAmount(val);
                     if (dose == null) return reportInvalidDose();
-                    rx.setTakeMax(dose);
+                    if (current.getTakeMaxNumerator() == null || Float.compare(dose, current.getTakeMax()) != 0) {
+                        rx.setTakeMax(dose);
+                    }
                     clinicalFieldUpdated = true;
                 }
             } else if (elem.equals("duration_" + num)) {

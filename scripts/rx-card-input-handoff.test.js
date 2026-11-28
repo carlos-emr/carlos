@@ -373,3 +373,19 @@ test('a resumed inline dose validation refusal clears reconciliation without ove
   assert.equal(qty.value, '30');
 });
 
+test('a failed inline dose submission marks _rxFailedPropertyEdits and aria-invalid until an accepted retry', () => {
+  const s = cardFields();
+  const card = s.element('set_5', { _rxCalculationPending: false, _rxCalculationErrors: {} });
+  const min = s.element('minimum_5', { textContent: '0.5', removeAttribute(name) { delete this.attributes[name]; } });
+  s.context.updateProperty(min.id);
+  s.requests[0].options.onFailure({ status: 500 });
+  assert.equal(min.attributes['aria-invalid'], 'true');
+  assert.equal(card._rxFailedPropertyEdits.minimum, true);
+
+  s.context.updateProperty(min.id);
+  s.requests[1].options.onSuccess({ status: 200 });
+  assert.equal(min.attributes['aria-invalid'], undefined);
+  assert.equal(Object.prototype.hasOwnProperty.call(card._rxFailedPropertyEdits, 'minimum'), false);
+});
+
+

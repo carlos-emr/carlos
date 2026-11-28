@@ -87,6 +87,18 @@ class DrugStrengthUnitTest {
         DrugStrength compactCombination = DrugStrength.fromDosage("500mg/125mg");
         assertThat(compactCombination).isEqualTo(new DrugStrength(500f, "mg"));
 
+        DrugStrength massConcentration = DrugStrength.fromDosage("50 mg/1 g");
+        assertThat(massConcentration).isEqualTo(new DrugStrength(50f, "mg/1 g"));
+
+        DrugStrength hundredGramConcentration = DrugStrength.fromDosage("50 mg/100 g");
+        assertThat(hundredGramConcentration).isEqualTo(new DrugStrength(50f, "mg/100 g"));
+
+        DrugStrength gmConcentration = DrugStrength.fromDosage("250 mcg/1 gm");
+        assertThat(gmConcentration).isEqualTo(new DrugStrength(250f, "mcg/1 gm"));
+
+        DrugStrength gramCombination = DrugStrength.fromDosage("2 g / 1 g");
+        assertThat(gramCombination).isEqualTo(new DrugStrength(2f, "g"));
+
         DrugStrength range = DrugStrength.fromDosage("5-10 mg");
         assertThat(range.amount()).isNull();
         assertThat(range.unit()).isNull();

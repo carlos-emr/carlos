@@ -283,4 +283,27 @@ test('draining queued edits entry by entry preserves remaining edits if an earli
   ]);
 });
 
+test('failed queued inline edits stay protected with aria-invalid through updateQty reconciliation', () => {
+  const f = fixture();
+  const ack = {value: '0'};
+  f.elements.set('calculationAck_11', ack);
+  // Start initial calculation, mark minimum as failed (simulating HTTP 500 during drain) and let maximum trigger updateQty.
+  f.context.updateQty(f.field('quantity'));
+  f.field('minimum').textContent = '0.5';
+  f.field('minimum').attributes.set('aria-invalid', 'true');
+  f.field('set')._rxFailedPropertyEdits = {minimum: true};
+  f.reply(f.requests[0], {takeMin: 1, takeMax: 2});
+  assert.equal(f.field('minimum').textContent, '0.5');
+  assert.equal(f.field('minimum').attributes.get('aria-invalid'), 'true');
+  assert.equal(f.field('maximum').textContent, '2');
+
+  // Re-authoring instructions (parseIntr) explicitly discards the stale failed inline dose.
+  f.context.parseIntr(f.field('instructions'));
+  f.reply(f.requests[1], {takeMin: 1, takeMax: 1});
+  assert.equal(f.field('minimum').textContent, '1');
+  assert.equal(f.field('minimum').attributes.has('aria-invalid'), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(f.field('set')._rxFailedPropertyEdits, 'minimum'), false);
+});
+
+
 

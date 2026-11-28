@@ -189,7 +189,8 @@ public record DrugStrength(Float amount, String unit) {
                     int denomUnitStart = skipHorizontalSpace(text, denomNumberEnd);
                     if (startsWithUnitChar(text, denomUnitStart)) {
                         int denomUnitEnd = scanUnitToken(text, denomUnitStart);
-                        if (isConcentrationBase(text.substring(denomUnitStart, denomUnitEnd))) {
+                        if (isConcentrationBase(text.substring(unitStart, unitEnd),
+                                text.substring(denomUnitStart, denomUnitEnd))) {
                             unitEnd = denomUnitEnd;
                         }
                     }
@@ -218,8 +219,19 @@ public record DrugStrength(Float amount, String unit) {
         return index;
     }
 
-    private static boolean isConcentrationBase(String unitToken) {
+    private static final List<String> MASS_CONCENTRATION_BASES = List.of("g", "gm", "gram", "grams", "kg");
+
+    private static boolean isConcentrationBase(String numeratorUnit, String unitToken) {
         for (String base : CONCENTRATION_BASES) {
+            if (Strings.CI.equals(unitToken, base)) {
+                return true;
+            }
+        }
+        return isMassConcentrationBase(unitToken) && !isMassConcentrationBase(numeratorUnit);
+    }
+
+    private static boolean isMassConcentrationBase(String unitToken) {
+        for (String base : MASS_CONCENTRATION_BASES) {
             if (Strings.CI.equals(unitToken, base)) {
                 return true;
             }
