@@ -348,6 +348,7 @@ public final class RxRePrescribe2Action extends ActionSupport {
                                    int drugId, RxPrescriptionData.Prescription oldRx) {
         // create copy of Prescription
         RxPrescriptionData.Prescription rx = rxData.newPrescription(beanRX.getProviderNo(), beanRX.getDemographicNo(), oldRx);
+        RxUtil.normalizeCarriedQuantity(rx, rx.getQuantity(), rx.getUnitName());
         stageReRxCopy(loggedInInfo, beanRX, rx, drugId, null);
         request.setAttribute("BoxNoFillFirstLoad", "true");
         return rx.getAuditString() + "\n";
@@ -580,11 +581,7 @@ public String saveDigitalSignature() throws IOException {
             rx.setRandomId(rand);
 
             request.setAttribute("BoxNoFillFirstLoad", "true");
-            String qText = rx.getQuantity();
-            if (qText == null || !RxUtil.isStringToNumber(qText)) {
-                rx.setQuantity(RxUtil.getQuantityFromQuantityText(qText));
-                rx.setUnitName(RxUtil.getUnitNameFromQuantityText(qText));
-            }
+            RxUtil.normalizeCarriedQuantity(rx, rx.getQuantity(), rx.getUnitName());
             // trim Special
             String spec = RxUtil.trimSpecial(rx);
             rx.setSpecial(spec);
@@ -658,11 +655,7 @@ public String saveDigitalSignature() throws IOException {
             rx.setRandomId(rand);
 
             request.setAttribute("BoxNoFillFirstLoad", "true");
-            String qText = rx.getQuantity();
-            if (qText == null || !RxUtil.isStringToNumber(qText)) {
-                rx.setQuantity(RxUtil.getQuantityFromQuantityText(qText));
-                rx.setUnitName(RxUtil.getUnitNameFromQuantityText(qText));
-            }
+            RxUtil.normalizeCarriedQuantity(rx, rx.getQuantity(), rx.getUnitName());
             // trim Special
             String spec = RxUtil.trimSpecial(rx);
             rx.setSpecial(spec);
@@ -768,11 +761,7 @@ public String saveDigitalSignature() throws IOException {
 
             // give prescript a random id.
             rx.setRandomId(rand);
-            String qText = rx.getQuantity();
-            if (qText == null || !RxUtil.isStringToNumber(qText)) {
-                rx.setQuantity(RxUtil.getQuantityFromQuantityText(qText));
-                rx.setUnitName(RxUtil.getUnitNameFromQuantityText(qText));
-            }
+            RxUtil.normalizeCarriedQuantity(rx, rx.getQuantity(), rx.getUnitName());
             String spec = RxUtil.trimSpecial(rx);
             rx.setSpecial(spec);
 
@@ -879,11 +868,7 @@ public String saveDigitalSignature() throws IOException {
             Long rand = RxStashIds.nextUnique(bean, RxStashIds.DEFAULT_BOUND);
             RxPrescriptionData.Prescription rx = rxData.newPrescription(bean.getProviderNo(), bean.getDemographicNo(), oldRx);
             rx.setRandomId(rand);
-            String qText = rx.getQuantity();
-            if (qText == null || !RxUtil.isStringToNumber(qText)) {
-                rx.setQuantity(RxUtil.getQuantityFromQuantityText(qText));
-                rx.setUnitName(RxUtil.getUnitNameFromQuantityText(qText));
-            }
+            RxUtil.normalizeCarriedQuantity(rx, rx.getQuantity(), rx.getUnitName());
             String spec = RxUtil.trimSpecial(rx);
             rx.setSpecial(spec);
             stageReRxCopy(loggedInInfo, bean, rx, oldRx.getDrugId(), listReRxDrug);

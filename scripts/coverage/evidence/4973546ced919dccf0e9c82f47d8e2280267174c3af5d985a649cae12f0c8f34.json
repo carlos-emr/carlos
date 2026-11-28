@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "7f5349152a8334c342dbdd87bfb90c45e6e99892",
+  "comparisonSha256": "95ad1374925d30ceedac0a457a61b0ec048c1090f2518470049d2a49318ced53",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/form/pharmaForms/formBPMH/bean/BpmhDrug.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "dc1a11ef1ca83a1dee297c63bf3e3b915ebbeddd"
+    }
+  },
+  "exclusions": {},
+  "zeroCoverageWaivers": {},
+  "baselineCommit": "1c6a27522c66673542b1e496e507693b82bc5a68",
+  "baselineSourceTree": "7f5349152a8334c342dbdd87bfb90c45e6e99892",
+  "baselineReportSha256": "724cdb7fb32325b6f249d45ed7e8f46fd7b3be053ad19892a8cd1f354a328737",
+  "baselineLane": "BPMH JVM unit tests selecting *Bpmh*Test, including BpmhDrug and BpmhForm2Handler. BpmhDrug.java was recompiled on JDK 25 with release 25, debug and method parameter metadata for the reviewed FindSecBugs annotations. JaCoCo measures the current class. Counts here describe the selected Surefire artifacts.",
+  "baselineTestCounts": {
+    "tests": 51,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "340a0e8ec17de0698dd386354bec9f08054f17cf6ccb74441b63d3a7b52aa396",
+  "baselineTestReportsHashFormat": "SHA-256 of a sha256sum-style manifest of the run's Surefire TEST-*.xml report files: one '<sha256>  <file name>' line each, sorted by name",
+  "baselineTestRunCommit": "1c6a27522c66673542b1e496e507693b82bc5a68",
+  "baselineAdditionalTestRuns": []
+}

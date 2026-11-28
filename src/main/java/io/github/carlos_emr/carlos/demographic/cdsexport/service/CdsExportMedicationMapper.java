@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportMedicationDto.Field;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAssessmentDto.Outcome;
+import io.github.carlos_emr.carlos.utility.DoseText;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -519,8 +520,7 @@ public final class CdsExportMedicationMapper {
     }
 
     private static String plainDose(String decimal) {
-        var value = new java.math.BigDecimal(decimal).stripTrailingZeros();
-        return (value.signum() == 0 ? java.math.BigDecimal.ZERO : value).toPlainString();
+        return DoseText.of(new java.math.BigDecimal(decimal));
     }
 
     private static CdsExportPublicProviderDto prescriber(

@@ -93,6 +93,7 @@ async function workflow(s) {
     await editQuantity(rx, key, LIPITOR_DIN, '60 tabs', '60', '$160.45/60');
     await editQuantity(rx, key, LIPITOR_DIN, '30 days', null, '$2.67 per unit');
     await editQuantity(rx, key, LIPITOR_DIN, '30 tabs', '30', '$80.22/30');
+    await editQuantity(rx, key, LIPITOR_DIN, '30.0 tabs', '30', '$80.22/30');
   });
 
   await s.step('an unpriced DIN and a custom drug show no estimate', async () => {

@@ -20,6 +20,7 @@
  * clinic-wide, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).
  * Cleanup deletes the patient's formBPMH rows, drug reason, drug and allergy, and asserts them gone.
  */
+const { medicationSnapshot } = require('./lib/medication-snapshot');
 const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
@@ -105,7 +106,7 @@ async function captureBpmhPrint(page, { patient, saved, timeout = 40000 }) {
   return result;
 }
 
-function assertBpmhPdf(pdf, { note, instruction }) {
+function assertBpmhPdf(pdf, { note, instruction, medicationText = [] }) {
   h.assert(pdf.status === 200 && /^application\/pdf(?:\s*;|$)/i.test(pdf.headers['content-type'] || ''),
     `Print answered HTTP ${pdf.status} ${pdf.headers['content-type']}`);
   // pdfTextBuffer requires the PDF signature and complete EOF trailer before extracting every page.
@@ -113,6 +114,9 @@ function assertBpmhPdf(pdf, { note, instruction }) {
   const text = x.squash(x.pdfTextBuffer(pdf.bytes, { raw: true }));
   h.assert(text.includes(x.squash(note)), 'The printed PDF lost part or all of the saved note');
   h.assert(text.includes(x.squash(instruction)), 'The printed PDF lost part or all of the saved drug instruction');
+  for (const expected of medicationText) {
+    h.assert(text.includes(x.squash(expected)), `The printed PDF lost medication text ${JSON.stringify(expected)}`);
+  }
   // Poppler can extract text outside a clipped AcroForm appearance. This fixture's long instruction
   // must instead appear on a readable continuation, wholly inside its page bounds.
   const xml = require('node:child_process').execFileSync('pdftotext', ['-bbox', '-enc', 'UTF-8', '-', '-'],
@@ -151,6 +155,11 @@ async function workflow(s) {
   const tag = marker.slice(-8);
   const allergy = `FAKE ${tag} penicillin`;
   const direction = `Take 1 tablet by mouth daily ${tag}`;
+  const secondStep = `Then take half a tablet daily ${tag}`;
+  const lastMedication = `FAKE overflow ${tag}`;
+  const additionalReason = 'LOCAL Z99 recorded indication';
+  const asNeededDose = 'Take 1 to 3 mg daily PO as needed';
+  const medicationText = [direction, secondStep, lastMedication, asNeededDose, additionalReason];
   const instruction = `${marker} continue at discharge`;
   const note = `${marker} reconciled with the patient`;
 
@@ -194,10 +203,28 @@ async function workflow(s) {
   const drug = sql.value(`INSERT INTO drugs (provider_no,demographic_no,rx_date,end_date,written_date,customName,special,archived,archived_reason,
       create_date,position,lastUpdateDate,dispenseInternal,quantity,duration,durunit,freqcode)
     VALUES (${q(provider)},${patient},CURDATE(),DATE_ADD(CURDATE(),INTERVAL 30 DAY),CURDATE(),${q(`FAKE ${tag} atorvastatin`)},
-      ${q(`FAKE ${tag} atorvastatin 20 mg\n${direction}`)},0,'',NOW(),1,NOW(),0,'30','30','D','OD'); SELECT LAST_INSERT_ID()`);
+      ${q(`FAKE ${tag} atorvastatin 20 mg\n${direction}\n${secondStep}\nQty:30.0 mL Repeats:0`)},0,'',NOW(),1,NOW(),0,'30.0','30','D','OD'); SELECT LAST_INSERT_ID()`);
   h.assert(/^[1-9]\d*$/.test(drug), 'The drug fixture was not created');
   sql.execute(`INSERT INTO drugReason (drugId,codingSystem,code,comments,primaryReasonFlag,archivedFlag,demographicNo,providerNo,dateCoded)
     VALUES (${drug},'icd9',${q(code)},${q(`FAKE ${tag}`)},1,0,${patient},${q(provider)},CURDATE())`);
+
+  // An OSCAR-shaped row has no import marker. Preserve every stored column through this workflow.
+  // The eighteenth medication has no note, and its product form differs from the administered unit.
+  for (let position = 2; position <= 18; position++) {
+    const name = position === 18 ? lastMedication : `FAKE row ${position} ${tag}`;
+    sql.execute(`INSERT INTO drugs (provider_no,demographic_no,rx_date,end_date,written_date,customName,special,
+        archived,archived_reason,create_date,position,lastUpdateDate,dispenseInternal,quantity,takemin,takemax,unit,unitName,drug_form,method,freqcode,route,prn)
+      VALUES (${q(provider)},${patient},CURDATE(),DATE_ADD(CURDATE(),INTERVAL 30 DAY),CURDATE(),${q(name)},${q(name)},
+        0,'',NOW(),${position},NOW(),0,'.50',1,3,'mg','mL','TAB','Take','daily','PO',${position === 18 ? 1 : 0})`);
+  }
+  sql.execute(`INSERT INTO drugReason (drugId,codingSystem,code,comments,primaryReasonFlag,archivedFlag,demographicNo,providerNo,dateCoded)
+    SELECT drugid,'icd9',${q(code)},${q(`FAKE ${tag}`)},1,0,${patient},${q(provider)},CURDATE()
+    FROM drugs WHERE demographic_no=${patient} AND drugid<>${drug}`);
+  sql.execute(`INSERT INTO drugReason (drugId,codingSystem,code,comments,primaryReasonFlag,archivedFlag,demographicNo,providerNo,dateCoded)
+    SELECT drugid,'LOCAL','Z99','recorded indication',0,0,${patient},${q(provider)},CURDATE()
+    FROM drugs WHERE demographic_no=${patient} AND position=18`);
+  const sourceRows = () => medicationSnapshot(statement => sql.rows(statement), patient);
+  const originalRows = sourceRows();
 
   const chart = await s.chart();
   let form;
@@ -214,7 +241,12 @@ async function workflow(s) {
     const text = await form.locator('body').innerText();
     h.assert(text.includes(marker), 'The form does not name the owned patient');
     h.assert(text.includes(allergy), 'The form does not list the patient\'s allergy');
-    h.assert(text.includes(direction), 'The form does not show the drug\'s directions');
+    for (const expected of medicationText) h.assert(text.includes(expected), `Missing BPMH text ${expected}`);
+    const reasonCell = form.locator('tr').filter({ hasText: lastMedication }).locator('td').nth(2);
+    h.assert((await reasonCell.innerText()).split('\n').map(line => line.trim()).includes(additionalReason),
+      'A recorded indication was combined with another diagnosis');
+    h.assert(!text.includes('1 to 3 TAB'), 'The product form replaced the administered dose unit');
+    h.assert(await form.locator('input[name^="form.drugs["][name$="].id"]').count() === 18, 'The form lost a medication');
     h.assert(await form.locator(`input[name="form.drugs[0].id"][value="${drug}"]`).count() === 1, 'The form does not carry the drug');
     h.assert(await form.locator('input[name="form.demographicNo"]').inputValue() === patient, 'The form does not carry the patient');
     h.assert(await form.locator('button[name="method"][value="save"]').count() === 1, 'The form offers no Save');
@@ -265,12 +297,13 @@ async function workflow(s) {
     h.assert(url.searchParams.get('formId') === saved, `The saved entry opened ${h.pathOnly(reopened.url())}${url.search}, not form ${saved}`);
     const text = await reopened.locator('body').innerText();
     h.assert(text.includes(note) && text.includes(instruction), 'The reopened form does not show the note and the instruction');
+    for (const expected of medicationText) h.assert(text.includes(expected), `Missing saved BPMH text ${expected}`);
     form = reopened;
   });
 
   await s.step('Print answers a PDF of the saved form', async () => {
     const pdf = await captureBpmhPrint(form, { patient, saved });
-    try { assertBpmhPdf(pdf, { note, instruction }); }
+    try { assertBpmhPdf(pdf, { note, instruction, medicationText }); }
     catch (error) {
       try { retainBpmhPdf(pdf, s.config.screenshotDir); }
       catch (artifactError) { throw new AggregateError([error, artifactError], 'BPMH PDF assertion and artifact retention failed'); }
@@ -288,6 +321,7 @@ async function workflow(s) {
   });
 
   await s.step('GET and HEAD carrying the save are refused and store nothing', async () => {
+    h.assert(sourceRows() === originalRows, 'Opening, saving or printing BPMH changed a source medication');
     const probe = `${marker} saved by GET`;
     for (const method of ['GET', 'HEAD']) {
       const response = await authenticatedProbe({context, config: s.config}, h.appUrl(s.config.baseUrl, '/formBPMH')
@@ -298,6 +332,27 @@ async function workflow(s) {
     }
     // A GET carrying print is not probed here: method contract pending.
   });
+  await s.step('missing directions stay missing on a new BPMH with an otherwise documented medication', async () => {
+    const name = `FAKE unspecified dose ${tag}`;
+    const missing = sql.value(`INSERT INTO drugs (provider_no,demographic_no,rx_date,end_date,written_date,customName,special,special_instruction,
+        archived,archived_reason,create_date,position,lastUpdateDate,dispenseInternal,quantity,takemin,takemax,unit,drug_form,dosage)
+      VALUES (${q(provider)},${patient},CURDATE(),DATE_ADD(CURDATE(),INTERVAL 30 DAY),CURDATE(),${q(name)},${q(name + " 10 units\r\nSupply blister pack\r\n")},'Supply blister pack',
+        0,'',NOW(),19,NOW(),0,'30.0',NULL,NULL,'units','TAB','10'); SELECT LAST_INSERT_ID()`);
+    h.assert(/^[1-9]\d*$/.test(missing), 'The missing-dose fixture was not created');
+    sql.execute(`INSERT INTO drugReason (drugId,codingSystem,code,comments,primaryReasonFlag,archivedFlag,demographicNo,providerNo,dateCoded)
+      VALUES (${missing},'icd9',${q(code)},${q(name)},1,0,${patient},${q(provider)},CURDATE())`);
+    const before = sourceRows();
+    const page = await context.newPage();
+    try {
+      await h.gotoApp(page, s.config.baseUrl, `/formBPMH?demographic_no=${patient}&formId=0`);
+      const row = page.locator('tr').filter({has: page.locator(`input[name$="].id"][value="${missing}"]`)});
+      h.assert(await row.count() === 1 && !(await row.locator('td').nth(1).innerText()).trim(),
+        'A missing dose acquired directions');
+      h.assert(await page.locator('button[name="method"][value="save"]').count() === 0, 'An incomplete BPMH offered Save');
+      h.assert(sourceRows() === before, 'Reading a missing dose changed the source row');
+    } finally { await page.close(); }
+  });
+
 }
 
 if (require.main === module) runWorkflow('bpmh-form', workflow);

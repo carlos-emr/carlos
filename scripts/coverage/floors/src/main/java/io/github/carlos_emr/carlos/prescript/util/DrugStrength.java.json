@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/prescript/util/DrugStrength.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 98.57142857142857,
+    "sourceBlob": "b2f4846248bee9839ca511529473d3a9f2529598"
+  },
+  "evidenceSha256": "fabe9fbd5c0308020792f2eb2cd480c068d8d12d41562a018c86aa3220e54b04"
+}

@@ -81,6 +81,7 @@ import io
 import re
 import shutil
 import subprocess
+import tempfile
 import os
 import sys
 from pathlib import Path
@@ -450,7 +451,7 @@ def _charset_repair_on(client: Client, db: str, charset: str) -> List[str]:
     # a latin1 staging column
     checks = o19etl.overlength_precheck_sql(
         "t", {"cols": ["v"]}, db,
-        {"v": {"type": "text", "octet_len": 65535, "char_len": 65535}},
+        {"v": {"type": "text", "octet_len": 65535, "char_len": 65535, "nullable": True}},
         {"v": {"type": "varchar", "char_len": 255}}, repaired={"v"})
     if len(checks) != 1:
         failures.append("the overlength pre-check builder returned {0} "
@@ -483,6 +484,53 @@ def _charset_repair_on(client: Client, db: str, charset: str) -> List[str]:
     return failures
 
 
+def check_medication_dump(client: Client, src: str, dst: str, fields: str) -> List[str]:
+    """Restore the actual vendor dump and its source-generated precision supplement."""
+    if min(o19_preflight.DIGEST_FORMAT, o19digest.DIGEST_FORMAT) < 4:
+        return ["exact medication transfer requires format 4 source and destination verifiers; "
+                "carlos-ctl 1.3.6 cannot admit the supplemented dump (#6420)"]
+    dump = shutil.which("mariadb-dump") or shutil.which("mysqldump")
+    if not dump:
+        return ["the OSCAR19 medication transfer check requires mariadb-dump or mysqldump"]
+    for schema in (src, dst):
+        client.setup("ALTER TABLE drugs ADD recorded TIMESTAMP DEFAULT '2001-01-01 00:00:00' "
+                     "ON UPDATE CURRENT_TIMESTAMP", schema)
+    fields = fields.replace(" FROM drugs", ", recorded FROM drugs")
+    args = [dump] + client.args + ["--single-transaction",
+                                   "--skip-triggers", "--default-character-set=utf8mb4", src, "drugs"]
+    stock = subprocess.run(args, check=True, stdout=subprocess.PIPE).stdout
+    exporter = Path(__file__).with_name("export-medication-floats.py")
+    exact = subprocess.run([sys.executable, str(exporter), "--complete-dump", "--db", src,
+                            "--mysql-cmd", client.cmd] + ["--mysql-arg=" + option for option in client.args],
+                           input=stock, check=True, stdout=subprocess.PIPE).stdout
+    from carlos_ctl import o19sources
+    with tempfile.NamedTemporaryFile(suffix=".sql") as staged:
+        staged.write(exact)
+        staged.flush()
+        if set(o19sources.inventory(staged.name)) != {"drugs"}:
+            raise ValueError("the medication dump failed the production staging inventory")
+    expected = client.rows(fields, src)
+    restore = [client.cmd] + client.args + ["--default-character-set=utf8mb4", dst]
+    subprocess.run(restore, input=stock, check=True, stdout=subprocess.DEVNULL)
+    columns = ["drugid", "takemin", "takemax"]
+    types = {"drugid": "int", "takemin": "float", "takemax": "float"}
+    source_hash = client.rows(o19_preflight.digest_sql(src, "drugs", columns, types), src)
+    target_query = o19digest.digest_sql(dst, "drugs", columns, types)
+    failures = []
+    stock_changed = client.rows(fields, dst) != expected
+    if stock_changed and client.rows(target_query, dst) == source_hash:
+        failures.append("the source transfer verifier accepted rounded medication floats")
+    subprocess.run(restore, input=exact, check=True, stdout=subprocess.DEVNULL)
+    matches = (client.rows(fields, dst) == expected and client.rows(fields, src) == expected
+               and client.rows(target_query, dst) == source_hash)
+    client.setup("DELETE FROM drugs", dst)
+    for schema in (src, dst):
+        client.setup("ALTER TABLE drugs DROP COLUMN recorded", schema)
+    if not matches:
+        failures.append("the vendor dump and supplement changed a stored medication field")
+    return failures
+
+
 def check_exact_special_repair(client: Client, src: str, dst: str,
                                required: bool = True) -> List[str]:
     """The reported C1 instructions through the shipped copy/P7 builders."""
@@ -494,7 +542,8 @@ def check_exact_special_repair(client: Client, src: str, dst: str,
             return []
         return ["the selected carlos-ctl lacks the scoped drugs.special repair; "
                 "use the fixed CLI release (or its reviewed checkout)"]
-    entry = {"class": "copy", "cols": ["drugid", "special", "comment"],
+    entry = {"class": "copy", "cols": ["drugid", "special", "comment", "quantity",
+                                        "unitName", "dosage", "unit", "drugForm", "takemin", "takemax"],
              "charset_scan": ["special"]}
 
     def query(sql):
@@ -533,6 +582,11 @@ def check_exact_special_repair(client: Client, src: str, dst: str,
             # successful path independently after proving the hard refusal.
             client.setup("DELETE d FROM drugs d JOIN expected_drug_special e "
                          "USING(drugid) WHERE e.must_block", src)
+            fields = ("SELECT drugid, HEX(quantity), HEX(unitName), HEX(dosage), HEX(unit), "
+                      "HEX(drugForm), CAST(takemin AS DOUBLE), CAST(takemax AS DOUBLE) "
+                      "FROM drugs ORDER BY drugid")
+            amounts_before = client.rows(fields, src)
+            failures.extend(check_medication_dump(client, src, dst, fields))
             before = client.rows("SELECT drugid, HEX(special), HEX(comment) "
                                  "FROM drugs ORDER BY drugid", src)
             audit: dict = {}
@@ -547,6 +601,8 @@ def check_exact_special_repair(client: Client, src: str, dst: str,
                 + "; SHOW COUNT(*) WARNINGS", dst)
             if copied != [["0"]]:
                 failures.append("copy emitted a conversion/truncation warning")
+            if client.rows(fields, dst) != amounts_before or client.rows(fields, src) != amounts_before:
+                failures.append("the copy changed a stored dose, quantity, strength, form or unit")
             def expected_mismatches() -> int:
                 # Prefixes are validated identifiers; expected rows drive the
                 # join so even a missing target whose value was NULL counts.
@@ -583,6 +639,10 @@ def check_exact_special_repair(client: Client, src: str, dst: str,
                     + ";", dst)
                 if expected_mismatches():
                     failures.append("recopy did not restore the fixture rows and bytes")
+            client.setup("UPDATE drugs SET quantity='30' WHERE drugid=112", dst)
+            if query(p7_sql) != [["1"]]:
+                failures.append("P7 missed a changed quantity spelling")
+            client.setup("UPDATE drugs SET quantity='30.0' WHERE drugid=112", dst)
             client.setup("UPDATE drugs SET special='altered' WHERE drugid=101", dst)
             if not o19etl.copy_content_parity(query, src, dst, sinfo, dinfo, repairs=repairs)[1]:
                 failures.append("P7 missed an altered repaired instruction")

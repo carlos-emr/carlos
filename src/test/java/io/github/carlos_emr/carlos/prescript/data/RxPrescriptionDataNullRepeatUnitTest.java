@@ -130,6 +130,63 @@ class RxPrescriptionDataNullRepeatUnitTest extends CarlosUnitTestBase {
         assertThat(drug.getQuantity()).isEqualTo(quantity);
     }
 
+    /**
+     * A new prescription for a drug starts from the quantity of the previous one. Only the first run
+     * of digits was carried over, so a previous "2.5" (of 2.5 mL) became the default "2" (#6185).
+     */
+    @ParameterizedTest(name = "previous quantity {0} ({1}) -> {2} ({3})")
+    @CsvSource(nullValues = "NULL", value = {
+            "2.5,mL,2.5,mL", "0.5,mL,0.5,mL", "0.0625,mL,0.0625,mL", "30.0,mL,30,mL",
+            "1/2,bottle,1/2,bottle", "1.0E7,units,10000000,units", "100 mL,mL,100,mL",
+            "100 ML,mL,100,mL", "2.5,NULL,2.5,NULL", "30.0,NULL,30,NULL",
+            "2.5 mL,NULL,2.5,mL", "30.0 mL,NULL,30,mL",
+            "1 bottle (120 mL),NULL,1,bottle (120 mL)", "1/2 bottle,NULL,1/2,bottle",
+            "one bottle,NULL,one bottle,NULL", "NULL,mL,30,mL"
+    })
+    @DisplayName("should carry the amount together with either form of the stored unit")
+    void shouldCarryQuantityAndUnit_whenReusingPreviousPrescription(String quantity, String unitName,
+                                                                    String expectedQuantity, String expectedUnitName) {
+        Drug drug = new Drug();
+        drug.setRepeat(0);
+        drug.setQuantity(quantity);
+        drug.setUnitName(unitName);
+        drug.setSpecial("Take 2.5 mL daily");
+        DrugDao dao = mock(DrugDao.class);
+        when(dao.findByCustomNameDemographicIdAndProviderNo("Synthetic drug", 1, "999998")).thenReturn(drug);
+        registerMock(DrugDao.class, dao);
+        RxPrescriptionData.Prescription result = new RxPrescriptionData().newPrescription("999998", 1);
+        result.setCustomName("Synthetic drug");
+        result.setQuantity("30");
+
+        RxUtil.setSpecialQuantityRepeat(result);
+
+        assertThat(result.getQuantity()).isEqualTo(expectedQuantity);
+        assertThat(result.getUnitName()).isEqualTo(expectedUnitName);
+    }
+
+    @org.junit.jupiter.api.Test
+    @DisplayName("should trim embedded-unit Qty footer cleanly and avoid duplicating the unit in findDuration")
+    void shouldTrimEmbeddedUnitFooterWithoutDuplicatingUnit_whenReusingPreviousPrescription() {
+        Drug drug = new Drug();
+        drug.setRepeat(0);
+        drug.setQuantity("2.5 mL");
+        drug.setUnitName(null);
+        drug.setSpecial("AMOXICILLIN 250MG/5ML\nTake 2.5 mL PO BID\nQty:2.5 mL Repeats:0");
+        DrugDao dao = mock(DrugDao.class);
+        when(dao.findByCustomNameDemographicIdAndProviderNo("AMOXICILLIN 250MG/5ML", 1, "999998")).thenReturn(drug);
+        registerMock(DrugDao.class, dao);
+        RxPrescriptionData.Prescription result = new RxPrescriptionData().newPrescription("999998", 1);
+        result.setCustomName("AMOXICILLIN 250MG/5ML");
+        result.setQuantity("30");
+
+        RxUtil.setSpecialQuantityRepeat(result);
+        RxUtil.findDuration(result);
+
+        assertThat(result.getSpecial()).isEqualTo("Take 2.5 mL PO BID");
+        assertThat(result.getQuantity()).isEqualTo("2.5");
+        assertThat(result.getUnitName()).isEqualTo("mL");
+    }
+
     @ParameterizedTest
     @CsvSource(nullValues = "NULL", value = {"NULL,0", "0,0", "3,3"})
     @DisplayName("should preserve repeat counts when saving a legacy drug as a favorite")

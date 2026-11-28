@@ -1153,4 +1153,77 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
         assertThat(RxSessionBeanResolver.resolve(request)).isSameAs(expected);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest(name = "{0}: {1} ({2}) -> {3} ({4})")
+    @org.junit.jupiter.params.provider.CsvSource(nullValues = "NULL", value = {
+            "represcribe2, 1/2, bottle, 1/2, bottle",
+            "represcribe2, 1.0E7, units, 10000000, units",
+            "represcribe2, 30.0, NULL, 30, NULL",
+            "represcribe2, 2.5 mL, NULL, 2.5, mL",
+            "represcribe2, 100 mL, mL, 100, mL",
+            "saveReRxDrugIdToStash, 1/2, bottle, 1/2, bottle",
+            "represcribeMultiple, 1/2, bottle, 1/2, bottle",
+            "repcbAllLongTerm, 1/2, bottle, 1/2, bottle",
+            "legacy, 30.0, NULL, 30, NULL"
+    })
+    @DisplayName("should normalize carried quantity without corrupting fractions or clobbering stored unitName on ReRx")
+    void shouldNormalizeCarriedQuantityWithoutCorruption_whenStagingReRx(String mode, String quantity, String unitName,
+                                                                         String expectedQuantity, String expectedUnit) throws Exception {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("w"), isNull())).thenReturn(true);
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("w"), eq(1))).thenReturn(true);
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(1))).thenReturn(true);
+        request.setParameter("demographicNo", "1");
+        request.setParameter("demoNo", "1");
+        request.setParameter("drugId", "42");
+        request.setParameter("drugIds", "42");
+        RxPrescriptionData.Prescription source = new RxPrescriptionData.Prescription(42, "999998", 1);
+        source.setBrandName("Synthetic Drug");
+        source.setSpecial("Synthetic Drug\nTake 1 daily\nQty:" + quantity + (unitName == null ? "" : " " + unitName) + " Repeats:0");
+        source.setQuantity(quantity);
+        source.setUnitName(unitName);
+        source.setRepeat(0);
+
+        RxPrescriptionData.Prescription copy = new RxPrescriptionData.Prescription(0, "999998", 1);
+        copy.setBrandName(source.getBrandName());
+        copy.setSpecial(source.getSpecial());
+        copy.setQuantity(source.getQuantity());
+        copy.setUnitName(source.getUnitName());
+        copy.setRepeat(source.getRepeat());
+
+        io.github.carlos_emr.carlos.commn.model.Drug longTerm = new io.github.carlos_emr.carlos.commn.model.Drug();
+        longTerm.setId(42);
+        longTerm.setLongTerm(true);
+        io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager caseManagementManager =
+                mock(io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager.class);
+        when(caseManagementManager.getCurrentPrescriptions(1)).thenReturn(java.util.List.of(longTerm));
+        replaceSpringUtilsBean(io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager.class, caseManagementManager);
+
+        try (var data = org.mockito.Mockito.mockConstruction(RxPrescriptionData.class, (mock, context) -> {
+                 when(mock.getPrescription(42)).thenReturn(source);
+                 when(mock.getPrescriptionIfPresent(42)).thenReturn(source);
+                 when(mock.newPrescription(anyString(), eq(1), eq(source))).thenReturn(copy);
+                 when(mock.getCurrentATCCodesByPatient(anyInt())).thenReturn(new java.util.Vector<>());
+                 when(mock.getCurrentRegionalIdentifiersCodesByPatient(anyInt())).thenReturn(new java.util.ArrayList<>());
+             });
+             var util = mockStatic(io.github.carlos_emr.carlos.prescript.util.RxUtil.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+             var audit = mockStatic(LogAction.class)) {
+            util.when(() -> io.github.carlos_emr.carlos.prescript.util.RxUtil.checkDiscontinuedBefore(any())).thenReturn(false);
+            switch (mode) {
+                case "represcribe2" -> assertThat(action.represcribe2()).isEqualTo("represcribe");
+                case "saveReRxDrugIdToStash" -> assertThat(action.saveReRxDrugIdToStash()).isNull();
+                case "represcribeMultiple" -> assertThat(action.represcribeMultiple()).isEqualTo("represcribe");
+                case "repcbAllLongTerm" -> assertThat(action.repcbAllLongTerm()).isEqualTo("repcbLongTerm");
+                case "legacy" -> {
+                    action.setDrugList("42");
+                    assertThat(action.represcribe()).isEqualTo("success");
+                }
+                default -> throw new AssertionError(mode);
+            }
+        }
+
+        RxSessionBean bean = RxSessionBeanResolver.find(request.getSession(), 1);
+        RxPrescriptionData.Prescription staged = bean.getStashItem(bean.getStashSize() - 1);
+        assertThat(staged.getQuantity()).isEqualTo(expectedQuantity);
+        assertThat(staged.getUnitName()).isEqualTo(expectedUnit);
+    }
+
 }

@@ -24,12 +24,14 @@
 CREATE TABLE drugs (
   drugid INT PRIMARY KEY,
   special TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_bin,
-  comment TEXT CHARACTER SET utf8mb4
+  comment TEXT CHARACTER SET utf8mb4,
+  quantity VARCHAR(80), unitName VARCHAR(40), dosage VARCHAR(255),
+  unit VARCHAR(40), drugForm VARCHAR(40), takemin FLOAT, takemax FLOAT
 );
 CREATE TABLE expected_drug_special (
   drugid INT PRIMARY KEY, expected_hex TEXT, must_block BOOLEAN NOT NULL
 );
-INSERT INTO drugs VALUES
+INSERT INTO drugs (drugid, special, comment) VALUES
   (101, CONVERT(UNHEX('C3A2C280C293') USING utf8mb4), 'unchanged'),
   (102, CONVERT(UNHEX('C3A2C289C2A4') USING utf8mb4), 'unchanged'),
   (103, CONVERT(UNHEX('436166C3A920E6BCA2E5AD9720E2809320E289A4') USING utf8mb4), 'unchanged'),
@@ -47,3 +49,13 @@ INSERT INTO expected_drug_special VALUES
   (104, NULL, 0), (105, '', 0), (106, '312C383030', 0),
   (107, '436166C3A9', 0),
   (108, NULL, 1), (109, NULL, 1), (110, NULL, 1), (111, NULL, 1);
+
+
+-- The form, administered unit, dispense unit and product strength are independent.
+INSERT INTO drugs (drugid, special, quantity, unitName, dosage, unit, drugForm, takemin, takemax)
+VALUES (112, CONCAT('Fixture', CHAR(13,10), 'Take 1/3 tablet', CHAR(13,10), 'Then hold'), '30.0', 'mL', '250.0 mg / 5 mL', 'mg', 'TAB', 1/3, 1/3);
+UPDATE drugs SET takemin=-1, takemax=0 WHERE drugid=104;
+UPDATE drugs SET takemin=1e-10, takemax=0.3333333730697632 WHERE drugid=105;
+UPDATE drugs SET quantity='.50', unitName='', takemin=0.0625, takemax=0.3125 WHERE drugid=103;
+INSERT INTO expected_drug_special VALUES
+  (112, '466978747572650D0A54616B6520312F33207461626C65740D0A5468656E20686F6C64', 0);

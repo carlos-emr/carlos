@@ -29,6 +29,10 @@
 
 package io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.github.carlos_emr.carlos.utility.DoseText;
+import java.util.Locale;
+import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
 
 /*
@@ -100,63 +104,203 @@ public class BpmhDrug {
     /*
      * Prescription details. Take once per day with food
      */
+    // Compares recorded form and unit labels for display only. The displayed unit retains its source spelling.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Compares recorded form and unit labels for display only. The displayed unit retains its source spelling.")
     public String getHow() {
-
-        if (this.how != null) {
-            return this.how;
+        if (how == null) {
+            usePrescriptionDirections(null, getSpecial_instruction(),
+                    (!getCustomName().isBlank() && getDosage().isBlank()) || getUnit().equalsIgnoreCase(getDrugForm()) ? getUnit() : null);
         }
+        return how;
+    }
 
-        StringBuilder stringBuilder = new StringBuilder("");
-        String direction = "";
-        String[] specialArray = null;
+    private static final Set<String> HEADING_STRENGTH_UNITS = Set.of(
+            "mg", "mcg", "g", "ml", "l", "iu", "u", "unit", "units", "%");
 
-        if (getSpecial() != null) {
-            // instruction is normally on the second line.
-            specialArray = getSpecial().split("\\n");
-            if ((specialArray != null) && (specialArray.length > 1)) {
-                direction = specialArray[1];
+    /**
+     * Sets how to the saved administration directions or to a dose assembled from recorded fields.
+     *
+     * @param brandName String holding the recorded product name used to recognize its heading
+     * @param pharmacyInstruction String holding the recorded dispensing instruction
+     * @param doseUnit String identifying the administered dose unit, or null when only the product strength is known
+     */
+    public void usePrescriptionDirections(String brandName, String pharmacyInstruction, String doseUnit) {
+        usePrescriptionDirections(brandName, pharmacyInstruction, doseUnit, getQuantity(), null);
+    }
+
+    /**
+     * Sets how to the saved administration directions or to a dose assembled from recorded fields,
+     * matching generated dispensing footers against the stored quantity and dispense unit.
+     *
+     * @param brandName String holding the recorded product name used to recognize its heading
+     * @param pharmacyInstruction String holding the recorded dispensing instruction
+     * @param doseUnit String identifying the administered dose unit, or null when only the product strength is known
+     * @param dispenseQuantity String holding the stored dispensing quantity, or null when unknown
+     * @param dispenseUnitName String holding the stored dispensing unit, or null when absent
+     */
+    public void usePrescriptionDirections(String brandName, String pharmacyInstruction, String doseUnit,
+                                          String dispenseQuantity, String dispenseUnitName) {
+        String text = StringUtils.defaultString(getSpecial()).replace("\r\n", "\n").replace('\r', '\n');
+        int lineBreak = text.indexOf('\n');
+        String first = lineBreak < 0 ? text : text.substring(0, lineBreak);
+        boolean hasHeading = isMedicationHeading(first, brandName) || isMedicationHeading(first, getCustomName())
+                || isMedicationHeading(first, getGenericName());
+        if (hasHeading) {
+            text = lineBreak < 0 ? "" : text.substring(lineBreak + 1);
+        }
+        String withoutFooter = withoutDispensingFooter(text, dispenseQuantity, dispenseUnitName);
+        boolean hasFooter = !withoutFooter.equals(text);
+        text = withoutFooter;
+        if ((hasHeading || hasFooter) && StringUtils.isNotBlank(pharmacyInstruction)) {
+            String pharmacy = pharmacyInstruction.replace("\r\n", "\n").replace('\r', '\n').stripTrailing();
+            String body = text.stripTrailing();
+            String suffix = "\n" + pharmacy;
+            if (body.equals(pharmacy)) text = "";
+            else if (body.endsWith(suffix)) text = body.substring(0, body.length() - suffix.length());
+        }
+        if (!text.isBlank()) {
+            how = text;
+            return;
+        }
+        // An empty how activates the form's existing missing-information indicator.
+        if (getTakeMin().isBlank() || StringUtils.isBlank(doseUnit)) {
+            how = "";
+            return;
+        }
+        String amount = getTakeMin();
+        if (!getTakeMax().isBlank() && !"0".equals(getTakeMax()) && !getTakeMax().equals(amount)) {
+            amount += " to " + getTakeMax();
+        }
+        String unitPart = endsWithUnit(amount, doseUnit) ? "" : doseUnit;
+        how = String.join(" ", java.util.stream.Stream.of(getMethod(), amount, unitPart, getFreqCode(), getRoute(),
+                        Boolean.parseBoolean(getPrn()) ? "as needed" : "")
+                .filter(StringUtils::isNotBlank).toList());
+    }
+
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    private static boolean endsWithUnit(String amount, String unit) {
+        String trimmedAmount = amount.stripTrailing();
+        String trimmedUnit = unit.strip();
+        if (trimmedAmount.length() <= trimmedUnit.length()) {
+            return false;
+        }
+        int prefixEnd = trimmedAmount.length() - trimmedUnit.length();
+        return trimmedAmount.substring(prefixEnd).toLowerCase(Locale.ROOT)
+                .equals(trimmedUnit.toLowerCase(Locale.ROOT))
+                && !Character.isLetter(trimmedAmount.codePointBefore(prefixEnd));
+    }
+
+    private static String withoutDispensingFooter(String text, String storedQuantity, String storedUnitName) {
+        String trimmed = text.stripTrailing();
+        int lastBreak = trimmed.lastIndexOf('\n');
+        int repeatsSeparator = trimmed.lastIndexOf(" Repeats:");
+        int footerStart = lastBreak;
+        // The legacy editor puts the repeats on a separate line after the amount.
+        if (repeatsSeparator <= lastBreak) {
+            repeatsSeparator = lastBreak;
+            footerStart = trimmed.lastIndexOf('\n', lastBreak - 1);
+        }
+        if (repeatsSeparator > footerStart
+                && isRepeatCount(trimmed.substring(repeatsSeparator + 1))
+                && isDispenseAmount(trimmed.substring(footerStart + 1, repeatsSeparator),
+                        storedQuantity, storedUnitName)) {
+            return text.substring(0, Math.max(footerStart, 0));
+        }
+        return text;
+    }
+
+    private static boolean isRepeatCount(String line) {
+        if (!line.startsWith("Repeats:")) return false;
+        String count = line.substring("Repeats:".length()).stripLeading();
+        return StringUtils.isNumeric(StringUtils.removeEnd(count, " No Subs").stripTrailing());
+    }
+
+    private static boolean isDispenseAmount(String line, String storedQuantity, String storedUnitName) {
+        if (!line.startsWith("Qty:") && !line.startsWith("Mitte:")
+                && !line.startsWith("Qty/Mitte:") && !line.startsWith("Qt\u00E9/Mitte:")) {
+            return false;
+        }
+        String amount = line.substring(line.indexOf(':') + 1).strip();
+        if (matchesStoredDispenseAmount(amount, storedQuantity, storedUnitName)) {
+            return true;
+        }
+        int numberEnd = dispenseNumberEnd(amount);
+        return numberEnd > 0 && isDispenseUnit(amount.substring(numberEnd).strip());
+    }
+
+    private static boolean matchesStoredDispenseAmount(String amount, String storedQuantity, String storedUnitName) {
+        if (StringUtils.isBlank(storedQuantity)) {
+            return false;
+        }
+        String actual = DoseText.withPlainNumbers(StringUtils.normalizeSpace(amount));
+        String qty = DoseText.withPlainNumbers(StringUtils.normalizeSpace(storedQuantity));
+        String unit = StringUtils.normalizeSpace(StringUtils.defaultString(storedUnitName));
+        if (unit.isEmpty()) {
+            return actual.equals(qty);
+        }
+        return actual.equals(qty + " " + unit) || actual.equals(qty + unit);
+    }
+
+    private static int dispenseNumberEnd(String amount) {
+        int end = DoseText.numberEnd(amount, 0);
+        if (end > 0 && end + 1 < amount.length() && amount.charAt(end) == '/'
+                && StringUtils.isNumeric(amount.substring(0, end))) {
+            int denomEnd = end + 1;
+            while (denomEnd < amount.length() && amount.charAt(denomEnd) >= '0' && amount.charAt(denomEnd) <= '9') {
+                denomEnd++;
+            }
+            if (denomEnd > end + 1 && (denomEnd == amount.length()
+                    || (amount.charAt(denomEnd) != '/' && amount.charAt(denomEnd) != '.'))) {
+                return denomEnd;
             }
         }
+        return end;
+    }
 
-        if (!StringUtils.isBlank(direction)) {
+    private static boolean isDispenseUnit(String unit) {
+        if (unit.isEmpty()) return true;
+        int wordEnd = lettersEnd(unit);
+        if (wordEnd == 0) return false;
+        if (wordEnd == unit.length()) return true;
+        String rest = unit.substring(wordEnd).stripLeading();
+        if (!rest.startsWith("(") || !rest.endsWith(")")) return false;
+        String container = rest.substring(1, rest.length() - 1).strip();
+        int numberEnd = DoseText.numberEnd(container, 0);
+        if (numberEnd == 0) return false;
+        String containerUnit = container.substring(numberEnd).strip();
+        return !containerUnit.isEmpty() && lettersEnd(containerUnit) == containerUnit.length();
+    }
 
-            stringBuilder.append(direction);
-
-        } else {
-
-            if (!getMethod().isEmpty()) {
-                stringBuilder.append(getMethod() + " ");
-            }
-            if (!getTakeMin().isEmpty()) {
-                stringBuilder.append(getTakeMin() + " ");
-            }
-            if (!getTakeMax().isEmpty() && !getTakeMax().equals("0") && !getTakeMax().equals(getTakeMin())) {
-                stringBuilder.append("or " + getTakeMax() + " ");
-            }
-            if (!getDrugForm().isEmpty()) {
-                stringBuilder.append(getDrugForm() + " ");
-            }
-
-            if (!getFreqCode().isEmpty()) {
-                stringBuilder.append(getFreqCode() + " ");
-            }
-
-            if (!getRoute().isEmpty()) {
-                stringBuilder.append(getRoute() + " ");
-            }
-
-            if (!getSpecial_instruction().isEmpty()) {
-                stringBuilder.append(getSpecial_instruction() + " ");
-            }
-
-            if (!getCustomInstructions().isEmpty()) {
-                stringBuilder.append(getCustomInstructions());
-            }
+    private static int lettersEnd(String text) {
+        int index = 0;
+        while (index < text.length()) {
+            int codePoint = text.codePointAt(index);
+            if (!Character.isLetter(codePoint)) break;
+            index += Character.charCount(codePoint);
         }
+        return index;
+    }
 
-        setHow(stringBuilder.toString());
-
-        return this.how;
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    private boolean isMedicationHeading(String first, String name) {
+        if (StringUtils.isBlank(name)) return false;
+        String heading = first.strip();
+        String trimmedName = name.strip();
+        if (heading.equals(trimmedName)) return true;
+        if (!heading.startsWith(trimmedName + " ")) return false;
+        String suffix = heading.substring(trimmedName.length() + 1).strip();
+        String normalizedSuffix = suffix.toLowerCase(Locale.ROOT);
+        String dosageText = getDosage().strip();
+        String dosageWithUnit = (dosageText + " " + getUnit().strip()).strip();
+        if (normalizedSuffix.equals(dosageText.toLowerCase(Locale.ROOT))
+                || normalizedSuffix.equals(dosageWithUnit.toLowerCase(Locale.ROOT))) {
+            return true;
+        }
+        int numberEnd = DoseText.numberEnd(suffix, 0);
+        return numberEnd > 0
+                && HEADING_STRENGTH_UNITS.contains(suffix.substring(numberEnd).strip().toLowerCase(Locale.ROOT));
     }
 
     public void setHow(String how) {

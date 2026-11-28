@@ -199,6 +199,27 @@ class PDFControllerLogPrivacyUnitTest {
         } finally { controller.getReader().close(); }
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"refused", "exception", "close"})
+    void shouldAbortPatientPrint_whenWritingOrFinalizingFails(String failure) throws Exception {
+        PDFController controller = controller(template(false));
+        controller.setContinueInstructions(true);
+        AcroFields fields = spy(controller.getReader().getAcroFields());
+        doReturn(Map.of("note", fields.getAllFields().get("note"))).when(fields).getAllFields();
+        doReturn(null).when(fields).getFieldPositions(anyString());
+        if (failure.equals("refused")) doReturn(false).when(fields).setField(eq("note"), anyString());
+        if (failure.equals("exception")) doThrow(new IOException(PRIVATE)).when(fields).setField(eq("note"), anyString());
+        try (var stampers = mockConstruction(PdfStamper.class, (stamper, context) -> {
+            when(stamper.getAcroFields()).thenReturn(fields);
+            when(stamper.getWriter()).thenReturn(mock(PdfWriter.class));
+            if (failure.equals("close")) doThrow(new IOException(PRIVATE)).when(stamper).close();
+        })) {
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> render(controller))
+                    .isInstanceOf(IllegalStateException.class).hasMessageNotContaining(PRIVATE);
+            verify(stampers.constructed().getFirst()).close();
+        } finally { controller.getReader().close(); }
+    }
+
     @Test
     void shouldRetainEmptyValueOnGetterFailure_withoutLoggingTheClinicalExceptionCause() {
         PDFController controller = new PDFController();

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/webserv/rest/exceptionMapping/IllegalArgumentExceptionMapper.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "e9d2388074c5afa4803e3f8e8faa22029c514f1e"
+  },
+  "evidenceSha256": "a8981effca131d0aa70526a8c18a6832bbbcab90e7a2208950b2a8d625083a64"
+}

@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "4f622f19a4448da45cd328bb618c31126a407a58",
+  "comparisonSha256": "fd65af9ebd62e69e2548ecc9c50aa9730d4181522123357b835fd91cdff8de95",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java": {
+      "lines": 96.07843137254902,
+      "instructions": 94.04388714733543,
+      "branches": 79.6875,
+      "sourceBlob": "0874a8ea3301fe8d4eee995d0a8ba95020863cba"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/Favorite.java": {
+      "lines": 100.0,
+      "instructions": 95.0,
+      "branches": 83.33333333333333,
+      "sourceBlob": "41e718d68df6fd0526edacdb980df846d0408ad2"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/Favorites.java": {
+      "lines": 100.0,
+      "instructions": 90.0,
+      "branches": 66.66666666666667,
+      "sourceBlob": "8eb40a4dbc55f2962563b59501ef5d2d96f02412"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/pharmaForms/formBPMH/bean/BpmhDrug.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "b0e0e8875dead2d2c9c225502d9a4204e647bb3b"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/pharmaForms/formBPMH/business/BpmhForm2Handler.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "d68c89a5ff86eea1940eeb625674b9621c7beef6"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/pharmaForms/formBPMH/pdf/PDFController.java": {
+      "lines": 88.67924528301887,
+      "instructions": 89.81132075471699,
+      "branches": 71.875,
+      "sourceBlob": "f7950e51f242ce8af3b2b8667eecb6d32a083da1"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/RxManagerImpl.java": {
+      "lines": 93.33333333333333,
+      "instructions": 82.65306122448979,
+      "branches": 88.46153846153847,
+      "sourceBlob": "ddc85b3c98f0ce7a33b4705c2367fc6ddd604878"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/pageUtil/RxWriteScript2Action.java": {
+      "lines": 57.30769230769231,
+      "instructions": 60.79943899018233,
+      "branches": 53.333333333333336,
+      "sourceBlob": "06080e75c9abeebbcad780f0bdba5fd15147995f"
+    }
+  },
+  "exclusions": {},
+  "zeroCoverageWaivers": {},
+  "baselineCommit": "c9a7c02bc9963c4cdd5f3250d4aba5bff54d19ff",
+  "baselineSourceTree": "4f622f19a4448da45cd328bb618c31126a407a58",
+  "baselineReportSha256": "41524aa2d3eb74ecff46cfc2aaf583ab0095490781b1c75e6961c00a560e425d",
+  "baselineLane": "PR 6367 focused Maven unit and H2 integration runs on JDK 25 with JaCoCo. The package run at 93986b90d70 ran 1,722 tests. A subsequent run on the identical production classes at c9a7c02bc99 reran the 24 BpmhForm2Handler cases including the new missing-description assertions. JaCoCo appended both runs. The Surefire manifest hashes the final per-suite reports, including the rerun. The selected tests cover BPMH, PDFController, RxManager, DrugDao, DrugConverter, favourites, RxWriteScript, DoseText, DrugStrength, RxUtil, RxPrescriptionData and CDS export reference lookup. The complete release-lane union was not run for this evidence.",
+  "baselineTestCounts": {
+    "tests": 1717,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "35187f895310e50c9fa94c5b7c3b80e4e4d11a272e957feeb02865ad069373e1",
+  "baselineTestReportsHashFormat": "SHA-256 of a sha256sum-style manifest of the run's Surefire TEST-*.xml report files: one '<sha256>  <file name>' line each, sorted by name",
+  "baselineTestRunCommit": "c9a7c02bc9963c4cdd5f3250d4aba5bff54d19ff",
+  "baselineAdditionalTestRuns": []
+}

@@ -38,9 +38,11 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.DrugDao;
 import io.github.carlos_emr.carlos.commn.model.Drug;
+import io.github.carlos_emr.carlos.utility.DoseText;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -311,15 +313,18 @@ public class RxUtil {
     }
 
     /**
-     * Renders a structured dose as text. The Rx page and the quantity callback parse this text back
-     * with {@code Double.parseDouble}, so the digits are never grouped (a 1000-unit dose rendered as
-     * "1,000" made that parse throw) and the decimal separator is the dot whatever the server's
-     * default locale is.
+     * Renders a structured dose as text: the exact plain decimal of {@link DoseText#of(float)}, with
+     * no trailing zero, no exponent and no rounding.
+     *
+     * <p>The Rx page and the quantity callback parse this text back with {@code Double.parseDouble},
+     * and the Rx page posts it back as the dose, so the digits are never grouped (a 1000-unit dose
+     * rendered as "1,000" made that parse throw), the decimal separator is the dot whatever the
+     * server's default locale is, and the text reads back to the same stored float. It was rounded
+     * to three decimal places until #6185: a stored 0.0625 was shown as "0.062", and saving the
+     * page stored 0.062.
      */
     public static String FloatToString(float value) {
-        java.text.NumberFormat fmt = java.text.NumberFormat.getNumberInstance(Locale.ROOT);
-        fmt.setGroupingUsed(false);
-        return fmt.format(value);
+        return DoseText.of(value);
     }
 
     public static float StringToFloat(String value) {
@@ -463,32 +468,81 @@ public class RxUtil {
         return nPerDay;
     }
 
+    /**
+     * The unit of a quantity typed with one ("2.5 mL" gives "mL"): the text with its amount taken
+     * out.
+     *
+     * <p>Only the amount itself is removed. The amount used to be the first run of digits and every
+     * copy of those digits was deleted, so "2.5 mL" left the unit ".5 mL" and was printed as
+     * {@code Qty:2 .5 mL} (#6185), and "1 bottle (120 mL)" left "bottle (20 mL)".
+     *
+     * @param qStr the quantity as typed or stored, which may be {@code null}
+     * @return the unit, or {@code null} when the text has no amount or nothing besides it
+     */
     public static String getUnitNameFromQuantityText(String qStr) {
-        if (qStr != null) {
-            Pattern p1 = Pattern.compile("\\d+");
-            Matcher m1 = p1.matcher(qStr);
-            if (m1.find()) {
-                String qNum = qStr.substring(m1.start(), m1.end());
-                //get the quantity unit
-                String qUnit = qStr.replace(qNum, "").trim();
-                if (qUnit != null && qUnit.length() > 0) {
-                    return qUnit;
-                }
+        if (qStr == null) {
+            return null;
+        }
+        NumberToken amount = findFirstQuantityAmount(qStr);
+        if (amount == null) {
+            return null;
+        }
+        String unit = (qStr.substring(0, amount.start) + qStr.substring(amount.end)).trim();
+        return unit.isEmpty() ? null : unit;
+    }
+
+    /**
+     * The amount of a quantity typed with a unit ("2.5 mL" gives "2.5", "1/2 bottle" gives "1/2"):
+     * its first decimal or simple fraction, written by {@link DoseText} so that an amount typed as
+     * ".5" or "30.0" is saved, and printed after {@code Qty:}, as "0.5" or "30".
+     *
+     * @param qStr the quantity as typed or stored, which may be {@code null}
+     * @return the amount, or {@code null} when the text has no number
+     */
+    public static String getQuantityFromQuantityText(String qStr) {
+        if (qStr == null) {
+            return null;
+        }
+        NumberToken amount = findFirstQuantityAmount(qStr);
+        return amount == null ? null : DoseText.ofNumericText(amount.value);
+    }
+
+    /**
+     * The first decimal or simple fraction ("2.5", "30", ".5", "1/2") in quantity text. A full stop
+     * with no digit after it is not part of the number.
+     */
+    private static NumberToken findFirstQuantityAmount(String text) {
+        for (int index = 0; index < text.length(); index++) {
+            NumberToken token = findDecimalAt(text, index);
+            if (token != null) {
+                int end = fractionEnd(text, token.start, token.end);
+                return end == token.end ? token : new NumberToken(text, token.start, end);
             }
         }
         return null;
     }
 
-    public static String getQuantityFromQuantityText(String qStr) {
-        if (qStr != null) {
-            Pattern p1 = Pattern.compile("\\d+");
-            Matcher m1 = p1.matcher(qStr);
-            if (m1.find()) {
-                String qNum = qStr.substring(m1.start(), m1.end());
-                return qNum;
+    /** Extends an integer token across a simple fraction ("1/2") when no further "/" or "." follows. */
+    private static int fractionEnd(String text, int start, int numeratorEnd) {
+        if (numeratorEnd + 1 >= text.length() || text.charAt(numeratorEnd) != '/') {
+            return numeratorEnd;
+        }
+        for (int i = start; i < numeratorEnd; i++) {
+            if (!isDigit(text.charAt(i))) {
+                return numeratorEnd;
             }
         }
-        return null;
+        int denomEnd = numeratorEnd + 1;
+        while (denomEnd < text.length() && isDigit(text.charAt(denomEnd))) {
+            denomEnd++;
+        }
+        if (denomEnd == numeratorEnd + 1) {
+            return numeratorEnd;
+        }
+        if (denomEnd < text.length() && (text.charAt(denomEnd) == '/' || text.charAt(denomEnd) == '.')) {
+            return numeratorEnd;
+        }
+        return denomEnd;
     }
 
     public static boolean isMitte(String qStr) {
@@ -580,19 +634,125 @@ public class RxUtil {
         if (rx.getUnitName() != null) {
             return null;
         }
-        Matcher digits = Pattern.compile("\\d+").matcher(typedQuantity);
-        if (!digits.find()) {
+        // The amount is the whole decimal: reading "2.5" as 2 with the unit ".5" left the duration
+        // unset and saved ".5" as the quantity's unit (#6185).
+        QuantityParts split = splitLeadingQuantityAndUnit(typedQuantity);
+        if (split != null) {
+            // A quantity typed with its own unit (a Mitte quantity) leaves the duration incalculable.
+            rx.setQuantity(split.amount());
+            rx.setUnitName(split.unit());
+            return null;
+        }
+        String number = getQuantityFromQuantityText(typedQuantity);
+        if (number == null) {
             logger.error("quantity is not specified");
             return null;
         }
-        String number = digits.group();
-        String quantityUnit = typedQuantity.replace(number, "").trim();
-        if (!quantityUnit.isEmpty()) {
-            // A quantity typed with its own unit (a Mitte quantity) leaves the duration incalculable.
-            rx.setUnitName(quantityUnit);
+        String quantityUnit = getUnitNameFromQuantityText(typedQuantity);
+        if (quantityUnit != null || number.indexOf('/') >= 0) {
+            // Ambiguous text such as "1/2" or "1 to 2 bottles" cannot yield a duration or a clean unit.
             return null;
         }
+        rx.setQuantity(number);
         return durationForQuantity(rx, Double.parseDouble(number));
+    }
+
+    /**
+     * Parsed leading decimal or simple fraction amount (normalized via {@link DoseText#ofNumericText})
+     * and recognized dispense unit split from a single quantity string.
+     *
+     * @param amount String normalized leading numeric or fractional amount
+     * @param unit String recognized dispense unit
+     * @since 2026-11-28
+     */
+    public record QuantityParts(String amount, String unit) {
+    }
+
+    /**
+     * Splits a leading decimal or simple fraction amount and clean dispense unit (such as
+     * {@code "2.5 mL"}, {@code "1/2 bottle"}, or {@code "1 bottle (120 mL)"}) when the suffix passes
+     * {@link Drug#isEmbeddedDispenseUnit}.
+     *
+     * @param text String quantity text to inspect, which may be {@code null}
+     * @return QuantityParts when {@code text} splits cleanly into amount and dispense unit, otherwise {@code null}
+     */
+    public static QuantityParts splitLeadingQuantityAndUnit(String text) {
+        if (StringUtils.isBlank(text)) {
+            return null;
+        }
+        String trimmed = text.strip();
+        int end = DoseText.numberEnd(trimmed, 0);
+        if (end == 0) {
+            return null;
+        }
+        end = fractionEnd(trimmed, 0, end);
+        if (end == trimmed.length()) {
+            return null;
+        }
+        String unit = trimmed.substring(end).stripLeading();
+        if (!Drug.isEmbeddedDispenseUnit(unit)) {
+            return null;
+        }
+        return new QuantityParts(DoseText.ofNumericText(trimmed.substring(0, end)), unit);
+    }
+
+    /**
+     * Applies submitted quantity text onto a staged prescription, splitting a clean leading decimal
+     * or simple fraction amount and dispense unit while preserving ambiguous ranges
+     * ({@code "1 to 2 bottles"}) or word-only quantities ({@code "one bottle"}) unsplit.
+     *
+     * @param rx RxPrescriptionData.Prescription staged prescription to update
+     * @param quantityText String submitted quantity text
+     */
+    public static void applyQuantityText(RxPrescriptionData.Prescription rx, String quantityText) {
+        String trimmed = StringUtils.trimToEmpty(quantityText);
+        if (trimmed.isEmpty()) {
+            rx.setQuantity("0");
+            rx.setUnitName(null);
+            return;
+        }
+        QuantityParts split = splitLeadingQuantityAndUnit(trimmed);
+        if (split != null) {
+            rx.setQuantity(split.amount());
+            rx.setUnitName(split.unit());
+            return;
+        }
+        rx.setQuantity(DoseText.ofNumericText(trimmed));
+        rx.setUnitName(null);
+    }
+
+    /**
+     * Normalizes a carried-over prescription's stored quantity and unit before staging: splits a
+     * clean embedded unit when {@code sourceUnitName} is blank (or matches the embedded unit),
+     * normalizes pure numeric quantities with {@link DoseText#ofNumericText}, and preserves
+     * non-numeric/fractional quantities together with any existing {@code sourceUnitName}.
+     *
+     * @param rx RxPrescriptionData.Prescription target staged prescription
+     * @param sourceQuantity String stored quantity value, which may be {@code null}
+     * @param sourceUnitName String stored dispense unit, which may be {@code null}
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    public static void normalizeCarriedQuantity(RxPrescriptionData.Prescription rx,
+                                                String sourceQuantity,
+                                                String sourceUnitName) {
+        String unitName = sourceUnitName;
+        String quantity = sourceQuantity;
+        QuantityParts split = splitLeadingQuantityAndUnit(quantity);
+        if (split != null) {
+            if (StringUtils.isBlank(unitName)) {
+                quantity = split.amount();
+                unitName = split.unit();
+            } else if (split.unit().toLowerCase(Locale.ROOT).equals(unitName.strip().toLowerCase(Locale.ROOT))) {
+                quantity = split.amount();
+                unitName = unitName.strip();
+            }
+        }
+        String normalized = DoseText.ofNumericText(quantity);
+        if (StringUtils.isNotBlank(normalized)) {
+            rx.setQuantity(normalized);
+        }
+        rx.setUnitName(unitName);
     }
 
     /** True when the parser left no calculated quantity behind: null, empty or "0". */
@@ -2976,19 +3136,8 @@ public class RxUtil {
     }
 
     private static void setResultSpecialQuantityRepeat(RxPrescriptionData.Prescription rx, Drug d) {
-        String qStr = d.getQuantity() == null ? "" : d.getQuantity();
-        Pattern p1 = Pattern.compile("\\d+");
-        Matcher m1 = p1.matcher(qStr);
-        if (m1.find()) {
-            String qNum = qStr.substring(m1.start(), m1.end());
-            rx.setQuantity(qNum);
-            //get the quantity unit
-            String qUnit = qStr.replace(qNum, "").trim();
-            if (qUnit != null && qUnit.length() > 0) {
-                rx.setUnitName(qUnit);
-            }
-        }
-        rx.setUnitName(d.getUnitName());
+        // Imported quantities can carry their unit in the quantity text instead of the unit column.
+        normalizeCarriedQuantity(rx, d.getQuantity(), d.getUnitName());
 
         rx.setRepeat(d.getRepeat() == null ? 0 : d.getRepeat());
         rx.setSpecial(d.getSpecial());

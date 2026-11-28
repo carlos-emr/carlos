@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDrugReferenceDto;
 import io.github.carlos_emr.carlos.prescript.util.RxDrugRef;
+import io.github.carlos_emr.carlos.utility.DoseText;
 import java.io.IOException;
 import java.util.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -112,20 +113,32 @@ public class CdsExportDrugReferenceLookupService {
     }
 
     /**
-     * DrugRef serves numeric strengths as doubles (DrugLookUpManager); Double.toString would
-     * publish "500.0" or "1.0E7". The exact plain decimal without a trailing zero is written
-     * instead (a trailing zero is on ISMP Canada's do-not-use list). Text strengths stay as
-     * authored.
+     * DrugRef holds a strength as a float and sends that float's text ("250.0" for 250 mg); an
+     * XML-RPC double would be read as a Double, whose own text is "500.0" or "1.0E7". Either way
+     * the exact plain decimal without a trailing zero is written instead, by the formatter every
+     * dose shares (a trailing zero is on ISMP Canada's do-not-use list, #6185). Text that is not a
+     * single number ("2.5 mg/mL") stays as authored.
      *
      * @return the strength's text, or null for a negative or non-finite number, which no
      *     ingredient has: the product is then not a usable reference
      */
     static String strength(Object value) {
-        if (value instanceof String text) return text;
+        if (value instanceof String text) {
+            try {
+                // A number is the same number as text or as a double, even when its exponent
+                // exceeds DoseText's plain-digit expansion cap (e.g. "-1E100").
+                if (new java.math.BigDecimal(text.strip()).signum() < 0) {
+                    return null;
+                }
+            } catch (NumberFormatException notSingleNumber) {
+                // Free-text strengths ("2.5 mg/mL") stay as authored.
+            }
+            return DoseText.ofNumericText(text);
+        }
         try {
-            var decimal = new java.math.BigDecimal(value.toString()).stripTrailingZeros();
+            var decimal = new java.math.BigDecimal(value.toString());
             if (decimal.signum() < 0) return null;
-            return (decimal.signum() == 0 ? java.math.BigDecimal.ZERO : decimal).toPlainString();
+            return DoseText.of(decimal);
         } catch (NumberFormatException notFinite) {
             return null;
         }

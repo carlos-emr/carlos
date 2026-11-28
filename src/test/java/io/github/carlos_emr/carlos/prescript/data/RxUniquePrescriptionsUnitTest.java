@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -140,6 +141,71 @@ class RxUniquePrescriptionsUnitTest extends CarlosUnitTestBase {
         newest.setCreateDate(Date.valueOf("2026-01-03"));
         newest.setLastUpdateDate(Date.valueOf("2026-01-04"));
         assertThat(uniqueIds(oldest, middle, newest)).containsExactly(3, 2);
+    }
+
+    /**
+     * A prescription written before #6185 holds the product strength with a trailing zero
+     * ("amoxicillin 250.0mg capsule", "250.0mg"); one written after holds "250mg". They are the
+     * same product, so a renewal by drug search is still listed once.
+     */
+    @Test
+    void shouldListTheRenewalOnce_whenOnlyTheTrailingZeroOfTheStrengthDiffers() {
+        Drug before = drug(1, "Synthetic X");
+        before.setGenericName("synthetic 250.0mg capsule");
+        before.setDosage("250.0mg");
+        Drug after = drug(2, "Synthetic X");
+        after.setGenericName("synthetic 250mg capsule");
+        after.setDosage("250mg");
+
+        assertThat(uniqueIds(before, after)).containsExactly(2);
+    }
+
+    @Test
+    void shouldListTheRenewalOnce_whenEarlierStrengthOmittedLeadingZero() {
+        Drug before = drug(1, "Synthetic X");
+        before.setGenericName("synthetic .5mg tablet");
+        before.setDosage(".5mg");
+        Drug after = drug(2, "Synthetic X");
+        after.setGenericName("synthetic 0.5mg tablet");
+        after.setDosage("0.5mg");
+
+        assertThat(uniqueIds(before, after)).containsExactly(2);
+    }
+
+    /**
+     * A strength of ten million units was stored as the float's own text ("1.0E7unit") before
+     * #6185 and is stored as "10000000unit" since.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"1.0E7unit", "1E7unit"})
+    void shouldListTheRenewalOnce_whenTheEarlierStrengthWasWrittenWithAnExponent(String earlierStrength) {
+        Drug before = drug(1, "Synthetic X");
+        before.setGenericName("synthetic " + earlierStrength + " vial");
+        before.setDosage(earlierStrength);
+        Drug after = drug(2, "Synthetic X");
+        after.setGenericName("synthetic 10000000unit vial");
+        after.setDosage("10000000unit");
+
+        assertThat(uniqueIds(before, after)).containsExactly(2);
+    }
+
+    @ParameterizedTest(name = "{0} is not {1}")
+    @CsvSource(delimiter = '|', value = {
+            "250mg | 25mg",
+            "250.0mg | 25.0mg",
+            "2.5mg | 25mg",
+            "250.5mg | 250mg",
+            "10.0mg | 1mg",
+            "1,000.0 mg | 1,0 mg",
+            "1.0.5 | 1.5"
+    })
+    void shouldKeepBothEntries_whenTheStrengthItselfDiffers(String first, String second) {
+        Drug older = drug(1, "Synthetic X");
+        older.setDosage(first);
+        Drug newer = drug(2, "Synthetic X");
+        newer.setDosage(second);
+
+        assertThat(uniqueIds(older, newer)).containsExactlyInAnyOrder(1, 2);
     }
 
     @ParameterizedTest

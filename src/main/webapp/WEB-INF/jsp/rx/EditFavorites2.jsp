@@ -326,10 +326,10 @@
                                         <tr class=tblRow <%= style %> name="record<%= i%>Line3">
                                             <td nowrap><label for="fldTakeMin<%= i%>"><b>Take:</b></label> <input type=text
                                                                            id="fldTakeMin<%= i%>" name="fldTakeMin<%= i%>" class=tblRow size=3
-                                                                           value="<%= f.getTakeMin() %>"/>
+                                                                           value="<%= SafeEncode.forHtmlAttribute(f.getTakeMinString()) %>"/>
                                                 <span>to</span> <label class="rx-favorite-label-hidden" for="fldTakeMax<%= i%>">Maximum dose</label><input
                                                         type=text id="fldTakeMax<%= i%>" name="fldTakeMax<%= i%>" class=tblRow size=3
-                                                        value="<%= f.getTakeMax() %>"/>
+                                                        value="<%= SafeEncode.forHtmlAttribute(f.getTakeMaxString()) %>"/>
                                                 <label class="rx-favorite-label-hidden" for="fldFrequencyCode<%= i%>">Frequency</label><select
                                                         id="fldFrequencyCode<%= i%>" name="fldFrequencyCode<%= i%>" class=tblRow>
                                                     <%

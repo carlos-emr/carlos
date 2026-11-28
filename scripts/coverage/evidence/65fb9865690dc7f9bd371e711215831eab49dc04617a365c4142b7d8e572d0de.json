@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "668dde70eec3822d24ca89b1adf7a4e0ba45d0bd",
+  "comparisonSha256": "3f97737268e3a2aab5ce5a5cb2db89586afad656ffe9558357c7e4a62f6a55cc",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/prescript/data/RxDrugData.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "eb85fd49ef9fbe03b1684fafe2ce24e5620b8ba6"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/pageUtil/RxWriteScript2Action.java": {
+      "lines": 88.52459016393442,
+      "instructions": 86.7737003058104,
+      "branches": 78.65168539325843,
+      "sourceBlob": "79e0b7ef359a43a9482baa175d414b695750987a"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/DoseText.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "c73b6a7379a8533dbb6f81d32a7e97d935429a84"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/conversion/DrugConverterImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "661f871aa6fd25075d8f55497952990c28635070"
+    }
+  },
+  "exclusions": {},
+  "zeroCoverageWaivers": {},
+  "baselineCommit": "a58255123e0ebb0eb6728d1a7f596047217e8801",
+  "baselineSourceTree": "668dde70eec3822d24ca89b1adf7a4e0ba45d0bd",
+  "baselineReportSha256": "1ed780f6382a16b333efc14c991d65349da134da2ee30b438e3a516c882f0c21",
+  "baselineLane": "PR #6367 (issue #6185), refresh for the 4 Java files that review commits 168bd5a941 and a58255123e changed (DoseText, RxDrugData, RxWriteScript2Action, DrugConverterImpl): complete Java suite (unit and H2 integration tests) with JaCoCo, run locally and not in CI, on PR commit a58255123e, which has release/2026.08 at c9f259f877 merged in. Command: mvn -B -ntp clean test jacoco:report -Dtest.forkCount=2, OpenJDK 25 and Maven 3.9.11 on Ubuntu. Maven reported 44104 tests run, 0 failures, 0 errors, 503 skipped; baselineTestCounts is the total of the run's Surefire XML reports. The rows of these 4 files are measured from that run's jacoco.xml with the checker's own measure(); the other 11 files this PR changes are unchanged since evidence 11bccc0a and keep it. No Chromium smoke lane; no zero-floor waiver is added.",
+  "baselineTestCounts": {
+    "tests": 43957,
+    "skipped": 503,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "a9ebd576bed0e5520c63df8d151806e00be95dff36dc860872aa0a2a12f10278",
+  "baselineTestReportsHashFormat": "SHA-256 of a sha256sum-style manifest of the run's Surefire TEST-*.xml report files: one '<sha256>  <file name>' line each, sorted by name",
+  "baselineTestRunCommit": "a58255123e0ebb0eb6728d1a7f596047217e8801",
+  "baselineAdditionalTestRuns": []
+}

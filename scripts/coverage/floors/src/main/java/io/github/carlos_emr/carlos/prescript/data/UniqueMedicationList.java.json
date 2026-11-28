@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/prescript/data/UniqueMedicationList.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "51736ba7342bb8fe9fb936c9bd6fde32db5965ba"
+  },
+  "evidenceSha256": "11bccc0a31e76b2fe1e25cca7452180cf043a4c4ecfb7084e527bcc7dc4aa19b"
+}

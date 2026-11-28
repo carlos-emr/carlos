@@ -105,7 +105,12 @@ function cardFields() {
     CarlosAjax: { request(url, options) { requests.push({ url, options }); } },
   };
   vm.runInNewContext(source, context);
-  const element = (id, props) => (elements[id] = { id, className: '', attributes: {}, setAttribute(k, v) { this.attributes[k] = v; }, ...props });
+  const element = (id, props) => (elements[id] = {
+    id, className: '', dataset: {}, attributes: {},
+    setAttribute(k, v) { this.attributes[k] = v; },
+    hasAttribute(k) { return Object.hasOwn(this.attributes, k); },
+    ...props,
+  });
   return { context, requests, alerts, refused, element };
 }
 
@@ -131,6 +136,15 @@ test('a numeric inline dose is sent, and a server refusal is explained', () => {
   assert.deepEqual(s.alerts, ['dose "0.5"']);
   s.requests[0].options.onFailure({ status: 409, responseJSON: null });
   assert.equal(s.refused.length, 1, 'other refusals keep the generic message');
+});
+
+test('an unchanged stored dose with ten fractional digits can be revisited', () => {
+  const s = cardFields();
+  const saved = '0.0000000001';
+  s.element('minimum_5', { textContent: saved, dataset: { storedDose: saved } });
+  s.context.updateProperty('minimum_5');
+  assert.equal(s.requests.length, 1);
+  assert.equal(new URLSearchParams(s.requests[0].options.parameters).get('propertyValue'), saved);
 });
 
 test('a late answer for an older inline edit does not decide the field\'s invalid state', () => {

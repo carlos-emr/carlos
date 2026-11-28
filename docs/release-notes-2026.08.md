@@ -1,5 +1,97 @@
 # CARLOS 2026.08 release notes
 
+## Dose, strength and quantity numbers are written as plain decimals
+
+ISMP Canada's *Do Not Use* list bans a trailing zero ("1.0 mg" is read as 10 mg) and a
+missing leading zero (".5 mg" is read as 5 mg). A review of every place CARLOS turns a
+dose, strength or quantity number into text (#6185) found the following, all now written by
+one formatter: the exact plain decimal, with no trailing zero, always a leading zero, no
+exponent and no rounding.
+
+- **Rounded dose.** The structured dose (take 1-2) was rounded to three decimal places for
+  display, so a dose of 0.0625 was shown as "0.062" on the Rx record, the Rx page's staging
+  card, the BC health passport forms and the VT form. The Rx page posts that text back as
+  the dose, so opening and saving such a prescription stored 0.062. The dose is now shown in
+  full and saved unchanged. A dose with no finite decimal form is shown to the precision it
+  is stored in: a third of a tablet reads "0.33333334" where it read "0.333". The
+  instruction text the prescriber typed ("Take 1/3 tab") is not changed.
+- **Quantity.** A quantity typed with a decimal amount and a unit was split at its first
+  run of digits: "2.5 mL" was saved, printed and faxed as `Qty:2 .5 mL`. It is now saved as
+  `Qty:2.5 mL`. A typed quantity is written as a plain decimal, with or without a unit:
+  ".5 mL" is saved as `Qty:0.5 mL`, "30.0 mL" as `Qty:30 mL` and "30.0" as `Qty:30`. The
+  default quantity carried over from the previous prescription for the same drug keeps its
+  decimal amount.
+- **Strength.** DrugRef sends an ingredient strength as "250.0". CARLOS copied that into
+  the generic name and strength stored with a new prescription ("amoxicillin 250.0mg
+  capsule"), showed it on the Drug Information page and wrote it to the CDS 5.2 export.
+  New prescriptions store "250mg". The generic name of a combination product now names
+  every ingredient's strength; the strength of a second ingredient was left out when it
+  equalled the first's. The REST medication service stored "500.0 mg", or the word "null"
+  for a strength or unit the client did not send; it now stores "500 mg" and leaves a
+  missing part out.
+- **Other pages.** The Edit Favorites and Copy Favorites pages showed "1.0" for a dose of
+  1, and the immunization submission review page showed "Dose Qty: 1.0". The BPMH form's
+  "How I take it" column left the dose out ("Take TAB BID") when the stored instruction
+  text had no direction line; it now reads "Take 1 TAB BID", and "Take 1 to 3 TAB BID" for
+  a range.
+
+Prescriptions saved before this change keep the text they were saved with, and the upgrade
+rewrites none of it:
+
+- A stored "250.0mg" stays. The medication lists treat it as the same product as a "250mg"
+  written afterwards, so a renewal is still listed once. The "discontinued before" notice
+  and the check for an existing favourite compare the stored text exactly: the notice can
+  show although a later prescription written before the upgrade is still active, and saving
+  a favourite again adds a second one.
+- A dose that a save had already rounded stays rounded.
+- A quantity that was split stays split, and re-prescribing it copies it as it is. It
+  cannot be repaired by rule: "2.5 mL" and "2.25 mL" were both stored as the quantity "2"
+  with the unit ".5 mL". Review these prescriptions, typically liquids, drops and creams:
+
+  ```sql
+  SELECT drugid, demographic_no, quantity, unitName FROM drugs WHERE unitName LIKE '.%';
+  ```
+
+REST clients: `quantity` on a drug or a favourite is a whole number. A stored quantity that
+is not one ("2.5", or imported text such as "100 mL") is now omitted from the response;
+reading such a drug used to fail the whole request. An update that states no quantity keeps
+that stored quantity and its unit, and the `instructions` text still states it. `strength`
+is now reported for a strength of one digit ("5 mg") and for one stored without a unit. For
+a combination it is the first ingredient's, with that ingredient's unit: "5 mg / 20 mg"
+reads 5 and "mg", where it read 20 and "mg / ". A strength stored earlier with an exponent
+("1.0E7 unit") reads as that number. A strength is read only when the stored text starts
+with it. Text in which another number follows the first before any unit ("1,000 mg",
+"1 000 mg", "1/2 mg", "1 / 2 mg", "5/20 mg", "5 - 10 mg", "1:1000", or a fraction
+character after the digits) has no `strength`: the first digits of such text are not the
+amount, and neither is the next ingredient's number. Text that starts with a unit
+("mg/5mL", stored when a unit is sent without a strength) is returned as `strengthUnit`
+with no `strength`.
+For the same product, a REST update that omits the strength or echoes the projected amount
+and unit keeps the stored dosage, including additional ingredients. An updated amount, unit
+or product uses the replacement's fields.
+For `250 mg/5 mL`, the returned unit includes the full `mg/5 mL` denominator. A nonzero
+strength too small for the REST numeric field is left unknown. On a same-product edit,
+an explicit JSON null for a fractional dispense quantity is indistinguishable from an
+echo of the old response and retains that quantity. [REST representation follow-up](https://github.com/carlos-emr/carlos/issues/6401)
+
+Changing a dispense amount on a same-product REST edit keeps the stored unit, including a unit
+written next to the amount in a legacy quantity such as `2.5 mL`. When the legacy text does not
+clearly identify the unit, the update is refused and the existing prescription stays active.
+
+OSCAR19 transfers that use the new exact-dose supplement require a matching carlos-ctl
+release on the source and destination. The current 1.3.6 importer rejects that dump, and
+its format 3 digests can accept rounded doses in a stock dump. Preserve the original source
+until the installed package pair passes transfer verification.
+[#6420](https://github.com/carlos-emr/carlos/issues/6420)
+
+Rolling back to an earlier 2026.08 build keeps the prescriptions this build saved. The
+earlier build's REST drug list fails on a quantity that is not a whole number, as it already
+did for one typed without a unit; this build saves "2.5" for a quantity typed as "2.5 mL",
+where the earlier build saved "2".
+
+The inventory, with each place checked and the findings that are not number formatting, is
+in `docs/testing/dose-text-format-inventory.md`.
+
 ## Ontario OHIP billing after a single-site import
 
 OHIP Simulation and Generate OHIP File now show eligible physicians and their

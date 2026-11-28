@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "622edec42b54f92e089ee1610e97c0f85b229892"
+  },
+  "evidenceSha256": "7269d2e0db8e476226012515ff7d83e4f4020ba340295aee52b25c3e94f86449"
+}

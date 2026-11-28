@@ -29,6 +29,7 @@
 #   build-o19-fixture.sh --oscar-src /path/to/oscar --out /path/out \
 #       [--province on|bc] [--db o19_fixture] [--with-olis] \
 #       [--with-updates] \
+#       [--carlos-ctl-dir /path/to/carlos-ctl] \
 #       [--mysql-cmd mariadb] \
 #       [--mysql-arg -uroot] [--mysql-arg --host=127.0.0.1] ... \
 #       [--mysql-password-file /path/to/passfile]
@@ -54,6 +55,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 OSCAR_SRC="" OUT="" DB="o19_fixture" WITH_OLIS=0 WITH_UPDATES=0 MYSQL_CMD="mariadb"
 PROVINCE="on"
+CARLOS_CTL_DIR="${CARLOS_CTL_SRC:-}"
 MYSQL_ARGS=()
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -63,6 +65,7 @@ while [ $# -gt 0 ]; do
     --province) PROVINCE="$2"; shift 2 ;;
     --with-olis) WITH_OLIS=1; shift ;;
     --with-updates) WITH_UPDATES=1; shift ;;
+    --carlos-ctl-dir) CARLOS_CTL_DIR="$2"; shift 2 ;;
     --mysql-cmd) MYSQL_CMD="$2"; shift 2 ;;
     --mysql-arg) MYSQL_ARGS+=("$2"); shift 2 ;;
     --mysql-password-file) MYSQL_PWD="$(head -c 4096 "$2" | tr -d '\r\n')"; export MYSQL_PWD; shift 2 ;;
@@ -106,6 +109,93 @@ if [ "$PROVINCE" = "bc" ] && [ "$WITH_OLIS" = 1 ]; then
   echo "ERROR: --with-olis is Ontario-only" >&2
   exit 2
 fi
+
+# The rehearsal dump embeds the exact medication FLOAT supplement (export-medication-floats.py),
+# whose UPDATE statements are rejected by carlos-ctl 1.3.6 (digest format 3). Verify a compatible
+# importer (digest format >= 4 and medication_float_table) before touching MariaDB or creating $OUT.
+check_compatible_importer() {
+  python3 - "$CARLOS_CTL_DIR" <<'PY'
+import ast
+import importlib.util
+import sys
+from pathlib import Path
+
+
+def locate_package(explicit_dir: str):
+    if explicit_dir:
+        base = Path(explicit_dir)
+        for candidate in (base / "carlos_ctl", base):
+            if (candidate / "o19sources.py").is_file() and (candidate / "o19digest.py").is_file():
+                return candidate
+        return None
+    spec = importlib.util.find_spec("carlos_ctl")
+    if spec and spec.submodule_search_locations:
+        for loc in spec.submodule_search_locations:
+            candidate = Path(loc)
+            if (candidate / "o19sources.py").is_file() and (candidate / "o19digest.py").is_file():
+                return candidate
+    installed = Path("/usr/lib/carlos-ctl/carlos_ctl")
+    if (installed / "o19sources.py").is_file() and (installed / "o19digest.py").is_file():
+        return installed
+    return None
+
+
+def digest_format(path: Path):
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    for node in tree.body:
+        value = None
+        if isinstance(node, ast.Assign) and any(
+            isinstance(t, ast.Name) and t.id == "DIGEST_FORMAT" for t in node.targets
+        ):
+            value = node.value
+        elif (
+            isinstance(node, ast.AnnAssign)
+            and isinstance(node.target, ast.Name)
+            and node.target.id == "DIGEST_FORMAT"
+        ):
+            value = node.value
+        if (
+            isinstance(value, ast.Constant)
+            and isinstance(value.value, int)
+            and not isinstance(value.value, bool)
+        ):
+            return value.value
+    return None
+
+
+def supports_medication_float_supplement(path: Path) -> bool:
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    return any(isinstance(node, ast.FunctionDef) and node.name == "medication_float_table" for node in tree.body)
+
+
+explicit = sys.argv[1]
+pkg = locate_package(explicit)
+if pkg is None:
+    detail = f"in {explicit}" if explicit else "in /usr/lib/carlos-ctl or PYTHONPATH"
+    sys.stderr.write(
+        "ERROR: no compatible carlos-ctl importer found " + detail + ".\n"
+        "build-o19-fixture.sh emits an OSCAR19 dump with exact medication FLOAT UPDATE statements\n"
+        "(export-medication-floats.py), which carlos-ctl 1.3.6 rejects during staging.\n"
+        "Install a released carlos-ctl supporting digest format 4 and the medication FLOAT supplement\n"
+        "(tracked in CARLOS #6420 / carlos-emr/carlos-ctl#32), or pass --carlos-ctl-dir DIR.\n"
+    )
+    sys.exit(1)
+
+fmt = digest_format(pkg / "o19digest.py")
+has_supplement = supports_medication_float_supplement(pkg / "o19sources.py")
+if fmt is None or fmt < 4 or not has_supplement:
+    sys.stderr.write(
+        f"ERROR: incompatible carlos-ctl importer at {pkg} "
+        f"(DIGEST_FORMAT={fmt}, medication_float_supplement={has_supplement}).\n"
+        "build-o19-fixture.sh emits an OSCAR19 dump with exact medication FLOAT UPDATE statements\n"
+        "(export-medication-floats.py), which carlos-ctl 1.3.6 rejects during staging.\n"
+        "Install a released carlos-ctl supporting digest format 4 and the medication FLOAT supplement\n"
+        "(tracked in CARLOS #6420 / carlos-emr/carlos-ctl#32), or pass --carlos-ctl-dir DIR.\n"
+    )
+    sys.exit(1)
+PY
+}
+check_compatible_importer
 
 run_sql() { "$MYSQL_CMD" ${MYSQL_ARGS+"${MYSQL_ARGS[@]}"} "$@"; }
 
@@ -227,9 +317,19 @@ if [ -z "$DUMP_CMD" ]; then
   exit 1
 fi
 echo "dumping to $OUT/o19-fixture.sql.gz (via $DUMP_CMD) ..."
-"$DUMP_CMD" ${MYSQL_ARGS+"${MYSQL_ARGS[@]}"} \
-  --single-transaction --quick --default-character-set=latin1 "$DB" \
-  | gzip > "$OUT/o19-fixture.sql.gz"
+# Read both exports while this disposable source is quiescent. A stock dump rounds FLOATs.
+float_args=()
+for option in ${MYSQL_ARGS+"${MYSQL_ARGS[@]}"}; do float_args+=("--mysql-arg=$option"); done
+dump_tmp=$(mktemp "$OUT/.o19-dump.XXXXXX")
+if "$DUMP_CMD" ${MYSQL_ARGS+"${MYSQL_ARGS[@]}"} --single-transaction --quick --skip-triggers \
+     --default-character-set=latin1 "$DB" |
+   python3 "$SCRIPT_DIR/export-medication-floats.py" --complete-dump --mysql-cmd "$MYSQL_CMD" --db "$DB" ${float_args+"${float_args[@]}"} |
+   gzip > "$dump_tmp"; then
+  mv "$dump_tmp" "$OUT/o19-fixture.sql.gz"
+else
+  rm -f "$dump_tmp"
+  exit 1
+fi
 
 "$SCRIPT_DIR/fixtures/documents/make-documents-tar.sh" "$OUT"
 cp "$SCRIPT_DIR/fixtures/properties/oscar-clinic-example.properties" \

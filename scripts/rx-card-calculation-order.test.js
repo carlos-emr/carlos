@@ -18,7 +18,7 @@ function fixture() {
       // The page clears a refused dose's aria-invalid flag when the server recalculates it.
       const attributes = new Map();
       elements.set(id, {
-        id, value: '', textContent: '', attributes,
+        id, value: '', textContent: '', attributes, dataset: {},
         setAttribute(name, value) { attributes.set(name, String(value)); },
         removeAttribute(name) { attributes.delete(name); },
       });
@@ -38,6 +38,22 @@ function fixture() {
     durationUnit: 'D', calQuantity: '28', priceQuantity: '28', unitName: null, prn: false, ...values,
   }) });
   return { context, elements, requests, quotes, reply, field: (prefix, card = '11') => elements.get(`${prefix}_${card}`) };
+}
+
+for (const action of ['parseIntr', 'updateQty']) {
+  test(action + ' updates the accepted dose for a subsequent unchanged blur', () => {
+    const f = fixture();
+    f.field('minimum').dataset.storedDose = '1';
+    f.context[action](f.field(action === 'parseIntr' ? 'instructions' : 'quantity'));
+    f.reply(f.requests[0], { takeMin: 0.0009765625, takeMax: null });
+    assert.equal(f.field('minimum').dataset.storedDose, '0.0009765625');
+    assert.equal(f.field('minimum').textContent, '0.0009765625');
+    assert.equal(f.field('maximum').dataset.storedDose, '');
+    f.context[action](f.field(action === 'parseIntr' ? 'instructions' : 'quantity'));
+    f.reply(f.requests[1], { takeMin: 1e-10 });
+    assert.equal(f.field('minimum').dataset.storedDose, '0.0000000001');
+    assert.equal(f.field('minimum').textContent, '0.0000000001');
+  });
 }
 
 test('a delayed staging quantity response cannot erase newer parsed directions (#5183)', () => {

@@ -202,6 +202,150 @@ class RxWriteScript2ActionCreateNewRxUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute(STAGE_ERROR_KEY)).isNull();
     }
 
+    /**
+     * The generic name lists every ingredient with its strength. A strength was left out when the
+     * text built so far already contained it anywhere, and "5mg" is inside "12.5mg": the second
+     * ingredient of a combination lost its strength once strengths were written without a
+     * trailing zero (#6185).
+     */
+    @Test
+    @DisplayName("should name every ingredient of a combination with its own strength")
+    void shouldNameEveryIngredientWithItsStrength_forCombinationProduct() throws Exception {
+        request.setParameter("text", "SYNTHETIC COMBINATION");
+
+        RxPrescriptionData.Prescription staged = stage(combination("TABLET",
+                new String[] {"HYDROCHLOROTHIAZIDE", "12.5", "MG"}, new String[] {"RAMIPRIL", "5.0", "MG"}));
+
+        assertThat(staged.getGenericName()).isEqualTo("HYDROCHLOROTHIAZIDE 12.5mg tablet / RAMIPRIL 5mg tablet");
+        assertThat(staged.getDosage().trim()).isEqualTo("12.5mg 5mg");
+    }
+
+    @ParameterizedTest(name = "{0} {1} with {2} {3}")
+    @CsvSource({
+        "125.0, MG, 25.0, MG, FIRST 125mg tablet / SECOND 25mg tablet",
+        "2.5, MG, 0.5, MG, FIRST 2.5mg tablet / SECOND 0.5mg tablet",
+        "50.0, MG, 50.0, MG, FIRST 50mg tablet / SECOND 50mg tablet",
+        "1.0, G, 250.0, MG, FIRST 1g tablet / SECOND 250mg tablet"
+    })
+    @DisplayName("should not drop a strength that is part of, or equal to, an earlier ingredient's strength")
+    void shouldKeepEachStrength_whenOneStrengthTextContainsAnother(String firstStrength, String firstUnit,
+            String secondStrength, String secondUnit, String expected) throws Exception {
+        request.setParameter("text", "SYNTHETIC COMBINATION");
+
+        RxPrescriptionData.Prescription staged = stage(combination("TABLET",
+                new String[] {"FIRST", firstStrength, firstUnit}, new String[] {"SECOND", secondStrength, secondUnit}));
+
+        assertThat(staged.getGenericName()).isEqualTo(expected);
+    }
+
+    @Test
+    @DisplayName("should not repeat a strength the ingredient's own name already states")
+    void shouldNotRepeatStrength_whenIngredientNameStatesIt() throws Exception {
+        request.setParameter("text", "SYNTHETIC SINGLE");
+
+        RxPrescriptionData.Prescription staged = stage(combination("CAPSULE",
+                new String[] {"SYNTHETIC 250MG", "250.0", "MG"}));
+
+        assertThat(staged.getGenericName()).isEqualTo("SYNTHETIC 250MG capsule");
+    }
+
+    @Test
+    @DisplayName("should apply Mitte default quantity cleanly when staging a new prescription")
+    void shouldApplyMitteDefaultQuantity_whenStagingNewRx() throws Exception {
+        io.github.carlos_emr.carlos.prescript.util.RxUtil.setDefaultQuantity("7 days");
+        request.setParameter("text", "SYNTHETIC SINGLE");
+
+        try {
+            RxPrescriptionData.Prescription staged = stage(combination("CAPSULE",
+                    new String[] {"SYNTHETIC 250MG", "250.0", "MG"}));
+
+            assertThat(staged.getDuration()).isEqualTo("7");
+            assertThat(staged.getDurationUnit()).isEqualTo("D");
+            assertThat(staged.getQuantity()).isEqualTo("7");
+            assertThat(staged.getUnitName()).isEqualTo("days");
+        } finally {
+            io.github.carlos_emr.carlos.prescript.util.RxUtil.setDefaultQuantity("20");
+        }
+    }
+
+    @Test
+    @DisplayName("should not repeat a strength when the ingredient name omits its leading zero")
+    void shouldNotRepeatStrength_whenIngredientNameOmitsLeadingZero() throws Exception {
+        request.setParameter("text", "LORAZEPAM .5MG");
+
+        RxPrescriptionData.Prescription staged = stage(combination("TABLET",
+                new String[] {"LORAZEPAM .5MG", ".5", "MG"}));
+
+        assertThat(staged.getGenericName()).isEqualTo("LORAZEPAM .5MG tablet");
+    }
+
+    @Test
+    @DisplayName("should not repeat a strength the ingredient's name states with a trailing zero")
+    void shouldNotRepeatStrength_whenIngredientNameStatesItWithTrailingZero() throws Exception {
+        request.setParameter("text", "SYNTHETIC SINGLE");
+
+        RxPrescriptionData.Prescription staged = stage(combination("CAPSULE",
+                new String[] {"SYNTHETIC 250.0MG", "250.0", "MG"}));
+
+        // The name is DrugRef's text and is kept as sent; the strength is not added a second time.
+        assertThat(staged.getGenericName()).isEqualTo("SYNTHETIC 250.0MG capsule");
+    }
+
+    @ParameterizedTest(name = "name \"{0}\", strength \"{1}\" -> stated: {2}")
+    @CsvSource({
+        "amoxicillin 250mg, 250mg, true",
+        "250mg amoxicillin, 250mg, true",
+        "amoxicillin 250.0mg, 250mg, true",
+        "amoxicillin 250.0mg, 250.0mg, true",
+        "amoxicillin 250.0mg/5.0ml, 250.0mg/5.0ml, true",
+        "amoxicillin 1250mg, 250mg, false",
+        "amoxicillin 1.250mg, 250mg, false",
+        "synthetic 2500, 250, false",
+        "synthetic 250.5, 250, false",
+        "synthetic 250mg/ml, 250mg, false",
+        "synthetic 250mgx, 250mg, false",
+        "synthetic 250mg., 250mg, true",
+        // ".250mg" is a quarter of a milligram written without its leading zero, not 250 mg.
+        "amoxicillin .250mg, 250mg, false",
+        // A longer number first does not hide the strength stated after it.
+        "amoxicillin 1250mg or 250mg, 250mg, true",
+        "amoxicillin, 250mg, false",
+        "amoxicillin, '', true"
+    })
+    @DisplayName("should treat a strength as stated only when the name holds it as a whole number")
+    void shouldFindStrengthInName_onlyAtANumberBoundary(String name, String strength, boolean stated) {
+        assertThat(RxWriteScript2Action.namesStrength(name, strength)).isEqualTo(stated);
+    }
+
+    @Test
+    @DisplayName("should treat a missing name as stating no strength")
+    void shouldNotFindStrength_whenNameIsMissing() {
+        assertThat(RxWriteScript2Action.namesStrength(null, "250mg")).isFalse();
+        assertThat(RxWriteScript2Action.namesStrength(null, "")).isTrue();
+    }
+
+    @Test
+    @DisplayName("should stage an ingredient that has no strength under its name alone")
+    void shouldStageNameAlone_whenIngredientHasNoStrength() throws Exception {
+        request.setParameter("text", "SYNTHETIC SINGLE");
+
+        RxPrescriptionData.Prescription staged = stage(combination("CREAM", new String[] {"SYNTHETIC BASE", "", ""}));
+
+        assertThat(staged.getGenericName()).isEqualTo("SYNTHETIC BASE cream");
+    }
+
+    @Test
+    @DisplayName("should stage a single ingredient's strength without a trailing zero")
+    void shouldStagePlainStrength_forSingleIngredient() throws Exception {
+        request.setParameter("text", "SYNTHETIC SINGLE");
+
+        RxPrescriptionData.Prescription staged = stage(combination("CAPSULE",
+                new String[] {"AMOXICILLIN", "250.0", "MG"}));
+
+        assertThat(staged.getGenericName()).isEqualTo("AMOXICILLIN 250mg capsule");
+        assertThat(staged.getDosage().trim()).isEqualTo("250mg");
+    }
+
     @Test
     @DisplayName("should fall back to the raw picked name as brand name when DrugRef has no product name")
     void shouldUseRawPickedName_forBrandNameWithoutProduct() throws Exception {
@@ -304,6 +448,27 @@ class RxWriteScript2ActionCreateNewRxUnitTest extends CarlosUnitTestBase {
                 (List<RxPrescriptionData.Prescription>) request.getAttribute("listRxDrugs");
         assertThat(rendered).as("the staged card is rendered").containsExactly(bean.getStashItem(0));
         return bean.getStashItem(0);
+    }
+
+    /** A product with the given form and ingredients, each as name, DrugRef strength text and unit. */
+    private static RxDrugData.DrugMonograph combination(String drugForm, String[]... ingredients) {
+        Hashtable<String, Object> hash = new Hashtable<>();
+        hash.put("name", ingredients[0][0]);
+        hash.put("atc", "C09BA05");
+        hash.put("product", "SYNTHETIC PRODUCT");
+        hash.put("regional_identifier", "02017849");
+        hash.put("drugForm", drugForm);
+        hash.put("drugId", DRUG_ID);
+        Vector<Hashtable<String, Object>> components = new Vector<>();
+        for (String[] ingredient : ingredients) {
+            Hashtable<String, Object> component = new Hashtable<>();
+            component.put("name", ingredient[0]);
+            component.put("strength", ingredient[1]);
+            component.put("unit", ingredient[2]);
+            components.add(component);
+        }
+        hash.put("components", components);
+        return new RxDrugData().new DrugMonograph(hash);
     }
 
     /** The shape the live DrugRef returns for a single-ingredient product, without needing the service. */

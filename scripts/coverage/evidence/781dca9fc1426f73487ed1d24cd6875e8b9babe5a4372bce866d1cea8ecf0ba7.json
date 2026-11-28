@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "40428ed4bb24fc8271e760e8990e47f80ab082be",
+  "comparisonSha256": "3d1b67ffd62e3abbc71e599a4cc41207eecdbd0115938a6d5e27a5c34b4751cb",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/conversion/DrugConverterImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "b8ca33d12ae83fbc8e1db33f1848fade0b47ba24"
+    }
+  },
+  "exclusions": {},
+  "zeroCoverageWaivers": {},
+  "baselineCommit": "a82a1c78623bed53182d7e5be21627bdd2e969df",
+  "baselineSourceTree": "40428ed4bb24fc8271e760e8990e47f80ab082be",
+  "baselineReportSha256": "2c70989ee08ac9843e578e5d6096df8193d5f7c5b3ee8a0d0c91433da7c43c54",
+  "baselineLane": "PR #6367 (issue #6185), refresh for DrugConverterImpl.java after review commit a82a1c7862 changed it (a stored strength is read only when the text starts with it): complete Java suite (unit and H2 integration tests) with JaCoCo, run locally and not in CI, on PR commit a82a1c7862, which has release/2026.08 at c9f259f877 merged in. Command: mvn -B -ntp clean test jacoco:report -Dtest.forkCount=2, OpenJDK 25 and Maven 3.9.11 on Ubuntu. Maven reported 44150 tests run, 0 failures, 0 errors, 503 skipped; baselineTestCounts is the total of the run's Surefire XML reports. The row of this one Java file is measured from that run's jacoco.xml with the checker's own measure(); DoseText and RxDrugData keep evidence 2f6296c1, RxWriteScript2Action keeps 65fb9865 and the other 11 files this PR changes keep 11bccc0a, all unchanged since. No Chromium smoke lane; no zero-floor waiver is added.",
+  "baselineTestCounts": {
+    "tests": 44003,
+    "skipped": 503,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "84e64a7535ef493fbffa1cbc5bad8a4cc7a6836b77a21ec79e5a5df68c3bb854",
+  "baselineTestReportsHashFormat": "SHA-256 of a sha256sum-style manifest of the run's Surefire TEST-*.xml report files: one '<sha256>  <file name>' line each, sorted by name",
+  "baselineTestRunCommit": "a82a1c78623bed53182d7e5be21627bdd2e969df",
+  "baselineAdditionalTestRuns": []
+}

@@ -283,6 +283,31 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
             }
         }
 
+        /**
+         * A typed quantity is a number the prescription prints after "Qty:". With a unit it was
+         * split at its first run of digits ("2.5 mL" became 2 with the unit ".5 mL"); without one
+         * it was stored as typed, trailing zero and missing leading zero included (#6185).
+         */
+        @ParameterizedTest(name = "typed \"{0}\" -> quantity {1}, unit {2}")
+        @CsvSource(nullValues = "NULL", value = {
+            "42, 42, NULL", "30.0, 30, NULL", ".5, 0.5, NULL", "2.50, 2.5, NULL",
+            "2.5 mL, 2.5, mL", "30.0 mL, 30, mL", ".5 mL, 0.5, mL", "1/2 bottle, 1/2, bottle"})
+        @DisplayName("should stage a typed quantity as a plain decimal, with or without a unit")
+        void shouldStagePlainDecimalQuantity_whenQuantityIsTyped(String typed, String quantity, String unit) throws Exception {
+            card.setFrequencyCode("OD");
+            card.setDuration("30");
+            card.setDurationUnit("D");
+            request.setParameter("action", "updateQty");
+            request.setParameter("randomId", "1");
+            request.setParameter("quantity", typed);
+
+            assertThat(action.updateDrug()).isEqualTo(RxWriteScript2Action.NONE);
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(card.getQuantity()).isEqualTo(quantity);
+            assertThat(card.getUnitName()).isEqualTo(unit);
+        }
+
         @ParameterizedTest
         @ValueSource(strings = {"updateQty", "parseInstructions"})
         @DisplayName("should calculate a current card normally")
@@ -295,7 +320,7 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
             request.setParameter("quantity", "42");
             request.setParameter("instruction", "1 tab PO BID x 14 days");
 
-            assertThat(action.updateDrug()).isNull();
+            assertThat(action.updateDrug()).isEqualTo(RxWriteScript2Action.NONE);
             assertThat(response.getStatus()).isEqualTo(200);
             String expectedQuantity = "updateQty".equals(calculation) ? "42" : "28";
             assertThat(card.getQuantity()).isEqualTo(expectedQuantity);
@@ -313,9 +338,15 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @CsvSource({
         "'30 tabs', 30, 30",
+        "'30.0 tabs', 30, 30",
         "'30 days', 30,",
-        "'12.5 tabs', 12,",
-        "'30 30 tabs', 30,",
+        "'12.5 tabs', 12.5, 12.5",
+        "'.5 tabs', 0.5, 0.5",
+        "'30 30 tabs', '30 30 tabs',",
+        "'1/2 bottle', '1/2',",
+        "'one bottle', 'one bottle',",
+        "30.0, 30, 30",
+        ".5, 0.5, 0.5",
         "12.5, 12.5, 12.5",
         "0, 0,"
     })
@@ -326,13 +357,48 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
         request.setParameter("randomId", "1");
         request.setParameter("quantity", entered);
 
-        assertThat(action.updateDrug()).isNull();
+        assertThat(action.updateDrug()).isEqualTo(RxWriteScript2Action.NONE);
         assertThat(response.getStatus()).isEqualTo(200);
         var json = new ObjectMapper().readTree(response.getContentAsString());
         assertThat(card.getQuantity()).isEqualTo(acknowledged);
         assertThat(json.path("calQuantity").asText()).isEqualTo(acknowledged);
         assertThat(json.get("priceQuantity").asText(null)).isEqualTo(priceQuantity);
         verifyNoInteractions(mockRxManager, mockDrugDao, mockPartialDateDao, mockSignatureStampService);
+    }
+
+    @Test
+    @DisplayName("should normalize a legacy trailing-zero quantity on blur even when text matches staged value")
+    void shouldNormalizeLegacyQuantityOnBlur_whenStagedQuantityHadTrailingZero() throws Exception {
+        card.setQuantity("30.0");
+        card.setUnitName(null);
+        request.setParameter("action", "updateQty");
+        request.setParameter("randomId", "1");
+        request.setParameter("quantity", "30.0");
+
+        assertThat(action.updateDrug()).isEqualTo(RxWriteScript2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(200);
+        var json = new ObjectMapper().readTree(response.getContentAsString());
+        assertThat(card.getQuantity()).isEqualTo("30");
+        assertThat(json.path("calQuantity").asText()).isEqualTo("30");
+    }
+
+    @ParameterizedTest
+    @CsvSource({"0, 1, OD", "1, 0, OD", "1, 1,", "1, 1, ''"})
+    void shouldQuoteQuantityWithoutDerivingDuration_whenDoseOrFrequencyIsMissing(
+            float takeMin, float takeMax, String frequency) throws Exception {
+        card.setTakeMin(takeMin);
+        card.setTakeMax(takeMax);
+        card.setFrequencyCode(frequency);
+        card.setDuration("17");
+        request.setParameter("action", "updateQty");
+        request.setParameter("randomId", "1");
+        request.setParameter("quantity", "12.50");
+
+        assertThat(action.updateDrug()).isEqualTo(RxWriteScript2Action.NONE);
+        assertThat(response.getStatus()).isEqualTo(200);
+        var json = new ObjectMapper().readTree(response.getContentAsString());
+        assertThat(json.path("duration").asText()).isEqualTo("17");
+        assertThat(json.path("priceQuantity").asText()).isEqualTo("12.5");
     }
 
     @Nested
@@ -384,15 +450,23 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
             assertThat(card.getRepeat()).isEqualTo(2);
         }
 
+        @ParameterizedTest
+        @ValueSource(floats = {0.0000000001f, Float.MIN_VALUE, Float.MAX_VALUE})
+        void shouldAcceptExactStoredBound_whenRenderedTextExceedsNewEntryLimits(float stored) {
+            String rendered = io.github.carlos_emr.carlos.utility.DoseText.of(stored);
+            assertThat(RxWriteScript2Action.parseDoseAmount(rendered, stored)).isEqualTo(stored);
+            assertThat(RxWriteScript2Action.parseDoseAmount(rendered, 1f)).isNull();
+        }
+
         @Test
         @DisplayName("should read only plain non-negative decimals as doses")
         void shouldParseDose_forPlainDecimals() {
-            assertThat(RxWriteScript2Action.parseDoseAmount("1")).isEqualTo(1f);
-            assertThat(RxWriteScript2Action.parseDoseAmount("0.5")).isEqualTo(0.5f);
-            assertThat(RxWriteScript2Action.parseDoseAmount(".25")).isEqualTo(0.25f);
-            assertThat(RxWriteScript2Action.parseDoseAmount("0.33333334")).isEqualTo(0.33333334f);
+            assertThat(RxWriteScript2Action.parseDoseAmount("1", 0f)).isEqualTo(1f);
+            assertThat(RxWriteScript2Action.parseDoseAmount("0.5", 0f)).isEqualTo(0.5f);
+            assertThat(RxWriteScript2Action.parseDoseAmount(".25", 0f)).isEqualTo(0.25f);
+            assertThat(RxWriteScript2Action.parseDoseAmount("0.33333334", 0f)).isEqualTo(0.33333334f);
             for (String value : new String[]{null, "", "abc", "-1", "+1", "1e3", "NaN", "Infinity", "1,5", "0x10"}) {
-                assertThat(RxWriteScript2Action.parseDoseAmount(value)).as(String.valueOf(value)).isNull();
+                assertThat(RxWriteScript2Action.parseDoseAmount(value, 0f)).as(String.valueOf(value)).isNull();
             }
         }
     }
@@ -467,6 +541,56 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
             verify(action, never()).persistStash(any(), any());
         }
 
+        @ParameterizedTest(name = "typed \"{0}\" -> {1}")
+        @CsvSource(delimiter = '|', value = {
+            "30.0 | Qty:30 Repeats:2", ".5 | Qty:0.5 Repeats:2", "2.5 mL | Qty:2.5 mL Repeats:2",
+            "30.0 mL | Qty:30 mL Repeats:2", "30 | Qty:30 Repeats:2",
+            "1/2 bottle | Qty:1/2 bottle Repeats:2", "one bottle | Qty:one bottle Repeats:2",
+            "'' | Qty:0 Repeats:2"})
+        void shouldWritePlainDecimalQuantityLine_whenSaving(String typed, String quantityLine) throws Exception {
+            card.setUnitName("staleUnit");
+            request.setParameter("drugName_1", "SYNTHETIC DRUG");
+            request.setParameter("quantity_1", typed);
+            request.setParameter("draftRevision_1", card.getDraftRevision());
+            action = spy(action);
+            doReturn("9001").when(action).persistStash(mockLoggedInInfo, bean);
+
+            assertThat(action.updateSaveAllDrugs()).isEqualTo("refresh");
+
+            assertThat(card.getSpecial()).endsWith(quantityLine);
+        }
+
+        @Test
+        void shouldNormalizeLegacyExecuteQuantity_whenUpdatingSingleDrugForm() throws Exception {
+            bean.setStashIndex(0);
+            request.setParameter("randomId", "1");
+            request.setParameter("draftRevision", card.getDraftRevision());
+            action.setAction("update");
+            action.setCustomName("SYNTHETIC DRUG");
+            action.setRxDate("2026-11-28");
+            action.setWrittenDate("2026-11-28");
+            action.setQuantity("30.0");
+            action.setSpecial("Take 1 tablet daily");
+            action.setUnit("");
+            action.setDosage("");
+
+            assertThat(action.execute()).isEqualTo("refresh");
+            assertThat(bean.getStashItem(0).getQuantity()).isEqualTo("30");
+        }
+
+        @Test
+        void shouldClearStaleUnitName_whenUpdateQtyReceivesMatchingBareNumber() throws Exception {
+            card.setQuantity("30");
+            card.setUnitName("mL");
+            request.setParameter("action", "updateQty");
+            request.setParameter("randomId", "1");
+            request.setParameter("quantity", "30.0");
+
+            assertThat(action.updateDrug()).isEqualTo(RxWriteScript2Action.NONE);
+            assertThat(card.getQuantity()).isEqualTo("30");
+            assertThat(card.getUnitName()).isNull();
+        }
+
         @Test
         void shouldSavePickup_whenValidOrCleared() throws Exception {
             request.setParameter("drugName_1", "SYNTHETIC DRUG");
@@ -520,6 +644,42 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
             drug.setDemographicId(DEMOGRAPHIC_NO);
             drug.setArchived(archived);
             return drug;
+        }
+
+        @Test
+        @DisplayName("should preserve fractional quantity and unit from selection through Save and REST readback")
+        void shouldPreserveFractionalQuantityAndUnit_fromSelectionThroughSaveAndRestReadback() throws Exception {
+            io.github.carlos_emr.carlos.prescript.util.RxUtil.normalizeCarriedQuantity(card, "1/2", "bottle");
+            assertThat(card.getQuantity()).isEqualTo("1/2");
+            assertThat(card.getUnitName()).isEqualTo("bottle");
+
+            // prescribe.jsp submits quantity + unit together as "1/2 bottle".
+            request.setParameter("drugName_1", "SYNTHETIC DRUG");
+            request.setParameter("quantity_1", card.getQuantity() + " " + card.getUnitName());
+            request.setParameter("draftRevision_1", card.getDraftRevision());
+
+            java.util.List<Drug> persisted = new java.util.ArrayList<>();
+            doAnswer(invocation -> {
+                Drug saved = invocation.getArgument(0);
+                saved.setId(nextDrugIds.removeFirst());
+                persisted.add(saved);
+                return null;
+            }).when(mockDrugDao).persist(any(Drug.class));
+
+            try (var _ = mockConstruction(RxPrescriptionData.class,
+                    (mock, context) -> when(mock.saveScript(any(), any())).thenReturn("77"))) {
+                assertThat(action.updateSaveAllDrugs()).isEqualTo("refresh");
+            }
+
+            assertThat(persisted).hasSize(1);
+            Drug saved = persisted.getFirst();
+            assertThat(saved.getQuantity()).isEqualTo("1/2");
+            assertThat(saved.getUnitName()).isEqualTo("bottle");
+            assertThat(saved.getSpecial()).endsWith("Qty:1/2 bottle Repeats:2");
+
+            var converter = new io.github.carlos_emr.carlos.webserv.rest.conversion.DrugConverterImpl();
+            var dto = converter.getAsTransferObject(mockLoggedInInfo, saved);
+            assertThat(dto.getQuantity()).isNull();
         }
 
         @ParameterizedTest

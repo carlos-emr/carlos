@@ -309,7 +309,7 @@
                 </tr>
                 <tr>
                     <td class="label">Repeats:</td>
-                    <td><%= drug.getRepeat() %>
+                    <td><%= SafeEncode.forHtmlContent(drug.getRepeat() != null ? String.valueOf(drug.getRepeat()) : null) %>
                     </td>
                 </tr>
                 <tr style="height:15px">

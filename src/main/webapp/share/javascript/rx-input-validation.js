@@ -59,9 +59,10 @@ var RxInputValidation = (function () {
     }
 
     /** Whether an inline Min/Max value is a dose the server accepts; blank means "unchanged". */
-    function isDoseAmount(value) {
+    function isDoseAmount(value, stored) {
         var text = trimmed(value);
-        return text === '' || DOSE.test(text);
+        return text === '' || DOSE.test(text)
+            || (text === stored && /^(?:0|[1-9]\d*)(?:\.\d+)?$/.test(text));
     }
 
     /** Fills {0} in a translated message with the prescriber's own input. */

@@ -24,6 +24,7 @@
 package io.github.carlos_emr.carlos.prescript.data;
 
 import io.github.carlos_emr.carlos.commn.model.Drug;
+import io.github.carlos_emr.carlos.utility.DoseText;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.ArrayList;
@@ -133,8 +134,8 @@ public final class UniqueMedicationList {
         private static Entry from(Drug drug) {
             return new Entry(
                     values(gcn(drug), text(drug.getBrandName()), text(drug.getCustomName()),
-                            text(drug.getGenericName()), text(drug.getAtc()), text(drug.getRegionalIdentifier()),
-                            text(drug.getDosage()), text(drug.getUnit()), text(drug.getDrugForm())),
+                            strengthText(drug.getGenericName()), text(drug.getAtc()), text(drug.getRegionalIdentifier()),
+                            strengthText(drug.getDosage()), text(drug.getUnit()), text(drug.getDrugForm())),
                     // Not unitName: RxWriteScript2Action stores the quantity's unit (and the Mitte marker) there.
                     values(drug.getTakeMin(), drug.getTakeMax(), text(drug.getFreqCode()), text(drug.getRoute()),
                             text(drug.getMethod()), drug.isPrn(), freeTextRegimen(drug)));
@@ -160,6 +161,16 @@ public final class UniqueMedicationList {
 
         private static String text(String value) {
             return StringUtils.trimToNull(value);
+        }
+
+        /**
+         * Text that states the product strength: the generic name and the dosage. Until #6185 the
+         * strength was stored with a trailing zero ("amoxicillin 250.0mg capsule", "250.0mg") and
+         * since then without ("250mg"). A renewal written after the change is the same product as
+         * the prescription written before it, so the two are compared with the zero left out.
+         */
+        private static String strengthText(String value) {
+            return DoseText.withPlainNumbers(text(value));
         }
 
         private static List<Object> values(Object... values) {

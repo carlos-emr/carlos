@@ -146,13 +146,15 @@ class BpmhDrugUnitTest {
             drug.setSpecial("Take 1 tablet by mouth twice daily\nwith food");
 
             String how = drug.getHow();
-            assertThat(how).isNotEmpty();
+            assertThat(how).isEqualTo("Take 1 tablet by mouth twice daily\nwith food");
         }
 
         @Test
         @DisplayName("should compose instruction from method, take, and frequency")
         void shouldComposeInstruction_fromMethodTakeFreq() {
             drug.setMethod("Take");
+            drug.setCustomName("Synthetic");
+            drug.setUnit("mL");
             drug.setTakeMin("1");
             drug.setTakeMax("2");
             drug.setFreqCode("BID");
@@ -161,7 +163,194 @@ class BpmhDrugUnitTest {
             drug.setDurUnit("D");
 
             String how = drug.getHow();
-            assertThat(how).isNotEmpty();
+            assertThat(how).isEqualTo("Take 1 to 2 mL BID PO");
+        }
+    }
+
+    @Test
+    void shouldRequireARecordedUnit_whenOnlyAProductStrengthIsAvailable() {
+        drug.setCustomName("Recorded product");
+        drug.setDosage("10 mg");
+        drug.setTakeMin("1");
+        drug.setUnit("mg");
+        drug.setDrugForm("tablet");
+        assertThat(drug.getHow()).isEmpty();
+
+        drug.setHow(null);
+        drug.setUnit("tablet");
+        drug.setTakeMax("0");
+        assertThat(drug.getHow()).isEqualTo("1 tablet");
+    }
+
+    @Test
+    void shouldKeepAuthoredDirections_whenTextResemblesAPrescriptionEnvelope() {
+        drug.setGenericName("Synthetic");
+        drug.setSpecial("Synthetic substitute on Monday\nQty: verify with patient");
+        assertThat(drug.getHow()).isEqualTo("Synthetic substitute on Monday\nQty: verify with patient");
+    }
+
+    @Test
+    void shouldExcludeMitteAndPharmacyText_whenReadingAdministrationDirections() {
+        drug.setGenericName("Synthetic");
+        drug.setSpecial("Synthetic\nSupply blister pack\nMitte:7 days Repeats:0");
+        drug.usePrescriptionDirections(null, "Supply blister pack", null);
+        assertThat(drug.getHow()).isEmpty();
+
+        drug.setSpecial("Synthetic\nTake one daily\nThen one every other day\nMitte:2 weeks Repeats:1");
+        drug.usePrescriptionDirections(null, null, null);
+        assertThat(drug.getHow()).isEqualTo("Take one daily\nThen one every other day");
+
+        drug.setSpecial("Mitte: confirm with the pharmacy");
+        drug.usePrescriptionDirections(null, null, null);
+        assertThat(drug.getHow()).isEqualTo("Mitte: confirm with the pharmacy");
+
+        drug.setSpecial("Mitte: confirm with the pharmacy Repeats: confirm with prescriber");
+        drug.usePrescriptionDirections(null, null, null);
+        assertThat(drug.getHow()).isEqualTo("Mitte: confirm with the pharmacy Repeats: confirm with prescriber");
+
+        drug.setSpecial("Mitte: confirm with the pharmacy Repeats:0");
+        drug.usePrescriptionDirections(null, null, null);
+        assertThat(drug.getHow()).isEqualTo("Mitte: confirm with the pharmacy Repeats:0");
+
+        drug.setSpecial("Mitte:7 days Repeats: confirm with prescriber");
+        drug.usePrescriptionDirections(null, null, null);
+        assertThat(drug.getHow()).isEqualTo("Mitte:7 days Repeats: confirm with prescriber");
+
+        drug.setSpecial("Mitte:7 days only if confirmed Repeats:0");
+        drug.usePrescriptionDirections(null, null, null);
+        assertThat(drug.getHow()).isEqualTo("Mitte:7 days only if confirmed Repeats:0");
+
+        drug.setSpecial("Use only as directed Repeats:0");
+        drug.usePrescriptionDirections(null, null, null);
+        assertThat(drug.getHow()).isEqualTo("Use only as directed Repeats:0");
+    }
+
+    @Test
+    void shouldLeaveDirectionsMissing_whenOnlyDispensingInstructionsWereRecorded() {
+        drug.setSpecial("Qty:30 Repeats:1");
+        assertThat(drug.getHow()).isEmpty();
+
+        drug.setGenericName("Synthetic");
+        drug.setDosage("10 units");
+        drug.setSpecial("Synthetic 10 units\r\nSupply blister pack\r\n  ");
+        drug.usePrescriptionDirections(null, "Supply blister pack", null);
+        assertThat(drug.getHow()).isEmpty();
+        drug.setDosage("10");
+        drug.setUnit("units");
+        drug.usePrescriptionDirections(null, "Supply blister pack", null);
+        assertThat(drug.getHow()).isEmpty();
+        drug.setSpecial("Synthetic 10 units\nTake with food  \nSupply blister pack\n");
+        drug.usePrescriptionDirections(null, "Supply blister pack", null);
+        assertThat(drug.getHow()).isEqualTo("Take with food  ");
+        drug.setSpecial("Synthetic 10 units\nTake with food  \n");
+        drug.usePrescriptionDirections(null, "Supply blister pack", null);
+        assertThat(drug.getHow()).isEqualTo("Take with food  \n");
+        assertThat(drug.toString()).isEqualTo("BpmhDrug[protected]");
+    }
+
+    @Test
+    void shouldPreserveUnrecognizedText_whenFooterLineContainsPatientDirections() {
+        drug.setSpecial("Take one tablet daily\nQty:7 tablets. Take with food.\nRepeats:0");
+        drug.usePrescriptionDirections(null, null, null);
+        assertThat(drug.getHow()).isEqualTo("Take one tablet daily\nQty:7 tablets. Take with food.\nRepeats:0");
+
+        drug.setSpecial("Take one tablet daily\nQty:7 tablets. Take with food. Repeats:0");
+        drug.usePrescriptionDirections(null, null, null);
+        assertThat(drug.getHow()).isEqualTo("Take one tablet daily\nQty:7 tablets. Take with food. Repeats:0");
+
+        for (String malformedFooter : java.util.List.of(
+                "Take daily\nQty:30. tabs Repeats:0",
+                "Take daily\nQty:1 bottle (120 mL Repeats:0",
+                "Take daily\nQty:1 bottle (large) Repeats:0",
+                "Take daily\nQty:1 bottle (120) Repeats:0",
+                "Take daily\nQty:1 bottle (120 mL.) Repeats:0")) {
+            drug.setSpecial(malformedFooter);
+            drug.usePrescriptionDirections(null, null, null);
+            assertThat(drug.getHow()).isEqualTo(malformedFooter);
+        }
+    }
+
+    @Test
+    void shouldStripContainerUnitsAndPharmacyNotes_whenHeadingsOrFootersArePresent() {
+        drug.setSpecial("AMOXICILLIN\nTake 5 mL TID\nDispense oral syringe\nQty:1 bottle (120 mL) Repeats:0");
+        drug.usePrescriptionDirections("AMOXICILLIN", "Dispense oral syringe", null);
+        assertThat(drug.getHow()).isEqualTo("Take 5 mL TID");
+
+        drug.setSpecial("AMOXICILLIN\nTake 5 mL TID\nDispense oral syringe\nMitte:1 bottle (120 mL) Repeats:0");
+        drug.usePrescriptionDirections("AMOXICILLIN", "Dispense oral syringe", null);
+        assertThat(drug.getHow()).isEqualTo("Take 5 mL TID");
+
+        drug.setDosage("250mg");
+        drug.setUnit("mg");
+        drug.setSpecial("AMOXICILLIN 250 MG\nTake 1 capsule PO TID\nDispense in blister pack\nQty:21 Repeats:0");
+        drug.usePrescriptionDirections("AMOXICILLIN", "Dispense in blister pack", null);
+        assertThat(drug.getHow()).isEqualTo("Take 1 capsule PO TID");
+
+        drug.setDosage("1000iu");
+        drug.setUnit("IU");
+        drug.setSpecial("VITAMIN D 1000 IU\nTake 1 tablet daily\nFax renewal to clinic\nQty:90 Repeats:3");
+        drug.usePrescriptionDirections("VITAMIN D", "Fax renewal to clinic", null);
+        assertThat(drug.getHow()).isEqualTo("Take 1 tablet daily");
+
+        drug.setDosage("");
+        drug.setUnit("");
+        drug.setSpecial("Synthetic 5 drops daily");
+        drug.usePrescriptionDirections("Synthetic", null, null);
+        assertThat(drug.getHow()).isEqualTo("Synthetic 5 drops daily");
+
+        drug.setSpecial("Take 1 tablet daily\nDispense in blister pack\nQty:30 Repeats:0");
+        drug.usePrescriptionDirections(null, "Dispense in blister pack", null);
+        assertThat(drug.getHow()).isEqualTo("Take 1 tablet daily");
+
+        drug.setSpecial("Take with food");
+        drug.usePrescriptionDirections(null, "Take with food", null);
+        assertThat(drug.getHow()).isEqualTo("Take with food");
+
+        BpmhDrug direct = new BpmhDrug();
+        direct.setGenericName("atorvastatin 20mg tablet");
+        direct.setSpecial("LIPITOR\nTake 1 tablet daily\nDo not crush\nQty:30 Repeats:0");
+        direct.setSpecial_instruction("Do not crush");
+        assertThat(direct.getHow()).isEqualTo("LIPITOR\nTake 1 tablet daily");
+
+        drug.setSpecial("APO-METOPROLOL 50MG\nTake 1 Tabs PO BID for 30Days\nQty/Mitte:60 \nRepeats:2 No Subs\n");
+        drug.usePrescriptionDirections("APO-METOPROLOL 50MG", null, "Tabs");
+        assertThat(drug.getHow()).isEqualTo("Take 1 Tabs PO BID for 30Days");
+
+        drug.setSpecial("APO-METOPROLOL 50MG\nPrendre 1 comprime par jour\nQt\u00E9/Mitte:30 \nRepeats:1\n");
+        drug.usePrescriptionDirections("APO-METOPROLOL 50MG", null, "Tabs");
+        assertThat(drug.getHow()).isEqualTo("Prendre 1 comprime par jour");
+
+        drug.setSpecial("Take once daily\nSupply blister pack\nQty:2 prefilled syringes Repeats:0");
+        drug.usePrescriptionDirections(null, "Supply blister pack", null, "2", "prefilled syringes");
+        assertThat(drug.getHow()).isEqualTo("Take once daily");
+
+        drug.setSpecial("Take once daily\nSupply blister pack\nQty:2mL Repeats:0");
+        drug.usePrescriptionDirections(null, "Supply blister pack", null, "2", "mL");
+        assertThat(drug.getHow()).isEqualTo("Take once daily");
+
+        drug.setSpecial("Take once daily\nSupply blister pack\nQty:one bottle Repeats:0");
+        drug.usePrescriptionDirections(null, "Supply blister pack", null, "one bottle", null);
+        assertThat(drug.getHow()).isEqualTo("Take once daily");
+
+        drug.setSpecial("Take once daily\nSupply blister pack\nQty:1/2 bottle Repeats:0");
+        drug.usePrescriptionDirections(null, "Supply blister pack", null, null, null);
+        assertThat(drug.getHow()).isEqualTo("Take once daily");
+
+        drug.setSpecial("Take once daily\nQty:1/2 Repeats:0");
+        drug.usePrescriptionDirections(null, null, null, null, null);
+        assertThat(drug.getHow()).isEqualTo("Take once daily");
+
+        for (String malformedFractionFooter : java.util.List.of(
+                "Take daily\nQty:1/ Repeats:0",
+                "Take daily\nQty:1/ bottle Repeats:0",
+                "Take daily\nQty:1/a bottle Repeats:0",
+                "Take daily\nQty:1.5/2 bottle Repeats:0",
+                "Take daily\nQty:1/2/3 Repeats:0",
+                "Take daily\nQty:1/2.5 bottle Repeats:0",
+                "Take daily\nQty:one bottle Repeats:0")) {
+            drug.setSpecial(malformedFractionFooter);
+            drug.usePrescriptionDirections(null, null, null, null, null);
+            assertThat(drug.getHow()).isEqualTo(malformedFractionFooter);
         }
     }
 

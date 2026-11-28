@@ -29,6 +29,7 @@ package io.github.carlos_emr.carlos.prescript.data;
 
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.prescript.util.RxDrugRef;
+import io.github.carlos_emr.carlos.utility.DoseText;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.commons.lang3.StringUtils;
 
@@ -56,6 +57,32 @@ public class RxDrugData {
         d.suggestAlias(alias, aliasComment, id, name, provider);
     }
 
+
+    /**
+     * The strength of an ingredient as DrugRef sent it, written without a trailing zero.
+     *
+     * <p>DrugRef holds the strength as a float and sends that float's text, so a 250 mg capsule
+     * arrives as "250.0"; an older service sent an XML-RPC double. The Rx pages copy this text
+     * into the staged generic name and dosage, which are stored with the prescription, so it is
+     * written here once as a plain decimal (#6185). Text that is not a single number is kept as
+     * sent.
+     *
+     * @param sent the value of the component's {@code strength} member
+     * @return the strength text
+     * @throws NullPointerException if DrugRef sent no strength member. Such a component was always
+     *     refused (the line this replaces called {@code toString()} on it); it still is, so that
+     *     no page stages a product whose strength is unknown as if it had none
+     */
+    static String strengthText(Object sent) {
+        Objects.requireNonNull(sent, "DrugRef sent a component with no strength");
+        if (sent instanceof Float number) {
+            return DoseText.of(number.floatValue());
+        }
+        if (sent instanceof Number number) {
+            return DoseText.of(number.doubleValue());
+        }
+        return DoseText.ofNumericText(sent.toString());
+    }
 
     /**
      * Full Drug Monograph.
@@ -216,7 +243,7 @@ public class RxDrugData {
 
             public DrugComponent(Hashtable h) {
                 name = (String) h.get("name");
-				strength = h.get("strength").toString();
+                strength = strengthText(h.get("strength"));
                 unit = (String) h.get("unit");
             }
 

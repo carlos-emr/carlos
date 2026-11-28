@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 
 /** Tests the interval meaning shown to prescribers, including adjoining XML recommendations. */
 @Tag("unit")
@@ -20,5 +21,12 @@ class DosingRecommendationBoundaryUnitTest {
         var dose = new Hashtable<String, String>();
         dose.put("clcrrange", range);
         assertThat(new DosingRecomendation().valueInRangeOfDose(clearance, dose)).isEqualTo(selected);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"false,88.75,89", "true,75.4375,75"})
+    void shouldKeepFractionalClearance_whenRoundingIsNotRequested(boolean female, double exact, int rounded) throws Exception {
+        assertThat(RxUtil.getClcrUnrounded(40, 71, 100, female)).isCloseTo(exact, within(1e-9));
+        assertThat(RxUtil.getClcr(40, 71, 100, female)).isEqualTo(rounded);
     }
 }

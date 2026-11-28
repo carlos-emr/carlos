@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "aae7a7db6e85d0b0b220a7fba164372707b6cb0b",
+  "comparisonSha256": "7dfe0f4d5f2c027048926db3e36e2f19a7e84c8b6d3f449ff3c20787ce641456",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "bcd1f47b73d39070f40c02e16285ec868703362e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/pharmaForms/formBPMH/bean/BpmhDrug.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "33ea2d05f56644ce722e5f30563934b92b9588fe"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/conversion/DrugConverterImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "d73bdb68abb22d4a9f856ca36be0206e9353b67c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/to/model/DrugTo1.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "2badceb5851968add376d6786e3f983502ed66c0"
+    }
+  },
+  "exclusions": {},
+  "zeroCoverageWaivers": {},
+  "baselineCommit": "546fad7194e7d928d835defde7f0d2f557495c8c",
+  "baselineSourceTree": "aae7a7db6e85d0b0b220a7fba164372707b6cb0b",
+  "baselineReportSha256": "024edefa70becdd33c781197b0c6b57f0aedccfcff25d3b1725f259a1bc4fa28",
+  "baselineLane": "PR 6367 same-product REST, BPMH, legacy DTO and package verification on JDK 25. The merged release package run covered JSON and JAXB replacements, conversion, manager, persistence, medication UI handlers, favourites, PDF and CDS export. Additional Maven Surefire runs exercised the final DTO, validated the original JAXB schema, and covered explicit clinical edits on imported nulls. JaCoCo appended the runs and the Surefire manifest identifies the final result for each suite. The complete release-lane union was not run.",
+  "baselineTestCounts": {
+    "tests": 1817,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "404c207129dc7594f1989450aa7157bb343d2495804ada7268322cf869c33c1b",
+  "baselineTestReportsHashFormat": "SHA-256 of a sha256sum-style manifest of the run's Surefire TEST-*.xml report files: one '<sha256>  <file name>' line each, sorted by name",
+  "baselineTestRunCommit": "546fad7194e7d928d835defde7f0d2f557495c8c",
+  "baselineAdditionalTestRuns": []
+}

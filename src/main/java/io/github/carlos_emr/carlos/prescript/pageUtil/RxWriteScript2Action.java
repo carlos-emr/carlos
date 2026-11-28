@@ -53,6 +53,7 @@ import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import io.github.carlos_emr.carlos.prescript.util.DrugPriceEstimate;
 import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 import io.github.carlos_emr.carlos.util.StringUtils;
+import io.github.carlos_emr.carlos.utility.DoseText;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -310,7 +311,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             rx.setFrequencyCode(this.getFrequencyCode());
             rx.setDuration(this.getDuration());
             rx.setDurationUnit(this.getDurationUnit());
-            rx.setQuantity(this.getQuantity());
+            rx.setQuantity(DoseText.ofNumericText(this.getQuantity()));
             rx.setRepeat(this.getRepeat());
             rx.setLastRefillDate(RxUtil.StringToDate(this.getLastRefillDate(), "yyyy-MM-dd"));
             rx.setNosubs(this.getNosubs());
@@ -397,6 +398,38 @@ public final class RxWriteScript2Action extends ActionSupport {
             throw new IllegalArgumentException("Invalid prescription date");
         }
         return date;
+    }
+
+    /**
+     * Whether an ingredient's name already states its strength ("AMOXICILLIN 250MG" and "250mg"),
+     * in which case the generic name does not repeat it. The amount and unit must match in full.
+     *
+     * @param name the ingredient's name, in lower case; a missing name states no strength
+     * @param strength the strength with its unit, as the generic name writes it, in lower case
+     * @return true when nothing needs to be added for the strength
+     */
+    static boolean namesStrength(String name, String strength) {
+        if (strength.isEmpty()) {
+            return true;
+        }
+        // The strength is written without a trailing zero; a name that says "250.0mg" states it too.
+        String stated = DoseText.withPlainNumbers(name);
+        if (stated == null) {
+            return false;
+        }
+        String expected = DoseText.withPlainNumbers(strength);
+        for (int at = stated.indexOf(expected); at >= 0; at = stated.indexOf(expected, at + 1)) {
+            int before = at == 0 ? ' ' : stated.codePointBefore(at);
+            int end = at + expected.length();
+            int after = end == stated.length() ? ' ' : stated.codePointAt(end);
+            boolean followedByFraction = after == '.' && end + 1 < stated.length()
+                    && Character.isDigit(stated.codePointAt(end + 1));
+            if (!Character.isDigit(before) && before != '.' && !Character.isLetterOrDigit(after)
+                    && after != '/' && !followedByFraction) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -503,7 +536,7 @@ public final class RxWriteScript2Action extends ActionSupport {
      *
      * POST-only (405 + {@code Allow: POST} otherwise). Renames a staged custom drug card.
      *
-     * @return the operation's view result, {@code null} when no view is needed, or {@code NONE} after an error response
+     * @return {@code NONE} after responding, or {@code null} for an unrecognized operation
      * @throws SecurityException when the caller may not write Rx for the patient
      */
     public String saveCustomName() throws IOException {
@@ -568,8 +601,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             String durationUnit = RxUtil.getDurationUnitFromQuantityText(quantity);
             rx.setDuration(duration);
             rx.setDurationUnit(durationUnit);
-            rx.setQuantity(RxUtil.getQuantityFromQuantityText(quantity));
-            rx.setUnitName(RxUtil.getUnitNameFromQuantityText(quantity)); // this is actually an indicator for Mitte prescript
+            RxUtil.applyQuantityText(rx, quantity); // unitName is an indicator for Mitte prescript
         } else rx.setDuration(RxUtil.findDuration(rx));
 
         return rx;
@@ -962,7 +994,11 @@ public final class RxWriteScript2Action extends ActionSupport {
 
 					stringBuilder.append(drugName.trim());
 
-					if ( ! stringBuilder.toString().toLowerCase().contains(strength.toLowerCase())) {
+					// The strength is left out only when this ingredient's own name already states
+					// it. Looking for it anywhere in the text built so far dropped the strength
+					// of a later ingredient whenever an earlier one contained it: "5mg" is inside
+					// "12.5mg", and two ingredients can have the same strength (#6185).
+					if (!namesStrength(drugName.toLowerCase(), strength.toLowerCase())) {
 						stringBuilder.append( " " + strength.toLowerCase() );
 					}
 
@@ -1171,12 +1207,15 @@ public final class RxWriteScript2Action extends ActionSupport {
                     quantity = "";
                 }
                 // check if quantity is same as prescript.getquantity(), if yes, do nothing.
-                if (quantity.equals(rx.getQuantity()) && rx.getUnitName() == null) {
+                String normalizedQuantity = RxUtil.isStringToNumber(quantity) ? DoseText.ofNumericText(quantity) : quantity;
+                if (normalizedQuantity.equals(rx.getQuantity()) && rx.getUnitName() == null) {
                     // do nothing
                 } else {
 
                     if (RxUtil.isStringToNumber(quantity)) {
-                        rx.setQuantity(quantity);
+                        // Stored, and printed after "Qty:", without a trailing zero or a missing
+                        // leading zero: "30.0" as 30 and ".5" as 0.5 (#6185).
+                        rx.setQuantity(normalizedQuantity);
                         rx.setUnitName(null);
                     } else if (RxUtil.isMitte(quantity)) {// set duration for mitte
 
@@ -1184,11 +1223,9 @@ public final class RxWriteScript2Action extends ActionSupport {
                         String durationUnit = RxUtil.getDurationUnitFromQuantityText(quantity);
                         rx.setDuration(duration);
                         rx.setDurationUnit(durationUnit);
-                        rx.setQuantity(RxUtil.getQuantityFromQuantityText(quantity));
-                        rx.setUnitName(RxUtil.getUnitNameFromQuantityText(quantity)); // this is actually an indicator for Mitte prescript
+                        RxUtil.applyQuantityText(rx, quantity); // unitName is an indicator for Mitte prescript
                     } else {
-                        rx.setQuantity(RxUtil.getQuantityFromQuantityText(quantity));
-                        rx.setUnitName(RxUtil.getUnitNameFromQuantityText(quantity));
+                        RxUtil.applyQuantityText(rx, quantity);
                     }
 
                     String frequency = rx.getFrequencyCode();
@@ -1235,10 +1272,11 @@ public final class RxWriteScript2Action extends ActionSupport {
                 hm.put("prn", rx.getPrn());
                 hm.put("calQuantity", rx.getQuantity());
                 hm.put("unitName", rx.getUnitName());
-                // The legacy Qty/Mitte parser can extract only the first integer from free text.
                 // Quote a total only when the submitted count agrees with the acknowledged quantity.
-                String priceQuantity = DrugPriceEstimate.dispenseQuantity(quantity, rx.getDrugForm());
-                hm.put("priceQuantity", rx.getQuantity().strip().equals(priceQuantity) ? priceQuantity : null);
+                String priceQuantity = DoseText.ofNumericText(
+                        DrugPriceEstimate.dispenseQuantity(quantity, rx.getDrugForm()));
+                String acknowledgedQuantity = DoseText.ofNumericText(rx.getQuantity());
+                hm.put("priceQuantity", Objects.equals(acknowledgedQuantity, priceQuantity) ? priceQuantity : null);
                 ObjectNode jsonObject = objectMapper.valueToTree(hm);
 
                 response.getOutputStream().write(jsonObject.toString().getBytes());
@@ -1247,7 +1285,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             }
         }
 
-        return null;
+        return NONE;
 
     }
 
@@ -1382,13 +1420,13 @@ public final class RxWriteScript2Action extends ActionSupport {
                 if (!val.equals("") && !val.equalsIgnoreCase("null")) rx.setFrequencyCode(val);
             } else if (elem.equals("minimum_" + num)) {
                 if (!val.equals("") && !val.equalsIgnoreCase("null")) {
-                    Float dose = parseDoseAmount(val);
+                    Float dose = parseDoseAmount(val, rx.getTakeMin());
                     if (dose == null) return reportInvalidDose();
                     rx.setTakeMin(dose);
                 }
             } else if (elem.equals("maximum_" + num)) {
                 if (!val.equals("") && !val.equalsIgnoreCase("null")) {
-                    Float dose = parseDoseAmount(val);
+                    Float dose = parseDoseAmount(val, rx.getTakeMax());
                     if (dose == null) return reportInvalidDose();
                     rx.setTakeMax(dose);
                 }
@@ -1655,14 +1693,9 @@ public final class RxWriteScript2Action extends ActionSupport {
                         } else if (elem.equals("quantity_" + num)) {
                             if (val.equals("") || val == null) {
                                 rx.setQuantity("0");
+                                rx.setUnitName(null);
                             } else {
-                                if (RxUtil.isStringToNumber(val)) {
-                                    rx.setQuantity(val);
-                                    rx.setUnitName(null);
-                                } else {
-                                    rx.setQuantity(RxUtil.getQuantityFromQuantityText(val));
-                                    rx.setUnitName(RxUtil.getUnitNameFromQuantityText(val));
-                                }
+                                RxUtil.applyQuantityText(rx, val);
                             }
                         } else if (elem.equals("longTerm_" + num)) {
                             if ("yes".equals(val)) {
@@ -2106,10 +2139,15 @@ public final class RxWriteScript2Action extends ActionSupport {
      * exponents, NaN and Infinity are refused; Float.parseFloat accepted some of these and threw
      * on the rest, which surfaced as an HTTP 500 (#5003).
      *
+     * A previously stored bound can have a longer plain-decimal representation. Its exact
+     * displayed text can round-trip without extending the permitted range of new entries.
+     *
      * @param value the trimmed property value
+     * @param stored the existing bound on this staged card
      * @return the dose, or {@code null} when the value is not a dose amount
      */
-    static Float parseDoseAmount(String value) {
+    static Float parseDoseAmount(String value, float stored) {
+        if (Float.isFinite(stored) && stored >= 0 && DoseText.of(stored).equals(value)) return stored;
         if (value == null || !value.matches("\\d{1,9}(\\.\\d{0,9})?|\\.\\d{1,9}")) {
             return null;
         }

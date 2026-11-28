@@ -6,6 +6,7 @@ const path = require('node:path');
 const test = require('node:test');
 const vm = require('node:vm');
 const h = require('./lib/playwright-harness');
+const { medicationSnapshot } = require('./lib/medication-snapshot');
 const x = require('./lib/export-content-helpers');
 const { captureBpmhPrint, assertBpmhPdf, retainBpmhPdf } = require('./bpmh-form-playwright-checks');
 
@@ -13,6 +14,14 @@ const endpoint = 'https://carlos.test/carlos/formBPMH';
 const patient = '123', saved = '37';
 const note = 'FAKE-PW1234567890abcdef reconciled with the patient';
 const instruction = 'FAKE-PW1234567890abcdef continue at discharge';
+
+test('medication snapshots require a valid digest for every source row', () => {
+  const snapshot = rows => medicationSnapshot(statement => statement.includes('information_schema.COLUMNS')
+    ? [['drugid', 'int'], ['takemin', 'float']] : rows, patient);
+  const valid = [['4', 'a'.repeat(64)]];
+  assert.equal(snapshot(valid), JSON.stringify(valid));
+  assert.throws(() => snapshot([['4', null]]), /missing its identity or digest/);
+});
 
 // A complete, generated PDF lets the controls exercise actual Poppler extraction without external fixtures.
 function pdf(lines = [note, instruction], { continuation = true, fontSize = 10, xPosition = 40 } = {}) {
@@ -201,7 +210,7 @@ test('actual Print step accepts a native inline response and checks both saved P
   for (const bytes of [pdf(), pdf([note]), pdf([instruction])]) {
     const f = fixture({ bytes }), cleanups = [];
     const directory = x.scratchDir(); cleanups.push(() => fs.rmSync(directory, { recursive: true, force: true }));
-    const sandbox = { h, x, form: f.page, patient, saved, note, instruction, captureBpmhPrint, assertBpmhPdf, retainBpmhPdf, require,
+    const sandbox = { h, x, form: f.page, patient, saved, note, instruction, medicationText: [], captureBpmhPrint, assertBpmhPdf, retainBpmhPdf, require,
       process: { env: {} }, console: { log() {} },
       sql: { value: () => '1' }, s: { config: { screenshotDir: directory }, step: async (_, body) => body(), cleanup: cleanup => cleanups.push(cleanup) } };
     try {
@@ -222,7 +231,7 @@ test('artifact retention failure cannot replace the original missing-instruction
   const start = source.indexOf("  await s.step('Print answers a PDF of the saved form', async () => {");
   const end = source.indexOf("\n  await s.step('GET and HEAD carrying the save", start);
   const f = fixture({ bytes: pdf([note]) }), artifactFailure = new Error('renderer failed');
-  const sandbox = { h, x, form: f.page, patient, saved, note, instruction, captureBpmhPrint, assertBpmhPdf,
+  const sandbox = { h, x, form: f.page, patient, saved, note, instruction, medicationText: [], captureBpmhPrint, assertBpmhPdf,
     retainBpmhPdf: () => { throw artifactFailure; }, require, process: { env: {} },
     sql: { value: () => '1' }, s: { config: { screenshotDir: '/tmp' }, step: async (_, body) => body() } };
   const work = vm.runInNewContext(`(async () => { ${source.slice(start, end)} })()`, sandbox);

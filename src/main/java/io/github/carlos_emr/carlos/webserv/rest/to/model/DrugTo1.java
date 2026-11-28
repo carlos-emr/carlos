@@ -32,12 +32,24 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import jakarta.xml.bind.annotation.XmlRootElement;
+import jakarta.xml.bind.annotation.XmlElement;
+import jakarta.xml.bind.annotation.XmlTransient;
+import jakarta.xml.bind.annotation.XmlType;
 import java.io.Serializable;
 import java.util.Date;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 
 @XmlAccessorType(XmlAccessType.FIELD)
+// Preserve the legacy XSD sequence when JAXB binds presence-aware properties through their setters.
+@XmlType(propOrder = {
+        "drugId", "rowVersion", "brandName", "genericName", "customName", "atc", "regionalIdentifier",
+        "demographicNo", "providerNo", "takeMin", "takeMax", "rxDate", "endDate", "writtenDate", "frequency",
+        "duration", "durationUnit", "route", "form", "method", "prn", "repeats", "quantity", "instructions",
+        "additionalInstructions", "archived", "archivedReason", "archivedDate", "strength", "strengthUnit",
+        "externalProvider", "longTerm", "noSubstitutions", "dispenseIntervalNumber", "refillDuration",
+        "refillQuantity"
+})
 @XmlRootElement(name = "drug")
 public class DrugTo1 implements Serializable {
 
@@ -65,8 +77,10 @@ public class DrugTo1 implements Serializable {
 
     private String providerNo;
 
+    @XmlTransient
     private float takeMin;
 
+    @XmlTransient
     private float takeMax;
 
     private Date rxDate;
@@ -91,7 +105,15 @@ public class DrugTo1 implements Serializable {
 
     private Integer repeats;
 
+    @XmlTransient
     private Integer quantity;
+    // Older Java-serialized DTOs have no presence flags and retain their complete-replacement semantics.
+    @XmlTransient
+    private Boolean quantitySubmitted = false;
+    @XmlTransient
+    private Boolean minimumSubmitted = false;
+    @XmlTransient
+    private Boolean maximumSubmitted = false;
 
     private String instructions;
 
@@ -207,20 +229,34 @@ public class DrugTo1 implements Serializable {
         this.providerNo = providerNo;
     }
 
+    @XmlElement
     public float getTakeMin() {
         return takeMin;
     }
 
-    public void setTakeMin(float takeMin) {
-        this.takeMin = takeMin;
+    /** @return true when the minimum dose member was supplied or the DTO predates presence tracking */
+    public boolean hasSubmittedTakeMin() {
+        return !Boolean.FALSE.equals(minimumSubmitted);
     }
 
+    public void setTakeMin(float takeMin) {
+        this.takeMin = takeMin;
+        minimumSubmitted = true;
+    }
+
+    @XmlElement
     public float getTakeMax() {
         return takeMax;
     }
 
+    /** @return true when the maximum dose member was supplied or the DTO predates presence tracking */
+    public boolean hasSubmittedTakeMax() {
+        return !Boolean.FALSE.equals(maximumSubmitted);
+    }
+
     public void setTakeMax(float takeMax) {
         this.takeMax = takeMax;
+        maximumSubmitted = true;
     }
 
     public Date getRxDate() {
@@ -351,12 +387,19 @@ public class DrugTo1 implements Serializable {
         this.strengthUnit = strengthUnit;
     }
 
+    @XmlElement
     public Integer getQuantity() {
         return quantity;
     }
 
     public void setQuantity(Integer quantity) {
         this.quantity = quantity;
+        quantitySubmitted = true;
+    }
+
+    /** @return true when the dispense quantity member was supplied or the DTO predates presence tracking */
+    public boolean hasSubmittedQuantity() {
+        return !Boolean.FALSE.equals(quantitySubmitted);
     }
 
     public Date getWrittenDate() {

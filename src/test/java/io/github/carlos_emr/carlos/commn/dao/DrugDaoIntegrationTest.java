@@ -62,6 +62,9 @@ public class DrugDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private DrugDao drugDao;
 
+    @Autowired
+    private DrugReasonDao drugReasonDao;
+
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
 
@@ -129,6 +132,40 @@ public class DrugDaoIntegrationTest extends CarlosTestBase {
         entityManager.persist(drug);
         entityManager.flush();
         return drug;
+    }
+
+    @Test
+    void shouldReadStoredLegacyValuesWithoutChangingThem_whenBuildingBpmhForSeveralMedications() {
+        int patient = 821006;
+        Drug later = createDrug(patient, "Medication B", "", false);
+        later.setPosition(10);
+        later.setSpecial("Medication B\nFirst step\nSecond step\nQty:30.0 mL Repeats:0");
+        later.setQuantity("30.0");
+        later.setUnitName("mL");
+        Drug first = createDrug(patient, "Medication A", "", false);
+        first.setPosition(2);
+        entityManager.persist(later);
+        entityManager.persist(first);
+        entityManager.flush();
+        entityManager.clear();
+
+        var handler = new io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.business.BpmhForm2Handler();
+        handler.setBpmhFormBean(new io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean.BpmhForm2Bean());
+        handler.setDemographicNo(patient);
+        handler.setDrugDao(drugDao);
+        handler.setDrugReasonDao(drugReasonDao);
+        handler.setFormBeanDrugList(null);
+        var rows = handler.getBpmhFormBean().getDrugs();
+        assertThat(rows).hasSize(2);
+        assertThat(rows.get(0).getId()).isEqualTo(first.getId().toString());
+        assertThat(rows.get(1).getHow()).isEqualTo("First step\nSecond step");
+        entityManager.flush();
+        entityManager.clear();
+        Drug reloaded = drugDao.find(later.getId());
+        assertThat(reloaded.getSpecial()).isEqualTo(later.getSpecial());
+        assertThat(reloaded.getQuantity()).isEqualTo("30.0");
+        assertThat(reloaded.getUnitName()).isEqualTo("mL");
+        assertThat(reloaded.getRowVersion()).isEqualTo(later.getRowVersion());
     }
 
     @Test
@@ -234,6 +271,90 @@ public class DrugDaoIntegrationTest extends CarlosTestBase {
         assertThat(((Prescription) ownedRows.getFirst()[1]).getDemographicId()).isEqualTo(DEMO_NO);
         // The foreign drug's own demographic cannot read a prescription belonging to DEMO_NO.
         assertThat(drugDao.findDrugsAndPrescriptionsByScriptNumber(script.getId(), DEMO_NO_2)).isEmpty();
+    }
+
+    @Test
+    void shouldAcceptDeliberateChangesToAnImportedMedicationWithMissingValues() {
+        Drug source = createAndPersist(DEMO_NO, "Recorded product", "", false);
+        entityManager.createNativeQuery("UPDATE drugs SET takemin=NULL,takemax=NULL,custom_instructions=NULL,"
+                + "hide_cpp=NULL,start_date_unknown=NULL,hide_from_drug_profile=NULL WHERE drugid=:id")
+                .setParameter("id", source.getId()).executeUpdate();
+        entityManager.clear();
+        Drug stored = drugDao.find(source.getId());
+        Drug edited = new Drug();
+        edited.setBrandName(stored.getBrandName());
+        edited.setGenericName(stored.getGenericName());
+        edited.setCustomName(stored.getCustomName());
+        edited.setDrugForm(stored.getDrugForm());
+        edited.setRegionalIdentifier(stored.getRegionalIdentifier());
+        edited.setGcnSeqNo(stored.getGcnSeqNo());
+        edited.setTakeMin(0.5f);
+        edited.setTakeMax(2f);
+        edited.setCustomInstructions(true);
+        edited.setHideFromCpp(true);
+        edited.setStartDateUnknown(true);
+        edited.setSpecial("Updated directions");
+        edited.setSpecialInstruction("Updated pharmacy note");
+        edited.setRoute("PO");
+        edited.setFreqCode("BID");
+        edited.setMethod("Take");
+        edited.preserveUnchangedMedicationValues(stored);
+        assertThat(edited.getSpecial()).isEqualTo("Updated directions");
+        assertThat(edited.getSpecialInstruction()).isEqualTo("Updated pharmacy note");
+        assertThat(edited.getRoute()).isEqualTo("PO");
+        assertThat(edited.getFreqCode()).isEqualTo("BID");
+        assertThat(edited.getMethod()).isEqualTo("Take");
+        assertThat(edited.getTakeMin()).isEqualTo(0.5f);
+        assertThat(edited.getTakeMax()).isEqualTo(2f);
+        assertThat(edited.isCustomInstructions()).isTrue();
+        assertThat(edited.getHideFromCpp()).isTrue();
+        assertThat(edited.getStartDateUnknown()).isTrue();
+        assertThat(stored.isHideFromDrugProfile()).isFalse();
+        assertThat(stored.toString()).doesNotContain("Recorded product");
+    }
+
+    @Test
+    void shouldCopyOriginalTextBytes_whenRestEchoesATrimmedProjection() throws Exception {
+        Drug source = createAndPersist(DEMO_NO, "Synthetic medication", "", false);
+        entityManager.createNativeQuery("UPDATE drugs SET quantity=' 30.0 ', unitName='mL ', "
+                + "dosage='250.0 mg ', special='  first line  ', BN='Synthetic medication ' WHERE drugid=:id")
+                .setParameter("id", source.getId()).executeUpdate();
+        entityManager.clear();
+        Drug stored = drugDao.find(source.getId());
+        var converter = new io.github.carlos_emr.carlos.webserv.rest.conversion.DrugConverterImpl();
+        var info = new io.github.carlos_emr.carlos.utility.LoggedInInfo();
+        var dto = converter.getAsTransferObject(info, stored);
+        dto.setExternalProvider("New provider");
+        Drug replacement = converter.getAsDomainObject(info, dto);
+        replacement.preserveUnchangedMedicationValues(stored);
+        assertThat(replacement.getQuantity()).isEqualTo(" 30.0 ");
+        assertThat(replacement.getUnitName()).isEqualTo("mL ");
+        assertThat(replacement.getDosage()).isEqualTo("250.0 mg ");
+        assertThat(replacement.getSpecial()).isEqualTo("  first line  ");
+        assertThat(replacement.getBrandName()).isEqualTo("Synthetic medication ");
+    }
+
+    @Test
+    void shouldKeepSqlNullsDistinctFromZero_whenReadingAndUpdatingAnUnrelatedMedicationField() {
+        Drug source = createAndPersist(DEMO_NO, "Synthetic medication", "", false);
+        int id = source.getId();
+        entityManager.createNativeQuery("UPDATE drugs SET takemin=NULL, takemax=NULL, "
+                + "custom_instructions=NULL, hide_cpp=NULL, start_date_unknown=NULL WHERE drugid=:id")
+                .setParameter("id", id).executeUpdate();
+        entityManager.clear();
+        Drug loaded = drugDao.find(id);
+        assertThat(loaded.getTakeMin()).isZero();
+        assertThat(loaded.isCustomInstructions()).isFalse();
+        loaded.setComment("Updated note");
+        Drug copy = createDrug(DEMO_NO, "Synthetic medication", "", false);
+        copy.preserveUnchangedMedicationValues(loaded);
+        entityManager.persist(copy);
+        entityManager.flush();
+        assertThat(((Number) entityManager.createNativeQuery("SELECT COUNT(*) FROM drugs "
+                + "WHERE drugid IN (:source,:successor) AND takemin IS NULL AND takemax IS NULL "
+                + "AND custom_instructions IS NULL AND hide_cpp IS NULL AND start_date_unknown IS NULL")
+                .setParameter("source", id).setParameter("successor", copy.getId()).getSingleResult()).intValue())
+                .isEqualTo(2);
     }
 
     @org.junit.jupiter.params.ParameterizedTest

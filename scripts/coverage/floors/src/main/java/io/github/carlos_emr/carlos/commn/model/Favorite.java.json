@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/commn/model/Favorite.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 95.0,
+    "branches": 83.33333333333333,
+    "sourceBlob": "41e718d68df6fd0526edacdb980df846d0408ad2"
+  },
+  "evidenceSha256": "d8be6f02aa0298f6d7ff4b9837c20602fea8efd120b243c0c9e1ead902f0265b"
+}

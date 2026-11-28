@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/prescript/pageUtil/RxRePrescribe2Action.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "6791d81c00f67ba7c36ef04fa0670885813c2e66"
+  },
+  "evidenceSha256": "7269d2e0db8e476226012515ff7d83e4f4020ba340295aee52b25c3e94f86449"
+}

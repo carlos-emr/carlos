@@ -922,6 +922,7 @@
     "test:rx-renewal-long-term-playwright": "RX_RENEWAL_FIELD=long-term node scripts/rx-renewal-fields-playwright-checks.js",
     "test:rx-inline-prn-toggle-playwright": "RX_INLINE_ACTION=prn node scripts/rx-inline-dose-playwright-checks.js",
     "test:rx-inline-structured-dose-save-playwright": "node scripts/rx-inline-dose-playwright-checks.js",
+    "test:rx-dose-text-playwright": "node scripts/rx-dose-text-playwright-checks.js",
     "test:rx-cpp-visibility-refused-state-playwright": "RX_CPP_ACTION=refused node scripts/rx-cpp-visibility-playwright-checks.js",
     "test:rx-cpp-visibility-roundtrip-playwright": "node scripts/rx-cpp-visibility-playwright-checks.js",
     "test:rx-indication-registry-roundtrip-playwright": "RX_INDICATION_ACTION=registry node scripts/rx-indication-actions-playwright-checks.js",

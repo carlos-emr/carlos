@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<xs:schema version="1.0" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <xs:element name="drug" type="drugTo1"/>
+
+  <xs:complexType name="drugTo1">
+    <xs:sequence>
+      <xs:element name="drugId" type="xs:int" minOccurs="0"/>
+      <xs:element name="rowVersion" type="xs:long" minOccurs="0"/>
+      <xs:element name="brandName" type="xs:string" minOccurs="0"/>
+      <xs:element name="genericName" type="xs:string" minOccurs="0"/>
+      <xs:element name="customName" type="xs:string" minOccurs="0"/>
+      <xs:element name="atc" type="xs:string" minOccurs="0"/>
+      <xs:element name="regionalIdentifier" type="xs:string" minOccurs="0"/>
+      <xs:element name="demographicNo" type="xs:int" minOccurs="0"/>
+      <xs:element name="providerNo" type="xs:string" minOccurs="0"/>
+      <xs:element name="takeMin" type="xs:float"/>
+      <xs:element name="takeMax" type="xs:float"/>
+      <xs:element name="rxDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="endDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="writtenDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="frequency" type="xs:string" minOccurs="0"/>
+      <xs:element name="duration" type="xs:int" minOccurs="0"/>
+      <xs:element name="durationUnit" type="xs:string" minOccurs="0"/>
+      <xs:element name="route" type="xs:string" minOccurs="0"/>
+      <xs:element name="form" type="xs:string" minOccurs="0"/>
+      <xs:element name="method" type="xs:string" minOccurs="0"/>
+      <xs:element name="prn" type="xs:boolean" minOccurs="0"/>
+      <xs:element name="repeats" type="xs:int" minOccurs="0"/>
+      <xs:element name="quantity" type="xs:int" minOccurs="0"/>
+      <xs:element name="instructions" type="xs:string" minOccurs="0"/>
+      <xs:element name="additionalInstructions" type="xs:string" minOccurs="0"/>
+      <xs:element name="archived" type="xs:boolean" minOccurs="0"/>
+      <xs:element name="archivedReason" type="xs:string" minOccurs="0"/>
+      <xs:element name="archivedDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="strength" type="xs:float" minOccurs="0"/>
+      <xs:element name="strengthUnit" type="xs:string" minOccurs="0"/>
+      <xs:element name="externalProvider" type="xs:string" minOccurs="0"/>
+      <xs:element name="longTerm" type="xs:boolean" minOccurs="0"/>
+      <xs:element name="noSubstitutions" type="xs:boolean" minOccurs="0"/>
+      <xs:element name="dispenseIntervalNumber" type="xs:string" minOccurs="0"/>
+      <xs:element name="refillDuration" type="xs:int" minOccurs="0"/>
+      <xs:element name="refillQuantity" type="xs:int" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>

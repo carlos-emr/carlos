@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "b0f15acfc884c0c5cfe6bbec340a1395b50db99d",
+  "comparisonSha256": "47a16b092db5ca0d539346f63fd974844bb9760f82e979c0ce06085154100909",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/documentManager/EDocUtil.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "37ce2f2c6b3fa15049557872f42a62e7e94650ac"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/RxManagerImpl.java": {
+      "lines": 96.29629629629629,
+      "instructions": 90.17341040462428,
+      "branches": 86.0,
+      "sourceBlob": "00753c5a5a301ad4043543d286e419fcd81a8d40"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/pageUtil/RxWriteScript2Action.java": {
+      "lines": 50.806451612903224,
+      "instructions": 55.3002223869533,
+      "branches": 43.75,
+      "sourceBlob": "412016ab37b4ac76430f6d831358f1db0300ec43"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/util/DrugStrength.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 97.05882352941177,
+      "sourceBlob": "e3348c1f71aa670a0176a5721f30293a4a63a1e5"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/conversion/DrugConverterImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "16ecd6d837e6d3673e916f90b33eb27e195c19ed"
+    }
+  },
+  "baselineCommit": "bd3fc7d6926e36aa3cac1f91d020948f279f0e0f",
+  "baselineSourceTree": "b0f15acfc884c0c5cfe6bbec340a1395b50db99d",
+  "baselineReportSha256": "e4b119bd3577cdc8d0091df2a8ec9cbc13196817425cd2c8e80dfa3f0d791d81",
+  "baselineLane": "PR #6367 focused Java unit and regression tests in Ubuntu 26.04 with JDK 25, Maven 3.9.11 and JaCoCo 0.8.16. Sources compiled by Maven; the amended RxManager test fixture was recompiled with javac against the same classpath before rerunning the focused Surefire selection and JaCoCo report. This selection covers the dose-text changes, legacy dosage, REST routes, and EDocUtil.",
+  "baselineTestCounts": {
+    "tests": 1309,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "1ded77ce354354a15144bc10755ef59ac63cff738f75dc4bdde34e0db56f167e",
+  "baselineTestReportsHashFormat": "SHA-256 of a sha256sum-style manifest of Surefire TEST-*.xml reports, one '<sha256>  <file name>' line each, sorted by name.",
+  "baselineTestRunCommit": "bd3fc7d6926e36aa3cac1f91d020948f279f0e0f",
+  "baselineAdditionalTestRuns": []
+}

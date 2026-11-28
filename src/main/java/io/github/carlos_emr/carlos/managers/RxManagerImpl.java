@@ -206,6 +206,10 @@ public class RxManagerImpl implements RxManager {
      */
     @Override
     public Drug addDrug(LoggedInInfo info, Drug d) {
+        return addDrug(info, d, null);
+    }
+
+    private Drug addDrug(LoggedInInfo info, Drug d, Drug source) {
 
         LogAction.addLogSynchronous(info, "RxManager.addDrug", "providerNo=" +
                 info.getLoggedInProviderNo()
@@ -214,6 +218,8 @@ public class RxManagerImpl implements RxManager {
 
         // Will throw an exception if access is denied.
         this.writeCheck(info, d.getDemographicId());
+
+        d.requireValidRestDoseRange(source);
 
         // Have to set ID to null so that database
         // can auto-generate one for this drug.
@@ -290,10 +296,12 @@ public class RxManagerImpl implements RxManager {
         CdsMedicationCompatibilityException.requireLegacyCompatible(old);
         CdsMedicationCompatibilityException.requireLegacyCompatible(d);
 
+        d.preserveUnchangedMedicationValues(old);
+
         // Attempt to add the new drug first, if this fails
         // the don't try to update the old drug to archived.
 
-        Drug temp = this.addDrug(info, d);
+        Drug temp = this.addDrug(info, d, old);
 
         if (temp == null) {
             return null;

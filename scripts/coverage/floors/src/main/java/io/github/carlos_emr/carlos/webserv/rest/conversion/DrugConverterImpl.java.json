@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/webserv/rest/conversion/DrugConverterImpl.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "d461e86c90aba2ae58b1e394add9be88ed1e091f"
+  },
+  "evidenceSha256": "7269d2e0db8e476226012515ff7d83e4f4020ba340295aee52b25c3e94f86449"
+}

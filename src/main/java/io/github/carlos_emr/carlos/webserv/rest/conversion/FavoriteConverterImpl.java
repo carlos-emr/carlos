@@ -32,6 +32,7 @@
 
 package io.github.carlos_emr.carlos.webserv.rest.conversion;
 
+import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.commn.model.Favorite;
 import io.github.carlos_emr.carlos.managers.DrugLookUp;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -92,7 +93,7 @@ public class FavoriteConverterImpl extends AbstractConverter<Favorite, FavoriteT
             f.setFrequencyCode(t.getFrequency());
             f.setPrn(t.getPrn());
 
-            f.setDuration(t.getDuration().toString());
+            f.setDuration(t.getDuration() == null ? null : t.getDuration().toString());
             f.setDurationUnit(t.getDurationUnit());
 
             if (t.getRepeats() != null) {
@@ -151,11 +152,15 @@ public class FavoriteConverterImpl extends AbstractConverter<Favorite, FavoriteT
         t.setPrn(f.isPrn());
 
         // prescription fields
-        t.setDuration(Integer.parseInt(f.getDuration()));
+        // A favourite saved from a unit-bearing quantity ("2.5 mL") has no derived duration (null);
+        // Integer.parseInt threw on null/non-whole values and failed the read of every favourite.
+        t.setDuration(Drug.wholeQuantity(f.getDuration()));
         t.setDurationUnit(f.getDurationUnit());
         t.setRepeats(f.getRepeat());
 
-        if (f.getQuantity() != null) t.setQuantity(Integer.parseInt(f.getQuantity()));
+        // A favourite saved from a prescription for 2.5 mL holds the quantity "2.5", which the
+        // Integer field cannot carry; Integer.parseInt failed the read of every favourite.
+        t.setQuantity(Drug.wholeQuantity(f.getQuantity()));
 
         return t;
 

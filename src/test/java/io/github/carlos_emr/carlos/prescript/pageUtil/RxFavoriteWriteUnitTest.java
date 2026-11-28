@@ -157,6 +157,47 @@ class RxFavoriteWriteUnitTest extends CarlosUnitTestBase {
         assertThat(stored.isPrn()).isTrue();
     }
 
+    @ParameterizedTest(name = "initialUnit={0}, quantity \"{1}\" -> \"{2}\" ({3}) (ajax={4})")
+    @CsvSource(nullValues = "NULL", value = {
+            "NULL, 30.0, 30, NULL, true",
+            "NULL, .5, 0.5, NULL, true",
+            "NULL, 1/2, 1/2, NULL, true",
+            "mL, 2.5, 2.5, mL, true",
+            "mL, .5 mL, 0.5, mL, true",
+            "mL, 2 bottles, 2, bottles, true",
+            "NULL, 30.0 mL, 30, mL, false",
+            "NULL, .5, 0.5, NULL, false",
+            "NULL, 1e25, 1e25, NULL, false",
+            "NULL, 1e25 mL, 1e25 mL, NULL, false",
+            "NULL, 1/2 bottle, 1/2, bottle, false",
+            "NULL, 100000000000000000000.00, 100000000000000000000, NULL, false",
+            "NULL, 1 bottle (120 mL), 1 bottle (120 mL), NULL, false",
+            "NULL, NULL, NULL, NULL, false"
+    })
+    @DisplayName("should write plain decimals and split bounded dispense units for favourite quantities in both edit paths")
+    void shouldNormalizeNumericQuantity_whenEditingFavorite(String initialUnit, String submitted,
+                                                            String expectedQuantity, String expectedUnit,
+                                                            boolean ajax) throws Exception {
+        stored.setUnitName(initialUnit);
+        if (ajax) {
+            editParameters(String.valueOf(FAVORITE_ID), "0");
+            request.setParameter("quantity", submitted);
+            assertThat(ajaxEdit()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(204);
+        } else {
+            RxUpdateFavorite2Action action = new RxUpdateFavorite2Action();
+            action.setFavoriteId(String.valueOf(FAVORITE_ID));
+            action.setFavoriteName("renamed");
+            action.setRepeat("0");
+            action.setTakeMin("1");
+            action.setTakeMax("1");
+            action.setQuantity(submitted);
+            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        }
+        assertThat(stored.getQuantity()).isEqualTo(expectedQuantity);
+        assertThat(stored.getUnitName()).isEqualTo(expectedUnit);
+    }
+
     @Test
     @DisplayName("should answer 404 without an NPE when the favourite does not exist")
     void shouldReturnNotFound_whenFavoriteMissing() throws Exception {

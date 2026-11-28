@@ -30,16 +30,17 @@
 package io.github.carlos_emr.carlos.commn.model;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
+import java.util.Objects;
+import io.github.carlos_emr.carlos.prescript.util.DrugStrength;
 import java.util.Calendar;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.Locale;
+import java.util.Set;
 
 import jakarta.persistence.Column;
-import jakarta.persistence.Convert;
-import io.github.carlos_emr.carlos.commn.model.converter.LegacyFalseFlagConverter;
-import io.github.carlos_emr.carlos.commn.model.converter.LegacyZeroFloatConverter;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -54,8 +55,8 @@ import jakarta.persistence.Transient;
 import org.apache.commons.lang3.StringUtils;
 
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
-import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import io.github.carlos_emr.carlos.utility.DoseText;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Entity
@@ -93,17 +94,22 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
 	private String gcnSeqNo = "0";
     private String customName = null;
     @Column(name = "takemin")
-    @Convert(converter = LegacyZeroFloatConverter.class)
-    private float takeMin = 0;
+    private Float takeMin = 0f;
     @Column(name = "takemax")
-    @Convert(converter = LegacyZeroFloatConverter.class)
-    private float takeMax = 0;
+    private Float takeMax = 0f;
     @Column(name = "freqcode")
     private String freqCode = null;
     private String duration = null;
     @Column(name = "durunit")
     private String durUnit = null;
     private String quantity = null;
+
+    @Transient
+    private Boolean restQuantitySubmitted;
+    @Transient
+    private boolean restMinimumOmitted;
+    @Transient
+    private boolean restMaximumOmitted;
     @Column(name = "`repeat`")
     private Integer repeat = 0;
     @Column(name = "last_refill_date")
@@ -138,8 +144,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     private Date createDate = new Date();
     private String dosage = null;
     @Column(name = "custom_instructions")
-    @Convert(converter = LegacyFalseFlagConverter.class)
-    private boolean customInstructions;
+    private Boolean customInstructions = false;
     private String unitName = null;
     @Column(name = "long_term")
     private Boolean longTerm = null;
@@ -178,9 +183,8 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     @Column(name = "cds_projection_incomplete")
     private Boolean cdsProjectionIncomplete;
     @Column(name = "hide_cpp")
-    @Convert(converter = LegacyFalseFlagConverter.class)
     @org.hibernate.annotations.OptimisticLock(excluded = true)
-    private boolean hideFromCpp;
+    private Boolean hideFromCpp = false;
     @Column(name = "refill_duration")
     private Integer refillDuration;
     @Column(name = "refill_quantity")
@@ -191,8 +195,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     @org.hibernate.annotations.OptimisticLock(excluded = true)
     private Integer position;
     @Column(name = "start_date_unknown")
-    @Convert(converter = LegacyFalseFlagConverter.class)
-    private boolean startDateUnknown;
+    private Boolean startDateUnknown = false;
     private String comment;
 
     @Temporal(TemporalType.TIMESTAMP)
@@ -327,23 +330,38 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public Boolean isHideFromDrugProfile() {
-        if (hideFromDrugProfile == null) hideFromDrugProfile = false;
-        return hideFromDrugProfile;
+        return Boolean.TRUE.equals(hideFromDrugProfile);
     }
 
     public void setHideFromDrugProfile(Boolean c) {
         this.hideFromDrugProfile = c;
     }
 
+    /**
+     * A stored quantity as the whole number the REST transfer objects carry.
+     *
+     * <p>{@code drugs.quantity} and {@code favorites.quantity} are text: a quantity of 2.5 (mL) is
+     * stored as "2.5", and an imported one may read "100 mL". The transfer objects type the
+     * quantity as an {@code Integer}, which cannot carry either, and rounding would report a
+     * different amount.
+     *
+     * @param stored the stored quantity text, which may be {@code null}
+     * @return the quantity when the text is a whole number ("30", "30.0"), otherwise {@code null}
+     */
+    public static Integer wholeQuantity(String stored) {
+        if (stored == null) {
+            return null;
+        }
+        try {
+            return new BigDecimal(stored.trim()).intValueExact();
+        } catch (NumberFormatException | ArithmeticException notAWholeNumber) {
+            return null;
+        }
+    }
+
     public String getDosageDisplay() {
         if (cdsDoseText != null) return cdsDoseText;
-        String ret = "";
-        if (this.getTakeMin() != this.getTakeMax()) {
-            ret += RxUtil.FloatToString(this.getTakeMin()) + "-" + RxUtil.FloatToString(this.getTakeMax());
-        } else {
-            ret += RxUtil.FloatToString(this.getTakeMin());
-        }
-        return ret;
+        return DoseText.range(this.getTakeMin(), this.getTakeMax());
     }
 
     public boolean isDeleted() {
@@ -479,7 +497,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public boolean getHideFromCpp() {
-        return hideFromCpp;
+        return Boolean.TRUE.equals(hideFromCpp);
     }
 
     public void setHideFromCpp(boolean hideFromCpp) {
@@ -527,8 +545,181 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
         this.customName = StringUtils.trimToNull(customName);
     }
 
+    /**
+     * Retain source values that the legacy REST medication cannot return on an unrelated edit.
+     * Assign the stored fields directly because the public setters trim newly submitted text.
+     *
+     * @param source Drug holding the original prescription before replacement
+     */
+    public void preserveUnchangedMedicationValues(Drug source) {
+        if (!sameMedicationProduct(source)) return;
+        gcnSeqNo = source.gcnSeqNo;
+        regionalIdentifier = source.regionalIdentifier;
+        brandName = source.brandName;
+        genericName = source.genericName;
+        customName = source.customName;
+        drugForm = source.drugForm;
+        if (sameStoredText(special, source.special)) special = source.special;
+        if (sameStoredText(special_instruction, source.special_instruction)) special_instruction = source.special_instruction;
+        if (sameStoredText(route, source.route)) route = source.route;
+        if (sameStoredText(freqCode, source.freqCode)) freqCode = source.freqCode;
+        if (sameStoredText(method, source.method)) method = source.method;
+
+        Integer publishedQuantity = wholeQuantity(source.quantity);
+        if (source.quantity != null && (unitName == null || sameStoredText(unitName, source.unitName))
+                && (Boolean.FALSE.equals(restQuantitySubmitted) || Objects.equals(Objects.toString(publishedQuantity, null), quantity))) {
+            quantity = source.quantity;
+            unitName = source.unitName;
+        } else if (Boolean.TRUE.equals(restQuantitySubmitted) && quantity != null && unitName == null) {
+            // The REST client can replace the amount but has no field for the dispense unit.
+            unitName = StringUtils.getIfBlank(source.unitName,
+                    () -> publishedQuantity == null ? embeddedDispenseUnit(source.quantity) : null);
+        }
+        if (source.dosage != null && (dosage == null || DrugStrength.fromDosage(source.dosage).dosageText().equals(dosage))) {
+            dosage = source.dosage;
+            unit = source.unit;
+        } else if (source.dosage == null && dosage == null && unit == null) {
+            unit = source.unit;
+        }
+        if (restMinimumOmitted || (source.takeMin == null && getTakeMin() == 0f)) takeMin = source.takeMin;
+        if (restMaximumOmitted || (source.takeMax == null && getTakeMax() == 0f)) takeMax = source.takeMax;
+        if (source.customInstructions == null && !isCustomInstructions()) customInstructions = null;
+        if (source.hideFromCpp == null && !getHideFromCpp()) hideFromCpp = null;
+        if (source.startDateUnknown == null && !getStartDateUnknown()) startDateUnknown = null;
+    }
+
+    private static final int MAX_UNIT_NAME_LENGTH = 50;
+
+    private static final Set<String> QUANTITY_CONNECTIVES = Set.of(
+            "and", "to", "or", "thru", "through", "plus", "minus", "by", "x", "et", "ou", "a", "\u00E0");
+
+    private static String embeddedDispenseUnit(String storedQuantity) {
+        String text = StringUtils.stripToEmpty(storedQuantity);
+        int amountStart = text.startsWith("+") || text.startsWith("-") ? 1 : 0;
+        int amountEnd = DoseText.numberEnd(text, amountStart);
+        String suffix = text.substring(amountEnd).stripLeading();
+        if (suffix.isEmpty()) return null;
+        if (amountEnd > amountStart && isEmbeddedDispenseUnit(suffix)) return suffix;
+        throw new IllegalArgumentException("The stored dispense unit could not be determined");
+    }
+
+    /**
+     * Reports whether the text following a leading decimal quantity names a dispense unit rather than
+     * a fraction, range, compound phrase or multiplier (such as {@code "/2 bottle"}, {@code "and 1/2 tablets"},
+     * {@code "1 tab to 2 tabs"}, or {@code "x 100 mL"}), and fits the {@code drugs.unitName} column width.
+     *
+     * @param suffix String text immediately following the leading decimal amount, already stripped of leading blanks
+     * @return boolean {@code true} when {@code suffix} is a bounded dispense unit name (optionally with a parenthesized container size)
+     */
+    public static boolean isEmbeddedDispenseUnit(String suffix) {
+        if (suffix == null || suffix.isEmpty() || suffix.length() > MAX_UNIT_NAME_LENGTH) {
+            return false;
+        }
+        int index = 0;
+        int words = 0;
+        while (index < suffix.length()) {
+            int codePoint = suffix.codePointAt(index);
+            if (Character.isWhitespace(codePoint)) {
+                index += Character.charCount(codePoint);
+                continue;
+            }
+            if (codePoint == '(') {
+                return words > 0 && isParenthesizedContainerSize(suffix.substring(index).stripTrailing());
+            }
+            int wordEnd = lettersEnd(suffix, index);
+            if (wordEnd == index) {
+                return false;
+            }
+            String word = suffix.substring(index, wordEnd).toLowerCase(Locale.ROOT);
+            if (QUANTITY_CONNECTIVES.contains(word)) {
+                return false;
+            }
+            words++;
+            index = wordEnd;
+        }
+        return words > 0;
+    }
+
+    private static boolean isParenthesizedContainerSize(String rest) {
+        if (!rest.endsWith(")")) {
+            return false;
+        }
+        String container = rest.substring(1, rest.length() - 1).strip();
+        int numEnd = DoseText.numberEnd(container, 0);
+        if (numEnd == 0) {
+            return false;
+        }
+        String containerUnit = container.substring(numEnd).strip();
+        return !containerUnit.isEmpty() && lettersEnd(containerUnit, 0) == containerUnit.length();
+    }
+
+    private static int lettersEnd(String text, int start) {
+        int index = start;
+        while (index < text.length()) {
+            int codePoint = text.codePointAt(index);
+            if (!Character.isLetter(codePoint)) break;
+            index += Character.charCount(codePoint);
+        }
+        return index;
+    }
+
+    /**
+     * Records which fields the legacy REST client supplied so a same-product edit can retain omitted values.
+     *
+     * @param quantitySubmitted boolean indicating that the integer quantity member was present
+     * @param minimumSubmitted boolean indicating that the minimum dose member was present
+     * @param maximumSubmitted boolean indicating that the maximum dose member was present
+     */
+    public void recordRestFieldPresence(boolean quantitySubmitted, boolean minimumSubmitted, boolean maximumSubmitted) {
+        restQuantitySubmitted = quantitySubmitted;
+        restMinimumOmitted = !minimumSubmitted;
+        restMaximumOmitted = !maximumSubmitted;
+    }
+
+    private boolean sameMedicationProduct(Drug source) {
+        return sameStoredText(regionalIdentifier, source.regionalIdentifier)
+                && sameStoredText(brandName, source.brandName) && sameStoredText(genericName, source.genericName)
+                && sameStoredText(customName, source.customName) && sameStoredText(drugForm, source.drugForm)
+                && (restQuantitySubmitted != null || Objects.equals(gcnSeqNo, source.gcnSeqNo));
+    }
+
+    /**
+     * Validates the final bounds of a REST medication after any omitted values have been restored.
+     * Native medication objects bypass this REST check. A zero maximum records an unspecified upper
+     * bound. Negative or nonfinite bounds are refused unless carried forward unchanged on the same product.
+     * An edit may carry forward both original bounds verbatim on the same product, including a
+     * historical range that a new prescription could not use.
+     *
+     * @param source Drug holding the prescription being replaced, or null for a new medication
+     * @throws InvalidDoseRangeException if new or changed bounds are negative, nonfinite or the minimum exceeds a positive maximum
+     */
+    public void requireValidRestDoseRange(Drug source) {
+        if (restQuantitySubmitted == null) return;
+        float minimum = getTakeMin();
+        float maximum = getTakeMax();
+        if (Float.isFinite(minimum) && Float.isFinite(maximum)
+                && minimum >= 0f && maximum >= 0f && (maximum == 0f || minimum <= maximum)) return;
+        if (source != null && sameMedicationProduct(source)
+                && Objects.equals(takeMin, source.takeMin) && Objects.equals(takeMax, source.takeMax)) return;
+        throw new InvalidDoseRangeException();
+    }
+
+    /**
+     * Indicates that the submitted REST dose range cannot be saved. The REST exception mapper returns a
+     * field-specific validation error without exposing the prescribed amounts.
+     *
+     * @since 2026-11-26
+     */
+    public static final class InvalidDoseRangeException extends IllegalArgumentException {
+        private static final long serialVersionUID = 1L;
+    }
+
+    private static boolean sameStoredText(String submitted, String stored) {
+        return Objects.equals(submitted, stored) || Objects.equals(submitted, StringUtils.trimToNull(stored));
+    }
+
     public float getTakeMin() {
-        return takeMin;
+        return takeMin == null ? 0f : takeMin;
     }
 
     public void setTakeMin(float takeMin) {
@@ -536,7 +727,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public float getTakeMax() {
-        return takeMax;
+        return takeMax == null ? 0f : takeMax;
     }
 
     public void setTakeMax(float takeMax) {
@@ -717,7 +908,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public boolean isCustomInstructions() {
-        return customInstructions;
+        return Boolean.TRUE.equals(customInstructions);
     }
 
     public void setCustomInstructions(boolean customInstructions) {
@@ -750,8 +941,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public Boolean getShortTerm() {
-        if (shortTerm == null) shortTerm = false;
-        return shortTerm;
+        return Boolean.TRUE.equals(shortTerm);
     }
 
     public void setShortTerm(Boolean shortTerm) {
@@ -759,8 +949,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public Boolean isCustomNote() {
-        if (customNote == null) customNote = false;
-        return customNote;
+        return Boolean.TRUE.equals(customNote);
     }
 
     public void setCustomNote(Boolean c) {
@@ -953,7 +1142,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
     }
 
     public boolean getStartDateUnknown() {
-        return startDateUnknown;
+        return Boolean.TRUE.equals(startDateUnknown);
     }
 
     public void setStartDateUnknown(boolean startDateUnknown) {

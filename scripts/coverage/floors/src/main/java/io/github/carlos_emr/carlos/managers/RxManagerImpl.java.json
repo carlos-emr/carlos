@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/managers/RxManagerImpl.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "107af7f3fb27a3b9418dffeaaba302a9acdb02b6"
+  },
+  "evidenceSha256": "a8981effca131d0aa70526a8c18a6832bbbcab90e7a2208950b2a8d625083a64"
+}

@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "6e0b49df0096f2ce297d140e367473b7c7d9ee31",
+  "comparisonSha256": "557a03423263c51a4761295cbfacd815150c1f42571fa5d77382dd05a723c6c2",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "dd2ebe85491a7a0fb7fedfd33bc1ad760915c433"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/to/model/DrugTo1.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "2c9e0914aae7e6d41230470f7344cea02538cc24"
+    }
+  },
+  "exclusions": {},
+  "zeroCoverageWaivers": {},
+  "baselineCommit": "3eac3ceecfa0827e381a7c45647195c7070055ba",
+  "baselineSourceTree": "6e0b49df0096f2ce297d140e367473b7c7d9ee31",
+  "baselineReportSha256": "774bb9a7b7c073368490c9cfb4d60264da3496ebfd46840995f9689f4738aaaa",
+  "baselineLane": "PR 6367 same-product REST, BPMH, legacy DTO and package verification on JDK 25. The merged release package run covered JSON and JAXB replacements, conversion, manager, persistence, medication UI handlers, favourites, PDF and CDS export. Additional Maven Surefire runs exercised the final DTO and original JAXB schema, explicit clinical edits on imported nulls, positive dose-range validation, and PRN administration. The final JavaDoc-only edit was recompiled on JDK 25 with matching Maven compiler flags; javap -c -p confirmed identical executable code. The last run repeated the REST converters, manager, storage, display, error mapping and BPMH fixtures. JaCoCo appended the runs and the Surefire manifest identifies the final result for each suite. The complete release-lane union was not run.",
+  "baselineTestCounts": {
+    "tests": 2007,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "f55f30add61e452b94ba4b3d37a19176ce33e199305ca5c18df5dfbeed01cd53",
+  "baselineTestReportsHashFormat": "SHA-256 of a sha256sum-style manifest of the run's Surefire TEST-*.xml report files: one '<sha256>  <file name>' line each, sorted by name",
+  "baselineTestRunCommit": "3eac3ceecfa0827e381a7c45647195c7070055ba",
+  "baselineAdditionalTestRuns": []
+}

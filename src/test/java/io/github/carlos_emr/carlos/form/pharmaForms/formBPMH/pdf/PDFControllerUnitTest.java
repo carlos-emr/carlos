@@ -202,12 +202,112 @@ class PDFControllerUnitTest {
         try (var pdf = Loader.loadPDF(bytes)) { assertThat(pdf.getNumberOfPages()).isEqualTo(1); }
     }
 
+    @Test
+    void shouldPrintEveryMedicationAndReason_whenRowsOverflowWithoutNotes(@TempDir Path output) throws Exception {
+        byte[] bytes = renderInstructions(output, java.util.Collections.nCopies(25, null), true);
+        String continued = continuationTextAndCheckGeometry(bytes);
+        for (int i = 18; i <= 25; i++) {
+            assertThat(continued).contains("FAKE medication " + i + " 20 mg", "Reason: reason " + i);
+        }
+        assertThat(continued).doesNotContain("null");
+    }
+
+    @Test
+    void shouldKeepEmptyAndShortInstructionCellsOnPageOne_whenOnlyOtherRowFieldsOverflow(@TempDir Path output) throws Exception {
+        BpmhDrug multiReason = new BpmhDrug();
+        multiReason.setWhat("atorvastatin 20 mg tablet");
+        multiReason.setHow("Take 1 tablet daily");
+        multiReason.setWhy("Hyperlipidemia\nCoronary artery disease");
+        multiReason.setInstruction("");
+
+        BpmhDrug taperWithShortNote = new BpmhDrug();
+        taperWithShortNote.setWhat("prednisone 5 mg tablet");
+        taperWithShortNote.setHow("Take 4 tablets daily for 3 days\nThen take 2 tablets daily for 3 days");
+        taperWithShortNote.setWhy("Asthma flare");
+        taperWithShortNote.setInstruction("With food");
+
+        data.setDrugs(new ArrayList<>(List.of(multiReason, taperWithShortNote)));
+        data.setNote("FAKE preserved note");
+        pdfController.setContinueInstructions(true);
+        pdfController.setOutputPath(output.toString());
+        pdfController.writeDataToPDF(data, new String[]{"1"}, "FAKE-UNIT");
+        byte[] bytes = Files.readAllBytes(Path.of(pdfController.getOutputPath()));
+
+        try (var pdf = Loader.loadPDF(bytes)) {
+            assertThat(pdf.getNumberOfPages()).isEqualTo(2);
+            PDFTextStripper first = new PDFTextStripper();
+            first.setEndPage(1);
+            String pageOne = first.getText(pdf);
+            assertThat(pageOne).contains("See #1", "See #2", "With food")
+                    .doesNotContain("See instructions #1")
+                    .doesNotContain("See instructions #2");
+        }
+        String continued = continuationTextAndCheckGeometry(bytes);
+        assertThat(continued).contains("Hyperlipidemia", "Coronary artery disease",
+                "Take 4 tablets daily for 3 days", "Then take 2 tablets daily for 3 days", "With food");
+    }
+
+    @Test
+    void shouldFillRowNineWhyFieldOnPageOne_withoutSpuriousContinuationPage(@TempDir Path output) throws Exception {
+        List<BpmhDrug> drugs = new ArrayList<>();
+        for (int i = 0; i < 9; i++) {
+            BpmhDrug drug = new BpmhDrug();
+            drug.setWhat("Drug " + (i + 1));
+            drug.setHow("Take 1 tab daily\r\n");
+            drug.setWhy("Reason " + (i + 1));
+            drug.setInstruction(i == 0 ? "With food\n" : "");
+            drugs.add(drug);
+        }
+        data.setDrugs(drugs);
+        pdfController.setContinueInstructions(true);
+        pdfController.setOutputPath(output.toString());
+        pdfController.writeDataToPDF(data, new String[]{"1"}, "FAKE-NINE");
+        byte[] bytes = Files.readAllBytes(Path.of(pdfController.getOutputPath()));
+
+        try (var pdf = Loader.loadPDF(bytes)) {
+            assertThat(pdf.getNumberOfPages()).isEqualTo(1);
+            String pageOne = new PDFTextStripper().getText(pdf);
+            assertThat(pageOne).contains("Reason 8", "Reason 9", "With food")
+                    .doesNotContain("See #9");
+        }
+    }
+
+    @Test
+    void shouldMarkRowNineWhyOverflowWithSeeNine_whenRowNineReasonWraps(@TempDir Path output) throws Exception {
+        List<BpmhDrug> drugs = new ArrayList<>();
+        for (int i = 0; i < 9; i++) {
+            BpmhDrug drug = new BpmhDrug();
+            drug.setWhat("Drug " + (i + 1));
+            drug.setHow(i == 0 ? "Take 1 tab\rwith food" : "Take 1 tab daily");
+            drug.setWhy(i == 0 ? "" : (i == 8 ? "Hyperlipidemia\nCoronary artery disease" : "Reason " + (i + 1)));
+            drug.setInstruction("");
+            drugs.add(drug);
+        }
+        drugs.add(null);
+        data.setDrugs(drugs);
+        pdfController.setContinueInstructions(true);
+        pdfController.setOutputPath(output.toString());
+        pdfController.writeDataToPDF(data, new String[]{"1"}, "FAKE-NINE-OVERFLOW");
+        byte[] bytes = Files.readAllBytes(Path.of(pdfController.getOutputPath()));
+
+        try (var pdf = Loader.loadPDF(bytes)) {
+            assertThat(pdf.getNumberOfPages()).isEqualTo(2);
+            PDFTextStripper first = new PDFTextStripper();
+            first.setEndPage(1);
+            assertThat(first.getText(pdf)).contains("Reason 8", "See #9")
+                    .doesNotContain("See instructions #9");
+        }
+        String continued = continuationTextAndCheckGeometry(bytes);
+        assertThat(continued).contains("Instruction #9: Drug 9", "Hyperlipidemia", "Coronary artery disease");
+    }
+
     private byte[] renderInstructions(Path output, List<String> instructions, boolean continueInstructions) throws IOException {
         List<BpmhDrug> drugs = new ArrayList<>();
         for (int i = 0; i < instructions.size(); i++) {
             BpmhDrug drug = new BpmhDrug();
             drug.setWhat("FAKE medication " + (i + 1) + " 20 mg");
             drug.setHow("Take 1 tablet by mouth daily");
+            drug.setWhy("reason " + (i + 1));
             drug.setInstruction(instructions.get(i));
             drugs.add(drug);
         }

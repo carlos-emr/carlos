@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/prescript/util/RxUtil.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "af4525ee6f028751881617bddf107a5bb20c090c"
+  },
+  "evidenceSha256": "fabe9fbd5c0308020792f2eb2cd480c068d8d12d41562a018c86aa3220e54b04"
+}

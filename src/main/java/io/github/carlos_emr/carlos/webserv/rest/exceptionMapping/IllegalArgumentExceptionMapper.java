@@ -22,6 +22,7 @@
 
 package io.github.carlos_emr.carlos.webserv.rest.exceptionMapping;
 
+import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.webserv.rest.response.ErrorResponse;
 import jakarta.ws.rs.core.MediaType;
@@ -39,7 +40,9 @@ public class IllegalArgumentExceptionMapper implements ExceptionMapper<IllegalAr
     @Override
     public Response toResponse(IllegalArgumentException exception) {
         RestErrorDiagnostics.log(logger, Level.WARN, exception);
-        ErrorResponse body = ErrorResponse.of("VALIDATION_ERROR", "One or more request parameters are invalid or malformed.");
+        ErrorResponse body = exception instanceof Drug.InvalidDoseRangeException
+                ? ErrorResponse.of("INVALID_RX_DOSE_RANGE", "Dose bounds must be finite, and a minimum dose cannot exceed a recorded maximum.")
+                : ErrorResponse.of("VALIDATION_ERROR", "One or more request parameters are invalid or malformed.");
         return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON).entity(body).build();
     }
 }

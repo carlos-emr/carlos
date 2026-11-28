@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "5dc15766c2b30fcfddf17ded858db80e85d41fa7",
+  "comparisonSha256": "7a3a22b37bc19843ef9316e09e89551af2fea5a13d2534a5cacd5cb6a4604548",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/prescript/data/RxDrugData.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "2f0d37bdd4c41a840fde996706354b6110825636"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/DoseText.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "512adad8e4f29f7b34ed0ba27786f5c18c24e1f0"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/conversion/DrugConverterImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "d0df27d57556d6f68fe686957d3bc04d287d451d"
+    }
+  },
+  "exclusions": {},
+  "zeroCoverageWaivers": {},
+  "baselineCommit": "10a414bc1fa49856f6c9e94963b1239bf522702e",
+  "baselineSourceTree": "5dc15766c2b30fcfddf17ded858db80e85d41fa7",
+  "baselineReportSha256": "7886afbe38bbe25ec77e499a36418c35fd73f6b5de83fc9777ac08fb5eb339fe",
+  "baselineLane": "PR #6367 (issue #6185), refresh for the 3 Java files review commit 10a414bc1f changed (DoseText, RxDrugData, DrugConverterImpl): complete Java suite (unit and H2 integration tests) with JaCoCo, run locally and not in CI, on PR commit 10a414bc1f, which has release/2026.08 at c9f259f877 merged in. Command: mvn -B -ntp clean test jacoco:report -Dtest.forkCount=2, OpenJDK 25 and Maven 3.9.11 on Ubuntu. Maven reported 44139 tests run, 0 failures, 0 errors, 503 skipped; baselineTestCounts is the total of the run's Surefire XML reports. The rows of these 3 files are measured from that run's jacoco.xml with the checker's own measure(); RxWriteScript2Action keeps evidence 65fb9865 and the other 11 files this PR changes keep evidence 11bccc0a, all unchanged since. No Chromium smoke lane; no zero-floor waiver is added.",
+  "baselineTestCounts": {
+    "tests": 43992,
+    "skipped": 503,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "fea1d63e61b9179930c26828ba0a0cc67e5a052216575070eca0c5585bc0014f",
+  "baselineTestReportsHashFormat": "SHA-256 of a sha256sum-style manifest of the run's Surefire TEST-*.xml report files: one '<sha256>  <file name>' line each, sorted by name",
+  "baselineTestRunCommit": "10a414bc1fa49856f6c9e94963b1239bf522702e",
+  "baselineAdditionalTestRuns": []
+}

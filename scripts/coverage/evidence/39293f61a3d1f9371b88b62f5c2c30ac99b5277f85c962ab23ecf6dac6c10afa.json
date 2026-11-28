@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "0def53c877dc0efb55f54e6c5aec9b60a6ab71b2",
+  "comparisonSha256": "b40135bebc25f8862dd1f1b936e970a79811bc0506fecd2888ac21ad1468b49d",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/prescript/util/DrugStrength.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 97.05882352941177,
+      "sourceBlob": "4a8c2898bcb772ac9d9debb2ed965d16bfaf5872"
+    }
+  },
+  "exclusions": {},
+  "zeroCoverageWaivers": {},
+  "baselineCommit": "6d3b595ab9b9eacf122580167f7268eff8eb3701",
+  "baselineSourceTree": "0def53c877dc0efb55f54e6c5aec9b60a6ab71b2",
+  "baselineReportSha256": "6a823a4d1448f6cfd7faf09bbda6c64ea94bd0b117b0c660af072f228f8232c6",
+  "baselineLane": "PR 6367 focused DrugConverter, FavoriteConverterQuantity and RxManager tests. DrugStrength and its associated test were compiled on JDK 25 with release 25, debug and method parameter metadata. The Surefire invocation ran 218 cases without failures, errors or skips. These final report digests identify the matching suites.",
+  "baselineTestCounts": {
+    "tests": 216,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "40f872cede75db3d0ee153ef21be912d46275d4ab157f1586ae54f116546f15c",
+  "baselineTestReportsHashFormat": "SHA-256 of a sha256sum-style manifest of the run's Surefire TEST-*.xml report files: one '<sha256>  <file name>' line each, sorted by name",
+  "baselineTestRunCommit": "6d3b595ab9b9eacf122580167f7268eff8eb3701",
+  "baselineAdditionalTestRuns": []
+}

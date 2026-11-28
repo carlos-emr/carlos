@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "3bf188472519b8d741f641ea1fa70f31ab1f9c0f",
+  "comparisonSha256": "6846f8472edee60c767c1794776ad5774a8e2370701d3c30a7229e7865d27304",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "0dd2fb79a79f5e4652ae7ce0a2ead9d653dfa353"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDrugReferenceLookupService.java": {
+      "lines": 93.47826086956522,
+      "instructions": 94.14634146341463,
+      "branches": 84.21052631578948,
+      "sourceBlob": "cd0bcef37f88bc06788981d160b22d4f6a9b8286"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportMedicationMapper.java": {
+      "lines": 97.26027397260275,
+      "instructions": 97.99196787148594,
+      "branches": 87.58620689655173,
+      "sourceBlob": "b8e11c9b918db59847cb132011f55fe86681a7d7"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/pageUtil/DemographicExportAction42Action.java": {
+      "lines": 1.6216216216216217,
+      "instructions": 1.5873015873015872,
+      "branches": 0.0,
+      "sourceBlob": "bac41e09786607afe54ffe3cece00d113652d921"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/pharmaForms/formBPMH/bean/BpmhDrug.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "cefc914273a864f64d9d8bbf7f6986f0ea741ccf"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/pharmaForms/formBPMH/business/BpmhForm2Handler.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "db217886c93273f304fa5b8729717119215010e2"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/RxManagerImpl.java": {
+      "lines": 100.0,
+      "instructions": 93.80530973451327,
+      "branches": 90.625,
+      "sourceBlob": "11a3555ba0b5a3bef4b76e0a12d1ae44a9b2c069"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/data/RxDrugData.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "e9a3955fb6843b73d7cb7557bfc2da7136c61052"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/data/RxPrescriptionData.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "1d0013ea2076996632e195294894548212e731db"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/data/UniqueMedicationList.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "51736ba7342bb8fe9fb936c9bd6fde32db5965ba"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/pageUtil/RxWriteScript2Action.java": {
+      "lines": 88.4297520661157,
+      "instructions": 86.73312883435582,
+      "branches": 78.4090909090909,
+      "sourceBlob": "58ee0a438f944b812852d1c91d4bc94ea8d64d74"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/util/RxUtil.java": {
+      "lines": 92.3076923076923,
+      "instructions": 90.0990099009901,
+      "branches": 100.0,
+      "sourceBlob": "6016840b19269c1cd57590b04cbd32830797a593"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/DoseText.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "69e4e9b260da21509afbee03470f27af4db91120"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/conversion/DrugConverterImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "795ba3582e763a3db43f62cab0aad3d420e0f41e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/conversion/FavoriteConverterImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "d8dd60a8b5e31544a811a5d5367c79427fdb973b"
+    }
+  },
+  "exclusions": {},
+  "zeroCoverageWaivers": {},
+  "baselineCommit": "20391977742c0e80ce89eb597d02f1708b9d7859",
+  "baselineSourceTree": "3bf188472519b8d741f641ea1fa70f31ab1f9c0f",
+  "baselineReportSha256": "36d5e9e8e518f52507f0978d79d14784ec35fc24bf290c382c472c7c3497b3dc",
+  "baselineLane": "PR #6367 (issue #6185): complete Java suite (unit and H2 integration tests) with JaCoCo, run locally and not in CI, on this PR commit 2039197774, which has release/2026.08 at c9f259f877 merged in. Command: mvn -B -ntp clean test jacoco:report -Dtest.forkCount=2, OpenJDK 25 and Maven 3.9.11 on Ubuntu. Maven reported 44069 tests run, 0 failures, 0 errors, 503 skipped; baselineTestCounts is the total of the run's Surefire XML reports. The rows of the 15 Java files this PR changes are measured from that run's jacoco.xml with the checker's own measure(). DemographicExportAction42Action cannot be instrumented by JaCoCo (method too large), so its row counts only the lines of its other classes. No Chromium smoke lane; no zero-floor waiver is added.",
+  "baselineTestCounts": {
+    "tests": 43922,
+    "skipped": 503,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "92a39c1d4c8972a1ebb7eb77222a2efaaae312eff1f7c9e6886a0b604e7a9e78",
+  "baselineTestReportsHashFormat": "SHA-256 of a sha256sum-style manifest of the run's Surefire TEST-*.xml report files: one '<sha256>  <file name>' line each, sorted by name",
+  "baselineTestRunCommit": "20391977742c0e80ce89eb597d02f1708b9d7859",
+  "baselineAdditionalTestRuns": []
+}

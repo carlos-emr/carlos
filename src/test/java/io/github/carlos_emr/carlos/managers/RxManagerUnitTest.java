@@ -35,6 +35,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import io.github.carlos_emr.carlos.commn.dao.DrugDaoImpl;
@@ -239,6 +240,428 @@ class RxManagerUnitTest extends RxManagerImpl {
             assertThat(mergedDrug.getArchivedReason()).isEqualTo("represcribed");
         }
 
+        /**
+         * The REST transfer object carries the quantity as a whole number, so a stored "2.5" (of
+         * 2.5 mL) reaches the client as no quantity. A replacement that states none keeps the
+         * stored amount and its unit instead of dropping them (#6185).
+         */
+        @ParameterizedTest(name = "stored quantity \"{0}\" {1}")
+        @CsvSource(nullValues = "NULL", value = {"2.5, mL", "0.5, mL", "100 mL, NULL"})
+        @DisplayName("should keep a stored quantity the transfer object cannot carry when the replacement states none")
+        void shouldKeepStoredQuantity_whenReplacementStatesNoneAndStoredIsNotWhole(String quantity, String unitName) {
+            Drug stored = new Drug(); stored.setId(4); stored.setDemographicId(1);
+            stored.setGenericName("ASA"); stored.setQuantity(quantity); stored.setUnitName(unitName);
+            ((MockDrugDao) drugDao).seed(stored);
+            Drug incoming = new Drug(); incoming.setId(4); incoming.setDemographicId(1);
+            incoming.setGenericName("ASA");
+
+            Drug replacement = updateDrug(new LoggedInInfo(), incoming);
+
+            assertThat(replacement.getQuantity()).isEqualTo(quantity);
+            assertThat(replacement.getUnitName()).isEqualTo(unitName);
+        }
+
+        @ParameterizedTest
+        @CsvSource(nullValues = "NULL", value = {
+                "30.0,mL,,mL", "30,mL,,mL", "030,mL,,mL", "2.5,mL,,mL", "100 mL,mL,,mL",
+                "30,mL,60,mL", "2.5,mL,60,mL", "2.5 mL,NULL,60,mL", "1 bottle (120 mL),NULL,2,bottle (120 mL)",
+                "3e1,NULL,60,NULL", "NULL,NULL,60,NULL", "-2.5,NULL,60,NULL", "+2.5,NULL,60,NULL"
+        })
+        void shouldKeepDispenseUnit_whenRestEditsSameProduct(String quantity, String unitName, Integer submittedQuantity,
+                                                           String expectedUnit) throws Exception {
+            Drug stored = new Drug();
+            stored.setId(4);
+            stored.setDemographicId(1);
+            stored.setGenericName("ASA");
+            stored.setProviderNo("999001");
+            stored.setQuantity(quantity);
+            stored.setUnitName(unitName);
+            ((MockDrugDao) drugDao).seed(stored);
+            var converter = new io.github.carlos_emr.carlos.webserv.rest.conversion.DrugConverterImpl();
+            LoggedInInfo info = new LoggedInInfo();
+            var dto = converter.getAsTransferObject(info, stored);
+            if (submittedQuantity == null) {
+                dto.setExternalProvider("Changed provider");
+            } else {
+                dto.setQuantity(submittedQuantity);
+            }
+            Drug replacement = updateDrug(info, converter.getAsDomainObject(info, dto));
+            assertThat(replacement.getQuantity()).isEqualTo(submittedQuantity == null ? quantity : submittedQuantity.toString());
+            assertThat(replacement.getUnitName()).isEqualTo(expectedUnit);
+            assertThat(stored.getQuantity()).isEqualTo(quantity);
+            assertThat(stored.getUnitName()).isEqualTo(unitName);
+        }
+
+        @ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(strings = {
+                "1/2 mL", "one bottle", "1 and 1/2 tablets", "1 to 2 bottles",
+                "2 x 100 mL", "2x100 mL", "1 or 2 boxes", "1 \u00E0 2 flacons",
+                "1 tab to 2 tabs", "1 bottle + 1 dropper", "30 tablets / 30 days",
+                "1 (120 mL)", "1 bottle (120 mL", "1 bottle (large)", "1 bottle (120)",
+                "1 bottle (dispense in child-resistant amber glass container with oral syringe)"
+        })
+        void shouldKeepOriginalPrescription_whenRestCannotRecoverTheDispenseUnit(String quantity) throws Exception {
+            Drug stored = new Drug();
+            stored.setId(4);
+            stored.setDemographicId(1);
+            stored.setGenericName("Synthetic product");
+            stored.setQuantity(quantity);
+            ((MockDrugDao) drugDao).seed(stored);
+            var converter = new io.github.carlos_emr.carlos.webserv.rest.conversion.DrugConverterImpl();
+            var info = new LoggedInInfo();
+            var dto = converter.getAsTransferObject(info, stored);
+            dto.setQuantity(60);
+            Drug incoming = converter.getAsDomainObject(info, dto);
+
+            assertThatThrownBy(() -> updateDrug(info, incoming))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("The stored dispense unit could not be determined");
+            assertThat(stored.getQuantity()).isEqualTo(quantity);
+            assertThat(stored.isArchived()).isFalse();
+        }
+
+        @Test
+        void shouldPreserveStoredUnit_whenSameProductUpdateHasNullDosage() throws Exception {
+            Drug stored = new Drug();
+            stored.setId(4);
+            stored.setDemographicId(1);
+            stored.setCustomName("Compounded Suspension");
+            stored.setGenericName("ASA");
+            stored.setDosage(null);
+            stored.setUnit("mL");
+            stored.setTakeMin(5f);
+            stored.setTakeMax(5f);
+            stored.setProviderNo("999001");
+            ((MockDrugDao) drugDao).seed(stored);
+            var converter = new io.github.carlos_emr.carlos.webserv.rest.conversion.DrugConverterImpl();
+            var info = new LoggedInInfo();
+            var dto = converter.getAsTransferObject(info, stored);
+            dto.setRepeats(2);
+
+            Drug replacement = updateDrug(info, converter.getAsDomainObject(info, dto));
+
+            assertThat(replacement.getDosage()).isNull();
+            assertThat(replacement.getUnit()).isEqualTo("mL");
+
+            Drug withNewUnit = converter.getAsDomainObject(info, dto);
+            withNewUnit.setUnit("mg");
+            withNewUnit.preserveUnchangedMedicationValues(stored);
+            assertThat(withNewUnit.getUnit()).isEqualTo("mg");
+
+            Drug withNewDosage = converter.getAsDomainObject(info, dto);
+            withNewDosage.setDosage("5 mg");
+            withNewDosage.preserveUnchangedMedicationValues(stored);
+            assertThat(withNewDosage.getDosage()).isEqualTo("5 mg");
+            assertThat(withNewDosage.getUnit()).isNull();
+
+            assertThat(Drug.isEmbeddedDispenseUnit(null)).isFalse();
+            assertThat(Drug.isEmbeddedDispenseUnit("")).isFalse();
+            assertThat(Drug.isEmbeddedDispenseUnit("   ")).isFalse();
+            assertThat(Drug.isEmbeddedDispenseUnit("bottle (120 mL")).isFalse();
+            assertThat(Drug.isEmbeddedDispenseUnit("bottle 120 mL)")).isFalse();
+            assertThat(Drug.isEmbeddedDispenseUnit("bottle (120)")).isFalse();
+            assertThat(Drug.isEmbeddedDispenseUnit("bottle (120 mL/hr)")).isFalse();
+        }
+
+        @ParameterizedTest
+        @CsvSource({"111,tab,false", "222,mL,false", "111,tab,true"})
+        void shouldKeepSubmittedQuantity_whenUnitOrProductChanges(String productId, String unit, boolean quantitySubmitted) {
+            Drug source = new Drug();
+            source.setId(4);
+            source.setDemographicId(1);
+            source.setGenericName("ASA");
+            source.setRegionalIdentifier("111");
+            source.setQuantity("30.0");
+            source.setUnitName("mL");
+            ((MockDrugDao) drugDao).seed(source);
+            Drug changed = new Drug();
+            changed.setId(4);
+            changed.setDemographicId(1);
+            changed.setGenericName("ASA");
+            changed.setRegionalIdentifier(productId);
+            changed.setQuantity("30");
+            changed.setUnitName(unit);
+            if (quantitySubmitted) changed.recordRestFieldPresence(true, true, true);
+            Drug replacement = updateDrug(new LoggedInInfo(), changed);
+            assertThat(replacement.getQuantity()).isEqualTo("30");
+            assertThat(replacement.getUnitName()).isEqualTo(unit);
+        }
+
+        @Test
+        @DisplayName("should take the quantity the replacement states")
+        void shouldTakeReplacementQuantity_whenReplacementStatesOne() {
+            Drug stored = new Drug(); stored.setId(4); stored.setDemographicId(1);
+            stored.setGenericName("ASA"); stored.setQuantity("2.5"); stored.setUnitName("mL");
+            ((MockDrugDao) drugDao).seed(stored);
+            Drug incoming = new Drug(); incoming.setId(4); incoming.setDemographicId(1);
+            incoming.setGenericName("ASA"); incoming.setQuantity("30");
+
+            Drug replacement = updateDrug(new LoggedInInfo(), incoming);
+
+            assertThat(replacement.getQuantity()).isEqualTo("30");
+            assertThat(replacement.getUnitName()).isNull();
+        }
+
+        @ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(strings = {"brand", "generic", "custom", "form"})
+        void shouldKeepNewClinicalValues_whenAProductDescriptorChanges(String descriptor) {
+            Drug source = new Drug();
+            source.setQuantity("30.0");
+            Drug edited = new Drug();
+            edited.recordRestFieldPresence(false, false, false);
+            switch (descriptor) {
+                case "brand" -> edited.setBrandName("new brand");
+                case "generic" -> edited.setGenericName("new generic");
+                case "custom" -> edited.setCustomName("new custom drug");
+                case "form" -> edited.setDrugForm("new form");
+                default -> throw new AssertionError(descriptor);
+            }
+            edited.preserveUnchangedMedicationValues(source);
+            assertThat(edited.getQuantity()).isNull();
+        }
+
+        @Test
+        void shouldKeepRecordedBoundsAndQuantity_whenConvertingTheStagedPrescription() {
+            var staged = new io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.Prescription(44, "999001", 1);
+            staged.setTakeMin(0.33333334f);
+            staged.setTakeMax(1f);
+            staged.setQuantity("30.0");
+            Drug drug = new Drug(staged);
+            assertThat(drug.getTakeMin()).isEqualTo(0.33333334f);
+            assertThat(drug.getTakeMax()).isEqualTo(1f);
+            assertThat(drug.getQuantity()).isEqualTo("30.0");
+        }
+
+        @ParameterizedTest
+        @CsvSource(nullValues = "omitted", value = {
+                "1,3,5,omitted", "1,3,omitted,0.5", "5,3,5,2", "1,3,NaN,omitted", "1,3,omitted,Infinity",
+                "1,3,-10,2", "1,3,500,-5", "1,3,-1,omitted", "1,3,omitted,-1"
+        })
+        void shouldRefuseInvalidCombinedDoseBeforeArchiving(float oldMin, float oldMax, Float minimum, Float maximum) {
+            Drug stored = new Drug();
+            stored.setId(4);
+            stored.setDemographicId(1);
+            stored.setGenericName("ASA");
+            stored.setTakeMin(oldMin);
+            stored.setTakeMax(oldMax);
+            ((MockDrugDao) drugDao).seed(stored);
+            Drug edited = new Drug();
+            edited.setId(4);
+            edited.setDemographicId(1);
+            edited.setGenericName("ASA");
+            edited.recordRestFieldPresence(false, minimum != null, maximum != null);
+            if (minimum != null) edited.setTakeMin(minimum);
+            if (maximum != null) edited.setTakeMax(maximum);
+            assertThatThrownBy(() -> updateDrug(new LoggedInInfo(), edited))
+                    .isInstanceOf(Drug.InvalidDoseRangeException.class);
+            assertThat(stored.isArchived()).isFalse();
+            assertThat(stored.getTakeMin()).isEqualTo(oldMin);
+            assertThat(stored.getTakeMax()).isEqualTo(oldMax);
+            assertThat(addNewDrugCallCount).isZero();
+        }
+
+        @Test
+        void shouldAllowAnUnchangedHistoricalRangeOnlyForTheSameProduct() {
+            Drug stored = new Drug();
+            stored.setTakeMin(5);
+            stored.setTakeMax(3);
+            Drug echo = new Drug();
+            echo.setDemographicId(1);
+            echo.recordRestFieldPresence(false, false, false);
+            echo.preserveUnchangedMedicationValues(stored);
+            echo.requireValidRestDoseRange(stored);
+            assertThat(echo.getTakeMin()).isEqualTo(5f);
+            assertThat(echo.getTakeMax()).isEqualTo(3f);
+            echo.setRegionalIdentifier("new DIN");
+            assertThatThrownBy(() -> echo.requireValidRestDoseRange(stored)).isInstanceOf(Drug.InvalidDoseRangeException.class);
+            assertThatThrownBy(() -> addDrug(new LoggedInInfo(), echo)).isInstanceOf(Drug.InvalidDoseRangeException.class);
+
+            Drug negativeNew = new Drug();
+            negativeNew.setDemographicId(1);
+            negativeNew.setTakeMin(-10f);
+            negativeNew.setTakeMax(2f);
+            negativeNew.recordRestFieldPresence(false, true, true);
+            assertThatThrownBy(() -> addDrug(new LoggedInInfo(), negativeNew)).isInstanceOf(Drug.InvalidDoseRangeException.class);
+        }
+
+        @Test
+        void shouldKeepNewCatalogId_whenNativeCallerSelectsADifferentProductWithTheSameName() {
+            Drug source = new Drug();
+            source.setGcnSeqNo("01");
+            source.setGenericName("ASA");
+            source.setDosage("old catalog strength");
+            Drug changed = new Drug();
+            changed.setGcnSeqNo("02");
+            changed.setGenericName("ASA");
+            changed.preserveUnchangedMedicationValues(source);
+            assertThat(changed.getGcnSeqNo()).isEqualTo("02");
+            assertThat(changed.getDosage()).isNull();
+        }
+
+        @ParameterizedTest
+        @CsvSource({
+                "json, omitted", "xml, omitted", "json, clear", "json, zero", "xml, zero",
+                "json, differentProduct", "xml, differentProduct"
+        })
+        void shouldRespectSubmittedMedicationFieldsOnTheWire(String format, String change) throws Exception {
+            Drug stored = new Drug();
+            stored.setId(4);
+            stored.setDemographicId(1);
+            stored.setGenericName("ASA");
+            stored.setRegionalIdentifier("111");
+            stored.setGcnSeqNo("001234");
+            stored.setQuantity("30.0");
+            stored.setUnitName("mL");
+            stored.setTakeMin(0.33333334f);
+            stored.setTakeMax(3f);
+            ((MockDrugDao) drugDao).seed(stored);
+
+            String product = "differentProduct".equals(change) ? "222" : "111";
+            var type = io.github.carlos_emr.carlos.webserv.rest.to.model.DrugTo1.class;
+            io.github.carlos_emr.carlos.webserv.rest.to.model.DrugTo1 dto;
+            if ("json".equals(format)) {
+                String changes = switch (change) {
+                    case "clear" -> ",\"quantity\":null";
+                    case "zero" -> ",\"takeMin\":0,\"quantity\":5";
+                    default -> "";
+                };
+                dto = new com.fasterxml.jackson.databind.ObjectMapper().readValue(
+                        "{\"drugId\":4,\"demographicNo\":1,\"archived\":false,\"prn\":false,\"providerNo\":\"999001\",\"genericName\":\"ASA\",\"regionalIdentifier\":\"" + product + "\"" + changes + "}", type);
+            } else {
+                String changes = "zero".equals(change) ? "<takeMin>0</takeMin><quantity>5</quantity>" : "";
+                String xml = "<drug><drugId>4</drugId><demographicNo>1</demographicNo><archived>false</archived><prn>false</prn><providerNo>999001</providerNo>"
+                        + "<genericName>ASA</genericName><regionalIdentifier>" + product + "</regionalIdentifier>" + changes + "</drug>";
+                dto = type.cast(jakarta.xml.bind.JAXBContext.newInstance(type).createUnmarshaller()
+                        .unmarshal(new java.io.StringReader(xml)));
+            }
+            var converter = new io.github.carlos_emr.carlos.webserv.rest.conversion.DrugConverterImpl();
+            var info = new LoggedInInfo();
+            Drug replacement = updateDrug(info, converter.getAsDomainObject(info, dto));
+            boolean changedProduct = "differentProduct".equals(change);
+            assertThat(replacement.getGcnSeqNo()).isEqualTo(changedProduct ? "0" : "001234");
+            if ("omitted".equals(change)) {
+                assertThat(replacement.getQuantity()).isEqualTo("30.0");
+                assertThat(replacement.getUnitName()).isEqualTo("mL");
+            } else if ("zero".equals(change)) {
+                assertThat(replacement.getQuantity()).isEqualTo("5");
+                assertThat(replacement.getUnitName()).isEqualTo("mL");
+            } else {
+                assertThat(replacement.getQuantity()).isNull();
+                assertThat(replacement.getUnitName()).isNull();
+            }
+            assertThat(replacement.getTakeMin()).isEqualTo(changedProduct || "zero".equals(change) ? 0f : 0.33333334f);
+            assertThat(replacement.getTakeMax()).isEqualTo(changedProduct ? 0f : 3f);
+            assertThat(stored.getGcnSeqNo()).isEqualTo("001234");
+            assertThat(stored.getQuantity()).isEqualTo("30.0");
+        }
+
+        @Test
+        @DisplayName("should leave the quantity out when the client could see the stored whole number and sent none")
+        void shouldLeaveQuantityOut_whenStoredQuantityIsWholeAndReplacementStatesNone() {
+            Drug stored = new Drug(); stored.setId(4); stored.setDemographicId(1);
+            stored.setGenericName("ASA"); stored.setQuantity("30");
+            ((MockDrugDao) drugDao).seed(stored);
+            Drug incoming = new Drug(); incoming.setId(4); incoming.setDemographicId(1);
+            incoming.setGenericName("ASA");
+
+            Drug replacement = updateDrug(new LoggedInInfo(), incoming);
+
+            assertThat(replacement.getQuantity()).isNull();
+        }
+
+        @ParameterizedTest
+        @CsvSource(nullValues = "NULL", value = {
+                "5 mg / 20 mg, 5 mg",
+                "250 mg / 5 mL, 250 mg / 5 mL",
+                "'1,000 mg', NULL",
+                "0.123456789 mg, 0.12345679 mg"
+        })
+        void shouldKeepStoredDosage_whenReplacementEchoesTheRestProjection(String dosage, String postedDosage) {
+            Drug stored = new Drug();
+            stored.setId(4);
+            stored.setDemographicId(1);
+            stored.setGenericName("ASA");
+            stored.setDosage(dosage);
+            stored.setUnit("stored unit");
+            ((MockDrugDao) drugDao).seed(stored);
+            Drug incoming = new Drug();
+            incoming.setId(4);
+            incoming.setDemographicId(1);
+            incoming.setGenericName("ASA");
+            incoming.setDosage(postedDosage);
+
+            Drug replacement = updateDrug(new LoggedInInfo(), incoming);
+
+            assertThat(replacement.getDosage()).isEqualTo(dosage);
+            assertThat(replacement.getUnit()).isEqualTo("stored unit");
+        }
+
+        @ParameterizedTest
+        @CsvSource({"mg/5 mL, 250.0 mg/5 mL", "mg, 250 mg"})
+        void shouldSaveTheSubmittedUnit_whenAConcentrationIsEchoedOrChanged(String submittedUnit, String expectedDosage) {
+            Drug source = new Drug();
+            source.setId(4);
+            source.setDemographicId(1);
+            source.setGenericName("ASA");
+            source.setDosage("250.0 mg/5 mL");
+            source.setUnit("mg/5 mL");
+            ((MockDrugDao) drugDao).seed(source);
+
+            var converter = new io.github.carlos_emr.carlos.webserv.rest.conversion.DrugConverterImpl();
+            var info = new LoggedInInfo();
+            var dto = converter.getAsTransferObject(info, source);
+            assertThat(dto.getStrengthUnit()).isEqualTo("mg/5 mL");
+            dto.setStrengthUnit(submittedUnit);
+            Drug replacement = updateDrug(info, converter.getAsDomainObject(info, dto));
+
+            assertThat(replacement.getDosage()).isEqualTo(expectedDosage);
+            assertThat(replacement.getUnit()).isEqualTo(submittedUnit);
+        }
+
+        @ParameterizedTest
+        @CsvSource({"12345, 10 mg", "67890, 5 mg"})
+        void shouldTakeReplacementDosage_whenStrengthOrProductChanges(String regionalIdentifier, String dosage) {
+            Drug stored = new Drug();
+            stored.setId(4);
+            stored.setDemographicId(1);
+            stored.setGenericName("ASA");
+            stored.setRegionalIdentifier("12345");
+            stored.setDosage("5 mg / 20 mg");
+            ((MockDrugDao) drugDao).seed(stored);
+            Drug incoming = new Drug();
+            incoming.setId(4);
+            incoming.setDemographicId(1);
+            incoming.setGenericName("ASA");
+            incoming.setRegionalIdentifier(regionalIdentifier);
+            incoming.setDosage(dosage);
+
+            Drug replacement = updateDrug(new LoggedInInfo(), incoming);
+
+            assertThat(replacement.getDosage()).isEqualTo(dosage);
+        }
+
+        @Test
+        void shouldLeaveStrengthMissing_whenRestChangesProductAndOmitsStrength() throws Exception {
+            Drug source = new Drug();
+            source.setId(4);
+            source.setDemographicId(1);
+            source.setProviderNo("999001");
+            source.setGenericName("ASA");
+            source.setRegionalIdentifier("111");
+            source.setDosage("5 mg / 20 mg");
+            ((MockDrugDao) drugDao).seed(source);
+            var converter = new io.github.carlos_emr.carlos.webserv.rest.conversion.DrugConverterImpl();
+            var info = new LoggedInInfo();
+            var dto = converter.getAsTransferObject(info, source);
+            dto.setRegionalIdentifier("222");
+            dto.setStrength(null);
+            dto.setStrengthUnit(null);
+            Drug updated = updateDrug(info, converter.getAsDomainObject(info, dto));
+            assertThat(updated.getDosage()).isNull();
+            assertThat(updated.getUnit()).isNull();
+            assertThat(source.getDosage()).isEqualTo("5 mg / 20 mg");
+        }
+
         @Test
         @DisplayName("should return null when add fails")
         void shouldReturnNull_whenAddFails() {
@@ -346,6 +769,33 @@ class RxManagerUnitTest extends RxManagerImpl {
             assertThat(pd).isNotNull();
             assertThat(pd.drugs).hasSize(1);
             assertThat(pd.prescription).isNotNull();
+        }
+
+        @Test
+        void shouldReadTheRetainedMedicationForItsOwningPatient() {
+            Drug stored = createTestDrug();
+            stored.setId(44);
+            ((MockDrugDao) drugDao).seed(stored);
+            assertThat(getDrug(new LoggedInInfo(), 44)).isSameAs(stored);
+        }
+
+        @Test
+        void shouldLeaveMedicationUnwritten_whenThePrescriptionHeaderCannotBeCreated() {
+            var info = new LoggedInInfo();
+            var drugs = java.util.List.of(createTestDrug());
+            assertThat(prescribe(info, drugs, null)).isNull();
+            prescriptionManager = org.mockito.Mockito.mock(PrescriptionManager.class);
+            assertThatThrownBy(() -> prescribe(info, drugs, 1)).isInstanceOf(PrescriptionWriteException.class);
+            assertThat(addNewDrugCallCount).isZero();
+        }
+
+        @Test
+        void shouldAcceptLegacyZeroIdForANewPrescription() {
+            Drug drug = createTestDrug();
+            drug.setId(0);
+            var result = prescribe(new LoggedInInfo(), java.util.List.of(drug), 1);
+            assertThat(result.drugs).hasSize(1);
+            assertThat(result.drugs.getFirst().getId()).isPositive();
         }
 
         @Test
