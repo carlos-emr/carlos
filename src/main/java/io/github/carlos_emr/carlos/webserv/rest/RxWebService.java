@@ -385,6 +385,7 @@ public class RxWebService extends AbstractServiceImpl {
      * has the effect of:
      * a) setting the drug with transferObject.drugId to archived;
      * b) making a new entry that contains data from the transferObject.
+     * The replacement must supply both the archived and prn flags.
      *
      * @param transferObject the data to make the update based on.
      * @param demographicNo  the demographic this drug is for.
@@ -411,6 +412,18 @@ public class RxWebService extends AbstractServiceImpl {
         // determine if the user has privileges to view this data.
         if (!securityInfoManager.hasPrivilege(info, "_rx", "w", demographicNo)) {
             throw new AccessDeniedException("_rx", "w", demographicNo);
+        }
+
+        List<String> missingFields = new ArrayList<>(2);
+        if (transferObject == null || transferObject.isArchived() == null) {
+            missingFields.add("archived");
+        }
+        if (transferObject == null || transferObject.isPrn() == null) {
+            missingFields.add("prn");
+        }
+        if (!missingFields.isEmpty()) {
+            resp.setMessage("Missing required boolean fields: " + String.join(", ", missingFields));
+            throw new BadRequestException(Response.status(Status.BAD_REQUEST).entity(resp).build());
         }
 
         Drug incomingDrug;

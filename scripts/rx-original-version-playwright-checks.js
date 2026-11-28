@@ -65,7 +65,26 @@ async function workflow(s) {
     h.assert(Number.isSafeInteger(original.rowVersion),'The requested original version was omitted');
     const csrf=await first.locator('input[name="CSRF-TOKEN"]').first().inputValue();
     const url=`${config.baseUrl}/ws/rs/rx/update?demographicNo=${patient}&includeRowVersion=true`;
-    const post=form=>s.context.request.post(url,{data:{...original,form},headers:{Accept:'application/json','CSRF-TOKEN':csrf,'X-Requested-With':'XMLHttpRequest'}});
+    const headers={Accept:'application/json','CSRF-TOKEN':csrf,'X-Requested-With':'XMLHttpRequest'};
+    const invalidJson=await s.context.request.post(url,{
+      data:{...original,archived:undefined,prn:undefined},headers});
+    h.assert(invalidJson.status()===400,'The installed REST endpoint accepted missing JSON flags');
+    const jsonError=await invalidJson.json();
+    h.assert(jsonError.success===false&&jsonError.message==='Missing required boolean fields: archived, prn',
+      'The JSON response did not identify both missing flags');
+
+    const invalidXml=await s.context.request.post(url,{
+      data:`<drug><drugId>${drug}</drugId><archived>false</archived></drug>`,
+      headers:{...headers,Accept:'application/xml','Content-Type':'application/xml'}});
+    h.assert(invalidXml.status()===400,'The installed REST endpoint accepted a missing XML flag');
+    h.assert((await invalidXml.text()).includes('<message>Missing required boolean fields: prn</message>'),
+      'The XML response did not identify the missing flag');
+    h.assert(sql.value(`SELECT archived FROM drugs WHERE drugid=${drug}`)==='0',
+      'A rejected replacement archived the original medication');
+    h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient} AND customName=${q(marker+' version')}`)==='1',
+      'A rejected request created a replacement medication');
+
+    const post=form=>s.context.request.post(url,{data:{...original,form},headers});
     const saved=await post('Cream');
     const ack=await saved.json();
     h.assert(saved.status()===200&&ack.success===true&&ack.drug.drugId!==original.drugId&&Number.isSafeInteger(ack.drug.rowVersion),'The version-aware update did not return the replacement identity and version');

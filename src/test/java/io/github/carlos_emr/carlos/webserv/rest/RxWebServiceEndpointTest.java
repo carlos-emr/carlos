@@ -24,11 +24,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Stream;
 
+import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -36,6 +39,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.Mock;
 
 import io.github.carlos_emr.carlos.commn.model.Drug;
@@ -45,10 +51,12 @@ import io.github.carlos_emr.carlos.managers.PrescriptionManager;
 import io.github.carlos_emr.carlos.managers.RxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosRestTestBase;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.DrugConverter;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.FavoriteConverter;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.PrescriptionConverter;
+import io.github.carlos_emr.carlos.webserv.rest.to.DrugResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DrugTo1;
 import io.github.carlos_emr.carlos.webserv.rest.util.AccessDeniedExceptionMapper;
 
@@ -92,6 +100,8 @@ class RxWebServiceEndpointTest extends CarlosRestTestBase {
         DrugTo1 drug = new DrugTo1();
         drug.setDrugId(1);
         drug.setBrandName("Aspirin");
+        drug.setArchived(false);
+        drug.setPrn(false);
         return drug;
     }
 
@@ -141,6 +151,75 @@ class RxWebServiceEndpointTest extends CarlosRestTestBase {
                 .post(jakarta.ws.rs.client.Entity.json(aspirinTransfer()))) {
             assertThat(response.getStatus()).isEqualTo(409);
             assertThat(responseJson(response).at("/error").asText()).isEqualTo("RX_SOURCE_CHANGED");
+        }
+    }
+
+    private static Stream<Arguments> replacementsWithoutRequiredFlags() {
+        return Stream.of(
+                Arguments.of(MediaType.APPLICATION_JSON, """
+                        {"instructions":"synthetic private text"}
+                        """, "archived, prn"),
+                Arguments.of(MediaType.APPLICATION_JSON, """
+                        {"archived":false}
+                        """, "prn"),
+                Arguments.of(MediaType.APPLICATION_JSON, """
+                        {"prn":false}
+                        """, "archived"),
+                Arguments.of(MediaType.APPLICATION_JSON, """
+                        {"archived":null,"prn":true}
+                        """, "archived"),
+                Arguments.of(MediaType.APPLICATION_XML,
+                        "<drug><instructions>synthetic private text</instructions></drug>", "archived, prn"),
+                Arguments.of(MediaType.APPLICATION_XML, "<drug><archived>false</archived></drug>", "prn"),
+                Arguments.of(MediaType.APPLICATION_XML, "<drug><prn>false</prn></drug>", "archived"));
+    }
+
+    @ParameterizedTest
+    @MethodSource("replacementsWithoutRequiredFlags")
+    void shouldRejectUpdateBeforeConversion_whenRequiredFlagsAreMissing(String mediaType, String body, String fields) {
+        try (LogCapture logs = LogCapture.forLogger(RxWebService.class);
+             Response response = request().path("/rx/update").query("demographicNo", "100")
+                     .type(mediaType).accept(mediaType).post(body)) {
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(response.getMediaType().isCompatible(MediaType.valueOf(mediaType))).isTrue();
+            DrugResponse failure = response.readEntity(DrugResponse.class);
+            assertThat(failure.isSuccess()).isFalse();
+            assertThat(failure.getMessage()).isEqualTo("Missing required boolean fields: " + fields);
+            assertThat(failure.getDrug()).isNull();
+            assertThat(logs.events()).isEmpty();
+        }
+        verifyNoInteractions(mockDrugConverter, mockRxManager);
+    }
+
+    private static Stream<Arguments> replacementsWithRequiredFlags() {
+        return Stream.of(
+                Arguments.of(MediaType.APPLICATION_JSON, """
+                        {"drugId":1,"archived":false,"prn":true}
+                        """),
+                Arguments.of(MediaType.APPLICATION_XML,
+                        "<drug><drugId>1</drugId><archived>false</archived><prn>true</prn></drug>"));
+    }
+
+    @ParameterizedTest
+    @MethodSource("replacementsWithRequiredFlags")
+    void shouldPassExplicitBooleanFlagsToConversion_whenReplacingAMedication(String mediaType, String body) throws Exception {
+        Drug replacement = new Drug();
+        when(mockDrugConverter.getAsDomainObject(any(), any())).thenAnswer(invocation -> {
+            DrugTo1 input = invocation.getArgument(1);
+            assertThat(input.isArchived()).isFalse();
+            assertThat(input.isPrn()).isTrue();
+            return replacement;
+        });
+        when(mockRxManager.updateDrug(any(), eq(replacement))).thenReturn(replacement);
+        when(mockDrugConverter.getAsTransferObject(any(), eq(replacement))).thenReturn(aspirinTransfer());
+
+        try (Response response = request().path("/rx/update").query("demographicNo", "100")
+                .type(mediaType).accept(mediaType).post(body)) {
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getMediaType().isCompatible(MediaType.valueOf(mediaType))).isTrue();
+            DrugResponse success = response.readEntity(DrugResponse.class);
+            assertThat(success.isSuccess()).isTrue();
+            assertThat(success.getDrug().getDrugId()).isEqualTo(1);
         }
     }
 
