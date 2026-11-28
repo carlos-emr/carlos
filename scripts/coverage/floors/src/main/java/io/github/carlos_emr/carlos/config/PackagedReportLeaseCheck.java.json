@@ -3,10 +3,10 @@
   "path": "src/main/java/io/github/carlos_emr/carlos/config/PackagedReportLeaseCheck.java",
   "kind": "floor",
   "floor": {
-    "lines": 98.84726224783861,
-    "instructions": 98.49974133471288,
-    "branches": 92.56756756756756,
-    "sourceBlob": "7d4afef879e89c07289467af1817c4e28b04de40"
+    "lines": 99.41690962099125,
+    "instructions": 99.05312993161493,
+    "branches": 92.9054054054054,
+    "sourceBlob": "a7f9524b02cde536394bbef99b27cb7f98fec4ba"
   },
-  "evidenceSha256": "78087e9d911ab3fb221ccaee7a583389fe1e301c5b7693eded5349ad96d5c4f0"
+  "evidenceSha256": "e403ea7d9c8d89533f4aaa4132073b69ce9d81cf8590ee03c019356462a6897b"
 }

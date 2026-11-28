@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "c2cb3d00d6e986c21966abf80fd159f38ba1c88c",
+  "comparisonSha256": "1bb047851a322b2b59bdef207326af3ec87813a42e47a4a038da09180bb31bb1",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/config/PackagedReportLeaseCheck.java": {
+      "lines": 99.41690962099125,
+      "instructions": 99.05312993161493,
+      "branches": 92.9054054054054,
+      "sourceBlob": "a7f9524b02cde536394bbef99b27cb7f98fec4ba"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/config/PackagedReportLeaseContext.java": {
+      "lines": 97.84172661870504,
+      "instructions": 97.67621998450814,
+      "branches": 86.5,
+      "sourceBlob": "6d7782db7823ba4913a86b6156595c836d4d8576"
+    }
+  },
+  "baselineCommit": "98fc51bd78825f1e4ffa53512ba8d68c3698b725",
+  "baselineSourceTree": "c2cb3d00d6e986c21966abf80fd159f38ba1c88c",
+  "baselineReportSha256": "36b378f9a9ed4400d57caebac527ee1b69c84188b7a46397dab63cd488f44186",
+  "baselineLane": "PR #6413 focused JDK 25 resolver unit and containerized Debian configure tests, JaCoCo 0.8.16",
+  "baselineTestCounts": {
+    "tests": 30,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "4940bdc196d33cf4ae3f8e15c8c036eed92b01cde871dbe30b10c1110df34e63",
+  "baselineTestReportsHashFormat": "SHA-256 of a report-relative-name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.config.PackagedReportLeaseCheckUnitTest",
+    "scripts/ci/test-installed-report-lease-upgrade.py (fixture-based cases)"
+  ]
+}
