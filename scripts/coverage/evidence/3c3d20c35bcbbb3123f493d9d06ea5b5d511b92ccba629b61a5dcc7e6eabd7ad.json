@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "6a4a0d5bf663dc4a4893c6670a79d00337c0a368",
+  "comparisonSha256": "791e97bfe1c5c96072b670dbc8f31367b43b72a89d5b0685064e1c619f63fb5c",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/DemographicCust.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "acb33019524459ef8eea831dc387e08d9be8ba48"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/DemographicCustArchive.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "746ed54c8b47614eb1212889e89db51cca83c463"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDemographicRetainedNoteReconciler.java": {
+      "lines": 95.02762430939227,
+      "instructions": 94.06674907292954,
+      "branches": 74.0,
+      "sourceBlob": "3d3450ec10cf4f212dd30b46b0d0df5f874b020e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativeDemographicAssembler.java": {
+      "lines": 95.85253456221199,
+      "instructions": 96.46712463199215,
+      "branches": 69.23076923076923,
+      "sourceBlob": "1468c266bca13def5f3df9bb16f870c69b7c095f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPatientAlertColumnHistory.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "2f56eca6e661b69e0474868a8a1f9cb1776f9437"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPatientAlertMapper.java": {
+      "lines": 93.33333333333333,
+      "instructions": 93.77777777777777,
+      "branches": 66.66666666666667,
+      "sourceBlob": "a96dd486b86b73078c5a17d2e188672f1421468f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportRetainedReceiptVerificationService.java": {
+      "lines": 93.58288770053476,
+      "instructions": 91.21951219512195,
+      "branches": 77.11864406779661,
+      "sourceBlob": "a291207b34111f1d65a706920704ecb2e219011d"
+    }
+  },
+  "baselineCommit": "4b2867f0c7382f5e2f64631fdbcc9b02b4c007c3",
+  "baselineSourceTree": "6a4a0d5bf663dc4a4893c6670a79d00337c0a368",
+  "baselineReportSha256": "47291b9b3172ff26a99e3c592ebd6d931c22a92afca4fff8a984b06f449ef9fa",
+  "baselineLane": "PR #6264 FOCUSED run (Maven, JDK 25, JaCoCo 0.8.16) of DemographicCustFieldLengthUnitTest, CdsExportPatientAlertColumnHistoryUnitTest, CdsExportRetainedReceiptVerificationServiceUnitTest, CdsExportRetainedReceiptFieldComparisonUnitTest, CdsExportPartialRowComparatorUnitTest, CdsExportDemographicRetainedNoteReconcilerUnitTest, CdsExportDemographicSupportingMapperUnitTest, CdsExportDemographicAssemblerUnitTest, CdsExportNativeDemographicAssemblerUnitTest, and CdsExportDemographicOccurrenceServiceUnitTest on 4b2867f0c7. Rows are measured with check-coverage-floors.py measure() from jacoco.xml; it is not a full-suite run and qualifies no other source.",
+  "baselineTestCounts": {
+    "tests": 110,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0
+  },
+  "baselineTestReportsSha256": "047347b00cf19118042af361b9909f9ac518dddea9cfbed33895b349d8ce19b9",
+  "baselineTestReportsHashFormat": "SHA-256 of compact, key-sorted JSON mapping each Surefire XML filename to the SHA-256 of its unchanged bytes",
+  "exclusions": {},
+  "exclusionSourceBlobs": {},
+  "zeroCoverageWaivers": {}
+}

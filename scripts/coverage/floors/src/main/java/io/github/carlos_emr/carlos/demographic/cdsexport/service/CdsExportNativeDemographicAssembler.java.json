@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativeDemographicAssembler.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 96.51741293532338,
+    "instructions": 97.03337453646478,
+    "branches": 69.23076923076923,
+    "sourceBlob": "1468c266bca13def5f3df9bb16f870c69b7c095f"
+  },
+  "evidenceSha256": "3c3d20c35bcbbb3123f493d9d06ea5b5d511b92ccba629b61a5dcc7e6eabd7ad"
+}

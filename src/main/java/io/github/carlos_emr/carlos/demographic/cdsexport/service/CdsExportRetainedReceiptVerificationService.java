@@ -183,6 +183,8 @@ public class CdsExportRetainedReceiptVerificationService {
                                                         baseline, actual.state());
                                     continue;
                                 }
+                                // A demographiccust baseline taken before V1.0.59.54 is compared
+                                // under the current alert definition: the widening is no change.
                                 if (baseline != null && actual.state() != null)
                                     slot.fields =
                                             compared.computeIfAbsent(
@@ -191,7 +193,11 @@ public class CdsExportRetainedReceiptVerificationService {
                                                             io.github.carlos_emr.carlos.demographic
                                                                     .cds.contract
                                                                     .CdsNativeRowComparison.compare(
-                                                                    baseline, actual.state()));
+                                                                    CdsExportPatientAlertColumnHistory
+                                                                            .widened(
+                                                                                    baseline,
+                                                                                    actual.state()),
+                                                                    actual.state()));
                                 boolean missingNumericBaseline =
                                         baseline == null
                                                 && actual.state() != null

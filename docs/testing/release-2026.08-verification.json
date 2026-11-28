@@ -12880,7 +12880,7 @@
       ]
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/model/DemographicCust.java": {
-      "reason": "Pins the 255-character limits of the patient alert and custom fields: the full column is accepted, one more character is reported by field and limit without echoing the value, and line breaks count as stored (#5869).",
+      "reason": "Pins the patient alert (16,383 characters on TEXT, #6264) and custom-field (255 characters) limits: the full column capacity is accepted, one more character is reported by field and limit without echoing the value, and line breaks count as stored (#5869, #6264).",
       "tests": [
         "src/test/java/io/github/carlos_emr/carlos/commn/model/DemographicCustFieldLengthUnitTest.java"
       ],
@@ -16450,7 +16450,7 @@
       ]
     },
     "src/main/webapp/WEB-INF/jspf/demographic-field-length-limits.jspf": {
-      "reason": "The Master Record Add and Edit forms give the patient alert (cust3 / alert) and the waiting-list note their VARCHAR column limit in Unicode code points (maxlength twice the column, data-max-codepoints the column, both read from the schema) and count each alert line break as the CR LF the browser submits: an alert at the limit is valid, saved whole and redisplayed whole, while one more character (including one only CR LF counting exceeds) is refused with the limit named, never cut, and the form sends nothing (#5869).",
+      "reason": "The Master Record Add and Edit forms give the patient alert (cust3 / alert; TEXT -> 16,383 four-byte code points, #6264) and the waiting-list note (VARCHAR(255)) their column code-point limits (maxlength twice the limit, data-max-codepoints the limit) and count each alert line break as the CR LF the browser submits: an alert at the limit is valid, saved whole and redisplayed whole, while one more character (including one only CR LF counting exceeds) is refused with the limit named, never cut, and the form sends nothing (#5869, #6264).",
       "tests": [
         "scripts/demographic-name-codepoints.test.js",
         "src/test/java/io/github/carlos_emr/carlos/demographic/DemographicNameUsedLimitJspRegressionTest.java",

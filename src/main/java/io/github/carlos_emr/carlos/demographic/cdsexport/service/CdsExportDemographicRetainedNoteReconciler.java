@@ -189,8 +189,16 @@ public final class CdsExportDemographicRetainedNoteReconciler {
                 } catch (IllegalArgumentException invalid) {
                     scope();
                 }
-            else if (reference.reason() == Reason.UNCHANGED_ROW && !witness.partial())
-                baseline = witness.state();
+            else if (!witness.partial()) {
+                if (reference.reason() == Reason.UNCHANGED_ROW) baseline = witness.state();
+                else {
+                    // Receipted before V1.0.59.54 widened the alert: the row is unchanged when,
+                    // described as it was then, it has the receipt's digest.
+                    var before = CdsExportPatientAlertColumnHistory.beforeWidening(witness.state());
+                    if (before != null && before.digest().equals(reference.expected().digest()))
+                        baseline = before;
+                }
+            }
             if (baseline == null || !baseline.digest().equals(reference.expected().digest()))
                 throw new IOException("CDS_EXPORT_DEMOGRAPHIC_NOTE_FIELD_BASELINE_REQUIRED");
             if (witness.partial()) {
@@ -198,7 +206,12 @@ public final class CdsExportDemographicRetainedNoteReconciler {
                 if (reference.reason() != Reason.RECEIPT_PARTIAL_PROJECTION
                         || !partial.equals(reference.projection())) scope();
                 difference = partial.fields();
-            } else difference = CdsNativeRowComparison.compare(baseline, witness.state());
+            } else
+                difference =
+                        CdsNativeRowComparison.compare(
+                                CdsExportPatientAlertColumnHistory.widened(
+                                        baseline, witness.state()),
+                                witness.state());
             if (difference.schemaChanged() || !difference.unqualifiedColumns().isEmpty())
                 throw new IOException("CDS_EXPORT_DEMOGRAPHIC_NOTE_FIELD_CODEC_REQUIRES_REVIEW");
             for (var other : index.references().entrySet())

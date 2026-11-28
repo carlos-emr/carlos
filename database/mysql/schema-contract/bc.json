@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "15014d74c0176b87735358fd5aa6077810ae32d1d07df5adb263a9ae79cb5851",
+ "migration_sha256": "e165b3b45984a482ab2604282964192b7de9bb6743bcb7e5e943333d39fb4607",
  "province": "bc",
  "schema": {
   "checks": [
@@ -22635,7 +22635,7 @@
    [
     "demographiccust",
     "cust3",
-    "varchar(255)",
+    "text",
     "YES",
     "NULL",
     "",
@@ -22707,7 +22707,7 @@
    [
     "demographiccustArchive",
     "cust3",
-    "varchar(255)",
+    "text",
     "YES",
     "NULL",
     "",
@@ -186450,7 +186450,7 @@
     1,
     "cust3",
     "A",
-    null,
+    255,
     "BTREE",
     "NO"
    ],

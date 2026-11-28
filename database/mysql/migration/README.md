@@ -90,6 +90,10 @@ migration/
            V1.0.59.47__index_cds_laboratory_result_native_lab.sql
            V1.0.59.48__index_cds_import_unit_patient_id.sql
            V1.0.59.49__cds_export_attempt_checkpoint.sql
+           V1.0.59.50__cds_preparation_payload_capacity.sql
+           V1.0.59.50.1__index_historical_roster_provider_period.sql
+           V1.0.59.50.2__ensure_historical_roster_lookup.sql
+           V1.0.59.54__widen_patient_alert.sql
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
            V1.0.4__on_performance_indexes.sql
@@ -100,6 +104,7 @@ migration/
            V1.0.34__add_oma_uninsured_service_fees.sql
            V1.0.56__preserve_claim_item_explanations.sql
            V1.0.59.28__preserve_oscar19_text_capacity.sql
+           V1.0.59.50.3__index_ohip_billing_file_owners.sql
   bc/      V1.0.1__bc_schema.sql            # British Columbia-only tables (structure)
            V1.0.2__bc_data.sql              # British Columbia reference data (rows)
            V1.0.6__restore_live_legacy_bc_tables_and_reference_data.sql
@@ -111,8 +116,8 @@ migration/
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The highest migration in this branch is `common/V1.0.59.50.1`.
-PR #6291 reserves `V1.0.59.51`. `develop` already uses
+`V1.0.3` onward is a forward delta. The highest migration in this branch is `common/V1.0.59.54`.
+PR #6291 reserves `V1.0.59.51` and PR #6424 reserves `V1.0.59.51`–`V1.0.59.53`. `develop` already uses
 `V1.0.60` and above, so this release line stays below its floor (`scripts/flyway-released-migrations.txt`):
 `common/V1.0.59.2` is #5089's, the two BC migrations of #5062 and #5051 are `V1.0.59.3` and `V1.0.59.4`,
 #5067's appointment-name migration follows them at `common/V1.0.59.5`,
@@ -121,8 +126,11 @@ The Messenger's PDF attachment column widening (#5444) is `common/V1.0.59.8`.
 The CDS import migrations occupy `V1.0.59.8.1` and `V1.0.59.9`–`V1.0.59.26`.
 OSCAR 19 text capacities are preserved by common `V1.0.59.27`, Ontario `V1.0.59.28`, and BC `V1.0.59.29` plus `V1.0.59.31` for the BCAR 2007 urine-culture field; common `V1.0.59.30` enforces the audited Consent history rule, and common `V1.0.59.32` keeps native archive text capacities and update timestamps aligned with the live fields (issue #5503).
 The CDS export migrations occupy `common/V1.0.59.40`–`V1.0.59.50`.
-Historical roster queries use the provider and roster-date index in `common/V1.0.59.50.1` (#5877).
-The next unallocated release version after the reserved migration is `V1.0.59.52`.
+Historical roster queries use the provider and roster-date index in `common/V1.0.59.50.1` (#5877), which `common/V1.0.59.50.2` makes sure serves the lookup; Ontario `V1.0.59.50.3` indexes the OHIP billing file owners.
+The patient alert (`demographiccust.cust3` and its archive copy) becomes TEXT in `common/V1.0.59.54` (#6264).
+Its isolated-database regression is `python3 scripts/test-patient-alert-migration.py`, run like the provider
+signature regression below.
+The next unallocated release version is `V1.0.59.55`.
 `V1.0.59.1` is an intentional gap: #5067's migration was renumbered as release migrations merged first.
 PR #3996's unpublished attachment migrations were renumbered from V1.0.37/V1.0.38 to
 V1.0.42/V1.0.43 so databases already running release migrations through V1.0.41 apply them.

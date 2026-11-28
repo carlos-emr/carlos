@@ -317,7 +317,8 @@ public final class FlywayRunner {
                 "DB: PROCEDURE [^\\r\\n]+\\.(?:carlos_index_contract_1_0_59_6|carlos_cds_provider_index68"
                 + "|carlos_measurements_deleted_index_1_0_59_46|carlos_cds_laboratory_result_index_1_0_59_47"
                 + "|carlos_cds_import_unit_index_1_0_59_48|carlos_cds_export_attempt_checkpoint_1_0_59_49"
-                + "|carlos_cds_preparation_capacity_1_0_59_50|carlos_ensure_historical_roster_lookup) does not exist "
+                + "|carlos_cds_preparation_capacity_1_0_59_50|carlos_ensure_historical_roster_lookup"
+                + "|carlos_patient_alert_text_1_0_59_54) does not exist "
                 + "\\(SQL State: (?:42000)? - Error Code: 1305\\)");
         private final LogCreator delegate;
         private int indexes;

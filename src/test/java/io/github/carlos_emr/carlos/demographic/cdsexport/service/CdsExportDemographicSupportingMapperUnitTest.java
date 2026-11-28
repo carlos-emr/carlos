@@ -525,6 +525,92 @@ class CdsExportDemographicSupportingMapperUnitTest {
     }
 
     @Test
+    void shouldExportAnAlertLongerThanTheElement_withoutAlertDescriptionAndWithItsWholeTextInTheResidual()
+            throws Exception {
+        // The alert column holds up to 16,383 characters; AlertDescription (text1K) holds 1,000. An alert of exactly
+        // 1,000 characters is exact in the element with no residual; one more leaves the element out and travels
+        // whole in ResidualInfo, up to the column's own limit.
+        String atTheLimit = "FAKE alert ".repeat(90) + "0123456789";
+        assertThat(atTheLimit.length()).isEqualTo(1000);
+        custom("101", "102", "103", atTheLimit, true);
+        var exact = CdsExportPatientAlertMapper.map(27, rows.get("demographiccust").getFirst());
+        assertThat(exact.exact()).isTrue();
+        assertThat(
+                        new String(
+                                CdsExportNativeHistoryMapperUnitTest.render(
+                                        CdsCategory.ALERTS_AND_SPECIAL_NEEDS,
+                                        writer -> CdsExportPatientAlertMapper.write(exact, writer)),
+                                java.nio.charset.StandardCharsets.UTF_8))
+                .contains("<AlertDescription>")
+                .doesNotContain("ResidualInfo");
+        for (int length : new int[] {1001, 1500, 16383}) {
+            String longAlert = ("FAKE alert " + "x".repeat(length)).substring(0, length);
+            custom("101", "102", "103", longAlert, true);
+            assertThat(assemble(ALL).fields().values())
+                    .noneMatch(field -> field.outcome() == Outcome.REQUIRES_REVIEW);
+            var alert = CdsExportPatientAlertMapper.map(27, rows.get("demographiccust").getFirst());
+            assertThat(alert.element()).as("length %d", length).isNull();
+            assertThat(alert.exact()).isFalse();
+            assertThat(
+                            CdsExportPatientAlertMapper.fields(alert).values().stream()
+                                    .map(field -> field.outcome() + " " + field.destination())
+                                    .toList())
+                    .contains(
+                            "MAPPED AlertsAndSpecialNeeds/AlertDescription;AlertsAndSpecialNeeds/ResidualInfo");
+            String xml =
+                    new String(
+                            CdsExportNativeHistoryMapperUnitTest.render(
+                                    CdsCategory.ALERTS_AND_SPECIAL_NEEDS,
+                                    writer -> CdsExportPatientAlertMapper.write(alert, writer)),
+                            java.nio.charset.StandardCharsets.UTF_8);
+            assertThat(xml)
+                    .as("length %d", length)
+                    .containsSubsequence(
+                            "<cdsd:Name>CARLOS.PatientAlert.v1</cdsd:Name>",
+                            // The residual JSON writes each space as \\u0020 so XML keeps white space exactly.
+                            "{\"version\":1,\"alert\":\"" + longAlert.replace(" ", "\\u0020") + "\"}")
+                    .doesNotContain("<AlertDescription>");
+        }
+    }
+
+    @Test
+    void shouldCarryAMultibyteAlertAtTheColumnLimit_wholeThroughTheResidual() throws Exception {
+        // 16,383 characters of one, two, three and four bytes in UTF-8 (the column limit counts characters, and
+        // a supplementary character is one): a surrogate pair must never be split by the element's length rule
+        // or by the carrier, and the carrier decodes back to exactly the stored text.
+        String unit = "a\u00e9\u6f22\ud83d\ude00";
+        StringBuilder built = new StringBuilder();
+        int characters = 0;
+        while (characters < 16383) {
+            int next = unit.codePointAt(unit.offsetByCodePoints(0, characters % 4));
+            built.appendCodePoint(next);
+            characters++;
+        }
+        String alertText = built.toString();
+        assertThat(alertText.codePointCount(0, alertText.length())).isEqualTo(16383);
+        assertThat(alertText.getBytes(java.nio.charset.StandardCharsets.UTF_8).length).isLessThanOrEqualTo(65535);
+        custom("101", "102", "103", alertText, true);
+        assertThat(assemble(ALL).fields().values())
+                .noneMatch(field -> field.outcome() == Outcome.REQUIRES_REVIEW);
+        var alert = CdsExportPatientAlertMapper.map(27, rows.get("demographiccust").getFirst());
+        assertThat(alert.element()).isNull();
+        assertThat(alert.exact()).isFalse();
+        String xml =
+                new String(
+                        CdsExportNativeHistoryMapperUnitTest.render(
+                                CdsCategory.ALERTS_AND_SPECIAL_NEEDS,
+                                writer -> CdsExportPatientAlertMapper.write(alert, writer)),
+                        java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(xml).contains("<cdsd:Name>CARLOS.PatientAlert.v1</cdsd:Name>").doesNotContain("<AlertDescription>");
+        var carrier = java.util.regex.Pattern.compile("\\{\"version\":1,\"alert\":\"[^\"]*\"\\}").matcher(xml);
+        assertThat(carrier.find()).isTrue();
+        assertThat(
+                        io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionContract
+                                .decodePatientAlert(carrier.group()))
+                .isEqualTo(alertText);
+    }
+
+    @Test
     void shouldRoundTripEveryCarriedValue_throughThePinnedSchemaAndTheCarlosImporter()
             throws Exception {
         var result = assemble(ALL);

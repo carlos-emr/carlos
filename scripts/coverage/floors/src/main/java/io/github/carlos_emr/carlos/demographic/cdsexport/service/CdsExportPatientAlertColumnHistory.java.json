@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "path": "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportPatientAlertColumnHistory.java",
+  "kind": "floor",
+  "floor": {
+    "lines": 100.0,
+    "instructions": 100.0,
+    "branches": 100.0,
+    "sourceBlob": "2f56eca6e661b69e0474868a8a1f9cb1776f9437"
+  },
+  "evidenceSha256": "3c3d20c35bcbbb3123f493d9d06ea5b5d511b92ccba629b61a5dcc7e6eabd7ad"
+}

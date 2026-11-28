@@ -309,7 +309,8 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
             // no-interaction check below then covers the waiting-list write, not only the service field.
             registerMock(WaitingListDao.class, mockWaitingListDao);
             DemographicTo1 data = payload("PUT");
-            String invalid = character.repeat(256);
+            int limit = "alert".equals(field) ? io.github.carlos_emr.carlos.commn.model.DemographicCust.ALERT_MAX_LENGTH : 255;
+            String invalid = character.repeat(limit + 1);
             switch (field) {
                 case "alert" -> data.setAlert(invalid);
                 case "nurse" -> data.setNurse(invalid);
@@ -322,7 +323,7 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
             try (Response response = request().path("/demographics").invoke("PUT", data)) {
                 assertThat(response.getStatus()).isEqualTo(400);
                 assertThat(response.readEntity(String.class))
-                        .isEqualTo(label + " exceeds maximum length of 255 characters.");
+                        .isEqualTo(label + " exceeds maximum length of " + limit + " characters.");
             }
             verifyNoInteractions(mockDemographicManager, mockWaitingListDao, updateRecords);
         }
@@ -339,7 +340,9 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
             when(mockWaitingListDao.findByWaitingListIdForUpdate(7)).thenReturn(List.of(onTheList), List.of());
             DemographicTo1 data = payload("PUT");
             String exact = character.repeat(255);
-            data.setAlert(exact);
+            // The alert is TEXT (D244): it is kept whole at its own, larger limit.
+            String exactAlert = character.repeat(io.github.carlos_emr.carlos.commn.model.DemographicCust.ALERT_MAX_LENGTH);
+            data.setAlert(exactAlert);
             data.setNurse(exact);
             data.setResident(exact);
             data.setMidwife(exact);
@@ -352,7 +355,7 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
             ArgumentCaptor<io.github.carlos_emr.carlos.commn.model.DemographicCust> cust =
                     ArgumentCaptor.forClass(io.github.carlos_emr.carlos.commn.model.DemographicCust.class);
             verify(mockDemographicManager).createUpdateDemographicCust(any(LoggedInInfo.class), cust.capture());
-            assertThat(cust.getValue().getAlert()).isEqualTo(exact);
+            assertThat(cust.getValue().getAlert()).isEqualTo(exactAlert);
             assertThat(cust.getValue().getNurse()).isEqualTo(exact);
             assertThat(cust.getValue().getResident()).isEqualTo(exact);
             assertThat(cust.getValue().getMidwife()).isEqualTo(exact);

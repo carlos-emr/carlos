@@ -138,14 +138,15 @@ class DemographicAddRecord2ActionTest extends CarlosWebTestBase {
     @CsvSource({"cust3,Alert,A", "cust1,Nurse,A", "cust2,Resident,A", "cust4,Midwife,A",
             "cust3,Alert,😀", "cust4,Midwife,😀"})
     void shouldRejectOverlongCustomFields_beforeAnyWrite(String field, String label, String character) throws Exception {
-        // Issue #5869: these VARCHAR(255) fields were cut silently under an empty sql_mode.
+        // Issue #5869: these fields were cut silently under an empty sql_mode. The alert is TEXT (D244).
+        int limit = "cust3".equals(field) ? io.github.carlos_emr.carlos.commn.model.DemographicCust.ALERT_MAX_LENGTH : 255;
         postValidNewPatient();
-        addRequestParameter(field, character.repeat(256));
+        addRequestParameter(field, character.repeat(limit + 1));
 
         assertThat(executeAction(action)).isEqualTo("validationError");
         assertThat(mockResponse.getStatus()).isEqualTo(400);
         assertThat(mockRequest.getAttribute("fieldLengthValidationErrors"))
-                .isEqualTo(List.of(label + " exceeds maximum length of 255 characters."));
+                .isEqualTo(List.of(label + " exceeds maximum length of " + limit + " characters."));
         verify(mockDemographicDao, never()).save(any(Demographic.class));
         verifyNoInteractions(mockDemographicCustDao, mockWaitingListDao);
     }
@@ -170,7 +171,7 @@ class DemographicAddRecord2ActionTest extends CarlosWebTestBase {
     @CsvSource({"12,255", "0,256", "'',256"})
     void shouldNotReportTheNote_whenItFitsOrNoListIsChosen(String listId, int noteLength) throws Exception {
         postValidNewPatient();
-        addRequestParameter("cust3", "😀".repeat(255));
+        addRequestParameter("cust3", "😀".repeat(io.github.carlos_emr.carlos.commn.model.DemographicCust.ALERT_MAX_LENGTH));
         addRequestParameter("list_id", listId);
         addRequestParameter("waiting_list_note", "A".repeat(noteLength));
         // An over-long year of birth stops the save at validation, before any write.
