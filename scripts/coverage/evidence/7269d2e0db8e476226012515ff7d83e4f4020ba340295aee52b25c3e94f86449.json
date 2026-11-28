@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "e367a445c3fd8ff9f8f06b3a038cc19e2a898d49",
+  "comparisonSha256": "8f0f7d85a40bef6571188529c2ec5ad03a66e88ba12653a864e40148ce80b8ca",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "622edec42b54f92e089ee1610e97c0f85b229892"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDrugReferenceLookupService.java": {
+      "lines": 95.74468085106383,
+      "instructions": 96.55172413793103,
+      "branches": 89.47368421052632,
+      "sourceBlob": "f79ed5c2e91fbfba9987c518bcaa887fc754d1b8"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/pharmaForms/formBPMH/bean/BpmhDrug.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "a66bb5f88c155cac115e9527f19f9564d13920ea"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/pharmaForms/formBPMH/business/BpmhForm2Handler.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "720be0faf37445fa9f019d6c6da9c9421b8c08c9"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/pharmaForms/formBPMH/pdf/PDFController.java": {
+      "lines": 92.7536231884058,
+      "instructions": 94.03794037940379,
+      "branches": 92.85714285714286,
+      "sourceBlob": "fe982bd3587e5e5f071fb2d6d19664193cf1e684"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/pageUtil/RxRePrescribe2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "6791d81c00f67ba7c36ef04fa0670885813c2e66"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/pageUtil/RxUpdateFavorite2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "726f5dea3595d55d5ae1b86b0fd911840d327952"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/pageUtil/RxWriteScript2Action.java": {
+      "lines": 89.51310861423221,
+      "instructions": 88.15068493150685,
+      "branches": 80.55555555555556,
+      "sourceBlob": "fcf14923f065cf26af81d2b8a8638d723a52dfd7"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/util/DrugStrength.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 98.57142857142857,
+      "sourceBlob": "5ce80020ac1fa9934615713a8f20a94591c54885"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/util/RxUtil.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "6b24018ca225aa0ed7de609cf203875ee83df1b4"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/DoseText.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "557c89c8bb0045d4f8d3c09ae313abf7770ef073"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/conversion/DrugConverterImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "d461e86c90aba2ae58b1e394add9be88ed1e091f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/conversion/FavoriteConverterImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "81639d5085f53be93373855237ff5eae45b3234e"
+    }
+  },
+  "exclusions": {},
+  "zeroCoverageWaivers": {},
+  "baselineCommit": "9d6f6e74e60f3ef748d18b63d02d9da2bd325055",
+  "baselineSourceTree": "e367a445c3fd8ff9f8f06b3a038cc19e2a898d49",
+  "baselineReportSha256": "ad57ea2df9e8a93ddbaf018c92013c3af02ae12762754ee900444cb8467058ec",
+  "baselineLane": "PR #6367 focused JDK 25 Maven unit tests covering the 3-pass review fixes across DoseText, Drug, DrugStrength, BPMH, REST converters, CDS lookup, RxUtil, RxWriteScript2Action, RxRePrescribe2Action, and RxUpdateFavorite2Action.",
+  "baselineTestCounts": {
+    "tests": 2316,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "c7d64a8fb2ae629f49633514b6d83cd73a93ef5e1f6a715bc574192a2bc0533f",
+  "baselineTestReportsHashFormat": "SHA-256 of a sha256sum-style manifest of the final Surefire TEST-*.xml reports, with one '<sha256>  <file name>' line each, sorted by name",
+  "baselineTestRunCommit": "9d6f6e74e60f3ef748d18b63d02d9da2bd325055",
+  "baselineAdditionalTestRuns": []
+}
