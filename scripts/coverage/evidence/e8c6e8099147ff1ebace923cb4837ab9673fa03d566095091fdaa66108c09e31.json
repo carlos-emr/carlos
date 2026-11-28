@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "sourceTree": "c7d9fb54a4549c57a6050f3af701b6d3bcf4a8ad",
+  "comparisonSha256": "5f8faf25e69288305b845c5cc2ddda7a2e042dae50187af804301316292f36ec",
+  "files": {
+    "src/main/java/io/github/carlos_emr/carlos/form/pharmaForms/formBPMH/bean/BpmhDrug.java": {
+      "lines": 100.0,
+      "instructions": 99.76825028968713,
+      "branches": 92.76315789473684,
+      "sourceBlob": "9620815518abd3fff166dfe1f97046ff04539ecd"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/pharmaForms/formBPMH/business/BpmhForm2Handler.java": {
+      "lines": 92.3076923076923,
+      "instructions": 93.85342789598108,
+      "branches": 82.85714285714286,
+      "sourceBlob": "ed01b70e80c1b4414e19f9e21415aee9367ab40e"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/data/RxPrescriptionData.java": {
+      "lines": 95.04950495049505,
+      "instructions": 92.3076923076923,
+      "branches": 80.55555555555556,
+      "sourceBlob": "8d4afa33f24b941e9a36d3ec63379e2aa8689355"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/pageUtil/RxWriteScript2Action.java": {
+      "lines": 91.16883116883118,
+      "instructions": 89.80228928199791,
+      "branches": 76.95035460992908,
+      "sourceBlob": "f28fa4bced4541a03587c45f7966ba7b6a17f5c3"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/util/RxUtil.java": {
+      "lines": 89.91596638655462,
+      "instructions": 88.69047619047619,
+      "branches": 68.81720430107526,
+      "sourceBlob": "dcdf52259548bcdf27a6d458d1bd45b47429a86c"
+    }
+  },
+  "baselineCommit": "97523e75b41f1499b52a021aa036c005ea1286ad",
+  "baselineSourceTree": "c7d9fb54a4549c57a6050f3af701b6d3bcf4a8ad",
+  "baselineReportSha256": "e4e542194fd1e98b39ba8e6752ca89bf09837f2276e2e915d9d1e0726d9aaa5c",
+  "baselineLane": "Java 25 PR #6424 final review: 46 selected JUnit classes, 2014 passing test cases. JaCoCo report uses matching current production classes and includes prior focused execution data. These are measured focused-suite results, not a complete release coverage-union qualification; higher existing floors remain enforced.",
+  "baselineTestCounts": {
+    "tests": 2014,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "baselineTestReportsSha256": "23b6f5616c5c7fd729fda5aec2529f143888185e421ac97bc63021c6e08acc09",
+  "baselineTestReportsHashFormat": "SHA-256 of a name-to-SHA-256 JSON object, sorted keys, compact separators and a final LF",
+  "baselineSelectedTestClasses": [
+    "io.github.carlos_emr.carlos.prescript.pageUtil.RxStashWriteIsolationUnitTest",
+    "io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.pdf.PDFControllerLogPrivacyUnitTest",
+    "io.github.carlos_emr.carlos.prescript.util.DrugStrengthUnitTest",
+    "io.github.carlos_emr.carlos.commn.hl7.v2.OmpO09MedicationUnitTest",
+    "io.github.carlos_emr.carlos.webserv.rest.RxWebServiceUnitTest",
+    "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2ActionTest",
+    "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2ActionStrutsBindingIntegrationTest",
+    "io.github.carlos_emr.carlos.commn.dao.FavoriteDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurements2ActionUnitTest",
+    "io.github.carlos_emr.carlos.prescript.pageUtil.RxSaveReceiptCommitIntegrationTest",
+    "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2ActionCardCorrectionUnitTest",
+    "io.github.carlos_emr.carlos.prescript.util.RxUtilInstrucParserUnitTest",
+    "io.github.carlos_emr.carlos.demographic.pageUtil.DemographicExportAction42ActionCdsConformanceUnitTest",
+    "io.github.carlos_emr.carlos.commn.dao.DrugDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.prescript.pageUtil.RxAuditRowContentUnitTest",
+    "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2ActionListPreviousInstructionsUnitTest",
+    "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2ActionWriteIsolationUnitTest",
+    "io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean.BpmhDrugUnitTest",
+    "io.github.carlos_emr.carlos.utility.xml.JaxbImplementationCompatibilityUnitTest",
+    "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2ActionIntegrationTest",
+    "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativeMedicationMapperUnitTest",
+    "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2ActionCustomNoteTextUnitTest",
+    "io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.pdf.BpmhMedicationPaginationUnitTest",
+    "io.github.carlos_emr.carlos.encounter.oscarMeasurements.healthtracker.HealthTrackerMeasurementPersisterUnitTest",
+    "io.github.carlos_emr.carlos.commn.dao.DrugReasonDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.demographic.pageUtil.DemographicExportAction42ActionDosageFormatUnitTest",
+    "io.github.carlos_emr.carlos.prescript.pageUtil.RxPatientWriteAuthorizationUnitTest",
+    "io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.business.BpmhForm2HandlerUnitTest",
+    "io.github.carlos_emr.carlos.prescript.data.RxPrescriptionDataNullRepeatUnitTest",
+    "io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.web.BpmhFormRetrieve2ActionUnitTest",
+    "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2ActionCreateNewRxUnitTest",
+    "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportMedicationFieldReconcilerUnitTest",
+    "io.github.carlos_emr.carlos.commn.dao.FavoritesDaoIntegrationTest",
+    "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportPrescriptionOccurrenceServiceUnitTest",
+    "io.github.carlos_emr.carlos.prescript.pageUtil.RxFavoriteCopyIntegrationTest",
+    "io.github.carlos_emr.carlos.webserv.rest.RxWebServiceEndpointTest",
+    "io.github.carlos_emr.carlos.prescript.data.RxFavoriteSaveUnitTest",
+    "io.github.carlos_emr.carlos.managers.RxManagerUnitTest",
+    "io.github.carlos_emr.carlos.webserv.conversion.DrugConverterUnitTest",
+    "io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.pdf.PDFControllerUnitTest",
+    "io.github.carlos_emr.carlos.webserv.conversion.MedicationDetailsUnitTest",
+    "io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScriptFormLogPrivacyUnitTest",
+    "io.github.carlos_emr.carlos.webserv.rest.RxWebServiceRegressionTest",
+    "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportMedicationMapperUnitTest",
+    "io.github.carlos_emr.carlos.managers.DrugLookUpManagerMedicationUnitTest",
+    "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativeCaptureServiceUnitTest"
+  ],
+  "baselineCounterNote": "Counts use the 2014 testcase elements and Maven summary. Surefire suite counters undercount nested cases in RxWebServiceUnitTest by 3 and RxManagerUnitTest by 2; no testcase has a failure, error or skip."
+}
