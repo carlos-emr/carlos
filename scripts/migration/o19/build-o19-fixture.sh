@@ -78,6 +78,11 @@ SQLDIR="$OSCAR_SRC/database/mysql"
   echo "ERROR: $OSCAR_SRC is not an OSCAR checkout (no database/mysql/oscarinit.sql)" >&2
   exit 1
 }
+EDITOR_ASSET="$OSCAR_SRC/src/main/webapp/share/javascript/eforms/editControl.js"
+if [[ ! -f "$EDITOR_ASSET" || ! -r "$EDITOR_ASSET" || ! -s "$EDITOR_ASSET" ]]; then
+  echo "ERROR: the OSCAR checkout must contain a readable, non-empty $EDITOR_ASSET" >&2
+  exit 1
+fi
 for a in ${MYSQL_ARGS+"${MYSQL_ARGS[@]}"}; do
   case "$a" in
     -p?*|--password=*)
@@ -231,7 +236,7 @@ echo "dumping to $OUT/o19-fixture.sql.gz (via $DUMP_CMD) ..."
   --single-transaction --quick --default-character-set=latin1 "$DB" \
   | gzip > "$OUT/o19-fixture.sql.gz"
 
-"$SCRIPT_DIR/fixtures/documents/make-documents-tar.sh" "$OUT"
+"$SCRIPT_DIR/fixtures/documents/make-documents-tar.sh" "$OUT" "$EDITOR_ASSET"
 cp "$SCRIPT_DIR/fixtures/properties/oscar-clinic-example.properties" \
    "$OUT/oscar.properties"
 
