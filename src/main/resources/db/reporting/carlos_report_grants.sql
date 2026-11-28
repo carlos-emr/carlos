@@ -168,6 +168,7 @@ INSERT INTO carlos_report_tables (table_name, access, excluded_columns, reason) 
 ('outboundEmailArchiveLegalHoldEvent', 'restricted', NULL, 'Private messaging, consent or integration state; managed through application workflows'),
 ('patient_portal_invite_delivery', 'restricted', NULL, 'Private messaging, consent or integration state; managed through application workflows'),
 ('portal_booking_offer', 'restricted', NULL, 'Private messaging, consent or integration state; managed through application workflows'),
+('portal_payment_request', 'restricted', NULL, 'Private messaging, consent or integration state; managed through application workflows'),
 ('sms_config', 'restricted', NULL, 'Private messaging, consent or integration state; managed through application workflows'),
 ('sms_provider_rate_limit', 'restricted', NULL, 'Private messaging, consent or integration state; managed through application workflows'),
 ('sms_transaction', 'restricted', NULL, 'Private messaging, consent or integration state; managed through application workflows'),

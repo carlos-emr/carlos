@@ -100,7 +100,11 @@ public class PatientPortalService implements Closeable {
             "unlock secret is temporarily unavailable", "invite preparation conflicts",
             "invite preparation unavailable", "invite delivery conflicts",
             "another invite delivery is being prepared", "invite delivery is not committed",
-            "booking prompt not found", PatientPortalService.CHOICE_NOT_PENDING_DETAIL,
+            "booking prompt not found", PatientPortalService.PAYMENT_REQUEST_NOT_FOUND_DETAIL,
+            PatientPortalService.PAYMENT_REQUEST_OPERATION_CONFLICT_DETAIL,
+            PatientPortalService.PAYMENT_REQUEST_PAST_DUE_DETAIL,
+            PatientPortalService.PAYMENT_REQUEST_STATE_CONFLICT_DETAIL,
+            "payment request is invalid", PatientPortalService.CHOICE_NOT_PENDING_DETAIL,
             PatientPortalService.CHOICE_WITHDRAWN_DETAIL, PatientPortalService.CHOICE_EXPIRED_DETAIL,
             PatientPortalService.CHOICE_RESULT_CONFLICT_DETAIL,
             "key_missing", "key_revoked", "key_changed");
@@ -115,6 +119,20 @@ public class PatientPortalService implements Closeable {
     public static final String CHOICE_EXPIRED_DETAIL = "booking choice expired";
     public static final String CHOICE_RESULT_CONFLICT_DETAIL = "booking choice already has a different result";
     private static final String NOT_AN_ARRAY = "portal returned a non-array invite listing";
+
+    /**
+     * The portal's details for a payment request (carlos-portal README, {@code portal.payment.manage}).
+     * The text is part of the contract; none of it carries a request's content.
+     */
+    public static final String PAYMENT_REQUEST_NOT_FOUND_DETAIL = "payment request not found";
+    public static final String PAYMENT_REQUEST_PAST_DUE_DETAIL = "payment operation absent after its due date";
+    public static final String PAYMENT_REQUEST_OPERATION_CONFLICT_DETAIL =
+            "operation id or invoice reference was used for a different payment request";
+    public static final String PAYMENT_REQUEST_STATE_CONFLICT_DETAIL =
+            "payment request is in a state this cannot apply to";
+    private static final String PAYMENT_REQUESTS_PATH = "/internal/carlos/patients/%d/payment-requests";
+    private static final String PAYMENT_WITHDRAW_PATH = "/internal/carlos/payment-requests/%d/withdraw";
+    private static final String PAYMENT_PAID_PATH = "/internal/carlos/payment-requests/%d/paid";
 
     private static final String BOOKING_PROMPTS_PATH = "/internal/carlos/patients/%d/booking-prompts";
     private static final String BOOKING_ELIGIBILITY_PATH = "/internal/carlos/patients/%d/booking-eligibility";
@@ -509,6 +527,110 @@ public class PatientPortalService implements Closeable {
             }
             return prompt;
         }, promptId);
+    }
+
+    /**
+     * Sends a payment request. Stable operation IDs make a repeat return the original request, and
+     * the confirmation must echo every value sent: the portal never changes an amount.
+     *
+     * @throws PatientPortalException {@code 404} with {@link PatientPortalException#isAccountAbsent()}
+     *     when the patient has no portal account (nothing was stored), or a {@code 409} when the
+     *     operation id or invoice reference belongs to a different request
+     */
+    public PatientPortalPaymentRequestDto.Creation createPaymentRequest(
+            int demographicNo, PatientPortalPaymentRequestRequest request,
+            PatientPortalStaffContext staff) {
+        return paymentOperation(demographicNo, request, staff, false);
+    }
+
+    /** Looks up an exact operation without creating a patient-visible request. */
+    public PatientPortalPaymentRequestDto lookupPaymentOperation(int demographicNo,
+            PatientPortalPaymentRequestRequest request, PatientPortalStaffContext staff) {
+        return paymentOperation(demographicNo, request, staff, true).request();
+    }
+
+    private PatientPortalPaymentRequestDto.Creation paymentOperation(int demographicNo,
+            PatientPortalPaymentRequestRequest request, PatientPortalStaffContext staff, boolean lookupOnly) {
+        ObjectNode body = objectMapper.createObjectNode();
+        if (lookupOnly) {
+            body.put("lookup_only", true);
+        }
+        body.put("operation_id", request.operationId());
+        body.put("invoice_ref", request.invoiceRef());
+        body.put("category", request.category());
+        body.put("payment_method", PatientPortalPaymentRequestRequest.PAYMENT_METHOD);
+        body.put("currency", PatientPortalPaymentRequestRequest.CURRENCY);
+        body.put("amount_cents", request.amountCents());
+        body.put("tax_cents", request.taxCents());
+        body.put("due_on", request.dueOn().toString());
+        Parsed parsed = send(POST, PAYMENT_REQUESTS_PATH, body.toString(), staff, demographicNo);
+        try {
+            validateScope(parsed.payload(), PAYMENT_REQUESTS_PATH, new Object[]{demographicNo});
+            PatientPortalPaymentRequestDto confirmed = PatientPortalPaymentRequestDto.fromJson(parsed.payload());
+            boolean created = PortalJson.requiredBool(parsed.payload(), "created");
+            if (parsed.statusCode() != CREATED
+                    || confirmed.demographicNo() != demographicNo
+                    || created && (lookupOnly || !"sent".equals(confirmed.state()))
+                    || !request.invoiceRef().equals(confirmed.invoiceRef())
+                    || !request.category().equals(confirmed.category())
+                    || request.amountCents() != confirmed.amountCents()
+                    || request.taxCents() != confirmed.taxCents()
+                    || !request.dueOn().equals(confirmed.dueOn())) {
+                throw new PortalContractException("portal did not confirm the requested payment request");
+            }
+            return new PatientPortalPaymentRequestDto.Creation(confirmed, created);
+        } catch (PortalContractException exception) {
+            throw PatientPortalException.ofMalformedResponse(
+                    parsed.statusCode(), templateOf(PAYMENT_REQUESTS_PATH), exception);
+        }
+    }
+
+    /** Latest 100 payment requests of the patient; an omitted ID cannot authorize a later change. */
+    public List<PatientPortalPaymentRequestDto> listPaymentRequests(
+            int demographicNo, PatientPortalStaffContext staff) {
+        return fetch(GET, PAYMENT_REQUESTS_PATH, null, OK, staff, payload -> {
+            if (!payload.isArray()) {
+                throw new PortalContractException("portal returned a non-array payment request listing");
+            }
+            List<PatientPortalPaymentRequestDto> requests = new ArrayList<>();
+            for (JsonNode node : payload) {
+                PatientPortalPaymentRequestDto request = PatientPortalPaymentRequestDto.fromJson(node);
+                if (request.demographicNo() != demographicNo) {
+                    throw new PortalContractException("portal returned another patient's payment request");
+                }
+                requests.add(request);
+            }
+            return List.copyOf(requests);
+        }, demographicNo);
+    }
+
+    /** Withdraws a request that has not been paid; a repeat is a no-op. The caller verifies the ID first. */
+    public PatientPortalPaymentRequestDto withdrawPaymentRequest(
+            int demographicNo, long requestId, PatientPortalStaffContext staff) {
+        return fetch(POST, PAYMENT_WITHDRAW_PATH, null, OK, staff, payload -> {
+            PatientPortalPaymentRequestDto request = PatientPortalPaymentRequestDto.fromJson(payload);
+            if (request.id() != requestId || request.demographicNo() != demographicNo
+                    || !"withdrawn".equals(request.state())) {
+                throw new PortalContractException("portal did not confirm the selected payment request withdrawal");
+            }
+            return request;
+        }, requestId);
+    }
+
+    /**
+     * Tells the portal CARLOS recorded the payment, so the patient sees "Payment received". A repeat
+     * is a no-op. The portal refuses (409) a request that was withdrawn.
+     */
+    public PatientPortalPaymentRequestDto markPaymentRequestPaid(
+            int demographicNo, long requestId, PatientPortalStaffContext staff) {
+        return fetch(POST, PAYMENT_PAID_PATH, null, OK, staff, payload -> {
+            PatientPortalPaymentRequestDto request = PatientPortalPaymentRequestDto.fromJson(payload);
+            if (request.id() != requestId || request.demographicNo() != demographicNo
+                    || !"paid".equals(request.state())) {
+                throw new PortalContractException("portal did not confirm the payment");
+            }
+            return request;
+        }, requestId);
     }
 
     /** Lists the patient's latest 100 invites, newest first as the portal orders them. */

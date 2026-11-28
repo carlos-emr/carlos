@@ -85,6 +85,7 @@ public final class QueryByExampleSqlValidator {
             "outboundemailarchivelegalholdevent",
             "patient_portal_invite_delivery",
             "portal_booking_offer",
+            "portal_payment_request",
             "sms_config",
             "sms_provider_rate_limit",
             "sms_transaction",

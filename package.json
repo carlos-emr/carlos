@@ -85,6 +85,7 @@
     "test:schedule-setting-playwright": "node scripts/schedule-setting-playwright-checks.js",
     "test:appointment-settings-playwright": "node scripts/appointment-settings-playwright-checks.js",
     "test:appointment-location-booking-playwright": "node scripts/appointment-location-booking-playwright-checks.js",
+    "test:portal-payment-request-playwright": "node scripts/portal-payment-request-playwright-checks.js",
     "test:portal-booking-playwright": "node scripts/portal-booking-prompt-playwright-checks.js",
     "test:scripts": "node --test scripts/*.test.js",
     "test:ui-scroll-quick-pick-browser": "node scripts/ui-scroll-quick-pick-browser-check.js",

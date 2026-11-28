@@ -10946,6 +10946,15 @@
       "fixtures": "The workflow's owned FAKE-PW patient only, created with pronoun and gender NULL; removed with its chart rows by key and asserted gone. No clinic-wide state is changed."
     },
     {
+      "name": "portal-payment-request",
+      "script": "scripts/portal-payment-request-playwright-checks.js",
+      "tiers": ["standalone"],
+      "assertsDatabase": false,
+      "provinces": ["ON"],
+      "timeoutSec": 120,
+      "env": ["CHROME_PATH"]
+    },
+    {
       "name": "portal-booking-prompt",
       "script": "scripts/portal-booking-prompt-playwright-checks.js",
       "tiers": [
