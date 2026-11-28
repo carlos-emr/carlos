@@ -123,6 +123,7 @@ public class EmailComposeManager {
      * @return EmailLog the email log entry containing the original email data
      * @throws RuntimeException if the user lacks the required _email READ privilege
      * @throws PortalInviteEmailException if the email is a patient portal invitation
+     * @throws DeviceCodeEmailException if the email carried a myCarlos device approval code
      */
     public EmailLog prepareEmailForResend(LoggedInInfo loggedInInfo, Integer emailLogId) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
@@ -147,6 +148,12 @@ public class EmailComposeManager {
             // patient's email history, so the invitation is resent from the portal panel instead.
             throw new PortalInviteEmailException(demographicNo);
         }
+        if (EmailLog.TransactionType.MYCARLOS_CODE.equals(emailLog.getTransactionType())) {
+            // Like an invitation, a device approval code is single-use and short-lived, and the
+            // device-code job sends a new one when the device asks again. Its log row is not a draft
+            // to reopen in the compose window.
+            throw new DeviceCodeEmailException();
+        }
         return emailLog;
     }
 
@@ -155,6 +162,19 @@ public class EmailComposeManager {
      * resends it instead, so a caller can send staff there. Checked only after the caller was allowed
      * to read that patient's email.
      */
+    /**
+     * Refuses to reopen an email that carried a myCarlos device approval code. The device-code job
+     * sends a fresh code when the device asks again. Checked only after the caller was allowed to
+     * read that patient's email.
+     */
+    public static final class DeviceCodeEmailException extends SecurityException {
+        private static final long serialVersionUID = 1L;
+
+        public DeviceCodeEmailException() {
+            super("myCarlos device code emails cannot be reopened");
+        }
+    }
+
     public static final class PortalInviteEmailException extends SecurityException {
         private static final long serialVersionUID = 1L;
 

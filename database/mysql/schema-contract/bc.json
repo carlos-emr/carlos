@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "0341f0bbd11566158260f13b964fd2ac39dc2d620273ac53b8349aa50c30f8f8",
+ "migration_sha256": "963ab54e3a4394909d80789f7cfd117a40f0934b913a7f762ea57a44e65e5f51",
  "province": "bc",
  "schema": {
   "checks": [
@@ -27,12 +27,12 @@
    [
     "mycarlos_accepted_device",
     "chk_mycarlos_accepted_evidence",
-    "`approval_kind` = 'staff_first' and `approved_by_provider_no` is not null and `approved_by_security_no` is not null and `staff_verification_method` is not null and `staff_verification_method` = 'in_person_device_comparison' and `predecessor_accepted_id` is null and `predecessor_version` is null and `predecessor_approval` is null or `approval_kind` = 'accepted_device' and `approved_by_provider_no` is null and `approved_by_security_no` is null and `staff_verification_method` is null and `predecessor_accepted_id` is not null and `predecessor_version` is not null and `predecessor_version` >= 0 and `predecessor_approval` is not null and octet_length(`predecessor_approval`) > 0"
+    "`approval_kind` = 'staff_first' and `approved_by_provider_no` is not null and `approved_by_security_no` is not null and `staff_verification_method` is not null and `staff_verification_method` = 'in_person_device_comparison' and `predecessor_accepted_id` is null and `predecessor_version` is null and `predecessor_approval` is null or `approval_kind` = 'accepted_device' and `approved_by_provider_no` is null and `approved_by_security_no` is null and `staff_verification_method` is null and `predecessor_accepted_id` is not null and `predecessor_version` is not null and `predecessor_version` >= 0 and `predecessor_approval` is not null and octet_length(`predecessor_approval`) > 0 or `approval_kind` = 'code' and `predecessor_accepted_id` is null and `predecessor_version` is null and `predecessor_approval` is null and (`approved_by_provider_no` is null and `approved_by_security_no` is null and `staff_verification_method` is null or `approved_by_provider_no` is not null and `approved_by_security_no` is not null and `staff_verification_method` = 'in_person_device_comparison')"
    ],
    [
     "mycarlos_accepted_device",
     "chk_mycarlos_accepted_kind",
-    "`approval_kind` in ('staff_first','accepted_device')"
+    "`approval_kind` in ('staff_first','accepted_device','code')"
    ],
    [
     "mycarlos_accepted_device",
@@ -132,17 +132,17 @@
    [
     "mycarlos_device_approval_challenge",
     "chk_mycarlos_challenge_evidence",
-    "`approval_kind` = 'staff_first' and `consumed_approval_jti` is null and `consumed_approval` is null and `consumed_approval_sha256` is null or `approval_kind` = 'accepted_device' and (`consumed_at` is null and `consumed_approval_jti` is null and `consumed_approval` is null and `consumed_approval_sha256` is null or `consumed_at` is not null and `consumed_approval_jti` is not null and `consumed_approval` is not null and octet_length(`consumed_approval`) > 0 and `consumed_approval_sha256` is not null)"
+    "`approval_kind` in ('staff_first','code') and `consumed_approval_jti` is null and `consumed_approval` is null and `consumed_approval_sha256` is null or `approval_kind` = 'accepted_device' and (`consumed_at` is null and `consumed_approval_jti` is null and `consumed_approval` is null and `consumed_approval_sha256` is null or `consumed_at` is not null and `consumed_approval_jti` is not null and `consumed_approval` is not null and octet_length(`consumed_approval`) > 0 and `consumed_approval_sha256` is not null)"
    ],
    [
     "mycarlos_device_approval_challenge",
     "chk_mycarlos_challenge_kind",
-    "`approval_kind` in ('staff_first','accepted_device')"
+    "`approval_kind` in ('staff_first','accepted_device','code')"
    ],
    [
     "mycarlos_device_approval_challenge",
     "chk_mycarlos_challenge_predecessor",
-    "`approval_kind` = 'staff_first' and `predecessor_accepted_id` is null and `predecessor_device_key_id` is null and `predecessor_version` is null or `approval_kind` = 'accepted_device' and `binding_id` is not null and `predecessor_accepted_id` is not null and `predecessor_device_key_id` is not null and `predecessor_version` is not null and `predecessor_version` >= 0"
+    "`approval_kind` in ('staff_first','code') and `predecessor_accepted_id` is null and `predecessor_device_key_id` is null and `predecessor_version` is null or `approval_kind` = 'accepted_device' and `binding_id` is not null and `predecessor_accepted_id` is not null and `predecessor_device_key_id` is not null and `predecessor_version` is not null and `predecessor_version` >= 0"
    ],
    [
     "mycarlos_device_approval_challenge",
@@ -158,6 +158,36 @@
     "mycarlos_device_approval_challenge",
     "chk_mycarlos_challenge_time",
     "`expires_at` > `issued_at` and `expires_at` <= `issued_at` + interval 600 second"
+   ],
+   [
+    "mycarlos_device_approval_code",
+    "chk_mycarlos_code_attempts",
+    "`wrong_attempts` between 0 and 5"
+   ],
+   [
+    "mycarlos_device_approval_code",
+    "chk_mycarlos_code_policy",
+    "`policy` in ('code','code_and_staff')"
+   ],
+   [
+    "mycarlos_device_approval_code",
+    "chk_mycarlos_code_refused",
+    "`refused_at` is null or `wrong_attempts` = 5"
+   ],
+   [
+    "mycarlos_device_approval_code",
+    "chk_mycarlos_code_terminal",
+    "`matched_at` is null or `refused_at` is null"
+   ],
+   [
+    "mycarlos_device_approval_code",
+    "chk_mycarlos_code_time",
+    "`expires_at` > `issued_at` and `expires_at` <= `issued_at` + interval 600 second"
+   ],
+   [
+    "mycarlos_device_approval_code",
+    "chk_mycarlos_code_version",
+    "`version` >= 0"
    ],
    [
     "mycarlos_device_approval_outbox",
@@ -170386,6 +170416,162 @@
     14
    ],
    [
+    "mycarlos_device_approval_code",
+    "challenge_id",
+    "binary(32)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    1
+   ],
+   [
+    "mycarlos_device_approval_code",
+    "clinic_id",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    2
+   ],
+   [
+    "mycarlos_device_approval_code",
+    "code_key_id",
+    "binary(16)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    5
+   ],
+   [
+    "mycarlos_device_approval_code",
+    "code_mac",
+    "binary(32)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    6
+   ],
+   [
+    "mycarlos_device_approval_code",
+    "emailed_at",
+    "datetime(6)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    10
+   ],
+   [
+    "mycarlos_device_approval_code",
+    "expires_at",
+    "datetime(6)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    9
+   ],
+   [
+    "mycarlos_device_approval_code",
+    "issued_at",
+    "datetime(6)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    8
+   ],
+   [
+    "mycarlos_device_approval_code",
+    "matched_at",
+    "datetime(6)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    11
+   ],
+   [
+    "mycarlos_device_approval_code",
+    "policy",
+    "varchar(16)",
+    "NO",
+    null,
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    4
+   ],
+   [
+    "mycarlos_device_approval_code",
+    "refused_at",
+    "datetime(6)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    12
+   ],
+   [
+    "mycarlos_device_approval_code",
+    "request_id",
+    "binary(16)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    3
+   ],
+   [
+    "mycarlos_device_approval_code",
+    "version",
+    "bigint(20)",
+    "NO",
+    "0",
+    "",
+    null,
+    null,
+    null,
+    13
+   ],
+   [
+    "mycarlos_device_approval_code",
+    "wrong_attempts",
+    "int(11)",
+    "NO",
+    "0",
+    "",
+    null,
+    null,
+    null,
+    7
+   ],
+   [
     "mycarlos_device_approval_outbox",
     "body_sha256",
     "binary(32)",
@@ -193870,6 +194056,83 @@
     "NO"
    ],
    [
+    "mycarlos_device_approval_code",
+    "PRIMARY",
+    0,
+    1,
+    "challenge_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "mycarlos_device_approval_code",
+    "ix_mycarlos_code_open",
+    1,
+    1,
+    "clinic_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "mycarlos_device_approval_code",
+    "ix_mycarlos_code_open",
+    1,
+    2,
+    "matched_at",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "mycarlos_device_approval_code",
+    "ix_mycarlos_code_open",
+    1,
+    3,
+    "refused_at",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "mycarlos_device_approval_code",
+    "ix_mycarlos_code_open",
+    1,
+    4,
+    "expires_at",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "mycarlos_device_approval_code",
+    "uq_mycarlos_code_request",
+    0,
+    1,
+    "clinic_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "mycarlos_device_approval_code",
+    "uq_mycarlos_code_request",
+    0,
+    2,
+    "request_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
     "mycarlos_device_approval_outbox",
     "PRIMARY",
     0,
@@ -201835,6 +202098,42 @@
     null
    ],
    [
+    "mycarlos_device_approval_code",
+    "PRIMARY",
+    1,
+    "challenge_id",
+    null,
+    null,
+    null
+   ],
+   [
+    "mycarlos_device_approval_code",
+    "fk_mycarlos_code_challenge",
+    1,
+    "challenge_id",
+    "$self",
+    "mycarlos_device_approval_challenge",
+    "challenge_id"
+   ],
+   [
+    "mycarlos_device_approval_code",
+    "uq_mycarlos_code_request",
+    1,
+    "clinic_id",
+    null,
+    null,
+    null
+   ],
+   [
+    "mycarlos_device_approval_code",
+    "uq_mycarlos_code_request",
+    2,
+    "request_id",
+    null,
+    null,
+    null
+   ],
+   [
     "mycarlos_device_approval_outbox",
     "PRIMARY",
     1,
@@ -203861,6 +204160,13 @@
     "mycarlos_device_approval_challenge",
     "fk_mycarlos_challenge_predecessor",
     "mycarlos_accepted_device",
+    "RESTRICT",
+    "RESTRICT"
+   ],
+   [
+    "mycarlos_device_approval_code",
+    "fk_mycarlos_code_challenge",
+    "mycarlos_device_approval_challenge",
     "RESTRICT",
     "RESTRICT"
    ],
@@ -206330,6 +206636,12 @@
    ],
    [
     "mycarlos_device_approval_challenge",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_bin"
+   ],
+   [
+    "mycarlos_device_approval_code",
     "InnoDB",
     "Dynamic",
     "utf8mb4_bin"

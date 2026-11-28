@@ -50,7 +50,8 @@ public enum PortalJob {
     DEVICE_APPROVAL_SYNC("device-approval-sync", Set.of(
             PortalJob.PERMISSION_APPROVAL_REQUESTS_READ, PortalJob.PERMISSION_APPROVAL_CHALLENGES_PUBLISH,
             PortalJob.PERMISSION_APPROVAL_PROOFS_READ, PortalJob.PERMISSION_APPROVAL_DECISIONS_PUBLISH,
-            PortalJob.PERMISSION_APPROVAL_DEVICES_REMOVE)),
+            PortalJob.PERMISSION_APPROVAL_DEVICES_REMOVE, PortalJob.PERMISSION_APPROVAL_CODES_READ,
+            PortalJob.PERMISSION_APPROVAL_CODES_CONSUME)),
 
     /** Uploads immutable sealed copies and collects terminal delivery evidence. */
     DELIVERY_SYNC("delivery-sync", Set.of(PortalJob.PERMISSION_DELIVERY_UPLOAD,
@@ -70,6 +71,10 @@ public enum PortalJob {
     public static final String PERMISSION_APPROVAL_PROOFS_READ = "portal.mycarlos.device_approval.approvals.read";
     public static final String PERMISSION_APPROVAL_DECISIONS_PUBLISH = "portal.mycarlos.device_approval.decisions.publish";
     public static final String PERMISSION_APPROVAL_DEVICES_REMOVE = "portal.mycarlos.device_approval.devices.remove";
+    /** Read the clinic codes devices sent (clinic code v1, mycarlos#141). */
+    public static final String PERMISSION_APPROVAL_CODES_READ = "portal.mycarlos.device_approval.codes.read";
+    /** Mark one sent clinic code used, which erases it on the portal. */
+    public static final String PERMISSION_APPROVAL_CODES_CONSUME = "portal.mycarlos.device_approval.codes.consume";
     public static final String PERMISSION_DELIVERY_UPLOAD = "portal.mycarlos.delivery.upload";
     public static final String PERMISSION_DELIVERY_EVENTS_READ = "portal.mycarlos.delivery.events.read";
     public static final String PERMISSION_DELIVERY_EVENTS_ACK = "portal.mycarlos.delivery.events.ack";
